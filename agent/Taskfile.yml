@@ -1,0 +1,47 @@
+version: '3'
+
+vars:
+  COMPOSE_FILE: '{{.ROOT_DIR}}/docker-compose.yml'
+
+tasks:
+  # ===========================================================================
+  # Dependencies
+  # ===========================================================================
+  install:
+    desc: Install Python dependencies
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} exec agent uv pip install --system -e ".[dev]"
+
+  # ===========================================================================
+  # Development
+  # ===========================================================================
+  dev:
+    desc: Start agent with auto-reload (default CMD)
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} up agent
+
+  # ===========================================================================
+  # Testing
+  # ===========================================================================
+  test:
+    desc: Run Python tests
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} exec agent pytest {{.CLI_ARGS}}
+
+  # ===========================================================================
+  # Code Quality
+  # ===========================================================================
+  lint:
+    desc: Run ruff linter
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} exec agent ruff check app/
+
+  lint:fix:
+    desc: Fix linting issues
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} exec agent ruff check --fix app/
+
+  format:
+    desc: Format code with ruff
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} exec agent ruff format app/

@@ -1,0 +1,207 @@
+services:
+  # ===========================================================================
+  # Traefik (Edge router + monitoring dashboard)
+  # ===========================================================================
+  traefik:
+    image: traefik:v3.3
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=maggie"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "${NGINX_PORT:-80}:80"
+      - "${TRAEFIK_DASHBOARD_PORT:-8080}:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      - "traefik.enable=true"
+      # Root redirect → /admin
+      - "traefik.http.routers.root.rule=Path(`/`)"
+      - "traefik.http.routers.root.entrypoints=web"
+      - "traefik.http.routers.root.middlewares=root-redirect"
+      - "traefik.http.middlewares.root-redirect.redirectregex.regex=^/$"
+      - "traefik.http.middlewares.root-redirect.redirectregex.replacement=/admin"
+    networks:
+      - maggie
+
+  # ===========================================================================
+  # PHP-FPM (Symfony API + MCP Server)
+  # ===========================================================================
+  php:
+    build:
+      context: .
+      dockerfile: .docker/php/Dockerfile
+      target: dev
+      args:
+        PHP_VERSION: ${PHP_VERSION}
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    volumes:
+      - ./api:/var/www/api:cached
+    environment:
+      APP_ENV: ${APP_ENV}
+      APP_DEBUG: ${APP_DEBUG}
+      APP_SECRET: ${APP_SECRET}
+      DATABASE_URL: ${DATABASE_URL}
+      CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN}
+      MERCURE_URL: ${MERCURE_URL}
+      MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL}
+      MERCURE_JWT_SECRET: ${MERCURE_JWT_SECRET}
+      MESSENGER_TRANSPORT_DSN: ${MESSENGER_TRANSPORT_DSN}
+    depends_on:
+      database:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - maggie
+
+  # ===========================================================================
+  # Nginx (PHP-FPM gateway for /api, /_mcp, /bundles)
+  # ===========================================================================
+  nginx:
+    build:
+      context: .
+      dockerfile: .docker/nginx/Dockerfile
+    volumes:
+      - ./api/public:/var/www/api/public:ro
+      - ./admin/dist:/var/www/admin:ro
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+      NGINX_ENVSUBST_OUTPUT_DIR: /etc/nginx/conf.d
+    depends_on:
+      - php
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=PathPrefix(`/api`) || PathPrefix(`/_mcp`) || PathPrefix(`/bundles`)"
+      - "traefik.http.routers.api.entrypoints=web"
+      - "traefik.http.services.api.loadbalancer.server.port=80"
+    networks:
+      - maggie
+
+  # ===========================================================================
+  # Node (React Admin development)
+  # ===========================================================================
+  node:
+    build:
+      context: .
+      dockerfile: .docker/node/Dockerfile
+      args:
+        NODE_VERSION: ${NODE_VERSION}
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    volumes:
+      - ./admin:/var/www/admin:cached
+    environment:
+      VITE_API_URL: ${VITE_API_URL}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin.rule=PathPrefix(`/admin`)"
+      - "traefik.http.routers.admin.entrypoints=web"
+      - "traefik.http.services.admin.loadbalancer.server.port=5173"
+    networks:
+      - maggie
+    profiles:
+      - dev
+
+  # ===========================================================================
+  # PostgreSQL
+  # ===========================================================================
+  database:
+    image: postgres:${POSTGRES_VERSION}-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - maggie
+
+  # ===========================================================================
+  # Mercure (Real-time updates hub)
+  # ===========================================================================
+  mercure:
+    image: dunglas/mercure
+    environment:
+      SERVER_NAME: ':80'
+      MERCURE_PUBLISHER_JWT_KEY: ${MERCURE_JWT_SECRET}
+      MERCURE_SUBSCRIBER_JWT_KEY: ${MERCURE_JWT_SECRET}
+      MERCURE_EXTRA_DIRECTIVES: |
+        anonymous
+        cors_origins *
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mercure.rule=PathPrefix(`/.well-known/mercure`)"
+      - "traefik.http.routers.mercure.entrypoints=web"
+      - "traefik.http.services.mercure.loadbalancer.server.port=80"
+    networks:
+      - maggie
+
+  # ===========================================================================
+  # RabbitMQ (Message Queue)
+  # ===========================================================================
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - maggie
+
+  # ===========================================================================
+  # Python Agent Hub (FastAPI)
+  # ===========================================================================
+  agent:
+    build:
+      context: .
+      dockerfile: .docker/python/Dockerfile
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION}
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    volumes:
+      - ./agent:/app:cached
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      MCP_SERVER_URL: ${MCP_SERVER_URL}
+      MERCURE_URL: ${MERCURE_URL}
+      MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL}
+      MERCURE_JWT_SECRET: ${MERCURE_JWT_SECRET}
+    depends_on:
+      - nginx
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.agent.rule=PathPrefix(`/agent`)"
+      - "traefik.http.routers.agent.entrypoints=web"
+      - "traefik.http.services.agent.loadbalancer.server.port=8001"
+    networks:
+      - maggie
+
+networks:
+  maggie:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  rabbitmq_data:

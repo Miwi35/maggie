@@ -1,0 +1,32 @@
+api_platform:
+    title: Maggie API
+    description: Personal AI Agent Platform API
+    version: 1.0.0
+
+    defaults:
+        stateless: true
+        cache_headers:
+            vary: ['Content-Type', 'Authorization', 'Origin']
+        pagination_items_per_page: 30
+        pagination_maximum_items_per_page: 100
+        pagination_client_items_per_page: true
+
+    formats:
+        jsonld:
+            mime_types: ['application/ld+json']
+        json:
+            mime_types: ['application/json']
+        html:
+            mime_types: ['text/html']
+
+    docs_formats:
+        jsonld:
+            mime_types: ['application/ld+json']
+        jsonopenapi:
+            mime_types: ['application/vnd.openapi+json']
+
+    enable_swagger_ui: false
+
+    mercure:
+        enabled: true
+        hub_url: '%env(MERCURE_URL)%'

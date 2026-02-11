@@ -1,0 +1,31 @@
+package com.maggie.app
+
+import android.app.Application
+import com.maggie.app.data.api.MaggieApiService
+import com.maggie.app.data.repository.ChatRepository
+import com.maggie.app.data.repository.EventRepository
+import com.maggie.app.ui.screens.agenda.AgendaViewModel
+import com.maggie.app.ui.screens.chat.ChatViewModel
+import org.koin.android.ext.koin.androidContext
+import org.koin.core.context.startKoin
+import org.koin.core.module.dsl.viewModel
+import org.koin.dsl.module
+
+class MaggieApp : Application() {
+    override fun onCreate() {
+        super.onCreate()
+
+        val appModule = module {
+            single { MaggieApiService() }
+            single { EventRepository(get()) }
+            single { ChatRepository(get()) }
+            viewModel { AgendaViewModel(get()) }
+            viewModel { ChatViewModel(get()) }
+        }
+
+        startKoin {
+            androidContext(this@MaggieApp)
+            modules(appModule)
+        }
+    }
+}

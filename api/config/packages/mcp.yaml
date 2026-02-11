@@ -1,0 +1,18 @@
+mcp:
+    app: 'maggie-mcp'
+    version: '1.0.0'
+    description: 'Maggie AI Agent MCP Server — Agenda tools and business API access'
+    instructions: |
+        This MCP server provides tools for managing a personal agenda.
+        Use these tools to create, read, update, and delete calendar events.
+        Events support recurrence (RRULE), all-day events, and conflict detection.
+
+    client_transports:
+        stdio: false
+        http: true
+
+    http:
+        path: /_mcp
+        session:
+            store: file
+            ttl: 3600

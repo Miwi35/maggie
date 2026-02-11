@@ -1,0 +1,57 @@
+version: '3'
+
+tasks:
+  # ===========================================================================
+  # NPM / Dependencies
+  # ===========================================================================
+  install:
+    desc: Install NPM dependencies
+    cmds:
+      - docker compose exec node npm install
+
+  update:
+    desc: Update NPM dependencies
+    cmds:
+      - docker compose exec node npm update
+
+  add:
+    desc: Add a new NPM dependency
+    cmds:
+      - docker compose exec node npm install {{.CLI_ARGS}}
+
+  # ===========================================================================
+  # Development
+  # ===========================================================================
+  dev:
+    desc: Start Vite dev server
+    cmds:
+      - docker compose exec node npm run dev
+
+  # ===========================================================================
+  # Build
+  # ===========================================================================
+  build:
+    desc: Build for production
+    cmds:
+      - docker compose exec node npm run build
+
+  # ===========================================================================
+  # Code Quality
+  # ===========================================================================
+  lint:
+    desc: Run ESLint
+    cmds:
+      - docker compose exec node npm run lint
+
+  typecheck:
+    desc: Run TypeScript type checking
+    cmds:
+      - docker compose exec node npm run typecheck
+
+  # ===========================================================================
+  # Testing
+  # ===========================================================================
+  test:
+    desc: Run tests
+    cmds:
+      - docker compose exec node npm run test {{.CLI_ARGS}}

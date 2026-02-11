@@ -1,0 +1,190 @@
+version: '3'
+
+includes:
+  api:
+    taskfile: ./api/Taskfile.yml
+    dir: ./api
+  admin:
+    taskfile: ./admin/Taskfile.yml
+    dir: ./admin
+  agent:
+    taskfile: ./agent/Taskfile.yml
+    dir: ./agent
+
+tasks:
+  # ===========================================================================
+  # Docker Compose Commands
+  # ===========================================================================
+  up:
+    desc: Start all containers
+    cmds:
+      - docker compose up -d
+
+  up:dev:
+    desc: Start all containers including dev services (node)
+    cmds:
+      - docker compose --profile dev up -d
+
+  down:
+    desc: Stop all containers
+    cmds:
+      - docker compose down
+
+  down:volumes:
+    desc: Stop all containers and remove volumes
+    cmds:
+      - docker compose down -v
+
+  restart:
+    desc: Restart all containers
+    cmds:
+      - docker compose restart
+
+  logs:
+    desc: Tail all container logs
+    cmds:
+      - docker compose logs -f
+
+  logs:php:
+    desc: Tail PHP container logs
+    cmds:
+      - docker compose logs -f php
+
+  logs:nginx:
+    desc: Tail Nginx container logs
+    cmds:
+      - docker compose logs -f nginx
+
+  logs:agent:
+    desc: Tail Agent Hub container logs
+    cmds:
+      - docker compose logs -f agent
+
+  logs:traefik:
+    desc: Tail Traefik container logs
+    cmds:
+      - docker compose logs -f traefik
+
+  ps:
+    desc: Show running containers
+    cmds:
+      - docker compose ps
+
+  # ===========================================================================
+  # Build Commands
+  # ===========================================================================
+  build:
+    desc: Build all containers
+    cmds:
+      - docker compose build
+
+  build:nocache:
+    desc: Build all containers without cache
+    cmds:
+      - docker compose build --no-cache
+
+  # ===========================================================================
+  # Shell Access
+  # ===========================================================================
+  shell:php:
+    desc: Open shell in PHP container
+    cmds:
+      - docker compose exec php sh
+
+  shell:node:
+    desc: Open shell in Node container
+    cmds:
+      - docker compose exec node sh
+
+  shell:agent:
+    desc: Open shell in Agent Hub container
+    cmds:
+      - docker compose exec agent bash
+
+  shell:db:
+    desc: Open psql shell in database container
+    cmds:
+      - docker compose exec database psql -U $POSTGRES_USER -d $POSTGRES_DB
+    env:
+      POSTGRES_USER: '{{.POSTGRES_USER | default "maggie"}}'
+      POSTGRES_DB: '{{.POSTGRES_DB | default "maggie"}}'
+
+  # ===========================================================================
+  # Quick Setup
+  # ===========================================================================
+  install:
+    desc: Install all dependencies (composer + npm + pip)
+    cmds:
+      - task: api:install
+      - task: admin:install
+
+  setup:
+    desc: Full project setup (build, start, install deps, run migrations)
+    cmds:
+      - task: hosts:check
+      - task: build
+      - task: up:dev
+      - task: install
+      - task: api:migrate
+
+  # ===========================================================================
+  # Hosts Management
+  # ===========================================================================
+  hosts:check:
+    desc: Check if APP_DOMAIN is in /etc/hosts
+    vars:
+      APP_DOMAIN:
+        sh: grep -oP '^APP_DOMAIN=\K.*' .env || echo "maggie.local"
+    cmds:
+      - |
+        if grep -q "{{.APP_DOMAIN}}" /etc/hosts; then
+          echo "✓ {{.APP_DOMAIN}} is configured in /etc/hosts"
+        else
+          echo "✗ {{.APP_DOMAIN}} is NOT in /etc/hosts"
+          echo ""
+          echo "Run the following command to add it:"
+          echo "  sudo sh -c 'echo \"127.0.0.1 {{.APP_DOMAIN}}\" >> /etc/hosts'"
+          echo ""
+          echo "Or run: task hosts:add"
+        fi
+    silent: true
+
+  hosts:add:
+    desc: Add APP_DOMAIN to /etc/hosts (requires sudo)
+    vars:
+      APP_DOMAIN:
+        sh: grep -oP '^APP_DOMAIN=\K.*' .env || echo "maggie.local"
+    cmds:
+      - sudo sh -c 'echo "127.0.0.1 {{.APP_DOMAIN}}" >> /etc/hosts'
+      - echo "✓ Added {{.APP_DOMAIN}} to /etc/hosts"
+
+  open:
+    desc: Open the application in the default browser
+    vars:
+      APP_DOMAIN:
+        sh: grep -oP '^APP_DOMAIN=\K.*' .env || echo "maggie.local"
+    cmds:
+      - xdg-open "http://{{.APP_DOMAIN}}" 2>/dev/null || open "http://{{.APP_DOMAIN}}" 2>/dev/null || echo "Open http://{{.APP_DOMAIN}} in your browser"
+
+  # ===========================================================================
+  # Cleanup
+  # ===========================================================================
+  clean:
+    desc: Remove all containers, volumes, and build cache
+    cmds:
+      - docker compose down -v --rmi local
+      - docker builder prune -f
+
+  # ===========================================================================
+  # Testing
+  # ===========================================================================
+  test:all:
+    desc: Run all tests (api + admin)
+    cmds:
+      - task: api:test
+      - task: admin:test
+
+  test:integration:
+    desc: Run end-to-end integration tests
+    cmds:
+      - scripts/test-integration.sh
