@@ -36,7 +36,6 @@ import java.util.Locale
 
 private val frenchLocale = Locale.FRENCH
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AgendaScreen(viewModel: AgendaViewModel = koinViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
@@ -54,91 +53,86 @@ fun AgendaScreen(viewModel: AgendaViewModel = koinViewModel()) {
         firstDayOfWeek = DayOfWeek.MONDAY,
     )
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Agenda") },
-                actions = {
-                    IconButton(onClick = { calendarVisible = !calendarVisible }) {
-                        Icon(
-                            imageVector = if (calendarVisible) Icons.Default.KeyboardArrowUp
-                            else Icons.Default.KeyboardArrowDown,
-                            contentDescription = if (calendarVisible) "Masquer le calendrier"
-                            else "Afficher le calendrier",
-                        )
-                    }
-                },
-            )
-        }
-    ) { paddingValues ->
-        Column(
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Calendar toggle row
+        Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.End,
         ) {
-            AnimatedVisibility(visible = calendarVisible) {
-                HorizontalCalendar(
-                    state = calendarState,
-                    contentHeightMode = ContentHeightMode.Wrap,
-                    monthHeader = { month ->
-                        Column {
-                            Text(
-                                text = month.yearMonth.month
-                                    .getDisplayName(TextStyle.FULL, frenchLocale)
-                                    .replaceFirstChar { it.uppercase() } + " ${month.yearMonth.year}",
-                                style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            )
-                            DaysOfWeekHeader(daysOfWeek)
-                        }
-                    },
-                    dayContent = { day ->
-                        DayCell(
-                            day = day,
-                            isSelected = day.date == uiState.selectedDate,
-                            hasEvents = uiState.eventsByDate.containsKey(day.date),
-                            onClick = { viewModel.selectDate(day.date) },
-                        )
-                    },
-                    modifier = Modifier.padding(horizontal = 8.dp),
+            IconButton(onClick = { calendarVisible = !calendarVisible }) {
+                Icon(
+                    imageVector = if (calendarVisible) Icons.Default.KeyboardArrowUp
+                    else Icons.Default.KeyboardArrowDown,
+                    contentDescription = if (calendarVisible) "Masquer le calendrier"
+                    else "Afficher le calendrier",
                 )
             }
+        }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-
-            // Events for selected day
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-            ) {
-                when {
-                    uiState.isLoading -> {
-                        CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                    }
-                    uiState.error != null -> {
+        AnimatedVisibility(visible = calendarVisible) {
+            HorizontalCalendar(
+                state = calendarState,
+                contentHeightMode = ContentHeightMode.Wrap,
+                monthHeader = { month ->
+                    Column {
                         Text(
-                            text = "Erreur : ${uiState.error}",
-                            modifier = Modifier.align(Alignment.Center),
-                            color = MaterialTheme.colorScheme.error,
+                            text = month.yearMonth.month
+                                .getDisplayName(TextStyle.FULL, frenchLocale)
+                                .replaceFirstChar { it.uppercase() } + " ${month.yearMonth.year}",
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                         )
+                        DaysOfWeekHeader(daysOfWeek)
                     }
-                    else -> {
-                        val dayEvents = uiState.eventsByDate[uiState.selectedDate].orEmpty()
-                        if (dayEvents.isEmpty()) {
-                            Text(
-                                text = "Aucun \u00e9v\u00e9nement ce jour",
-                                modifier = Modifier.align(Alignment.Center),
-                                style = MaterialTheme.typography.bodyLarge,
-                            )
-                        } else {
-                            LazyColumn(
-                                contentPadding = PaddingValues(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                items(dayEvents) { event ->
-                                    EventCard(event)
-                                }
+                },
+                dayContent = { day ->
+                    DayCell(
+                        day = day,
+                        isSelected = day.date == uiState.selectedDate,
+                        hasEvents = uiState.eventsByDate.containsKey(day.date),
+                        onClick = { viewModel.selectDate(day.date) },
+                    )
+                },
+                modifier = Modifier.padding(horizontal = 8.dp),
+            )
+        }
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+        // Events for selected day
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+        ) {
+            when {
+                uiState.isLoading -> {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                }
+                uiState.error != null -> {
+                    Text(
+                        text = "Erreur : ${uiState.error}",
+                        modifier = Modifier.align(Alignment.Center),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+                else -> {
+                    val dayEvents = uiState.eventsByDate[uiState.selectedDate].orEmpty()
+                    if (dayEvents.isEmpty()) {
+                        Text(
+                            text = "Aucun événement ce jour",
+                            modifier = Modifier.align(Alignment.Center),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    } else {
+                        LazyColumn(
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            items(dayEvents) { event ->
+                                EventCard(event)
                             }
                         }
                     }
@@ -250,7 +244,7 @@ fun EventCard(event: Event) {
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = if (event.allDay) "Toute la journ\u00e9e"
+                text = if (event.allDay) "Toute la journée"
                 else formatTimeRange(event.startAt, event.endAt, event.timeZone),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
