@@ -1,92 +1,88 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useDataProvider } from 'react-admin'
+import FullCalendar from '@fullcalendar/react'
+import dayGridPlugin from '@fullcalendar/daygrid'
+import type { DatesSetArg, EventInput } from '@fullcalendar/core'
 
-interface Event {
+interface AgendaEvent {
   id: string
   summary: string
   startAt: string
   endAt: string
   allDay: boolean
-  location?: string
-  status: string
 }
 
-/**
- * Placeholder agenda view. Will be replaced with FullCalendar integration in Phase 2.
- */
 export const AgendaView = () => {
   const dataProvider = useDataProvider()
-  const [events, setEvents] = useState<Event[]>([])
+  const [events, setEvents] = useState<EventInput[]>([])
+  const dateRangeRef = useRef<{ start: string; end: string } | null>(null)
 
-  useEffect(() => {
-    dataProvider
-      .getList('events', {
-        pagination: { page: 1, perPage: 50 },
-        sort: { field: 'startAt', order: 'ASC' },
-        filter: {},
-      })
-      .then(({ data }) => setEvents(data as unknown as Event[]))
-      .catch(console.error)
-  }, [dataProvider])
+  const fetchEvents = useCallback(
+    (start: string, end: string) => {
+      dataProvider
+        .getList('events', {
+          pagination: { page: 1, perPage: 200 },
+          sort: { field: 'startAt', order: 'ASC' },
+          filter: { 'startAt[after]': start, 'startAt[before]': end },
+        })
+        .then(({ data }) => {
+          setEvents(
+            (data as unknown as AgendaEvent[]).map((e) => ({
+              id: e.id,
+              title: e.summary,
+              start: e.startAt,
+              end: e.endAt,
+              allDay: e.allDay,
+            })),
+          )
+        })
+        .catch(console.error)
+    },
+    [dataProvider],
+  )
+
+  const handleDatesSet = useCallback(
+    (arg: DatesSetArg) => {
+      const start = arg.start.toISOString()
+      const end = arg.end.toISOString()
+      dateRangeRef.current = { start, end }
+      fetchEvents(start, end)
+    },
+    [fetchEvents],
+  )
 
   // Subscribe to Mercure for real-time event updates
   useEffect(() => {
-    const mercureUrl = import.meta.env.VITE_MERCURE_PUBLIC_URL || 'http://maggie.local/.well-known/mercure'
+    const mercureUrl =
+      import.meta.env.VITE_MERCURE_PUBLIC_URL ||
+      'http://maggie.local/.well-known/mercure'
     const url = new URL(mercureUrl)
     url.searchParams.append('topic', '/api/events/{id}')
 
     const eventSource = new EventSource(url.toString())
     eventSource.onmessage = () => {
-      // Refresh events list on any change
-      dataProvider
-        .getList('events', {
-          pagination: { page: 1, perPage: 50 },
-          sort: { field: 'startAt', order: 'ASC' },
-          filter: {},
-        })
-        .then(({ data }) => setEvents(data as unknown as Event[]))
-        .catch(console.error)
+      if (dateRangeRef.current) {
+        fetchEvents(dateRangeRef.current.start, dateRangeRef.current.end)
+      }
     }
 
     return () => eventSource.close()
-  }, [dataProvider])
+  }, [fetchEvents])
 
   return (
     <div style={{ padding: 20 }}>
-      <h2>Agenda</h2>
-      <p style={{ color: '#666' }}>Calendar view coming in Phase 2 (FullCalendar integration)</p>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
-        {events.map((event) => (
-          <div
-            key={event.id}
-            style={{
-              padding: '12px 16px',
-              borderRadius: 8,
-              border: '1px solid #e0e0e0',
-              backgroundColor: event.allDay ? '#e8f5e9' : 'white',
-            }}
-          >
-            <strong>{event.summary}</strong>
-            <div style={{ fontSize: 14, color: '#666', marginTop: 4 }}>
-              {event.allDay ? (
-                <span>All day — {new Date(event.startAt).toLocaleDateString()}</span>
-              ) : (
-                <span>
-                  {new Date(event.startAt).toLocaleString()} - {new Date(event.endAt).toLocaleTimeString()}
-                </span>
-              )}
-            </div>
-            {event.location && (
-              <div style={{ fontSize: 13, color: '#999', marginTop: 2 }}>{event.location}</div>
-            )}
-          </div>
-        ))}
-
-        {events.length === 0 && (
-          <p style={{ color: '#999', fontStyle: 'italic' }}>No upcoming events.</p>
-        )}
-      </div>
+      <FullCalendar
+        plugins={[dayGridPlugin]}
+        initialView="dayGridMonth"
+        events={events}
+        datesSet={handleDatesSet}
+        headerToolbar={{
+          left: 'prev,next today',
+          center: 'title',
+          right: '',
+        }}
+        height="auto"
+      />
     </div>
   )
 }
