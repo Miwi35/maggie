@@ -1,11 +1,14 @@
 package com.maggie.app.ui.screens.agenda
 
+import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.repository.EventRepository
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -20,11 +23,14 @@ import org.junit.Test
 class AgendaViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var repository: EventRepository
+    private lateinit var mercureService: MercureService
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         repository = mockk()
+        mercureService = mockk()
+        every { mercureService.subscribe(any()) } returns emptyFlow()
     }
 
     @After
@@ -40,7 +46,7 @@ class AgendaViewModelTest {
         )
         coEvery { repository.getEvents() } returns Result.success(events)
 
-        val viewModel = AgendaViewModel(repository)
+        val viewModel = AgendaViewModel(repository, mercureService)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
@@ -54,7 +60,7 @@ class AgendaViewModelTest {
     fun `loadEvents failure sets error`() = runTest {
         coEvery { repository.getEvents() } returns Result.failure(RuntimeException("Network error"))
 
-        val viewModel = AgendaViewModel(repository)
+        val viewModel = AgendaViewModel(repository, mercureService)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value

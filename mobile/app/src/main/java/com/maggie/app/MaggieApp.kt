@@ -2,6 +2,7 @@ package com.maggie.app
 
 import android.app.Application
 import com.maggie.app.data.api.MaggieApiService
+import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.repository.ChatRepository
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.ui.screens.agenda.AgendaViewModel
@@ -17,10 +18,11 @@ class MaggieApp : Application() {
 
         val appModule = module {
             single { MaggieApiService() }
+            single { MercureService() }
             single { EventRepository(get()) }
             single { ChatRepository(get()) }
-            viewModel { AgendaViewModel(get()) }
-            viewModel { ChatViewModel(get()) }
+            viewModel { AgendaViewModel(get(), get()) }
+            viewModel { ChatViewModel(get(), get()) }
         }
 
         startKoin {

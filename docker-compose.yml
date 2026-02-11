@@ -3,7 +3,7 @@ services:
   # Traefik (Edge router + monitoring dashboard)
   # ===========================================================================
   traefik:
-    image: traefik:v3.3
+    image: traefik:v3.6
     command:
       - "--api.dashboard=true"
       - "--api.insecure=true"
@@ -19,11 +19,12 @@ services:
     labels:
       - "traefik.enable=true"
       # Root redirect → /admin
-      - "traefik.http.routers.root.rule=Path(`/`)"
-      - "traefik.http.routers.root.entrypoints=web"
-      - "traefik.http.routers.root.middlewares=root-redirect"
-      - "traefik.http.middlewares.root-redirect.redirectregex.regex=^/$"
-      - "traefik.http.middlewares.root-redirect.redirectregex.replacement=/admin"
+      - "traefik.http.routers.maggie-root.rule=Path(`/`)"
+      - "traefik.http.routers.maggie-root.entrypoints=web"
+      - "traefik.http.routers.maggie-root.middlewares=maggie-root-redirect"
+      - "traefik.http.routers.maggie-root.service=noop@internal"
+      - "traefik.http.middlewares.maggie-root-redirect.redirectregex.regex=^(https?://[^/]+)/?$$"
+      - "traefik.http.middlewares.maggie-root-redirect.redirectregex.replacement=$${1}/admin"
     networks:
       - maggie
 
@@ -76,9 +77,9 @@ services:
       - php
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.api.rule=PathPrefix(`/api`) || PathPrefix(`/_mcp`) || PathPrefix(`/bundles`)"
-      - "traefik.http.routers.api.entrypoints=web"
-      - "traefik.http.services.api.loadbalancer.server.port=80"
+      - "traefik.http.routers.maggie-api.rule=PathPrefix(`/api`) || PathPrefix(`/_mcp`) || PathPrefix(`/bundles`)"
+      - "traefik.http.routers.maggie-api.entrypoints=web"
+      - "traefik.http.services.maggie-api.loadbalancer.server.port=80"
     networks:
       - maggie
 
@@ -99,9 +100,9 @@ services:
       VITE_API_URL: ${VITE_API_URL}
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.admin.rule=PathPrefix(`/admin`)"
-      - "traefik.http.routers.admin.entrypoints=web"
-      - "traefik.http.services.admin.loadbalancer.server.port=5173"
+      - "traefik.http.routers.maggie-admin.rule=PathPrefix(`/admin`)"
+      - "traefik.http.routers.maggie-admin.entrypoints=web"
+      - "traefik.http.services.maggie-admin.loadbalancer.server.port=5173"
     networks:
       - maggie
     profiles:
@@ -142,9 +143,9 @@ services:
         cors_origins *
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.mercure.rule=PathPrefix(`/.well-known/mercure`)"
-      - "traefik.http.routers.mercure.entrypoints=web"
-      - "traefik.http.services.mercure.loadbalancer.server.port=80"
+      - "traefik.http.routers.maggie-mercure.rule=PathPrefix(`/.well-known/mercure`)"
+      - "traefik.http.routers.maggie-mercure.entrypoints=web"
+      - "traefik.http.services.maggie-mercure.loadbalancer.server.port=80"
     networks:
       - maggie
 
@@ -192,9 +193,9 @@ services:
       - nginx
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.agent.rule=PathPrefix(`/agent`)"
-      - "traefik.http.routers.agent.entrypoints=web"
-      - "traefik.http.services.agent.loadbalancer.server.port=8001"
+      - "traefik.http.routers.maggie-agent.rule=PathPrefix(`/agent`)"
+      - "traefik.http.routers.maggie-agent.entrypoints=web"
+      - "traefik.http.services.maggie-agent.loadbalancer.server.port=8001"
     networks:
       - maggie
 

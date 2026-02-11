@@ -35,6 +35,7 @@ ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref =
 ktor-client-okhttp = { group = "io.ktor", name = "ktor-client-okhttp", version.ref = "ktor" }
 ktor-client-content-negotiation = { group = "io.ktor", name = "ktor-client-content-negotiation", version.ref = "ktor" }
 ktor-serialization-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json", version.ref = "ktor" }
+ktor-client-sse = { group = "io.ktor", name = "ktor-client-sse", version.ref = "ktor" }
 
 # Koin (DI)
 koin-android = { group = "io.insert-koin", name = "koin-android", version.ref = "koin" }

@@ -1,11 +1,14 @@
 package com.maggie.app.ui.screens.chat
 
 import com.maggie.app.data.api.ChatResponse
+import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.repository.ChatRepository
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -23,13 +26,16 @@ class ChatViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var repository: ChatRepository
+    private lateinit var mercureService: MercureService
     private lateinit var viewModel: ChatViewModel
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         repository = mockk()
-        viewModel = ChatViewModel(repository)
+        mercureService = mockk()
+        every { mercureService.subscribe(any()) } returns emptyFlow()
+        viewModel = ChatViewModel(repository, mercureService)
     }
 
     @After

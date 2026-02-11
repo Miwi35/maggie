@@ -18,6 +18,7 @@
         "maggie/agenda": "@dev",
         "maggie/core": "@dev",
         "nelmio/cors-bundle": "^2.6.1",
+        "nyholm/psr7": "^1.8",
         "symfony/amqp-messenger": "7.4.*",
         "symfony/console": "7.4.*",
         "symfony/dotenv": "7.4.*",

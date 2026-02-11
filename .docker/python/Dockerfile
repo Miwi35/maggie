@@ -20,10 +20,13 @@ RUN groupadd -g ${GID} app \
     && useradd -u ${UID} -g app -s /bin/bash -m app \
     && chown -R app:app /app
 
+# Allow app user to install Python packages system-wide
+RUN chown -R app:app /usr/local/lib/python3.12/site-packages /usr/local/bin
+
 USER app
 
 EXPOSE 8001
 
 # In dev, the volume mount provides the source code.
 # Dependencies are installed via `task agent:install` after container starts.
-CMD ["sh", "-c", "uv pip install --system -e '.[dev]' 2>/dev/null; uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload"]
+CMD ["sh", "-c", "uv pip install --system -e '.[dev]' && uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload"]
