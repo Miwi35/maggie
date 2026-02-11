@@ -6,6 +6,7 @@ use Maggie\Agenda\Repository\EventRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Capability\Attribute\McpTool;
 
+#[McpTool(name: 'delete_event', description: 'Delete a calendar event by its ID. Returns confirmation of deletion.')]
 class DeleteEventTool
 {
     public function __construct(
@@ -14,7 +15,6 @@ class DeleteEventTool
     ) {
     }
 
-    #[McpTool(name: 'delete_event', description: 'Delete a calendar event by its ID. Returns confirmation of deletion.')]
     public function __invoke(string $id): string
     {
         $event = $this->eventRepository->find($id);

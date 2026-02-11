@@ -7,6 +7,12 @@ mcp:
         Use these tools to create, read, update, and delete calendar events.
         Events support recurrence (RRULE), all-day events, and conflict detection.
 
+    discovery:
+        scan_dirs:
+            - 'src'
+            - 'modules/agenda/src'
+            - 'modules/core/src'
+
     client_transports:
         stdio: false
         http: true

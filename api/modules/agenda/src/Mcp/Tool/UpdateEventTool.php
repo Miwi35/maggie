@@ -6,6 +6,7 @@ use Maggie\Agenda\Repository\EventRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Capability\Attribute\McpTool;
 
+#[McpTool(name: 'update_event', description: 'Update an existing calendar event. Only provided fields will be updated. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes.')]
 class UpdateEventTool
 {
     public function __construct(
@@ -14,7 +15,6 @@ class UpdateEventTool
     ) {
     }
 
-    #[McpTool(name: 'update_event', description: 'Update an existing calendar event. Only provided fields will be updated. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes.')]
     public function __invoke(
         string $id,
         ?string $title = null,

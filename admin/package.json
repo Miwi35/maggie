@@ -17,6 +17,8 @@
     "@fullcalendar/core": "^6.1.20",
     "@fullcalendar/daygrid": "^6.1.20",
     "@fullcalendar/react": "^6.1.20",
+    "ra-i18n-polyglot": "^5.14.1",
+    "ra-language-french": "^5.14.1",
     "react": "^19.2.0",
     "react-admin": "^5.14.0",
     "react-dom": "^19.2.0"

@@ -38,6 +38,24 @@ class LLMGateway:
         tool_calls_made = []
         max_iterations = 5
 
+        try:
+            return await self._run_chat_loop(messages, tools, tool_calls_made, max_iterations, user_id)
+        except anthropic.APIStatusError as e:
+            logger.error(f"Anthropic API error: {e.message}")
+            self.memory.add_message(user_id, "assistant", "")
+            return {
+                "response": f"AI service error: {e.message}",
+                "tool_calls": [],
+            }
+        except anthropic.APIConnectionError as e:
+            logger.error(f"Anthropic connection error: {e}")
+            self.memory.add_message(user_id, "assistant", "")
+            return {
+                "response": "Unable to reach the AI service. Please try again later.",
+                "tool_calls": [],
+            }
+
+    async def _run_chat_loop(self, messages: list, tools: list, tool_calls_made: list, max_iterations: int, user_id: str) -> dict:
         for _ in range(max_iterations):
             response = await self.client.messages.create(
                 model=settings.anthropic_model,

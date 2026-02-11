@@ -55,7 +55,7 @@ export const ChatWidget = () => {
       }
     } catch (error) {
       console.error('Chat error:', error)
-      setMessages((prev) => [...prev, { role: 'assistant', content: 'Error: Could not reach the agent.' }])
+      setMessages((prev) => [...prev, { role: 'assistant', content: 'Erreur : impossible de contacter l\'agent.' }])
     } finally {
       setLoading(false)
     }
@@ -110,7 +110,9 @@ export const ChatWidget = () => {
         {messages.map((msg, i) => (
           <div key={i} style={{
             marginBottom: 8, padding: '8px 12px', borderRadius: 8,
-            backgroundColor: msg.role === 'user' ? '#e3f2fd' : '#f5f5f5',
+            backgroundColor: msg.role === 'user' ? '#1976d2' : '#757575',
+
+            color: msg.role === 'user' ? 'white' : 'inherit',
             marginLeft: msg.role === 'user' ? 40 : 0,
             marginRight: msg.role === 'assistant' ? 40 : 0,
           }}>
@@ -118,7 +120,7 @@ export const ChatWidget = () => {
           </div>
         ))}
         {loading && (
-          <div style={{ padding: '8px 12px', color: '#999' }}>Maggie is thinking...</div>
+          <div style={{ padding: '8px 12px', color: '#999' }}>Maggie réfléchit...</div>
         )}
         <div ref={messagesEndRef} />
       </div>
@@ -129,7 +131,7 @@ export const ChatWidget = () => {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask Maggie..."
+          placeholder="Demande à Maggie..."
           style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid #ddd' }}
         />
         <button
@@ -141,7 +143,7 @@ export const ChatWidget = () => {
             border: 'none', cursor: 'pointer',
           }}
         >
-          Send
+          Envoyer
         </button>
       </div>
     </div>

@@ -5,6 +5,7 @@ namespace Maggie\Agenda\Mcp\Tool;
 use Maggie\Agenda\Service\ConflictDetectionService;
 use Mcp\Capability\Attribute\McpTool;
 
+#[McpTool(name: 'check_conflicts', description: 'Check for scheduling conflicts at a given date, time, and duration. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes (default 60).')]
 class CheckConflictsTool
 {
     public function __construct(
@@ -12,7 +13,6 @@ class CheckConflictsTool
     ) {
     }
 
-    #[McpTool(name: 'check_conflicts', description: 'Check for scheduling conflicts at a given date, time, and duration. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes (default 60).')]
     public function __invoke(string $date, string $time, int $duration = 60): string
     {
         $tz = new \DateTimeZone('Europe/Paris');

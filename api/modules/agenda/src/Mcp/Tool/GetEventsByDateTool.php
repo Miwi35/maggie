@@ -6,6 +6,7 @@ use Maggie\Agenda\Repository\EventRepository;
 use Maggie\Agenda\Service\RecurrenceService;
 use Mcp\Capability\Attribute\McpTool;
 
+#[McpTool(name: 'get_events_by_date', description: 'Get all events for a specific date (YYYY-MM-DD format). Returns events from all calendars, including expanded recurring events.')]
 class GetEventsByDateTool
 {
     public function __construct(
@@ -14,7 +15,6 @@ class GetEventsByDateTool
     ) {
     }
 
-    #[McpTool(name: 'get_events_by_date', description: 'Get all events for a specific date (YYYY-MM-DD format). Returns events from all calendars, including expanded recurring events.')]
     public function __invoke(string $date): string
     {
         $dateObj = new \DateTimeImmutable($date);

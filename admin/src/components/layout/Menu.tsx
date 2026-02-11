@@ -33,7 +33,7 @@ export const CustomMenu = () => {
               <StorageIcon />
             </ListItemIcon>
             <ListItemText
-              primary="Raw data"
+              primary="Données brutes"
               primaryTypographyProps={{ fontSize: 14, color: 'text.secondary' }}
             />
             {rawDataOpen ? <ExpandLess /> : <ExpandMore />}
@@ -62,13 +62,13 @@ export const CustomMenu = () => {
                 <List component="div" disablePadding>
                   <MenuItemLink
                     to="/calendars"
-                    primaryText="Calendars"
+                    primaryText="Calendriers"
                     leftIcon={<DateRangeIcon />}
                     sx={{ pl: 8 }}
                   />
                   <MenuItemLink
                     to="/events"
-                    primaryText="Events"
+                    primaryText="Événements"
                     leftIcon={<EventIcon />}
                     sx={{ pl: 8 }}
                   />

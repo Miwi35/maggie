@@ -6,6 +6,7 @@ use Maggie\Agenda\Repository\EventRepository;
 use Maggie\Agenda\Service\RecurrenceService;
 use Mcp\Capability\Attribute\McpTool;
 
+#[McpTool(name: 'get_upcoming_events', description: 'Get upcoming events for the next N days (default 7). Returns events from all calendars, including expanded recurring events.')]
 class GetUpcomingEventsTool
 {
     public function __construct(
@@ -14,7 +15,6 @@ class GetUpcomingEventsTool
     ) {
     }
 
-    #[McpTool(name: 'get_upcoming_events', description: 'Get upcoming events for the next N days (default 7). Returns events from all calendars, including expanded recurring events.')]
     public function __invoke(int $days = 7): string
     {
         $now = new \DateTimeImmutable('now');

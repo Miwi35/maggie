@@ -7,6 +7,7 @@ use Maggie\Agenda\Repository\CalendarRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Capability\Attribute\McpTool;
 
+#[McpTool(name: 'create_event', description: 'Create a new calendar event. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes (default 60). Returns the created event.')]
 class CreateEventTool
 {
     public function __construct(
@@ -15,7 +16,6 @@ class CreateEventTool
     ) {
     }
 
-    #[McpTool(name: 'create_event', description: 'Create a new calendar event. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes (default 60). Returns the created event.')]
     public function __invoke(
         string $title,
         string $date,
