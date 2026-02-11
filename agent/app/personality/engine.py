@@ -1,4 +1,5 @@
 import logging
+from datetime import date
 from pathlib import Path
 
 import yaml
@@ -34,4 +35,5 @@ class PersonalityEngine:
             name=self.config.get("name", "Maggie"),
             language=self.config.get("language", "fr"),
             tone=self.config.get("tone", "friendly"),
+            today=date.today().isoformat(),
         )

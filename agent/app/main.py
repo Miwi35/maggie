@@ -6,6 +6,8 @@ from fastapi import FastAPI
 from app.api.routes import router
 from app.mcp.client import mcp_client
 
+# Configure logging so app messages are visible
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -14,19 +16,17 @@ async def lifespan(app: FastAPI):
     """Application lifespan: connect to MCP server on startup, disconnect on shutdown."""
     logger.info("Starting Maggie Agent Hub...")
 
-    # Connect to MCP server
+    # Connect to MCP server (best-effort; tools will be lazy-loaded if this fails)
     try:
         await mcp_client.connect()
-        logger.info("Connected to MCP server")
     except Exception as e:
-        logger.warning(f"Could not connect to MCP server: {e}")
+        logger.warning(f"Could not connect to MCP server at startup: {e}")
 
     yield
 
     # Disconnect from MCP server
     try:
         await mcp_client.disconnect()
-        logger.info("Disconnected from MCP server")
     except Exception:
         pass
 

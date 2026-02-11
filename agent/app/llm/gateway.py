@@ -57,6 +57,7 @@ class LLMGateway:
 
     async def _run_chat_loop(self, messages: list, tools: list, tool_calls_made: list, max_iterations: int, user_id: str) -> dict:
         for _ in range(max_iterations):
+            logger.info(f"Calling Claude with {len(tools)} tools, {len(messages)} messages")
             response = await self.client.messages.create(
                 model=settings.anthropic_model,
                 max_tokens=4096,
@@ -64,6 +65,7 @@ class LLMGateway:
                 messages=messages,
                 tools=tools if tools else anthropic.NOT_GIVEN,
             )
+            logger.info(f"Claude response: stop_reason={response.stop_reason}, blocks={len(response.content)}")
 
             # Check if Claude wants to use tools
             if response.stop_reason == "tool_use":

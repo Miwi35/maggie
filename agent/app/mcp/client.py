@@ -20,6 +20,7 @@ class McpClient:
     async def connect(self) -> None:
         """Initialize connection to MCP server."""
         self._http_client = httpx.AsyncClient(timeout=30.0)
+        self._session_id = None
 
         # Initialize MCP session
         response = await self._send_request("initialize", {
@@ -28,26 +29,41 @@ class McpClient:
             "clientInfo": {"name": "maggie-agent-hub", "version": "0.1.0"},
         })
 
-        if response:
-            logger.info(f"MCP server: {response.get('serverInfo', {})}")
+        if not response:
+            logger.error("MCP initialize failed — no response from server")
+            return
 
-            # Send initialized notification
-            await self._send_notification("notifications/initialized", {})
+        logger.info(f"MCP server: {response.get('serverInfo', {})}")
 
-            # List available tools
-            tools_response = await self._send_request("tools/list", {})
-            if tools_response:
-                self._tools = tools_response.get("tools", [])
-                logger.info(f"MCP tools available: {[t['name'] for t in self._tools]}")
+        # Send initialized notification
+        await self._send_notification("notifications/initialized", {})
+
+        # List available tools
+        tools_response = await self._send_request("tools/list", {})
+        if tools_response:
+            self._tools = tools_response.get("tools", [])
+            logger.info(f"MCP tools available: {[t['name'] for t in self._tools]}")
+        else:
+            logger.error("MCP tools/list failed — no response from server")
 
     async def disconnect(self) -> None:
         """Close the HTTP client."""
         if self._http_client:
             await self._http_client.aclose()
             self._http_client = None
+            self._session_id = None
+
+    async def ensure_connected(self) -> None:
+        """Reconnect to MCP server if tools are not loaded."""
+        if self._tools:
+            return
+        logger.info("MCP tools not loaded, reconnecting...")
+        await self.disconnect()
+        await self.connect()
 
     async def list_tools(self) -> list[dict]:
-        """Return cached tool definitions."""
+        """Return tool definitions, reconnecting if needed."""
+        await self.ensure_connected()
         return self._tools
 
     async def call_tool(self, name: str, arguments: dict) -> str:
