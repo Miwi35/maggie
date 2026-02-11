@@ -1,0 +1,10 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    Maggie\Agenda\:
+        resource: '../src/'
+        exclude:
+            - '../src/Entity/'
+            - '../src/MaggieAgendaBundle.php'

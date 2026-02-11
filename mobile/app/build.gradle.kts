@@ -68,4 +68,13 @@ dependencies {
     // AndroidX
     implementation(libs.activity.compose)
     implementation(libs.core.ktx)
+
+    // Testing
+    testImplementation(libs.junit)
+    testImplementation(libs.mockk)
+    testImplementation(libs.coroutines.test)
+    testImplementation(libs.turbine)
+    testImplementation(libs.koin.test)
+    testImplementation(libs.koin.test.junit4)
+    testImplementation(libs.ktor.client.mock)
 }

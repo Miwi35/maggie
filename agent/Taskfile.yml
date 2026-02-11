@@ -45,3 +45,8 @@ tasks:
     desc: Format code with ruff
     cmds:
       - docker compose -f {{.COMPOSE_FILE}} exec agent ruff format app/
+
+  format:check:
+    desc: Check code formatting (CI mode)
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} exec agent ruff format --check app/

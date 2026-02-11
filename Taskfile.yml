@@ -125,7 +125,9 @@ tasks:
       - task: build
       - task: up:dev
       - task: install
-      - task: api:migrate
+      - task: api:console
+        vars:
+          CLI_ARGS: doctrine:migrations:migrate --no-interaction
 
   # ===========================================================================
   # Hosts Management
@@ -179,12 +181,33 @@ tasks:
   # Testing
   # ===========================================================================
   test:all:
-    desc: Run all tests (api + admin)
+    desc: Run all tests (api + admin + agent)
     cmds:
       - task: api:test
       - task: admin:test
+      - task: agent:test
 
   test:integration:
     desc: Run end-to-end integration tests
     cmds:
       - scripts/test-integration.sh
+
+  # ===========================================================================
+  # Linting
+  # ===========================================================================
+  lint:all:
+    desc: Run all linters (phpstan + ruff + eslint + typecheck)
+    cmds:
+      - task: api:phpstan
+      - task: agent:lint
+      - task: admin:lint
+      - task: admin:typecheck
+
+  # ===========================================================================
+  # CI (local)
+  # ===========================================================================
+  ci:
+    desc: Run full CI pipeline locally (lint + test)
+    cmds:
+      - task: lint:all
+      - task: test:all

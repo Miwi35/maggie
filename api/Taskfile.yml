@@ -22,58 +22,23 @@ tasks:
     cmds:
       - docker compose -f {{.COMPOSE_FILE}} exec php composer require {{.CLI_ARGS}}
 
-  # ===========================================================================
-  # Database
-  # ===========================================================================
-  migrate:
-    desc: Run database migrations
+  validate:
+    desc: Validate composer.json files
     cmds:
-      - docker compose -f {{.COMPOSE_FILE}} exec php bin/console doctrine:migrations:migrate --no-interaction
+      - docker compose -f {{.COMPOSE_FILE}} exec php composer validate --no-check-publish
 
-  migrate:diff:
-    desc: Generate a migration diff
+  dump-autoload:
+    desc: Regenerate autoloader
     cmds:
-      - docker compose -f {{.COMPOSE_FILE}} exec php bin/console doctrine:migrations:diff
-
-  migrate:status:
-    desc: Show migration status
-    cmds:
-      - docker compose -f {{.COMPOSE_FILE}} exec php bin/console doctrine:migrations:status
-
-  db:create:
-    desc: Create the database
-    cmds:
-      - docker compose -f {{.COMPOSE_FILE}} exec php bin/console doctrine:database:create --if-not-exists
-
-  db:drop:
-    desc: Drop the database
-    cmds:
-      - docker compose -f {{.COMPOSE_FILE}} exec php bin/console doctrine:database:drop --force --if-exists
-
-  db:reset:
-    desc: Reset the database (drop, create, migrate)
-    cmds:
-      - task: db:drop
-      - task: db:create
-      - task: migrate
-
-  fixtures:
-    desc: Load data fixtures
-    cmds:
-      - docker compose -f {{.COMPOSE_FILE}} exec php bin/console doctrine:fixtures:load --no-interaction
+      - docker compose -f {{.COMPOSE_FILE}} exec php composer dump-autoload
 
   # ===========================================================================
-  # Symfony Console
+  # Symfony Console (passthrough)
   # ===========================================================================
   console:
-    desc: Run Symfony console command
+    desc: Run any Symfony console command
     cmds:
       - docker compose -f {{.COMPOSE_FILE}} exec php bin/console {{.CLI_ARGS}}
-
-  cache:clear:
-    desc: Clear Symfony cache
-    cmds:
-      - docker compose -f {{.COMPOSE_FILE}} exec php bin/console cache:clear
 
   # ===========================================================================
   # Testing
@@ -100,11 +65,3 @@ tasks:
     desc: Run PHPStan static analysis
     cmds:
       - docker compose -f {{.COMPOSE_FILE}} exec php vendor/bin/phpstan analyse
-
-  # ===========================================================================
-  # API Platform
-  # ===========================================================================
-  api:routes:
-    desc: List all API routes
-    cmds:
-      - docker compose -f {{.COMPOSE_FILE}} exec php bin/console debug:router --show-controllers | grep api
