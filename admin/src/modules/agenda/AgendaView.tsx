@@ -71,8 +71,7 @@ export const AgendaView = () => {
       import.meta.env.VITE_MERCURE_PUBLIC_URL ||
       'http://maggie.local/.well-known/mercure'
     const url = new URL(mercureUrl)
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://maggie.local/api'
-    url.searchParams.append('topic', `${apiUrl}/events/{id}`)
+    url.searchParams.append('topic', '/api/events/{id}')
 
     const eventSource = new EventSource(url.toString())
     eventSource.onmessage = () => {

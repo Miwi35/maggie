@@ -12,7 +12,7 @@ use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: CalendarRepository::class)]
-#[ApiResource(mercure: true)]
+#[ApiResource(mercure: ['topics' => ["@='/api/calendars/' ~ object.getId()"]])]
 class Calendar
 {
     #[ORM\Id]

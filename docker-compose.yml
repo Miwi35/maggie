@@ -98,6 +98,7 @@ services:
       - ./admin:/var/www/admin:cached
     environment:
       VITE_API_URL: ${VITE_API_URL}
+      VITE_MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.maggie-admin.rule=PathPrefix(`/admin`)"

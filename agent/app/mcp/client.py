@@ -15,12 +15,14 @@ class McpClient:
         self.server_url = settings.mcp_server_url
         self._http_client: httpx.AsyncClient | None = None
         self._session_id: str | None = None
+        self._session_expired: bool = False
         self._tools: list[dict] = []
 
     async def connect(self) -> None:
         """Initialize connection to MCP server."""
         self._http_client = httpx.AsyncClient(timeout=30.0)
         self._session_id = None
+        self._session_expired = False
 
         # Initialize MCP session
         response = await self._send_request("initialize", {
@@ -73,6 +75,17 @@ class McpClient:
             "arguments": arguments,
         })
 
+        # Retry once on session expiration
+        if response is None and self._session_expired:
+            logger.info("MCP session expired, reconnecting...")
+            self._tools = []
+            await self.disconnect()
+            await self.connect()
+            response = await self._send_request("tools/call", {
+                "name": name,
+                "arguments": arguments,
+            })
+
         if response and "content" in response:
             # Extract text content from MCP response
             for content_block in response["content"]:
@@ -105,9 +118,15 @@ class McpClient:
             if "mcp-session-id" in response.headers:
                 self._session_id = response.headers["mcp-session-id"]
 
+            self._session_expired = False
+
             if response.status_code == 200:
                 data = response.json()
                 return data.get("result")
+            elif response.status_code == 404:
+                self._session_expired = True
+                logger.error(f"MCP session expired ({response.status_code}): {response.text}")
+                return None
             else:
                 logger.error(f"MCP request failed ({response.status_code}): {response.text}")
                 return None

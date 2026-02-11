@@ -12,7 +12,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Entity(repositoryClass: EventRepository::class)]
 #[ORM\Index(columns: ['start_at', 'end_at'], name: 'idx_event_dates')]
 #[ORM\Index(columns: ['status'], name: 'idx_event_status')]
-#[ApiResource(mercure: true)]
+#[ApiResource(mercure: ['topics' => ["@='/api/events/' ~ object.getId()"]])]
 class Event
 {
     #[ORM\Id]
