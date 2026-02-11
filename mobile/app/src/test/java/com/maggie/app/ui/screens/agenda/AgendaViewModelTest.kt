@@ -18,6 +18,7 @@ import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
+import java.time.LocalDate
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AgendaViewModelTest {
@@ -39,10 +40,11 @@ class AgendaViewModelTest {
     }
 
     @Test
-    fun `loadEvents success populates events`() = runTest {
+    fun `loadEvents success populates events and eventsByDate`() = runTest {
         val events = listOf(
             Event(id = "1", summary = "Meeting", startAt = "2026-03-01T10:00:00Z", endAt = "2026-03-01T11:00:00Z"),
             Event(id = "2", summary = "Lunch", startAt = "2026-03-01T12:00:00Z", endAt = "2026-03-01T13:00:00Z"),
+            Event(id = "3", summary = "Dinner", startAt = "2026-03-02T19:00:00Z", endAt = "2026-03-02T20:00:00Z"),
         )
         coEvery { repository.getEvents() } returns Result.success(events)
 
@@ -50,10 +52,17 @@ class AgendaViewModelTest {
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertEquals(2, state.events.size)
+        assertEquals(3, state.events.size)
         assertEquals("Meeting", state.events[0].summary)
         assertFalse(state.isLoading)
         assertNull(state.error)
+
+        // eventsByDate should group by local date in event timezone (Europe/Paris = UTC+1 in March)
+        assertTrue(state.eventsByDate.isNotEmpty())
+        val march1 = LocalDate.of(2026, 3, 1)
+        val march2 = LocalDate.of(2026, 3, 2)
+        assertEquals(2, state.eventsByDate[march1]?.size)
+        assertEquals(1, state.eventsByDate[march2]?.size)
     }
 
     @Test
@@ -67,5 +76,18 @@ class AgendaViewModelTest {
         assertTrue(state.events.isEmpty())
         assertFalse(state.isLoading)
         assertEquals("Network error", state.error)
+    }
+
+    @Test
+    fun `selectDate updates selectedDate in state`() = runTest {
+        coEvery { repository.getEvents() } returns Result.success(emptyList())
+
+        val viewModel = AgendaViewModel(repository, mercureService)
+        advanceUntilIdle()
+
+        val targetDate = LocalDate.of(2026, 6, 15)
+        viewModel.selectDate(targetDate)
+
+        assertEquals(targetDate, viewModel.uiState.value.selectedDate)
     }
 }

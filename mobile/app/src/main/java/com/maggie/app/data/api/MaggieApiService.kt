@@ -20,9 +20,6 @@ data class ChatRequest(val message: String, val user_id: String = "default")
 @Serializable
 data class ChatResponse(val response: String, val tool_calls: List<Map<String, String>> = emptyList())
 
-@Serializable
-data class HydraCollection<T>(val `hydra:member`: List<T> = emptyList())
-
 class MaggieApiService {
     private val baseUrl = BuildConfig.API_BASE_URL
 
@@ -36,9 +33,7 @@ class MaggieApiService {
     }
 
     suspend fun getEvents(): List<com.maggie.app.data.model.Event> {
-        val response: HydraCollection<com.maggie.app.data.model.Event> =
-            client.get("$baseUrl/api/events").body()
-        return response.`hydra:member`
+        return client.get("$baseUrl/api/events").body()
     }
 
     suspend fun sendChat(message: String): ChatResponse {

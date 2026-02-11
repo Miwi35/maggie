@@ -2,8 +2,8 @@ package com.maggie.app.ui.navigation
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -34,13 +34,13 @@ fun NavGraph() {
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
-                    icon = { Icon(Icons.Default.CalendarMonth, contentDescription = "Agenda") },
+                    icon = { Icon(Icons.Default.DateRange, contentDescription = "Agenda") },
                     label = { Text("Agenda") },
                     selected = currentRoute == Screen.Agenda.route,
                     onClick = { navController.navigate(Screen.Agenda.route) { launchSingleTop = true } },
                 )
                 NavigationBarItem(
-                    icon = { Icon(Icons.Default.Chat, contentDescription = "Chat") },
+                    icon = { Icon(Icons.Default.MailOutline, contentDescription = "Chat") },
                     label = { Text("Chat") },
                     selected = currentRoute == Screen.Chat.route,
                     onClick = { navController.navigate(Screen.Chat.route) { launchSingleTop = true } },

@@ -51,7 +51,7 @@ fun ChatScreen(viewModel: ChatViewModel = koinViewModel()) {
                 if (uiState.isLoading) {
                     item {
                         Text(
-                            text = "Maggie is thinking...",
+                            text = "Maggie r\u00e9fl\u00e9chit...",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(start = 8.dp),
@@ -71,7 +71,7 @@ fun ChatScreen(viewModel: ChatViewModel = koinViewModel()) {
                     value = input,
                     onValueChange = { input = it },
                     modifier = Modifier.weight(1f),
-                    placeholder = { Text("Ask Maggie...") },
+                    placeholder = { Text("Demander \u00e0 Maggie...") },
                     singleLine = true,
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -82,7 +82,7 @@ fun ChatScreen(viewModel: ChatViewModel = koinViewModel()) {
                     },
                     enabled = input.isNotBlank() && !uiState.isLoading,
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Envoyer")
                 }
             }
         }

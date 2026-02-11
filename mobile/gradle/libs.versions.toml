@@ -14,6 +14,7 @@ coroutines-test = "1.9.0"
 turbine = "1.2.0"
 koin-test = "4.0.1"
 ktor-mock = "3.0.2"
+calendar-compose = "2.9.0"
 
 [libraries]
 # Compose
@@ -35,7 +36,7 @@ ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref =
 ktor-client-okhttp = { group = "io.ktor", name = "ktor-client-okhttp", version.ref = "ktor" }
 ktor-client-content-negotiation = { group = "io.ktor", name = "ktor-client-content-negotiation", version.ref = "ktor" }
 ktor-serialization-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json", version.ref = "ktor" }
-ktor-client-sse = { group = "io.ktor", name = "ktor-client-sse", version.ref = "ktor" }
+
 
 # Koin (DI)
 koin-android = { group = "io.insert-koin", name = "koin-android", version.ref = "koin" }
@@ -44,6 +45,9 @@ koin-compose = { group = "io.insert-koin", name = "koin-androidx-compose", versi
 # AndroidX
 activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activity-compose" }
 core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "core-ktx" }
+
+# Calendar
+calendar-compose = { group = "com.kizitonwose.calendar", name = "compose", version.ref = "calendar-compose" }
 
 # Testing
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -58,3 +62,4 @@ ktor-client-mock = { group = "io.ktor", name = "ktor-client-mock", version.ref =
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

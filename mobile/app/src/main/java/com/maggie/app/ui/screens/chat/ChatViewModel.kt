@@ -48,7 +48,7 @@ class ChatViewModel(
                     )
                 }
                 .onFailure {
-                    val errorMessage = ChatMessage(role = "assistant", content = "Error: Could not reach Maggie.")
+                    val errorMessage = ChatMessage(role = "assistant", content = "Erreur : impossible de joindre Maggie.")
                     _uiState.value = _uiState.value.copy(
                         messages = _uiState.value.messages + errorMessage,
                         isLoading = false,

@@ -1,5 +1,6 @@
 package com.maggie.app.ui.theme
 
+import android.os.Build
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -10,9 +11,9 @@ private val DefaultColorScheme = lightColorScheme()
 
 @Composable
 fun MaggieTheme(content: @Composable () -> Unit) {
-    val colorScheme = try {
+    val colorScheme = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         dynamicLightColorScheme(LocalContext.current)
-    } catch (_: Exception) {
+    } else {
         DefaultColorScheme
     }
 

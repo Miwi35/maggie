@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -15,8 +16,8 @@ android {
         versionCode = 1
         versionName = "0.1.0"
 
-        buildConfigField("String", "API_BASE_URL", "\"http://maggie.local\"")
-        buildConfigField("String", "MERCURE_URL", "\"http://maggie.local/.well-known/mercure\"")
+        buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2\"")
+        buildConfigField("String", "MERCURE_URL", "\"http://10.0.2.2/.well-known/mercure\"")
     }
 
     buildTypes {
@@ -60,7 +61,10 @@ dependencies {
     implementation(libs.ktor.client.okhttp)
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.serialization.json)
-    implementation(libs.ktor.client.sse)
+
+
+    // Calendar
+    implementation(libs.calendar.compose)
 
     // Koin (DI)
     implementation(libs.koin.android)
