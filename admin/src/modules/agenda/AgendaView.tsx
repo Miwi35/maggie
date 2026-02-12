@@ -687,7 +687,7 @@ export const AgendaView = () => {
             fixedWeekCount={false}
             nowIndicator={true}
             scrollTime="07:00:00"
-            slotMaxTime="26:00:00"
+            slotMaxTime="36:00:00"
           />
         </Box>
       </Box>
