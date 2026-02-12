@@ -14,7 +14,8 @@ import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
-import type { EventClickArg } from '@fullcalendar/core'
+import type { EventClickArg, EventDropArg } from '@fullcalendar/core'
+import type { EventResizeDoneArg } from '@fullcalendar/interaction'
 import frLocale from '@fullcalendar/core/locales/fr'
 import type { DatesSetArg, EventInput } from '@fullcalendar/core'
 import { EventCreateDialog } from './EventCreateDialog'
@@ -473,6 +474,28 @@ export const AgendaView = () => {
     [dataProvider, fetchEvents, notify],
   )
 
+  const handleEventUpdate = useCallback(
+    (arg: EventDropArg | EventResizeDoneArg) => {
+      const { event } = arg
+      const startAt = event.start?.toISOString()
+      const endAt = event.end?.toISOString() || startAt
+      dataProvider
+        .update('events', {
+          id: event.id,
+          data: { startAt, endAt, allDay: event.allDay },
+          previousData: { id: event.id },
+        })
+        .then(() => {
+          notify('Événement modifié', { type: 'success' })
+        })
+        .catch((error: Error) => {
+          arg.revert()
+          notify(`Erreur: ${error.message}`, { type: 'error' })
+        })
+    },
+    [dataProvider, notify],
+  )
+
   const handleCreated = useCallback(() => {
     if (dateRangeRef.current) {
       fetchEvents(dateRangeRef.current.start, dateRangeRef.current.end)
@@ -758,6 +781,9 @@ export const AgendaView = () => {
             selectAllow={handleSelectAllow}
             select={handleSelect}
             eventClick={handleEventClick}
+            editable={true}
+            eventDrop={handleEventUpdate}
+            eventResize={handleEventUpdate}
             headerToolbar={false}
             height="100%"
             dayMaxEvents={3}
