@@ -2,8 +2,8 @@
 
 namespace App\Tests\Api;
 
-use Maggie\Agenda\Entity\Calendar;
-use Maggie\Agenda\Entity\Event;
+use Maggie\Calendar\Entity\Agenda;
+use Maggie\Calendar\Entity\Event;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
@@ -19,29 +19,29 @@ class EventApiTest extends WebTestCase
 
         // Clean tables
         $em->createQuery('DELETE FROM ' . Event::class)->execute();
-        $em->createQuery('DELETE FROM ' . Calendar::class)->execute();
+        $em->createQuery('DELETE FROM ' . Agenda::class)->execute();
     }
 
-    private function createCalendar(): Calendar
+    private function createAgenda(): Agenda
     {
-        $calendar = new Calendar();
-        $calendar->setName('Test Calendar');
-        $calendar->setIsDefault(true);
+        $agenda = new Agenda();
+        $agenda->setName('Test Agenda');
+        $agenda->setIsDefault(true);
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
-        $em->persist($calendar);
+        $em->persist($agenda);
         $em->flush();
 
-        return $calendar;
+        return $agenda;
     }
 
-    private function createEvent(Calendar $calendar, string $summary = 'Test Event'): Event
+    private function createEvent(Agenda $agenda, string $summary = 'Test Event'): Event
     {
         $event = new Event();
         $event->setSummary($summary);
         $event->setStartAt(new \DateTimeImmutable('2026-03-15 10:00'));
         $event->setEndAt(new \DateTimeImmutable('2026-03-15 11:00'));
-        $event->setCalendar($calendar);
+        $event->setAgenda($agenda);
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $em->persist($event);
@@ -52,9 +52,9 @@ class EventApiTest extends WebTestCase
 
     public function testGetEventCollection(): void
     {
-        $calendar = $this->createCalendar();
-        $this->createEvent($calendar, 'Event 1');
-        $this->createEvent($calendar, 'Event 2');
+        $agenda = $this->createAgenda();
+        $this->createEvent($agenda, 'Event 1');
+        $this->createEvent($agenda, 'Event 2');
 
         $this->client->request('GET', '/api/events', [], [], ['HTTP_ACCEPT' => 'application/ld+json']);
 
@@ -68,8 +68,8 @@ class EventApiTest extends WebTestCase
 
     public function testGetSingleEvent(): void
     {
-        $calendar = $this->createCalendar();
-        $event = $this->createEvent($calendar, 'My Event');
+        $agenda = $this->createAgenda();
+        $event = $this->createEvent($agenda, 'My Event');
 
         $this->client->request('GET', '/api/events/' . $event->getId(), [], [], ['HTTP_ACCEPT' => 'application/ld+json']);
 
@@ -81,7 +81,7 @@ class EventApiTest extends WebTestCase
 
     public function testCreateEvent(): void
     {
-        $calendar = $this->createCalendar();
+        $agenda = $this->createAgenda();
 
         $this->client->request('POST', '/api/events', [], [], [
             'CONTENT_TYPE' => 'application/ld+json',
@@ -90,7 +90,7 @@ class EventApiTest extends WebTestCase
             'summary' => 'New Event',
             'startAt' => '2026-03-20T10:00:00+01:00',
             'endAt' => '2026-03-20T11:00:00+01:00',
-            'calendar' => '/api/calendars/' . $calendar->getId(),
+            'agenda' => '/api/agendas/' . $agenda->getId(),
         ], JSON_THROW_ON_ERROR));
 
         self::assertResponseStatusCodeSame(201);
@@ -101,7 +101,7 @@ class EventApiTest extends WebTestCase
 
     public function testCreateEventValidationError(): void
     {
-        $calendar = $this->createCalendar();
+        $agenda = $this->createAgenda();
 
         $this->client->request('POST', '/api/events', [], [], [
             'CONTENT_TYPE' => 'application/ld+json',
@@ -110,7 +110,7 @@ class EventApiTest extends WebTestCase
             // Missing required 'summary'
             'startAt' => '2026-03-20T10:00:00+01:00',
             'endAt' => '2026-03-20T11:00:00+01:00',
-            'calendar' => '/api/calendars/' . $calendar->getId(),
+            'agenda' => '/api/agendas/' . $agenda->getId(),
         ], JSON_THROW_ON_ERROR));
 
         self::assertResponseStatusCodeSame(422);

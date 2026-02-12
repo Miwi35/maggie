@@ -2,7 +2,7 @@ parameters:
     level: 6
     paths:
         - src/
-        - modules/agenda/src/
+        - modules/calendar/src/
         - modules/core/src/
     excludePaths:
         - src/Kernel.php

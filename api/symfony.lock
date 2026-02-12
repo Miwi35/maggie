@@ -64,6 +64,9 @@
     "maggie/agenda": {
         "version": "dev-main"
     },
+    "maggie/calendar": {
+        "version": "dev-main"
+    },
     "maggie/core": {
         "version": "dev-main"
     },

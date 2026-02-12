@@ -1,0 +1,13 @@
+<?php
+
+namespace Maggie\Calendar\Contract;
+
+use Symfony\Component\Uid\Ulid;
+
+interface MercurePublishable
+{
+    public function getId(): Ulid;
+
+    /** @return array<string, mixed> */
+    public function toMercurePayload(): array;
+}

@@ -26,33 +26,40 @@ class ChatViewModel(
     val uiState: StateFlow<ChatUiState> = _uiState
 
     init {
+        observePersistedMessages()
         subscribeToChatUpdates()
+    }
+
+    private fun observePersistedMessages() {
+        viewModelScope.launch {
+            repository.observeMessages().collect { messages ->
+                _uiState.value = _uiState.value.copy(messages = messages)
+            }
+        }
     }
 
     fun sendMessage(text: String) {
         if (text.isBlank()) return
 
-        val userMessage = ChatMessage(role = "user", content = text)
-        _uiState.value = _uiState.value.copy(
-            messages = _uiState.value.messages + userMessage,
-            isLoading = true,
-        )
-
         viewModelScope.launch {
+            val userMessage = ChatMessage(role = "user", content = text)
+            repository.saveMessage(userMessage)
+
+            _uiState.value = _uiState.value.copy(isLoading = true)
+
             repository.sendMessage(text)
                 .onSuccess { response ->
                     val assistantMessage = ChatMessage(role = "assistant", content = response.response)
-                    _uiState.value = _uiState.value.copy(
-                        messages = _uiState.value.messages + assistantMessage,
-                        isLoading = false,
-                    )
+                    repository.saveMessage(assistantMessage)
+                    _uiState.value = _uiState.value.copy(isLoading = false)
                 }
                 .onFailure {
-                    val errorMessage = ChatMessage(role = "assistant", content = "Erreur : impossible de joindre Maggie.")
-                    _uiState.value = _uiState.value.copy(
-                        messages = _uiState.value.messages + errorMessage,
-                        isLoading = false,
+                    val errorMessage = ChatMessage(
+                        role = "assistant",
+                        content = "Erreur : impossible de joindre Maggie.",
                     )
+                    repository.saveMessage(errorMessage)
+                    _uiState.value = _uiState.value.copy(isLoading = false)
                 }
         }
     }
@@ -68,9 +75,7 @@ class ChatViewModel(
                             val json = Json.parseToJsonElement(event.data).jsonObject
                             val response = json["response"]?.jsonPrimitive?.content ?: return@collect
                             val assistantMessage = ChatMessage(role = "assistant", content = response)
-                            _uiState.value = _uiState.value.copy(
-                                messages = _uiState.value.messages + assistantMessage,
-                            )
+                            repository.saveMessage(assistantMessage)
                         } catch (_: Exception) {
                             // Ignore parse errors
                         }

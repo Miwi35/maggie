@@ -21,8 +21,8 @@ export const CustomMenu = () => {
   return (
     <Box sx={{ mt: 1 }}>
       <MenuItemLink
-        to="/agenda"
-        primaryText="Agenda"
+        to="/calendar"
+        primaryText="Calendrier"
         leftIcon={<CalendarMonthIcon />}
       />
 
@@ -61,8 +61,8 @@ export const CustomMenu = () => {
               <Collapse in={agendaRawOpen} timeout="auto" unmountOnExit>
                 <List component="div" disablePadding>
                   <MenuItemLink
-                    to="/calendars"
-                    primaryText="Calendriers"
+                    to="/agendas"
+                    primaryText="Agendas"
                     leftIcon={<DateRangeIcon />}
                     sx={{ pl: 8 }}
                   />

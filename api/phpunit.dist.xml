@@ -16,8 +16,8 @@
         <testsuite name="App">
             <directory>tests/</directory>
         </testsuite>
-        <testsuite name="Agenda">
-            <directory>modules/agenda/tests/</directory>
+        <testsuite name="Calendar">
+            <directory>modules/calendar/tests/</directory>
         </testsuite>
         <testsuite name="Core">
             <directory>modules/core/tests/</directory>
@@ -27,7 +27,7 @@
     <source>
         <include>
             <directory>src/</directory>
-            <directory>modules/agenda/src/</directory>
+            <directory>modules/calendar/src/</directory>
             <directory>modules/core/src/</directory>
         </include>
         <exclude>

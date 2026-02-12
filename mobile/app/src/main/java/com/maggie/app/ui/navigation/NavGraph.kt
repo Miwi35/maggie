@@ -28,7 +28,8 @@ import com.maggie.app.ui.components.AppDrawerContent
 import com.maggie.app.ui.components.ChatBottomBar
 import com.maggie.app.ui.components.ChatSheet
 import com.maggie.app.ui.components.MaggieTopBar
-import com.maggie.app.ui.screens.agenda.AgendaScreen
+import com.maggie.app.ui.screens.calendar.CalendarScreen
+import com.maggie.app.ui.screens.calendar.CalendarViewModel
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.voice.VoiceManager
 import kotlinx.coroutines.launch
@@ -36,7 +37,7 @@ import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 
 sealed class Screen(val route: String, val label: String) {
-    data object Agenda : Screen("agenda", "Agenda")
+    data object Calendar : Screen("calendar", "Calendrier")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,6 +51,7 @@ fun NavGraph() {
     val scope = rememberCoroutineScope()
 
     val chatViewModel: ChatViewModel = koinViewModel()
+    val calendarViewModel: CalendarViewModel = koinViewModel()
     var showChatSheet by rememberSaveable { mutableStateOf(false) }
     val chatSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -68,7 +70,7 @@ fun NavGraph() {
     }
 
     val title = when (currentRoute) {
-        Screen.Agenda.route -> Screen.Agenda.label
+        Screen.Calendar.route -> Screen.Calendar.label
         else -> "Maggie"
     }
 
@@ -110,10 +112,10 @@ fun NavGraph() {
         ) { paddingValues ->
             NavHost(
                 navController = navController,
-                startDestination = Screen.Agenda.route,
+                startDestination = Screen.Calendar.route,
                 modifier = Modifier.padding(paddingValues),
             ) {
-                composable(Screen.Agenda.route) { AgendaScreen() }
+                composable(Screen.Calendar.route) { CalendarScreen(viewModel = calendarViewModel) }
             }
         }
     }
@@ -129,6 +131,7 @@ fun NavGraph() {
                     voiceModeActive = false
                 }
                 showChatSheet = false
+                calendarViewModel.loadEvents()
             },
             voiceManager = if (voiceModeActive) voiceManager else null,
         )

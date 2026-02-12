@@ -11,14 +11,14 @@ vi.mock('./components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
 
-vi.mock('./modules/agenda', () => ({
-  agendaResources: <div data-testid="agenda-resources" />,
+vi.mock('./modules/calendar', () => ({
+  calendarResources: <div data-testid="calendar-resources" />,
 }))
 
 describe('App', () => {
   test('renders without crashing', () => {
     const { getByTestId } = render(<App />)
     expect(getByTestId('hydra-admin')).toBeInTheDocument()
-    expect(getByTestId('agenda-resources')).toBeInTheDocument()
+    expect(getByTestId('calendar-resources')).toBeInTheDocument()
   })
 })

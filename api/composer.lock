@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "a2e091a507944a8ae55397eeecc4a885",
+    "content-hash": "4064f89842137c253f70cbb15f46bd82",
     "packages": [
         {
             "name": "api-platform/core",
@@ -1411,12 +1411,12 @@
             "time": "2025-10-17T11:30:53+00:00"
         },
         {
-            "name": "maggie/agenda",
+            "name": "maggie/calendar",
             "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "modules/agenda",
-                "reference": "2b88820655d30ab0b927d8b7847badead43170d3"
+                "url": "modules/calendar",
+                "reference": "0323beb164d8df732d4ac628a269b81080fff861"
             },
             "require": {
                 "api-platform/core": "^4.2",
@@ -1435,13 +1435,13 @@
             "type": "symfony-bundle",
             "autoload": {
                 "psr-4": {
-                    "Maggie\\Agenda\\": "src/"
+                    "Maggie\\Calendar\\": "src/"
                 }
             },
             "license": [
                 "proprietary"
             ],
-            "description": "Agenda module: calendars, events, recurrence",
+            "description": "Calendar module: agendas, events, recurrence",
             "transport-options": {
                 "symlink": true,
                 "relative": true
@@ -9566,7 +9566,7 @@
     "aliases": [],
     "minimum-stability": "stable",
     "stability-flags": {
-        "maggie/agenda": 20,
+        "maggie/calendar": 20,
         "maggie/core": 20
     },
     "prefer-stable": true,

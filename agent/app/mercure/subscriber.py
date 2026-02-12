@@ -14,7 +14,7 @@ class MercureSubscriber:
     def __init__(self, topics: list[str] | None = None):
         self.hub_url = settings.mercure_public_url
         self.topics = topics or [
-            "/api/calendars/{id}",
+            "/api/agendas/{id}",
             "/api/events/{id}",
         ]
 

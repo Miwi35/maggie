@@ -5,7 +5,7 @@ framework:
         buses:
             messenger.bus.default:
                 middleware:
-                    - 'Maggie\Agenda\Middleware\MercurePublishMiddleware'
+                    - 'Maggie\Calendar\Middleware\MercurePublishMiddleware'
 
         transports:
             async: '%env(MESSENGER_TRANSPORT_DSN)%'
@@ -13,12 +13,12 @@ framework:
             sync: 'sync://'
 
         routing:
-            'Maggie\Agenda\Message\CreateEventCommand': sync
-            'Maggie\Agenda\Message\UpdateEventCommand': sync
-            'Maggie\Agenda\Message\DeleteEventCommand': sync
-            'Maggie\Agenda\Message\CreateCalendarCommand': sync
-            'Maggie\Agenda\Message\UpdateCalendarCommand': sync
-            'Maggie\Agenda\Message\DeleteCalendarCommand': sync
+            'Maggie\Calendar\Message\CreateEventCommand': sync
+            'Maggie\Calendar\Message\UpdateEventCommand': sync
+            'Maggie\Calendar\Message\DeleteEventCommand': sync
+            'Maggie\Calendar\Message\CreateAgendaCommand': sync
+            'Maggie\Calendar\Message\UpdateAgendaCommand': sync
+            'Maggie\Calendar\Message\DeleteAgendaCommand': sync
 
 when@test:
     framework:

@@ -30,10 +30,10 @@ fun AppDrawerContent(
 
         NavigationDrawerItem(
             icon = { Icon(Icons.Default.DateRange, contentDescription = null) },
-            label = { Text("Agenda") },
-            selected = currentRoute == "agenda",
+            label = { Text("Calendrier") },
+            selected = currentRoute == "calendar",
             onClick = {
-                onNavigate("agenda")
+                onNavigate("calendar")
                 onCloseDrawer()
             },
             modifier = Modifier.padding(horizontal = 12.dp),
