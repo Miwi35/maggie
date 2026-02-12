@@ -26,7 +26,7 @@ import { getCalendarThemeSx } from './calendarTheme'
 const SIDEBAR_WIDTH = 230
 const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 
-type CalendarView = 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay'
+type CalendarView = 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'timeGrid' | 'dayGrid'
 
 const VIEW_BUTTONS: { label: string; view: CalendarView }[] = [
   { label: 'Mois', view: 'dayGridMonth' },
@@ -56,13 +56,48 @@ interface CalendarData {
 // ---------------------------------------------------------------------------
 // Mini Calendar
 // ---------------------------------------------------------------------------
+const toDateKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+
+/** Snap a date back to Monday of its week. */
+const toMonday = (d: Date): Date => {
+  const day = d.getDay()
+  const off = day === 0 ? 6 : day - 1
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() - off)
+}
+
+/** Snap a date forward to the next Monday (exclusive week end). */
+const toNextMonday = (d: Date): Date => {
+  const day = d.getDay()
+  const off = day === 0 ? 1 : day === 1 ? 7 : 8 - day
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + off)
+}
+
+/**
+ * Given a raw drag range (both inclusive), return the effective selection.
+ * - 1-7 days: exact days, end is exclusive (+1 day)
+ * - >7 days: snap to full weeks (Monday boundaries)
+ */
+const snapRange = (a: Date, b: Date): { start: Date; end: Date } => {
+  const s = a <= b ? a : b
+  const e = a <= b ? b : a
+  const days = Math.round((e.getTime() - s.getTime()) / 86_400_000) + 1
+  if (days <= 7) {
+    return { start: s, end: new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1) }
+  }
+  return { start: toMonday(s), end: toNextMonday(e) }
+}
+
 const MiniCalendar = ({
   viewDate,
-  onDateClick,
+  activeStart,
+  activeEnd,
+  onRangeSelect,
   onMonthChange,
 }: {
   viewDate: Date
-  onDateClick: (date: Date) => void
+  activeStart: Date | null
+  activeEnd: Date | null
+  onRangeSelect: (start: Date, end: Date) => void
   onMonthChange: (date: Date) => void
 }) => {
   const year = viewDate.getFullYear()
@@ -80,6 +115,62 @@ const MiniCalendar = ({
 
   const today = new Date()
 
+  // --- Drag selection state ---
+  const [dragStart, setDragStart] = useState<Date | null>(null)
+  const [dragEnd, setDragEnd] = useState<Date | null>(null)
+  const dragging = useRef(false)
+
+  const handleMouseDown = useCallback((d: Date) => {
+    dragging.current = true
+    setDragStart(d)
+    setDragEnd(d)
+  }, [])
+
+  const handleMouseEnter = useCallback((d: Date) => {
+    if (dragging.current) setDragEnd(d)
+  }, [])
+
+  const handleMouseUp = useCallback(() => {
+    if (!dragging.current || !dragStart || !dragEnd) {
+      dragging.current = false
+      return
+    }
+    dragging.current = false
+    const { start, end } = snapRange(dragStart, dragEnd)
+    onRangeSelect(start, end)
+    setDragStart(null)
+    setDragEnd(null)
+  }, [dragStart, dragEnd, onRangeSelect])
+
+  // Cancel drag if mouse leaves the grid
+  const handleMouseLeave = useCallback(() => {
+    if (dragging.current) {
+      dragging.current = false
+      setDragStart(null)
+      setDragEnd(null)
+    }
+  }, [])
+
+  // Compute highlight range: use snapped drag preview if dragging, otherwise the main view's active range
+  const { highlightStart, highlightEnd } = useMemo(() => {
+    if (dragStart && dragEnd) {
+      const snapped = snapRange(dragStart, dragEnd)
+      return { highlightStart: snapped.start, highlightEnd: snapped.end }
+    }
+    const hs = activeStart ? new Date(activeStart.getFullYear(), activeStart.getMonth(), activeStart.getDate()) : null
+    const he = activeEnd ? new Date(activeEnd.getFullYear(), activeEnd.getMonth(), activeEnd.getDate()) : null
+    return { highlightStart: hs, highlightEnd: he }
+  }, [dragStart, dragEnd, activeStart, activeEnd])
+
+  const isInRange = useCallback(
+    (d: Date): boolean => {
+      if (!highlightStart || !highlightEnd) return false
+      const t = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+      return t >= highlightStart.getTime() && t < highlightEnd.getTime()
+    },
+    [highlightStart, highlightEnd],
+  )
+
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5, px: 0.5 }}>
@@ -95,19 +186,25 @@ const MiniCalendar = ({
           </IconButton>
         </Box>
       </Box>
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center' }}>
+      <Box
+        sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center', userSelect: 'none' }}
+        onMouseLeave={handleMouseLeave}
+        onMouseUp={handleMouseUp}
+      >
         {DAY_LABELS.map((d, i) => (
           <Typography key={i} variant="caption" color="text.secondary" sx={{ py: 0.25, fontSize: '0.65rem' }}>
             {d}
           </Typography>
         ))}
-        {days.map((d, i) => {
+        {days.map((d) => {
           const isToday = d.toDateString() === today.toDateString()
           const isCurMonth = d.getMonth() === month
+          const isActive = isInRange(d)
           return (
             <Box
-              key={i}
-              onClick={() => onDateClick(d)}
+              key={toDateKey(d)}
+              onMouseDown={(e) => { e.preventDefault(); handleMouseDown(d) }}
+              onMouseEnter={() => handleMouseEnter(d)}
               sx={{
                 width: 26,
                 height: 26,
@@ -120,7 +217,7 @@ const MiniCalendar = ({
                 fontSize: '0.7rem',
                 fontWeight: isToday ? 600 : 400,
                 color: isToday ? '#fff' : isCurMonth ? 'text.primary' : 'text.disabled',
-                bgcolor: isToday ? 'primary.main' : 'transparent',
+                bgcolor: isToday ? 'primary.main' : isActive ? 'action.selected' : 'transparent',
                 '&:hover': { bgcolor: isToday ? 'primary.dark' : 'action.hover' },
               }}
             >
@@ -136,25 +233,32 @@ const MiniCalendar = ({
 // ---------------------------------------------------------------------------
 // Toolbar title helper
 // ---------------------------------------------------------------------------
-const getToolbarTitle = (date: Date, view: CalendarView): string => {
-  if (view === 'dayGridMonth') {
-    return date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+const formatDateRange = (start: Date, end: Date): string => {
+  // end is exclusive, show up to the day before
+  const last = new Date(end)
+  last.setDate(last.getDate() - 1)
+  if (start.toDateString() === last.toDateString()) {
+    return start.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
   }
-  if (view === 'timeGridDay') {
-    return date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-  }
-  // timeGridWeek — show "week range" e.g. "10 – 16 févr. 2026"
-  const start = new Date(date)
-  const end = new Date(start)
-  end.setDate(end.getDate() + 6)
   const startDay = start.getDate()
-  const endDay = end.getDate()
-  const endMonth = end.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })
-  if (start.getMonth() === end.getMonth()) {
+  const endDay = last.getDate()
+  const endMonth = last.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })
+  if (start.getMonth() === last.getMonth() && start.getFullYear() === last.getFullYear()) {
     return `${startDay} – ${endDay} ${endMonth}`
   }
   const startMonth = start.toLocaleDateString('fr-FR', { month: 'short' })
   return `${startDay} ${startMonth} – ${endDay} ${endMonth}`
+}
+
+const getToolbarTitle = (view: CalendarView, range: { start: Date; end: Date } | null): string => {
+  if (!range) return ''
+  if (view === 'dayGridMonth') {
+    return range.start.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+  }
+  if (view === 'timeGridDay') {
+    return range.start.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  }
+  return formatDateRange(range.start, range.end)
 }
 
 // ---------------------------------------------------------------------------
@@ -171,9 +275,9 @@ export const AgendaView = () => {
   const [rawEvents, setRawEvents] = useState<AgendaEvent[]>([])
   const [calendars, setCalendars] = useState<CalendarData[]>([])
   const [enabledCalendars, setEnabledCalendars] = useState<Set<string> | null>(null)
-  const [viewDate, setViewDate] = useState(new Date())
   const [miniCalDate, setMiniCalDate] = useState(new Date())
   const [currentView, setCurrentView] = useState<CalendarView>('dayGridMonth')
+  const [activeRange, setActiveRange] = useState<{ start: Date; end: Date } | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogDefaultDate, setDialogDefaultDate] = useState<string | undefined>()
 
@@ -267,9 +371,9 @@ export const AgendaView = () => {
       const start = arg.start.toISOString()
       const end = arg.end.toISOString()
       dateRangeRef.current = { start, end }
-      setViewDate(arg.view.currentStart)
       setMiniCalDate(arg.view.currentStart)
       setCurrentView(arg.view.type as CalendarView)
+      setActiveRange({ start: arg.view.currentStart, end: arg.view.currentEnd })
       fetchEvents(start, end)
     },
     [fetchEvents],
@@ -371,8 +475,20 @@ export const AgendaView = () => {
     calendarRef.current?.getApi().changeView(view)
   }, [])
 
-  const handleMiniDateClick = useCallback((date: Date) => {
-    calendarRef.current?.getApi().changeView('timeGridDay', date)
+  const handleMiniRangeSelect = useCallback((start: Date, end: Date) => {
+    const api = calendarRef.current?.getApi()
+    if (!api) return
+    const days = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+    if (days <= 7) {
+      // 1-7 days → timegrid
+      api.changeView('timeGrid', { start, end })
+    } else if (days <= 28) {
+      // 8-28 days → daygrid
+      api.changeView('dayGrid', { start, end })
+    } else {
+      // >28 days → standard month view
+      api.changeView('dayGridMonth', start)
+    }
   }, [])
 
   const toggleCalendar = useCallback((calId: string) => {
@@ -386,10 +502,10 @@ export const AgendaView = () => {
   }, [])
 
   // --- Toolbar title ---
-  const title = useMemo(() => getToolbarTitle(viewDate, currentView), [viewDate, currentView])
+  const title = useMemo(() => getToolbarTitle(currentView, activeRange), [currentView, activeRange])
 
   // --- Navigation aria labels ---
-  const navAriaLabel = currentView === 'dayGridMonth' ? 'Mois' : currentView === 'timeGridWeek' ? 'Semaine' : 'Jour'
+  const navAriaLabel = currentView === 'dayGridMonth' || currentView === 'dayGrid' ? 'Mois' : currentView === 'timeGridWeek' || currentView === 'timeGrid' ? 'Semaine' : 'Jour'
 
   // --- FullCalendar theme overrides ---
   const calendarThemeSx = useMemo(() => getCalendarThemeSx(theme), [theme])
@@ -476,7 +592,9 @@ export const AgendaView = () => {
           {/* Mini calendar */}
           <MiniCalendar
             viewDate={miniCalDate}
-            onDateClick={handleMiniDateClick}
+            activeStart={activeRange?.start ?? null}
+            activeEnd={activeRange?.end ?? null}
+            onRangeSelect={handleMiniRangeSelect}
             onMonthChange={setMiniCalDate}
           />
 
