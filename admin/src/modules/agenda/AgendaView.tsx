@@ -676,6 +676,7 @@ export const AgendaView = () => {
             events={filteredEvents}
             datesSet={handleDatesSet}
             selectable={true}
+            selectMirror={true}
             select={handleSelect}
             eventClick={handleEventClick}
             headerToolbar={false}
@@ -685,6 +686,7 @@ export const AgendaView = () => {
             eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
             fixedWeekCount={false}
             nowIndicator={true}
+            slotMaxTime="26:00:00"
           />
         </Box>
       </Box>
