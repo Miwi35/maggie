@@ -592,8 +592,8 @@ export const AgendaView = () => {
           {/* Mini calendar */}
           <MiniCalendar
             viewDate={miniCalDate}
-            activeStart={activeRange?.start ?? null}
-            activeEnd={activeRange?.end ?? null}
+            activeStart={currentView === 'dayGridMonth' ? null : (activeRange?.start ?? null)}
+            activeEnd={currentView === 'dayGridMonth' ? null : (activeRange?.end ?? null)}
             onRangeSelect={handleMiniRangeSelect}
             onMonthChange={setMiniCalDate}
           />
