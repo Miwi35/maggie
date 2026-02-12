@@ -165,6 +165,7 @@ export const AgendaView = () => {
   const dataProvider = useDataProvider()
   const notify = useNotify()
   const calendarRef = useRef<FullCalendar>(null)
+  const calendarBoxRef = useRef<HTMLDivElement>(null)
   const dateRangeRef = useRef<{ start: string; end: string } | null>(null)
 
   const [rawEvents, setRawEvents] = useState<AgendaEvent[]>([])
@@ -341,6 +342,26 @@ export const AgendaView = () => {
     return () => es.close()
   }, [fetchEvents])
 
+  // --- Wheel navigation (scroll up → prev, scroll down → next) ---
+  useEffect(() => {
+    const el = calendarBoxRef.current
+    if (!el) return
+    let cooldown = false
+    const handleWheel = (e: WheelEvent) => {
+      if (cooldown || Math.abs(e.deltaY) < 30) return
+      e.preventDefault()
+      cooldown = true
+      const api = calendarRef.current?.getApi()
+      if (api) {
+        if (e.deltaY < 0) api.prev()
+        else api.next()
+      }
+      setTimeout(() => { cooldown = false }, 400)
+    }
+    el.addEventListener('wheel', handleWheel, { passive: false })
+    return () => el.removeEventListener('wheel', handleWheel)
+  }, [])
+
   // --- Navigation ---
   const handleToday = useCallback(() => calendarRef.current?.getApi().today(), [])
   const handlePrev = useCallback(() => calendarRef.current?.getApi().prev(), [])
@@ -505,7 +526,7 @@ export const AgendaView = () => {
         </Box>
 
         {/* Main calendar */}
-        <Box sx={calendarThemeSx}>
+        <Box ref={calendarBoxRef} sx={calendarThemeSx}>
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
