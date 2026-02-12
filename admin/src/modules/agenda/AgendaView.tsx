@@ -22,6 +22,7 @@ import { EventCreateDialog } from './EventCreateDialog'
 import { EventDetailPopover } from './EventDetailPopover'
 import type { PopoverEvent } from './EventDetailPopover'
 import { getCalendarThemeSx } from './calendarTheme'
+import { expandRrule } from './recurrenceUtils'
 
 const SIDEBAR_WIDTH = 230
 const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
@@ -39,11 +40,13 @@ interface AgendaEvent {
   summary: string
   description?: string
   location?: string
-  status?: string
   startAt: string
   endAt: string
   allDay: boolean
   calendar: string
+  rrule?: string
+  recurringEvent?: string
+  originalStartAt?: string
 }
 
 interface CalendarData {
@@ -344,25 +347,81 @@ export const AgendaView = () => {
   // --- Fetch events ---
   const fetchEvents = useCallback(
     (start: string, end: string) => {
-      dataProvider
-        .getList('events', {
-          pagination: { page: 1, perPage: 200 },
-          sort: { field: 'startAt', order: 'ASC' },
-          filter: { 'startAt[after]': start, 'startAt[before]': end },
+      const rangeEvents = dataProvider.getList('events', {
+        pagination: { page: 1, perPage: 200 },
+        sort: { field: 'startAt', order: 'ASC' },
+        filter: { 'startAt[after]': start, 'startAt[before]': end },
+      })
+
+      // Recurring events may have started before the visible range
+      const recurringEvents = dataProvider.getList('events', {
+        pagination: { page: 1, perPage: 200 },
+        sort: { field: 'startAt', order: 'ASC' },
+        filter: { 'exists[rrule]': true, 'startAt[strictly_before]': start },
+      })
+
+      Promise.all([rangeEvents, recurringEvents])
+        .then(([rangeResult, recurringResult]) => {
+          const seen = new Set<string>()
+          const merged: AgendaEvent[] = []
+          for (const e of [...rangeResult.data, ...recurringResult.data] as unknown as AgendaEvent[]) {
+            if (!seen.has(e.id)) {
+              seen.add(e.id)
+              merged.push(e)
+            }
+          }
+          setRawEvents(merged)
         })
-        .then(({ data }) => setRawEvents(data as unknown as AgendaEvent[]))
         .catch(console.error)
     },
     [dataProvider],
   )
 
-  // --- Map raw events → FullCalendar events with calendar colours ---
-  const coloredEvents: (EventInput & { calendarId: string })[] = useMemo(
-    () =>
-      rawEvents.map((e) => {
-        const calId = typeof e.calendar === 'string' ? e.calendar : ''
-        const color = calendarColorMap.get(calId)
-        return {
+  // --- Map raw events → FullCalendar events with calendar colours + recurrence expansion ---
+  const coloredEvents: (EventInput & { calendarId: string })[] = useMemo(() => {
+    const result: (EventInput & { calendarId: string })[] = []
+    const rangeStart = activeRange?.start
+    const rangeEnd = activeRange?.end
+
+    for (const e of rawEvents) {
+      // Skip exception instances (they replace a virtual occurrence)
+      if (e.recurringEvent) continue
+
+      const calId = typeof e.calendar === 'string' ? e.calendar : ''
+      const color = calendarColorMap.get(calId)
+
+      if (e.rrule && rangeStart && rangeEnd) {
+        // Expand recurring event into virtual occurrences
+        const dtstart = new Date(e.startAt)
+        const duration = new Date(e.endAt).getTime() - dtstart.getTime()
+        const occurrences = expandRrule(e.rrule, dtstart, rangeStart, rangeEnd)
+
+        for (const occ of occurrences) {
+          const occEnd = new Date(occ.getTime() + duration)
+          const isoDate = occ.toISOString().slice(0, 10)
+          result.push({
+            id: `${e.id}__${isoDate}`,
+            title: e.summary,
+            start: occ.toISOString(),
+            end: occEnd.toISOString(),
+            allDay: e.allDay,
+            calendarId: calId,
+            backgroundColor: color,
+            borderColor: color,
+            extendedProps: {
+              description: e.description,
+              location: e.location,
+
+              calendarId: calId,
+              rrule: e.rrule,
+              masterEventId: e.id,
+              isVirtualOccurrence: true,
+            },
+          })
+        }
+      } else {
+        // Non-recurring event
+        result.push({
           id: e.id,
           title: e.summary,
           start: e.startAt,
@@ -374,13 +433,14 @@ export const AgendaView = () => {
           extendedProps: {
             description: e.description,
             location: e.location,
-            status: e.status,
             calendarId: calId,
           },
-        }
-      }),
-    [rawEvents, calendarColorMap],
-  )
+        })
+      }
+    }
+
+    return result
+  }, [rawEvents, calendarColorMap, activeRange])
 
   // --- Filter by enabled calendars ---
   const filteredEvents = useMemo(() => {
@@ -448,7 +508,9 @@ export const AgendaView = () => {
         calendarName: calendarNameMap.get(calId) || '',
         description: fcEvent.extendedProps.description,
         location: fcEvent.extendedProps.location,
-        status: fcEvent.extendedProps.status,
+        rrule: fcEvent.extendedProps.rrule,
+        masterEventId: fcEvent.extendedProps.masterEventId,
+        isVirtualOccurrence: fcEvent.extendedProps.isVirtualOccurrence,
       })
       setPopoverAnchorEl(arg.el)
     },
@@ -457,6 +519,11 @@ export const AgendaView = () => {
 
   const handleDeleteEvent = useCallback(
     (eventId: string) => {
+      // Virtual occurrences cannot be deleted individually
+      if (eventId.includes('__')) {
+        notify('La modification d\'occurrences individuelles n\'est pas encore disponible', { type: 'warning' })
+        return
+      }
       setPopoverAnchorEl(null)
       setPopoverEvent(null)
       dataProvider
@@ -477,6 +544,12 @@ export const AgendaView = () => {
   const handleEventUpdate = useCallback(
     (arg: EventDropArg | EventResizeDoneArg) => {
       const { event } = arg
+      // Virtual occurrences cannot be moved/resized individually
+      if (event.id.includes('__')) {
+        arg.revert()
+        notify('La modification d\'occurrences individuelles n\'est pas encore disponible', { type: 'warning' })
+        return
+      }
       const startAt = event.start?.toISOString()
       const endAt = event.end?.toISOString() || startAt
       dataProvider

@@ -12,6 +12,8 @@ final readonly class CreateEventCommand
         public ?string $description = null,
         public ?string $location = null,
         public string $timeZone = 'Europe/Paris',
+        public bool $allDay = false,
+        public ?string $rrule = null,
     ) {
     }
 }

@@ -7,7 +7,9 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined'
 import NotesOutlinedIcon from '@mui/icons-material/NotesOutlined'
+import RepeatIcon from '@mui/icons-material/Repeat'
 import ScheduleIcon from '@mui/icons-material/Schedule'
+import { rruleToFrenchText } from './recurrenceUtils'
 
 export interface PopoverEvent {
   id: string
@@ -19,7 +21,9 @@ export interface PopoverEvent {
   calendarName: string
   description?: string
   location?: string
-  status?: string
+  rrule?: string
+  masterEventId?: string
+  isVirtualOccurrence?: boolean
 }
 
 interface EventDetailPopoverProps {
@@ -85,16 +89,20 @@ export const EventDetailPopover = ({
     >
       {/* Header with actions */}
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', px: 1, pt: 0.5 }}>
-        <IconButton size="small" aria-label="Modifier">
-          <EditOutlinedIcon fontSize="small" />
-        </IconButton>
-        <IconButton
-          size="small"
-          aria-label="Supprimer"
-          onClick={() => onDelete(event.id)}
-        >
-          <DeleteOutlineIcon fontSize="small" />
-        </IconButton>
+        {!event.isVirtualOccurrence && (
+          <>
+            <IconButton size="small" aria-label="Modifier">
+              <EditOutlinedIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              size="small"
+              aria-label="Supprimer"
+              onClick={() => onDelete(event.id)}
+            >
+              <DeleteOutlineIcon fontSize="small" />
+            </IconButton>
+          </>
+        )}
         <IconButton size="small" onClick={onClose} aria-label="Fermer">
           <CloseIcon fontSize="small" />
         </IconButton>
@@ -126,6 +134,16 @@ export const EventDetailPopover = ({
             {formatDateTime(event.start, event.end, event.allDay)}
           </Typography>
         </Box>
+
+        {/* Recurrence */}
+        {event.rrule && (
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 1 }}>
+            <RepeatIcon sx={{ fontSize: 18, color: 'text.secondary', mt: 0.2 }} />
+            <Typography variant="body2" color="text.secondary">
+              {rruleToFrenchText(event.rrule)}
+            </Typography>
+          </Box>
+        )}
 
         {/* Location */}
         {event.location && (

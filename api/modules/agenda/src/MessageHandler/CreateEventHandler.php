@@ -33,12 +33,16 @@ class CreateEventHandler
         $event->setEndAt($command->endAt);
         $event->setTimeZone($command->timeZone);
         $event->setCalendar($calendar);
+        $event->setAllDay($command->allDay);
 
         if ($command->description !== null) {
             $event->setDescription($command->description);
         }
         if ($command->location !== null) {
             $event->setLocation($command->location);
+        }
+        if ($command->rrule !== null) {
+            $event->setRrule($command->rrule);
         }
 
         return $this->createEvent->execute($event);

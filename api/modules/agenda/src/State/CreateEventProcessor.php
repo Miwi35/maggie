@@ -27,6 +27,8 @@ class CreateEventProcessor implements ProcessorInterface
             description: $data->getDescription(),
             location: $data->getLocation(),
             timeZone: $data->getTimeZone(),
+            allDay: $data->isAllDay(),
+            rrule: $data->getRrule(),
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();

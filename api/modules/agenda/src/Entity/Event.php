@@ -2,6 +2,9 @@
 
 namespace Maggie\Agenda\Entity;
 
+use ApiPlatform\Doctrine\Orm\Filter\DateFilter;
+use ApiPlatform\Doctrine\Orm\Filter\ExistsFilter;
+use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
@@ -21,6 +24,8 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Entity(repositoryClass: EventRepository::class)]
 #[ORM\Index(columns: ['start_at', 'end_at'], name: 'idx_event_dates')]
 #[ORM\Index(columns: ['status'], name: 'idx_event_status')]
+#[ApiFilter(DateFilter::class, properties: ['startAt', 'endAt'])]
+#[ApiFilter(ExistsFilter::class, properties: ['rrule'])]
 #[ApiResource(operations: [
     new GetCollection(),
     new Get(),

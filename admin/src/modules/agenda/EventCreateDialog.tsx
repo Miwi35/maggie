@@ -10,6 +10,7 @@ import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
 import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
+import { RecurrencePicker } from './RecurrencePicker'
 
 interface Calendar {
   id: string
@@ -25,12 +26,6 @@ interface EventCreateDialogProps {
   defaultEnd?: Date
   defaultAllDay?: boolean
 }
-
-const STATUS_OPTIONS = [
-  { value: 'confirmed', label: 'Confirmé' },
-  { value: 'tentative', label: 'Provisoire' },
-  { value: 'cancelled', label: 'Annulé' },
-]
 
 const toLocalDatetime = (d: Date): string => {
   const pad = (n: number) => String(n).padStart(2, '0')
@@ -52,7 +47,7 @@ export const EventCreateDialog = ({ open, onClose, onCreated, defaultStart, defa
   const [endAt, setEndAt] = useState('')
   const [allDay, setAllDay] = useState(false)
   const [calendarId, setCalendarId] = useState('')
-  const [status, setStatus] = useState('confirmed')
+  const [rrule, setRrule] = useState<string | null>(null)
   const [summaryError, setSummaryError] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
@@ -101,7 +96,7 @@ export const EventCreateDialog = ({ open, onClose, onCreated, defaultStart, defa
       setEndAt('')
     }
     setSummary('')
-    setStatus('confirmed')
+    setRrule(null)
     setSummaryError(false)
   }, [open, defaultStart, defaultEnd, defaultAllDay]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -135,7 +130,7 @@ export const EventCreateDialog = ({ open, onClose, onCreated, defaultStart, defa
           endAt: endDate,
           allDay,
           calendar: calendarId,
-          status,
+          ...(rrule ? { rrule } : {}),
         },
       })
       .then(() => {
@@ -193,6 +188,11 @@ export const EventCreateDialog = ({ open, onClose, onCreated, defaultStart, defa
             required
             slotProps={{ inputLabel: { shrink: true } }}
           />
+          <RecurrencePicker
+            value={rrule}
+            onChange={setRrule}
+            eventStartDate={startAt ? new Date(startAt) : null}
+          />
           <TextField
             label="Calendrier"
             value={calendarId}
@@ -203,18 +203,6 @@ export const EventCreateDialog = ({ open, onClose, onCreated, defaultStart, defa
             {calendars.map((cal) => (
               <MenuItem key={cal.id} value={cal.id}>
                 {cal.name}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            label="Statut"
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            select
-          >
-            {STATUS_OPTIONS.map((opt) => (
-              <MenuItem key={opt.value} value={opt.value}>
-                {opt.label}
               </MenuItem>
             ))}
           </TextField>
