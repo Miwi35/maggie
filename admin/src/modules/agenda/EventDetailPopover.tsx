@@ -24,6 +24,7 @@ export interface PopoverEvent {
   rrule?: string
   masterEventId?: string
   isVirtualOccurrence?: boolean
+  calendarIri?: string
 }
 
 interface EventDetailPopoverProps {
@@ -89,20 +90,16 @@ export const EventDetailPopover = ({
     >
       {/* Header with actions */}
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', px: 1, pt: 0.5 }}>
-        {!event.isVirtualOccurrence && (
-          <>
-            <IconButton size="small" aria-label="Modifier">
-              <EditOutlinedIcon fontSize="small" />
-            </IconButton>
-            <IconButton
-              size="small"
-              aria-label="Supprimer"
-              onClick={() => onDelete(event.id)}
-            >
-              <DeleteOutlineIcon fontSize="small" />
-            </IconButton>
-          </>
-        )}
+        <IconButton size="small" aria-label="Modifier">
+          <EditOutlinedIcon fontSize="small" />
+        </IconButton>
+        <IconButton
+          size="small"
+          aria-label="Supprimer"
+          onClick={() => onDelete(event.id)}
+        >
+          <DeleteOutlineIcon fontSize="small" />
+        </IconButton>
         <IconButton size="small" onClick={onClose} aria-label="Fermer">
           <CloseIcon fontSize="small" />
         </IconButton>

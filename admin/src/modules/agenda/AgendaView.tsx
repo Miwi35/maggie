@@ -5,7 +5,14 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import ButtonGroup from '@mui/material/ButtonGroup'
 import Checkbox from '@mui/material/Checkbox'
+import Dialog from '@mui/material/Dialog'
+import DialogActions from '@mui/material/DialogActions'
+import DialogContent from '@mui/material/DialogContent'
+import DialogTitle from '@mui/material/DialogTitle'
+import FormControlLabel from '@mui/material/FormControlLabel'
 import IconButton from '@mui/material/IconButton'
+import Radio from '@mui/material/Radio'
+import RadioGroup from '@mui/material/RadioGroup'
 import Typography from '@mui/material/Typography'
 import AddIcon from '@mui/icons-material/Add'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
@@ -22,7 +29,7 @@ import { EventCreateDialog } from './EventCreateDialog'
 import { EventDetailPopover } from './EventDetailPopover'
 import type { PopoverEvent } from './EventDetailPopover'
 import { getCalendarThemeSx } from './calendarTheme'
-import { expandRrule } from './recurrenceUtils'
+import { addUntilToRrule, expandRrule } from './recurrenceUtils'
 
 const SIDEBAR_WIDTH = 230
 const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
@@ -47,6 +54,25 @@ interface AgendaEvent {
   rrule?: string
   recurringEvent?: string
   originalStartAt?: string
+  status?: string
+}
+
+type RecurrenceAction = 'this' | 'thisAndFollowing' | 'all'
+
+interface RecurrenceConfirm {
+  type: 'update' | 'delete'
+  eventId: string
+  masterEventId: string
+  occurrenceStart: string
+  calendarIri: string
+  summary: string
+  rrule: string
+  allDay: boolean
+  timeZone: string
+  // For updates only:
+  newStart?: string
+  newEnd?: string
+  newAllDay?: boolean
 }
 
 interface CalendarData {
@@ -311,6 +337,10 @@ export const AgendaView = () => {
   const [popoverEvent, setPopoverEvent] = useState<PopoverEvent | null>(null)
   const [popoverAnchorEl, setPopoverAnchorEl] = useState<HTMLElement | null>(null)
 
+  // Recurrence confirmation dialog state
+  const [recurrenceConfirm, setRecurrenceConfirm] = useState<RecurrenceConfirm | null>(null)
+  const [recurrenceAction, setRecurrenceAction] = useState<RecurrenceAction>('this')
+
   // --- Fetch calendars once ---
   useEffect(() => {
     dataProvider
@@ -383,41 +413,89 @@ export const AgendaView = () => {
     const rangeStart = activeRange?.start
     const rangeEnd = activeRange?.end
 
+    // First pass: build exception map  masterIRI → originalStartAt(epoch ms) → exception event
+    const exceptionMap = new Map<string, Map<number, AgendaEvent>>()
     for (const e of rawEvents) {
-      // Skip exception instances (they replace a virtual occurrence)
+      if (e.recurringEvent && e.originalStartAt) {
+        const key = e.recurringEvent
+        if (!exceptionMap.has(key)) exceptionMap.set(key, new Map())
+        exceptionMap.get(key)!.set(new Date(e.originalStartAt).getTime(), e)
+      }
+    }
+
+    // Second pass: expand events
+    for (const e of rawEvents) {
+      // Skip exception instances — they are rendered inline during master expansion
       if (e.recurringEvent) continue
 
       const calId = typeof e.calendar === 'string' ? e.calendar : ''
       const color = calendarColorMap.get(calId)
+      // Build the IRI for this event (used as key in exception map)
+      const eventIri = `/api/events/${e.id}`
 
       if (e.rrule && rangeStart && rangeEnd) {
-        // Expand recurring event into virtual occurrences
         const dtstart = new Date(e.startAt)
         const duration = new Date(e.endAt).getTime() - dtstart.getTime()
         const occurrences = expandRrule(e.rrule, dtstart, rangeStart, rangeEnd)
+        const exceptions = exceptionMap.get(eventIri)
 
         for (const occ of occurrences) {
-          const occEnd = new Date(occ.getTime() + duration)
-          const isoDate = occ.toISOString().slice(0, 10)
-          result.push({
-            id: `${e.id}__${isoDate}`,
-            title: e.summary,
-            start: occ.toISOString(),
-            end: occEnd.toISOString(),
-            allDay: e.allDay,
-            calendarId: calId,
-            backgroundColor: color,
-            borderColor: color,
-            extendedProps: {
-              description: e.description,
-              location: e.location,
+          const occTime = occ.getTime()
+          const exception = exceptions?.get(occTime)
 
+          if (exception) {
+            if (exception.status === 'cancelled') {
+              // Cancelled exception → skip this occurrence
+              continue
+            }
+            // Modified exception → render the exception as a real event
+            const excCalId = typeof exception.calendar === 'string' ? exception.calendar : calId
+            const excColor = calendarColorMap.get(excCalId) || color
+            result.push({
+              id: exception.id,
+              title: exception.summary,
+              start: exception.startAt,
+              end: exception.endAt,
+              allDay: exception.allDay,
+              calendarId: excCalId,
+              backgroundColor: excColor,
+              borderColor: excColor,
+              extendedProps: {
+                description: exception.description,
+                location: exception.location,
+                calendarId: excCalId,
+                calendarIri: exception.calendar,
+                isException: true,
+                masterEventId: e.id,
+              },
+            })
+          } else {
+            // No exception → render as virtual occurrence
+            const occEnd = new Date(occTime + duration)
+            const isoDate = occ.toISOString().slice(0, 10)
+            result.push({
+              id: `${e.id}__${isoDate}`,
+              title: e.summary,
+              start: occ.toISOString(),
+              end: occEnd.toISOString(),
+              allDay: e.allDay,
               calendarId: calId,
-              rrule: e.rrule,
-              masterEventId: e.id,
-              isVirtualOccurrence: true,
-            },
-          })
+              backgroundColor: color,
+              borderColor: color,
+              extendedProps: {
+                description: e.description,
+                location: e.location,
+                calendarId: calId,
+                calendarIri: e.calendar,
+                rrule: e.rrule,
+                masterEventId: e.id,
+                masterSummary: e.summary,
+                masterAllDay: e.allDay,
+                masterTimeZone: e.calendar,
+                isVirtualOccurrence: true,
+              },
+            })
+          }
         }
       } else {
         // Non-recurring event
@@ -434,6 +512,7 @@ export const AgendaView = () => {
             description: e.description,
             location: e.location,
             calendarId: calId,
+            calendarIri: e.calendar,
           },
         })
       }
@@ -511,45 +590,110 @@ export const AgendaView = () => {
         rrule: fcEvent.extendedProps.rrule,
         masterEventId: fcEvent.extendedProps.masterEventId,
         isVirtualOccurrence: fcEvent.extendedProps.isVirtualOccurrence,
+        calendarIri: fcEvent.extendedProps.calendarIri,
       })
       setPopoverAnchorEl(arg.el)
     },
     [calendarColorMap, calendarNameMap, theme.palette.primary.main],
   )
 
+  const refreshEvents = useCallback(() => {
+    if (dateRangeRef.current) {
+      fetchEvents(dateRangeRef.current.start, dateRangeRef.current.end)
+    }
+  }, [fetchEvents])
+
   const handleDeleteEvent = useCallback(
     (eventId: string) => {
-      // Virtual occurrences cannot be deleted individually
+      // Virtual occurrence → open recurrence confirmation dialog
       if (eventId.includes('__')) {
-        notify('La modification d\'occurrences individuelles n\'est pas encore disponible', { type: 'warning' })
+        if (!popoverEvent) return
+        const masterEventId = popoverEvent.masterEventId || eventId.split('__')[0]
+        setPopoverAnchorEl(null)
+        setPopoverEvent(null)
+        setRecurrenceAction('this')
+        setRecurrenceConfirm({
+          type: 'delete',
+          eventId,
+          masterEventId,
+          occurrenceStart: popoverEvent.start,
+          calendarIri: popoverEvent.calendarIri || '',
+          summary: popoverEvent.title,
+          rrule: popoverEvent.rrule || '',
+          allDay: popoverEvent.allDay,
+          timeZone: 'Europe/Paris',
+        })
         return
       }
+
+      // Check if this is a master recurring event
+      const rawEvent = rawEvents.find((e) => e.id === eventId)
+      if (rawEvent?.rrule) {
+        setPopoverAnchorEl(null)
+        setPopoverEvent(null)
+        setRecurrenceAction('all')
+        setRecurrenceConfirm({
+          type: 'delete',
+          eventId,
+          masterEventId: eventId,
+          occurrenceStart: rawEvent.startAt,
+          calendarIri: rawEvent.calendar,
+          summary: rawEvent.summary,
+          rrule: rawEvent.rrule,
+          allDay: rawEvent.allDay,
+          timeZone: 'Europe/Paris',
+        })
+        return
+      }
+
+      // Regular non-recurring event → delete directly
       setPopoverAnchorEl(null)
       setPopoverEvent(null)
       dataProvider
         .delete('events', { id: eventId, previousData: { id: eventId } })
         .then(() => {
           notify('Événement supprimé', { type: 'success' })
-          if (dateRangeRef.current) {
-            fetchEvents(dateRangeRef.current.start, dateRangeRef.current.end)
-          }
+          refreshEvents()
         })
         .catch((error: Error) => {
           notify(`Erreur: ${error.message}`, { type: 'error' })
         })
     },
-    [dataProvider, fetchEvents, notify],
+    [dataProvider, refreshEvents, notify, popoverEvent, rawEvents],
   )
 
   const handleEventUpdate = useCallback(
     (arg: EventDropArg | EventResizeDoneArg) => {
       const { event } = arg
-      // Virtual occurrences cannot be moved/resized individually
-      if (event.id.includes('__')) {
+      const isVirtual = event.extendedProps.isVirtualOccurrence
+
+      if (isVirtual) {
+        // Revert the visual drag, then open the confirmation dialog
+        const newStart = event.start?.toISOString() || ''
+        const newEnd = event.end?.toISOString() || newStart
+        const newAllDay = event.allDay
+        const oldStart = 'oldEvent' in arg ? (arg as EventDropArg).oldEvent.start?.toISOString() || '' : ''
         arg.revert()
-        notify('La modification d\'occurrences individuelles n\'est pas encore disponible', { type: 'warning' })
+
+        const masterEventId = event.extendedProps.masterEventId || event.id.split('__')[0]
+        setRecurrenceAction('this')
+        setRecurrenceConfirm({
+          type: 'update',
+          eventId: event.id,
+          masterEventId,
+          occurrenceStart: oldStart || newStart,
+          calendarIri: event.extendedProps.calendarIri || '',
+          summary: event.title,
+          rrule: event.extendedProps.rrule || '',
+          allDay: event.extendedProps.masterAllDay ?? event.allDay,
+          timeZone: 'Europe/Paris',
+          newStart,
+          newEnd,
+          newAllDay,
+        })
         return
       }
+
       const startAt = event.start?.toISOString()
       const endAt = event.end?.toISOString() || startAt
       dataProvider
@@ -568,6 +712,106 @@ export const AgendaView = () => {
     },
     [dataProvider, notify],
   )
+
+  const handleRecurrenceConfirm = useCallback(async () => {
+    if (!recurrenceConfirm) return
+    const { type, masterEventId, occurrenceStart, calendarIri, summary, rrule, allDay, timeZone } = recurrenceConfirm
+    const action = recurrenceAction
+
+    try {
+      if (type === 'delete') {
+        if (action === 'this') {
+          // Create cancelled exception
+          await dataProvider.create('events', {
+            data: {
+              summary,
+              startAt: occurrenceStart,
+              endAt: occurrenceStart,
+              allDay,
+              timeZone,
+              calendar: calendarIri,
+              recurringEvent: `/api/events/${masterEventId}`,
+              originalStartAt: occurrenceStart,
+              status: 'cancelled',
+            },
+          })
+          notify('Occurrence supprimée', { type: 'success' })
+        } else if (action === 'thisAndFollowing') {
+          // Truncate master rrule with UNTIL before this occurrence
+          const newRrule = addUntilToRrule(rrule, new Date(occurrenceStart))
+          await dataProvider.update('events', {
+            id: masterEventId,
+            data: { rrule: newRrule },
+            previousData: { id: masterEventId },
+          })
+          notify('Occurrences futures supprimées', { type: 'success' })
+        } else {
+          // Delete master event (cascade deletes exceptions)
+          await dataProvider.delete('events', {
+            id: masterEventId,
+            previousData: { id: masterEventId },
+          })
+          notify('Événement récurrent supprimé', { type: 'success' })
+        }
+      } else {
+        // type === 'update'
+        const { newStart, newEnd, newAllDay } = recurrenceConfirm
+
+        if (action === 'this') {
+          // Create exception instance with new times
+          await dataProvider.create('events', {
+            data: {
+              summary,
+              startAt: newStart,
+              endAt: newEnd,
+              allDay: newAllDay ?? allDay,
+              timeZone,
+              calendar: calendarIri,
+              recurringEvent: `/api/events/${masterEventId}`,
+              originalStartAt: occurrenceStart,
+              status: 'confirmed',
+            },
+          })
+          notify('Occurrence modifiée', { type: 'success' })
+        } else if (action === 'thisAndFollowing') {
+          // Truncate master rrule, then create a new recurring event from this point
+          const newRrule = addUntilToRrule(rrule, new Date(occurrenceStart))
+          await dataProvider.update('events', {
+            id: masterEventId,
+            data: { rrule: newRrule },
+            previousData: { id: masterEventId },
+          })
+          // Create new recurring event starting at the new time
+          await dataProvider.create('events', {
+            data: {
+              summary,
+              startAt: newStart,
+              endAt: newEnd,
+              allDay: newAllDay ?? allDay,
+              timeZone,
+              calendar: calendarIri,
+              rrule,
+            },
+          })
+          notify('Série modifiée', { type: 'success' })
+        } else {
+          // Update master event times (shifts all occurrences)
+          await dataProvider.update('events', {
+            id: masterEventId,
+            data: { startAt: newStart, endAt: newEnd, allDay: newAllDay ?? allDay },
+            previousData: { id: masterEventId },
+          })
+          notify('Événement récurrent modifié', { type: 'success' })
+        }
+      }
+
+      refreshEvents()
+    } catch (error) {
+      notify(`Erreur: ${(error as Error).message}`, { type: 'error' })
+    } finally {
+      setRecurrenceConfirm(null)
+    }
+  }, [recurrenceConfirm, recurrenceAction, dataProvider, notify, refreshEvents])
 
   const handleCreated = useCallback(() => {
     if (dateRangeRef.current) {
@@ -888,6 +1132,36 @@ export const AgendaView = () => {
         }}
         onDelete={handleDeleteEvent}
       />
+
+      {/* Recurrence confirmation dialog */}
+      <Dialog
+        open={recurrenceConfirm !== null}
+        onClose={() => setRecurrenceConfirm(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>
+          {recurrenceConfirm?.type === 'delete'
+            ? "Supprimer l'événement récurrent"
+            : "Modifier l'événement récurrent"}
+        </DialogTitle>
+        <DialogContent>
+          <RadioGroup
+            value={recurrenceAction}
+            onChange={(e) => setRecurrenceAction(e.target.value as RecurrenceAction)}
+          >
+            <FormControlLabel value="this" control={<Radio />} label="Cet événement" />
+            <FormControlLabel value="thisAndFollowing" control={<Radio />} label="Cet événement et tous les suivants" />
+            <FormControlLabel value="all" control={<Radio />} label="Tous les événements" />
+          </RadioGroup>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRecurrenceConfirm(null)}>Annuler</Button>
+          <Button onClick={handleRecurrenceConfirm} variant="contained">
+            OK
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

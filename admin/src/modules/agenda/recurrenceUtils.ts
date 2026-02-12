@@ -122,4 +122,23 @@ export const buildRruleString = (opts: {
   return parts.join(';')
 }
 
+/**
+ * Truncate an RRULE at a given date by adding an UNTIL clause.
+ * Removes any existing UNTIL or COUNT to avoid conflicts.
+ * The UNTIL is set to 23:59:59 UTC on the day before `beforeDate`.
+ */
+export const addUntilToRrule = (rruleString: string, beforeDate: Date): string => {
+  const parts = rruleString
+    .split(';')
+    .filter((p) => !p.startsWith('UNTIL=') && !p.startsWith('COUNT='))
+
+  const day = new Date(beforeDate)
+  day.setDate(day.getDate() - 1)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const until = `${day.getFullYear()}${pad(day.getMonth() + 1)}${pad(day.getDate())}T235959Z`
+
+  parts.push(`UNTIL=${until}`)
+  return parts.join(';')
+}
+
 export { RRule }

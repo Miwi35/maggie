@@ -39,6 +39,12 @@ class UpdateEventHandler
         if ($command->endAt !== null) {
             $event->setEndAt($command->endAt);
         }
+        if ($command->allDay !== null) {
+            $event->setAllDay($command->allDay);
+        }
+        if ($command->rrule !== null) {
+            $event->setRrule($command->rrule);
+        }
 
         return $this->updateEvent->execute($event);
     }

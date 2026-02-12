@@ -3,8 +3,10 @@
 namespace Maggie\Agenda\MessageHandler;
 
 use Maggie\Agenda\Entity\Event;
+use Maggie\Agenda\Entity\EventStatus;
 use Maggie\Agenda\Message\CreateEventCommand;
 use Maggie\Agenda\Repository\CalendarRepository;
+use Maggie\Agenda\Repository\EventRepository;
 use Maggie\Agenda\UseCase\CreateEvent;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -14,6 +16,7 @@ class CreateEventHandler
     public function __construct(
         private readonly CreateEvent $createEvent,
         private readonly CalendarRepository $calendarRepository,
+        private readonly EventRepository $eventRepository,
     ) {
     }
 
@@ -43,6 +46,18 @@ class CreateEventHandler
         }
         if ($command->rrule !== null) {
             $event->setRrule($command->rrule);
+        }
+        if ($command->recurringEventId !== null) {
+            $recurringEvent = $this->eventRepository->find($command->recurringEventId);
+            if ($recurringEvent !== null) {
+                $event->setRecurringEvent($recurringEvent);
+            }
+        }
+        if ($command->originalStartAt !== null) {
+            $event->setOriginalStartAt($command->originalStartAt);
+        }
+        if ($command->status !== null) {
+            $event->setStatus(EventStatus::from($command->status));
         }
 
         return $this->createEvent->execute($event);

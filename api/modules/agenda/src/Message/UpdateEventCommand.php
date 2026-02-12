@@ -11,6 +11,8 @@ final readonly class UpdateEventCommand
         public ?\DateTimeImmutable $endAt = null,
         public ?string $description = null,
         public ?string $location = null,
+        public ?bool $allDay = null,
+        public ?string $rrule = null,
     ) {
     }
 }

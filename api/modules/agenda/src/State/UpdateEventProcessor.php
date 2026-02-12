@@ -26,6 +26,8 @@ class UpdateEventProcessor implements ProcessorInterface
             endAt: $data->getEndAt(),
             description: $data->getDescription(),
             location: $data->getLocation(),
+            allDay: $data->isAllDay(),
+            rrule: $data->getRrule(),
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();

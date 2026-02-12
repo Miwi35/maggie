@@ -29,6 +29,9 @@ class CreateEventProcessor implements ProcessorInterface
             timeZone: $data->getTimeZone(),
             allDay: $data->isAllDay(),
             rrule: $data->getRrule(),
+            recurringEventId: $data->getRecurringEvent()?->getId()?->toRfc4122(),
+            originalStartAt: $data->getOriginalStartAt(),
+            status: $data->getStatus()->value,
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();

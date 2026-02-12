@@ -14,6 +14,9 @@ final readonly class CreateEventCommand
         public string $timeZone = 'Europe/Paris',
         public bool $allDay = false,
         public ?string $rrule = null,
+        public ?string $recurringEventId = null,
+        public ?\DateTimeImmutable $originalStartAt = null,
+        public ?string $status = null,
     ) {
     }
 }
