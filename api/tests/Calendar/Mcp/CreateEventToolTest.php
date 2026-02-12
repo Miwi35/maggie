@@ -2,20 +2,18 @@
 
 namespace App\Tests\Calendar\Mcp;
 
-use Maggie\Calendar\Entity\Agenda;
+use App\Tests\Support\FixtureLoaderTrait;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Mcp\Tool\CreateEventTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 class CreateEventToolTest extends KernelTestCase
 {
+    use FixtureLoaderTrait;
+
     protected function setUp(): void
     {
         self::bootKernel();
-
-        $em = self::getContainer()->get('doctrine.orm.entity_manager');
-        $em->createQuery('DELETE FROM ' . Event::class)->execute();
-        $em->createQuery('DELETE FROM ' . Agenda::class)->execute();
     }
 
     private function getTool(): CreateEventTool
@@ -25,14 +23,7 @@ class CreateEventToolTest extends KernelTestCase
 
     public function testCreateEventPersistsToDatabase(): void
     {
-        $em = self::getContainer()->get('doctrine.orm.entity_manager');
-
-        // Create a default agenda
-        $agenda = new Agenda();
-        $agenda->setName('Main');
-        $agenda->setIsDefault(true);
-        $em->persist($agenda);
-        $em->flush();
+        $this->loadFixtures('CreateEventToolTest.yaml');
 
         $tool = $this->getTool();
 
@@ -45,8 +36,8 @@ class CreateEventToolTest extends KernelTestCase
         self::assertSame('Main', $data['event']['agenda']);
 
         // Verify event is persisted
-        $eventRepo = $em->getRepository(Event::class);
-        $events = $eventRepo->findAll();
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $events = $em->getRepository(Event::class)->findAll();
         self::assertCount(1, $events);
         self::assertSame('Team standup', $events[0]->getSummary());
         self::assertSame('Daily sync', $events[0]->getDescription());
@@ -55,6 +46,8 @@ class CreateEventToolTest extends KernelTestCase
 
     public function testCreateEventReturnsErrorWithoutDefaultAgenda(): void
     {
+        $this->purgeDatabase();
+
         $tool = $this->getTool();
 
         $result = $tool('Event without calendar', '2026-03-20');
@@ -67,13 +60,7 @@ class CreateEventToolTest extends KernelTestCase
 
     public function testCreateEventUsesDefaultDuration(): void
     {
-        $em = self::getContainer()->get('doctrine.orm.entity_manager');
-
-        $agenda = new Agenda();
-        $agenda->setName('Default');
-        $agenda->setIsDefault(true);
-        $em->persist($agenda);
-        $em->flush();
+        $this->loadFixtures('CreateEventToolTest.yaml');
 
         $tool = $this->getTool();
 

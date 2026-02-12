@@ -1,0 +1,51 @@
+Maggie\Calendar\Entity\Agenda:
+  test_agenda:
+    name: Test Agenda
+    isDefault: true
+
+Maggie\Calendar\Entity\Event:
+  event_in_range:
+    summary: In range
+    startAt: '<(new \DateTimeImmutable("2026-03-15 10:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-03-15 11:00"))>'
+    agenda: '@test_agenda'
+
+  event_out_of_range:
+    summary: Out of range
+    startAt: '<(new \DateTimeImmutable("2026-04-01 10:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-04-01 11:00"))>'
+    agenda: '@test_agenda'
+
+  event_cancelled:
+    summary: Cancelled
+    startAt: '<(new \DateTimeImmutable("2026-03-15 14:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-03-15 15:00"))>'
+    status: '<(Maggie\Calendar\Entity\EventStatus::Cancelled)>'
+    agenda: '@test_agenda'
+
+  event_recurring:
+    summary: Weekly meeting
+    startAt: '<(new \DateTimeImmutable("2026-01-06 09:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-01-06 10:00"))>'
+    rrule: FREQ=WEEKLY
+    agenda: '@test_agenda'
+
+  event_exception:
+    summary: Modified meeting
+    startAt: '<(new \DateTimeImmutable("2026-01-13 10:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-01-13 11:00"))>'
+    originalStartAt: '<(new \DateTimeImmutable("2026-01-13 09:00"))>'
+    recurringEvent: '@event_recurring'
+    agenda: '@test_agenda'
+
+  event_soon:
+    summary: Soon
+    startAt: '<(new \DateTimeImmutable("tomorrow 10:00"))>'
+    endAt: '<(new \DateTimeImmutable("tomorrow 11:00"))>'
+    agenda: '@test_agenda'
+
+  event_far_future:
+    summary: Far away
+    startAt: '<(new \DateTimeImmutable("+60 days 10:00"))>'
+    endAt: '<(new \DateTimeImmutable("+60 days 11:00"))>'
+    agenda: '@test_agenda'

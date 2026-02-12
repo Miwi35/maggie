@@ -2,59 +2,24 @@
 
 namespace App\Tests\Api;
 
-use Maggie\Calendar\Entity\Agenda;
-use Maggie\Calendar\Entity\Event;
+use App\Tests\Support\FixtureLoaderTrait;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
 class EventApiTest extends WebTestCase
 {
+    use FixtureLoaderTrait;
+
     private KernelBrowser $client;
 
     protected function setUp(): void
     {
         $this->client = self::createClient();
-
-        $em = self::getContainer()->get('doctrine.orm.entity_manager');
-
-        // Clean tables
-        $em->createQuery('DELETE FROM ' . Event::class)->execute();
-        $em->createQuery('DELETE FROM ' . Agenda::class)->execute();
-    }
-
-    private function createAgenda(): Agenda
-    {
-        $agenda = new Agenda();
-        $agenda->setName('Test Agenda');
-        $agenda->setIsDefault(true);
-
-        $em = self::getContainer()->get('doctrine.orm.entity_manager');
-        $em->persist($agenda);
-        $em->flush();
-
-        return $agenda;
-    }
-
-    private function createEvent(Agenda $agenda, string $summary = 'Test Event'): Event
-    {
-        $event = new Event();
-        $event->setSummary($summary);
-        $event->setStartAt(new \DateTimeImmutable('2026-03-15 10:00'));
-        $event->setEndAt(new \DateTimeImmutable('2026-03-15 11:00'));
-        $event->setAgenda($agenda);
-
-        $em = self::getContainer()->get('doctrine.orm.entity_manager');
-        $em->persist($event);
-        $em->flush();
-
-        return $event;
     }
 
     public function testGetEventCollection(): void
     {
-        $agenda = $this->createAgenda();
-        $this->createEvent($agenda, 'Event 1');
-        $this->createEvent($agenda, 'Event 2');
+        $this->loadFixtures('EventApiTest.yaml');
 
         $this->client->request('GET', '/api/events', [], [], ['HTTP_ACCEPT' => 'application/ld+json']);
 
@@ -68,20 +33,23 @@ class EventApiTest extends WebTestCase
 
     public function testGetSingleEvent(): void
     {
-        $agenda = $this->createAgenda();
-        $event = $this->createEvent($agenda, 'My Event');
+        $this->loadFixtures('EventApiTest.yaml');
+
+        $event = $this->getFixture('event_1');
 
         $this->client->request('GET', '/api/events/' . $event->getId(), [], [], ['HTTP_ACCEPT' => 'application/ld+json']);
 
         self::assertResponseIsSuccessful();
 
         $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
-        self::assertSame('My Event', $data['summary']);
+        self::assertSame('Event 1', $data['summary']);
     }
 
     public function testCreateEvent(): void
     {
-        $agenda = $this->createAgenda();
+        $this->loadFixtures('EventApiTest.yaml');
+
+        $agenda = $this->getFixture('test_agenda');
 
         $this->client->request('POST', '/api/events', [], [], [
             'CONTENT_TYPE' => 'application/ld+json',
@@ -101,7 +69,9 @@ class EventApiTest extends WebTestCase
 
     public function testCreateEventValidationError(): void
     {
-        $agenda = $this->createAgenda();
+        $this->loadFixtures('EventApiTest.yaml');
+
+        $agenda = $this->getFixture('test_agenda');
 
         $this->client->request('POST', '/api/events', [], [], [
             'CONTENT_TYPE' => 'application/ld+json',

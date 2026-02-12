@@ -1,0 +1,23 @@
+Maggie\Calendar\Entity\Task:
+  task_pending:
+    name: Pending task
+    priority: '<(Maggie\Calendar\Entity\TaskPriority::Medium)>'
+    criticality: '<(Maggie\Calendar\Entity\TaskCriticality::Low)>'
+
+  task_done:
+    name: Done task
+    priority: '<(Maggie\Calendar\Entity\TaskPriority::Medium)>'
+    criticality: '<(Maggie\Calendar\Entity\TaskCriticality::Low)>'
+    doneDate: '<(new \DateTimeImmutable())>'
+
+  task_overdue:
+    name: Overdue task
+    priority: '<(Maggie\Calendar\Entity\TaskPriority::Medium)>'
+    criticality: '<(Maggie\Calendar\Entity\TaskCriticality::Low)>'
+    dueDate: '<(new \DateTimeImmutable("-2 days"))>'
+
+  task_future:
+    name: Future task
+    priority: '<(Maggie\Calendar\Entity\TaskPriority::High)>'
+    criticality: '<(Maggie\Calendar\Entity\TaskCriticality::Critical)>'
+    dueDate: '<(new \DateTimeImmutable("+3 days"))>'

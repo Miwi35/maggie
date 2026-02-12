@@ -1,0 +1,4 @@
+Maggie\Calendar\Entity\Agenda:
+  default_agenda:
+    name: Main
+    isDefault: true
