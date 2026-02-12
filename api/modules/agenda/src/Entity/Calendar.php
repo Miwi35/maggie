@@ -17,7 +17,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
-use Symfony\Component\Uid\Uuid;
+use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: CalendarRepository::class)]
@@ -31,8 +31,8 @@ use Symfony\Component\Validator\Constraints as Assert;
 class Calendar implements MercurePublishable
 {
     #[ORM\Id]
-    #[ORM\Column(type: 'uuid')]
-    private Uuid $id;
+    #[ORM\Column(type: 'ulid')]
+    private Ulid $id;
 
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank]
@@ -56,11 +56,11 @@ class Calendar implements MercurePublishable
 
     public function __construct()
     {
-        $this->id = Uuid::v7();
+        $this->id = new Ulid();
         $this->events = new ArrayCollection();
     }
 
-    public function getId(): Uuid
+    public function getId(): Ulid
     {
         return $this->id;
     }

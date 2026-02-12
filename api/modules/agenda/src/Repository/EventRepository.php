@@ -75,7 +75,7 @@ class EventRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('e')
             ->where('e.recurringEvent = :parent')
-            ->setParameter('parent', $recurringEvent)
+            ->setParameter('parent', $recurringEvent->getId(), 'ulid')
             ->getQuery()
             ->getResult();
     }

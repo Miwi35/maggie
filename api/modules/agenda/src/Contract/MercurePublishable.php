@@ -2,11 +2,11 @@
 
 namespace Maggie\Agenda\Contract;
 
-use Symfony\Component\Uid\Uuid;
+use Symfony\Component\Uid\Ulid;
 
 interface MercurePublishable
 {
-    public function getId(): Uuid;
+    public function getId(): Ulid;
 
     /** @return array<string, mixed> */
     public function toMercurePayload(): array;

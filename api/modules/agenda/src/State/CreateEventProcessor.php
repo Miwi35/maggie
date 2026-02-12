@@ -29,7 +29,7 @@ class CreateEventProcessor implements ProcessorInterface
             timeZone: $data->getTimeZone(),
             allDay: $data->isAllDay(),
             rrule: $data->getRrule(),
-            recurringEventId: $data->getRecurringEvent()?->getId()?->toRfc4122(),
+            recurringEventId: (string) $data->getRecurringEvent()?->getId(),
             originalStartAt: $data->getOriginalStartAt(),
             status: $data->getStatus()->value,
         ));

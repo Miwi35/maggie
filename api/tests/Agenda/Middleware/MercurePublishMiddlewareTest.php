@@ -18,7 +18,7 @@ use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Middleware\MiddlewareInterface;
 use Symfony\Component\Messenger\Middleware\StackInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
-use Symfony\Component\Uid\Uuid;
+use Symfony\Component\Uid\Ulid;
 
 class MercurePublishMiddlewareTest extends TestCase
 {
@@ -32,7 +32,7 @@ class MercurePublishMiddlewareTest extends TestCase
         $this->hub = $this->createMock(HubInterface::class);
         $this->hub->method('publish')->willReturnCallback(function (Update $update) {
             $this->publishedUpdates[] = $update;
-            return 'urn:uuid:' . Uuid::v7();
+            return 'urn:uuid:' . new Ulid();
         });
     }
 
@@ -91,7 +91,7 @@ class MercurePublishMiddlewareTest extends TestCase
 
     public function testDeleteEventPublishesToMercure(): void
     {
-        $eventId = (string) Uuid::v7();
+        $eventId = (string) new Ulid();
 
         $middleware = new MercurePublishMiddleware($this->hub);
         $envelope = new Envelope(new DeleteEventCommand(eventId: $eventId));
@@ -139,7 +139,7 @@ class MercurePublishMiddlewareTest extends TestCase
 
     public function testDeleteCalendarPublishesToMercure(): void
     {
-        $calendarId = (string) Uuid::v7();
+        $calendarId = (string) new Ulid();
 
         $middleware = new MercurePublishMiddleware($this->hub);
         $envelope = new Envelope(new DeleteCalendarCommand(calendarId: $calendarId));

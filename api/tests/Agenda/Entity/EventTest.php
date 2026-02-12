@@ -6,7 +6,7 @@ use Maggie\Agenda\Entity\Calendar;
 use Maggie\Agenda\Entity\Event;
 use Maggie\Agenda\Entity\EventStatus;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Uid\Uuid;
+use Symfony\Component\Uid\Ulid;
 
 class EventTest extends TestCase
 {
@@ -81,10 +81,10 @@ class EventTest extends TestCase
         self::assertSame('Europe/Paris', $event->getTimeZone());
     }
 
-    public function testIdIsUuidV7(): void
+    public function testIdIsUlid(): void
     {
         $event = new Event();
 
-        self::assertInstanceOf(Uuid::class, $event->getId());
+        self::assertInstanceOf(Ulid::class, $event->getId());
     }
 }
