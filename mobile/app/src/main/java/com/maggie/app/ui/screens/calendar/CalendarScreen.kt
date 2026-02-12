@@ -15,7 +15,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.kizitonwose.calendar.compose.ContentHeightMode
 import com.kizitonwose.calendar.compose.HorizontalCalendar
@@ -24,6 +26,7 @@ import com.kizitonwose.calendar.core.CalendarDay
 import com.kizitonwose.calendar.core.DayPosition
 import com.kizitonwose.calendar.core.daysOfWeek
 import com.maggie.app.data.model.Event
+import com.maggie.app.data.model.Task
 import org.koin.androidx.compose.koinViewModel
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -35,6 +38,13 @@ import java.time.format.TextStyle
 import java.util.Locale
 
 private val frenchLocale = Locale.FRENCH
+
+private val criticalityColors = mapOf(
+    "low" to Color(0xFF4CAF50),
+    "medium" to Color(0xFFFF9800),
+    "high" to Color(0xFFF44336),
+    "critical" to Color(0xFF9C27B0),
+)
 
 @Composable
 fun CalendarScreen(viewModel: CalendarViewModel = koinViewModel()) {
@@ -92,6 +102,7 @@ fun CalendarScreen(viewModel: CalendarViewModel = koinViewModel()) {
                         day = day,
                         isSelected = day.date == uiState.selectedDate,
                         hasEvents = uiState.eventsByDate.containsKey(day.date),
+                        hasTasks = uiState.tasksByDate.containsKey(day.date),
                         onClick = { viewModel.selectDate(day.date) },
                     )
                 },
@@ -101,7 +112,7 @@ fun CalendarScreen(viewModel: CalendarViewModel = koinViewModel()) {
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
-        // Events for selected day
+        // Events + tasks for selected day
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -120,7 +131,8 @@ fun CalendarScreen(viewModel: CalendarViewModel = koinViewModel()) {
                 }
                 else -> {
                     val dayEvents = uiState.eventsByDate[uiState.selectedDate].orEmpty()
-                    if (dayEvents.isEmpty()) {
+                    val dayTasks = uiState.tasksByDate[uiState.selectedDate].orEmpty()
+                    if (dayEvents.isEmpty() && dayTasks.isEmpty()) {
                         Text(
                             text = "Aucun événement ce jour",
                             modifier = Modifier.align(Alignment.Center),
@@ -131,6 +143,9 @@ fun CalendarScreen(viewModel: CalendarViewModel = koinViewModel()) {
                             contentPadding = PaddingValues(16.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
+                            items(dayTasks) { task ->
+                                TaskCard(task)
+                            }
                             items(dayEvents) { event ->
                                 EventCard(event)
                             }
@@ -167,6 +182,7 @@ private fun DayCell(
     day: CalendarDay,
     isSelected: Boolean,
     hasEvents: Boolean,
+    hasTasks: Boolean,
     onClick: () -> Unit,
 ) {
     val isCurrentMonth = day.position == DayPosition.MonthDate
@@ -203,16 +219,31 @@ private fun DayCell(
                     else -> MaterialTheme.colorScheme.onSurface
                 },
             )
-            if (hasEvents && isCurrentMonth) {
-                Box(
-                    modifier = Modifier
-                        .size(4.dp)
-                        .background(
-                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary
-                            else MaterialTheme.colorScheme.primary,
-                            shape = CircleShape,
-                        ),
-                )
+            if ((hasEvents || hasTasks) && isCurrentMonth) {
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    if (hasEvents) {
+                        Box(
+                            modifier = Modifier
+                                .size(4.dp)
+                                .background(
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                                    else MaterialTheme.colorScheme.primary,
+                                    shape = CircleShape,
+                                ),
+                        )
+                    }
+                    if (hasTasks) {
+                        Box(
+                            modifier = Modifier
+                                .size(4.dp)
+                                .background(
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                                    else MaterialTheme.colorScheme.tertiary,
+                                    shape = CircleShape,
+                                ),
+                        )
+                    }
+                }
             }
         }
     }
@@ -255,6 +286,59 @@ fun EventCard(event: Event) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun TaskCard(task: Task) {
+    val critColor = criticalityColors[task.criticality] ?: criticalityColors["low"]!!
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (task.isDone)
+                MaterialTheme.colorScheme.surfaceVariant
+            else
+                MaterialTheme.colorScheme.surface,
+        ),
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .background(critColor, CircleShape),
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = task.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    textDecoration = if (task.isDone) TextDecoration.LineThrough else null,
+                )
+                task.description?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = task.priority.replaceFirstChar { it.uppercase() },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = task.criticality.replaceFirstChar { it.uppercase() },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = critColor,
+                    )
+                }
             }
         }
     }

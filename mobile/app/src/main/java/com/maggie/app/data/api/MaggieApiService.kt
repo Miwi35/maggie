@@ -36,10 +36,21 @@ class MaggieApiService {
         }
     }
 
-    suspend fun getEvents(): List<com.maggie.app.data.model.Event> {
+    suspend fun getEvents(
+        afterDate: String? = null,
+        beforeDate: String? = null,
+    ): List<com.maggie.app.data.model.Event> {
         return client.get("$baseUrl/api/events") {
             accept(ContentType("application", "ld+json"))
+            afterDate?.let { url.parameters.append("startAt[after]", it) }
+            beforeDate?.let { url.parameters.append("endAt[before]", it) }
         }.body<ApiCollection<com.maggie.app.data.model.Event>>().member
+    }
+
+    suspend fun getTasks(): List<com.maggie.app.data.model.Task> {
+        return client.get("$baseUrl/api/tasks") {
+            accept(ContentType("application", "ld+json"))
+        }.body<ApiCollection<com.maggie.app.data.model.Task>>().member
     }
 
     suspend fun sendChat(message: String): ChatResponse {

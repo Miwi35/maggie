@@ -1,0 +1,58 @@
+<?php
+
+namespace Maggie\Calendar\Mcp\Tool;
+
+use Maggie\Calendar\Entity\Task;
+use Maggie\Calendar\Message\CreateTaskCommand;
+use Mcp\Capability\Attribute\McpTool;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\HandledStamp;
+
+#[McpTool(name: 'create_task', description: 'Create a new task. Priority: low/medium/high. Criticality: low/medium/high/critical. Due date format: YYYY-MM-DD.')]
+class CreateTaskTool
+{
+    public function __construct(
+        private readonly MessageBusInterface $bus,
+    ) {
+    }
+
+    public function __invoke(
+        string $name,
+        ?string $description = null,
+        string $priority = 'medium',
+        string $criticality = 'low',
+        ?string $dueDate = null,
+    ): string {
+        try {
+            $dueDateObj = $dueDate !== null
+                ? new \DateTimeImmutable($dueDate, new \DateTimeZone('Europe/Paris'))
+                : null;
+
+            $envelope = $this->bus->dispatch(new CreateTaskCommand(
+                name: $name,
+                description: $description,
+                priority: $priority,
+                criticality: $criticality,
+                dueDate: $dueDateObj,
+            ));
+
+            /** @var Task $task */
+            $task = $envelope->last(HandledStamp::class)->getResult();
+
+            return json_encode([
+                'success' => true,
+                'task' => [
+                    'id' => (string) $task->getId(),
+                    'name' => $task->getName(),
+                    'priority' => $task->getPriority()->value,
+                    'criticality' => $task->getCriticality()->value,
+                    'dueDate' => $task->getDueDate()?->format('c'),
+                ],
+            ], JSON_THROW_ON_ERROR);
+        } catch (HandlerFailedException $e) {
+            $cause = $e->getPrevious() ?? $e;
+            return json_encode(['error' => $cause->getMessage()], JSON_THROW_ON_ERROR);
+        }
+    }
+}

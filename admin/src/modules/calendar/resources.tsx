@@ -10,5 +10,6 @@ export const calendarResources = (
     </CustomRoutes>
     <ResourceGuesser name="agendas" />
     <ResourceGuesser name="events" />
+    <ResourceGuesser name="tasks" />
   </>
 )

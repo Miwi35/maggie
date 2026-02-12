@@ -31,6 +31,7 @@ interface EventDetailPopoverProps {
   event: PopoverEvent | null
   anchorEl: HTMLElement | null
   onClose: () => void
+  onEdit: (eventId: string) => void
   onDelete: (eventId: string) => void
 }
 
@@ -66,6 +67,7 @@ export const EventDetailPopover = ({
   event,
   anchorEl,
   onClose,
+  onEdit,
   onDelete,
 }: EventDetailPopoverProps) => {
   if (!event) return null
@@ -90,7 +92,7 @@ export const EventDetailPopover = ({
     >
       {/* Header with actions */}
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', px: 1, pt: 0.5 }}>
-        <IconButton size="small" aria-label="Modifier">
+        <IconButton size="small" aria-label="Modifier" onClick={() => onEdit(event.id)}>
           <EditOutlinedIcon fontSize="small" />
         </IconButton>
         <IconButton

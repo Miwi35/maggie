@@ -3,6 +3,7 @@ package com.maggie.app.ui.screens.calendar
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.repository.EventRepository
+import com.maggie.app.data.repository.TaskRepository
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -25,14 +26,18 @@ import java.time.LocalDate
 class CalendarViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var repository: EventRepository
+    private lateinit var taskRepository: TaskRepository
     private lateinit var mercureService: MercureService
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         repository = mockk()
+        taskRepository = mockk()
         mercureService = mockk()
         every { mercureService.subscribe(any()) } returns emptyFlow()
+        every { taskRepository.observeTasks() } returns flowOf(emptyList())
+        coEvery { taskRepository.refreshTasks() } returns Result.success(emptyList())
     }
 
     @After
@@ -50,7 +55,7 @@ class CalendarViewModelTest {
         every { repository.observeEvents() } returns flowOf(events)
         coEvery { repository.refreshEvents() } returns Result.success(events)
 
-        val viewModel = CalendarViewModel(repository, mercureService)
+        val viewModel = CalendarViewModel(repository, taskRepository, mercureService)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
@@ -72,7 +77,7 @@ class CalendarViewModelTest {
         every { repository.observeEvents() } returns flowOf(emptyList())
         coEvery { repository.refreshEvents() } returns Result.failure(RuntimeException("Network error"))
 
-        val viewModel = CalendarViewModel(repository, mercureService)
+        val viewModel = CalendarViewModel(repository, taskRepository, mercureService)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
@@ -86,7 +91,7 @@ class CalendarViewModelTest {
         every { repository.observeEvents() } returns flowOf(emptyList())
         coEvery { repository.refreshEvents() } returns Result.success(emptyList())
 
-        val viewModel = CalendarViewModel(repository, mercureService)
+        val viewModel = CalendarViewModel(repository, taskRepository, mercureService)
         advanceUntilIdle()
 
         val targetDate = LocalDate.of(2026, 6, 15)

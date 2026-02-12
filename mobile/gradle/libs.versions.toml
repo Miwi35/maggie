@@ -15,6 +15,8 @@ turbine = "1.2.0"
 koin-test = "4.0.1"
 ktor-mock = "3.0.2"
 calendar-compose = "2.9.0"
+room = "2.6.1"
+ksp = "2.1.0-1.0.29"
 
 [libraries]
 # Compose
@@ -50,6 +52,11 @@ core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "core-ktx
 # Calendar
 calendar-compose = { group = "com.kizitonwose.calendar", name = "compose", version.ref = "calendar-compose" }
 
+# Room
+room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+
 # Testing
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
@@ -64,3 +71,4 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

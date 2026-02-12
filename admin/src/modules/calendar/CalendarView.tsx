@@ -5,18 +5,29 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import ButtonGroup from '@mui/material/ButtonGroup'
 import Checkbox from '@mui/material/Checkbox'
+import ClickAwayListener from '@mui/material/ClickAwayListener'
 import Dialog from '@mui/material/Dialog'
 import DialogActions from '@mui/material/DialogActions'
 import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
 import FormControlLabel from '@mui/material/FormControlLabel'
+import Grow from '@mui/material/Grow'
 import IconButton from '@mui/material/IconButton'
+import ListItemIcon from '@mui/material/ListItemIcon'
+import ListItemText from '@mui/material/ListItemText'
+import MenuItem from '@mui/material/MenuItem'
+import MenuList from '@mui/material/MenuList'
+import Paper from '@mui/material/Paper'
+import Popper from '@mui/material/Popper'
 import Radio from '@mui/material/Radio'
 import RadioGroup from '@mui/material/RadioGroup'
 import Typography from '@mui/material/Typography'
 import AddIcon from '@mui/icons-material/Add'
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
+import ChecklistIcon from '@mui/icons-material/Checklist'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
+import EventIcon from '@mui/icons-material/Event'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
@@ -26,6 +37,8 @@ import type { EventResizeDoneArg } from '@fullcalendar/interaction'
 import frLocale from '@fullcalendar/core/locales/fr'
 import type { DatesSetArg, EventInput } from '@fullcalendar/core'
 import { EventCreateDialog } from './EventCreateDialog'
+import { TaskCreateDialog } from './TaskCreateDialog'
+import { TaskEditDialog } from './TaskEditDialog'
 import { EventDetailPopover } from './EventDetailPopover'
 import type { PopoverEvent } from './EventDetailPopover'
 import { getCalendarThemeSx } from './calendarTheme'
@@ -55,6 +68,23 @@ interface CalendarEvent {
   recurringEvent?: string
   originalStartAt?: string
   status?: string
+}
+
+interface CalendarTask {
+  id: string
+  name: string
+  description?: string
+  priority: string
+  criticality: string
+  dueDate?: string
+  doneDate?: string
+}
+
+const TASK_CRITICALITY_COLORS: Record<string, string> = {
+  low: '#4CAF50',
+  medium: '#FF9800',
+  high: '#F44336',
+  critical: '#9C27B0',
 }
 
 type RecurrenceAction = 'this' | 'thisAndFollowing' | 'all'
@@ -323,6 +353,7 @@ export const CalendarView = () => {
   const lastSelectionRef = useRef<{ start: Date; end: Date } | null>(null)
 
   const [rawEvents, setRawEvents] = useState<CalendarEvent[]>([])
+  const [rawTasks, setRawTasks] = useState<CalendarTask[]>([])
   const [calendars, setCalendars] = useState<CalendarData[]>([])
   const [enabledCalendars, setEnabledCalendars] = useState<Set<string> | null>(null)
   const [miniCalDate, setMiniCalDate] = useState(new Date())
@@ -332,6 +363,10 @@ export const CalendarView = () => {
   const [dialogStart, setDialogStart] = useState<Date | undefined>()
   const [dialogEnd, setDialogEnd] = useState<Date | undefined>()
   const [dialogAllDay, setDialogAllDay] = useState(false)
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false)
+  const [editingTask, setEditingTask] = useState<CalendarTask | null>(null)
+  const [createMenuOpen, setCreateMenuOpen] = useState(false)
+  const createMenuAnchorRef = useRef<HTMLDivElement>(null)
 
   // Popover state
   const [popoverEvent, setPopoverEvent] = useState<PopoverEvent | null>(null)
@@ -374,7 +409,7 @@ export const CalendarView = () => {
     return map
   }, [calendars])
 
-  // --- Fetch events ---
+  // --- Fetch events + tasks ---
   const fetchEvents = useCallback(
     (start: string, end: string) => {
       const rangeEvents = dataProvider.getList('events', {
@@ -390,8 +425,15 @@ export const CalendarView = () => {
         filter: { 'exists[rrule]': true, 'startAt[strictly_before]': start },
       })
 
-      Promise.all([rangeEvents, recurringEvents])
-        .then(([rangeResult, recurringResult]) => {
+      // Fetch tasks with due dates in visible range
+      const rangeTasks = dataProvider.getList('tasks', {
+        pagination: { page: 1, perPage: 200 },
+        sort: { field: 'dueDate', order: 'ASC' },
+        filter: { 'dueDate[after]': start, 'dueDate[before]': end },
+      })
+
+      Promise.all([rangeEvents, recurringEvents, rangeTasks])
+        .then(([rangeResult, recurringResult, tasksResult]) => {
           const seen = new Set<string>()
           const merged: CalendarEvent[] = []
           for (const e of [...rangeResult.data, ...recurringResult.data] as unknown as CalendarEvent[]) {
@@ -401,6 +443,7 @@ export const CalendarView = () => {
             }
           }
           setRawEvents(merged)
+          setRawTasks(tasksResult.data as unknown as CalendarTask[])
         })
         .catch(console.error)
     },
@@ -521,11 +564,39 @@ export const CalendarView = () => {
     return result
   }, [rawEvents, calendarColorMap, activeRange])
 
+  // --- Map tasks → FullCalendar all-day events with criticality colors ---
+  const taskEvents: (EventInput & { calendarId: string })[] = useMemo(() => {
+    return rawTasks
+      .filter((t) => t.dueDate)
+      .map((t) => {
+        const color = TASK_CRITICALITY_COLORS[t.criticality] || TASK_CRITICALITY_COLORS.low
+        const isDone = t.doneDate != null
+        return {
+          id: `task-${t.id}`,
+          title: `${isDone ? '\u2713 ' : ''}${t.name}`,
+          start: t.dueDate!,
+          allDay: true,
+          calendarId: '__tasks__',
+          backgroundColor: isDone ? '#9E9E9E' : color,
+          borderColor: isDone ? '#9E9E9E' : color,
+          extendedProps: {
+            description: t.description,
+            isTask: true,
+            priority: t.priority,
+            criticality: t.criticality,
+            isDone,
+          },
+        }
+      })
+  }, [rawTasks])
+
   // --- Filter by enabled calendars ---
   const filteredEvents = useMemo(() => {
-    if (!enabledCalendars) return coloredEvents
-    return coloredEvents.filter((e) => enabledCalendars.has(e.calendarId))
-  }, [coloredEvents, enabledCalendars])
+    const calFiltered = enabledCalendars
+      ? coloredEvents.filter((e) => enabledCalendars.has(e.calendarId))
+      : coloredEvents
+    return [...calFiltered, ...taskEvents]
+  }, [coloredEvents, enabledCalendars, taskEvents])
 
   // --- FullCalendar callbacks ---
   const handleDatesSet = useCallback(
@@ -605,6 +676,23 @@ export const CalendarView = () => {
 
   const handleDeleteEvent = useCallback(
     (eventId: string) => {
+      // Task deletion
+      if (eventId.startsWith('task-')) {
+        const taskId = eventId.replace('task-', '')
+        setPopoverAnchorEl(null)
+        setPopoverEvent(null)
+        dataProvider
+          .delete('tasks', { id: taskId, previousData: { id: taskId } })
+          .then(() => {
+            notify('Tâche supprimée', { type: 'success' })
+            refreshEvents()
+          })
+          .catch((error: Error) => {
+            notify(`Erreur: ${error.message}`, { type: 'error' })
+          })
+        return
+      }
+
       // Virtual occurrence → open recurrence confirmation dialog
       if (eventId.includes('__')) {
         if (!popoverEvent) return
@@ -660,6 +748,23 @@ export const CalendarView = () => {
         })
     },
     [dataProvider, refreshEvents, notify, popoverEvent, rawEvents],
+  )
+
+  const handleEditEvent = useCallback(
+    (eventId: string) => {
+      setPopoverAnchorEl(null)
+      setPopoverEvent(null)
+
+      // Task IDs are prefixed with "task-"
+      if (eventId.startsWith('task-')) {
+        const taskId = eventId.replace('task-', '')
+        const task = rawTasks.find((t) => t.id === taskId)
+        if (task) {
+          setEditingTask(task)
+        }
+      }
+    },
+    [rawTasks],
   )
 
   const handleEventUpdate = useCallback(
@@ -825,6 +930,7 @@ export const CalendarView = () => {
       import.meta.env.VITE_MERCURE_PUBLIC_URL || 'http://maggie.local/.well-known/mercure'
     const url = new URL(mercureUrl)
     url.searchParams.append('topic', '/api/events/{id}')
+    url.searchParams.append('topic', '/api/tasks/{id}')
     const es = new EventSource(url.toString())
     es.onmessage = () => {
       if (dateRangeRef.current) fetchEvents(dateRangeRef.current.start, dateRangeRef.current.end)
@@ -1009,26 +1115,73 @@ export const CalendarView = () => {
             display: { xs: 'none', md: 'block' },
           }}
         >
-          {/* + Créer */}
-          <Button
+          {/* + Créer (split button) */}
+          <ButtonGroup
             variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => {
-              setDialogStart(undefined)
-              setDialogEnd(undefined)
-              setDialogAllDay(false)
-              setDialogOpen(true)
-            }}
-            sx={{
-              textTransform: 'none',
-              borderRadius: 6,
-              mb: 2.5,
-              px: 3,
-              boxShadow: 2,
-            }}
+            ref={createMenuAnchorRef}
+            sx={{ mb: 2.5, borderRadius: 6, boxShadow: 2 }}
           >
-            Créer
-          </Button>
+            <Button
+              startIcon={<AddIcon />}
+              onClick={() => {
+                setDialogStart(undefined)
+                setDialogEnd(undefined)
+                setDialogAllDay(false)
+                setDialogOpen(true)
+              }}
+              sx={{ textTransform: 'none', borderRadius: '24px 0 0 24px', px: 3 }}
+            >
+              Créer
+            </Button>
+            <Button
+              size="small"
+              onClick={() => setCreateMenuOpen((prev) => !prev)}
+              sx={{ borderRadius: '0 24px 24px 0', px: 0.5, minWidth: 32 }}
+              aria-label="Options de création"
+            >
+              <ArrowDropDownIcon />
+            </Button>
+          </ButtonGroup>
+          <Popper
+            open={createMenuOpen}
+            anchorEl={createMenuAnchorRef.current}
+            transition
+            disablePortal
+            placement="bottom-start"
+            sx={{ zIndex: 1300 }}
+          >
+            {({ TransitionProps }) => (
+              <Grow {...TransitionProps}>
+                <Paper elevation={4}>
+                  <ClickAwayListener onClickAway={() => setCreateMenuOpen(false)}>
+                    <MenuList dense>
+                      <MenuItem
+                        onClick={() => {
+                          setCreateMenuOpen(false)
+                          setDialogStart(undefined)
+                          setDialogEnd(undefined)
+                          setDialogAllDay(false)
+                          setDialogOpen(true)
+                        }}
+                      >
+                        <ListItemIcon><EventIcon fontSize="small" /></ListItemIcon>
+                        <ListItemText>Événement</ListItemText>
+                      </MenuItem>
+                      <MenuItem
+                        onClick={() => {
+                          setCreateMenuOpen(false)
+                          setTaskDialogOpen(true)
+                        }}
+                      >
+                        <ListItemIcon><ChecklistIcon fontSize="small" /></ListItemIcon>
+                        <ListItemText>Tâche</ListItemText>
+                      </MenuItem>
+                    </MenuList>
+                  </ClickAwayListener>
+                </Paper>
+              </Grow>
+            )}
+          </Popper>
 
           {/* Mini calendar */}
           <MiniCalendar
@@ -1123,6 +1276,13 @@ export const CalendarView = () => {
         defaultAllDay={dialogAllDay}
       />
 
+      <TaskCreateDialog
+        open={taskDialogOpen}
+        onClose={() => setTaskDialogOpen(false)}
+        onCreated={handleCreated}
+        defaultDueDate={dialogStart}
+      />
+
       <EventDetailPopover
         event={popoverEvent}
         anchorEl={popoverAnchorEl}
@@ -1130,7 +1290,15 @@ export const CalendarView = () => {
           setPopoverAnchorEl(null)
           setPopoverEvent(null)
         }}
+        onEdit={handleEditEvent}
         onDelete={handleDeleteEvent}
+      />
+
+      <TaskEditDialog
+        open={editingTask !== null}
+        task={editingTask}
+        onClose={() => setEditingTask(null)}
+        onUpdated={handleCreated}
       />
 
       {/* Recurrence confirmation dialog */}

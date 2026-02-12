@@ -5,6 +5,9 @@ namespace Maggie\Calendar\DataFixtures;
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Entity\EventStatus;
+use Maggie\Calendar\Entity\Task;
+use Maggie\Calendar\Entity\TaskCriticality;
+use Maggie\Calendar\Entity\TaskPriority;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
 
@@ -93,6 +96,45 @@ class CalendarFixtures extends Fixture
         $dinner->setStatus(EventStatus::Tentative);
         $dinner->setAgenda($agenda);
         $manager->persist($dinner);
+
+        // --- Tasks ---
+
+        $tz = new \DateTimeZone('Europe/Paris');
+
+        // Task with due date (upcoming)
+        $task1 = new Task();
+        $task1->setName('Prepare quarterly report');
+        $task1->setDescription('Compile Q1 metrics and create presentation');
+        $task1->setPriority(TaskPriority::High);
+        $task1->setCriticality(TaskCriticality::Medium);
+        $task1->setDueDate(new \DateTimeImmutable('+3 days', $tz));
+        $manager->persist($task1);
+
+        // Task without due date
+        $task2 = new Task();
+        $task2->setName('Organize desk');
+        $task2->setDescription('Clean up workspace and file documents');
+        $task2->setPriority(TaskPriority::Low);
+        $task2->setCriticality(TaskCriticality::Low);
+        $manager->persist($task2);
+
+        // Completed task
+        $task3 = new Task();
+        $task3->setName('Submit expense report');
+        $task3->setPriority(TaskPriority::Medium);
+        $task3->setCriticality(TaskCriticality::Medium);
+        $task3->setDueDate(new \DateTimeImmutable('-1 day', $tz));
+        $task3->setDoneDate(new \DateTimeImmutable('-1 day 15:00', $tz));
+        $manager->persist($task3);
+
+        // Critical task
+        $task4 = new Task();
+        $task4->setName('Fix production deployment');
+        $task4->setDescription('Hotfix for the authentication issue in production');
+        $task4->setPriority(TaskPriority::High);
+        $task4->setCriticality(TaskCriticality::Critical);
+        $task4->setDueDate(new \DateTimeImmutable('tomorrow', $tz));
+        $manager->persist($task4);
 
         $manager->flush();
     }
