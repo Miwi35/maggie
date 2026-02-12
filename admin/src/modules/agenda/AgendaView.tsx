@@ -290,7 +290,7 @@ export const AgendaView = () => {
   const dateRangeRef = useRef<{ start: string; end: string } | null>(null)
   const lastMouseYRef = useRef(0)
   const selectFiredRef = useRef(false)
-  const dragStartTimeRef = useRef<Date | null>(null)
+  const lastSelectionRef = useRef<{ start: Date; end: Date } | null>(null)
 
   const [rawEvents, setRawEvents] = useState<AgendaEvent[]>([])
   const [calendars, setCalendars] = useState<CalendarData[]>([])
@@ -401,8 +401,14 @@ export const AgendaView = () => {
     [fetchEvents],
   )
 
+  const handleSelectAllow = useCallback((info: { start: Date; end: Date }) => {
+    lastSelectionRef.current = { start: info.start, end: info.end }
+    return true
+  }, [])
+
   const handleSelect = useCallback((arg: { start: Date; end: Date; allDay: boolean }) => {
     selectFiredRef.current = true
+    lastSelectionRef.current = null
     let { start, end } = arg
 
     // Extend past calendar bottom into next day
@@ -506,7 +512,10 @@ export const AgendaView = () => {
     return () => el.removeEventListener('wheel', handleWheel)
   }, [])
 
-  // --- Track mouse Y + timegrid drag for cross-day extension ---
+  // --- Track mouse Y + cross-day drag extension ---
+  // selectAllow continuously updates lastSelectionRef during drag.
+  // If mouse is released outside the calendar (FullCalendar won't fire select),
+  // we use the last known selection + mouse Y to compute the extended end time.
   useEffect(() => {
     const el = calendarBoxRef.current
     if (!el) return
@@ -515,42 +524,35 @@ export const AgendaView = () => {
 
     const onMouseDown = (e: MouseEvent) => {
       const target = e.target as HTMLElement
-      if (target.closest('.fc-timegrid-slots') || target.closest('.fc-timegrid-col-events')) {
-        // Resolve the time from the slot data attribute
-        const slot = target.closest('[data-time]') as HTMLElement | null
-        if (slot?.dataset.time) {
-          const [h, m] = slot.dataset.time.split(':').map(Number)
-          const api = calendarRef.current?.getApi()
-          if (api) {
-            const viewStart = api.view.currentStart
-            const d = new Date(viewStart)
-            d.setHours(h, m, 0, 0)
-            dragStartTimeRef.current = d
-            selectFiredRef.current = false
-          }
-        }
+      if (target.closest('.fc-timegrid-slots') || target.closest('.fc-timegrid-col-events') || target.closest('.fc-daygrid-body')) {
+        selectFiredRef.current = false
       }
     }
 
     const onDocMouseUp = () => {
-      // Safety net: if FullCalendar's select didn't fire and we had a drag start,
-      // open dialog with the best info we have
-      if (dragStartTimeRef.current && !selectFiredRef.current) {
-        const calRect = el.getBoundingClientRect()
-        if (lastMouseYRef.current > calRect.bottom) {
-          const pixelsBelow = lastMouseYRef.current - calRect.bottom
+      const sel = lastSelectionRef.current
+      if (!sel) return
+
+      // Defer to let FullCalendar's select fire first (synchronous in same event loop)
+      setTimeout(() => {
+        if (selectFiredRef.current) {
+          lastSelectionRef.current = null
+          return
+        }
+
+        // FullCalendar didn't fire select — mouse was likely outside the grid
+        const rect = el.getBoundingClientRect()
+        if (lastMouseYRef.current > rect.bottom) {
+          const pixelsBelow = lastMouseYRef.current - rect.bottom
           const extraMinutes = Math.ceil(pixelsBelow / 28) * 30 // 28px = 30min slot
-          const end = new Date(dragStartTimeRef.current)
-          // Set end to midnight + extra time into next day
-          end.setHours(24, 0, 0, 0)
-          end.setMinutes(end.getMinutes() + extraMinutes)
-          setDialogStart(dragStartTimeRef.current)
+          const end = new Date(sel.end.getTime() + extraMinutes * 60_000)
+          setDialogStart(sel.start)
           setDialogEnd(end)
           setDialogAllDay(false)
           setDialogOpen(true)
         }
-      }
-      dragStartTimeRef.current = null
+        lastSelectionRef.current = null
+      }, 0)
     }
 
     document.addEventListener('mousemove', onMouseMove)
@@ -753,6 +755,7 @@ export const AgendaView = () => {
             datesSet={handleDatesSet}
             selectable={true}
             selectMirror={true}
+            selectAllow={handleSelectAllow}
             select={handleSelect}
             eventClick={handleEventClick}
             headerToolbar={false}
