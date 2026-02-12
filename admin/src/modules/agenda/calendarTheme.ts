@@ -97,12 +97,7 @@ export const getCalendarThemeSx = (theme: Theme): SxProps<Theme> => {
     },
     // Dot events: small colored circle + time + title
     '& .fc .fc-daygrid-dot-event .fc-daygrid-event-dot': {
-      width: 8,
-      height: 8,
-      borderRadius: '50%',
       margin: '0 4px 0 0',
-      border: 'none',
-      backgroundColor: 'var(--fc-event-border-color, currentColor)',
     },
     '& .fc .fc-daygrid-dot-event .fc-event-time': {
       fontSize: '0.7rem',
