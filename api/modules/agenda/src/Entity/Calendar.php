@@ -3,7 +3,16 @@
 namespace Maggie\Agenda\Entity;
 
 use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\Delete;
+use ApiPlatform\Metadata\Get;
+use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Patch;
+use ApiPlatform\Metadata\Post;
+use Maggie\Agenda\Contract\MercurePublishable;
 use Maggie\Agenda\Repository\CalendarRepository;
+use Maggie\Agenda\State\CreateCalendarProcessor;
+use Maggie\Agenda\State\DeleteCalendarProcessor;
+use Maggie\Agenda\State\UpdateCalendarProcessor;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
@@ -12,8 +21,14 @@ use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: CalendarRepository::class)]
-#[ApiResource(mercure: ['topics' => ["@='/api/calendars/' ~ object.getId()"]])]
-class Calendar
+#[ApiResource(operations: [
+    new GetCollection(),
+    new Get(),
+    new Post(processor: CreateCalendarProcessor::class),
+    new Patch(processor: UpdateCalendarProcessor::class),
+    new Delete(processor: DeleteCalendarProcessor::class),
+])]
+class Calendar implements MercurePublishable
 {
     #[ORM\Id]
     #[ORM\Column(type: 'uuid')]
@@ -131,5 +146,14 @@ class Calendar
         $this->events->removeElement($event);
 
         return $this;
+    }
+
+    public function toMercurePayload(): array
+    {
+        return [
+            'name' => $this->name,
+            'color' => $this->color,
+            'isDefault' => $this->isDefault,
+        ];
     }
 }

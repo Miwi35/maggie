@@ -1,5 +1,9 @@
 package com.maggie.app.ui.navigation
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -14,6 +18,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -24,8 +30,10 @@ import com.maggie.app.ui.components.ChatSheet
 import com.maggie.app.ui.components.MaggieTopBar
 import com.maggie.app.ui.screens.agenda.AgendaScreen
 import com.maggie.app.ui.screens.chat.ChatViewModel
+import com.maggie.app.voice.VoiceManager
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 
 sealed class Screen(val route: String, val label: String) {
     data object Agenda : Screen("agenda", "Agenda")
@@ -44,6 +52,20 @@ fun NavGraph() {
     val chatViewModel: ChatViewModel = koinViewModel()
     var showChatSheet by rememberSaveable { mutableStateOf(false) }
     val chatSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    val voiceManager: VoiceManager = koinInject()
+    var voiceModeActive by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            voiceModeActive = true
+            showChatSheet = true
+            voiceManager.startListening()
+        }
+    }
 
     val title = when (currentRoute) {
         Screen.Agenda.route -> Screen.Agenda.label
@@ -70,7 +92,20 @@ fun NavGraph() {
                 )
             },
             bottomBar = {
-                ChatBottomBar(onOpenChat = { showChatSheet = true })
+                ChatBottomBar(
+                    onOpenChat = { showChatSheet = true },
+                    onMicClick = {
+                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
+                            == PackageManager.PERMISSION_GRANTED
+                        ) {
+                            voiceModeActive = true
+                            showChatSheet = true
+                            voiceManager.startListening()
+                        } else {
+                            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        }
+                    },
+                )
             },
         ) { paddingValues ->
             NavHost(
@@ -87,7 +122,15 @@ fun NavGraph() {
         ChatSheet(
             sheetState = chatSheetState,
             viewModel = chatViewModel,
-            onDismiss = { showChatSheet = false },
+            onDismiss = {
+                if (voiceModeActive) {
+                    voiceManager.cancelListening()
+                    voiceManager.stopSpeaking()
+                    voiceModeActive = false
+                }
+                showChatSheet = false
+            },
+            voiceManager = if (voiceModeActive) voiceManager else null,
         )
     }
 }

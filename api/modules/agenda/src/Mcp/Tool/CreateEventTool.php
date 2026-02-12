@@ -3,16 +3,17 @@
 namespace Maggie\Agenda\Mcp\Tool;
 
 use Maggie\Agenda\Entity\Event;
-use Maggie\Agenda\Repository\CalendarRepository;
-use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Agenda\Message\CreateEventCommand;
 use Mcp\Capability\Attribute\McpTool;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\HandledStamp;
 
 #[McpTool(name: 'create_event', description: 'Create a new calendar event. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes (default 60). Returns the created event.')]
 class CreateEventTool
 {
     public function __construct(
-        private readonly EntityManagerInterface $em,
-        private readonly CalendarRepository $calendarRepository,
+        private readonly MessageBusInterface $bus,
     ) {
     }
 
@@ -24,41 +25,34 @@ class CreateEventTool
         ?string $description = null,
         ?string $location = null,
     ): string {
-        $calendar = $this->calendarRepository->findDefault();
-        if ($calendar === null) {
-            return json_encode(['error' => 'No default calendar found'], JSON_THROW_ON_ERROR);
-        }
-
-        $tz = new \DateTimeZone($calendar->getTimeZone());
-        $startAt = new \DateTimeImmutable("{$date} {$time}", $tz);
+        $startAt = new \DateTimeImmutable("{$date} {$time}", new \DateTimeZone('Europe/Paris'));
         $endAt = $startAt->modify("+{$duration} minutes");
 
-        $event = new Event();
-        $event->setSummary($title);
-        $event->setStartAt($startAt);
-        $event->setEndAt($endAt);
-        $event->setTimeZone($calendar->getTimeZone());
-        $event->setCalendar($calendar);
+        try {
+            $envelope = $this->bus->dispatch(new CreateEventCommand(
+                summary: $title,
+                startAt: $startAt,
+                endAt: $endAt,
+                description: $description,
+                location: $location,
+            ));
 
-        if ($description !== null) {
-            $event->setDescription($description);
+            /** @var Event $event */
+            $event = $envelope->last(HandledStamp::class)->getResult();
+
+            return json_encode([
+                'success' => true,
+                'event' => [
+                    'id' => (string) $event->getId(),
+                    'summary' => $event->getSummary(),
+                    'startAt' => $event->getStartAt()->format('c'),
+                    'endAt' => $event->getEndAt()->format('c'),
+                    'calendar' => $event->getCalendar()->getName(),
+                ],
+            ], JSON_THROW_ON_ERROR);
+        } catch (HandlerFailedException $e) {
+            $cause = $e->getPrevious() ?? $e;
+            return json_encode(['error' => $cause->getMessage()], JSON_THROW_ON_ERROR);
         }
-        if ($location !== null) {
-            $event->setLocation($location);
-        }
-
-        $this->em->persist($event);
-        $this->em->flush();
-
-        return json_encode([
-            'success' => true,
-            'event' => [
-                'id' => (string) $event->getId(),
-                'summary' => $event->getSummary(),
-                'startAt' => $event->getStartAt()->format('c'),
-                'endAt' => $event->getEndAt()->format('c'),
-                'calendar' => $calendar->getName(),
-            ],
-        ], JSON_THROW_ON_ERROR);
     }
 }

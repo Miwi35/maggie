@@ -3,7 +3,16 @@
 namespace Maggie\Agenda\Entity;
 
 use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\Delete;
+use ApiPlatform\Metadata\Get;
+use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Patch;
+use ApiPlatform\Metadata\Post;
+use Maggie\Agenda\Contract\MercurePublishable;
 use Maggie\Agenda\Repository\EventRepository;
+use Maggie\Agenda\State\CreateEventProcessor;
+use Maggie\Agenda\State\DeleteEventProcessor;
+use Maggie\Agenda\State\UpdateEventProcessor;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Uuid;
@@ -12,8 +21,14 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Entity(repositoryClass: EventRepository::class)]
 #[ORM\Index(columns: ['start_at', 'end_at'], name: 'idx_event_dates')]
 #[ORM\Index(columns: ['status'], name: 'idx_event_status')]
-#[ApiResource(mercure: ['topics' => ["@='/api/events/' ~ object.getId()"]])]
-class Event
+#[ApiResource(operations: [
+    new GetCollection(),
+    new Get(),
+    new Post(processor: CreateEventProcessor::class),
+    new Patch(processor: UpdateEventProcessor::class),
+    new Delete(processor: DeleteEventProcessor::class),
+])]
+class Event implements MercurePublishable
 {
     #[ORM\Id]
     #[ORM\Column(type: 'uuid')]
@@ -247,5 +262,14 @@ class Event
     public function isException(): bool
     {
         return $this->recurringEvent !== null;
+    }
+
+    public function toMercurePayload(): array
+    {
+        return [
+            'summary' => $this->summary,
+            'startAt' => $this->startAt->format('c'),
+            'endAt' => $this->endAt->format('c'),
+        ];
     }
 }

@@ -2,12 +2,23 @@ framework:
     messenger:
         failure_transport: failed
 
+        buses:
+            messenger.bus.default:
+                middleware:
+                    - 'Maggie\Agenda\Middleware\MercurePublishMiddleware'
+
         transports:
             async: '%env(MESSENGER_TRANSPORT_DSN)%'
             failed: 'doctrine://default?queue_name=failed'
             sync: 'sync://'
 
-        routing: {}
+        routing:
+            'Maggie\Agenda\Message\CreateEventCommand': sync
+            'Maggie\Agenda\Message\UpdateEventCommand': sync
+            'Maggie\Agenda\Message\DeleteEventCommand': sync
+            'Maggie\Agenda\Message\CreateCalendarCommand': sync
+            'Maggie\Agenda\Message\UpdateCalendarCommand': sync
+            'Maggie\Agenda\Message\DeleteCalendarCommand': sync
 
 when@test:
     framework:

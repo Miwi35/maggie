@@ -5,7 +5,6 @@ namespace App\Tests\Agenda\Mcp;
 use Maggie\Agenda\Entity\Calendar;
 use Maggie\Agenda\Entity\Event;
 use Maggie\Agenda\Mcp\Tool\CreateEventTool;
-use Maggie\Agenda\Repository\CalendarRepository;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 class CreateEventToolTest extends KernelTestCase
@@ -19,6 +18,11 @@ class CreateEventToolTest extends KernelTestCase
         $em->createQuery('DELETE FROM ' . Calendar::class)->execute();
     }
 
+    private function getTool(): CreateEventTool
+    {
+        return self::getContainer()->get(CreateEventTool::class);
+    }
+
     public function testCreateEventPersistsToDatabase(): void
     {
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
@@ -30,10 +34,7 @@ class CreateEventToolTest extends KernelTestCase
         $em->persist($calendar);
         $em->flush();
 
-        $calendarRepo = $em->getRepository(Calendar::class);
-        \assert($calendarRepo instanceof CalendarRepository);
-
-        $tool = new CreateEventTool($em, $calendarRepo);
+        $tool = $this->getTool();
 
         $result = $tool('Team standup', '2026-03-20', '09:30', 30, 'Daily sync', 'Room A');
 
@@ -54,19 +55,14 @@ class CreateEventToolTest extends KernelTestCase
 
     public function testCreateEventReturnsErrorWithoutDefaultCalendar(): void
     {
-        $em = self::getContainer()->get('doctrine.orm.entity_manager');
-
-        $calendarRepo = $em->getRepository(Calendar::class);
-        \assert($calendarRepo instanceof CalendarRepository);
-
-        $tool = new CreateEventTool($em, $calendarRepo);
+        $tool = $this->getTool();
 
         $result = $tool('Event without calendar', '2026-03-20');
 
         $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
 
         self::assertArrayHasKey('error', $data);
-        self::assertSame('No default calendar found', $data['error']);
+        self::assertSame('No calendar found.', $data['error']);
     }
 
     public function testCreateEventUsesDefaultDuration(): void
@@ -79,10 +75,7 @@ class CreateEventToolTest extends KernelTestCase
         $em->persist($calendar);
         $em->flush();
 
-        $calendarRepo = $em->getRepository(Calendar::class);
-        \assert($calendarRepo instanceof CalendarRepository);
-
-        $tool = new CreateEventTool($em, $calendarRepo);
+        $tool = $this->getTool();
 
         $result = $tool('Meeting', '2026-03-20', '10:00');
 

@@ -7,6 +7,8 @@ import com.maggie.app.data.repository.ChatRepository
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.ui.screens.agenda.AgendaViewModel
 import com.maggie.app.ui.screens.chat.ChatViewModel
+import com.maggie.app.voice.VoiceManager
+import org.koin.android.ext.android.get
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
 import org.koin.core.module.dsl.viewModel
@@ -21,6 +23,7 @@ class MaggieApp : Application() {
             single { MercureService() }
             single { EventRepository(get()) }
             single { ChatRepository(get()) }
+            single { VoiceManager(androidContext()) }
             viewModel { AgendaViewModel(get(), get()) }
             viewModel { ChatViewModel(get(), get()) }
         }
@@ -29,5 +32,7 @@ class MaggieApp : Application() {
             androidContext(this@MaggieApp)
             modules(appModule)
         }
+
+        get<VoiceManager>().initialize()
     }
 }

@@ -20,7 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun ChatBottomBar(onOpenChat: () -> Unit) {
+fun ChatBottomBar(onOpenChat: () -> Unit, onMicClick: () -> Unit = {}) {
     Surface(tonalElevation = 3.dp) {
         Row(
             modifier = Modifier
@@ -28,7 +28,7 @@ fun ChatBottomBar(onOpenChat: () -> Unit) {
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = { /* TODO: voice input */ }) {
+            IconButton(onClick = onMicClick) {
                 Icon(Icons.Default.Mic, contentDescription = "Micro")
             }
 

@@ -11,6 +11,7 @@ import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
+import io.ktor.client.request.accept
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -19,6 +20,9 @@ data class ChatRequest(val message: String, val user_id: String = "default")
 
 @Serializable
 data class ChatResponse(val response: String, val tool_calls: List<Map<String, String>> = emptyList())
+
+@Serializable
+data class ApiCollection<T>(val member: List<T> = emptyList())
 
 class MaggieApiService {
     private val baseUrl = BuildConfig.API_BASE_URL
@@ -33,7 +37,9 @@ class MaggieApiService {
     }
 
     suspend fun getEvents(): List<com.maggie.app.data.model.Event> {
-        return client.get("$baseUrl/api/events").body()
+        return client.get("$baseUrl/api/events") {
+            accept(ContentType("application", "ld+json"))
+        }.body<ApiCollection<com.maggie.app.data.model.Event>>().member
     }
 
     suspend fun sendChat(message: String): ChatResponse {
