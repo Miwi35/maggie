@@ -14,7 +14,6 @@ import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
-import type { DateClickArg } from '@fullcalendar/interaction'
 import type { EventClickArg } from '@fullcalendar/core'
 import frLocale from '@fullcalendar/core/locales/fr'
 import type { DatesSetArg, EventInput } from '@fullcalendar/core'
@@ -297,7 +296,9 @@ export const AgendaView = () => {
   const [currentView, setCurrentView] = useState<CalendarView>('dayGridMonth')
   const [activeRange, setActiveRange] = useState<{ start: Date; end: Date } | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [dialogDefaultDate, setDialogDefaultDate] = useState<string | undefined>()
+  const [dialogStart, setDialogStart] = useState<Date | undefined>()
+  const [dialogEnd, setDialogEnd] = useState<Date | undefined>()
+  const [dialogAllDay, setDialogAllDay] = useState(false)
 
   // Popover state
   const [popoverEvent, setPopoverEvent] = useState<PopoverEvent | null>(null)
@@ -397,8 +398,10 @@ export const AgendaView = () => {
     [fetchEvents],
   )
 
-  const handleDateClick = useCallback((arg: DateClickArg) => {
-    setDialogDefaultDate(arg.dateStr)
+  const handleSelect = useCallback((arg: { start: Date; end: Date; allDay: boolean }) => {
+    setDialogStart(arg.start)
+    setDialogEnd(arg.end)
+    setDialogAllDay(arg.allDay)
     setDialogOpen(true)
   }, [])
 
@@ -593,7 +596,9 @@ export const AgendaView = () => {
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => {
-              setDialogDefaultDate(undefined)
+              setDialogStart(undefined)
+              setDialogEnd(undefined)
+              setDialogAllDay(false)
               setDialogOpen(true)
             }}
             sx={{
@@ -670,7 +675,8 @@ export const AgendaView = () => {
             locale={frLocale}
             events={filteredEvents}
             datesSet={handleDatesSet}
-            dateClick={handleDateClick}
+            selectable={true}
+            select={handleSelect}
             eventClick={handleEventClick}
             headerToolbar={false}
             height="100%"
@@ -687,7 +693,9 @@ export const AgendaView = () => {
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
         onCreated={handleCreated}
-        defaultDate={dialogDefaultDate}
+        defaultStart={dialogStart}
+        defaultEnd={dialogEnd}
+        defaultAllDay={dialogAllDay}
       />
 
       <EventDetailPopover

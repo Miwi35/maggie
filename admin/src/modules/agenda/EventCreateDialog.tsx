@@ -21,7 +21,9 @@ interface EventCreateDialogProps {
   open: boolean
   onClose: () => void
   onCreated: () => void
-  defaultDate?: string
+  defaultStart?: Date
+  defaultEnd?: Date
+  defaultAllDay?: boolean
 }
 
 const STATUS_OPTIONS = [
@@ -30,7 +32,17 @@ const STATUS_OPTIONS = [
   { value: 'cancelled', label: 'Annulé' },
 ]
 
-export const EventCreateDialog = ({ open, onClose, onCreated, defaultDate }: EventCreateDialogProps) => {
+const toLocalDatetime = (d: Date): string => {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+const toLocalDate = (d: Date): string => {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+export const EventCreateDialog = ({ open, onClose, onCreated, defaultStart, defaultEnd, defaultAllDay }: EventCreateDialogProps) => {
   const dataProvider = useDataProvider()
   const notify = useNotify()
 
@@ -67,18 +79,31 @@ export const EventCreateDialog = ({ open, onClose, onCreated, defaultDate }: Eve
   // Pre-fill dates when dialog opens
   useEffect(() => {
     if (!open) return
-    if (defaultDate) {
-      setStartAt(allDay ? defaultDate : `${defaultDate}T09:00`)
-      setEndAt(allDay ? defaultDate : `${defaultDate}T10:00`)
+    const isAllDay = defaultAllDay ?? false
+    setAllDay(isAllDay)
+    if (defaultStart) {
+      setStartAt(isAllDay ? toLocalDate(defaultStart) : toLocalDatetime(defaultStart))
     } else {
       setStartAt('')
+    }
+    if (defaultEnd) {
+      if (isAllDay) {
+        // FullCalendar end is exclusive for all-day; show the last included day
+        const lastDay = new Date(defaultEnd)
+        lastDay.setDate(lastDay.getDate() - 1)
+        setEndAt(toLocalDate(lastDay))
+      } else {
+        setEndAt(toLocalDatetime(defaultEnd))
+      }
+    } else if (defaultStart) {
+      setEndAt(isAllDay ? toLocalDate(defaultStart) : toLocalDatetime(new Date(defaultStart.getTime() + 3600_000)))
+    } else {
       setEndAt('')
     }
     setSummary('')
-    setAllDay(false)
     setStatus('confirmed')
     setSummaryError(false)
-  }, [open, defaultDate]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, defaultStart, defaultEnd, defaultAllDay]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAllDayToggle = (checked: boolean) => {
     setAllDay(checked)
