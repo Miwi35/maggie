@@ -288,6 +288,9 @@ export const AgendaView = () => {
   const calendarRef = useRef<FullCalendar>(null)
   const calendarBoxRef = useRef<HTMLDivElement>(null)
   const dateRangeRef = useRef<{ start: string; end: string } | null>(null)
+  const lastMouseYRef = useRef(0)
+  const selectFiredRef = useRef(false)
+  const dragStartTimeRef = useRef<Date | null>(null)
 
   const [rawEvents, setRawEvents] = useState<AgendaEvent[]>([])
   const [calendars, setCalendars] = useState<CalendarData[]>([])
@@ -399,8 +402,24 @@ export const AgendaView = () => {
   )
 
   const handleSelect = useCallback((arg: { start: Date; end: Date; allDay: boolean }) => {
-    setDialogStart(arg.start)
-    setDialogEnd(arg.end)
+    selectFiredRef.current = true
+    let { start, end } = arg
+
+    // Extend past calendar bottom into next day
+    if (!arg.allDay) {
+      const calEl = calendarBoxRef.current
+      if (calEl) {
+        const rect = calEl.getBoundingClientRect()
+        if (lastMouseYRef.current > rect.bottom + 10) {
+          const pixelsBelow = lastMouseYRef.current - rect.bottom
+          const extraMinutes = Math.ceil(pixelsBelow / 28) * 30
+          end = new Date(end.getTime() + extraMinutes * 60_000)
+        }
+      }
+    }
+
+    setDialogStart(start)
+    setDialogEnd(end)
     setDialogAllDay(arg.allDay)
     setDialogOpen(true)
   }, [])
@@ -485,6 +504,63 @@ export const AgendaView = () => {
     }
     el.addEventListener('wheel', handleWheel, { passive: false })
     return () => el.removeEventListener('wheel', handleWheel)
+  }, [])
+
+  // --- Track mouse Y + timegrid drag for cross-day extension ---
+  useEffect(() => {
+    const el = calendarBoxRef.current
+    if (!el) return
+
+    const onMouseMove = (e: MouseEvent) => { lastMouseYRef.current = e.clientY }
+
+    const onMouseDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (target.closest('.fc-timegrid-slots') || target.closest('.fc-timegrid-col-events')) {
+        // Resolve the time from the slot data attribute
+        const slot = target.closest('[data-time]') as HTMLElement | null
+        if (slot?.dataset.time) {
+          const [h, m] = slot.dataset.time.split(':').map(Number)
+          const api = calendarRef.current?.getApi()
+          if (api) {
+            const viewStart = api.view.currentStart
+            const d = new Date(viewStart)
+            d.setHours(h, m, 0, 0)
+            dragStartTimeRef.current = d
+            selectFiredRef.current = false
+          }
+        }
+      }
+    }
+
+    const onDocMouseUp = () => {
+      // Safety net: if FullCalendar's select didn't fire and we had a drag start,
+      // open dialog with the best info we have
+      if (dragStartTimeRef.current && !selectFiredRef.current) {
+        const calRect = el.getBoundingClientRect()
+        if (lastMouseYRef.current > calRect.bottom) {
+          const pixelsBelow = lastMouseYRef.current - calRect.bottom
+          const extraMinutes = Math.ceil(pixelsBelow / 28) * 30 // 28px = 30min slot
+          const end = new Date(dragStartTimeRef.current)
+          // Set end to midnight + extra time into next day
+          end.setHours(24, 0, 0, 0)
+          end.setMinutes(end.getMinutes() + extraMinutes)
+          setDialogStart(dragStartTimeRef.current)
+          setDialogEnd(end)
+          setDialogAllDay(false)
+          setDialogOpen(true)
+        }
+      }
+      dragStartTimeRef.current = null
+    }
+
+    document.addEventListener('mousemove', onMouseMove)
+    el.addEventListener('mousedown', onMouseDown)
+    document.addEventListener('mouseup', onDocMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', onMouseMove)
+      el.removeEventListener('mousedown', onMouseDown)
+      document.removeEventListener('mouseup', onDocMouseUp)
+    }
   }, [])
 
   // --- Navigation ---
@@ -687,7 +763,7 @@ export const AgendaView = () => {
             fixedWeekCount={false}
             nowIndicator={true}
             scrollTime="07:00:00"
-            slotMaxTime="36:00:00"
+            slotMaxTime="24:00:00"
           />
         </Box>
       </Box>
