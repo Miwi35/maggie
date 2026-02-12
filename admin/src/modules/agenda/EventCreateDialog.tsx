@@ -109,7 +109,7 @@ export const EventCreateDialog = ({ open, onClose, onCreated, defaultDate }: Eve
           startAt: startDate,
           endAt: endDate,
           allDay,
-          calendar: `/api/calendars/${calendarId}`,
+          calendar: calendarId,
           status,
         },
       })
