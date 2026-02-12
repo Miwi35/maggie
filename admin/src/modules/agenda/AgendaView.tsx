@@ -196,32 +196,50 @@ const MiniCalendar = ({
             {d}
           </Typography>
         ))}
-        {days.map((d) => {
+        {days.map((d, idx) => {
           const isToday = d.toDateString() === today.toDateString()
           const isCurMonth = d.getMonth() === month
-          const isActive = isInRange(d)
+          const active = isInRange(d)
+          const col = idx % 7
+          const prevActive = active && (col === 0 || (idx > 0 && isInRange(days[idx - 1])))
+          const nextActive = active && (col === 6 || (idx < days.length - 1 && isInRange(days[idx + 1])))
+          const roundL = active && !prevActive
+          const roundR = active && !nextActive
           return (
             <Box
               key={toDateKey(d)}
               onMouseDown={(e) => { e.preventDefault(); handleMouseDown(d) }}
               onMouseEnter={() => handleMouseEnter(d)}
               sx={{
-                width: 26,
-                height: 26,
-                mx: 'auto',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                borderRadius: '50%',
+                height: 26,
                 cursor: 'pointer',
-                fontSize: '0.7rem',
-                fontWeight: isToday ? 600 : 400,
-                color: isToday ? '#fff' : isCurMonth ? 'text.primary' : 'text.disabled',
-                bgcolor: isToday ? 'primary.main' : isActive ? 'action.selected' : 'transparent',
-                '&:hover': { bgcolor: isToday ? 'primary.dark' : 'action.hover' },
+                bgcolor: active ? 'action.selected' : 'transparent',
+                borderTopLeftRadius: roundL ? 13 : 0,
+                borderBottomLeftRadius: roundL ? 13 : 0,
+                borderTopRightRadius: roundR ? 13 : 0,
+                borderBottomRightRadius: roundR ? 13 : 0,
               }}
             >
-              {d.getDate()}
+              <Box
+                sx={{
+                  width: 26,
+                  height: 26,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '50%',
+                  fontSize: '0.7rem',
+                  fontWeight: isToday ? 600 : 400,
+                  color: isToday ? '#fff' : isCurMonth ? 'text.primary' : 'text.disabled',
+                  bgcolor: isToday ? 'primary.main' : 'transparent',
+                  '&:hover': { bgcolor: isToday ? 'primary.dark' : active ? undefined : 'action.hover' },
+                }}
+              >
+                {d.getDate()}
+              </Box>
             </Box>
           )
         })}
