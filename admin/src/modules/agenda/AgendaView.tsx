@@ -686,6 +686,7 @@ export const AgendaView = () => {
             eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
             fixedWeekCount={false}
             nowIndicator={true}
+            scrollTime="07:00:00"
             slotMaxTime="26:00:00"
           />
         </Box>

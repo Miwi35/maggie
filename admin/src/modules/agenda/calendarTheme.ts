@@ -147,7 +147,7 @@ export const getCalendarThemeSx = (theme: Theme): SxProps<Theme> => {
 
     // ── Week / Day — timegrid slots ──────────────────────────────────
     '& .fc .fc-timegrid-slot': {
-      height: '48px',
+      height: '28px',
     },
     '& .fc .fc-timegrid-slot-label-cushion': {
       fontSize: '0.65rem',
