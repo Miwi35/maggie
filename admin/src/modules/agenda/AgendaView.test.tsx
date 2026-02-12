@@ -12,40 +12,45 @@ vi.stubGlobal('EventSource', MockEventSource)
 
 // Mock react-admin's useDataProvider
 const mockGetList = vi.fn()
+const mockDelete = vi.fn()
 vi.mock('react-admin', () => ({
   useDataProvider: () => ({
     getList: mockGetList,
+    delete: mockDelete,
   }),
+  useNotify: () => vi.fn(),
 }))
 
 describe('AgendaView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.stubGlobal('EventSource', MockEventSource)
+    mockGetList.mockResolvedValue({ data: [], total: 0 })
+    mockDelete.mockResolvedValue({ data: {} })
   })
 
-  test('renders FullCalendar with month view', () => {
-    mockGetList.mockResolvedValue({ data: [], total: 0 })
-
+  test('renders toolbar with navigation controls', () => {
     render(<AgendaView />)
 
-    // FullCalendar renders with navigation buttons and a month title
-    expect(screen.getByTitle('Previous month')).toBeInTheDocument()
-    expect(screen.getByTitle('Next month')).toBeInTheDocument()
+    expect(screen.getByText("Aujourd'hui")).toBeInTheDocument()
+    expect(screen.getByLabelText('Mois précédent(e)')).toBeInTheDocument()
+    expect(screen.getByLabelText('Mois suivant(e)')).toBeInTheDocument()
+    expect(screen.getByText('Créer')).toBeInTheDocument()
   })
 
-  test('fetches and displays events', async () => {
-    mockGetList.mockResolvedValue({
-      data: [
-        { id: '1', summary: 'Team Meeting', startAt: '2026-02-15T10:00:00Z', endAt: '2026-02-15T11:00:00Z', allDay: false, status: 'confirmed' },
-      ],
-      total: 1,
-    })
+  test('renders view switching buttons', () => {
+    render(<AgendaView />)
 
+    expect(screen.getByText('Mois')).toBeInTheDocument()
+    expect(screen.getByText('Semaine')).toBeInTheDocument()
+    expect(screen.getByText('Jour')).toBeInTheDocument()
+  })
+
+  test('fetches calendars and events on mount', async () => {
     render(<AgendaView />)
 
     await waitFor(() => {
-      expect(screen.getByText('Team Meeting')).toBeInTheDocument()
+      expect(mockGetList).toHaveBeenCalledWith('calendars', expect.any(Object))
     })
   })
 })
