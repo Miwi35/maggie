@@ -119,7 +119,8 @@ RUN composer install --no-dev --no-scripts --no-progress --optimize-autoloader
 ARG JWT_PASSPHRASE=maggie-jwt-prod
 RUN mkdir -p config/jwt \
     && openssl genpkey -algorithm RSA -out config/jwt/private.pem -pkeyopt rsa_keygen_bits:4096 -pass pass:${JWT_PASSPHRASE} \
-    && openssl rsa -pubout -in config/jwt/private.pem -out config/jwt/public.pem -passin pass:${JWT_PASSPHRASE}
+    && openssl rsa -pubout -in config/jwt/private.pem -out config/jwt/public.pem -passin pass:${JWT_PASSPHRASE} \
+    && chown app:app config/jwt/private.pem config/jwt/public.pem
 
 # Run post-install scripts and warm up cache
 ENV JWT_PASSPHRASE=${JWT_PASSPHRASE}
