@@ -73,7 +73,7 @@ jobs:
         env:
           POSTGRES_USER: maggie
           POSTGRES_PASSWORD: maggie
-          POSTGRES_DB: maggie_test
+          POSTGRES_DB: maggie
         ports:
           - 5432:5432
         options: >-
@@ -82,7 +82,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_URL: postgresql://maggie:maggie@localhost:5432/maggie_test?serverVersion=17&charset=utf8
+      DATABASE_URL: postgresql://maggie:maggie@localhost:5432/maggie?serverVersion=17&charset=utf8
       APP_ENV: test
       MESSENGER_TRANSPORT_DSN: sync://
     steps:
@@ -93,6 +93,7 @@ jobs:
           extensions: pdo_pgsql
           tools: composer:v2
       - run: composer install --no-interaction --prefer-dist
+      - run: bin/console doctrine:database:create --env=test --no-interaction --if-not-exists
       - run: bin/console doctrine:schema:create --env=test --no-interaction
       - run: bin/phpunit
 
