@@ -3,6 +3,8 @@
 namespace Maggie\Calendar\Middleware;
 
 use Maggie\Calendar\Contract\MercurePublishable;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Symfony\Component\Mercure\HubInterface;
 use Symfony\Component\Mercure\Update;
 use Symfony\Component\Messenger\Envelope;
@@ -12,9 +14,13 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
 
 class MercurePublishMiddleware implements MiddlewareInterface
 {
+    private LoggerInterface $logger;
+
     public function __construct(
         private readonly HubInterface $hub,
+        ?LoggerInterface $logger = null,
     ) {
+        $this->logger = $logger ?? new NullLogger();
     }
 
     public function handle(Envelope $envelope, StackInterface $stack): Envelope
@@ -30,19 +36,26 @@ class MercurePublishMiddleware implements MiddlewareInterface
 
         [$action, $topic] = $parsed;
 
-        if ($action === 'delete') {
-            $idProp = lcfirst($parsed[2]) . 'Id';
-            $this->publishDelete($topic, $message->$idProp);
-        } else {
-            $entity = $envelope->last(HandledStamp::class)?->getResult();
+        try {
+            if ($action === 'delete') {
+                $idProp = lcfirst($parsed[2]) . 'Id';
+                $this->publishDelete($topic, $message->$idProp);
+            } else {
+                $entity = $envelope->last(HandledStamp::class)?->getResult();
 
-            if ($entity instanceof MercurePublishable) {
-                $iri = $topic . '/' . $entity->getId();
-                $this->hub->publish(new Update(
-                    topics: [$iri],
-                    data: json_encode(['@id' => $iri] + $entity->toMercurePayload(), JSON_THROW_ON_ERROR),
-                ));
+                if ($entity instanceof MercurePublishable) {
+                    $iri = $topic . '/' . $entity->getId();
+                    $this->hub->publish(new Update(
+                        topics: [$iri],
+                        data: json_encode(['@id' => $iri] + $entity->toMercurePayload(), JSON_THROW_ON_ERROR),
+                    ));
+                }
             }
+        } catch (\Throwable $e) {
+            $this->logger->error('Failed to publish Mercure update: {error}', [
+                'error' => $e->getMessage(),
+                'message' => $message::class,
+            ]);
         }
 
         return $envelope;
