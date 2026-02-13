@@ -50,6 +50,7 @@ import com.maggie.app.ui.screens.shared.TaskDetailSheet
 import com.maggie.app.ui.screens.shared.TaskEditScreen
 import com.maggie.app.ui.screens.login.LoginScreen
 import com.maggie.app.ui.screens.login.LoginViewModel
+import com.maggie.app.ui.screens.loading.LoadingScreen
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.repository.AgendaRepository
@@ -63,6 +64,7 @@ import org.koin.compose.koinInject
 import java.time.Instant
 
 sealed class Screen(val route: String, val label: String) {
+    data object Loading : Screen("loading", "Chargement")
     data object Login : Screen("login", "Connexion")
     data object Dashboard : Screen("dashboard", "Tableau de bord")
     data object Calendar : Screen("calendar", "Calendrier")
@@ -130,7 +132,7 @@ fun NavGraph() {
             false -> navController.navigate(Screen.Login.route) {
                 popUpTo(0) { inclusive = true }
             }
-            true -> if (currentRoute == Screen.Login.route) {
+            true -> if (currentRoute == Screen.Login.route || currentRoute == Screen.Loading.route) {
                 navController.navigate(Screen.Dashboard.route) {
                     popUpTo(0) { inclusive = true }
                 }
@@ -195,9 +197,12 @@ fun NavGraph() {
         ) { paddingValues ->
             NavHost(
                 navController = navController,
-                startDestination = Screen.Dashboard.route,
+                startDestination = Screen.Loading.route,
                 modifier = Modifier.padding(paddingValues),
             ) {
+                composable(Screen.Loading.route) {
+                    LoadingScreen()
+                }
                 composable(Screen.Login.route) {
                     LoginScreen(viewModel = loginViewModel)
                 }

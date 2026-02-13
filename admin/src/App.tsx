@@ -7,6 +7,7 @@ import { Dashboard } from './modules/dashboard'
 import { calendarResources } from './modules/calendar'
 import { authProvider, handleAuthCallback } from './auth/authProvider'
 import { LoginPage } from './auth/LoginPage'
+import { LoadingPage } from './auth/LoadingPage'
 import type { HttpClientOptions } from '@api-platform/admin'
 
 // Handle OAuth callback params before React renders
@@ -35,7 +36,9 @@ function App() {
       entrypoint={entrypoint}
       dataProvider={dataProvider}
       authProvider={authProvider}
+      requireAuth
       loginPage={<LoginPage />}
+      loading={LoadingPage}
       layout={Layout}
       dashboard={Dashboard}
       i18nProvider={i18nProvider}
