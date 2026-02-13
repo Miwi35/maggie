@@ -93,9 +93,18 @@ jobs:
           extensions: pdo_pgsql
           tools: composer:v2
       - run: composer install --no-interaction --prefer-dist
+      - name: Generate JWT keys
+        run: |
+          mkdir -p config/jwt
+          openssl genpkey -algorithm RSA -out config/jwt/private.pem -pkeyopt rsa_keygen_bits:4096 -pass pass:test
+          openssl rsa -pubout -in config/jwt/private.pem -out config/jwt/public.pem -passin pass:test
+        env:
+          JWT_PASSPHRASE: test
       - run: bin/console doctrine:database:create --env=test --no-interaction --if-not-exists
       - run: bin/console doctrine:schema:create --env=test --no-interaction
       - run: bin/phpunit
+        env:
+          JWT_PASSPHRASE: test
 
   agent-test:
     name: Agent Tests (pytest)

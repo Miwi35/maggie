@@ -115,7 +115,14 @@ COPY --link --chown=1000:1000 ./api .
 # Install dependencies without dev packages
 RUN composer install --no-dev --no-scripts --no-progress --optimize-autoloader
 
+# Generate JWT keys for LexikJWTAuthenticationBundle
+ARG JWT_PASSPHRASE=maggie-jwt-prod
+RUN mkdir -p config/jwt \
+    && openssl genpkey -algorithm RSA -out config/jwt/private.pem -pkeyopt rsa_keygen_bits:4096 -pass pass:${JWT_PASSPHRASE} \
+    && openssl rsa -pubout -in config/jwt/private.pem -out config/jwt/public.pem -passin pass:${JWT_PASSPHRASE}
+
 # Run post-install scripts and warm up cache
+ENV JWT_PASSPHRASE=${JWT_PASSPHRASE}
 RUN composer run-script --no-dev post-install-cmd \
     && bin/console cache:warmup
 
