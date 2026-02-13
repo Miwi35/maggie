@@ -3,6 +3,7 @@ import { radiantLightTheme, radiantDarkTheme } from 'react-admin'
 import polyglotI18nProvider from 'ra-i18n-polyglot'
 import frenchMessages from 'ra-language-french'
 import { Layout } from './components/layout/Layout'
+import { Dashboard } from './modules/dashboard'
 import { calendarResources } from './modules/calendar'
 
 const entrypoint = import.meta.env.VITE_API_URL || 'http://localhost/api'
@@ -14,6 +15,7 @@ function App() {
     <HydraAdmin
       entrypoint={entrypoint}
       layout={Layout}
+      dashboard={Dashboard}
       i18nProvider={i18nProvider}
       theme={radiantLightTheme}
       darkTheme={radiantDarkTheme}
