@@ -73,7 +73,7 @@ export const Dashboard = () => {
       dataProvider.getList('tasks', {
         pagination: { page: 1, perPage: 50 },
         sort: { field: 'dueDate', order: 'ASC' },
-        filter: { 'exists[doneDate]': false, 'dueDate[after]': month.start, 'dueDate[before]': month.end },
+        filter: { 'exists[doneDate]': false, 'dueDate[before]': month.end },
       }),
       dataProvider.getList('tasks', {
         pagination: { page: 1, perPage: 50 },
@@ -276,9 +276,22 @@ export const Dashboard = () => {
     )
   }, [getMonthlyEvents, ranges])
 
+  // Today: due today or late (overdue) + undone tasks without due date
   const todayTasks = useMemo(() => {
-    const ranged = getTasksForRange(ranges.today.start, ranges.today.end)
-    // Include undone tasks without a due date in the daily section
+    const todayEnd = new Date(ranges.today.end)
+    const overdueAndToday: DashboardTask[] = rawTasks
+      .filter((t) => {
+        if (t.doneDate) return false
+        if (!t.dueDate) return false
+        return new Date(t.dueDate) < todayEnd
+      })
+      .map((t) => ({
+        id: t.id,
+        name: t.name,
+        criticality: t.criticality,
+        dueDate: t.dueDate,
+        doneDate: t.doneDate,
+      }))
     const undue: DashboardTask[] = undueTasks.map((t) => ({
       id: t.id,
       name: t.name,
@@ -286,30 +299,23 @@ export const Dashboard = () => {
       dueDate: t.dueDate,
       doneDate: t.doneDate,
     }))
-    return [...ranged, ...undue]
-  }, [getTasksForRange, ranges, undueTasks])
+    return [...overdueAndToday, ...undue]
+  }, [rawTasks, ranges, undueTasks])
+  // Tomorrow: only tasks due tomorrow
   const tomorrowTasks = useMemo(
     () => getTasksForRange(ranges.tomorrow.start, ranges.tomorrow.end),
     [getTasksForRange, ranges],
   )
-  const weekTasks = useMemo(() => {
-    const all = getTasksForRange(ranges.week.start, ranges.week.end)
-    return all.filter(
-      (t) =>
-        !t.dueDate ||
-        (!isInRange(t.dueDate, ranges.today.start, ranges.today.end) &&
-          !isInRange(t.dueDate, ranges.tomorrow.start, ranges.tomorrow.end)),
-    )
-  }, [getTasksForRange, ranges])
-  const monthTasks = useMemo(() => {
-    const all = getTasksForRange(ranges.month.start, ranges.month.end)
-    return all.filter(
-      (t) =>
-        !t.dueDate ||
-        (!isInRange(t.dueDate, ranges.week.start, ranges.week.end) &&
-          !isInRange(t.dueDate, ranges.tomorrow.start, ranges.tomorrow.end)),
-    )
-  }, [getTasksForRange, ranges])
+  // Week: due in [day after tomorrow, today+7)
+  const weekTasks = useMemo(
+    () => getTasksForRange(ranges.tomorrow.end, ranges.week.end),
+    [getTasksForRange, ranges],
+  )
+  // Month: due in [today+7, same day next month)
+  const monthTasks = useMemo(
+    () => getTasksForRange(ranges.week.end, ranges.month.end),
+    [getTasksForRange, ranges],
+  )
 
   // Toggle task done/undone
   const handleToggleDone = useCallback(
