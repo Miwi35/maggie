@@ -117,7 +117,7 @@ class MercurePublishMiddlewareTest extends TestCase
         $agenda->setColor('#ff0000');
 
         $middleware = new MercurePublishMiddleware($this->hub);
-        $envelope = new Envelope(new CreateAgendaCommand(name: 'Work', color: '#ff0000'));
+        $envelope = new Envelope(new CreateAgendaCommand(userId: 'fake-user-id', name: 'Work', color: '#ff0000'));
 
         $middleware->handle($envelope, $this->createPassthroughStack($agenda));
 
@@ -167,7 +167,7 @@ class MercurePublishMiddlewareTest extends TestCase
         $task->setDueDate(new \DateTimeImmutable('2026-03-25T18:00:00+01:00'));
 
         $middleware = new MercurePublishMiddleware($this->hub);
-        $envelope = new Envelope(new CreateTaskCommand(name: 'Buy groceries'));
+        $envelope = new Envelope(new CreateTaskCommand(userId: 'fake-user-id', name: 'Buy groceries'));
 
         $middleware->handle($envelope, $this->createPassthroughStack($task));
 

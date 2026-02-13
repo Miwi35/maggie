@@ -4,6 +4,7 @@ namespace Maggie\Calendar\Mcp\Tool;
 
 use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Message\CreateTaskCommand;
+use Maggie\Core\Repository\UserRepository;
 use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -14,6 +15,7 @@ class CreateTaskTool
 {
     public function __construct(
         private readonly MessageBusInterface $bus,
+        private readonly UserRepository $userRepository,
     ) {
     }
 
@@ -25,11 +27,17 @@ class CreateTaskTool
         ?string $dueDate = null,
     ): string {
         try {
+            $user = $this->userRepository->findOneBy([]);
+            if ($user === null) {
+                return json_encode(['error' => 'No user found.'], JSON_THROW_ON_ERROR);
+            }
+
             $dueDateObj = $dueDate !== null
                 ? new \DateTimeImmutable($dueDate, new \DateTimeZone('Europe/Paris'))
                 : null;
 
             $envelope = $this->bus->dispatch(new CreateTaskCommand(
+                userId: (string) $user->getId(),
                 name: $name,
                 description: $description,
                 priority: $priority,

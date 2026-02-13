@@ -14,6 +14,8 @@ use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use Maggie\Calendar\Contract\MercurePublishable;
 use Maggie\Calendar\Repository\TaskRepository;
+use Maggie\Core\Contract\OwnedByUserInterface;
+use Maggie\Core\Entity\User;
 use Maggie\Calendar\State\CreateTaskProcessor;
 use Maggie\Calendar\State\DeleteTaskProcessor;
 use Maggie\Calendar\State\UpdateTaskProcessor;
@@ -35,11 +37,15 @@ use Symfony\Component\Validator\Constraints as Assert;
     new Patch(processor: UpdateTaskProcessor::class),
     new Delete(processor: DeleteTaskProcessor::class),
 ])]
-class Task implements MercurePublishable
+class Task implements MercurePublishable, OwnedByUserInterface
 {
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
     private Ulid $id;
+
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    private User $user;
 
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank]
@@ -68,6 +74,18 @@ class Task implements MercurePublishable
     public function getId(): Ulid
     {
         return $this->id;
+    }
+
+    public function getUser(): User
+    {
+        return $this->user;
+    }
+
+    public function setUser(User $user): static
+    {
+        $this->user = $user;
+
+        return $this;
     }
 
     public function getName(): string

@@ -7,6 +7,7 @@ use Maggie\Calendar\Entity\TaskCriticality;
 use Maggie\Calendar\Entity\TaskPriority;
 use Maggie\Calendar\Message\CreateTaskCommand;
 use Maggie\Calendar\UseCase\CreateTask;
+use Maggie\Core\Repository\UserRepository;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -14,12 +15,17 @@ class CreateTaskHandler
 {
     public function __construct(
         private readonly CreateTask $createTask,
+        private readonly UserRepository $userRepository,
     ) {
     }
 
     public function __invoke(CreateTaskCommand $command): Task
     {
+        $user = $this->userRepository->find($command->userId)
+            ?? throw new \DomainException('User not found.');
+
         $task = new Task();
+        $task->setUser($user);
         $task->setName($command->name);
 
         if ($command->description !== null) {

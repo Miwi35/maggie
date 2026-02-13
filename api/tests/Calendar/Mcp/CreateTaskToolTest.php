@@ -2,18 +2,28 @@
 
 namespace App\Tests\Calendar\Mcp;
 
+use App\Tests\Support\FixtureLoaderTrait;
 use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Mcp\Tool\CreateTaskTool;
+use Maggie\Core\Entity\User;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 class CreateTaskToolTest extends KernelTestCase
 {
+    use FixtureLoaderTrait;
+
     protected function setUp(): void
     {
         self::bootKernel();
+        $this->purgeDatabase();
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
-        $em->createQuery('DELETE FROM ' . Task::class)->execute();
+        $user = new User();
+        $user->setEmail('mcp-test@example.com');
+        $user->setGoogleId('google-mcp-test');
+        $user->setName('MCP Test User');
+        $em->persist($user);
+        $em->flush();
     }
 
     private function getTool(): CreateTaskTool

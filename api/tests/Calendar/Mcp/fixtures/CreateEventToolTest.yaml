@@ -1,4 +1,11 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+
 Maggie\Calendar\Entity\Agenda:
   default_agenda:
     name: Main
     isDefault: true
+    user: '@test_user'

@@ -13,6 +13,7 @@ use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use Maggie\Calendar\Contract\MercurePublishable;
 use Maggie\Calendar\Repository\EventRepository;
+use Maggie\Core\Contract\OwnedThroughInterface;
 use Maggie\Calendar\State\CreateEventProcessor;
 use Maggie\Calendar\State\DeleteEventProcessor;
 use Maggie\Calendar\State\UpdateEventProcessor;
@@ -33,8 +34,14 @@ use Symfony\Component\Validator\Constraints as Assert;
     new Patch(processor: UpdateEventProcessor::class),
     new Delete(processor: DeleteEventProcessor::class),
 ])]
-class Event implements MercurePublishable
+class Event implements MercurePublishable, OwnedThroughInterface
 {
+    public static function getOwnerRelation(): string
+    {
+        return 'agenda';
+    }
+
+
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
     private Ulid $id;

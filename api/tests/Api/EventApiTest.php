@@ -4,6 +4,7 @@ namespace App\Tests\Api;
 
 use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\FixtureLoaderTrait;
+use Maggie\Core\Entity\User;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
@@ -22,7 +23,9 @@ class EventApiTest extends WebTestCase
     public function testGetEventCollection(): void
     {
         $this->loadFixtures('EventApiTest.yaml');
-        $this->authenticateAsTestUser();
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
 
         $this->client->request('GET', '/api/events', [], [], array_merge(
             ['HTTP_ACCEPT' => 'application/ld+json'],
@@ -40,7 +43,9 @@ class EventApiTest extends WebTestCase
     public function testGetSingleEvent(): void
     {
         $this->loadFixtures('EventApiTest.yaml');
-        $this->authenticateAsTestUser();
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
 
         $event = $this->getFixture('event_1');
 
@@ -58,7 +63,9 @@ class EventApiTest extends WebTestCase
     public function testCreateEvent(): void
     {
         $this->loadFixtures('EventApiTest.yaml');
-        $this->authenticateAsTestUser();
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
 
         $agenda = $this->getFixture('test_agenda');
 
@@ -81,7 +88,9 @@ class EventApiTest extends WebTestCase
     public function testCreateEventValidationError(): void
     {
         $this->loadFixtures('EventApiTest.yaml');
-        $this->authenticateAsTestUser();
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
 
         $agenda = $this->getFixture('test_agenda');
 

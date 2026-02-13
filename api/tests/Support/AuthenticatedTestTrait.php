@@ -26,6 +26,14 @@ trait AuthenticatedTestTrait
         $this->testToken = $jwtManager->create($this->testUser);
     }
 
+    protected function authenticateAsUser(User $user): void
+    {
+        $this->testUser = $user;
+
+        $jwtManager = self::getContainer()->get(JWTTokenManagerInterface::class);
+        $this->testToken = $jwtManager->create($user);
+    }
+
     /**
      * @return array<string, string>
      */

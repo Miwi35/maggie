@@ -10,6 +10,8 @@ use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use Maggie\Calendar\Contract\MercurePublishable;
 use Maggie\Calendar\Repository\AgendaRepository;
+use Maggie\Core\Contract\OwnedByUserInterface;
+use Maggie\Core\Entity\User;
 use Maggie\Calendar\State\CreateAgendaProcessor;
 use Maggie\Calendar\State\DeleteAgendaProcessor;
 use Maggie\Calendar\State\UpdateAgendaProcessor;
@@ -28,7 +30,7 @@ use Symfony\Component\Validator\Constraints as Assert;
     new Patch(processor: UpdateAgendaProcessor::class),
     new Delete(processor: DeleteAgendaProcessor::class),
 ])]
-class Agenda implements MercurePublishable
+class Agenda implements MercurePublishable, OwnedByUserInterface
 {
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
@@ -50,6 +52,10 @@ class Agenda implements MercurePublishable
     #[ORM\Column(options: ['default' => false])]
     private bool $isDefault = false;
 
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    private User $user;
+
     /** @var Collection<int, Event> */
     #[ORM\OneToMany(targetEntity: Event::class, mappedBy: 'agenda', cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $events;
@@ -63,6 +69,18 @@ class Agenda implements MercurePublishable
     public function getId(): Ulid
     {
         return $this->id;
+    }
+
+    public function getUser(): User
+    {
+        return $this->user;
+    }
+
+    public function setUser(User $user): static
+    {
+        $this->user = $user;
+
+        return $this;
     }
 
     public function getName(): string
