@@ -56,6 +56,8 @@ mobile/build/
 mobile/app/build/
 mobile/local.properties
 mobile/.idea/
+mobile/release.keystore
+mobile/keystore.properties
 
 # =============================================================================
 # Docker volumes (if mounted locally)
