@@ -26,7 +26,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Index(columns: ['due_date'], name: 'idx_task_due_date')]
 #[ORM\Index(columns: ['done_date'], name: 'idx_task_done_date')]
 #[ApiFilter(DateFilter::class, properties: ['dueDate'])]
-#[ApiFilter(ExistsFilter::class, properties: ['doneDate'])]
+#[ApiFilter(ExistsFilter::class, properties: ['doneDate', 'dueDate'])]
 #[ApiFilter(SearchFilter::class, properties: ['priority' => 'exact', 'criticality' => 'exact'])]
 #[ApiResource(operations: [
     new GetCollection(),

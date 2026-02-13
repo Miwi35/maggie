@@ -292,13 +292,15 @@ export const Dashboard = () => {
         dueDate: t.dueDate,
         doneDate: t.doneDate,
       }))
-    const undue: DashboardTask[] = undueTasks.map((t) => ({
-      id: t.id,
-      name: t.name,
-      criticality: t.criticality,
-      dueDate: t.dueDate,
-      doneDate: t.doneDate,
-    }))
+    const undue: DashboardTask[] = undueTasks
+      .filter((t) => !t.dueDate)
+      .map((t) => ({
+        id: t.id,
+        name: t.name,
+        criticality: t.criticality,
+        dueDate: t.dueDate,
+        doneDate: t.doneDate,
+      }))
     return [...overdueAndToday, ...undue]
   }, [rawTasks, ranges, undueTasks])
   // Tomorrow: only tasks due tomorrow
