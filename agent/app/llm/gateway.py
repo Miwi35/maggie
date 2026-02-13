@@ -14,7 +14,11 @@ class LLMGateway:
     """Claude API gateway with tool use support."""
 
     def __init__(self):
-        self.client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key) if settings.anthropic_api_key else None
+        self.client = (
+            anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+            if settings.anthropic_api_key
+            else None
+        )
         self.personality = PersonalityEngine()
         self.memory = ConversationMemory(max_messages=settings.max_conversation_history)
         self.tool_router = ToolRouter()
@@ -23,7 +27,10 @@ class LLMGateway:
         """Process a chat message through Claude with MCP tool support."""
         if self.client is None:
             return {
-                "response": "I'm sorry, the AI service is not configured. Please set the ANTHROPIC_API_KEY environment variable.",
+                "response": (
+                    "I'm sorry, the AI service is not configured."
+                    " Please set the ANTHROPIC_API_KEY environment variable."
+                ),
                 "tool_calls": [],
             }
 
@@ -55,7 +62,9 @@ class LLMGateway:
                 "tool_calls": [],
             }
 
-    async def _run_chat_loop(self, messages: list, tools: list, tool_calls_made: list, max_iterations: int, user_id: str) -> dict:
+    async def _run_chat_loop(
+        self, messages: list, tools: list, tool_calls_made: list, max_iterations: int, user_id: str
+    ) -> dict:
         for _ in range(max_iterations):
             logger.info(f"Calling Claude with {len(tools)} tools, {len(messages)} messages")
             response = await self.client.messages.create(

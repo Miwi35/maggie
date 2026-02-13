@@ -1,3 +1,4 @@
+import contextlib
 import logging
 from contextlib import asynccontextmanager
 
@@ -25,10 +26,8 @@ async def lifespan(app: FastAPI):
     yield
 
     # Disconnect from MCP server
-    try:
+    with contextlib.suppress(Exception):
         await mcp_client.disconnect()
-    except Exception:
-        pass
 
 
 app = FastAPI(

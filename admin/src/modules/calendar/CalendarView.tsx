@@ -620,7 +620,8 @@ export const CalendarView = () => {
   const handleSelect = useCallback((arg: { start: Date; end: Date; allDay: boolean }) => {
     selectFiredRef.current = true
     lastSelectionRef.current = null
-    let { start, end } = arg
+    const { start } = arg
+    let { end } = arg
 
     // Extend past calendar bottom into next day
     if (!arg.allDay) {
