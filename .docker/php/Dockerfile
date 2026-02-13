@@ -99,6 +99,10 @@ CMD ["php-fpm"]
 # =============================================================================
 FROM base AS prod
 
+# Set production environment
+ENV APP_ENV=prod
+ENV APP_DEBUG=0
+
 # Use production PHP configuration
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
@@ -112,7 +116,7 @@ COPY --link --chown=1000:1000 ./api .
 RUN composer install --no-dev --no-scripts --no-progress --optimize-autoloader
 
 # Run post-install scripts and warm up cache
-RUN composer run-script post-install-cmd \
+RUN composer run-script --no-dev post-install-cmd \
     && bin/console cache:warmup
 
 # Ensure var directory permissions
