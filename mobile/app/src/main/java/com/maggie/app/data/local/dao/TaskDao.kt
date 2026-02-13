@@ -20,6 +20,12 @@ interface TaskDao {
     @Query("SELECT * FROM tasks ORDER BY dueDate ASC")
     suspend fun getAll(): List<TaskEntity>
 
+    @Query("SELECT * FROM tasks WHERE doneDate IS NULL AND dueDate IS NOT NULL AND dueDate < :before ORDER BY dueDate ASC")
+    suspend fun getUndoneWithDueDateBefore(before: String): List<TaskEntity>
+
+    @Query("SELECT * FROM tasks WHERE doneDate IS NULL AND dueDate IS NULL ORDER BY criticality DESC")
+    suspend fun getUndoneWithoutDueDate(): List<TaskEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(tasks: List<TaskEntity>)
 

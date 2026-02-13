@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -26,6 +27,17 @@ fun AppDrawerContent(
             text = "Maggie",
             style = MaterialTheme.typography.headlineMedium,
             modifier = Modifier.padding(horizontal = 28.dp, vertical = 24.dp),
+        )
+
+        NavigationDrawerItem(
+            icon = { Icon(Icons.Default.Dashboard, contentDescription = null) },
+            label = { Text("Tableau de bord") },
+            selected = currentRoute == "dashboard",
+            onClick = {
+                onNavigate("dashboard")
+                onCloseDrawer()
+            },
+            modifier = Modifier.padding(horizontal = 12.dp),
         )
 
         NavigationDrawerItem(

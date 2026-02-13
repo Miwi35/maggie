@@ -14,8 +14,14 @@ interface EventDao {
     @Query("SELECT * FROM events ORDER BY startAt ASC")
     fun observeAll(): Flow<List<EventEntity>>
 
+    @Query("SELECT * FROM events WHERE startAt >= :start AND startAt < :end ORDER BY startAt ASC")
+    fun observeInRange(start: String, end: String): Flow<List<EventEntity>>
+
     @Query("SELECT * FROM events ORDER BY startAt ASC")
     suspend fun getAll(): List<EventEntity>
+
+    @Query("SELECT * FROM events WHERE rrule IS NOT NULL AND startAt < :before ORDER BY startAt ASC")
+    suspend fun getRecurringBefore(before: String): List<EventEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(events: List<EventEntity>)

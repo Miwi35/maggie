@@ -23,6 +23,10 @@ data class EventEntity(
     val endAt: String,
     val timeZone: String,
     val status: String,
+    val rrule: String?,
+    val recurringEvent: String?,
+    val originalStartAt: String?,
+    val agenda: String?,
     val syncStatus: SyncStatus = SyncStatus.SYNCED,
 ) {
     fun toModel(): Event = Event(
@@ -35,6 +39,10 @@ data class EventEntity(
         endAt = endAt,
         timeZone = timeZone,
         status = status,
+        rrule = rrule,
+        recurringEvent = recurringEvent,
+        originalStartAt = originalStartAt,
+        agenda = agenda,
     )
 
     companion object {
@@ -49,6 +57,10 @@ data class EventEntity(
                 endAt = event.endAt,
                 timeZone = event.timeZone,
                 status = event.status,
+                rrule = event.rrule,
+                recurringEvent = event.recurringEvent,
+                originalStartAt = event.originalStartAt,
+                agenda = event.agenda,
                 syncStatus = syncStatus,
             )
     }

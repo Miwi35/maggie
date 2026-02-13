@@ -1,9 +1,9 @@
 package com.maggie.app.data.model
 
-import kotlinx.serialization.Serializable
-
-@Serializable
-data class Event(
+/**
+ * Flattened event occurrence — either a real event or a virtual RRULE occurrence.
+ */
+data class ExpandedEvent(
     val id: String,
     val summary: String,
     val description: String? = null,
@@ -13,8 +13,11 @@ data class Event(
     val endAt: String,
     val timeZone: String = "Europe/Paris",
     val status: String = "confirmed",
-    val rrule: String? = null,
-    val recurringEvent: String? = null,
+    val isVirtualOccurrence: Boolean = false,
+    val masterEventId: String? = null,
+    val masterRrule: String? = null,
     val originalStartAt: String? = null,
-    val agenda: String? = null,
+    val agendaIri: String? = null,
+    val agendaColor: String? = null,
+    val agendaName: String? = null,
 )

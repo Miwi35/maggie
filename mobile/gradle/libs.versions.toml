@@ -17,6 +17,7 @@ ktor-mock = "3.0.2"
 calendar-compose = "2.9.0"
 room = "2.6.1"
 ksp = "2.1.0-1.0.29"
+lib-recur = "0.17.1"
 
 [libraries]
 # Compose
@@ -56,6 +57,9 @@ calendar-compose = { group = "com.kizitonwose.calendar", name = "compose", versi
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+
+# RRULE
+lib-recur = { group = "org.dmfs", name = "lib-recur", version.ref = "lib-recur" }
 
 # Testing
 junit = { group = "junit", name = "junit", version.ref = "junit" }

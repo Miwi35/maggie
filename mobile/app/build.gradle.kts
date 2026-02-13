@@ -73,6 +73,9 @@ dependencies {
     // Calendar
     implementation(libs.calendar.compose)
 
+    // RRULE
+    implementation(libs.lib.recur)
+
     // Koin (DI)
     implementation(libs.koin.android)
     implementation(libs.koin.compose)
