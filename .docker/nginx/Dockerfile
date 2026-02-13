@@ -1,3 +1,6 @@
+# Global ARG for PHP image (used in prod stage to copy public assets)
+ARG PHP_IMAGE=maggie-php:latest
+
 # =============================================================================
 # Development stage (default)
 # =============================================================================
@@ -31,7 +34,6 @@ RUN npm run build
 # =============================================================================
 # Production stage — nginx with baked-in admin + API public assets
 # =============================================================================
-ARG PHP_IMAGE=maggie-php:latest
 FROM ${PHP_IMAGE} AS php-source
 
 FROM nginx:alpine AS prod
