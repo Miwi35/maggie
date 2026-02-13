@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-ARG PHP_VERSION=8.3
+ARG PHP_VERSION=8.4
 
 # =============================================================================
 # Base stage - shared configuration
