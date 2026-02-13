@@ -1,0 +1,125 @@
+services:
+  # ===========================================================================
+  # PHP-FPM (Symfony API + MCP Server)
+  # ===========================================================================
+  php:
+    image: ghcr.io/miwi35/maggie-php:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: .env.prod
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: "0"
+    depends_on:
+      database:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - internal
+
+  # ===========================================================================
+  # Nginx (PHP-FPM gateway + Admin SPA + static assets)
+  # ===========================================================================
+  nginx:
+    image: ghcr.io/miwi35/maggie-nginx:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      APP_DOMAIN: maggieai.fr
+      NGINX_ENVSUBST_OUTPUT_DIR: /etc/nginx/conf.d
+    depends_on:
+      - php
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.maggie-web.rule=Host(`maggieai.fr`)"
+      - "traefik.http.routers.maggie-web.entrypoints=websecure"
+      - "traefik.http.routers.maggie-web.tls.certresolver=letsencrypt"
+      - "traefik.http.services.maggie-web.loadbalancer.server.port=80"
+    networks:
+      - internal
+      - traefik-public
+
+  # ===========================================================================
+  # PostgreSQL
+  # ===========================================================================
+  database:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    env_file: .env.prod
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  # ===========================================================================
+  # Mercure (Real-time updates hub)
+  # ===========================================================================
+  mercure:
+    image: dunglas/mercure
+    restart: unless-stopped
+    environment:
+      SERVER_NAME: ':80'
+      MERCURE_PUBLISHER_JWT_KEY: ${MERCURE_JWT_SECRET}
+      MERCURE_SUBSCRIBER_JWT_KEY: ${MERCURE_JWT_SECRET}
+      MERCURE_EXTRA_DIRECTIVES: |
+        cors_origins https://maggieai.fr
+    env_file: .env.prod
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.maggie-mercure.rule=Host(`maggieai.fr`) && PathPrefix(`/.well-known/mercure`)"
+      - "traefik.http.routers.maggie-mercure.entrypoints=websecure"
+      - "traefik.http.routers.maggie-mercure.tls.certresolver=letsencrypt"
+      - "traefik.http.services.maggie-mercure.loadbalancer.server.port=80"
+    networks:
+      - internal
+      - traefik-public
+
+  # ===========================================================================
+  # RabbitMQ (Message Queue)
+  # ===========================================================================
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    restart: unless-stopped
+    env_file: .env.prod
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  # ===========================================================================
+  # Python Agent Hub (FastAPI)
+  # ===========================================================================
+  agent:
+    image: ghcr.io/miwi35/maggie-agent:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: .env.prod
+    depends_on:
+      - nginx
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.maggie-agent.rule=Host(`maggieai.fr`) && PathPrefix(`/agent`)"
+      - "traefik.http.routers.maggie-agent.entrypoints=websecure"
+      - "traefik.http.routers.maggie-agent.tls.certresolver=letsencrypt"
+      - "traefik.http.services.maggie-agent.loadbalancer.server.port=8001"
+    networks:
+      - internal
+      - traefik-public
+
+networks:
+  internal:
+    driver: bridge
+  traefik-public:
+    external: true
+
+volumes:
+  postgres_data:
+  rabbitmq_data:

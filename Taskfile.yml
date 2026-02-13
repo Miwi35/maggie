@@ -211,3 +211,32 @@ tasks:
     cmds:
       - task: lint:all
       - task: test:all
+
+  # ===========================================================================
+  # Deploy
+  # ===========================================================================
+  deploy:build:
+    desc: Build all production Docker images locally
+    cmds:
+      - docker build -f .docker/php/Dockerfile --target prod -t maggie-php:latest .
+      - docker build -f .docker/python/Dockerfile --target prod -t maggie-agent:latest .
+      - docker build -f .docker/nginx/Dockerfile --target prod --build-arg PHP_IMAGE=maggie-php:latest -t maggie-nginx:latest .
+
+  deploy:push:
+    desc: Tag and push production images to GHCR
+    vars:
+      TAG:
+        sh: git rev-parse --short HEAD
+    cmds:
+      - docker tag maggie-php:latest ghcr.io/miwi35/maggie-php:{{.TAG}}
+      - docker tag maggie-php:latest ghcr.io/miwi35/maggie-php:latest
+      - docker tag maggie-nginx:latest ghcr.io/miwi35/maggie-nginx:{{.TAG}}
+      - docker tag maggie-nginx:latest ghcr.io/miwi35/maggie-nginx:latest
+      - docker tag maggie-agent:latest ghcr.io/miwi35/maggie-agent:{{.TAG}}
+      - docker tag maggie-agent:latest ghcr.io/miwi35/maggie-agent:latest
+      - docker push ghcr.io/miwi35/maggie-php:{{.TAG}}
+      - docker push ghcr.io/miwi35/maggie-php:latest
+      - docker push ghcr.io/miwi35/maggie-nginx:{{.TAG}}
+      - docker push ghcr.io/miwi35/maggie-nginx:latest
+      - docker push ghcr.io/miwi35/maggie-agent:{{.TAG}}
+      - docker push ghcr.io/miwi35/maggie-agent:latest

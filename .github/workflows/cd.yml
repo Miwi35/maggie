@@ -1,0 +1,175 @@
+name: CD
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  PHP_IMAGE: ghcr.io/miwi35/maggie-php
+  NGINX_IMAGE: ghcr.io/miwi35/maggie-nginx
+  AGENT_IMAGE: ghcr.io/miwi35/maggie-agent
+
+jobs:
+  # ===========================================================================
+  # Build PHP image (needed by nginx build)
+  # ===========================================================================
+  build-php:
+    name: Build PHP
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: .docker/php/Dockerfile
+          target: prod
+          push: true
+          tags: |
+            ${{ env.PHP_IMAGE }}:${{ github.sha }}
+            ${{ env.PHP_IMAGE }}:latest
+          cache-from: type=gha,scope=php
+          cache-to: type=gha,mode=max,scope=php
+
+  # ===========================================================================
+  # Build Agent image (parallel with PHP)
+  # ===========================================================================
+  build-agent:
+    name: Build Agent
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: .docker/python/Dockerfile
+          target: prod
+          push: true
+          tags: |
+            ${{ env.AGENT_IMAGE }}:${{ github.sha }}
+            ${{ env.AGENT_IMAGE }}:latest
+          cache-from: type=gha,scope=agent
+          cache-to: type=gha,mode=max,scope=agent
+
+  # ===========================================================================
+  # Build Nginx image (depends on PHP for public assets)
+  # ===========================================================================
+  build-nginx:
+    name: Build Nginx
+    runs-on: ubuntu-latest
+    needs: build-php
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: .docker/nginx/Dockerfile
+          target: prod
+          build-args: |
+            PHP_IMAGE=${{ env.PHP_IMAGE }}:${{ github.sha }}
+          push: true
+          tags: |
+            ${{ env.NGINX_IMAGE }}:${{ github.sha }}
+            ${{ env.NGINX_IMAGE }}:latest
+          cache-from: type=gha,scope=nginx
+          cache-to: type=gha,mode=max,scope=nginx
+
+  # ===========================================================================
+  # Deploy to VPS
+  # ===========================================================================
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: [build-php, build-nginx, build-agent]
+    environment: production
+    permissions:
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy compose file to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: docker-compose.prod.yml
+          target: /opt/maggie/
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ACTOR: ${{ github.actor }}
+          IMAGE_TAG: ${{ github.sha }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: GH_TOKEN,GH_ACTOR,IMAGE_TAG
+          script: |
+            set -e
+
+            cd /opt/maggie
+
+            # Log in to GHCR
+            echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
+
+            # Update image tag in env file
+            sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG='"$IMAGE_TAG"'/' .env.prod
+
+            # Pull new images
+            docker compose --env-file .env.prod -f docker-compose.prod.yml pull
+
+            # Deploy (recreate changed services)
+            docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --remove-orphans
+
+            # Run database migrations
+            docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T php bin/console doctrine:migrations:migrate --no-interaction
+
+            # Health check
+            sleep 5
+            docker compose --env-file .env.prod -f docker-compose.prod.yml ps
+
+            # Clean up old images
+            docker image prune -f

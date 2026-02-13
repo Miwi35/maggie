@@ -67,6 +67,7 @@ services:
     build:
       context: .
       dockerfile: .docker/nginx/Dockerfile
+      target: dev
     volumes:
       - ./api/public:/var/www/api/public:ro
       - ./admin/dist:/var/www/admin:ro
@@ -178,6 +179,7 @@ services:
     build:
       context: .
       dockerfile: .docker/python/Dockerfile
+      target: dev
       args:
         PYTHON_VERSION: ${PYTHON_VERSION}
         UID: ${UID:-1000}

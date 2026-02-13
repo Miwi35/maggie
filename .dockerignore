@@ -18,3 +18,15 @@ mobile/build
 .env.local
 .env.*.local
 .docker-data
+
+# Production build excludes
+mobile/
+.github/
+infra/
+*.md
+Taskfile.yml
+api/Taskfile.yml
+admin/Taskfile.yml
+agent/Taskfile.yml
+docker-compose.prod.yml
+img.png
