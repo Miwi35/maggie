@@ -58,7 +58,10 @@ class RecurrenceService
         $occurrences = [];
 
         foreach ($recurrences as $recurrence) {
-            $occurrenceStart = \DateTimeImmutable::createFromMutable($recurrence->getStart());
+            $start = $recurrence->getStart();
+            $occurrenceStart = $start instanceof \DateTime
+                ? \DateTimeImmutable::createFromMutable($start)
+                : \DateTimeImmutable::createFromInterface($start);
 
             // Skip occurrences outside range
             if ($occurrenceStart >= $rangeEnd) {
