@@ -194,33 +194,6 @@ export const Dashboard = () => {
     [rawEvents],
   )
 
-  // Monthly events: no RRULE expansion, just raw events in range
-  const getMonthlyEvents = useCallback(
-    (rangeStart: string, rangeEnd: string): DashboardEvent[] => {
-      const start = new Date(rangeStart)
-      const end = new Date(rangeEnd)
-      return rawEvents
-        .filter((e) => {
-          if (e.recurringEvent) return false
-          const eventStart = new Date(e.startAt)
-          return eventStart >= start && eventStart < end
-        })
-        .map((e) => ({
-          id: e.id,
-          summary: e.summary,
-          startAt: e.startAt,
-          endAt: e.endAt,
-          allDay: e.allDay,
-          location: e.location,
-        }))
-        .sort((a, b) => {
-          if (a.allDay !== b.allDay) return a.allDay ? -1 : 1
-          return a.startAt.localeCompare(b.startAt)
-        })
-    },
-    [rawEvents],
-  )
-
   // Check if a date falls within a range
   const isInRange = (dateStr: string, rangeStart: string, rangeEnd: string): boolean => {
     const d = new Date(dateStr).getTime()
@@ -268,13 +241,13 @@ export const Dashboard = () => {
     )
   }, [expandEventsForRange, ranges])
   const monthEvents = useMemo(() => {
-    const all = getMonthlyEvents(ranges.month.start, ranges.month.end)
+    const all = expandEventsForRange(ranges.month.start, ranges.month.end)
     return all.filter(
       (e) =>
         !isInRange(e.startAt, ranges.week.start, ranges.week.end) &&
         !isInRange(e.startAt, ranges.tomorrow.start, ranges.tomorrow.end),
     )
-  }, [getMonthlyEvents, ranges])
+  }, [expandEventsForRange, ranges])
 
   // Today: due today or late (overdue) + undone tasks without due date
   const todayTasks = useMemo(() => {
