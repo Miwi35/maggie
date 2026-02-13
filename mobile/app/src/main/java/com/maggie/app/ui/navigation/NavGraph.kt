@@ -29,6 +29,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.maggie.app.data.api.EventCreateRequest
 import com.maggie.app.data.auth.AuthRepository
+import com.maggie.app.data.auth.BiometricLockManager
+import com.maggie.app.ui.screens.lock.LockScreen
 import com.maggie.app.data.model.ExpandedEvent
 import com.maggie.app.data.model.Task
 import com.maggie.app.ui.components.AppDrawerContent
@@ -89,6 +91,9 @@ fun NavGraph() {
     val authRepository: AuthRepository = koinInject()
     val isAuthenticated by authRepository.isAuthenticated.collectAsState(initial = null)
     val loginViewModel: LoginViewModel = koinViewModel()
+
+    val biometricLockManager: BiometricLockManager = koinInject()
+    val isLocked by biometricLockManager.isLocked.collectAsState()
 
     val chatViewModel: ChatViewModel = koinViewModel()
     val dashboardViewModel: DashboardViewModel = koinViewModel()
@@ -422,5 +427,10 @@ fun NavGraph() {
             },
             onDismiss = { recurrenceConfirm = null },
         )
+    }
+
+    // Biometric lock overlay
+    if (isAuthenticated == true && isLocked) {
+        LockScreen(lockManager = biometricLockManager)
     }
 }

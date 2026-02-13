@@ -95,6 +95,10 @@ dependencies {
     // Lifecycle
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.runtime.compose)
+    implementation(libs.lifecycle.process)
+
+    // Biometric
+    implementation(libs.biometric)
 
     // Ktor (HTTP + SSE)
     implementation(libs.ktor.client.core)
@@ -129,6 +133,7 @@ dependencies {
     // AndroidX
     implementation(libs.activity.compose)
     implementation(libs.core.ktx)
+    implementation(libs.splashscreen)
 
     // Testing
     testImplementation(libs.junit)

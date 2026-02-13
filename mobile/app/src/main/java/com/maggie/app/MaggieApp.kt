@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.auth.AuthManager
 import com.maggie.app.data.auth.AuthRepository
+import com.maggie.app.data.auth.BiometricLockManager
 import com.maggie.app.data.local.MaggieDatabase
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.repository.AgendaRepository
@@ -38,6 +39,7 @@ class MaggieApp : Application() {
             // Auth
             single { AuthRepository(androidContext()) }
             single { AuthManager(get(), get()) }
+            single { BiometricLockManager() }
 
             // Database
             single {
@@ -95,5 +97,6 @@ class MaggieApp : Application() {
         }
 
         get<VoiceManager>().initialize()
+        get<BiometricLockManager>().initialize()
     }
 }
