@@ -20,8 +20,8 @@ final class Version20260211185015 extends AbstractMigration
     public function up(Schema $schema): void
     {
         // this up() migration is auto-generated, please modify it to your needs
-        $this->addSql('DROP SEQUENCE greeting_id_seq CASCADE');
-        $this->addSql('DROP SEQUENCE user_id_seq CASCADE');
+        $this->addSql('DROP SEQUENCE IF EXISTS greeting_id_seq CASCADE');
+        $this->addSql('DROP SEQUENCE IF EXISTS user_id_seq CASCADE');
         $this->addSql('CREATE TABLE calendar (id UUID NOT NULL, name VARCHAR(255) NOT NULL, description TEXT DEFAULT NULL, time_zone VARCHAR(50) DEFAULT \'Europe/Paris\' NOT NULL, color VARCHAR(7) DEFAULT NULL, is_default BOOLEAN DEFAULT false NOT NULL, PRIMARY KEY (id))');
         $this->addSql('CREATE TABLE event (id UUID NOT NULL, summary VARCHAR(255) NOT NULL, description TEXT DEFAULT NULL, location VARCHAR(500) DEFAULT NULL, all_day BOOLEAN DEFAULT false NOT NULL, start_at TIMESTAMP(0) WITH TIME ZONE NOT NULL, end_at TIMESTAMP(0) WITH TIME ZONE NOT NULL, time_zone VARCHAR(50) DEFAULT \'Europe/Paris\' NOT NULL, rrule VARCHAR(500) DEFAULT NULL, original_start_at TIMESTAMP(0) WITH TIME ZONE DEFAULT NULL, status VARCHAR(20) DEFAULT \'confirmed\' NOT NULL, reminders JSON DEFAULT NULL, recurring_event_id UUID DEFAULT NULL, calendar_id UUID NOT NULL, PRIMARY KEY (id))');
         $this->addSql('CREATE INDEX IDX_3BAE0AA7E54B259A ON event (recurring_event_id)');
@@ -30,8 +30,8 @@ final class Version20260211185015 extends AbstractMigration
         $this->addSql('CREATE INDEX idx_event_status ON event (status)');
         $this->addSql('ALTER TABLE event ADD CONSTRAINT FK_3BAE0AA7E54B259A FOREIGN KEY (recurring_event_id) REFERENCES event (id) ON DELETE CASCADE NOT DEFERRABLE');
         $this->addSql('ALTER TABLE event ADD CONSTRAINT FK_3BAE0AA7A40A2C8 FOREIGN KEY (calendar_id) REFERENCES calendar (id) ON DELETE CASCADE NOT DEFERRABLE');
-        $this->addSql('DROP TABLE greeting');
-        $this->addSql('DROP TABLE "user"');
+        $this->addSql('DROP TABLE IF EXISTS greeting');
+        $this->addSql('DROP TABLE IF EXISTS "user"');
     }
 
     public function down(Schema $schema): void

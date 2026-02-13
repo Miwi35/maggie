@@ -165,7 +165,11 @@ jobs:
             # Deploy (recreate changed services)
             docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --remove-orphans
 
-            # Run database migrations
+            # Wait for database to be ready
+            sleep 10
+
+            # Ensure database exists and run migrations
+            docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T php bin/console doctrine:database:create --no-interaction --if-not-exists
             docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T php bin/console doctrine:migrations:migrate --no-interaction
 
             # Health check
