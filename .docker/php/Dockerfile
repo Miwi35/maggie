@@ -106,7 +106,7 @@ RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 COPY --link .docker/php/conf.d/opcache.prod.ini $PHP_INI_DIR/conf.d/opcache.prod.ini
 
 # Copy application source
-COPY --link --chown=app:app ./api .
+COPY --link --chown=1000:1000 ./api .
 
 # Install dependencies without dev packages
 RUN composer install --no-dev --no-scripts --no-progress --optimize-autoloader
