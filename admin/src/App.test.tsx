@@ -5,6 +5,8 @@ import App from './App'
 // Mock HydraAdmin since it needs network access
 vi.mock('@api-platform/admin', () => ({
   HydraAdmin: ({ children }: { children: React.ReactNode }) => <div data-testid="hydra-admin">{children}</div>,
+  fetchHydra: vi.fn(),
+  hydraDataProvider: vi.fn(() => ({})),
 }))
 
 vi.mock('./components/layout/Layout', () => ({
@@ -13,6 +15,15 @@ vi.mock('./components/layout/Layout', () => ({
 
 vi.mock('./modules/calendar', () => ({
   calendarResources: <div data-testid="calendar-resources" />,
+}))
+
+vi.mock('./auth/authProvider', () => ({
+  authProvider: {},
+  handleAuthCallback: vi.fn(),
+}))
+
+vi.mock('./auth/LoginPage', () => ({
+  LoginPage: () => <div data-testid="login-page" />,
 }))
 
 describe('App', () => {

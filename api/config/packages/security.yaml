@@ -1,0 +1,26 @@
+security:
+    providers:
+        app_user_provider:
+            entity:
+                class: Maggie\Core\Entity\User
+                property: email
+
+    firewalls:
+        dev:
+            pattern: ^/(_profiler|_wdt|assets|build)/
+            security: false
+        auth:
+            pattern: ^/api/auth
+            stateless: true
+            security: false
+        api:
+            pattern: ^/api
+            stateless: true
+            jwt: ~
+
+    access_control:
+        - { path: ^/api/auth, roles: PUBLIC_ACCESS }
+        - { path: ^/api/docs, roles: PUBLIC_ACCESS }
+        - { path: ^/api/contexts, roles: PUBLIC_ACCESS }
+        - { path: ^/api$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/, roles: ROLE_USER }

@@ -117,6 +117,8 @@ class McpClient:
         }
 
         headers = {"Content-Type": "application/json", "Accept": "application/json, text/event-stream"}
+        if settings.service_token:
+            headers["Authorization"] = f"Bearer {settings.service_token}"
         if self._session_id:
             headers["Mcp-Session-Id"] = self._session_id
 
@@ -155,6 +157,8 @@ class McpClient:
         }
 
         headers = {"Content-Type": "application/json"}
+        if settings.service_token:
+            headers["Authorization"] = f"Bearer {settings.service_token}"
         if self._session_id:
             headers["Mcp-Session-Id"] = self._session_id
 

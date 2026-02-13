@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     mercure_public_url: str = "http://maggie.local/.well-known/mercure"
     mercure_jwt_secret: str = "!ChangeThisMercureHubJWTSecretKey!"
 
+    # Auth
+    service_token: str = ""
+
     # Agent
     agent_name: str = "Maggie"
     max_conversation_history: int = 50

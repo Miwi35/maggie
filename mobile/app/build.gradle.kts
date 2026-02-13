@@ -44,11 +44,13 @@ android {
             applicationIdSuffix = ".dev"
             buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2\"")
             buildConfigField("String", "MERCURE_URL", "\"http://10.0.2.2/.well-known/mercure\"")
+            buildConfigField("String", "GOOGLE_CLIENT_ID", "\"${project.findProperty("GOOGLE_CLIENT_ID") ?: ""}\"")
         }
         create("prod") {
             dimension = "environment"
             buildConfigField("String", "API_BASE_URL", "\"https://maggieai.fr\"")
             buildConfigField("String", "MERCURE_URL", "\"https://maggieai.fr/.well-known/mercure\"")
+            buildConfigField("String", "GOOGLE_CLIENT_ID", "\"${project.findProperty("GOOGLE_CLIENT_ID") ?: ""}\"")
         }
     }
 
@@ -101,6 +103,14 @@ dependencies {
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
+
+    // Credentials (Google Sign-In)
+    implementation(libs.credentials)
+    implementation(libs.credentials.play.services)
+    implementation(libs.googleid)
+
+    // DataStore
+    implementation(libs.datastore.preferences)
 
     // Calendar
     implementation(libs.calendar.compose)

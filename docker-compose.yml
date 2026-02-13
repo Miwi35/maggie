@@ -52,6 +52,11 @@ services:
       MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL}
       MERCURE_JWT_SECRET: ${MERCURE_JWT_SECRET}
       MESSENGER_TRANSPORT_DSN: ${MESSENGER_TRANSPORT_DSN}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
+      ADMIN_URL: ${ADMIN_URL}
+      SERVICE_TOKEN: ${SERVICE_TOKEN}
     depends_on:
       database:
         condition: service_healthy
@@ -100,6 +105,7 @@ services:
     environment:
       VITE_API_URL: ${VITE_API_URL}
       VITE_MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL}
+      VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.maggie-admin.rule=PathPrefix(`/admin`)"
@@ -193,6 +199,7 @@ services:
       MERCURE_URL: ${MERCURE_URL}
       MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL}
       MERCURE_JWT_SECRET: ${MERCURE_JWT_SECRET}
+      SERVICE_TOKEN: ${SERVICE_TOKEN}
     depends_on:
       - nginx
     labels:

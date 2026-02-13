@@ -2,6 +2,11 @@ services:
     _defaults:
         autowire: true
         autoconfigure: true
+        bind:
+            string $googleClientId: '%env(GOOGLE_CLIENT_ID)%'
+            string $googleClientSecret: '%env(GOOGLE_CLIENT_SECRET)%'
+            string $googleRedirectUri: '%env(GOOGLE_REDIRECT_URI)%'
+            string $adminUrl: '%env(ADMIN_URL)%'
 
     Maggie\Core\:
         resource: '../src/'

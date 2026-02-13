@@ -3,6 +3,8 @@ package com.maggie.app
 import android.app.Application
 import androidx.room.Room
 import com.maggie.app.data.api.MaggieApiService
+import com.maggie.app.data.auth.AuthManager
+import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.local.MaggieDatabase
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.repository.AgendaRepository
@@ -12,11 +14,15 @@ import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.ui.screens.dashboard.DashboardViewModel
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
+import com.maggie.app.ui.screens.login.LoginViewModel
 import com.maggie.app.voice.VoiceManager
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.defaultRequest
+import io.ktor.client.request.header
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.koin.android.ext.android.get
 import org.koin.android.ext.koin.androidContext
@@ -29,6 +35,10 @@ class MaggieApp : Application() {
         super.onCreate()
 
         val appModule = module {
+            // Auth
+            single { AuthRepository(androidContext()) }
+            single { AuthManager(get(), get()) }
+
             // Database
             single {
                 Room.databaseBuilder(
@@ -44,12 +54,19 @@ class MaggieApp : Application() {
 
             // Network
             single {
+                val authRepository: AuthRepository = get()
                 HttpClient(OkHttp) {
                     install(ContentNegotiation) {
                         json(Json {
                             ignoreUnknownKeys = true
                             isLenient = true
                         })
+                    }
+                    defaultRequest {
+                        val token = runBlocking { authRepository.getToken() }
+                        if (token != null) {
+                            header("Authorization", "Bearer $token")
+                        }
                     }
                 }
             }
@@ -66,6 +83,7 @@ class MaggieApp : Application() {
             single { VoiceManager(androidContext()) }
 
             // ViewModels
+            viewModel { LoginViewModel(get()) }
             viewModel { DashboardViewModel(get(), get(), get(), get()) }
             viewModel { FullCalendarViewModel(get(), get(), get(), get()) }
             viewModel { ChatViewModel(get(), get()) }

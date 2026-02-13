@@ -2,6 +2,7 @@
 
 namespace App\Tests\Api;
 
+use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -9,6 +10,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 class EventApiTest extends WebTestCase
 {
     use FixtureLoaderTrait;
+    use AuthenticatedTestTrait;
 
     private KernelBrowser $client;
 
@@ -20,8 +22,12 @@ class EventApiTest extends WebTestCase
     public function testGetEventCollection(): void
     {
         $this->loadFixtures('EventApiTest.yaml');
+        $this->authenticateAsTestUser();
 
-        $this->client->request('GET', '/api/events', [], [], ['HTTP_ACCEPT' => 'application/ld+json']);
+        $this->client->request('GET', '/api/events', [], [], array_merge(
+            ['HTTP_ACCEPT' => 'application/ld+json'],
+            $this->authHeaders(),
+        ));
 
         self::assertResponseIsSuccessful();
         self::assertResponseHeaderSame('content-type', 'application/ld+json; charset=utf-8');
@@ -34,10 +40,14 @@ class EventApiTest extends WebTestCase
     public function testGetSingleEvent(): void
     {
         $this->loadFixtures('EventApiTest.yaml');
+        $this->authenticateAsTestUser();
 
         $event = $this->getFixture('event_1');
 
-        $this->client->request('GET', '/api/events/' . $event->getId(), [], [], ['HTTP_ACCEPT' => 'application/ld+json']);
+        $this->client->request('GET', '/api/events/' . $event->getId(), [], [], array_merge(
+            ['HTTP_ACCEPT' => 'application/ld+json'],
+            $this->authHeaders(),
+        ));
 
         self::assertResponseIsSuccessful();
 
@@ -48,13 +58,14 @@ class EventApiTest extends WebTestCase
     public function testCreateEvent(): void
     {
         $this->loadFixtures('EventApiTest.yaml');
+        $this->authenticateAsTestUser();
 
         $agenda = $this->getFixture('test_agenda');
 
-        $this->client->request('POST', '/api/events', [], [], [
+        $this->client->request('POST', '/api/events', [], [], array_merge([
             'CONTENT_TYPE' => 'application/ld+json',
             'HTTP_ACCEPT' => 'application/ld+json',
-        ], json_encode([
+        ], $this->authHeaders()), json_encode([
             'summary' => 'New Event',
             'startAt' => '2026-03-20T10:00:00+01:00',
             'endAt' => '2026-03-20T11:00:00+01:00',
@@ -70,13 +81,14 @@ class EventApiTest extends WebTestCase
     public function testCreateEventValidationError(): void
     {
         $this->loadFixtures('EventApiTest.yaml');
+        $this->authenticateAsTestUser();
 
         $agenda = $this->getFixture('test_agenda');
 
-        $this->client->request('POST', '/api/events', [], [], [
+        $this->client->request('POST', '/api/events', [], [], array_merge([
             'CONTENT_TYPE' => 'application/ld+json',
             'HTTP_ACCEPT' => 'application/ld+json',
-        ], json_encode([
+        ], $this->authHeaders()), json_encode([
             // Missing required 'summary'
             'startAt' => '2026-03-20T10:00:00+01:00',
             'endAt' => '2026-03-20T11:00:00+01:00',

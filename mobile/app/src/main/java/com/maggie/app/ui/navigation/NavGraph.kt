@@ -12,6 +12,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,6 +28,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.maggie.app.data.api.EventCreateRequest
+import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.model.ExpandedEvent
 import com.maggie.app.data.model.Task
 import com.maggie.app.ui.components.AppDrawerContent
@@ -46,6 +48,8 @@ import com.maggie.app.ui.screens.shared.RecurrenceConfirmDialog
 import com.maggie.app.ui.screens.shared.TaskCreateScreen
 import com.maggie.app.ui.screens.shared.TaskDetailSheet
 import com.maggie.app.ui.screens.shared.TaskEditScreen
+import com.maggie.app.ui.screens.login.LoginScreen
+import com.maggie.app.ui.screens.login.LoginViewModel
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.repository.AgendaRepository
@@ -59,6 +63,7 @@ import org.koin.compose.koinInject
 import java.time.Instant
 
 sealed class Screen(val route: String, val label: String) {
+    data object Login : Screen("login", "Connexion")
     data object Dashboard : Screen("dashboard", "Tableau de bord")
     data object Calendar : Screen("calendar", "Calendrier")
     data object EventCreate : Screen("event/create", "Nouvel événement")
@@ -78,6 +83,10 @@ fun NavGraph() {
 
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+
+    val authRepository: AuthRepository = koinInject()
+    val isAuthenticated by authRepository.isAuthenticated.collectAsState(initial = null)
+    val loginViewModel: LoginViewModel = koinViewModel()
 
     val chatViewModel: ChatViewModel = koinViewModel()
     val dashboardViewModel: DashboardViewModel = koinViewModel()
@@ -112,6 +121,21 @@ fun NavGraph() {
             voiceModeActive = true
             showChatSheet = true
             voiceManager.startListening()
+        }
+    }
+
+    // Auth redirect
+    LaunchedEffect(isAuthenticated) {
+        when (isAuthenticated) {
+            false -> navController.navigate(Screen.Login.route) {
+                popUpTo(0) { inclusive = true }
+            }
+            true -> if (currentRoute == Screen.Login.route) {
+                navController.navigate(Screen.Dashboard.route) {
+                    popUpTo(0) { inclusive = true }
+                }
+            }
+            null -> {} // Still loading
         }
     }
 
@@ -174,6 +198,9 @@ fun NavGraph() {
                 startDestination = Screen.Dashboard.route,
                 modifier = Modifier.padding(paddingValues),
             ) {
+                composable(Screen.Login.route) {
+                    LoginScreen(viewModel = loginViewModel)
+                }
                 composable(Screen.Dashboard.route) {
                     DashboardScreen(
                         viewModel = dashboardViewModel,
