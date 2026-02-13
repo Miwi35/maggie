@@ -1,0 +1,71 @@
+<?php
+
+namespace App\Tests\Calendar\Mcp;
+
+use Maggie\Calendar\Entity\Task;
+use Maggie\Calendar\Mcp\Tool\CreateTaskTool;
+use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+
+class CreateTaskToolTest extends KernelTestCase
+{
+    protected function setUp(): void
+    {
+        self::bootKernel();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->createQuery('DELETE FROM ' . Task::class)->execute();
+    }
+
+    private function getTool(): CreateTaskTool
+    {
+        return self::getContainer()->get(CreateTaskTool::class);
+    }
+
+    public function testCreateTaskPersistsToDatabase(): void
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $tool = $this->getTool();
+
+        $result = $tool('Buy groceries', 'Milk, eggs, bread', 'high', 'medium', '2026-03-25');
+
+        $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
+        self::assertSame('Buy groceries', $data['task']['name']);
+        self::assertSame('high', $data['task']['priority']);
+        self::assertSame('medium', $data['task']['criticality']);
+
+        $tasks = $em->getRepository(Task::class)->findAll();
+        self::assertCount(1, $tasks);
+        self::assertSame('Buy groceries', $tasks[0]->getName());
+        self::assertSame('Milk, eggs, bread', $tasks[0]->getDescription());
+    }
+
+    public function testCreateTaskUsesDefaults(): void
+    {
+        $tool = $this->getTool();
+
+        $result = $tool('Simple task');
+
+        $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
+        self::assertSame('Simple task', $data['task']['name']);
+        self::assertSame('medium', $data['task']['priority']);
+        self::assertSame('low', $data['task']['criticality']);
+        self::assertNull($data['task']['dueDate']);
+    }
+
+    public function testCreateTaskWithDueDate(): void
+    {
+        $tool = $this->getTool();
+
+        $result = $tool('Deadline task', dueDate: '2026-04-01');
+
+        $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
+        self::assertNotNull($data['task']['dueDate']);
+        self::assertStringStartsWith('2026-04-01', $data['task']['dueDate']);
+    }
+}

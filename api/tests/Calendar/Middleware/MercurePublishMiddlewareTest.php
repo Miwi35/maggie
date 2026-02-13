@@ -4,12 +4,18 @@ namespace App\Tests\Calendar\Middleware;
 
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Event;
+use Maggie\Calendar\Entity\Task;
+use Maggie\Calendar\Entity\TaskCriticality;
+use Maggie\Calendar\Entity\TaskPriority;
 use Maggie\Calendar\Message\CreateAgendaCommand;
 use Maggie\Calendar\Message\CreateEventCommand;
+use Maggie\Calendar\Message\CreateTaskCommand;
 use Maggie\Calendar\Message\DeleteAgendaCommand;
 use Maggie\Calendar\Message\DeleteEventCommand;
+use Maggie\Calendar\Message\DeleteTaskCommand;
 use Maggie\Calendar\Message\UpdateAgendaCommand;
 use Maggie\Calendar\Message\UpdateEventCommand;
+use Maggie\Calendar\Message\UpdateTaskCommand;
 use Maggie\Calendar\Middleware\MercurePublishMiddleware;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Mercure\HubInterface;
@@ -149,6 +155,62 @@ class MercurePublishMiddlewareTest extends TestCase
         self::assertCount(1, $this->publishedUpdates);
         $data = json_decode($this->publishedUpdates[0]->getData(), true);
         self::assertSame('/api/agendas/' . $agendaId, $data['@id']);
+        self::assertTrue($data['deleted']);
+    }
+
+    public function testCreateTaskPublishesToMercure(): void
+    {
+        $task = new Task();
+        $task->setName('Buy groceries');
+        $task->setPriority(TaskPriority::High);
+        $task->setCriticality(TaskCriticality::Medium);
+        $task->setDueDate(new \DateTimeImmutable('2026-03-25T18:00:00+01:00'));
+
+        $middleware = new MercurePublishMiddleware($this->hub);
+        $envelope = new Envelope(new CreateTaskCommand(name: 'Buy groceries'));
+
+        $middleware->handle($envelope, $this->createPassthroughStack($task));
+
+        self::assertCount(1, $this->publishedUpdates);
+        $data = json_decode($this->publishedUpdates[0]->getData(), true);
+        self::assertSame('Buy groceries', $data['name']);
+        self::assertSame('high', $data['priority']);
+        self::assertSame('medium', $data['criticality']);
+        self::assertFalse($data['isDone']);
+        self::assertStringContainsString('/api/tasks/', $data['@id']);
+    }
+
+    public function testUpdateTaskPublishesToMercure(): void
+    {
+        $task = new Task();
+        $task->setName('Updated task');
+        $task->setPriority(TaskPriority::Low);
+        $task->setCriticality(TaskCriticality::Critical);
+
+        $middleware = new MercurePublishMiddleware($this->hub);
+        $envelope = new Envelope(new UpdateTaskCommand(taskId: (string) $task->getId()));
+
+        $middleware->handle($envelope, $this->createPassthroughStack($task));
+
+        self::assertCount(1, $this->publishedUpdates);
+        $data = json_decode($this->publishedUpdates[0]->getData(), true);
+        self::assertSame('Updated task', $data['name']);
+        self::assertSame('low', $data['priority']);
+        self::assertSame('critical', $data['criticality']);
+    }
+
+    public function testDeleteTaskPublishesToMercure(): void
+    {
+        $taskId = (string) new Ulid();
+
+        $middleware = new MercurePublishMiddleware($this->hub);
+        $envelope = new Envelope(new DeleteTaskCommand(taskId: $taskId));
+
+        $middleware->handle($envelope, $this->createPassthroughStack());
+
+        self::assertCount(1, $this->publishedUpdates);
+        $data = json_decode($this->publishedUpdates[0]->getData(), true);
+        self::assertSame('/api/tasks/' . $taskId, $data['@id']);
         self::assertTrue($data['deleted']);
     }
 

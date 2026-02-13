@@ -19,6 +19,9 @@ framework:
             'Maggie\Calendar\Message\CreateAgendaCommand': sync
             'Maggie\Calendar\Message\UpdateAgendaCommand': sync
             'Maggie\Calendar\Message\DeleteAgendaCommand': sync
+            'Maggie\Calendar\Message\CreateTaskCommand': sync
+            'Maggie\Calendar\Message\UpdateTaskCommand': sync
+            'Maggie\Calendar\Message\DeleteTaskCommand': sync
 
 when@test:
     framework:
