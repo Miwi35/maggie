@@ -34,7 +34,7 @@ describe('ChatWidget', () => {
 
     expect(screen.getByText('Maggie')).toBeInTheDocument()
     expect(screen.getByText('✕')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Ask Maggie...')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Demande à Maggie...')).toBeInTheDocument()
   })
 
   test('sends message on button click', async () => {
@@ -54,11 +54,11 @@ describe('ChatWidget', () => {
     await user.click(screen.getByRole('button'))
 
     // Type a message
-    const input = screen.getByPlaceholderText('Ask Maggie...')
+    const input = screen.getByPlaceholderText('Demande à Maggie...')
     await user.type(input, 'Hello Maggie')
 
     // Click Send
-    const sendButton = screen.getByRole('button', { name: 'Send' })
+    const sendButton = screen.getByRole('button', { name: 'Envoyer' })
     await user.click(sendButton)
 
     // Verify user message appears

@@ -15,9 +15,7 @@ class LLMGateway:
 
     def __init__(self):
         self.client = (
-            anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
-            if settings.anthropic_api_key
-            else None
+            anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key) if settings.anthropic_api_key else None
         )
         self.personality = PersonalityEngine()
         self.memory = ConversationMemory(max_messages=settings.max_conversation_history)
@@ -88,11 +86,13 @@ class LLMGateway:
                         logger.info(f"Tool call: {block.name}({block.input})")
                         result = await self.tool_router.call_tool(block.name, block.input)
                         tool_calls_made.append({"name": block.name, "input": block.input, "result": result})
-                        tool_results.append({
-                            "type": "tool_result",
-                            "tool_use_id": block.id,
-                            "content": result,
-                        })
+                        tool_results.append(
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": block.id,
+                                "content": result,
+                            }
+                        )
 
                 messages.append({"role": "user", "content": tool_results})
             else:

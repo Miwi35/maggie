@@ -14,11 +14,13 @@ class ToolRouter:
 
         anthropic_tools = []
         for tool in mcp_tools:
-            anthropic_tools.append({
-                "name": tool["name"],
-                "description": tool.get("description", ""),
-                "input_schema": tool.get("inputSchema", {"type": "object", "properties": {}}),
-            })
+            anthropic_tools.append(
+                {
+                    "name": tool["name"],
+                    "description": tool.get("description", ""),
+                    "input_schema": tool.get("inputSchema", {"type": "object", "properties": {}}),
+                }
+            )
 
         return anthropic_tools
 

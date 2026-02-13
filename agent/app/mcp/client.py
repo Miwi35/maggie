@@ -25,11 +25,14 @@ class McpClient:
         self._session_expired = False
 
         # Initialize MCP session
-        response = await self._send_request("initialize", {
-            "protocolVersion": "2025-03-26",
-            "capabilities": {},
-            "clientInfo": {"name": "maggie-agent-hub", "version": "0.1.0"},
-        })
+        response = await self._send_request(
+            "initialize",
+            {
+                "protocolVersion": "2025-03-26",
+                "capabilities": {},
+                "clientInfo": {"name": "maggie-agent-hub", "version": "0.1.0"},
+            },
+        )
 
         if not response:
             logger.error("MCP initialize failed — no response from server")
@@ -70,10 +73,13 @@ class McpClient:
 
     async def call_tool(self, name: str, arguments: dict) -> str:
         """Call an MCP tool and return the result as a string."""
-        response = await self._send_request("tools/call", {
-            "name": name,
-            "arguments": arguments,
-        })
+        response = await self._send_request(
+            "tools/call",
+            {
+                "name": name,
+                "arguments": arguments,
+            },
+        )
 
         # Retry once on session expiration
         if response is None and self._session_expired:
@@ -81,10 +87,13 @@ class McpClient:
             self._tools = []
             await self.disconnect()
             await self.connect()
-            response = await self._send_request("tools/call", {
-                "name": name,
-                "arguments": arguments,
-            })
+            response = await self._send_request(
+                "tools/call",
+                {
+                    "name": name,
+                    "arguments": arguments,
+                },
+            )
 
         if response and "content" in response:
             # Extract text content from MCP response
