@@ -36,7 +36,7 @@ export const DigestSection = ({
           gap: 2,
         }}
       >
-        <EventListWidget events={events} loading={loading} />
+        <EventListWidget events={events} loading={loading} showDate />
         <TaskListWidget tasks={tasks} loading={loading} onToggleDone={onToggleDone} />
       </Box>
     </Box>

@@ -23,12 +23,26 @@ const timeFormatter = new Intl.DateTimeFormat('fr-FR', {
   hour12: false,
 })
 
+const dateTimeFormatter = new Intl.DateTimeFormat('fr-FR', {
+  day: 'numeric',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+})
+
+const dateFormatter = new Intl.DateTimeFormat('fr-FR', {
+  day: 'numeric',
+  month: 'short',
+})
+
 interface EventListWidgetProps {
   events: DashboardEvent[]
   loading: boolean
+  showDate?: boolean
 }
 
-export const EventListWidget = ({ events, loading }: EventListWidgetProps) => {
+export const EventListWidget = ({ events, loading, showDate = false }: EventListWidgetProps) => {
   if (loading) {
     return (
       <Card variant="outlined">
@@ -74,11 +88,11 @@ export const EventListWidget = ({ events, loading }: EventListWidgetProps) => {
                       <Typography
                         variant="caption"
                         color="text.secondary"
-                        sx={{ minWidth: 48, fontVariantNumeric: 'tabular-nums' }}
+                        sx={{ minWidth: showDate ? 80 : 48, fontVariantNumeric: 'tabular-nums' }}
                       >
                         {event.allDay
-                          ? 'Journée'
-                          : timeFormatter.format(new Date(event.startAt))}
+                          ? (showDate ? dateFormatter.format(new Date(event.startAt)) : 'Journée')
+                          : (showDate ? dateTimeFormatter : timeFormatter).format(new Date(event.startAt))}
                       </Typography>
                       <Typography variant="body2" noWrap>
                         {event.summary}
