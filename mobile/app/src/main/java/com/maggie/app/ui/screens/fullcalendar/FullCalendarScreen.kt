@@ -23,6 +23,7 @@ import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
@@ -35,6 +36,7 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -52,6 +54,7 @@ import com.maggie.app.data.model.ExpandedEvent
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FullCalendarScreen(
     viewModel: FullCalendarViewModel = koinViewModel(),
@@ -204,73 +207,77 @@ fun FullCalendarScreen(
                 }
             },
         ) { padding ->
-            Column(
+            PullToRefreshBox(
+                isRefreshing = uiState.isLoading,
+                onRefresh = { viewModel.refresh() },
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        CalendarToolbar(
-                            title = viewModel.getTitle(),
-                            viewType = uiState.viewType,
-                            onViewTypeChange = { viewModel.setViewType(it) },
-                            onNavigateBackward = { viewModel.navigateBackward() },
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            CalendarToolbar(
+                                title = viewModel.getTitle(),
+                                viewType = uiState.viewType,
+                                onViewTypeChange = { viewModel.setViewType(it) },
+                                onNavigateBackward = { viewModel.navigateBackward() },
+                                onNavigateForward = { viewModel.navigateForward() },
+                                onGoToToday = { viewModel.goToToday() },
+                            )
+                        }
+                        Box {
+                            IconButton(onClick = { moreMenuExpanded = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "Options")
+                            }
+                            DropdownMenu(
+                                expanded = moreMenuExpanded,
+                                onDismissRequest = { moreMenuExpanded = false },
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Agendas") },
+                                    onClick = {
+                                        moreMenuExpanded = false
+                                        scope.launch { drawerState.open() }
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Importer Google Calendar") },
+                                    onClick = {
+                                        moreMenuExpanded = false
+                                        showGoogleImport = true
+                                        viewModel.loadGoogleCalendars()
+                                    },
+                                )
+                            }
+                        }
+                    }
+
+                    when (uiState.viewType) {
+                        CalendarViewType.MONTH -> MonthCalendarView(
+                            currentDate = uiState.currentDate,
+                            events = uiState.expandedEvents,
+                            onDateSelected = { viewModel.navigateToDate(it) },
+                            onEventClick = onEventClick,
+                        )
+                        CalendarViewType.WEEK -> WeekTimelineView(
+                            currentDate = uiState.currentDate,
+                            events = uiState.expandedEvents,
                             onNavigateForward = { viewModel.navigateForward() },
-                            onGoToToday = { viewModel.goToToday() },
+                            onNavigateBackward = { viewModel.navigateBackward() },
+                            onEventClick = onEventClick,
+                        )
+                        CalendarViewType.DAY -> DayTimelineView(
+                            currentDate = uiState.currentDate,
+                            events = uiState.expandedEvents,
+                            onNavigateForward = { viewModel.navigateForward() },
+                            onNavigateBackward = { viewModel.navigateBackward() },
+                            onEventClick = onEventClick,
                         )
                     }
-                    Box {
-                        IconButton(onClick = { moreMenuExpanded = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "Options")
-                        }
-                        DropdownMenu(
-                            expanded = moreMenuExpanded,
-                            onDismissRequest = { moreMenuExpanded = false },
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Agendas") },
-                                onClick = {
-                                    moreMenuExpanded = false
-                                    scope.launch { drawerState.open() }
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Importer Google Calendar") },
-                                onClick = {
-                                    moreMenuExpanded = false
-                                    showGoogleImport = true
-                                    viewModel.loadGoogleCalendars()
-                                },
-                            )
-                        }
-                    }
-                }
-
-                when (uiState.viewType) {
-                    CalendarViewType.MONTH -> MonthCalendarView(
-                        currentDate = uiState.currentDate,
-                        events = uiState.expandedEvents,
-                        onDateSelected = { viewModel.navigateToDate(it) },
-                        onEventClick = onEventClick,
-                    )
-                    CalendarViewType.WEEK -> WeekTimelineView(
-                        currentDate = uiState.currentDate,
-                        events = uiState.expandedEvents,
-                        onNavigateForward = { viewModel.navigateForward() },
-                        onNavigateBackward = { viewModel.navigateBackward() },
-                        onEventClick = onEventClick,
-                    )
-                    CalendarViewType.DAY -> DayTimelineView(
-                        currentDate = uiState.currentDate,
-                        events = uiState.expandedEvents,
-                        onNavigateForward = { viewModel.navigateForward() },
-                        onNavigateBackward = { viewModel.navigateBackward() },
-                        onEventClick = onEventClick,
-                    )
                 }
             }
         }

@@ -106,7 +106,7 @@ class FullCalendarViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
-                val agendas = agendaRepository.getAgendas()
+                val agendas = agendaRepository.refreshAgendas().getOrThrow()
                 agendaMap = agendas.associateBy { it.id }
 
                 val rangeEvents = eventRepository.refreshEvents().getOrDefault(emptyList())
@@ -119,10 +119,15 @@ class FullCalendarViewModel(
                 taskRepository.refreshTasks()
                 val tasks = taskRepository.getUndoneTasks()
 
+                // Auto-enable new agendas
+                val previousEnabled = _uiState.value.enabledAgendas
+                val allIds = agendas.map { it.id }.toSet()
+                val enabledAgendas = if (previousEnabled.isEmpty()) allIds
+                else previousEnabled + (allIds - previousEnabled)
+
                 _uiState.value = _uiState.value.copy(
                     agendas = agendas,
-                    enabledAgendas = if (_uiState.value.enabledAgendas.isEmpty()) agendas.map { it.id }.toSet()
-                    else _uiState.value.enabledAgendas,
+                    enabledAgendas = enabledAgendas,
                     tasks = tasks,
                     isLoading = false,
                 )
