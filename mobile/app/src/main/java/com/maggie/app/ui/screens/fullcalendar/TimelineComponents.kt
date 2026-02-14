@@ -181,6 +181,7 @@ fun calculateEventPosition(
 
 /**
  * Get events for a specific date, split into all-day and timed.
+ * Multi-day events appear on every day they span.
  */
 fun eventsForDate(
     events: List<ExpandedEvent>,
@@ -188,8 +189,14 @@ fun eventsForDate(
     zone: ZoneId = ZoneId.of("Europe/Paris"),
 ): Pair<List<ExpandedEvent>, List<ExpandedEvent>> {
     val dayEvents = events.filter { event ->
-        val startZdt = ZonedDateTime.ofInstant(Instant.parse(event.startAt), zone)
-        startZdt.toLocalDate() == date
+        val startDate = ZonedDateTime.ofInstant(Instant.parse(event.startAt), zone).toLocalDate()
+        val endZoned = ZonedDateTime.ofInstant(Instant.parse(event.endAt), zone)
+        val endDate = if (event.allDay && endZoned.hour == 0 && endZoned.minute == 0) {
+            endZoned.toLocalDate().minusDays(1)
+        } else {
+            endZoned.toLocalDate()
+        }
+        date in startDate..maxOf(startDate, endDate)
     }
     return dayEvents.partition { it.allDay }
 }

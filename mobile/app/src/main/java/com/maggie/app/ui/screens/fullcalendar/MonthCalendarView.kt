@@ -146,14 +146,26 @@ private fun computeSlots(
     for (weekStart in weekStarts.sorted()) {
         val weekEnd = weekStart.plusDays(6)
 
-        // Events overlapping this week, sorted: longer spans first, then earlier start
+        // Events overlapping this week, sorted:
+        // 1. Multi-day events first (startDate != endDate), earliest start first (cascade)
+        // 2. Single-day events after: all-day first, then timed by start time
         val weekRanges = ranges
             .filter { it.startDate <= weekEnd && it.endDate >= weekStart }
-            .sortedWith(
-                compareByDescending<EventRange> { it.endDate.toEpochDay() - it.startDate.toEpochDay() }
-                    .thenBy { it.startDate }
-                    .thenBy { it.event.startAt }
-            )
+            .sortedWith(Comparator { a, b ->
+                val aMulti = a.startDate != a.endDate
+                val bMulti = b.startDate != b.endDate
+                if (aMulti != bMulti) return@Comparator if (aMulti) -1 else 1
+                if (aMulti) {
+                    // Both multi-day: earliest start first, then longest span
+                    val startCmp = a.startDate.compareTo(b.startDate)
+                    if (startCmp != 0) return@Comparator startCmp
+                    return@Comparator (b.endDate.toEpochDay() - b.startDate.toEpochDay())
+                        .compareTo(a.endDate.toEpochDay() - a.startDate.toEpochDay())
+                }
+                // Both single-day: all-day first, then by start time
+                if (a.event.allDay != b.event.allDay) return@Comparator if (a.event.allDay) -1 else 1
+                a.event.startAt.compareTo(b.event.startAt)
+            })
 
         // Track occupied slots: day → slot → true
         val occupied = (0..6).associate {
