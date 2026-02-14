@@ -152,5 +152,10 @@ class DashboardViewModel(
                 .catch { /* SSE reconnects automatically */ }
                 .collect { refresh() }
         }
+        viewModelScope.launch {
+            mercureService.subscribe("/api/agendas/{id}")
+                .catch { /* SSE reconnects automatically */ }
+                .collect { refresh() }
+        }
     }
 }
