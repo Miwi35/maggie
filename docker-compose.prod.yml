@@ -96,6 +96,45 @@ services:
       - internal
 
   # ===========================================================================
+  # Worker (Symfony Messenger consumer)
+  # ===========================================================================
+  worker:
+    image: ghcr.io/miwi35/maggie-php:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: .env.prod
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: "0"
+    depends_on:
+      database:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    command: ["php", "bin/console", "messenger:consume", "async", "--time-limit=3600", "--memory-limit=128M"]
+    networks:
+      - internal
+
+  # ===========================================================================
+  # Cron (Scheduled tasks)
+  # ===========================================================================
+  cron:
+    image: ghcr.io/miwi35/maggie-php:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: .env.prod
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: "0"
+    depends_on:
+      database:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    command: ["crond", "-f", "-l", "2"]
+    user: root
+    networks:
+      - internal
+
+  # ===========================================================================
   # Python Agent Hub (FastAPI)
   # ===========================================================================
   agent:

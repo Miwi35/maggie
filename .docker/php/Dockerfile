@@ -67,6 +67,9 @@ RUN addgroup -g ${GID} app \
 RUN mkdir -p var/cache var/log var/sessions \
     && chown -R app:app /var/www
 
+# Copy crontab for scheduled tasks (crond runs jobs as user app)
+COPY --link .docker/php/crontab /etc/crontabs/app
+
 # Copy entrypoint script
 COPY --link --chmod=755 .docker/php/docker-entrypoint.sh /usr/local/bin/docker-entrypoint
 

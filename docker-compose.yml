@@ -179,6 +179,85 @@ services:
       - maggie
 
   # ===========================================================================
+  # Worker (Symfony Messenger consumer)
+  # ===========================================================================
+  worker:
+    build:
+      context: .
+      dockerfile: .docker/php/Dockerfile
+      target: dev
+      args:
+        PHP_VERSION: ${PHP_VERSION}
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    volumes:
+      - ./api:/var/www/api:cached
+    environment:
+      APP_ENV: ${APP_ENV}
+      APP_DEBUG: ${APP_DEBUG}
+      APP_SECRET: ${APP_SECRET}
+      DATABASE_URL: ${DATABASE_URL}
+      CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN}
+      MERCURE_URL: ${MERCURE_URL}
+      MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL}
+      MERCURE_JWT_SECRET: ${MERCURE_JWT_SECRET}
+      MESSENGER_TRANSPORT_DSN: ${MESSENGER_TRANSPORT_DSN}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
+      ADMIN_URL: ${ADMIN_URL}
+      SERVICE_TOKEN: ${SERVICE_TOKEN}
+    depends_on:
+      database:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    command: ["php", "bin/console", "messenger:consume", "async", "--time-limit=3600", "--memory-limit=128M"]
+    restart: unless-stopped
+    networks:
+      - maggie
+
+  # ===========================================================================
+  # Cron (Scheduled tasks)
+  # ===========================================================================
+  cron:
+    build:
+      context: .
+      dockerfile: .docker/php/Dockerfile
+      target: dev
+      args:
+        PHP_VERSION: ${PHP_VERSION}
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    volumes:
+      - ./api:/var/www/api:cached
+    environment:
+      APP_ENV: ${APP_ENV}
+      APP_DEBUG: ${APP_DEBUG}
+      APP_SECRET: ${APP_SECRET}
+      DATABASE_URL: ${DATABASE_URL}
+      CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN}
+      MERCURE_URL: ${MERCURE_URL}
+      MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL}
+      MERCURE_JWT_SECRET: ${MERCURE_JWT_SECRET}
+      MESSENGER_TRANSPORT_DSN: ${MESSENGER_TRANSPORT_DSN}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
+      ADMIN_URL: ${ADMIN_URL}
+      SERVICE_TOKEN: ${SERVICE_TOKEN}
+    depends_on:
+      database:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    command: ["crond", "-f", "-l", "2"]
+    user: root
+    restart: unless-stopped
+    networks:
+      - maggie
+
+  # ===========================================================================
   # Python Agent Hub (FastAPI)
   # ===========================================================================
   agent:
