@@ -19,6 +19,7 @@ import TableCell from '@mui/material/TableCell'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import Typography from '@mui/material/Typography'
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import LinkIcon from '@mui/icons-material/Link'
 import LinkOffIcon from '@mui/icons-material/LinkOff'
 
@@ -68,6 +69,7 @@ export const GoogleCalendarSettings = () => {
   const [connectedTaskListId, setConnectedTaskListId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [connectingAgenda, setConnectingAgenda] = useState<string | null>(null)
+  const [importingCalendarId, setImportingCalendarId] = useState<string | null>(null)
   const [connectingTasks, setConnectingTasks] = useState(false)
 
   const loadData = useCallback(async () => {
@@ -106,11 +108,10 @@ export const GoogleCalendarSettings = () => {
       }
 
       // Check user's connected task list
-      const userIdentity = await dataProvider.getOne('users', { id: `/api/users/${identity.id}` })
-      if (userIdentity?.data) {
-        setConnectedTaskListId(
-          (userIdentity.data as Record<string, unknown>).googleTaskListId as string | null,
-        )
+      const meRes = await authFetch('/users/me')
+      if (meRes.ok) {
+        const meData = await meRes.json()
+        setConnectedTaskListId(meData.googleTaskListId ?? null)
       }
     } catch {
       notify('Erreur lors du chargement des paramètres', { type: 'error' })
@@ -162,6 +163,27 @@ export const GoogleCalendarSettings = () => {
       notify('Erreur réseau', { type: 'error' })
     } finally {
       setConnectingAgenda(null)
+    }
+  }
+
+  const handleImport = async (googleCalendarId: string) => {
+    setImportingCalendarId(googleCalendarId)
+    try {
+      const res = await authFetch('/calendar/google/import', {
+        method: 'POST',
+        body: JSON.stringify({ googleCalendarId }),
+      })
+      if (res.ok) {
+        notify('Calendrier importé avec succès', { type: 'success' })
+        await loadData()
+      } else {
+        const data = await res.json()
+        notify(data.error || "Erreur lors de l'import", { type: 'error' })
+      }
+    } catch {
+      notify('Erreur réseau', { type: 'error' })
+    } finally {
+      setImportingCalendarId(null)
     }
   }
 
@@ -219,6 +241,74 @@ export const GoogleCalendarSettings = () => {
       <Typography variant="h5" mb={3}>
         Paramètres Google
       </Typography>
+
+      {/* Section 0: Import Google Calendars */}
+      {(() => {
+        const connectedGoogleIds = new Set(
+          agendas.filter((a) => a.googleCalendarId).map((a) => a.googleCalendarId),
+        )
+        const unconnected = googleCalendars.filter((c) => !connectedGoogleIds.has(c.id))
+        if (unconnected.length === 0) return null
+        return (
+          <Card sx={{ mb: 3 }}>
+            <CardHeader title="Importer un calendrier Google" />
+            <CardContent>
+              <Typography variant="body2" color="text.secondary" mb={2}>
+                Importez un calendrier Google pour créer automatiquement un agenda Maggie synchronisé.
+              </Typography>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Calendrier Google</TableCell>
+                    <TableCell align="right">Action</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {unconnected.map((cal) => (
+                    <TableRow key={cal.id}>
+                      <TableCell>
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          {cal.backgroundColor && (
+                            <Box
+                              sx={{
+                                width: 12,
+                                height: 12,
+                                borderRadius: '50%',
+                                bgcolor: cal.backgroundColor,
+                                flexShrink: 0,
+                              }}
+                            />
+                          )}
+                          <Typography variant="body2">
+                            {cal.summary}
+                            {cal.primary && ' (principal)'}
+                          </Typography>
+                        </Stack>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Button
+                          size="small"
+                          startIcon={
+                            importingCalendarId === cal.id ? (
+                              <CircularProgress size={16} />
+                            ) : (
+                              <AddCircleOutlineIcon />
+                            )
+                          }
+                          onClick={() => handleImport(cal.id)}
+                          disabled={importingCalendarId !== null}
+                        >
+                          Importer
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )
+      })()}
 
       {/* Section 1: Calendar Linking */}
       <Card sx={{ mb: 3 }}>

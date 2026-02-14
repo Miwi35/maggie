@@ -3,6 +3,7 @@
 namespace Maggie\Calendar\Controller;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Calendar\Message\CreateAgendaCommand;
 use Maggie\Calendar\Message\PullFromGoogleCommand;
 use Maggie\Calendar\Message\PullTasksFromGoogleCommand;
 use Maggie\Calendar\Repository\AgendaRepository;
@@ -16,6 +17,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Symfony\Component\Routing\Attribute\Route;
 
 final class GoogleCalendarConnectController
@@ -57,6 +59,99 @@ final class GoogleCalendarConnectController
         ], $calendars);
 
         return new JsonResponse($result);
+    }
+
+    #[Route('/api/calendar/google/import', name: 'google_calendar_import', methods: ['POST'])]
+    public function import(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->security->getUser();
+
+        if (!$user->hasGoogleCalendarTokens()) {
+            return new JsonResponse(
+                ['error' => 'Google Calendar not authorized.'],
+                Response::HTTP_FORBIDDEN,
+            );
+        }
+
+        $data = json_decode($request->getContent(), true);
+        $googleCalendarId = $data['googleCalendarId'] ?? null;
+
+        if (!$googleCalendarId) {
+            return new JsonResponse(
+                ['error' => 'googleCalendarId is required.'],
+                Response::HTTP_BAD_REQUEST,
+            );
+        }
+
+        // Find the Google Calendar details
+        $calendars = $this->apiClient->listCalendars($user);
+        $googleCal = null;
+        foreach ($calendars as $cal) {
+            if ($cal->getId() === $googleCalendarId) {
+                $googleCal = $cal;
+                break;
+            }
+        }
+
+        if ($googleCal === null) {
+            return new JsonResponse(
+                ['error' => 'Google Calendar not found.'],
+                Response::HTTP_NOT_FOUND,
+            );
+        }
+
+        $name = $data['name'] ?? $googleCal->getSummary();
+        $color = $data['color'] ?? $googleCal->getBackgroundColor();
+
+        // Create agenda via CQRS (MercurePublishMiddleware will publish automatically)
+        $envelope = $this->messageBus->dispatch(new CreateAgendaCommand(
+            userId: (string) $user->getId(),
+            name: $name,
+            color: $color,
+        ));
+
+        $agenda = $envelope->last(HandledStamp::class)?->getResult();
+        if ($agenda === null) {
+            return new JsonResponse(
+                ['error' => 'Failed to create agenda.'],
+                Response::HTTP_INTERNAL_SERVER_ERROR,
+            );
+        }
+
+        // Link to Google Calendar
+        $agenda->setGoogleCalendarId($googleCalendarId);
+        $this->entityManager->flush();
+
+        // Set up webhook
+        if ($this->googleWebhookUrl) {
+            try {
+                $watchResult = $this->apiClient->watchEvents(
+                    $user,
+                    $googleCalendarId,
+                    $this->googleWebhookUrl,
+                    $this->googleWebhookToken,
+                );
+                $agenda->setGoogleWatchChannelId($watchResult['channelId']);
+                $agenda->setGoogleWatchResourceId($watchResult['resourceId']);
+                $agenda->setGoogleWatchExpiresAt(
+                    (new \DateTimeImmutable())->setTimestamp((int) ($watchResult['expiration'] / 1000))
+                );
+                $this->entityManager->flush();
+            } catch (\Throwable) {
+                // Webhook setup is non-critical
+            }
+        }
+
+        // Dispatch initial sync
+        $this->messageBus->dispatch(new PullFromGoogleCommand(agendaId: (string) $agenda->getId()));
+
+        return new JsonResponse([
+            'id' => (string) $agenda->getId(),
+            'name' => $agenda->getName(),
+            'color' => $agenda->getColor(),
+            'googleCalendarId' => $agenda->getGoogleCalendarId(),
+        ], Response::HTTP_CREATED);
     }
 
     #[Route('/api/calendar/google/connect', name: 'google_calendar_connect', methods: ['POST'])]
