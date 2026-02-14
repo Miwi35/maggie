@@ -51,7 +51,7 @@ class TaskRepository(
 
     suspend fun toggleDone(taskId: String, done: Boolean): Result<Task> = runCatching {
         val data = buildJsonObject {
-            put("doneDate", if (done) java.time.Instant.now().toString() else null)
+            put("completedAt", if (done) java.time.Instant.now().toString() else null)
         }
         val task = apiService.updateTask(taskId, data)
         taskDao.upsertAll(listOf(TaskEntity.fromModel(task)))

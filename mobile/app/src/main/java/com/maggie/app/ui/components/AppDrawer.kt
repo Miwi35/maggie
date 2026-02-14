@@ -56,8 +56,11 @@ fun AppDrawerContent(
         NavigationDrawerItem(
             icon = { Icon(Icons.Default.Settings, contentDescription = null) },
             label = { Text("Paramètres") },
-            selected = false,
-            onClick = { /* TODO: settings */ onCloseDrawer() },
+            selected = currentRoute == "settings",
+            onClick = {
+                onNavigate("settings")
+                onCloseDrawer()
+            },
             modifier = Modifier.padding(horizontal = 12.dp),
         )
 

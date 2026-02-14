@@ -50,7 +50,6 @@ object TaskConstants {
         "low" to "Basse",
         "medium" to "Moyenne",
         "high" to "Haute",
-        "urgent" to "Urgente",
     )
 }
 

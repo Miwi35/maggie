@@ -14,7 +14,7 @@ import com.maggie.app.data.local.entity.TaskEntity
 
 @Database(
     entities = [EventEntity::class, ChatMessageEntity::class, TaskEntity::class, AgendaEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

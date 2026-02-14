@@ -53,6 +53,7 @@ import com.maggie.app.ui.screens.shared.TaskEditScreen
 import com.maggie.app.ui.screens.login.LoginScreen
 import com.maggie.app.ui.screens.login.LoginViewModel
 import com.maggie.app.ui.screens.loading.LoadingScreen
+import com.maggie.app.ui.screens.settings.SettingsScreen
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.repository.AgendaRepository
@@ -74,6 +75,7 @@ sealed class Screen(val route: String, val label: String) {
     data object TaskCreate : Screen("task/create", "Nouvelle tâche")
     data object EventEdit : Screen("event/edit", "Modifier l'événement")
     data object TaskEdit : Screen("task/edit", "Modifier la tâche")
+    data object Settings : Screen("settings", "Paramètres")
 }
 
 private val MAIN_SCREENS = setOf(Screen.Dashboard.route, Screen.Calendar.route)
@@ -291,6 +293,11 @@ fun NavGraph() {
                             },
                         )
                     }
+                }
+                composable(Screen.Settings.route) {
+                    SettingsScreen(
+                        onBack = { navController.popBackStack() },
+                    )
                 }
             }
         }

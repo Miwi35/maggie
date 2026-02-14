@@ -2,10 +2,13 @@ package com.maggie.app.ui.screens.fullcalendar
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.maggie.app.data.api.AgendaCreateRequest
+import com.maggie.app.data.api.GoogleCalendarImportRequest
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.ExpandedEvent
+import com.maggie.app.data.model.GoogleCalendar
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.EventRepository
@@ -33,6 +36,8 @@ data class FullCalendarUiState(
     val enabledAgendas: Set<String> = emptySet(),
     val isLoading: Boolean = false,
     val error: String? = null,
+    val googleCalendars: List<GoogleCalendar> = emptyList(),
+    val isLoadingGoogle: Boolean = false,
 )
 
 class FullCalendarViewModel(
@@ -170,6 +175,47 @@ class FullCalendarViewModel(
                 agendaId == null || agendaId in enabledAgendas
             }
         _uiState.value = _uiState.value.copy(expandedEvents = expanded)
+    }
+
+    fun createAgenda(name: String, color: String?, description: String?) {
+        viewModelScope.launch {
+            agendaRepository.createAgenda(AgendaCreateRequest(name, color, description))
+                .onSuccess { refresh() }
+                .onFailure { _uiState.value = _uiState.value.copy(error = it.message) }
+        }
+    }
+
+    fun deleteAgenda(id: String) {
+        viewModelScope.launch {
+            agendaRepository.deleteAgenda(id)
+                .onSuccess { refresh() }
+                .onFailure { _uiState.value = _uiState.value.copy(error = it.message) }
+        }
+    }
+
+    fun loadGoogleCalendars() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoadingGoogle = true)
+            agendaRepository.getGoogleCalendars()
+                .onSuccess { _uiState.value = _uiState.value.copy(googleCalendars = it, isLoadingGoogle = false) }
+                .onFailure { _uiState.value = _uiState.value.copy(error = it.message, isLoadingGoogle = false) }
+        }
+    }
+
+    fun importGoogleCalendar(googleCalendarId: String, name: String?, color: String?) {
+        viewModelScope.launch {
+            agendaRepository.importGoogleCalendar(GoogleCalendarImportRequest(googleCalendarId, name, color))
+                .onSuccess { refresh() }
+                .onFailure { _uiState.value = _uiState.value.copy(error = it.message) }
+        }
+    }
+
+    fun exportToGoogleCalendar(agendaId: String) {
+        viewModelScope.launch {
+            agendaRepository.exportToGoogleCalendar(agendaId)
+                .onSuccess { refresh() }
+                .onFailure { _uiState.value = _uiState.value.copy(error = it.message) }
+        }
     }
 
     private fun subscribeToMercure() {

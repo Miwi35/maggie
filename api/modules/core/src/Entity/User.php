@@ -2,16 +2,28 @@
 
 namespace Maggie\Core\Entity;
 
+use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\Get;
+use ApiPlatform\Metadata\Patch;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Maggie\Calendar\Contract\MercurePublishable;
 use Maggie\Core\Repository\UserRepository;
+use Maggie\Core\State\UpdateUserProcessor;
+use Maggie\Core\State\UserItemProvider;
 use Maggie\Core\Trait\HasGoogleOAuthTokensTrait;
 use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Serializer\Attribute\Ignore;
 use Symfony\Component\Uid\Ulid;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: '"user"')]
-class User implements UserInterface
+#[ApiResource(operations: [
+    new Get(requirements: ['id' => '[0-9A-HJKMNP-TV-Z]{26}']),
+    new Get(name: 'me', uriTemplate: '/users/me', provider: UserItemProvider::class),
+    new Patch(processor: UpdateUserProcessor::class),
+])]
+class User implements UserInterface, MercurePublishable
 {
     use HasGoogleOAuthTokensTrait;
 
@@ -57,6 +69,7 @@ class User implements UserInterface
         return $this;
     }
 
+    #[Ignore]
     public function getGoogleId(): string
     {
         return $this->googleId;
@@ -94,6 +107,7 @@ class User implements UserInterface
     }
 
     /** @return list<string> */
+    #[Ignore]
     public function getRoles(): array
     {
         $roles = $this->roles;
@@ -110,12 +124,51 @@ class User implements UserInterface
         return $this;
     }
 
+    #[Ignore]
     public function getUserIdentifier(): string
     {
         return $this->email;
     }
 
+    #[Ignore]
     public function eraseCredentials(): void
     {
+    }
+
+    // Override trait methods to hide sensitive data from serialization
+
+    #[Ignore]
+    public function getGoogleAccessToken(): ?string
+    {
+        return $this->googleAccessToken;
+    }
+
+    #[Ignore]
+    public function getGoogleRefreshToken(): ?string
+    {
+        return $this->googleRefreshToken;
+    }
+
+    #[Ignore]
+    public function getGoogleTokenExpiresAt(): ?\DateTimeImmutable
+    {
+        return $this->googleTokenExpiresAt;
+    }
+
+    #[Ignore]
+    public function hasGoogleCalendarTokens(): bool
+    {
+        return $this->googleRefreshToken !== null;
+    }
+
+    /** @return array<string, mixed> */
+    public function toMercurePayload(): array
+    {
+        return [
+            'email' => $this->email,
+            'name' => $this->name,
+            'avatar' => $this->avatar,
+            'googleTaskListId' => $this->getGoogleTaskListId(),
+        ];
     }
 }

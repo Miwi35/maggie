@@ -13,6 +13,7 @@ data class AgendaEntity(
     val timeZone: String,
     val color: String,
     val isDefault: Boolean,
+    val googleCalendarId: String?,
 ) {
     fun toModel(): Agenda = Agenda(
         id = id,
@@ -21,6 +22,7 @@ data class AgendaEntity(
         timeZone = timeZone,
         color = color,
         isDefault = isDefault,
+        googleCalendarId = googleCalendarId,
     )
 
     companion object {
@@ -32,6 +34,7 @@ data class AgendaEntity(
                 timeZone = agenda.timeZone,
                 color = agenda.color,
                 isDefault = agenda.isDefault,
+                googleCalendarId = agenda.googleCalendarId,
             )
     }
 }

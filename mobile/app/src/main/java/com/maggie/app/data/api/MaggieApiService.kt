@@ -3,7 +3,9 @@ package com.maggie.app.data.api
 import com.maggie.app.BuildConfig
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.Event
+import com.maggie.app.data.model.GoogleCalendar
 import com.maggie.app.data.model.Task
+import com.maggie.app.data.model.User
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.accept
@@ -44,11 +46,25 @@ data class EventCreateRequest(
 
 @Serializable
 data class TaskCreateRequest(
-    val name: String,
+    val title: String,
     val description: String? = null,
     val priority: String = "medium",
     val criticality: String = "low",
     val dueDate: String? = null,
+)
+
+@Serializable
+data class AgendaCreateRequest(
+    val name: String,
+    val color: String? = null,
+    val description: String? = null,
+)
+
+@Serializable
+data class GoogleCalendarImportRequest(
+    val googleCalendarId: String,
+    val name: String? = null,
+    val color: String? = null,
 )
 
 private val MERGE_PATCH = ContentType("application", "merge-patch+json")
@@ -106,7 +122,7 @@ class MaggieApiService(
     suspend fun getUndoneTasks(dueDateBefore: String? = null): List<Task> {
         return client.get("$baseUrl/api/tasks") {
             accept(ContentType("application", "ld+json"))
-            url.parameters.append("exists[doneDate]", "false")
+            url.parameters.append("exists[completedAt]", "false")
             dueDateBefore?.let { url.parameters.append("dueDate[before]", it) }
         }.body<ApiCollection<Task>>().member
     }
@@ -114,7 +130,7 @@ class MaggieApiService(
     suspend fun getUndoneUndatedTasks(): List<Task> {
         return client.get("$baseUrl/api/tasks") {
             accept(ContentType("application", "ld+json"))
-            url.parameters.append("exists[doneDate]", "false")
+            url.parameters.append("exists[completedAt]", "false")
             url.parameters.append("exists[dueDate]", "false")
         }.body<ApiCollection<Task>>().member
     }
@@ -143,6 +159,47 @@ class MaggieApiService(
         return client.get("$baseUrl/api/agendas") {
             accept(ContentType("application", "ld+json"))
         }.body<ApiCollection<Agenda>>().member
+    }
+
+    suspend fun createAgenda(request: AgendaCreateRequest): Agenda {
+        return client.post("$baseUrl/api/agendas") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.body()
+    }
+
+    suspend fun deleteAgenda(id: String) {
+        client.delete("$baseUrl/api/agendas/$id")
+    }
+
+    // Google Calendar
+    suspend fun getGoogleCalendars(): List<GoogleCalendar> {
+        return client.get("$baseUrl/api/calendar/google/calendars") {
+            accept(ContentType.Application.Json)
+        }.body()
+    }
+
+    suspend fun importGoogleCalendar(request: GoogleCalendarImportRequest): Agenda {
+        return client.post("$baseUrl/api/calendar/google/import") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.body()
+    }
+
+    suspend fun exportToGoogleCalendar(agendaId: String) {
+        client.post("$baseUrl/api/calendar/google/export") {
+            contentType(ContentType.Application.Json)
+            setBody(mapOf("agendaId" to agendaId))
+        }
+    }
+
+    // User
+    suspend fun getMe(): User {
+        return client.get("$baseUrl/api/users/me") {
+            accept(ContentType("application", "ld+json"))
+        }.body()
     }
 
     suspend fun sendChat(message: String): ChatResponse {

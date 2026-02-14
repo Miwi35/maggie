@@ -32,7 +32,7 @@ fun TaskCreateScreen(
     onConfirm: (TaskCreateRequest) -> Unit,
     onBack: () -> Unit,
 ) {
-    var name by remember { mutableStateOf("") }
+    var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var priority by remember { mutableStateOf("medium") }
     var criticality by remember { mutableStateOf("low") }
@@ -59,9 +59,9 @@ fun TaskCreateScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("Nom *") },
+                value = title,
+                onValueChange = { title = it },
+                label = { Text("Titre *") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -107,7 +107,7 @@ fun TaskCreateScreen(
                     } else null
                     onConfirm(
                         TaskCreateRequest(
-                            name = name,
+                            title = title,
                             description = description.ifBlank { null },
                             priority = priority,
                             criticality = criticality,
@@ -115,7 +115,7 @@ fun TaskCreateScreen(
                         ),
                     )
                 },
-                enabled = name.isNotBlank(),
+                enabled = title.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("Créer")

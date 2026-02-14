@@ -42,7 +42,7 @@ fun TaskEditScreen(
     onConfirm: (JsonObject) -> Unit,
     onBack: () -> Unit,
 ) {
-    var name by remember { mutableStateOf(task.name) }
+    var title by remember { mutableStateOf(task.title) }
     var description by remember { mutableStateOf(task.description ?: "") }
     var priority by remember { mutableStateOf(task.priority) }
     var criticality by remember { mutableStateOf(task.criticality) }
@@ -79,9 +79,9 @@ fun TaskEditScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("Nom *") },
+                value = title,
+                onValueChange = { title = it },
+                label = { Text("Titre *") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -135,15 +135,15 @@ fun TaskEditScreen(
                         } catch (_: Exception) { null }
                     } else null
                     onConfirm(buildJsonObject {
-                        put("name", name)
+                        put("title", title)
                         put("description", description.ifBlank { null })
                         put("priority", priority)
                         put("criticality", criticality)
                         put("dueDate", dueDateIso)
-                        put("doneDate", if (done) Instant.now().toString() else null)
+                        put("completedAt", if (done) Instant.now().toString() else null)
                     })
                 },
-                enabled = name.isNotBlank(),
+                enabled = title.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("Enregistrer")

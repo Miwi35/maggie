@@ -55,7 +55,7 @@ fun TaskDetailSheet(
                 CriticalityChip(task.criticality)
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = task.name,
+                    text = task.title,
                     style = MaterialTheme.typography.headlineSmall,
                     modifier = Modifier.weight(1f),
                 )

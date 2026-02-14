@@ -28,6 +28,7 @@ framework:
             'Maggie\Calendar\Message\PushTaskToGoogleCommand': async
             'Maggie\Calendar\Message\DeleteTaskFromGoogleCommand': async
             'Maggie\Calendar\Message\PullTasksFromGoogleCommand': async
+            'Maggie\Core\Message\UpdateUserCommand': sync
 
 when@test:
     framework:

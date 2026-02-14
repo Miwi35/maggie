@@ -16,6 +16,7 @@ import com.maggie.app.ui.screens.dashboard.DashboardViewModel
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
 import com.maggie.app.ui.screens.login.LoginViewModel
+import com.maggie.app.ui.screens.settings.SettingsViewModel
 import com.maggie.app.voice.VoiceManager
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
@@ -89,6 +90,7 @@ class MaggieApp : Application() {
             viewModel { DashboardViewModel(get(), get(), get(), get()) }
             viewModel { FullCalendarViewModel(get(), get(), get(), get()) }
             viewModel { ChatViewModel(get(), get()) }
+            viewModel { SettingsViewModel(get()) }
         }
 
         startKoin {

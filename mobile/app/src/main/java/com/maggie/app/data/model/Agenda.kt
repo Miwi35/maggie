@@ -10,4 +10,5 @@ data class Agenda(
     val timeZone: String = "Europe/Paris",
     val color: String = "#9055FD",
     val isDefault: Boolean = false,
+    val googleCalendarId: String? = null,
 )

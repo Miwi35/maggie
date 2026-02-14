@@ -8,34 +8,34 @@ import com.maggie.app.data.model.Task
 data class TaskEntity(
     @PrimaryKey
     val id: String,
-    val name: String,
+    val title: String,
     val description: String?,
     val priority: String,
     val criticality: String,
     val dueDate: String?,
-    val doneDate: String?,
+    val completedAt: String?,
     val syncStatus: SyncStatus = SyncStatus.SYNCED,
 ) {
     fun toModel(): Task = Task(
         id = id,
-        name = name,
+        title = title,
         description = description,
         priority = priority,
         criticality = criticality,
         dueDate = dueDate,
-        doneDate = doneDate,
+        completedAt = completedAt,
     )
 
     companion object {
         fun fromModel(task: Task, syncStatus: SyncStatus = SyncStatus.SYNCED): TaskEntity =
             TaskEntity(
                 id = task.id,
-                name = task.name,
+                title = task.title,
                 description = task.description,
                 priority = task.priority,
                 criticality = task.criticality,
                 dueDate = task.dueDate,
-                doneDate = task.doneDate,
+                completedAt = task.completedAt,
                 syncStatus = syncStatus,
             )
     }

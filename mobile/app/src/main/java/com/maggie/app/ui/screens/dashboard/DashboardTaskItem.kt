@@ -46,7 +46,7 @@ fun DashboardTaskItem(
         CriticalityChip(task.criticality)
 
         Text(
-            text = task.name,
+            text = task.title,
             style = MaterialTheme.typography.bodyMedium,
             textDecoration = if (isDone) TextDecoration.LineThrough else null,
             color = if (isDone) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
