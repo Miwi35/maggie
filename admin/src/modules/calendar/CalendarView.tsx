@@ -27,7 +27,14 @@ import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
 import ChecklistIcon from '@mui/icons-material/Checklist'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
+import CloudUploadIcon from '@mui/icons-material/CloudUpload'
+import DeleteIcon from '@mui/icons-material/Delete'
 import EventIcon from '@mui/icons-material/Event'
+import MoreVertIcon from '@mui/icons-material/MoreVert'
+import SyncIcon from '@mui/icons-material/Sync'
+import CircularProgress from '@mui/material/CircularProgress'
+import Menu from '@mui/material/Menu'
+import TextField from '@mui/material/TextField'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
@@ -43,6 +50,28 @@ import { EventDetailPopover } from './EventDetailPopover'
 import type { PopoverEvent } from './EventDetailPopover'
 import { getCalendarThemeSx } from './calendarTheme'
 import { addUntilToRrule, expandRrule } from './recurrenceUtils'
+
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost/api'
+
+function authFetch(path: string, options: RequestInit = {}) {
+  const token = localStorage.getItem('token')
+  return fetch(`${apiUrl}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+  })
+}
+
+interface GoogleCalendar {
+  id: string
+  summary: string
+  description?: string
+  primary: boolean
+  backgroundColor?: string
+}
 
 const SIDEBAR_WIDTH = 230
 const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
@@ -110,6 +139,7 @@ interface CalendarData {
   name: string
   color: string | null
   isDefault: boolean
+  googleCalendarId?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -376,8 +406,23 @@ export const CalendarView = () => {
   const [recurrenceConfirm, setRecurrenceConfirm] = useState<RecurrenceConfirm | null>(null)
   const [recurrenceAction, setRecurrenceAction] = useState<RecurrenceAction>('this')
 
-  // --- Fetch calendars once ---
-  useEffect(() => {
+  // Agenda sidebar state
+  const [agendaMenuAnchor, setAgendaMenuAnchor] = useState<HTMLElement | null>(null)
+  const [agendaMenuTarget, setAgendaMenuTarget] = useState<CalendarData | null>(null)
+  const [deleteDialogAgenda, setDeleteDialogAgenda] = useState<CalendarData | null>(null)
+  const [addMenuAnchor, setAddMenuAnchor] = useState<HTMLElement | null>(null)
+  const [createAgendaDialogOpen, setCreateAgendaDialogOpen] = useState(false)
+  const [newAgendaName, setNewAgendaName] = useState('')
+  const [newAgendaColor, setNewAgendaColor] = useState('#1976d2')
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
+  const [googleCalendars, setGoogleCalendars] = useState<GoogleCalendar[]>([])
+  const [importLoading, setImportLoading] = useState(false)
+  const [exportLoading, setExportLoading] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [createAgendaLoading, setCreateAgendaLoading] = useState(false)
+
+  // --- Fetch calendars ---
+  const loadCalendars = useCallback(() => {
     dataProvider
       .getList('agendas', {
         pagination: { page: 1, perPage: 50 },
@@ -387,10 +432,114 @@ export const CalendarView = () => {
       .then(({ data }) => {
         const cals = data as unknown as CalendarData[]
         setCalendars(cals)
-        setEnabledCalendars(new Set(cals.map((c) => c.id)))
+        setEnabledCalendars((prev) => {
+          if (prev === null) return new Set([...cals.map((c) => c.id), '__tasks__'])
+          // Keep existing toggles, add new calendars
+          const next = new Set(prev)
+          for (const c of cals) {
+            if (!Array.from(prev).includes(c.id)) next.add(c.id)
+          }
+          return next
+        })
       })
       .catch(console.error)
   }, [dataProvider])
+
+  useEffect(() => { loadCalendars() }, [loadCalendars])
+
+  // --- Agenda sidebar handlers ---
+  const handleAgendaMenuOpen = useCallback((e: React.MouseEvent<HTMLElement>, cal: CalendarData) => {
+    e.stopPropagation()
+    setAgendaMenuAnchor(e.currentTarget)
+    setAgendaMenuTarget(cal)
+  }, [])
+
+  const handleAgendaMenuClose = useCallback(() => {
+    setAgendaMenuAnchor(null)
+    setAgendaMenuTarget(null)
+  }, [])
+
+  const handleExportToGoogle = useCallback(async () => {
+    if (!agendaMenuTarget) return
+    handleAgendaMenuClose()
+    setExportLoading(true)
+    try {
+      const res = await authFetch('/calendar/google/export', {
+        method: 'POST',
+        body: JSON.stringify({ agendaId: agendaMenuTarget.id }),
+      })
+      if (res.ok) {
+        notify('Agenda exporté vers Google Calendar', { type: 'success' })
+        loadCalendars()
+      } else {
+        const data = await res.json()
+        notify(data.error || "Erreur lors de l'export", { type: 'error' })
+      }
+    } catch {
+      notify('Erreur réseau', { type: 'error' })
+    } finally {
+      setExportLoading(false)
+    }
+  }, [agendaMenuTarget, handleAgendaMenuClose, notify, loadCalendars])
+
+  const handleCreateAgenda = useCallback(async () => {
+    if (!newAgendaName.trim()) return
+    setCreateAgendaLoading(true)
+    try {
+      await dataProvider.create('agendas', {
+        data: { name: newAgendaName.trim(), color: newAgendaColor },
+      })
+      notify('Agenda créé', { type: 'success' })
+      setCreateAgendaDialogOpen(false)
+      setNewAgendaName('')
+      setNewAgendaColor('#1976d2')
+      loadCalendars()
+    } catch (error) {
+      notify(`Erreur: ${(error as Error).message}`, { type: 'error' })
+    } finally {
+      setCreateAgendaLoading(false)
+    }
+  }, [newAgendaName, newAgendaColor, dataProvider, notify, loadCalendars])
+
+  const handleOpenImportDialog = useCallback(async () => {
+    setAddMenuAnchor(null)
+    setImportDialogOpen(true)
+    setImportLoading(true)
+    try {
+      const res = await authFetch('/calendar/google/calendars')
+      if (res.ok) {
+        setGoogleCalendars(await res.json())
+      } else {
+        notify('Impossible de charger les calendriers Google', { type: 'error' })
+      }
+    } catch {
+      notify('Erreur réseau', { type: 'error' })
+    } finally {
+      setImportLoading(false)
+    }
+  }, [notify])
+
+  const handleImportCalendar = useCallback(async (googleCalendarId: string) => {
+    setImportLoading(true)
+    try {
+      const res = await authFetch('/calendar/google/import', {
+        method: 'POST',
+        body: JSON.stringify({ googleCalendarId }),
+      })
+      if (res.ok) {
+        notify('Calendrier importé avec succès', { type: 'success' })
+        setImportDialogOpen(false)
+        loadCalendars()
+      } else {
+        const data = await res.json()
+        notify(data.error || "Erreur lors de l'import", { type: 'error' })
+      }
+    } catch {
+      notify('Erreur réseau', { type: 'error' })
+    } finally {
+      setImportLoading(false)
+    }
+  }, [notify, loadCalendars])
 
   // --- Calendar maps ---
   const calendarColorMap = useMemo(() => {
@@ -449,6 +598,32 @@ export const CalendarView = () => {
     },
     [dataProvider],
   )
+
+  const handleDeleteAgenda = useCallback(async (deleteGoogleCalendar: boolean) => {
+    if (!deleteDialogAgenda) return
+    setDeleteLoading(true)
+    try {
+      const qs = deleteGoogleCalendar ? '?deleteGoogleCalendar=true' : ''
+      const res = await authFetch(`/agendas/${deleteDialogAgenda.id}${qs}`, {
+        method: 'DELETE',
+      })
+      if (res.ok || res.status === 204) {
+        notify('Agenda supprimé', { type: 'success' })
+        setDeleteDialogAgenda(null)
+        loadCalendars()
+        if (dateRangeRef.current) {
+          fetchEvents(dateRangeRef.current.start, dateRangeRef.current.end)
+        }
+      } else {
+        const data = await res.json().catch(() => ({ error: 'Erreur' }))
+        notify(data.error || 'Erreur lors de la suppression', { type: 'error' })
+      }
+    } catch {
+      notify('Erreur réseau', { type: 'error' })
+    } finally {
+      setDeleteLoading(false)
+    }
+  }, [deleteDialogAgenda, notify, loadCalendars, fetchEvents])
 
   // --- Map raw events → FullCalendar events with calendar colours + recurrence expansion ---
   const coloredEvents: (EventInput & { calendarId: string })[] = useMemo(() => {
@@ -592,10 +767,10 @@ export const CalendarView = () => {
 
   // --- Filter by enabled calendars ---
   const filteredEvents = useMemo(() => {
-    const calFiltered = enabledCalendars
-      ? coloredEvents.filter((e) => enabledCalendars.has(e.calendarId))
-      : coloredEvents
-    return [...calFiltered, ...taskEvents]
+    if (!enabledCalendars) return [...coloredEvents, ...taskEvents]
+    const calFiltered = coloredEvents.filter((e) => enabledCalendars.has(e.calendarId))
+    const tasksVisible = enabledCalendars.has('__tasks__')
+    return tasksVisible ? [...calFiltered, ...taskEvents] : calFiltered
   }, [coloredEvents, enabledCalendars, taskEvents])
 
   // --- FullCalendar callbacks ---
@@ -1194,48 +1369,149 @@ export const CalendarView = () => {
           />
 
           {/* Calendar list */}
-          {calendars.length > 0 && (
-            <Box sx={{ mt: 3 }}>
-              <Typography
-                variant="caption"
-                fontWeight={500}
-                color="text.secondary"
-                sx={{ px: 0.5, mb: 0.5, display: 'block', letterSpacing: 0.5 }}
+          <Box sx={{ mt: 3 }}>
+            <Typography
+              variant="caption"
+              fontWeight={500}
+              color="text.secondary"
+              sx={{ px: 0.5, mb: 0.5, display: 'block', letterSpacing: 0.5 }}
+            >
+              Mes agendas
+            </Typography>
+            {calendars.map((cal) => (
+              <Box
+                key={cal.id}
+                onClick={() => toggleCalendar(cal.id)}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  py: 0.25,
+                  px: 0.5,
+                  cursor: 'pointer',
+                  borderRadius: 1,
+                  '&:hover': { bgcolor: 'action.hover' },
+                  '&:hover .agenda-menu-btn': { opacity: 1 },
+                }}
               >
-                Mes agendas
-              </Typography>
-              {calendars.map((cal) => (
-                <Box
-                  key={cal.id}
-                  onClick={() => toggleCalendar(cal.id)}
+                <Checkbox
+                  size="small"
+                  checked={enabledCalendars?.has(cal.id) ?? true}
+                  tabIndex={-1}
+                  disableRipple
                   sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    py: 0.25,
-                    px: 0.5,
-                    cursor: 'pointer',
-                    borderRadius: 1,
-                    '&:hover': { bgcolor: 'action.hover' },
+                    p: 0.25,
+                    color: cal.color || 'primary.main',
+                    '&.Mui-checked': { color: cal.color || 'primary.main' },
                   }}
+                />
+                <Typography variant="body2" sx={{ ml: 0.5, flex: 1 }}>
+                  {cal.name}
+                </Typography>
+                {cal.googleCalendarId && (
+                  <SyncIcon sx={{ fontSize: 14, color: 'text.secondary', mr: 0.25 }} />
+                )}
+                <IconButton
+                  className="agenda-menu-btn"
+                  size="small"
+                  onClick={(e) => handleAgendaMenuOpen(e, cal)}
+                  sx={{ opacity: 0, p: 0.25 }}
                 >
-                  <Checkbox
-                    size="small"
-                    checked={enabledCalendars?.has(cal.id) ?? true}
-                    tabIndex={-1}
-                    disableRipple
-                    sx={{
-                      p: 0.25,
-                      color: cal.color || 'primary.main',
-                      '&.Mui-checked': { color: cal.color || 'primary.main' },
-                    }}
-                  />
-                  <Typography variant="body2" sx={{ ml: 0.5 }}>
-                    {cal.name}
-                  </Typography>
-                </Box>
-              ))}
+                  <MoreVertIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </Box>
+            ))}
+            {/* Agenda context menu */}
+            <Menu
+              anchorEl={agendaMenuAnchor}
+              open={Boolean(agendaMenuAnchor)}
+              onClose={handleAgendaMenuClose}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+              {agendaMenuTarget && !agendaMenuTarget.googleCalendarId && (
+                <MenuItem onClick={() => {
+                  handleAgendaMenuClose()
+                  handleExportToGoogle()
+                }} disabled={exportLoading}>
+                  <ListItemIcon><CloudUploadIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText>Exporter vers Google</ListItemText>
+                </MenuItem>
+              )}
+              <MenuItem onClick={() => {
+                const target = agendaMenuTarget
+                handleAgendaMenuClose()
+                if (target) setDeleteDialogAgenda(target)
+              }}>
+                <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
+                <ListItemText sx={{ color: 'error.main' }}>Supprimer</ListItemText>
+              </MenuItem>
+            </Menu>
+
+            {/* + Ajouter button */}
+            <Button
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={(e) => setAddMenuAnchor(e.currentTarget)}
+              sx={{ mt: 1, ml: 0.5, textTransform: 'none' }}
+            >
+              Ajouter
+            </Button>
+            <Menu
+              anchorEl={addMenuAnchor}
+              open={Boolean(addMenuAnchor)}
+              onClose={() => setAddMenuAnchor(null)}
+            >
+              <MenuItem onClick={() => {
+                setAddMenuAnchor(null)
+                setCreateAgendaDialogOpen(true)
+              }}>
+                <ListItemIcon><EventIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>Créer un agenda</ListItemText>
+              </MenuItem>
+              <MenuItem onClick={handleOpenImportDialog}>
+                <ListItemIcon><SyncIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>Importer depuis Google</ListItemText>
+              </MenuItem>
+            </Menu>
+
+            {/* Tasks pseudo-agenda */}
+            <Typography
+              variant="caption"
+              fontWeight={500}
+              color="text.secondary"
+              sx={{ px: 0.5, mt: 2, mb: 0.5, display: 'block', letterSpacing: 0.5 }}
+            >
+              Autres agendas
+            </Typography>
+            <Box
+              onClick={() => toggleCalendar('__tasks__')}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                py: 0.25,
+                px: 0.5,
+                cursor: 'pointer',
+                borderRadius: 1,
+                '&:hover': { bgcolor: 'action.hover' },
+              }}
+            >
+              <Checkbox
+                size="small"
+                checked={enabledCalendars?.has('__tasks__') ?? true}
+                tabIndex={-1}
+                disableRipple
+                sx={{
+                  p: 0.25,
+                  color: '#1976d2',
+                  '&.Mui-checked': { color: '#1976d2' },
+                }}
+              />
+              <ChecklistIcon sx={{ fontSize: 16, color: 'text.secondary', ml: 0.5, mr: 0.5 }} />
+              <Typography variant="body2">
+                Tâches
+              </Typography>
             </Box>
-          )}
+          </Box>
         </Box>
 
         {/* Main calendar */}
@@ -1328,6 +1604,169 @@ export const CalendarView = () => {
           <Button onClick={() => setRecurrenceConfirm(null)}>Annuler</Button>
           <Button onClick={handleRecurrenceConfirm} variant="contained">
             OK
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete agenda dialog */}
+      <Dialog
+        open={deleteDialogAgenda !== null}
+        onClose={() => !deleteLoading && setDeleteDialogAgenda(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Supprimer l&apos;agenda</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            {deleteDialogAgenda?.googleCalendarId
+              ? `L'agenda "${deleteDialogAgenda?.name}" est synchronisé avec Google Calendar. Que souhaitez-vous faire ?`
+              : `Supprimer l'agenda "${deleteDialogAgenda?.name}" et tous ses événements ?`}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogAgenda(null)} disabled={deleteLoading}>
+            Annuler
+          </Button>
+          {deleteDialogAgenda?.googleCalendarId ? (
+            <>
+              <Button
+                onClick={() => handleDeleteAgenda(false)}
+                disabled={deleteLoading}
+                color="error"
+              >
+                {deleteLoading ? <CircularProgress size={20} /> : 'Supprimer uniquement Maggie'}
+              </Button>
+              <Button
+                onClick={() => handleDeleteAgenda(true)}
+                disabled={deleteLoading}
+                color="error"
+                variant="contained"
+              >
+                {deleteLoading ? <CircularProgress size={20} /> : 'Supprimer aussi sur Google'}
+              </Button>
+            </>
+          ) : (
+            <Button
+              onClick={() => handleDeleteAgenda(false)}
+              disabled={deleteLoading}
+              color="error"
+              variant="contained"
+            >
+              {deleteLoading ? <CircularProgress size={20} /> : 'Supprimer'}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
+      {/* Create agenda dialog */}
+      <Dialog
+        open={createAgendaDialogOpen}
+        onClose={() => !createAgendaLoading && setCreateAgendaDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Créer un agenda</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            label="Nom"
+            fullWidth
+            value={newAgendaName}
+            onChange={(e) => setNewAgendaName(e.target.value)}
+            sx={{ mt: 1 }}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleCreateAgenda() }}
+          />
+          <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="body2">Couleur :</Typography>
+            <input
+              type="color"
+              value={newAgendaColor}
+              onChange={(e) => setNewAgendaColor(e.target.value)}
+              style={{ width: 36, height: 28, border: 'none', cursor: 'pointer', background: 'transparent' }}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateAgendaDialogOpen(false)} disabled={createAgendaLoading}>
+            Annuler
+          </Button>
+          <Button
+            onClick={handleCreateAgenda}
+            variant="contained"
+            disabled={createAgendaLoading || !newAgendaName.trim()}
+          >
+            {createAgendaLoading ? <CircularProgress size={20} /> : 'Créer'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Import from Google dialog */}
+      <Dialog
+        open={importDialogOpen}
+        onClose={() => !importLoading && setImportDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Importer depuis Google Calendar</DialogTitle>
+        <DialogContent>
+          {importLoading && googleCalendars.length === 0 ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            (() => {
+              const connectedIds = new Set(calendars.filter((c) => c.googleCalendarId).map((c) => c.googleCalendarId))
+              const available = googleCalendars.filter((gc) => !connectedIds.has(gc.id))
+              if (available.length === 0) {
+                return (
+                  <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
+                    Tous les calendriers Google sont déjà importés.
+                  </Typography>
+                )
+              }
+              return available.map((gc) => (
+                <Box
+                  key={gc.id}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    py: 1,
+                    borderBottom: 1,
+                    borderColor: 'divider',
+                    '&:last-child': { borderBottom: 0 },
+                  }}
+                >
+                  {gc.backgroundColor && (
+                    <Box
+                      sx={{
+                        width: 12,
+                        height: 12,
+                        borderRadius: '50%',
+                        bgcolor: gc.backgroundColor,
+                        flexShrink: 0,
+                        mr: 1,
+                      }}
+                    />
+                  )}
+                  <Typography variant="body2" sx={{ flex: 1 }}>
+                    {gc.summary}
+                    {gc.primary && ' (principal)'}
+                  </Typography>
+                  <Button
+                    size="small"
+                    onClick={() => handleImportCalendar(gc.id)}
+                    disabled={importLoading}
+                  >
+                    {importLoading ? <CircularProgress size={16} /> : 'Importer'}
+                  </Button>
+                </Box>
+              ))
+            })()
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setImportDialogOpen(false)} disabled={importLoading}>
+            Fermer
           </Button>
         </DialogActions>
       </Dialog>

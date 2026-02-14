@@ -31,7 +31,22 @@ class GoogleTasksSyncService
 
         $taskListId = $user->getGoogleTaskListId();
         if ($taskListId === null) {
-            return;
+            // Auto-detect: pick the first available task list
+            try {
+                $lists = $this->apiClient->listTaskLists($user);
+                if ($lists === []) {
+                    return;
+                }
+                $taskListId = $lists[0]->getId();
+                $user->setGoogleTaskListId($taskListId);
+                $this->entityManager->flush();
+            } catch (\Throwable $e) {
+                $this->logger->error('Failed to auto-detect Google Task List: {error}', [
+                    'error' => $e->getMessage(),
+                    'userId' => (string) $user->getId(),
+                ]);
+                return;
+            }
         }
 
         try {

@@ -4,6 +4,7 @@ namespace Maggie\Calendar\MessageHandler;
 
 use Maggie\Calendar\Message\DeleteAgendaCommand;
 use Maggie\Calendar\Repository\AgendaRepository;
+use Maggie\Calendar\Service\GoogleCalendarApiClient;
 use Maggie\Calendar\UseCase\DeleteAgenda;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -13,6 +14,7 @@ class DeleteAgendaHandler
     public function __construct(
         private readonly DeleteAgenda $deleteAgenda,
         private readonly AgendaRepository $agendaRepository,
+        private readonly GoogleCalendarApiClient $googleApiClient,
     ) {
     }
 
@@ -21,6 +23,31 @@ class DeleteAgendaHandler
         $agenda = $this->agendaRepository->find($command->agendaId);
         if ($agenda === null) {
             throw new \DomainException("Agenda not found: {$command->agendaId}");
+        }
+
+        // Stop Google webhook if active
+        if ($agenda->getGoogleWatchChannelId() !== null && $agenda->getGoogleWatchResourceId() !== null) {
+            try {
+                $this->googleApiClient->stopWatch(
+                    $agenda->getUser(),
+                    $agenda->getGoogleWatchChannelId(),
+                    $agenda->getGoogleWatchResourceId(),
+                );
+            } catch (\Throwable) {
+                // Best effort
+            }
+        }
+
+        // Delete Google Calendar if requested
+        if ($command->deleteGoogleCalendar && $agenda->getGoogleCalendarId() !== null) {
+            try {
+                $this->googleApiClient->deleteCalendar(
+                    $agenda->getUser(),
+                    $agenda->getGoogleCalendarId(),
+                );
+            } catch (\Throwable) {
+                // Best effort — calendar may have been deleted manually
+            }
         }
 
         $this->deleteAgenda->execute($agenda);

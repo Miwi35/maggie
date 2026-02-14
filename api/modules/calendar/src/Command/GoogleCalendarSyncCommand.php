@@ -113,17 +113,13 @@ class GoogleCalendarSyncCommand extends Command
             $users = [$user];
         } else {
             $users = $this->userRepository->createQueryBuilder('u')
-                ->where('u.googleTaskListId IS NOT NULL')
+                ->where('u.googleRefreshToken IS NOT NULL')
                 ->getQuery()
                 ->getResult();
         }
 
         $count = 0;
         foreach ($users as $user) {
-            if ($user->getGoogleTaskListId() === null) {
-                continue;
-            }
-
             $io->info("Syncing tasks for user: {$user->getEmail()}");
 
             try {

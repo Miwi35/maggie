@@ -10,6 +10,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
@@ -20,6 +21,7 @@ final class GoogleAuthController
         private readonly UserRepository $userRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly JWTTokenManagerInterface $jwtManager,
+        private readonly MessageBusInterface $messageBus,
         private readonly string $googleClientId,
         private readonly string $googleClientSecret,
         private readonly string $googleRedirectUri,
@@ -148,6 +150,11 @@ final class GoogleAuthController
             );
         }
         $this->entityManager->flush();
+
+        // Auto-import Google Tasks (async — will auto-detect the default list)
+        $this->messageBus->dispatch(new \Maggie\Calendar\Message\PullTasksFromGoogleCommand(
+            userId: (string) $user->getId(),
+        ));
 
         $jwt = $this->jwtManager->create($user);
 

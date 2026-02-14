@@ -5,12 +5,9 @@ namespace Maggie\Calendar\Controller;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Message\CreateAgendaCommand;
 use Maggie\Calendar\Message\PullFromGoogleCommand;
-use Maggie\Calendar\Message\PullTasksFromGoogleCommand;
+use Maggie\Calendar\Message\PushEventToGoogleCommand;
 use Maggie\Calendar\Repository\AgendaRepository;
-use Maggie\Calendar\Repository\EventRepository;
-use Maggie\Calendar\Repository\TaskRepository;
 use Maggie\Calendar\Service\GoogleCalendarApiClient;
-use Maggie\Calendar\Service\GoogleTasksApiClient;
 use Maggie\Core\Entity\User;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -24,10 +21,7 @@ final class GoogleCalendarConnectController
 {
     public function __construct(
         private readonly GoogleCalendarApiClient $apiClient,
-        private readonly GoogleTasksApiClient $tasksApiClient,
         private readonly AgendaRepository $agendaRepository,
-        private readonly EventRepository $eventRepository,
-        private readonly TaskRepository $taskRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly MessageBusInterface $messageBus,
         private readonly Security $security,
@@ -154,8 +148,8 @@ final class GoogleCalendarConnectController
         ], Response::HTTP_CREATED);
     }
 
-    #[Route('/api/calendar/google/connect', name: 'google_calendar_connect', methods: ['POST'])]
-    public function connect(Request $request): JsonResponse
+    #[Route('/api/calendar/google/export', name: 'google_calendar_export', methods: ['POST'])]
+    public function export(Request $request): JsonResponse
     {
         /** @var User $user */
         $user = $this->security->getUser();
@@ -169,11 +163,10 @@ final class GoogleCalendarConnectController
 
         $data = json_decode($request->getContent(), true);
         $agendaId = $data['agendaId'] ?? null;
-        $googleCalendarId = $data['googleCalendarId'] ?? null;
 
-        if (!$agendaId || !$googleCalendarId) {
+        if (!$agendaId) {
             return new JsonResponse(
-                ['error' => 'agendaId and googleCalendarId are required.'],
+                ['error' => 'agendaId is required.'],
                 Response::HTTP_BAD_REQUEST,
             );
         }
@@ -183,15 +176,24 @@ final class GoogleCalendarConnectController
             return new JsonResponse(['error' => 'Agenda not found.'], Response::HTTP_NOT_FOUND);
         }
 
-        $agenda->setGoogleCalendarId($googleCalendarId);
+        if ($agenda->getGoogleCalendarId() !== null) {
+            return new JsonResponse(
+                ['error' => 'Agenda is already synced with Google Calendar.'],
+                Response::HTTP_CONFLICT,
+            );
+        }
+
+        // Create new Google Calendar
+        $googleCalendar = $this->apiClient->insertCalendar($user, $agenda->getName(), $agenda->getDescription());
+        $agenda->setGoogleCalendarId($googleCalendar->getId());
         $this->entityManager->flush();
 
-        // Set up Google push notifications (webhook)
+        // Set up webhook
         if ($this->googleWebhookUrl) {
             try {
                 $watchResult = $this->apiClient->watchEvents(
                     $user,
-                    $googleCalendarId,
+                    $googleCalendar->getId(),
                     $this->googleWebhookUrl,
                     $this->googleWebhookToken,
                 );
@@ -202,141 +204,24 @@ final class GoogleCalendarConnectController
                 );
                 $this->entityManager->flush();
             } catch (\Throwable) {
-                // Webhook setup is non-critical, cron will handle sync as fallback
+                // Webhook setup is non-critical
             }
         }
 
-        // Dispatch initial pull
-        $this->messageBus->dispatch(new PullFromGoogleCommand(agendaId: $agendaId));
+        // Push all existing events to Google
+        foreach ($agenda->getEvents() as $event) {
+            $this->messageBus->dispatch(new PushEventToGoogleCommand(
+                eventId: (string) $event->getId(),
+                action: 'create',
+            ));
+        }
 
-        return new JsonResponse(['status' => 'connected'], Response::HTTP_ACCEPTED);
+        return new JsonResponse([
+            'id' => (string) $agenda->getId(),
+            'name' => $agenda->getName(),
+            'color' => $agenda->getColor(),
+            'googleCalendarId' => $agenda->getGoogleCalendarId(),
+        ], Response::HTTP_CREATED);
     }
 
-    #[Route('/api/calendar/google/disconnect', name: 'google_calendar_disconnect', methods: ['POST'])]
-    public function disconnect(Request $request): JsonResponse
-    {
-        /** @var User $user */
-        $user = $this->security->getUser();
-
-        $data = json_decode($request->getContent(), true);
-        $agendaId = $data['agendaId'] ?? null;
-
-        if (!$agendaId) {
-            return new JsonResponse(['error' => 'agendaId is required.'], Response::HTTP_BAD_REQUEST);
-        }
-
-        $agenda = $this->agendaRepository->find($agendaId);
-        if ($agenda === null || $agenda->getUser() !== $user) {
-            return new JsonResponse(['error' => 'Agenda not found.'], Response::HTTP_NOT_FOUND);
-        }
-
-        // Stop watch channel if active
-        if ($agenda->getGoogleWatchChannelId() !== null && $agenda->getGoogleWatchResourceId() !== null) {
-            try {
-                $this->apiClient->stopWatch(
-                    $user,
-                    $agenda->getGoogleWatchChannelId(),
-                    $agenda->getGoogleWatchResourceId(),
-                );
-            } catch (\Throwable) {
-                // Best effort
-            }
-        }
-
-        // Clear Google fields on agenda
-        $agenda->setGoogleCalendarId(null);
-        $agenda->setGoogleSyncToken(null);
-        $agenda->setLastGoogleSyncAt(null);
-        $agenda->setGoogleWatchChannelId(null);
-        $agenda->setGoogleWatchResourceId(null);
-        $agenda->setGoogleWatchExpiresAt(null);
-
-        // Clear Google fields on all events in this agenda
-        $events = $this->eventRepository->findGoogleSyncedByAgenda($agenda);
-        foreach ($events as $event) {
-            $event->setGoogleEventId(null);
-            $event->setGoogleEtag(null);
-            $event->setGoogleUpdatedAt(null);
-        }
-
-        $this->entityManager->flush();
-
-        return new JsonResponse(['status' => 'disconnected']);
-    }
-
-    #[Route('/api/calendar/google/task-lists', name: 'google_task_lists', methods: ['GET'])]
-    public function listTaskLists(): JsonResponse
-    {
-        /** @var User $user */
-        $user = $this->security->getUser();
-
-        if (!$user->hasGoogleCalendarTokens()) {
-            return new JsonResponse(
-                ['error' => 'Google not authorized.'],
-                Response::HTTP_FORBIDDEN,
-            );
-        }
-
-        $taskLists = $this->tasksApiClient->listTaskLists($user);
-        $result = array_map(fn($tl) => [
-            'id' => $tl->getId(),
-            'title' => $tl->getTitle(),
-        ], $taskLists);
-
-        return new JsonResponse($result);
-    }
-
-    #[Route('/api/calendar/google/connect-tasks', name: 'google_tasks_connect', methods: ['POST'])]
-    public function connectTasks(Request $request): JsonResponse
-    {
-        /** @var User $user */
-        $user = $this->security->getUser();
-
-        if (!$user->hasGoogleCalendarTokens()) {
-            return new JsonResponse(
-                ['error' => 'Google not authorized.'],
-                Response::HTTP_FORBIDDEN,
-            );
-        }
-
-        $data = json_decode($request->getContent(), true);
-        $googleTaskListId = $data['googleTaskListId'] ?? null;
-
-        if (!$googleTaskListId) {
-            return new JsonResponse(
-                ['error' => 'googleTaskListId is required.'],
-                Response::HTTP_BAD_REQUEST,
-            );
-        }
-
-        $user->setGoogleTaskListId($googleTaskListId);
-        $this->entityManager->flush();
-
-        // Dispatch initial pull
-        $this->messageBus->dispatch(new PullTasksFromGoogleCommand(userId: (string) $user->getId()));
-
-        return new JsonResponse(['status' => 'connected'], Response::HTTP_ACCEPTED);
-    }
-
-    #[Route('/api/calendar/google/disconnect-tasks', name: 'google_tasks_disconnect', methods: ['POST'])]
-    public function disconnectTasks(): JsonResponse
-    {
-        /** @var User $user */
-        $user = $this->security->getUser();
-
-        $user->setGoogleTaskListId(null);
-
-        // Clear Google fields on all tasks for this user
-        $tasks = $this->taskRepository->findBy(['user' => $user]);
-        foreach ($tasks as $task) {
-            $task->setGoogleTaskId(null);
-            $task->setGoogleTaskListId(null);
-            $task->setGoogleTaskEtag(null);
-            $task->setGoogleTaskUpdatedAt(null);
-        }
-
-        $this->entityManager->flush();
-
-        return new JsonResponse(['status' => 'disconnected']);
-    }
 }

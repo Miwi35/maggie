@@ -123,6 +123,24 @@ class GoogleCalendarApiClient
         ];
     }
 
+    public function insertCalendar(User $user, string $name, ?string $description = null): \Google\Service\Calendar\Calendar
+    {
+        $service = $this->getCalendarService($user);
+        $calendar = new \Google\Service\Calendar\Calendar();
+        $calendar->setSummary($name);
+        if ($description) {
+            $calendar->setDescription($description);
+        }
+
+        return $service->calendars->insert($calendar);
+    }
+
+    public function deleteCalendar(User $user, string $calendarId): void
+    {
+        $service = $this->getCalendarService($user);
+        $service->calendars->delete($calendarId);
+    }
+
     public function stopWatch(User $user, string $channelId, string $resourceId): void
     {
         $service = $this->getCalendarService($user);

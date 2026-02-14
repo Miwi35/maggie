@@ -12,7 +12,6 @@ import DashboardIcon from '@mui/icons-material/Dashboard'
 import StorageIcon from '@mui/icons-material/Storage'
 import EventIcon from '@mui/icons-material/Event'
 import DateRangeIcon from '@mui/icons-material/DateRange'
-import SettingsIcon from '@mui/icons-material/Settings'
 import ExpandLess from '@mui/icons-material/ExpandLess'
 import ExpandMore from '@mui/icons-material/ExpandMore'
 
@@ -32,17 +31,6 @@ export const CustomMenu = () => {
         to="/calendar"
         primaryText="Calendrier"
         leftIcon={<CalendarMonthIcon />}
-      />
-      <MenuItemLink
-        to="/tasks"
-        primaryText="Tâches"
-        leftIcon={<ChecklistIcon />}
-      />
-
-      <MenuItemLink
-        to="/settings/google-calendar"
-        primaryText="Paramètres"
-        leftIcon={<SettingsIcon />}
       />
 
       {open && (
@@ -89,6 +77,12 @@ export const CustomMenu = () => {
                     to="/events"
                     primaryText="Événements"
                     leftIcon={<EventIcon />}
+                    sx={{ pl: 8 }}
+                  />
+                  <MenuItemLink
+                    to="/tasks"
+                    primaryText="Tâches"
+                    leftIcon={<ChecklistIcon />}
                     sx={{ pl: 8 }}
                   />
                 </List>
