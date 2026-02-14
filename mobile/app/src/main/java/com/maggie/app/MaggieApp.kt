@@ -90,7 +90,7 @@ class MaggieApp : Application() {
             viewModel { DashboardViewModel(get(), get(), get(), get()) }
             viewModel { FullCalendarViewModel(get(), get(), get(), get()) }
             viewModel { ChatViewModel(get(), get()) }
-            viewModel { SettingsViewModel(get()) }
+            viewModel { SettingsViewModel(get(), get()) }
         }
 
         startKoin {

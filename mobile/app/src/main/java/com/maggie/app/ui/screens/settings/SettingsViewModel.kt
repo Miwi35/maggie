@@ -3,6 +3,7 @@ package com.maggie.app.ui.screens.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.api.MaggieApiService
+import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.model.User
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,6 +17,7 @@ data class SettingsUiState(
 
 class SettingsViewModel(
     private val apiService: MaggieApiService,
+    private val authRepository: AuthRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -34,6 +36,12 @@ class SettingsViewModel(
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)
             }
+        }
+    }
+
+    fun logout() {
+        viewModelScope.launch {
+            authRepository.clear()
         }
     }
 }
