@@ -25,27 +25,27 @@ export const TaskCreateDialog = ({ open, onClose, onCreated, defaultDueDate }: T
   const dataProvider = useDataProvider()
   const notify = useNotify()
 
-  const [name, setName] = useState('')
+  const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState('medium')
   const [criticality, setCriticality] = useState('low')
   const [dueDate, setDueDate] = useState('')
-  const [nameError, setNameError] = useState(false)
+  const [titleError, setTitleError] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     if (!open) return
-    setName('')
+    setTitle('')
     setDescription('')
     setPriority('medium')
     setCriticality('low')
     setDueDate(defaultDueDate ? toLocalDate(defaultDueDate) : '')
-    setNameError(false)
+    setTitleError(false)
   }, [open, defaultDueDate])
 
   const handleSubmit = () => {
-    if (!name.trim()) {
-      setNameError(true)
+    if (!title.trim()) {
+      setTitleError(true)
       return
     }
 
@@ -54,7 +54,7 @@ export const TaskCreateDialog = ({ open, onClose, onCreated, defaultDueDate }: T
     dataProvider
       .create('tasks', {
         data: {
-          name: name.trim(),
+          title: title.trim(),
           ...(description.trim() ? { description: description.trim() } : {}),
           priority,
           criticality,
@@ -78,14 +78,14 @@ export const TaskCreateDialog = ({ open, onClose, onCreated, defaultDueDate }: T
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <TextField
-            label="Nom"
-            value={name}
+            label="Titre"
+            value={title}
             onChange={(e) => {
-              setName(e.target.value)
-              if (e.target.value.trim()) setNameError(false)
+              setTitle(e.target.value)
+              if (e.target.value.trim()) setTitleError(false)
             }}
-            error={nameError}
-            helperText={nameError ? 'Le nom est requis' : undefined}
+            error={titleError}
+            helperText={titleError ? 'Le titre est requis' : undefined}
             required
             autoFocus
           />

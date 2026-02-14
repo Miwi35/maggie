@@ -14,6 +14,7 @@ use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use Maggie\Calendar\Contract\MercurePublishable;
 use Maggie\Calendar\Repository\TaskRepository;
+use Maggie\Calendar\Trait\HasGoogleTaskTrackingTrait;
 use Maggie\Core\Contract\OwnedByUserInterface;
 use Maggie\Core\Entity\User;
 use Maggie\Calendar\State\CreateTaskProcessor;
@@ -26,9 +27,9 @@ use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: TaskRepository::class)]
 #[ORM\Index(columns: ['due_date'], name: 'idx_task_due_date')]
-#[ORM\Index(columns: ['done_date'], name: 'idx_task_done_date')]
+#[ORM\Index(columns: ['completed_at'], name: 'idx_task_completed_at')]
 #[ApiFilter(DateFilter::class, properties: ['dueDate'])]
-#[ApiFilter(ExistsFilter::class, properties: ['doneDate', 'dueDate'])]
+#[ApiFilter(ExistsFilter::class, properties: ['completedAt', 'dueDate'])]
 #[ApiFilter(SearchFilter::class, properties: ['priority' => 'exact', 'criticality' => 'exact'])]
 #[ApiResource(operations: [
     new GetCollection(),
@@ -39,6 +40,8 @@ use Symfony\Component\Validator\Constraints as Assert;
 ])]
 class Task implements MercurePublishable, OwnedByUserInterface
 {
+    use HasGoogleTaskTrackingTrait;
+
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
     private Ulid $id;
@@ -49,7 +52,7 @@ class Task implements MercurePublishable, OwnedByUserInterface
 
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank]
-    private string $name;
+    private string $title;
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $description = null;
@@ -64,7 +67,7 @@ class Task implements MercurePublishable, OwnedByUserInterface
     private ?\DateTimeImmutable $dueDate = null;
 
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
-    private ?\DateTimeImmutable $doneDate = null;
+    private ?\DateTimeImmutable $completedAt = null;
 
     public function __construct()
     {
@@ -88,14 +91,14 @@ class Task implements MercurePublishable, OwnedByUserInterface
         return $this;
     }
 
-    public function getName(): string
+    public function getTitle(): string
     {
-        return $this->name;
+        return $this->title;
     }
 
-    public function setName(string $name): static
+    public function setTitle(string $title): static
     {
-        $this->name = $name;
+        $this->title = $title;
 
         return $this;
     }
@@ -148,27 +151,27 @@ class Task implements MercurePublishable, OwnedByUserInterface
         return $this;
     }
 
-    public function getDoneDate(): ?\DateTimeImmutable
+    public function getCompletedAt(): ?\DateTimeImmutable
     {
-        return $this->doneDate;
+        return $this->completedAt;
     }
 
-    public function setDoneDate(?\DateTimeImmutable $doneDate): static
+    public function setCompletedAt(?\DateTimeImmutable $completedAt): static
     {
-        $this->doneDate = $doneDate;
+        $this->completedAt = $completedAt;
 
         return $this;
     }
 
     public function isDone(): bool
     {
-        return $this->doneDate !== null;
+        return $this->completedAt !== null;
     }
 
     public function toMercurePayload(): array
     {
         return [
-            'name' => $this->name,
+            'title' => $this->title,
             'priority' => $this->priority->value,
             'criticality' => $this->criticality->value,
             'dueDate' => $this->dueDate?->format('c'),

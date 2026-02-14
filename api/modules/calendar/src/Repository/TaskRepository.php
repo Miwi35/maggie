@@ -41,7 +41,7 @@ class TaskRepository extends ServiceEntityRepository
     public function findPending(): array
     {
         return $this->createQueryBuilder('t')
-            ->where('t.doneDate IS NULL')
+            ->where('t.completedAt IS NULL')
             ->orderBy('t.dueDate', 'ASC')
             ->getQuery()
             ->getResult();
@@ -58,7 +58,7 @@ class TaskRepository extends ServiceEntityRepository
         $end = $now->modify("+{$days} days");
 
         return $this->createQueryBuilder('t')
-            ->where('t.doneDate IS NULL')
+            ->where('t.completedAt IS NULL')
             ->andWhere('t.dueDate IS NOT NULL')
             ->andWhere('t.dueDate >= :now')
             ->andWhere('t.dueDate <= :end')
@@ -79,7 +79,7 @@ class TaskRepository extends ServiceEntityRepository
         $now = new \DateTimeImmutable('now');
 
         return $this->createQueryBuilder('t')
-            ->where('t.doneDate IS NULL')
+            ->where('t.completedAt IS NULL')
             ->andWhere('t.dueDate IS NOT NULL')
             ->andWhere('t.dueDate < :now')
             ->setParameter('now', $now)

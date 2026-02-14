@@ -5,8 +5,6 @@ services:
         bind:
             string $googleClientId: '%env(GOOGLE_CLIENT_ID)%'
             string $googleClientSecret: '%env(GOOGLE_CLIENT_SECRET)%'
-            string $googleRedirectUri: '%env(GOOGLE_REDIRECT_URI)%'
-            string $adminUrl: '%env(ADMIN_URL)%'
             string $googleWebhookUrl: '%env(GOOGLE_WEBHOOK_URL)%'
             string $googleWebhookToken: '%env(GOOGLE_WEBHOOK_TOKEN)%'
 
@@ -15,4 +13,5 @@ services:
         exclude:
             - '../src/Entity/'
             - '../src/Dto/'
+            - '../src/Trait/'
             - '../src/MaggieCalendarBundle.php'

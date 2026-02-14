@@ -11,10 +11,10 @@ import Box from '@mui/material/Box'
 
 export interface DashboardTask {
   id: string
-  name: string
+  title: string
   criticality: string
   dueDate?: string
-  doneDate?: string
+  completedAt?: string
 }
 
 const CRITICALITY_COLORS: Record<string, string> = {
@@ -40,7 +40,7 @@ interface TaskListWidgetProps {
 export const TaskListWidget = ({ tasks, loading, onToggleDone }: TaskListWidgetProps) => {
   const sorted = [...tasks].sort((a, b) => {
     // Done tasks at bottom
-    if (!!a.doneDate !== !!b.doneDate) return a.doneDate ? 1 : -1
+    if (!!a.completedAt !== !!b.completedAt) return a.completedAt ? 1 : -1
     // By criticality
     const ca = CRITICALITY_ORDER[a.criticality] ?? 4
     const cb = CRITICALITY_ORDER[b.criticality] ?? 4
@@ -90,7 +90,7 @@ export const TaskListWidget = ({ tasks, loading, onToggleDone }: TaskListWidgetP
         ) : (
           <List dense disablePadding>
             {sorted.map((task) => {
-              const isDone = task.doneDate != null
+              const isDone = task.completedAt != null
               return (
                 <ListItem key={task.id} disableGutters sx={{ py: 0.25 }}>
                   <Checkbox
@@ -121,7 +121,7 @@ export const TaskListWidget = ({ tasks, loading, onToggleDone }: TaskListWidgetP
                             color: isDone ? 'text.disabled' : 'text.primary',
                           }}
                         >
-                          {task.name}
+                          {task.title}
                         </Typography>
                       }
                     />

@@ -21,8 +21,8 @@ class GetTasksTool
                 ? $this->taskRepository->findUpcoming($days)
                 : $this->taskRepository->findPending(),
             'done' => $this->taskRepository->createQueryBuilder('t')
-                ->where('t.doneDate IS NOT NULL')
-                ->orderBy('t.doneDate', 'DESC')
+                ->where('t.completedAt IS NOT NULL')
+                ->orderBy('t.completedAt', 'DESC')
                 ->getQuery()
                 ->getResult(),
             'overdue' => $this->taskRepository->findOverdue(),
@@ -32,13 +32,13 @@ class GetTasksTool
 
         $result = array_map(fn (Task $task) => [
             'id' => (string) $task->getId(),
-            'name' => $task->getName(),
+            'title' => $task->getTitle(),
             'description' => $task->getDescription(),
             'priority' => $task->getPriority()->value,
             'criticality' => $task->getCriticality()->value,
             'dueDate' => $task->getDueDate()?->format('c'),
             'isDone' => $task->isDone(),
-            'doneDate' => $task->getDoneDate()?->format('c'),
+            'completedAt' => $task->getCompletedAt()?->format('c'),
         ], $tasks);
 
         return json_encode(['status' => $status, 'tasks' => $result, 'count' => count($result)], JSON_THROW_ON_ERROR);

@@ -5,10 +5,12 @@ namespace Maggie\Calendar\MessageHandler;
 use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Entity\TaskCriticality;
 use Maggie\Calendar\Entity\TaskPriority;
+use Maggie\Calendar\Message\PushTaskToGoogleCommand;
 use Maggie\Calendar\Message\UpdateTaskCommand;
 use Maggie\Calendar\Repository\TaskRepository;
 use Maggie\Calendar\UseCase\UpdateTask;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 #[AsMessageHandler]
 class UpdateTaskHandler
@@ -16,6 +18,7 @@ class UpdateTaskHandler
     public function __construct(
         private readonly UpdateTask $updateTask,
         private readonly TaskRepository $taskRepository,
+        private readonly MessageBusInterface $bus,
     ) {
     }
 
@@ -26,8 +29,8 @@ class UpdateTaskHandler
             throw new \DomainException("Task not found: {$command->taskId}");
         }
 
-        if ($command->name !== null) {
-            $task->setName($command->name);
+        if ($command->title !== null) {
+            $task->setTitle($command->title);
         }
         if ($command->description !== null) {
             $task->setDescription($command->description);
@@ -41,10 +44,16 @@ class UpdateTaskHandler
         if ($command->dueDate !== null) {
             $task->setDueDate($command->dueDate);
         }
-        if ($command->doneDate !== null) {
-            $task->setDoneDate($command->doneDate);
+        if ($command->completedAt !== null) {
+            $task->setCompletedAt($command->completedAt);
         }
 
-        return $this->updateTask->execute($task);
+        $task = $this->updateTask->execute($task);
+
+        if ($task->isGoogleSynced()) {
+            $this->bus->dispatch(new PushTaskToGoogleCommand(taskId: (string) $task->getId()));
+        }
+
+        return $task;
     }
 }

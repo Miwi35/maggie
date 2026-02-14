@@ -30,9 +30,9 @@ class GetTasksToolTest extends KernelTestCase
         $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
 
         self::assertSame('pending', $data['status']);
-        $names = array_map(fn($t) => $t['name'], $data['tasks']);
-        self::assertContains('Pending task', $names);
-        self::assertNotContains('Done task', $names);
+        $titles = array_map(fn($t) => $t['title'], $data['tasks']);
+        self::assertContains('Pending task', $titles);
+        self::assertNotContains('Done task', $titles);
     }
 
     public function testReturnsOverdueTasks(): void
@@ -45,7 +45,7 @@ class GetTasksToolTest extends KernelTestCase
 
         self::assertSame('overdue', $data['status']);
         self::assertSame(1, $data['count']);
-        self::assertSame('Overdue task', $data['tasks'][0]['name']);
+        self::assertSame('Overdue task', $data['tasks'][0]['title']);
     }
 
     public function testReturnsDoneTasks(): void
@@ -58,7 +58,7 @@ class GetTasksToolTest extends KernelTestCase
 
         self::assertSame('done', $data['status']);
         self::assertSame(1, $data['count']);
-        self::assertSame('Done task', $data['tasks'][0]['name']);
+        self::assertSame('Done task', $data['tasks'][0]['title']);
     }
 
     public function testOutputContainsAllExpectedFields(): void
@@ -72,7 +72,7 @@ class GetTasksToolTest extends KernelTestCase
         // Find the task_future fixture (has all fields populated)
         $fullTask = null;
         foreach ($data['tasks'] as $task) {
-            if ($task['name'] === 'Future task') {
+            if ($task['title'] === 'Future task') {
                 $fullTask = $task;
                 break;
             }
@@ -80,12 +80,12 @@ class GetTasksToolTest extends KernelTestCase
         self::assertNotNull($fullTask, 'Future task not found in pending results');
 
         self::assertArrayHasKey('id', $fullTask);
-        self::assertArrayHasKey('name', $fullTask);
+        self::assertArrayHasKey('title', $fullTask);
         self::assertArrayHasKey('description', $fullTask);
         self::assertArrayHasKey('priority', $fullTask);
         self::assertArrayHasKey('criticality', $fullTask);
         self::assertArrayHasKey('dueDate', $fullTask);
         self::assertArrayHasKey('isDone', $fullTask);
-        self::assertArrayHasKey('doneDate', $fullTask);
+        self::assertArrayHasKey('completedAt', $fullTask);
     }
 }

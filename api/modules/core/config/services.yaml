@@ -12,4 +12,5 @@ services:
         resource: '../src/'
         exclude:
             - '../src/Entity/'
+            - '../src/Trait/'
             - '../src/MaggieCoreBundle.php'

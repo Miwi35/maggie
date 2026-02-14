@@ -21,12 +21,12 @@ class UpdateTaskProcessor implements ProcessorInterface
     {
         $envelope = $this->bus->dispatch(new UpdateTaskCommand(
             taskId: (string) $data->getId(),
-            name: $data->getName(),
+            title: $data->getTitle(),
             description: $data->getDescription(),
             priority: $data->getPriority()->value,
             criticality: $data->getCriticality()->value,
             dueDate: $data->getDueDate(),
-            doneDate: $data->getDoneDate(),
+            completedAt: $data->getCompletedAt(),
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();

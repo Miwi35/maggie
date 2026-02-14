@@ -6,9 +6,11 @@ use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Entity\TaskCriticality;
 use Maggie\Calendar\Entity\TaskPriority;
 use Maggie\Calendar\Message\CreateTaskCommand;
+use Maggie\Calendar\Message\PushTaskToGoogleCommand;
 use Maggie\Calendar\UseCase\CreateTask;
 use Maggie\Core\Repository\UserRepository;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 #[AsMessageHandler]
 class CreateTaskHandler
@@ -16,6 +18,7 @@ class CreateTaskHandler
     public function __construct(
         private readonly CreateTask $createTask,
         private readonly UserRepository $userRepository,
+        private readonly MessageBusInterface $bus,
     ) {
     }
 
@@ -26,7 +29,7 @@ class CreateTaskHandler
 
         $task = new Task();
         $task->setUser($user);
-        $task->setName($command->name);
+        $task->setTitle($command->title);
 
         if ($command->description !== null) {
             $task->setDescription($command->description);
@@ -40,10 +43,16 @@ class CreateTaskHandler
         if ($command->dueDate !== null) {
             $task->setDueDate($command->dueDate);
         }
-        if ($command->doneDate !== null) {
-            $task->setDoneDate($command->doneDate);
+        if ($command->completedAt !== null) {
+            $task->setCompletedAt($command->completedAt);
         }
 
-        return $this->createTask->execute($task);
+        $task = $this->createTask->execute($task);
+
+        if ($user->getGoogleTaskListId() !== null) {
+            $this->bus->dispatch(new PushTaskToGoogleCommand(taskId: (string) $task->getId()));
+        }
+
+        return $task;
     }
 }

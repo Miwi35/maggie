@@ -20,7 +20,7 @@ class CreateTaskTool
     }
 
     public function __invoke(
-        string $name,
+        string $title,
         ?string $description = null,
         string $priority = 'medium',
         string $criticality = 'low',
@@ -38,7 +38,7 @@ class CreateTaskTool
 
             $envelope = $this->bus->dispatch(new CreateTaskCommand(
                 userId: (string) $user->getId(),
-                name: $name,
+                title: $title,
                 description: $description,
                 priority: $priority,
                 criticality: $criticality,
@@ -52,7 +52,7 @@ class CreateTaskTool
                 'success' => true,
                 'task' => [
                     'id' => (string) $task->getId(),
-                    'name' => $task->getName(),
+                    'title' => $task->getTitle(),
                     'priority' => $task->getPriority()->value,
                     'criticality' => $task->getCriticality()->value,
                     'dueDate' => $task->getDueDate()?->format('c'),

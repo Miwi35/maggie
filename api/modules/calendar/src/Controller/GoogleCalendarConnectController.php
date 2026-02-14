@@ -4,9 +4,12 @@ namespace Maggie\Calendar\Controller;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Message\PullFromGoogleCommand;
+use Maggie\Calendar\Message\PullTasksFromGoogleCommand;
 use Maggie\Calendar\Repository\AgendaRepository;
 use Maggie\Calendar\Repository\EventRepository;
+use Maggie\Calendar\Repository\TaskRepository;
 use Maggie\Calendar\Service\GoogleCalendarApiClient;
+use Maggie\Calendar\Service\GoogleTasksApiClient;
 use Maggie\Core\Entity\User;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -19,8 +22,10 @@ final class GoogleCalendarConnectController
 {
     public function __construct(
         private readonly GoogleCalendarApiClient $apiClient,
+        private readonly GoogleTasksApiClient $tasksApiClient,
         private readonly AgendaRepository $agendaRepository,
         private readonly EventRepository $eventRepository,
+        private readonly TaskRepository $taskRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly MessageBusInterface $messageBus,
         private readonly Security $security,
@@ -157,6 +162,82 @@ final class GoogleCalendarConnectController
             $event->setGoogleEventId(null);
             $event->setGoogleEtag(null);
             $event->setGoogleUpdatedAt(null);
+        }
+
+        $this->entityManager->flush();
+
+        return new JsonResponse(['status' => 'disconnected']);
+    }
+
+    #[Route('/api/calendar/google/task-lists', name: 'google_task_lists', methods: ['GET'])]
+    public function listTaskLists(): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->security->getUser();
+
+        if (!$user->hasGoogleCalendarTokens()) {
+            return new JsonResponse(
+                ['error' => 'Google not authorized.'],
+                Response::HTTP_FORBIDDEN,
+            );
+        }
+
+        $taskLists = $this->tasksApiClient->listTaskLists($user);
+        $result = array_map(fn($tl) => [
+            'id' => $tl->getId(),
+            'title' => $tl->getTitle(),
+        ], $taskLists);
+
+        return new JsonResponse($result);
+    }
+
+    #[Route('/api/calendar/google/connect-tasks', name: 'google_tasks_connect', methods: ['POST'])]
+    public function connectTasks(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->security->getUser();
+
+        if (!$user->hasGoogleCalendarTokens()) {
+            return new JsonResponse(
+                ['error' => 'Google not authorized.'],
+                Response::HTTP_FORBIDDEN,
+            );
+        }
+
+        $data = json_decode($request->getContent(), true);
+        $googleTaskListId = $data['googleTaskListId'] ?? null;
+
+        if (!$googleTaskListId) {
+            return new JsonResponse(
+                ['error' => 'googleTaskListId is required.'],
+                Response::HTTP_BAD_REQUEST,
+            );
+        }
+
+        $user->setGoogleTaskListId($googleTaskListId);
+        $this->entityManager->flush();
+
+        // Dispatch initial pull
+        $this->messageBus->dispatch(new PullTasksFromGoogleCommand(userId: (string) $user->getId()));
+
+        return new JsonResponse(['status' => 'connected'], Response::HTTP_ACCEPTED);
+    }
+
+    #[Route('/api/calendar/google/disconnect-tasks', name: 'google_tasks_disconnect', methods: ['POST'])]
+    public function disconnectTasks(): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->security->getUser();
+
+        $user->setGoogleTaskListId(null);
+
+        // Clear Google fields on all tasks for this user
+        $tasks = $this->taskRepository->findBy(['user' => $user]);
+        foreach ($tasks as $task) {
+            $task->setGoogleTaskId(null);
+            $task->setGoogleTaskListId(null);
+            $task->setGoogleTaskEtag(null);
+            $task->setGoogleTaskUpdatedAt(null);
         }
 
         $this->entityManager->flush();

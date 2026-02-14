@@ -161,19 +161,19 @@ class MercurePublishMiddlewareTest extends TestCase
     public function testCreateTaskPublishesToMercure(): void
     {
         $task = new Task();
-        $task->setName('Buy groceries');
+        $task->setTitle('Buy groceries');
         $task->setPriority(TaskPriority::High);
         $task->setCriticality(TaskCriticality::Medium);
         $task->setDueDate(new \DateTimeImmutable('2026-03-25T18:00:00+01:00'));
 
         $middleware = new MercurePublishMiddleware($this->hub);
-        $envelope = new Envelope(new CreateTaskCommand(userId: 'fake-user-id', name: 'Buy groceries'));
+        $envelope = new Envelope(new CreateTaskCommand(userId: 'fake-user-id', title: 'Buy groceries'));
 
         $middleware->handle($envelope, $this->createPassthroughStack($task));
 
         self::assertCount(1, $this->publishedUpdates);
         $data = json_decode($this->publishedUpdates[0]->getData(), true);
-        self::assertSame('Buy groceries', $data['name']);
+        self::assertSame('Buy groceries', $data['title']);
         self::assertSame('high', $data['priority']);
         self::assertSame('medium', $data['criticality']);
         self::assertFalse($data['isDone']);
@@ -183,7 +183,7 @@ class MercurePublishMiddlewareTest extends TestCase
     public function testUpdateTaskPublishesToMercure(): void
     {
         $task = new Task();
-        $task->setName('Updated task');
+        $task->setTitle('Updated task');
         $task->setPriority(TaskPriority::Low);
         $task->setCriticality(TaskCriticality::Critical);
 
@@ -194,7 +194,7 @@ class MercurePublishMiddlewareTest extends TestCase
 
         self::assertCount(1, $this->publishedUpdates);
         $data = json_decode($this->publishedUpdates[0]->getData(), true);
-        self::assertSame('Updated task', $data['name']);
+        self::assertSame('Updated task', $data['title']);
         self::assertSame('low', $data['priority']);
         self::assertSame('critical', $data['criticality']);
     }

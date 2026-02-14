@@ -84,7 +84,7 @@ final class GoogleAuthController
             'client_id' => $this->googleClientId,
             'redirect_uri' => $this->googleRedirectUri,
             'response_type' => 'code',
-            'scope' => 'openid email profile https://www.googleapis.com/auth/calendar',
+            'scope' => 'openid email profile https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/tasks',
             'access_type' => 'offline',
             'prompt' => 'consent',
         ]);

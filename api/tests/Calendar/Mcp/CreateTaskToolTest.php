@@ -41,13 +41,13 @@ class CreateTaskToolTest extends KernelTestCase
         $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
 
         self::assertTrue($data['success']);
-        self::assertSame('Buy groceries', $data['task']['name']);
+        self::assertSame('Buy groceries', $data['task']['title']);
         self::assertSame('high', $data['task']['priority']);
         self::assertSame('medium', $data['task']['criticality']);
 
         $tasks = $em->getRepository(Task::class)->findAll();
         self::assertCount(1, $tasks);
-        self::assertSame('Buy groceries', $tasks[0]->getName());
+        self::assertSame('Buy groceries', $tasks[0]->getTitle());
         self::assertSame('Milk, eggs, bread', $tasks[0]->getDescription());
     }
 
@@ -60,7 +60,7 @@ class CreateTaskToolTest extends KernelTestCase
         $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
 
         self::assertTrue($data['success']);
-        self::assertSame('Simple task', $data['task']['name']);
+        self::assertSame('Simple task', $data['task']['title']);
         self::assertSame('medium', $data['task']['priority']);
         self::assertSame('low', $data['task']['criticality']);
         self::assertNull($data['task']['dueDate']);

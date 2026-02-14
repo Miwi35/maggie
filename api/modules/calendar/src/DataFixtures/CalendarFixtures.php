@@ -103,7 +103,7 @@ class CalendarFixtures extends Fixture
 
         // Task with due date (upcoming)
         $task1 = new Task();
-        $task1->setName('Prepare quarterly report');
+        $task1->setTitle('Prepare quarterly report');
         $task1->setDescription('Compile Q1 metrics and create presentation');
         $task1->setPriority(TaskPriority::High);
         $task1->setCriticality(TaskCriticality::Medium);
@@ -112,7 +112,7 @@ class CalendarFixtures extends Fixture
 
         // Task without due date
         $task2 = new Task();
-        $task2->setName('Organize desk');
+        $task2->setTitle('Organize desk');
         $task2->setDescription('Clean up workspace and file documents');
         $task2->setPriority(TaskPriority::Low);
         $task2->setCriticality(TaskCriticality::Low);
@@ -120,16 +120,16 @@ class CalendarFixtures extends Fixture
 
         // Completed task
         $task3 = new Task();
-        $task3->setName('Submit expense report');
+        $task3->setTitle('Submit expense report');
         $task3->setPriority(TaskPriority::Medium);
         $task3->setCriticality(TaskCriticality::Medium);
         $task3->setDueDate(new \DateTimeImmutable('-1 day', $tz));
-        $task3->setDoneDate(new \DateTimeImmutable('-1 day 15:00', $tz));
+        $task3->setCompletedAt(new \DateTimeImmutable('-1 day 15:00', $tz));
         $manager->persist($task3);
 
         // Critical task
         $task4 = new Task();
-        $task4->setName('Fix production deployment');
+        $task4->setTitle('Fix production deployment');
         $task4->setDescription('Hotfix for the authentication issue in production');
         $task4->setPriority(TaskPriority::High);
         $task4->setCriticality(TaskCriticality::Critical);

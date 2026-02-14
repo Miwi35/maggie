@@ -5,6 +5,7 @@ namespace Maggie\Core\Entity;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Maggie\Core\Repository\UserRepository;
+use Maggie\Core\Trait\HasGoogleOAuthTokensTrait;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Uid\Ulid;
 
@@ -12,6 +13,8 @@ use Symfony\Component\Uid\Ulid;
 #[ORM\Table(name: '"user"')]
 class User implements UserInterface
 {
+    use HasGoogleOAuthTokensTrait;
+
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
     private Ulid $id;
@@ -27,15 +30,6 @@ class User implements UserInterface
 
     #[ORM\Column(length: 512, nullable: true)]
     private ?string $avatar = null;
-
-    #[ORM\Column(type: Types::TEXT, nullable: true)]
-    private ?string $googleAccessToken = null;
-
-    #[ORM\Column(type: Types::TEXT, nullable: true)]
-    private ?string $googleRefreshToken = null;
-
-    #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
-    private ?\DateTimeImmutable $googleTokenExpiresAt = null;
 
     /** @var list<string> */
     #[ORM\Column(type: Types::JSON)]
@@ -119,47 +113,6 @@ class User implements UserInterface
     public function getUserIdentifier(): string
     {
         return $this->email;
-    }
-
-    public function getGoogleAccessToken(): ?string
-    {
-        return $this->googleAccessToken;
-    }
-
-    public function setGoogleAccessToken(?string $googleAccessToken): static
-    {
-        $this->googleAccessToken = $googleAccessToken;
-
-        return $this;
-    }
-
-    public function getGoogleRefreshToken(): ?string
-    {
-        return $this->googleRefreshToken;
-    }
-
-    public function setGoogleRefreshToken(?string $googleRefreshToken): static
-    {
-        $this->googleRefreshToken = $googleRefreshToken;
-
-        return $this;
-    }
-
-    public function getGoogleTokenExpiresAt(): ?\DateTimeImmutable
-    {
-        return $this->googleTokenExpiresAt;
-    }
-
-    public function setGoogleTokenExpiresAt(?\DateTimeImmutable $googleTokenExpiresAt): static
-    {
-        $this->googleTokenExpiresAt = $googleTokenExpiresAt;
-
-        return $this;
-    }
-
-    public function hasGoogleCalendarTokens(): bool
-    {
-        return $this->googleRefreshToken !== null;
     }
 
     public function eraseCredentials(): void

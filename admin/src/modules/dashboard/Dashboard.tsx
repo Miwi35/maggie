@@ -28,12 +28,12 @@ interface RawEvent {
 
 interface RawTask {
   id: string
-  name: string
+  title: string
   description?: string
   priority: string
   criticality: string
   dueDate?: string
-  doneDate?: string
+  completedAt?: string
 }
 
 export const Dashboard = () => {
@@ -73,12 +73,12 @@ export const Dashboard = () => {
       dataProvider.getList('tasks', {
         pagination: { page: 1, perPage: 50 },
         sort: { field: 'dueDate', order: 'ASC' },
-        filter: { 'exists[doneDate]': false, 'dueDate[before]': month.end },
+        filter: { 'exists[completedAt]': false, 'dueDate[before]': month.end },
       }),
       dataProvider.getList('tasks', {
         pagination: { page: 1, perPage: 50 },
         sort: { field: 'criticality', order: 'DESC' },
-        filter: { 'exists[doneDate]': false, 'exists[dueDate]': false },
+        filter: { 'exists[completedAt]': false, 'exists[dueDate]': false },
       }),
     ])
       .then(([rangeEvents, recurringEvents, rangeTasks, undueTasksResult]) => {
@@ -207,17 +207,17 @@ export const Dashboard = () => {
       const end = new Date(rangeEnd)
       return rawTasks
         .filter((t) => {
-          if (t.doneDate) return false
+          if (t.completedAt) return false
           if (!t.dueDate) return false
           const due = new Date(t.dueDate)
           return due >= start && due < end
         })
         .map((t) => ({
           id: t.id,
-          name: t.name,
+          title: t.title,
           criticality: t.criticality,
           dueDate: t.dueDate,
-          doneDate: t.doneDate,
+          completedAt: t.completedAt,
         }))
     },
     [rawTasks],
@@ -254,25 +254,25 @@ export const Dashboard = () => {
     const todayEnd = new Date(ranges.today.end)
     const overdueAndToday: DashboardTask[] = rawTasks
       .filter((t) => {
-        if (t.doneDate) return false
+        if (t.completedAt) return false
         if (!t.dueDate) return false
         return new Date(t.dueDate) < todayEnd
       })
       .map((t) => ({
         id: t.id,
-        name: t.name,
+        title: t.title,
         criticality: t.criticality,
         dueDate: t.dueDate,
-        doneDate: t.doneDate,
+        completedAt: t.completedAt,
       }))
     const undue: DashboardTask[] = undueTasks
       .filter((t) => !t.dueDate)
       .map((t) => ({
         id: t.id,
-        name: t.name,
+        title: t.title,
         criticality: t.criticality,
         dueDate: t.dueDate,
-        doneDate: t.doneDate,
+        completedAt: t.completedAt,
       }))
     return [...overdueAndToday, ...undue]
   }, [rawTasks, ranges, undueTasks])
@@ -299,7 +299,7 @@ export const Dashboard = () => {
       dataProvider
         .update('tasks', {
           id: taskId,
-          data: { doneDate: done ? now : null },
+          data: { completedAt: done ? now : null },
           previousData: { id: taskId },
         })
         .then(() => {

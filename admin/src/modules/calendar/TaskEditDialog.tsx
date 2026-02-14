@@ -13,12 +13,12 @@ import TextField from '@mui/material/TextField'
 
 interface TaskData {
   id: string
-  name: string
+  title: string
   description?: string
   priority: string
   criticality: string
   dueDate?: string
-  doneDate?: string
+  completedAt?: string
 }
 
 interface TaskEditDialogProps {
@@ -37,30 +37,30 @@ export const TaskEditDialog = ({ open, task, onClose, onUpdated }: TaskEditDialo
   const dataProvider = useDataProvider()
   const notify = useNotify()
 
-  const [name, setName] = useState('')
+  const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState('medium')
   const [criticality, setCriticality] = useState('low')
   const [dueDate, setDueDate] = useState('')
   const [isDone, setIsDone] = useState(false)
-  const [nameError, setNameError] = useState(false)
+  const [titleError, setTitleError] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     if (!open || !task) return
-    setName(task.name)
+    setTitle(task.title)
     setDescription(task.description || '')
     setPriority(task.priority)
     setCriticality(task.criticality)
     setDueDate(task.dueDate ? toLocalDate(task.dueDate) : '')
-    setIsDone(task.doneDate != null)
-    setNameError(false)
+    setIsDone(task.completedAt != null)
+    setTitleError(false)
   }, [open, task])
 
   const handleSubmit = () => {
     if (!task) return
-    if (!name.trim()) {
-      setNameError(true)
+    if (!title.trim()) {
+      setTitleError(true)
       return
     }
 
@@ -70,12 +70,12 @@ export const TaskEditDialog = ({ open, task, onClose, onUpdated }: TaskEditDialo
       .update('tasks', {
         id: task.id,
         data: {
-          name: name.trim(),
+          title: title.trim(),
           description: description.trim() || null,
           priority,
           criticality,
           ...(dueDate ? { dueDate: `${dueDate}T00:00:00` } : { dueDate: null }),
-          doneDate: isDone && !task.doneDate ? new Date().toISOString() : isDone ? task.doneDate : null,
+          completedAt: isDone && !task.completedAt ? new Date().toISOString() : isDone ? task.completedAt : null,
         },
         previousData: task,
       })
@@ -96,14 +96,14 @@ export const TaskEditDialog = ({ open, task, onClose, onUpdated }: TaskEditDialo
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <TextField
-            label="Nom"
-            value={name}
+            label="Titre"
+            value={title}
             onChange={(e) => {
-              setName(e.target.value)
-              if (e.target.value.trim()) setNameError(false)
+              setTitle(e.target.value)
+              if (e.target.value.trim()) setTitleError(false)
             }}
-            error={nameError}
-            helperText={nameError ? 'Le nom est requis' : undefined}
+            error={titleError}
+            helperText={titleError ? 'Le titre est requis' : undefined}
             required
             autoFocus
           />

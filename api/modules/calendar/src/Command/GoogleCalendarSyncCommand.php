@@ -4,6 +4,7 @@ namespace Maggie\Calendar\Command;
 
 use Maggie\Calendar\Repository\AgendaRepository;
 use Maggie\Calendar\Service\GoogleCalendarSyncService;
+use Maggie\Calendar\Service\GoogleTasksSyncService;
 use Maggie\Core\Repository\UserRepository;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -20,6 +21,7 @@ class GoogleCalendarSyncCommand extends Command
 {
     public function __construct(
         private readonly GoogleCalendarSyncService $syncService,
+        private readonly GoogleTasksSyncService $tasksSyncService,
         private readonly AgendaRepository $agendaRepository,
         private readonly UserRepository $userRepository,
     ) {
@@ -31,7 +33,8 @@ class GoogleCalendarSyncCommand extends Command
         $this
             ->addOption('user', 'u', InputOption::VALUE_OPTIONAL, 'Sync only for a specific user ID')
             ->addOption('agenda', 'a', InputOption::VALUE_OPTIONAL, 'Sync only a specific agenda ID')
-            ->addOption('full', 'f', InputOption::VALUE_NONE, 'Force full sync (ignore sync token)');
+            ->addOption('full', 'f', InputOption::VALUE_NONE, 'Force full sync (ignore sync token)')
+            ->addOption('tasks', 't', InputOption::VALUE_NONE, 'Sync Google Tasks instead of calendar events');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -40,6 +43,11 @@ class GoogleCalendarSyncCommand extends Command
         $userId = $input->getOption('user');
         $agendaId = $input->getOption('agenda');
         $full = $input->getOption('full');
+        $tasks = $input->getOption('tasks');
+
+        if ($tasks) {
+            return $this->syncTasks($io, $userId);
+        }
 
         if ($agendaId) {
             $agenda = $this->agendaRepository->find($agendaId);
@@ -91,6 +99,42 @@ class GoogleCalendarSyncCommand extends Command
         }
 
         $io->success("Synced {$count} agenda(s).");
+        return Command::SUCCESS;
+    }
+
+    private function syncTasks(SymfonyStyle $io, ?string $userId): int
+    {
+        if ($userId) {
+            $user = $this->userRepository->find($userId);
+            if ($user === null) {
+                $io->error('User not found.');
+                return Command::FAILURE;
+            }
+            $users = [$user];
+        } else {
+            $users = $this->userRepository->createQueryBuilder('u')
+                ->where('u.googleTaskListId IS NOT NULL')
+                ->getQuery()
+                ->getResult();
+        }
+
+        $count = 0;
+        foreach ($users as $user) {
+            if ($user->getGoogleTaskListId() === null) {
+                continue;
+            }
+
+            $io->info("Syncing tasks for user: {$user->getEmail()}");
+
+            try {
+                $this->tasksSyncService->pullFromGoogle($user);
+                $count++;
+            } catch (\Throwable $e) {
+                $io->warning("Failed to sync tasks for {$user->getEmail()}: {$e->getMessage()}");
+            }
+        }
+
+        $io->success("Synced tasks for {$count} user(s).");
         return Command::SUCCESS;
     }
 }

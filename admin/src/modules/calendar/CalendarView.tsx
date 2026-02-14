@@ -72,12 +72,12 @@ interface CalendarEvent {
 
 interface CalendarTask {
   id: string
-  name: string
+  title: string
   description?: string
   priority: string
   criticality: string
   dueDate?: string
-  doneDate?: string
+  completedAt?: string
 }
 
 const TASK_CRITICALITY_COLORS: Record<string, string> = {
@@ -570,10 +570,10 @@ export const CalendarView = () => {
       .filter((t) => t.dueDate)
       .map((t) => {
         const color = TASK_CRITICALITY_COLORS[t.criticality] || TASK_CRITICALITY_COLORS.low
-        const isDone = t.doneDate != null
+        const isDone = t.completedAt != null
         return {
           id: `task-${t.id}`,
-          title: `${isDone ? '\u2713 ' : ''}${t.name}`,
+          title: `${isDone ? '\u2713 ' : ''}${t.title}`,
           start: t.dueDate!,
           allDay: true,
           calendarId: '__tasks__',

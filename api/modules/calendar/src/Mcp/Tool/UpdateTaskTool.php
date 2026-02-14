@@ -19,7 +19,7 @@ class UpdateTaskTool
 
     public function __invoke(
         string $id,
-        ?string $name = null,
+        ?string $title = null,
         ?string $description = null,
         ?string $priority = null,
         ?string $criticality = null,
@@ -31,22 +31,21 @@ class UpdateTaskTool
                 ? new \DateTimeImmutable($dueDate, new \DateTimeZone('Europe/Paris'))
                 : null;
 
-            $doneDate = null;
+            $completedAt = null;
             if ($done === true) {
-                $doneDate = new \DateTimeImmutable('now', new \DateTimeZone('Europe/Paris'));
+                $completedAt = new \DateTimeImmutable('now', new \DateTimeZone('Europe/Paris'));
             } elseif ($done === false) {
-                // Explicitly unsetting done — handler needs a sentinel; we pass epoch
-                $doneDate = null;
+                $completedAt = null;
             }
 
             $envelope = $this->bus->dispatch(new UpdateTaskCommand(
                 taskId: $id,
-                name: $name,
+                title: $title,
                 description: $description,
                 priority: $priority,
                 criticality: $criticality,
                 dueDate: $dueDateObj,
-                doneDate: $doneDate,
+                completedAt: $completedAt,
             ));
 
             /** @var Task $task */
@@ -56,7 +55,7 @@ class UpdateTaskTool
                 'success' => true,
                 'task' => [
                     'id' => (string) $task->getId(),
-                    'name' => $task->getName(),
+                    'title' => $task->getTitle(),
                     'priority' => $task->getPriority()->value,
                     'criticality' => $task->getCriticality()->value,
                     'dueDate' => $task->getDueDate()?->format('c'),
