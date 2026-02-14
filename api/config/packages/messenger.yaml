@@ -22,6 +22,9 @@ framework:
             'Maggie\Calendar\Message\CreateTaskCommand': sync
             'Maggie\Calendar\Message\UpdateTaskCommand': sync
             'Maggie\Calendar\Message\DeleteTaskCommand': sync
+            'Maggie\Calendar\Message\PushEventToGoogleCommand': async
+            'Maggie\Calendar\Message\DeleteEventFromGoogleCommand': async
+            'Maggie\Calendar\Message\PullFromGoogleCommand': async
 
 when@test:
     framework:

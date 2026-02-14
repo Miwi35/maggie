@@ -84,9 +84,9 @@ final class GoogleAuthController
             'client_id' => $this->googleClientId,
             'redirect_uri' => $this->googleRedirectUri,
             'response_type' => 'code',
-            'scope' => 'openid email profile',
-            'access_type' => 'online',
-            'prompt' => 'select_account',
+            'scope' => 'openid email profile https://www.googleapis.com/auth/calendar',
+            'access_type' => 'offline',
+            'prompt' => 'consent',
         ]);
 
         return new RedirectResponse('https://accounts.google.com/o/oauth2/v2/auth?' . $params);
@@ -134,6 +134,21 @@ final class GoogleAuthController
         }
 
         $user = $this->findOrCreateUser($payload);
+
+        // Store Google OAuth tokens for Calendar API access
+        if (isset($tokens['access_token'])) {
+            $user->setGoogleAccessToken($tokens['access_token']);
+        }
+        if (isset($tokens['refresh_token'])) {
+            $user->setGoogleRefreshToken($tokens['refresh_token']);
+        }
+        if (isset($tokens['expires_in'])) {
+            $user->setGoogleTokenExpiresAt(
+                new \DateTimeImmutable('+' . $tokens['expires_in'] . ' seconds')
+            );
+        }
+        $this->entityManager->flush();
+
         $jwt = $this->jwtManager->create($user);
 
         $params = http_build_query([

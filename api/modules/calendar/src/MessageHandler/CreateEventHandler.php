@@ -5,10 +5,12 @@ namespace Maggie\Calendar\MessageHandler;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Entity\EventStatus;
 use Maggie\Calendar\Message\CreateEventCommand;
+use Maggie\Calendar\Message\PushEventToGoogleCommand;
 use Maggie\Calendar\Repository\AgendaRepository;
 use Maggie\Calendar\Repository\EventRepository;
 use Maggie\Calendar\UseCase\CreateEvent;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 #[AsMessageHandler]
 class CreateEventHandler
@@ -17,6 +19,7 @@ class CreateEventHandler
         private readonly CreateEvent $createEvent,
         private readonly AgendaRepository $agendaRepository,
         private readonly EventRepository $eventRepository,
+        private readonly MessageBusInterface $messageBus,
     ) {
     }
 
@@ -60,6 +63,15 @@ class CreateEventHandler
             $event->setStatus(EventStatus::from($command->status));
         }
 
-        return $this->createEvent->execute($event);
+        $event = $this->createEvent->execute($event);
+
+        if ($agenda->isGoogleSynced()) {
+            $this->messageBus->dispatch(new PushEventToGoogleCommand(
+                eventId: (string) $event->getId(),
+                action: 'create',
+            ));
+        }
+
+        return $event;
     }
 }

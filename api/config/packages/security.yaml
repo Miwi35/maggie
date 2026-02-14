@@ -13,6 +13,10 @@ security:
             pattern: ^/api/auth
             stateless: true
             security: false
+        google_webhook:
+            pattern: ^/api/calendar/google/webhook
+            stateless: true
+            security: false
         api:
             pattern: ^/api
             stateless: true
@@ -20,6 +24,7 @@ security:
 
     access_control:
         - { path: ^/api/auth, roles: PUBLIC_ACCESS }
+        - { path: ^/api/calendar/google/webhook, roles: PUBLIC_ACCESS }
         - { path: ^/api/docs, roles: PUBLIC_ACCESS }
         - { path: ^/api/contexts, roles: PUBLIC_ACCESS }
         - { path: ^/api$, roles: PUBLIC_ACCESS }

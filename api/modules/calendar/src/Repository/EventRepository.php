@@ -2,6 +2,7 @@
 
 namespace Maggie\Calendar\Repository;
 
+use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Entity\EventStatus;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -76,6 +77,30 @@ class EventRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('e')
             ->where('e.recurringEvent = :parent')
             ->setParameter('parent', $recurringEvent->getId(), 'ulid')
+            ->getQuery()
+            ->getResult();
+    }
+
+    public function findByGoogleEventId(string $googleEventId, Agenda $agenda): ?Event
+    {
+        return $this->createQueryBuilder('e')
+            ->where('e.googleEventId = :googleEventId')
+            ->andWhere('e.agenda = :agenda')
+            ->setParameter('googleEventId', $googleEventId)
+            ->setParameter('agenda', $agenda->getId(), 'ulid')
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
+     * @return Event[]
+     */
+    public function findGoogleSyncedByAgenda(Agenda $agenda): array
+    {
+        return $this->createQueryBuilder('e')
+            ->where('e.agenda = :agenda')
+            ->andWhere('e.googleEventId IS NOT NULL')
+            ->setParameter('agenda', $agenda->getId(), 'ulid')
             ->getQuery()
             ->getResult();
     }

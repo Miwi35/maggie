@@ -25,6 +25,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Entity(repositoryClass: EventRepository::class)]
 #[ORM\Index(columns: ['start_at', 'end_at'], name: 'idx_event_dates')]
 #[ORM\Index(columns: ['status'], name: 'idx_event_status')]
+#[ORM\UniqueConstraint(name: 'uniq_google_event_agenda', columns: ['google_event_id', 'agenda_id'])]
 #[ApiFilter(DateFilter::class, properties: ['startAt', 'endAt'])]
 #[ApiFilter(ExistsFilter::class, properties: ['rrule'])]
 #[ApiResource(operations: [
@@ -92,6 +93,15 @@ class Event implements MercurePublishable, OwnedThroughInterface
      */
     #[ORM\Column(type: Types::JSON, nullable: true)]
     private ?array $reminders = null;
+
+    #[ORM\Column(length: 1024, nullable: true)]
+    private ?string $googleEventId = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $googleEtag = null;
+
+    #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $googleUpdatedAt = null;
 
     #[ORM\ManyToOne(targetEntity: Agenda::class, inversedBy: 'events')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
@@ -264,6 +274,47 @@ class Event implements MercurePublishable, OwnedThroughInterface
         $this->agenda = $agenda;
 
         return $this;
+    }
+
+    public function getGoogleEventId(): ?string
+    {
+        return $this->googleEventId;
+    }
+
+    public function setGoogleEventId(?string $googleEventId): static
+    {
+        $this->googleEventId = $googleEventId;
+
+        return $this;
+    }
+
+    public function getGoogleEtag(): ?string
+    {
+        return $this->googleEtag;
+    }
+
+    public function setGoogleEtag(?string $googleEtag): static
+    {
+        $this->googleEtag = $googleEtag;
+
+        return $this;
+    }
+
+    public function getGoogleUpdatedAt(): ?\DateTimeImmutable
+    {
+        return $this->googleUpdatedAt;
+    }
+
+    public function setGoogleUpdatedAt(?\DateTimeImmutable $googleUpdatedAt): static
+    {
+        $this->googleUpdatedAt = $googleUpdatedAt;
+
+        return $this;
+    }
+
+    public function isGoogleSynced(): bool
+    {
+        return $this->googleEventId !== null;
     }
 
     public function isRecurring(): bool

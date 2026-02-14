@@ -3,10 +3,12 @@
 namespace Maggie\Calendar\MessageHandler;
 
 use Maggie\Calendar\Entity\Event;
+use Maggie\Calendar\Message\PushEventToGoogleCommand;
 use Maggie\Calendar\Message\UpdateEventCommand;
 use Maggie\Calendar\Repository\EventRepository;
 use Maggie\Calendar\UseCase\UpdateEvent;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 #[AsMessageHandler]
 class UpdateEventHandler
@@ -14,6 +16,7 @@ class UpdateEventHandler
     public function __construct(
         private readonly UpdateEvent $updateEvent,
         private readonly EventRepository $eventRepository,
+        private readonly MessageBusInterface $messageBus,
     ) {
     }
 
@@ -46,6 +49,15 @@ class UpdateEventHandler
             $event->setRrule($command->rrule);
         }
 
-        return $this->updateEvent->execute($event);
+        $event = $this->updateEvent->execute($event);
+
+        if ($event->getAgenda()->isGoogleSynced()) {
+            $this->messageBus->dispatch(new PushEventToGoogleCommand(
+                eventId: (string) $event->getId(),
+                action: 'update',
+            ));
+        }
+
+        return $event;
     }
 }
