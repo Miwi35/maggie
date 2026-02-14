@@ -1,34 +1,30 @@
 package com.maggie.app.ui.screens.fullcalendar
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.kizitonwose.calendar.compose.ContentHeightMode
 import com.kizitonwose.calendar.compose.HorizontalCalendar
 import com.kizitonwose.calendar.compose.rememberCalendarState
@@ -36,7 +32,6 @@ import com.kizitonwose.calendar.core.CalendarDay
 import com.kizitonwose.calendar.core.DayPosition
 import com.kizitonwose.calendar.core.daysOfWeek
 import com.maggie.app.data.model.ExpandedEvent
-import com.maggie.app.ui.screens.dashboard.DashboardEventItem
 import com.maggie.app.ui.screens.dashboard.parseColor
 import java.time.DayOfWeek
 import java.time.Instant
@@ -47,90 +42,75 @@ import java.time.ZonedDateTime
 import java.time.format.TextStyle as JavaTextStyle
 import java.util.Locale
 
+private const val MAX_VISIBLE_EVENTS = 2
+
 @Composable
 fun MonthCalendarView(
     currentDate: LocalDate,
     events: List<ExpandedEvent>,
     onDateSelected: (LocalDate) -> Unit,
     onEventClick: (ExpandedEvent) -> Unit = {},
+    onMonthChange: (YearMonth) -> Unit = {},
 ) {
-    var selectedDate by remember { mutableStateOf(currentDate) }
     val zone = ZoneId.of("Europe/Paris")
 
-    val currentMonth = remember(currentDate) { YearMonth.from(currentDate) }
-    val startMonth = remember(currentMonth) { currentMonth.minusMonths(12) }
-    val endMonth = remember(currentMonth) { currentMonth.plusMonths(12) }
+    val startMonth = remember { YearMonth.now().minusMonths(24) }
+    val endMonth = remember { YearMonth.now().plusMonths(24) }
+    val initialMonth = remember { YearMonth.from(currentDate) }
     val daysOfWeek = remember { daysOfWeek(firstDayOfWeek = DayOfWeek.MONDAY) }
 
-    // Group events by date
+    // Group events by ALL dates they span (multi-day support)
     val eventsByDate = remember(events) {
-        events.groupBy { event ->
-            ZonedDateTime.ofInstant(Instant.parse(event.startAt), zone).toLocalDate()
+        val map = mutableMapOf<LocalDate, MutableList<ExpandedEvent>>()
+        events.forEach { event ->
+            val startDate = ZonedDateTime.ofInstant(Instant.parse(event.startAt), zone).toLocalDate()
+            val endZoned = ZonedDateTime.ofInstant(Instant.parse(event.endAt), zone)
+            val endDate = if (event.allDay && endZoned.hour == 0 && endZoned.minute == 0) {
+                endZoned.toLocalDate().minusDays(1)
+            } else {
+                endZoned.toLocalDate()
+            }
+            val actualEnd = if (endDate < startDate) startDate else endDate
+            var date = startDate
+            while (date <= actualEnd) {
+                map.getOrPut(date) { mutableListOf() }.add(event)
+                date = date.plusDays(1)
+            }
         }
+        map
     }
 
     val calendarState = rememberCalendarState(
         startMonth = startMonth,
         endMonth = endMonth,
-        firstVisibleMonth = currentMonth,
+        firstVisibleMonth = initialMonth,
         firstDayOfWeek = DayOfWeek.MONDAY,
     )
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        HorizontalCalendar(
-            state = calendarState,
-            contentHeightMode = ContentHeightMode.Wrap,
-            monthHeader = { month ->
-                DaysOfWeekHeader(daysOfWeek)
-            },
-            dayContent = { day ->
-                val dayEvents = eventsByDate[day.date].orEmpty()
-                MonthDayCell(
-                    day = day,
-                    isSelected = day.date == selectedDate,
-                    events = dayEvents,
-                    onClick = {
-                        selectedDate = day.date
-                        onDateSelected(day.date)
-                    },
-                )
-            },
-            modifier = Modifier.padding(horizontal = 8.dp),
-        )
-
-        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-
-        // Events for selected date
-        val selectedEvents = eventsByDate[selectedDate].orEmpty()
-        if (selectedEvents.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "Aucun événement",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+    // Sync visible month with ViewModel
+    LaunchedEffect(calendarState) {
+        snapshotFlow { calendarState.firstVisibleMonth.yearMonth }
+            .collect { visibleMonth ->
+                onMonthChange(visibleMonth)
             }
-        } else {
-            LazyColumn(
-                contentPadding = PaddingValues(vertical = 8.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-            ) {
-                items(selectedEvents) { event ->
-                    DashboardEventItem(
-                        event = event,
-                        onClick = { onEventClick(event) },
-                    )
-                }
-            }
-        }
     }
+
+    HorizontalCalendar(
+        state = calendarState,
+        contentHeightMode = ContentHeightMode.Fill,
+        monthHeader = { DaysOfWeekHeader(daysOfWeek) },
+        dayContent = { day ->
+            val dayEvents = eventsByDate[day.date].orEmpty()
+            FullMonthDayCell(
+                day = day,
+                events = dayEvents,
+                zone = zone,
+                onEventClick = onEventClick,
+                onDayClick = { onDateSelected(day.date) },
+            )
+        },
+        modifier = Modifier.fillMaxSize(),
+    )
 }
 
 @Composable
@@ -154,60 +134,107 @@ private fun DaysOfWeekHeader(daysOfWeek: List<DayOfWeek>) {
 }
 
 @Composable
-private fun MonthDayCell(
+private fun FullMonthDayCell(
     day: CalendarDay,
-    isSelected: Boolean,
     events: List<ExpandedEvent>,
-    onClick: () -> Unit,
+    zone: ZoneId,
+    onEventClick: (ExpandedEvent) -> Unit,
+    onDayClick: () -> Unit,
 ) {
     val isCurrentMonth = day.position == DayPosition.MonthDate
     val isToday = day.date == LocalDate.now()
 
-    // Collect unique agenda colors for dot indicators
-    val agendaColors = events
-        .mapNotNull { it.agendaColor?.let { hex -> parseColor(hex) } }
-        .distinct()
-        .take(3)
-
-    Box(
+    Column(
         modifier = Modifier
-            .aspectRatio(1f)
-            .padding(2.dp)
-            .clip(CircleShape)
+            .fillMaxSize()
+            .clickable(enabled = isCurrentMonth) { onDayClick() }
             .then(
-                when {
-                    isSelected -> Modifier.background(MaterialTheme.colorScheme.primary, CircleShape)
-                    isToday -> Modifier.background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
-                    else -> Modifier
-                },
-            )
-            .clickable(enabled = isCurrentMonth, onClick = onClick),
-        contentAlignment = Alignment.Center,
+                if (!isCurrentMonth)
+                    Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                else Modifier
+            ),
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        // Day number
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .padding(top = 2.dp)
+                .then(
+                    if (isToday) Modifier
+                        .size(22.dp)
+                        .background(MaterialTheme.colorScheme.primary, CircleShape)
+                    else Modifier
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
             Text(
                 text = day.date.dayOfMonth.toString(),
-                style = MaterialTheme.typography.bodySmall,
+                fontSize = 11.sp,
                 color = when {
-                    isSelected -> MaterialTheme.colorScheme.onPrimary
+                    isToday -> MaterialTheme.colorScheme.onPrimary
                     !isCurrentMonth -> MaterialTheme.colorScheme.outline
                     else -> MaterialTheme.colorScheme.onSurface
                 },
             )
-            if (events.isNotEmpty() && isCurrentMonth) {
-                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    agendaColors.ifEmpty { listOf(MaterialTheme.colorScheme.primary) }.forEach { color ->
-                        Box(
-                            modifier = Modifier
-                                .size(4.dp)
-                                .background(
-                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else color,
-                                    shape = CircleShape,
-                                ),
-                        )
-                    }
-                }
+        }
+
+        // Event chips
+        if (isCurrentMonth) {
+            val visible = events.take(MAX_VISIBLE_EVENTS)
+            val overflow = events.size - MAX_VISIBLE_EVENTS
+
+            visible.forEach { event ->
+                EventChip(
+                    event = event,
+                    zone = zone,
+                    onClick = { onEventClick(event) },
+                )
+            }
+
+            if (overflow > 0) {
+                Text(
+                    text = "+$overflow",
+                    fontSize = 9.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 2.dp),
+                )
             }
         }
+    }
+}
+
+@Composable
+private fun EventChip(
+    event: ExpandedEvent,
+    zone: ZoneId,
+    onClick: () -> Unit,
+) {
+    val color = event.agendaColor?.let { parseColor(it) } ?: MaterialTheme.colorScheme.primary
+
+    val label = if (!event.allDay) {
+        val start = ZonedDateTime.ofInstant(Instant.parse(event.startAt), zone)
+        "${String.format("%02d:%02d", start.hour, start.minute)} ${event.summary}"
+    } else {
+        event.summary
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 1.dp, vertical = 0.5.dp)
+            .height(14.dp)
+            .background(color.copy(alpha = 0.85f), RoundedCornerShape(2.dp))
+            .clickable { onClick() }
+            .padding(horizontal = 2.dp),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Text(
+            text = label,
+            fontSize = 9.sp,
+            lineHeight = 10.sp,
+            color = Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }

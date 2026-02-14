@@ -262,6 +262,9 @@ fun FullCalendarScreen(
                             events = uiState.expandedEvents,
                             onDateSelected = { viewModel.navigateToDate(it) },
                             onEventClick = onEventClick,
+                            onMonthChange = { yearMonth ->
+                                viewModel.navigateToDate(yearMonth.atDay(1))
+                            },
                         )
                         CalendarViewType.WEEK -> WeekTimelineView(
                             currentDate = uiState.currentDate,
