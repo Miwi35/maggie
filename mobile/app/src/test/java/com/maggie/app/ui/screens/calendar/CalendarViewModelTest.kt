@@ -1,16 +1,19 @@
 package com.maggie.app.ui.screens.calendar
 
 import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.Event
+import com.maggie.app.data.model.Task
+import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.TaskRepository
+import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.emptyFlow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -20,24 +23,23 @@ import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
-import java.time.LocalDate
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class CalendarViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
-    private lateinit var repository: EventRepository
+    private lateinit var eventRepository: EventRepository
     private lateinit var taskRepository: TaskRepository
+    private lateinit var agendaRepository: AgendaRepository
     private lateinit var mercureService: MercureService
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
-        repository = mockk()
+        eventRepository = mockk()
         taskRepository = mockk()
+        agendaRepository = mockk()
         mercureService = mockk()
         every { mercureService.subscribe(any()) } returns emptyFlow()
-        every { taskRepository.observeTasks() } returns flowOf(emptyList())
-        coEvery { taskRepository.refreshTasks() } returns Result.success(emptyList())
     }
 
     @After
@@ -45,58 +47,61 @@ class CalendarViewModelTest {
         Dispatchers.resetMain()
     }
 
-    @Test
-    fun `loadEvents success populates events and eventsByDate`() = runTest {
-        val events = listOf(
-            Event(id = "1", summary = "Meeting", startAt = "2026-03-01T10:00:00Z", endAt = "2026-03-01T11:00:00Z"),
-            Event(id = "2", summary = "Lunch", startAt = "2026-03-01T12:00:00Z", endAt = "2026-03-01T13:00:00Z"),
-            Event(id = "3", summary = "Dinner", startAt = "2026-03-02T19:00:00Z", endAt = "2026-03-02T20:00:00Z"),
-        )
-        every { repository.observeEvents() } returns flowOf(events)
-        coEvery { repository.refreshEvents() } returns Result.success(events)
-
-        val viewModel = CalendarViewModel(repository, taskRepository, mercureService)
-        advanceUntilIdle()
-
-        val state = viewModel.uiState.value
-        assertEquals(3, state.events.size)
-        assertEquals("Meeting", state.events[0].summary)
-        assertFalse(state.isLoading)
-        assertNull(state.error)
-
-        // eventsByDate should group by local date in event timezone (Europe/Paris = UTC+1 in March)
-        assertTrue(state.eventsByDate.isNotEmpty())
-        val march1 = LocalDate.of(2026, 3, 1)
-        val march2 = LocalDate.of(2026, 3, 2)
-        assertEquals(2, state.eventsByDate[march1]?.size)
-        assertEquals(1, state.eventsByDate[march2]?.size)
+    private fun stubRepositories(
+        events: List<Event> = emptyList(),
+        tasks: List<Task> = emptyList(),
+        agendas: List<Agenda> = emptyList(),
+    ) {
+        coEvery { agendaRepository.getAgendas() } returns agendas
+        coEvery { eventRepository.refreshEvents() } returns Result.success(events)
+        coEvery { eventRepository.getRecurringBefore(any()) } returns emptyList()
+        coEvery { taskRepository.refreshTasks() } returns Result.success(tasks)
+        coEvery { taskRepository.getUndoneTasks(any()) } returns tasks
     }
 
     @Test
-    fun `loadEvents failure sets error`() = runTest {
-        every { repository.observeEvents() } returns flowOf(emptyList())
-        coEvery { repository.refreshEvents() } returns Result.failure(RuntimeException("Network error"))
+    fun `refresh loads agendas and events`() = runTest {
+        val agendas = listOf(
+            Agenda(id = "a1", name = "Work", color = "#FF0000"),
+        )
+        val events = listOf(
+            Event(id = "1", summary = "Meeting", startAt = "2026-03-01T10:00:00Z", endAt = "2026-03-01T11:00:00Z"),
+        )
+        stubRepositories(events = events, agendas = agendas)
 
-        val viewModel = CalendarViewModel(repository, taskRepository, mercureService)
+        val viewModel = FullCalendarViewModel(eventRepository, taskRepository, agendaRepository, mercureService)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertTrue(state.events.isEmpty())
+        assertFalse(state.isLoading)
+        assertNull(state.error)
+        assertEquals(1, state.agendas.size)
+        assertEquals("Work", state.agendas[0].name)
+    }
+
+    @Test
+    fun `refresh failure sets error`() = runTest {
+        coEvery { agendaRepository.getAgendas() } throws RuntimeException("Network error")
+        every { mercureService.subscribe(any()) } returns emptyFlow()
+
+        val viewModel = FullCalendarViewModel(eventRepository, taskRepository, agendaRepository, mercureService)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
         assertFalse(state.isLoading)
         assertEquals("Network error", state.error)
     }
 
     @Test
-    fun `selectDate updates selectedDate in state`() = runTest {
-        every { repository.observeEvents() } returns flowOf(emptyList())
-        coEvery { repository.refreshEvents() } returns Result.success(emptyList())
+    fun `navigateToDate updates currentDate`() = runTest {
+        stubRepositories()
 
-        val viewModel = CalendarViewModel(repository, taskRepository, mercureService)
+        val viewModel = FullCalendarViewModel(eventRepository, taskRepository, agendaRepository, mercureService)
         advanceUntilIdle()
 
-        val targetDate = LocalDate.of(2026, 6, 15)
-        viewModel.selectDate(targetDate)
+        val target = java.time.LocalDate.of(2026, 6, 15)
+        viewModel.navigateToDate(target)
 
-        assertEquals(targetDate, viewModel.uiState.value.selectedDate)
+        assertEquals(target, viewModel.uiState.value.currentDate)
     }
 }

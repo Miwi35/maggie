@@ -1,5 +1,6 @@
 package com.maggie.app.data.mercure
 
+import io.ktor.http.Url
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -14,9 +15,8 @@ class MercureServiceTest {
         )
 
         assertTrue(url.startsWith("http://maggie.local/.well-known/mercure?"))
-        assertTrue(url.contains("topic="))
-        // Verify the topic is present (URL-encoded)
-        assertTrue(url.contains("/api/events/"))
+        val parsed = Url(url)
+        assertEquals("/api/events/{id}", parsed.parameters["topic"])
     }
 
     @Test
@@ -26,8 +26,8 @@ class MercureServiceTest {
             topic = "/agent/chat/default"
         )
 
-        assertTrue(url.contains("topic="))
-        assertTrue(url.contains("/agent/chat/default"))
+        val parsed = Url(url)
+        assertEquals("/agent/chat/default", parsed.parameters["topic"])
     }
 
     @Test
