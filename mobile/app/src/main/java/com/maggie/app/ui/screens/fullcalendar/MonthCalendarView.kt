@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -42,7 +43,16 @@ import java.time.ZonedDateTime
 import java.time.format.TextStyle as JavaTextStyle
 import java.util.Locale
 
-private const val MAX_VISIBLE_EVENTS = 2
+private const val MAX_VISIBLE_SLOTS = 3
+private val SLOT_HEIGHT = 15.dp
+
+/** Pre-computed position for one event on one day. */
+private data class EventSlot(
+    val event: ExpandedEvent,
+    val isStart: Boolean,
+    val isEnd: Boolean,
+    val slot: Int,
+)
 
 @Composable
 fun MonthCalendarView(
@@ -53,31 +63,14 @@ fun MonthCalendarView(
     onMonthChange: (YearMonth) -> Unit = {},
 ) {
     val zone = ZoneId.of("Europe/Paris")
-
     val startMonth = remember { YearMonth.now().minusMonths(24) }
     val endMonth = remember { YearMonth.now().plusMonths(24) }
     val initialMonth = remember { YearMonth.from(currentDate) }
     val daysOfWeek = remember { daysOfWeek(firstDayOfWeek = DayOfWeek.MONDAY) }
 
-    // Group events by ALL dates they span (multi-day support)
-    val eventsByDate = remember(events) {
-        val map = mutableMapOf<LocalDate, MutableList<ExpandedEvent>>()
-        events.forEach { event ->
-            val startDate = ZonedDateTime.ofInstant(Instant.parse(event.startAt), zone).toLocalDate()
-            val endZoned = ZonedDateTime.ofInstant(Instant.parse(event.endAt), zone)
-            val endDate = if (event.allDay && endZoned.hour == 0 && endZoned.minute == 0) {
-                endZoned.toLocalDate().minusDays(1)
-            } else {
-                endZoned.toLocalDate()
-            }
-            val actualEnd = if (endDate < startDate) startDate else endDate
-            var date = startDate
-            while (date <= actualEnd) {
-                map.getOrPut(date) { mutableListOf() }.add(event)
-                date = date.plusDays(1)
-            }
-        }
-        map
+    // Compute slot layout for continuous multi-day events
+    val slotsByDate = remember(events) {
+        computeSlots(events, zone)
     }
 
     val calendarState = rememberCalendarState(
@@ -87,12 +80,9 @@ fun MonthCalendarView(
         firstDayOfWeek = DayOfWeek.MONDAY,
     )
 
-    // Sync visible month with ViewModel
     LaunchedEffect(calendarState) {
         snapshotFlow { calendarState.firstVisibleMonth.yearMonth }
-            .collect { visibleMonth ->
-                onMonthChange(visibleMonth)
-            }
+            .collect { onMonthChange(it) }
     }
 
     HorizontalCalendar(
@@ -100,11 +90,10 @@ fun MonthCalendarView(
         contentHeightMode = ContentHeightMode.Fill,
         monthHeader = { DaysOfWeekHeader(daysOfWeek) },
         dayContent = { day ->
-            val dayEvents = eventsByDate[day.date].orEmpty()
+            val slots = slotsByDate[day.date].orEmpty()
             FullMonthDayCell(
                 day = day,
-                events = dayEvents,
-                zone = zone,
+                slots = slots,
                 onEventClick = onEventClick,
                 onDayClick = { onDateSelected(day.date) },
             )
@@ -112,6 +101,106 @@ fun MonthCalendarView(
         modifier = Modifier.fillMaxSize(),
     )
 }
+
+// ---------------------------------------------------------------------------
+// Slot computation — assigns a consistent vertical position to each event
+// across all days it spans within a week row, so bars look continuous.
+// ---------------------------------------------------------------------------
+
+private data class EventRange(
+    val event: ExpandedEvent,
+    val startDate: LocalDate,
+    val endDate: LocalDate,
+)
+
+private fun computeSlots(
+    events: List<ExpandedEvent>,
+    zone: ZoneId,
+): Map<LocalDate, List<EventSlot>> {
+    val ranges = events.map { event ->
+        val startDate = ZonedDateTime.ofInstant(Instant.parse(event.startAt), zone).toLocalDate()
+        val endZoned = ZonedDateTime.ofInstant(Instant.parse(event.endAt), zone)
+        val endDate = if (event.allDay && endZoned.hour == 0 && endZoned.minute == 0) {
+            endZoned.toLocalDate().minusDays(1)
+        } else {
+            endZoned.toLocalDate()
+        }
+        EventRange(event, startDate, maxOf(startDate, endDate))
+    }
+
+    if (ranges.isEmpty()) return emptyMap()
+
+    // Collect all week starts (Monday) that contain events
+    val weekStarts = mutableSetOf<LocalDate>()
+    for (range in ranges) {
+        var d = range.startDate.with(DayOfWeek.MONDAY)
+        val lastWeek = range.endDate.with(DayOfWeek.MONDAY)
+        while (d <= lastWeek) {
+            weekStarts.add(d)
+            d = d.plusWeeks(1)
+        }
+    }
+
+    val result = mutableMapOf<LocalDate, MutableList<EventSlot>>()
+
+    for (weekStart in weekStarts.sorted()) {
+        val weekEnd = weekStart.plusDays(6)
+
+        // Events overlapping this week, sorted: longer spans first, then earlier start
+        val weekRanges = ranges
+            .filter { it.startDate <= weekEnd && it.endDate >= weekStart }
+            .sortedWith(
+                compareByDescending<EventRange> { it.endDate.toEpochDay() - it.startDate.toEpochDay() }
+                    .thenBy { it.startDate }
+                    .thenBy { it.event.startAt }
+            )
+
+        // Track occupied slots: day → slot → true
+        val occupied = (0..6).associate {
+            weekStart.plusDays(it.toLong()) to mutableSetOf<Int>()
+        }
+
+        for (range in weekRanges) {
+            val clampedStart = maxOf(range.startDate, weekStart)
+            val clampedEnd = minOf(range.endDate, weekEnd)
+
+            // Find lowest available slot across all days of this event in this week
+            var slot = 0
+            outer@ while (true) {
+                var d = clampedStart
+                while (d <= clampedEnd) {
+                    if (occupied[d]?.contains(slot) == true) {
+                        slot++
+                        continue@outer
+                    }
+                    d = d.plusDays(1)
+                }
+                break
+            }
+
+            // Reserve slot and create entries
+            var d = clampedStart
+            while (d <= clampedEnd) {
+                occupied[d]?.add(slot)
+                result.getOrPut(d) { mutableListOf() }.add(
+                    EventSlot(
+                        event = range.event,
+                        isStart = d == clampedStart,
+                        isEnd = d == clampedEnd,
+                        slot = slot,
+                    )
+                )
+                d = d.plusDays(1)
+            }
+        }
+    }
+
+    return result
+}
+
+// ---------------------------------------------------------------------------
+// Composables
+// ---------------------------------------------------------------------------
 
 @Composable
 private fun DaysOfWeekHeader(daysOfWeek: List<DayOfWeek>) {
@@ -136,8 +225,7 @@ private fun DaysOfWeekHeader(daysOfWeek: List<DayOfWeek>) {
 @Composable
 private fun FullMonthDayCell(
     day: CalendarDay,
-    events: List<ExpandedEvent>,
-    zone: ZoneId,
+    slots: List<EventSlot>,
     onEventClick: (ExpandedEvent) -> Unit,
     onDayClick: () -> Unit,
 ) {
@@ -158,10 +246,10 @@ private fun FullMonthDayCell(
         Box(
             modifier = Modifier
                 .align(Alignment.CenterHorizontally)
-                .padding(top = 2.dp)
+                .padding(top = 1.dp)
                 .then(
                     if (isToday) Modifier
-                        .size(22.dp)
+                        .size(20.dp)
                         .background(MaterialTheme.colorScheme.primary, CircleShape)
                     else Modifier
                 ),
@@ -178,63 +266,81 @@ private fun FullMonthDayCell(
             )
         }
 
-        // Event chips
-        if (isCurrentMonth) {
-            val visible = events.take(MAX_VISIBLE_EVENTS)
-            val overflow = events.size - MAX_VISIBLE_EVENTS
+        if (!isCurrentMonth) return@Column
 
-            visible.forEach { event ->
-                EventChip(
-                    event = event,
-                    zone = zone,
-                    onClick = { onEventClick(event) },
-                )
-            }
+        // Render slots in order — empty spacers keep alignment across days
+        val maxSlot = slots.maxOfOrNull { it.slot } ?: -1
+        val visibleMax = minOf(maxSlot, MAX_VISIBLE_SLOTS - 1)
 
-            if (overflow > 0) {
-                Text(
-                    text = "+$overflow",
-                    fontSize = 9.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 2.dp),
+        for (slotIndex in 0..visibleMax) {
+            val entry = slots.find { it.slot == slotIndex }
+            if (entry != null) {
+                ContinuousEventChip(
+                    event = entry.event,
+                    isStart = entry.isStart,
+                    isEnd = entry.isEnd,
+                    onClick = { onEventClick(entry.event) },
                 )
+            } else {
+                Spacer(modifier = Modifier
+                    .fillMaxWidth()
+                    .height(SLOT_HEIGHT))
             }
+        }
+
+        // Overflow count
+        val hiddenCount = slots.count { it.slot >= MAX_VISIBLE_SLOTS }
+        if (hiddenCount > 0) {
+            Text(
+                text = "+$hiddenCount",
+                fontSize = 9.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 2.dp),
+            )
         }
     }
 }
 
 @Composable
-private fun EventChip(
+private fun ContinuousEventChip(
     event: ExpandedEvent,
-    zone: ZoneId,
+    isStart: Boolean,
+    isEnd: Boolean,
     onClick: () -> Unit,
 ) {
     val color = event.agendaColor?.let { parseColor(it) } ?: MaterialTheme.colorScheme.primary
 
-    val label = if (!event.allDay) {
-        val start = ZonedDateTime.ofInstant(Instant.parse(event.startAt), zone)
-        "${String.format("%02d:%02d", start.hour, start.minute)} ${event.summary}"
-    } else {
-        event.summary
-    }
+    val shape = RoundedCornerShape(
+        topStart = if (isStart) 3.dp else 0.dp,
+        bottomStart = if (isStart) 3.dp else 0.dp,
+        topEnd = if (isEnd) 3.dp else 0.dp,
+        bottomEnd = if (isEnd) 3.dp else 0.dp,
+    )
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 1.dp, vertical = 0.5.dp)
-            .height(14.dp)
-            .background(color.copy(alpha = 0.85f), RoundedCornerShape(2.dp))
+            .padding(
+                start = if (isStart) 1.dp else 0.dp,
+                end = if (isEnd) 1.dp else 0.dp,
+                top = 0.5.dp,
+                bottom = 0.5.dp,
+            )
+            .height(SLOT_HEIGHT - 1.dp)
+            .background(color.copy(alpha = 0.85f), shape)
             .clickable { onClick() }
-            .padding(horizontal = 2.dp),
+            .padding(horizontal = if (isStart) 2.dp else 0.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
-        Text(
-            text = label,
-            fontSize = 9.sp,
-            lineHeight = 10.sp,
-            color = Color.White,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        if (isStart) {
+            Text(
+                text = event.summary,
+                fontSize = 9.sp,
+                lineHeight = 10.sp,
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }

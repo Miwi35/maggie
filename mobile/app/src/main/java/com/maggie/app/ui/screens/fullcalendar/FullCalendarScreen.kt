@@ -260,7 +260,10 @@ fun FullCalendarScreen(
                         CalendarViewType.MONTH -> MonthCalendarView(
                             currentDate = uiState.currentDate,
                             events = uiState.expandedEvents,
-                            onDateSelected = { viewModel.navigateToDate(it) },
+                            onDateSelected = { date ->
+                                viewModel.navigateToDate(date)
+                                viewModel.setViewType(CalendarViewType.DAY)
+                            },
                             onEventClick = onEventClick,
                             onMonthChange = { yearMonth ->
                                 viewModel.navigateToDate(yearMonth.atDay(1))
