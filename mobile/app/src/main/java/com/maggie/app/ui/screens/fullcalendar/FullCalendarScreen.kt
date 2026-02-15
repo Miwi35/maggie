@@ -275,6 +275,10 @@ fun FullCalendarScreen(
                             onNavigateForward = { viewModel.navigateForward() },
                             onNavigateBackward = { viewModel.navigateBackward() },
                             onEventClick = onEventClick,
+                            onDayClick = { date ->
+                                viewModel.navigateToDate(date)
+                                viewModel.setViewType(CalendarViewType.DAY)
+                            },
                         )
                         CalendarViewType.DAY -> DayTimelineView(
                             currentDate = uiState.currentDate,

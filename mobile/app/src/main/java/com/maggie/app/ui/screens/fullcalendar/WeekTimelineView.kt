@@ -1,16 +1,18 @@
 package com.maggie.app.ui.screens.fullcalendar
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -22,18 +24,25 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.maggie.app.data.model.ExpandedEvent
+import com.maggie.app.ui.screens.dashboard.parseColor
 import java.time.DayOfWeek
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.abs
 
 private val dayHeaderFormatter = DateTimeFormatter.ofPattern("EEE\nd", Locale.FRENCH)
+private val SPANNING_ROW_HEIGHT = 18.dp
 
 @Composable
 fun WeekTimelineView(
@@ -42,6 +51,7 @@ fun WeekTimelineView(
     onNavigateForward: () -> Unit,
     onNavigateBackward: () -> Unit,
     onEventClick: (ExpandedEvent) -> Unit = {},
+    onDayClick: (LocalDate) -> Unit = {},
     onEmptySlotClick: (LocalDate, Int) -> Unit = { _, _ -> },
 ) {
     val monday = currentDate.with(DayOfWeek.MONDAY)
@@ -49,15 +59,30 @@ fun WeekTimelineView(
     val zone = ZoneId.of("Europe/Paris")
     val totalHeight = HOUR_HEIGHT * TIMELINE_HOURS.size
 
-    // Split events by date
-    val eventsByDay = remember(events, days) {
-        days.associateWith { date ->
-            eventsForDate(events, date, zone)
+    // Separate spanning events (all-day or multi-day) from single-day timed events
+    val (spanningEvents, timedOnlyEvents) = remember(events) {
+        events.partition { event ->
+            if (event.allDay) return@partition true
+            val startDate = ZonedDateTime.ofInstant(Instant.parse(event.startAt), zone).toLocalDate()
+            val endDate = ZonedDateTime.ofInstant(Instant.parse(event.endAt), zone).toLocalDate()
+            endDate > startDate
         }
     }
 
-    // All-day events across the week
-    val allDayEvents = eventsByDay.values.flatMap { it.first }.distinctBy { it.id }
+    // Compute spanning event slots
+    val spanSlots = remember(spanningEvents, days) {
+        computeWeekSpanSlots(spanningEvents, days, zone)
+    }
+
+    // Timed events per day (only single-day non-all-day events)
+    val timedByDay = remember(timedOnlyEvents, days) {
+        days.associateWith { date ->
+            timedOnlyEvents.filter { event ->
+                val startDate = ZonedDateTime.ofInstant(Instant.parse(event.startAt), zone).toLocalDate()
+                startDate == date
+            }
+        }
+    }
 
     var dragAccum by remember { mutableFloatStateOf(0f) }
 
@@ -78,12 +103,6 @@ fun WeekTimelineView(
                 }
             },
     ) {
-        // All-day row
-        AllDayRow(
-            events = allDayEvents,
-            onEventClick = onEventClick,
-        )
-
         // Day headers
         Row(
             modifier = Modifier
@@ -98,8 +117,45 @@ fun WeekTimelineView(
                     color = if (isToday) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onDayClick(date) },
                 )
+            }
+        }
+
+        // Spanning events section (all-day + multi-day)
+        if (spanSlots.isNotEmpty()) {
+            val maxSlot = spanSlots.maxOf { it.slot }
+            for (slotIdx in 0..maxSlot) {
+                val slotEvents = spanSlots.filter { it.slot == slotIdx }.sortedBy { it.startDayIndex }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = HOUR_LABEL_WIDTH)
+                        .height(SPANNING_ROW_HEIGHT),
+                ) {
+                    var currentDay = 0
+                    for (se in slotEvents) {
+                        if (se.startDayIndex > currentDay) {
+                            Spacer(modifier = Modifier.weight((se.startDayIndex - currentDay).toFloat()))
+                        }
+                        val span = se.endDayIndex - se.startDayIndex + 1
+                        Box(modifier = Modifier.weight(span.toFloat())) {
+                            SpanningEventBar(
+                                event = se.event,
+                                isStart = se.isStart,
+                                isEnd = se.isEnd,
+                                onClick = { onEventClick(se.event) },
+                            )
+                        }
+                        currentDay = se.endDayIndex + 1
+                    }
+                    if (currentDay < days.size) {
+                        Spacer(modifier = Modifier.weight((days.size - currentDay).toFloat()))
+                    }
+                }
             }
         }
 
@@ -112,10 +168,8 @@ fun WeekTimelineView(
                 .fillMaxSize()
                 .verticalScroll(scrollState),
         ) {
-            // Hour labels
             HourLabels()
 
-            // Day columns
             days.forEach { date ->
                 Box(
                     modifier = Modifier
@@ -124,9 +178,8 @@ fun WeekTimelineView(
                 ) {
                     TimeGridBackground(modifier = Modifier.fillMaxSize())
 
-                    // Timed events
-                    val (_, timedEvents) = eventsByDay[date] ?: (emptyList<ExpandedEvent>() to emptyList())
-                    timedEvents.forEach { event ->
+                    val dayTimedEvents = timedByDay[date].orEmpty()
+                    dayTimedEvents.forEach { event ->
                         val (topOffset, height) = calculateEventPosition(event, zone)
                         EventBlock(
                             event = event,
@@ -136,12 +189,136 @@ fun WeekTimelineView(
                         )
                     }
 
-                    // Now indicator (only on today)
                     if (date == LocalDate.now()) {
                         NowIndicator()
                     }
                 }
             }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Spanning event slot computation
+// ---------------------------------------------------------------------------
+
+private data class SpanSlot(
+    val event: ExpandedEvent,
+    val startDayIndex: Int,
+    val endDayIndex: Int,
+    val isStart: Boolean,
+    val isEnd: Boolean,
+    val slot: Int,
+)
+
+private fun computeWeekSpanSlots(
+    events: List<ExpandedEvent>,
+    days: List<LocalDate>,
+    zone: ZoneId,
+): List<SpanSlot> {
+    data class EventDayRange(
+        val event: ExpandedEvent,
+        val startIdx: Int,
+        val endIdx: Int,
+        val realStart: LocalDate,
+        val realEnd: LocalDate,
+    )
+
+    val ranges = events.mapNotNull { event ->
+        val startDate = ZonedDateTime.ofInstant(Instant.parse(event.startAt), zone).toLocalDate()
+        val endZoned = ZonedDateTime.ofInstant(Instant.parse(event.endAt), zone)
+        val endDate = if (event.allDay && endZoned.hour == 0 && endZoned.minute == 0) {
+            endZoned.toLocalDate().minusDays(1)
+        } else {
+            endZoned.toLocalDate()
+        }
+        val actualEnd = maxOf(startDate, endDate)
+
+        val startIdx = days.indexOfFirst { it >= startDate }.let { if (it == -1) return@mapNotNull null else it }
+        val endIdx = days.indexOfLast { it <= actualEnd }.let { if (it == -1) return@mapNotNull null else it }
+        if (startIdx > endIdx) return@mapNotNull null
+
+        EventDayRange(event, startIdx, endIdx, startDate, actualEnd)
+    }.sortedWith(
+        compareByDescending<EventDayRange> { it.endIdx - it.startIdx }
+            .thenBy { it.startIdx }
+            .thenBy { it.event.startAt }
+    )
+
+    if (ranges.isEmpty()) return emptyList()
+
+    val occupied = Array(days.size) { mutableSetOf<Int>() }
+    val result = mutableListOf<SpanSlot>()
+
+    for (range in ranges) {
+        var slot = 0
+        while (true) {
+            val available = (range.startIdx..range.endIdx).all { slot !in occupied[it] }
+            if (available) break
+            slot++
+        }
+        for (i in range.startIdx..range.endIdx) {
+            occupied[i].add(slot)
+        }
+        result.add(
+            SpanSlot(
+                event = range.event,
+                startDayIndex = range.startIdx,
+                endDayIndex = range.endIdx,
+                isStart = range.realStart >= days[range.startIdx],
+                isEnd = range.realEnd <= days[range.endIdx],
+                slot = slot,
+            )
+        )
+    }
+
+    return result
+}
+
+// ---------------------------------------------------------------------------
+// Spanning event bar composable
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun SpanningEventBar(
+    event: ExpandedEvent,
+    isStart: Boolean,
+    isEnd: Boolean,
+    onClick: () -> Unit,
+) {
+    val color = event.agendaColor?.let { parseColor(it) } ?: MaterialTheme.colorScheme.primary
+
+    val shape = RoundedCornerShape(
+        topStart = if (isStart) 3.dp else 0.dp,
+        bottomStart = if (isStart) 3.dp else 0.dp,
+        topEnd = if (isEnd) 3.dp else 0.dp,
+        bottomEnd = if (isEnd) 3.dp else 0.dp,
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                start = if (isStart) 1.dp else 0.dp,
+                end = if (isEnd) 1.dp else 0.dp,
+                top = 1.dp,
+                bottom = 1.dp,
+            )
+            .height(SPANNING_ROW_HEIGHT - 2.dp)
+            .background(color.copy(alpha = 0.85f), shape)
+            .clickable { onClick() }
+            .padding(horizontal = if (isStart) 4.dp else 0.dp),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        if (isStart) {
+            Text(
+                text = event.summary,
+                fontSize = 10.sp,
+                lineHeight = 12.sp,
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

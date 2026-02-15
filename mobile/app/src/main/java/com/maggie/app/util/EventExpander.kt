@@ -97,9 +97,10 @@ object EventExpander {
                     }
                 }
             } else {
-                // Non-recurring: include if startAt falls within range
+                // Non-recurring: include if event overlaps the range
                 val eventStart = Instant.parse(e.startAt)
-                if (eventStart >= rangeStart && eventStart < rangeEnd) {
+                val eventEnd = Instant.parse(e.endAt)
+                if (eventStart < rangeEnd && eventEnd > rangeStart) {
                     result.add(
                         ExpandedEvent(
                             id = e.id,

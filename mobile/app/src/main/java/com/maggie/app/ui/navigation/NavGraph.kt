@@ -133,13 +133,14 @@ fun NavGraph() {
         }
     }
 
-    // Auth redirect
-    LaunchedEffect(isAuthenticated) {
+    // Auth redirect — wait until lock screen is dismissed so we don't
+    // overwrite the restored navigation state with a fresh Dashboard route.
+    LaunchedEffect(isAuthenticated, isLocked) {
         when (isAuthenticated) {
             false -> navController.navigate(Screen.Login.route) {
                 popUpTo(0) { inclusive = true }
             }
-            true -> if (currentRoute == Screen.Login.route || currentRoute == Screen.Loading.route) {
+            true -> if (!isLocked && (currentRoute == null || currentRoute == Screen.Login.route || currentRoute == Screen.Loading.route)) {
                 navController.navigate(Screen.Dashboard.route) {
                     popUpTo(0) { inclusive = true }
                 }
