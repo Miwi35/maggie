@@ -52,7 +52,7 @@ class CalendarViewModelTest {
         tasks: List<Task> = emptyList(),
         agendas: List<Agenda> = emptyList(),
     ) {
-        coEvery { agendaRepository.getAgendas() } returns agendas
+        coEvery { agendaRepository.refreshAgendas() } returns Result.success(agendas)
         coEvery { eventRepository.refreshEvents() } returns Result.success(events)
         coEvery { eventRepository.getRecurringBefore(any()) } returns emptyList()
         coEvery { taskRepository.refreshTasks() } returns Result.success(tasks)
@@ -81,7 +81,7 @@ class CalendarViewModelTest {
 
     @Test
     fun `refresh failure sets error`() = runTest {
-        coEvery { agendaRepository.getAgendas() } throws RuntimeException("Network error")
+        coEvery { agendaRepository.refreshAgendas() } throws RuntimeException("Network error")
         every { mercureService.subscribe(any()) } returns emptyFlow()
 
         val viewModel = FullCalendarViewModel(eventRepository, taskRepository, agendaRepository, mercureService)
