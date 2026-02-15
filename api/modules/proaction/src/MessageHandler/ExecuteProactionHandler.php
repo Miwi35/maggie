@@ -6,11 +6,12 @@ namespace Maggie\Proaction\MessageHandler;
 
 use Maggie\Proaction\Entity\ProactionStatus;
 use Maggie\Proaction\Message\ExecuteProactionMessage;
+use Maggie\Proaction\Message\UpdateProactionCommand;
 use Maggie\Proaction\Repository\ProactionRepository;
 use Maggie\Proaction\Service\AgentHubClient;
-use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 #[AsMessageHandler]
 class ExecuteProactionHandler
@@ -18,7 +19,7 @@ class ExecuteProactionHandler
     public function __construct(
         private readonly ProactionRepository $proactionRepository,
         private readonly AgentHubClient $agentHubClient,
-        private readonly EntityManagerInterface $em,
+        private readonly MessageBusInterface $messageBus,
         private readonly LoggerInterface $logger,
     ) {
     }
@@ -43,19 +44,24 @@ class ExecuteProactionHandler
                 $proaction->getPrompt(),
             );
 
-            $proaction->setResponse($result['response']);
-            $proaction->setStatus(ProactionStatus::Success);
-            $proaction->setCompletedAt(new \DateTimeImmutable());
+            $this->messageBus->dispatch(new UpdateProactionCommand(
+                proactionId: $message->proactionId,
+                status: ProactionStatus::Success->value,
+                response: $result['response'],
+                completedAt: new \DateTimeImmutable(),
+            ));
         } catch (\Throwable $e) {
             $this->logger->error('Proaction {id} failed: {error}', [
                 'id' => $message->proactionId,
                 'error' => $e->getMessage(),
             ]);
-            $proaction->setError($e->getMessage());
-            $proaction->setStatus(ProactionStatus::Failed);
-            $proaction->setCompletedAt(new \DateTimeImmutable());
-        }
 
-        $this->em->flush();
+            $this->messageBus->dispatch(new UpdateProactionCommand(
+                proactionId: $message->proactionId,
+                status: ProactionStatus::Failed->value,
+                error: $e->getMessage(),
+                completedAt: new \DateTimeImmutable(),
+            ));
+        }
     }
 }

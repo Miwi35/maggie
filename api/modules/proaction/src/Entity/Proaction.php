@@ -7,6 +7,7 @@ namespace Maggie\Proaction\Entity;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
+use Maggie\Calendar\Contract\MercurePublishable;
 use Maggie\Core\Contract\OwnedByUserInterface;
 use Maggie\Core\Entity\User;
 use Maggie\Proaction\Repository\ProactionRepository;
@@ -21,7 +22,7 @@ use Symfony\Component\Uid\Ulid;
     new GetCollection(),
     new Get(),
 ])]
-class Proaction implements OwnedByUserInterface
+class Proaction implements OwnedByUserInterface, MercurePublishable
 {
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
@@ -143,5 +144,20 @@ class Proaction implements OwnedByUserInterface
     {
         $this->completedAt = $completedAt;
         return $this;
+    }
+
+    /** @return array<string, mixed> */
+    public function toMercurePayload(): array
+    {
+        return [
+            'id' => (string) $this->id,
+            'scheduledAt' => $this->scheduledAt->format('c'),
+            'prompt' => $this->prompt,
+            'status' => $this->status->value,
+            'response' => $this->response,
+            'error' => $this->error,
+            'createdAt' => $this->createdAt->format('c'),
+            'completedAt' => $this->completedAt?->format('c'),
+        ];
     }
 }
