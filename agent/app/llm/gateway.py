@@ -4,6 +4,7 @@ import anthropic
 
 from app.config import settings
 from app.llm.tools import ToolRouter
+from app.memory.agent_memory import AgentMemory
 from app.memory.conversation import ConversationMemory
 from app.personality.engine import PersonalityEngine
 
@@ -20,6 +21,13 @@ class LLMGateway:
         self.personality = PersonalityEngine()
         self.memory = ConversationMemory(max_messages=settings.max_conversation_history)
         self.tool_router = ToolRouter()
+        self.agent_memory = AgentMemory()
+
+    async def _build_system_prompt(self, user_id: str) -> str:
+        """Build the full system prompt: personality + persistent memory context."""
+        base = self.personality.get_system_prompt()
+        memory_context = await self.agent_memory.get_memory_context(user_id)
+        return base + memory_context
 
     async def proaction(self, prompt: str, user_id: str) -> dict:
         """Execute a proaction prompt without conversation memory."""
@@ -29,7 +37,7 @@ class LLMGateway:
                 "tool_calls": [],
             }
 
-        system_prompt = self.personality.get_system_prompt() + (
+        system_prompt = await self._build_system_prompt(user_id) + (
             "\n\nTu es en mode autonome (proaction). "
             "Exécute la tâche demandée sans attendre de confirmation de l'utilisateur. "
             "Utilise les outils disponibles si nécessaire."
@@ -70,8 +78,9 @@ class LLMGateway:
         tool_calls_made = []
 
         try:
+            system_prompt = await self._build_system_prompt(user_id)
             result = await self._run_tool_loop(
-                self.personality.get_system_prompt(), messages, tools, tool_calls_made
+                system_prompt, messages, tools, tool_calls_made
             )
             self.memory.add_message(user_id, "assistant", result["response"])
             return result

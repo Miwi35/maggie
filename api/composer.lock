@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "9fce3101cd900485bf7403a4cc384b42",
+    "content-hash": "3080d22732c6be31c7d044b66ada4979",
     "packages": [
         {
             "name": "api-platform/core",
@@ -2151,6 +2151,39 @@
                 "proprietary"
             ],
             "description": "Core module: users, auth, settings",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "maggie/memory",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "modules/memory",
+                "reference": "b540aa934cf205fdf6aebfee2c7b1ed645dc52d9"
+            },
+            "require": {
+                "api-platform/core": "^4.2",
+                "doctrine/doctrine-bundle": "^2.18",
+                "doctrine/orm": "^3.6",
+                "php": ">=8.4",
+                "symfony/mcp-bundle": "^0.3",
+                "symfony/messenger": "7.4.*",
+                "symfony/uid": "7.4.*",
+                "symfony/validator": "7.4.*"
+            },
+            "type": "symfony-bundle",
+            "autoload": {
+                "psr-4": {
+                    "Maggie\\Memory\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Memory module: persistent factual and episodic memory for the agent",
             "transport-options": {
                 "symlink": true,
                 "relative": true
@@ -11561,6 +11594,7 @@
     "stability-flags": {
         "maggie/calendar": 20,
         "maggie/core": 20,
+        "maggie/memory": 20,
         "maggie/proaction": 20
     },
     "prefer-stable": true,
