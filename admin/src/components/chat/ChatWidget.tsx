@@ -21,9 +21,17 @@ export const ChatWidget = () => {
     url.searchParams.append('topic', '/agent/chat/default')
 
     const eventSource = new EventSource(url.toString())
-    eventSource.onmessage = () => {
-      // Phase 1: HTTP response is primary delivery channel.
-      // Mercure subscription ready for proactive agent messages in Phase 2.
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        // Only handle proaction messages from Mercure (chat uses HTTP response)
+        if (data.proaction && data.response) {
+          setMessages((prev) => [...prev, { role: 'assistant', content: data.response }])
+          setIsOpen(true)
+        }
+      } catch {
+        // Ignore malformed messages
+      }
     }
 
     return () => eventSource.close()

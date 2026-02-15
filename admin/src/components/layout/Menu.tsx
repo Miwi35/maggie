@@ -12,6 +12,7 @@ import DashboardIcon from '@mui/icons-material/Dashboard'
 import StorageIcon from '@mui/icons-material/Storage'
 import EventIcon from '@mui/icons-material/Event'
 import DateRangeIcon from '@mui/icons-material/DateRange'
+import SmartToyIcon from '@mui/icons-material/SmartToy'
 import ExpandLess from '@mui/icons-material/ExpandLess'
 import ExpandMore from '@mui/icons-material/ExpandMore'
 
@@ -31,6 +32,11 @@ export const CustomMenu = () => {
         to="/calendar"
         primaryText="Calendrier"
         leftIcon={<CalendarMonthIcon />}
+      />
+      <MenuItemLink
+        to="/proactions"
+        primaryText="Proactions"
+        leftIcon={<SmartToyIcon />}
       />
 
       {open && (
