@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Settings
@@ -46,6 +47,17 @@ fun AppDrawerContent(
             selected = currentRoute == "calendar",
             onClick = {
                 onNavigate("calendar")
+                onCloseDrawer()
+            },
+            modifier = Modifier.padding(horizontal = 12.dp),
+        )
+
+        NavigationDrawerItem(
+            icon = { Icon(Icons.Default.Chat, contentDescription = null) },
+            label = { Text("Chat") },
+            selected = currentRoute == "chat",
+            onClick = {
+                onNavigate("chat")
                 onCloseDrawer()
             },
             modifier = Modifier.padding(horizontal = 12.dp),

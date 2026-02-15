@@ -10,8 +10,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 
 data class ChatUiState(
     val messages: List<ChatMessage> = emptyList(),
@@ -25,8 +23,11 @@ class ChatViewModel(
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState
 
+    private val json = Json { ignoreUnknownKeys = true }
+
     init {
         observePersistedMessages()
+        syncFromServer()
         subscribeToChatUpdates()
     }
 
@@ -38,47 +39,43 @@ class ChatViewModel(
         }
     }
 
+    private fun syncFromServer() {
+        viewModelScope.launch {
+            repository.syncMessages()
+        }
+    }
+
     fun sendMessage(text: String) {
         if (text.isBlank()) return
 
         viewModelScope.launch {
-            val userMessage = ChatMessage(role = "user", content = text)
-            repository.saveMessage(userMessage)
-
             _uiState.value = _uiState.value.copy(isLoading = true)
 
-            repository.sendMessage(text)
-                .onSuccess { response ->
-                    val assistantMessage = ChatMessage(role = "assistant", content = response.response)
-                    repository.saveMessage(assistantMessage)
-                    _uiState.value = _uiState.value.copy(isLoading = false)
-                }
-                .onFailure {
-                    val errorMessage = ChatMessage(
-                        role = "assistant",
-                        content = "Erreur : impossible de joindre Maggie.",
-                    )
-                    repository.saveMessage(errorMessage)
-                    _uiState.value = _uiState.value.copy(isLoading = false)
-                }
+            try {
+                repository.sendMessage(text)
+            } catch (_: Exception) {
+                // Network errors handled silently
+            }
+
+            _uiState.value = _uiState.value.copy(isLoading = false)
         }
     }
 
     private fun subscribeToChatUpdates() {
         viewModelScope.launch {
-            mercureService.subscribe("/agent/chat/default")
+            // Subscribe to user-specific chat topic
+            mercureService.subscribe("/chat/{userId}")
                 .catch { /* SSE connection errors — silently retry on next app resume */ }
                 .collect { event ->
-                    // Only add messages from Mercure when not loading (avoids duplicating HTTP response)
-                    if (!_uiState.value.isLoading) {
-                        try {
-                            val json = Json.parseToJsonElement(event.data).jsonObject
-                            val response = json["response"]?.jsonPrimitive?.content ?: return@collect
-                            val assistantMessage = ChatMessage(role = "assistant", content = response)
-                            repository.saveMessage(assistantMessage)
-                        } catch (_: Exception) {
-                            // Ignore parse errors
+                    try {
+                        val message = json.decodeFromString<ChatMessage>(event.data)
+                        repository.handleMercureMessage(message)
+                        // Clear loading when we receive an assistant/system message
+                        if (message.role != "user") {
+                            _uiState.value = _uiState.value.copy(isLoading = false)
                         }
+                    } catch (_: Exception) {
+                        // Ignore parse errors
                     }
                 }
         }

@@ -1,8 +1,11 @@
 package com.maggie.app.data.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class ChatMessage(
-    val id: Long = 0,
-    val role: String, // "user" or "assistant"
+    val id: String = "",
+    val role: String,
     val content: String,
-    val timestamp: Long = System.currentTimeMillis(),
+    val createdAt: String = "",
 )

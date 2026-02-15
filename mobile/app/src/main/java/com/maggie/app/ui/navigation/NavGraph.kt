@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -42,6 +43,7 @@ import com.maggie.app.ui.screens.dashboard.DashboardScreen
 import com.maggie.app.ui.screens.dashboard.DashboardViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarScreen
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
+import com.maggie.app.ui.screens.chat.ChatScreen
 import com.maggie.app.ui.screens.shared.EventCreateScreen
 import com.maggie.app.ui.screens.shared.EventDetailSheet
 import com.maggie.app.ui.screens.shared.EventEditScreen
@@ -75,10 +77,11 @@ sealed class Screen(val route: String, val label: String) {
     data object TaskCreate : Screen("task/create", "Nouvelle tâche")
     data object EventEdit : Screen("event/edit", "Modifier l'événement")
     data object TaskEdit : Screen("task/edit", "Modifier la tâche")
+    data object Chat : Screen("chat", "Chat")
     data object Settings : Screen("settings", "Paramètres")
 }
 
-private val MAIN_SCREENS = setOf(Screen.Dashboard.route, Screen.Calendar.route)
+private val MAIN_SCREENS = setOf(Screen.Dashboard.route, Screen.Calendar.route, Screen.Chat.route)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -154,6 +157,7 @@ fun NavGraph() {
     val title = when (currentRoute) {
         Screen.Dashboard.route -> Screen.Dashboard.label
         Screen.Calendar.route -> Screen.Calendar.label
+        Screen.Chat.route -> Screen.Chat.label
         else -> "Maggie"
     }
 
@@ -176,6 +180,7 @@ fun NavGraph() {
         },
     ) {
         Scaffold(
+            contentWindowInsets = WindowInsets(0),
             topBar = {
                 if (isMainScreen) {
                     MaggieTopBar(
@@ -219,6 +224,9 @@ fun NavGraph() {
                         viewModel = dashboardViewModel,
                         onEventClick = { selectedEvent = it },
                     )
+                }
+                composable(Screen.Chat.route) {
+                    ChatScreen(viewModel = chatViewModel)
                 }
                 composable(Screen.Calendar.route) {
                     FullCalendarScreen(

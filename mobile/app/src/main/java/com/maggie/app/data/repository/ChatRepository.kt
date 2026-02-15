@@ -1,6 +1,6 @@
 package com.maggie.app.data.repository
 
-import com.maggie.app.data.api.ChatResponse
+import android.util.Log
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.local.dao.ChatMessageDao
 import com.maggie.app.data.local.entity.ChatMessageEntity
@@ -18,19 +18,39 @@ class ChatRepository(
             entities.map { it.toModel() }
         }
 
-    /** Persist a message locally and return it with the assigned ID. */
-    suspend fun saveMessage(message: ChatMessage): ChatMessage {
-        val id = chatMessageDao.insert(ChatMessageEntity.fromModel(message))
-        return message.copy(id = id)
+    /** Sync messages from the server (incremental: only fetch after latest local). */
+    suspend fun syncMessages() {
+        try {
+            val latestTimestamp = chatMessageDao.getLatestTimestamp()
+            val messages = apiService.getMessages(afterDate = latestTimestamp)
+            if (messages.isNotEmpty()) {
+                chatMessageDao.upsertAll(messages.map { ChatMessageEntity.fromModel(it) })
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to sync messages: ${e.message}")
+        }
     }
 
-    /** Send message to API. Does NOT persist — caller is responsible. */
-    suspend fun sendMessage(message: String): Result<ChatResponse> = runCatching {
-        apiService.sendChat(message)
+    /** Send a user message to the agent. Returns the persisted messages (user + assistant). */
+    suspend fun sendMessage(content: String): List<ChatMessage> {
+        val response = apiService.sendChat(message = content)
+        if (response.messages.isNotEmpty()) {
+            chatMessageDao.upsertAll(response.messages.map { ChatMessageEntity.fromModel(it) })
+        }
+        return response.messages
+    }
+
+    /** Upsert a message received from Mercure into local storage. */
+    suspend fun handleMercureMessage(message: ChatMessage) {
+        chatMessageDao.upsert(ChatMessageEntity.fromModel(message))
     }
 
     /** Clear all chat history. */
     suspend fun clearHistory() {
         chatMessageDao.deleteAll()
+    }
+
+    companion object {
+        private const val TAG = "ChatRepository"
     }
 }

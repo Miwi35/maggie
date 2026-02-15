@@ -2,6 +2,7 @@ package com.maggie.app.data.api
 
 import com.maggie.app.BuildConfig
 import com.maggie.app.data.model.Agenda
+import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.GoogleCalendar
 import com.maggie.app.data.model.Task
@@ -18,12 +19,6 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
-
-@Serializable
-data class ChatRequest(val message: String, val user_id: String = "default")
-
-@Serializable
-data class ChatResponse(val response: String, val tool_calls: List<Map<String, String>> = emptyList())
 
 @Serializable
 data class ApiCollection<T>(val member: List<T> = emptyList())
@@ -65,6 +60,24 @@ data class GoogleCalendarImportRequest(
     val googleCalendarId: String,
     val name: String? = null,
     val color: String? = null,
+)
+
+@Serializable
+data class AgentChatRequest(
+    val message: String,
+    val user_id: String = "default",
+)
+
+@Serializable
+data class AgentChatResponse(
+    val response: String,
+    val messages: List<ChatMessage> = emptyList(),
+)
+
+@Serializable
+data class FcmTokenRequest(
+    val token: String,
+    val deviceName: String? = null,
 )
 
 private val MERGE_PATCH = ContentType("application", "merge-patch+json")
@@ -202,10 +215,26 @@ class MaggieApiService(
         }.body()
     }
 
-    suspend fun sendChat(message: String): ChatResponse {
+    // Chat — agent-owned endpoints
+    suspend fun getMessages(userId: String = "default", afterDate: String? = null): List<ChatMessage> {
+        return client.get("$baseUrl/agent/messages") {
+            url.parameters.append("user_id", userId)
+            afterDate?.let { url.parameters.append("after", it) }
+        }.body()
+    }
+
+    suspend fun sendChat(message: String, userId: String = "default"): AgentChatResponse {
         return client.post("$baseUrl/agent/chat") {
             contentType(ContentType.Application.Json)
-            setBody(ChatRequest(message = message))
+            setBody(AgentChatRequest(message = message, user_id = userId))
         }.body()
+    }
+
+    // FCM Token
+    suspend fun registerFcmToken(token: String, deviceName: String? = null) {
+        client.post("$baseUrl/api/fcm_tokens") {
+            contentType(ContentType.Application.Json)
+            setBody(FcmTokenRequest(token = token, deviceName = deviceName))
+        }
     }
 }

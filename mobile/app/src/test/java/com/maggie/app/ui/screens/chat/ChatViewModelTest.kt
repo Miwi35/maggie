@@ -1,10 +1,10 @@
 package com.maggie.app.ui.screens.chat
 
-import com.maggie.app.data.api.ChatResponse
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.data.repository.ChatRepository
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
@@ -31,7 +31,6 @@ class ChatViewModelTest {
     private lateinit var mercureService: MercureService
     private lateinit var viewModel: ChatViewModel
     private val messagesFlow = MutableSharedFlow<List<ChatMessage>>(replay = 1)
-    private var nextId = 1L
 
     @Before
     fun setup() {
@@ -40,10 +39,7 @@ class ChatViewModelTest {
         mercureService = mockk()
         every { mercureService.subscribe(any()) } returns emptyFlow()
         every { repository.observeMessages() } returns messagesFlow
-        coEvery { repository.saveMessage(any()) } coAnswers {
-            val msg = firstArg<ChatMessage>()
-            msg.copy(id = nextId++)
-        }
+        coEvery { repository.syncMessages() } returns Unit
         messagesFlow.tryEmit(emptyList())
         viewModel = ChatViewModel(repository, mercureService)
     }
@@ -54,49 +50,35 @@ class ChatViewModelTest {
     }
 
     @Test
-    fun `sendMessage success adds user and assistant messages`() = runTest {
-        coEvery { repository.sendMessage("Hello") } returns Result.success(
-            ChatResponse(response = "Hi there!")
-        )
+    fun `sendMessage success posts to agent and clears loading`() = runTest {
+        val userMsg = ChatMessage(id = "abc-123", role = "user", content = "Hello", createdAt = "2026-02-15T00:00:00+00:00")
+        val assistantMsg = ChatMessage(id = "abc-456", role = "assistant", content = "Hi!", createdAt = "2026-02-15T00:00:01+00:00")
+        coEvery { repository.sendMessage("Hello") } returns listOf(userMsg, assistantMsg)
 
         viewModel.sendMessage("Hello")
         advanceUntilIdle()
 
+        coVerify { repository.sendMessage("Hello") }
+        // Loading clears after response returns
+        assertFalse(viewModel.uiState.value.isLoading)
+
         // Simulate Room Flow emitting the persisted messages
-        val userMsg = ChatMessage(id = 1, role = "user", content = "Hello")
-        val assistantMsg = ChatMessage(id = 2, role = "assistant", content = "Hi there!")
         messagesFlow.tryEmit(listOf(userMsg, assistantMsg))
         advanceUntilIdle()
 
-        val finalState = viewModel.uiState.value
-        assertEquals(2, finalState.messages.size)
-        assertEquals("user", finalState.messages[0].role)
-        assertEquals("Hello", finalState.messages[0].content)
-        assertEquals("assistant", finalState.messages[1].role)
-        assertEquals("Hi there!", finalState.messages[1].content)
-        assertFalse(finalState.isLoading)
+        assertEquals(2, viewModel.uiState.value.messages.size)
+        assertEquals("user", viewModel.uiState.value.messages[0].role)
+        assertEquals("assistant", viewModel.uiState.value.messages[1].role)
     }
 
     @Test
-    fun `sendMessage failure adds error message`() = runTest {
-        coEvery { repository.sendMessage("Hello") } returns Result.failure(
-            RuntimeException("Network error")
-        )
+    fun `sendMessage failure clears loading`() = runTest {
+        coEvery { repository.sendMessage("Hello") } throws RuntimeException("Network error")
 
         viewModel.sendMessage("Hello")
         advanceUntilIdle()
 
-        // Simulate Room Flow emitting the persisted messages
-        val userMsg = ChatMessage(id = 1, role = "user", content = "Hello")
-        val errorMsg = ChatMessage(id = 2, role = "assistant", content = "Erreur : impossible de joindre Maggie.")
-        messagesFlow.tryEmit(listOf(userMsg, errorMsg))
-        advanceUntilIdle()
-
-        val state = viewModel.uiState.value
-        assertEquals(2, state.messages.size)
-        assertEquals("assistant", state.messages[1].role)
-        assertTrue(state.messages[1].content.contains("Erreur"))
-        assertFalse(state.isLoading)
+        assertFalse(viewModel.uiState.value.isLoading)
     }
 
     @Test
@@ -107,5 +89,11 @@ class ChatViewModelTest {
         val state = viewModel.uiState.value
         assertTrue(state.messages.isEmpty())
         assertFalse(state.isLoading)
+    }
+
+    @Test
+    fun `init syncs messages from server`() = runTest {
+        advanceUntilIdle()
+        coVerify { repository.syncMessages() }
     }
 }

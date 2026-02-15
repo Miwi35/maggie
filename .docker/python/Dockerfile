@@ -24,7 +24,7 @@ RUN groupadd -g ${GID} app \
     && chown -R app:app /app
 
 # Allow app user to install Python packages system-wide
-RUN chown -R app:app /usr/local/lib/python3.12/site-packages /usr/local/bin
+RUN chown -R app:app /usr/local/lib/python3.12/site-packages /usr/local/bin /usr/local/include/python3.12
 
 EXPOSE 8001
 

@@ -3,9 +3,9 @@ import logging
 import anthropic
 
 from app.config import settings
+from app.db.message_repository import message_repo
 from app.llm.tools import ToolRouter
 from app.memory.agent_memory import AgentMemory
-from app.memory.conversation import ConversationMemory
 from app.personality.engine import PersonalityEngine
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,6 @@ class LLMGateway:
             anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key) if settings.anthropic_api_key else None
         )
         self.personality = PersonalityEngine()
-        self.memory = ConversationMemory(max_messages=settings.max_conversation_history)
         self.tool_router = ToolRouter()
         self.agent_memory = AgentMemory()
 
@@ -28,6 +27,31 @@ class LLMGateway:
         base = self.personality.get_system_prompt()
         memory_context = await self.agent_memory.get_memory_context(user_id)
         return base + memory_context
+
+    async def _load_conversation_history(self, user_id: str) -> list[dict]:
+        """Load conversation history from the database."""
+        try:
+            messages = await message_repo.find_recent(user_id, limit=settings.max_conversation_history)
+
+            # Convert to Anthropic message format, keeping only user/assistant roles
+            anthropic_messages = []
+            for msg in messages:
+                if msg.role in ("user", "assistant") and msg.content:
+                    anthropic_messages.append({"role": msg.role, "content": msg.content})
+
+            # Merge consecutive messages with the same role (Anthropic requires alternating)
+            merged = []
+            for msg in anthropic_messages:
+                if merged and merged[-1]["role"] == msg["role"]:
+                    merged[-1]["content"] += "\n" + msg["content"]
+                else:
+                    merged.append(msg)
+
+            logger.info(f"Loaded {len(merged)} messages from conversation history")
+            return merged
+        except Exception as e:
+            logger.warning(f"Failed to load conversation history: {e}")
+            return []
 
     async def proaction(self, prompt: str, user_id: str) -> dict:
         """Execute a proaction prompt without conversation memory."""
@@ -67,9 +91,14 @@ class LLMGateway:
                 "tool_calls": [],
             }
 
-        # Build conversation
-        self.memory.add_message(user_id, "user", message)
-        messages = self.memory.get_history(user_id)
+        # Load conversation history from database
+        messages = await self._load_conversation_history(user_id)
+
+        # Append current user message
+        if messages and messages[-1]["role"] == "user":
+            messages[-1]["content"] += "\n" + message
+        else:
+            messages.append({"role": "user", "content": message})
 
         # Get available tools from MCP
         tools = await self.tool_router.get_tool_definitions()
@@ -82,18 +111,15 @@ class LLMGateway:
             result = await self._run_tool_loop(
                 system_prompt, messages, tools, tool_calls_made
             )
-            self.memory.add_message(user_id, "assistant", result["response"])
             return result
         except anthropic.APIStatusError as e:
             logger.error(f"Anthropic API error: {e.message}")
-            self.memory.add_message(user_id, "assistant", "")
             return {
                 "response": f"AI service error: {e.message}",
                 "tool_calls": [],
             }
         except anthropic.APIConnectionError as e:
             logger.error(f"Anthropic connection error: {e}")
-            self.memory.add_message(user_id, "assistant", "")
             return {
                 "response": "Unable to reach the AI service. Please try again later.",
                 "tool_calls": [],

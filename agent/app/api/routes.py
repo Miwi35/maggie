@@ -1,17 +1,16 @@
 import logging
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
+from app.db.message_repository import message_repo
 from app.llm.gateway import LLMGateway
-from app.mercure.publisher import MercurePublisher
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 llm_gateway = LLMGateway()
-mercure_publisher = MercurePublisher()
 
 
 class ChatRequest(BaseModel):
@@ -22,6 +21,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     response: str
     tool_calls: list[dict] = []
+    messages: list[dict] = []
 
 
 class ProactionRequest(BaseModel):
@@ -39,20 +39,20 @@ async def chat(request: ChatRequest):
     """Send a message to the AI agent and get a response."""
     logger.info(f"Chat request from user {request.user_id}: {request.message[:100]}")
 
+    user_msg = await message_repo.create(
+        user_id=request.user_id, role="user", content=request.message
+    )
+
     result = await llm_gateway.chat(request.message, request.user_id)
 
-    # Publish response to Mercure for real-time delivery
-    try:
-        await mercure_publisher.publish(
-            topic=f"/agent/chat/{request.user_id}",
-            data={"response": result["response"], "tool_calls": result.get("tool_calls", [])},
-        )
-    except Exception as e:
-        logger.warning(f"Failed to publish to Mercure: {e}")
+    assistant_msg = await message_repo.create(
+        user_id=request.user_id, role="assistant", content=result["response"]
+    )
 
     return ChatResponse(
         response=result["response"],
         tool_calls=result.get("tool_calls", []),
+        messages=[user_msg.to_dict(), assistant_msg.to_dict()],
     )
 
 
@@ -63,20 +63,26 @@ async def proaction(request: ProactionRequest):
 
     result = await llm_gateway.proaction(request.prompt, request.user_id)
 
-    # Publish result to Mercure for real-time delivery
-    try:
-        await mercure_publisher.publish(
-            topic=f"/agent/chat/{request.user_id}",
-            data={
-                "response": result["response"],
-                "tool_calls": result.get("tool_calls", []),
-                "proaction": True,
-            },
-        )
-    except Exception as e:
-        logger.warning(f"Failed to publish proaction to Mercure: {e}")
+    assistant_msg = await message_repo.create(
+        user_id=request.user_id, role="assistant", content=result["response"]
+    )
 
     return ChatResponse(
         response=result["response"],
         tool_calls=result.get("tool_calls", []),
+        messages=[assistant_msg.to_dict()],
     )
+
+
+@router.get("/messages")
+async def get_messages(
+    user_id: str = Query(default="default"),
+    after: str | None = Query(default=None, description="ISO timestamp for incremental sync"),
+):
+    """Get conversation messages for a user, optionally filtered by timestamp."""
+    if after:
+        messages = await message_repo.find_after(user_id, after=after)
+    else:
+        messages = await message_repo.find_recent(user_id)
+
+    return [msg.to_dict() for msg in messages]

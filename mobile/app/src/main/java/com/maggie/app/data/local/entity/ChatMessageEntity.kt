@@ -6,26 +6,26 @@ import com.maggie.app.data.model.ChatMessage
 
 @Entity(tableName = "chat_messages")
 data class ChatMessageEntity(
-    @PrimaryKey(autoGenerate = true)
-    val id: Long = 0,
+    @PrimaryKey
+    val id: String,
     val role: String,
     val content: String,
-    val timestamp: Long = System.currentTimeMillis(),
+    val createdAt: String = "",
 ) {
     fun toModel(): ChatMessage = ChatMessage(
         id = id,
         role = role,
         content = content,
-        timestamp = timestamp,
+        createdAt = createdAt,
     )
 
     companion object {
         fun fromModel(message: ChatMessage): ChatMessageEntity =
             ChatMessageEntity(
-                id = if (message.id == 0L) 0 else message.id,
+                id = message.id,
                 role = message.role,
                 content = message.content,
-                timestamp = message.timestamp,
+                createdAt = message.createdAt,
             )
     }
 }

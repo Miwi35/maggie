@@ -1,13 +1,14 @@
 package com.maggie.app.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -82,13 +84,13 @@ fun ChatSheet(
         ModalBottomSheet(
             onDismissRequest = onDismiss,
             sheetState = sheetState,
+            dragHandle = null,
+            contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
             modifier = Modifier.fillMaxHeight(0.85f),
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .imePadding(),
-            ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                SheetHeader(onClose = onDismiss)
+
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.weight(1f),
@@ -126,7 +128,7 @@ fun ChatSheet(
             }
         }
     } else {
-        // Text mode (unchanged)
+        // Text mode
         LaunchedEffect(Unit) {
             focusRequester.requestFocus()
         }
@@ -134,13 +136,13 @@ fun ChatSheet(
         ModalBottomSheet(
             onDismissRequest = onDismiss,
             sheetState = sheetState,
+            dragHandle = null,
+            contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
             modifier = Modifier.fillMaxHeight(0.85f),
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .imePadding(),
-            ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                SheetHeader(onClose = onDismiss)
+
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.weight(1f),
@@ -165,7 +167,7 @@ fun ChatSheet(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     OutlinedTextField(
@@ -189,6 +191,27 @@ fun ChatSheet(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SheetHeader(onClose: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 4.dp, top = 4.dp),
+    ) {
+        Text(
+            text = "Maggie",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.align(Alignment.CenterStart),
+        )
+        IconButton(
+            onClick = onClose,
+            modifier = Modifier.align(Alignment.CenterEnd),
+        ) {
+            Icon(Icons.Default.Close, contentDescription = "Fermer")
         }
     }
 }

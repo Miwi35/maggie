@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.routes import router
+from app.db.message_repository import message_repo
 from app.mcp.client import mcp_client
 
 # Configure logging so app messages are visible
@@ -16,6 +17,13 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Application lifespan: connect to MCP server on startup, disconnect on shutdown."""
     logger.info("Starting Maggie Agent Hub...")
+
+    # Ensure agent_message table exists
+    try:
+        await message_repo.ensure_table()
+        logger.info("Database table ready")
+    except Exception as e:
+        logger.warning(f"Could not create database table: {e}")
 
     # Connect to MCP server (best-effort; tools will be lazy-loaded if this fails)
     try:

@@ -57,6 +57,7 @@ services:
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
       ADMIN_URL: ${ADMIN_URL}
       SERVICE_TOKEN: ${SERVICE_TOKEN}
+
     depends_on:
       database:
         condition: service_healthy
@@ -207,6 +208,7 @@ services:
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
       ADMIN_URL: ${ADMIN_URL}
       SERVICE_TOKEN: ${SERVICE_TOKEN}
+
     depends_on:
       database:
         condition: service_healthy
@@ -246,6 +248,7 @@ services:
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
       ADMIN_URL: ${ADMIN_URL}
       SERVICE_TOKEN: ${SERVICE_TOKEN}
+
     depends_on:
       database:
         condition: service_healthy
@@ -279,8 +282,12 @@ services:
       MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL}
       MERCURE_JWT_SECRET: ${MERCURE_JWT_SECRET}
       SERVICE_TOKEN: ${SERVICE_TOKEN}
+      DATABASE_URL: ${DATABASE_URL}
     depends_on:
-      - nginx
+      database:
+        condition: service_healthy
+      nginx:
+        condition: service_started
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.maggie-agent.rule=PathPrefix(`/agent`)"
