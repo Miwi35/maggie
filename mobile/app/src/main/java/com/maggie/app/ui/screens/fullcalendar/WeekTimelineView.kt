@@ -307,18 +307,16 @@ private fun SpanningEventBar(
             .height(SPANNING_ROW_HEIGHT - 2.dp)
             .background(color.copy(alpha = 0.85f), shape)
             .clickable { onClick() }
-            .padding(horizontal = if (isStart) 4.dp else 0.dp),
+            .padding(horizontal = 4.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
-        if (isStart) {
-            Text(
-                text = event.summary,
-                fontSize = 10.sp,
-                lineHeight = 12.sp,
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+        Text(
+            text = event.summary,
+            fontSize = 10.sp,
+            lineHeight = 12.sp,
+            color = Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
