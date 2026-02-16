@@ -1,4 +1,12 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import Drawer from '@mui/material/Drawer'
+import Box from '@mui/material/Box'
+import Typography from '@mui/material/Typography'
+import IconButton from '@mui/material/IconButton'
+import TextField from '@mui/material/TextField'
+import SendIcon from '@mui/icons-material/Send'
+import CloseIcon from '@mui/icons-material/Close'
+import CircularProgress from '@mui/material/CircularProgress'
 
 interface ChatMessage {
   role: 'user' | 'assistant'
@@ -7,9 +15,15 @@ interface ChatMessage {
 
 const AGENT_URL = '/agent/chat'
 const MERCURE_URL = import.meta.env.VITE_MERCURE_PUBLIC_URL || 'http://maggie.local/.well-known/mercure'
+const SIDEBAR_WIDTH = 380
 
-export const ChatWidget = () => {
-  const [isOpen, setIsOpen] = useState(false)
+interface ChatWidgetProps {
+  open: boolean
+  onClose: () => void
+  onUnread: () => void
+}
+
+export const ChatWidget = ({ open, onClose, onUnread }: ChatWidgetProps) => {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -27,7 +41,9 @@ export const ChatWidget = () => {
         // Only handle proaction messages from Mercure (chat uses HTTP response)
         if (data.proaction && data.response) {
           setMessages((prev) => [...prev, { role: 'assistant', content: data.response }])
-          setIsOpen(true)
+          if (!open) {
+            onUnread()
+          }
         }
       } catch {
         // Ignore malformed messages
@@ -35,14 +51,14 @@ export const ChatWidget = () => {
     }
 
     return () => eventSource.close()
-  }, [])
+  }, [open, onUnread])
 
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  const sendMessage = async () => {
+  const sendMessage = useCallback(async () => {
     if (!input.trim() || loading) return
 
     const userMessage = input.trim()
@@ -63,11 +79,14 @@ export const ChatWidget = () => {
       }
     } catch (error) {
       console.error('Chat error:', error)
-      setMessages((prev) => [...prev, { role: 'assistant', content: 'Erreur : impossible de contacter l\'agent.' }])
+      setMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: "Erreur : impossible de contacter l'agent." },
+      ])
     } finally {
       setLoading(false)
     }
-  }
+  }, [input, loading])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -76,84 +95,89 @@ export const ChatWidget = () => {
     }
   }
 
-  if (!isOpen) {
-    return (
-      <button
-        onClick={() => setIsOpen(true)}
-        style={{
-          position: 'fixed', bottom: 20, right: 20,
-          width: 56, height: 56, borderRadius: '50%',
-          backgroundColor: '#1976d2', color: 'white',
-          border: 'none', cursor: 'pointer', fontSize: 24,
-          boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
-          zIndex: 1000,
+  return (
+    <Drawer
+      variant="persistent"
+      anchor="right"
+      open={open}
+      sx={{
+        width: open ? SIDEBAR_WIDTH : 0,
+        flexShrink: 0,
+        '& .MuiDrawer-paper': {
+          width: SIDEBAR_WIDTH,
+          boxSizing: 'border-box',
+          top: '48px',
+          height: 'calc(100% - 48px)',
+        },
+      }}
+    >
+      {/* Header */}
+      <Box
+        sx={{
+          px: 2,
+          py: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderBottom: 1,
+          borderColor: 'divider',
+          bgcolor: 'primary.main',
+          color: 'primary.contrastText',
         }}
       >
-        💬
-      </button>
-    )
-  }
-
-  return (
-    <div style={{
-      position: 'fixed', bottom: 20, right: 20,
-      width: 380, height: 500, display: 'flex', flexDirection: 'column',
-      backgroundColor: 'white', borderRadius: 12,
-      boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
-      zIndex: 1000, overflow: 'hidden',
-    }}>
-      {/* Header */}
-      <div style={{
-        padding: '12px 16px', backgroundColor: '#1976d2', color: 'white',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-      }}>
-        <strong>Maggie</strong>
-        <button onClick={() => setIsOpen(false)} style={{
-          background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: 18,
-        }}>✕</button>
-      </div>
+        <Typography variant="subtitle1" fontWeight={600}>
+          Maggie
+        </Typography>
+        <IconButton size="small" onClick={onClose} sx={{ color: 'inherit' }}>
+          <CloseIcon />
+        </IconButton>
+      </Box>
 
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: 12 }}>
+      <Box sx={{ flex: 1, overflowY: 'auto', p: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
         {messages.map((msg, i) => (
-          <div key={i} style={{
-            marginBottom: 8, padding: '8px 12px', borderRadius: 8,
-            backgroundColor: msg.role === 'user' ? '#1976d2' : '#757575',
-
-            color: msg.role === 'user' ? 'white' : 'inherit',
-            marginLeft: msg.role === 'user' ? 40 : 0,
-            marginRight: msg.role === 'assistant' ? 40 : 0,
-          }}>
+          <Box
+            key={i}
+            sx={{
+              alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+              maxWidth: '85%',
+              px: 1.5,
+              py: 1,
+              borderRadius: 2,
+              bgcolor: msg.role === 'user' ? 'primary.main' : 'grey.100',
+              color: msg.role === 'user' ? 'primary.contrastText' : 'text.primary',
+              fontSize: 14,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+            }}
+          >
             {msg.content}
-          </div>
+          </Box>
         ))}
         {loading && (
-          <div style={{ padding: '8px 12px', color: '#999' }}>Maggie réfléchit...</div>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', px: 1 }}>
+            <CircularProgress size={16} />
+            <Typography variant="body2">Maggie réfléchit...</Typography>
+          </Box>
         )}
         <div ref={messagesEndRef} />
-      </div>
+      </Box>
 
       {/* Input */}
-      <div style={{ padding: 12, borderTop: '1px solid #eee', display: 'flex', gap: 8 }}>
-        <input
+      <Box sx={{ p: 1.5, borderTop: 1, borderColor: 'divider', display: 'flex', gap: 1 }}>
+        <TextField
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Demande à Maggie..."
-          style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid #ddd' }}
+          size="small"
+          fullWidth
+          slotProps={{ htmlInput: { sx: { fontSize: 14 } } }}
         />
-        <button
-          onClick={sendMessage}
-          disabled={loading}
-          style={{
-            padding: '8px 16px', borderRadius: 8,
-            backgroundColor: '#1976d2', color: 'white',
-            border: 'none', cursor: 'pointer',
-          }}
-        >
-          Envoyer
-        </button>
-      </div>
-    </div>
+        <IconButton color="primary" onClick={sendMessage} disabled={loading || !input.trim()}>
+          <SendIcon />
+        </IconButton>
+      </Box>
+    </Drawer>
   )
 }

@@ -11,29 +11,24 @@ class MockEventSource {
 }
 vi.stubGlobal('EventSource', MockEventSource)
 
+const defaultProps = {
+  open: true,
+  onClose: vi.fn(),
+  onUnread: vi.fn(),
+}
+
 describe('ChatWidget', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     vi.stubGlobal('EventSource', MockEventSource)
+    defaultProps.onClose = vi.fn()
+    defaultProps.onUnread = vi.fn()
   })
 
-  test('renders FAB button when closed', () => {
-    render(<ChatWidget />)
-
-    const fab = screen.getByRole('button')
-    expect(fab).toBeInTheDocument()
-    expect(fab).toHaveTextContent('💬')
-  })
-
-  test('opens chat panel on FAB click', async () => {
-    const user = userEvent.setup()
-    render(<ChatWidget />)
-
-    const fab = screen.getByRole('button')
-    await user.click(fab)
+  test('renders header and input when open', () => {
+    render(<ChatWidget {...defaultProps} />)
 
     expect(screen.getByText('Maggie')).toBeInTheDocument()
-    expect(screen.getByText('✕')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Demande à Maggie...')).toBeInTheDocument()
   })
 
@@ -48,17 +43,14 @@ describe('ChatWidget', () => {
     )
 
     const user = userEvent.setup()
-    render(<ChatWidget />)
-
-    // Open the chat panel
-    await user.click(screen.getByRole('button'))
+    render(<ChatWidget {...defaultProps} />)
 
     // Type a message
     const input = screen.getByPlaceholderText('Demande à Maggie...')
     await user.type(input, 'Hello Maggie')
 
     // Click Send
-    const sendButton = screen.getByRole('button', { name: 'Envoyer' })
+    const sendButton = screen.getByTestId('SendIcon').closest('button')!
     await user.click(sendButton)
 
     // Verify user message appears

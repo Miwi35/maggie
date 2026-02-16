@@ -36,6 +36,9 @@ framework:
             'Maggie\Proaction\Message\UpdateProactionCommand': sync
             'Maggie\Proaction\Message\DeleteProactionCommand': sync
             'Maggie\Proaction\Message\ExecuteProactionMessage': async
+            'Maggie\Notification\Message\CreateNotificationCommand': sync
+            'Maggie\Notification\Message\MarkNotificationReadCommand': sync
+            'Maggie\Notification\Message\DeleteNotificationCommand': sync
 
 when@test:
     framework:

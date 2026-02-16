@@ -101,10 +101,16 @@
     "maggie/calendar": {
         "version": "dev-main"
     },
+    "maggie/chat": {
+        "version": "dev-main"
+    },
     "maggie/core": {
         "version": "dev-main"
     },
     "maggie/memory": {
+        "version": "dev-main"
+    },
+    "maggie/notification": {
         "version": "dev-main"
     },
     "maggie/proaction": {

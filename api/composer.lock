@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "3080d22732c6be31c7d044b66ada4979",
+    "content-hash": "29b7d53093c4bef36dae10bdcce895bd",
     "packages": [
         {
             "name": "api-platform/core",
@@ -2184,6 +2184,38 @@
                 "proprietary"
             ],
             "description": "Memory module: persistent factual and episodic memory for the agent",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "maggie/notification",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "modules/notification",
+                "reference": "b7db724e1d4bcf48ec626ceef98a4e05220284e8"
+            },
+            "require": {
+                "api-platform/core": "^4.2",
+                "doctrine/doctrine-bundle": "^2.18",
+                "doctrine/orm": "^3.6",
+                "php": ">=8.4",
+                "symfony/messenger": "7.4.*",
+                "symfony/uid": "7.4.*",
+                "symfony/validator": "7.4.*"
+            },
+            "type": "symfony-bundle",
+            "autoload": {
+                "psr-4": {
+                    "Maggie\\Notification\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Notification module: reminders and user notifications",
             "transport-options": {
                 "symlink": true,
                 "relative": true
@@ -11595,6 +11627,7 @@
         "maggie/calendar": 20,
         "maggie/core": 20,
         "maggie/memory": 20,
+        "maggie/notification": 20,
         "maggie/proaction": 20
     },
     "prefer-stable": true,
