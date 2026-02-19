@@ -6,6 +6,7 @@ import { Layout } from './components/layout/Layout'
 import { Dashboard } from './modules/dashboard'
 import { calendarResources } from './modules/calendar'
 import { settingsResources } from './modules/settings'
+import { cookbookResources } from './modules/cookbook'
 import { authProvider, handleAuthCallback } from './auth/authProvider'
 import { LoginPage } from './auth/LoginPage'
 import { LoadingPage } from './auth/LoadingPage'
@@ -47,6 +48,7 @@ function App() {
       darkTheme={radiantDarkTheme}
     >
       {calendarResources}
+      {cookbookResources}
       {settingsResources}
     </HydraAdmin>
   )

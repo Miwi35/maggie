@@ -104,6 +104,9 @@
     "maggie/chat": {
         "version": "dev-main"
     },
+    "maggie/cookbook": {
+        "version": "dev-main"
+    },
     "maggie/core": {
         "version": "dev-main"
     },

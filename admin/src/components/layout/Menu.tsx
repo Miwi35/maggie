@@ -17,10 +17,18 @@ import ExpandMore from '@mui/icons-material/ExpandMore'
 import SettingsIcon from '@mui/icons-material/Settings'
 import SmartToyIcon from '@mui/icons-material/SmartToy'
 import CloudIcon from '@mui/icons-material/Cloud'
+import RestaurantIcon from '@mui/icons-material/Restaurant'
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart'
+import MenuBookIcon from '@mui/icons-material/MenuBook'
+import KitchenIcon from '@mui/icons-material/Kitchen'
+import EggIcon from '@mui/icons-material/Egg'
+import RepeatIcon from '@mui/icons-material/Repeat'
+import CategoryIcon from '@mui/icons-material/Category'
 
 export const CustomMenu = () => {
   const [rawDataOpen, setRawDataOpen] = useState(false)
   const [agendaRawOpen, setAgendaRawOpen] = useState(false)
+  const [cuisineRawOpen, setCuisineRawOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [open] = useSidebarState()
 
@@ -35,6 +43,16 @@ export const CustomMenu = () => {
         to="/calendar"
         primaryText="Calendrier"
         leftIcon={<CalendarMonthIcon />}
+      />
+      <MenuItemLink
+        to="/meals"
+        primaryText="Repas de la semaine"
+        leftIcon={<RestaurantIcon />}
+      />
+      <MenuItemLink
+        to="/grocery"
+        primaryText="Courses"
+        leftIcon={<ShoppingCartIcon />}
       />
 
       {open && (
@@ -87,6 +105,52 @@ export const CustomMenu = () => {
                     to="/tasks"
                     primaryText="Tâches"
                     leftIcon={<ChecklistIcon />}
+                    sx={{ pl: 8 }}
+                  />
+                </List>
+              </Collapse>
+
+              <ListItemButton
+                onClick={() => setCuisineRawOpen(!cuisineRawOpen)}
+                sx={{ pl: 4 }}
+              >
+                <ListItemIcon sx={{ minWidth: 40 }}>
+                  <KitchenIcon />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Cuisine"
+                  primaryTypographyProps={{
+                    fontSize: 14,
+                    color: 'text.secondary',
+                  }}
+                />
+                {cuisineRawOpen ? <ExpandLess /> : <ExpandMore />}
+              </ListItemButton>
+
+              <Collapse in={cuisineRawOpen} timeout="auto" unmountOnExit>
+                <List component="div" disablePadding>
+                  <MenuItemLink
+                    to="/recipes"
+                    primaryText="Recettes"
+                    leftIcon={<MenuBookIcon />}
+                    sx={{ pl: 8 }}
+                  />
+                  <MenuItemLink
+                    to="/ingredients"
+                    primaryText="Ingrédients"
+                    leftIcon={<EggIcon />}
+                    sx={{ pl: 8 }}
+                  />
+                  <MenuItemLink
+                    to="/products"
+                    primaryText="Produits"
+                    leftIcon={<CategoryIcon />}
+                    sx={{ pl: 8 }}
+                  />
+                  <MenuItemLink
+                    to="/recurring_grocery_items"
+                    primaryText="Articles récurrents"
+                    leftIcon={<RepeatIcon />}
                     sx={{ pl: 8 }}
                   />
                 </List>

@@ -79,7 +79,9 @@ class MercurePublishMiddleware implements MiddlewareInterface
         foreach (['Create', 'Update', 'Delete'] as $prefix) {
             if (str_starts_with($name, $prefix)) {
                 $entity = substr($name, strlen($prefix));
-                $topic = '/api/' . strtolower($entity) . 's';
+                // Convert CamelCase to snake_case: GroceryList → grocery_list
+                $snake = strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $entity));
+                $topic = '/api/' . $snake . 's';
 
                 return [strtolower($prefix), $topic, $entity];
             }

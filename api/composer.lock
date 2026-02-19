@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "fffe4dd99f6fdef6a8eecc032b99a01f",
+    "content-hash": "a561d511654a9ebc99b5317171bb92dc",
     "packages": [
         {
             "name": "api-platform/core",
@@ -2121,6 +2121,40 @@
                 "proprietary"
             ],
             "description": "Calendar module: agendas, events, recurrence",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "maggie/cookbook",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "modules/cookbook",
+                "reference": "b6b7154c70ad6c26f4ae83c38c0b52c3cf4d58dd"
+            },
+            "require": {
+                "api-platform/core": "^4.2",
+                "doctrine/doctrine-bundle": "^2.18",
+                "doctrine/orm": "^3.6",
+                "maggie/calendar": "@dev",
+                "php": ">=8.4",
+                "symfony/mcp-bundle": "^0.3",
+                "symfony/mercure-bundle": "^0.4",
+                "symfony/uid": "7.4.*",
+                "symfony/validator": "7.4.*"
+            },
+            "type": "symfony-bundle",
+            "autoload": {
+                "psr-4": {
+                    "Maggie\\Cookbook\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Cookbook module: recipes, meal planning, grocery lists",
             "transport-options": {
                 "symlink": true,
                 "relative": true
@@ -11592,6 +11626,7 @@
     "minimum-stability": "stable",
     "stability-flags": {
         "maggie/calendar": 20,
+        "maggie/cookbook": 20,
         "maggie/core": 20,
         "maggie/memory": 20,
         "maggie/notification": 20

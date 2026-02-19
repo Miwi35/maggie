@@ -1,0 +1,22 @@
+{
+    "name": "maggie/cookbook",
+    "description": "Cookbook module: recipes, meal planning, grocery lists",
+    "type": "symfony-bundle",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.4",
+        "api-platform/core": "^4.2",
+        "doctrine/doctrine-bundle": "^2.18",
+        "doctrine/orm": "^3.6",
+        "maggie/calendar": "@dev",
+        "symfony/mcp-bundle": "^0.3",
+        "symfony/mercure-bundle": "^0.4",
+        "symfony/uid": "7.4.*",
+        "symfony/validator": "7.4.*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Maggie\\Cookbook\\": "src/"
+        }
+    }
+}

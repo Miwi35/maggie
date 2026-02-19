@@ -1,0 +1,1 @@
+export { cookbookResources } from './resources'

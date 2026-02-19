@@ -35,6 +35,27 @@ framework:
             'Maggie\Notification\Message\CreateNotificationCommand': sync
             'Maggie\Notification\Message\MarkNotificationReadCommand': sync
             'Maggie\Notification\Message\DeleteNotificationCommand': sync
+            'Maggie\Cookbook\Message\CreateProductCommand': sync
+            'Maggie\Cookbook\Message\UpdateProductCommand': sync
+            'Maggie\Cookbook\Message\DeleteProductCommand': sync
+            'Maggie\Cookbook\Message\CreateIngredientCommand': sync
+            'Maggie\Cookbook\Message\UpdateIngredientCommand': sync
+            'Maggie\Cookbook\Message\DeleteIngredientCommand': sync
+            'Maggie\Cookbook\Message\CreateRecipeCommand': sync
+            'Maggie\Cookbook\Message\UpdateRecipeCommand': sync
+            'Maggie\Cookbook\Message\DeleteRecipeCommand': sync
+            'Maggie\Cookbook\Message\CreateMealCommand': sync
+            'Maggie\Cookbook\Message\UpdateMealCommand': sync
+            'Maggie\Cookbook\Message\DeleteMealCommand': sync
+            'Maggie\Cookbook\Message\CreateGroceryListCommand': sync
+            'Maggie\Cookbook\Message\UpdateGroceryListCommand': sync
+            'Maggie\Cookbook\Message\DeleteGroceryListCommand': sync
+            'Maggie\Cookbook\Message\GenerateGroceryListCommand': sync
+            'Maggie\Cookbook\Message\AddGroceryItemCommand': sync
+            'Maggie\Cookbook\Message\CheckGroceryItemCommand': sync
+            'Maggie\Cookbook\Message\CreateRecurringGroceryItemCommand': sync
+            'Maggie\Cookbook\Message\UpdateRecurringGroceryItemCommand': sync
+            'Maggie\Cookbook\Message\DeleteRecurringGroceryItemCommand': sync
 
 when@test:
     framework:
