@@ -34,20 +34,37 @@ class SearchService
         // Build boosted fields list from metadata
         $boostedFields = $this->getBoostedFields($targetIndices);
 
-        $multiMatch = [
-            'query' => $query,
-            'type' => 'best_fields',
-            'fuzziness' => 'AUTO',
+        $fuzzyMatch = [
+            'multi_match' => [
+                'query' => $query,
+                'type' => 'best_fields',
+                'fuzziness' => 'AUTO',
+            ],
         ];
         if ($boostedFields !== []) {
-            $multiMatch['fields'] = $boostedFields;
+            $fuzzyMatch['multi_match']['fields'] = $boostedFields;
+        }
+
+        // Wildcard substring match (*query*) on all text fields
+        $wildcardPattern = '*' . mb_strtolower($query) . '*';
+        $textFields = $this->getTextFields($targetIndices);
+        $wildcardClauses = [];
+        foreach ($textFields as $field) {
+            $wildcardClauses[] = ['wildcard' => [$field => ['value' => $wildcardPattern]]];
+        }
+
+        $shouldClauses = [$fuzzyMatch];
+        if ($wildcardClauses !== []) {
+            $shouldClauses[] = ['bool' => ['should' => $wildcardClauses]];
         }
 
         $body = [
             'query' => [
                 'bool' => [
                     'must' => [
-                        'multi_match' => $multiMatch,
+                        'bool' => [
+                            'should' => $shouldClauses,
+                        ],
                     ],
                     'filter' => [
                         'term' => ['userId' => $userId],
@@ -117,6 +134,41 @@ class SearchService
 
                 if (!\in_array($key, $fields, true)) {
                     $fields[] = $key;
+                }
+            }
+        }
+
+        return $fields;
+    }
+
+    /**
+     * Get plain text field names (without boost notation) for wildcard queries.
+     *
+     * @param string[] $targetIndices
+     * @return string[]
+     */
+    private function getTextFields(array $targetIndices): array
+    {
+        $fields = [];
+        $allEntities = $this->registry->getAll();
+
+        foreach ($allEntities as $indexName => $entityClass) {
+            if ($targetIndices !== [] && !\in_array($indexName, $targetIndices, true)) {
+                continue;
+            }
+
+            $meta = $this->metadataReader->read($entityClass);
+            if ($meta === null) {
+                continue;
+            }
+
+            foreach ($meta['fields'] as $fieldName => $mapping) {
+                if (($mapping['type'] ?? '') !== 'text') {
+                    continue;
+                }
+
+                if (!\in_array($fieldName, $fields, true)) {
+                    $fields[] = $fieldName;
                 }
             }
         }
