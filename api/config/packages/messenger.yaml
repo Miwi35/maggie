@@ -29,9 +29,6 @@ framework:
             'Maggie\Calendar\Message\DeleteTaskFromGoogleCommand': async
             'Maggie\Calendar\Message\PullTasksFromGoogleCommand': async
             'Maggie\Core\Message\UpdateUserCommand': sync
-            'Maggie\Memory\Message\StoreMemoryCommand': sync
-            'Maggie\Memory\Message\UpdateMemoryCommand': sync
-            'Maggie\Memory\Message\DeleteMemoryCommand': sync
             'Maggie\Notification\Message\CreateNotificationCommand': sync
             'Maggie\Notification\Message\MarkNotificationReadCommand': sync
             'Maggie\Notification\Message\DeleteNotificationCommand': sync

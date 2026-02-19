@@ -11,7 +11,6 @@ return [
     Doctrine\Bundle\FixturesBundle\DoctrineFixturesBundle::class => ['dev' => true, 'test' => true],
     Maggie\Calendar\MaggieCalendarBundle::class => ['all' => true],
     Maggie\Core\MaggieCoreBundle::class => ['all' => true],
-    Maggie\Memory\MaggieMemoryBundle::class => ['all' => true],
     Maggie\Notification\MaggieNotificationBundle::class => ['all' => true],
     Maggie\Cookbook\MaggieCookbookBundle::class => ['all' => true],
     Symfony\AI\McpBundle\McpBundle::class => ['all' => true],

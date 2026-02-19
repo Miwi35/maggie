@@ -6,6 +6,7 @@ from fastapi import FastAPI
 
 from app.a2a import setup_a2a
 from app.api.routes import router
+from app.db.memory_model import Memory  # noqa: F401 — register model with AgentBase before create_all
 from app.db.message_repository import message_repo
 from app.db.proaction_repository import proaction_repo
 from app.mcp.client import mcp_client

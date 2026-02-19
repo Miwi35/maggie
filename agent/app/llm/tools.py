@@ -1,14 +1,15 @@
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
+from app.db.memory_repository import memory_repo
 from app.db.proaction_repository import proaction_repo
 from app.mcp.client import mcp_client
 
 logger = logging.getLogger(__name__)
 
-# Native tool definitions (available to Maggie during internal/proaction calls only)
-NATIVE_TOOLS = [
+# Proaction tools (available during proaction/autonomous calls only)
+PROACTION_TOOLS = [
     {
         "name": "schedule_proaction",
         "description": (
@@ -44,9 +45,94 @@ NATIVE_TOOLS = [
     },
 ]
 
+# Memory tools (always available — chat + proaction)
+MEMORY_TOOLS = [
+    {
+        "name": "store_memory",
+        "description": (
+            "Store a new memory about the user. Use type 'factual' for preferences, "
+            "habits, personal info. Use type 'episodic' for notable events, accomplishments."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string",
+                    "description": "The memory content to store",
+                },
+                "type": {
+                    "type": "string",
+                    "enum": ["factual", "episodic"],
+                    "description": "Memory type: factual (preferences, info) or episodic (events)",
+                },
+            },
+            "required": ["content", "type"],
+        },
+    },
+    {
+        "name": "search_memory",
+        "description": (
+            "Search the user's memories by keyword. "
+            "Returns matching memories ordered by most recent."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query (keyword or phrase)",
+                },
+                "type": {
+                    "type": "string",
+                    "enum": ["factual", "episodic"],
+                    "description": "Optional: filter by memory type",
+                },
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "update_memory",
+        "description": (
+            "Update an existing memory. Use this when a factual memory has changed "
+            "(e.g. new job, new address) instead of creating a duplicate."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "memory_id": {
+                    "type": "string",
+                    "description": "The ID of the memory to update",
+                },
+                "content": {
+                    "type": "string",
+                    "description": "The new content for the memory",
+                },
+            },
+            "required": ["memory_id", "content"],
+        },
+    },
+    {
+        "name": "delete_memory",
+        "description": "Delete a memory by its ID.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "memory_id": {
+                    "type": "string",
+                    "description": "The ID of the memory to delete",
+                },
+            },
+            "required": ["memory_id"],
+        },
+    },
+]
+
+
+# --- Handlers ---
+
 
 async def _handle_schedule_proaction(arguments: dict, user_id: str) -> str:
-    """Create a new proaction entry."""
     prompt = arguments.get("prompt", "")
     scheduled_at_str = arguments.get("scheduled_at", "")
 
@@ -56,7 +142,7 @@ async def _handle_schedule_proaction(arguments: dict, user_id: str) -> str:
     try:
         scheduled_at = datetime.fromisoformat(scheduled_at_str)
         if scheduled_at.tzinfo is None:
-            scheduled_at = scheduled_at.replace(tzinfo=timezone.utc)
+            scheduled_at = scheduled_at.replace(tzinfo=UTC)
     except ValueError:
         return json.dumps({"error": f"Invalid datetime format: {scheduled_at_str}"})
 
@@ -67,22 +153,73 @@ async def _handle_schedule_proaction(arguments: dict, user_id: str) -> str:
 
 
 async def _handle_list_proactions(arguments: dict, user_id: str) -> str:
-    """List proactions for the current user."""
     proactions = await proaction_repo.find_by_user(user_id)
     return json.dumps([p.to_dict() for p in proactions])
+
+
+async def _handle_store_memory(arguments: dict, user_id: str) -> str:
+    content = arguments.get("content", "")
+    memory_type = arguments.get("type", "factual")
+
+    if not content:
+        return json.dumps({"error": "'content' is required"})
+
+    memory = await memory_repo.store(user_id, content, memory_type)
+    return json.dumps(memory.to_dict())
+
+
+async def _handle_search_memory(arguments: dict, user_id: str) -> str:
+    query = arguments.get("query", "")
+    memory_type = arguments.get("type")
+
+    if not query:
+        return json.dumps({"error": "'query' is required"})
+
+    memories = await memory_repo.search(user_id, query, memory_type)
+    return json.dumps([m.to_dict() for m in memories])
+
+
+async def _handle_update_memory(arguments: dict, user_id: str) -> str:
+    memory_id = arguments.get("memory_id", "")
+    content = arguments.get("content", "")
+
+    if not memory_id or not content:
+        return json.dumps({"error": "'memory_id' and 'content' are required"})
+
+    memory = await memory_repo.update(memory_id, content)
+    if memory is None:
+        return json.dumps({"error": f"Memory '{memory_id}' not found"})
+    return json.dumps(memory.to_dict())
+
+
+async def _handle_delete_memory(arguments: dict, user_id: str) -> str:
+    memory_id = arguments.get("memory_id", "")
+
+    if not memory_id:
+        return json.dumps({"error": "'memory_id' is required"})
+
+    deleted = await memory_repo.delete(memory_id)
+    if not deleted:
+        return json.dumps({"error": f"Memory '{memory_id}' not found"})
+    return json.dumps({"deleted": True, "id": memory_id})
 
 
 _NATIVE_HANDLERS = {
     "schedule_proaction": _handle_schedule_proaction,
     "list_proactions": _handle_list_proactions,
+    "store_memory": _handle_store_memory,
+    "search_memory": _handle_search_memory,
+    "update_memory": _handle_update_memory,
+    "delete_memory": _handle_delete_memory,
 }
 
 
 class ToolRouter:
-    """Converts MCP tool definitions to Anthropic format and routes tool calls.
+    """Routes tool calls to native handlers or MCP server.
 
-    Supports two types of tools:
-    - Native tools (schedule_proaction, list_proactions) — internal only, not exposed via A2A
+    Tool categories:
+    - Memory tools — always available (chat + proaction)
+    - Proaction tools — only during proaction/autonomous calls
     - MCP tools — fetched from the Symfony MCP server
     """
 
@@ -90,12 +227,13 @@ class ToolRouter:
         """Get available tools in Anthropic tool format.
 
         Args:
-            include_native: If True, include native proaction tools (for internal/proaction calls).
+            include_native: If True, include proaction tools (for internal/proaction calls).
+                            Memory tools are always included.
         """
-        tools = []
+        tools = list(MEMORY_TOOLS)
 
         if include_native:
-            tools.extend(NATIVE_TOOLS)
+            tools.extend(PROACTION_TOOLS)
 
         mcp_tools = await mcp_client.list_tools()
         for tool in mcp_tools:
@@ -111,7 +249,6 @@ class ToolRouter:
 
     async def call_tool(self, name: str, arguments: dict, user_id: str | None = None) -> str:
         """Route a tool call to native handler or MCP server."""
-        # Check native handlers first
         if name in _NATIVE_HANDLERS:
             if user_id is None:
                 return json.dumps({"error": "user_id required for native tools"})

@@ -6,7 +6,6 @@
     "repositories": [
         {"type": "path", "url": "modules/calendar", "options": {"symlink": true}},
         {"type": "path", "url": "modules/core", "options": {"symlink": true}},
-        {"type": "path", "url": "modules/memory", "options": {"symlink": true}},
         {"type": "path", "url": "modules/notification", "options": {"symlink": true}},
         {"type": "path", "url": "modules/cookbook", "options": {"symlink": true}}
     ],
@@ -22,7 +21,6 @@
         "lexik/jwt-authentication-bundle": "^3.2",
         "maggie/calendar": "@dev",
         "maggie/core": "@dev",
-        "maggie/memory": "@dev",
         "maggie/cookbook": "@dev",
         "maggie/notification": "@dev",
         "nelmio/cors-bundle": "^2.6.1",

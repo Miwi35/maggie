@@ -110,9 +110,6 @@
     "maggie/core": {
         "version": "dev-main"
     },
-    "maggie/memory": {
-        "version": "dev-main"
-    },
     "maggie/notification": {
         "version": "dev-main"
     },
