@@ -128,6 +128,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./.docker/postgres/init-agent-db.sql:/docker-entrypoint-initdb.d/10-create-agent-db.sql:ro
     ports:
       - "5432:5432"
     healthcheck:
@@ -274,6 +275,7 @@ services:
         GID: ${GID:-1000}
     volumes:
       - ./agent:/app:cached
+      - ./api/config/jwt/public.pem:/app/jwt/public.pem:ro
     environment:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-haiku-4-5-20251001}
@@ -283,11 +285,16 @@ services:
       MERCURE_JWT_SECRET: ${MERCURE_JWT_SECRET}
       SERVICE_TOKEN: ${SERVICE_TOKEN}
       DATABASE_URL: ${DATABASE_URL}
+      AGENT_DATABASE_URL: ${AGENT_DATABASE_URL}
+      RABBITMQ_URL: ${RABBITMQ_URL}
+      AGENT_BASE_URL: ${AGENT_BASE_URL}
     depends_on:
       database:
         condition: service_healthy
       nginx:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.maggie-agent.rule=PathPrefix(`/agent`)"

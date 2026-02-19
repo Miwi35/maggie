@@ -4,9 +4,7 @@ import polyglotI18nProvider from 'ra-i18n-polyglot'
 import frenchMessages from 'ra-language-french'
 import { Layout } from './components/layout/Layout'
 import { Dashboard } from './modules/dashboard'
-import { Resource } from 'react-admin'
 import { calendarResources } from './modules/calendar'
-import { ProactionList, ProactionShow } from './modules/proaction'
 import { authProvider, handleAuthCallback } from './auth/authProvider'
 import { LoginPage } from './auth/LoginPage'
 import { LoadingPage } from './auth/LoadingPage'
@@ -48,7 +46,6 @@ function App() {
       darkTheme={radiantDarkTheme}
     >
       {calendarResources}
-      <Resource name="proactions" list={ProactionList} show={ProactionShow} />
     </HydraAdmin>
   )
 }

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "29b7d53093c4bef36dae10bdcce895bd",
+    "content-hash": "fffe4dd99f6fdef6a8eecc032b99a01f",
     "packages": [
         {
             "name": "api-platform/core",
@@ -1471,16 +1471,16 @@
         },
         {
             "name": "google/apiclient-services",
-            "version": "v0.432.0",
+            "version": "v0.433.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/googleapis/google-api-php-client-services.git",
-                "reference": "c0d8b801cf615f8edf1b5b356a3d121d0c95ef92"
+                "reference": "feb9c13e54457a6f5e157b7eae78b41566df43b5"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/googleapis/google-api-php-client-services/zipball/c0d8b801cf615f8edf1b5b356a3d121d0c95ef92",
-                "reference": "c0d8b801cf615f8edf1b5b356a3d121d0c95ef92",
+                "url": "https://api.github.com/repos/googleapis/google-api-php-client-services/zipball/feb9c13e54457a6f5e157b7eae78b41566df43b5",
+                "reference": "feb9c13e54457a6f5e157b7eae78b41566df43b5",
                 "shasum": ""
             },
             "require": {
@@ -1509,9 +1509,9 @@
             ],
             "support": {
                 "issues": "https://github.com/googleapis/google-api-php-client-services/issues",
-                "source": "https://github.com/googleapis/google-api-php-client-services/tree/v0.432.0"
+                "source": "https://github.com/googleapis/google-api-php-client-services/tree/v0.433.0"
             },
-            "time": "2026-02-09T01:14:27+00:00"
+            "time": "2026-02-16T01:42:26+00:00"
         },
         {
             "name": "google/auth",
@@ -2216,39 +2216,6 @@
                 "proprietary"
             ],
             "description": "Notification module: reminders and user notifications",
-            "transport-options": {
-                "symlink": true,
-                "relative": true
-            }
-        },
-        {
-            "name": "maggie/proaction",
-            "version": "dev-main",
-            "dist": {
-                "type": "path",
-                "url": "modules/proaction",
-                "reference": "5a66b960e75cd5319b508846246588e98550c23a"
-            },
-            "require": {
-                "api-platform/core": "^4.2",
-                "doctrine/doctrine-bundle": "^2.18",
-                "doctrine/orm": "^3.6",
-                "php": ">=8.4",
-                "symfony/mcp-bundle": "^0.3",
-                "symfony/messenger": "7.4.*",
-                "symfony/uid": "7.4.*",
-                "symfony/validator": "7.4.*"
-            },
-            "type": "symfony-bundle",
-            "autoload": {
-                "psr-4": {
-                    "Maggie\\Proaction\\": "src/"
-                }
-            },
-            "license": [
-                "proprietary"
-            ],
-            "description": "Proaction module: autonomous scheduled agent tasks",
             "transport-options": {
                 "symlink": true,
                 "relative": true
@@ -8667,16 +8634,16 @@
         },
         {
             "name": "webmozart/assert",
-            "version": "2.1.3",
+            "version": "2.1.5",
             "source": {
                 "type": "git",
                 "url": "https://github.com/webmozarts/assert.git",
-                "reference": "6976757ba8dd70bf8cbaea0914ad84d8b51a9f46"
+                "reference": "79155f94852fa27e2f73b459f6503f5e87e2c188"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/webmozarts/assert/zipball/6976757ba8dd70bf8cbaea0914ad84d8b51a9f46",
-                "reference": "6976757ba8dd70bf8cbaea0914ad84d8b51a9f46",
+                "url": "https://api.github.com/repos/webmozarts/assert/zipball/79155f94852fa27e2f73b459f6503f5e87e2c188",
+                "reference": "79155f94852fa27e2f73b459f6503f5e87e2c188",
                 "shasum": ""
             },
             "require": {
@@ -8723,9 +8690,9 @@
             ],
             "support": {
                 "issues": "https://github.com/webmozarts/assert/issues",
-                "source": "https://github.com/webmozarts/assert/tree/2.1.3"
+                "source": "https://github.com/webmozarts/assert/tree/2.1.5"
             },
-            "time": "2026-02-13T21:01:40+00:00"
+            "time": "2026-02-18T14:09:36+00:00"
         },
         {
             "name": "willdurand/negotiation",
@@ -9545,16 +9512,16 @@
         },
         {
             "name": "phpstan/phpstan-doctrine",
-            "version": "2.0.16",
+            "version": "2.0.17",
             "source": {
                 "type": "git",
                 "url": "https://github.com/phpstan/phpstan-doctrine.git",
-                "reference": "f4ff6084a26d91174b3f0b047589af293a893104"
+                "reference": "734ef36c2709b51943f04aacadddb76f239562d3"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpstan/phpstan-doctrine/zipball/f4ff6084a26d91174b3f0b047589af293a893104",
-                "reference": "f4ff6084a26d91174b3f0b047589af293a893104",
+                "url": "https://api.github.com/repos/phpstan/phpstan-doctrine/zipball/734ef36c2709b51943f04aacadddb76f239562d3",
+                "reference": "734ef36c2709b51943f04aacadddb76f239562d3",
                 "shasum": ""
             },
             "require": {
@@ -9615,9 +9582,9 @@
             ],
             "support": {
                 "issues": "https://github.com/phpstan/phpstan-doctrine/issues",
-                "source": "https://github.com/phpstan/phpstan-doctrine/tree/2.0.16"
+                "source": "https://github.com/phpstan/phpstan-doctrine/tree/2.0.17"
             },
-            "time": "2026-02-11T08:54:45+00:00"
+            "time": "2026-02-18T10:21:23+00:00"
         },
         {
             "name": "phpstan/phpstan-symfony",
@@ -10041,16 +10008,16 @@
         },
         {
             "name": "phpunit/phpunit",
-            "version": "12.5.11",
+            "version": "12.5.14",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sebastianbergmann/phpunit.git",
-                "reference": "9b518cb40f9474572c9f0178e96ff3dc1cf02bf1"
+                "reference": "47283cfd98d553edcb1353591f4e255dc1bb61f0"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sebastianbergmann/phpunit/zipball/9b518cb40f9474572c9f0178e96ff3dc1cf02bf1",
-                "reference": "9b518cb40f9474572c9f0178e96ff3dc1cf02bf1",
+                "url": "https://api.github.com/repos/sebastianbergmann/phpunit/zipball/47283cfd98d553edcb1353591f4e255dc1bb61f0",
+                "reference": "47283cfd98d553edcb1353591f4e255dc1bb61f0",
                 "shasum": ""
             },
             "require": {
@@ -10119,7 +10086,7 @@
             "support": {
                 "issues": "https://github.com/sebastianbergmann/phpunit/issues",
                 "security": "https://github.com/sebastianbergmann/phpunit/security/policy",
-                "source": "https://github.com/sebastianbergmann/phpunit/tree/12.5.11"
+                "source": "https://github.com/sebastianbergmann/phpunit/tree/12.5.14"
             },
             "funding": [
                 {
@@ -10143,7 +10110,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-02-10T12:32:02+00:00"
+            "time": "2026-02-18T12:38:40+00:00"
         },
         {
             "name": "sebastian/cli-parser",
@@ -11627,8 +11594,7 @@
         "maggie/calendar": 20,
         "maggie/core": 20,
         "maggie/memory": 20,
-        "maggie/notification": 20,
-        "maggie/proaction": 20
+        "maggie/notification": 20
     },
     "prefer-stable": true,
     "prefer-lowest": false,

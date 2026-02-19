@@ -54,7 +54,10 @@ class LLMGateway:
             return []
 
     async def proaction(self, prompt: str, user_id: str) -> dict:
-        """Execute a proaction prompt without conversation memory."""
+        """Execute a proaction prompt without conversation memory.
+
+        Native tools (schedule_proaction, list_proactions) are available here.
+        """
         if self.client is None:
             return {
                 "response": "AI service is not configured.",
@@ -68,11 +71,13 @@ class LLMGateway:
         )
 
         messages = [{"role": "user", "content": prompt}]
-        tools = await self.tool_router.get_tool_definitions()
+        tools = await self.tool_router.get_tool_definitions(include_native=True)
         tool_calls_made = []
 
         try:
-            return await self._run_tool_loop(system_prompt, messages, tools, tool_calls_made)
+            return await self._run_tool_loop(
+                system_prompt, messages, tools, tool_calls_made, user_id=user_id
+            )
         except anthropic.APIStatusError as e:
             logger.error(f"Proaction API error: {e.message}")
             return {"response": f"AI service error: {e.message}", "tool_calls": []}
@@ -100,8 +105,8 @@ class LLMGateway:
         else:
             messages.append({"role": "user", "content": message})
 
-        # Get available tools from MCP
-        tools = await self.tool_router.get_tool_definitions()
+        # Get available tools from MCP (no native tools for chat — they're internal)
+        tools = await self.tool_router.get_tool_definitions(include_native=False)
 
         # Call Claude
         tool_calls_made = []
@@ -109,7 +114,7 @@ class LLMGateway:
         try:
             system_prompt = await self._build_system_prompt(user_id)
             result = await self._run_tool_loop(
-                system_prompt, messages, tools, tool_calls_made
+                system_prompt, messages, tools, tool_calls_made, user_id=user_id
             )
             return result
         except anthropic.APIStatusError as e:
@@ -126,7 +131,13 @@ class LLMGateway:
             }
 
     async def _run_tool_loop(
-        self, system_prompt: str, messages: list, tools: list, tool_calls_made: list, max_iterations: int = 5
+        self,
+        system_prompt: str,
+        messages: list,
+        tools: list,
+        tool_calls_made: list,
+        max_iterations: int = 5,
+        user_id: str | None = None,
     ) -> dict:
         for _ in range(max_iterations):
             logger.info(f"Calling Claude with {len(tools)} tools, {len(messages)} messages")
@@ -147,7 +158,9 @@ class LLMGateway:
                 for block in assistant_content:
                     if block.type == "tool_use":
                         logger.info(f"Tool call: {block.name}({block.input})")
-                        result = await self.tool_router.call_tool(block.name, block.input)
+                        result = await self.tool_router.call_tool(
+                            block.name, block.input, user_id=user_id
+                        )
                         tool_calls_made.append({"name": block.name, "input": block.input, "result": result})
                         tool_results.append(
                             {

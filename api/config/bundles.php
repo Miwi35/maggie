@@ -12,7 +12,6 @@ return [
     Maggie\Calendar\MaggieCalendarBundle::class => ['all' => true],
     Maggie\Core\MaggieCoreBundle::class => ['all' => true],
     Maggie\Memory\MaggieMemoryBundle::class => ['all' => true],
-    Maggie\Proaction\MaggieProactionBundle::class => ['all' => true],
     Maggie\Notification\MaggieNotificationBundle::class => ['all' => true],
     Symfony\AI\McpBundle\McpBundle::class => ['all' => true],
     Nelmio\Alice\Bridge\Symfony\NelmioAliceBundle::class => ['dev' => true, 'test' => true],

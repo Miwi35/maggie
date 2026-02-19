@@ -32,10 +32,6 @@ framework:
             'Maggie\Memory\Message\StoreMemoryCommand': sync
             'Maggie\Memory\Message\UpdateMemoryCommand': sync
             'Maggie\Memory\Message\DeleteMemoryCommand': sync
-            'Maggie\Proaction\Message\CreateProactionCommand': sync
-            'Maggie\Proaction\Message\UpdateProactionCommand': sync
-            'Maggie\Proaction\Message\DeleteProactionCommand': sync
-            'Maggie\Proaction\Message\ExecuteProactionMessage': async
             'Maggie\Notification\Message\CreateNotificationCommand': sync
             'Maggie\Notification\Message\MarkNotificationReadCommand': sync
             'Maggie\Notification\Message\DeleteNotificationCommand': sync

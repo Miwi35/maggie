@@ -13,7 +13,6 @@ mcp:
             - 'modules/calendar/src'
             - 'modules/core/src'
             - 'modules/memory/src'
-            - 'modules/proaction/src'
 
     client_transports:
         stdio: false

@@ -31,15 +31,16 @@ export const ChatWidget = ({ open, onClose, onUnread }: ChatWidgetProps) => {
 
   // Subscribe to Mercure SSE for real-time responses
   useEffect(() => {
+    const userStr = localStorage.getItem('user')
+    const userId = userStr ? JSON.parse(userStr).id : 'default'
     const url = new URL(MERCURE_URL)
-    url.searchParams.append('topic', '/agent/chat/default')
+    url.searchParams.append('topic', `/agent/chat/${userId}`)
 
     const eventSource = new EventSource(url.toString())
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
-        // Only handle proaction messages from Mercure (chat uses HTTP response)
-        if (data.proaction && data.response) {
+        if (data.response) {
           setMessages((prev) => [...prev, { role: 'assistant', content: data.response }])
           if (!open) {
             onUnread()
@@ -67,10 +68,14 @@ export const ChatWidget = ({ open, onClose, onUnread }: ChatWidgetProps) => {
     setLoading(true)
 
     try {
+      const token = localStorage.getItem('token')
       const response = await fetch(AGENT_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMessage, user_id: 'default' }),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ message: userMessage }),
       })
 
       if (response.ok) {
