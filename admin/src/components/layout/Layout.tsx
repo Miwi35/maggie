@@ -1,7 +1,7 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { Layout as RALayout, LayoutProps } from 'react-admin'
 import Box from '@mui/material/Box'
-import { ChatWidget } from '../chat/ChatWidget'
+import { ChatWidget, ChatWidgetRef } from '../chat/ChatWidget'
 import { CustomAppBar } from './AppBar'
 import { CustomMenu } from './Menu'
 
@@ -10,6 +10,7 @@ const SIDEBAR_WIDTH = 380
 export const Layout = (props: LayoutProps) => {
   const [chatOpen, setChatOpen] = useState(false)
   const [unreadChat, setUnreadChat] = useState(false)
+  const chatRef = useRef<ChatWidgetRef>(null)
 
   const handleChatToggle = useCallback(() => {
     setChatOpen((prev) => {
@@ -25,6 +26,20 @@ export const Layout = (props: LayoutProps) => {
   const handleUnread = useCallback(() => {
     setUnreadChat(true)
   }, [])
+
+  const handleVoiceMessage = useCallback(
+    (text: string) => {
+      if (!chatOpen) {
+        setChatOpen(true)
+        setUnreadChat(false)
+      }
+      // Small delay to ensure drawer is open and ref is mounted
+      setTimeout(() => {
+        chatRef.current?.sendMessage(text)
+      }, 100)
+    },
+    [chatOpen],
+  )
 
   return (
     <Box sx={{ display: 'flex' }}>
@@ -43,11 +58,12 @@ export const Layout = (props: LayoutProps) => {
               chatOpen={chatOpen}
               onChatToggle={handleChatToggle}
               unreadChat={unreadChat}
+              onVoiceMessage={handleVoiceMessage}
             />
           )}
         />
       </Box>
-      <ChatWidget open={chatOpen} onClose={handleChatClose} onUnread={handleUnread} />
+      <ChatWidget ref={chatRef} open={chatOpen} onClose={handleChatClose} onUnread={handleUnread} />
     </Box>
   )
 }

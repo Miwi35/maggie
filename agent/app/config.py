@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     # LLM
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-5-20250929"
+    openai_api_key: str = ""
 
     # MCP Server
     mcp_server_url: str = "http://nginx/_mcp"

@@ -1,12 +1,13 @@
 import logging
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 
 from app.auth import get_current_user_id
 from app.db.message_repository import message_repo
 from app.db.proaction_repository import proaction_repo
 from app.llm.gateway import LLMGateway
+from app.llm.transcription import transcribe_audio
 
 logger = logging.getLogger(__name__)
 
@@ -110,3 +111,19 @@ async def update_personality(
     """Update personality configuration and reload."""
     updates = data.model_dump(exclude_none=True)
     return llm_gateway.personality.update_config(updates)
+
+
+MAX_AUDIO_SIZE = 25 * 1024 * 1024  # 25 MB (Whisper limit)
+
+
+@router.post("/transcribe")
+async def transcribe(audio: UploadFile, _user_id: str = Depends(get_current_user_id)):
+    """Transcribe audio via Whisper STT + Claude cleanup."""
+    contents = await audio.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail="Empty audio file")
+    if len(contents) > MAX_AUDIO_SIZE:
+        raise HTTPException(status_code=400, detail="Audio file exceeds 25 MB limit")
+
+    result = await transcribe_audio(contents, audio.filename or "audio.webm")
+    return result

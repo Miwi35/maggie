@@ -3,6 +3,26 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ChatWidget } from './ChatWidget'
 
+// Mock voice hooks to avoid MediaRecorder issues in tests
+vi.mock('../../hooks/useVoiceRecorder', () => ({
+  useVoiceRecorder: () => ({
+    state: 'idle' as const,
+    duration: 0,
+    error: null,
+    startRecording: vi.fn(),
+    stopRecording: vi.fn(),
+    cancelRecording: vi.fn(),
+    resetState: vi.fn(),
+  }),
+}))
+vi.mock('../../hooks/useTranscription', () => ({
+  useTranscription: () => ({
+    transcribe: vi.fn(),
+    loading: false,
+    error: null,
+  }),
+}))
+
 // Mock EventSource globally before any render
 class MockEventSource {
   onmessage: ((event: MessageEvent) => void) | null = null
@@ -60,7 +80,7 @@ describe('ChatWidget', () => {
     expect(fetch).toHaveBeenCalledWith('/agent/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: 'Hello Maggie', user_id: 'default' }),
+      body: JSON.stringify({ message: 'Hello Maggie' }),
     })
 
     // Verify assistant response appears
