@@ -16,6 +16,12 @@ use Maggie\Core\Entity\User;
 use Maggie\Calendar\State\CreateAgendaProcessor;
 use Maggie\Calendar\State\DeleteAgendaProcessor;
 use Maggie\Calendar\State\UpdateAgendaProcessor;
+use Maggie\Core\Contract\IndexableInterface;
+use Maggie\Core\Elasticsearch\Attribute\Indexed;
+use Maggie\Core\Elasticsearch\Attribute\IndexedField;
+use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
+use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
+use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
@@ -24,14 +30,15 @@ use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: AgendaRepository::class)]
+#[Indexed(index: 'agendas', module: 'calendar')]
 #[ApiResource(operations: [
-    new GetCollection(),
-    new Get(),
+    new GetCollection(provider: ElasticsearchCollectionProvider::class),
+    new Get(provider: ElasticsearchItemProvider::class),
     new Post(processor: CreateAgendaProcessor::class),
     new Patch(processor: UpdateAgendaProcessor::class),
     new Delete(processor: DeleteAgendaProcessor::class),
 ])]
-class Agenda implements MercurePublishable, OwnedByUserInterface
+class Agenda implements MercurePublishable, OwnedByUserInterface, IndexableInterface
 {
     use HasGoogleCalendarSyncTrait;
 
@@ -41,9 +48,11 @@ class Agenda implements MercurePublishable, OwnedByUserInterface
 
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank]
+    #[IndexedField(type: 'text', boost: 2.0)]
     private string $name;
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
+    #[IndexedField(type: 'text')]
     private ?string $description = null;
 
     #[ORM\Column(length: 50, options: ['default' => 'Europe/Paris'])]
@@ -57,6 +66,7 @@ class Agenda implements MercurePublishable, OwnedByUserInterface
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
+    #[IndexedRelation(targetEntity: User::class, sourceField: 'userId')]
     private User $user;
 
     /** @var Collection<int, Event> */
@@ -167,6 +177,19 @@ class Agenda implements MercurePublishable, OwnedByUserInterface
         $this->events->removeElement($event);
 
         return $this;
+    }
+
+    /** @return array<string, mixed> */
+    public function toSearchDocument(): array
+    {
+        return [
+            'name' => $this->name,
+            'description' => $this->description,
+            'color' => $this->color,
+            'timeZone' => $this->timeZone,
+            'isDefault' => $this->isDefault,
+            'userId' => (string) $this->user->getId(),
+        ];
     }
 
     public function toMercurePayload(): array

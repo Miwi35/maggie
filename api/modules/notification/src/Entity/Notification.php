@@ -12,7 +12,13 @@ use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use Maggie\Calendar\Contract\MercurePublishable;
+use Maggie\Core\Contract\IndexableInterface;
 use Maggie\Core\Contract\OwnedByUserInterface;
+use Maggie\Core\Elasticsearch\Attribute\Indexed;
+use Maggie\Core\Elasticsearch\Attribute\IndexedField;
+use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
+use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
+use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Entity\User;
 use Maggie\Notification\Repository\NotificationRepository;
 use Maggie\Notification\State\CreateNotificationProcessor;
@@ -26,15 +32,16 @@ use Symfony\Component\Uid\Ulid;
 #[ORM\Index(columns: ['user_id', 'read_at'], name: 'idx_notification_user_read')]
 #[ORM\Index(columns: ['created_at'], name: 'idx_notification_created')]
 #[ApiFilter(ExistsFilter::class, properties: ['readAt'])]
+#[Indexed(index: 'notifications', module: 'notification')]
 #[ApiResource(
     operations: [
-        new GetCollection(order: ['createdAt' => 'DESC']),
-        new Get(),
+        new GetCollection(order: ['createdAt' => 'DESC'], provider: ElasticsearchCollectionProvider::class),
+        new Get(provider: ElasticsearchItemProvider::class),
         new Patch(processor: MarkReadProcessor::class),
         new Delete(processor: DeleteNotificationProcessor::class),
     ],
 )]
-class Notification implements OwnedByUserInterface, MercurePublishable
+class Notification implements OwnedByUserInterface, MercurePublishable, IndexableInterface
 {
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
@@ -42,24 +49,30 @@ class Notification implements OwnedByUserInterface, MercurePublishable
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
+    #[IndexedRelation(targetEntity: User::class, sourceField: 'userId')]
     private User $user;
 
     #[ORM\Column(length: 20, enumType: NotificationType::class)]
+    #[IndexedField(type: 'keyword')]
     private NotificationType $type;
 
     #[ORM\Column(length: 255)]
+    #[IndexedField(type: 'text', boost: 2.0)]
     private string $title;
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
+    #[IndexedField(type: 'text')]
     private ?string $body = null;
 
     #[ORM\Column(length: 500, nullable: true)]
     private ?string $relatedEntityIri = null;
 
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
+    #[IndexedField(type: 'date')]
     private ?\DateTimeImmutable $readAt = null;
 
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE)]
+    #[IndexedField(type: 'date')]
     private \DateTimeImmutable $createdAt;
 
     public function __construct()
@@ -148,6 +161,20 @@ class Notification implements OwnedByUserInterface, MercurePublishable
     public function getCreatedAt(): \DateTimeImmutable
     {
         return $this->createdAt;
+    }
+
+    /** @return array<string, mixed> */
+    public function toSearchDocument(): array
+    {
+        return [
+            'title' => $this->title,
+            'body' => $this->body,
+            'type' => $this->type->value,
+            'createdAt' => $this->createdAt->format('c'),
+            'readAt' => $this->readAt?->format('c'),
+            'relatedEntityIri' => $this->relatedEntityIri,
+            'userId' => (string) $this->user->getId(),
+        ];
     }
 
     /** @return array<string, mixed> */

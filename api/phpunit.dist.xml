@@ -24,6 +24,12 @@
         </testsuite>
     </testsuites>
 
+    <groups>
+        <exclude>
+            <group>elasticsearch</group>
+        </exclude>
+    </groups>
+
     <source>
         <include>
             <directory>src/</directory>

@@ -16,7 +16,13 @@ use Maggie\Cookbook\Repository\GroceryListRepository;
 use Maggie\Cookbook\State\CreateGroceryListProcessor;
 use Maggie\Cookbook\State\DeleteGroceryListProcessor;
 use Maggie\Cookbook\State\UpdateGroceryListProcessor;
+use Maggie\Core\Contract\IndexableInterface;
 use Maggie\Core\Contract\OwnedByUserInterface;
+use Maggie\Core\Elasticsearch\Attribute\Indexed;
+use Maggie\Core\Elasticsearch\Attribute\IndexedField;
+use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
+use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
+use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Entity\User;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -25,27 +31,31 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Ulid;
 
 #[ORM\Entity(repositoryClass: GroceryListRepository::class)]
+#[Indexed(index: 'grocery_lists', module: 'cookbook')]
 #[ApiResource(operations: [
-    new GetCollection(),
-    new Get(),
+    new GetCollection(provider: ElasticsearchCollectionProvider::class),
+    new Get(provider: ElasticsearchItemProvider::class),
     new Post(processor: CreateGroceryListProcessor::class),
     new Patch(processor: UpdateGroceryListProcessor::class),
     new Delete(processor: DeleteGroceryListProcessor::class),
 ])]
-class GroceryList implements MercurePublishable, OwnedByUserInterface
+class GroceryList implements MercurePublishable, OwnedByUserInterface, IndexableInterface
 {
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
     private Ulid $id;
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE)]
+    #[IndexedField(type: 'date')]
     private \DateTimeImmutable $weekStart;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
+    #[IndexedRelation(targetEntity: User::class, sourceField: 'userId')]
     private User $user;
 
     #[ORM\Column(length: 20, enumType: GroceryListStatus::class, options: ['default' => 'draft'])]
+    #[IndexedField(type: 'keyword')]
     private GroceryListStatus $status = GroceryListStatus::Draft;
 
     /** @var Collection<int, GroceryItem> */
@@ -145,6 +155,26 @@ class GroceryList implements MercurePublishable, OwnedByUserInterface
         $this->updatedAt = $updatedAt;
 
         return $this;
+    }
+
+    /** @return array<string, mixed> */
+    public function toSearchDocument(): array
+    {
+        return [
+            'weekStart' => $this->weekStart->format('Y-m-d'),
+            'status' => $this->status->value,
+            'createdAt' => $this->createdAt->format('c'),
+            'updatedAt' => $this->updatedAt->format('c'),
+            'userId' => (string) $this->user->getId(),
+            'items' => $this->items->map(fn (GroceryItem $item) => [
+                'productId' => $item->getProduct() !== null ? (string) $item->getProduct()->getId() : null,
+                'customLabel' => $item->getCustomLabel(),
+                'quantity' => $item->getQuantity(),
+                'unit' => $item->getUnit()?->value,
+                'checked' => $item->isChecked(),
+                'source' => $item->getSource()->value,
+            ])->toArray(),
+        ];
     }
 
     public function toMercurePayload(): array

@@ -65,3 +65,21 @@ tasks:
     desc: Run PHPStan static analysis
     cmds:
       - docker compose -f {{.COMPOSE_FILE}} exec php vendor/bin/phpstan analyse
+
+  # ===========================================================================
+  # Elasticsearch
+  # ===========================================================================
+  es:reindex:
+    desc: Reindex all entities into Elasticsearch
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} exec php bin/console app:elasticsearch:reindex --all
+
+  es:status:
+    desc: Show Elasticsearch index status
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} exec php bin/console app:elasticsearch:status
+
+  es:mapping:
+    desc: Create or update Elasticsearch index mappings
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} exec php bin/console app:elasticsearch:mapping:update --all

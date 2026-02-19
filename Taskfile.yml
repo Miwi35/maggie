@@ -25,6 +25,16 @@ tasks:
     cmds:
       - docker compose --profile dev up -d
 
+  up:search:
+    desc: Start all containers including Elasticsearch
+    cmds:
+      - docker compose --profile search up -d
+
+  up:all:
+    desc: Start all containers including dev and search services
+    cmds:
+      - docker compose --profile dev --profile search up -d
+
   down:
     desc: Stop all containers
     cmds:

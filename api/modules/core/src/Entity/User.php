@@ -8,6 +8,9 @@ use ApiPlatform\Metadata\Patch;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Maggie\Calendar\Contract\MercurePublishable;
+use Maggie\Core\Contract\IndexableInterface;
+use Maggie\Core\Elasticsearch\Attribute\Indexed;
+use Maggie\Core\Elasticsearch\Attribute\IndexedField;
 use Maggie\Core\Repository\UserRepository;
 use Maggie\Core\State\UpdateUserProcessor;
 use Maggie\Core\State\UserItemProvider;
@@ -18,12 +21,13 @@ use Symfony\Component\Uid\Ulid;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: '"user"')]
+#[Indexed(index: 'users', module: 'core')]
 #[ApiResource(operations: [
     new Get(requirements: ['id' => '[0-9A-HJKMNP-TV-Z]{26}']),
     new Get(name: 'me', uriTemplate: '/users/me', provider: UserItemProvider::class),
     new Patch(processor: UpdateUserProcessor::class),
 ])]
-class User implements UserInterface, MercurePublishable
+class User implements UserInterface, MercurePublishable, IndexableInterface
 {
     use HasGoogleOAuthTokensTrait;
 
@@ -32,12 +36,14 @@ class User implements UserInterface, MercurePublishable
     private Ulid $id;
 
     #[ORM\Column(length: 255, unique: true)]
+    #[IndexedField(type: 'text', boost: 2.0, keyword: true)]
     private string $email;
 
     #[ORM\Column(length: 255, unique: true)]
     private string $googleId;
 
     #[ORM\Column(length: 255)]
+    #[IndexedField(type: 'text', boost: 2.0)]
     private string $name;
 
     #[ORM\Column(length: 512, nullable: true)]
@@ -159,6 +165,18 @@ class User implements UserInterface, MercurePublishable
     public function hasGoogleCalendarTokens(): bool
     {
         return $this->googleRefreshToken !== null;
+    }
+
+    /** @return array<string, mixed> */
+    public function toSearchDocument(): array
+    {
+        return [
+            'email' => $this->email,
+            'name' => $this->name,
+            'avatar' => $this->avatar,
+            'roles' => $this->getRoles(),
+            'googleId' => $this->googleId,
+        ];
     }
 
     /** @return array<string, mixed> */

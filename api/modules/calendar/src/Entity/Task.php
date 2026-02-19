@@ -15,7 +15,13 @@ use ApiPlatform\Metadata\Post;
 use Maggie\Calendar\Contract\MercurePublishable;
 use Maggie\Calendar\Repository\TaskRepository;
 use Maggie\Calendar\Trait\HasGoogleTaskTrackingTrait;
+use Maggie\Core\Contract\IndexableInterface;
 use Maggie\Core\Contract\OwnedByUserInterface;
+use Maggie\Core\Elasticsearch\Attribute\Indexed;
+use Maggie\Core\Elasticsearch\Attribute\IndexedField;
+use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
+use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
+use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Entity\User;
 use Maggie\Calendar\State\CreateTaskProcessor;
 use Maggie\Calendar\State\DeleteTaskProcessor;
@@ -31,14 +37,15 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ApiFilter(DateFilter::class, properties: ['dueDate'])]
 #[ApiFilter(ExistsFilter::class, properties: ['completedAt', 'dueDate'])]
 #[ApiFilter(SearchFilter::class, properties: ['priority' => 'exact', 'criticality' => 'exact'])]
+#[Indexed(index: 'tasks', module: 'calendar')]
 #[ApiResource(operations: [
-    new GetCollection(),
-    new Get(),
+    new GetCollection(provider: ElasticsearchCollectionProvider::class),
+    new Get(provider: ElasticsearchItemProvider::class),
     new Post(processor: CreateTaskProcessor::class),
     new Patch(processor: UpdateTaskProcessor::class),
     new Delete(processor: DeleteTaskProcessor::class),
 ])]
-class Task implements MercurePublishable, OwnedByUserInterface
+class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterface
 {
     use HasGoogleTaskTrackingTrait;
 
@@ -48,25 +55,32 @@ class Task implements MercurePublishable, OwnedByUserInterface
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
+    #[IndexedRelation(targetEntity: User::class, sourceField: 'userId')]
     private User $user;
 
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank]
+    #[IndexedField(type: 'text', boost: 3.0)]
     private string $title;
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
+    #[IndexedField(type: 'text')]
     private ?string $description = null;
 
     #[ORM\Column(length: 20, enumType: TaskPriority::class, options: ['default' => 'medium'])]
+    #[IndexedField(type: 'keyword')]
     private TaskPriority $priority = TaskPriority::Medium;
 
     #[ORM\Column(length: 20, enumType: TaskCriticality::class, options: ['default' => 'low'])]
+    #[IndexedField(type: 'keyword')]
     private TaskCriticality $criticality = TaskCriticality::Low;
 
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
+    #[IndexedField(type: 'date')]
     private ?\DateTimeImmutable $dueDate = null;
 
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
+    #[IndexedField(type: 'date')]
     private ?\DateTimeImmutable $completedAt = null;
 
     public function __construct()
@@ -166,6 +180,20 @@ class Task implements MercurePublishable, OwnedByUserInterface
     public function isDone(): bool
     {
         return $this->completedAt !== null;
+    }
+
+    /** @return array<string, mixed> */
+    public function toSearchDocument(): array
+    {
+        return [
+            'title' => $this->title,
+            'description' => $this->description,
+            'dueDate' => $this->dueDate?->format('c'),
+            'completedAt' => $this->completedAt?->format('c'),
+            'priority' => $this->priority->value,
+            'criticality' => $this->criticality->value,
+            'userId' => (string) $this->user->getId(),
+        ];
     }
 
     public function toMercurePayload(): array

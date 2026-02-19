@@ -6,6 +6,7 @@ framework:
             messenger.bus.default:
                 middleware:
                     - 'Maggie\Calendar\Middleware\MercurePublishMiddleware'
+                    - 'Maggie\Core\Elasticsearch\Middleware\ElasticsearchIndexMiddleware'
 
         transports:
             async: '%env(MESSENGER_TRANSPORT_DSN)%'
@@ -53,6 +54,8 @@ framework:
             'Maggie\Cookbook\Message\CreateRecurringGroceryItemCommand': sync
             'Maggie\Cookbook\Message\UpdateRecurringGroceryItemCommand': sync
             'Maggie\Cookbook\Message\DeleteRecurringGroceryItemCommand': sync
+            'Maggie\Core\Elasticsearch\Message\IndexDocumentCommand': async
+            'Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand': async
 
 when@test:
     framework:

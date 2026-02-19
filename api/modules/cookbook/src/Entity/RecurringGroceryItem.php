@@ -16,20 +16,27 @@ use Maggie\Cookbook\Repository\RecurringGroceryItemRepository;
 use Maggie\Cookbook\State\CreateRecurringGroceryItemProcessor;
 use Maggie\Cookbook\State\DeleteRecurringGroceryItemProcessor;
 use Maggie\Cookbook\State\UpdateRecurringGroceryItemProcessor;
+use Maggie\Core\Contract\IndexableInterface;
 use Maggie\Core\Contract\OwnedByUserInterface;
+use Maggie\Core\Elasticsearch\Attribute\Indexed;
+use Maggie\Core\Elasticsearch\Attribute\IndexedField;
+use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
+use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
+use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Entity\User;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Ulid;
 
 #[ORM\Entity(repositoryClass: RecurringGroceryItemRepository::class)]
+#[Indexed(index: 'recurring_grocery_items', module: 'cookbook')]
 #[ApiResource(operations: [
-    new GetCollection(),
-    new Get(),
+    new GetCollection(provider: ElasticsearchCollectionProvider::class),
+    new Get(provider: ElasticsearchItemProvider::class),
     new Post(processor: CreateRecurringGroceryItemProcessor::class),
     new Patch(processor: UpdateRecurringGroceryItemProcessor::class),
     new Delete(processor: DeleteRecurringGroceryItemProcessor::class),
 ])]
-class RecurringGroceryItem implements OwnedByUserInterface
+class RecurringGroceryItem implements OwnedByUserInterface, IndexableInterface
 {
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
@@ -37,22 +44,28 @@ class RecurringGroceryItem implements OwnedByUserInterface
 
     #[ORM\ManyToOne(targetEntity: Product::class)]
     #[ORM\JoinColumn(nullable: true)]
+    #[IndexedRelation(targetEntity: Product::class, sourceField: 'productId')]
     private ?Product $product = null;
 
     #[ORM\Column(length: 255, nullable: true)]
+    #[IndexedField(type: 'text')]
     private ?string $customLabel = null;
 
     #[ORM\Column(type: 'float', nullable: true)]
+    #[IndexedField(type: 'float')]
     private ?float $quantity = null;
 
     #[ORM\Column(length: 20, nullable: true, enumType: Unit::class)]
+    #[IndexedField(type: 'keyword')]
     private ?Unit $unit = null;
 
     #[ORM\Column(length: 20, enumType: RecurringFrequency::class)]
+    #[IndexedField(type: 'keyword')]
     private RecurringFrequency $frequency;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
+    #[IndexedRelation(targetEntity: User::class, sourceField: 'userId')]
     private User $user;
 
     public function __construct()
@@ -140,5 +153,18 @@ class RecurringGroceryItem implements OwnedByUserInterface
         $this->user = $user;
 
         return $this;
+    }
+
+    /** @return array<string, mixed> */
+    public function toSearchDocument(): array
+    {
+        return [
+            'customLabel' => $this->customLabel,
+            'frequency' => $this->frequency->value,
+            'quantity' => $this->quantity,
+            'unit' => $this->unit?->value,
+            'userId' => (string) $this->user->getId(),
+            'productId' => $this->product !== null ? (string) $this->product->getId() : null,
+        ];
     }
 }

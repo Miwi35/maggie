@@ -19,15 +19,20 @@ use Maggie\Cookbook\Repository\MealRepository;
 use Maggie\Cookbook\State\CreateMealProcessor;
 use Maggie\Cookbook\State\DeleteMealProcessor;
 use Maggie\Cookbook\State\UpdateMealProcessor;
+use Maggie\Core\Elasticsearch\Attribute\Indexed;
+use Maggie\Core\Elasticsearch\Attribute\IndexedField;
+use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
+use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: MealRepository::class)]
 #[ApiFilter(DateFilter::class, properties: ['startAt'])]
+#[Indexed(index: 'meals', module: 'cookbook')]
 #[ApiResource(operations: [
-    new GetCollection(),
-    new Get(),
+    new GetCollection(provider: ElasticsearchCollectionProvider::class),
+    new Get(provider: ElasticsearchItemProvider::class),
     new Post(processor: CreateMealProcessor::class),
     new Patch(processor: UpdateMealProcessor::class),
     new Delete(processor: DeleteMealProcessor::class),
@@ -35,6 +40,7 @@ use Doctrine\ORM\Mapping as ORM;
 class Meal extends Event implements MercurePublishable
 {
     #[ORM\Column(length: 10, enumType: MealSlot::class)]
+    #[IndexedField(type: 'keyword')]
     private MealSlot $slot;
 
     /** @var Collection<int, Recipe> */
@@ -80,6 +86,16 @@ class Meal extends Event implements MercurePublishable
         $this->recipes->removeElement($recipe);
 
         return $this;
+    }
+
+    /** @return array<string, mixed> */
+    public function toSearchDocument(): array
+    {
+        $doc = parent::toSearchDocument();
+        $doc['slot'] = $this->slot->value;
+        $doc['recipeIds'] = $this->recipes->map(fn (Recipe $r) => (string) $r->getId())->toArray();
+
+        return $doc;
     }
 
     public function toMercurePayload(): array

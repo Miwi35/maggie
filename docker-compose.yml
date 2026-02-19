@@ -57,6 +57,7 @@ services:
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
       ADMIN_URL: ${ADMIN_URL}
       SERVICE_TOKEN: ${SERVICE_TOKEN}
+      ELASTICSEARCH_URL: ${ELASTICSEARCH_URL:-http://elasticsearch:9200}
 
     depends_on:
       database:
@@ -209,6 +210,7 @@ services:
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
       ADMIN_URL: ${ADMIN_URL}
       SERVICE_TOKEN: ${SERVICE_TOKEN}
+      ELASTICSEARCH_URL: ${ELASTICSEARCH_URL:-http://elasticsearch:9200}
 
     depends_on:
       database:
@@ -249,6 +251,7 @@ services:
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
       ADMIN_URL: ${ADMIN_URL}
       SERVICE_TOKEN: ${SERVICE_TOKEN}
+      ELASTICSEARCH_URL: ${ELASTICSEARCH_URL:-http://elasticsearch:9200}
 
     depends_on:
       database:
@@ -260,6 +263,28 @@ services:
     restart: unless-stopped
     networks:
       - maggie
+
+  # ===========================================================================
+  # Elasticsearch (Full-text search)
+  # ===========================================================================
+  elasticsearch:
+    image: elasticsearch:8.17.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - maggie
+    profiles:
+      - search
 
   # ===========================================================================
   # Python Agent Hub (FastAPI)
@@ -311,3 +336,4 @@ networks:
 volumes:
   postgres_data:
   rabbitmq_data:
+  elasticsearch_data:

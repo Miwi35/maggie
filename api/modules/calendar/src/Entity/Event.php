@@ -14,7 +14,13 @@ use ApiPlatform\Metadata\Post;
 use Maggie\Calendar\Contract\MercurePublishable;
 use Maggie\Calendar\Repository\EventRepository;
 use Maggie\Calendar\Trait\HasGoogleEventTrackingTrait;
+use Maggie\Core\Contract\IndexableInterface;
 use Maggie\Core\Contract\OwnedThroughInterface;
+use Maggie\Core\Elasticsearch\Attribute\Indexed;
+use Maggie\Core\Elasticsearch\Attribute\IndexedField;
+use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
+use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
+use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Calendar\State\CreateEventProcessor;
 use Maggie\Calendar\State\DeleteEventProcessor;
 use Maggie\Calendar\State\UpdateEventProcessor;
@@ -32,14 +38,15 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\UniqueConstraint(name: 'uniq_google_event_agenda', columns: ['google_event_id', 'agenda_id'])]
 #[ApiFilter(DateFilter::class, properties: ['startAt', 'endAt'])]
 #[ApiFilter(ExistsFilter::class, properties: ['rrule'])]
+#[Indexed(index: 'events', module: 'calendar')]
 #[ApiResource(operations: [
-    new GetCollection(),
-    new Get(),
+    new GetCollection(provider: ElasticsearchCollectionProvider::class),
+    new Get(provider: ElasticsearchItemProvider::class),
     new Post(processor: CreateEventProcessor::class),
     new Patch(processor: UpdateEventProcessor::class),
     new Delete(processor: DeleteEventProcessor::class),
 ])]
-class Event implements MercurePublishable, OwnedThroughInterface
+class Event implements MercurePublishable, OwnedThroughInterface, IndexableInterface
 {
     use HasGoogleEventTrackingTrait;
 
@@ -55,23 +62,29 @@ class Event implements MercurePublishable, OwnedThroughInterface
 
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank]
+    #[IndexedField(type: 'text', boost: 3.0)]
     private string $summary;
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
+    #[IndexedField(type: 'text')]
     private ?string $description = null;
 
     #[ORM\Column(length: 500, nullable: true)]
+    #[IndexedField(type: 'text', keyword: true)]
     private ?string $location = null;
 
     #[ORM\Column(options: ['default' => false])]
+    #[IndexedField(type: 'boolean')]
     private bool $allDay = false;
 
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE)]
     #[Assert\NotNull]
+    #[IndexedField(type: 'date')]
     private \DateTimeImmutable $startAt;
 
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE)]
     #[Assert\NotNull]
+    #[IndexedField(type: 'date')]
     private \DateTimeImmutable $endAt;
 
     #[ORM\Column(length: 50, options: ['default' => 'Europe/Paris'])]
@@ -79,6 +92,7 @@ class Event implements MercurePublishable, OwnedThroughInterface
 
     /** @var string|null RFC 5545 RRULE (e.g. "FREQ=WEEKLY;INTERVAL=2") */
     #[ORM\Column(length: 500, nullable: true)]
+    #[IndexedField(type: 'keyword')]
     private ?string $rrule = null;
 
     /** For exception instances: links to the parent recurring event */
@@ -91,6 +105,7 @@ class Event implements MercurePublishable, OwnedThroughInterface
     private ?\DateTimeImmutable $originalStartAt = null;
 
     #[ORM\Column(length: 20, enumType: EventStatus::class, options: ['default' => 'confirmed'])]
+    #[IndexedField(type: 'keyword')]
     private EventStatus $status = EventStatus::Confirmed;
 
     /**
@@ -103,6 +118,7 @@ class Event implements MercurePublishable, OwnedThroughInterface
     #[ORM\ManyToOne(targetEntity: Agenda::class, inversedBy: 'events')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     #[Assert\NotNull]
+    #[IndexedRelation(targetEntity: Agenda::class, sourceField: 'agendaId')]
     private Agenda $agenda;
 
     public function __construct()
@@ -281,6 +297,25 @@ class Event implements MercurePublishable, OwnedThroughInterface
     public function isException(): bool
     {
         return $this->recurringEvent !== null;
+    }
+
+    /** @return array<string, mixed> */
+    public function toSearchDocument(): array
+    {
+        return [
+            'summary' => $this->summary,
+            'description' => $this->description,
+            'location' => $this->location,
+            'allDay' => $this->allDay,
+            'startAt' => $this->startAt->format('c'),
+            'endAt' => $this->endAt->format('c'),
+            'timeZone' => $this->timeZone,
+            'rrule' => $this->rrule,
+            'status' => $this->status->value,
+            'reminders' => $this->reminders,
+            'agendaId' => (string) $this->agenda->getId(),
+            'userId' => (string) $this->agenda->getUser()->getId(),
+        ];
     }
 
     public function toMercurePayload(): array

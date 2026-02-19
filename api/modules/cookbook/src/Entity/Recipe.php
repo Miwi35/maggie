@@ -15,7 +15,13 @@ use Maggie\Cookbook\Repository\RecipeRepository;
 use Maggie\Cookbook\State\CreateRecipeProcessor;
 use Maggie\Cookbook\State\DeleteRecipeProcessor;
 use Maggie\Cookbook\State\UpdateRecipeProcessor;
+use Maggie\Core\Contract\IndexableInterface;
 use Maggie\Core\Contract\OwnedByUserInterface;
+use Maggie\Core\Elasticsearch\Attribute\Indexed;
+use Maggie\Core\Elasticsearch\Attribute\IndexedField;
+use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
+use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
+use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Entity\User;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -25,14 +31,15 @@ use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: RecipeRepository::class)]
+#[Indexed(index: 'recipes', module: 'cookbook')]
 #[ApiResource(operations: [
-    new GetCollection(),
-    new Get(),
+    new GetCollection(provider: ElasticsearchCollectionProvider::class),
+    new Get(provider: ElasticsearchItemProvider::class),
     new Post(processor: CreateRecipeProcessor::class),
     new Patch(processor: UpdateRecipeProcessor::class),
     new Delete(processor: DeleteRecipeProcessor::class),
 ])]
-class Recipe implements MercurePublishable, OwnedByUserInterface
+class Recipe implements MercurePublishable, OwnedByUserInterface, IndexableInterface
 {
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
@@ -40,21 +47,26 @@ class Recipe implements MercurePublishable, OwnedByUserInterface
 
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank]
+    #[IndexedField(type: 'text', boost: 3.0)]
     private string $name;
 
     #[ORM\Column]
     #[Assert\Positive]
+    #[IndexedField(type: 'integer')]
     private int $servings = 4;
 
     /** @var string[] */
     #[ORM\Column(type: Types::JSON)]
+    #[IndexedField(type: 'keyword')]
     private array $tags = [];
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
+    #[IndexedField(type: 'text')]
     private ?string $notes = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
+    #[IndexedRelation(targetEntity: User::class, sourceField: 'userId')]
     private User $user;
 
     /** @var Collection<int, RecipeIngredient> */
@@ -187,6 +199,25 @@ class Recipe implements MercurePublishable, OwnedByUserInterface
         $this->updatedAt = $updatedAt;
 
         return $this;
+    }
+
+    /** @return array<string, mixed> */
+    public function toSearchDocument(): array
+    {
+        return [
+            'name' => $this->name,
+            'notes' => $this->notes,
+            'tags' => $this->tags,
+            'servings' => $this->servings,
+            'createdAt' => $this->createdAt->format('c'),
+            'updatedAt' => $this->updatedAt->format('c'),
+            'userId' => (string) $this->user->getId(),
+            'ingredients' => $this->ingredients->map(fn (RecipeIngredient $ri) => [
+                'ingredientId' => (string) $ri->getIngredient()->getId(),
+                'quantity' => $ri->getQuantity(),
+                'unit' => $ri->getUnit()?->value,
+            ])->toArray(),
+        ];
     }
 
     public function toMercurePayload(): array
