@@ -14,10 +14,14 @@ import EventIcon from '@mui/icons-material/Event'
 import DateRangeIcon from '@mui/icons-material/DateRange'
 import ExpandLess from '@mui/icons-material/ExpandLess'
 import ExpandMore from '@mui/icons-material/ExpandMore'
+import SettingsIcon from '@mui/icons-material/Settings'
+import SmartToyIcon from '@mui/icons-material/SmartToy'
+import CloudIcon from '@mui/icons-material/Cloud'
 
 export const CustomMenu = () => {
   const [rawDataOpen, setRawDataOpen] = useState(false)
   const [agendaRawOpen, setAgendaRawOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [open] = useSidebarState()
 
   return (
@@ -87,6 +91,34 @@ export const CustomMenu = () => {
                   />
                 </List>
               </Collapse>
+            </List>
+          </Collapse>
+
+          <ListItemButton onClick={() => setSettingsOpen(!settingsOpen)}>
+            <ListItemIcon sx={{ minWidth: 40 }}>
+              <SettingsIcon />
+            </ListItemIcon>
+            <ListItemText
+              primary="Paramètres"
+              primaryTypographyProps={{ fontSize: 14, color: 'text.secondary' }}
+            />
+            {settingsOpen ? <ExpandLess /> : <ExpandMore />}
+          </ListItemButton>
+
+          <Collapse in={settingsOpen} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding>
+              <MenuItemLink
+                to="/settings/agent"
+                primaryText="Agent"
+                leftIcon={<SmartToyIcon />}
+                sx={{ pl: 4 }}
+              />
+              <MenuItemLink
+                to="/settings/google"
+                primaryText="Google"
+                leftIcon={<CloudIcon />}
+                sx={{ pl: 4 }}
+              />
             </List>
           </Collapse>
         </List>

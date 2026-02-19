@@ -26,7 +26,7 @@ class Settings(BaseSettings):
 
     # Auth
     service_token: str = ""
-    jwt_public_key_path: str = "/app/jwt/public.pem"
+    jwt_public_key_path: str = "/etc/jwt/public.pem"
 
     # Agent
     agent_name: str = "Maggie"

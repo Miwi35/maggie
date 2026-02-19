@@ -275,7 +275,7 @@ services:
         GID: ${GID:-1000}
     volumes:
       - ./agent:/app:cached
-      - ./api/config/jwt/public.pem:/app/jwt/public.pem:ro
+      - ./api/config/jwt/public.pem:/etc/jwt/public.pem:ro
     environment:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-haiku-4-5-20251001}

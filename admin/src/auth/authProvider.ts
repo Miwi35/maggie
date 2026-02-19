@@ -1,5 +1,14 @@
 import type { AuthProvider } from 'react-admin'
 
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    return payload.exp ? payload.exp * 1000 < Date.now() : false
+  } catch {
+    return true
+  }
+}
+
 export const authProvider: AuthProvider = {
   login: async ({ token, user }: { token: string; user: string }) => {
     localStorage.setItem('token', token)
@@ -12,13 +21,17 @@ export const authProvider: AuthProvider = {
   },
 
   checkAuth: async () => {
-    if (!localStorage.getItem('token')) {
+    const token = localStorage.getItem('token')
+    if (!token || isTokenExpired(token)) {
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
       throw new Error('Not authenticated')
     }
   },
 
-  checkError: async (error: { status: number }) => {
-    if (error.status === 401 || error.status === 403) {
+  checkError: async (error: { status?: number; statusCode?: number }) => {
+    const status = error.status ?? error.statusCode
+    if (status === 401 || status === 403) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       throw new Error('Session expired')

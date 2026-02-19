@@ -25,6 +25,12 @@ class ChatResponse(BaseModel):
     messages: list[dict] = []
 
 
+class PersonalityUpdate(BaseModel):
+    name: str | None = None
+    language: str | None = None
+    backstory: str | None = None
+
+
 @router.get("/health")
 async def health():
     return {"status": "ok", "service": "maggie-agent-hub"}
@@ -89,3 +95,18 @@ async def get_proactions(user_id: str = Depends(get_current_user_id)):
     """Get all proactions for the authenticated user."""
     proactions = await proaction_repo.find_by_user(user_id)
     return [p.to_dict() for p in proactions]
+
+
+@router.get("/personality")
+async def get_personality(_user_id: str = Depends(get_current_user_id)):
+    """Return current personality configuration."""
+    return llm_gateway.personality.get_config()
+
+
+@router.put("/personality")
+async def update_personality(
+    data: PersonalityUpdate, _user_id: str = Depends(get_current_user_id)
+):
+    """Update personality configuration and reload."""
+    updates = data.model_dump(exclude_none=True)
+    return llm_gateway.personality.update_config(updates)

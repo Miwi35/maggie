@@ -48,7 +48,7 @@ def get_current_user_id(
             detail=f"Invalid token: {e}",
         )
 
-    user_id = payload.get("sub")
+    user_id = payload.get("sub") or payload.get("username")
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

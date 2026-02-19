@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useDataProvider, useRedirect } from 'react-admin'
+import { useGetList, useDataProvider, useRedirect } from 'react-admin'
 import IconButton from '@mui/material/IconButton'
 import Badge from '@mui/material/Badge'
 import Popover from '@mui/material/Popover'
@@ -37,37 +37,24 @@ function timeAgo(dateStr: string): string {
 }
 
 export const NotificationBell = () => {
-  const [notifications, setNotifications] = useState<Notification[]>([])
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null)
   const dataProvider = useDataProvider()
   const redirect = useRedirect()
 
-  const fetchNotifications = useCallback(async () => {
-    try {
-      const { data } = await dataProvider.getList('notifications', {
-        pagination: { page: 1, perPage: 20 },
-        sort: { field: 'createdAt', order: 'DESC' },
-        filter: {},
-      })
-      setNotifications(data as Notification[])
-    } catch {
-      // Silently fail if API is unavailable
-    }
-  }, [dataProvider])
-
-  // Initial fetch
-  useEffect(() => {
-    fetchNotifications()
-  }, [fetchNotifications])
+  // Use react-admin hook so 401 triggers checkError → auto logout
+  const { data: notifications = [], refetch } = useGetList<Notification>('notifications', {
+    pagination: { page: 1, perPage: 20 },
+    sort: { field: 'createdAt', order: 'DESC' },
+  })
 
   // Mercure subscription for real-time updates
   useEffect(() => {
     const url = new URL(MERCURE_URL)
     url.searchParams.append('topic', '/api/notifications/{id}')
     const es = new EventSource(url.toString())
-    es.onmessage = () => fetchNotifications()
+    es.onmessage = () => refetch()
     return () => es.close()
-  }, [fetchNotifications])
+  }, [refetch])
 
   const unreadCount = notifications.filter((n) => !n.readAt).length
 
@@ -79,33 +66,30 @@ export const NotificationBell = () => {
     setAnchorEl(null)
   }
 
-  const handleNotificationClick = async (notification: Notification) => {
-    // Mark as read
-    if (!notification.readAt) {
-      try {
-        await dataProvider.update('notifications', {
-          id: notification.id,
-          data: { readAt: new Date().toISOString() },
-          previousData: notification,
-        })
-        setNotifications((prev) =>
-          prev.map((n) =>
-            n.id === notification.id ? { ...n, readAt: new Date().toISOString() } : n,
-          ),
-        )
-      } catch {
-        // Ignore
+  const handleNotificationClick = useCallback(
+    async (notification: Notification) => {
+      if (!notification.readAt) {
+        try {
+          await dataProvider.update('notifications', {
+            id: notification.id,
+            data: { readAt: new Date().toISOString() },
+            previousData: notification,
+          })
+          refetch()
+        } catch {
+          // Ignore
+        }
       }
-    }
 
-    // Navigate to related entity
-    if (notification.relatedEntityIri) {
-      handleClose()
-      redirect(notification.relatedEntityIri)
-    }
-  }
+      if (notification.relatedEntityIri) {
+        setAnchorEl(null)
+        redirect(notification.relatedEntityIri)
+      }
+    },
+    [dataProvider, redirect, refetch],
+  )
 
-  const handleMarkAllRead = async () => {
+  const handleMarkAllRead = useCallback(async () => {
     const unread = notifications.filter((n) => !n.readAt)
     for (const n of unread) {
       try {
@@ -118,8 +102,8 @@ export const NotificationBell = () => {
         // Ignore
       }
     }
-    setNotifications((prev) => prev.map((n) => ({ ...n, readAt: n.readAt || new Date().toISOString() })))
-  }
+    refetch()
+  }, [dataProvider, notifications, refetch])
 
   const open = Boolean(anchorEl)
 
@@ -139,7 +123,15 @@ export const NotificationBell = () => {
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
         <Box sx={{ width: 360, maxHeight: 480, display: 'flex', flexDirection: 'column' }}>
-          <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box
+            sx={{
+              px: 2,
+              py: 1.5,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
             <Typography variant="subtitle1" fontWeight={600}>
               Notifications
             </Typography>
