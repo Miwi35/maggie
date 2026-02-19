@@ -9,7 +9,7 @@
         "doctrine/orm": "^3.6",
         "symfony/uid": "7.4.*",
         "symfony/validator": "7.4.*",
-        "elasticsearch/elasticsearch": "^9.3"
+        "elasticsearch/elasticsearch": "^8.0"
     },
     "autoload": {
         "psr-4": {

@@ -38,7 +38,12 @@ final class ElasticsearchItemProvider implements ProviderInterface
         }
 
         try {
-            return $this->doProvide($meta, $entityClass, (string) $id);
+            $result = $this->doProvide($meta, $entityClass, (string) $id);
+            if ($result !== null) {
+                return $result;
+            }
+            // Document not in ES (not yet indexed, or index doesn't exist) — fallback to Doctrine
+            return $this->doctrineProvider->provide($operation, $uriVariables, $context);
         } catch (\Throwable $e) {
             $this->logger->warning('ES item query failed, falling back to Doctrine: {error}', [
                 'error' => $e->getMessage(),

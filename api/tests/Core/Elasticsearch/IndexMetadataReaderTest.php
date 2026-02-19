@@ -68,7 +68,11 @@ class IndexMetadataReaderTest extends TestCase
 
         self::assertArrayHasKey('title', $fields);
         self::assertSame('text', $fields['title']['type']);
-        self::assertSame(3.0, $fields['title']['boost']);
+        self::assertArrayNotHasKey('boost', $fields['title']); // boost is query-time only
+
+        // Boost stored separately
+        self::assertArrayHasKey('title', $result['boosts']);
+        self::assertSame(3.0, $result['boosts']['title']);
 
         self::assertArrayHasKey('status', $fields);
         self::assertSame('keyword', $fields['status']['type']);

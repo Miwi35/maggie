@@ -11,7 +11,7 @@ use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
 final class IndexMetadataReader
 {
     /**
-     * @return array{index: string, module: ?string, fields: array<string, array<string, mixed>>, relations: array<string, array{targetEntity: string, sourceField: string}>}|null
+     * @return array{index: string, module: ?string, fields: array<string, array<string, mixed>>, relations: array<string, array{targetEntity: string, sourceField: string}>, boosts: array<string, float>}|null
      */
     public function read(string $className): ?array
     {
@@ -25,6 +25,7 @@ final class IndexMetadataReader
         $indexed = $indexedAttrs[0]->newInstance();
         $fields = [];
         $relations = [];
+        $boosts = [];
 
         foreach ($ref->getProperties() as $prop) {
             foreach ($prop->getAttributes(IndexedField::class) as $fieldAttr) {
@@ -32,8 +33,9 @@ final class IndexMetadataReader
                 $fieldName = $field->name ?? $prop->getName();
                 $mapping = ['type' => $field->type];
 
+                // boost is query-time only — not included in ES mapping
                 if ($field->boost !== null) {
-                    $mapping['boost'] = $field->boost;
+                    $boosts[$fieldName] = $field->boost;
                 }
                 if ($field->analyzer !== null) {
                     $mapping['analyzer'] = $field->analyzer;
@@ -67,7 +69,7 @@ final class IndexMetadataReader
                     if (!isset($fields[$fieldName])) {
                         $mapping = ['type' => $field->type];
                         if ($field->boost !== null) {
-                            $mapping['boost'] = $field->boost;
+                            $boosts[$fieldName] = $field->boost;
                         }
                         if ($field->analyzer !== null) {
                             $mapping['analyzer'] = $field->analyzer;
@@ -100,6 +102,7 @@ final class IndexMetadataReader
             'module' => $indexed->module,
             'fields' => $fields,
             'relations' => $relations,
+            'boosts' => $boosts,
         ];
     }
 

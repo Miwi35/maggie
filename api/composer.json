@@ -17,7 +17,7 @@
         "doctrine/doctrine-bundle": "^2.18.2",
         "doctrine/doctrine-migrations-bundle": "^3.7",
         "doctrine/orm": "^3.6.2",
-        "elasticsearch/elasticsearch": "^9.3",
+        "elasticsearch/elasticsearch": "^8.0",
         "google/apiclient": "^2.19",
         "lexik/jwt-authentication-bundle": "^3.2",
         "maggie/calendar": "@dev",

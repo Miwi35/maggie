@@ -11,6 +11,7 @@ class SearchService
     public function __construct(
         private readonly Client $client,
         private readonly IndexableEntityRegistry $registry,
+        private readonly IndexMetadataReader $metadataReader,
     ) {}
 
     /**
@@ -30,15 +31,23 @@ class SearchService
             return ['total' => 0, 'results' => []];
         }
 
+        // Build boosted fields list from metadata
+        $boostedFields = $this->getBoostedFields($targetIndices);
+
+        $multiMatch = [
+            'query' => $query,
+            'type' => 'best_fields',
+            'fuzziness' => 'AUTO',
+        ];
+        if ($boostedFields !== []) {
+            $multiMatch['fields'] = $boostedFields;
+        }
+
         $body = [
             'query' => [
                 'bool' => [
                     'must' => [
-                        'multi_match' => [
-                            'query' => $query,
-                            'type' => 'best_fields',
-                            'fuzziness' => 'AUTO',
-                        ],
+                        'multi_match' => $multiMatch,
                     ],
                     'filter' => [
                         'term' => ['userId' => $userId],
@@ -74,5 +83,44 @@ class SearchService
             'total' => $response['hits']['total']['value'],
             'results' => $results,
         ];
+    }
+
+    /**
+     * Build fields list with boost notation (e.g. "summary^3") from entity metadata.
+     *
+     * @param string[] $targetIndices
+     * @return string[]
+     */
+    private function getBoostedFields(array $targetIndices): array
+    {
+        $fields = [];
+        $allEntities = $this->registry->getAll();
+
+        foreach ($allEntities as $indexName => $entityClass) {
+            if ($targetIndices !== [] && !\in_array($indexName, $targetIndices, true)) {
+                continue;
+            }
+
+            $meta = $this->metadataReader->read($entityClass);
+            if ($meta === null) {
+                continue;
+            }
+
+            foreach ($meta['fields'] as $fieldName => $mapping) {
+                // Only boost text fields (searchable)
+                if (($mapping['type'] ?? '') !== 'text') {
+                    continue;
+                }
+
+                $boost = $meta['boosts'][$fieldName] ?? null;
+                $key = $boost !== null ? "{$fieldName}^{$boost}" : $fieldName;
+
+                if (!\in_array($key, $fields, true)) {
+                    $fields[] = $key;
+                }
+            }
+        }
+
+        return $fields;
     }
 }
