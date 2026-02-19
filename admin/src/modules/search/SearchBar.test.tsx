@@ -84,6 +84,30 @@ describe('SearchBar', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/recipes/abc123/show')
   })
 
+  test('clicking an event result navigates to calendar', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        total: 1,
+        page: 1,
+        limit: 10,
+        results: [
+          { index: 'events', id: 'evt123', score: 1.5, data: { summary: 'Réunion hebdo' }, highlights: { summary: ['<em>Réunion</em> hebdo'] } },
+        ],
+      }),
+    }))
+
+    render(<SearchBar />)
+    await userEvent.type(screen.getByPlaceholderText('Rechercher…'), 'réunion')
+
+    await waitFor(() => {
+      expect(screen.getByText('Réunion hebdo')).toBeInTheDocument()
+    })
+
+    await userEvent.click(screen.getByText('Réunion hebdo'))
+    expect(mockNavigate).toHaveBeenCalledWith('/calendar?eventId=evt123')
+  })
+
   test('Escape closes dropdown', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,

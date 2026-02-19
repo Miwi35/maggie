@@ -10,6 +10,11 @@ class MockEventSource {
 }
 vi.stubGlobal('EventSource', MockEventSource)
 
+// Mock react-router-dom
+vi.mock('react-router-dom', () => ({
+  useSearchParams: () => [new URLSearchParams(), vi.fn()],
+}))
+
 // Mock react-admin's useDataProvider
 const mockGetList = vi.fn()
 const mockDelete = vi.fn()

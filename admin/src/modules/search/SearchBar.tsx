@@ -25,7 +25,7 @@ import DinnerDiningIcon from '@mui/icons-material/DinnerDining'
 import RepeatIcon from '@mui/icons-material/Repeat'
 import NotificationsIcon from '@mui/icons-material/Notifications'
 import PersonIcon from '@mui/icons-material/Person'
-import { useSearch, SEARCH_INDEX_CONFIG, getResultLabel, getResultHighlight } from './searchConfig'
+import { useSearch, SEARCH_INDEX_CONFIG, getResultLabel, getResultHighlight, getResultPath } from './searchConfig'
 import type { SearchResult } from './searchConfig'
 
 const ICON_MAP: Record<string, React.ReactElement> = {
@@ -81,10 +81,7 @@ export function SearchBar() {
   }, [data, query])
 
   const handleResultClick = (result: SearchResult) => {
-    const config = SEARCH_INDEX_CONFIG[result.index]
-    if (config) {
-      navigate(`${config.basePath}/${encodeURIComponent(result.id)}/show`)
-    }
+    navigate(getResultPath(result))
     setOpen(false)
     setQuery('')
   }

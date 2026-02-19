@@ -4,19 +4,29 @@ export interface SearchIndexConfig {
   label: string
   icon: string
   basePath: string
+  /** Override default navigation path for a result. */
+  getPath?: (id: string) => string
 }
 
 export const SEARCH_INDEX_CONFIG: Record<string, SearchIndexConfig> = {
-  events: { label: 'Événements', icon: 'Event', basePath: '/events' },
+  events: { label: 'Événements', icon: 'Event', basePath: '/events', getPath: (id) => `/calendar?eventId=${id}` },
   tasks: { label: 'Tâches', icon: 'CheckCircle', basePath: '/tasks' },
   recipes: { label: 'Recettes', icon: 'Restaurant', basePath: '/recipes' },
   products: { label: 'Produits', icon: 'ShoppingCart', basePath: '/products' },
   agendas: { label: 'Agendas', icon: 'CalendarMonth', basePath: '/agendas' },
   grocery_lists: { label: 'Courses', icon: 'ShoppingBag', basePath: '/grocery' },
-  meals: { label: 'Repas', icon: 'DinnerDining', basePath: '/events' },
+  meals: { label: 'Repas', icon: 'DinnerDining', basePath: '/events', getPath: (id) => `/calendar?eventId=${id}` },
   recurring_grocery_items: { label: 'Articles récurrents', icon: 'Repeat', basePath: '/recurring_grocery_items' },
   notifications: { label: 'Notifications', icon: 'Notifications', basePath: '/notifications' },
   users: { label: 'Utilisateurs', icon: 'Person', basePath: '/users' },
+}
+
+/** Get the navigation path for a search result. */
+export function getResultPath(result: SearchResult): string {
+  const config = SEARCH_INDEX_CONFIG[result.index]
+  if (!config) return '#'
+  if (config.getPath) return config.getPath(result.id)
+  return `${config.basePath}/${encodeURIComponent(result.id)}/show`
 }
 
 export interface SearchResult {

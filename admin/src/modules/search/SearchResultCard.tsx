@@ -14,7 +14,7 @@ import RepeatIcon from '@mui/icons-material/Repeat'
 import NotificationsIcon from '@mui/icons-material/Notifications'
 import PersonIcon from '@mui/icons-material/Person'
 import SearchIcon from '@mui/icons-material/Search'
-import { SEARCH_INDEX_CONFIG, getResultLabel, getResultHighlight } from './searchConfig'
+import { SEARCH_INDEX_CONFIG, getResultLabel, getResultHighlight, getResultPath } from './searchConfig'
 import type { SearchResult } from './searchConfig'
 
 const ICON_COMPONENTS: Record<string, React.ElementType> = {
@@ -41,9 +41,7 @@ export function SearchResultCard({ result }: { result: SearchResult }) {
   const Icon = getIconComponent(result.index)
 
   const handleClick = () => {
-    if (config) {
-      navigate(`${config.basePath}/${encodeURIComponent(result.id)}/show`)
-    }
+    navigate(getResultPath(result))
   }
 
   return (

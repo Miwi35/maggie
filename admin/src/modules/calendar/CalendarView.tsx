@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDataProvider, useNotify } from 'react-admin'
+import { useSearchParams } from 'react-router-dom'
 import { useTheme } from '@mui/material/styles'
 import Box from '@mui/material/Box'
 import { useMercure } from '../../hooks/useMercure'
@@ -386,6 +387,7 @@ export const CalendarView = () => {
   const theme = useTheme()
   const dataProvider = useDataProvider()
   const notify = useNotify()
+  const [searchParams, setSearchParams] = useSearchParams()
   const calendarRef = useRef<FullCalendar>(null)
   const calendarBoxRef = useRef<HTMLDivElement>(null)
   const dateRangeRef = useRef<{ start: string; end: string } | null>(null)
@@ -1150,6 +1152,54 @@ export const CalendarView = () => {
     if (dateRangeRef.current) fetchEvents(dateRangeRef.current.start, dateRangeRef.current.end)
   }, [fetchEvents])
   useMercure(CALENDAR_TOPICS, mercureCallback)
+
+  // --- Deep-link: open event from search (?eventId=...) ---
+  const deepLinkEventId = searchParams.get('eventId')
+  useEffect(() => {
+    if (!deepLinkEventId) return
+
+    // Clear the URL param so it doesn't re-trigger
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.delete('eventId')
+      return next
+    }, { replace: true })
+
+    // Fetch the event and navigate the calendar to its date
+    dataProvider
+      .getOne('events', { id: deepLinkEventId })
+      .then(({ data }) => {
+        const event = data as unknown as CalendarEvent
+        const api = calendarRef.current?.getApi()
+        if (api && event.startAt) {
+          api.gotoDate(event.startAt)
+        }
+
+        // Open the popover after a short delay to let the calendar render
+        setTimeout(() => {
+          const calId = typeof event.agenda === 'string' ? event.agenda : ''
+          const color = calendarColorMap.get(calId) || theme.palette.primary.main
+          setPopoverEvent({
+            id: event.id,
+            title: event.summary,
+            start: event.startAt,
+            end: event.endAt,
+            allDay: event.allDay,
+            color,
+            calendarName: calendarNameMap.get(calId) || '',
+            description: event.description,
+            location: event.location,
+            rrule: event.rrule,
+            calendarIri: event.agenda,
+          })
+          // Anchor to the calendar container
+          setPopoverAnchorEl(calendarBoxRef.current)
+        }, 300)
+      })
+      .catch(() => {
+        notify('Événement introuvable', { type: 'warning' })
+      })
+  }, [deepLinkEventId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // --- Wheel navigation (scroll up → prev, scroll down → next) ---
   useEffect(() => {
