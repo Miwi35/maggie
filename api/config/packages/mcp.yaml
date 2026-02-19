@@ -11,6 +11,7 @@ mcp:
         scan_dirs:
             - 'src'
             - 'modules/calendar/src'
+            - 'modules/cookbook/src'
             - 'modules/core/src'
             - 'modules/memory/src'
 
