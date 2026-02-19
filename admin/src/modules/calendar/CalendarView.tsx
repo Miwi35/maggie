@@ -31,6 +31,7 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import DeleteIcon from '@mui/icons-material/Delete'
 import EventIcon from '@mui/icons-material/Event'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
+import RestaurantIcon from '@mui/icons-material/Restaurant'
 import SyncIcon from '@mui/icons-material/Sync'
 import CircularProgress from '@mui/material/CircularProgress'
 import Menu from '@mui/material/Menu'
@@ -107,6 +108,14 @@ interface CalendarTask {
   criticality: string
   dueDate?: string
   completedAt?: string
+}
+
+interface CalendarMeal {
+  id: string
+  startAt: string
+  slot: string
+  summary: string
+  recipes: { id: string; name: string }[]
 }
 
 const TASK_CRITICALITY_COLORS: Record<string, string> = {
@@ -384,6 +393,7 @@ export const CalendarView = () => {
 
   const [rawEvents, setRawEvents] = useState<CalendarEvent[]>([])
   const [rawTasks, setRawTasks] = useState<CalendarTask[]>([])
+  const [rawMeals, setRawMeals] = useState<CalendarMeal[]>([])
   const [calendars, setCalendars] = useState<CalendarData[]>([])
   const [enabledCalendars, setEnabledCalendars] = useState<Set<string> | null>(null)
   const [miniCalDate, setMiniCalDate] = useState(new Date())
@@ -433,7 +443,7 @@ export const CalendarView = () => {
         const cals = data as unknown as CalendarData[]
         setCalendars(cals)
         setEnabledCalendars((prev) => {
-          if (prev === null) return new Set([...cals.map((c) => c.id), '__tasks__'])
+          if (prev === null) return new Set([...cals.map((c) => c.id), '__tasks__', '__meals__'])
           // Keep existing toggles, add new calendars
           const next = new Set(prev)
           for (const c of cals) {
@@ -581,8 +591,15 @@ export const CalendarView = () => {
         filter: { 'dueDate[after]': start, 'dueDate[before]': end },
       })
 
-      Promise.all([rangeEvents, recurringEvents, rangeTasks])
-        .then(([rangeResult, recurringResult, tasksResult]) => {
+      // Fetch meals in visible range
+      const rangeMeals = dataProvider.getList('meals', {
+        pagination: { page: 1, perPage: 200 },
+        sort: { field: 'startAt', order: 'ASC' },
+        filter: { 'startAt[after]': start, 'startAt[before]': end },
+      })
+
+      Promise.all([rangeEvents, recurringEvents, rangeTasks, rangeMeals])
+        .then(([rangeResult, recurringResult, tasksResult, mealsResult]) => {
           const seen = new Set<string>()
           const merged: CalendarEvent[] = []
           for (const e of [...rangeResult.data, ...recurringResult.data] as unknown as CalendarEvent[]) {
@@ -593,6 +610,7 @@ export const CalendarView = () => {
           }
           setRawEvents(merged)
           setRawTasks(tasksResult.data as unknown as CalendarTask[])
+          setRawMeals(mealsResult.data as unknown as CalendarMeal[])
         })
         .catch(console.error)
     },
@@ -765,13 +783,38 @@ export const CalendarView = () => {
       })
   }, [rawTasks])
 
+  // --- Map meals → FullCalendar all-day events ---
+  const MEAL_COLOR = '#FF6B35'
+  const SLOT_LABELS: Record<string, string> = { lunch: 'Déj', dinner: 'Dîner' }
+  const mealEvents: (EventInput & { calendarId: string })[] = useMemo(() => {
+    return rawMeals.map((m) => {
+      const label = SLOT_LABELS[m.slot] || m.slot
+      const recipeName = m.recipes?.length ? m.recipes.map((r) => r.name).join(', ') : m.summary
+      return {
+        id: `meal-${m.id}`,
+        title: `${label}: ${recipeName}`,
+        start: m.startAt,
+        allDay: true,
+        calendarId: '__meals__',
+        backgroundColor: MEAL_COLOR,
+        borderColor: MEAL_COLOR,
+        extendedProps: { isMeal: true },
+      }
+    })
+  }, [rawMeals])
+
   // --- Filter by enabled calendars ---
   const filteredEvents = useMemo(() => {
-    if (!enabledCalendars) return [...coloredEvents, ...taskEvents]
+    if (!enabledCalendars) return [...coloredEvents, ...taskEvents, ...mealEvents]
     const calFiltered = coloredEvents.filter((e) => enabledCalendars.has(e.calendarId))
     const tasksVisible = enabledCalendars.has('__tasks__')
-    return tasksVisible ? [...calFiltered, ...taskEvents] : calFiltered
-  }, [coloredEvents, enabledCalendars, taskEvents])
+    const mealsVisible = enabledCalendars.has('__meals__')
+    return [
+      ...calFiltered,
+      ...(tasksVisible ? taskEvents : []),
+      ...(mealsVisible ? mealEvents : []),
+    ]
+  }, [coloredEvents, enabledCalendars, taskEvents, mealEvents])
 
   // --- FullCalendar callbacks ---
   const handleDatesSet = useCallback(
@@ -1483,6 +1526,34 @@ export const CalendarView = () => {
             >
               Autres agendas
             </Typography>
+            <Box
+              onClick={() => toggleCalendar('__meals__')}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                py: 0.25,
+                px: 0.5,
+                cursor: 'pointer',
+                borderRadius: 1,
+                '&:hover': { bgcolor: 'action.hover' },
+              }}
+            >
+              <Checkbox
+                size="small"
+                checked={enabledCalendars?.has('__meals__') ?? true}
+                tabIndex={-1}
+                disableRipple
+                sx={{
+                  p: 0.25,
+                  color: '#FF6B35',
+                  '&.Mui-checked': { color: '#FF6B35' },
+                }}
+              />
+              <RestaurantIcon sx={{ fontSize: 16, color: 'text.secondary', ml: 0.5, mr: 0.5 }} />
+              <Typography variant="body2">
+                Repas
+              </Typography>
+            </Box>
             <Box
               onClick={() => toggleCalendar('__tasks__')}
               sx={{

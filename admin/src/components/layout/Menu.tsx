@@ -24,8 +24,10 @@ import KitchenIcon from '@mui/icons-material/Kitchen'
 import EggIcon from '@mui/icons-material/Egg'
 import RepeatIcon from '@mui/icons-material/Repeat'
 import CategoryIcon from '@mui/icons-material/Category'
+import RestaurantMenuIcon from '@mui/icons-material/RestaurantMenu'
 
 export const CustomMenu = () => {
+  const [nutritionOpen, setNutritionOpen] = useState(false)
   const [rawDataOpen, setRawDataOpen] = useState(false)
   const [agendaRawOpen, setAgendaRawOpen] = useState(false)
   const [cuisineRawOpen, setCuisineRawOpen] = useState(false)
@@ -44,19 +46,41 @@ export const CustomMenu = () => {
         primaryText="Calendrier"
         leftIcon={<CalendarMonthIcon />}
       />
-      <MenuItemLink
-        to="/meals"
-        primaryText="Repas de la semaine"
-        leftIcon={<RestaurantIcon />}
-      />
-      <MenuItemLink
-        to="/grocery"
-        primaryText="Courses"
-        leftIcon={<ShoppingCartIcon />}
-      />
-
       {open && (
         <List component="nav" disablePadding>
+          <ListItemButton onClick={() => setNutritionOpen(!nutritionOpen)}>
+            <ListItemIcon sx={{ minWidth: 40 }}>
+              <RestaurantMenuIcon />
+            </ListItemIcon>
+            <ListItemText
+              primary="Nutrition"
+              primaryTypographyProps={{ fontSize: 14, color: 'text.secondary' }}
+            />
+            {nutritionOpen ? <ExpandLess /> : <ExpandMore />}
+          </ListItemButton>
+
+          <Collapse in={nutritionOpen} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding>
+              <MenuItemLink
+                to="/recipes"
+                primaryText="Recettes"
+                leftIcon={<MenuBookIcon />}
+                sx={{ pl: 4 }}
+              />
+              <MenuItemLink
+                to="/meals"
+                primaryText="Repas de la semaine"
+                leftIcon={<RestaurantIcon />}
+                sx={{ pl: 4 }}
+              />
+              <MenuItemLink
+                to="/grocery"
+                primaryText="Courses"
+                leftIcon={<ShoppingCartIcon />}
+                sx={{ pl: 4 }}
+              />
+            </List>
+          </Collapse>
           <ListItemButton onClick={() => setRawDataOpen(!rawDataOpen)}>
             <ListItemIcon sx={{ minWidth: 40 }}>
               <StorageIcon />
@@ -129,12 +153,6 @@ export const CustomMenu = () => {
 
               <Collapse in={cuisineRawOpen} timeout="auto" unmountOnExit>
                 <List component="div" disablePadding>
-                  <MenuItemLink
-                    to="/recipes"
-                    primaryText="Recettes"
-                    leftIcon={<MenuBookIcon />}
-                    sx={{ pl: 8 }}
-                  />
                   <MenuItemLink
                     to="/ingredients"
                     primaryText="Ingrédients"

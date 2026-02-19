@@ -5,6 +5,7 @@ import { MealsWeekView } from './MealsWeekView'
 import { GroceryListView } from './GroceryListView'
 import { RecipeCreate } from './RecipeCreate'
 import { RecipeEdit } from './RecipeEdit'
+import { RecipeList } from './RecipeList'
 
 export const cookbookResources = (
   <>
@@ -14,7 +15,7 @@ export const cookbookResources = (
     </CustomRoutes>
     <ResourceGuesser name="products" />
     <ResourceGuesser name="ingredients" />
-    <ResourceGuesser name="recipes" create={RecipeCreate} edit={RecipeEdit} />
+    <ResourceGuesser name="recipes" list={RecipeList} create={RecipeCreate} edit={RecipeEdit} />
     <ResourceGuesser name="recurring_grocery_items" />
   </>
 )
