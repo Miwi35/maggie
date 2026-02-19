@@ -8,6 +8,7 @@ import MicIcon from '@mui/icons-material/Mic'
 import StopIcon from '@mui/icons-material/Stop'
 import CircularProgress from '@mui/material/CircularProgress'
 import { NotificationBell } from '../notifications/NotificationBell'
+import { SearchBar } from '../../modules/search/SearchBar'
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder'
 import { useTranscription } from '../../hooks/useTranscription'
 
@@ -46,7 +47,8 @@ export const CustomAppBar = ({ chatOpen, onChatToggle, unreadChat, onVoiceMessag
   return (
     <RAAppBar
       toolbar={
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1 }}>
+          <SearchBar />
           <Tooltip title={micTooltip}>
             <span>
               <IconButton color="inherit" onClick={handleMicClick} disabled={isTranscribing}>

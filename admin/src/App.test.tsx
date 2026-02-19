@@ -17,6 +17,18 @@ vi.mock('./modules/calendar', () => ({
   calendarResources: <div data-testid="calendar-resources" />,
 }))
 
+vi.mock('./modules/cookbook', () => ({
+  cookbookResources: <div data-testid="cookbook-resources" />,
+}))
+
+vi.mock('./modules/settings', () => ({
+  settingsResources: <div data-testid="settings-resources" />,
+}))
+
+vi.mock('./modules/search', () => ({
+  searchResources: <div data-testid="search-resources" />,
+}))
+
 vi.mock('./auth/authProvider', () => ({
   authProvider: {},
   handleAuthCallback: vi.fn(),

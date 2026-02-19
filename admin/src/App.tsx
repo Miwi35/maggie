@@ -7,6 +7,7 @@ import { Dashboard } from './modules/dashboard'
 import { calendarResources } from './modules/calendar'
 import { settingsResources } from './modules/settings'
 import { cookbookResources } from './modules/cookbook'
+import { searchResources } from './modules/search'
 import { authProvider, handleAuthCallback } from './auth/authProvider'
 import { LoginPage } from './auth/LoginPage'
 import { LoadingPage } from './auth/LoadingPage'
@@ -50,6 +51,7 @@ function App() {
       {calendarResources}
       {cookbookResources}
       {settingsResources}
+      {searchResources}
     </HydraAdmin>
   )
 }
