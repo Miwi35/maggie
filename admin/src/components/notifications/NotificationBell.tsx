@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { useGetList, useDataProvider, useRedirect } from 'react-admin'
 import IconButton from '@mui/material/IconButton'
 import Badge from '@mui/material/Badge'
@@ -11,9 +11,9 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Divider from '@mui/material/Divider'
 import NotificationsIcon from '@mui/icons-material/Notifications'
+import { useMercure } from '../../hooks/useMercure'
 
-const MERCURE_URL =
-  import.meta.env.VITE_MERCURE_PUBLIC_URL || 'http://maggie.local/.well-known/mercure'
+const NOTIFICATION_TOPICS = ['/api/notifications/{id}']
 
 interface Notification {
   id: string
@@ -48,13 +48,7 @@ export const NotificationBell = () => {
   })
 
   // Mercure subscription for real-time updates
-  useEffect(() => {
-    const url = new URL(MERCURE_URL)
-    url.searchParams.append('topic', '/api/notifications/{id}')
-    const es = new EventSource(url.toString())
-    es.onmessage = () => refetch()
-    return () => es.close()
-  }, [refetch])
+  useMercure(NOTIFICATION_TOPICS, refetch)
 
   const unreadCount = notifications.filter((n) => !n.readAt).length
 

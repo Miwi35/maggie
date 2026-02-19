@@ -7,12 +7,19 @@ import {
   FunctionField,
   EditButton,
   DeleteButton,
+  useListContext,
 } from 'react-admin'
 import Chip from '@mui/material/Chip'
 import Box from '@mui/material/Box'
+import { useMercure } from '../../hooks/useMercure'
 
-export const RecipeList = () => (
-  <List>
+const RECIPE_TOPICS = ['/api/recipes/{id}']
+
+const RecipeDatagrid = () => {
+  const { refetch } = useListContext()
+  useMercure(RECIPE_TOPICS, refetch)
+
+  return (
     <Datagrid rowClick="edit">
       <TextField source="name" label="Nom" />
       <NumberField source="servings" label="Portions" />
@@ -40,5 +47,11 @@ export const RecipeList = () => (
       <EditButton />
       <DeleteButton />
     </Datagrid>
+  )
+}
+
+export const RecipeList = () => (
+  <List>
+    <RecipeDatagrid />
   </List>
 )

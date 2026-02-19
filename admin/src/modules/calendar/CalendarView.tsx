@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDataProvider, useNotify } from 'react-admin'
 import { useTheme } from '@mui/material/styles'
 import Box from '@mui/material/Box'
+import { useMercure } from '../../hooks/useMercure'
 import Button from '@mui/material/Button'
 import ButtonGroup from '@mui/material/ButtonGroup'
 import Checkbox from '@mui/material/Checkbox'
@@ -74,6 +75,7 @@ interface GoogleCalendar {
   backgroundColor?: string
 }
 
+const CALENDAR_TOPICS = ['/api/events/{id}', '/api/tasks/{id}']
 const SIDEBAR_WIDTH = 230
 const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 
@@ -1144,18 +1146,10 @@ export const CalendarView = () => {
   }, [fetchEvents])
 
   // --- Mercure live updates ---
-  useEffect(() => {
-    const mercureUrl =
-      import.meta.env.VITE_MERCURE_PUBLIC_URL || 'http://maggie.local/.well-known/mercure'
-    const url = new URL(mercureUrl)
-    url.searchParams.append('topic', '/api/events/{id}')
-    url.searchParams.append('topic', '/api/tasks/{id}')
-    const es = new EventSource(url.toString())
-    es.onmessage = () => {
-      if (dateRangeRef.current) fetchEvents(dateRangeRef.current.start, dateRangeRef.current.end)
-    }
-    return () => es.close()
+  const mercureCallback = useCallback(() => {
+    if (dateRangeRef.current) fetchEvents(dateRangeRef.current.start, dateRangeRef.current.end)
   }, [fetchEvents])
+  useMercure(CALENDAR_TOPICS, mercureCallback)
 
   // --- Wheel navigation (scroll up → prev, scroll down → next) ---
   useEffect(() => {

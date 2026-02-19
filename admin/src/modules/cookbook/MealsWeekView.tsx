@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useDataProvider, useNotify, Title } from 'react-admin'
 import Box from '@mui/material/Box'
+import { useMercure } from '../../hooks/useMercure'
 import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
 import IconButton from '@mui/material/IconButton'
@@ -22,6 +23,7 @@ import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import RestaurantIcon from '@mui/icons-material/Restaurant'
 
+const MEAL_TOPICS = ['/api/meals/{id}']
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
 const SLOTS = [
   { value: 'lunch', label: 'Déjeuner' },
@@ -99,13 +101,7 @@ export const MealsWeekView = () => {
   }, [fetchMeals])
 
   // Mercure subscription
-  useEffect(() => {
-    const hubUrl = new URL('/.well-known/mercure', window.location.origin)
-    hubUrl.searchParams.append('topic', '/api/meals/{id}')
-    const es = new EventSource(hubUrl.toString())
-    es.onmessage = () => fetchMeals()
-    return () => es.close()
-  }, [fetchMeals])
+  useMercure(MEAL_TOPICS, fetchMeals)
 
   const fetchRecipes = async () => {
     try {

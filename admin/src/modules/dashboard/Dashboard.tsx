@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useDataProvider, useNotify } from 'react-admin'
 import Box from '@mui/material/Box'
+import { useMercure } from '../../hooks/useMercure'
 import Typography from '@mui/material/Typography'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import DateRangeIcon from '@mui/icons-material/DateRange'
@@ -10,6 +11,8 @@ import { getThisMonth, getThisWeek, getToday, getTomorrow } from './dateUtils'
 import { expandRrule } from '../calendar/recurrenceUtils'
 import type { DashboardEvent } from './EventListWidget'
 import type { DashboardTask } from './TaskListWidget'
+
+const DASHBOARD_TOPICS = ['/api/events/{id}', '/api/tasks/{id}']
 
 interface RawEvent {
   id: string
@@ -103,16 +106,7 @@ export const Dashboard = () => {
   }, [fetchData])
 
   // Mercure live updates
-  useEffect(() => {
-    const mercureUrl =
-      import.meta.env.VITE_MERCURE_PUBLIC_URL || 'http://maggie.local/.well-known/mercure'
-    const url = new URL(mercureUrl)
-    url.searchParams.append('topic', '/api/events/{id}')
-    url.searchParams.append('topic', '/api/tasks/{id}')
-    const es = new EventSource(url.toString())
-    es.onmessage = () => fetchData()
-    return () => es.close()
-  }, [fetchData])
+  useMercure(DASHBOARD_TOPICS, fetchData)
 
   // Expand events for a range with RRULE expansion (daily & weekly)
   const expandEventsForRange = useCallback(

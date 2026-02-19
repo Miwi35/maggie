@@ -3,14 +3,18 @@
 namespace Maggie\Calendar\Middleware;
 
 use Maggie\Calendar\Contract\MercurePublishable;
+use Maggie\Core\Contract\OwnedByUserInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Mercure\HubInterface;
 use Symfony\Component\Mercure\Update;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Middleware\MiddlewareInterface;
 use Symfony\Component\Messenger\Middleware\StackInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
+use Symfony\Component\Messenger\Stamp\ReceivedStamp;
+use Symfony\Component\Uid\Ulid;
 
 class MercurePublishMiddleware implements MiddlewareInterface
 {
@@ -18,6 +22,7 @@ class MercurePublishMiddleware implements MiddlewareInterface
 
     public function __construct(
         private readonly HubInterface $hub,
+        private readonly Security $security,
         ?LoggerInterface $logger = null,
     ) {
         $this->logger = $logger ?? new NullLogger();
@@ -25,6 +30,12 @@ class MercurePublishMiddleware implements MiddlewareInterface
 
     public function handle(Envelope $envelope, StackInterface $stack): Envelope
     {
+        // Skip the first pass (before transport); only publish after the handler runs.
+        // With sync transport the bus re-dispatches with ReceivedStamp, causing a double run.
+        if (!$envelope->all(ReceivedStamp::class)) {
+            return $stack->next()->handle($envelope, $stack);
+        }
+
         $envelope = $stack->next()->handle($envelope, $stack);
 
         $message = $envelope->getMessage();
@@ -39,16 +50,27 @@ class MercurePublishMiddleware implements MiddlewareInterface
         try {
             if ($action === 'delete') {
                 $idProp = lcfirst($parsed[2]) . 'Id';
-                $this->publishDelete($topic, $message->$idProp);
+                $userId = $this->getCurrentUserId();
+
+                if ($userId !== null) {
+                    $this->publishDelete($topic, $message->$idProp, $userId);
+                }
             } else {
                 $entity = $envelope->last(HandledStamp::class)?->getResult();
 
                 if ($entity instanceof MercurePublishable) {
-                    $iri = $topic . '/' . $entity->getId();
-                    $this->hub->publish(new Update(
-                        topics: [$iri],
-                        data: json_encode(['@id' => $iri] + $entity->toMercurePayload(), JSON_THROW_ON_ERROR),
-                    ));
+                    $userId = $entity instanceof OwnedByUserInterface
+                        ? (string) $entity->getUser()->getId()
+                        : $this->getCurrentUserId();
+
+                    if ($userId !== null) {
+                        $iri = $topic . '/' . $entity->getId();
+                        $scopedTopic = '/users/' . $userId . $iri;
+                        $this->hub->publish(new Update(
+                            topics: [$scopedTopic],
+                            data: json_encode(['@id' => $iri] + $entity->toMercurePayload(), JSON_THROW_ON_ERROR),
+                        ));
+                    }
                 }
             }
         } catch (\Throwable $e) {
@@ -90,12 +112,26 @@ class MercurePublishMiddleware implements MiddlewareInterface
         return null;
     }
 
-    private function publishDelete(string $topic, string $id): void
+    private function publishDelete(string $topic, string $id, string $userId): void
     {
         $iri = $topic . '/' . $id;
+        $scopedTopic = '/users/' . $userId . $iri;
         $this->hub->publish(new Update(
-            topics: [$iri],
+            topics: [$scopedTopic],
             data: json_encode(['@id' => $iri, 'deleted' => true], JSON_THROW_ON_ERROR),
         ));
+    }
+
+    private function getCurrentUserId(): ?string
+    {
+        $user = $this->security->getUser();
+
+        if ($user === null) {
+            return null;
+        }
+
+        $id = $user->getId();
+
+        return $id instanceof Ulid ? (string) $id : null;
     }
 }

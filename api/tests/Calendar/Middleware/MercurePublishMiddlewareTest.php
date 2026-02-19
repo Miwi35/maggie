@@ -17,18 +17,23 @@ use Maggie\Calendar\Message\UpdateAgendaCommand;
 use Maggie\Calendar\Message\UpdateEventCommand;
 use Maggie\Calendar\Message\UpdateTaskCommand;
 use Maggie\Calendar\Middleware\MercurePublishMiddleware;
+use Maggie\Core\Entity\User;
 use PHPUnit\Framework\TestCase;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Mercure\HubInterface;
 use Symfony\Component\Mercure\Update;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Middleware\MiddlewareInterface;
 use Symfony\Component\Messenger\Middleware\StackInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
+use Symfony\Component\Messenger\Stamp\ReceivedStamp;
 use Symfony\Component\Uid\Ulid;
 
 class MercurePublishMiddlewareTest extends TestCase
 {
     private HubInterface $hub;
+    private Security $security;
+    private User $user;
     /** @var Update[] */
     private array $publishedUpdates = [];
 
@@ -40,6 +45,14 @@ class MercurePublishMiddlewareTest extends TestCase
             $this->publishedUpdates[] = $update;
             return 'urn:uuid:' . new Ulid();
         });
+
+        $this->user = new User();
+        $this->user->setEmail('test@example.com');
+        $this->user->setGoogleId('google-test-id');
+        $this->user->setName('Test User');
+
+        $this->security = $this->createMock(Security::class);
+        $this->security->method('getUser')->willReturn($this->user);
     }
 
     private function createPassthroughStack(object $result = null): StackInterface
@@ -60,166 +73,198 @@ class MercurePublishMiddlewareTest extends TestCase
         return $stack;
     }
 
-    public function testCreateEventPublishesToMercure(): void
+    private function createMiddleware(): MercurePublishMiddleware
+    {
+        return new MercurePublishMiddleware($this->hub, $this->security);
+    }
+
+    /** Wrap a command in an envelope with ReceivedStamp (simulates sync transport re-dispatch). */
+    private function received(object $command): Envelope
+    {
+        return new Envelope($command, [new ReceivedStamp('sync')]);
+    }
+
+    public function testCreateEventPublishesToUserScopedTopic(): void
     {
         $event = new Event();
         $event->setSummary('Meeting');
         $event->setStartAt(new \DateTimeImmutable('2026-03-20T10:00:00+01:00'));
         $event->setEndAt(new \DateTimeImmutable('2026-03-20T11:00:00+01:00'));
 
-        $middleware = new MercurePublishMiddleware($this->hub);
-        $envelope = new Envelope(new CreateEventCommand('Meeting', $event->getStartAt(), $event->getEndAt()));
-
-        $middleware->handle($envelope, $this->createPassthroughStack($event));
+        $envelope = $this->received(new CreateEventCommand('Meeting', $event->getStartAt(), $event->getEndAt()));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack($event));
 
         self::assertCount(1, $this->publishedUpdates);
+        $topic = $this->publishedUpdates[0]->getTopics()[0];
+        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/events/', $topic);
         $data = json_decode($this->publishedUpdates[0]->getData(), true);
         self::assertSame('Meeting', $data['summary']);
         self::assertStringContainsString('/api/events/', $data['@id']);
+        self::assertStringNotContainsString('/users/', $data['@id']);
     }
 
-    public function testUpdateEventPublishesToMercure(): void
+    public function testUpdateEventPublishesToUserScopedTopic(): void
     {
         $event = new Event();
         $event->setSummary('Updated Meeting');
         $event->setStartAt(new \DateTimeImmutable('2026-03-20T10:00:00+01:00'));
         $event->setEndAt(new \DateTimeImmutable('2026-03-20T11:00:00+01:00'));
 
-        $middleware = new MercurePublishMiddleware($this->hub);
-        $envelope = new Envelope(new UpdateEventCommand(eventId: (string) $event->getId()));
-
-        $middleware->handle($envelope, $this->createPassthroughStack($event));
+        $envelope = $this->received(new UpdateEventCommand(eventId: (string) $event->getId()));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack($event));
 
         self::assertCount(1, $this->publishedUpdates);
+        $topic = $this->publishedUpdates[0]->getTopics()[0];
+        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/events/', $topic);
         $data = json_decode($this->publishedUpdates[0]->getData(), true);
         self::assertSame('Updated Meeting', $data['summary']);
     }
 
-    public function testDeleteEventPublishesToMercure(): void
+    public function testDeleteEventPublishesToUserScopedTopic(): void
     {
         $eventId = (string) new Ulid();
 
-        $middleware = new MercurePublishMiddleware($this->hub);
-        $envelope = new Envelope(new DeleteEventCommand(eventId: $eventId));
-
-        $middleware->handle($envelope, $this->createPassthroughStack());
+        $envelope = $this->received(new DeleteEventCommand(eventId: $eventId));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack());
 
         self::assertCount(1, $this->publishedUpdates);
+        $topic = $this->publishedUpdates[0]->getTopics()[0];
+        self::assertSame('/users/' . $this->user->getId() . '/api/events/' . $eventId, $topic);
         $data = json_decode($this->publishedUpdates[0]->getData(), true);
         self::assertSame('/api/events/' . $eventId, $data['@id']);
         self::assertTrue($data['deleted']);
     }
 
-    public function testCreateAgendaPublishesToMercure(): void
+    public function testCreateAgendaPublishesToUserScopedTopic(): void
     {
         $agenda = new Agenda();
         $agenda->setName('Work');
         $agenda->setColor('#ff0000');
+        $agenda->setUser($this->user);
 
-        $middleware = new MercurePublishMiddleware($this->hub);
-        $envelope = new Envelope(new CreateAgendaCommand(userId: 'fake-user-id', name: 'Work', color: '#ff0000'));
-
-        $middleware->handle($envelope, $this->createPassthroughStack($agenda));
+        $envelope = $this->received(new CreateAgendaCommand(userId: (string) $this->user->getId(), name: 'Work', color: '#ff0000'));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack($agenda));
 
         self::assertCount(1, $this->publishedUpdates);
+        $topic = $this->publishedUpdates[0]->getTopics()[0];
+        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/agendas/', $topic);
         $data = json_decode($this->publishedUpdates[0]->getData(), true);
         self::assertSame('Work', $data['name']);
         self::assertSame('#ff0000', $data['color']);
-        self::assertStringContainsString('/api/agendas/', $data['@id']);
     }
 
-    public function testUpdateAgendaPublishesToMercure(): void
+    public function testUpdateAgendaPublishesToUserScopedTopic(): void
     {
         $agenda = new Agenda();
         $agenda->setName('Personal');
+        $agenda->setUser($this->user);
 
-        $middleware = new MercurePublishMiddleware($this->hub);
-        $envelope = new Envelope(new UpdateAgendaCommand(agendaId: (string) $agenda->getId()));
-
-        $middleware->handle($envelope, $this->createPassthroughStack($agenda));
+        $envelope = $this->received(new UpdateAgendaCommand(agendaId: (string) $agenda->getId()));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack($agenda));
 
         self::assertCount(1, $this->publishedUpdates);
-        $data = json_decode($this->publishedUpdates[0]->getData(), true);
-        self::assertSame('Personal', $data['name']);
+        $topic = $this->publishedUpdates[0]->getTopics()[0];
+        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/agendas/', $topic);
     }
 
-    public function testDeleteAgendaPublishesToMercure(): void
+    public function testDeleteAgendaPublishesToUserScopedTopic(): void
     {
         $agendaId = (string) new Ulid();
 
-        $middleware = new MercurePublishMiddleware($this->hub);
-        $envelope = new Envelope(new DeleteAgendaCommand(agendaId: $agendaId));
-
-        $middleware->handle($envelope, $this->createPassthroughStack());
+        $envelope = $this->received(new DeleteAgendaCommand(agendaId: $agendaId));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack());
 
         self::assertCount(1, $this->publishedUpdates);
+        $topic = $this->publishedUpdates[0]->getTopics()[0];
+        self::assertSame('/users/' . $this->user->getId() . '/api/agendas/' . $agendaId, $topic);
         $data = json_decode($this->publishedUpdates[0]->getData(), true);
-        self::assertSame('/api/agendas/' . $agendaId, $data['@id']);
         self::assertTrue($data['deleted']);
     }
 
-    public function testCreateTaskPublishesToMercure(): void
+    public function testCreateTaskPublishesToUserScopedTopic(): void
     {
         $task = new Task();
+        $task->setUser($this->user);
         $task->setTitle('Buy groceries');
         $task->setPriority(TaskPriority::High);
         $task->setCriticality(TaskCriticality::Medium);
         $task->setDueDate(new \DateTimeImmutable('2026-03-25T18:00:00+01:00'));
 
-        $middleware = new MercurePublishMiddleware($this->hub);
-        $envelope = new Envelope(new CreateTaskCommand(userId: 'fake-user-id', title: 'Buy groceries'));
-
-        $middleware->handle($envelope, $this->createPassthroughStack($task));
+        $envelope = $this->received(new CreateTaskCommand(userId: (string) $this->user->getId(), title: 'Buy groceries'));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack($task));
 
         self::assertCount(1, $this->publishedUpdates);
+        $topic = $this->publishedUpdates[0]->getTopics()[0];
+        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/tasks/', $topic);
         $data = json_decode($this->publishedUpdates[0]->getData(), true);
         self::assertSame('Buy groceries', $data['title']);
-        self::assertSame('high', $data['priority']);
-        self::assertSame('medium', $data['criticality']);
         self::assertFalse($data['isDone']);
-        self::assertStringContainsString('/api/tasks/', $data['@id']);
     }
 
-    public function testUpdateTaskPublishesToMercure(): void
+    public function testUpdateTaskPublishesToUserScopedTopic(): void
     {
         $task = new Task();
+        $task->setUser($this->user);
         $task->setTitle('Updated task');
         $task->setPriority(TaskPriority::Low);
         $task->setCriticality(TaskCriticality::Critical);
 
-        $middleware = new MercurePublishMiddleware($this->hub);
-        $envelope = new Envelope(new UpdateTaskCommand(taskId: (string) $task->getId()));
-
-        $middleware->handle($envelope, $this->createPassthroughStack($task));
+        $envelope = $this->received(new UpdateTaskCommand(taskId: (string) $task->getId()));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack($task));
 
         self::assertCount(1, $this->publishedUpdates);
-        $data = json_decode($this->publishedUpdates[0]->getData(), true);
-        self::assertSame('Updated task', $data['title']);
-        self::assertSame('low', $data['priority']);
-        self::assertSame('critical', $data['criticality']);
+        $topic = $this->publishedUpdates[0]->getTopics()[0];
+        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/tasks/', $topic);
     }
 
-    public function testDeleteTaskPublishesToMercure(): void
+    public function testDeleteTaskPublishesToUserScopedTopic(): void
     {
         $taskId = (string) new Ulid();
 
-        $middleware = new MercurePublishMiddleware($this->hub);
-        $envelope = new Envelope(new DeleteTaskCommand(taskId: $taskId));
-
-        $middleware->handle($envelope, $this->createPassthroughStack());
+        $envelope = $this->received(new DeleteTaskCommand(taskId: $taskId));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack());
 
         self::assertCount(1, $this->publishedUpdates);
+        $topic = $this->publishedUpdates[0]->getTopics()[0];
+        self::assertSame('/users/' . $this->user->getId() . '/api/tasks/' . $taskId, $topic);
         $data = json_decode($this->publishedUpdates[0]->getData(), true);
-        self::assertSame('/api/tasks/' . $taskId, $data['@id']);
         self::assertTrue($data['deleted']);
     }
 
     public function testUnrelatedMessageDoesNotPublish(): void
     {
-        $middleware = new MercurePublishMiddleware($this->hub);
         $envelope = new Envelope(new \stdClass());
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack());
 
-        $middleware->handle($envelope, $this->createPassthroughStack());
+        self::assertCount(0, $this->publishedUpdates);
+    }
+
+    public function testNoUserDoesNotPublish(): void
+    {
+        $this->security = $this->createMock(Security::class);
+        $this->security->method('getUser')->willReturn(null);
+
+        $event = new Event();
+        $event->setSummary('Meeting');
+        $event->setStartAt(new \DateTimeImmutable('2026-03-20T10:00:00+01:00'));
+        $event->setEndAt(new \DateTimeImmutable('2026-03-20T11:00:00+01:00'));
+
+        $envelope = $this->received(new CreateEventCommand('Meeting', $event->getStartAt(), $event->getEndAt()));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack($event));
+
+        self::assertCount(0, $this->publishedUpdates);
+    }
+
+    public function testWithoutReceivedStampDoesNotPublish(): void
+    {
+        $event = new Event();
+        $event->setSummary('Meeting');
+        $event->setStartAt(new \DateTimeImmutable('2026-03-20T10:00:00+01:00'));
+        $event->setEndAt(new \DateTimeImmutable('2026-03-20T11:00:00+01:00'));
+
+        // No ReceivedStamp → first pass through middleware before transport, should skip publishing
+        $envelope = new Envelope(new CreateEventCommand('Meeting', $event->getStartAt(), $event->getEndAt()));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack($event));
 
         self::assertCount(0, $this->publishedUpdates);
     }

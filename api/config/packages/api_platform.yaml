@@ -28,5 +28,4 @@ api_platform:
     enable_swagger_ui: false
 
     mercure:
-        enabled: true
-        hub_url: '%env(MERCURE_URL)%'
+        enabled: false
