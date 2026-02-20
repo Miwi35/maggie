@@ -1,3 +1,4 @@
+from datetime import UTC
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.db.proaction_model import ProactionStatus
@@ -13,7 +14,7 @@ class TestProactionModel:
 
     def test_proaction_to_dict(self):
         """Proaction.to_dict() should serialize correctly."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         from app.db.proaction_model import Proaction
 
@@ -22,8 +23,8 @@ class TestProactionModel:
             user_id="user-1",
             prompt="Check calendar",
             status=ProactionStatus.PENDING,
-            scheduled_at=datetime(2026, 2, 20, 9, 0, tzinfo=timezone.utc),
-            created_at=datetime(2026, 2, 19, 10, 0, tzinfo=timezone.utc),
+            scheduled_at=datetime(2026, 2, 20, 9, 0, tzinfo=UTC),
+            created_at=datetime(2026, 2, 19, 10, 0, tzinfo=UTC),
         )
 
         d = proaction.to_dict()

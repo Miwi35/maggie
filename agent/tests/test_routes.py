@@ -1,4 +1,6 @@
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
+
+from app.db.models import Message
 
 
 class TestRoutes:
@@ -17,8 +19,9 @@ class TestRoutes:
         response = client.post("/chat", json={"message": "Hello"})
         assert response.status_code in (401, 403)
 
+    @patch("app.api.routes.message_repo")
     @patch("app.api.routes.llm_gateway")
-    def test_chat_endpoint_without_api_key(self, mock_gateway, authed_client):
+    def test_chat_endpoint_without_api_key(self, mock_gateway, mock_msg_repo, authed_client):
         """POST /chat without ANTHROPIC_API_KEY returns a not-configured message."""
         mock_gateway.client = None
 
@@ -26,6 +29,9 @@ class TestRoutes:
             return {"response": "AI service is not configured.", "tool_calls": []}
 
         mock_gateway.chat = mock_chat
+
+        fake_msg = Message(id="test", user_id="test-user", role="user", content="Hello")
+        mock_msg_repo.create = AsyncMock(return_value=fake_msg)
 
         response = authed_client.post(
             "/chat",

@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 
 import yaml
@@ -13,15 +14,16 @@ class TestPersonalityEngine:
             yaml.dump({
                 "name": "TestBot",
                 "language": "en",
-                "tone": "professional",
-                "system_prompt": "You are {name}, speaking {language} in a {tone} tone.",
+                "backstory": "A helpful test bot.",
+                "system_prompt": "You are {name}. {backstory}\nLanguage: {language}. Date: {today}.",
             })
         )
 
         engine = PersonalityEngine(config_path=config_file)
         prompt = engine.get_system_prompt()
 
-        assert prompt == "You are TestBot, speaking en in a professional tone."
+        today = date.today().isoformat()
+        assert prompt == f"You are TestBot. A helpful test bot.\nLanguage: en. Date: {today}."
 
     def test_fallback_config_on_missing_file(self, tmp_path: Path):
         """When config file does not exist, defaults are used."""
@@ -31,20 +33,20 @@ class TestPersonalityEngine:
 
         assert engine.config["name"] == "Maggie"
         assert engine.config["language"] == "fr"
-        assert engine.config["tone"] == "friendly and helpful"
-        assert "Maggie" in engine.config["system_prompt"]
+        assert engine.config["backstory"] == "Une assistante personnelle IA intelligente et bienveillante."
+        assert "{name}" in engine.config["system_prompt"]
 
     def test_get_system_prompt_with_minimal_config(self, tmp_path: Path):
         """Config with only system_prompt uses default values for missing keys."""
         config_file = tmp_path / "minimal.yaml"
         config_file.write_text(
             yaml.dump({
-                "system_prompt": "Hello, I am {name}. Language: {language}. Tone: {tone}.",
+                "system_prompt": "Hello, I am {name}. Language: {language}. Date: {today}.",
             })
         )
 
         engine = PersonalityEngine(config_path=config_file)
         prompt = engine.get_system_prompt()
 
-        # Missing keys fall back to: name=Maggie, language=fr, tone=friendly
-        assert prompt == "Hello, I am Maggie. Language: fr. Tone: friendly."
+        today = date.today().isoformat()
+        assert prompt == f"Hello, I am Maggie. Language: fr. Date: {today}."
