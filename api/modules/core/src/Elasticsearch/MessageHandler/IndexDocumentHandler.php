@@ -24,7 +24,9 @@ final class IndexDocumentHandler
 
     public function __invoke(IndexDocumentCommand $command): void
     {
-        $entity = $this->em->find($command->entityClass, $command->entityId);
+        /** @var class-string $entityClass */
+        $entityClass = $command->entityClass;
+        $entity = $this->em->find($entityClass, $command->entityId);
 
         if ($entity === null) {
             $this->logger->warning('Entity not found for ES indexation (may have been deleted)', [

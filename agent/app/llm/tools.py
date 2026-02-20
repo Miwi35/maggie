@@ -71,10 +71,7 @@ MEMORY_TOOLS = [
     },
     {
         "name": "search_memory",
-        "description": (
-            "Search the user's memories by keyword. "
-            "Returns matching memories ordered by most recent."
-        ),
+        "description": ("Search the user's memories by keyword. Returns matching memories ordered by most recent."),
         "input_schema": {
             "type": "object",
             "properties": {
@@ -146,9 +143,7 @@ async def _handle_schedule_proaction(arguments: dict, user_id: str) -> str:
     except ValueError:
         return json.dumps({"error": f"Invalid datetime format: {scheduled_at_str}"})
 
-    proaction = await proaction_repo.create(
-        user_id=user_id, prompt=prompt, scheduled_at=scheduled_at
-    )
+    proaction = await proaction_repo.create(user_id=user_id, prompt=prompt, scheduled_at=scheduled_at)
     return json.dumps(proaction.to_dict())
 
 

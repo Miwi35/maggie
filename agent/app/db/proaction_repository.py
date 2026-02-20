@@ -21,9 +21,7 @@ class ProactionRepository:
         async with agent_engine.begin() as conn:
             await conn.run_sync(AgentBase.metadata.create_all)
 
-    async def create(
-        self, user_id: str, prompt: str, scheduled_at: datetime
-    ) -> Proaction:
+    async def create(self, user_id: str, prompt: str, scheduled_at: datetime) -> Proaction:
         async with agent_session() as session:
             proaction = Proaction(
                 user_id=user_id,
@@ -35,9 +33,7 @@ class ProactionRepository:
             await session.refresh(proaction)
 
         try:
-            await self.publisher.publish(
-                f"/proactions/{user_id}", proaction.to_dict()
-            )
+            await self.publisher.publish(f"/proactions/{user_id}", proaction.to_dict())
         except Exception as e:
             logger.warning(f"Failed to publish proaction to Mercure: {e}")
 
@@ -59,24 +55,18 @@ class ProactionRepository:
         """Find all proactions for a given user, most recent first."""
         async with agent_session() as session:
             result = await session.execute(
-                select(Proaction)
-                .where(Proaction.user_id == user_id)
-                .order_by(Proaction.created_at.desc())
+                select(Proaction).where(Proaction.user_id == user_id).order_by(Proaction.created_at.desc())
             )
             return list(result.scalars().all())
 
     async def get(self, proaction_id: str) -> Proaction | None:
         async with agent_session() as session:
-            result = await session.execute(
-                select(Proaction).where(Proaction.id == proaction_id)
-            )
+            result = await session.execute(select(Proaction).where(Proaction.id == proaction_id))
             return result.scalar_one_or_none()
 
     async def mark_running(self, proaction_id: str) -> None:
         async with agent_session() as session:
-            result = await session.execute(
-                select(Proaction).where(Proaction.id == proaction_id)
-            )
+            result = await session.execute(select(Proaction).where(Proaction.id == proaction_id))
             proaction = result.scalar_one_or_none()
             if proaction:
                 proaction.status = ProactionStatus.RUNNING
@@ -84,9 +74,7 @@ class ProactionRepository:
 
     async def mark_completed(self, proaction_id: str, response: str) -> None:
         async with agent_session() as session:
-            result = await session.execute(
-                select(Proaction).where(Proaction.id == proaction_id)
-            )
+            result = await session.execute(select(Proaction).where(Proaction.id == proaction_id))
             proaction = result.scalar_one_or_none()
             if proaction:
                 proaction.status = ProactionStatus.COMPLETED
@@ -97,17 +85,13 @@ class ProactionRepository:
 
         if proaction:
             try:
-                await self.publisher.publish(
-                    f"/proactions/{proaction.user_id}", proaction.to_dict()
-                )
+                await self.publisher.publish(f"/proactions/{proaction.user_id}", proaction.to_dict())
             except Exception as e:
                 logger.warning(f"Failed to publish proaction update: {e}")
 
     async def mark_failed(self, proaction_id: str, error: str) -> None:
         async with agent_session() as session:
-            result = await session.execute(
-                select(Proaction).where(Proaction.id == proaction_id)
-            )
+            result = await session.execute(select(Proaction).where(Proaction.id == proaction_id))
             proaction = result.scalar_one_or_none()
             if proaction:
                 proaction.status = ProactionStatus.FAILED
@@ -118,9 +102,7 @@ class ProactionRepository:
 
         if proaction:
             try:
-                await self.publisher.publish(
-                    f"/proactions/{proaction.user_id}", proaction.to_dict()
-                )
+                await self.publisher.publish(f"/proactions/{proaction.user_id}", proaction.to_dict())
             except Exception as e:
                 logger.warning(f"Failed to publish proaction update: {e}")
 

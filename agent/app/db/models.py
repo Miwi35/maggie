@@ -13,9 +13,7 @@ class Message(Base):
     """Chat message — owned by the agent, stored in the shared Postgres."""
 
     __tablename__ = "agent_message"
-    __table_args__ = (
-        Index("idx_agent_message_user_created", "user_id", "created_at"),
-    )
+    __table_args__ = (Index("idx_agent_message_user_created", "user_id", "created_at"),)
 
     id = Column(String(26), primary_key=True, default=lambda: str(uuid.uuid4().hex[:26]))
     user_id = Column(String(36), nullable=False)

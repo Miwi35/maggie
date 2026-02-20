@@ -20,6 +20,7 @@ final class ElasticsearchEntityHydrator
      */
     public function hydrate(array $source, string $entityClass): object
     {
+        /** @var \ReflectionClass<object> $ref */
         $ref = new \ReflectionClass($entityClass);
         $entity = $ref->newInstanceWithoutConstructor();
 
@@ -42,7 +43,9 @@ final class ElasticsearchEntityHydrator
             if ($relProp !== null) {
                 [$propName, $relMeta] = $relProp;
                 if ($value !== null) {
-                    $reference = $this->em->getReference($relMeta['targetEntity'], Ulid::fromString($value));
+                    /** @var class-string $targetEntity */
+                    $targetEntity = $relMeta['targetEntity'];
+                    $reference = $this->em->getReference($targetEntity, Ulid::fromString($value));
                     $this->setProperty($ref, $entity, $propName, $reference);
                 }
                 continue;
@@ -60,6 +63,7 @@ final class ElasticsearchEntityHydrator
     }
 
     /**
+     * @param \ReflectionClass<object> $ref
      * @return array<string, array{targetEntity: string, sourceField: string}>
      */
     private function getRelationMap(\ReflectionClass $ref): array
@@ -98,6 +102,7 @@ final class ElasticsearchEntityHydrator
         return null;
     }
 
+    /** @param \ReflectionClass<object> $ref */
     private function hasProperty(\ReflectionClass $ref, string $name): bool
     {
         $current = $ref;
@@ -111,6 +116,7 @@ final class ElasticsearchEntityHydrator
         return false;
     }
 
+    /** @param \ReflectionClass<object> $ref */
     private function getPropertyRef(\ReflectionClass $ref, string $name): \ReflectionProperty
     {
         $current = $ref;
@@ -124,6 +130,7 @@ final class ElasticsearchEntityHydrator
         throw new \RuntimeException("Property {$name} not found on {$ref->getName()}");
     }
 
+    /** @param \ReflectionClass<object> $ref */
     private function setProperty(\ReflectionClass $ref, object $entity, string $name, mixed $value): void
     {
         $current = $ref;

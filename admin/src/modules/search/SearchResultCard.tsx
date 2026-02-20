@@ -17,28 +17,30 @@ import SearchIcon from '@mui/icons-material/Search'
 import { SEARCH_INDEX_CONFIG, getResultLabel, getResultHighlight, getResultPath } from './searchConfig'
 import type { SearchResult } from './searchConfig'
 
-const ICON_COMPONENTS: Record<string, React.ElementType> = {
-  Event: EventIcon,
-  CheckCircle: CheckCircleIcon,
-  Restaurant: RestaurantIcon,
-  ShoppingCart: ShoppingCartIcon,
-  CalendarMonth: CalendarMonthIcon,
-  ShoppingBag: ShoppingBagIcon,
-  DinnerDining: DinnerDiningIcon,
-  Repeat: RepeatIcon,
-  Notifications: NotificationsIcon,
-  Person: PersonIcon,
+const ICON_ELEMENTS: Record<string, React.ReactElement> = {
+  Event: <EventIcon sx={{ color: 'text.secondary', mt: 0.3 }} />,
+  CheckCircle: <CheckCircleIcon sx={{ color: 'text.secondary', mt: 0.3 }} />,
+  Restaurant: <RestaurantIcon sx={{ color: 'text.secondary', mt: 0.3 }} />,
+  ShoppingCart: <ShoppingCartIcon sx={{ color: 'text.secondary', mt: 0.3 }} />,
+  CalendarMonth: <CalendarMonthIcon sx={{ color: 'text.secondary', mt: 0.3 }} />,
+  ShoppingBag: <ShoppingBagIcon sx={{ color: 'text.secondary', mt: 0.3 }} />,
+  DinnerDining: <DinnerDiningIcon sx={{ color: 'text.secondary', mt: 0.3 }} />,
+  Repeat: <RepeatIcon sx={{ color: 'text.secondary', mt: 0.3 }} />,
+  Notifications: <NotificationsIcon sx={{ color: 'text.secondary', mt: 0.3 }} />,
+  Person: <PersonIcon sx={{ color: 'text.secondary', mt: 0.3 }} />,
 }
 
-function getIconComponent(indexName: string): React.ElementType {
+const DEFAULT_ICON = <SearchIcon sx={{ color: 'text.secondary', mt: 0.3 }} />
+
+function getIconElement(indexName: string): React.ReactElement {
   const config = SEARCH_INDEX_CONFIG[indexName]
-  return config ? (ICON_COMPONENTS[config.icon] ?? SearchIcon) : SearchIcon
+  return config ? (ICON_ELEMENTS[config.icon] ?? DEFAULT_ICON) : DEFAULT_ICON
 }
 
 export function SearchResultCard({ result }: { result: SearchResult }) {
   const navigate = useNavigate()
   const config = SEARCH_INDEX_CONFIG[result.index]
-  const Icon = getIconComponent(result.index)
+  const icon = getIconElement(result.index)
 
   const handleClick = () => {
     navigate(getResultPath(result))
@@ -56,7 +58,7 @@ export function SearchResultCard({ result }: { result: SearchResult }) {
       variant="outlined"
     >
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-        <Icon sx={{ color: 'text.secondary', mt: 0.3 }} />
+        {icon}
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 500 }} noWrap>

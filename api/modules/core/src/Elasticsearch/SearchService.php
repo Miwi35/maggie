@@ -221,7 +221,8 @@ class SearchService
      */
     private function addUserScope(\Doctrine\ORM\QueryBuilder $qb, string $entityClass, string $userId): bool
     {
-        $classMetadata = $this->em->getClassMetadata($entityClass);
+        /** @var \Doctrine\ORM\Mapping\ClassMetadata<object> $classMetadata */
+        $classMetadata = $this->em->getClassMetadata($entityClass); // @phpstan-ignore argument.templateType
 
         if ($classMetadata->hasAssociation('user')) {
             // Direct user relation (Task, Recipe, Product, Notification, etc.)
@@ -250,7 +251,8 @@ class SearchService
      */
     private function toDqlField(string $entityClass, string $esField): ?string
     {
-        $classMetadata = $this->em->getClassMetadata($entityClass);
+        /** @var \Doctrine\ORM\Mapping\ClassMetadata<object> $classMetadata */
+        $classMetadata = $this->em->getClassMetadata($entityClass); // @phpstan-ignore argument.templateType
 
         if ($classMetadata->hasField($esField)) {
             return "e.{$esField}";

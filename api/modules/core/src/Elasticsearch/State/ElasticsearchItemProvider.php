@@ -12,8 +12,14 @@ use Maggie\Core\Elasticsearch\Hydrator\ElasticsearchEntityHydrator;
 use Maggie\Core\Elasticsearch\IndexMetadataReader;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
+/**
+ * @implements ProviderInterface<object>
+ */
 final class ElasticsearchItemProvider implements ProviderInterface
 {
+    /**
+     * @param ProviderInterface<object> $doctrineProvider
+     */
     public function __construct(
         private readonly Client $client,
         private readonly IndexMetadataReader $metadataReader,

@@ -65,6 +65,7 @@ final class ElasticsearchFilterTranslator
             'before' => 'lte',
             'strictly_after' => 'gt',
             'strictly_before' => 'lt',
+            default => 'gte',
         };
 
         return ['range' => [$field => [$esOp => $value]]];

@@ -42,15 +42,11 @@ async def chat(request: ChatRequest, user_id: str = Depends(get_current_user_id)
     """Send a message to the AI agent and get a response."""
     logger.info(f"Chat request from user {user_id}: {request.message[:100]}")
 
-    user_msg = await message_repo.create(
-        user_id=user_id, role="user", content=request.message
-    )
+    user_msg = await message_repo.create(user_id=user_id, role="user", content=request.message)
 
     result = await llm_gateway.chat(request.message, user_id)
 
-    assistant_msg = await message_repo.create(
-        user_id=user_id, role="assistant", content=result["response"]
-    )
+    assistant_msg = await message_repo.create(user_id=user_id, role="assistant", content=result["response"])
 
     return ChatResponse(
         response=result["response"],
@@ -66,9 +62,7 @@ async def proaction(request: ChatRequest, user_id: str = Depends(get_current_use
 
     result = await llm_gateway.proaction(request.message, user_id)
 
-    assistant_msg = await message_repo.create(
-        user_id=user_id, role="assistant", content=result["response"]
-    )
+    assistant_msg = await message_repo.create(user_id=user_id, role="assistant", content=result["response"])
 
     return ChatResponse(
         response=result["response"],
@@ -105,9 +99,7 @@ async def get_personality(_user_id: str = Depends(get_current_user_id)):
 
 
 @router.put("/personality")
-async def update_personality(
-    data: PersonalityUpdate, _user_id: str = Depends(get_current_user_id)
-):
+async def update_personality(data: PersonalityUpdate, _user_id: str = Depends(get_current_user_id)):
     """Update personality configuration and reload."""
     updates = data.model_dump(exclude_none=True)
     return llm_gateway.personality.update_config(updates)

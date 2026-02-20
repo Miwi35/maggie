@@ -75,9 +75,7 @@ class LLMGateway:
         tool_calls_made = []
 
         try:
-            return await self._run_tool_loop(
-                system_prompt, messages, tools, tool_calls_made, user_id=user_id
-            )
+            return await self._run_tool_loop(system_prompt, messages, tools, tool_calls_made, user_id=user_id)
         except anthropic.APIStatusError as e:
             logger.error(f"Proaction API error: {e.message}")
             return {"response": f"AI service error: {e.message}", "tool_calls": []}
@@ -113,9 +111,7 @@ class LLMGateway:
 
         try:
             system_prompt = await self._build_system_prompt(user_id)
-            result = await self._run_tool_loop(
-                system_prompt, messages, tools, tool_calls_made, user_id=user_id
-            )
+            result = await self._run_tool_loop(system_prompt, messages, tools, tool_calls_made, user_id=user_id)
             return result
         except anthropic.APIStatusError as e:
             logger.error(f"Anthropic API error: {e.message}")
@@ -158,9 +154,7 @@ class LLMGateway:
                 for block in assistant_content:
                     if block.type == "tool_use":
                         logger.info(f"Tool call: {block.name}({block.input})")
-                        result = await self.tool_router.call_tool(
-                            block.name, block.input, user_id=user_id
-                        )
+                        result = await self.tool_router.call_tool(block.name, block.input, user_id=user_id)
                         tool_calls_made.append({"name": block.name, "input": block.input, "result": result})
                         tool_results.append(
                             {

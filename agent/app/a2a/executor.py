@@ -31,9 +31,7 @@ class MaggieAgentExecutor(AgentExecutor):
         # Extract user message from the A2A request
         message = self._extract_message(context)
         if not message:
-            await event_queue.enqueue_event(
-                new_agent_text_message("No message provided.")
-            )
+            await event_queue.enqueue_event(new_agent_text_message("No message provided."))
             return
 
         logger.info(f"A2A request: {message[:100]}")
@@ -41,9 +39,7 @@ class MaggieAgentExecutor(AgentExecutor):
         # Use chat() which only provides MCP tools (no native proaction tools)
         result = await self.gateway.chat(message, A2A_USER_ID)
 
-        await event_queue.enqueue_event(
-            new_agent_text_message(result["response"])
-        )
+        await event_queue.enqueue_event(new_agent_text_message(result["response"]))
 
     async def cancel(
         self,

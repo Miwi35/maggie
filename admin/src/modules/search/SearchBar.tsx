@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import ClickAwayListener from '@mui/material/ClickAwayListener'
@@ -52,7 +52,14 @@ export function SearchBar() {
   const navigate = useNavigate()
   const inputRef = useRef<HTMLInputElement>(null)
   const anchorRef = useRef<HTMLDivElement>(null)
+  const [anchorEl, setAnchorEl] = useState<HTMLDivElement | null>(null)
   const [open, setOpen] = useState(false)
+
+  // Sync ref to state so Popper reads it without accessing ref during render
+  const anchorCallbackRef = useCallback((node: HTMLDivElement | null) => {
+    anchorRef.current = node
+    setAnchorEl(node)
+  }, [])
   const { query, setQuery, data, loading } = useSearch(300)
 
   // Ctrl+K shortcut
@@ -101,7 +108,7 @@ export function SearchBar() {
 
   return (
     <ClickAwayListener onClickAway={() => setOpen(false)}>
-      <Box ref={anchorRef} sx={{ flex: 1, maxWidth: 400, mx: 1 }}>
+      <Box ref={anchorCallbackRef} sx={{ flex: 1, maxWidth: 400, mx: 1 }}>
         <TextField
           inputRef={inputRef}
           size="small"
@@ -153,9 +160,9 @@ export function SearchBar() {
         />
         <Popper
           open={open}
-          anchorEl={anchorRef.current}
+          anchorEl={anchorEl}
           placement="bottom-start"
-          style={{ zIndex: 1300, width: anchorRef.current?.offsetWidth ?? 400 }}
+          style={{ zIndex: 1300, width: anchorEl?.offsetWidth ?? 400 }}
         >
           <Paper sx={{ mt: 0.5, maxHeight: 400, overflow: 'auto' }} elevation={8}>
             <List dense disablePadding>

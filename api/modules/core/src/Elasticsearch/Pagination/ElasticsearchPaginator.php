@@ -7,8 +7,10 @@ namespace Maggie\Core\Elasticsearch\Pagination;
 use ApiPlatform\State\Pagination\PaginatorInterface;
 
 /**
+ * @implements PaginatorInterface<object>
  * @implements \IteratorAggregate<int, object>
  */
+/** @phpstan-ignore-next-line API Platform's PaginatorInterface and IteratorAggregate have conflicting Traversable generics */
 final class ElasticsearchPaginator implements PaginatorInterface, \IteratorAggregate
 {
     /**
@@ -50,6 +52,9 @@ final class ElasticsearchPaginator implements PaginatorInterface, \IteratorAggre
         return \count($this->items);
     }
 
+    /**
+     * @return \ArrayIterator<int, object>
+     */
     public function getIterator(): \ArrayIterator
     {
         return new \ArrayIterator($this->items);

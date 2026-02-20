@@ -42,10 +42,7 @@ class MessageRepository:
     async def find_recent(self, user_id: str, limit: int = 50) -> list[Message]:
         async with async_session() as session:
             result = await session.execute(
-                select(Message)
-                .where(Message.user_id == user_id)
-                .order_by(Message.created_at.desc())
-                .limit(limit)
+                select(Message).where(Message.user_id == user_id).order_by(Message.created_at.desc()).limit(limit)
             )
             messages = list(result.scalars().all())
             messages.reverse()  # chronological order

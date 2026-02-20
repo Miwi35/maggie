@@ -14,8 +14,14 @@ use Maggie\Core\Elasticsearch\Query\ElasticsearchFilterTranslator;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 
+/**
+ * @implements ProviderInterface<object>
+ */
 final class ElasticsearchCollectionProvider implements ProviderInterface
 {
+    /**
+     * @param ProviderInterface<object> $doctrineProvider
+     */
     public function __construct(
         private readonly Client $client,
         private readonly IndexMetadataReader $metadataReader,
@@ -49,6 +55,7 @@ final class ElasticsearchCollectionProvider implements ProviderInterface
 
     /**
      * @param array{index: string, module: ?string, fields: array<string, mixed>, relations: array<string, mixed>} $meta
+     * @param array<string, mixed> $context
      */
     private function doProvide(array $meta, string $entityClass, Operation $operation, array $context): ElasticsearchPaginator
     {

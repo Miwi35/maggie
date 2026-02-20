@@ -59,6 +59,7 @@ final class IndexManager
         }
     }
 
+    /** @param array<string, mixed> $document */
     public function indexDocument(string $indexName, string $id, array $document): void
     {
         $this->client->index([

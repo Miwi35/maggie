@@ -26,7 +26,7 @@ def _get_public_key() -> str:
 
 
 def get_current_user_id(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: HTTPAuthorizationCredentials = Depends(security),  # noqa: B008
 ) -> str:
     """FastAPI dependency: validate Bearer JWT and return user_id from 'sub' claim."""
     token = credentials.credentials

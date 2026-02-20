@@ -39,9 +39,7 @@ class Proaction(AgentBase):
     scheduled_at = Column(DateTime(timezone=True), nullable=False)
     response = Column(Text, nullable=True)
     error = Column(Text, nullable=True)
-    created_at = Column(
-        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
-    )
+    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
     completed_at = Column(DateTime(timezone=True), nullable=True)
 
     def to_dict(self) -> dict:

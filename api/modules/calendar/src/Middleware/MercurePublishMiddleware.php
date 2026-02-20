@@ -4,6 +4,7 @@ namespace Maggie\Calendar\Middleware;
 
 use Maggie\Calendar\Contract\MercurePublishable;
 use Maggie\Core\Contract\OwnedByUserInterface;
+use Maggie\Core\Entity\User;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -14,7 +15,6 @@ use Symfony\Component\Messenger\Middleware\MiddlewareInterface;
 use Symfony\Component\Messenger\Middleware\StackInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Symfony\Component\Messenger\Stamp\ReceivedStamp;
-use Symfony\Component\Uid\Ulid;
 
 class MercurePublishMiddleware implements MiddlewareInterface
 {
@@ -126,12 +126,10 @@ class MercurePublishMiddleware implements MiddlewareInterface
     {
         $user = $this->security->getUser();
 
-        if ($user === null) {
+        if (!$user instanceof User) {
             return null;
         }
 
-        $id = $user->getId();
-
-        return $id instanceof Ulid ? (string) $id : null;
+        return (string) $user->getId();
     }
 }
