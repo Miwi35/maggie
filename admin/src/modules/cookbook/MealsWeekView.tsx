@@ -208,7 +208,7 @@ export const MealsWeekView = () => {
               sx={{
                 p: 1,
                 textAlign: 'center',
-                bgcolor: isToday ? 'primary.main' : 'grey.100',
+                bgcolor: isToday ? 'primary.main' : 'action.selected',
                 color: isToday ? 'primary.contrastText' : 'text.primary',
                 borderRadius: 1,
               }}
