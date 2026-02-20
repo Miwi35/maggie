@@ -11,15 +11,10 @@ import { NotificationBell } from '../notifications/NotificationBell'
 import { SearchBar } from '../../modules/search/SearchBar'
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder'
 import { useTranscription } from '../../hooks/useTranscription'
+import { useChatContext } from './ChatContext'
 
-interface CustomAppBarProps {
-  chatOpen: boolean
-  onChatToggle: () => void
-  unreadChat: boolean
-  onVoiceMessage: (text: string) => void
-}
-
-export const CustomAppBar = ({ chatOpen, onChatToggle, unreadChat, onVoiceMessage }: CustomAppBarProps) => {
+export const CustomAppBar = () => {
+  const { chatOpen, onChatToggle, unreadChat, onVoiceMessage } = useChatContext()
   const recorder = useVoiceRecorder()
   const transcription = useTranscription()
 

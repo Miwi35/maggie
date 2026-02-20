@@ -1,9 +1,10 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useMemo } from 'react'
 import { Layout as RALayout, LayoutProps } from 'react-admin'
 import Box from '@mui/material/Box'
 import { ChatWidget, ChatWidgetRef } from '../chat/ChatWidget'
 import { CustomAppBar } from './AppBar'
 import { CustomMenu } from './Menu'
+import { ChatContext } from './ChatContext'
 
 const SIDEBAR_WIDTH = 380
 
@@ -41,29 +42,29 @@ export const Layout = (props: LayoutProps) => {
     [chatOpen],
   )
 
+  const chatContext = useMemo(
+    () => ({ chatOpen, onChatToggle: handleChatToggle, unreadChat, onVoiceMessage: handleVoiceMessage }),
+    [chatOpen, handleChatToggle, unreadChat, handleVoiceMessage],
+  )
+
   return (
-    <Box sx={{ display: 'flex' }}>
-      <Box
-        sx={{
-          flex: 1,
-          transition: 'margin-right 225ms cubic-bezier(0, 0, 0.2, 1)',
-          marginRight: chatOpen ? `${SIDEBAR_WIDTH}px` : 0,
-        }}
-      >
-        <RALayout
-          {...props}
-          menu={CustomMenu}
-          appBar={() => (
-            <CustomAppBar
-              chatOpen={chatOpen}
-              onChatToggle={handleChatToggle}
-              unreadChat={unreadChat}
-              onVoiceMessage={handleVoiceMessage}
-            />
-          )}
-        />
+    <ChatContext.Provider value={chatContext}>
+      <Box sx={{ display: 'flex' }}>
+        <Box
+          sx={{
+            flex: 1,
+            transition: 'margin-right 225ms cubic-bezier(0, 0, 0.2, 1)',
+            marginRight: chatOpen ? `${SIDEBAR_WIDTH}px` : 0,
+          }}
+        >
+          <RALayout
+            {...props}
+            menu={CustomMenu}
+            appBar={CustomAppBar}
+          />
+        </Box>
+        <ChatWidget ref={chatRef} open={chatOpen} onClose={handleChatClose} onUnread={handleUnread} />
       </Box>
-      <ChatWidget ref={chatRef} open={chatOpen} onClose={handleChatClose} onUnread={handleUnread} />
-    </Box>
+    </ChatContext.Provider>
   )
 }

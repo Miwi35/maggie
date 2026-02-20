@@ -1,4 +1,5 @@
 import { HydraAdmin, fetchHydra, hydraDataProvider } from '@api-platform/admin'
+import { parseHydraDocumentation } from '@api-platform/api-doc-parser'
 import { radiantLightTheme, radiantDarkTheme } from 'react-admin'
 import polyglotI18nProvider from 'ra-i18n-polyglot'
 import frenchMessages from 'ra-language-french'
@@ -20,6 +21,11 @@ const entrypoint = import.meta.env.VITE_API_URL || 'http://localhost/api'
 
 const i18nProvider = polyglotI18nProvider(() => frenchMessages, 'fr')
 
+const getAuthHeaders = (): HeadersInit => {
+  const token = localStorage.getItem('token')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 const httpClient = (url: URL, options: HttpClientOptions = {}) => {
   const token = localStorage.getItem('token')
   if (token) {
@@ -28,9 +34,13 @@ const httpClient = (url: URL, options: HttpClientOptions = {}) => {
   return fetchHydra(url, options)
 }
 
+const apiDocumentationParser = (entrypointUrl: string) =>
+  parseHydraDocumentation(entrypointUrl, { headers: getAuthHeaders })
+
 const dataProvider = hydraDataProvider({
   entrypoint,
   httpClient,
+  apiDocumentationParser,
 })
 
 function App() {
