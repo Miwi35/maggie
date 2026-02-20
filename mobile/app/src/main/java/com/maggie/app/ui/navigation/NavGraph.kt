@@ -34,16 +34,34 @@ import com.maggie.app.data.auth.BiometricLockManager
 import com.maggie.app.ui.screens.lock.LockScreen
 import com.maggie.app.data.model.ExpandedEvent
 import com.maggie.app.data.model.Task
+import com.maggie.app.data.repository.EventRepository
+import com.maggie.app.data.repository.MealRepository
+import com.maggie.app.data.repository.RecipeRepository
+import com.maggie.app.data.repository.TaskRepository
+import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.ui.components.AppDrawerContent
 import com.maggie.app.ui.components.ChatBottomBar
 import com.maggie.app.ui.components.ChatSheet
 import com.maggie.app.ui.components.MaggieTopBar
 import com.maggie.app.ui.screens.chat.ChatViewModel
+import com.maggie.app.ui.screens.cookbook.CookbookScreen
+import com.maggie.app.ui.screens.cookbook.grocery.GroceryListDetailScreen
+import com.maggie.app.ui.screens.cookbook.grocery.GroceryViewModel
+import com.maggie.app.ui.screens.cookbook.meals.MealCreateDialog
+import com.maggie.app.ui.screens.cookbook.meals.MealsWeekViewModel
+import com.maggie.app.ui.screens.cookbook.recipes.RecipeCreateScreen
+import com.maggie.app.ui.screens.cookbook.recipes.RecipeDetailScreen
+import com.maggie.app.ui.screens.cookbook.recipes.RecipeEditScreen
+import com.maggie.app.ui.screens.cookbook.recipes.RecipeListViewModel
 import com.maggie.app.ui.screens.dashboard.DashboardScreen
 import com.maggie.app.ui.screens.dashboard.DashboardViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarScreen
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
 import com.maggie.app.ui.screens.chat.ChatScreen
+import com.maggie.app.ui.screens.notifications.NotificationScreen
+import com.maggie.app.ui.screens.notifications.NotificationViewModel
+import com.maggie.app.ui.screens.proactions.ProactionScreen
+import com.maggie.app.ui.screens.search.SearchScreen
 import com.maggie.app.ui.screens.shared.EventCreateScreen
 import com.maggie.app.ui.screens.shared.EventDetailSheet
 import com.maggie.app.ui.screens.shared.EventEditScreen
@@ -56,9 +74,6 @@ import com.maggie.app.ui.screens.login.LoginScreen
 import com.maggie.app.ui.screens.login.LoginViewModel
 import com.maggie.app.ui.screens.loading.LoadingScreen
 import com.maggie.app.ui.screens.settings.SettingsScreen
-import com.maggie.app.data.repository.EventRepository
-import com.maggie.app.data.repository.TaskRepository
-import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.util.RruleUtils
 import com.maggie.app.voice.VoiceManager
 import kotlinx.coroutines.launch
@@ -79,9 +94,23 @@ sealed class Screen(val route: String, val label: String) {
     data object TaskEdit : Screen("task/edit", "Modifier la tâche")
     data object Chat : Screen("chat", "Chat")
     data object Settings : Screen("settings", "Paramètres")
+    data object Notifications : Screen("notifications", "Notifications")
+    data object Search : Screen("search", "Rechercher")
+    data object Proactions : Screen("proactions", "Proactions")
+    data object Cookbook : Screen("cookbook", "Cuisine")
+    data object RecipeDetail : Screen("recipe/detail", "Recette")
+    data object RecipeCreate : Screen("recipe/create", "Nouvelle recette")
+    data object RecipeEdit : Screen("recipe/edit", "Modifier la recette")
+    data object MealCreate : Screen("meal/create", "Nouveau repas")
+    data object GroceryDetail : Screen("grocery/detail", "Liste de courses")
 }
 
-private val MAIN_SCREENS = setOf(Screen.Dashboard.route, Screen.Calendar.route, Screen.Chat.route)
+private val MAIN_SCREENS = setOf(
+    Screen.Dashboard.route,
+    Screen.Calendar.route,
+    Screen.Chat.route,
+    Screen.Cookbook.route,
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -103,6 +132,10 @@ fun NavGraph() {
     val chatViewModel: ChatViewModel = koinViewModel()
     val dashboardViewModel: DashboardViewModel = koinViewModel()
     val calendarViewModel: FullCalendarViewModel = koinViewModel()
+    val notificationViewModel: NotificationViewModel = koinViewModel()
+    val recipeListViewModel: RecipeListViewModel = koinViewModel()
+    val mealsWeekViewModel: MealsWeekViewModel = koinViewModel()
+    val groceryViewModel: GroceryViewModel = koinViewModel()
     var showChatSheet by rememberSaveable { mutableStateOf(false) }
     val chatSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -113,6 +146,11 @@ fun NavGraph() {
     val eventRepository: EventRepository = koinInject()
     val taskRepository: TaskRepository = koinInject()
     val agendaRepository: AgendaRepository = koinInject()
+    val recipeRepository: RecipeRepository = koinInject()
+    val mealRepository: MealRepository = koinInject()
+
+    // Notification unread count
+    val notificationUiState by notificationViewModel.uiState.collectAsState()
 
     // Sheet states (kept as overlays)
     var selectedEvent by remember { mutableStateOf<ExpandedEvent?>(null) }
@@ -122,6 +160,12 @@ fun NavGraph() {
     // Transient state for edit screens
     var editingEvent by remember { mutableStateOf<ExpandedEvent?>(null) }
     var editingTask by remember { mutableStateOf<Task?>(null) }
+
+    // Cookbook transient state
+    var detailRecipeId by remember { mutableStateOf<String?>(null) }
+    var editRecipeId by remember { mutableStateOf<String?>(null) }
+    var detailGroceryId by remember { mutableStateOf<String?>(null) }
+    var mealCreateState by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     val calendarUiState by calendarViewModel.uiState.collectAsState()
     val agendas = calendarUiState.agendas
@@ -158,6 +202,7 @@ fun NavGraph() {
         Screen.Dashboard.route -> Screen.Dashboard.label
         Screen.Calendar.route -> Screen.Calendar.label
         Screen.Chat.route -> Screen.Chat.label
+        Screen.Cookbook.route -> Screen.Cookbook.label
         else -> "Maggie"
     }
 
@@ -186,6 +231,13 @@ fun NavGraph() {
                     MaggieTopBar(
                         title = title,
                         onMenuClick = { scope.launch { drawerState.open() } },
+                        unreadCount = notificationUiState.unreadCount,
+                        onNotificationsClick = {
+                            navController.navigate(Screen.Notifications.route) { launchSingleTop = true }
+                        },
+                        onSearchClick = {
+                            navController.navigate(Screen.Search.route) { launchSingleTop = true }
+                        },
                     )
                 }
             },
@@ -308,8 +360,142 @@ fun NavGraph() {
                         onBack = { navController.popBackStack() },
                     )
                 }
+                composable(Screen.Notifications.route) {
+                    NotificationScreen(
+                        viewModel = notificationViewModel,
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable(Screen.Search.route) {
+                    SearchScreen(
+                        onBack = { navController.popBackStack() },
+                        onResultClick = { index, id ->
+                            when (index) {
+                                "events", "meals" -> {
+                                    navController.popBackStack()
+                                    navController.navigate(Screen.Calendar.route) { launchSingleTop = true }
+                                }
+                                "recipes" -> {
+                                    detailRecipeId = id
+                                    navController.navigate(Screen.RecipeDetail.route) { launchSingleTop = true }
+                                }
+                                else -> navController.popBackStack()
+                            }
+                        },
+                    )
+                }
+                composable(Screen.Proactions.route) {
+                    ProactionScreen(
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable(Screen.Cookbook.route) {
+                    CookbookScreen(
+                        recipeListViewModel = recipeListViewModel,
+                        mealsWeekViewModel = mealsWeekViewModel,
+                        groceryViewModel = groceryViewModel,
+                        onRecipeClick = { id ->
+                            detailRecipeId = id
+                            navController.navigate(Screen.RecipeDetail.route)
+                        },
+                        onCreateRecipe = {
+                            navController.navigate(Screen.RecipeCreate.route)
+                        },
+                        onCreateMeal = { day, slot ->
+                            mealCreateState = day to slot
+                        },
+                        onGroceryListClick = { id ->
+                            detailGroceryId = id
+                            navController.navigate(Screen.GroceryDetail.route)
+                        },
+                    )
+                }
+                composable(Screen.RecipeDetail.route) {
+                    val id = detailRecipeId
+                    if (id != null) {
+                        RecipeDetailScreen(
+                            recipeId = id,
+                            recipeRepository = recipeRepository,
+                            onBack = { navController.popBackStack() },
+                            onEdit = { recipeId ->
+                                editRecipeId = recipeId
+                                navController.navigate(Screen.RecipeEdit.route)
+                            },
+                            onDelete = { recipeId ->
+                                scope.launch {
+                                    recipeRepository.deleteRecipe(recipeId)
+                                    navController.popBackStack()
+                                    recipeListViewModel.refresh()
+                                }
+                            },
+                        )
+                    }
+                }
+                composable(Screen.RecipeCreate.route) {
+                    RecipeCreateScreen(
+                        onConfirm = { request ->
+                            scope.launch {
+                                recipeRepository.createRecipe(request)
+                                navController.popBackStack()
+                                recipeListViewModel.refresh()
+                            }
+                        },
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable(Screen.RecipeEdit.route) {
+                    val id = editRecipeId
+                    if (id != null) {
+                        RecipeEditScreen(
+                            recipeId = id,
+                            recipeRepository = recipeRepository,
+                            onConfirm = { recipeId, data ->
+                                scope.launch {
+                                    recipeRepository.updateRecipe(recipeId, data)
+                                    editRecipeId = null
+                                    navController.popBackStack()
+                                    recipeListViewModel.refresh()
+                                }
+                            },
+                            onBack = {
+                                editRecipeId = null
+                                navController.popBackStack()
+                            },
+                        )
+                    }
+                }
+                composable(Screen.GroceryDetail.route) {
+                    val id = detailGroceryId
+                    if (id != null) {
+                        GroceryListDetailScreen(
+                            groceryListId = id,
+                            viewModel = groceryViewModel,
+                            onBack = {
+                                detailGroceryId = null
+                                navController.popBackStack()
+                            },
+                        )
+                    }
+                }
             }
         }
+    }
+
+    // Meal create dialog
+    mealCreateState?.let { (day, slot) ->
+        MealCreateDialog(
+            date = day,
+            slot = slot,
+            recipeListViewModel = recipeListViewModel,
+            onConfirm = { request ->
+                scope.launch {
+                    mealRepository.createMeal(request)
+                    mealCreateState = null
+                    mealsWeekViewModel.refresh()
+                }
+            },
+            onDismiss = { mealCreateState = null },
+        )
     }
 
     // Chat sheet

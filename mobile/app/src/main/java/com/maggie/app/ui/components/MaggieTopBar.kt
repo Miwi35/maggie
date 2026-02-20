@@ -3,6 +3,9 @@ package com.maggie.app.ui.components
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -15,6 +18,9 @@ import androidx.compose.runtime.Composable
 fun MaggieTopBar(
     title: String,
     onMenuClick: () -> Unit,
+    unreadCount: Int = 0,
+    onNotificationsClick: () -> Unit = {},
+    onSearchClick: () -> Unit = {},
 ) {
     TopAppBar(
         title = { Text(title) },
@@ -24,8 +30,17 @@ fun MaggieTopBar(
             }
         },
         actions = {
-            IconButton(onClick = { /* TODO: notifications */ }) {
-                Icon(Icons.Default.Notifications, contentDescription = "Notifications")
+            IconButton(onClick = onSearchClick) {
+                Icon(Icons.Default.Search, contentDescription = "Rechercher")
+            }
+            IconButton(onClick = onNotificationsClick) {
+                if (unreadCount > 0) {
+                    BadgedBox(badge = { Badge { Text("$unreadCount") } }) {
+                        Icon(Icons.Default.Notifications, contentDescription = "Notifications")
+                    }
+                } else {
+                    Icon(Icons.Default.Notifications, contentDescription = "Notifications")
+                }
             }
         },
     )

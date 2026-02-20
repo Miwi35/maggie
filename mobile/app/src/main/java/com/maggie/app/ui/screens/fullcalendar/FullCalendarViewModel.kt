@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.api.AgendaCreateRequest
 import com.maggie.app.data.api.GoogleCalendarImportRequest
+import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.Event
@@ -45,6 +46,7 @@ class FullCalendarViewModel(
     private val taskRepository: TaskRepository,
     private val agendaRepository: AgendaRepository,
     private val mercureService: MercureService,
+    private val authRepository: AuthRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FullCalendarUiState())
@@ -225,19 +227,23 @@ class FullCalendarViewModel(
 
     private fun subscribeToMercure() {
         viewModelScope.launch {
-            mercureService.subscribe("/api/events/{id}")
-                .catch { /* SSE reconnects automatically */ }
-                .collect { refresh() }
-        }
-        viewModelScope.launch {
-            mercureService.subscribe("/api/tasks/{id}")
-                .catch { /* SSE reconnects automatically */ }
-                .collect { refresh() }
-        }
-        viewModelScope.launch {
-            mercureService.subscribe("/api/agendas/{id}")
-                .catch { /* SSE reconnects automatically */ }
-                .collect { refresh() }
+            val userId = authRepository.getUserId() ?: return@launch
+            val prefix = "/users/$userId"
+            launch {
+                mercureService.subscribe("$prefix/api/events/{id}")
+                    .catch { /* SSE reconnects automatically */ }
+                    .collect { refresh() }
+            }
+            launch {
+                mercureService.subscribe("$prefix/api/tasks/{id}")
+                    .catch { /* SSE reconnects automatically */ }
+                    .collect { refresh() }
+            }
+            launch {
+                mercureService.subscribe("$prefix/api/agendas/{id}")
+                    .catch { /* SSE reconnects automatically */ }
+                    .collect { refresh() }
+            }
         }
     }
 }

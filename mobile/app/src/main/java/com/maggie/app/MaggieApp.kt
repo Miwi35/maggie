@@ -12,11 +12,25 @@ import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.ChatRepository
 import com.maggie.app.data.repository.EventRepository
+import com.maggie.app.data.repository.GroceryListRepository
+import com.maggie.app.data.repository.IngredientRepository
+import com.maggie.app.data.repository.MealRepository
+import com.maggie.app.data.repository.NotificationRepository
+import com.maggie.app.data.repository.ProactionRepository
+import com.maggie.app.data.repository.RecipeRepository
+import com.maggie.app.data.repository.SearchRepository
 import com.maggie.app.data.repository.TaskRepository
+import com.maggie.app.data.repository.UserPreferenceRepository
+import com.maggie.app.ui.screens.cookbook.grocery.GroceryViewModel
+import com.maggie.app.ui.screens.cookbook.meals.MealsWeekViewModel
+import com.maggie.app.ui.screens.cookbook.recipes.RecipeListViewModel
 import com.maggie.app.ui.screens.dashboard.DashboardViewModel
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
 import com.maggie.app.ui.screens.login.LoginViewModel
+import com.maggie.app.ui.screens.notifications.NotificationViewModel
+import com.maggie.app.ui.screens.proactions.ProactionViewModel
+import com.maggie.app.ui.screens.search.SearchViewModel
 import com.maggie.app.ui.screens.settings.SettingsViewModel
 import com.maggie.app.voice.VoiceManager
 import io.ktor.client.HttpClient
@@ -55,6 +69,7 @@ class MaggieApp : Application() {
             single { get<MaggieDatabase>().chatMessageDao() }
             single { get<MaggieDatabase>().taskDao() }
             single { get<MaggieDatabase>().agendaDao() }
+            single { get<MaggieDatabase>().recipeDao() }
 
             // Network
             single {
@@ -82,16 +97,30 @@ class MaggieApp : Application() {
             single { TaskRepository(get(), get()) }
             single { ChatRepository(get(), get()) }
             single { AgendaRepository(get(), get()) }
+            single { RecipeRepository(get(), get()) }
+            single { IngredientRepository(get()) }
+            single { MealRepository(get()) }
+            single { GroceryListRepository(get()) }
+            single { NotificationRepository(get()) }
+            single { SearchRepository(get()) }
+            single { ProactionRepository(get()) }
+            single { UserPreferenceRepository(get()) }
 
             // Other
-            single { VoiceManager(androidContext()) }
+            single { VoiceManager(androidContext(), get()) }
 
             // ViewModels
             viewModel { LoginViewModel(get()) }
-            viewModel { DashboardViewModel(get(), get(), get(), get()) }
-            viewModel { FullCalendarViewModel(get(), get(), get(), get()) }
+            viewModel { DashboardViewModel(get(), get(), get(), get(), get()) }
+            viewModel { FullCalendarViewModel(get(), get(), get(), get(), get()) }
             viewModel { ChatViewModel(get(), get()) }
-            viewModel { SettingsViewModel(get(), get()) }
+            viewModel { SettingsViewModel(get(), get(), get(), get(), get()) }
+            viewModel { NotificationViewModel(get(), get(), get()) }
+            viewModel { SearchViewModel(get()) }
+            viewModel { ProactionViewModel(get()) }
+            viewModel { RecipeListViewModel(get(), get()) }
+            viewModel { MealsWeekViewModel(get()) }
+            viewModel { GroceryViewModel(get()) }
         }
 
         startKoin {
