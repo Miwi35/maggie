@@ -11,16 +11,24 @@ services:
       - "--providers.docker.exposedbydefault=false"
       - "--providers.docker.network=maggie"
       - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--providers.file.filename=/etc/traefik/tls.yml"
     ports:
       - "${NGINX_PORT:-80}:80"
+      - "443:443"
       - "${TRAEFIK_DASHBOARD_PORT:-8080}:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./.docker/traefik/certs:/etc/traefik/certs:ro
+      - ./.docker/traefik/tls.yml:/etc/traefik/tls.yml:ro
     labels:
       - "traefik.enable=true"
       # Root redirect → /admin
       - "traefik.http.routers.maggie-root.rule=Path(`/`)"
-      - "traefik.http.routers.maggie-root.entrypoints=web"
+      - "traefik.http.routers.maggie-root.entrypoints=websecure"
+      - "traefik.http.routers.maggie-root.tls=true"
       - "traefik.http.routers.maggie-root.middlewares=maggie-root-redirect"
       - "traefik.http.routers.maggie-root.service=noop@internal"
       - "traefik.http.middlewares.maggie-root-redirect.redirectregex.regex=^(https?://[^/]+)/?$$"
@@ -58,6 +66,7 @@ services:
       ADMIN_URL: ${ADMIN_URL}
       SERVICE_TOKEN: ${SERVICE_TOKEN}
       ELASTICSEARCH_URL: ${ELASTICSEARCH_URL:-http://elasticsearch:9200}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
 
     depends_on:
       database:
@@ -86,7 +95,8 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.maggie-api.rule=PathPrefix(`/api`) || PathPrefix(`/_mcp`) || PathPrefix(`/bundles`)"
-      - "traefik.http.routers.maggie-api.entrypoints=web"
+      - "traefik.http.routers.maggie-api.entrypoints=websecure"
+      - "traefik.http.routers.maggie-api.tls=true"
       - "traefik.http.services.maggie-api.loadbalancer.server.port=80"
     networks:
       - maggie
@@ -111,7 +121,8 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.maggie-admin.rule=PathPrefix(`/admin`)"
-      - "traefik.http.routers.maggie-admin.entrypoints=web"
+      - "traefik.http.routers.maggie-admin.entrypoints=websecure"
+      - "traefik.http.routers.maggie-admin.tls=true"
       - "traefik.http.services.maggie-admin.loadbalancer.server.port=5173"
     networks:
       - maggie
@@ -155,7 +166,8 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.maggie-mercure.rule=PathPrefix(`/.well-known/mercure`)"
-      - "traefik.http.routers.maggie-mercure.entrypoints=web"
+      - "traefik.http.routers.maggie-mercure.entrypoints=websecure"
+      - "traefik.http.routers.maggie-mercure.tls=true"
       - "traefik.http.services.maggie-mercure.loadbalancer.server.port=80"
     networks:
       - maggie
@@ -211,6 +223,7 @@ services:
       ADMIN_URL: ${ADMIN_URL}
       SERVICE_TOKEN: ${SERVICE_TOKEN}
       ELASTICSEARCH_URL: ${ELASTICSEARCH_URL:-http://elasticsearch:9200}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
 
     depends_on:
       database:
@@ -252,6 +265,7 @@ services:
       ADMIN_URL: ${ADMIN_URL}
       SERVICE_TOKEN: ${SERVICE_TOKEN}
       ELASTICSEARCH_URL: ${ELASTICSEARCH_URL:-http://elasticsearch:9200}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
 
     depends_on:
       database:
@@ -324,7 +338,8 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.maggie-agent.rule=PathPrefix(`/agent`)"
-      - "traefik.http.routers.maggie-agent.entrypoints=web"
+      - "traefik.http.routers.maggie-agent.entrypoints=websecure"
+      - "traefik.http.routers.maggie-agent.tls=true"
       - "traefik.http.services.maggie-agent.loadbalancer.server.port=8001"
     networks:
       - maggie

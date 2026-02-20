@@ -1,0 +1,4 @@
+tls:
+  certificates:
+    - certFile: /etc/traefik/certs/maggie.local.pem
+      keyFile: /etc/traefik/certs/maggie.local-key.pem

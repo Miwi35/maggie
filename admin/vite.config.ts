@@ -7,6 +7,10 @@ export default defineConfig({
   base: '/admin',
   server: {
     allowedHosts: ['maggie.local'],
+    hmr: {
+      protocol: 'wss',
+      host: 'maggie.local',
+    },
   },
   test: {
     globals: true,
