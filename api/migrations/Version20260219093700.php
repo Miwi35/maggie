@@ -19,8 +19,7 @@ final class Version20260219093700 extends AbstractMigration
 
     public function up(Schema $schema): void
     {
-        $this->addSql('ALTER TABLE proaction DROP CONSTRAINT fk_732f50aba76ed395');
-        $this->addSql('DROP TABLE proaction');
+        $this->addSql('DROP TABLE IF EXISTS proaction');
     }
 
     public function down(Schema $schema): void
