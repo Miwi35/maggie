@@ -9,10 +9,13 @@ services:
     environment:
       APP_ENV: prod
       APP_DEBUG: "0"
+      ELASTICSEARCH_URL: http://elasticsearch:9200
     depends_on:
       database:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      elasticsearch:
         condition: service_healthy
     networks:
       - internal
@@ -79,6 +82,27 @@ services:
       - traefik-public
 
   # ===========================================================================
+  # Elasticsearch (Full-text search)
+  # ===========================================================================
+  elasticsearch:
+    image: elasticsearch:8.17.0
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - "ES_JAVA_OPTS=-Xms256m -Xmx512m"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  # ===========================================================================
   # RabbitMQ (Message Queue)
   # ===========================================================================
   rabbitmq:
@@ -105,10 +129,13 @@ services:
     environment:
       APP_ENV: prod
       APP_DEBUG: "0"
+      ELASTICSEARCH_URL: http://elasticsearch:9200
     depends_on:
       database:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      elasticsearch:
         condition: service_healthy
     command: ["php", "bin/console", "messenger:consume", "async", "--time-limit=3600", "--memory-limit=128M"]
     networks:
@@ -124,6 +151,7 @@ services:
     environment:
       APP_ENV: prod
       APP_DEBUG: "0"
+      ELASTICSEARCH_URL: http://elasticsearch:9200
     depends_on:
       database:
         condition: service_healthy
@@ -162,3 +190,4 @@ networks:
 volumes:
   postgres_data:
   rabbitmq_data:
+  elasticsearch_data:
