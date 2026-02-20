@@ -42,7 +42,6 @@ fun AssistantOverlay(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val voiceState by voiceManager.state.collectAsState()
-    val partialResult by voiceManager.partialResult.collectAsState()
     val listState = rememberLazyListState()
 
     LaunchedEffect(Unit) {
@@ -122,10 +121,9 @@ fun AssistantOverlay(
                     }
                 }
 
-                // Partial STT result
-                if (voiceState == VoiceState.LISTENING && partialResult.isNotBlank()) {
+                if (voiceState == VoiceState.TRANSCRIBING) {
                     Text(
-                        text = partialResult,
+                        text = "Transcription en cours...",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier

@@ -1,36 +1,53 @@
 package com.maggie.app.voice
 
 import android.content.Context
-import android.content.Intent
-import android.os.Bundle
-import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
+import android.media.MediaRecorder
+import android.os.Build
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.util.Log
+import com.maggie.app.data.api.MaggieApiService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import java.io.File
 import java.util.Locale
 
 enum class VoiceState {
     IDLE,
     LISTENING,
+    TRANSCRIBING,
     PROCESSING,
     SPEAKING,
     ERROR,
 }
 
-class VoiceManager(private val context: Context) {
+class VoiceManager(
+    private val context: Context,
+    private val apiService: MaggieApiService,
+) {
+    companion object {
+        private const val TAG = "VoiceManager"
+    }
 
     private val _state = MutableStateFlow(VoiceState.IDLE)
     val state: StateFlow<VoiceState> = _state
 
-    private val _partialResult = MutableStateFlow("")
-    val partialResult: StateFlow<String> = _partialResult
+    private val _duration = MutableStateFlow(0)
+    val duration: StateFlow<Int> = _duration
 
     var onFinalResult: ((String) -> Unit)? = null
 
-    private var speechRecognizer: SpeechRecognizer? = null
+    private var recorder: MediaRecorder? = null
+    private var audioFile: File? = null
+    private var timerJob: Job? = null
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
     private var tts: TextToSpeech? = null
     private var ttsReady = false
 
@@ -46,59 +63,83 @@ class VoiceManager(private val context: Context) {
 
     fun startListening() {
         cancelListening()
-        _partialResult.value = ""
+        _duration.value = 0
         _state.value = VoiceState.LISTENING
 
-        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context).apply {
-            setRecognitionListener(object : RecognitionListener {
-                override fun onReadyForSpeech(params: Bundle?) {}
-                override fun onBeginningOfSpeech() {}
-                override fun onRmsChanged(rmsdB: Float) {}
-                override fun onBufferReceived(buffer: ByteArray?) {}
-                override fun onEndOfSpeech() {
-                    if (_state.value == VoiceState.LISTENING) {
-                        _state.value = VoiceState.PROCESSING
-                    }
-                }
+        val file = File(context.cacheDir, "voice_${System.currentTimeMillis()}.m4a")
+        audioFile = file
 
-                override fun onError(error: Int) {
-                    _state.value = VoiceState.ERROR
-                }
-
-                override fun onResults(results: Bundle?) {
-                    val text = results
-                        ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                        ?.firstOrNull()
-                        .orEmpty()
-                    _partialResult.value = text
-                    _state.value = VoiceState.PROCESSING
-                    if (text.isNotBlank()) {
-                        onFinalResult?.invoke(text)
-                    }
-                }
-
-                override fun onPartialResults(partialResults: Bundle?) {
-                    val text = partialResults
-                        ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                        ?.firstOrNull()
-                        .orEmpty()
-                    if (text.isNotBlank()) {
-                        _partialResult.value = text
-                    }
-                }
-
-                override fun onEvent(eventType: Int, params: Bundle?) {}
-            })
-
-            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(
-                    RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
-                )
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fr-FR")
-                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+        try {
+            recorder = createMediaRecorder(file).apply {
+                setAudioSource(MediaRecorder.AudioSource.MIC)
+                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                setAudioEncodingBitRate(128_000)
+                setAudioSamplingRate(44_100)
+                setOutputFile(file.absolutePath)
+                prepare()
+                start()
             }
-            startListening(intent)
+
+            timerJob = scope.launch {
+                while (true) {
+                    delay(1000)
+                    _duration.value += 1
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("VoiceManager", "Failed to start recording", e)
+            cleanupRecording()
+            _state.value = VoiceState.ERROR
+        }
+    }
+
+    fun stopAndTranscribe() {
+        if (_state.value != VoiceState.LISTENING) return
+
+        timerJob?.cancel()
+        timerJob = null
+
+        try {
+            recorder?.stop()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to stop recorder", e)
+        }
+        recorder?.release()
+        recorder = null
+
+        val file = audioFile ?: run {
+            _state.value = VoiceState.ERROR
+            return
+        }
+
+        _state.value = VoiceState.TRANSCRIBING
+
+        scope.launch {
+            try {
+                val text = apiService.transcribe(file)
+                if (text.isNotBlank()) {
+                    onFinalResult?.invoke(text)
+                    _state.value = VoiceState.PROCESSING
+                } else {
+                    _state.value = VoiceState.IDLE
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Transcription failed", e)
+                _state.value = VoiceState.ERROR
+            } finally {
+                file.delete()
+                audioFile = null
+            }
+        }
+    }
+
+    fun cancelListening() {
+        timerJob?.cancel()
+        timerJob = null
+        cleanupRecording()
+        if (_state.value == VoiceState.LISTENING) {
+            _state.value = VoiceState.IDLE
         }
     }
 
@@ -120,15 +161,6 @@ class VoiceManager(private val context: Context) {
         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "maggie_response")
     }
 
-    fun cancelListening() {
-        speechRecognizer?.cancel()
-        speechRecognizer?.destroy()
-        speechRecognizer = null
-        if (_state.value == VoiceState.LISTENING) {
-            _state.value = VoiceState.IDLE
-        }
-    }
-
     fun stopSpeaking() {
         tts?.stop()
         if (_state.value == VoiceState.SPEAKING) {
@@ -143,5 +175,24 @@ class VoiceManager(private val context: Context) {
         tts = null
         ttsReady = false
         _state.value = VoiceState.IDLE
+    }
+
+    private fun cleanupRecording() {
+        try {
+            recorder?.stop()
+        } catch (_: Exception) { }
+        recorder?.release()
+        recorder = null
+        audioFile?.delete()
+        audioFile = null
+    }
+
+    @Suppress("DEPRECATION")
+    private fun createMediaRecorder(file: File): MediaRecorder {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            MediaRecorder(context)
+        } else {
+            MediaRecorder()
+        }
     }
 }

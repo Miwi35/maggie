@@ -1,6 +1,7 @@
 package com.maggie.app.voice
 
 import android.content.Context
+import com.maggie.app.data.api.MaggieApiService
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -10,12 +11,14 @@ import org.junit.Test
 class VoiceManagerTest {
 
     private lateinit var context: Context
+    private lateinit var apiService: MaggieApiService
     private lateinit var voiceManager: VoiceManager
 
     @Before
     fun setup() {
         context = mockk(relaxed = true)
-        voiceManager = VoiceManager(context)
+        apiService = mockk(relaxed = true)
+        voiceManager = VoiceManager(context, apiService)
     }
 
     @Test
@@ -24,8 +27,8 @@ class VoiceManagerTest {
     }
 
     @Test
-    fun `initial partial result is empty`() {
-        assertEquals("", voiceManager.partialResult.value)
+    fun `initial duration is zero`() {
+        assertEquals(0, voiceManager.duration.value)
     }
 
     @Test

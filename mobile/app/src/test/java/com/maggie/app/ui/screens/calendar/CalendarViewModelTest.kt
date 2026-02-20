@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.calendar
 
+import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.Event
@@ -31,6 +32,7 @@ class CalendarViewModelTest {
     private lateinit var taskRepository: TaskRepository
     private lateinit var agendaRepository: AgendaRepository
     private lateinit var mercureService: MercureService
+    private lateinit var authRepository: AuthRepository
 
     @Before
     fun setup() {
@@ -39,6 +41,7 @@ class CalendarViewModelTest {
         taskRepository = mockk()
         agendaRepository = mockk()
         mercureService = mockk()
+        authRepository = mockk(relaxed = true)
         every { mercureService.subscribe(any()) } returns emptyFlow()
     }
 
@@ -69,7 +72,7 @@ class CalendarViewModelTest {
         )
         stubRepositories(events = events, agendas = agendas)
 
-        val viewModel = FullCalendarViewModel(eventRepository, taskRepository, agendaRepository, mercureService)
+        val viewModel = FullCalendarViewModel(eventRepository, taskRepository, agendaRepository, mercureService, authRepository)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
@@ -84,7 +87,7 @@ class CalendarViewModelTest {
         coEvery { agendaRepository.refreshAgendas() } throws RuntimeException("Network error")
         every { mercureService.subscribe(any()) } returns emptyFlow()
 
-        val viewModel = FullCalendarViewModel(eventRepository, taskRepository, agendaRepository, mercureService)
+        val viewModel = FullCalendarViewModel(eventRepository, taskRepository, agendaRepository, mercureService, authRepository)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
@@ -96,7 +99,7 @@ class CalendarViewModelTest {
     fun `navigateToDate updates currentDate`() = runTest {
         stubRepositories()
 
-        val viewModel = FullCalendarViewModel(eventRepository, taskRepository, agendaRepository, mercureService)
+        val viewModel = FullCalendarViewModel(eventRepository, taskRepository, agendaRepository, mercureService, authRepository)
         advanceUntilIdle()
 
         val target = java.time.LocalDate.of(2026, 6, 15)

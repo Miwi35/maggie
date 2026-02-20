@@ -64,7 +64,6 @@ fun ChatSheet(
     // Wire voice callbacks when in voice mode
     if (voiceManager != null) {
         val voiceState by voiceManager.state.collectAsState()
-        val partialResult by voiceManager.partialResult.collectAsState()
 
         DisposableEffect(voiceManager) {
             voiceManager.onFinalResult = { text -> viewModel.sendMessage(text) }
@@ -112,10 +111,9 @@ fun ChatSheet(
                     }
                 }
 
-                // Partial STT result
-                if (voiceState == VoiceState.LISTENING && partialResult.isNotBlank()) {
+                if (voiceState == VoiceState.TRANSCRIBING) {
                     Text(
-                        text = partialResult,
+                        text = "Transcription en cours...",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier

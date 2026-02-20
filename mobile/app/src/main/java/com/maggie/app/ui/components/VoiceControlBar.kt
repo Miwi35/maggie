@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
@@ -36,6 +37,7 @@ fun VoiceControlBar(
     modifier: Modifier = Modifier,
 ) {
     val voiceState by voiceManager.state.collectAsState()
+    val duration by voiceManager.duration.collectAsState()
 
     val isListening = voiceState == VoiceState.LISTENING
     val infiniteTransition = rememberInfiniteTransition(label = "mic_pulse")
@@ -60,7 +62,8 @@ fun VoiceControlBar(
 
     val stateLabel = when (voiceState) {
         VoiceState.IDLE -> "Appuyez pour parler"
-        VoiceState.LISTENING -> "Je vous écoute..."
+        VoiceState.LISTENING -> "Je vous écoute... ${duration}s"
+        VoiceState.TRANSCRIBING -> "Transcription..."
         VoiceState.PROCESSING -> "Maggie réfléchit..."
         VoiceState.SPEAKING -> "Maggie parle..."
         VoiceState.ERROR -> "Erreur — appuyez pour réessayer"
@@ -79,30 +82,37 @@ fun VoiceControlBar(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        FilledIconButton(
-            onClick = {
-                when (voiceState) {
-                    VoiceState.IDLE, VoiceState.ERROR -> voiceManager.startListening()
-                    VoiceState.LISTENING -> voiceManager.cancelListening()
-                    VoiceState.SPEAKING -> {
-                        voiceManager.stopSpeaking()
-                        voiceManager.startListening()
-                    }
-                    VoiceState.PROCESSING -> { /* wait for response */ }
-                }
-            },
-            modifier = Modifier
-                .size(64.dp)
-                .scale(if (isListening) pulseScale else 1f),
-            colors = IconButtonDefaults.filledIconButtonColors(
-                containerColor = buttonColor,
-            ),
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = stateLabel,
-                modifier = Modifier.size(32.dp),
+        if (voiceState == VoiceState.TRANSCRIBING) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(64.dp),
+                strokeWidth = 4.dp,
             )
+        } else {
+            FilledIconButton(
+                onClick = {
+                    when (voiceState) {
+                        VoiceState.IDLE, VoiceState.ERROR -> voiceManager.startListening()
+                        VoiceState.LISTENING -> voiceManager.stopAndTranscribe()
+                        VoiceState.SPEAKING -> {
+                            voiceManager.stopSpeaking()
+                            voiceManager.startListening()
+                        }
+                        VoiceState.PROCESSING, VoiceState.TRANSCRIBING -> { /* wait */ }
+                    }
+                },
+                modifier = Modifier
+                    .size(64.dp)
+                    .scale(if (isListening) pulseScale else 1f),
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = buttonColor,
+                ),
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = stateLabel,
+                    modifier = Modifier.size(32.dp),
+                )
+            }
         }
 
         Text(
