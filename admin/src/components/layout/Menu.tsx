@@ -25,6 +25,7 @@ import EggIcon from '@mui/icons-material/Egg'
 import RepeatIcon from '@mui/icons-material/Repeat'
 import CategoryIcon from '@mui/icons-material/Category'
 import RestaurantMenuIcon from '@mui/icons-material/RestaurantMenu'
+import TuneIcon from '@mui/icons-material/Tune'
 
 export const CustomMenu = () => {
   const [nutritionOpen, setNutritionOpen] = useState(false)
@@ -189,6 +190,12 @@ export const CustomMenu = () => {
 
           <Collapse in={settingsOpen} timeout="auto" unmountOnExit>
             <List component="div" disablePadding>
+              <MenuItemLink
+                to="/settings/preferences"
+                primaryText="Préférences"
+                leftIcon={<TuneIcon />}
+                sx={{ pl: 4 }}
+              />
               <MenuItemLink
                 to="/settings/agent"
                 primaryText="Agent"

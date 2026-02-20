@@ -30,6 +30,7 @@ framework:
             'Maggie\Calendar\Message\DeleteTaskFromGoogleCommand': async
             'Maggie\Calendar\Message\PullTasksFromGoogleCommand': async
             'Maggie\Core\Message\UpdateUserCommand': sync
+            'Maggie\Core\Message\UpdateUserPreferenceCommand': sync
             'Maggie\Notification\Message\CreateNotificationCommand': sync
             'Maggie\Notification\Message\MarkNotificationReadCommand': sync
             'Maggie\Notification\Message\DeleteNotificationCommand': sync
