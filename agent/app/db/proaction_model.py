@@ -1,6 +1,6 @@
 import enum
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import Column, DateTime, Enum, Index, String, Text
 from sqlalchemy.orm import DeclarativeBase
@@ -12,7 +12,7 @@ class AgentBase(DeclarativeBase):
     pass
 
 
-class ProactionStatus(str, enum.Enum):
+class ProactionStatus(enum.StrEnum):
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -40,7 +40,7 @@ class Proaction(AgentBase):
     response = Column(Text, nullable=True)
     error = Column(Text, nullable=True)
     created_at = Column(
-        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
     completed_at = Column(DateTime(timezone=True), nullable=True)
 

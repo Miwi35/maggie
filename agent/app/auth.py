@@ -37,16 +37,16 @@ def get_current_user_id(
             algorithms=["RS256"],
             options={"verify_exp": True, "verify_aud": False},
         )
-    except jwt.ExpiredSignatureError:
+    except jwt.ExpiredSignatureError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has expired",
-        )
+        ) from e
     except jwt.InvalidTokenError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid token: {e}",
-        )
+        ) from e
 
     user_id = payload.get("sub") or payload.get("username")
     if not user_id:

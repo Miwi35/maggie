@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.db.proaction_repository import proaction_repo
 from app.llm.gateway import LLMGateway
@@ -21,6 +21,8 @@ DAILY_PLANNING_PROMPT = (
 
 # Default user for autonomous planning — the single user of this personal assistant
 PLANNING_USER_ID = "default"
+
+_tasks: list[asyncio.Task] = []
 
 
 async def _execution_loop() -> None:
@@ -43,7 +45,7 @@ async def _daily_planning_loop() -> None:
     gateway = LLMGateway()
 
     while True:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         # Calculate seconds until next 06:00 UTC
         target = now.replace(hour=DAILY_PLANNING_HOUR, minute=0, second=0, microsecond=0)
         if now >= target:
@@ -64,6 +66,6 @@ async def _daily_planning_loop() -> None:
 
 async def start_scheduler() -> None:
     """Start both scheduler loops as background tasks."""
-    asyncio.create_task(_execution_loop())
-    asyncio.create_task(_daily_planning_loop())
+    _tasks.append(asyncio.create_task(_execution_loop()))
+    _tasks.append(asyncio.create_task(_daily_planning_loop()))
     logger.info("Proaction scheduler started")

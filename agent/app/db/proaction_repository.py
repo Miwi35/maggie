@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 
@@ -45,7 +45,7 @@ class ProactionRepository:
 
     async def find_due(self) -> list[Proaction]:
         """Find all pending proactions whose scheduled_at is in the past."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         async with agent_session() as session:
             result = await session.execute(
                 select(Proaction)
@@ -91,7 +91,7 @@ class ProactionRepository:
             if proaction:
                 proaction.status = ProactionStatus.COMPLETED
                 proaction.response = response
-                proaction.completed_at = datetime.now(timezone.utc)
+                proaction.completed_at = datetime.now(UTC)
                 await session.commit()
                 await session.refresh(proaction)
 
@@ -112,7 +112,7 @@ class ProactionRepository:
             if proaction:
                 proaction.status = ProactionStatus.FAILED
                 proaction.error = error
-                proaction.completed_at = datetime.now(timezone.utc)
+                proaction.completed_at = datetime.now(UTC)
                 await session.commit()
                 await session.refresh(proaction)
 

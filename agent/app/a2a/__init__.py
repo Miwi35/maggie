@@ -1,8 +1,7 @@
-from fastapi import FastAPI
-
 from a2a.server.apps import A2AStarletteApplication
 from a2a.server.request_handlers import DefaultRequestHandler
 from a2a.server.tasks import InMemoryTaskStore
+from fastapi import FastAPI
 
 from app.a2a.card import build_agent_card
 from app.a2a.executor import MaggieAgentExecutor
