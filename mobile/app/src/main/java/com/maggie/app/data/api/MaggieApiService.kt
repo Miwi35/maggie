@@ -5,20 +5,36 @@ import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.GoogleCalendar
+import com.maggie.app.data.model.GroceryList
+import com.maggie.app.data.model.Ingredient
+import com.maggie.app.data.model.Meal
+import com.maggie.app.data.model.Notification
+import com.maggie.app.data.model.Proaction
+import com.maggie.app.data.model.Recipe
+import com.maggie.app.data.model.RecurringGroceryItem
+import com.maggie.app.data.model.SearchResponse
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.User
+import com.maggie.app.data.model.UserPreference
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.accept
 import io.ktor.client.request.delete
+import io.ktor.client.request.forms.formData
+import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.client.request.get
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
+import io.ktor.http.Headers
+import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import java.io.File
 
 @Serializable
 data class ApiCollection<T>(val member: List<T> = emptyList())
@@ -75,9 +91,63 @@ data class AgentChatResponse(
 )
 
 @Serializable
+data class TranscribeResponse(
+    val raw: String = "",
+    val clean: String = "",
+)
+
+@Serializable
 data class FcmTokenRequest(
     val token: String,
     val deviceName: String? = null,
+)
+
+@Serializable
+data class RecipeCreateRequest(
+    val name: String,
+    val servings: Int = 4,
+    val tags: List<String> = emptyList(),
+    val notes: String? = null,
+    val ingredients: List<RecipeIngredientRequest> = emptyList(),
+)
+
+@Serializable
+data class RecipeIngredientRequest(
+    val ingredient: String,
+    val quantity: Float,
+    val unit: String,
+)
+
+@Serializable
+data class IngredientCreateRequest(
+    val name: String,
+    val defaultUnit: String? = null,
+    val category: String = "other",
+)
+
+@Serializable
+data class MealCreateRequest(
+    val summary: String,
+    val startAt: String,
+    val endAt: String,
+    val slot: String,
+    val recipes: List<String> = emptyList(),
+    val allDay: Boolean = false,
+    val agenda: String? = null,
+)
+
+@Serializable
+data class GroceryListCreateRequest(
+    val weekStart: String,
+)
+
+@Serializable
+data class RecurringGroceryItemCreateRequest(
+    val product: String? = null,
+    val customLabel: String? = null,
+    val quantity: Float? = null,
+    val unit: String? = null,
+    val frequency: String,
 )
 
 private val MERGE_PATCH = ContentType("application", "merge-patch+json")
@@ -215,6 +285,29 @@ class MaggieApiService(
         }.body()
     }
 
+    suspend fun updateUser(id: String, data: JsonObject): User {
+        return client.patch("$baseUrl/api/users/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(data)
+        }.body()
+    }
+
+    // User Preferences
+    suspend fun getUserPreferences(): UserPreference {
+        return client.get("$baseUrl/api/user_preferences/me") {
+            accept(ContentType("application", "ld+json"))
+        }.body()
+    }
+
+    suspend fun updateUserPreferences(data: JsonObject): UserPreference {
+        return client.patch("$baseUrl/api/user_preferences/me") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(data)
+        }.body()
+    }
+
     // Chat — agent-owned endpoints
     suspend fun getMessages(userId: String = "default", afterDate: String? = null): List<ChatMessage> {
         return client.get("$baseUrl/agent/messages") {
@@ -230,11 +323,181 @@ class MaggieApiService(
         }.body()
     }
 
+    suspend fun transcribe(audioFile: File): String {
+        val response: TranscribeResponse = client.submitFormWithBinaryData(
+            url = "$baseUrl/agent/transcribe",
+            formData = formData {
+                append("audio", audioFile.readBytes(), Headers.build {
+                    append(HttpHeaders.ContentDisposition, "filename=\"${audioFile.name}\"")
+                    append(HttpHeaders.ContentType, "audio/mp4")
+                })
+            },
+        ).body()
+        return response.clean.ifBlank { response.raw }
+    }
+
     // FCM Token
     suspend fun registerFcmToken(token: String, deviceName: String? = null) {
         client.post("$baseUrl/api/fcm_tokens") {
             contentType(ContentType.Application.Json)
             setBody(FcmTokenRequest(token = token, deviceName = deviceName))
         }
+    }
+
+    // Recipes
+    suspend fun getRecipes(): List<Recipe> {
+        return client.get("$baseUrl/api/recipes") {
+            accept(ContentType("application", "ld+json"))
+        }.body<ApiCollection<Recipe>>().member
+    }
+
+    suspend fun getRecipe(id: String): Recipe {
+        return client.get("$baseUrl/api/recipes/$id") {
+            accept(ContentType("application", "ld+json"))
+        }.body()
+    }
+
+    suspend fun createRecipe(request: RecipeCreateRequest): Recipe {
+        return client.post("$baseUrl/api/recipes") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.body()
+    }
+
+    suspend fun updateRecipe(id: String, data: JsonObject): Recipe {
+        return client.patch("$baseUrl/api/recipes/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(data)
+        }.body()
+    }
+
+    suspend fun deleteRecipe(id: String) {
+        client.delete("$baseUrl/api/recipes/$id")
+    }
+
+    // Ingredients
+    suspend fun getIngredients(): List<Ingredient> {
+        return client.get("$baseUrl/api/ingredients") {
+            accept(ContentType("application", "ld+json"))
+        }.body<ApiCollection<Ingredient>>().member
+    }
+
+    suspend fun createIngredient(request: IngredientCreateRequest): Ingredient {
+        return client.post("$baseUrl/api/ingredients") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.body()
+    }
+
+    // Meals
+    suspend fun getMeals(startAfter: String? = null, startBefore: String? = null): List<Meal> {
+        return client.get("$baseUrl/api/meals") {
+            accept(ContentType("application", "ld+json"))
+            startAfter?.let { url.parameters.append("startAt[after]", it) }
+            startBefore?.let { url.parameters.append("startAt[before]", it) }
+        }.body<ApiCollection<Meal>>().member
+    }
+
+    suspend fun createMeal(request: MealCreateRequest): Meal {
+        return client.post("$baseUrl/api/meals") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.body()
+    }
+
+    suspend fun deleteMeal(id: String) {
+        client.delete("$baseUrl/api/meals/$id")
+    }
+
+    // Grocery Lists
+    suspend fun getGroceryLists(): List<GroceryList> {
+        return client.get("$baseUrl/api/grocery_lists") {
+            accept(ContentType("application", "ld+json"))
+        }.body<ApiCollection<GroceryList>>().member
+    }
+
+    suspend fun getGroceryList(id: String): GroceryList {
+        return client.get("$baseUrl/api/grocery_lists/$id") {
+            accept(ContentType("application", "ld+json"))
+        }.body()
+    }
+
+    suspend fun createGroceryList(request: GroceryListCreateRequest): GroceryList {
+        return client.post("$baseUrl/api/grocery_lists") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.body()
+    }
+
+    suspend fun updateGroceryList(id: String, data: JsonObject): GroceryList {
+        return client.patch("$baseUrl/api/grocery_lists/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(data)
+        }.body()
+    }
+
+    // Recurring Grocery Items
+    suspend fun getRecurringGroceryItems(): List<RecurringGroceryItem> {
+        return client.get("$baseUrl/api/recurring_grocery_items") {
+            accept(ContentType("application", "ld+json"))
+        }.body<ApiCollection<RecurringGroceryItem>>().member
+    }
+
+    suspend fun createRecurringGroceryItem(request: RecurringGroceryItemCreateRequest): RecurringGroceryItem {
+        return client.post("$baseUrl/api/recurring_grocery_items") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.body()
+    }
+
+    suspend fun deleteRecurringGroceryItem(id: String) {
+        client.delete("$baseUrl/api/recurring_grocery_items/$id")
+    }
+
+    // Notifications
+    suspend fun getNotifications(unreadOnly: Boolean = false): List<Notification> {
+        return client.get("$baseUrl/api/notifications") {
+            accept(ContentType("application", "ld+json"))
+            if (unreadOnly) {
+                url.parameters.append("exists[readAt]", "false")
+            }
+        }.body<ApiCollection<Notification>>().member
+    }
+
+    suspend fun markNotificationRead(id: String): Notification {
+        return client.patch("$baseUrl/api/notifications/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(buildJsonObject {
+                put("readAt", java.time.Instant.now().toString())
+            })
+        }.body()
+    }
+
+    suspend fun deleteNotification(id: String) {
+        client.delete("$baseUrl/api/notifications/$id")
+    }
+
+    // Search
+    suspend fun search(query: String, page: Int = 1, limit: Int = 10, types: String? = null): SearchResponse {
+        return client.get("$baseUrl/api/search") {
+            accept(ContentType.Application.Json)
+            url.parameters.append("q", query)
+            url.parameters.append("page", page.toString())
+            url.parameters.append("limit", limit.toString())
+            types?.let { url.parameters.append("types", it) }
+        }.body()
+    }
+
+    // Proactions — agent endpoint
+    suspend fun getProactions(): List<Proaction> {
+        return client.get("$baseUrl/agent/proactions").body()
     }
 }

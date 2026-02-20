@@ -38,6 +38,8 @@ class AuthRepository(private val context: Context) {
 
     suspend fun getToken(): String? = context.authDataStore.data.first()[Keys.TOKEN]
 
+    suspend fun getUserId(): String? = context.authDataStore.data.first()[Keys.USER_ID]
+
     suspend fun clear() {
         context.authDataStore.edit { it.clear() }
     }
