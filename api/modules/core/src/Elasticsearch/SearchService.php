@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Maggie\Core\Elasticsearch;
 
+use Doctrine\ORM\EntityManagerInterface;
 use Elastic\Elasticsearch\Client;
+use Psr\Log\LoggerInterface;
 
 class SearchService
 {
@@ -12,6 +14,8 @@ class SearchService
         private readonly Client $client,
         private readonly IndexableEntityRegistry $registry,
         private readonly IndexMetadataReader $metadataReader,
+        private readonly EntityManagerInterface $em,
+        private readonly LoggerInterface $logger,
     ) {}
 
     /**
@@ -24,6 +28,28 @@ class SearchService
         ?array $indices = null,
         int $from = 0,
         int $size = 10,
+    ): array {
+        try {
+            return $this->elasticsearchSearch($query, $userId, $indices, $from, $size);
+        } catch (\Throwable $e) {
+            $this->logger->warning('Elasticsearch unavailable, falling back to Doctrine: {message}', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return $this->doctrineSearch($query, $userId, $indices, $from, $size);
+        }
+    }
+
+    /**
+     * @param string[]|null $indices
+     * @return array{total: int, results: array<int, array{index: string, id: string, score: float, data: array<string, mixed>, highlights: array<string, string[]>}>}
+     */
+    private function elasticsearchSearch(
+        string $query,
+        string $userId,
+        ?array $indices,
+        int $from,
+        int $size,
     ): array {
         $targetIndices = $indices ?? array_keys($this->registry->getAll());
 
@@ -100,6 +126,137 @@ class SearchService
             'total' => $response['hits']['total']['value'],
             'results' => $results,
         ];
+    }
+
+    /**
+     * Doctrine ILIKE fallback when Elasticsearch is unavailable.
+     *
+     * @param string[]|null $indices
+     * @return array{total: int, results: array<int, array{index: string, id: string, score: float, data: array<string, mixed>, highlights: array<string, string[]>}>}
+     */
+    private function doctrineSearch(
+        string $query,
+        string $userId,
+        ?array $indices,
+        int $from,
+        int $size,
+    ): array {
+        $allEntities = $this->registry->getAll();
+        $targetIndices = $indices ?? array_keys($allEntities);
+        $results = [];
+
+        $likePattern = '%' . str_replace(['%', '_'], ['\\%', '\\_'], mb_strtolower($query)) . '%';
+
+        foreach ($allEntities as $indexName => $entityClass) {
+            if (!\in_array($indexName, $targetIndices, true)) {
+                continue;
+            }
+
+            $meta = $this->metadataReader->read($entityClass);
+            if ($meta === null) {
+                continue;
+            }
+
+            $textFields = [];
+            foreach ($meta['fields'] as $fieldName => $mapping) {
+                if (($mapping['type'] ?? '') === 'text') {
+                    $textFields[] = $fieldName;
+                }
+            }
+
+            if ($textFields === []) {
+                continue;
+            }
+
+            $qb = $this->em->createQueryBuilder()
+                ->select('e')
+                ->from($entityClass, 'e');
+
+            if (!$this->addUserScope($qb, $entityClass, $userId)) {
+                continue;
+            }
+
+            // ILIKE on text fields
+            $orConditions = [];
+            foreach ($textFields as $i => $field) {
+                $dqlField = $this->toDqlField($entityClass, $field);
+                if ($dqlField === null) {
+                    continue;
+                }
+                $orConditions[] = "LOWER({$dqlField}) LIKE :pattern_{$i}";
+                $qb->setParameter("pattern_{$i}", $likePattern);
+            }
+
+            if ($orConditions === []) {
+                continue;
+            }
+
+            $qb->andWhere(implode(' OR ', $orConditions));
+
+            $allMatches = $qb->getQuery()->getResult();
+
+            foreach ($allMatches as $entity) {
+                $doc = $entity->toSearchDocument();
+                $results[] = [
+                    'index' => $indexName,
+                    'id' => (string) $entity->getId(),
+                    'score' => 1.0,
+                    'data' => $doc,
+                    'highlights' => [],
+                ];
+            }
+        }
+
+        $total = \count($results);
+
+        return [
+            'total' => $total,
+            'results' => \array_slice($results, $from, $size),
+        ];
+    }
+
+    /**
+     * Add user-scoping WHERE clause to the query builder.
+     * Returns false if the entity cannot be scoped to a user.
+     */
+    private function addUserScope(\Doctrine\ORM\QueryBuilder $qb, string $entityClass, string $userId): bool
+    {
+        $classMetadata = $this->em->getClassMetadata($entityClass);
+
+        if ($classMetadata->hasAssociation('user')) {
+            // Direct user relation (Task, Recipe, Product, Notification, etc.)
+            $qb->join('e.user', 'u')
+                ->andWhere('CAST(u.id AS TEXT) = :userId')
+                ->setParameter('userId', $userId);
+
+            return true;
+        }
+
+        if ($classMetadata->hasAssociation('agenda')) {
+            // Scoped via agenda → user (Event, Meal)
+            $qb->join('e.agenda', 'a')
+                ->join('a.user', 'u')
+                ->andWhere('CAST(u.id AS TEXT) = :userId')
+                ->setParameter('userId', $userId);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Map an ES field name to a DQL-accessible expression.
+     */
+    private function toDqlField(string $entityClass, string $esField): ?string
+    {
+        $classMetadata = $this->em->getClassMetadata($entityClass);
+
+        if ($classMetadata->hasField($esField)) {
+            return "e.{$esField}";
+        }
+
+        return null;
     }
 
     /**
