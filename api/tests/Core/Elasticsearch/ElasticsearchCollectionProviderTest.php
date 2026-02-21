@@ -11,9 +11,9 @@ class ElasticsearchCollectionProviderTest extends TestCase
     public function testFilterTranslatorHandlesDateFilters(): void
     {
         $translator = new ElasticsearchFilterTranslator();
+        // PHP parses ?startAt[after]=...&startAt[strictly_before]=... into nested arrays
         $result = $translator->translate([
-            'startAt[after]' => '2026-01-01',
-            'startAt[strictly_before]' => '2026-12-31',
+            'startAt' => ['after' => '2026-01-01', 'strictly_before' => '2026-12-31'],
         ]);
 
         self::assertCount(2, $result['filter']);
@@ -25,17 +25,19 @@ class ElasticsearchCollectionProviderTest extends TestCase
     {
         $translator = new ElasticsearchFilterTranslator();
 
-        $result = $translator->translate(['exists[rrule]' => 'true']);
+        // PHP parses ?exists[rrule]=true into ['exists' => ['rrule' => 'true']]
+        $result = $translator->translate(['exists' => ['rrule' => 'true']]);
         self::assertSame(['exists' => ['field' => 'rrule']], $result['filter'][0]);
 
-        $result = $translator->translate(['exists[rrule]' => 'false']);
+        $result = $translator->translate(['exists' => ['rrule' => 'false']]);
         self::assertArrayHasKey('bool', $result['filter'][0]);
     }
 
     public function testFilterTranslatorHandlesSorting(): void
     {
         $translator = new ElasticsearchFilterTranslator();
-        $result = $translator->translate(['order[startAt]' => 'asc', 'order[endAt]' => 'DESC']);
+        // PHP parses ?order[startAt]=asc&order[endAt]=DESC into nested array
+        $result = $translator->translate(['order' => ['startAt' => 'asc', 'endAt' => 'DESC']]);
 
         self::assertCount(2, $result['sort']);
         self::assertSame(['startAt' => 'asc'], $result['sort'][0]);

@@ -19,21 +19,22 @@ final class ElasticsearchFilterTranslator
         $sort = [];
 
         foreach ($filters as $key => $value) {
-            // Date filters: startAt[after]=2026-01-01
-            if (preg_match('/^(\w+)\[(after|before|strictly_after|strictly_before)]$/', $key, $m)) {
-                $filter[] = $this->buildDateFilter($m[1], $m[2], $value);
+            // PHP parses bracket query params into nested arrays:
+            // exists[completedAt]=false → ['exists' => ['completedAt' => 'false']]
+            // dueDate[before]=...      → ['dueDate' => ['before' => '...']]
+            // order[startAt]=asc       → ['order' => ['startAt' => 'asc']]
+
+            if ($key === 'exists' && \is_array($value)) {
+                foreach ($value as $field => $flag) {
+                    $filter[] = $this->buildExistsFilter($field, $flag);
+                }
                 continue;
             }
 
-            // Exists filter: exists[rrule]=true
-            if (preg_match('/^exists\[(\w+)]$/', $key, $m)) {
-                $filter[] = $this->buildExistsFilter($m[1], $value);
-                continue;
-            }
-
-            // Ordering: order[startAt]=asc
-            if (preg_match('/^order\[(\w+)]$/', $key, $m)) {
-                $sort[] = [$m[1] => strtolower($value)];
+            if ($key === 'order' && \is_array($value)) {
+                foreach ($value as $field => $direction) {
+                    $sort[] = [$field => strtolower($direction)];
+                }
                 continue;
             }
 
@@ -42,7 +43,17 @@ final class ElasticsearchFilterTranslator
                 continue;
             }
 
-            // Search filter (exact or partial)
+            // Nested array on a field name → date filter operators
+            if (\is_array($value)) {
+                foreach ($value as $operator => $operand) {
+                    if (\in_array($operator, ['after', 'before', 'strictly_after', 'strictly_before'], true)) {
+                        $filter[] = $this->buildDateFilter($key, $operator, $operand);
+                    }
+                }
+                continue;
+            }
+
+            // Search filter (exact)
             if (\is_string($value) && $value !== '') {
                 $filter[] = ['term' => [$key => $value]];
             }

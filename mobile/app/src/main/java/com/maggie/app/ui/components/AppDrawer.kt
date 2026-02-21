@@ -4,8 +4,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Restaurant
@@ -60,28 +58,6 @@ fun AppDrawerContent(
             selected = currentRoute == "cookbook",
             onClick = {
                 onNavigate("cookbook")
-                onCloseDrawer()
-            },
-            modifier = Modifier.padding(horizontal = 12.dp),
-        )
-
-        NavigationDrawerItem(
-            icon = { Icon(Icons.Default.Chat, contentDescription = null) },
-            label = { Text("Chat") },
-            selected = currentRoute == "chat",
-            onClick = {
-                onNavigate("chat")
-                onCloseDrawer()
-            },
-            modifier = Modifier.padding(horizontal = 12.dp),
-        )
-
-        NavigationDrawerItem(
-            icon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) },
-            label = { Text("Proactions") },
-            selected = currentRoute == "proactions",
-            onClick = {
-                onNavigate("proactions")
                 onCloseDrawer()
             },
             modifier = Modifier.padding(horizontal = 12.dp),

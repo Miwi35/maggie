@@ -18,10 +18,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Logout
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -44,19 +49,73 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.activity.compose.BackHandler
 import com.maggie.app.BuildConfig
 import org.koin.androidx.compose.koinViewModel
+
+private enum class SettingsSection {
+    LIST, PROFILE, APPEARANCE, CALENDAR, NOTIFICATIONS, AGENT, ABOUT
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel = koinViewModel(),
+    onBack: () -> Unit,
+    onNavigateToProactions: () -> Unit = {},
+) {
+    var currentSection by rememberSaveable { mutableStateOf(SettingsSection.LIST) }
+
+    BackHandler(enabled = currentSection != SettingsSection.LIST) {
+        currentSection = SettingsSection.LIST
+    }
+
+    when (currentSection) {
+        SettingsSection.LIST -> SettingsList(
+            viewModel = viewModel,
+            onSectionClick = { currentSection = it },
+            onBack = onBack,
+        )
+        SettingsSection.PROFILE -> ProfileSection(
+            viewModel = viewModel,
+            onBack = { currentSection = SettingsSection.LIST },
+        )
+        SettingsSection.APPEARANCE -> AppearanceSection(
+            viewModel = viewModel,
+            onBack = { currentSection = SettingsSection.LIST },
+        )
+        SettingsSection.CALENDAR -> CalendarSection(
+            viewModel = viewModel,
+            onBack = { currentSection = SettingsSection.LIST },
+        )
+        SettingsSection.NOTIFICATIONS -> NotificationsSection(
+            viewModel = viewModel,
+            onBack = { currentSection = SettingsSection.LIST },
+        )
+        SettingsSection.AGENT -> AgentSection(
+            onBack = { currentSection = SettingsSection.LIST },
+            onNavigateToProactions = onNavigateToProactions,
+        )
+        SettingsSection.ABOUT -> AboutSection(
+            viewModel = viewModel,
+            onBack = { currentSection = SettingsSection.LIST },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettingsList(
+    viewModel: SettingsViewModel,
+    onSectionClick: (SettingsSection) -> Unit,
     onBack: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -77,23 +136,166 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .verticalScroll(rememberScrollState()),
         ) {
             if (uiState.isLoading) {
                 Box(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     CircularProgressIndicator()
                 }
             }
 
-            // Profile section
-            uiState.user?.let { user ->
-                Text("Profil", style = MaterialTheme.typography.titleMedium)
+            SettingsRow(
+                icon = Icons.Outlined.AccountCircle,
+                title = "Profil",
+                subtitle = uiState.user?.name ?: uiState.user?.email,
+                onClick = { onSectionClick(SettingsSection.PROFILE) },
+            )
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
+            SettingsRow(
+                icon = Icons.Outlined.Palette,
+                title = "Apparence",
+                subtitle = uiState.preferences?.let {
+                    when (it.theme) {
+                        "light" -> "Clair"
+                        "dark" -> "Sombre"
+                        else -> "Système"
+                    }
+                },
+                onClick = { onSectionClick(SettingsSection.APPEARANCE) },
+            )
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+            SettingsRow(
+                icon = Icons.Outlined.DateRange,
+                title = "Calendrier",
+                onClick = { onSectionClick(SettingsSection.CALENDAR) },
+            )
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+            SettingsRow(
+                icon = Icons.Outlined.Notifications,
+                title = "Notifications",
+                subtitle = uiState.preferences?.let {
+                    if (it.notificationsEnabled) "Activées" else "Désactivées"
+                },
+                onClick = { onSectionClick(SettingsSection.NOTIFICATIONS) },
+            )
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+            SettingsRow(
+                icon = Icons.Outlined.AutoAwesome,
+                title = "Agent",
+                subtitle = "Proactions, comportement",
+                onClick = { onSectionClick(SettingsSection.AGENT) },
+            )
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+            SettingsRow(
+                icon = Icons.Outlined.Info,
+                title = "À propos",
+                subtitle = "Version ${BuildConfig.VERSION_NAME}",
+                onClick = { onSectionClick(SettingsSection.ABOUT) },
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = { viewModel.logout() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                ),
+            ) {
+                Icon(
+                    Icons.Outlined.Logout,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Se déconnecter")
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun SettingsRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String? = null,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            if (subtitle != null) {
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Icon(
+            Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+// --- Sub-sections ---
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ProfileSection(
+    viewModel: SettingsViewModel,
+    onBack: () -> Unit,
+) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Profil") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            uiState.user?.let { user ->
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth(),
@@ -155,7 +357,6 @@ fun SettingsScreen(
 
                 HorizontalDivider()
 
-                // Google connection
                 Text("Google", style = MaterialTheme.typography.titleMedium)
 
                 Row(
@@ -183,13 +384,44 @@ fun SettingsScreen(
                         )
                     }
                 }
-
-                HorizontalDivider()
             }
 
-            // Appearance section
+            uiState.error?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AppearanceSection(
+    viewModel: SettingsViewModel,
+    onBack: () -> Unit,
+) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Apparence") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
             uiState.preferences?.let { prefs ->
-                Text("Apparence", style = MaterialTheme.typography.titleMedium)
+                Text("Thème", style = MaterialTheme.typography.titleMedium)
 
                 val themeOptions = listOf("system" to "Système", "light" to "Clair", "dark" to "Sombre")
                 val selectedThemeIndex = themeOptions.indexOfFirst { it.first == prefs.theme }.coerceAtLeast(0)
@@ -205,13 +437,41 @@ fun SettingsScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+}
 
-                HorizontalDivider()
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CalendarSection(
+    viewModel: SettingsViewModel,
+    onBack: () -> Unit,
+) {
+    val uiState by viewModel.uiState.collectAsState()
 
-                // Calendar section
-                Text("Calendrier", style = MaterialTheme.typography.titleMedium)
-
-                Text("Vue par défaut", style = MaterialTheme.typography.bodyMedium)
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Calendrier") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            uiState.preferences?.let { prefs ->
+                Text("Vue par défaut", style = MaterialTheme.typography.titleMedium)
                 val viewOptions = listOf("month" to "Mois", "week" to "Semaine", "day" to "Jour")
                 val selectedViewIndex = viewOptions.indexOfFirst { it.first == prefs.defaultCalendarView }.coerceAtLeast(0)
 
@@ -227,10 +487,9 @@ fun SettingsScreen(
                     }
                 }
 
-                // Agenda visibility
                 if (uiState.agendas.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Agendas visibles", style = MaterialTheme.typography.bodyMedium)
+                    HorizontalDivider()
+                    Text("Agendas visibles", style = MaterialTheme.typography.titleMedium)
 
                     uiState.agendas.forEach { agenda ->
                         Row(
@@ -259,12 +518,39 @@ fun SettingsScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+}
 
-                HorizontalDivider()
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NotificationsSection(
+    viewModel: SettingsViewModel,
+    onBack: () -> Unit,
+) {
+    val uiState by viewModel.uiState.collectAsState()
 
-                // Notifications section
-                Text("Notifications", style = MaterialTheme.typography.titleMedium)
-
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Notifications") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            uiState.preferences?.let { prefs ->
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth(),
@@ -276,21 +562,69 @@ fun SettingsScreen(
                         onCheckedChange = { viewModel.toggleNotifications() },
                     )
                 }
-
-                HorizontalDivider()
             }
+        }
+    }
+}
 
-            uiState.error?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AgentSection(
+    onBack: () -> Unit,
+    onNavigateToProactions: () -> Unit,
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Agent") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
+            SettingsRow(
+                icon = Icons.Outlined.AutoAwesome,
+                title = "Proactions",
+                subtitle = "Actions automatiques de l'agent",
+                onClick = onNavigateToProactions,
+            )
+        }
+    }
+}
 
-            // App info
-            Text("Application", style = MaterialTheme.typography.titleMedium)
-
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AboutSection(
+    viewModel: SettingsViewModel,
+    onBack: () -> Unit,
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("À propos") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth(),
@@ -310,28 +644,6 @@ fun SettingsScreen(
                     )
                 }
             }
-
-            HorizontalDivider()
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Button(
-                onClick = { viewModel.logout() },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error,
-                ),
-            ) {
-                Icon(
-                    Icons.Outlined.Logout,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Se déconnecter")
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

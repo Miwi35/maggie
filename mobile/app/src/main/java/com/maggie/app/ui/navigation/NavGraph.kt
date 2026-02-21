@@ -358,6 +358,9 @@ fun NavGraph() {
                 composable(Screen.Settings.route) {
                     SettingsScreen(
                         onBack = { navController.popBackStack() },
+                        onNavigateToProactions = {
+                            navController.navigate(Screen.Proactions.route) { launchSingleTop = true }
+                        },
                     )
                 }
                 composable(Screen.Notifications.route) {
