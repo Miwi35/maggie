@@ -30,6 +30,7 @@ final class ElasticsearchCollectionProvider implements ProviderInterface
         private readonly Security $security,
         private readonly LoggerInterface $logger,
         private readonly ProviderInterface $doctrineProvider,
+        private readonly string $environment = 'prod',
     ) {}
 
     public function provide(Operation $operation, array $uriVariables = [], array $context = []): object|array|null
@@ -37,7 +38,7 @@ final class ElasticsearchCollectionProvider implements ProviderInterface
         $entityClass = $operation->getClass();
         $meta = $this->metadataReader->read($entityClass);
 
-        if ($meta === null) {
+        if ($meta === null || $this->environment === 'test') {
             return $this->doctrineProvider->provide($operation, $uriVariables, $context);
         }
 

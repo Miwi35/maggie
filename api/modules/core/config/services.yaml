@@ -23,6 +23,7 @@ services:
     Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider:
         arguments:
             $doctrineProvider: '@ApiPlatform\Doctrine\Orm\State\CollectionProvider'
+            $environment: '%kernel.environment%'
 
     Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider:
         arguments:
