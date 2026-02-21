@@ -9,6 +9,9 @@ server {
     root /var/www/api/public;
     index index.php;
 
+    # Prevent nginx from injecting http:// in redirects (Traefik terminates TLS)
+    absolute_redirect off;
+
     # Security headers
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
@@ -23,13 +26,18 @@ server {
     # Root redirect → Admin
     # ==========================================================================
     location = / {
-        return 302 /admin/;
+        return 302 /admin;
     }
 
     # ==========================================================================
     # Admin SPA (React)
     # ==========================================================================
-    location /admin {
+    location = /admin {
+        alias /var/www/admin/index.html;
+        default_type text/html;
+    }
+
+    location /admin/ {
         alias /var/www/admin/;
         index index.html;
         try_files $uri $uri/ /admin/index.html;
