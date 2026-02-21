@@ -49,7 +49,6 @@ function App() {
       entrypoint={entrypoint}
       dataProvider={dataProvider}
       authProvider={authProvider}
-      basename="/admin"
       requireAuth
       loginPage={<LoginPage />}
       loading={LoadingPage}
