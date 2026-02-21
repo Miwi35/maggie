@@ -33,14 +33,13 @@ server {
     # Admin SPA (React)
     # ==========================================================================
     location = /admin {
-        alias /var/www/admin/index.html;
-        default_type text/html;
+        root /var/www;
+        try_files /admin/index.html =404;
     }
 
     location /admin/ {
-        alias /var/www/admin/;
-        index index.html;
-        try_files $uri $uri/ /admin/index.html;
+        root /var/www;
+        try_files $uri /admin/index.html;
     }
 
     # ==========================================================================
