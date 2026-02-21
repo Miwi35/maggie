@@ -87,16 +87,16 @@ EMOJI_INTERJECTIONS: dict[str, str] = {
 
 # Regex to strip any remaining emojis not in the map
 _EMOJI_RE = re.compile(
-    "[\U0001F600-\U0001F64F"  # emoticons
-    "\U0001F300-\U0001F5FF"   # symbols & pictographs
-    "\U0001F680-\U0001F6FF"   # transport & map
-    "\U0001F900-\U0001F9FF"   # supplemental symbols
-    "\U0001FA00-\U0001FA6F"   # chess symbols
-    "\U0001FA70-\U0001FAFF"   # symbols extended-A
-    "\U00002702-\U000027B0"   # dingbats
-    "\U0000FE00-\U0000FE0F"   # variation selectors
-    "\U0000200D"              # ZWJ
-    "\U000020E3"              # combining enclosing keycap
+    "[\U0001f600-\U0001f64f"  # emoticons
+    "\U0001f300-\U0001f5ff"  # symbols & pictographs
+    "\U0001f680-\U0001f6ff"  # transport & map
+    "\U0001f900-\U0001f9ff"  # supplemental symbols
+    "\U0001fa00-\U0001fa6f"  # chess symbols
+    "\U0001fa70-\U0001faff"  # symbols extended-A
+    "\U00002702-\U000027b0"  # dingbats
+    "\U0000fe00-\U0000fe0f"  # variation selectors
+    "\U0000200d"  # ZWJ
+    "\U000020e3"  # combining enclosing keycap
     "]+",
     flags=re.UNICODE,
 )
