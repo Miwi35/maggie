@@ -6,23 +6,28 @@ import { CustomAppBar } from './AppBar'
 import { CustomMenu } from './Menu'
 import { ChatContext } from './ChatContext'
 
-const SIDEBAR_WIDTH = 380
-
 export const Layout = (props: LayoutProps) => {
-  const [chatOpen, setChatOpen] = useState(false)
+  const [chatOpen, setChatOpen] = useState(true)
   const [unreadChat, setUnreadChat] = useState(false)
   const chatRef = useRef<ChatWidgetRef>(null)
+
+  const triggerResize = useCallback(() => {
+    // FullCalendar listens for window resize to recalculate column widths
+    setTimeout(() => window.dispatchEvent(new Event('resize')), 250)
+  }, [])
 
   const handleChatToggle = useCallback(() => {
     setChatOpen((prev) => {
       if (!prev) setUnreadChat(false)
       return !prev
     })
-  }, [])
+    triggerResize()
+  }, [triggerResize])
 
   const handleChatClose = useCallback(() => {
     setChatOpen(false)
-  }, [])
+    triggerResize()
+  }, [triggerResize])
 
   const handleUnread = useCallback(() => {
     setUnreadChat(true)
@@ -34,7 +39,6 @@ export const Layout = (props: LayoutProps) => {
         setChatOpen(true)
         setUnreadChat(false)
       }
-      // Small delay to ensure drawer is open and ref is mounted
       setTimeout(() => {
         chatRef.current?.sendMessage(text)
       }, 100)
@@ -49,22 +53,14 @@ export const Layout = (props: LayoutProps) => {
 
   return (
     <ChatContext.Provider value={chatContext}>
-      <Box sx={{ display: 'flex' }}>
-        <Box
-          sx={{
-            flex: 1,
-            transition: 'margin-right 225ms cubic-bezier(0, 0, 0.2, 1)',
-            marginRight: chatOpen ? `${SIDEBAR_WIDTH}px` : 0,
-          }}
-        >
-          <RALayout
-            {...props}
-            menu={CustomMenu}
-            appBar={CustomAppBar}
-          />
+      <RALayout {...props} menu={CustomMenu} appBar={CustomAppBar}>
+        <Box sx={{ display: 'flex', flex: 1, minHeight: 0 }}>
+          <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            {props.children}
+          </Box>
+          <ChatWidget ref={chatRef} open={chatOpen} onClose={handleChatClose} onUnread={handleUnread} />
         </Box>
-        <ChatWidget ref={chatRef} open={chatOpen} onClose={handleChatClose} onUnread={handleUnread} />
-      </Box>
+      </RALayout>
     </ChatContext.Provider>
   )
 }

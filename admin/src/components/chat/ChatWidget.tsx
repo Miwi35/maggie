@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
-import Drawer from '@mui/material/Drawer'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import IconButton from '@mui/material/IconButton'
@@ -143,157 +142,164 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     const voiceError = recorder.error || transcription.error
 
     return (
-      <Drawer
-        variant="persistent"
-        anchor="right"
-        open={open}
+      <Box
         sx={{
           width: open ? SIDEBAR_WIDTH : 0,
           flexShrink: 0,
-          '& .MuiDrawer-paper': {
-            width: SIDEBAR_WIDTH,
-            boxSizing: 'border-box',
-            top: '48px',
-            height: 'calc(100% - 48px)',
-          },
+          overflow: 'hidden',
+          transition: 'width 225ms cubic-bezier(0, 0, 0.2, 1)',
         }}
       >
-        {/* Header */}
         <Box
           sx={{
-            px: 2,
-            py: 1,
+            width: SIDEBAR_WIDTH,
+            height: 'calc(100vh - 48px)',
+            position: 'sticky',
+            top: '48px',
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            borderBottom: 1,
+            flexDirection: 'column',
+            borderLeft: 1,
             borderColor: 'divider',
-            bgcolor: 'primary.main',
-            color: 'primary.contrastText',
+            bgcolor: 'background.paper',
           }}
         >
-          <Typography variant="subtitle1" fontWeight={600}>
-            Maggie
-          </Typography>
-          <IconButton size="small" onClick={onClose} sx={{ color: 'inherit' }}>
-            <CloseIcon />
-          </IconButton>
-        </Box>
-
-        {/* Messages */}
-        <Box sx={{ flex: 1, overflowY: 'auto', p: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {messages.map((msg, i) => (
-            <Box
-              key={i}
-              sx={{
-                alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                maxWidth: '85%',
-                px: 1.5,
-                py: 1,
-                borderRadius: 2,
-                bgcolor: msg.role === 'user' ? 'primary.main' : 'grey.100',
-                color: msg.role === 'user' ? 'primary.contrastText' : 'text.primary',
-                fontSize: 14,
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-              }}
-            >
-              {msg.content}
-            </Box>
-          ))}
-          {loading && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', px: 1 }}>
-              <CircularProgress size={16} />
-              <Typography variant="body2">Maggie réfléchit...</Typography>
-            </Box>
-          )}
-          <div ref={messagesEndRef} />
-        </Box>
-
-        {/* Recording indicator */}
-        {recorder.state === 'recording' && (
+          {/* Header */}
           <Box
             sx={{
-              px: 1.5,
-              py: 0.75,
+              px: 2,
+              py: 1,
               display: 'flex',
               alignItems: 'center',
-              gap: 1,
-              bgcolor: 'error.50',
-              borderTop: 1,
+              justifyContent: 'space-between',
+              borderBottom: 1,
               borderColor: 'divider',
+              bgcolor: 'primary.main',
+              color: 'primary.contrastText',
             }}
           >
+            <Typography variant="subtitle1" fontWeight={600}>
+              Maggie
+            </Typography>
+            <IconButton size="small" onClick={onClose} sx={{ color: 'inherit' }}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
+
+          {/* Messages */}
+          <Box sx={{ flex: 1, overflowY: 'auto', p: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {messages.map((msg, i) => (
+              <Box
+                key={i}
+                sx={{
+                  alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                  maxWidth: '85%',
+                  px: 1.5,
+                  py: 1,
+                  borderRadius: 2,
+                  bgcolor: msg.role === 'user' ? 'primary.main' : 'grey.100',
+                  color: msg.role === 'user' ? 'primary.contrastText' : 'text.primary',
+                  fontSize: 14,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                }}
+              >
+                {msg.content}
+              </Box>
+            ))}
+            {loading && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', px: 1 }}>
+                <CircularProgress size={16} />
+                <Typography variant="body2">Maggie réfléchit...</Typography>
+              </Box>
+            )}
+            <div ref={messagesEndRef} />
+          </Box>
+
+          {/* Recording indicator */}
+          {recorder.state === 'recording' && (
             <Box
               sx={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                bgcolor: 'error.main',
-                animation: 'pulse 1.5s ease-in-out infinite',
-                '@keyframes pulse': {
-                  '0%, 100%': { opacity: 1 },
-                  '50%': { opacity: 0.3 },
-                },
-              }}
-            />
-            <Typography variant="caption" sx={{ flex: 1 }}>
-              {recorder.duration}s
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{ cursor: 'pointer', color: 'error.main', fontWeight: 600 }}
-              onClick={() => {
-                recorder.cancelRecording()
+                px: 1.5,
+                py: 0.75,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                bgcolor: 'error.50',
+                borderTop: 1,
+                borderColor: 'divider',
               }}
             >
-              Annuler
-            </Typography>
-          </Box>
-        )}
-
-        {/* Voice error */}
-        {voiceError && (
-          <Box sx={{ px: 1.5, py: 0.5 }}>
-            <Typography variant="caption" color="error">
-              {voiceError}
-            </Typography>
-          </Box>
-        )}
-
-        {/* Input */}
-        <Box sx={{ p: 1.5, borderTop: 1, borderColor: 'divider', display: 'flex', gap: 1 }}>
-          <TextField
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Demande à Maggie..."
-            size="small"
-            fullWidth
-            slotProps={{ htmlInput: { sx: { fontSize: 14 } } }}
-          />
-          <Tooltip title={recorder.state === 'recording' ? 'Arrêter' : 'Dicter'}>
-            <span>
-              <IconButton
-                onClick={handleMicClick}
-                disabled={isTranscribing || loading}
-                color={recorder.state === 'recording' ? 'error' : 'default'}
+              <Box
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  bgcolor: 'error.main',
+                  animation: 'pulse 1.5s ease-in-out infinite',
+                  '@keyframes pulse': {
+                    '0%, 100%': { opacity: 1 },
+                    '50%': { opacity: 0.3 },
+                  },
+                }}
+              />
+              <Typography variant="caption" sx={{ flex: 1 }}>
+                {recorder.duration}s
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{ cursor: 'pointer', color: 'error.main', fontWeight: 600 }}
+                onClick={() => {
+                  recorder.cancelRecording()
+                }}
               >
-                {isTranscribing ? (
-                  <CircularProgress size={24} />
-                ) : recorder.state === 'recording' ? (
-                  <StopIcon />
-                ) : (
-                  <MicIcon />
-                )}
-              </IconButton>
-            </span>
-          </Tooltip>
-          <IconButton color="primary" onClick={sendMessage} disabled={loading || !input.trim()}>
-            <SendIcon />
-          </IconButton>
+                Annuler
+              </Typography>
+            </Box>
+          )}
+
+          {/* Voice error */}
+          {voiceError && (
+            <Box sx={{ px: 1.5, py: 0.5 }}>
+              <Typography variant="caption" color="error">
+                {voiceError}
+              </Typography>
+            </Box>
+          )}
+
+          {/* Input */}
+          <Box sx={{ p: 1.5, borderTop: 1, borderColor: 'divider', display: 'flex', gap: 1 }}>
+            <TextField
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Demande à Maggie..."
+              size="small"
+              fullWidth
+              slotProps={{ htmlInput: { sx: { fontSize: 14 } } }}
+            />
+            <Tooltip title={recorder.state === 'recording' ? 'Arrêter' : 'Dicter'}>
+              <span>
+                <IconButton
+                  onClick={handleMicClick}
+                  disabled={isTranscribing || loading}
+                  color={recorder.state === 'recording' ? 'error' : 'default'}
+                >
+                  {isTranscribing ? (
+                    <CircularProgress size={24} />
+                  ) : recorder.state === 'recording' ? (
+                    <StopIcon />
+                  ) : (
+                    <MicIcon />
+                  )}
+                </IconButton>
+              </span>
+            </Tooltip>
+            <IconButton color="primary" onClick={sendMessage} disabled={loading || !input.trim()}>
+              <SendIcon />
+            </IconButton>
+          </Box>
         </Box>
-      </Drawer>
+      </Box>
     )
   },
 )
