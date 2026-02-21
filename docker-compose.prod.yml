@@ -11,7 +11,7 @@ services:
       APP_DEBUG: "0"
       ELASTICSEARCH_URL: http://elasticsearch:9200
     volumes:
-      - jwt_keys:/srv/app/config/jwt
+      - jwt_keys:/var/www/api/config/jwt
     depends_on:
       database:
         condition: service_healthy
