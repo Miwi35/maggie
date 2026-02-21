@@ -1,12 +1,12 @@
 package com.maggie.app.voice
 
 import android.content.Context
+import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.os.Build
-import android.speech.tts.TextToSpeech
-import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import com.maggie.app.data.api.MaggieApiService
+import com.maggie.app.data.repository.UserPreferenceRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.io.File
-import java.util.Locale
 
 enum class VoiceState {
     IDLE,
@@ -27,9 +26,12 @@ enum class VoiceState {
     ERROR,
 }
 
+private const val DEFAULT_VOICE = "fr-FR-DeniseNeural"
+
 class VoiceManager(
     private val context: Context,
     private val apiService: MaggieApiService,
+    private val userPreferenceRepository: UserPreferenceRepository,
 ) {
     companion object {
         private const val TAG = "VoiceManager"
@@ -48,17 +50,21 @@ class VoiceManager(
     private var timerJob: Job? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
-    private var tts: TextToSpeech? = null
-    private var ttsReady = false
+    private var mediaPlayer: MediaPlayer? = null
+    private var ttsVoice: String = DEFAULT_VOICE
 
     fun initialize() {
-        if (tts != null) return
-        tts = TextToSpeech(context) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                tts?.language = Locale.FRENCH
-                ttsReady = true
+        scope.launch {
+            try {
+                ttsVoice = apiService.getTtsVoice()
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not load TTS voice preference, using default", e)
             }
         }
+    }
+
+    fun setVoice(voice: String) {
+        ttsVoice = voice
     }
 
     fun startListening() {
@@ -144,25 +150,49 @@ class VoiceManager(
     }
 
     fun speak(text: String) {
-        if (!ttsReady) return
         _state.value = VoiceState.SPEAKING
-        tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(utteranceId: String?) {}
+        scope.launch(Dispatchers.IO) {
+            var tempFile: File? = null
+            try {
+                val audioBytes = apiService.synthesizeSpeech(text, ttsVoice)
+                tempFile = File(context.cacheDir, "tts_${System.currentTimeMillis()}.mp3")
+                tempFile.writeBytes(audioBytes)
 
-            override fun onDone(utteranceId: String?) {
+                val player = MediaPlayer().apply {
+                    setDataSource(tempFile.absolutePath)
+                    prepare()
+                    setOnCompletionListener {
+                        _state.value = VoiceState.IDLE
+                        it.release()
+                        tempFile.delete()
+                        mediaPlayer = null
+                    }
+                    setOnErrorListener { mp, _, _ ->
+                        _state.value = VoiceState.IDLE
+                        mp.release()
+                        tempFile.delete()
+                        mediaPlayer = null
+                        true
+                    }
+                    start()
+                }
+                mediaPlayer = player
+            } catch (e: Exception) {
+                Log.e(TAG, "TTS synthesis failed", e)
                 _state.value = VoiceState.IDLE
+                tempFile?.delete()
             }
-
-            @Deprecated("Deprecated in Java")
-            override fun onError(utteranceId: String?) {
-                _state.value = VoiceState.IDLE
-            }
-        })
-        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "maggie_response")
+        }
     }
 
     fun stopSpeaking() {
-        tts?.stop()
+        try {
+            mediaPlayer?.apply {
+                if (isPlaying) stop()
+                release()
+            }
+        } catch (_: Exception) { }
+        mediaPlayer = null
         if (_state.value == VoiceState.SPEAKING) {
             _state.value = VoiceState.IDLE
         }
@@ -170,10 +200,7 @@ class VoiceManager(
 
     fun destroy() {
         cancelListening()
-        tts?.stop()
-        tts?.shutdown()
-        tts = null
-        ttsReady = false
+        stopSpeaking()
         _state.value = VoiceState.IDLE
     }
 

@@ -11,6 +11,7 @@ import com.maggie.app.data.model.Meal
 import com.maggie.app.data.model.Notification
 import com.maggie.app.data.model.Proaction
 import com.maggie.app.data.model.Recipe
+import com.maggie.app.data.model.TtsVoice
 import com.maggie.app.data.model.RecurringGroceryItem
 import com.maggie.app.data.model.SearchResponse
 import com.maggie.app.data.model.Task
@@ -25,11 +26,15 @@ import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.client.request.get
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.ContentType
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
+import io.ktor.utils.io.readRemaining
+import kotlinx.io.readByteArray
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -94,6 +99,17 @@ data class AgentChatResponse(
 data class TranscribeResponse(
     val raw: String = "",
     val clean: String = "",
+)
+
+@Serializable
+data class TtsSynthesizeRequest(
+    val text: String,
+    val voice: String,
+)
+
+@Serializable
+data class TtsVoiceResponse(
+    val voice: String,
 )
 
 @Serializable
@@ -499,5 +515,30 @@ class MaggieApiService(
     // Proactions — agent endpoint
     suspend fun getProactions(): List<Proaction> {
         return client.get("$baseUrl/agent/proactions").body()
+    }
+
+    // TTS — agent endpoint
+    suspend fun getTtsVoices(): List<TtsVoice> {
+        return client.get("$baseUrl/agent/tts/voices").body()
+    }
+
+    suspend fun getTtsVoice(): String {
+        val response: TtsVoiceResponse = client.get("$baseUrl/agent/tts/voice").body()
+        return response.voice
+    }
+
+    suspend fun setTtsVoice(voice: String) {
+        client.put("$baseUrl/agent/tts/voice") {
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject { put("voice", voice) })
+        }
+    }
+
+    suspend fun synthesizeSpeech(text: String, voice: String): ByteArray {
+        val response = client.post("$baseUrl/agent/tts/synthesize") {
+            contentType(ContentType.Application.Json)
+            setBody(TtsSynthesizeRequest(text = text, voice = voice))
+        }
+        return response.bodyAsChannel().readRemaining().readByteArray()
     }
 }

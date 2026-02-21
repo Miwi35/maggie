@@ -1,13 +1,16 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
-from pydantic import BaseModel
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 
 from app.auth import get_current_user_id
 from app.db.message_repository import message_repo
 from app.db.proaction_repository import proaction_repo
+from app.db.user_setting_repository import user_setting_repo
 from app.llm.gateway import LLMGateway
 from app.llm.transcription import transcribe_audio
+from app.tts.synthesis import DEFAULT_VOICE, VOICE_IDS, get_voices, synthesize_speech
 
 logger = logging.getLogger(__name__)
 
@@ -119,3 +122,48 @@ async def transcribe(audio: UploadFile, _user_id: str = Depends(get_current_user
 
     result = await transcribe_audio(contents, audio.filename or "audio.webm")
     return result
+
+
+# --- TTS ---
+
+MAX_TTS_CHARS = 5000
+
+
+class TtsRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=MAX_TTS_CHARS)
+    voice: str = DEFAULT_VOICE
+
+
+@router.get("/tts/voices")
+async def tts_voices(_user_id: str = Depends(get_current_user_id)):
+    """Return curated list of available TTS voices."""
+    return get_voices()
+
+
+@router.post("/tts/synthesize")
+async def tts_synthesize(request: TtsRequest, _user_id: str = Depends(get_current_user_id)):
+    """Synthesize text to MP3 audio via Edge TTS."""
+    if request.voice not in VOICE_IDS:
+        raise HTTPException(status_code=400, detail=f"Unknown voice: {request.voice}")
+
+    return StreamingResponse(
+        synthesize_speech(request.text, request.voice),
+        media_type="audio/mpeg",
+    )
+
+
+@router.get("/tts/voice")
+async def get_tts_voice(user_id: str = Depends(get_current_user_id)):
+    """Get the user's preferred TTS voice."""
+    setting = await user_setting_repo.get(user_id)
+    return {"voice": setting.tts_voice if setting and setting.tts_voice else DEFAULT_VOICE}
+
+
+@router.put("/tts/voice")
+async def set_tts_voice(request: dict, user_id: str = Depends(get_current_user_id)):
+    """Set the user's preferred TTS voice."""
+    voice = request.get("voice", "")
+    if voice not in VOICE_IDS:
+        raise HTTPException(status_code=400, detail=f"Unknown voice: {voice}")
+    await user_setting_repo.set_tts_voice(user_id, voice)
+    return {"voice": voice}

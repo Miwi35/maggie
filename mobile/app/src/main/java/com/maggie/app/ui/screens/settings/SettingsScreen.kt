@@ -27,6 +27,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Logout
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -37,6 +38,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -101,6 +103,7 @@ fun SettingsScreen(
             onBack = { currentSection = SettingsSection.LIST },
         )
         SettingsSection.AGENT -> AgentSection(
+            viewModel = viewModel,
             onBack = { currentSection = SettingsSection.LIST },
             onNavigateToProactions = onNavigateToProactions,
         )
@@ -570,9 +573,12 @@ private fun NotificationsSection(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AgentSection(
+    viewModel: SettingsViewModel,
     onBack: () -> Unit,
     onNavigateToProactions: () -> Unit,
 ) {
+    val uiState by viewModel.uiState.collectAsState()
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -588,8 +594,54 @@ private fun AgentSection(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .padding(padding)
+                .verticalScroll(rememberScrollState()),
         ) {
+            if (uiState.ttsVoices.isNotEmpty()) {
+                Text(
+                    "Voix de synthèse",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                )
+
+                uiState.ttsVoices.forEach { voice ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { viewModel.updateTtsVoice(voice.id) }
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                    ) {
+                        RadioButton(
+                            selected = voice.id == uiState.selectedTtsVoice,
+                            onClick = { viewModel.updateTtsVoice(voice.id) },
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(voice.name, style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                buildString {
+                                    append(if (voice.gender == "female") "Femme" else "Homme")
+                                    append(" — ")
+                                    append(voice.locale)
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        IconButton(onClick = { viewModel.previewVoice(voice.id) }) {
+                            Icon(
+                                Icons.Outlined.PlayArrow,
+                                contentDescription = "Écouter",
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            }
+
             SettingsRow(
                 icon = Icons.Outlined.AutoAwesome,
                 title = "Proactions",

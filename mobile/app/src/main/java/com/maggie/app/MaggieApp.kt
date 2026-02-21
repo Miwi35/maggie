@@ -107,14 +107,14 @@ class MaggieApp : Application() {
             single { UserPreferenceRepository(get()) }
 
             // Other
-            single { VoiceManager(androidContext(), get()) }
+            single { VoiceManager(androidContext(), get(), get()) }
 
             // ViewModels
             viewModel { LoginViewModel(get()) }
             viewModel { DashboardViewModel(get(), get(), get(), get(), get()) }
             viewModel { FullCalendarViewModel(get(), get(), get(), get(), get()) }
             viewModel { ChatViewModel(get(), get()) }
-            viewModel { SettingsViewModel(get(), get(), get(), get(), get()) }
+            viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get()) }
             viewModel { NotificationViewModel(get(), get(), get()) }
             viewModel { SearchViewModel(get()) }
             viewModel { ProactionViewModel(get()) }

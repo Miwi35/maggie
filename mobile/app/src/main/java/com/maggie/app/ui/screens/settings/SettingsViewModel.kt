@@ -6,8 +6,10 @@ import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.Agenda
+import com.maggie.app.data.model.TtsVoice
 import com.maggie.app.data.model.User
 import com.maggie.app.data.model.UserPreference
+import com.maggie.app.voice.VoiceManager
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +25,8 @@ data class SettingsUiState(
     val user: User? = null,
     val preferences: UserPreference? = null,
     val agendas: List<Agenda> = emptyList(),
+    val ttsVoices: List<TtsVoice> = emptyList(),
+    val selectedTtsVoice: String = "fr-FR-DeniseNeural",
     val isLoading: Boolean = false,
     val error: String? = null,
 )
@@ -33,6 +37,7 @@ class SettingsViewModel(
     private val userPreferenceRepository: UserPreferenceRepository,
     private val agendaRepository: AgendaRepository,
     private val mercureService: MercureService,
+    private val voiceManager: VoiceManager,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -52,10 +57,14 @@ class SettingsViewModel(
                 val user = apiService.getMe()
                 val prefResult = userPreferenceRepository.refresh()
                 val agendas = agendaRepository.getAgendas()
+                val ttsVoices = try { apiService.getTtsVoices() } catch (_: Exception) { emptyList() }
+                val selectedVoice = try { apiService.getTtsVoice() } catch (_: Exception) { "fr-FR-DeniseNeural" }
                 _uiState.value = _uiState.value.copy(
                     user = user,
                     preferences = prefResult.getOrNull(),
                     agendas = agendas,
+                    ttsVoices = ttsVoices,
+                    selectedTtsVoice = selectedVoice,
                     isLoading = false,
                 )
             } catch (e: Exception) {
@@ -115,6 +124,40 @@ class SettingsViewModel(
             try {
                 val updated = apiService.updateUser(userId, buildJsonObject { put("name", name) })
                 _uiState.value = _uiState.value.copy(user = updated)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(error = e.message)
+            }
+        }
+    }
+
+    fun updateTtsVoice(voice: String) {
+        viewModelScope.launch {
+            try {
+                apiService.setTtsVoice(voice)
+                voiceManager.setVoice(voice)
+                _uiState.value = _uiState.value.copy(selectedTtsVoice = voice)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(error = e.message)
+            }
+        }
+    }
+
+    fun previewVoice(voiceId: String) {
+        voiceManager.stopSpeaking()
+        viewModelScope.launch {
+            try {
+                val audioBytes = apiService.synthesizeSpeech("Bonjour, je suis Maggie, votre assistante personnelle.", voiceId)
+                val tempFile = java.io.File.createTempFile("tts_preview", ".mp3")
+                tempFile.writeBytes(audioBytes)
+                val player = android.media.MediaPlayer().apply {
+                    setDataSource(tempFile.absolutePath)
+                    prepare()
+                    setOnCompletionListener {
+                        it.release()
+                        tempFile.delete()
+                    }
+                    start()
+                }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message)
             }
