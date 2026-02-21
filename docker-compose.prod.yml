@@ -10,6 +10,8 @@ services:
       APP_ENV: prod
       APP_DEBUG: "0"
       ELASTICSEARCH_URL: http://elasticsearch:9200
+    volumes:
+      - jwt_keys:/srv/app/config/jwt
     depends_on:
       database:
         condition: service_healthy
@@ -169,6 +171,8 @@ services:
     image: ghcr.io/miwi35/maggie-agent:${IMAGE_TAG:-latest}
     restart: unless-stopped
     env_file: .env.prod
+    volumes:
+      - jwt_keys:/etc/jwt:ro
     depends_on:
       - nginx
     labels:
@@ -191,3 +195,4 @@ volumes:
   postgres_data:
   rabbitmq_data:
   elasticsearch_data:
+  jwt_keys:
