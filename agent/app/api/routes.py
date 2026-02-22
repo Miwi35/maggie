@@ -5,11 +5,13 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.auth import get_current_user_id
+from app.db.instruction_repository import instruction_repo
 from app.db.message_repository import message_repo
 from app.db.proaction_repository import proaction_repo
 from app.db.user_setting_repository import user_setting_repo
 from app.llm.gateway import LLMGateway
 from app.llm.transcription import transcribe_audio
+from app.skills.index import skill_index
 from app.tts.synthesis import DEFAULT_VOICE, VOICE_IDS, get_voices, synthesize_speech
 
 logger = logging.getLogger(__name__)
@@ -33,6 +35,23 @@ class PersonalityUpdate(BaseModel):
     name: str | None = None
     language: str | None = None
     backstory: str | None = None
+
+
+class InstructionCreate(BaseModel):
+    content: str
+
+
+class SkillCreate(BaseModel):
+    name: str
+    description: str
+    tags: list[str]
+    content: str
+
+
+class SkillUpdate(BaseModel):
+    description: str | None = None
+    tags: list[str] | None = None
+    content: str | None = None
 
 
 @router.get("/health")
@@ -167,3 +186,85 @@ async def set_tts_voice(request: dict, user_id: str = Depends(get_current_user_i
         raise HTTPException(status_code=400, detail=f"Unknown voice: {voice}")
     await user_setting_repo.set_tts_voice(user_id, voice)
     return {"voice": voice}
+
+
+# --- Instructions ---
+
+
+@router.get("/instructions")
+async def get_instructions(user_id: str = Depends(get_current_user_id)):
+    """List all instructions for the authenticated user."""
+    instructions = await instruction_repo.find_by_user(user_id)
+    return [i.to_dict() for i in instructions]
+
+
+@router.post("/instructions", status_code=201)
+async def create_instruction(data: InstructionCreate, user_id: str = Depends(get_current_user_id)):
+    """Create a new instruction."""
+    instruction = await instruction_repo.store(user_id, data.content)
+    return instruction.to_dict()
+
+
+@router.delete("/instructions/{instruction_id}")
+async def delete_instruction(instruction_id: str, _user_id: str = Depends(get_current_user_id)):
+    """Delete an instruction."""
+    deleted = await instruction_repo.delete(instruction_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Instruction not found")
+    return {"deleted": True}
+
+
+# --- Skills ---
+
+
+@router.get("/skills")
+async def get_skills(_user_id: str = Depends(get_current_user_id)):
+    """List all skills (name, description, tags)."""
+    entries = skill_index.list_all()
+    return [{"name": e.name, "description": e.description, "tags": e.tags} for e in entries]
+
+
+@router.get("/skills/{name}")
+async def get_skill_detail(name: str, _user_id: str = Depends(get_current_user_id)):
+    """Get full skill content by name."""
+    content = skill_index.get(name)
+    if content is None:
+        raise HTTPException(status_code=404, detail="Skill not found")
+    entry = next((e for e in skill_index.entries if e.name == name), None)
+    return {
+        "name": name,
+        "description": entry.description if entry else "",
+        "tags": entry.tags if entry else [],
+        "content": content,
+    }
+
+
+@router.post("/skills", status_code=201)
+async def create_skill_endpoint(data: SkillCreate, user_id: str = Depends(get_current_user_id)):
+    """Create a new skill."""
+    entry = await skill_index.create(data.name, data.description, data.tags, data.content, user_id)
+    return {"name": entry.name, "description": entry.description, "tags": entry.tags}
+
+
+@router.put("/skills/{name}")
+async def update_skill_endpoint(name: str, data: SkillUpdate, user_id: str = Depends(get_current_user_id)):
+    """Update an existing skill."""
+    entry = await skill_index.update(
+        name,
+        description=data.description,
+        tags=data.tags,
+        content=data.content,
+        user_id=user_id,
+    )
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Skill not found")
+    return {"name": entry.name, "description": entry.description, "tags": entry.tags}
+
+
+@router.delete("/skills/{name}")
+async def delete_skill_endpoint(name: str, user_id: str = Depends(get_current_user_id)):
+    """Delete a skill."""
+    deleted = await skill_index.delete(name, user_id=user_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Skill not found")
+    return {"deleted": True}

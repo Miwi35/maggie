@@ -6,6 +6,7 @@ from fastapi import FastAPI
 
 from app.a2a import setup_a2a
 from app.api.routes import router
+from app.db.instruction_model import Instruction  # noqa: F401 — register model with AgentBase before create_all
 from app.db.memory_model import Memory  # noqa: F401 — register model with AgentBase before create_all
 from app.db.message_repository import message_repo
 from app.db.proaction_repository import proaction_repo
@@ -14,6 +15,7 @@ from app.mcp.client import mcp_client
 from app.queue import connection as queue_connection
 from app.queue.proaction_consumer import start_consumer
 from app.queue.scheduler import start_scheduler
+from app.skills.index import skill_index
 
 # Configure logging so app messages are visible
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s: %(message)s")
@@ -38,6 +40,13 @@ async def lifespan(app: FastAPI):
         logger.info("Agent database table ready")
     except Exception as e:
         logger.warning(f"Could not create agent database table: {e}")
+
+    # Build skill index from files
+    try:
+        skill_index.rebuild()
+        logger.info(f"Skill index built: {len(skill_index.entries)} skills")
+    except Exception as e:
+        logger.warning(f"Could not build skill index: {e}")
 
     # Connect to MCP server (best-effort; tools will be lazy-loaded if this fails)
     try:

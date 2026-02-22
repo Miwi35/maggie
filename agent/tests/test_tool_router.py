@@ -1,9 +1,12 @@
 from unittest.mock import AsyncMock, patch
 
-from app.llm.tools import MEMORY_TOOLS, PROACTION_TOOLS, ToolRouter
+from app.llm.tools import INSTRUCTION_TOOLS, MEMORY_TOOLS, PROACTION_TOOLS, SKILL_TOOLS, ToolRouter
 
 NUM_MEMORY_TOOLS = len(MEMORY_TOOLS)
 NUM_PROACTION_TOOLS = len(PROACTION_TOOLS)
+NUM_INSTRUCTION_TOOLS = len(INSTRUCTION_TOOLS)
+NUM_SKILL_TOOLS = len(SKILL_TOOLS)
+NUM_ALWAYS_ON_TOOLS = NUM_MEMORY_TOOLS + NUM_INSTRUCTION_TOOLS + NUM_SKILL_TOOLS
 
 
 class TestToolRouter:
@@ -36,11 +39,11 @@ class TestToolRouter:
         router = ToolRouter()
         tools = await router.get_tool_definitions()
 
-        # Memory tools + 2 MCP tools
-        assert len(tools) == NUM_MEMORY_TOOLS + 2
+        # Always-on tools + 2 MCP tools
+        assert len(tools) == NUM_ALWAYS_ON_TOOLS + 2
 
-        # MCP tools come after memory tools
-        mcp_tools = tools[NUM_MEMORY_TOOLS:]
+        # MCP tools come after always-on tools
+        mcp_tools = tools[NUM_ALWAYS_ON_TOOLS:]
         assert mcp_tools[0]["name"] == "create_event"
         assert mcp_tools[0]["description"] == "Create a calendar event"
         assert mcp_tools[0]["input_schema"]["type"] == "object"
@@ -60,8 +63,8 @@ class TestToolRouter:
         router = ToolRouter()
         tools = await router.get_tool_definitions(include_native=True)
 
-        # Memory tools + proaction tools + 1 MCP tool
-        assert len(tools) == NUM_MEMORY_TOOLS + NUM_PROACTION_TOOLS + 1
+        # Always-on tools + proaction tools + 1 MCP tool
+        assert len(tools) == NUM_ALWAYS_ON_TOOLS + NUM_PROACTION_TOOLS + 1
         names = [t["name"] for t in tools]
         assert "schedule_proaction" in names
         assert "list_proactions" in names
@@ -79,9 +82,11 @@ class TestToolRouter:
         router = ToolRouter()
         tools = await router.get_tool_definitions(include_native=False)
 
-        assert len(tools) == NUM_MEMORY_TOOLS + 1
+        assert len(tools) == NUM_ALWAYS_ON_TOOLS + 1
         names = [t["name"] for t in tools]
         assert "store_memory" in names
+        assert "add_instruction" in names
+        assert "create_skill" in names
         assert "create_event" in names
         assert "schedule_proaction" not in names
 
@@ -97,7 +102,7 @@ class TestToolRouter:
         router = ToolRouter()
         tools = await router.get_tool_definitions()
 
-        assert len(tools) == NUM_MEMORY_TOOLS + 1
+        assert len(tools) == NUM_ALWAYS_ON_TOOLS + 1
         bare = tools[-1]
         assert bare["name"] == "bare_tool"
         assert bare["description"] == ""

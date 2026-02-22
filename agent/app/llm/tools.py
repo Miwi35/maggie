@@ -2,9 +2,11 @@ import json
 import logging
 from datetime import UTC, datetime
 
+from app.db.instruction_repository import instruction_repo
 from app.db.memory_repository import memory_repo
 from app.db.proaction_repository import proaction_repo
 from app.mcp.client import mcp_client
+from app.skills.index import skill_index
 
 logger = logging.getLogger(__name__)
 
@@ -125,6 +127,148 @@ MEMORY_TOOLS = [
     },
 ]
 
+# Instruction tools (always available — chat + proaction)
+INSTRUCTION_TOOLS = [
+    {
+        "name": "add_instruction",
+        "description": (
+            "Store a new proaction guideline. Instructions tell Maggie WHEN to act autonomously "
+            "(e.g. 'send me a day summary every morning at 9', 'don't bother me 9pm-9am'). "
+            "These are used during daily proaction planning."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string",
+                    "description": "The instruction content (a scheduling/notification rule)",
+                },
+            },
+            "required": ["content"],
+        },
+    },
+    {
+        "name": "list_instructions",
+        "description": "List all proaction guidelines for the current user.",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+        },
+    },
+    {
+        "name": "delete_instruction",
+        "description": "Delete a proaction guideline by its ID.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "instruction_id": {
+                    "type": "string",
+                    "description": "The ID of the instruction to delete",
+                },
+            },
+            "required": ["instruction_id"],
+        },
+    },
+]
+
+# Skill tools (always available — chat + proaction)
+SKILL_TOOLS = [
+    {
+        "name": "create_skill",
+        "description": (
+            "Create a new skill file. Skills teach Maggie HOW to perform specific tasks "
+            "(e.g. 'when adding a concert, search for the event webpage'). "
+            "Skills are automatically loaded when the task context matches their tags."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Unique skill name (kebab-case, e.g. 'concert-event-link')",
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Short description of what the skill does",
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Keywords for contextual matching (e.g. ['concert', 'calendrier', 'lien'])",
+                },
+                "content": {
+                    "type": "string",
+                    "description": "The full skill procedure in markdown",
+                },
+            },
+            "required": ["name", "description", "tags", "content"],
+        },
+    },
+    {
+        "name": "list_skills",
+        "description": "List all available skills (name, description, tags).",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+        },
+    },
+    {
+        "name": "get_skill",
+        "description": "Load the full content of a skill by name (for on-demand loading).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "The skill name to load",
+                },
+            },
+            "required": ["name"],
+        },
+    },
+    {
+        "name": "update_skill",
+        "description": "Update an existing skill's content, description, or tags.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "The skill name to update",
+                },
+                "content": {
+                    "type": "string",
+                    "description": "New skill content (optional)",
+                },
+                "description": {
+                    "type": "string",
+                    "description": "New description (optional)",
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "New tags (optional)",
+                },
+            },
+            "required": ["name"],
+        },
+    },
+    {
+        "name": "delete_skill",
+        "description": "Delete a skill by name.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "The skill name to delete",
+                },
+            },
+            "required": ["name"],
+        },
+    },
+]
+
 
 # --- Handlers ---
 
@@ -199,6 +343,81 @@ async def _handle_delete_memory(arguments: dict, user_id: str) -> str:
     return json.dumps({"deleted": True, "id": memory_id})
 
 
+async def _handle_add_instruction(arguments: dict, user_id: str) -> str:
+    content = arguments.get("content", "")
+    if not content:
+        return json.dumps({"error": "'content' is required"})
+    instruction = await instruction_repo.store(user_id, content)
+    return json.dumps(instruction.to_dict())
+
+
+async def _handle_list_instructions(arguments: dict, user_id: str) -> str:
+    instructions = await instruction_repo.find_by_user(user_id)
+    return json.dumps([i.to_dict() for i in instructions])
+
+
+async def _handle_delete_instruction(arguments: dict, user_id: str) -> str:
+    instruction_id = arguments.get("instruction_id", "")
+    if not instruction_id:
+        return json.dumps({"error": "'instruction_id' is required"})
+    deleted = await instruction_repo.delete(instruction_id)
+    if not deleted:
+        return json.dumps({"error": f"Instruction '{instruction_id}' not found"})
+    return json.dumps({"deleted": True, "id": instruction_id})
+
+
+async def _handle_create_skill(arguments: dict, user_id: str) -> str:
+    name = arguments.get("name", "")
+    description = arguments.get("description", "")
+    tags = arguments.get("tags", [])
+    content = arguments.get("content", "")
+    if not name or not content:
+        return json.dumps({"error": "'name' and 'content' are required"})
+    entry = await skill_index.create(name, description, tags, content, user_id)
+    return json.dumps({"name": entry.name, "description": entry.description, "tags": entry.tags})
+
+
+async def _handle_list_skills(arguments: dict, user_id: str) -> str:
+    entries = skill_index.list_all()
+    return json.dumps([{"name": e.name, "description": e.description, "tags": e.tags} for e in entries])
+
+
+async def _handle_get_skill(arguments: dict, user_id: str) -> str:
+    name = arguments.get("name", "")
+    if not name:
+        return json.dumps({"error": "'name' is required"})
+    content = skill_index.get(name)
+    if content is None:
+        return json.dumps({"error": f"Skill '{name}' not found"})
+    return json.dumps({"name": name, "content": content})
+
+
+async def _handle_update_skill(arguments: dict, user_id: str) -> str:
+    name = arguments.get("name", "")
+    if not name:
+        return json.dumps({"error": "'name' is required"})
+    entry = await skill_index.update(
+        name,
+        description=arguments.get("description"),
+        tags=arguments.get("tags"),
+        content=arguments.get("content"),
+        user_id=user_id,
+    )
+    if entry is None:
+        return json.dumps({"error": f"Skill '{name}' not found"})
+    return json.dumps({"name": entry.name, "description": entry.description, "tags": entry.tags})
+
+
+async def _handle_delete_skill(arguments: dict, user_id: str) -> str:
+    name = arguments.get("name", "")
+    if not name:
+        return json.dumps({"error": "'name' is required"})
+    deleted = await skill_index.delete(name, user_id=user_id)
+    if not deleted:
+        return json.dumps({"error": f"Skill '{name}' not found"})
+    return json.dumps({"deleted": True, "name": name})
+
+
 _NATIVE_HANDLERS = {
     "schedule_proaction": _handle_schedule_proaction,
     "list_proactions": _handle_list_proactions,
@@ -206,6 +425,14 @@ _NATIVE_HANDLERS = {
     "search_memory": _handle_search_memory,
     "update_memory": _handle_update_memory,
     "delete_memory": _handle_delete_memory,
+    "add_instruction": _handle_add_instruction,
+    "list_instructions": _handle_list_instructions,
+    "delete_instruction": _handle_delete_instruction,
+    "create_skill": _handle_create_skill,
+    "list_skills": _handle_list_skills,
+    "get_skill": _handle_get_skill,
+    "update_skill": _handle_update_skill,
+    "delete_skill": _handle_delete_skill,
 }
 
 
@@ -214,6 +441,8 @@ class ToolRouter:
 
     Tool categories:
     - Memory tools — always available (chat + proaction)
+    - Instruction tools — always available (chat + proaction)
+    - Skill tools — always available (chat + proaction)
     - Proaction tools — only during proaction/autonomous calls
     - MCP tools — fetched from the Symfony MCP server
     """
@@ -223,9 +452,9 @@ class ToolRouter:
 
         Args:
             include_native: If True, include proaction tools (for internal/proaction calls).
-                            Memory tools are always included.
+                            Memory, instruction, and skill tools are always included.
         """
-        tools = list(MEMORY_TOOLS)
+        tools = list(MEMORY_TOOLS) + list(INSTRUCTION_TOOLS) + list(SKILL_TOOLS)
 
         if include_native:
             tools.extend(PROACTION_TOOLS)

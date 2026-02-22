@@ -47,6 +47,7 @@ agent/*.egg-info/
 agent/.pytest_cache/
 agent/.mypy_cache/
 agent/.ruff_cache/
+agent/data/
 
 # =============================================================================
 # Mobile (Android)

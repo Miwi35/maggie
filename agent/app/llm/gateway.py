@@ -7,6 +7,7 @@ from app.db.message_repository import message_repo
 from app.llm.tools import ToolRouter
 from app.memory.agent_memory import AgentMemory
 from app.personality.engine import PersonalityEngine
+from app.skills.index import skill_index
 
 logger = logging.getLogger(__name__)
 
@@ -22,11 +23,12 @@ class LLMGateway:
         self.tool_router = ToolRouter()
         self.agent_memory = AgentMemory()
 
-    async def _build_system_prompt(self, user_id: str) -> str:
-        """Build the full system prompt: personality + persistent memory context."""
+    async def _build_system_prompt(self, user_id: str, message: str = "") -> str:
+        """Build the full system prompt: personality + persistent memory context + skill context."""
         base = self.personality.get_system_prompt()
         memory_context = await self.agent_memory.get_memory_context(user_id)
-        return base + memory_context
+        skill_context = skill_index.get_relevant_skills_context(message)
+        return base + memory_context + skill_context
 
     async def _load_conversation_history(self, user_id: str) -> list[dict]:
         """Load conversation history from the database."""
@@ -110,7 +112,7 @@ class LLMGateway:
         tool_calls_made = []
 
         try:
-            system_prompt = await self._build_system_prompt(user_id)
+            system_prompt = await self._build_system_prompt(user_id, message=message)
             result = await self._run_tool_loop(system_prompt, messages, tools, tool_calls_made, user_id=user_id)
             return result
         except anthropic.APIStatusError as e:

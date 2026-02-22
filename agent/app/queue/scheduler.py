@@ -12,11 +12,12 @@ EXECUTION_INTERVAL = 60  # seconds
 DAILY_PLANNING_HOUR = 6  # 06:00 UTC
 
 DAILY_PLANNING_PROMPT = (
-    "C'est le début de la journée. Revois les proactions planifiées et planifie "
-    "les tâches autonomes pour aujourd'hui. Utilise l'outil list_proactions pour voir "
-    "ce qui est déjà planifié, puis utilise schedule_proaction pour planifier de "
-    "nouvelles tâches si nécessaire. Prends en compte le calendrier de l'utilisateur "
-    "et ses habitudes."
+    "C'est le début de la journée. "
+    "1. Appelle list_instructions pour lire les directives de l'utilisateur. "
+    "2. Appelle list_proactions pour voir les proactions déjà planifiées. "
+    "3. Planifie de nouvelles proactions avec schedule_proaction en te basant sur "
+    "les instructions de l'utilisateur, son calendrier et ses habitudes. "
+    "Respecte les contraintes horaires indiquées dans les instructions."
 )
 
 # Default user for autonomous planning — the single user of this personal assistant
