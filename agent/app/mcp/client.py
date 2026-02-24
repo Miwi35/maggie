@@ -1,9 +1,12 @@
 import json
 import logging
+import time
 
 import httpx
 
 from app.config import settings
+
+SESSION_STALENESS_SECONDS = 300  # 5 minutes
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +20,7 @@ class McpClient:
         self._session_id: str | None = None
         self._session_expired: bool = False
         self._tools: list[dict] = []
+        self._last_activity: float = 0.0
 
     async def connect(self) -> None:
         """Initialize connection to MCP server."""
@@ -47,6 +51,7 @@ class McpClient:
         tools_response = await self._send_request("tools/list", {})
         if tools_response:
             self._tools = tools_response.get("tools", [])
+            self._last_activity = time.monotonic()
             logger.info(f"MCP tools available: {[t['name'] for t in self._tools]}")
         else:
             logger.error("MCP tools/list failed — no response from server")
@@ -59,10 +64,14 @@ class McpClient:
             self._session_id = None
 
     async def ensure_connected(self) -> None:
-        """Reconnect to MCP server if tools are not loaded."""
+        """Reconnect to MCP server if tools are not loaded or session is stale."""
         if self._tools:
-            return
-        logger.info("MCP tools not loaded, reconnecting...")
+            elapsed = time.monotonic() - self._last_activity
+            if elapsed < SESSION_STALENESS_SECONDS:
+                return
+            logger.info(f"MCP session stale ({elapsed:.0f}s idle), proactively reconnecting...")
+        else:
+            logger.info("MCP tools not loaded, reconnecting...")
         await self.disconnect()
         await self.connect()
 
@@ -132,6 +141,7 @@ class McpClient:
             self._session_expired = False
 
             if response.status_code == 200:
+                self._last_activity = time.monotonic()
                 data = response.json()
                 return data.get("result")
             elif response.status_code == 404:

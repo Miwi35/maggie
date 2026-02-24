@@ -6,6 +6,9 @@ NUM_MEMORY_TOOLS = len(MEMORY_TOOLS)
 NUM_PROACTION_TOOLS = len(PROACTION_TOOLS)
 NUM_INSTRUCTION_TOOLS = len(INSTRUCTION_TOOLS)
 NUM_SKILL_TOOLS = len(SKILL_TOOLS)
+# All native tools are included by default (include_native=True)
+NUM_DEFAULT_TOOLS = NUM_MEMORY_TOOLS + NUM_INSTRUCTION_TOOLS + NUM_SKILL_TOOLS + NUM_PROACTION_TOOLS
+# Tools available when include_native=False (no proaction tools)
 NUM_ALWAYS_ON_TOOLS = NUM_MEMORY_TOOLS + NUM_INSTRUCTION_TOOLS + NUM_SKILL_TOOLS
 
 
@@ -39,11 +42,11 @@ class TestToolRouter:
         router = ToolRouter()
         tools = await router.get_tool_definitions()
 
-        # Always-on tools + 2 MCP tools
-        assert len(tools) == NUM_ALWAYS_ON_TOOLS + 2
+        # Default tools (including proaction) + 2 MCP tools
+        assert len(tools) == NUM_DEFAULT_TOOLS + 2
 
-        # MCP tools come after always-on tools
-        mcp_tools = tools[NUM_ALWAYS_ON_TOOLS:]
+        # MCP tools come after native tools
+        mcp_tools = tools[NUM_DEFAULT_TOOLS:]
         assert mcp_tools[0]["name"] == "create_event"
         assert mcp_tools[0]["description"] == "Create a calendar event"
         assert mcp_tools[0]["input_schema"]["type"] == "object"
@@ -63,8 +66,8 @@ class TestToolRouter:
         router = ToolRouter()
         tools = await router.get_tool_definitions(include_native=True)
 
-        # Always-on tools + proaction tools + 1 MCP tool
-        assert len(tools) == NUM_ALWAYS_ON_TOOLS + NUM_PROACTION_TOOLS + 1
+        # All native tools (including proaction) + 1 MCP tool
+        assert len(tools) == NUM_DEFAULT_TOOLS + 1
         names = [t["name"] for t in tools]
         assert "schedule_proaction" in names
         assert "list_proactions" in names
@@ -102,7 +105,7 @@ class TestToolRouter:
         router = ToolRouter()
         tools = await router.get_tool_definitions()
 
-        assert len(tools) == NUM_ALWAYS_ON_TOOLS + 1
+        assert len(tools) == NUM_DEFAULT_TOOLS + 1
         bare = tools[-1]
         assert bare["name"] == "bare_tool"
         assert bare["description"] == ""

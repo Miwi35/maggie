@@ -109,8 +109,8 @@ class LLMGateway:
         else:
             messages.append({"role": "user", "content": message})
 
-        # Get available tools from MCP (no native tools for chat — they're internal)
-        tools = await self.tool_router.get_tool_definitions(include_native=False)
+        # Get all tools including proaction tools (so user can schedule reminders from chat)
+        tools = await self.tool_router.get_tool_definitions(include_native=True)
 
         # Call Claude
         tool_calls_made = []

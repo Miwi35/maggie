@@ -10,7 +10,7 @@ from app.skills.index import skill_index
 
 logger = logging.getLogger(__name__)
 
-# Proaction tools (available during proaction/autonomous calls only)
+# Proaction tools (available in both chat and proaction modes)
 PROACTION_TOOLS = [
     {
         "name": "schedule_proaction",
@@ -443,16 +443,16 @@ class ToolRouter:
     - Memory tools — always available (chat + proaction)
     - Instruction tools — always available (chat + proaction)
     - Skill tools — always available (chat + proaction)
-    - Proaction tools — only during proaction/autonomous calls
+    - Proaction tools — always available (chat + proaction)
     - MCP tools — fetched from the Symfony MCP server
     """
 
-    async def get_tool_definitions(self, include_native: bool = False) -> list[dict]:
+    async def get_tool_definitions(self, include_native: bool = True) -> list[dict]:
         """Get available tools in Anthropic tool format.
 
         Args:
-            include_native: If True, include proaction tools (for internal/proaction calls).
-                            Memory, instruction, and skill tools are always included.
+            include_native: If True, include proaction tools (schedule/list proactions).
+                            Defaults to True — proaction tools are available in all modes.
         """
         tools = list(MEMORY_TOOLS) + list(INSTRUCTION_TOOLS) + list(SKILL_TOOLS)
 
