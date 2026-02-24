@@ -146,21 +146,23 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
         sx={{
           width: open ? SIDEBAR_WIDTH : 0,
           flexShrink: 0,
-          overflow: 'hidden',
           transition: 'width 225ms cubic-bezier(0, 0, 0.2, 1)',
         }}
       >
         <Box
           sx={{
             width: SIDEBAR_WIDTH,
-            height: 'calc(100vh - 48px)',
-            position: 'sticky',
-            top: '48px',
+            position: 'fixed',
+            top: (theme) => theme.mixins.toolbar.minHeight,
+            right: 0,
+            bottom: 0,
             display: 'flex',
             flexDirection: 'column',
             borderLeft: 1,
             borderColor: 'divider',
             bgcolor: 'background.paper',
+            transform: open ? 'translateX(0)' : `translateX(${SIDEBAR_WIDTH}px)`,
+            transition: 'transform 225ms cubic-bezier(0, 0, 0.2, 1)',
           }}
         >
           {/* Header */}

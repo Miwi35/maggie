@@ -34,8 +34,20 @@ const httpClient = (url: URL, options: HttpClientOptions = {}) => {
   return fetchHydra(url, options)
 }
 
-const apiDocumentationParser = (entrypointUrl: string) =>
-  parseHydraDocumentation(entrypointUrl, { headers: getAuthHeaders })
+const apiDocumentationParser = async (entrypointUrl: string) => {
+  try {
+    return await parseHydraDocumentation(entrypointUrl, { headers: getAuthHeaders })
+  } catch (error) {
+    const status = (error as { status?: number }).status
+    if (status === 401 || status === 403) {
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      window.location.reload()
+      throw error
+    }
+    throw error
+  }
+}
 
 const dataProvider = hydraDataProvider({
   entrypoint,
