@@ -1,9 +1,11 @@
 import logging
+import time
 
 import anthropic
 import openai
 
 from app.config import settings
+from app.metrics import record_llm_usage
 
 logger = logging.getLogger(__name__)
 
@@ -29,13 +31,35 @@ async def _whisper_transcribe(audio_bytes: bytes, filename: str) -> str:
 async def _cleanup_with_llm(raw_text: str) -> str:
     """Clean up raw transcript using Claude."""
     client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
-    response = await client.messages.create(
-        model=settings.anthropic_model,
-        max_tokens=1024,
-        messages=[
-            {"role": "user", "content": f"{CLEANUP_PROMPT}\n\nTexte dicté :\n{raw_text}"},
-        ],
-    )
+    model = settings.anthropic_model
+    t0 = time.monotonic()
+    try:
+        response = await client.messages.create(
+            model=model,
+            max_tokens=1024,
+            messages=[
+                {"role": "user", "content": f"{CLEANUP_PROMPT}\n\nTexte dicté :\n{raw_text}"},
+            ],
+        )
+        duration = time.monotonic() - t0
+        record_llm_usage(
+            model=model,
+            call_type="transcription_cleanup",
+            input_tokens=response.usage.input_tokens,
+            output_tokens=response.usage.output_tokens,
+            duration_seconds=duration,
+        )
+    except Exception:
+        duration = time.monotonic() - t0
+        record_llm_usage(
+            model=model,
+            call_type="transcription_cleanup",
+            input_tokens=0,
+            output_tokens=0,
+            duration_seconds=duration,
+            status="error",
+        )
+        raise
     return response.content[0].text.strip()
 
 

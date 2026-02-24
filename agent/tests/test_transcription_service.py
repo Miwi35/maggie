@@ -63,8 +63,12 @@ class TestTranscriptionService:
         mock_anthropic_module.AsyncAnthropic.return_value = mock_client
         mock_content_block = MagicMock()
         mock_content_block.text = "Texte propre."
+        mock_usage = MagicMock()
+        mock_usage.input_tokens = 50
+        mock_usage.output_tokens = 10
         mock_response = MagicMock()
         mock_response.content = [mock_content_block]
+        mock_response.usage = mock_usage
         mock_client.messages.create = AsyncMock(return_value=mock_response)
 
         result = await _cleanup_with_llm("texte sale euh")

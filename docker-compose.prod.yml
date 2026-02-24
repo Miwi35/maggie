@@ -181,14 +181,21 @@ services:
       - "traefik.http.routers.maggie-agent.entrypoints=websecure"
       - "traefik.http.routers.maggie-agent.tls.certresolver=letsencrypt"
       - "traefik.http.services.maggie-agent.loadbalancer.server.port=8001"
+      # Prometheus auto-discovery
+      - "prometheus.scrape=true"
+      - "prometheus.port=8001"
+      - "prometheus.path=/agent/metrics"
     networks:
       - internal
       - traefik-public
+      - monitoring
 
 networks:
   internal:
     driver: bridge
   traefik-public:
+    external: true
+  monitoring:
     external: true
 
 volumes:

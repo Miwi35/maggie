@@ -20,6 +20,7 @@ dependencies = [
     "aio-pika>=9.4.0",
     "openai>=1.30.0",
     "edge-tts>=7.0.0",
+    "prometheus_client>=0.21.0",
 ]
 
 [project.optional-dependencies]

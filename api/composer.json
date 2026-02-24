@@ -37,6 +37,7 @@
         "symfony/mcp-bundle": "^0.3",
         "symfony/mercure-bundle": "^0.4.2",
         "symfony/messenger": "7.4.*",
+        "symfony/monolog-bundle": "^4.0",
         "symfony/runtime": "7.4.*",
         "symfony/security-bundle": "7.4.*",
         "symfony/uid": "7.4.*",
