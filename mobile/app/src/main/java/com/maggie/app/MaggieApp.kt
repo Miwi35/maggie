@@ -92,7 +92,7 @@ class MaggieApp : Application() {
                 }
             }
             single { MaggieApiService(get()) }
-            single { MercureService() }
+            single { MercureService(get()) }
 
             // Repositories
             single { EventRepository(get(), get()) }

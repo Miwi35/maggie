@@ -30,7 +30,7 @@ export function useMercure(topics: string[], onMessage: () => void): void {
       url.searchParams.append('topic', `/users/${userId}${topic}`)
     }
 
-    const es = new EventSource(url.toString())
+    const es = new EventSource(url.toString(), { withCredentials: true })
     es.onmessage = () => onMessage()
     return () => es.close()
   }, [topics, onMessage])

@@ -7,6 +7,7 @@ services:
             string $googleClientSecret: '%env(GOOGLE_CLIENT_SECRET)%'
             string $googleRedirectUri: '%env(GOOGLE_REDIRECT_URI)%'
             string $adminUrl: '%env(ADMIN_URL)%'
+            string $mercureJwtSecret: '%env(MERCURE_JWT_SECRET)%'
 
     Maggie\Core\:
         resource: '../src/'

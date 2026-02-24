@@ -20,23 +20,27 @@ class AuthRepository(private val context: Context) {
         val USER_NAME = stringPreferencesKey("user_name")
         val USER_EMAIL = stringPreferencesKey("user_email")
         val USER_AVATAR = stringPreferencesKey("user_avatar")
+        val MERCURE_TOKEN = stringPreferencesKey("mercure_token")
     }
 
     val token: Flow<String?> = context.authDataStore.data.map { it[Keys.TOKEN] }
 
     val isAuthenticated: Flow<Boolean> = token.map { it != null }
 
-    suspend fun saveAuth(token: String, id: String, name: String, email: String, avatar: String?) {
+    suspend fun saveAuth(token: String, mercureToken: String?, id: String, name: String, email: String, avatar: String?) {
         context.authDataStore.edit { prefs ->
             prefs[Keys.TOKEN] = token
             prefs[Keys.USER_ID] = id
             prefs[Keys.USER_NAME] = name
             prefs[Keys.USER_EMAIL] = email
             avatar?.let { prefs[Keys.USER_AVATAR] = it }
+            mercureToken?.let { prefs[Keys.MERCURE_TOKEN] = it }
         }
     }
 
     suspend fun getToken(): String? = context.authDataStore.data.first()[Keys.TOKEN]
+
+    suspend fun getMercureToken(): String? = context.authDataStore.data.first()[Keys.MERCURE_TOKEN]
 
     suspend fun getUserId(): String? = context.authDataStore.data.first()[Keys.USER_ID]
 

@@ -2,10 +2,12 @@ package com.maggie.app.data.mercure
 
 import android.util.Log
 import com.maggie.app.BuildConfig
+import com.maggie.app.data.auth.AuthRepository
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.sse.SSE
 import io.ktor.client.plugins.sse.sse
+import io.ktor.client.request.header
 import io.ktor.http.URLBuilder
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
@@ -23,6 +25,7 @@ data class MercureEvent(
 )
 
 class MercureService(
+    private val authRepository: AuthRepository,
     private val hubUrl: String = BuildConfig.MERCURE_URL,
     private val client: HttpClient = defaultClient(),
 ) {
@@ -35,7 +38,10 @@ class MercureService(
 
         while (isActive) {
             try {
-                client.sse(url) {
+                val mercureToken = authRepository.getMercureToken()
+                client.sse(url, request = {
+                    mercureToken?.let { header("Authorization", "Bearer $it") }
+                }) {
                     Log.i(TAG, "SSE connected to $topic")
                     incoming.collect { event ->
                         Log.d(TAG, "SSE event received on $topic: ${event.data?.take(100)}")

@@ -18,7 +18,7 @@ import kotlinx.serialization.Serializable
 data class GoogleAuthRequest(val idToken: String)
 
 @Serializable
-data class AuthResponse(val token: String, val user: AuthUser)
+data class AuthResponse(val token: String, val mercureToken: String? = null, val user: AuthUser)
 
 @Serializable
 data class AuthUser(val id: String, val email: String, val name: String, val avatar: String? = null)
@@ -50,6 +50,7 @@ class AuthManager(
 
         authRepository.saveAuth(
             token = response.token,
+            mercureToken = response.mercureToken,
             id = response.user.id,
             name = response.user.name,
             email = response.user.email,
