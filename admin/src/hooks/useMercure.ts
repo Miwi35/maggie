@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 
-const MERCURE_URL = import.meta.env.VITE_MERCURE_PUBLIC_URL || 'http://maggie.local/.well-known/mercure'
+const MERCURE_URL = import.meta.env.VITE_MERCURE_PUBLIC_URL
 
 function getUserId(): string | null {
   try {

@@ -107,6 +107,7 @@ jobs:
           target: prod
           build-args: |
             PHP_IMAGE=${{ env.PHP_IMAGE }}:${{ github.sha }}
+            MERCURE_PUBLIC_URL=https://maggieai.fr/.well-known/mercure
           push: true
           tags: |
             ${{ env.NGINX_IMAGE }}:${{ github.sha }}

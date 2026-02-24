@@ -28,7 +28,9 @@ RUN npm ci
 
 COPY admin/ .
 
+ARG MERCURE_PUBLIC_URL=/.well-known/mercure
 ENV VITE_API_URL=/api
+ENV VITE_MERCURE_PUBLIC_URL=${MERCURE_PUBLIC_URL}
 RUN npm run build
 
 # =============================================================================
