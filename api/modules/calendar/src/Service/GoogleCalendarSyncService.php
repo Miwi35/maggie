@@ -63,7 +63,10 @@ class GoogleCalendarSyncService
         $this->doPull($agenda->getUser(), $agenda, $agenda->getGoogleCalendarId(), null);
     }
 
-    public function pushEventToGoogle(Event $event, string $action): void
+    /**
+     * @param string[]|null $changedFields Fields that changed (null = full update)
+     */
+    public function pushEventToGoogle(Event $event, string $action, ?array $changedFields = null): void
     {
         $agenda = $event->getAgenda();
         if (!$agenda->isGoogleSynced()) {
@@ -72,11 +75,11 @@ class GoogleCalendarSyncService
 
         $user = $agenda->getUser();
         $calendarId = $agenda->getGoogleCalendarId();
-        $googleEvent = $this->eventMapper->toGoogle($event);
 
         try {
             $googleEventId = $event->getGoogleEventId();
             if ($action === 'create' || $googleEventId === null) {
+                $googleEvent = $this->eventMapper->toGoogle($event);
                 $result = $this->apiClient->insertEvent($user, $calendarId, $googleEvent);
                 $event->setGoogleEventId($result->getId());
                 $event->setGoogleEtag($result->getEtag());
@@ -85,7 +88,17 @@ class GoogleCalendarSyncService
                 if ($updatedAt) {
                     $event->setGoogleUpdatedAt(new \DateTimeImmutable($updatedAt));
                 }
+            } elseif ($changedFields !== null && $changedFields !== []) {
+                $googleEvent = $this->eventMapper->toGooglePatch($event, $changedFields);
+                $result = $this->apiClient->patchEvent($user, $calendarId, $googleEventId, $googleEvent);
+                $event->setGoogleEtag($result->getEtag());
+                /** @var ?string $updatedAt */
+                $updatedAt = $result->getUpdated();
+                if ($updatedAt) {
+                    $event->setGoogleUpdatedAt(new \DateTimeImmutable($updatedAt));
+                }
             } else {
+                $googleEvent = $this->eventMapper->toGoogle($event);
                 $result = $this->apiClient->updateEvent($user, $calendarId, $googleEventId, $googleEvent);
                 $event->setGoogleEtag($result->getEtag());
                 /** @var ?string $updatedAt */
@@ -183,6 +196,18 @@ class GoogleCalendarSyncService
                 return $eventId;
             }
             return null;
+        }
+
+        // Skip if Google hasn't changed since our last sync
+        if ($existing !== null) {
+            /** @var ?string $googleUpdated */
+            $googleUpdated = $googleEvent->getUpdated();
+            $localUpdated = $existing->getGoogleUpdatedAt();
+            if ($localUpdated !== null && $googleUpdated !== null) {
+                if (new \DateTimeImmutable($googleUpdated) <= $localUpdated) {
+                    return (string) $existing->getId();
+                }
+            }
         }
 
         // Create or update

@@ -23,6 +23,6 @@ class PushEventToGoogleHandler
             return;
         }
 
-        $this->syncService->pushEventToGoogle($event, $command->action);
+        $this->syncService->pushEventToGoogle($event, $command->action, $command->changedFields);
     }
 }

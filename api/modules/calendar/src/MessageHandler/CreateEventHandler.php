@@ -9,8 +9,10 @@ use Maggie\Calendar\Message\PushEventToGoogleCommand;
 use Maggie\Calendar\Repository\AgendaRepository;
 use Maggie\Calendar\Repository\EventRepository;
 use Maggie\Calendar\UseCase\CreateEvent;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\TransportNamesStamp;
 
 #[AsMessageHandler]
 class CreateEventHandler
@@ -20,6 +22,7 @@ class CreateEventHandler
         private readonly AgendaRepository $agendaRepository,
         private readonly EventRepository $eventRepository,
         private readonly MessageBusInterface $messageBus,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -66,10 +69,16 @@ class CreateEventHandler
         $event = $this->createEvent->execute($event);
 
         if ($agenda->isGoogleSynced()) {
-            $this->messageBus->dispatch(new PushEventToGoogleCommand(
+            $pushCommand = new PushEventToGoogleCommand(
                 eventId: (string) $event->getId(),
                 action: 'create',
-            ));
+            );
+            try {
+                $this->messageBus->dispatch($pushCommand);
+            } catch (\Throwable $e) {
+                $this->logger->warning('Google sync failed, queuing retry: {error}', ['error' => $e->getMessage()]);
+                $this->messageBus->dispatch($pushCommand, [new TransportNamesStamp(['async'])]);
+            }
         }
 
         return $event;

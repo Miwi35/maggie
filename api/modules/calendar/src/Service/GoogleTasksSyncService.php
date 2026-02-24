@@ -94,6 +94,19 @@ class GoogleTasksSyncService
 
             // Create or update
             $existing = $existingByGoogleId[$googleTaskId] ?? null;
+
+            // Skip if Google hasn't changed since our last sync
+            if ($existing !== null) {
+                /** @var ?string $googleUpdated */
+                $googleUpdated = $googleTask->getUpdated();
+                $localUpdated = $existing->getGoogleTaskUpdatedAt();
+                if ($localUpdated !== null && $googleUpdated !== null) {
+                    if (new \DateTimeImmutable($googleUpdated) <= $localUpdated) {
+                        continue;
+                    }
+                }
+            }
+
             $task = $this->taskMapper->fromGoogle($googleTask, $user, $existing);
             $task->setGoogleTaskListId($taskListId);
 
@@ -120,7 +133,10 @@ class GoogleTasksSyncService
         }
     }
 
-    public function pushTaskToGoogle(Task $task): void
+    /**
+     * @param string[]|null $changedFields Fields that changed (null = full update)
+     */
+    public function pushTaskToGoogle(Task $task, ?array $changedFields = null): void
     {
         $user = $task->getUser();
         if (!$user->hasGoogleCalendarTokens()) {
@@ -132,12 +148,11 @@ class GoogleTasksSyncService
             return;
         }
 
-        $googleTask = $this->taskMapper->toGoogle($task);
-
         try {
             $googleTaskId = $task->getGoogleTaskId();
             if ($googleTaskId === null) {
                 // Create new task on Google
+                $googleTask = $this->taskMapper->toGoogle($task);
                 $result = $this->apiClient->insertTask($user, $taskListId, $googleTask);
                 $task->setGoogleTaskId($result->getId());
                 $task->setGoogleTaskListId($taskListId);
@@ -147,8 +162,19 @@ class GoogleTasksSyncService
                 if ($updatedAt) {
                     $task->setGoogleTaskUpdatedAt(new \DateTimeImmutable($updatedAt));
                 }
+            } elseif ($changedFields !== null && $changedFields !== []) {
+                // Partial update via PATCH
+                $googleTask = $this->taskMapper->toGooglePatch($task, $changedFields);
+                $result = $this->apiClient->patchTask($user, $taskListId, $googleTaskId, $googleTask);
+                $task->setGoogleTaskEtag($result->getEtag());
+                /** @var ?string $updatedAt */
+                $updatedAt = $result->getUpdated();
+                if ($updatedAt) {
+                    $task->setGoogleTaskUpdatedAt(new \DateTimeImmutable($updatedAt));
+                }
             } else {
-                // Update existing task on Google
+                // Full update via PUT
+                $googleTask = $this->taskMapper->toGoogle($task);
                 $result = $this->apiClient->updateTask($user, $taskListId, $googleTaskId, $googleTask);
                 $task->setGoogleTaskEtag($result->getEtag());
                 /** @var ?string $updatedAt */

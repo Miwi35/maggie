@@ -115,6 +115,57 @@ class GoogleEventMapper
         return $event;
     }
 
+    /**
+     * Build a partial GoogleEvent containing only the specified fields, for PATCH.
+     *
+     * @param string[] $changedFields
+     */
+    public function toGooglePatch(Event $event, array $changedFields): GoogleEvent
+    {
+        $googleEvent = new GoogleEvent();
+        $fields = array_flip($changedFields);
+
+        if (isset($fields['summary'])) {
+            $googleEvent->setSummary($event->getSummary());
+        }
+        if (isset($fields['description'])) {
+            $googleEvent->setDescription($event->getDescription());
+        }
+        if (isset($fields['location'])) {
+            $googleEvent->setLocation($event->getLocation());
+        }
+        if (isset($fields['startAt']) || isset($fields['endAt']) || isset($fields['allDay'])) {
+            // Date fields are interdependent, always send both start+end together
+            $start = new EventDateTime();
+            $end = new EventDateTime();
+
+            if ($event->isAllDay()) {
+                $start->setDate($event->getStartAt()->format('Y-m-d'));
+                $end->setDate($event->getEndAt()->format('Y-m-d'));
+            } else {
+                $start->setDateTime($event->getStartAt()->format(\DateTimeInterface::RFC3339));
+                $start->setTimeZone($event->getTimeZone());
+                $end->setDateTime($event->getEndAt()->format(\DateTimeInterface::RFC3339));
+                $end->setTimeZone($event->getTimeZone());
+            }
+
+            $googleEvent->setStart($start);
+            $googleEvent->setEnd($end);
+        }
+        if (isset($fields['rrule'])) {
+            if ($event->getRrule() !== null) {
+                $googleEvent->setRecurrence(['RRULE:' . $event->getRrule()]);
+            } else {
+                $googleEvent->setRecurrence([]);
+            }
+        }
+        if (isset($fields['status'])) {
+            $googleEvent->setStatus($event->getStatus()->value);
+        }
+
+        return $googleEvent;
+    }
+
     public function toGoogle(Event $event): GoogleEvent
     {
         $googleEvent = new GoogleEvent();

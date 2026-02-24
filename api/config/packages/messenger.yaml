@@ -23,11 +23,11 @@ framework:
             'Maggie\Calendar\Message\CreateTaskCommand': sync
             'Maggie\Calendar\Message\UpdateTaskCommand': sync
             'Maggie\Calendar\Message\DeleteTaskCommand': sync
-            'Maggie\Calendar\Message\PushEventToGoogleCommand': async
-            'Maggie\Calendar\Message\DeleteEventFromGoogleCommand': async
+            'Maggie\Calendar\Message\PushEventToGoogleCommand': sync
+            'Maggie\Calendar\Message\DeleteEventFromGoogleCommand': sync
             'Maggie\Calendar\Message\PullFromGoogleCommand': async
-            'Maggie\Calendar\Message\PushTaskToGoogleCommand': async
-            'Maggie\Calendar\Message\DeleteTaskFromGoogleCommand': async
+            'Maggie\Calendar\Message\PushTaskToGoogleCommand': sync
+            'Maggie\Calendar\Message\DeleteTaskFromGoogleCommand': sync
             'Maggie\Calendar\Message\PullTasksFromGoogleCommand': async
             'Maggie\Core\Message\UpdateUserCommand': sync
             'Maggie\Core\Message\UpdateUserPreferenceCommand': sync

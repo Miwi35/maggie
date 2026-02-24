@@ -9,8 +9,10 @@ use Maggie\Calendar\Message\PushTaskToGoogleCommand;
 use Maggie\Calendar\Message\UpdateTaskCommand;
 use Maggie\Calendar\Repository\TaskRepository;
 use Maggie\Calendar\UseCase\UpdateTask;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\TransportNamesStamp;
 
 #[AsMessageHandler]
 class UpdateTaskHandler
@@ -19,6 +21,7 @@ class UpdateTaskHandler
         private readonly UpdateTask $updateTask,
         private readonly TaskRepository $taskRepository,
         private readonly MessageBusInterface $bus,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -48,10 +51,34 @@ class UpdateTaskHandler
             $task->setCompletedAt($command->completedAt);
         }
 
+        // Track which fields were explicitly set in the command
+        $changedFields = [];
+        if ($command->title !== null) {
+            $changedFields[] = 'title';
+        }
+        if ($command->description !== null) {
+            $changedFields[] = 'description';
+        }
+        if ($command->dueDate !== null) {
+            $changedFields[] = 'dueDate';
+        }
+        if ($command->completedAt !== null) {
+            $changedFields[] = 'completedAt';
+        }
+
         $task = $this->updateTask->execute($task);
 
         if ($task->isGoogleSynced()) {
-            $this->bus->dispatch(new PushTaskToGoogleCommand(taskId: (string) $task->getId()));
+            $pushCommand = new PushTaskToGoogleCommand(
+                taskId: (string) $task->getId(),
+                changedFields: $changedFields ?: null,
+            );
+            try {
+                $this->bus->dispatch($pushCommand);
+            } catch (\Throwable $e) {
+                $this->logger->warning('Google sync failed, queuing retry: {error}', ['error' => $e->getMessage()]);
+                $this->bus->dispatch($pushCommand, [new TransportNamesStamp(['async'])]);
+            }
         }
 
         return $task;

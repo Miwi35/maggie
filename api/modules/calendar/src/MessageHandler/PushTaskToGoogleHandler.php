@@ -23,6 +23,6 @@ class PushTaskToGoogleHandler
             return;
         }
 
-        $this->syncService->pushTaskToGoogle($task);
+        $this->syncService->pushTaskToGoogle($task, $command->changedFields);
     }
 }

@@ -9,8 +9,10 @@ use Maggie\Calendar\Message\CreateTaskCommand;
 use Maggie\Calendar\Message\PushTaskToGoogleCommand;
 use Maggie\Calendar\UseCase\CreateTask;
 use Maggie\Core\Repository\UserRepository;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\TransportNamesStamp;
 
 #[AsMessageHandler]
 class CreateTaskHandler
@@ -19,6 +21,7 @@ class CreateTaskHandler
         private readonly CreateTask $createTask,
         private readonly UserRepository $userRepository,
         private readonly MessageBusInterface $bus,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -50,7 +53,13 @@ class CreateTaskHandler
         $task = $this->createTask->execute($task);
 
         if ($user->getGoogleTaskListId() !== null) {
-            $this->bus->dispatch(new PushTaskToGoogleCommand(taskId: (string) $task->getId()));
+            $pushCommand = new PushTaskToGoogleCommand(taskId: (string) $task->getId());
+            try {
+                $this->bus->dispatch($pushCommand);
+            } catch (\Throwable $e) {
+                $this->logger->warning('Google sync failed, queuing retry: {error}', ['error' => $e->getMessage()]);
+                $this->bus->dispatch($pushCommand, [new TransportNamesStamp(['async'])]);
+            }
         }
 
         return $task;

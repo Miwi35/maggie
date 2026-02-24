@@ -81,6 +81,13 @@ class GoogleTasksApiClient
         return $service->tasks->update($taskListId, $taskId, $task);
     }
 
+    public function patchTask(User $user, string $taskListId, string $taskId, GoogleTask $task): GoogleTask
+    {
+        $service = $this->getTasksService($user);
+
+        return $service->tasks->patch($taskListId, $taskId, $task);
+    }
+
     public function deleteTask(User $user, string $taskListId, string $taskId): void
     {
         $service = $this->getTasksService($user);

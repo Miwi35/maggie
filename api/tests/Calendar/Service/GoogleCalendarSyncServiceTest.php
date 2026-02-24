@@ -145,6 +145,133 @@ class GoogleCalendarSyncServiceTest extends TestCase
         self::assertSame('Lunch', $data2['summary']);
     }
 
+    public function testPullSkipsEventWhenGoogleTimestampNotNewer(): void
+    {
+        $agenda = $this->createSyncedAgenda();
+
+        $googleEvent = $this->createGoogleEvent('g-evt-1', 'Meeting');
+        $googleEvent->setUpdated('2026-03-20T10:00:00Z');
+
+        $existingEvent = new Event();
+        $existingEvent->setSummary('Meeting');
+        $existingEvent->setStartAt(new \DateTimeImmutable('2026-03-20T10:00:00+01:00'));
+        $existingEvent->setEndAt(new \DateTimeImmutable('2026-03-20T11:00:00+01:00'));
+        $existingEvent->setAgenda($agenda);
+        $existingEvent->setGoogleEventId('g-evt-1');
+        $existingEvent->setGoogleUpdatedAt(new \DateTimeImmutable('2026-03-20T10:00:00Z'));
+
+        $this->apiClient->method('listEvents')->willReturn([
+            'events' => [$googleEvent],
+            'nextPageToken' => null,
+            'nextSyncToken' => 'new-sync-token',
+        ]);
+
+        $this->eventRepository->method('findByGoogleEventId')
+            ->with('g-evt-1', $agenda)
+            ->willReturn($existingEvent);
+
+        // fromGoogle should NOT be called since the event is skipped
+        $this->eventMapper->expects(self::never())->method('fromGoogle');
+
+        $this->eventRepository->method('find')
+            ->willReturnCallback(fn(string $id) => match ($id) {
+                (string) $existingEvent->getId() => $existingEvent,
+                default => null,
+            });
+
+        $service = $this->createService();
+        $service->pullFromGoogle($agenda);
+
+        // Should still publish Mercure update for the returned ID but mapper was not called
+        self::assertCount(1, $this->publishedUpdates);
+    }
+
+    public function testPullUpdatesEventWhenGoogleTimestampIsNewer(): void
+    {
+        $agenda = $this->createSyncedAgenda();
+
+        $googleEvent = $this->createGoogleEvent('g-evt-1', 'Updated Meeting');
+        $googleEvent->setUpdated('2026-03-20T12:00:00Z');
+
+        $existingEvent = new Event();
+        $existingEvent->setSummary('Meeting');
+        $existingEvent->setStartAt(new \DateTimeImmutable('2026-03-20T10:00:00+01:00'));
+        $existingEvent->setEndAt(new \DateTimeImmutable('2026-03-20T11:00:00+01:00'));
+        $existingEvent->setAgenda($agenda);
+        $existingEvent->setGoogleEventId('g-evt-1');
+        $existingEvent->setGoogleUpdatedAt(new \DateTimeImmutable('2026-03-20T10:00:00Z'));
+
+        $updatedEvent = new Event();
+        $updatedEvent->setSummary('Updated Meeting');
+        $updatedEvent->setStartAt(new \DateTimeImmutable('2026-03-20T10:00:00+01:00'));
+        $updatedEvent->setEndAt(new \DateTimeImmutable('2026-03-20T11:00:00+01:00'));
+        $updatedEvent->setAgenda($agenda);
+
+        $this->apiClient->method('listEvents')->willReturn([
+            'events' => [$googleEvent],
+            'nextPageToken' => null,
+            'nextSyncToken' => 'new-sync-token',
+        ]);
+
+        $this->eventRepository->method('findByGoogleEventId')
+            ->with('g-evt-1', $agenda)
+            ->willReturn($existingEvent);
+
+        // fromGoogle SHOULD be called since Google timestamp is newer
+        $this->eventMapper->expects(self::once())
+            ->method('fromGoogle')
+            ->with($googleEvent, $agenda, $existingEvent)
+            ->willReturn($updatedEvent);
+
+        $this->eventRepository->method('find')
+            ->willReturnCallback(fn(string $id) => match ($id) {
+                (string) $updatedEvent->getId() => $updatedEvent,
+                default => null,
+            });
+
+        $service = $this->createService();
+        $service->pullFromGoogle($agenda);
+
+        self::assertCount(1, $this->publishedUpdates);
+        $data = json_decode($this->publishedUpdates[0]->getData(), true);
+        self::assertSame('Updated Meeting', $data['summary']);
+    }
+
+    public function testPushEventUsePatchWhenChangedFieldsProvided(): void
+    {
+        $agenda = $this->createSyncedAgenda();
+        $user = $agenda->getUser();
+
+        $event = new Event();
+        $event->setSummary('Test Event');
+        $event->setStartAt(new \DateTimeImmutable('2026-03-20T10:00:00+01:00'));
+        $event->setEndAt(new \DateTimeImmutable('2026-03-20T11:00:00+01:00'));
+        $event->setAgenda($agenda);
+        $event->setGoogleEventId('g-evt-existing');
+
+        $patchGoogleEvent = new GoogleEvent();
+        $patchGoogleEvent->setSummary('Test Event');
+
+        $resultGoogleEvent = new GoogleEvent();
+        $resultGoogleEvent->setEtag('"new-etag"');
+        $resultGoogleEvent->setUpdated('2026-03-20T12:00:00Z');
+
+        $this->eventMapper = new GoogleEventMapper();
+
+        $this->apiClient->expects(self::never())->method('updateEvent');
+        $this->apiClient->expects(self::once())
+            ->method('patchEvent')
+            ->with($user, 'google-cal-id', 'g-evt-existing', self::callback(
+                fn(GoogleEvent $e) => $e->getSummary() === 'Test Event' && $e->getDescription() === null,
+            ))
+            ->willReturn($resultGoogleEvent);
+
+        $service = $this->createService();
+        $service->pushEventToGoogle($event, 'update', ['summary']);
+
+        self::assertSame('"new-etag"', $event->getGoogleEtag());
+    }
+
     public function testPullPublishesMercureDeleteForCancelledEvent(): void
     {
         $agenda = $this->createSyncedAgenda();

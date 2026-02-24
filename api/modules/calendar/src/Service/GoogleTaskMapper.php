@@ -54,6 +54,39 @@ class GoogleTaskMapper
         return $task;
     }
 
+    /**
+     * Build a partial GoogleTask containing only the specified fields, for PATCH.
+     *
+     * @param string[] $changedFields
+     */
+    public function toGooglePatch(Task $task, array $changedFields): GoogleTask
+    {
+        $googleTask = new GoogleTask();
+        $fields = array_flip($changedFields);
+
+        if (isset($fields['title'])) {
+            $googleTask->setTitle($task->getTitle());
+        }
+        if (isset($fields['description'])) {
+            $googleTask->setNotes($task->getDescription());
+        }
+        if (isset($fields['dueDate'])) {
+            if ($task->getDueDate() !== null) {
+                $googleTask->setDue($task->getDueDate()->format(\DateTimeInterface::RFC3339));
+            }
+        }
+        if (isset($fields['completedAt'])) {
+            if ($task->getCompletedAt() !== null) {
+                $googleTask->setStatus('completed');
+                $googleTask->setCompleted($task->getCompletedAt()->format(\DateTimeInterface::RFC3339));
+            } else {
+                $googleTask->setStatus('needsAction');
+            }
+        }
+
+        return $googleTask;
+    }
+
     public function toGoogle(Task $task): GoogleTask
     {
         $googleTask = new GoogleTask();
