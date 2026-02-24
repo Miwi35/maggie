@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Logout
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PlayArrow
@@ -64,7 +65,7 @@ import com.maggie.app.BuildConfig
 import org.koin.androidx.compose.koinViewModel
 
 private enum class SettingsSection {
-    LIST, PROFILE, APPEARANCE, CALENDAR, NOTIFICATIONS, AGENT, ABOUT
+    LIST, PROFILE, APPEARANCE, CALENDAR, NOTIFICATIONS, VOICE, AGENT, ABOUT
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -99,6 +100,10 @@ fun SettingsScreen(
             onBack = { currentSection = SettingsSection.LIST },
         )
         SettingsSection.NOTIFICATIONS -> NotificationsSection(
+            viewModel = viewModel,
+            onBack = { currentSection = SettingsSection.LIST },
+        )
+        SettingsSection.VOICE -> VoiceSection(
             viewModel = viewModel,
             onBack = { currentSection = SettingsSection.LIST },
         )
@@ -186,6 +191,14 @@ private fun SettingsList(
                     if (it.notificationsEnabled) "Activées" else "Désactivées"
                 },
                 onClick = { onSectionClick(SettingsSection.NOTIFICATIONS) },
+            )
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+            SettingsRow(
+                icon = Icons.Outlined.Mic,
+                title = "Voix",
+                subtitle = "Mot d'activation « Maggie »",
+                onClick = { onSectionClick(SettingsSection.VOICE) },
             )
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
@@ -648,6 +661,57 @@ private fun AgentSection(
                 subtitle = "Actions automatiques de l'agent",
                 onClick = onNavigateToProactions,
             )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun VoiceSection(
+    viewModel: SettingsViewModel,
+    onBack: () -> Unit,
+) {
+    val wakeWordEnabled by viewModel.wakeWordManager.isEnabled.collectAsState(initial = false)
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Voix") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text("Mot d'activation", style = MaterialTheme.typography.titleMedium)
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Dire « Maggie » pour activer", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "Écoute en permanence le mot d'activation",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = wakeWordEnabled,
+                    onCheckedChange = { viewModel.wakeWordManager.setEnabled(it) },
+                )
+            }
         }
     }
 }

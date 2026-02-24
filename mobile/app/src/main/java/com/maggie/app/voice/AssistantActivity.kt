@@ -1,6 +1,7 @@
 package com.maggie.app.voice
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -16,6 +17,7 @@ import org.koin.androidx.viewmodel.ext.android.viewModel
 class AssistantActivity : ComponentActivity() {
 
     private val voiceManager: VoiceManager by inject()
+    private val wakeWordManager: WakeWordManager by inject()
     private val chatViewModel: ChatViewModel by viewModel()
 
     private val permissionLauncher = registerForActivityResult(
@@ -41,6 +43,13 @@ class AssistantActivity : ComponentActivity() {
         requestMicAndListen()
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (intent.getBooleanExtra(WakeWordService.EXTRA_FROM_WAKE_WORD, false)) {
+            requestMicAndListen()
+        }
+    }
+
     private fun requestMicAndListen() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             == PackageManager.PERMISSION_GRANTED
@@ -54,6 +63,7 @@ class AssistantActivity : ComponentActivity() {
     override fun onDestroy() {
         voiceManager.cancelListening()
         voiceManager.stopSpeaking()
+        wakeWordManager.resumeListening()
         super.onDestroy()
     }
 }

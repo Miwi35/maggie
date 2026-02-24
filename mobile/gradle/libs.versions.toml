@@ -25,6 +25,7 @@ ksp = "2.1.0-1.0.29"
 lib-recur = "0.17.1"
 firebase-bom = "33.7.0"
 google-services = "4.4.2"
+openwakeword = "0.1.5"
 
 [libraries]
 # Compose
@@ -81,6 +82,9 @@ datastore-preferences = { group = "androidx.datastore", name = "datastore-prefer
 # Firebase
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebase-bom" }
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging-ktx" }
+
+# OpenWakeWord (Wake Word)
+openwakeword = { group = "xyz.rementia", name = "openwakeword", version.ref = "openwakeword" }
 
 # RRULE
 lib-recur = { group = "org.dmfs", name = "lib-recur", version.ref = "lib-recur" }

@@ -5,14 +5,15 @@ import { ChatWidget, ChatWidgetRef } from '../chat/ChatWidget'
 import { CustomAppBar } from './AppBar'
 import { CustomMenu } from './Menu'
 import { ChatContext } from './ChatContext'
+import { useWakeWord } from '../../hooks/useWakeWord'
 
 export const Layout = (props: LayoutProps) => {
   const [chatOpen, setChatOpen] = useState(true)
   const [unreadChat, setUnreadChat] = useState(false)
+  const [wakeWordTriggered, setWakeWordTriggered] = useState(false)
   const chatRef = useRef<ChatWidgetRef>(null)
 
   const triggerResize = useCallback(() => {
-    // FullCalendar listens for window resize to recalculate column widths
     setTimeout(() => window.dispatchEvent(new Event('resize')), 250)
   }, [])
 
@@ -46,9 +47,48 @@ export const Layout = (props: LayoutProps) => {
     [chatOpen],
   )
 
+  const handleWakeWordDetected = useCallback(() => {
+    if (!chatOpen) {
+      setChatOpen(true)
+      setUnreadChat(false)
+      triggerResize()
+    }
+    setWakeWordTriggered(true)
+  }, [chatOpen, triggerResize])
+
+  const clearWakeWordTrigger = useCallback(() => {
+    setWakeWordTriggered(false)
+  }, [])
+
+  const wakeWord = useWakeWord({ onDetected: handleWakeWordDetected })
+
   const chatContext = useMemo(
-    () => ({ chatOpen, onChatToggle: handleChatToggle, unreadChat, onVoiceMessage: handleVoiceMessage }),
-    [chatOpen, handleChatToggle, unreadChat, handleVoiceMessage],
+    () => ({
+      chatOpen,
+      onChatToggle: handleChatToggle,
+      unreadChat,
+      onVoiceMessage: handleVoiceMessage,
+      wakeWordEnabled: wakeWord.enabled,
+      wakeWordListening: wakeWord.isListening,
+      wakeWordTriggered,
+      toggleWakeWord: wakeWord.toggleEnabled,
+      pauseWakeWord: wakeWord.pause,
+      resumeWakeWord: wakeWord.resume,
+      clearWakeWordTrigger,
+    }),
+    [
+      chatOpen,
+      handleChatToggle,
+      unreadChat,
+      handleVoiceMessage,
+      wakeWord.enabled,
+      wakeWord.isListening,
+      wakeWordTriggered,
+      wakeWord.toggleEnabled,
+      wakeWord.pause,
+      wakeWord.resume,
+      clearWakeWordTrigger,
+    ],
   )
 
   return (

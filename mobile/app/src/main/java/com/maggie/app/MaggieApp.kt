@@ -33,6 +33,8 @@ import com.maggie.app.ui.screens.proactions.ProactionViewModel
 import com.maggie.app.ui.screens.search.SearchViewModel
 import com.maggie.app.ui.screens.settings.SettingsViewModel
 import com.maggie.app.voice.VoiceManager
+import com.maggie.app.voice.WakeWordManager
+import com.maggie.app.voice.WakeWordService
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -108,13 +110,14 @@ class MaggieApp : Application() {
 
             // Other
             single { VoiceManager(androidContext(), get(), get()) }
+            single { WakeWordManager(androidContext()) }
 
             // ViewModels
             viewModel { LoginViewModel(get()) }
             viewModel { DashboardViewModel(get(), get(), get(), get(), get()) }
             viewModel { FullCalendarViewModel(get(), get(), get(), get(), get()) }
             viewModel { ChatViewModel(get(), get()) }
-            viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get()) }
+            viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get(), get()) }
             viewModel { NotificationViewModel(get(), get(), get()) }
             viewModel { SearchViewModel(get()) }
             viewModel { ProactionViewModel(get()) }
@@ -132,5 +135,7 @@ class MaggieApp : Application() {
         get<BiometricLockManager>().initialize()
 
         MaggieFcmService.createNotificationChannels(this)
+        WakeWordService.createNotificationChannel(this)
+        get<WakeWordManager>().restoreIfEnabled()
     }
 }
