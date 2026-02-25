@@ -5,6 +5,7 @@ import anthropic
 
 from app.config import settings
 from app.db.message_repository import message_repo
+from app.llm.capabilities import generate_capability_summary
 from app.llm.tools import ToolRouter
 from app.memory.agent_memory import AgentMemory
 from app.metrics import TOOL_CALLS, record_llm_usage
@@ -25,9 +26,10 @@ class LLMGateway:
         self.tool_router = ToolRouter()
         self.agent_memory = AgentMemory()
 
-    async def _build_system_prompt(self, user_id: str, message: str = "") -> str:
+    async def _build_system_prompt(self, user_id: str, message: str = "", tools: list[dict] | None = None) -> str:
         """Build the full system prompt: personality + persistent memory context + skill context."""
-        base = await self.personality.get_system_prompt(user_id)
+        capabilities = generate_capability_summary(tools) if tools else ""
+        base = await self.personality.get_system_prompt(user_id, capabilities=capabilities)
         memory_context = await self.agent_memory.get_memory_context(user_id)
         skill_context = skill_index.get_relevant_skills_context(message)
         return base + memory_context + skill_context
@@ -68,14 +70,15 @@ class LLMGateway:
                 "tool_calls": [],
             }
 
-        system_prompt = await self._build_system_prompt(user_id) + (
+        tools = await self.tool_router.get_tool_definitions(include_native=True)
+
+        system_prompt = await self._build_system_prompt(user_id, tools=tools) + (
             "\n\nTu es en mode autonome (proaction). "
             "Exécute la tâche demandée sans attendre de confirmation de l'utilisateur. "
             "Utilise les outils disponibles si nécessaire."
         )
 
         messages = [{"role": "user", "content": prompt}]
-        tools = await self.tool_router.get_tool_definitions(include_native=True)
         tool_calls_made = []
 
         try:
@@ -116,7 +119,7 @@ class LLMGateway:
         tool_calls_made = []
 
         try:
-            system_prompt = await self._build_system_prompt(user_id, message=message)
+            system_prompt = await self._build_system_prompt(user_id, message=message, tools=tools)
             result = await self._run_tool_loop(
                 system_prompt, messages, tools, tool_calls_made, user_id=user_id, call_type="chat"
             )

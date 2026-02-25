@@ -61,7 +61,7 @@ class PersonalityEngine:
         row = await personality_repo.upsert(user_id, current)
         return {"name": row.name, "language": row.language, "backstory": row.backstory}
 
-    async def get_system_prompt(self, user_id: str) -> str:
+    async def get_system_prompt(self, user_id: str, capabilities: str = "") -> str:
         """Build system prompt: template from YAML, values from DB."""
         config = await self.get_config(user_id)
         template = self._yaml.get("system_prompt", "")
@@ -73,4 +73,5 @@ class PersonalityEngine:
             language=config.get("language", "fr"),
             backstory=config.get("backstory", ""),
             datetime_line=datetime_line,
+            capabilities=capabilities,
         )

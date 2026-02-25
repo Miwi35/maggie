@@ -18,7 +18,7 @@ def yaml_config(tmp_path: Path) -> Path:
                 "name": "TestBot",
                 "language": "en",
                 "backstory": "A helpful test bot.",
-                "system_prompt": "You are {name}. {backstory}\nLanguage: {language}. {datetime_line}",
+                "system_prompt": "You are {name}. {backstory}\nLanguage: {language}. {datetime_line}\n{capabilities}",
             }
         )
     )
@@ -95,7 +95,7 @@ class TestPersonalityEngine:
             prompt = await engine.get_system_prompt("user-1")
 
         dt_line = _expected_datetime_line()
-        assert prompt == f"You are DBBot. Smart assistant.\nLanguage: fr. {dt_line}"
+        assert prompt == f"You are DBBot. Smart assistant.\nLanguage: fr. {dt_line}\n"
 
     @pytest.mark.asyncio
     async def test_get_system_prompt_uses_yaml_defaults_when_no_db(self, yaml_config: Path):
@@ -107,7 +107,19 @@ class TestPersonalityEngine:
             prompt = await engine.get_system_prompt("user-1")
 
         dt_line = _expected_datetime_line()
-        assert prompt == f"You are TestBot. A helpful test bot.\nLanguage: en. {dt_line}"
+        assert prompt == f"You are TestBot. A helpful test bot.\nLanguage: en. {dt_line}\n"
+
+    @pytest.mark.asyncio
+    async def test_get_system_prompt_includes_capabilities(self, yaml_config: Path):
+        """When capabilities are provided, they appear in the prompt."""
+        engine = PersonalityEngine(config_path=yaml_config)
+
+        with patch("app.personality.engine.personality_repo") as mock_repo:
+            mock_repo.get = AsyncMock(return_value=None)
+            prompt = await engine.get_system_prompt("user-1", capabilities="Cap summary")
+
+        dt_line = _expected_datetime_line()
+        assert prompt == f"You are TestBot. A helpful test bot.\nLanguage: en. {dt_line}\nCap summary"
 
     def test_fallback_config_on_missing_yaml(self, tmp_path: Path):
         """When YAML file does not exist, hardcoded defaults are used."""
