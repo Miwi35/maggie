@@ -59,6 +59,7 @@ describe('ChatWidget', () => {
     vi.stubGlobal('EventSource', MockEventSource)
     defaultProps.onClose = vi.fn()
     defaultProps.onUnread = vi.fn()
+    localStorage.removeItem('chat_lastReadMessageId')
   })
 
   test('renders header and input when open', () => {
@@ -186,6 +187,63 @@ describe('ChatWidget', () => {
       },
       { timeout: 1000 },
     )
+  })
+
+  test('shows date separator between messages on different days', async () => {
+    const historyMessages = [
+      { id: 'msg-1', role: 'user', content: 'First day message', createdAt: '2026-01-10T10:00:00Z' },
+      { id: 'msg-2', role: 'assistant', content: 'Second day message', createdAt: '2026-01-11T14:30:00Z' },
+    ]
+    vi.stubGlobal('fetch', mockFetch({ '/agent/messages': historyMessages }))
+
+    render(<ChatWidget {...defaultProps} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('First day message')).toBeInTheDocument()
+      expect(screen.getByText('Second day message')).toBeInTheDocument()
+    })
+
+    // Both messages should have date separators (first message always gets one, second is a different day)
+    const captions = document.querySelectorAll('.MuiTypography-caption')
+    expect(captions.length).toBeGreaterThanOrEqual(2)
+  })
+
+  test('shows unread breakline when lastReadMessageId is set in localStorage', async () => {
+    localStorage.setItem('chat_lastReadMessageId', 'msg-1')
+
+    const historyMessages = [
+      { id: 'msg-1', role: 'user', content: 'Read message', createdAt: '2026-01-10T10:00:00Z' },
+      { id: 'msg-2', role: 'assistant', content: 'Unread message', createdAt: '2026-01-10T10:05:00Z' },
+    ]
+    vi.stubGlobal('fetch', mockFetch({ '/agent/messages': historyMessages }))
+
+    render(<ChatWidget {...defaultProps} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Messages non lus')).toBeInTheDocument()
+    })
+
+    // Both messages should still render
+    expect(screen.getByText('Read message')).toBeInTheDocument()
+    expect(screen.getByText('Unread message')).toBeInTheDocument()
+  })
+
+  test('does not show unread breakline when lastReadMessageId is last message', async () => {
+    localStorage.setItem('chat_lastReadMessageId', 'msg-2')
+
+    const historyMessages = [
+      { id: 'msg-1', role: 'user', content: 'Old message', createdAt: '2026-01-10T10:00:00Z' },
+      { id: 'msg-2', role: 'assistant', content: 'Last message', createdAt: '2026-01-10T10:05:00Z' },
+    ]
+    vi.stubGlobal('fetch', mockFetch({ '/agent/messages': historyMessages }))
+
+    render(<ChatWidget {...defaultProps} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Last message')).toBeInTheDocument()
+    })
+
+    expect(screen.queryByText('Messages non lus')).not.toBeInTheDocument()
   })
 
   test('shows empty state for no search results', async () => {

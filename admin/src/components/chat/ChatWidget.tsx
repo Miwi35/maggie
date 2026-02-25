@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
+import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle, Fragment } from 'react'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import IconButton from '@mui/material/IconButton'
@@ -6,6 +6,7 @@ import TextField from '@mui/material/TextField'
 import Tooltip from '@mui/material/Tooltip'
 import InputAdornment from '@mui/material/InputAdornment'
 import Chip from '@mui/material/Chip'
+import Divider from '@mui/material/Divider'
 import SendIcon from '@mui/icons-material/Send'
 import CloseIcon from '@mui/icons-material/Close'
 import MicIcon from '@mui/icons-material/Mic'
@@ -59,6 +60,51 @@ function formatDate(iso: string): string {
   }
 }
 
+function isSameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+}
+
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+}
+
+function formatDayLabel(date: Date): string {
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const diffDays = Math.round((today.getTime() - target.getTime()) / (1000 * 60 * 60 * 24))
+
+  if (diffDays === 0) return "Aujourd'hui"
+  if (diffDays === 1) return 'Hier'
+  if (diffDays < 7) {
+    return date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
+  }
+  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function getTimeSeparatorLabel(prev: ChatMessage | null, current: ChatMessage): string | null {
+  const currentDate = new Date(current.createdAt)
+  if (isNaN(currentDate.getTime())) return null
+
+  if (!prev) {
+    return formatDayLabel(currentDate) + ' ' + formatTime(currentDate)
+  }
+
+  const prevDate = new Date(prev.createdAt)
+  if (isNaN(prevDate.getTime())) return null
+
+  if (!isSameDay(prevDate, currentDate)) {
+    return formatDayLabel(currentDate) + ' ' + formatTime(currentDate)
+  }
+
+  const diffMs = currentDate.getTime() - prevDate.getTime()
+  if (diffMs > 15 * 60 * 1000) {
+    return formatTime(currentDate)
+  }
+
+  return null
+}
+
 export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
   ({ open, onClose, onUnread }, ref) => {
     const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -68,6 +114,8 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     const [hasMore, setHasMore] = useState(true)
     const [highlightId, setHighlightId] = useState<string | null>(null)
     const [isNearBottom, setIsNearBottom] = useState(true)
+    const [unreadFromId, setUnreadFromId] = useState<string | null>(null)
+    const [tappedId, setTappedId] = useState<string | null>(null)
 
     // Search state
     const [searchMode, setSearchMode] = useState(false)
@@ -79,6 +127,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     const messagesContainerRef = useRef<HTMLDivElement>(null)
     const historyLoadedRef = useRef(false)
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const prevOpenRef = useRef(open)
 
     const recorder = useVoiceRecorder()
     const transcription = useTranscription()
@@ -105,6 +154,14 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
           const history = await fetchMessages({ limit: String(PAGE_SIZE) })
           setMessages(history)
           setHasMore(history.length >= PAGE_SIZE)
+
+          const lastReadId = localStorage.getItem('chat_lastReadMessageId')
+          if (lastReadId) {
+            const idx = history.findIndex((m) => m.id === lastReadId)
+            if (idx >= 0 && idx < history.length - 1) {
+              setUnreadFromId(history[idx + 1].id)
+            }
+          }
         } catch (e) {
           console.error('Failed to load chat history:', e)
         } finally {
@@ -173,6 +230,31 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
       }
     }, [messages, isNearBottom, searchMode])
+
+    // --- Track chat close → save last read to localStorage ---
+
+    useEffect(() => {
+      if (prevOpenRef.current && !open && messages.length > 0) {
+        const lastMsg = messages[messages.length - 1]
+        if (lastMsg && !lastMsg.id.startsWith('tmp-') && !lastMsg.id.startsWith('err-')) {
+          localStorage.setItem('chat_lastReadMessageId', lastMsg.id)
+        }
+        setUnreadFromId(null)
+      }
+      prevOpenRef.current = open
+    }, [open, messages])
+
+    // --- Clear unread breakline when user scrolls to bottom ---
+
+    useEffect(() => {
+      if (isNearBottom && unreadFromId) {
+        setUnreadFromId(null)
+        const lastMsg = messages[messages.length - 1]
+        if (lastMsg && !lastMsg.id.startsWith('tmp-') && !lastMsg.id.startsWith('err-')) {
+          localStorage.setItem('chat_lastReadMessageId', lastMsg.id)
+        }
+      }
+    }, [isNearBottom, unreadFromId, messages])
 
     // --- Send message ---
 
@@ -543,35 +625,75 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                     <CircularProgress size={20} />
                   </Box>
                 )}
-                {messages.map((msg) => (
-                  <Box
-                    key={msg.id}
-                    id={`msg-${msg.id}`}
-                    sx={{
-                      alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                      maxWidth: '85%',
-                      px: 1.5,
-                      py: 1,
-                      borderRadius: 2,
-                      bgcolor: msg.role === 'user' ? 'primary.main' : 'grey.800',
-                      color: msg.role === 'user' ? 'primary.contrastText' : 'grey.100',
-                      fontSize: 14,
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
-                      transition: 'box-shadow 0.3s ease',
-                      ...(highlightId === msg.id && {
-                        boxShadow: '0 0 0 2px #ff9800',
-                        animation: 'highlight-fade 2s ease-out',
-                        '@keyframes highlight-fade': {
-                          '0%': { boxShadow: '0 0 0 3px #ff9800' },
-                          '100%': { boxShadow: '0 0 0 0px transparent' },
-                        },
-                      }),
-                    }}
-                  >
-                    {msg.content}
-                  </Box>
-                ))}
+                {messages.map((msg, index) => {
+                  const prev = index > 0 ? messages[index - 1] : null
+                  const separator = getTimeSeparatorLabel(prev, msg)
+                  const showUnreadLine = msg.id === unreadFromId
+
+                  return (
+                    <Fragment key={msg.id}>
+                      {separator && (
+                        <Typography
+                          variant="caption"
+                          sx={{ alignSelf: 'center', color: 'text.secondary', py: 0.5 }}
+                        >
+                          {separator}
+                        </Typography>
+                      )}
+                      {showUnreadLine && (
+                        <Divider
+                          sx={{ my: 0.5, '&::before, &::after': { borderColor: 'warning.main' } }}
+                        >
+                          <Chip
+                            label="Messages non lus"
+                            size="small"
+                            sx={{
+                              bgcolor: 'warning.main',
+                              color: 'warning.contrastText',
+                              fontSize: 11,
+                              height: 20,
+                            }}
+                          />
+                        </Divider>
+                      )}
+                      {tappedId === msg.id && !separator && (
+                        <Typography
+                          variant="caption"
+                          sx={{ alignSelf: 'center', color: 'text.secondary', py: 0.5 }}
+                        >
+                          {formatDayLabel(new Date(msg.createdAt)) + ' ' + formatTime(new Date(msg.createdAt))}
+                        </Typography>
+                      )}
+                      <Box
+                        id={`msg-${msg.id}`}
+                        onClick={() => setTappedId((prev) => (prev === msg.id ? null : msg.id))}
+                        sx={{
+                          alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                          maxWidth: '85%',
+                          px: 1.5,
+                          py: 1,
+                          borderRadius: 2,
+                          bgcolor: msg.role === 'user' ? 'primary.main' : 'grey.800',
+                          color: msg.role === 'user' ? 'primary.contrastText' : 'grey.100',
+                          fontSize: 14,
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                          transition: 'box-shadow 0.3s ease',
+                          ...(highlightId === msg.id && {
+                            boxShadow: '0 0 0 2px #ff9800',
+                            animation: 'highlight-fade 2s ease-out',
+                            '@keyframes highlight-fade': {
+                              '0%': { boxShadow: '0 0 0 3px #ff9800' },
+                              '100%': { boxShadow: '0 0 0 0px transparent' },
+                            },
+                          }),
+                        }}
+                      >
+                        {msg.content}
+                      </Box>
+                    </Fragment>
+                  )
+                })}
                 {loading && (
                   <Box
                     sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', px: 1 }}
