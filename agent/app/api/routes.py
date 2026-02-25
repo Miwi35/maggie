@@ -97,14 +97,42 @@ async def proaction(request: ChatRequest, user_id: str = Depends(get_current_use
 async def get_messages(
     user_id: str = Depends(get_current_user_id),
     after: str | None = Query(default=None, description="ISO timestamp for incremental sync"),
+    before: str | None = Query(default=None, description="Message ID for cursor pagination (older messages)"),
+    limit: int = Query(default=20, ge=1, le=50, description="Number of messages to return"),
 ):
-    """Get conversation messages for a user, optionally filtered by timestamp."""
-    if after:
+    """Get conversation messages for a user with cursor-based pagination."""
+    if before:
+        messages = await message_repo.find_before(user_id, before_id=before, limit=limit)
+    elif after:
         messages = await message_repo.find_after(user_id, after=after)
     else:
-        messages = await message_repo.find_recent(user_id)
+        messages = await message_repo.find_recent(user_id, limit=limit)
 
     return [msg.to_dict() for msg in messages]
+
+
+@router.get("/messages/search")
+async def search_messages(
+    user_id: str = Depends(get_current_user_id),
+    q: str = Query(..., min_length=1, description="Search query"),
+    limit: int = Query(default=20, ge=1, le=50),
+):
+    """Search messages by content."""
+    messages = await message_repo.search(user_id, q, limit=limit)
+    return [msg.to_dict() for msg in messages]
+
+
+@router.get("/messages/context")
+async def get_message_context(
+    user_id: str = Depends(get_current_user_id),
+    around: str = Query(..., description="Message ID to load context around"),
+):
+    """Load messages around a specific message (for search result navigation)."""
+    result = await message_repo.find_around(user_id, around)
+    return {
+        "messages": [msg.to_dict() for msg in result["messages"]],
+        "targetIndex": result["targetIndex"],
+    }
 
 
 @router.get("/proactions")

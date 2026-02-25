@@ -39,7 +39,7 @@ class MessageRepository:
 
         return msg
 
-    async def find_recent(self, user_id: str, limit: int = 50) -> list[Message]:
+    async def find_recent(self, user_id: str, limit: int = 20) -> list[Message]:
         async with async_session() as session:
             result = await session.execute(
                 select(Message).where(Message.user_id == user_id).order_by(Message.created_at.desc()).limit(limit)
@@ -47,6 +47,72 @@ class MessageRepository:
             messages = list(result.scalars().all())
             messages.reverse()  # chronological order
             return messages
+
+    async def find_before(self, user_id: str, before_id: str, limit: int = 20) -> list[Message]:
+        """Load messages older than the given message ID (cursor-based pagination)."""
+        async with async_session() as session:
+            # First get the target message's created_at
+            target = await session.execute(select(Message).where(Message.id == before_id))
+            target_msg = target.scalar_one_or_none()
+            if target_msg is None:
+                return []
+
+            result = await session.execute(
+                select(Message)
+                .where(Message.user_id == user_id, Message.created_at < target_msg.created_at)
+                .order_by(Message.created_at.desc())
+                .limit(limit)
+            )
+            messages = list(result.scalars().all())
+            messages.reverse()  # chronological order
+            return messages
+
+    async def search(self, user_id: str, query: str, limit: int = 20) -> list[Message]:
+        """Full-text search on message content using ILIKE."""
+        async with async_session() as session:
+            result = await session.execute(
+                select(Message)
+                .where(Message.user_id == user_id, Message.content.ilike(f"%{query}%"))
+                .order_by(Message.created_at.desc())
+                .limit(limit)
+            )
+            return list(result.scalars().all())
+
+    async def find_around(self, user_id: str, message_id: str, limit: int = 40) -> dict:
+        """Load ~limit/2 messages before and after a target message.
+
+        Returns {"messages": [...], "targetIndex": N}.
+        """
+        half = limit // 2
+        async with async_session() as session:
+            target = await session.execute(select(Message).where(Message.id == message_id))
+            target_msg = target.scalar_one_or_none()
+            if target_msg is None:
+                return {"messages": [], "targetIndex": 0}
+
+            # Messages before (desc, then reverse)
+            before_result = await session.execute(
+                select(Message)
+                .where(Message.user_id == user_id, Message.created_at < target_msg.created_at)
+                .order_by(Message.created_at.desc())
+                .limit(half)
+            )
+            before = list(before_result.scalars().all())
+            before.reverse()
+
+            # Messages after (asc)
+            after_result = await session.execute(
+                select(Message)
+                .where(Message.user_id == user_id, Message.created_at > target_msg.created_at)
+                .order_by(Message.created_at.asc())
+                .limit(half)
+            )
+            after = list(after_result.scalars().all())
+
+            messages = [*before, target_msg, *after]
+            target_index = len(before)
+
+            return {"messages": messages, "targetIndex": target_index}
 
     async def find_after(self, user_id: str, after: str | None = None) -> list[Message]:
         """Find messages after a given ISO timestamp (for incremental sync)."""
