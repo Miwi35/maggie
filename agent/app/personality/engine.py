@@ -47,6 +47,7 @@ class PersonalityEngine:
         return self.get_config()
 
     def get_system_prompt(self) -> str:
+        self.config = self._load_config()
         template = self.config.get("system_prompt", "")
         return template.format(
             name=self.config.get("name", "Maggie"),

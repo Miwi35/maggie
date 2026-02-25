@@ -50,3 +50,33 @@ class TestPersonalityEngine:
 
         today = date.today().isoformat()
         assert prompt == f"Hello, I am Maggie. Language: fr. Date: {today}."
+
+    def test_get_system_prompt_reloads_from_disk(self, tmp_path: Path):
+        """After YAML is updated on disk, get_system_prompt reflects changes."""
+        config_file = tmp_path / "personality.yaml"
+        config_file.write_text(
+            yaml.dump({
+                "name": "OldName",
+                "language": "fr",
+                "backstory": "Old backstory.",
+                "system_prompt": "I am {name}. {backstory}",
+            })
+        )
+
+        engine = PersonalityEngine(config_path=config_file)
+        assert "OldName" in engine.get_system_prompt()
+
+        # Simulate another worker updating the file
+        config_file.write_text(
+            yaml.dump({
+                "name": "NewName",
+                "language": "fr",
+                "backstory": "New backstory.",
+                "system_prompt": "I am {name}. {backstory}",
+            })
+        )
+
+        prompt = engine.get_system_prompt()
+        assert "NewName" in prompt
+        assert "New backstory." in prompt
+
