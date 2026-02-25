@@ -115,16 +115,16 @@ async def get_proactions(user_id: str = Depends(get_current_user_id)):
 
 
 @router.get("/personality")
-async def get_personality(_user_id: str = Depends(get_current_user_id)):
+async def get_personality(user_id: str = Depends(get_current_user_id)):
     """Return current personality configuration."""
-    return llm_gateway.personality.get_config()
+    return await llm_gateway.personality.get_config(user_id)
 
 
 @router.put("/personality")
-async def update_personality(data: PersonalityUpdate, _user_id: str = Depends(get_current_user_id)):
+async def update_personality(data: PersonalityUpdate, user_id: str = Depends(get_current_user_id)):
     """Update personality configuration and reload."""
     updates = data.model_dump(exclude_none=True)
-    return llm_gateway.personality.update_config(updates)
+    return await llm_gateway.personality.update_config(user_id, updates)
 
 
 MAX_AUDIO_SIZE = 25 * 1024 * 1024  # 25 MB (Whisper limit)

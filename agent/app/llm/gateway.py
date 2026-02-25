@@ -27,7 +27,7 @@ class LLMGateway:
 
     async def _build_system_prompt(self, user_id: str, message: str = "") -> str:
         """Build the full system prompt: personality + persistent memory context + skill context."""
-        base = self.personality.get_system_prompt()
+        base = await self.personality.get_system_prompt(user_id)
         memory_context = await self.agent_memory.get_memory_context(user_id)
         skill_context = skill_index.get_relevant_skills_context(message)
         return base + memory_context + skill_context

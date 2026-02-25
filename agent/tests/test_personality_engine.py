@@ -1,82 +1,118 @@
-from datetime import date
+from datetime import datetime
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
+from zoneinfo import ZoneInfo
 
+import pytest
 import yaml
 
-from app.personality.engine import PersonalityEngine
+from app.personality.engine import DAYS_FR, TZ_PARIS, PersonalityEngine
 
 
-class TestPersonalityEngine:
-    def test_get_system_prompt_with_valid_config(self, tmp_path: Path):
-        """Load a custom YAML config and verify placeholders are formatted."""
-        config_file = tmp_path / "personality.yaml"
-        config_file.write_text(
-            yaml.dump({
+@pytest.fixture
+def yaml_config(tmp_path: Path) -> Path:
+    config_file = tmp_path / "personality.yaml"
+    config_file.write_text(
+        yaml.dump(
+            {
                 "name": "TestBot",
                 "language": "en",
                 "backstory": "A helpful test bot.",
-                "system_prompt": "You are {name}. {backstory}\nLanguage: {language}. Date: {today}.",
-            })
+                "system_prompt": "You are {name}. {backstory}\nLanguage: {language}. {datetime_line}",
+            }
+        )
+    )
+    return config_file
+
+
+def _expected_datetime_line() -> str:
+    now = datetime.now(TZ_PARIS)
+    day_name = DAYS_FR[now.weekday()]
+    return f"Nous sommes le {day_name} {now.strftime('%Y-%m-%d')}, il est {now.strftime('%Hh')}."
+
+
+class TestPersonalityEngine:
+    @pytest.mark.asyncio
+    async def test_get_config_falls_back_to_yaml(self, yaml_config: Path):
+        """When no DB row exists, get_config returns YAML defaults."""
+        engine = PersonalityEngine(config_path=yaml_config)
+
+        with patch("app.personality.engine.personality_repo") as mock_repo:
+            mock_repo.get = AsyncMock(return_value=None)
+            config = await engine.get_config("user-1")
+
+        assert config == {"name": "TestBot", "language": "en", "backstory": "A helpful test bot."}
+
+    @pytest.mark.asyncio
+    async def test_get_config_returns_db_values(self, yaml_config: Path):
+        """When a DB row exists, get_config returns its values."""
+        engine = PersonalityEngine(config_path=yaml_config)
+
+        db_row = AsyncMock()
+        db_row.name = "DBBot"
+        db_row.language = "fr"
+        db_row.backstory = "From the database."
+
+        with patch("app.personality.engine.personality_repo") as mock_repo:
+            mock_repo.get = AsyncMock(return_value=db_row)
+            config = await engine.get_config("user-1")
+
+        assert config == {"name": "DBBot", "language": "fr", "backstory": "From the database."}
+
+    @pytest.mark.asyncio
+    async def test_update_config_upserts_to_db(self, yaml_config: Path):
+        """update_config merges with current values and writes to DB."""
+        engine = PersonalityEngine(config_path=yaml_config)
+
+        db_row = AsyncMock()
+        db_row.name = "Updated"
+        db_row.language = "en"
+        db_row.backstory = "A helpful test bot."
+
+        with patch("app.personality.engine.personality_repo") as mock_repo:
+            mock_repo.get = AsyncMock(return_value=None)
+            mock_repo.upsert = AsyncMock(return_value=db_row)
+            result = await engine.update_config("user-1", {"name": "Updated"})
+
+        assert result["name"] == "Updated"
+        mock_repo.upsert.assert_called_once_with(
+            "user-1",
+            {"name": "Updated", "language": "en", "backstory": "A helpful test bot."},
         )
 
-        engine = PersonalityEngine(config_path=config_file)
-        prompt = engine.get_system_prompt()
+    @pytest.mark.asyncio
+    async def test_get_system_prompt_formats_template_with_db_values(self, yaml_config: Path):
+        """get_system_prompt uses YAML template but fills DB values."""
+        engine = PersonalityEngine(config_path=yaml_config)
 
-        today = date.today().isoformat()
-        assert prompt == f"You are TestBot. A helpful test bot.\nLanguage: en. Date: {today}."
+        db_row = AsyncMock()
+        db_row.name = "DBBot"
+        db_row.language = "fr"
+        db_row.backstory = "Smart assistant."
 
-    def test_fallback_config_on_missing_file(self, tmp_path: Path):
-        """When config file does not exist, defaults are used."""
-        missing_path = tmp_path / "nonexistent.yaml"
+        with patch("app.personality.engine.personality_repo") as mock_repo:
+            mock_repo.get = AsyncMock(return_value=db_row)
+            prompt = await engine.get_system_prompt("user-1")
 
-        engine = PersonalityEngine(config_path=missing_path)
+        dt_line = _expected_datetime_line()
+        assert prompt == f"You are DBBot. Smart assistant.\nLanguage: fr. {dt_line}"
 
-        assert engine.config["name"] == "Maggie"
-        assert engine.config["language"] == "fr"
-        assert engine.config["backstory"] == "Une assistante personnelle IA intelligente et bienveillante."
-        assert "{name}" in engine.config["system_prompt"]
+    @pytest.mark.asyncio
+    async def test_get_system_prompt_uses_yaml_defaults_when_no_db(self, yaml_config: Path):
+        """When no DB row exists, system prompt uses YAML defaults."""
+        engine = PersonalityEngine(config_path=yaml_config)
 
-    def test_get_system_prompt_with_minimal_config(self, tmp_path: Path):
-        """Config with only system_prompt uses default values for missing keys."""
-        config_file = tmp_path / "minimal.yaml"
-        config_file.write_text(
-            yaml.dump({
-                "system_prompt": "Hello, I am {name}. Language: {language}. Date: {today}.",
-            })
-        )
+        with patch("app.personality.engine.personality_repo") as mock_repo:
+            mock_repo.get = AsyncMock(return_value=None)
+            prompt = await engine.get_system_prompt("user-1")
 
-        engine = PersonalityEngine(config_path=config_file)
-        prompt = engine.get_system_prompt()
+        dt_line = _expected_datetime_line()
+        assert prompt == f"You are TestBot. A helpful test bot.\nLanguage: en. {dt_line}"
 
-        today = date.today().isoformat()
-        assert prompt == f"Hello, I am Maggie. Language: fr. Date: {today}."
+    def test_fallback_config_on_missing_yaml(self, tmp_path: Path):
+        """When YAML file does not exist, hardcoded defaults are used."""
+        engine = PersonalityEngine(config_path=tmp_path / "nonexistent.yaml")
 
-    def test_get_system_prompt_reloads_from_disk(self, tmp_path: Path):
-        """After YAML is updated on disk, get_system_prompt reflects changes."""
-        config_file = tmp_path / "personality.yaml"
-        config_file.write_text(
-            yaml.dump({
-                "name": "OldName",
-                "language": "fr",
-                "backstory": "Old backstory.",
-                "system_prompt": "I am {name}. {backstory}",
-            })
-        )
-
-        engine = PersonalityEngine(config_path=config_file)
-        assert "OldName" in engine.get_system_prompt()
-
-        # Simulate another worker updating the file
-        config_file.write_text(
-            yaml.dump({
-                "name": "NewName",
-                "language": "fr",
-                "backstory": "New backstory.",
-                "system_prompt": "I am {name}. {backstory}",
-            })
-        )
-
-        prompt = engine.get_system_prompt()
-        assert "NewName" in prompt
-        assert "New backstory." in prompt
-
+        defaults = engine._yaml_defaults()
+        assert defaults["name"] == "Maggie"
+        assert defaults["language"] == "fr"
