@@ -27,4 +27,13 @@ interface ChatMessageDao {
 
     @Query("DELETE FROM chat_messages")
     suspend fun deleteAll()
+
+    @Query("SELECT * FROM chat_messages WHERE createdAt < :beforeCreatedAt ORDER BY createdAt DESC LIMIT :limit")
+    suspend fun loadBefore(beforeCreatedAt: String, limit: Int): List<ChatMessageEntity>
+
+    @Query("SELECT * FROM chat_messages WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): ChatMessageEntity?
+
+    @Query("SELECT * FROM chat_messages WHERE content LIKE '%' || :query || '%' ORDER BY createdAt DESC LIMIT :limit")
+    suspend fun searchByContent(query: String, limit: Int): List<ChatMessageEntity>
 }

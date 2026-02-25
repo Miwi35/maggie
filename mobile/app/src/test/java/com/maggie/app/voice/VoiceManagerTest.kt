@@ -2,6 +2,7 @@ package com.maggie.app.voice
 
 import android.content.Context
 import com.maggie.app.data.api.MaggieApiService
+import com.maggie.app.data.repository.UserPreferenceRepository
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -12,13 +13,15 @@ class VoiceManagerTest {
 
     private lateinit var context: Context
     private lateinit var apiService: MaggieApiService
+    private lateinit var userPreferenceRepository: UserPreferenceRepository
     private lateinit var voiceManager: VoiceManager
 
     @Before
     fun setup() {
         context = mockk(relaxed = true)
         apiService = mockk(relaxed = true)
-        voiceManager = VoiceManager(context, apiService)
+        userPreferenceRepository = mockk(relaxed = true)
+        voiceManager = VoiceManager(context, apiService, userPreferenceRepository)
     }
 
     @Test

@@ -45,6 +45,65 @@ class ChatRepository(
         chatMessageDao.upsert(ChatMessageEntity.fromModel(message))
     }
 
+    /** Load the most recent messages (API-first, Room fallback). */
+    suspend fun loadRecentMessages(limit: Int = 20): List<ChatMessage> {
+        return try {
+            val messages = apiService.getMessagesPaginated(limit = limit)
+            if (messages.isNotEmpty()) {
+                chatMessageDao.upsertAll(messages.map { ChatMessageEntity.fromModel(it) })
+            }
+            messages
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to load recent messages from API, falling back to Room: ${e.message}")
+            chatMessageDao.loadBefore("9999-12-31T23:59:59Z", limit)
+                .reversed()
+                .map { it.toModel() }
+        }
+    }
+
+    /** Load older messages before the given message ID (API-first, Room fallback). */
+    suspend fun loadOlderMessages(beforeId: String, limit: Int = 20): List<ChatMessage> {
+        return try {
+            val messages = apiService.getMessagesPaginated(beforeId = beforeId, limit = limit)
+            if (messages.isNotEmpty()) {
+                chatMessageDao.upsertAll(messages.map { ChatMessageEntity.fromModel(it) })
+            }
+            messages
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to load older messages from API, falling back to Room: ${e.message}")
+            val pivot = chatMessageDao.getById(beforeId)
+            val pivotDate = pivot?.createdAt ?: return emptyList()
+            chatMessageDao.loadBefore(pivotDate, limit)
+                .reversed()
+                .map { it.toModel() }
+        }
+    }
+
+    /** Search messages (API-first, Room fallback). */
+    suspend fun searchMessages(query: String, limit: Int = 20): List<ChatMessage> {
+        return try {
+            apiService.searchMessages(query = query, limit = limit)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to search messages from API, falling back to Room: ${e.message}")
+            chatMessageDao.searchByContent(query, limit).map { it.toModel() }
+        }
+    }
+
+    /** Load context around a specific message (API-first, Room fallback). */
+    suspend fun loadMessageContext(messageId: String): List<ChatMessage> {
+        return try {
+            val response = apiService.getMessageContext(messageId = messageId)
+            if (response.messages.isNotEmpty()) {
+                chatMessageDao.upsertAll(response.messages.map { ChatMessageEntity.fromModel(it) })
+            }
+            response.messages
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to load message context from API: ${e.message}")
+            val entity = chatMessageDao.getById(messageId)
+            listOfNotNull(entity?.toModel())
+        }
+    }
+
     /** Clear all chat history. */
     suspend fun clearHistory() {
         chatMessageDao.deleteAll()

@@ -84,6 +84,9 @@ data class GoogleCalendarImportRequest(
 )
 
 @Serializable
+data class MessageContextResponse(val messages: List<ChatMessage> = emptyList())
+
+@Serializable
 data class AgentChatRequest(
     val message: String,
     val user_id: String = "default",
@@ -336,6 +339,40 @@ class MaggieApiService(
         return client.post("$baseUrl/agent/chat") {
             contentType(ContentType.Application.Json)
             setBody(AgentChatRequest(message = message, user_id = userId))
+        }.body()
+    }
+
+    suspend fun getMessagesPaginated(
+        userId: String = "default",
+        beforeId: String? = null,
+        limit: Int = 20,
+    ): List<ChatMessage> {
+        return client.get("$baseUrl/agent/messages") {
+            url.parameters.append("user_id", userId)
+            url.parameters.append("limit", limit.toString())
+            beforeId?.let { url.parameters.append("before", it) }
+        }.body()
+    }
+
+    suspend fun searchMessages(
+        query: String,
+        userId: String = "default",
+        limit: Int = 20,
+    ): List<ChatMessage> {
+        return client.get("$baseUrl/agent/messages/search") {
+            url.parameters.append("q", query)
+            url.parameters.append("user_id", userId)
+            url.parameters.append("limit", limit.toString())
+        }.body()
+    }
+
+    suspend fun getMessageContext(
+        messageId: String,
+        userId: String = "default",
+    ): MessageContextResponse {
+        return client.get("$baseUrl/agent/messages/context") {
+            url.parameters.append("around", messageId)
+            url.parameters.append("user_id", userId)
         }.body()
     }
 

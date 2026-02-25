@@ -2,6 +2,7 @@ package com.maggie.app.ui.screens.chat
 
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.ChatMessage
+import com.maggie.app.data.repository.ChatPreferencesRepository
 import com.maggie.app.data.repository.ChatRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -9,9 +10,9 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -19,6 +20,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -29,19 +31,28 @@ class ChatViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var repository: ChatRepository
     private lateinit var mercureService: MercureService
+    private lateinit var chatPrefsRepository: ChatPreferencesRepository
     private lateinit var viewModel: ChatViewModel
-    private val messagesFlow = MutableSharedFlow<List<ChatMessage>>(replay = 1)
+
+    private val sampleMessages = listOf(
+        ChatMessage(id = "msg-1", role = "user", content = "Hello", createdAt = "2026-02-15T10:00:00Z"),
+        ChatMessage(id = "msg-2", role = "assistant", content = "Hi!", createdAt = "2026-02-15T10:00:05Z"),
+    )
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         repository = mockk()
         mercureService = mockk()
+        chatPrefsRepository = mockk()
         every { mercureService.subscribe(any()) } returns emptyFlow()
-        every { repository.observeMessages() } returns messagesFlow
-        coEvery { repository.syncMessages() } returns Unit
-        messagesFlow.tryEmit(emptyList())
-        viewModel = ChatViewModel(repository, mercureService)
+        coEvery { repository.loadRecentMessages(any()) } returns sampleMessages
+        coEvery { chatPrefsRepository.getLastReadMessageId() } returns null
+        coEvery { chatPrefsRepository.saveLastReadMessageId(any()) } returns Unit
+    }
+
+    private fun createViewModel(): ChatViewModel {
+        return ChatViewModel(repository, mercureService, chatPrefsRepository)
     }
 
     @After
@@ -50,29 +61,40 @@ class ChatViewModelTest {
     }
 
     @Test
+    fun `initial load populates messages with date separators`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(2, state.messages.size)
+        // Display items should include at least a date separator + 2 messages
+        assertTrue(state.displayItems.any { it is ChatListItem.DateSeparator })
+        assertEquals(2, state.displayItems.count { it is ChatListItem.MessageItem })
+        assertFalse(state.isLoading)
+    }
+
+    @Test
     fun `sendMessage success posts to agent and clears loading`() = runTest {
-        val userMsg = ChatMessage(id = "abc-123", role = "user", content = "Hello", createdAt = "2026-02-15T00:00:00+00:00")
-        val assistantMsg = ChatMessage(id = "abc-456", role = "assistant", content = "Hi!", createdAt = "2026-02-15T00:00:01+00:00")
-        coEvery { repository.sendMessage("Hello") } returns listOf(userMsg, assistantMsg)
-
-        viewModel.sendMessage("Hello")
+        viewModel = createViewModel()
         advanceUntilIdle()
 
-        coVerify { repository.sendMessage("Hello") }
-        // Loading clears after response returns
+        val userMsg = ChatMessage(id = "abc-123", role = "user", content = "Bonjour", createdAt = "2026-02-15T11:00:00Z")
+        val assistantMsg = ChatMessage(id = "abc-456", role = "assistant", content = "Salut!", createdAt = "2026-02-15T11:00:01Z")
+        coEvery { repository.sendMessage("Bonjour") } returns listOf(userMsg, assistantMsg)
+
+        viewModel.sendMessage("Bonjour")
+        advanceUntilIdle()
+
+        coVerify { repository.sendMessage("Bonjour") }
         assertFalse(viewModel.uiState.value.isLoading)
-
-        // Simulate Room Flow emitting the persisted messages
-        messagesFlow.tryEmit(listOf(userMsg, assistantMsg))
-        advanceUntilIdle()
-
-        assertEquals(2, viewModel.uiState.value.messages.size)
-        assertEquals("user", viewModel.uiState.value.messages[0].role)
-        assertEquals("assistant", viewModel.uiState.value.messages[1].role)
+        assertEquals(4, viewModel.uiState.value.messages.size)
     }
 
     @Test
     fun `sendMessage failure clears loading`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
         coEvery { repository.sendMessage("Hello") } throws RuntimeException("Network error")
 
         viewModel.sendMessage("Hello")
@@ -83,17 +105,108 @@ class ChatViewModelTest {
 
     @Test
     fun `sendMessage with blank text does nothing`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val messagesBefore = viewModel.uiState.value.messages.size
         viewModel.sendMessage("   ")
         advanceUntilIdle()
 
-        val state = viewModel.uiState.value
-        assertTrue(state.messages.isEmpty())
-        assertFalse(state.isLoading)
+        assertEquals(messagesBefore, viewModel.uiState.value.messages.size)
+        assertFalse(viewModel.uiState.value.isLoading)
     }
 
     @Test
-    fun `init syncs messages from server`() = runTest {
+    fun `loadOlderMessages prepends history`() = runTest {
+        // Return PAGE_SIZE messages so hasMoreHistory = true
+        val fullPage = (1..20).map {
+            ChatMessage(id = "msg-$it", role = "user", content = "Msg $it", createdAt = "2026-02-15T10:${it.toString().padStart(2, '0')}:00Z")
+        }
+        coEvery { repository.loadRecentMessages(any()) } returns fullPage
+        viewModel = createViewModel()
         advanceUntilIdle()
-        coVerify { repository.syncMessages() }
+
+        val olderMessages = listOf(
+            ChatMessage(id = "old-1", role = "user", content = "Old msg", createdAt = "2026-02-14T09:00:00Z"),
+        )
+        coEvery { repository.loadOlderMessages("msg-1", any()) } returns olderMessages
+
+        viewModel.loadOlderMessages()
+        advanceUntilIdle()
+
+        assertEquals(21, viewModel.uiState.value.messages.size)
+        assertEquals("old-1", viewModel.uiState.value.messages.first().id)
+    }
+
+    @Test
+    fun `search debounce triggers after query change`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val searchResults = listOf(
+            ChatMessage(id = "s-1", role = "assistant", content = "Found it", createdAt = "2026-02-15T10:00:00Z"),
+        )
+        coEvery { repository.searchMessages("test", any()) } returns searchResults
+
+        viewModel.openSearch()
+        viewModel.onSearchQueryChanged("test")
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.isSearchMode)
+        assertEquals(1, viewModel.uiState.value.searchResults.size)
+    }
+
+    @Test
+    fun `navigateToMessage highlights target message`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.navigateToMessage("msg-2")
+        // Advance enough for the coroutine to run but not the 2s highlight-clear delay
+        advanceTimeBy(100)
+
+        assertEquals("msg-2", viewModel.uiState.value.highlightedMessageId)
+        val highlighted = viewModel.uiState.value.displayItems
+            .filterIsInstance<ChatListItem.MessageItem>()
+            .find { it.message.id == "msg-2" }
+        assertTrue(highlighted?.isHighlighted == true)
+    }
+
+    @Test
+    fun `onScrolledToBottom clears unread`() = runTest {
+        coEvery { chatPrefsRepository.getLastReadMessageId() } returns "msg-1"
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // Should have unread divider since msg-2 is after msg-1
+        assertEquals("msg-2", viewModel.uiState.value.unreadFromId)
+
+        viewModel.onScrolledToBottom()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.unreadFromId)
+        coVerify { chatPrefsRepository.saveLastReadMessageId("msg-2") }
+    }
+
+    @Test
+    fun `onMessageTapped toggles tapped state`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onMessageTapped("msg-1")
+        assertEquals("msg-1", viewModel.uiState.value.tappedMessageId)
+
+        viewModel.onMessageTapped("msg-1")
+        assertNull(viewModel.uiState.value.tappedMessageId)
+    }
+
+    @Test
+    fun `unread divider appears when lastReadId is set`() = runTest {
+        coEvery { chatPrefsRepository.getLastReadMessageId() } returns "msg-1"
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val hasUnreadDivider = viewModel.uiState.value.displayItems.any { it is ChatListItem.UnreadDivider }
+        assertTrue(hasUnreadDivider)
     }
 }
