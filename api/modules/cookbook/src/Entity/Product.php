@@ -14,7 +14,6 @@ use Maggie\Calendar\Contract\MercurePublishable;
 use Maggie\Cookbook\Enum\ProductCategory;
 use Maggie\Cookbook\Enum\Unit;
 use Maggie\Cookbook\Repository\ProductRepository;
-use Symfony\Component\Serializer\Attribute\Groups;
 use Maggie\Cookbook\State\CreateProductProcessor;
 use Maggie\Cookbook\State\DeleteProductProcessor;
 use Maggie\Cookbook\State\UpdateProductProcessor;
@@ -67,10 +66,8 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
     #[IndexedRelation(targetEntity: User::class, sourceField: 'userId')]
     private User $user;
 
-    #[ORM\ManyToOne(targetEntity: CiqualFood::class)]
-    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
-    #[Groups(['product:read'])]
-    private ?CiqualFood $ciqualFood = null;
+    #[ORM\Column(length: 10, nullable: true)]
+    private ?string $ciqualAlimCode = null;
 
     #[ORM\Column(type: 'float', nullable: true)]
     private ?float $kcalPer100g = null;
@@ -142,14 +139,14 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
         return $this;
     }
 
-    public function getCiqualFood(): ?CiqualFood
+    public function getCiqualAlimCode(): ?string
     {
-        return $this->ciqualFood;
+        return $this->ciqualAlimCode;
     }
 
-    public function setCiqualFood(?CiqualFood $ciqualFood): static
+    public function setCiqualAlimCode(?string $ciqualAlimCode): static
     {
-        $this->ciqualFood = $ciqualFood;
+        $this->ciqualAlimCode = $ciqualAlimCode;
 
         return $this;
     }

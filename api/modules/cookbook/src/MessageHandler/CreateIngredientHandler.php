@@ -8,7 +8,6 @@ use Maggie\Cookbook\Entity\Ingredient;
 use Maggie\Cookbook\Enum\ProductCategory;
 use Maggie\Cookbook\Enum\Unit;
 use Maggie\Cookbook\Message\CreateIngredientCommand;
-use Maggie\Cookbook\Repository\CiqualFoodRepository;
 use Maggie\Cookbook\UseCase\CreateProduct;
 use Maggie\Core\Repository\UserRepository;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -19,7 +18,6 @@ class CreateIngredientHandler
     public function __construct(
         private readonly CreateProduct $createProduct,
         private readonly UserRepository $userRepository,
-        private readonly CiqualFoodRepository $ciqualFoodRepository,
     ) {
     }
 
@@ -37,9 +35,8 @@ class CreateIngredientHandler
             $ingredient->setDefaultUnit(Unit::from($command->defaultUnit));
         }
 
-        if ($command->ciqualFoodId !== null) {
-            $ciqualFood = $this->ciqualFoodRepository->find($command->ciqualFoodId);
-            $ingredient->setCiqualFood($ciqualFood);
+        if ($command->ciqualAlimCode !== null) {
+            $ingredient->setCiqualAlimCode($command->ciqualAlimCode);
         }
         $ingredient->setKcalPer100g($command->kcalPer100g);
         $ingredient->setProteinPer100g($command->proteinPer100g);

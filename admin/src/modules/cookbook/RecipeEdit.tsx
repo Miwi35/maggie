@@ -5,11 +5,10 @@ import {
   NumberInput,
   ArrayInput,
   SimpleFormIterator,
-  ReferenceInput,
-  AutocompleteInput,
   SelectInput,
   required,
 } from 'react-admin'
+import { CiqualFoodAutocomplete } from './CiqualFoodAutocomplete'
 
 const unitChoices = [
   { id: 'g', name: 'g' },
@@ -34,14 +33,7 @@ export const RecipeEdit = () => (
       <TextInput source="notes" label="Notes" multiline rows={3} fullWidth />
       <ArrayInput source="ingredients" label="Ingrédients">
         <SimpleFormIterator inline>
-          <ReferenceInput source="ciqualFood" reference="ciqual_foods">
-            <AutocompleteInput
-              label="Ingrédient"
-              optionText="alimNameFr"
-              filterToQuery={(q: string) => ({ alimNameFr: q })}
-              sx={{ minWidth: 200 }}
-            />
-          </ReferenceInput>
+          <CiqualFoodAutocomplete source="ciqualAlimCode" />
           <NumberInput source="quantity" label="Quantité" sx={{ maxWidth: 120 }} />
           <SelectInput source="unit" label="Unité" choices={unitChoices} sx={{ minWidth: 120 }} />
         </SimpleFormIterator>

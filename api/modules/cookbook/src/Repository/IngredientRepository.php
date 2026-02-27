@@ -6,7 +6,6 @@ namespace Maggie\Cookbook\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
-use Maggie\Cookbook\Entity\CiqualFood;
 use Maggie\Cookbook\Entity\Ingredient;
 use Maggie\Core\Entity\User;
 
@@ -18,13 +17,13 @@ class IngredientRepository extends ServiceEntityRepository
         parent::__construct($registry, Ingredient::class);
     }
 
-    public function findOneByUserAndCiqualFood(User $user, CiqualFood $ciqualFood): ?Ingredient
+    public function findOneByUserAndCiqualAlimCode(User $user, string $alimCode): ?Ingredient
     {
         return $this->createQueryBuilder('i')
             ->where('i.user = :user')
-            ->andWhere('i.ciqualFood = :ciqualFood')
+            ->andWhere('i.ciqualAlimCode = :alimCode')
             ->setParameter('user', $user)
-            ->setParameter('ciqualFood', $ciqualFood)
+            ->setParameter('alimCode', $alimCode)
             ->getQuery()
             ->getOneOrNullResult();
     }

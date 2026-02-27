@@ -10,6 +10,9 @@ includes:
   agent:
     taskfile: ./agent/Taskfile.yml
     dir: ./agent
+  ciqual:
+    taskfile: ./ciqual/Taskfile.yml
+    dir: ./ciqual
 
 tasks:
   # ===========================================================================
@@ -191,11 +194,12 @@ tasks:
   # Testing
   # ===========================================================================
   test:all:
-    desc: Run all tests (api + admin + agent)
+    desc: Run all tests (api + admin + agent + ciqual)
     cmds:
       - task: api:test
       - task: admin:test
       - task: agent:test
+      - task: ciqual:test
 
   test:integration:
     desc: Run end-to-end integration tests
@@ -210,6 +214,7 @@ tasks:
     cmds:
       - task: api:phpstan
       - task: agent:lint
+      - task: ciqual:lint
       - task: admin:lint
       - task: admin:typecheck
 
@@ -231,6 +236,7 @@ tasks:
       - docker build -f .docker/php/Dockerfile --target prod -t maggie-php:latest .
       - docker build -f .docker/python/Dockerfile --target prod -t maggie-agent:latest .
       - docker build -f .docker/nginx/Dockerfile --target prod --build-arg PHP_IMAGE=maggie-php:latest -t maggie-nginx:latest .
+      - docker build -f .docker/ciqual/Dockerfile --target prod -t maggie-ciqual:latest .
 
   deploy:push:
     desc: Tag and push production images to GHCR
@@ -244,9 +250,13 @@ tasks:
       - docker tag maggie-nginx:latest ghcr.io/miwi35/maggie-nginx:latest
       - docker tag maggie-agent:latest ghcr.io/miwi35/maggie-agent:{{.TAG}}
       - docker tag maggie-agent:latest ghcr.io/miwi35/maggie-agent:latest
+      - docker tag maggie-ciqual:latest ghcr.io/miwi35/maggie-ciqual:{{.TAG}}
+      - docker tag maggie-ciqual:latest ghcr.io/miwi35/maggie-ciqual:latest
       - docker push ghcr.io/miwi35/maggie-php:{{.TAG}}
       - docker push ghcr.io/miwi35/maggie-php:latest
       - docker push ghcr.io/miwi35/maggie-nginx:{{.TAG}}
       - docker push ghcr.io/miwi35/maggie-nginx:latest
       - docker push ghcr.io/miwi35/maggie-agent:{{.TAG}}
       - docker push ghcr.io/miwi35/maggie-agent:latest
+      - docker push ghcr.io/miwi35/maggie-ciqual:{{.TAG}}
+      - docker push ghcr.io/miwi35/maggie-ciqual:latest

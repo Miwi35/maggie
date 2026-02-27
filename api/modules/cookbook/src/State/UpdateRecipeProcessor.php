@@ -35,7 +35,7 @@ class UpdateRecipeProcessor implements ProcessorInterface
         return $envelope->last(HandledStamp::class)->getResult();
     }
 
-    /** @return array<array{quantity: float, unit: string, ingredientId?: string, ciqualFoodId?: string}>|null */
+    /** @return array<array{quantity: float, unit: string, ingredientId?: string, ciqualAlimCode?: string}>|null */
     private function extractIngredients(array $context): ?array
     {
         $request = $context['request'] ?? null;
@@ -52,7 +52,7 @@ class UpdateRecipeProcessor implements ProcessorInterface
             'quantity' => (float) ($item['quantity'] ?? 0),
             'unit' => $item['unit'] ?? 'g',
             ...($this->extractId($item, 'ingredient') !== null ? ['ingredientId' => $this->extractId($item, 'ingredient')] : []),
-            ...($this->extractId($item, 'ciqualFood') !== null ? ['ciqualFoodId' => $this->extractId($item, 'ciqualFood')] : []),
+            ...(isset($item['ciqualAlimCode']) && \is_string($item['ciqualAlimCode']) ? ['ciqualAlimCode' => $item['ciqualAlimCode']] : []),
         ], $body['ingredients']);
     }
 
@@ -64,7 +64,7 @@ class UpdateRecipeProcessor implements ProcessorInterface
 
         $iri = $item[$key];
 
-        // Extract ULID from IRI (e.g. "/api/ciqual_foods/01HXYZ..." → "01HXYZ...")
+        // Extract ULID from IRI (e.g. "/api/ingredients/01HXYZ..." → "01HXYZ...")
         $parts = explode('/', rtrim($iri, '/'));
 
         return end($parts);

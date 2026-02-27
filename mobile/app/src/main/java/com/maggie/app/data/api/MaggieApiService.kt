@@ -134,7 +134,7 @@ data class RecipeCreateRequest(
 @Serializable
 data class RecipeIngredientRequest(
     val ingredient: String? = null,
-    val ciqualFood: String? = null,
+    val ciqualAlimCode: String? = null,
     val quantity: Float,
     val unit: String,
 )
@@ -144,7 +144,7 @@ data class IngredientCreateRequest(
     val name: String,
     val defaultUnit: String? = null,
     val category: String = "other",
-    val ciqualFood: String? = null,
+    val ciqualAlimCode: String? = null,
     val kcalPer100g: Float? = null,
     val proteinPer100g: Float? = null,
     val carbsPer100g: Float? = null,
@@ -454,10 +454,10 @@ class MaggieApiService(
 
     // Ciqual Foods
     suspend fun searchCiqualFoods(query: String): List<CiqualFood> {
-        return client.get("$baseUrl/api/ciqual_foods") {
-            accept(ContentType("application", "ld+json"))
-            url.parameters.append("alimNameFr", query)
-        }.body<ApiCollection<CiqualFood>>().member
+        return client.get("$baseUrl/ciqual/foods") {
+            url.parameters.append("q", query)
+            url.parameters.append("limit", "20")
+        }.body()
     }
 
     // Meals

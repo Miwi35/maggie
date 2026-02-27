@@ -1,18 +1,6 @@
-import { useCallback } from 'react'
-import {
-  Edit,
-  SimpleForm,
-  TextInput,
-  NumberInput,
-  SelectInput,
-  ReferenceInput,
-  AutocompleteInput,
-  required,
-  useGetOne,
-} from 'react-admin'
-import { useWatch, useFormContext } from 'react-hook-form'
+import { Edit, SimpleForm, TextInput, NumberInput, SelectInput, required } from 'react-admin'
 import Box from '@mui/material/Box'
-import Typography from '@mui/material/Typography'
+import { CiqualFoodAutocomplete, CiqualAutoFill } from './CiqualFoodAutocomplete'
 
 const categoryChoices = [
   { id: 'produce', name: 'Fruits & Légumes' },
@@ -41,47 +29,6 @@ const unitChoices = [
   { id: 'sachet', name: 'sachet' },
 ]
 
-const CiqualAutoFill = () => {
-  const ciqualFood = useWatch({ name: 'ciqualFood' })
-  const { setValue } = useFormContext()
-
-  const { data } = useGetOne(
-    'ciqual_foods',
-    { id: ciqualFood },
-    { enabled: !!ciqualFood },
-  )
-
-  const handleAutoFill = useCallback(() => {
-    if (!data?.nutrients) return
-    const nutrients = data.nutrients as Array<{
-      nutrient: { constCode: string }
-      value: number | null
-    }>
-    for (const fn of nutrients) {
-      const code = fn.nutrient?.constCode
-      if (code === '328') setValue('kcalPer100g', fn.value, { shouldDirty: true })
-      if (code === '25000') setValue('proteinPer100g', fn.value, { shouldDirty: true })
-      if (code === '31000') setValue('carbsPer100g', fn.value, { shouldDirty: true })
-      if (code === '40000') setValue('fatPer100g', fn.value, { shouldDirty: true })
-    }
-  }, [data, setValue])
-
-  if (!ciqualFood || !data) return null
-
-  return (
-    <Box sx={{ mb: 2 }}>
-      <Typography
-        variant="body2"
-        color="primary"
-        sx={{ cursor: 'pointer', textDecoration: 'underline' }}
-        onClick={handleAutoFill}
-      >
-        Remplir les macros depuis Ciqual
-      </Typography>
-    </Box>
-  )
-}
-
 export const IngredientEdit = () => (
   <Edit>
     <SimpleForm>
@@ -93,14 +40,7 @@ export const IngredientEdit = () => (
         validate={required()}
       />
       <SelectInput source="defaultUnit" label="Unité par défaut" choices={unitChoices} />
-      <ReferenceInput source="ciqualFood" reference="ciqual_foods">
-        <AutocompleteInput
-          label="Aliment Ciqual"
-          optionText="alimNameFr"
-          filterToQuery={(q: string) => ({ alimNameFr: q })}
-          fullWidth
-        />
-      </ReferenceInput>
+      <CiqualFoodAutocomplete />
       <CiqualAutoFill />
       <Box sx={{ display: 'flex', gap: 2 }}>
         <NumberInput source="kcalPer100g" label="kcal/100g" />

@@ -66,6 +66,7 @@ services:
       ADMIN_URL: ${ADMIN_URL}
       SERVICE_TOKEN: ${SERVICE_TOKEN}
       ELASTICSEARCH_URL: ${ELASTICSEARCH_URL:-http://elasticsearch:9200}
+      CIQUAL_SERVICE_URL: ${CIQUAL_SERVICE_URL:-http://ciqual:8002}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
 
     depends_on:
@@ -223,6 +224,7 @@ services:
       ADMIN_URL: ${ADMIN_URL}
       SERVICE_TOKEN: ${SERVICE_TOKEN}
       ELASTICSEARCH_URL: ${ELASTICSEARCH_URL:-http://elasticsearch:9200}
+      CIQUAL_SERVICE_URL: ${CIQUAL_SERVICE_URL:-http://ciqual:8002}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
 
     depends_on:
@@ -265,6 +267,7 @@ services:
       ADMIN_URL: ${ADMIN_URL}
       SERVICE_TOKEN: ${SERVICE_TOKEN}
       ELASTICSEARCH_URL: ${ELASTICSEARCH_URL:-http://elasticsearch:9200}
+      CIQUAL_SERVICE_URL: ${CIQUAL_SERVICE_URL:-http://ciqual:8002}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
 
     depends_on:
@@ -341,6 +344,29 @@ services:
       - "traefik.http.routers.maggie-agent.entrypoints=websecure"
       - "traefik.http.routers.maggie-agent.tls=true"
       - "traefik.http.services.maggie-agent.loadbalancer.server.port=8001"
+    networks:
+      - maggie
+
+  # ===========================================================================
+  # Ciqual (Food composition microservice)
+  # ===========================================================================
+  ciqual:
+    build:
+      context: .
+      dockerfile: .docker/ciqual/Dockerfile
+      target: dev
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION}
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    volumes:
+      - ./ciqual:/app:cached
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.maggie-ciqual.rule=PathPrefix(`/ciqual`)"
+      - "traefik.http.routers.maggie-ciqual.entrypoints=websecure"
+      - "traefik.http.routers.maggie-ciqual.tls=true"
+      - "traefik.http.services.maggie-ciqual.loadbalancer.server.port=8002"
     networks:
       - maggie
 

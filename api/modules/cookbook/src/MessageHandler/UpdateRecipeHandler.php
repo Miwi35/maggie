@@ -9,7 +9,6 @@ use Maggie\Cookbook\Entity\Recipe;
 use Maggie\Cookbook\Entity\RecipeIngredient;
 use Maggie\Cookbook\Enum\Unit;
 use Maggie\Cookbook\Message\UpdateRecipeCommand;
-use Maggie\Cookbook\Repository\CiqualFoodRepository;
 use Maggie\Cookbook\Repository\IngredientRepository;
 use Maggie\Cookbook\Repository\RecipeRepository;
 use Maggie\Cookbook\Service\IngredientFromCiqualResolver;
@@ -24,7 +23,6 @@ class UpdateRecipeHandler
         private readonly UpdateRecipe $updateRecipe,
         private readonly RecipeRepository $recipeRepository,
         private readonly IngredientRepository $ingredientRepository,
-        private readonly CiqualFoodRepository $ciqualFoodRepository,
         private readonly IngredientFromCiqualResolver $ciqualResolver,
     ) {
     }
@@ -66,14 +64,11 @@ class UpdateRecipeHandler
         return $this->updateRecipe->execute($recipe);
     }
 
-    /** @param array{quantity: float, unit: string, ingredientId?: string, ciqualFoodId?: string} $item */
+    /** @param array{quantity: float, unit: string, ingredientId?: string, ciqualAlimCode?: string} $item */
     private function resolveIngredient(array $item, User $user): Ingredient
     {
-        if (isset($item['ciqualFoodId'])) {
-            $ciqualFood = $this->ciqualFoodRepository->find($item['ciqualFoodId'])
-                ?? throw new \DomainException("CiqualFood not found: {$item['ciqualFoodId']}");
-
-            return $this->ciqualResolver->resolve($ciqualFood, $user);
+        if (isset($item['ciqualAlimCode'])) {
+            return $this->ciqualResolver->resolve($item['ciqualAlimCode'], $user);
         }
 
         if (isset($item['ingredientId'])) {
@@ -81,6 +76,6 @@ class UpdateRecipeHandler
                 ?? throw new \DomainException("Ingredient not found: {$item['ingredientId']}");
         }
 
-        throw new \DomainException('Each ingredient must have either ingredientId or ciqualFoodId.');
+        throw new \DomainException('Each ingredient must have either ingredientId or ciqualAlimCode.');
     }
 }

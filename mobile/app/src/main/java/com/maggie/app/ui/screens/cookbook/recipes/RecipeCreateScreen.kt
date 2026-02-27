@@ -58,7 +58,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 
 data class IngredientRow(
-    val ciqualFoodId: String = "",
+    val ciqualAlimCode: String = "",
     val ciqualFoodName: String = "",
     val quantity: String = "",
     val unit: CookbookUnit = CookbookUnit.G,
@@ -153,10 +153,10 @@ fun RecipeCreateScreen(
                 onClick = {
                     val tags = tagsText.split(",").map { it.trim() }.filter { it.isNotBlank() }
                     val ingredients = ingredientRows
-                        .filter { it.ciqualFoodId.isNotBlank() && it.quantity.isNotBlank() }
+                        .filter { it.ciqualAlimCode.isNotBlank() && it.quantity.isNotBlank() }
                         .map { row ->
                             RecipeIngredientRequest(
-                                ciqualFood = "/api/ciqual_foods/${row.ciqualFoodId}",
+                                ciqualAlimCode = row.ciqualAlimCode,
                                 quantity = row.quantity.toFloatOrNull() ?: 0f,
                                 unit = row.unit.name.lowercase(),
                             )
@@ -202,7 +202,7 @@ internal fun IngredientRowInput(
     if (showSearchDialog) {
         IngredientSearchDialog(
             onSelect = { food ->
-                onUpdate(row.copy(ciqualFoodId = food.id, ciqualFoodName = food.alimNameFr))
+                onUpdate(row.copy(ciqualAlimCode = food.alimCode, ciqualFoodName = food.alimNameFr))
                 showSearchDialog = false
             },
             onDismiss = { showSearchDialog = false },

@@ -1,0 +1,40 @@
+version: '3'
+
+vars:
+  COMPOSE_FILE: '{{.ROOT_DIR}}/docker-compose.yml'
+
+tasks:
+  build-db:
+    desc: Build SQLite database from Ciqual XML data
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} exec ciqual python -m app.import_ciqual
+
+  serve:
+    desc: Start dev server with auto-reload
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} up ciqual
+
+  lint:
+    desc: Run ruff linter
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} exec ciqual ruff check app/ tests/
+
+  lint:fix:
+    desc: Fix linting issues
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} exec ciqual ruff check --fix app/ tests/
+
+  format:
+    desc: Format code with ruff
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} exec ciqual ruff format app/ tests/
+
+  format:check:
+    desc: Check code formatting
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} exec ciqual ruff format --check app/ tests/
+
+  test:
+    desc: Run pytest
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} exec ciqual pytest {{.CLI_ARGS}}

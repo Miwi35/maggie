@@ -10,6 +10,10 @@ services:
             - '../src/Enum/'
             - '../src/MaggieCookbookBundle.php'
 
+    Maggie\Cookbook\Service\CiqualClient:
+        arguments:
+            $ciqualServiceUrl: '%env(CIQUAL_SERVICE_URL)%'
+
     Maggie\Cookbook\EventListener\MealDiscriminatorListener:
         tags:
             - { name: doctrine.event_listener, event: loadClassMetadata }

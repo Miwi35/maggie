@@ -8,7 +8,6 @@ use Maggie\Cookbook\Entity\Product;
 use Maggie\Cookbook\Enum\ProductCategory;
 use Maggie\Cookbook\Enum\Unit;
 use Maggie\Cookbook\Message\UpdateProductCommand;
-use Maggie\Cookbook\Repository\CiqualFoodRepository;
 use Maggie\Cookbook\Repository\ProductRepository;
 use Maggie\Cookbook\UseCase\UpdateProduct;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -19,7 +18,6 @@ class UpdateProductHandler
     public function __construct(
         private readonly UpdateProduct $updateProduct,
         private readonly ProductRepository $productRepository,
-        private readonly CiqualFoodRepository $ciqualFoodRepository,
     ) {
     }
 
@@ -37,9 +35,8 @@ class UpdateProductHandler
         if ($command->defaultUnit !== null) {
             $product->setDefaultUnit(Unit::from($command->defaultUnit));
         }
-        if ($command->ciqualFoodId !== null) {
-            $ciqualFood = $this->ciqualFoodRepository->find($command->ciqualFoodId);
-            $product->setCiqualFood($ciqualFood);
+        if ($command->ciqualAlimCode !== null) {
+            $product->setCiqualAlimCode($command->ciqualAlimCode);
         }
         if ($command->kcalPer100g !== null) {
             $product->setKcalPer100g($command->kcalPer100g);

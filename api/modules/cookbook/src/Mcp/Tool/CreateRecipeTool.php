@@ -12,7 +12,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'create_recipe', description: 'Create a new recipe. Ingredients is a JSON array of objects with quantity, unit, and either ingredientId or ciqualFoodId (to auto-create an Ingredient from Ciqual). Tags is a comma-separated list.')]
+#[McpTool(name: 'create_recipe', description: 'Create a new recipe. Ingredients is a JSON array of objects with quantity, unit, and either ingredientId or ciqualAlimCode (to auto-create an Ingredient from Ciqual). Tags is a comma-separated list.')]
 class CreateRecipeTool
 {
     public function __construct(

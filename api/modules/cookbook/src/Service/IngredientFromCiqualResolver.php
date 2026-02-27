@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Maggie\Cookbook\Service;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Maggie\Cookbook\Entity\CiqualFood;
 use Maggie\Cookbook\Entity\Ingredient;
 use Maggie\Cookbook\Enum\ProductCategory;
 use Maggie\Cookbook\Enum\Unit;
@@ -36,28 +35,39 @@ class IngredientFromCiqualResolver
     public function __construct(
         private readonly IngredientRepository $ingredientRepository,
         private readonly EntityManagerInterface $em,
+        private readonly CiqualClient $ciqualClient,
     ) {
     }
 
-    public function resolve(CiqualFood $ciqualFood, User $user): Ingredient
+    public function resolve(string $ciqualAlimCode, User $user): Ingredient
     {
-        $existing = $this->ingredientRepository->findOneByUserAndCiqualFood($user, $ciqualFood);
+        $existing = $this->ingredientRepository->findOneByUserAndCiqualAlimCode($user, $ciqualAlimCode);
         if ($existing !== null) {
             return $existing;
         }
 
-        $ingredient = new Ingredient();
-        $ingredient->setName($ciqualFood->getAlimNameFr());
-        $ingredient->setUser($user);
-        $ingredient->setCiqualFood($ciqualFood);
-        $ingredient->setDefaultUnit(Unit::Gram);
-        $ingredient->setCategory($this->mapCategory($ciqualFood->getAlimGroupNameFr()));
+        $foodData = $this->ciqualClient->getFood($ciqualAlimCode);
+        if ($foodData === null) {
+            throw new \DomainException("Ciqual food not found: {$ciqualAlimCode}");
+        }
 
-        foreach ($ciqualFood->getNutrients() as $fn) {
-            $code = $fn->getNutrient()->getConstCode();
-            if (isset(self::NUTRIENT_CODES[$code]) && $fn->getValue() !== null) {
-                $setter = 'set' . ucfirst(self::NUTRIENT_CODES[$code]);
-                $ingredient->$setter($fn->getValue());
+        $ingredient = new Ingredient();
+        $ingredient->setName($foodData['alim_name_fr']);
+        $ingredient->setUser($user);
+        $ingredient->setCiqualAlimCode($ciqualAlimCode);
+        $ingredient->setDefaultUnit(Unit::Gram);
+        $ingredient->setCategory($this->mapCategory($foodData['alim_group_name_fr'] ?? null));
+
+        // Extract macros from nutrients
+        $nutrientMap = [];
+        foreach ($foodData['nutrients'] ?? [] as $n) {
+            $nutrientMap[$n['const_code']] = $n['value'];
+        }
+
+        foreach (self::NUTRIENT_CODES as $code => $field) {
+            if (isset($nutrientMap[$code]) && $nutrientMap[$code] !== null) {
+                $setter = 'set' . ucfirst($field);
+                $ingredient->$setter((float) $nutrientMap[$code]);
             }
         }
 

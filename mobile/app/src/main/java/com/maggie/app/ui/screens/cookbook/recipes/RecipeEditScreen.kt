@@ -179,10 +179,10 @@ fun RecipeEditScreen(
                             put("notes", notes.ifBlank { null })
                             putJsonArray("ingredients") {
                                 ingredientRows
-                                    .filter { it.ciqualFoodId.isNotBlank() && it.quantity.isNotBlank() }
+                                    .filter { it.ciqualAlimCode.isNotBlank() && it.quantity.isNotBlank() }
                                     .forEach { row ->
                                         addJsonObject {
-                                            put("ciqualFood", "/api/ciqual_foods/${row.ciqualFoodId}")
+                                            put("ciqualAlimCode", row.ciqualAlimCode)
                                             put("quantity", row.quantity.toFloatOrNull() ?: 0f)
                                             put("unit", row.unit.name.lowercase())
                                         }
