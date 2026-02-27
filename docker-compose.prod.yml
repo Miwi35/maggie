@@ -10,6 +10,7 @@ services:
       APP_ENV: prod
       APP_DEBUG: "0"
       ELASTICSEARCH_URL: http://elasticsearch:9200
+      CIQUAL_SERVICE_URL: http://ciqual:8002
     volumes:
       - jwt_keys:/var/www/api/config/jwt
     depends_on:
@@ -132,6 +133,7 @@ services:
       APP_ENV: prod
       APP_DEBUG: "0"
       ELASTICSEARCH_URL: http://elasticsearch:9200
+      CIQUAL_SERVICE_URL: http://ciqual:8002
     depends_on:
       database:
         condition: service_healthy
@@ -154,6 +156,7 @@ services:
       APP_ENV: prod
       APP_DEBUG: "0"
       ELASTICSEARCH_URL: http://elasticsearch:9200
+      CIQUAL_SERVICE_URL: http://ciqual:8002
     depends_on:
       database:
         condition: service_healthy
@@ -163,6 +166,22 @@ services:
     user: root
     networks:
       - internal
+
+  # ===========================================================================
+  # Ciqual (ANSES food composition microservice)
+  # ===========================================================================
+  ciqual:
+    image: ghcr.io/miwi35/maggie-ciqual:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.maggie-ciqual.rule=Host(`maggieai.fr`) && PathPrefix(`/ciqual`)"
+      - "traefik.http.routers.maggie-ciqual.entrypoints=websecure"
+      - "traefik.http.routers.maggie-ciqual.tls.certresolver=letsencrypt"
+      - "traefik.http.services.maggie-ciqual.loadbalancer.server.port=8002"
+    networks:
+      - internal
+      - traefik-public
 
   # ===========================================================================
   # Python Agent Hub (FastAPI)
