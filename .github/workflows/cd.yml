@@ -14,13 +14,40 @@ env:
   CIQUAL_IMAGE: ghcr.io/miwi35/maggie-ciqual
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    outputs:
+      app: ${{ steps.filter.outputs.app }}
+      agent: ${{ steps.filter.outputs.agent }}
+      ciqual: ${{ steps.filter.outputs.ciqual }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            app:
+              - 'api/**'
+              - 'admin/**'
+              - '.docker/php/**'
+              - '.docker/nginx/**'
+            agent:
+              - 'agent/**'
+              - '.docker/python/**'
+            ciqual:
+              - 'ciqual/**'
+              - '.docker/ciqual/**'
+
   # ===========================================================================
   # Build PHP image (needed by nginx build)
   # ===========================================================================
   build-php:
     name: Build PHP
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: read
       packages: write
@@ -52,8 +79,9 @@ jobs:
   # ===========================================================================
   build-agent:
     name: Build Agent
+    needs: changes
+    if: needs.changes.outputs.agent == 'true'
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: read
       packages: write
@@ -85,8 +113,9 @@ jobs:
   # ===========================================================================
   build-ciqual:
     name: Build Ciqual
+    needs: changes
+    if: needs.changes.outputs.ciqual == 'true'
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: read
       packages: write
@@ -120,8 +149,9 @@ jobs:
   # ===========================================================================
   build-nginx:
     name: Build Nginx
+    needs: [changes, build-php]
+    if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
-    needs: build-php
     permissions:
       contents: read
       packages: write
@@ -157,7 +187,12 @@ jobs:
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
-    needs: [build-php, build-nginx, build-agent, build-ciqual]
+    needs: [build-nginx, build-agent, build-ciqual]
+    if: >-
+      always() && !failure() && !cancelled() &&
+      (needs.build-nginx.result == 'success' ||
+       needs.build-agent.result == 'success' ||
+       needs.build-ciqual.result == 'success')
     environment: production
     permissions:
       contents: read
