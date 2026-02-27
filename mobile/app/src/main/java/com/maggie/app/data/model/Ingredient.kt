@@ -8,4 +8,8 @@ data class Ingredient(
     val name: String,
     val defaultUnit: CookbookUnit? = null,
     val category: ProductCategory,
+    val kcalPer100g: Float? = null,
+    val proteinPer100g: Float? = null,
+    val carbsPer100g: Float? = null,
+    val fatPer100g: Float? = null,
 )

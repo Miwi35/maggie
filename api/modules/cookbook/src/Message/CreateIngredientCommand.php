@@ -11,6 +11,11 @@ final readonly class CreateIngredientCommand
         public string $name,
         public string $category,
         public ?string $defaultUnit = null,
+        public ?string $ciqualFoodId = null,
+        public ?float $kcalPer100g = null,
+        public ?float $proteinPer100g = null,
+        public ?float $carbsPer100g = null,
+        public ?float $fatPer100g = null,
     ) {
     }
 }

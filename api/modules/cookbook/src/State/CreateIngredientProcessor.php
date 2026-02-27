@@ -32,6 +32,11 @@ class CreateIngredientProcessor implements ProcessorInterface
             name: $data->getName(),
             category: $data->getCategory()->value,
             defaultUnit: $data->getDefaultUnit()?->value,
+            ciqualFoodId: $data->getCiqualFood() !== null ? (string) $data->getCiqualFood()->getId() : null,
+            kcalPer100g: $data->getKcalPer100g(),
+            proteinPer100g: $data->getProteinPer100g(),
+            carbsPer100g: $data->getCarbsPer100g(),
+            fatPer100g: $data->getFatPer100g(),
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();

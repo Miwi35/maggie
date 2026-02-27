@@ -3,6 +3,7 @@ package com.maggie.app.data.api
 import com.maggie.app.BuildConfig
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.ChatMessage
+import com.maggie.app.data.model.CiqualFood
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.GoogleCalendar
 import com.maggie.app.data.model.GroceryList
@@ -142,6 +143,11 @@ data class IngredientCreateRequest(
     val name: String,
     val defaultUnit: String? = null,
     val category: String = "other",
+    val ciqualFood: String? = null,
+    val kcalPer100g: Float? = null,
+    val proteinPer100g: Float? = null,
+    val carbsPer100g: Float? = null,
+    val fatPer100g: Float? = null,
 )
 
 @Serializable
@@ -443,6 +449,14 @@ class MaggieApiService(
             accept(ContentType("application", "ld+json"))
             setBody(request)
         }.body()
+    }
+
+    // Ciqual Foods
+    suspend fun searchCiqualFoods(query: String): List<CiqualFood> {
+        return client.get("$baseUrl/api/ciqual_foods") {
+            accept(ContentType("application", "ld+json"))
+            url.parameters.append("alimNameFr", query)
+        }.body<ApiCollection<CiqualFood>>().member
     }
 
     // Meals

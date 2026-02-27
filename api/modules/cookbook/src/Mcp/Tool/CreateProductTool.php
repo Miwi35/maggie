@@ -25,6 +25,11 @@ class CreateProductTool
         string $name,
         string $category,
         ?string $defaultUnit = null,
+        ?string $ciqualFoodId = null,
+        ?float $kcalPer100g = null,
+        ?float $proteinPer100g = null,
+        ?float $carbsPer100g = null,
+        ?float $fatPer100g = null,
     ): string {
         try {
             $users = $this->userRepository->findAll();
@@ -35,6 +40,11 @@ class CreateProductTool
                 name: $name,
                 category: $category,
                 defaultUnit: $defaultUnit,
+                ciqualFoodId: $ciqualFoodId,
+                kcalPer100g: $kcalPer100g,
+                proteinPer100g: $proteinPer100g,
+                carbsPer100g: $carbsPer100g,
+                fatPer100g: $fatPer100g,
             ));
 
             /** @var Product $product */

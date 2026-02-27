@@ -14,6 +14,7 @@ use Maggie\Calendar\Contract\MercurePublishable;
 use Maggie\Cookbook\Enum\ProductCategory;
 use Maggie\Cookbook\Enum\Unit;
 use Maggie\Cookbook\Repository\ProductRepository;
+use Symfony\Component\Serializer\Attribute\Groups;
 use Maggie\Cookbook\State\CreateProductProcessor;
 use Maggie\Cookbook\State\DeleteProductProcessor;
 use Maggie\Cookbook\State\UpdateProductProcessor;
@@ -65,6 +66,23 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
     #[ORM\JoinColumn(nullable: false)]
     #[IndexedRelation(targetEntity: User::class, sourceField: 'userId')]
     private User $user;
+
+    #[ORM\ManyToOne(targetEntity: CiqualFood::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    #[Groups(['product:read'])]
+    private ?CiqualFood $ciqualFood = null;
+
+    #[ORM\Column(type: 'float', nullable: true)]
+    private ?float $kcalPer100g = null;
+
+    #[ORM\Column(type: 'float', nullable: true)]
+    private ?float $proteinPer100g = null;
+
+    #[ORM\Column(type: 'float', nullable: true)]
+    private ?float $carbsPer100g = null;
+
+    #[ORM\Column(type: 'float', nullable: true)]
+    private ?float $fatPer100g = null;
 
     public function __construct()
     {
@@ -124,6 +142,66 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
         return $this;
     }
 
+    public function getCiqualFood(): ?CiqualFood
+    {
+        return $this->ciqualFood;
+    }
+
+    public function setCiqualFood(?CiqualFood $ciqualFood): static
+    {
+        $this->ciqualFood = $ciqualFood;
+
+        return $this;
+    }
+
+    public function getKcalPer100g(): ?float
+    {
+        return $this->kcalPer100g;
+    }
+
+    public function setKcalPer100g(?float $kcalPer100g): static
+    {
+        $this->kcalPer100g = $kcalPer100g;
+
+        return $this;
+    }
+
+    public function getProteinPer100g(): ?float
+    {
+        return $this->proteinPer100g;
+    }
+
+    public function setProteinPer100g(?float $proteinPer100g): static
+    {
+        $this->proteinPer100g = $proteinPer100g;
+
+        return $this;
+    }
+
+    public function getCarbsPer100g(): ?float
+    {
+        return $this->carbsPer100g;
+    }
+
+    public function setCarbsPer100g(?float $carbsPer100g): static
+    {
+        $this->carbsPer100g = $carbsPer100g;
+
+        return $this;
+    }
+
+    public function getFatPer100g(): ?float
+    {
+        return $this->fatPer100g;
+    }
+
+    public function setFatPer100g(?float $fatPer100g): static
+    {
+        $this->fatPer100g = $fatPer100g;
+
+        return $this;
+    }
+
     /** @return array<string, mixed> */
     public function toSearchDocument(): array
     {
@@ -133,6 +211,10 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
             'defaultUnit' => $this->defaultUnit?->value,
             'userId' => (string) $this->user->getId(),
             'dtype' => $this instanceof Ingredient ? 'ingredient' : 'product',
+            'kcalPer100g' => $this->kcalPer100g,
+            'proteinPer100g' => $this->proteinPer100g,
+            'carbsPer100g' => $this->carbsPer100g,
+            'fatPer100g' => $this->fatPer100g,
         ];
     }
 
@@ -141,6 +223,10 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
         return [
             'name' => $this->name,
             'category' => $this->category->value,
+            'kcalPer100g' => $this->kcalPer100g,
+            'proteinPer100g' => $this->proteinPer100g,
+            'carbsPer100g' => $this->carbsPer100g,
+            'fatPer100g' => $this->fatPer100g,
         ];
     }
 }

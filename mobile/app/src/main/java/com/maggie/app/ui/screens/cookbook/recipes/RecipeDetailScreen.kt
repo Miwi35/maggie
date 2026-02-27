@@ -136,6 +136,17 @@ fun RecipeDetailScreen(
                             }
                         }
                     }
+
+                    // Nutrition summary placeholder — will populate when ingredients carry macros
+                    if (r.ingredients.isNotEmpty()) {
+                        HorizontalDivider()
+                        Text("Nutrition (par portion)", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            text = "Les données nutritionnelles seront affichées lorsque les ingrédients seront liés à la base Ciqual.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }

@@ -12,7 +12,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'create_ingredient', description: 'Create a new food ingredient. Categories: produce, dairy, meat, fish, grain, spice, condiment, frozen, beverage, other. Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet.')]
+#[McpTool(name: 'create_ingredient', description: 'Create a new food ingredient. Categories: produce, dairy, meat, fish, grain, spice, condiment, frozen, beverage, other. Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet. Use search_ciqual_foods first to find nutrition data and pass the ciqualFoodId.')]
 class CreateIngredientTool
 {
     public function __construct(
@@ -25,6 +25,11 @@ class CreateIngredientTool
         string $name,
         string $category,
         ?string $defaultUnit = null,
+        ?string $ciqualFoodId = null,
+        ?float $kcalPer100g = null,
+        ?float $proteinPer100g = null,
+        ?float $carbsPer100g = null,
+        ?float $fatPer100g = null,
     ): string {
         try {
             $users = $this->userRepository->findAll();
@@ -35,6 +40,11 @@ class CreateIngredientTool
                 name: $name,
                 category: $category,
                 defaultUnit: $defaultUnit,
+                ciqualFoodId: $ciqualFoodId,
+                kcalPer100g: $kcalPer100g,
+                proteinPer100g: $proteinPer100g,
+                carbsPer100g: $carbsPer100g,
+                fatPer100g: $fatPer100g,
             ));
 
             /** @var Ingredient $ingredient */

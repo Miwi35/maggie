@@ -3,6 +3,9 @@ import { CustomRoutes } from 'react-admin'
 import { Route } from 'react-router-dom'
 import { MealsWeekView } from './MealsWeekView'
 import { GroceryListView } from './GroceryListView'
+import { IngredientCreate } from './IngredientCreate'
+import { IngredientEdit } from './IngredientEdit'
+import { IngredientList } from './IngredientList'
 import { RecipeCreate } from './RecipeCreate'
 import { RecipeEdit } from './RecipeEdit'
 import { RecipeList } from './RecipeList'
@@ -14,8 +17,14 @@ export const cookbookResources = (
       <Route path="/grocery" element={<GroceryListView />} />
     </CustomRoutes>
     <ResourceGuesser name="products" />
-    <ResourceGuesser name="ingredients" />
+    <ResourceGuesser
+      name="ingredients"
+      list={IngredientList}
+      create={IngredientCreate}
+      edit={IngredientEdit}
+    />
     <ResourceGuesser name="recipes" list={RecipeList} create={RecipeCreate} edit={RecipeEdit} />
+    <ResourceGuesser name="ciqual_foods" />
     <ResourceGuesser name="recurring_grocery_items" />
   </>
 )
