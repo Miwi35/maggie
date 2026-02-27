@@ -163,11 +163,6 @@ data class MealCreateRequest(
 )
 
 @Serializable
-data class GroceryListCreateRequest(
-    val weekStart: String,
-)
-
-@Serializable
 data class RecurringGroceryItemCreateRequest(
     val product: String? = null,
     val customLabel: String? = null,
@@ -494,20 +489,16 @@ class MaggieApiService(
         }.body()
     }
 
-    suspend fun createGroceryList(request: GroceryListCreateRequest): GroceryList {
-        return client.post("$baseUrl/api/grocery_lists") {
-            contentType(ContentType.Application.Json)
-            accept(ContentType("application", "ld+json"))
-            setBody(request)
-        }.body()
-    }
-
-    suspend fun updateGroceryList(id: String, data: JsonObject): GroceryList {
-        return client.patch("$baseUrl/api/grocery_lists/$id") {
+    suspend fun patchGroceryItem(itemId: String, checked: Boolean) {
+        client.patch("$baseUrl/api/grocery_items/$itemId") {
             contentType(MERGE_PATCH)
             accept(ContentType("application", "ld+json"))
-            setBody(data)
-        }.body()
+            setBody(buildJsonObject { put("checked", checked) })
+        }
+    }
+
+    suspend fun deleteGroceryItem(itemId: String) {
+        client.delete("$baseUrl/api/grocery_items/$itemId")
     }
 
     // Recurring Grocery Items

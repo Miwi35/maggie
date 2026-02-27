@@ -12,7 +12,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'generate_grocery_list', description: 'Generate a grocery list from planned meals in a date range plus recurring items. Date format: YYYY-MM-DD.')]
+#[McpTool(name: 'generate_grocery_list', description: 'Generate grocery items from planned meals in a date range plus recurring items. Items are added to the existing grocery list. Date format: YYYY-MM-DD.')]
 class GenerateGroceryListTool
 {
     public function __construct(
@@ -38,9 +38,21 @@ class GenerateGroceryListTool
             /** @var GroceryList $list */
             $list = $envelope->last(HandledStamp::class)->getResult();
 
-            $items = [];
+            $storeGroups = [];
             foreach ($list->getItems() as $item) {
-                $items[] = [
+                $store = $item->getStore();
+                $storeKey = $store !== null ? (string) $store->getId() : '__unassigned__';
+
+                if (!isset($storeGroups[$storeKey])) {
+                    $storeGroups[$storeKey] = [
+                        'storeId' => $store !== null ? (string) $store->getId() : null,
+                        'storeName' => $store?->getName() ?? 'Non assigné',
+                        'visitOrder' => $store?->getVisitOrder() ?? PHP_INT_MAX,
+                        'items' => [],
+                    ];
+                }
+
+                $storeGroups[$storeKey]['items'][] = [
                     'id' => (string) $item->getId(),
                     'label' => $item->getLabel(),
                     'quantity' => $item->getQuantity(),
@@ -50,13 +62,19 @@ class GenerateGroceryListTool
                 ];
             }
 
+            usort($storeGroups, fn (array $a, array $b) => $a['visitOrder'] <=> $b['visitOrder']);
+            $storeGroups = array_map(function (array $group) {
+                unset($group['visitOrder']);
+
+                return $group;
+            }, $storeGroups);
+
             return json_encode([
                 'success' => true,
                 'groceryList' => [
                     'id' => (string) $list->getId(),
-                    'weekStart' => $list->getWeekStart()->format('Y-m-d'),
-                    'status' => $list->getStatus()->value,
-                    'items' => $items,
+                    'storeGroups' => array_values($storeGroups),
+                    'totalItems' => $list->getItems()->count(),
                 ],
             ], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {

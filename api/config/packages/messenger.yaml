@@ -46,12 +46,15 @@ framework:
             'Maggie\Cookbook\Message\CreateMealCommand': sync
             'Maggie\Cookbook\Message\UpdateMealCommand': sync
             'Maggie\Cookbook\Message\DeleteMealCommand': sync
-            'Maggie\Cookbook\Message\CreateGroceryListCommand': sync
-            'Maggie\Cookbook\Message\UpdateGroceryListCommand': sync
-            'Maggie\Cookbook\Message\DeleteGroceryListCommand': sync
             'Maggie\Cookbook\Message\GenerateGroceryListCommand': sync
             'Maggie\Cookbook\Message\AddGroceryItemCommand': sync
             'Maggie\Cookbook\Message\CheckGroceryItemCommand': sync
+            'Maggie\Cookbook\Message\EndErrandCommand': sync
+            'Maggie\Cookbook\Message\MoveToFallbackCommand': sync
+            'Maggie\Cookbook\Message\RemoveGroceryItemCommand': sync
+            'Maggie\Cookbook\Message\CreateStoreCommand': sync
+            'Maggie\Cookbook\Message\UpdateStoreCommand': sync
+            'Maggie\Cookbook\Message\DeleteStoreCommand': sync
             'Maggie\Cookbook\Message\CreateRecurringGroceryItemCommand': sync
             'Maggie\Cookbook\Message\UpdateRecurringGroceryItemCommand': sync
             'Maggie\Cookbook\Message\DeleteRecurringGroceryItemCommand': sync

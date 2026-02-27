@@ -49,13 +49,6 @@ enum class GroceryItemSource {
 }
 
 @Serializable
-enum class GroceryListStatus {
-    @SerialName("draft") DRAFT,
-    @SerialName("active") ACTIVE,
-    @SerialName("completed") COMPLETED,
-}
-
-@Serializable
 enum class RecurringFrequency {
     @SerialName("weekly") WEEKLY,
     @SerialName("biweekly") BIWEEKLY,

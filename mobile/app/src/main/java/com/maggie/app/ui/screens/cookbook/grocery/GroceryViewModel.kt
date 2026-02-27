@@ -4,18 +4,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.GroceryList
+import com.maggie.app.data.model.Store
 import com.maggie.app.data.repository.GroceryListRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonArray
-import kotlinx.serialization.json.addJsonObject
+import java.time.LocalDate
+
+data class StoreGroup(val store: Store?, val items: List<GroceryItem>)
 
 data class GroceryUiState(
-    val groceryLists: List<GroceryList> = emptyList(),
-    val selectedList: GroceryList? = null,
+    val groceryList: GroceryList? = null,
+    val storeGroups: List<StoreGroup> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
 )
@@ -35,9 +35,11 @@ class GroceryViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
-                val lists = groceryListRepository.getGroceryLists().getOrThrow()
+                val list = groceryListRepository.getGroceryList().getOrThrow()
+                val groups = buildStoreGroups(list)
                 _uiState.value = _uiState.value.copy(
-                    groceryLists = lists,
+                    groceryList = list,
+                    storeGroups = groups,
                     isLoading = false,
                 )
             } catch (e: Exception) {
@@ -46,48 +48,80 @@ class GroceryViewModel(
         }
     }
 
-    fun selectList(id: String) {
+    fun toggleItemChecked(item: GroceryItem) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
             try {
-                val list = groceryListRepository.getGroceryList(id).getOrThrow()
-                _uiState.value = _uiState.value.copy(selectedList = list, isLoading = false)
+                val itemId = item.id ?: return@launch
+                val newChecked = !item.checked
+
+                // Optimistic update
+                val currentList = _uiState.value.groceryList ?: return@launch
+                val updatedItems = currentList.items.map { existing ->
+                    if (existing.id == item.id) existing.copy(checked = newChecked) else existing
+                }
+                val updatedList = currentList.copy(items = updatedItems)
+                _uiState.value = _uiState.value.copy(
+                    groceryList = updatedList,
+                    storeGroups = buildStoreGroups(updatedList),
+                )
+
+                // Server call
+                groceryListRepository.checkItem(itemId, newChecked)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(error = e.message)
+                refresh()
+            }
+        }
+    }
+
+    fun endErrand(removeItemIds: List<String>) {
+        viewModelScope.launch {
+            try {
+                _uiState.value = _uiState.value.copy(isLoading = true)
+                val currentList = _uiState.value.groceryList ?: return@launch
+
+                // Delete checked items
+                for (item in currentList.items) {
+                    if (item.checked && item.id != null) {
+                        groceryListRepository.deleteItem(item.id)
+                    }
+                }
+
+                // Delete items the user chose to remove
+                for (itemId in removeItemIds) {
+                    groceryListRepository.deleteItem(itemId)
+                }
+
+                refresh()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)
             }
         }
     }
 
-    fun clearSelection() {
-        _uiState.value = _uiState.value.copy(selectedList = null)
-    }
+    private fun buildStoreGroups(list: GroceryList?): List<StoreGroup> {
+        if (list == null) return emptyList()
 
-    fun toggleItemChecked(listId: String, item: GroceryItem) {
-        viewModelScope.launch {
+        val today = LocalDate.now()
+        val visibleItems = list.items.filter { item ->
+            val buyAfter = item.buyAfter
+            if (buyAfter == null) return@filter true
             try {
-                val currentList = _uiState.value.selectedList ?: return@launch
-                val updatedItems = currentList.items.map { existing ->
-                    if (existing.id == item.id) existing.copy(checked = !existing.checked) else existing
-                }
-                // Optimistic update
-                _uiState.value = _uiState.value.copy(
-                    selectedList = currentList.copy(items = updatedItems),
-                )
-                // PATCH to server
-                val data = buildJsonObject {
-                    putJsonArray("items") {
-                        updatedItems.forEach { i ->
-                            addJsonObject {
-                                i.id?.let { put("id", it) }
-                                put("checked", i.checked)
-                            }
-                        }
-                    }
-                }
-                groceryListRepository.updateGroceryList(listId, data)
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = e.message)
+                val date = LocalDate.parse(buyAfter)
+                !date.isAfter(today)
+            } catch (_: Exception) {
+                true
             }
         }
+
+        val grouped = visibleItems.groupBy { it.store?.id ?: "__unassigned__" }
+        val storeMap = mutableMapOf<String, StoreGroup>()
+
+        for ((key, items) in grouped) {
+            val store = items.firstOrNull()?.store
+            storeMap[key] = StoreGroup(store = store, items = items)
+        }
+
+        return storeMap.values.sortedBy { it.store?.visitOrder ?: Int.MAX_VALUE }
     }
 }

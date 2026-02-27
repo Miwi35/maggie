@@ -7,11 +7,12 @@ namespace Maggie\Cookbook\Message;
 final readonly class AddGroceryItemCommand
 {
     public function __construct(
-        public string $groceryListId,
-        public ?string $productId = null,
-        public ?string $customLabel = null,
+        public string $userId,
+        public string $label,
         public ?float $quantity = null,
         public ?string $unit = null,
+        public ?string $storeId = null,
+        public string $source = 'manual',
     ) {
     }
 }

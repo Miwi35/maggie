@@ -6,6 +6,7 @@ namespace Maggie\Cookbook\Entity;
 
 use Maggie\Cookbook\Enum\GroceryItemSource;
 use Maggie\Cookbook\Enum\Unit;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Ulid;
 
@@ -38,6 +39,13 @@ class GroceryItem
 
     #[ORM\Column(length: 20, enumType: GroceryItemSource::class)]
     private GroceryItemSource $source;
+
+    #[ORM\ManyToOne(targetEntity: Store::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?Store $store = null;
+
+    #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $buyAfter = null;
 
     public function __construct()
     {
@@ -134,6 +142,30 @@ class GroceryItem
     public function setSource(GroceryItemSource $source): static
     {
         $this->source = $source;
+
+        return $this;
+    }
+
+    public function getStore(): ?Store
+    {
+        return $this->store;
+    }
+
+    public function setStore(?Store $store): static
+    {
+        $this->store = $store;
+
+        return $this;
+    }
+
+    public function getBuyAfter(): ?\DateTimeImmutable
+    {
+        return $this->buyAfter;
+    }
+
+    public function setBuyAfter(?\DateTimeImmutable $buyAfter): static
+    {
+        $this->buyAfter = $buyAfter;
 
         return $this;
     }

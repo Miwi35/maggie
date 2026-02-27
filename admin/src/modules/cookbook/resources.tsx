@@ -25,5 +25,6 @@ export const cookbookResources = (
     />
     <ResourceGuesser name="recipes" list={RecipeList} create={RecipeCreate} edit={RecipeEdit} />
     <ResourceGuesser name="recurring_grocery_items" />
+    <ResourceGuesser name="stores" />
   </>
 )

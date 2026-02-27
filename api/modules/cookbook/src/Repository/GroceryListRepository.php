@@ -7,7 +7,7 @@ namespace Maggie\Cookbook\Repository;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Cookbook\Entity\GroceryList;
-use Maggie\Cookbook\Enum\GroceryListStatus;
+use Maggie\Core\Entity\User;
 
 /** @extends ServiceEntityRepository<GroceryList> */
 class GroceryListRepository extends ServiceEntityRepository
@@ -17,8 +17,17 @@ class GroceryListRepository extends ServiceEntityRepository
         parent::__construct($registry, GroceryList::class);
     }
 
-    public function findActive(): ?GroceryList
+    public function findOrCreateForUser(User $user): GroceryList
     {
-        return $this->findOneBy(['status' => GroceryListStatus::Active], ['createdAt' => 'DESC']);
+        $list = $this->findOneBy(['user' => $user]);
+
+        if ($list === null) {
+            $list = new GroceryList();
+            $list->setUser($user);
+            $this->getEntityManager()->persist($list);
+            $this->getEntityManager()->flush();
+        }
+
+        return $list;
     }
 }

@@ -81,6 +81,17 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
     #[ORM\Column(type: 'float', nullable: true)]
     private ?float $fatPer100g = null;
 
+    #[ORM\ManyToOne(targetEntity: Store::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?Store $preferredStore = null;
+
+    #[ORM\ManyToOne(targetEntity: Store::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?Store $fallbackStore = null;
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $shelfLifeDays = null;
+
     public function __construct()
     {
         $this->id = new Ulid();
@@ -199,6 +210,42 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
         return $this;
     }
 
+    public function getPreferredStore(): ?Store
+    {
+        return $this->preferredStore;
+    }
+
+    public function setPreferredStore(?Store $preferredStore): static
+    {
+        $this->preferredStore = $preferredStore;
+
+        return $this;
+    }
+
+    public function getFallbackStore(): ?Store
+    {
+        return $this->fallbackStore;
+    }
+
+    public function setFallbackStore(?Store $fallbackStore): static
+    {
+        $this->fallbackStore = $fallbackStore;
+
+        return $this;
+    }
+
+    public function getShelfLifeDays(): ?int
+    {
+        return $this->shelfLifeDays;
+    }
+
+    public function setShelfLifeDays(?int $shelfLifeDays): static
+    {
+        $this->shelfLifeDays = $shelfLifeDays;
+
+        return $this;
+    }
+
     /** @return array<string, mixed> */
     public function toSearchDocument(): array
     {
@@ -212,6 +259,9 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
             'proteinPer100g' => $this->proteinPer100g,
             'carbsPer100g' => $this->carbsPer100g,
             'fatPer100g' => $this->fatPer100g,
+            'preferredStoreId' => $this->preferredStore !== null ? (string) $this->preferredStore->getId() : null,
+            'fallbackStoreId' => $this->fallbackStore !== null ? (string) $this->fallbackStore->getId() : null,
+            'shelfLifeDays' => $this->shelfLifeDays,
         ];
     }
 
@@ -224,6 +274,9 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
             'proteinPer100g' => $this->proteinPer100g,
             'carbsPer100g' => $this->carbsPer100g,
             'fatPer100g' => $this->fatPer100g,
+            'preferredStoreId' => $this->preferredStore !== null ? (string) $this->preferredStore->getId() : null,
+            'fallbackStoreId' => $this->fallbackStore !== null ? (string) $this->fallbackStore->getId() : null,
+            'shelfLifeDays' => $this->shelfLifeDays,
         ];
     }
 }

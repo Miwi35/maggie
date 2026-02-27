@@ -11,6 +11,8 @@ data class GroceryItem(
     val unit: CookbookUnit? = null,
     val checked: Boolean = false,
     val source: GroceryItemSource = GroceryItemSource.MANUAL,
+    val store: Store? = null,
+    val buyAfter: String? = null,
 ) {
     val label: String get() = customLabel ?: product ?: "Unknown"
 }

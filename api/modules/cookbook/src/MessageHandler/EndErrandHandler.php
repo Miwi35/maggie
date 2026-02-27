@@ -6,36 +6,34 @@ namespace Maggie\Cookbook\MessageHandler;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Cookbook\Entity\GroceryList;
-use Maggie\Cookbook\Message\GenerateGroceryListCommand;
+use Maggie\Cookbook\Message\EndErrandCommand;
 use Maggie\Cookbook\Repository\GroceryListRepository;
-use Maggie\Cookbook\Service\GroceryGenerationService;
 use Maggie\Core\Repository\UserRepository;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
-class GenerateGroceryListHandler
+class EndErrandHandler
 {
     public function __construct(
-        private readonly GroceryGenerationService $groceryGenerationService,
+        private readonly EntityManagerInterface $em,
         private readonly GroceryListRepository $groceryListRepository,
         private readonly UserRepository $userRepository,
-        private readonly EntityManagerInterface $em,
     ) {
     }
 
-    public function __invoke(GenerateGroceryListCommand $command): GroceryList
+    public function __invoke(EndErrandCommand $command): GroceryList
     {
         $user = $this->userRepository->find($command->userId)
             ?? throw new \DomainException('User not found.');
 
-        $from = new \DateTimeImmutable($command->fromDate);
-        $to = new \DateTimeImmutable($command->toDate);
-
         $list = $this->groceryListRepository->findOrCreateForUser($user);
 
-        $items = $this->groceryGenerationService->generate($user, $from, $to);
-        foreach ($items as $item) {
-            $list->addItem($item);
+        // Remove all checked (bought) items
+        foreach ($list->getItems()->toArray() as $item) {
+            if ($item->isChecked()) {
+                $list->removeItem($item);
+                $this->em->remove($item);
+            }
         }
 
         $list->setUpdatedAt(new \DateTimeImmutable());

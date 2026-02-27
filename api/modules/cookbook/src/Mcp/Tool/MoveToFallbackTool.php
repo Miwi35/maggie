@@ -1,0 +1,47 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Maggie\Cookbook\Mcp\Tool;
+
+use Maggie\Cookbook\Message\MoveToFallbackCommand;
+use Maggie\Core\Repository\UserRepository;
+use Mcp\Capability\Attribute\McpTool;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\HandledStamp;
+
+#[McpTool(name: 'move_to_fallback', description: 'When a store is closed, move all unchecked items from that store to their fallback stores.')]
+class MoveToFallbackTool
+{
+    public function __construct(
+        private readonly MessageBusInterface $bus,
+        private readonly UserRepository $userRepository,
+    ) {
+    }
+
+    public function __invoke(string $storeId): string
+    {
+        try {
+            $users = $this->userRepository->findAll();
+            $user = $users[0] ?? throw new \DomainException('No user found.');
+
+            $envelope = $this->bus->dispatch(new MoveToFallbackCommand(
+                userId: (string) $user->getId(),
+                storeId: $storeId,
+            ));
+
+            /** @var array<array{itemId: string, label: string, newStore: string}> $moved */
+            $moved = $envelope->last(HandledStamp::class)->getResult();
+
+            return json_encode([
+                'success' => true,
+                'movedItems' => $moved,
+                'movedCount' => count($moved),
+            ], JSON_THROW_ON_ERROR);
+        } catch (HandlerFailedException $e) {
+            $cause = $e->getPrevious() ?? $e;
+            return json_encode(['error' => $cause->getMessage()], JSON_THROW_ON_ERROR);
+        }
+    }
+}

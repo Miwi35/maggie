@@ -48,7 +48,6 @@ import com.maggie.app.ui.components.ChatSheet
 import com.maggie.app.ui.components.MaggieTopBar
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.screens.cookbook.CookbookScreen
-import com.maggie.app.ui.screens.cookbook.grocery.GroceryListDetailScreen
 import com.maggie.app.ui.screens.cookbook.grocery.GroceryViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealCreateDialog
 import com.maggie.app.ui.screens.cookbook.meals.MealsWeekViewModel
@@ -105,7 +104,6 @@ sealed class Screen(val route: String, val label: String) {
     data object RecipeCreate : Screen("recipe/create", "Nouvelle recette")
     data object RecipeEdit : Screen("recipe/edit", "Modifier la recette")
     data object MealCreate : Screen("meal/create", "Nouveau repas")
-    data object GroceryDetail : Screen("grocery/detail", "Liste de courses")
 }
 
 private val MAIN_SCREENS = setOf(
@@ -168,7 +166,6 @@ fun NavGraph() {
     // Cookbook transient state
     var detailRecipeId by remember { mutableStateOf<String?>(null) }
     var editRecipeId by remember { mutableStateOf<String?>(null) }
-    var detailGroceryId by remember { mutableStateOf<String?>(null) }
     var mealCreateState by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     val calendarUiState by calendarViewModel.uiState.collectAsState()
@@ -415,10 +412,6 @@ fun NavGraph() {
                         onCreateMeal = { day, slot ->
                             mealCreateState = day to slot
                         },
-                        onGroceryListClick = { id ->
-                            detailGroceryId = id
-                            navController.navigate(Screen.GroceryDetail.route)
-                        },
                     )
                 }
                 composable(Screen.RecipeDetail.route) {
@@ -474,19 +467,6 @@ fun NavGraph() {
                                 navController.popBackStack()
                             },
                             onSearchCiqual = { query -> apiService.searchCiqualFoods(query) },
-                        )
-                    }
-                }
-                composable(Screen.GroceryDetail.route) {
-                    val id = detailGroceryId
-                    if (id != null) {
-                        GroceryListDetailScreen(
-                            groceryListId = id,
-                            viewModel = groceryViewModel,
-                            onBack = {
-                                detailGroceryId = null
-                                navController.popBackStack()
-                            },
                         )
                     }
                 }

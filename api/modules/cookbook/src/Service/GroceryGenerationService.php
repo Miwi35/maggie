@@ -55,6 +55,7 @@ class GroceryGenerationService
             $item->setQuantity($data['quantity']);
             $item->setUnit($data['unit']);
             $item->setSource(GroceryItemSource::Recipe);
+            $item->setStore($data['product']->getPreferredStore());
             $items[] = $item;
         }
 
@@ -67,6 +68,10 @@ class GroceryGenerationService
             $item->setQuantity($recurring->getQuantity());
             $item->setUnit($recurring->getUnit());
             $item->setSource(GroceryItemSource::Recurring);
+            $product = $recurring->getProduct();
+            if ($product !== null) {
+                $item->setStore($product->getPreferredStore());
+            }
             $items[] = $item;
         }
 

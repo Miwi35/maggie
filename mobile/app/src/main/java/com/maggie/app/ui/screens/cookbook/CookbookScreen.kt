@@ -16,7 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import com.maggie.app.ui.screens.cookbook.grocery.GroceryListsScreen
+import com.maggie.app.ui.screens.cookbook.grocery.GroceryScreen
 import com.maggie.app.ui.screens.cookbook.grocery.GroceryViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealsWeekScreen
 import com.maggie.app.ui.screens.cookbook.meals.MealsWeekViewModel
@@ -34,7 +34,6 @@ fun CookbookScreen(
     onRecipeClick: (String) -> Unit,
     onCreateRecipe: () -> Unit,
     onCreateMeal: (day: String, slot: String) -> Unit,
-    onGroceryListClick: (String) -> Unit,
 ) {
     val pagerState = rememberPagerState(pageCount = { TABS.size })
     val scope = rememberCoroutineScope()
@@ -74,9 +73,8 @@ fun CookbookScreen(
                         viewModel = mealsWeekViewModel,
                         onCreateMeal = onCreateMeal,
                     )
-                    2 -> GroceryListsScreen(
+                    2 -> GroceryScreen(
                         viewModel = groceryViewModel,
-                        onListClick = onGroceryListClick,
                     )
                 }
             }

@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace Maggie\Cookbook\Mcp\Tool;
 
 use Maggie\Cookbook\Entity\GroceryList;
-use Maggie\Cookbook\Message\AddGroceryItemCommand;
+use Maggie\Cookbook\Message\EndErrandCommand;
 use Maggie\Core\Repository\UserRepository;
 use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'add_grocery_item', description: 'Add an item to the grocery list by label. Works for any product: food ingredients, household supplies, hygiene items, etc. If a matching product exists, its preferred store is auto-assigned. For unknown products, determine the store from store descriptions (e.g. potatoes → greengrocer, toilet paper → supermarket). Set storeId directly when you can determine it. Only ask the user when you genuinely cannot determine the right store.')]
-class AddGroceryItemTool
+#[McpTool(name: 'end_errand', description: 'End shopping errand. Removes all checked (bought) items and returns remaining unchecked items. The agent should then ask the user about EACH remaining item: keep on the list for later, or remove. Use remove_grocery_item to remove items the user no longer wants.')]
+class EndErrandTool
 {
     public function __construct(
         private readonly MessageBusInterface $bus,
@@ -21,30 +21,35 @@ class AddGroceryItemTool
     ) {
     }
 
-    public function __invoke(
-        string $label,
-        ?float $quantity = null,
-        ?string $unit = null,
-        ?string $storeId = null,
-    ): string {
+    public function __invoke(): string
+    {
         try {
             $users = $this->userRepository->findAll();
             $user = $users[0] ?? throw new \DomainException('No user found.');
 
-            $envelope = $this->bus->dispatch(new AddGroceryItemCommand(
+            $envelope = $this->bus->dispatch(new EndErrandCommand(
                 userId: (string) $user->getId(),
-                label: $label,
-                quantity: $quantity,
-                unit: $unit,
-                storeId: $storeId,
             ));
 
             /** @var GroceryList $list */
             $list = $envelope->last(HandledStamp::class)->getResult();
 
+            $remaining = [];
+            foreach ($list->getItems() as $item) {
+                $remaining[] = [
+                    'id' => (string) $item->getId(),
+                    'label' => $item->getLabel(),
+                    'quantity' => $item->getQuantity(),
+                    'unit' => $item->getUnit()?->value,
+                    'store' => $item->getStore()?->getName(),
+                ];
+            }
+
             return json_encode([
                 'success' => true,
-                'itemCount' => $list->getItems()->count(),
+                'checkedRemoved' => true,
+                'remainingItems' => $remaining,
+                'remainingCount' => count($remaining),
             ], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;

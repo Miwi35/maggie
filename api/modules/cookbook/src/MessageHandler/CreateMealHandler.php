@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 namespace Maggie\Cookbook\MessageHandler;
 
+use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Repository\AgendaRepository;
+use Maggie\Cookbook\Entity\GroceryItem;
 use Maggie\Cookbook\Entity\Meal;
+use Maggie\Cookbook\Enum\GroceryItemSource;
 use Maggie\Cookbook\Enum\MealSlot;
 use Maggie\Cookbook\Message\CreateMealCommand;
+use Maggie\Cookbook\Repository\GroceryListRepository;
 use Maggie\Cookbook\Repository\RecipeRepository;
 use Maggie\Cookbook\UseCase\CreateMeal;
-use Maggie\Calendar\Entity\Agenda;
 use Maggie\Core\Repository\UserRepository;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -22,6 +26,8 @@ class CreateMealHandler
         private readonly AgendaRepository $agendaRepository,
         private readonly RecipeRepository $recipeRepository,
         private readonly UserRepository $userRepository,
+        private readonly GroceryListRepository $groceryListRepository,
+        private readonly EntityManagerInterface $em,
     ) {
     }
 
@@ -74,6 +80,63 @@ class CreateMealHandler
             : $slotLabel;
         $meal->setSummary($summary);
 
-        return $this->createMeal->execute($meal);
+        $meal = $this->createMeal->execute($meal);
+
+        // Auto-add recipe ingredients to the grocery list
+        $user = $agenda->getUser();
+        $list = $this->groceryListRepository->findOrCreateForUser($user);
+
+        foreach ($meal->getRecipes() as $recipe) {
+            foreach ($recipe->getIngredients() as $ri) {
+                $ingredient = $ri->getIngredient();
+                $unit = $ri->getUnit();
+
+                // Compute buyAfter from shelf life
+                $buyAfter = null;
+                $shelfLifeDays = $ingredient->getShelfLifeDays();
+                if ($shelfLifeDays !== null) {
+                    $buyAfter = $date->modify("-{$shelfLifeDays} days");
+                    if ($buyAfter <= new \DateTimeImmutable('today', new \DateTimeZone('Europe/Paris'))) {
+                        $buyAfter = null; // Already past or today → immediately visible
+                    }
+                }
+
+                // Check for existing unchecked item with same product+unit to merge
+                $merged = false;
+                foreach ($list->getItems() as $existing) {
+                    if ($existing->isChecked()) {
+                        continue;
+                    }
+                    if ($existing->getProduct() !== null
+                        && (string) $existing->getProduct()->getId() === (string) $ingredient->getId()
+                        && $existing->getUnit() === $unit
+                    ) {
+                        $existing->setQuantity(($existing->getQuantity() ?? 0) + $ri->getQuantity());
+                        // Keep the earlier buyAfter
+                        if ($buyAfter !== null && ($existing->getBuyAfter() === null || $buyAfter < $existing->getBuyAfter())) {
+                            $existing->setBuyAfter($buyAfter);
+                        }
+                        $merged = true;
+                        break;
+                    }
+                }
+
+                if (!$merged) {
+                    $item = new GroceryItem();
+                    $item->setProduct($ingredient);
+                    $item->setQuantity($ri->getQuantity());
+                    $item->setUnit($unit);
+                    $item->setSource(GroceryItemSource::Recipe);
+                    $item->setStore($ingredient->getPreferredStore());
+                    $item->setBuyAfter($buyAfter);
+                    $list->addItem($item);
+                }
+            }
+        }
+
+        $list->setUpdatedAt(new \DateTimeImmutable());
+        $this->em->flush();
+
+        return $meal;
     }
 }
