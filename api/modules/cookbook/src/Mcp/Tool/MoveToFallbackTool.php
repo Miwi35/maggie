@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maggie\Cookbook\Mcp\Tool;
 
+use Maggie\Cookbook\Entity\GroceryList;
 use Maggie\Cookbook\Message\MoveToFallbackCommand;
 use Maggie\Core\Repository\UserRepository;
 use Mcp\Capability\Attribute\McpTool;
@@ -31,13 +32,12 @@ class MoveToFallbackTool
                 storeId: $storeId,
             ));
 
-            /** @var array<array{itemId: string, label: string, newStore: string}> $moved */
-            $moved = $envelope->last(HandledStamp::class)->getResult();
+            /** @var GroceryList $list */
+            $list = $envelope->last(HandledStamp::class)->getResult();
 
             return json_encode([
                 'success' => true,
-                'movedItems' => $moved,
-                'movedCount' => count($moved),
+                'itemCount' => $list->getItems()->count(),
             ], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;

@@ -3,7 +3,7 @@
 import re
 
 _VERB_PREFIXES = re.compile(
-    r"^(create|get|search|list|update|delete|add|remove|store|schedule|set|cancel|complete|check)_"
+    r"^(create|get|search|list|update|delete|add|remove|store|schedule|set|cancel|complete|check|end|move|manage|assign|generate)_"
 )
 
 # Maps a domain noun to (category_label, description)
@@ -14,7 +14,11 @@ _CATEGORY_MAP: dict[str, tuple[str, str]] = {
     "ingredient": ("Cuisine", "gérer les ingrédients"),
     "product": ("Cuisine", "gérer les produits"),
     "meal": ("Cuisine", "planifier les repas"),
-    "grocery": ("Cuisine", "gérer les listes de courses"),
+    "grocery": ("Cuisine", "gérer la liste de courses"),
+    "errand": ("Cuisine", "gérer la liste de courses"),
+    "fallback": ("Cuisine", "gérer la liste de courses"),
+    "store": ("Cuisine", "gérer les magasins"),
+    "stores": ("Cuisine", "gérer les magasins"),
     "memory": ("Mémoire", "retenir et retrouver des informations sur l'utilisateur"),
     "instruction": ("Directives", "enregistrer des règles de planification autonome"),
     "skill": ("Compétences", "apprendre de nouvelles procédures"),

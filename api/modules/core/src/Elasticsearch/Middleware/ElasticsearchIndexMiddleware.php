@@ -41,16 +41,11 @@ final class ElasticsearchIndexMiddleware implements MiddlewareInterface
         $message = $envelope->getMessage();
         $parsed = self::parseCommandClass($message::class);
 
-        if ($parsed === null) {
-            return $envelope;
-        }
-
-        [$action] = $parsed;
-
         try {
-            if ($action === 'delete') {
+            if ($parsed !== null && $parsed[0] === 'delete') {
                 $this->handleDelete($message, $parsed);
             } else {
+                // For CRUD commands and non-CRUD commands alike, index if result is IndexableInterface.
                 $this->handleCreateOrUpdate($envelope);
             }
         } catch (\Throwable $e) {

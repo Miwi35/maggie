@@ -6,6 +6,7 @@ namespace Maggie\Cookbook\MessageHandler;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Cookbook\Entity\GroceryItem;
+use Maggie\Cookbook\Entity\GroceryList;
 use Maggie\Cookbook\Message\RemoveGroceryItemCommand;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -17,7 +18,7 @@ class RemoveGroceryItemHandler
     ) {
     }
 
-    public function __invoke(RemoveGroceryItemCommand $command): void
+    public function __invoke(RemoveGroceryItemCommand $command): GroceryList
     {
         $item = $this->em->find(GroceryItem::class, $command->groceryItemId)
             ?? throw new \DomainException("Grocery item not found: {$command->groceryItemId}");
@@ -28,5 +29,7 @@ class RemoveGroceryItemHandler
 
         $list->setUpdatedAt(new \DateTimeImmutable());
         $this->em->flush();
+
+        return $list;
     }
 }

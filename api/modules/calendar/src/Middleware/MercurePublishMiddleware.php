@@ -41,24 +41,21 @@ class MercurePublishMiddleware implements MiddlewareInterface
         $message = $envelope->getMessage();
         $parsed = self::parseCommandClass($message::class);
 
-        if ($parsed === null) {
-            return $envelope;
-        }
-
-        [$action, $topic] = $parsed;
-
         try {
-            if ($action === 'delete') {
+            if ($parsed !== null && $parsed[0] === 'delete') {
                 $idProp = lcfirst($parsed[2]) . 'Id';
                 $userId = $this->getCurrentUserId();
 
                 if ($userId !== null) {
-                    $this->publishDelete($topic, $message->$idProp, $userId);
+                    $this->publishDelete($parsed[1], $message->$idProp, $userId);
                 }
             } else {
+                // For CRUD commands, use the parsed topic; for non-CRUD commands
+                // (Add, Check, End, Move, Remove, Generate…), derive topic from the entity class.
                 $entity = $envelope->last(HandledStamp::class)?->getResult();
 
                 if ($entity instanceof MercurePublishable) {
+                    $topic = $parsed[1] ?? self::topicFromEntity($entity);
                     $userId = $entity instanceof OwnedByUserInterface
                         ? (string) $entity->getUser()->getId()
                         : $this->getCurrentUserId();
@@ -110,6 +107,14 @@ class MercurePublishMiddleware implements MiddlewareInterface
         }
 
         return null;
+    }
+
+    private static function topicFromEntity(object $entity): string
+    {
+        $class = (new \ReflectionClass($entity))->getShortName();
+        $snake = strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $class));
+
+        return '/api/' . $snake . 's';
     }
 
     private function publishDelete(string $topic, string $id, string $userId): void

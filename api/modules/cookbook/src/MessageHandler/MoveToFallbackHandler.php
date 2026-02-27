@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Cookbook\MessageHandler;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Cookbook\Entity\GroceryList;
 use Maggie\Cookbook\Message\MoveToFallbackCommand;
 use Maggie\Cookbook\Repository\GroceryListRepository;
 use Maggie\Cookbook\Repository\StoreRepository;
@@ -22,10 +23,7 @@ class MoveToFallbackHandler
     ) {
     }
 
-    /**
-     * @return array<array{itemId: string, label: string, newStore: string}>
-     */
-    public function __invoke(MoveToFallbackCommand $command): array
+    public function __invoke(MoveToFallbackCommand $command): GroceryList
     {
         $user = $this->userRepository->find($command->userId)
             ?? throw new \DomainException('User not found.');
@@ -34,7 +32,6 @@ class MoveToFallbackHandler
             ?? throw new \DomainException("Store not found: {$command->storeId}");
 
         $list = $this->groceryListRepository->findOrCreateForUser($user);
-        $moved = [];
 
         foreach ($list->getItems() as $item) {
             if ($item->isChecked()) {
@@ -48,17 +45,12 @@ class MoveToFallbackHandler
             $fallback = $product?->getFallbackStore();
             if ($fallback !== null) {
                 $item->setStore($fallback);
-                $moved[] = [
-                    'itemId' => (string) $item->getId(),
-                    'label' => $item->getLabel(),
-                    'newStore' => $fallback->getName(),
-                ];
             }
         }
 
         $list->setUpdatedAt(new \DateTimeImmutable());
         $this->em->flush();
 
-        return $moved;
+        return $list;
     }
 }

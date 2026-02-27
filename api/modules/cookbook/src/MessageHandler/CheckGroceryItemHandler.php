@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Cookbook\MessageHandler;
 
 use Maggie\Cookbook\Entity\GroceryItem;
+use Maggie\Cookbook\Entity\GroceryList;
 use Maggie\Cookbook\Message\CheckGroceryItemCommand;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -17,14 +18,17 @@ class CheckGroceryItemHandler
     ) {
     }
 
-    public function __invoke(CheckGroceryItemCommand $command): GroceryItem
+    public function __invoke(CheckGroceryItemCommand $command): GroceryList
     {
         $item = $this->em->find(GroceryItem::class, $command->groceryItemId)
             ?? throw new \DomainException("Grocery item not found: {$command->groceryItemId}");
 
         $item->setChecked($command->checked);
+
+        $list = $item->getGroceryList();
+        $list->setUpdatedAt(new \DateTimeImmutable());
         $this->em->flush();
 
-        return $item;
+        return $list;
     }
 }
