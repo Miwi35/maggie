@@ -149,7 +149,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install -e ".[dev]"
+      - run: pip install "fastapi>=0.115" "uvicorn[standard]>=0.34" "pytest>=8.0" "httpx>=0.28"
       - run: pytest
 
   admin-test:
