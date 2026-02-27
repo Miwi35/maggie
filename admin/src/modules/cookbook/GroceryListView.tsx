@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useDataProvider, useNotify, Title } from 'react-admin'
+import { useMercure } from '../../hooks/useMercure'
 import Box from '@mui/material/Box'
 import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
@@ -56,6 +57,7 @@ interface StoreGroup {
   items: GroceryItem[]
 }
 
+const GROCERY_LIST_TOPICS = ['/api/grocery_lists/{id}']
 const entrypoint = import.meta.env.VITE_API_URL || 'http://localhost/api'
 
 export const GroceryListView = () => {
@@ -94,6 +96,8 @@ export const GroceryListView = () => {
   useEffect(() => {
     fetchList()
   }, [fetchList])
+
+  useMercure(GROCERY_LIST_TOPICS, fetchList)
 
   const handleCheck = async (item: GroceryItem) => {
     try {
