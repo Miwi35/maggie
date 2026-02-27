@@ -16,10 +16,7 @@ class Settings(BaseSettings):
     mercure_public_url: str = "http://maggie.local/.well-known/mercure"
     mercure_jwt_secret: str = "!ChangeThisMercureHubJWTSecretKey!"
 
-    # Database — shared with Symfony API (messages)
-    database_url: str = "postgresql://maggie:maggie@database:5432/maggie"
-
-    # Agent database — agent-owned (proactions)
+    # Agent database — all agent-owned tables (messages, proactions, memory, etc.)
     agent_database_url: str = "postgresql://maggie:maggie@database:5432/maggie_agent"
 
     # RabbitMQ
@@ -33,13 +30,6 @@ class Settings(BaseSettings):
     agent_name: str = "Maggie"
     agent_base_url: str = "http://maggie.local/agent"
     max_conversation_history: int = 50
-
-    @computed_field
-    @property
-    def async_database_url(self) -> str:
-        """Convert Doctrine-style postgresql:// to asyncpg driver URL."""
-        url = self.database_url.split("?")[0]  # strip query params like ?serverVersion=
-        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
 
     @computed_field
     @property

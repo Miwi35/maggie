@@ -2,8 +2,9 @@ import logging
 
 from sqlalchemy import select, text
 
-from app.db.engine import async_session, engine
-from app.db.models import Base, Message
+from app.db.agent_engine import agent_engine, agent_session
+from app.db.models import Message
+from app.db.proaction_model import AgentBase
 from app.mercure.publisher import MercurePublisher
 
 logger = logging.getLogger(__name__)
@@ -21,11 +22,11 @@ class MessageRepository:
 
     async def ensure_table(self) -> None:
         """Create the agent_message table if it doesn't exist."""
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+        async with agent_engine.begin() as conn:
+            await conn.run_sync(AgentBase.metadata.create_all)
 
     async def create(self, user_id: str, role: str, content: str) -> Message:
-        async with async_session() as session:
+        async with agent_session() as session:
             msg = Message(user_id=user_id, role=role, content=content)
             session.add(msg)
             await session.commit()
@@ -40,7 +41,7 @@ class MessageRepository:
         return msg
 
     async def find_recent(self, user_id: str, limit: int = 20) -> list[Message]:
-        async with async_session() as session:
+        async with agent_session() as session:
             result = await session.execute(
                 select(Message).where(Message.user_id == user_id).order_by(Message.created_at.desc()).limit(limit)
             )
@@ -50,7 +51,7 @@ class MessageRepository:
 
     async def find_before(self, user_id: str, before_id: str, limit: int = 20) -> list[Message]:
         """Load messages older than the given message ID (cursor-based pagination)."""
-        async with async_session() as session:
+        async with agent_session() as session:
             # First get the target message's created_at
             target = await session.execute(select(Message).where(Message.id == before_id))
             target_msg = target.scalar_one_or_none()
@@ -69,7 +70,7 @@ class MessageRepository:
 
     async def search(self, user_id: str, query: str, limit: int = 20) -> list[Message]:
         """Full-text search on message content using ILIKE."""
-        async with async_session() as session:
+        async with agent_session() as session:
             result = await session.execute(
                 select(Message)
                 .where(Message.user_id == user_id, Message.content.ilike(f"%{query}%"))
@@ -84,7 +85,7 @@ class MessageRepository:
         Returns {"messages": [...], "targetIndex": N}.
         """
         half = limit // 2
-        async with async_session() as session:
+        async with agent_session() as session:
             target = await session.execute(select(Message).where(Message.id == message_id))
             target_msg = target.scalar_one_or_none()
             if target_msg is None:
@@ -116,7 +117,7 @@ class MessageRepository:
 
     async def find_after(self, user_id: str, after: str | None = None) -> list[Message]:
         """Find messages after a given ISO timestamp (for incremental sync)."""
-        async with async_session() as session:
+        async with agent_session() as session:
             query = select(Message).where(Message.user_id == user_id)
             if after:
                 query = query.where(Message.created_at > text(f"'{after}'::timestamptz"))

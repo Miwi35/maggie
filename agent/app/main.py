@@ -10,7 +10,7 @@ from app.a2a import setup_a2a
 from app.api.routes import router
 from app.db.instruction_model import Instruction  # noqa: F401 — register model with AgentBase before create_all
 from app.db.memory_model import Memory  # noqa: F401 — register model with AgentBase before create_all
-from app.db.message_repository import message_repo
+from app.db.models import Message  # noqa: F401 — register model with AgentBase before create_all
 from app.db.personality_model import PersonalityConfig  # noqa: F401 — register model with AgentBase before create_all
 from app.db.proaction_repository import proaction_repo
 from app.db.user_setting_model import UserSetting  # noqa: F401 — register model with AgentBase before create_all
@@ -30,19 +30,12 @@ async def lifespan(app: FastAPI):
     """Application lifespan: init DB, MCP, RabbitMQ, scheduler, consumer."""
     logger.info("Starting Maggie Agent Hub...")
 
-    # Ensure shared DB table (agent_message) exists
-    try:
-        await message_repo.ensure_table()
-        logger.info("Shared database table ready")
-    except Exception as e:
-        logger.warning(f"Could not create shared database table: {e}")
-
-    # Ensure agent DB table (proaction) exists
+    # Ensure agent DB tables exist (messages, proactions, memory, etc.)
     try:
         await proaction_repo.ensure_table()
-        logger.info("Agent database table ready")
+        logger.info("Agent database tables ready")
     except Exception as e:
-        logger.warning(f"Could not create agent database table: {e}")
+        logger.warning(f"Could not create agent database tables: {e}")
 
     # Build skill index from files
     try:

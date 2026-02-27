@@ -2,15 +2,12 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import Column, DateTime, Index, String, Text
-from sqlalchemy.orm import DeclarativeBase
+
+from app.db.proaction_model import AgentBase
 
 
-class Base(DeclarativeBase):
-    pass
-
-
-class Message(Base):
-    """Chat message — owned by the agent, stored in the shared Postgres."""
+class Message(AgentBase):
+    """Chat message — owned by the agent, stored in the agent database."""
 
     __tablename__ = "agent_message"
     __table_args__ = (Index("idx_agent_message_user_created", "user_id", "created_at"),)
