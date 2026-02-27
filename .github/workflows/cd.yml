@@ -24,21 +24,18 @@ jobs:
       ciqual: ${{ steps.filter.outputs.ciqual }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
         with:
-          filters: |
-            app:
-              - 'api/**'
-              - 'admin/**'
-              - '.docker/php/**'
-              - '.docker/nginx/**'
-            agent:
-              - 'agent/**'
-              - '.docker/python/**'
-            ciqual:
-              - 'ciqual/**'
-              - '.docker/ciqual/**'
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 2
+
+      - name: Detect changed paths
+        id: filter
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD)
+          echo "$CHANGED"
+          echo "app=$(echo "$CHANGED" | grep -qE '^(api/|admin/|\.docker/(php|nginx)/)' && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "agent=$(echo "$CHANGED" | grep -qE '^(agent/|\.docker/python/)' && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "ciqual=$(echo "$CHANGED" | grep -qE '^(ciqual/|\.docker/ciqual/)' && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
   # ===========================================================================
   # Build PHP image (needed by nginx build)
