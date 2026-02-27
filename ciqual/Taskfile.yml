@@ -15,9 +15,10 @@ tasks:
       - docker compose -f {{.COMPOSE_FILE}} up ciqual
 
   lint:
-    desc: Run ruff linter
+    desc: Run ruff linter and format check
     cmds:
       - docker compose -f {{.COMPOSE_FILE}} exec ciqual ruff check app/ tests/
+      - docker compose -f {{.COMPOSE_FILE}} exec ciqual ruff format --check app/ tests/
 
   lint:fix:
     desc: Fix linting issues
