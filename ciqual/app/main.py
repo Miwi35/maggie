@@ -9,16 +9,55 @@ CARBS_CODE = "31000"
 FAT_CODE = "40000"
 MACRO_CODES = (KCAL_CODE, PROTEIN_CODE, CARBS_CODE, FAT_CODE)
 
+FRENCH_STOP_WORDS = frozenset({
+    "de", "du", "d", "le", "la", "les", "l",
+    "au", "aux", "un", "une", "des", "et", "ou", "en",
+})
+
+# Group code for composed dishes / processed foods
+COMPOSED_DISHES_GROUP = "01"
+
 app = FastAPI(title="Ciqual", root_path="/ciqual")
+
+
+def _parse_search_words(q: str) -> list[str]:
+    """Split query into significant words, filtering French stop words."""
+    words = q.lower().split()
+    filtered = [w for w in words if w not in FRENCH_STOP_WORDS]
+    return filtered or words
+
+
+def _build_search_query(words: list[str], limit: int) -> tuple[str, list]:
+    """Build SQL with multi-word AND matching and relevance ranking."""
+    where_clauses = ["alim_name_fr LIKE ?"] * len(words)
+    where_params = [f"%{w}%" for w in words]
+
+    prefix_clauses = ["lower(alim_name_fr) LIKE ?"] * len(words)
+    prefix_params = [f"{w}%" for w in words]
+
+    where_sql = " AND ".join(where_clauses)
+    prefix_sql = " OR ".join(prefix_clauses)
+
+    sql = f"""
+        SELECT *
+        FROM food
+        WHERE {where_sql}
+        ORDER BY
+            CASE WHEN ({prefix_sql}) THEN 0 ELSE 1 END,
+            CASE WHEN alim_group_code = '{COMPOSED_DISHES_GROUP}' THEN 1 ELSE 0 END,
+            length(alim_name_fr),
+            alim_name_fr
+        LIMIT ?
+    """
+    return sql, where_params + prefix_params + [limit]
 
 
 @app.get("/foods", response_model=list[FoodSummary])
 def search_foods(q: str = Query(min_length=1), limit: int = Query(default=20, ge=1, le=100)):
     with get_db() as conn:
-        foods = conn.execute(
-            "SELECT * FROM food WHERE alim_name_fr LIKE ? ORDER BY alim_name_fr LIMIT ?",
-            (f"%{q}%", limit),
-        ).fetchall()
+        words = _parse_search_words(q)
+        sql, params = _build_search_query(words, limit)
+        foods = conn.execute(sql, params).fetchall()
 
         if not foods:
             return []
