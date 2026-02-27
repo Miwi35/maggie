@@ -133,7 +133,8 @@ data class RecipeCreateRequest(
 
 @Serializable
 data class RecipeIngredientRequest(
-    val ingredient: String,
+    val ingredient: String? = null,
+    val ciqualFood: String? = null,
     val quantity: Float,
     val unit: String,
 )

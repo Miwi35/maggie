@@ -21,14 +21,52 @@ class UpdateRecipeProcessor implements ProcessorInterface
 
     public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): Recipe
     {
+        $ingredients = $this->extractIngredients($context);
+
         $envelope = $this->bus->dispatch(new UpdateRecipeCommand(
             recipeId: (string) $data->getId(),
             name: $data->getName(),
             servings: $data->getServings(),
             tags: $data->getTags(),
             notes: $data->getNotes(),
+            ingredients: $ingredients,
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();
+    }
+
+    /** @return array<array{quantity: float, unit: string, ingredientId?: string, ciqualFoodId?: string}>|null */
+    private function extractIngredients(array $context): ?array
+    {
+        $request = $context['request'] ?? null;
+        if ($request === null) {
+            return null;
+        }
+
+        $body = json_decode($request->getContent(), true);
+        if (!isset($body['ingredients']) || !\is_array($body['ingredients'])) {
+            return null;
+        }
+
+        return array_map(fn (array $item) => [
+            'quantity' => (float) ($item['quantity'] ?? 0),
+            'unit' => $item['unit'] ?? 'g',
+            ...($this->extractId($item, 'ingredient') !== null ? ['ingredientId' => $this->extractId($item, 'ingredient')] : []),
+            ...($this->extractId($item, 'ciqualFood') !== null ? ['ciqualFoodId' => $this->extractId($item, 'ciqualFood')] : []),
+        ], $body['ingredients']);
+    }
+
+    private function extractId(array $item, string $key): ?string
+    {
+        if (!isset($item[$key]) || !\is_string($item[$key])) {
+            return null;
+        }
+
+        $iri = $item[$key];
+
+        // Extract ULID from IRI (e.g. "/api/ciqual_foods/01HXYZ..." → "01HXYZ...")
+        $parts = explode('/', rtrim($iri, '/'));
+
+        return end($parts);
     }
 }

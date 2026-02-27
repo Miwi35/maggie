@@ -8,7 +8,7 @@ final readonly class UpdateRecipeCommand
 {
     /**
      * @param string[]|null $tags
-     * @param array<array{ingredientId: string, quantity: float, unit: string}>|null $ingredients
+     * @param array<array{quantity: float, unit: string, ingredientId?: string, ciqualFoodId?: string}>|null $ingredients
      */
     public function __construct(
         public string $recipeId,

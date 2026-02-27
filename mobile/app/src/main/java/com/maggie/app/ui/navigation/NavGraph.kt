@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DrawerValue
@@ -38,6 +40,7 @@ import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.MealRepository
 import com.maggie.app.data.repository.RecipeRepository
 import com.maggie.app.data.repository.TaskRepository
+import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.ui.components.AppDrawerContent
 import com.maggie.app.ui.components.ChatBottomBar
@@ -148,6 +151,7 @@ fun NavGraph() {
     val agendaRepository: AgendaRepository = koinInject()
     val recipeRepository: RecipeRepository = koinInject()
     val mealRepository: MealRepository = koinInject()
+    val apiService: MaggieApiService = koinInject()
 
     // Notification unread count
     val notificationUiState by notificationViewModel.uiState.collectAsState()
@@ -264,6 +268,10 @@ fun NavGraph() {
                 navController = navController,
                 startDestination = Screen.Loading.route,
                 modifier = Modifier.padding(paddingValues),
+                enterTransition = { fadeIn() },
+                exitTransition = { fadeOut() },
+                popEnterTransition = { fadeIn() },
+                popExitTransition = { fadeOut() },
             ) {
                 composable(Screen.Loading.route) {
                     LoadingScreen()
@@ -444,6 +452,7 @@ fun NavGraph() {
                             }
                         },
                         onBack = { navController.popBackStack() },
+                        onSearchCiqual = { query -> apiService.searchCiqualFoods(query) },
                     )
                 }
                 composable(Screen.RecipeEdit.route) {
@@ -464,6 +473,7 @@ fun NavGraph() {
                                 editRecipeId = null
                                 navController.popBackStack()
                             },
+                            onSearchCiqual = { query -> apiService.searchCiqualFoods(query) },
                         )
                     }
                 }

@@ -22,7 +22,6 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -36,14 +35,20 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.maggie.app.data.model.CiqualFood
 import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.Recipe
 import com.maggie.app.data.repository.RecipeRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -58,6 +63,7 @@ fun RecipeEditScreen(
     recipeRepository: RecipeRepository,
     onConfirm: (String, JsonObject) -> Unit,
     onBack: () -> Unit,
+    onSearchCiqual: suspend (String) -> List<CiqualFood> = { emptyList() },
 ) {
     var recipe by remember { mutableStateOf<Recipe?>(null) }
     var isLoading by remember { mutableStateOf(true) }
@@ -83,7 +89,7 @@ fun RecipeEditScreen(
             r.ingredients.forEach { ing ->
                 ingredientRows.add(
                     IngredientRow(
-                        ingredientIri = ing.ingredient,
+                        ciqualFoodName = ing.ingredientName ?: "",
                         quantity = ing.quantity.toString(),
                         unit = ing.unit,
                     ),
@@ -169,6 +175,7 @@ fun RecipeEditScreen(
                         row = row,
                         onUpdate = { ingredientRows[index] = it },
                         onRemove = { ingredientRows.removeAt(index) },
+                        onSearchCiqual = onSearchCiqual,
                     )
                 }
 
@@ -182,10 +189,10 @@ fun RecipeEditScreen(
                             put("notes", notes.ifBlank { null })
                             putJsonArray("ingredients") {
                                 ingredientRows
-                                    .filter { it.ingredientIri.isNotBlank() && it.quantity.isNotBlank() }
+                                    .filter { it.ciqualFoodId.isNotBlank() && it.quantity.isNotBlank() }
                                     .forEach { row ->
                                         addJsonObject {
-                                            put("ingredient", row.ingredientIri)
+                                            put("ciqualFood", "/api/ciqual_foods/${row.ciqualFoodId}")
                                             put("quantity", row.quantity.toFloatOrNull() ?: 0f)
                                             put("unit", row.unit.name.lowercase())
                                         }
@@ -204,27 +211,72 @@ fun RecipeEditScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
 @Composable
 private fun EditIngredientRowInput(
     row: IngredientRow,
     onUpdate: (IngredientRow) -> Unit,
     onRemove: () -> Unit,
+    onSearchCiqual: suspend (String) -> List<CiqualFood>,
 ) {
     var unitExpanded by remember { mutableStateOf(false) }
+    var ciqualExpanded by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf(row.ciqualFoodName) }
+    var searchResults by remember { mutableStateOf<List<CiqualFood>>(emptyList()) }
+
+    LaunchedEffect(Unit) {
+        snapshotFlow { searchQuery }
+            .debounce(300)
+            .distinctUntilChanged()
+            .filter { it.length >= 2 }
+            .collect { query ->
+                searchResults = try {
+                    onSearchCiqual(query)
+                } catch (_: Exception) {
+                    emptyList()
+                }
+                ciqualExpanded = searchResults.isNotEmpty()
+            }
+    }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        OutlinedTextField(
-            value = row.ingredientIri,
-            onValueChange = { onUpdate(row.copy(ingredientIri = it)) },
-            label = { Text("IRI ingrédient") },
+        ExposedDropdownMenuBox(
+            expanded = ciqualExpanded,
+            onExpandedChange = { ciqualExpanded = it },
             modifier = Modifier.weight(1f),
-            singleLine = true,
-        )
+        ) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = {
+                    searchQuery = it
+                    if (it != row.ciqualFoodName) {
+                        onUpdate(row.copy(ciqualFoodId = "", ciqualFoodName = ""))
+                    }
+                },
+                label = { Text("Aliment Ciqual") },
+                modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryEditable),
+                singleLine = true,
+            )
+            ExposedDropdownMenu(
+                expanded = ciqualExpanded,
+                onDismissRequest = { ciqualExpanded = false },
+            ) {
+                searchResults.forEach { food ->
+                    DropdownMenuItem(
+                        text = { Text(food.alimNameFr) },
+                        onClick = {
+                            searchQuery = food.alimNameFr
+                            onUpdate(row.copy(ciqualFoodId = food.id, ciqualFoodName = food.alimNameFr))
+                            ciqualExpanded = false
+                        },
+                    )
+                }
+            }
+        }
         OutlinedTextField(
             value = row.quantity,
             onValueChange = { onUpdate(row.copy(quantity = it)) },

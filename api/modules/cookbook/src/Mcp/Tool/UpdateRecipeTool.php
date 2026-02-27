@@ -11,7 +11,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'update_recipe', description: 'Update an existing recipe. Only provided fields will be updated. Ingredients replaces the full list if provided.')]
+#[McpTool(name: 'update_recipe', description: 'Update an existing recipe. Only provided fields will be updated. Ingredients replaces the full list if provided. Each ingredient object needs quantity, unit, and either ingredientId or ciqualFoodId.')]
 class UpdateRecipeTool
 {
     public function __construct(

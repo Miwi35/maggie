@@ -34,10 +34,11 @@ export const RecipeEdit = () => (
       <TextInput source="notes" label="Notes" multiline rows={3} fullWidth />
       <ArrayInput source="ingredients" label="Ingrédients">
         <SimpleFormIterator inline>
-          <ReferenceInput source="ingredient" reference="ingredients">
+          <ReferenceInput source="ciqualFood" reference="ciqual_foods">
             <AutocompleteInput
-              label="Ingrédient"
-              optionText="name"
+              label="Aliment Ciqual"
+              optionText="alimNameFr"
+              filterToQuery={(q: string) => ({ alimNameFr: q })}
               sx={{ minWidth: 200 }}
             />
           </ReferenceInput>

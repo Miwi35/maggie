@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 namespace Maggie\Cookbook\MessageHandler;
 
+use Maggie\Cookbook\Entity\Ingredient;
 use Maggie\Cookbook\Entity\Recipe;
 use Maggie\Cookbook\Entity\RecipeIngredient;
 use Maggie\Cookbook\Enum\Unit;
 use Maggie\Cookbook\Message\UpdateRecipeCommand;
+use Maggie\Cookbook\Repository\CiqualFoodRepository;
 use Maggie\Cookbook\Repository\IngredientRepository;
 use Maggie\Cookbook\Repository\RecipeRepository;
+use Maggie\Cookbook\Service\IngredientFromCiqualResolver;
 use Maggie\Cookbook\UseCase\UpdateRecipe;
+use Maggie\Core\Entity\User;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -20,6 +24,8 @@ class UpdateRecipeHandler
         private readonly UpdateRecipe $updateRecipe,
         private readonly RecipeRepository $recipeRepository,
         private readonly IngredientRepository $ingredientRepository,
+        private readonly CiqualFoodRepository $ciqualFoodRepository,
+        private readonly IngredientFromCiqualResolver $ciqualResolver,
     ) {
     }
 
@@ -42,10 +48,10 @@ class UpdateRecipeHandler
         }
 
         if ($command->ingredients !== null) {
+            $user = $recipe->getUser();
             $recipe->clearIngredients();
             foreach ($command->ingredients as $item) {
-                $ingredient = $this->ingredientRepository->find($item['ingredientId'])
-                    ?? throw new \DomainException("Ingredient not found: {$item['ingredientId']}");
+                $ingredient = $this->resolveIngredient($item, $user);
 
                 $ri = new RecipeIngredient();
                 $ri->setIngredient($ingredient);
@@ -58,5 +64,23 @@ class UpdateRecipeHandler
         $recipe->setUpdatedAt(new \DateTimeImmutable());
 
         return $this->updateRecipe->execute($recipe);
+    }
+
+    /** @param array{quantity: float, unit: string, ingredientId?: string, ciqualFoodId?: string} $item */
+    private function resolveIngredient(array $item, User $user): Ingredient
+    {
+        if (isset($item['ciqualFoodId'])) {
+            $ciqualFood = $this->ciqualFoodRepository->find($item['ciqualFoodId'])
+                ?? throw new \DomainException("CiqualFood not found: {$item['ciqualFoodId']}");
+
+            return $this->ciqualResolver->resolve($ciqualFood, $user);
+        }
+
+        if (isset($item['ingredientId'])) {
+            return $this->ingredientRepository->find($item['ingredientId'])
+                ?? throw new \DomainException("Ingredient not found: {$item['ingredientId']}");
+        }
+
+        throw new \DomainException('Each ingredient must have either ingredientId or ciqualFoodId.');
     }
 }

@@ -79,6 +79,11 @@ class RecipeIngredient
         return $this;
     }
 
+    public function getIngredientName(): string
+    {
+        return $this->ingredient->getName();
+    }
+
     public function getUnit(): Unit
     {
         return $this->unit;
