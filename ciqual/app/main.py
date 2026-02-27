@@ -9,10 +9,25 @@ CARBS_CODE = "31000"
 FAT_CODE = "40000"
 MACRO_CODES = (KCAL_CODE, PROTEIN_CODE, CARBS_CODE, FAT_CODE)
 
-FRENCH_STOP_WORDS = frozenset({
-    "de", "du", "d", "le", "la", "les", "l",
-    "au", "aux", "un", "une", "des", "et", "ou", "en",
-})
+FRENCH_STOP_WORDS = frozenset(
+    {
+        "de",
+        "du",
+        "d",
+        "le",
+        "la",
+        "les",
+        "l",
+        "au",
+        "aux",
+        "un",
+        "une",
+        "des",
+        "et",
+        "ou",
+        "en",
+    }
+)
 
 # Group code for composed dishes / processed foods
 COMPOSED_DISHES_GROUP = "01"
