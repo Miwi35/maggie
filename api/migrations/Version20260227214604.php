@@ -1,0 +1,60 @@
+<?php
+
+declare(strict_types=1);
+
+namespace DoctrineMigrations;
+
+use Doctrine\DBAL\Schema\Schema;
+use Doctrine\Migrations\AbstractMigration;
+
+/**
+ * Auto-generated Migration: Please modify to your needs!
+ */
+final class Version20260227214604 extends AbstractMigration
+{
+    public function getDescription(): string
+    {
+        return 'Replace Product ciqual_food FK with ciqual_alim_code string, drop unused tables';
+    }
+
+    public function up(Schema $schema): void
+    {
+        // Drop product FK to ciqual_food first (before dropping the referenced table)
+        $this->addSql('ALTER TABLE product DROP CONSTRAINT fk_d34a04adb76d9487');
+        $this->addSql('DROP INDEX idx_d34a04adb76d9487');
+        $this->addSql('ALTER TABLE product ADD ciqual_alim_code VARCHAR(10) DEFAULT NULL');
+        $this->addSql('ALTER TABLE product DROP ciqual_food_id');
+
+        // Drop ciqual tables (data moved to separate Ciqual microservice)
+        $this->addSql('ALTER TABLE ciqual_food_nutrient DROP CONSTRAINT fk_e345e30dba8e87c4');
+        $this->addSql('ALTER TABLE ciqual_food_nutrient DROP CONSTRAINT fk_e345e30d27373320');
+        $this->addSql('DROP TABLE ciqual_food_nutrient');
+        $this->addSql('DROP TABLE ciqual_food');
+        $this->addSql('DROP TABLE ciqual_nutrient');
+
+        // Drop unused agent_message table (agent stores messages in Python)
+        $this->addSql('DROP TABLE agent_message');
+    }
+
+    public function down(Schema $schema): void
+    {
+        // this down() migration is auto-generated, please modify it to your needs
+        $this->addSql('CREATE TABLE agent_message (id VARCHAR(26) NOT NULL, user_id VARCHAR(36) NOT NULL, role VARCHAR(20) NOT NULL, content TEXT NOT NULL, created_at TIMESTAMP(0) WITH TIME ZONE NOT NULL, PRIMARY KEY (id))');
+        $this->addSql('CREATE INDEX idx_agent_message_user_created ON agent_message (user_id, created_at)');
+        $this->addSql('CREATE TABLE ciqual_food (id UUID NOT NULL, alim_code VARCHAR(10) NOT NULL, alim_name_fr VARCHAR(255) NOT NULL, alim_group_code VARCHAR(10) DEFAULT NULL, alim_group_name_fr VARCHAR(255) DEFAULT NULL, alim_ssgroup_code VARCHAR(10) DEFAULT NULL, alim_ssgroup_name_fr VARCHAR(255) DEFAULT NULL, PRIMARY KEY (id))');
+        $this->addSql('CREATE UNIQUE INDEX uniq_91e3008c6c039691 ON ciqual_food (alim_code)');
+        $this->addSql('CREATE INDEX idx_ciqual_food_alim_code ON ciqual_food (alim_code)');
+        $this->addSql('CREATE TABLE ciqual_food_nutrient (id UUID NOT NULL, value DOUBLE PRECISION DEFAULT NULL, confidence_code VARCHAR(5) DEFAULT NULL, raw_value VARCHAR(50) DEFAULT NULL, food_id UUID NOT NULL, nutrient_id UUID NOT NULL, PRIMARY KEY (id))');
+        $this->addSql('CREATE UNIQUE INDEX uniq_e345e30dba8e87c427373320 ON ciqual_food_nutrient (food_id, nutrient_id)');
+        $this->addSql('CREATE INDEX idx_e345e30d27373320 ON ciqual_food_nutrient (nutrient_id)');
+        $this->addSql('CREATE INDEX idx_e345e30dba8e87c4 ON ciqual_food_nutrient (food_id)');
+        $this->addSql('CREATE TABLE ciqual_nutrient (id UUID NOT NULL, const_code VARCHAR(10) NOT NULL, const_name_fr VARCHAR(255) NOT NULL, const_unit VARCHAR(20) DEFAULT NULL, PRIMARY KEY (id))');
+        $this->addSql('CREATE UNIQUE INDEX uniq_464edf633ec01906 ON ciqual_nutrient (const_code)');
+        $this->addSql('ALTER TABLE ciqual_food_nutrient ADD CONSTRAINT fk_e345e30dba8e87c4 FOREIGN KEY (food_id) REFERENCES ciqual_food (id) ON DELETE CASCADE NOT DEFERRABLE INITIALLY IMMEDIATE');
+        $this->addSql('ALTER TABLE ciqual_food_nutrient ADD CONSTRAINT fk_e345e30d27373320 FOREIGN KEY (nutrient_id) REFERENCES ciqual_nutrient (id) ON DELETE CASCADE NOT DEFERRABLE INITIALLY IMMEDIATE');
+        $this->addSql('ALTER TABLE product ADD ciqual_food_id UUID DEFAULT NULL');
+        $this->addSql('ALTER TABLE product DROP ciqual_alim_code');
+        $this->addSql('ALTER TABLE product ADD CONSTRAINT fk_d34a04adb76d9487 FOREIGN KEY (ciqual_food_id) REFERENCES ciqual_food (id) ON DELETE SET NULL NOT DEFERRABLE INITIALLY IMMEDIATE');
+        $this->addSql('CREATE INDEX idx_d34a04adb76d9487 ON product (ciqual_food_id)');
+    }
+}
