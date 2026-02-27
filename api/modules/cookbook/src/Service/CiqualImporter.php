@@ -6,7 +6,6 @@ namespace Maggie\Cookbook\Service;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Cookbook\Entity\CiqualFood;
-use Maggie\Cookbook\Entity\CiqualFoodNutrient;
 use Maggie\Cookbook\Entity\CiqualNutrient;
 use Maggie\Cookbook\Repository\CiqualFoodRepository;
 use Maggie\Cookbook\Repository\CiqualNutrientRepository;
@@ -102,17 +101,22 @@ class CiqualImporter
 
     public function importCompositions(string $compoFile, SymfonyStyle $io): int
     {
+        $conn = $this->em->getConnection();
+
+        // Build ID lookup maps (alimCode → uuid string, constCode → uuid string)
+        $foodIdMap = $this->buildFoodIdMap();
+        $nutrientIdMap = $this->buildNutrientIdMap();
+
+        $count = 0;
+        $batchSize = 2000;
+        $batch = [];
+
         $reader = new \XMLReader();
         if (!$reader->open($compoFile)) {
             throw new \RuntimeException("Failed to open: {$compoFile}");
         }
 
-        // Pre-load lookup maps
-        $foodMap = $this->buildFoodMap();
-        $nutrientMap = $this->buildNutrientMap();
-
-        $count = 0;
-        $batchSize = 1000;
+        $sql = 'INSERT INTO ciqual_food_nutrient (id, food_id, nutrient_id, value, confidence_code, raw_value) VALUES ';
 
         while ($reader->read()) {
             if ($reader->nodeType !== \XMLReader::ELEMENT || $reader->localName !== 'COMPO') {
@@ -126,35 +130,41 @@ class CiqualImporter
             $rawValue = trim((string) ($node->teneur ?? ''));
             $confidenceCode = trim((string) ($node->code_confiance ?? ''));
 
-            $food = $foodMap[$alimCode] ?? null;
-            $nutrient = $nutrientMap[$constCode] ?? null;
+            $foodId = $foodIdMap[$alimCode] ?? null;
+            $nutrientId = $nutrientIdMap[$constCode] ?? null;
 
-            if ($food === null || $nutrient === null) {
+            if ($foodId === null || $nutrientId === null) {
                 continue;
             }
 
-            $foodNutrient = new CiqualFoodNutrient();
-            $foodNutrient->setFood($food);
-            $foodNutrient->setNutrient($nutrient);
-            $foodNutrient->setRawValue($rawValue !== '' ? $rawValue : null);
-            $foodNutrient->setValue($rawValue !== '' ? $this->valueParser->parse($rawValue) : null);
-            $foodNutrient->setConfidenceCode($confidenceCode !== '' ? $confidenceCode : null);
+            $parsedValue = $rawValue !== '' ? $this->valueParser->parse($rawValue) : null;
+            $ulid = new \Symfony\Component\Uid\Ulid();
 
-            $this->em->persist($foodNutrient);
+            $batch[] = sprintf(
+                "('%s', '%s', '%s', %s, %s, %s)",
+                $ulid->toRfc4122(),
+                $foodId,
+                $nutrientId,
+                $parsedValue !== null ? $parsedValue : 'NULL',
+                $confidenceCode !== '' ? $conn->quote($confidenceCode) : 'NULL',
+                $rawValue !== '' ? $conn->quote($rawValue) : 'NULL',
+            );
             $count++;
 
             if ($count % $batchSize === 0) {
-                $this->em->flush();
-                $this->em->clear(CiqualFoodNutrient::class);
-                // Rebuild maps after clear
-                $foodMap = $this->buildFoodMap();
-                $nutrientMap = $this->buildNutrientMap();
-                $io->info("Flushed {$count} compositions...");
+                $conn->executeStatement($sql . implode(',', $batch));
+                $batch = [];
+                $io->info("Inserted {$count} compositions...");
             }
+
+            unset($node);
+        }
+
+        if ($batch !== []) {
+            $conn->executeStatement($sql . implode(',', $batch));
         }
 
         $reader->close();
-        $this->em->flush();
         $io->info("Imported {$count} compositions.");
 
         return $count;
@@ -199,23 +209,29 @@ class CiqualImporter
         return $map;
     }
 
-    /** @return array<string, CiqualFood> */
-    private function buildFoodMap(): array
+    /** @return array<string, string> */
+    private function buildFoodIdMap(): array
     {
+        $rows = $this->em->getConnection()->fetchAllAssociative(
+            'SELECT alim_code, id FROM ciqual_food',
+        );
         $map = [];
-        foreach ($this->foodRepository->findAll() as $food) {
-            $map[$food->getAlimCode()] = $food;
+        foreach ($rows as $row) {
+            $map[$row['alim_code']] = $row['id'];
         }
 
         return $map;
     }
 
-    /** @return array<string, CiqualNutrient> */
-    private function buildNutrientMap(): array
+    /** @return array<string, string> */
+    private function buildNutrientIdMap(): array
     {
+        $rows = $this->em->getConnection()->fetchAllAssociative(
+            'SELECT const_code, id FROM ciqual_nutrient',
+        );
         $map = [];
-        foreach ($this->nutrientRepository->findAll() as $nutrient) {
-            $map[$nutrient->getConstCode()] = $nutrient;
+        foreach ($rows as $row) {
+            $map[$row['const_code']] = $row['id'];
         }
 
         return $map;
