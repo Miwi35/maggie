@@ -36,7 +36,7 @@ export const RecipeCreate = () => (
         <SimpleFormIterator inline>
           <ReferenceInput source="ciqualFood" reference="ciqual_foods">
             <AutocompleteInput
-              label="Aliment Ciqual"
+              label="Ingrédient"
               optionText="alimNameFr"
               filterToQuery={(q: string) => ({ alimNameFr: q })}
               sx={{ minWidth: 200 }}

@@ -13,16 +13,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -35,7 +30,6 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
@@ -45,10 +39,6 @@ import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.Recipe
 import com.maggie.app.data.repository.RecipeRepository
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -171,7 +161,7 @@ fun RecipeEditScreen(
                 }
 
                 ingredientRows.forEachIndexed { index, row ->
-                    EditIngredientRowInput(
+                    IngredientRowInput(
                         row = row,
                         onUpdate = { ingredientRows[index] = it },
                         onRemove = { ingredientRows.removeAt(index) },
@@ -207,112 +197,6 @@ fun RecipeEditScreen(
                     Text("Enregistrer")
                 }
             }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
-@Composable
-private fun EditIngredientRowInput(
-    row: IngredientRow,
-    onUpdate: (IngredientRow) -> Unit,
-    onRemove: () -> Unit,
-    onSearchCiqual: suspend (String) -> List<CiqualFood>,
-) {
-    var unitExpanded by remember { mutableStateOf(false) }
-    var ciqualExpanded by remember { mutableStateOf(false) }
-    var searchQuery by remember { mutableStateOf(row.ciqualFoodName) }
-    var searchResults by remember { mutableStateOf<List<CiqualFood>>(emptyList()) }
-
-    LaunchedEffect(Unit) {
-        snapshotFlow { searchQuery }
-            .debounce(300)
-            .distinctUntilChanged()
-            .filter { it.length >= 2 }
-            .collect { query ->
-                searchResults = try {
-                    onSearchCiqual(query)
-                } catch (_: Exception) {
-                    emptyList()
-                }
-                ciqualExpanded = searchResults.isNotEmpty()
-            }
-    }
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        ExposedDropdownMenuBox(
-            expanded = ciqualExpanded,
-            onExpandedChange = { ciqualExpanded = it },
-            modifier = Modifier.weight(1f),
-        ) {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = {
-                    searchQuery = it
-                    if (it != row.ciqualFoodName) {
-                        onUpdate(row.copy(ciqualFoodId = "", ciqualFoodName = ""))
-                    }
-                },
-                label = { Text("Aliment Ciqual") },
-                modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryEditable),
-                singleLine = true,
-            )
-            ExposedDropdownMenu(
-                expanded = ciqualExpanded,
-                onDismissRequest = { ciqualExpanded = false },
-            ) {
-                searchResults.forEach { food ->
-                    DropdownMenuItem(
-                        text = { Text(food.alimNameFr) },
-                        onClick = {
-                            searchQuery = food.alimNameFr
-                            onUpdate(row.copy(ciqualFoodId = food.id, ciqualFoodName = food.alimNameFr))
-                            ciqualExpanded = false
-                        },
-                    )
-                }
-            }
-        }
-        OutlinedTextField(
-            value = row.quantity,
-            onValueChange = { onUpdate(row.copy(quantity = it)) },
-            label = { Text("Qté") },
-            modifier = Modifier.weight(0.5f),
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-        )
-        ExposedDropdownMenuBox(
-            expanded = unitExpanded,
-            onExpandedChange = { unitExpanded = it },
-            modifier = Modifier.weight(0.6f),
-        ) {
-            OutlinedTextField(
-                value = row.unit.name.lowercase(),
-                onValueChange = {},
-                readOnly = true,
-                label = { Text("Unité") },
-                modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(unitExpanded) },
-                singleLine = true,
-            )
-            ExposedDropdownMenu(expanded = unitExpanded, onDismissRequest = { unitExpanded = false }) {
-                CookbookUnit.entries.forEach { unit ->
-                    DropdownMenuItem(
-                        text = { Text(unit.name.lowercase()) },
-                        onClick = {
-                            onUpdate(row.copy(unit = unit))
-                            unitExpanded = false
-                        },
-                    )
-                }
-            }
-        }
-        IconButton(onClick = onRemove) {
-            Icon(Icons.Default.Delete, contentDescription = "Supprimer")
         }
     }
 }

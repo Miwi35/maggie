@@ -1,11 +1,17 @@
 package com.maggie.app.ui.screens.cookbook.recipes
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -13,11 +19,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MenuAnchorType
@@ -36,6 +44,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.RecipeCreateRequest
@@ -170,32 +180,34 @@ fun RecipeCreateScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun IngredientRowInput(
+internal fun IngredientRowInput(
     row: IngredientRow,
     onUpdate: (IngredientRow) -> Unit,
     onRemove: () -> Unit,
     onSearchCiqual: suspend (String) -> List<CiqualFood>,
 ) {
     var unitExpanded by remember { mutableStateOf(false) }
-    var ciqualExpanded by remember { mutableStateOf(false) }
-    var searchQuery by remember { mutableStateOf(row.ciqualFoodName) }
-    var searchResults by remember { mutableStateOf<List<CiqualFood>>(emptyList()) }
+    var showSearchDialog by remember { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
 
-    LaunchedEffect(Unit) {
-        snapshotFlow { searchQuery }
-            .debounce(300)
-            .distinctUntilChanged()
-            .filter { it.length >= 2 }
-            .collect { query ->
-                searchResults = try {
-                    onSearchCiqual(query)
-                } catch (_: Exception) {
-                    emptyList()
-                }
-                ciqualExpanded = searchResults.isNotEmpty()
-            }
+    LaunchedEffect(isPressed) {
+        if (isPressed) {
+            showSearchDialog = true
+        }
+    }
+
+    if (showSearchDialog) {
+        IngredientSearchDialog(
+            onSelect = { food ->
+                onUpdate(row.copy(ciqualFoodId = food.id, ciqualFoodName = food.alimNameFr))
+                showSearchDialog = false
+            },
+            onDismiss = { showSearchDialog = false },
+            onSearchCiqual = onSearchCiqual,
+        )
     }
 
     Row(
@@ -203,39 +215,15 @@ private fun IngredientRowInput(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        ExposedDropdownMenuBox(
-            expanded = ciqualExpanded,
-            onExpandedChange = { ciqualExpanded = it },
+        OutlinedTextField(
+            value = row.ciqualFoodName,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Ingrédient") },
             modifier = Modifier.weight(1f),
-        ) {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = {
-                    searchQuery = it
-                    if (it != row.ciqualFoodName) {
-                        onUpdate(row.copy(ciqualFoodId = "", ciqualFoodName = ""))
-                    }
-                },
-                label = { Text("Aliment Ciqual") },
-                modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryEditable),
-                singleLine = true,
-            )
-            ExposedDropdownMenu(
-                expanded = ciqualExpanded,
-                onDismissRequest = { ciqualExpanded = false },
-            ) {
-                searchResults.forEach { food ->
-                    DropdownMenuItem(
-                        text = { Text(food.alimNameFr) },
-                        onClick = {
-                            searchQuery = food.alimNameFr
-                            onUpdate(row.copy(ciqualFoodId = food.id, ciqualFoodName = food.alimNameFr))
-                            ciqualExpanded = false
-                        },
-                    )
-                }
-            }
-        }
+            singleLine = true,
+            interactionSource = interactionSource,
+        )
         OutlinedTextField(
             value = row.quantity,
             onValueChange = { onUpdate(row.copy(quantity = it)) },
@@ -274,4 +262,68 @@ private fun IngredientRowInput(
             Icon(Icons.Default.Delete, contentDescription = "Supprimer")
         }
     }
+}
+
+@OptIn(FlowPreview::class)
+@Composable
+internal fun IngredientSearchDialog(
+    onSelect: (CiqualFood) -> Unit,
+    onDismiss: () -> Unit,
+    onSearchCiqual: suspend (String) -> List<CiqualFood>,
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    var searchResults by remember { mutableStateOf<List<CiqualFood>>(emptyList()) }
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+
+    LaunchedEffect(Unit) {
+        snapshotFlow { searchQuery }
+            .debounce(300)
+            .distinctUntilChanged()
+            .filter { it.length >= 2 }
+            .collect { query ->
+                searchResults = try {
+                    onSearchCiqual(query)
+                } catch (_: Exception) {
+                    emptyList()
+                }
+            }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rechercher un ingrédient") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    label = { Text("Rechercher") },
+                    modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
+                    singleLine = true,
+                )
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().height(300.dp).padding(top = 8.dp),
+                ) {
+                    items(searchResults) { food ->
+                        Text(
+                            text = food.alimNameFr,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelect(food) }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                        )
+                        HorizontalDivider()
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Annuler") }
+        },
+    )
 }
