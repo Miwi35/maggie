@@ -4,6 +4,7 @@ namespace Maggie\Calendar\Middleware;
 
 use Maggie\Calendar\Contract\MercurePublishable;
 use Maggie\Core\Contract\OwnedByUserInterface;
+use Maggie\Core\Contract\OwnedThroughInterface;
 use Maggie\Core\Entity\User;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -48,6 +49,7 @@ class MercurePublishMiddleware implements MiddlewareInterface
 
                 if ($userId !== null) {
                     $this->publishDelete($parsed[1], $message->$idProp, $userId);
+                    $this->publishDeleteToParentTopics($message::class, $parsed[2], $message->$idProp, $userId);
                 }
             } else {
                 // For CRUD commands, use the parsed topic; for non-CRUD commands
@@ -56,17 +58,11 @@ class MercurePublishMiddleware implements MiddlewareInterface
 
                 if ($entity instanceof MercurePublishable) {
                     $topic = $parsed[1] ?? self::topicFromEntity($entity);
-                    $userId = $entity instanceof OwnedByUserInterface
-                        ? (string) $entity->getUser()->getId()
-                        : $this->getCurrentUserId();
+                    $userId = self::resolveUserId($entity) ?? $this->getCurrentUserId();
 
                     if ($userId !== null) {
-                        $iri = $topic . '/' . $entity->getId();
-                        $scopedTopic = '/users/' . $userId . $iri;
-                        $this->hub->publish(new Update(
-                            topics: [$scopedTopic],
-                            data: json_encode(['@id' => $iri] + $entity->toMercurePayload(), JSON_THROW_ON_ERROR),
-                        ));
+                        $this->publishEntity($entity, $topic, $userId);
+                        $this->publishEntityToParentTopics($entity, $topic, $userId);
                     }
                 }
             }
@@ -111,10 +107,66 @@ class MercurePublishMiddleware implements MiddlewareInterface
 
     private static function topicFromEntity(object $entity): string
     {
-        $class = (new \ReflectionClass($entity))->getShortName();
-        $snake = strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $class));
+        return self::topicFromClassName((new \ReflectionClass($entity))->getShortName());
+    }
+
+    private static function topicFromClassName(string $shortName): string
+    {
+        $snake = strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $shortName));
 
         return '/api/' . $snake . 's';
+    }
+
+    private static function resolveUserId(object $entity): ?string
+    {
+        if ($entity instanceof OwnedByUserInterface) {
+            return (string) $entity->getUser()->getId();
+        }
+
+        if ($entity instanceof OwnedThroughInterface) {
+            try {
+                $relation = $entity::getOwnerRelation();
+                $getter = 'get' . ucfirst($relation);
+                $parent = $entity->$getter();
+
+                if ($parent instanceof OwnedByUserInterface) {
+                    return (string) $parent->getUser()->getId();
+                }
+            } catch (\Error) {
+                // Relation not initialized — fall through to Security fallback
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    private function publishEntity(MercurePublishable $entity, string $topic, string $userId): void
+    {
+        $iri = $topic . '/' . $entity->getId();
+        $scopedTopic = '/users/' . $userId . $iri;
+        $this->hub->publish(new Update(
+            topics: [$scopedTopic],
+            data: json_encode(['@id' => $iri] + $entity->toMercurePayload(), JSON_THROW_ON_ERROR),
+        ));
+    }
+
+    /**
+     * For entity inheritance hierarchies (e.g. Meal extends Event),
+     * also publish to parent class topics.
+     */
+    private function publishEntityToParentTopics(MercurePublishable $entity, string $primaryTopic, string $userId): void
+    {
+        $parentClass = get_parent_class($entity);
+
+        if ($parentClass === false || !(new \ReflectionClass($parentClass))->implementsInterface(MercurePublishable::class)) {
+            return;
+        }
+
+        $parentTopic = self::topicFromClassName((new \ReflectionClass($parentClass))->getShortName());
+        if ($parentTopic !== $primaryTopic) {
+            $this->publishEntity($entity, $parentTopic, $userId);
+        }
     }
 
     private function publishDelete(string $topic, string $id, string $userId): void
@@ -125,6 +177,35 @@ class MercurePublishMiddleware implements MiddlewareInterface
             topics: [$scopedTopic],
             data: json_encode(['@id' => $iri, 'deleted' => true], JSON_THROW_ON_ERROR),
         ));
+    }
+
+    /**
+     * For delete commands on entities with parent MercurePublishable classes,
+     * also publish a delete to the parent topic.
+     */
+    private function publishDeleteToParentTopics(string $commandFqcn, string $entityShortName, string $id, string $userId): void
+    {
+        // Derive entity FQCN: replace \Message\Delete{X}Command with \Entity\{X}
+        $entityFqcn = preg_replace(
+            '/\\\\Message\\\\Delete' . preg_quote($entityShortName, '/') . 'Command$/',
+            '\\Entity\\' . $entityShortName,
+            $commandFqcn,
+        );
+
+        if (!class_exists($entityFqcn)) {
+            return;
+        }
+
+        $parentClass = get_parent_class($entityFqcn);
+        if ($parentClass === false || !(new \ReflectionClass($parentClass))->implementsInterface(MercurePublishable::class)) {
+            return;
+        }
+
+        $parentTopic = self::topicFromClassName((new \ReflectionClass($parentClass))->getShortName());
+        $parsedTopic = self::topicFromClassName($entityShortName);
+        if ($parentTopic !== $parsedTopic) {
+            $this->publishDelete($parentTopic, $id, $userId);
+        }
     }
 
     private function getCurrentUserId(): ?string

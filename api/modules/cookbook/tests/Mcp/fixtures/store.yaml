@@ -1,0 +1,17 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: cookbook-test@example.com
+    googleId: google-cookbook-test
+    name: Cookbook Test User
+
+Maggie\Cookbook\Entity\Store:
+  supermarket:
+    name: Supermarché
+    description: Supermarket for general groceries
+    visitOrder: 1
+    user: '@test_user'
+  greengrocer:
+    name: Primeur
+    description: Fresh fruits and vegetables
+    visitOrder: 2
+    user: '@test_user'

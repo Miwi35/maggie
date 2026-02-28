@@ -1,0 +1,18 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: cookbook-test@example.com
+    googleId: google-cookbook-test
+    name: Cookbook Test User
+
+Maggie\Calendar\Entity\Agenda:
+  repas_agenda:
+    name: Repas
+    color: '#FF6B35'
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\Recipe:
+  pasta:
+    name: Pâtes à la tomate
+    servings: 4
+    tags: ['pasta']
+    user: '@test_user'

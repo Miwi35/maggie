@@ -17,6 +17,23 @@ use Maggie\Calendar\Message\UpdateAgendaCommand;
 use Maggie\Calendar\Message\UpdateEventCommand;
 use Maggie\Calendar\Message\UpdateTaskCommand;
 use Maggie\Calendar\Middleware\MercurePublishMiddleware;
+use Maggie\Cookbook\Entity\GroceryList;
+use Maggie\Cookbook\Entity\Ingredient;
+use Maggie\Cookbook\Entity\Meal;
+use Maggie\Cookbook\Entity\Recipe;
+use Maggie\Cookbook\Entity\Store;
+use Maggie\Cookbook\Enum\MealSlot;
+use Maggie\Cookbook\Enum\ProductCategory;
+use Maggie\Cookbook\Message\AddGroceryItemCommand;
+use Maggie\Cookbook\Message\CreateIngredientCommand;
+use Maggie\Cookbook\Message\CreateMealCommand;
+use Maggie\Cookbook\Message\CreateRecipeCommand;
+use Maggie\Cookbook\Message\CreateStoreCommand;
+use Maggie\Cookbook\Message\DeleteMealCommand;
+use Maggie\Cookbook\Message\DeleteRecipeCommand;
+use Maggie\Cookbook\Message\DeleteStoreCommand;
+use Maggie\Cookbook\Message\UpdateRecipeCommand;
+use Maggie\Cookbook\Message\UpdateStoreCommand;
 use Maggie\Core\Entity\User;
 use PHPUnit\Framework\TestCase;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -55,7 +72,7 @@ class MercurePublishMiddlewareTest extends TestCase
         $this->security->method('getUser')->willReturn($this->user);
     }
 
-    private function createPassthroughStack(object $result = null): StackInterface
+    private function createPassthroughStack(?object $result = null): StackInterface
     {
         $next = $this->createMock(MiddlewareInterface::class);
         $next->method('handle')->willReturnCallback(
@@ -229,6 +246,212 @@ class MercurePublishMiddlewareTest extends TestCase
         self::assertSame('/users/' . $this->user->getId() . '/api/tasks/' . $taskId, $topic);
         $data = json_decode($this->publishedUpdates[0]->getData(), true);
         self::assertTrue($data['deleted']);
+    }
+
+    // --- Cookbook entities ---
+
+    public function testCreateRecipePublishesToUserScopedTopic(): void
+    {
+        $recipe = new Recipe();
+        $recipe->setName('Pâtes carbonara');
+        $recipe->setServings(4);
+        $recipe->setUser($this->user);
+
+        $envelope = $this->received(new CreateRecipeCommand(userId: (string) $this->user->getId(), name: 'Pâtes carbonara'));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack($recipe));
+
+        self::assertCount(1, $this->publishedUpdates);
+        $topic = $this->publishedUpdates[0]->getTopics()[0];
+        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/recipes/', $topic);
+        $data = json_decode($this->publishedUpdates[0]->getData(), true);
+        self::assertSame('Pâtes carbonara', $data['name']);
+    }
+
+    public function testUpdateRecipePublishesToUserScopedTopic(): void
+    {
+        $recipe = new Recipe();
+        $recipe->setName('Updated recipe');
+        $recipe->setUser($this->user);
+
+        $envelope = $this->received(new UpdateRecipeCommand(recipeId: (string) $recipe->getId()));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack($recipe));
+
+        self::assertCount(1, $this->publishedUpdates);
+        $topic = $this->publishedUpdates[0]->getTopics()[0];
+        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/recipes/', $topic);
+    }
+
+    public function testDeleteRecipePublishesToUserScopedTopic(): void
+    {
+        $recipeId = (string) new Ulid();
+
+        $envelope = $this->received(new DeleteRecipeCommand(recipeId: $recipeId));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack());
+
+        self::assertCount(1, $this->publishedUpdates);
+        $topic = $this->publishedUpdates[0]->getTopics()[0];
+        self::assertSame('/users/' . $this->user->getId() . '/api/recipes/' . $recipeId, $topic);
+        $data = json_decode($this->publishedUpdates[0]->getData(), true);
+        self::assertTrue($data['deleted']);
+    }
+
+    public function testCreateStorePublishesToUserScopedTopic(): void
+    {
+        $store = new Store();
+        $store->setName('Boulangerie');
+        $store->setVisitOrder(1);
+        $store->setUser($this->user);
+
+        $envelope = $this->received(new CreateStoreCommand(userId: (string) $this->user->getId(), name: 'Boulangerie'));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack($store));
+
+        self::assertCount(1, $this->publishedUpdates);
+        $topic = $this->publishedUpdates[0]->getTopics()[0];
+        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/stores/', $topic);
+        $data = json_decode($this->publishedUpdates[0]->getData(), true);
+        self::assertSame('Boulangerie', $data['name']);
+    }
+
+    public function testUpdateStorePublishesToUserScopedTopic(): void
+    {
+        $store = new Store();
+        $store->setName('Updated store');
+        $store->setUser($this->user);
+
+        $envelope = $this->received(new UpdateStoreCommand(storeId: (string) $store->getId()));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack($store));
+
+        self::assertCount(1, $this->publishedUpdates);
+        $topic = $this->publishedUpdates[0]->getTopics()[0];
+        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/stores/', $topic);
+    }
+
+    public function testDeleteStorePublishesToUserScopedTopic(): void
+    {
+        $storeId = (string) new Ulid();
+
+        $envelope = $this->received(new DeleteStoreCommand(storeId: $storeId));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack());
+
+        self::assertCount(1, $this->publishedUpdates);
+        $topic = $this->publishedUpdates[0]->getTopics()[0];
+        self::assertSame('/users/' . $this->user->getId() . '/api/stores/' . $storeId, $topic);
+        $data = json_decode($this->publishedUpdates[0]->getData(), true);
+        self::assertTrue($data['deleted']);
+    }
+
+    public function testCreateIngredientPublishesToBothIngredientsAndProductsTopics(): void
+    {
+        $ingredient = new Ingredient();
+        $ingredient->setName('Carotte');
+        $ingredient->setCategory(ProductCategory::Produce);
+        $ingredient->setUser($this->user);
+
+        $envelope = $this->received(new CreateIngredientCommand(userId: (string) $this->user->getId(), name: 'Carotte', category: 'produce'));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack($ingredient));
+
+        // Ingredient extends Product → publishes to both topics
+        self::assertCount(2, $this->publishedUpdates);
+
+        $ingredientTopic = $this->publishedUpdates[0]->getTopics()[0];
+        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/ingredients/', $ingredientTopic);
+        $data = json_decode($this->publishedUpdates[0]->getData(), true);
+        self::assertSame('Carotte', $data['name']);
+
+        $productTopic = $this->publishedUpdates[1]->getTopics()[0];
+        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/products/', $productTopic);
+    }
+
+    public function testAddGroceryItemPublishesGroceryListTopic(): void
+    {
+        $list = new GroceryList();
+        $list->setUser($this->user);
+
+        $envelope = $this->received(new AddGroceryItemCommand(userId: (string) $this->user->getId(), label: 'Bananes'));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack($list));
+
+        self::assertCount(1, $this->publishedUpdates);
+        $topic = $this->publishedUpdates[0]->getTopics()[0];
+        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/grocery_lists/', $topic);
+    }
+
+    public function testCreateMealPublishesToBothMealsAndEventsTopics(): void
+    {
+        $agenda = new Agenda();
+        $agenda->setName('Repas');
+        $agenda->setUser($this->user);
+
+        $meal = new Meal();
+        $meal->setSlot(MealSlot::Lunch);
+        $meal->setSummary('Déjeuner');
+        $meal->setAgenda($agenda);
+        $meal->setStartAt(new \DateTimeImmutable('2026-03-20T00:00:00+01:00'));
+        $meal->setEndAt(new \DateTimeImmutable('2026-03-20T23:59:59+01:00'));
+
+        $envelope = $this->received(new CreateMealCommand(date: '2026-03-20', slot: 'lunch'));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack($meal));
+
+        self::assertCount(2, $this->publishedUpdates);
+
+        // First update: /api/meals/ topic
+        $mealTopic = $this->publishedUpdates[0]->getTopics()[0];
+        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/meals/', $mealTopic);
+        $mealData = json_decode($this->publishedUpdates[0]->getData(), true);
+        self::assertSame('Déjeuner', $mealData['summary']);
+        self::assertSame('lunch', $mealData['slot']);
+
+        // Second update: /api/events/ topic (parent class)
+        $eventTopic = $this->publishedUpdates[1]->getTopics()[0];
+        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/events/', $eventTopic);
+        $eventData = json_decode($this->publishedUpdates[1]->getData(), true);
+        self::assertSame('Déjeuner', $eventData['summary']);
+    }
+
+    public function testDeleteMealPublishesToBothMealsAndEventsTopics(): void
+    {
+        $mealId = (string) new Ulid();
+
+        $envelope = $this->received(new DeleteMealCommand(mealId: $mealId));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack());
+
+        self::assertCount(2, $this->publishedUpdates);
+
+        // First: /api/meals/ delete
+        $mealTopic = $this->publishedUpdates[0]->getTopics()[0];
+        self::assertSame('/users/' . $this->user->getId() . '/api/meals/' . $mealId, $mealTopic);
+        $mealData = json_decode($this->publishedUpdates[0]->getData(), true);
+        self::assertTrue($mealData['deleted']);
+
+        // Second: /api/events/ delete (parent class)
+        $eventTopic = $this->publishedUpdates[1]->getTopics()[0];
+        self::assertSame('/users/' . $this->user->getId() . '/api/events/' . $mealId, $eventTopic);
+        $eventData = json_decode($this->publishedUpdates[1]->getData(), true);
+        self::assertTrue($eventData['deleted']);
+    }
+
+    public function testMealResolvesUserIdFromAgendaRelation(): void
+    {
+        // No Security user — middleware should resolve userId from Agenda→User (OwnedThroughInterface)
+        $this->security = $this->createMock(Security::class);
+        $this->security->method('getUser')->willReturn(null);
+
+        $agenda = new Agenda();
+        $agenda->setName('Repas');
+        $agenda->setUser($this->user);
+
+        $meal = new Meal();
+        $meal->setSlot(MealSlot::Dinner);
+        $meal->setSummary('Dîner');
+        $meal->setAgenda($agenda);
+        $meal->setStartAt(new \DateTimeImmutable('2026-03-20T00:00:00+01:00'));
+        $meal->setEndAt(new \DateTimeImmutable('2026-03-20T23:59:59+01:00'));
+
+        $envelope = $this->received(new CreateMealCommand(date: '2026-03-20', slot: 'dinner'));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack($meal));
+
+        self::assertCount(2, $this->publishedUpdates);
+        $topic = $this->publishedUpdates[0]->getTopics()[0];
+        self::assertStringContainsString('/users/' . $this->user->getId(), $topic);
     }
 
     public function testUnrelatedMessageDoesNotPublish(): void

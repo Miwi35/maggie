@@ -1,0 +1,25 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: cookbook-test@example.com
+    googleId: google-cookbook-test
+    name: Cookbook Test User
+
+Maggie\Cookbook\Entity\Ingredient:
+  tomato:
+    name: Tomate
+    category: '<(Maggie\Cookbook\Enum\ProductCategory::Produce)>'
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\Recipe:
+  pasta:
+    name: Pâtes à la tomate
+    servings: 4
+    tags: ['pasta', 'italian']
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\RecipeIngredient:
+  ri_tomato:
+    recipe: '@pasta'
+    ingredient: '@tomato'
+    quantity: 500
+    unit: '<(Maggie\Cookbook\Enum\Unit::Gram)>'

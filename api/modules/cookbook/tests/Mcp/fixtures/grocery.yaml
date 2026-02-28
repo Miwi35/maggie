@@ -1,0 +1,44 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: cookbook-test@example.com
+    googleId: google-cookbook-test
+    name: Cookbook Test User
+
+Maggie\Cookbook\Entity\Store:
+  supermarket:
+    name: Supermarché
+    visitOrder: 1
+    user: '@test_user'
+  greengrocer:
+    name: Primeur
+    visitOrder: 2
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\Ingredient:
+  tomato:
+    name: Tomate
+    category: '<(Maggie\Cookbook\Enum\ProductCategory::Produce)>'
+    user: '@test_user'
+    preferredStore: '@supermarket'
+    fallbackStore: '@greengrocer'
+
+Maggie\Cookbook\Entity\GroceryList:
+  grocery_list:
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\GroceryItem:
+  item_tomato:
+    groceryList: '@grocery_list'
+    product: '@tomato'
+    quantity: 3
+    unit: '<(Maggie\Cookbook\Enum\Unit::Piece)>'
+    checked: false
+    source: '<(Maggie\Cookbook\Enum\GroceryItemSource::Manual)>'
+    store: '@supermarket'
+  item_checked:
+    groceryList: '@grocery_list'
+    customLabel: Lait
+    quantity: 1
+    unit: '<(Maggie\Cookbook\Enum\Unit::Liter)>'
+    checked: true
+    source: '<(Maggie\Cookbook\Enum\GroceryItemSource::Manual)>'
