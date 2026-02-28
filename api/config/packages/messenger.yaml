@@ -5,7 +5,7 @@ framework:
         buses:
             messenger.bus.default:
                 middleware:
-                    - 'Maggie\Calendar\Middleware\MercurePublishMiddleware'
+                    - 'Maggie\Core\Mercure\Middleware\MercurePublishMiddleware'
                     - 'Maggie\Core\Elasticsearch\Middleware\ElasticsearchIndexMiddleware'
 
         transports:

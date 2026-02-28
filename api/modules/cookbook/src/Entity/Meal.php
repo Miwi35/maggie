@@ -12,7 +12,7 @@ use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
-use Maggie\Calendar\Contract\MercurePublishable;
+use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Cookbook\Enum\MealSlot;
 use Maggie\Cookbook\Repository\MealRepository;

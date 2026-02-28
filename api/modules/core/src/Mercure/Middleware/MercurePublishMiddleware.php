@@ -1,8 +1,8 @@
 <?php
 
-namespace Maggie\Calendar\Middleware;
+namespace Maggie\Core\Mercure\Middleware;
 
-use Maggie\Calendar\Contract\MercurePublishable;
+use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Contract\OwnedByUserInterface;
 use Maggie\Core\Contract\OwnedThroughInterface;
 use Maggie\Core\Entity\User;

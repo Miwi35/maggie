@@ -16,7 +16,7 @@ use Maggie\Calendar\Message\DeleteTaskCommand;
 use Maggie\Calendar\Message\UpdateAgendaCommand;
 use Maggie\Calendar\Message\UpdateEventCommand;
 use Maggie\Calendar\Message\UpdateTaskCommand;
-use Maggie\Calendar\Middleware\MercurePublishMiddleware;
+use Maggie\Core\Mercure\Middleware\MercurePublishMiddleware;
 use Maggie\Cookbook\Entity\GroceryList;
 use Maggie\Cookbook\Entity\Ingredient;
 use Maggie\Cookbook\Entity\Meal;

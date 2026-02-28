@@ -7,7 +7,7 @@ namespace Maggie\Cookbook\Entity;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
-use Maggie\Calendar\Contract\MercurePublishable;
+use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Cookbook\Repository\GroceryListRepository;
 use Maggie\Core\Contract\IndexableInterface;
 use Maggie\Core\Contract\OwnedByUserInterface;

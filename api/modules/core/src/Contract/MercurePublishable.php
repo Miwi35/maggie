@@ -1,6 +1,6 @@
 <?php
 
-namespace Maggie\Calendar\Contract;
+namespace Maggie\Core\Contract;
 
 use Symfony\Component\Uid\Ulid;
 
