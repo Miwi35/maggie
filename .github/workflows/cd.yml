@@ -253,8 +253,17 @@ jobs:
               sed -i 's/^CIQUAL_TAG=.*/CIQUAL_TAG='"$IMAGE_TAG"'/' .env.prod
             fi
 
-            # Pull new images
-            docker compose --env-file .env.prod -f docker-compose.prod.yml pull
+            # Pull only changed images (blanket pull fails when unchanged service tags are stale)
+            COMPOSE="docker compose --env-file .env.prod -f docker-compose.prod.yml"
+            if [ "$APP_CHANGED" = "true" ]; then
+              $COMPOSE pull php nginx worker cron
+            fi
+            if [ "$AGENT_CHANGED" = "true" ]; then
+              $COMPOSE pull agent
+            fi
+            if [ "$CIQUAL_CHANGED" = "true" ]; then
+              $COMPOSE pull ciqual
+            fi
 
             # Deploy (recreate changed services)
             docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --remove-orphans
