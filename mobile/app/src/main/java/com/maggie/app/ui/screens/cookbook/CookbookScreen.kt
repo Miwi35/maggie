@@ -16,21 +16,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import com.maggie.app.ui.screens.cookbook.grocery.GroceryScreen
-import com.maggie.app.ui.screens.cookbook.grocery.GroceryViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealsWeekScreen
 import com.maggie.app.ui.screens.cookbook.meals.MealsWeekViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeListScreen
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeListViewModel
 import kotlinx.coroutines.launch
 
-private val TABS = listOf("Recettes", "Repas", "Courses")
+private val TABS = listOf("Recettes", "Repas")
 
 @Composable
 fun CookbookScreen(
     recipeListViewModel: RecipeListViewModel,
     mealsWeekViewModel: MealsWeekViewModel,
-    groceryViewModel: GroceryViewModel,
     onRecipeClick: (String) -> Unit,
     onCreateRecipe: () -> Unit,
     onCreateMeal: (day: String, slot: String) -> Unit,
@@ -72,9 +69,6 @@ fun CookbookScreen(
                     1 -> MealsWeekScreen(
                         viewModel = mealsWeekViewModel,
                         onCreateMeal = onCreateMeal,
-                    )
-                    2 -> GroceryScreen(
-                        viewModel = groceryViewModel,
                     )
                 }
             }

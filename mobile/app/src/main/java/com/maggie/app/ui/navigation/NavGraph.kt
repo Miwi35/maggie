@@ -48,7 +48,12 @@ import com.maggie.app.ui.components.ChatSheet
 import com.maggie.app.ui.components.MaggieTopBar
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.screens.cookbook.CookbookScreen
+import com.maggie.app.ui.screens.cookbook.grocery.GroceryScreen
 import com.maggie.app.ui.screens.cookbook.grocery.GroceryViewModel
+import com.maggie.app.ui.screens.grocery.ProductListScreen
+import com.maggie.app.ui.screens.grocery.ProductViewModel
+import com.maggie.app.ui.screens.grocery.StoreListScreen
+import com.maggie.app.ui.screens.grocery.StoreViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealCreateDialog
 import com.maggie.app.ui.screens.cookbook.meals.MealsWeekViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeCreateScreen
@@ -100,6 +105,9 @@ sealed class Screen(val route: String, val label: String) {
     data object Search : Screen("search", "Rechercher")
     data object Proactions : Screen("proactions", "Proactions")
     data object Cookbook : Screen("cookbook", "Cuisine")
+    data object Grocery : Screen("grocery", "Courses")
+    data object ProductList : Screen("products", "Produits")
+    data object StoreList : Screen("stores", "Magasins")
     data object RecipeDetail : Screen("recipe/detail", "Recette")
     data object RecipeCreate : Screen("recipe/create", "Nouvelle recette")
     data object RecipeEdit : Screen("recipe/edit", "Modifier la recette")
@@ -111,6 +119,7 @@ private val MAIN_SCREENS = setOf(
     Screen.Calendar.route,
     Screen.Chat.route,
     Screen.Cookbook.route,
+    Screen.Grocery.route,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -204,6 +213,7 @@ fun NavGraph() {
         Screen.Calendar.route -> Screen.Calendar.label
         Screen.Chat.route -> Screen.Chat.label
         Screen.Cookbook.route -> Screen.Cookbook.label
+        Screen.Grocery.route -> Screen.Grocery.label
         else -> "Maggie"
     }
 
@@ -401,7 +411,6 @@ fun NavGraph() {
                     CookbookScreen(
                         recipeListViewModel = recipeListViewModel,
                         mealsWeekViewModel = mealsWeekViewModel,
-                        groceryViewModel = groceryViewModel,
                         onRecipeClick = { id ->
                             detailRecipeId = id
                             navController.navigate(Screen.RecipeDetail.route)
@@ -412,6 +421,31 @@ fun NavGraph() {
                         onCreateMeal = { day, slot ->
                             mealCreateState = day to slot
                         },
+                    )
+                }
+                composable(Screen.Grocery.route) {
+                    GroceryScreen(
+                        viewModel = groceryViewModel,
+                        onNavigateToProducts = {
+                            navController.navigate(Screen.ProductList.route) { launchSingleTop = true }
+                        },
+                        onNavigateToStores = {
+                            navController.navigate(Screen.StoreList.route) { launchSingleTop = true }
+                        },
+                    )
+                }
+                composable(Screen.ProductList.route) {
+                    val productViewModel: ProductViewModel = koinViewModel()
+                    ProductListScreen(
+                        viewModel = productViewModel,
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable(Screen.StoreList.route) {
+                    val storeViewModel: StoreViewModel = koinViewModel()
+                    StoreListScreen(
+                        viewModel = storeViewModel,
+                        onBack = { navController.popBackStack() },
                     )
                 }
                 composable(Screen.RecipeDetail.route) {

@@ -12,4 +12,7 @@ data class Product(
     val proteinPer100g: Float? = null,
     val carbsPer100g: Float? = null,
     val fatPer100g: Float? = null,
+    val preferredStore: String? = null,
+    val fallbackStore: String? = null,
+    val shelfLifeDays: Int? = null,
 )

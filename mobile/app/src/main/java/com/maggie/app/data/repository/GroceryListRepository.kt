@@ -1,5 +1,6 @@
 package com.maggie.app.data.repository
 
+import com.maggie.app.data.api.AddGroceryItemRequest
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.model.GroceryList
 
@@ -17,5 +18,21 @@ class GroceryListRepository(
 
     suspend fun deleteItem(itemId: String): Result<Unit> = runCatching {
         apiService.deleteGroceryItem(itemId)
+    }
+
+    suspend fun addItem(
+        label: String,
+        quantity: Float? = null,
+        unit: String? = null,
+        storeId: String? = null,
+    ): Result<Unit> = runCatching {
+        apiService.addGroceryItem(
+            AddGroceryItemRequest(
+                label = label,
+                quantity = quantity,
+                unit = unit,
+                storeId = storeId,
+            ),
+        )
     }
 }

@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
@@ -58,6 +59,17 @@ fun AppDrawerContent(
             selected = currentRoute == "cookbook",
             onClick = {
                 onNavigate("cookbook")
+                onCloseDrawer()
+            },
+            modifier = Modifier.padding(horizontal = 12.dp),
+        )
+
+        NavigationDrawerItem(
+            icon = { Icon(Icons.Default.ShoppingCart, contentDescription = null) },
+            label = { Text("Courses") },
+            selected = currentRoute == "grocery",
+            onClick = {
+                onNavigate("grocery")
                 onCloseDrawer()
             },
             modifier = Modifier.padding(horizontal = 12.dp),

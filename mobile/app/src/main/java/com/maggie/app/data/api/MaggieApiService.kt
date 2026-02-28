@@ -11,7 +11,9 @@ import com.maggie.app.data.model.Ingredient
 import com.maggie.app.data.model.Meal
 import com.maggie.app.data.model.Notification
 import com.maggie.app.data.model.Proaction
+import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.Recipe
+import com.maggie.app.data.model.Store
 import com.maggie.app.data.model.TtsVoice
 import com.maggie.app.data.model.RecurringGroceryItem
 import com.maggie.app.data.model.SearchResponse
@@ -169,6 +171,37 @@ data class RecurringGroceryItemCreateRequest(
     val quantity: Float? = null,
     val unit: String? = null,
     val frequency: String,
+)
+
+@Serializable
+data class ProductCreateRequest(
+    val name: String,
+    val category: String,
+    val defaultUnit: String? = null,
+    val preferredStore: String? = null,
+    val fallbackStore: String? = null,
+    val shelfLifeDays: Int? = null,
+)
+
+@Serializable
+data class StoreCreateRequest(
+    val name: String,
+    val description: String? = null,
+    val visitOrder: Int = 0,
+)
+
+@Serializable
+data class AddGroceryItemRequest(
+    val label: String,
+    val quantity: Float? = null,
+    val unit: String? = null,
+    val storeId: String? = null,
+)
+
+@Serializable
+data class AddGroceryItemResponse(
+    val success: Boolean,
+    val itemCount: Int,
 )
 
 private val MERGE_PATCH = ContentType("application", "merge-patch+json")
@@ -518,6 +551,52 @@ class MaggieApiService(
 
     suspend fun deleteRecurringGroceryItem(id: String) {
         client.delete("$baseUrl/api/recurring_grocery_items/$id")
+    }
+
+    // Products
+    suspend fun getProducts(): List<Product> {
+        return client.get("$baseUrl/api/products") {
+            accept(ContentType("application", "ld+json"))
+        }.body<ApiCollection<Product>>().member
+    }
+
+    suspend fun createProduct(request: ProductCreateRequest): Product {
+        return client.post("$baseUrl/api/products") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.body()
+    }
+
+    suspend fun deleteProduct(id: String) {
+        client.delete("$baseUrl/api/products/$id")
+    }
+
+    // Stores
+    suspend fun getStores(): List<Store> {
+        return client.get("$baseUrl/api/stores") {
+            accept(ContentType("application", "ld+json"))
+        }.body<ApiCollection<Store>>().member
+    }
+
+    suspend fun createStore(request: StoreCreateRequest): Store {
+        return client.post("$baseUrl/api/stores") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.body()
+    }
+
+    suspend fun deleteStore(id: String) {
+        client.delete("$baseUrl/api/stores/$id")
+    }
+
+    // Grocery Add Item
+    suspend fun addGroceryItem(request: AddGroceryItemRequest): AddGroceryItemResponse {
+        return client.post("$baseUrl/api/grocery/add-item") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.body()
     }
 
     // Notifications
