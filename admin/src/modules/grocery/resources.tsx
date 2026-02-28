@@ -1,7 +1,6 @@
 import { ResourceGuesser } from '@api-platform/admin'
 import { CustomRoutes } from 'react-admin'
 import { Route } from 'react-router-dom'
-
 import { GroceryListView } from './GroceryListView'
 import { ProductCreate } from './ProductCreate'
 import { ProductEdit } from './ProductEdit'

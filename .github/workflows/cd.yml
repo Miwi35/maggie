@@ -264,8 +264,11 @@ jobs:
               $COMPOSE pull ciqual
             fi
 
+            # Clean up stale containers from previous failed deploys
+            docker compose --env-file .env.prod -f docker-compose.prod.yml down --remove-orphans 2>/dev/null || true
+
             # Deploy — pull missing fetches :latest for unchanged services if not cached
-            docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --remove-orphans
+            docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
 
             # Wait for database to be ready
             sleep 10
