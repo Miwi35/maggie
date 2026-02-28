@@ -11,7 +11,7 @@ use Maggie\Grocery\Entity\GroceryList;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
-class AddGroceryItemControllerTest extends WebTestCase
+class CheckGroceryItemControllerTest extends WebTestCase
 {
     use FixtureLoaderTrait;
     use AuthenticatedTestTrait;
@@ -29,18 +29,20 @@ class AddGroceryItemControllerTest extends WebTestCase
 
     public function testUnauthenticatedReturns401(): void
     {
-        $this->client->request('POST', '/api/grocery/add-item', [], [], [
+        $this->client->request('PATCH', '/api/grocery_items/fake-id', [], [], [
             'CONTENT_TYPE' => 'application/json',
-        ], json_encode(['label' => 'Bananes'], JSON_THROW_ON_ERROR));
+        ], json_encode(['checked' => true], JSON_THROW_ON_ERROR));
 
         self::assertResponseStatusCodeSame(401);
     }
 
-    public function testMissingLabelReturns400(): void
+    public function testMissingCheckedFieldReturns400(): void
     {
-        $this->authenticateAsTestUser();
+        $this->loadFixtures('grocery.yaml');
+        $itemId = (string) $this->getFixture('item_tomato')->getId();
+        $this->authenticateAsUser($this->getFixture('test_user'));
 
-        $this->client->request('POST', '/api/grocery/add-item', [], [], array_merge(
+        $this->client->request('PATCH', "/api/grocery_items/$itemId", [], [], array_merge(
             ['CONTENT_TYPE' => 'application/json'],
             $this->authHeaders(),
         ), json_encode([], JSON_THROW_ON_ERROR));
@@ -48,63 +50,53 @@ class AddGroceryItemControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
-    public function testAddItemCreatesGroceryItem(): void
+    public function testCheckItemUpdatesAndPublishes(): void
     {
-        $this->authenticateAsTestUser();
+        $this->loadFixtures('grocery.yaml');
+        $itemId = (string) $this->getFixture('item_tomato')->getId();
+        $this->authenticateAsUser($this->getFixture('test_user'));
 
-        $this->client->request('POST', '/api/grocery/add-item', [], [], array_merge(
+        $this->client->request('PATCH', "/api/grocery_items/$itemId", [], [], array_merge(
             ['CONTENT_TYPE' => 'application/json'],
             $this->authHeaders(),
-        ), json_encode([
-            'label' => 'Bananes',
-            'quantity' => 6,
-            'unit' => 'piece',
-        ], JSON_THROW_ON_ERROR));
+        ), json_encode(['checked' => true], JSON_THROW_ON_ERROR));
 
         self::assertResponseIsSuccessful();
 
         $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
         self::assertTrue($data['success']);
-        self::assertSame(1, $data['itemCount']);
+        self::assertTrue($data['checked']);
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $em->clear();
-        $items = $em->getRepository(GroceryItem::class)->findAll();
-        self::assertCount(1, $items);
-        self::assertSame('Bananes', $items[0]->getLabel());
+        $item = $em->find(GroceryItem::class, $itemId);
+        self::assertTrue($item->isChecked());
 
         $this->assertMercureUpdatePublished('/grocery_lists/');
         $this->assertElasticsearchIndexDispatched(GroceryList::class);
     }
 
-    public function testAddItemWithStoreId(): void
+    public function testUncheckItemUpdatesAndPublishes(): void
     {
-        $this->loadFixtures('store.yaml');
-        $storeId = (string) $this->getFixture('supermarket')->getId();
+        $this->loadFixtures('grocery.yaml');
+        $itemId = (string) $this->getFixture('item_milk')->getId();
+        $this->authenticateAsUser($this->getFixture('test_user'));
 
-        $em = self::getContainer()->get('doctrine.orm.entity_manager');
-        $user = $this->getFixture('test_user');
-        $this->authenticateAsUser($user);
-
-        $this->client->request('POST', '/api/grocery/add-item', [], [], array_merge(
+        $this->client->request('PATCH', "/api/grocery_items/$itemId", [], [], array_merge(
             ['CONTENT_TYPE' => 'application/json'],
             $this->authHeaders(),
-        ), json_encode([
-            'label' => 'Lait',
-            'quantity' => 1,
-            'unit' => 'l',
-            'storeId' => $storeId,
-        ], JSON_THROW_ON_ERROR));
+        ), json_encode(['checked' => false], JSON_THROW_ON_ERROR));
 
         self::assertResponseIsSuccessful();
 
         $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
         self::assertTrue($data['success']);
+        self::assertFalse($data['checked']);
 
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $em->clear();
-        $items = $em->getRepository(GroceryItem::class)->findAll();
-        self::assertCount(1, $items);
-        self::assertSame('Supermarché', $items[0]->getStore()->getName());
+        $item = $em->find(GroceryItem::class, $itemId);
+        self::assertFalse($item->isChecked());
 
         $this->assertMercureUpdatePublished('/grocery_lists/');
         $this->assertElasticsearchIndexDispatched(GroceryList::class);

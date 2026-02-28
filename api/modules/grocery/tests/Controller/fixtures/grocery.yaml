@@ -1,0 +1,32 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: grocery-test@example.com
+    googleId: google-grocery-test
+    name: Grocery Test User
+
+Maggie\Grocery\Entity\Store:
+  supermarket:
+    name: Supermarché
+    visitOrder: 1
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryList:
+  grocery_list:
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryItem:
+  item_tomato:
+    groceryList: '@grocery_list'
+    customLabel: Tomates
+    quantity: 3
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@supermarket'
+  item_milk:
+    groceryList: '@grocery_list'
+    customLabel: Lait
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Liter)>'
+    checked: true
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
