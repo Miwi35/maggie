@@ -26,8 +26,11 @@ import RepeatIcon from '@mui/icons-material/Repeat'
 import CategoryIcon from '@mui/icons-material/Category'
 import RestaurantMenuIcon from '@mui/icons-material/RestaurantMenu'
 import TuneIcon from '@mui/icons-material/Tune'
+import StorefrontIcon from '@mui/icons-material/Storefront'
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 
 export const CustomMenu = () => {
+  const [groceryOpen, setGroceryOpen] = useState(false)
   const [nutritionOpen, setNutritionOpen] = useState(false)
   const [rawDataOpen, setRawDataOpen] = useState(false)
   const [agendaRawOpen, setAgendaRawOpen] = useState(false)
@@ -49,6 +52,40 @@ export const CustomMenu = () => {
       />
       {open && (
         <List component="nav" disablePadding>
+          <ListItemButton onClick={() => setGroceryOpen(!groceryOpen)}>
+            <ListItemIcon sx={{ minWidth: 40 }}>
+              <ShoppingCartIcon />
+            </ListItemIcon>
+            <ListItemText
+              primary="Courses"
+              primaryTypographyProps={{ fontSize: 14, color: 'text.secondary' }}
+            />
+            {groceryOpen ? <ExpandLess /> : <ExpandMore />}
+          </ListItemButton>
+
+          <Collapse in={groceryOpen} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding>
+              <MenuItemLink
+                to="/grocery"
+                primaryText="Liste de courses"
+                leftIcon={<ReceiptLongIcon />}
+                sx={{ pl: 4 }}
+              />
+              <MenuItemLink
+                to="/products"
+                primaryText="Produits"
+                leftIcon={<CategoryIcon />}
+                sx={{ pl: 4 }}
+              />
+              <MenuItemLink
+                to="/stores"
+                primaryText="Magasins"
+                leftIcon={<StorefrontIcon />}
+                sx={{ pl: 4 }}
+              />
+            </List>
+          </Collapse>
+
           <ListItemButton onClick={() => setNutritionOpen(!nutritionOpen)}>
             <ListItemIcon sx={{ minWidth: 40 }}>
               <RestaurantMenuIcon />
@@ -72,12 +109,6 @@ export const CustomMenu = () => {
                 to="/meals"
                 primaryText="Repas de la semaine"
                 leftIcon={<RestaurantIcon />}
-                sx={{ pl: 4 }}
-              />
-              <MenuItemLink
-                to="/grocery"
-                primaryText="Courses"
-                leftIcon={<ShoppingCartIcon />}
                 sx={{ pl: 4 }}
               />
             </List>
@@ -158,12 +189,6 @@ export const CustomMenu = () => {
                     to="/ingredients"
                     primaryText="Ingrédients"
                     leftIcon={<EggIcon />}
-                    sx={{ pl: 8 }}
-                  />
-                  <MenuItemLink
-                    to="/products"
-                    primaryText="Produits"
-                    leftIcon={<CategoryIcon />}
                     sx={{ pl: 8 }}
                   />
                   <MenuItemLink

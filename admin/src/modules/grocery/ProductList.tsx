@@ -3,35 +3,36 @@ import {
   Datagrid,
   TextField,
   NumberField,
+  ReferenceField,
   EditButton,
   DeleteButton,
   useListContext,
 } from 'react-admin'
 import { useMercure } from '../../hooks/useMercure'
 
-const INGREDIENT_TOPICS = ['/api/ingredients/{id}']
+const PRODUCT_TOPICS = ['/api/products/{id}']
 
-const IngredientDatagrid = () => {
+const ProductDatagrid = () => {
   const { refetch } = useListContext()
-  useMercure(INGREDIENT_TOPICS, refetch)
+  useMercure(PRODUCT_TOPICS, refetch)
 
   return (
     <Datagrid rowClick="edit">
       <TextField source="name" label="Nom" />
       <TextField source="category" label="Catégorie" />
       <TextField source="defaultUnit" label="Unité" />
-      <NumberField source="kcalPer100g" label="kcal" />
-      <NumberField source="proteinPer100g" label="Protéines (g)" />
-      <NumberField source="carbsPer100g" label="Glucides (g)" />
-      <NumberField source="fatPer100g" label="Lipides (g)" />
+      <NumberField source="shelfLifeDays" label="Conservation (jours)" />
+      <ReferenceField source="preferredStore" reference="stores" label="Magasin préféré" link={false}>
+        <TextField source="name" />
+      </ReferenceField>
       <EditButton />
       <DeleteButton />
     </Datagrid>
   )
 }
 
-export const IngredientList = () => (
+export const ProductList = () => (
   <List>
-    <IngredientDatagrid />
+    <ProductDatagrid />
   </List>
 )
