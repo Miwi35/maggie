@@ -265,8 +265,8 @@ jobs:
               $COMPOSE pull ciqual
             fi
 
-            # Deploy (recreate changed services)
-            docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --remove-orphans
+            # Deploy (--pull never: we already pulled changed images above)
+            docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --remove-orphans --pull never
 
             # Wait for database to be ready
             sleep 10
