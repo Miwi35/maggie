@@ -3,7 +3,7 @@ services:
   # PHP-FPM (Symfony API + MCP Server)
   # ===========================================================================
   php:
-    image: ghcr.io/miwi35/maggie-php:${IMAGE_TAG:-latest}
+    image: ghcr.io/miwi35/maggie-php:${APP_TAG:-latest}
     restart: unless-stopped
     env_file: .env.prod
     environment:
@@ -27,7 +27,7 @@ services:
   # Nginx (PHP-FPM gateway + Admin SPA + static assets)
   # ===========================================================================
   nginx:
-    image: ghcr.io/miwi35/maggie-nginx:${IMAGE_TAG:-latest}
+    image: ghcr.io/miwi35/maggie-nginx:${APP_TAG:-latest}
     restart: unless-stopped
     environment:
       APP_DOMAIN: maggieai.fr
@@ -126,7 +126,7 @@ services:
   # Worker (Symfony Messenger consumer)
   # ===========================================================================
   worker:
-    image: ghcr.io/miwi35/maggie-php:${IMAGE_TAG:-latest}
+    image: ghcr.io/miwi35/maggie-php:${APP_TAG:-latest}
     restart: unless-stopped
     env_file: .env.prod
     environment:
@@ -149,7 +149,7 @@ services:
   # Cron (Scheduled tasks)
   # ===========================================================================
   cron:
-    image: ghcr.io/miwi35/maggie-php:${IMAGE_TAG:-latest}
+    image: ghcr.io/miwi35/maggie-php:${APP_TAG:-latest}
     restart: unless-stopped
     env_file: .env.prod
     environment:
@@ -171,7 +171,7 @@ services:
   # Ciqual (ANSES food composition microservice)
   # ===========================================================================
   ciqual:
-    image: ghcr.io/miwi35/maggie-ciqual:${IMAGE_TAG:-latest}
+    image: ghcr.io/miwi35/maggie-ciqual:${CIQUAL_TAG:-latest}
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
@@ -187,7 +187,7 @@ services:
   # Python Agent Hub (FastAPI)
   # ===========================================================================
   agent:
-    image: ghcr.io/miwi35/maggie-agent:${IMAGE_TAG:-latest}
+    image: ghcr.io/miwi35/maggie-agent:${AGENT_TAG:-latest}
     restart: unless-stopped
     env_file: .env.prod
     volumes:
