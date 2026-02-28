@@ -4,7 +4,7 @@ Maggie\Core\Entity\User:
     googleId: google-cookbook-test
     name: Cookbook Test User
 
-Maggie\Cookbook\Entity\Store:
+Maggie\Grocery\Entity\Store:
   supermarket:
     name: Supermarché
     visitOrder: 1
@@ -17,28 +17,28 @@ Maggie\Cookbook\Entity\Store:
 Maggie\Cookbook\Entity\Ingredient:
   tomato:
     name: Tomate
-    category: '<(Maggie\Cookbook\Enum\ProductCategory::Produce)>'
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
     user: '@test_user'
     preferredStore: '@supermarket'
     fallbackStore: '@greengrocer'
 
-Maggie\Cookbook\Entity\GroceryList:
+Maggie\Grocery\Entity\GroceryList:
   grocery_list:
     user: '@test_user'
 
-Maggie\Cookbook\Entity\GroceryItem:
+Maggie\Grocery\Entity\GroceryItem:
   item_tomato:
     groceryList: '@grocery_list'
     product: '@tomato'
     quantity: 3
-    unit: '<(Maggie\Cookbook\Enum\Unit::Piece)>'
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
     checked: false
-    source: '<(Maggie\Cookbook\Enum\GroceryItemSource::Manual)>'
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
     store: '@supermarket'
   item_checked:
     groceryList: '@grocery_list'
     customLabel: Lait
     quantity: 1
-    unit: '<(Maggie\Cookbook\Enum\Unit::Liter)>'
+    unit: '<(Maggie\Grocery\Enum\Unit::Liter)>'
     checked: true
-    source: '<(Maggie\Cookbook\Enum\GroceryItemSource::Manual)>'
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'

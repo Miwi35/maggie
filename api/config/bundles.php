@@ -12,6 +12,7 @@ return [
     Maggie\Calendar\MaggieCalendarBundle::class => ['all' => true],
     Maggie\Core\MaggieCoreBundle::class => ['all' => true],
     Maggie\Notification\MaggieNotificationBundle::class => ['all' => true],
+    Maggie\Grocery\MaggieGroceryBundle::class => ['all' => true],
     Maggie\Cookbook\MaggieCookbookBundle::class => ['all' => true],
     Symfony\AI\McpBundle\McpBundle::class => ['all' => true],
     Nelmio\Alice\Bridge\Symfony\NelmioAliceBundle::class => ['dev' => true, 'test' => true],

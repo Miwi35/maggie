@@ -1,0 +1,18 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: grocery-test@example.com
+    googleId: google-grocery-test
+    name: Grocery Test User
+
+Maggie\Grocery\Entity\Store:
+  supermarket:
+    name: Supermarché
+    visitOrder: 1
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\Ingredient:
+  tomato:
+    name: Tomate
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    user: '@test_user'
+    preferredStore: '@supermarket'

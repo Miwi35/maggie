@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Maggie\Cookbook\Mcp\Tool;
 
-use Maggie\Cookbook\Entity\GroceryList;
+use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Cookbook\Message\GenerateGroceryListCommand;
 use Maggie\Core\Repository\UserRepository;
 use Mcp\Capability\Attribute\McpTool;

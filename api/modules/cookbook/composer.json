@@ -1,6 +1,6 @@
 {
     "name": "maggie/cookbook",
-    "description": "Cookbook module: recipes, meal planning, grocery lists",
+    "description": "Cookbook module: recipes, meal planning, ingredients",
     "type": "symfony-bundle",
     "license": "proprietary",
     "require": {
@@ -9,6 +9,7 @@
         "doctrine/doctrine-bundle": "^2.18",
         "doctrine/orm": "^3.6",
         "maggie/calendar": "@dev",
+        "maggie/grocery": "@dev",
         "symfony/mcp-bundle": "^0.3",
         "symfony/mercure-bundle": "^0.4",
         "symfony/uid": "7.4.*",

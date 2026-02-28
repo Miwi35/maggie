@@ -7,22 +7,24 @@
         {"type": "path", "url": "modules/calendar", "options": {"symlink": true}},
         {"type": "path", "url": "modules/core", "options": {"symlink": true}},
         {"type": "path", "url": "modules/notification", "options": {"symlink": true}},
+        {"type": "path", "url": "modules/grocery", "options": {"symlink": true}},
         {"type": "path", "url": "modules/cookbook", "options": {"symlink": true}}
     ],
     "require": {
         "php": ">=8.4",
         "ext-ctype": "*",
         "ext-iconv": "*",
-        "api-platform/core": "^4.2.16",
+        "api-platform/core": "^4.2.19",
         "doctrine/doctrine-bundle": "^2.18.2",
         "doctrine/doctrine-migrations-bundle": "^3.7",
         "doctrine/orm": "^3.6.2",
-        "elasticsearch/elasticsearch": "^8.0",
+        "elasticsearch/elasticsearch": "^8.19",
         "google/apiclient": "^2.19",
         "lexik/jwt-authentication-bundle": "^3.2",
         "maggie/calendar": "@dev",
         "maggie/cookbook": "@dev",
         "maggie/core": "@dev",
+        "maggie/grocery": "@dev",
         "maggie/notification": "@dev",
         "nelmio/cors-bundle": "^2.6.1",
         "nyholm/psr7": "^1.8.2",
@@ -37,7 +39,7 @@
         "symfony/mcp-bundle": "^0.3",
         "symfony/mercure-bundle": "^0.4.2",
         "symfony/messenger": "7.4.*",
-        "symfony/monolog-bundle": "^4.0",
+        "symfony/monolog-bundle": "^4.0.1",
         "symfony/runtime": "7.4.*",
         "symfony/security-bundle": "7.4.*",
         "symfony/uid": "7.4.*",
@@ -61,7 +63,8 @@
         "psr-4": {
             "App\\Tests\\": "tests/",
             "Maggie\\Calendar\\Tests\\": "modules/calendar/tests/",
-            "Maggie\\Core\\Tests\\": "modules/core/tests/"
+            "Maggie\\Core\\Tests\\": "modules/core/tests/",
+            "Maggie\\Grocery\\Tests\\": "modules/grocery/tests/"
         }
     },
     "replace": {
@@ -98,9 +101,9 @@
     "require-dev": {
         "doctrine/doctrine-fixtures-bundle": "^4.3.1",
         "hautelook/alice-bundle": "^2.17.2",
-        "phpstan/phpstan": "^2.1.39",
-        "phpstan/phpstan-doctrine": "^2.0.17",
-        "phpstan/phpstan-symfony": "^2.0.14",
+        "phpstan/phpstan": "^2.1.40",
+        "phpstan/phpstan-doctrine": "^2.0.18",
+        "phpstan/phpstan-symfony": "^2.0.15",
         "phpunit/phpunit": "^12.5.14",
         "symfony/browser-kit": "7.4.*",
         "symfony/css-selector": "7.4.*",

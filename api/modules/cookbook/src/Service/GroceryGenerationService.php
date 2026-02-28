@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Maggie\Cookbook\Service;
 
-use Maggie\Cookbook\Entity\GroceryItem;
-use Maggie\Cookbook\Enum\GroceryItemSource;
+use Maggie\Grocery\Entity\GroceryItem;
+use Maggie\Grocery\Enum\GroceryItemSource;
 use Maggie\Cookbook\Repository\MealRepository;
-use Maggie\Cookbook\Repository\RecurringGroceryItemRepository;
+use Maggie\Grocery\Repository\RecurringGroceryItemRepository;
 use Maggie\Core\Entity\User;
 
 class GroceryGenerationService

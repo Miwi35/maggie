@@ -4,7 +4,7 @@ Maggie\Core\Entity\User:
     googleId: google-cookbook-test
     name: Cookbook Test User
 
-Maggie\Cookbook\Entity\Store:
+Maggie\Grocery\Entity\Store:
   supermarket:
     name: Supermarché
     description: Supermarket for general groceries

@@ -7,7 +7,7 @@ namespace Maggie\Cookbook\MessageHandler;
 use Maggie\Cookbook\Entity\Ingredient;
 use Maggie\Cookbook\Entity\Recipe;
 use Maggie\Cookbook\Entity\RecipeIngredient;
-use Maggie\Cookbook\Enum\Unit;
+use Maggie\Grocery\Enum\Unit;
 use Maggie\Cookbook\Message\CreateRecipeCommand;
 use Maggie\Cookbook\Repository\IngredientRepository;
 use Maggie\Cookbook\Service\IngredientFromCiqualResolver;

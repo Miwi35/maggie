@@ -17,6 +17,10 @@ vi.mock('./modules/calendar', () => ({
   calendarResources: <div data-testid="calendar-resources" />,
 }))
 
+vi.mock('./modules/grocery', () => ({
+  groceryResources: <div data-testid="grocery-resources" />,
+}))
+
 vi.mock('./modules/cookbook', () => ({
   cookbookResources: <div data-testid="cookbook-resources" />,
 }))

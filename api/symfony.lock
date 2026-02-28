@@ -110,6 +110,9 @@
     "maggie/core": {
         "version": "dev-main"
     },
+    "maggie/grocery": {
+        "version": "dev-main"
+    },
     "maggie/notification": {
         "version": "dev-main"
     },

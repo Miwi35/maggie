@@ -17,3 +17,7 @@ services:
     Maggie\Cookbook\EventListener\MealDiscriminatorListener:
         tags:
             - { name: doctrine.event_listener, event: loadClassMetadata }
+
+    Maggie\Cookbook\EventListener\IngredientDiscriminatorListener:
+        tags:
+            - { name: doctrine.event_listener, event: loadClassMetadata }

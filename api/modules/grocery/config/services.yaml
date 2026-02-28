@@ -1,0 +1,11 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    Maggie\Grocery\:
+        resource: '../src/'
+        exclude:
+            - '../src/Entity/'
+            - '../src/Enum/'
+            - '../src/MaggieGroceryBundle.php'

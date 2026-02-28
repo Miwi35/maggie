@@ -4,7 +4,7 @@ Maggie\Core\Entity\User:
     googleId: google-cookbook-test
     name: Cookbook Test User
 
-Maggie\Cookbook\Entity\Store:
+Maggie\Grocery\Entity\Store:
   supermarket:
     name: Supermarché
     visitOrder: 1
@@ -13,6 +13,6 @@ Maggie\Cookbook\Entity\Store:
 Maggie\Cookbook\Entity\Ingredient:
   tomato:
     name: Tomate
-    category: '<(Maggie\Cookbook\Enum\ProductCategory::Produce)>'
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
     user: '@test_user'
     preferredStore: '@supermarket'

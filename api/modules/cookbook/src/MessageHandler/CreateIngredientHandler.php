@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Maggie\Cookbook\MessageHandler;
 
 use Maggie\Cookbook\Entity\Ingredient;
-use Maggie\Cookbook\Enum\ProductCategory;
-use Maggie\Cookbook\Enum\Unit;
+use Maggie\Grocery\Enum\ProductCategory;
+use Maggie\Grocery\Enum\Unit;
 use Maggie\Cookbook\Message\CreateIngredientCommand;
-use Maggie\Cookbook\UseCase\CreateProduct;
+use Maggie\Grocery\UseCase\CreateProduct;
 use Maggie\Core\Repository\UserRepository;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 

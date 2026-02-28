@@ -34,9 +34,9 @@ framework:
             'Maggie\Notification\Message\CreateNotificationCommand': sync
             'Maggie\Notification\Message\MarkNotificationReadCommand': sync
             'Maggie\Notification\Message\DeleteNotificationCommand': sync
-            'Maggie\Cookbook\Message\CreateProductCommand': sync
-            'Maggie\Cookbook\Message\UpdateProductCommand': sync
-            'Maggie\Cookbook\Message\DeleteProductCommand': sync
+            'Maggie\Grocery\Message\CreateProductCommand': sync
+            'Maggie\Grocery\Message\UpdateProductCommand': sync
+            'Maggie\Grocery\Message\DeleteProductCommand': sync
             'Maggie\Cookbook\Message\CreateIngredientCommand': sync
             'Maggie\Cookbook\Message\UpdateIngredientCommand': sync
             'Maggie\Cookbook\Message\DeleteIngredientCommand': sync
@@ -47,17 +47,17 @@ framework:
             'Maggie\Cookbook\Message\UpdateMealCommand': sync
             'Maggie\Cookbook\Message\DeleteMealCommand': sync
             'Maggie\Cookbook\Message\GenerateGroceryListCommand': sync
-            'Maggie\Cookbook\Message\AddGroceryItemCommand': sync
-            'Maggie\Cookbook\Message\CheckGroceryItemCommand': sync
-            'Maggie\Cookbook\Message\EndErrandCommand': sync
-            'Maggie\Cookbook\Message\MoveToFallbackCommand': sync
-            'Maggie\Cookbook\Message\RemoveGroceryItemCommand': sync
-            'Maggie\Cookbook\Message\CreateStoreCommand': sync
-            'Maggie\Cookbook\Message\UpdateStoreCommand': sync
-            'Maggie\Cookbook\Message\DeleteStoreCommand': sync
-            'Maggie\Cookbook\Message\CreateRecurringGroceryItemCommand': sync
-            'Maggie\Cookbook\Message\UpdateRecurringGroceryItemCommand': sync
-            'Maggie\Cookbook\Message\DeleteRecurringGroceryItemCommand': sync
+            'Maggie\Grocery\Message\AddGroceryItemCommand': sync
+            'Maggie\Grocery\Message\CheckGroceryItemCommand': sync
+            'Maggie\Grocery\Message\EndErrandCommand': sync
+            'Maggie\Grocery\Message\MoveToFallbackCommand': sync
+            'Maggie\Grocery\Message\RemoveGroceryItemCommand': sync
+            'Maggie\Grocery\Message\CreateStoreCommand': sync
+            'Maggie\Grocery\Message\UpdateStoreCommand': sync
+            'Maggie\Grocery\Message\DeleteStoreCommand': sync
+            'Maggie\Grocery\Message\CreateRecurringGroceryItemCommand': sync
+            'Maggie\Grocery\Message\UpdateRecurringGroceryItemCommand': sync
+            'Maggie\Grocery\Message\DeleteRecurringGroceryItemCommand': sync
             'Maggie\Core\Elasticsearch\Message\IndexDocumentCommand': async
             'Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand': async
 

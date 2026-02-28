@@ -7,6 +7,7 @@ import { Layout } from './components/layout/Layout'
 import { Dashboard } from './modules/dashboard'
 import { calendarResources } from './modules/calendar'
 import { settingsResources } from './modules/settings'
+import { groceryResources } from './modules/grocery'
 import { cookbookResources } from './modules/cookbook'
 import { searchResources } from './modules/search'
 import { authProvider, handleAuthCallback } from './auth/authProvider'
@@ -71,6 +72,7 @@ function App() {
       darkTheme={radiantDarkTheme}
     >
       {calendarResources}
+      {groceryResources}
       {cookbookResources}
       {settingsResources}
       {searchResources}

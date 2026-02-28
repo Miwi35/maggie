@@ -14,6 +14,7 @@ use Maggie\Cookbook\Repository\IngredientRepository;
 use Maggie\Cookbook\State\CreateIngredientProcessor;
 use Maggie\Cookbook\State\DeleteIngredientProcessor;
 use Maggie\Cookbook\State\UpdateIngredientProcessor;
+use Maggie\Grocery\Entity\Product;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: IngredientRepository::class)]

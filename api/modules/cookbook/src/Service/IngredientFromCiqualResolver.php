@@ -6,8 +6,8 @@ namespace Maggie\Cookbook\Service;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Cookbook\Entity\Ingredient;
-use Maggie\Cookbook\Enum\ProductCategory;
-use Maggie\Cookbook\Enum\Unit;
+use Maggie\Grocery\Enum\ProductCategory;
+use Maggie\Grocery\Enum\Unit;
 use Maggie\Cookbook\Repository\IngredientRepository;
 use Maggie\Core\Entity\User;
 

@@ -6,7 +6,7 @@ namespace Maggie\Cookbook\MessageHandler;
 
 use Maggie\Cookbook\Message\DeleteIngredientCommand;
 use Maggie\Cookbook\Repository\IngredientRepository;
-use Maggie\Cookbook\UseCase\DeleteProduct;
+use Maggie\Grocery\UseCase\DeleteProduct;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
