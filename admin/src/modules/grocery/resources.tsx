@@ -1,13 +1,14 @@
 import { ResourceGuesser } from '@api-platform/admin'
 import { CustomRoutes } from 'react-admin'
 import { Route } from 'react-router-dom'
+
 import { GroceryListView } from './GroceryListView'
-import { ProductList } from './ProductList'
 import { ProductCreate } from './ProductCreate'
 import { ProductEdit } from './ProductEdit'
-import { StoreList } from './StoreList'
+import { ProductList } from './ProductList'
 import { StoreCreate } from './StoreCreate'
 import { StoreEdit } from './StoreEdit'
+import { StoreList } from './StoreList'
 
 export const groceryResources = (
   <>
