@@ -228,21 +228,20 @@ jobs:
             # Log in to GHCR
             echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
 
-            # Migrate from IMAGE_TAG to per-service tags (one-time)
-            if grep -q '^IMAGE_TAG=' .env.prod && ! grep -q '^APP_TAG=' .env.prod; then
-              OLD_TAG=$(grep '^IMAGE_TAG=' .env.prod | cut -d= -f2)
-              echo "APP_TAG=${OLD_TAG}" >> .env.prod
-              echo "AGENT_TAG=${OLD_TAG}" >> .env.prod
-              echo "CIQUAL_TAG=${OLD_TAG}" >> .env.prod
-              sed -i '/^IMAGE_TAG=/d' .env.prod
-            fi
+            # Clean up legacy IMAGE_TAG if present
+            sed -i '/^IMAGE_TAG=/d' .env.prod
 
-            # Ensure per-service tag vars exist (fallback to latest)
+            # Set all service tags to latest, then override changed ones to the new SHA.
+            # This ensures unchanged services always use cached :latest images
+            # instead of stale SHA tags that may no longer exist.
+            sed -i 's/^APP_TAG=.*/APP_TAG=latest/' .env.prod
+            sed -i 's/^AGENT_TAG=.*/AGENT_TAG=latest/' .env.prod
+            sed -i 's/^CIQUAL_TAG=.*/CIQUAL_TAG=latest/' .env.prod
             grep -q '^APP_TAG=' .env.prod || echo "APP_TAG=latest" >> .env.prod
             grep -q '^AGENT_TAG=' .env.prod || echo "AGENT_TAG=latest" >> .env.prod
             grep -q '^CIQUAL_TAG=' .env.prod || echo "CIQUAL_TAG=latest" >> .env.prod
 
-            # Update image tags only for rebuilt services
+            # Override to commit SHA for rebuilt services
             if [ "$APP_CHANGED" = "true" ]; then
               sed -i 's/^APP_TAG=.*/APP_TAG='"$IMAGE_TAG"'/' .env.prod
             fi
@@ -253,7 +252,7 @@ jobs:
               sed -i 's/^CIQUAL_TAG=.*/CIQUAL_TAG='"$IMAGE_TAG"'/' .env.prod
             fi
 
-            # Pull only changed images (blanket pull fails when unchanged service tags are stale)
+            # Pull only changed images
             COMPOSE="docker compose --env-file .env.prod -f docker-compose.prod.yml"
             if [ "$APP_CHANGED" = "true" ]; then
               $COMPOSE pull php nginx worker cron
@@ -265,8 +264,8 @@ jobs:
               $COMPOSE pull ciqual
             fi
 
-            # Deploy (--pull never: we already pulled changed images above)
-            docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --remove-orphans --pull never
+            # Deploy — pull missing fetches :latest for unchanged services if not cached
+            docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --remove-orphans
 
             # Wait for database to be ready
             sleep 10

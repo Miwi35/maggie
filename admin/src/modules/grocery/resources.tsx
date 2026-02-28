@@ -15,8 +15,18 @@ export const groceryResources = (
     <CustomRoutes>
       <Route path="/grocery" element={<GroceryListView />} />
     </CustomRoutes>
-    <ResourceGuesser name="products" list={ProductList} create={ProductCreate} edit={ProductEdit} />
+    <ResourceGuesser
+      name="products"
+      list={ProductList}
+      create={ProductCreate}
+      edit={ProductEdit}
+    />
     <ResourceGuesser name="recurring_grocery_items" />
-    <ResourceGuesser name="stores" list={StoreList} create={StoreCreate} edit={StoreEdit} />
+    <ResourceGuesser
+      name="stores"
+      list={StoreList}
+      create={StoreCreate}
+      edit={StoreEdit}
+    />
   </>
 )
