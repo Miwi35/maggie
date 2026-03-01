@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace Maggie\Grocery\MessageHandler;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
+use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Enum\GroceryItemSource;
+use Maggie\Grocery\Enum\ProductCategory;
 use Maggie\Grocery\Enum\Unit;
 use Maggie\Grocery\Message\AddGroceryItemCommand;
 use Maggie\Grocery\Repository\GroceryListRepository;
@@ -15,12 +18,14 @@ use Maggie\Grocery\Repository\ProductRepository;
 use Maggie\Grocery\Repository\StoreRepository;
 use Maggie\Core\Repository\UserRepository;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 #[AsMessageHandler]
 class AddGroceryItemHandler
 {
     public function __construct(
         private readonly EntityManagerInterface $em,
+        private readonly MessageBusInterface $bus,
         private readonly GroceryListRepository $groceryListRepository,
         private readonly ProductRepository $productRepository,
         private readonly StoreRepository $storeRepository,
@@ -48,13 +53,20 @@ class AddGroceryItemHandler
             }
         }
 
+        $newProduct = null;
+
         if ($matched !== null) {
             $item->setProduct($matched);
             if ($matched->getPreferredStore() !== null) {
                 $item->setStore($matched->getPreferredStore());
             }
         } else {
-            $item->setCustomLabel($command->label);
+            $newProduct = new Product();
+            $newProduct->setName($command->label);
+            $newProduct->setCategory(ProductCategory::Other);
+            $newProduct->setUser($user);
+            $this->em->persist($newProduct);
+            $item->setProduct($newProduct);
         }
 
         // Override store if explicitly provided
@@ -75,6 +87,13 @@ class AddGroceryItemHandler
         $list->addItem($item);
         $list->setUpdatedAt(new \DateTimeImmutable());
         $this->em->flush();
+
+        if ($newProduct !== null) {
+            $this->bus->dispatch(new IndexDocumentCommand(
+                entityClass: Product::class,
+                entityId: (string) $newProduct->getId(),
+            ));
+        }
 
         return $list;
     }

@@ -7,6 +7,7 @@ use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
+use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Mcp\Tool\AddGroceryItemTool;
 use Maggie\Grocery\Mcp\Tool\CheckGroceryItemTool;
 use Maggie\Grocery\Mcp\Tool\EndErrandTool;
@@ -49,8 +50,14 @@ class GroceryToolsTest extends KernelTestCase
         self::assertCount(1, $items);
         self::assertSame('Bananes', $items[0]->getLabel());
 
+        $products = $this->em()->getRepository(Product::class)->findAll();
+        self::assertCount(1, $products);
+        self::assertSame('Bananes', $products[0]->getName());
+        self::assertSame('other', $products[0]->getCategory()->value);
+
         $this->assertMercureUpdatePublished('/grocery_lists/');
         $this->assertElasticsearchIndexDispatched(GroceryList::class);
+        $this->assertElasticsearchIndexDispatched(Product::class);
     }
 
     public function testGetGroceryListReturnsItems(): void
