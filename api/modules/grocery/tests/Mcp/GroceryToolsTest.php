@@ -104,6 +104,62 @@ class GroceryToolsTest extends KernelTestCase
         self::assertSame((string) $products[0]->getId(), (string) $items[0]->getProduct()->getId());
     }
 
+    public function testAddGroceryItemWithCategoryCreatesProductWithCategory(): void
+    {
+        $this->loadFixtures('user.yaml');
+
+        $tool = self::getContainer()->get(AddGroceryItemTool::class);
+        $result = $tool('Yaourt', 4, 'piece', null, null, 'dairy');
+
+        $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
+        self::assertTrue($data['success']);
+
+        $this->em()->clear();
+        $products = $this->em()->getRepository(Product::class)->findAll();
+        self::assertCount(1, $products);
+        self::assertSame('dairy', $products[0]->getCategory()->value);
+
+        $this->assertElasticsearchIndexDispatched(Product::class);
+    }
+
+    public function testAddGroceryItemWithCategoryUpdatesExistingProduct(): void
+    {
+        $this->loadFixtures('product.yaml');
+
+        $tool = self::getContainer()->get(AddGroceryItemTool::class);
+        // Bananes fixture is 'produce', update to 'frozen'
+        $result = $tool('Bananes', 1, 'piece', null, null, 'frozen');
+
+        $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
+        self::assertTrue($data['success']);
+
+        $this->em()->clear();
+        $products = $this->em()->getRepository(Product::class)->findAll();
+        self::assertCount(1, $products, 'No new product should be created');
+        self::assertSame('frozen', $products[0]->getCategory()->value);
+
+        $this->assertElasticsearchIndexDispatched(Product::class);
+    }
+
+    public function testAddGroceryItemUpdatesExistingProductPreferredStore(): void
+    {
+        $this->loadFixtures('product.yaml');
+
+        $tool = self::getContainer()->get(AddGroceryItemTool::class);
+        // Bananes has preferredStore=supermarket, add with new storeName
+        $result = $tool('Bananes', 2, 'piece', null, 'Primeur');
+
+        $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
+        self::assertTrue($data['success']);
+
+        $this->em()->clear();
+        $products = $this->em()->getRepository(Product::class)->findAll();
+        self::assertCount(1, $products);
+        self::assertSame('Primeur', $products[0]->getPreferredStore()->getName());
+
+        $this->assertElasticsearchIndexDispatched(Product::class);
+    }
+
     public function testGetGroceryListReturnsItems(): void
     {
         $this->loadFixtures('grocery.yaml');

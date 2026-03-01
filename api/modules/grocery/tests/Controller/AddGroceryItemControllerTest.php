@@ -397,6 +397,116 @@ class AddGroceryItemControllerTest extends WebTestCase
         $this->assertElasticsearchIndexDispatched(Product::class);
     }
 
+    public function testAddItemWithoutCategoryLeavesExistingProductUnchanged(): void
+    {
+        $this->loadFixtures('product.yaml');
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+
+        // Add without category — existing 'produce' product should remain 'produce'
+        $this->client->request('POST', '/api/grocery/add-item', [], [], array_merge(
+            ['CONTENT_TYPE' => 'application/json'],
+            $this->authHeaders(),
+        ), json_encode([
+            'label' => 'Bananes',
+            'quantity' => 1,
+            'unit' => 'piece',
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $products = $em->getRepository(Product::class)->findAll();
+        self::assertCount(1, $products);
+        self::assertSame('produce', $products[0]->getCategory()->value);
+        self::assertSame('Supermarché', $products[0]->getPreferredStore()->getName());
+
+        // No Product ES index dispatched — product was not modified
+        $sent = $this->getAsyncTransport()->getSent();
+        $productIndexDispatched = false;
+        foreach ($sent as $envelope) {
+            $msg = $envelope->getMessage();
+            if ($msg instanceof \Maggie\Core\Elasticsearch\Message\IndexDocumentCommand && $msg->entityClass === Product::class) {
+                $productIndexDispatched = true;
+            }
+        }
+        self::assertFalse($productIndexDispatched, 'Product index should not be dispatched when no changes made');
+    }
+
+    public function testAddItemWithSameCategoryDoesNotTriggerProductIndex(): void
+    {
+        $this->loadFixtures('product.yaml');
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+
+        // Send same category as existing — should not trigger update
+        $this->client->request('POST', '/api/grocery/add-item', [], [], array_merge(
+            ['CONTENT_TYPE' => 'application/json'],
+            $this->authHeaders(),
+        ), json_encode([
+            'label' => 'Bananes',
+            'quantity' => 1,
+            'unit' => 'piece',
+            'category' => 'produce',
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $products = $em->getRepository(Product::class)->findAll();
+        self::assertSame('produce', $products[0]->getCategory()->value);
+
+        // No Product ES index dispatched
+        $sent = $this->getAsyncTransport()->getSent();
+        $productIndexDispatched = false;
+        foreach ($sent as $envelope) {
+            $msg = $envelope->getMessage();
+            if ($msg instanceof \Maggie\Core\Elasticsearch\Message\IndexDocumentCommand && $msg->entityClass === Product::class) {
+                $productIndexDispatched = true;
+            }
+        }
+        self::assertFalse($productIndexDispatched, 'Product index should not be dispatched when category is unchanged');
+    }
+
+    public function testAddItemWithExistingProductStoreIdUpdatesPreferredStore(): void
+    {
+        $this->loadFixtures('product.yaml');
+        $storeId = (string) $this->getFixture('supermarket')->getId();
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+
+        // Bananes already has supermarket as preferred — storeId same should not trigger update
+        $this->client->request('POST', '/api/grocery/add-item', [], [], array_merge(
+            ['CONTENT_TYPE' => 'application/json'],
+            $this->authHeaders(),
+        ), json_encode([
+            'label' => 'Bananes',
+            'quantity' => 1,
+            'unit' => 'piece',
+            'storeId' => $storeId,
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $products = $em->getRepository(Product::class)->findAll();
+        self::assertSame('Supermarché', $products[0]->getPreferredStore()->getName());
+
+        // No Product ES index dispatched — same store
+        $sent = $this->getAsyncTransport()->getSent();
+        $productIndexDispatched = false;
+        foreach ($sent as $envelope) {
+            $msg = $envelope->getMessage();
+            if ($msg instanceof \Maggie\Core\Elasticsearch\Message\IndexDocumentCommand && $msg->entityClass === Product::class) {
+                $productIndexDispatched = true;
+            }
+        }
+        self::assertFalse($productIndexDispatched, 'Product index should not be dispatched when store is unchanged');
+    }
+
     public function testAddItemStoreIdTakesPriorityOverStoreName(): void
     {
         $this->loadFixtures('store.yaml');

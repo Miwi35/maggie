@@ -106,6 +106,37 @@ class GroceryViewModelTest {
     }
 
     @Test
+    fun `addItem passes category to repository`() = runTest {
+        coEvery { groceryListRepository.addItem(any(), any(), any(), any(), any(), any()) } returns Result.success(Unit)
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.addItem("Yaourt", 4f, "piece", null, null, "dairy")
+        advanceUntilIdle()
+
+        coVerify {
+            groceryListRepository.addItem("Yaourt", 4f, "piece", null, null, "dairy")
+        }
+        assertFalse(viewModel.uiState.value.showAddSheet)
+    }
+
+    @Test
+    fun `addItem without category passes null`() = runTest {
+        coEvery { groceryListRepository.addItem(any(), any(), any(), any(), any(), any()) } returns Result.success(Unit)
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.addItem("Lait", 1f, "l", "store-1")
+        advanceUntilIdle()
+
+        coVerify {
+            groceryListRepository.addItem("Lait", 1f, "l", "store-1", null, null)
+        }
+    }
+
+    @Test
     fun `toggleItemChecked unchecked to checked`() = runTest {
         viewModel = createViewModel()
         advanceUntilIdle()
