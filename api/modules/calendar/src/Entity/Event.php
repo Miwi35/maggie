@@ -12,6 +12,7 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use Maggie\Core\Contract\MercurePublishable;
+use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Calendar\Repository\EventRepository;
 use Maggie\Calendar\Trait\HasGoogleEventTrackingTrait;
 use Maggie\Core\Contract\IndexableInterface;
@@ -49,6 +50,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 class Event implements MercurePublishable, OwnedThroughInterface, IndexableInterface
 {
     use HasGoogleEventTrackingTrait;
+    use MercurePayloadFilterTrait;
 
     public static function getOwnerRelation(): string
     {
@@ -318,12 +320,12 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
         ];
     }
 
-    public function toMercurePayload(): array
+    public function toMercurePayload(?array $changedProperties = null): array
     {
-        return [
+        return self::filterPayload([
             'summary' => $this->summary,
             'startAt' => $this->startAt->format('c'),
             'endAt' => $this->endAt->format('c'),
-        ];
+        ], $changedProperties);
     }
 }

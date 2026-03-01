@@ -2,11 +2,12 @@
 
 namespace Maggie\Core\Mercure\Middleware;
 
-use Maggie\Core\Contract\MercurePatchable;
+use Maggie\Core\Contract\MercureActionPayload;
 use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Contract\OwnedByUserInterface;
 use Maggie\Core\Contract\OwnedThroughInterface;
 use Maggie\Core\Entity\User;
+use Maggie\Core\Mercure\ChangesetStore;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -25,6 +26,7 @@ class MercurePublishMiddleware implements MiddlewareInterface
     public function __construct(
         private readonly HubInterface $hub,
         private readonly Security $security,
+        private readonly ChangesetStore $changesetStore,
         ?LoggerInterface $logger = null,
     ) {
         $this->logger = $logger ?? new NullLogger();
@@ -61,12 +63,19 @@ class MercurePublishMiddleware implements MiddlewareInterface
                     $topic = $parsed[1] ?? self::topicFromEntity($entity);
                     $userId = self::resolveUserId($entity) ?? $this->getCurrentUserId();
 
-                    // Use lightweight patch from command when available
-                    $patch = ($message instanceof MercurePatchable) ? $message->toMercurePatch() : null;
+                    // Determine payload: action payload > differential update > full payload
+                    if ($message instanceof MercureActionPayload) {
+                        $payload = $message->toMercureActionPayload();
+                    } elseif ($parsed !== null && $parsed[0] === 'update') {
+                        $changedProperties = $this->changesetStore->get($entity);
+                        $payload = $entity->toMercurePayload($changedProperties);
+                    } else {
+                        $payload = $entity->toMercurePayload();
+                    }
 
                     if ($userId !== null) {
-                        $this->publishEntity($entity, $topic, $userId, $patch);
-                        $this->publishEntityToParentTopics($entity, $topic, $userId, $patch);
+                        $this->publishEntity($entity, $topic, $userId, $payload);
+                        $this->publishEntityToParentTopics($entity, $topic, $userId, $payload);
                     }
                 }
             }
@@ -145,12 +154,11 @@ class MercurePublishMiddleware implements MiddlewareInterface
         return null;
     }
 
-    /** @param array<string, mixed>|null $patch */
-    private function publishEntity(MercurePublishable $entity, string $topic, string $userId, ?array $patch = null): void
+    /** @param array<string, mixed> $payload */
+    private function publishEntity(MercurePublishable $entity, string $topic, string $userId, array $payload): void
     {
         $iri = $topic . '/' . $entity->getId();
         $scopedTopic = '/users/' . $userId . $iri;
-        $payload = $patch ?? $entity->toMercurePayload();
         $this->hub->publish(new Update(
             topics: [$scopedTopic],
             data: json_encode(['@id' => $iri] + $payload, JSON_THROW_ON_ERROR),
@@ -160,9 +168,10 @@ class MercurePublishMiddleware implements MiddlewareInterface
     /**
      * For entity inheritance hierarchies (e.g. Meal extends Event),
      * also publish to parent class topics.
+     *
+     * @param array<string, mixed> $payload
      */
-    /** @param array<string, mixed>|null $patch */
-    private function publishEntityToParentTopics(MercurePublishable $entity, string $primaryTopic, string $userId, ?array $patch = null): void
+    private function publishEntityToParentTopics(MercurePublishable $entity, string $primaryTopic, string $userId, array $payload): void
     {
         $parentClass = get_parent_class($entity);
 
@@ -172,7 +181,7 @@ class MercurePublishMiddleware implements MiddlewareInterface
 
         $parentTopic = self::topicFromClassName((new \ReflectionClass($parentClass))->getShortName());
         if ($parentTopic !== $primaryTopic) {
-            $this->publishEntity($entity, $parentTopic, $userId, $patch);
+            $this->publishEntity($entity, $parentTopic, $userId, $payload);
         }
     }
 

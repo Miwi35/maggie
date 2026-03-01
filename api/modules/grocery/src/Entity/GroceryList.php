@@ -136,7 +136,7 @@ class GroceryList implements MercurePublishable, OwnedByUserInterface, Indexable
         ];
     }
 
-    public function toMercurePayload(): array
+    public function toMercurePayload(?array $changedProperties = null): array
     {
         return [
             'items' => array_values($this->items->map(fn (GroceryItem $item) => [

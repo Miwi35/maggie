@@ -11,6 +11,7 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use Maggie\Core\Contract\MercurePublishable;
+use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Cookbook\Repository\RecipeRepository;
 use Maggie\Cookbook\State\CreateRecipeProcessor;
 use Maggie\Cookbook\State\DeleteRecipeProcessor;
@@ -41,6 +42,8 @@ use Symfony\Component\Validator\Constraints as Assert;
 ])]
 class Recipe implements MercurePublishable, OwnedByUserInterface, IndexableInterface
 {
+    use MercurePayloadFilterTrait;
+
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
     private Ulid $id;
@@ -220,12 +223,12 @@ class Recipe implements MercurePublishable, OwnedByUserInterface, IndexableInter
         ];
     }
 
-    public function toMercurePayload(): array
+    public function toMercurePayload(?array $changedProperties = null): array
     {
-        return [
+        return self::filterPayload([
             'name' => $this->name,
             'servings' => $this->servings,
             'tags' => $this->tags,
-        ];
+        ], $changedProperties);
     }
 }

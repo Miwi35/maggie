@@ -9,6 +9,7 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use Maggie\Core\Contract\MercurePublishable;
+use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Calendar\Repository\AgendaRepository;
 use Maggie\Calendar\Trait\HasGoogleCalendarSyncTrait;
 use Maggie\Core\Contract\OwnedByUserInterface;
@@ -41,6 +42,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 class Agenda implements MercurePublishable, OwnedByUserInterface, IndexableInterface
 {
     use HasGoogleCalendarSyncTrait;
+    use MercurePayloadFilterTrait;
 
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
@@ -192,12 +194,12 @@ class Agenda implements MercurePublishable, OwnedByUserInterface, IndexableInter
         ];
     }
 
-    public function toMercurePayload(): array
+    public function toMercurePayload(?array $changedProperties = null): array
     {
-        return [
+        return self::filterPayload([
             'name' => $this->name,
             'color' => $this->color,
             'isDefault' => $this->isDefault,
-        ];
+        ], $changedProperties);
     }
 }

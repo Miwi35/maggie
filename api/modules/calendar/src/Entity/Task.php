@@ -13,6 +13,7 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use Maggie\Core\Contract\MercurePublishable;
+use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Calendar\Repository\TaskRepository;
 use Maggie\Calendar\Trait\HasGoogleTaskTrackingTrait;
 use Maggie\Core\Contract\IndexableInterface;
@@ -48,6 +49,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterface
 {
     use HasGoogleTaskTrackingTrait;
+    use MercurePayloadFilterTrait;
 
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
@@ -196,14 +198,14 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
         ];
     }
 
-    public function toMercurePayload(): array
+    public function toMercurePayload(?array $changedProperties = null): array
     {
-        return [
+        return self::filterPayload([
             'title' => $this->title,
             'priority' => $this->priority->value,
             'criticality' => $this->criticality->value,
             'dueDate' => $this->dueDate?->format('c'),
             'isDone' => $this->isDone(),
-        ];
+        ], $changedProperties, ['completedAt' => 'isDone']);
     }
 }

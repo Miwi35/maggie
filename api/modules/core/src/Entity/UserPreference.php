@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\Patch;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Maggie\Core\Contract\MercurePublishable;
+use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Core\Contract\OwnedByUserInterface;
 use Maggie\Core\Repository\UserPreferenceRepository;
 use Maggie\Core\State\UpdateUserPreferenceProcessor;
@@ -22,6 +23,8 @@ use Symfony\Component\Uid\Ulid;
 ])]
 class UserPreference implements MercurePublishable, OwnedByUserInterface
 {
+    use MercurePayloadFilterTrait;
+
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
     private Ulid $id;
@@ -171,15 +174,15 @@ class UserPreference implements MercurePublishable, OwnedByUserInterface
     }
 
     /** @return array<string, mixed> */
-    public function toMercurePayload(): array
+    public function toMercurePayload(?array $changedProperties = null): array
     {
-        return [
+        return self::filterPayload([
             'theme' => $this->theme,
             'locale' => $this->locale,
             'timezone' => $this->timezone,
             'defaultCalendarView' => $this->defaultCalendarView,
             'enabledAgendaIds' => $this->enabledAgendaIds,
             'notificationsEnabled' => $this->notificationsEnabled,
-        ];
+        ], $changedProperties);
     }
 }

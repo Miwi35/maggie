@@ -11,6 +11,7 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use Maggie\Core\Contract\MercurePublishable;
+use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Grocery\Enum\ProductCategory;
 use Maggie\Grocery\Enum\Unit;
 use Maggie\Grocery\Repository\ProductRepository;
@@ -43,6 +44,8 @@ use Symfony\Component\Validator\Constraints as Assert;
 ])]
 class Product implements MercurePublishable, OwnedByUserInterface, IndexableInterface
 {
+    use MercurePayloadFilterTrait;
+
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
     private Ulid $id;
@@ -265,9 +268,9 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
         ];
     }
 
-    public function toMercurePayload(): array
+    public function toMercurePayload(?array $changedProperties = null): array
     {
-        return [
+        return self::filterPayload([
             'name' => $this->name,
             'category' => $this->category->value,
             'kcalPer100g' => $this->kcalPer100g,
@@ -277,6 +280,6 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
             'preferredStoreId' => $this->preferredStore !== null ? (string) $this->preferredStore->getId() : null,
             'fallbackStoreId' => $this->fallbackStore !== null ? (string) $this->fallbackStore->getId() : null,
             'shelfLifeDays' => $this->shelfLifeDays,
-        ];
+        ], $changedProperties, ['preferredStore' => 'preferredStoreId', 'fallbackStore' => 'fallbackStoreId']);
     }
 }

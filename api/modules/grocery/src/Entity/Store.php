@@ -11,6 +11,7 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use Maggie\Core\Contract\MercurePublishable;
+use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Grocery\Repository\StoreRepository;
 use Maggie\Grocery\State\CreateStoreProcessor;
 use Maggie\Grocery\State\DeleteStoreProcessor;
@@ -38,6 +39,8 @@ use Symfony\Component\Validator\Constraints as Assert;
 ])]
 class Store implements MercurePublishable, OwnedByUserInterface, IndexableInterface
 {
+    use MercurePayloadFilterTrait;
+
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
     private Ulid $id;
@@ -130,12 +133,12 @@ class Store implements MercurePublishable, OwnedByUserInterface, IndexableInterf
     }
 
     /** @return array<string, mixed> */
-    public function toMercurePayload(): array
+    public function toMercurePayload(?array $changedProperties = null): array
     {
-        return [
+        return self::filterPayload([
             'name' => $this->name,
             'description' => $this->description,
             'visitOrder' => $this->visitOrder,
-        ];
+        ], $changedProperties);
     }
 }

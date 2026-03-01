@@ -12,6 +12,7 @@ use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use Maggie\Core\Contract\MercurePublishable;
+use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Core\Contract\IndexableInterface;
 use Maggie\Core\Contract\OwnedByUserInterface;
 use Maggie\Core\Elasticsearch\Attribute\Indexed;
@@ -43,6 +44,8 @@ use Symfony\Component\Uid\Ulid;
 )]
 class Notification implements OwnedByUserInterface, MercurePublishable, IndexableInterface
 {
+    use MercurePayloadFilterTrait;
+
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
     private Ulid $id;
@@ -178,9 +181,9 @@ class Notification implements OwnedByUserInterface, MercurePublishable, Indexabl
     }
 
     /** @return array<string, mixed> */
-    public function toMercurePayload(): array
+    public function toMercurePayload(?array $changedProperties = null): array
     {
-        return [
+        return self::filterPayload([
             'id' => (string) $this->id,
             'type' => $this->type->value,
             'title' => $this->title,
@@ -188,6 +191,6 @@ class Notification implements OwnedByUserInterface, MercurePublishable, Indexabl
             'relatedEntityIri' => $this->relatedEntityIri,
             'readAt' => $this->readAt?->format('c'),
             'createdAt' => $this->createdAt->format('c'),
-        ];
+        ], $changedProperties);
     }
 }

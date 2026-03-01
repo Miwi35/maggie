@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\Patch;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Maggie\Core\Contract\MercurePublishable;
+use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Core\Contract\IndexableInterface;
 use Maggie\Core\Elasticsearch\Attribute\Indexed;
 use Maggie\Core\Elasticsearch\Attribute\IndexedField;
@@ -30,6 +31,7 @@ use Symfony\Component\Uid\Ulid;
 class User implements UserInterface, MercurePublishable, IndexableInterface
 {
     use HasGoogleOAuthTokensTrait;
+    use MercurePayloadFilterTrait;
 
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
@@ -180,13 +182,13 @@ class User implements UserInterface, MercurePublishable, IndexableInterface
     }
 
     /** @return array<string, mixed> */
-    public function toMercurePayload(): array
+    public function toMercurePayload(?array $changedProperties = null): array
     {
-        return [
+        return self::filterPayload([
             'email' => $this->email,
             'name' => $this->name,
             'avatar' => $this->avatar,
             'googleTaskListId' => $this->getGoogleTaskListId(),
-        ];
+        ], $changedProperties);
     }
 }

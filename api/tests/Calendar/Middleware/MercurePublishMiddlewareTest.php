@@ -16,6 +16,7 @@ use Maggie\Calendar\Message\DeleteTaskCommand;
 use Maggie\Calendar\Message\UpdateAgendaCommand;
 use Maggie\Calendar\Message\UpdateEventCommand;
 use Maggie\Calendar\Message\UpdateTaskCommand;
+use Maggie\Core\Mercure\ChangesetStore;
 use Maggie\Core\Mercure\Middleware\MercurePublishMiddleware;
 use Maggie\Cookbook\Entity\Ingredient;
 use Maggie\Cookbook\Entity\Meal;
@@ -50,6 +51,7 @@ class MercurePublishMiddlewareTest extends TestCase
 {
     private HubInterface $hub;
     private Security $security;
+    private ChangesetStore $changesetStore;
     private User $user;
     /** @var Update[] */
     private array $publishedUpdates = [];
@@ -57,6 +59,7 @@ class MercurePublishMiddlewareTest extends TestCase
     protected function setUp(): void
     {
         $this->publishedUpdates = [];
+        $this->changesetStore = new ChangesetStore();
         $this->hub = $this->createMock(HubInterface::class);
         $this->hub->method('publish')->willReturnCallback(function (Update $update) {
             $this->publishedUpdates[] = $update;
@@ -92,7 +95,7 @@ class MercurePublishMiddlewareTest extends TestCase
 
     private function createMiddleware(): MercurePublishMiddleware
     {
-        return new MercurePublishMiddleware($this->hub, $this->security);
+        return new MercurePublishMiddleware($this->hub, $this->security, $this->changesetStore);
     }
 
     /** Wrap a command in an envelope with ReceivedStamp (simulates sync transport re-dispatch). */
@@ -490,5 +493,71 @@ class MercurePublishMiddlewareTest extends TestCase
         $this->createMiddleware()->handle($envelope, $this->createPassthroughStack($event));
 
         self::assertCount(0, $this->publishedUpdates);
+    }
+
+    // --- Differential updates ---
+
+    public function testUpdateEventPublishesOnlyChangedFields(): void
+    {
+        $event = new Event();
+        $event->setSummary('Updated summary');
+        $event->setStartAt(new \DateTimeImmutable('2026-03-20T10:00:00+01:00'));
+        $event->setEndAt(new \DateTimeImmutable('2026-03-20T11:00:00+01:00'));
+
+        // Pre-populate changeset store with only 'summary' changed
+        $this->changesetStore->capture($event, ['summary']);
+
+        $envelope = $this->received(new UpdateEventCommand(eventId: (string) $event->getId()));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack($event));
+
+        self::assertCount(1, $this->publishedUpdates);
+        $data = json_decode($this->publishedUpdates[0]->getData(), true);
+        self::assertArrayHasKey('@id', $data);
+        self::assertSame('Updated summary', $data['summary']);
+        // Should NOT contain other fields
+        self::assertArrayNotHasKey('startAt', $data);
+        self::assertArrayNotHasKey('endAt', $data);
+    }
+
+    public function testUpdateWithNoChangesetPublishesFullPayload(): void
+    {
+        $event = new Event();
+        $event->setSummary('Full payload');
+        $event->setStartAt(new \DateTimeImmutable('2026-03-20T10:00:00+01:00'));
+        $event->setEndAt(new \DateTimeImmutable('2026-03-20T11:00:00+01:00'));
+
+        // Empty changeset store → get() returns null → full payload
+        $envelope = $this->received(new UpdateEventCommand(eventId: (string) $event->getId()));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack($event));
+
+        self::assertCount(1, $this->publishedUpdates);
+        $data = json_decode($this->publishedUpdates[0]->getData(), true);
+        self::assertArrayHasKey('@id', $data);
+        self::assertSame('Full payload', $data['summary']);
+        self::assertArrayHasKey('startAt', $data);
+        self::assertArrayHasKey('endAt', $data);
+    }
+
+    public function testUpdateTaskWithCompletedAtMapsToIsDone(): void
+    {
+        $task = new Task();
+        $task->setUser($this->user);
+        $task->setTitle('Complete me');
+        $task->setPriority(TaskPriority::Medium);
+        $task->setCriticality(TaskCriticality::Low);
+        $task->setCompletedAt(new \DateTimeImmutable());
+
+        // Doctrine tracks 'completedAt', but payload key is 'isDone'
+        $this->changesetStore->capture($task, ['completedAt']);
+
+        $envelope = $this->received(new UpdateTaskCommand(taskId: (string) $task->getId()));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack($task));
+
+        self::assertCount(1, $this->publishedUpdates);
+        $data = json_decode($this->publishedUpdates[0]->getData(), true);
+        self::assertArrayHasKey('isDone', $data);
+        self::assertTrue($data['isDone']);
+        self::assertArrayNotHasKey('title', $data);
+        self::assertArrayNotHasKey('priority', $data);
     }
 }

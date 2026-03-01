@@ -98,9 +98,9 @@ class Meal extends Event implements MercurePublishable
         return $doc;
     }
 
-    public function toMercurePayload(): array
+    public function toMercurePayload(?array $changedProperties = null): array
     {
-        return [
+        return self::filterPayload([
             'summary' => $this->getSummary(),
             'startAt' => $this->getStartAt()->format('c'),
             'endAt' => $this->getEndAt()->format('c'),
@@ -109,6 +109,6 @@ class Meal extends Event implements MercurePublishable
                 'id' => (string) $r->getId(),
                 'name' => $r->getName(),
             ])->toArray(),
-        ];
+        ], $changedProperties);
     }
 }

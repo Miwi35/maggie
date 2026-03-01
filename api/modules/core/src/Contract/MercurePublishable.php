@@ -8,6 +8,10 @@ interface MercurePublishable
 {
     public function getId(): Ulid;
 
-    /** @return array<string, mixed> */
-    public function toMercurePayload(): array;
+    /**
+     * @param string[]|null $changedProperties Doctrine property names that changed, or null for full payload
+     *
+     * @return array<string, mixed>
+     */
+    public function toMercurePayload(?array $changedProperties = null): array;
 }
