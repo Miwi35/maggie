@@ -118,6 +118,29 @@ class GroceryViewModel(
         }
     }
 
+    fun deleteItem(item: GroceryItem) {
+        viewModelScope.launch {
+            try {
+                val itemId = item.id ?: return@launch
+
+                // Optimistic update
+                val currentList = _uiState.value.groceryList ?: return@launch
+                val updatedItems = currentList.items.filter { it.id != item.id }
+                val updatedList = currentList.copy(items = updatedItems)
+                _uiState.value = _uiState.value.copy(
+                    groceryList = updatedList,
+                    storeGroups = buildStoreGroups(updatedList),
+                )
+
+                // Server call
+                groceryListRepository.deleteItem(itemId).getOrThrow()
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(error = e.message)
+                refresh()
+            }
+        }
+    }
+
     fun endErrand(removeItemIds: List<String>) {
         viewModelScope.launch {
             try {
