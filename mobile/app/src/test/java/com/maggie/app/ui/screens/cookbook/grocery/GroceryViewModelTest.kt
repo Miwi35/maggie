@@ -1,5 +1,7 @@
 package com.maggie.app.ui.screens.cookbook.grocery
 
+import com.maggie.app.data.mercure.MercureEvent
+import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.GroceryList
 import com.maggie.app.data.model.Store
@@ -8,9 +10,13 @@ import com.maggie.app.data.repository.ProductRepository
 import com.maggie.app.data.repository.StoreRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -32,6 +38,7 @@ class GroceryViewModelTest {
     private lateinit var groceryListRepository: GroceryListRepository
     private lateinit var productRepository: ProductRepository
     private lateinit var storeRepository: StoreRepository
+    private lateinit var mercureService: MercureService
     private lateinit var viewModel: GroceryViewModel
 
     private val store = Store(id = "store-1", name = "Carrefour", visitOrder = 1)
@@ -50,7 +57,9 @@ class GroceryViewModelTest {
         groceryListRepository = mockk()
         productRepository = mockk()
         storeRepository = mockk()
+        mercureService = mockk()
 
+        every { mercureService.subscribe(any()) } returns emptyFlow()
         coEvery { groceryListRepository.getGroceryList() } returns Result.success(sampleList)
         coEvery { productRepository.getProducts() } returns Result.success(emptyList())
         coEvery { storeRepository.getStores() } returns Result.success(emptyList())
@@ -59,7 +68,7 @@ class GroceryViewModelTest {
     }
 
     private fun createViewModel(): GroceryViewModel {
-        return GroceryViewModel(groceryListRepository, productRepository, storeRepository)
+        return GroceryViewModel(groceryListRepository, productRepository, storeRepository, mercureService)
     }
 
     @After
@@ -323,6 +332,33 @@ class GroceryViewModelTest {
 
         coVerify(atLeast = 2) { groceryListRepository.getGroceryList() }
         assertEquals(3, viewModel.uiState.value.groceryList!!.items.size)
+    }
+
+    @Test
+    fun `mercure event triggers refresh`() = runTest {
+        val mercureFlow = MutableSharedFlow<MercureEvent>()
+        every { mercureService.subscribe(any()) } returns mercureFlow
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // init called getGroceryList once
+        coVerify(exactly = 1) { groceryListRepository.getGroceryList() }
+
+        // Emit a Mercure event
+        mercureFlow.emit(MercureEvent(data = "{}"))
+        advanceUntilIdle()
+
+        // refresh triggered by Mercure → second call
+        coVerify(exactly = 2) { groceryListRepository.getGroceryList() }
+    }
+
+    @Test
+    fun `mercure subscription uses correct topic`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        verify { mercureService.subscribe("/users/{userId}/api/grocery_lists/{id}") }
     }
 
     @Test

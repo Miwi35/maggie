@@ -131,7 +131,7 @@ class MaggieApp : Application() {
             viewModel { ProactionViewModel(get()) }
             viewModel { RecipeListViewModel(get(), get()) }
             viewModel { MealsWeekViewModel(get()) }
-            viewModel { GroceryViewModel(get(), get(), get()) }
+            viewModel { GroceryViewModel(get(), get(), get(), get()) }
             viewModel { ProductViewModel(get(), get()) }
             viewModel { StoreViewModel(get()) }
         }

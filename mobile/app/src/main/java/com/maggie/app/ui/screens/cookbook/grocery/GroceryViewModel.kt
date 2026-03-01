@@ -2,6 +2,7 @@ package com.maggie.app.ui.screens.cookbook.grocery
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.GroceryList
 import com.maggie.app.data.model.Product
@@ -11,6 +12,7 @@ import com.maggie.app.data.repository.ProductRepository
 import com.maggie.app.data.repository.StoreRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -32,6 +34,7 @@ class GroceryViewModel(
     private val groceryListRepository: GroceryListRepository,
     private val productRepository: ProductRepository,
     private val storeRepository: StoreRepository,
+    private val mercureService: MercureService,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GroceryUiState())
@@ -40,6 +43,15 @@ class GroceryViewModel(
     init {
         refresh()
         loadProductsAndStores()
+        subscribeToGroceryUpdates()
+    }
+
+    private fun subscribeToGroceryUpdates() {
+        viewModelScope.launch {
+            mercureService.subscribe("/users/{userId}/api/grocery_lists/{id}")
+                .catch { /* SSE connection errors — MercureService handles auto-reconnect */ }
+                .collect { refresh() }
+        }
     }
 
     fun refresh() {
