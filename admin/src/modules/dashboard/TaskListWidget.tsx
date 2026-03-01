@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from 'react'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import Checkbox from '@mui/material/Checkbox'
@@ -8,6 +9,7 @@ import ListItemText from '@mui/material/ListItemText'
 import Skeleton from '@mui/material/Skeleton'
 import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
+import { useItemTransitions, transitionSx } from '../../hooks/useItemTransitions'
 
 export interface DashboardTask {
   id: string
@@ -38,7 +40,17 @@ interface TaskListWidgetProps {
 }
 
 export const TaskListWidget = ({ tasks, loading, onToggleDone }: TaskListWidgetProps) => {
-  const sorted = [...tasks].sort((a, b) => {
+  const { addedIds, removingItems } = useItemTransitions(
+    tasks,
+    useCallback((t: DashboardTask) => t.id, []),
+  )
+  const removingIds = useMemo(() => new Set(removingItems.map((t) => t.id)), [removingItems])
+  const displayTasks = useMemo(() => {
+    const currentIds = new Set(tasks.map((t) => t.id))
+    return [...tasks, ...removingItems.filter((t) => !currentIds.has(t.id))]
+  }, [tasks, removingItems])
+
+  const sorted = [...displayTasks].sort((a, b) => {
     // Done tasks at bottom
     if (!!a.completedAt !== !!b.completedAt) return a.completedAt ? 1 : -1
     // By criticality
@@ -83,7 +95,7 @@ export const TaskListWidget = ({ tasks, loading, onToggleDone }: TaskListWidgetP
             </Typography>
           )}
         </Typography>
-        {tasks.length === 0 ? (
+        {tasks.length === 0 && removingItems.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
             Aucune tâche
           </Typography>
@@ -92,7 +104,7 @@ export const TaskListWidget = ({ tasks, loading, onToggleDone }: TaskListWidgetP
             {sorted.map((task) => {
               const isDone = task.completedAt != null
               return (
-                <ListItem key={task.id} disableGutters sx={{ py: 0.25 }}>
+                <ListItem key={task.id} disableGutters sx={{ py: 0.25, borderRadius: 1, ...transitionSx(task.id, addedIds, removingIds) }}>
                   <Checkbox
                     size="small"
                     checked={isDone}

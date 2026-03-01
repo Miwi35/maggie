@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useDataProvider, useNotify, Title } from 'react-admin'
 import Box from '@mui/material/Box'
 import { useMercure } from '../../hooks/useMercure'
+import { useItemTransitions, transitionSx } from '../../hooks/useItemTransitions'
 import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
 import IconButton from '@mui/material/IconButton'
@@ -103,6 +104,13 @@ export const MealsWeekView = () => {
   // Mercure subscription
   useMercure(MEAL_TOPICS, fetchMeals)
 
+  // Track meal additions/removals for animations
+  const { addedIds, removingItems } = useItemTransitions(
+    meals,
+    useCallback((m: Meal) => m.id, []),
+  )
+  const removingIds = useMemo(() => new Set(removingItems.map((m) => m.id)), [removingItems])
+
   const fetchRecipes = async () => {
     try {
       const { data } = await dataProvider.getList('recipes', {
@@ -159,10 +167,17 @@ export const MealsWeekView = () => {
     }
   }
 
-  const getMealsForCell = (dayIndex: number, slot: string): Meal[] => {
-    const date = formatDate(addDays(weekStart, dayIndex))
-    return meals.filter((m) => m.startAt.startsWith(date) && m.slot === slot)
-  }
+  const getMealsForCell = useCallback(
+    (dayIndex: number, slot: string): Meal[] => {
+      const date = formatDate(addDays(weekStart, dayIndex))
+      const currentIds = new Set(meals.map((m) => m.id))
+      const ghosts = removingItems.filter(
+        (m) => m.startAt.startsWith(date) && m.slot === slot && !currentIds.has(m.id),
+      )
+      return [...meals.filter((m) => m.startAt.startsWith(date) && m.slot === slot), ...ghosts]
+    },
+    [meals, weekStart, removingItems],
+  )
 
   const weekEnd = addDays(weekStart, 6)
   const weekLabel = `${weekStart.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} - ${weekEnd.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`
@@ -193,7 +208,7 @@ export const MealsWeekView = () => {
           display: 'grid',
           gridTemplateColumns: '100px repeat(7, 1fr)',
           gap: 0.5,
-          opacity: loading ? 0.5 : 1,
+          opacity: loading && meals.length === 0 ? 0.5 : 1,
         }}
       >
         {/* Header row */}
@@ -245,7 +260,7 @@ export const MealsWeekView = () => {
                   onClick={() => cellMeals.length === 0 && openCreateDialog(dayIndex, slot)}
                 >
                   {cellMeals.map((meal) => (
-                    <Box key={meal.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Box key={meal.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, borderRadius: 1, ...transitionSx(meal.id, addedIds, removingIds) }}>
                       <RestaurantIcon sx={{ fontSize: 14, color: 'primary.main' }} />
                       <Box sx={{ flex: 1, minWidth: 0 }}>
                         {meal.recipes?.map((r: Recipe) => (

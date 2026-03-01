@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from 'react'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import List from '@mui/material/List'
@@ -7,6 +8,7 @@ import Skeleton from '@mui/material/Skeleton'
 import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined'
+import { useItemTransitions, transitionSx } from '../../hooks/useItemTransitions'
 
 export interface DashboardEvent {
   id: string
@@ -43,6 +45,16 @@ interface EventListWidgetProps {
 }
 
 export const EventListWidget = ({ events, loading, showDate = false }: EventListWidgetProps) => {
+  const { addedIds, removingItems } = useItemTransitions(
+    events,
+    useCallback((e: DashboardEvent) => e.id, []),
+  )
+  const removingIds = useMemo(() => new Set(removingItems.map((e) => e.id)), [removingItems])
+  const displayEvents = useMemo(() => {
+    const currentIds = new Set(events.map((e) => e.id))
+    return [...events, ...removingItems.filter((e) => !currentIds.has(e.id))]
+  }, [events, removingItems])
+
   if (loading) {
     return (
       <Card variant="outlined">
@@ -74,14 +86,14 @@ export const EventListWidget = ({ events, loading, showDate = false }: EventList
             </Typography>
           )}
         </Typography>
-        {events.length === 0 ? (
+        {events.length === 0 && removingItems.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
             Aucun événement
           </Typography>
         ) : (
           <List dense disablePadding>
-            {events.map((event) => (
-              <ListItem key={event.id} disableGutters sx={{ py: 0.25 }}>
+            {displayEvents.map((event) => (
+              <ListItem key={event.id} disableGutters sx={{ py: 0.25, borderRadius: 1, ...transitionSx(event.id, addedIds, removingIds) }}>
                 <ListItemText
                   primary={
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

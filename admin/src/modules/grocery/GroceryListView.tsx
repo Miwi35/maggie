@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useDataProvider, useNotify, Title } from 'react-admin'
 import { useMercure } from '../../hooks/useMercure'
+import { useItemTransitions, transitionSx } from '../../hooks/useItemTransitions'
 import Box from '@mui/material/Box'
 import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
@@ -200,11 +201,26 @@ export const GroceryListView = () => {
     })
   }
 
+  // Track item additions/removals for animations
+  const { addedIds, removingItems } = useItemTransitions(
+    groceryList?.items ?? [],
+    useCallback((item: GroceryItem) => item.id, []),
+  )
+  const removingIds = useMemo(() => new Set(removingItems.map((i) => i.id)), [removingItems])
+
+  // Merge current items + ghost (removing) items for display
+  const displayItems = useMemo(() => {
+    const current = groceryList?.items ?? []
+    const currentIds = new Set(current.map((i) => i.id))
+    const ghosts = removingItems.filter((ri) => !currentIds.has(ri.id))
+    return [...current, ...ghosts]
+  }, [groceryList?.items, removingItems])
+
   // Group items by store, sorted by visitOrder
   const storeGroups: StoreGroup[] = []
-  if (groceryList?.items) {
+  if (displayItems.length > 0) {
     const groupMap: Record<string, StoreGroup> = {}
-    for (const item of groceryList.items) {
+    for (const item of displayItems) {
       const storeKey = item.store?.id || '__unassigned__'
       if (!groupMap[storeKey]) {
         groupMap[storeKey] = {
@@ -219,6 +235,7 @@ export const GroceryListView = () => {
     storeGroups.push(...Object.values(groupMap).sort((a, b) => a.visitOrder - b.visitOrder))
   }
 
+  // Counts exclude ghost (removing) items
   const checkedCount = groceryList?.items?.filter((i) => i.checked).length || 0
   const totalCount = groceryList?.items?.length || 0
 
@@ -227,13 +244,13 @@ export const GroceryListView = () => {
       <Title title="Courses" />
 
       <Paper sx={{ p: 2 }}>
-        {loading && (
+        {loading && !groceryList && (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
           </Box>
         )}
 
-        {!loading && groceryList && (
+        {groceryList && (
           <>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -265,8 +282,9 @@ export const GroceryListView = () => {
             {storeGroups.map((group) => {
               const storeKey = group.storeId || '__unassigned__'
               const isCollapsed = collapsedStores.has(storeKey)
-              const groupChecked = group.items.filter((i) => i.checked).length
-              const groupTotal = group.items.length
+              const realItems = group.items.filter((i) => !removingIds.has(i.id))
+              const groupChecked = realItems.filter((i) => i.checked).length
+              const groupTotal = realItems.length
 
               return (
                 <Box key={storeKey} sx={{ mb: 1 }}>
@@ -298,9 +316,11 @@ export const GroceryListView = () => {
                         const detail =
                           item.quantity != null ? `${item.quantity}${item.unit ? ' ' + item.unit : ''}` : ''
 
+                        const isRemoving = removingIds.has(item.id)
+
                         return (
-                          <ListItem key={item.id} disablePadding>
-                            <ListItemButton onClick={() => handleCheck(item)} dense>
+                          <ListItem key={item.id} disablePadding sx={transitionSx(item.id, addedIds, removingIds)}>
+                            <ListItemButton onClick={isRemoving ? undefined : () => handleCheck(item)} dense>
                               <ListItemIcon>
                                 <Checkbox edge="start" checked={item.checked} tabIndex={-1} disableRipple />
                               </ListItemIcon>

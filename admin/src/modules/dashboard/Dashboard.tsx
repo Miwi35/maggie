@@ -286,6 +286,9 @@ export const Dashboard = () => {
     [getTasksForRange, ranges],
   )
 
+  // Only show loading skeletons on initial load, not on Mercure background refreshes
+  const initialLoading = loading && rawEvents.length === 0 && rawTasks.length === 0 && undueTasks.length === 0
+
   // Toggle task done/undone
   const handleToggleDone = useCallback(
     (taskId: string, done: boolean) => {
@@ -318,7 +321,7 @@ export const Dashboard = () => {
         tomorrowEvents={tomorrowEvents}
         todayTasks={todayTasks}
         tomorrowTasks={tomorrowTasks}
-        loading={loading}
+        loading={initialLoading}
         onToggleDone={handleToggleDone}
       />
 
@@ -328,7 +331,7 @@ export const Dashboard = () => {
           icon={<DateRangeIcon color="action" />}
           events={weekEvents}
           tasks={weekTasks}
-          loading={loading}
+          loading={initialLoading}
           onToggleDone={handleToggleDone}
         />
       </Box>
@@ -339,7 +342,7 @@ export const Dashboard = () => {
           icon={<CalendarMonthIcon color="action" />}
           events={monthEvents}
           tasks={monthTasks}
-          loading={loading}
+          loading={initialLoading}
           onToggleDone={handleToggleDone}
         />
       </Box>
