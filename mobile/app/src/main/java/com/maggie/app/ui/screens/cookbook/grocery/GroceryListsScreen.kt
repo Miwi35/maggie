@@ -1,24 +1,31 @@
 package com.maggie.app.ui.screens.cookbook.grocery
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
+import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -58,11 +65,24 @@ fun GroceryScreen(
     val uiState by viewModel.uiState.collectAsState()
     var menuExpanded by remember { mutableStateOf(false) }
     var itemPendingDelete by remember { mutableStateOf<GroceryItem?>(null) }
+    var showDeleteSelectedDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = { viewModel.showAddSheet() }) {
-                Icon(Icons.Default.Add, contentDescription = "Ajouter un article")
+            if (!uiState.isSelecting) {
+                FloatingActionButton(onClick = { viewModel.showAddSheet() }) {
+                    Icon(Icons.Default.Add, contentDescription = "Ajouter un article")
+                }
+            }
+        },
+        bottomBar = {
+            if (uiState.isSelecting) {
+                SelectionBottomBar(
+                    selectedCount = uiState.selectedIds.size,
+                    onCheck = { viewModel.checkSelectedItems() },
+                    onDelete = { showDeleteSelectedDialog = true },
+                    onClose = { viewModel.clearSelection() },
+                )
             }
         },
     ) { paddingValues ->
@@ -156,6 +176,8 @@ fun GroceryScreen(
                                 items(group.items, key = { it.id ?: it.hashCode() }) { groceryItem ->
                                     SwipeableGroceryItem(
                                         item = groceryItem,
+                                        isSelecting = uiState.isSelecting,
+                                        isSelected = groceryItem.id in uiState.selectedIds,
                                         onSwipeRight = {
                                             if (!groceryItem.checked) {
                                                 viewModel.toggleItemChecked(groceryItem)
@@ -168,7 +190,14 @@ fun GroceryScreen(
                                                 itemPendingDelete = groceryItem
                                             }
                                         },
-                                        onToggle = { viewModel.toggleItemChecked(groceryItem) },
+                                        onLongPress = {
+                                            groceryItem.id?.let { viewModel.startSelection(it) }
+                                        },
+                                        onTap = {
+                                            if (uiState.isSelecting) {
+                                                groceryItem.id?.let { viewModel.toggleSelection(it) }
+                                            }
+                                        },
                                     )
                                 }
                             }
@@ -191,10 +220,11 @@ fun GroceryScreen(
         )
     }
 
-    // Delete confirmation dialog
+    // Delete confirmation dialog (single item)
     itemPendingDelete?.let { item ->
         DeleteConfirmDialog(
-            itemLabel = item.label,
+            title = "Supprimer l'article",
+            message = "Supprimer \u00ab ${item.label} \u00bb de la liste ?",
             onConfirm = {
                 viewModel.deleteItem(item)
                 itemPendingDelete = null
@@ -202,18 +232,45 @@ fun GroceryScreen(
             onDismiss = { itemPendingDelete = null },
         )
     }
+
+    // Delete confirmation dialog (multi-select)
+    if (showDeleteSelectedDialog) {
+        DeleteConfirmDialog(
+            title = "Supprimer ${uiState.selectedIds.size} articles ?",
+            message = "Cette action est irr\u00e9versible.",
+            onConfirm = {
+                viewModel.deleteSelectedItems()
+                showDeleteSelectedDialog = false
+            },
+            onDismiss = { showDeleteSelectedDialog = false },
+        )
+    }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 private fun SwipeableGroceryItem(
     item: GroceryItem,
+    isSelecting: Boolean,
+    isSelected: Boolean,
     onSwipeRight: () -> Unit,
     onSwipeLeft: () -> Unit,
-    onToggle: () -> Unit,
+    onLongPress: () -> Unit,
+    onTap: () -> Unit,
 ) {
-    if (item.id == null) {
-        GroceryItemRow(item = item, onToggle = onToggle)
+    val rowContent: @Composable () -> Unit = {
+        GroceryItemRow(item = item, isSelected = isSelected)
+    }
+
+    val clickModifier = Modifier.combinedClickable(
+        onLongClick = { if (!isSelecting) onLongPress() },
+        onClick = { if (isSelecting) onTap() },
+    )
+
+    if (item.id == null || isSelecting) {
+        Box(modifier = clickModifier) {
+            rowContent()
+        }
         return
     }
 
@@ -231,8 +288,9 @@ private fun SwipeableGroceryItem(
     SwipeToDismissBox(
         state = dismissState,
         backgroundContent = { SwipeBackground(dismissState.targetValue, item.checked) },
+        modifier = clickModifier,
     ) {
-        GroceryItemRow(item = item, onToggle = onToggle)
+        rowContent()
     }
 }
 
@@ -268,14 +326,15 @@ private fun SwipeBackground(targetValue: SwipeToDismissBoxValue, isChecked: Bool
 
 @Composable
 private fun DeleteConfirmDialog(
-    itemLabel: String,
+    title: String,
+    message: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Supprimer l'article") },
-        text = { Text("Supprimer \u00ab $itemLabel \u00bb de la liste ?") },
+        title = { Text(title) },
+        text = { Text(message) },
         confirmButton = {
             TextButton(onClick = onConfirm) {
                 Text("Supprimer")
@@ -292,22 +351,42 @@ private fun DeleteConfirmDialog(
 @Composable
 private fun GroceryItemRow(
     item: GroceryItem,
-    onToggle: () -> Unit,
+    isSelected: Boolean = false,
 ) {
+    val backgroundColor = if (isSelected) {
+        MaterialTheme.colorScheme.primaryContainer
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(vertical = 2.dp),
+            .background(backgroundColor)
+            .padding(vertical = 8.dp, horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Checkbox(checked = item.checked, onCheckedChange = { onToggle() })
+        if (item.checked) {
+            Icon(
+                imageVector = Icons.Default.CheckCircle,
+                contentDescription = null,
+                tint = Color(0xFF4CAF50),
+                modifier = Modifier.size(24.dp),
+            )
+        } else {
+            Spacer(modifier = Modifier.width(24.dp))
+        }
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = item.label,
                 style = MaterialTheme.typography.bodyMedium,
                 textDecoration = if (item.checked) TextDecoration.LineThrough else null,
+                color = if (item.checked) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
             )
         }
         item.quantity?.let { qty ->
@@ -317,6 +396,31 @@ private fun GroceryItemRow(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+    }
+}
+
+@Composable
+private fun SelectionBottomBar(
+    selectedCount: Int,
+    onCheck: () -> Unit,
+    onDelete: () -> Unit,
+    onClose: () -> Unit,
+) {
+    BottomAppBar {
+        IconButton(onClick = onClose) {
+            Icon(Icons.Default.Close, contentDescription = "Annuler la s\u00e9lection")
+        }
+        Text(
+            text = "$selectedCount s\u00e9lectionn\u00e9(s)",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.weight(1f).padding(start = 8.dp),
+        )
+        IconButton(onClick = onCheck) {
+            Icon(Icons.Default.Check, contentDescription = "Cocher les articles")
+        }
+        IconButton(onClick = onDelete) {
+            Icon(Icons.Default.Delete, contentDescription = "Supprimer les articles")
         }
     }
 }

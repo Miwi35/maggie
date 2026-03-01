@@ -24,6 +24,8 @@ data class GroceryUiState(
     val showAddSheet: Boolean = false,
     val isLoading: Boolean = false,
     val error: String? = null,
+    val selectedIds: Set<String> = emptySet(),
+    val isSelecting: Boolean = false,
 )
 
 class GroceryViewModel(
@@ -134,6 +136,81 @@ class GroceryViewModel(
 
                 // Server call
                 groceryListRepository.deleteItem(itemId).getOrThrow()
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(error = e.message)
+                refresh()
+            }
+        }
+    }
+
+    fun startSelection(itemId: String) {
+        _uiState.value = _uiState.value.copy(
+            isSelecting = true,
+            selectedIds = setOf(itemId),
+        )
+    }
+
+    fun toggleSelection(itemId: String) {
+        val current = _uiState.value.selectedIds
+        val updated = if (itemId in current) current - itemId else current + itemId
+        _uiState.value = if (updated.isEmpty()) {
+            _uiState.value.copy(isSelecting = false, selectedIds = emptySet())
+        } else {
+            _uiState.value.copy(selectedIds = updated)
+        }
+    }
+
+    fun clearSelection() {
+        _uiState.value = _uiState.value.copy(isSelecting = false, selectedIds = emptySet())
+    }
+
+    fun checkSelectedItems() {
+        viewModelScope.launch {
+            val currentList = _uiState.value.groceryList ?: return@launch
+            val selectedIds = _uiState.value.selectedIds
+
+            // Optimistic update
+            val updatedItems = currentList.items.map { item ->
+                if (item.id in selectedIds) item.copy(checked = true) else item
+            }
+            val updatedList = currentList.copy(items = updatedItems)
+            _uiState.value = _uiState.value.copy(
+                groceryList = updatedList,
+                storeGroups = buildStoreGroups(updatedList),
+                isSelecting = false,
+                selectedIds = emptySet(),
+            )
+
+            try {
+                for (id in selectedIds) {
+                    groceryListRepository.checkItem(id, true)
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(error = e.message)
+                refresh()
+            }
+        }
+    }
+
+    fun deleteSelectedItems() {
+        viewModelScope.launch {
+            val currentList = _uiState.value.groceryList ?: return@launch
+            val selectedIds = _uiState.value.selectedIds
+
+            // Optimistic update
+            val updatedItems = currentList.items.filter { it.id !in selectedIds }
+            val updatedList = currentList.copy(items = updatedItems)
+            _uiState.value = _uiState.value.copy(
+                groceryList = updatedList,
+                storeGroups = buildStoreGroups(updatedList),
+                isSelecting = false,
+                selectedIds = emptySet(),
+            )
+
+            try {
+                for (id in selectedIds) {
+                    groceryListRepository.deleteItem(id).getOrThrow()
+                }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message)
                 refresh()

@@ -201,6 +201,131 @@ class GroceryViewModelTest {
     }
 
     @Test
+    fun `startSelection enters selection mode with item selected`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.startSelection("item-1")
+
+        val state = viewModel.uiState.value
+        assertTrue(state.isSelecting)
+        assertEquals(setOf("item-1"), state.selectedIds)
+    }
+
+    @Test
+    fun `toggleSelection adds and removes items`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.startSelection("item-1")
+        viewModel.toggleSelection("item-2")
+
+        var state = viewModel.uiState.value
+        assertEquals(setOf("item-1", "item-2"), state.selectedIds)
+
+        viewModel.toggleSelection("item-1")
+        state = viewModel.uiState.value
+        assertEquals(setOf("item-2"), state.selectedIds)
+        assertTrue(state.isSelecting)
+    }
+
+    @Test
+    fun `toggleSelection exits selection mode when last item deselected`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.startSelection("item-1")
+        viewModel.toggleSelection("item-1")
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isSelecting)
+        assertTrue(state.selectedIds.isEmpty())
+    }
+
+    @Test
+    fun `clearSelection resets selection state`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.startSelection("item-1")
+        viewModel.toggleSelection("item-2")
+        viewModel.clearSelection()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isSelecting)
+        assertTrue(state.selectedIds.isEmpty())
+    }
+
+    @Test
+    fun `checkSelectedItems marks items as checked and clears selection`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.startSelection("item-1") // Lait, unchecked
+        viewModel.toggleSelection("item-3") // Pommes, unchecked
+        viewModel.checkSelectedItems()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isSelecting)
+        assertTrue(state.selectedIds.isEmpty())
+        assertTrue(state.groceryList!!.items.find { it.id == "item-1" }!!.checked)
+        assertTrue(state.groceryList!!.items.find { it.id == "item-3" }!!.checked)
+        coVerify { groceryListRepository.checkItem("item-1", true) }
+        coVerify { groceryListRepository.checkItem("item-3", true) }
+    }
+
+    @Test
+    fun `checkSelectedItems server error triggers refresh`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        coEvery { groceryListRepository.checkItem("item-1", true) } throws RuntimeException("Network error")
+
+        viewModel.startSelection("item-1")
+        viewModel.checkSelectedItems()
+        advanceUntilIdle()
+
+        coVerify(atLeast = 2) { groceryListRepository.getGroceryList() }
+        val restoredItem = viewModel.uiState.value.groceryList!!.items.find { it.id == "item-1" }
+        assertFalse(restoredItem!!.checked)
+    }
+
+    @Test
+    fun `deleteSelectedItems removes items and clears selection`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.startSelection("item-1")
+        viewModel.toggleSelection("item-3")
+        viewModel.deleteSelectedItems()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isSelecting)
+        assertTrue(state.selectedIds.isEmpty())
+        assertEquals(1, state.groceryList!!.items.size)
+        assertEquals("item-2", state.groceryList!!.items[0].id)
+        coVerify { groceryListRepository.deleteItem("item-1") }
+        coVerify { groceryListRepository.deleteItem("item-3") }
+    }
+
+    @Test
+    fun `deleteSelectedItems server error triggers refresh`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        coEvery { groceryListRepository.deleteItem("item-1") } returns Result.failure(RuntimeException("Server error"))
+
+        viewModel.startSelection("item-1")
+        viewModel.deleteSelectedItems()
+        advanceUntilIdle()
+
+        coVerify(atLeast = 2) { groceryListRepository.getGroceryList() }
+        assertEquals(3, viewModel.uiState.value.groceryList!!.items.size)
+    }
+
+    @Test
     fun `refresh after error recovers state`() = runTest {
         // First call fails
         coEvery { groceryListRepository.getGroceryList() } returns Result.failure(RuntimeException("Connection error"))
