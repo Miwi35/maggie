@@ -2,6 +2,10 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useDataProvider, useNotify, Title } from 'react-admin'
 import { useMercure } from '../../hooks/useMercure'
 import { useItemTransitions, transitionSx } from '../../hooks/useItemTransitions'
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import type { DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import Autocomplete from '@mui/material/Autocomplete'
 import Box from '@mui/material/Box'
 import Paper from '@mui/material/Paper'
@@ -32,6 +36,7 @@ import AddIcon from '@mui/icons-material/Add'
 import ExpandLess from '@mui/icons-material/ExpandLess'
 import ExpandMore from '@mui/icons-material/ExpandMore'
 import DoneAllIcon from '@mui/icons-material/DoneAll'
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 
 interface ProductOption {
   id: string
@@ -58,6 +63,7 @@ interface GroceryItem {
   source: string
   store?: { id: string; name: string; visitOrder: number }
   buyAfter?: string
+  position: number
 }
 
 interface GroceryListData {
@@ -91,6 +97,70 @@ const categoryChoices = [
 
 const GROCERY_LIST_TOPICS = ['/api/grocery_lists/{id}']
 const entrypoint = import.meta.env.VITE_API_URL || 'http://localhost/api'
+
+function SortableGroceryItem({
+  item,
+  addedIds,
+  removingIds,
+  onCheck,
+  isDragDisabled,
+}: {
+  item: GroceryItem
+  addedIds: Set<string>
+  removingIds: Set<string>
+  onCheck: (item: GroceryItem) => void
+  isDragDisabled: boolean
+}) {
+  const isRemoving = removingIds.has(item.id)
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: item.id,
+    disabled: isDragDisabled || isRemoving,
+  })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : undefined,
+  }
+
+  const label = item.label
+  const detail = item.quantity != null ? `${item.quantity}${item.unit ? ' ' + item.unit : ''}` : ''
+
+  return (
+    <ListItem ref={setNodeRef} style={style} disablePadding sx={transitionSx(item.id, addedIds, removingIds)}>
+      <IconButton
+        size="small"
+        sx={{ cursor: isDragDisabled ? 'default' : 'grab', ml: 0.5, mr: -0.5 }}
+        {...attributes}
+        {...listeners}
+        data-testid="drag-handle"
+        tabIndex={-1}
+      >
+        <DragIndicatorIcon fontSize="small" sx={{ color: 'action.disabled' }} />
+      </IconButton>
+      <ListItemButton onClick={isRemoving ? undefined : () => onCheck(item)} dense>
+        <ListItemIcon>
+          <Checkbox edge="start" checked={item.checked} tabIndex={-1} disableRipple />
+        </ListItemIcon>
+        <ListItemText
+          primary={label}
+          secondary={detail}
+          sx={{
+            textDecoration: item.checked ? 'line-through' : 'none',
+            opacity: item.checked ? 0.5 : 1,
+          }}
+        />
+        <Chip
+          label={
+            item.source === 'recipe' ? 'Recette' : item.source === 'recurring' ? 'Récurrent' : 'Manuel'
+          }
+          size="small"
+          variant="outlined"
+          sx={{ ml: 1 }}
+        />
+      </ListItemButton>
+    </ListItem>
+  )
+}
 
 export const GroceryListView = () => {
   const dataProvider = useDataProvider()
@@ -272,6 +342,51 @@ export const GroceryListView = () => {
     })
   }
 
+  // dnd-kit sensors
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+
+  const handleDragEnd = useCallback(
+    async (event: DragEndEvent, groupItems: GroceryItem[]) => {
+      const { active, over } = event
+      if (!over || active.id === over.id || !groceryList) return
+
+      const oldIndex = groupItems.findIndex((i) => i.id === active.id)
+      const newIndex = groupItems.findIndex((i) => i.id === over.id)
+      if (oldIndex === -1 || newIndex === -1) return
+
+      const reordered = arrayMove(groupItems, oldIndex, newIndex)
+      const items = reordered.map((item, idx) => ({ id: item.id, position: idx }))
+
+      // Optimistic update
+      setGroceryList((prev) => {
+        if (!prev) return prev
+        const positionMap = new Map(items.map((i) => [i.id, i.position]))
+        return {
+          ...prev,
+          items: prev.items.map((item) =>
+            positionMap.has(item.id) ? { ...item, position: positionMap.get(item.id)! } : item,
+          ),
+        }
+      })
+
+      try {
+        const token = localStorage.getItem('token')
+        await fetch(`${entrypoint}/grocery/reorder`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ items }),
+        })
+      } catch {
+        notify('Erreur', { type: 'error' })
+        fetchList()
+      }
+    },
+    [groceryList, notify, fetchList],
+  )
+
   // Track item additions/removals for animations
   const { addedIds, removingItems } = useItemTransitions(
     groceryList?.items ?? [],
@@ -302,6 +417,10 @@ export const GroceryListView = () => {
         }
       }
       groupMap[storeKey].items.push(item)
+    }
+    // Sort items within each group by position
+    for (const group of Object.values(groupMap)) {
+      group.items.sort((a, b) => a.position - b.position)
     }
     storeGroups.push(...Object.values(groupMap).sort((a, b) => a.visitOrder - b.visitOrder))
   }
@@ -382,43 +501,27 @@ export const GroceryListView = () => {
                     }
                   >
                     <Collapse in={!isCollapsed}>
-                      {group.items.map((item) => {
-                        const label = item.label
-                        const detail =
-                          item.quantity != null ? `${item.quantity}${item.unit ? ' ' + item.unit : ''}` : ''
-
-                        const isRemoving = removingIds.has(item.id)
-
-                        return (
-                          <ListItem key={item.id} disablePadding sx={transitionSx(item.id, addedIds, removingIds)}>
-                            <ListItemButton onClick={isRemoving ? undefined : () => handleCheck(item)} dense>
-                              <ListItemIcon>
-                                <Checkbox edge="start" checked={item.checked} tabIndex={-1} disableRipple />
-                              </ListItemIcon>
-                              <ListItemText
-                                primary={label}
-                                secondary={detail}
-                                sx={{
-                                  textDecoration: item.checked ? 'line-through' : 'none',
-                                  opacity: item.checked ? 0.5 : 1,
-                                }}
-                              />
-                              <Chip
-                                label={
-                                  item.source === 'recipe'
-                                    ? 'Recette'
-                                    : item.source === 'recurring'
-                                      ? 'Récurrent'
-                                      : 'Manuel'
-                                }
-                                size="small"
-                                variant="outlined"
-                                sx={{ ml: 1 }}
-                              />
-                            </ListItemButton>
-                          </ListItem>
-                        )
-                      })}
+                      <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={(event) => handleDragEnd(event, group.items)}
+                      >
+                        <SortableContext
+                          items={group.items.map((i) => i.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          {group.items.map((item) => (
+                            <SortableGroceryItem
+                              key={item.id}
+                              item={item}
+                              addedIds={addedIds}
+                              removingIds={removingIds}
+                              onCheck={handleCheck}
+                              isDragDisabled={removingIds.size > 0 || addedIds.size > 0}
+                            />
+                          ))}
+                        </SortableContext>
+                      </DndContext>
                     </Collapse>
                   </List>
                 </Box>

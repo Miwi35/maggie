@@ -206,6 +206,17 @@ data class AddGroceryItemResponse(
     val itemCount: Int,
 )
 
+@Serializable
+data class ReorderGroceryItemsRequest(
+    val items: List<ReorderEntry>,
+)
+
+@Serializable
+data class ReorderEntry(
+    val id: String,
+    val position: Int,
+)
+
 private val MERGE_PATCH = ContentType("application", "merge-patch+json")
 
 class MaggieApiService(
@@ -599,6 +610,14 @@ class MaggieApiService(
             contentType(ContentType.Application.Json)
             setBody(request)
         }.body()
+    }
+
+    // Grocery Reorder Items
+    suspend fun reorderGroceryItems(request: ReorderGroceryItemsRequest) {
+        client.patch("$baseUrl/api/grocery/reorder") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
     }
 
     // Notifications

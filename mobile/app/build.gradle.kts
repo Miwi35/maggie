@@ -143,6 +143,9 @@ dependencies {
     // RRULE
     implementation(libs.lib.recur)
 
+    // Reorderable
+    implementation(libs.reorderable)
+
     // Koin (DI)
     implementation(libs.koin.android)
     implementation(libs.koin.compose)

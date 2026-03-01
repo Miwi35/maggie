@@ -3,6 +3,7 @@ package com.maggie.app.ui.screens.cookbook.grocery
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.api.ReorderEntry
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.GroceryList
 import com.maggie.app.data.model.Product
@@ -159,6 +160,45 @@ class GroceryViewModel(
         }
     }
 
+    fun moveItem(storeKey: String, fromIndex: Int, toIndex: Int) {
+        val currentList = _uiState.value.groceryList ?: return
+        val group = _uiState.value.storeGroups.find {
+            (it.store?.id ?: "__unassigned__") == storeKey
+        } ?: return
+        if (fromIndex == toIndex || fromIndex !in group.items.indices || toIndex !in group.items.indices) return
+
+        val reordered = group.items.toMutableList().apply {
+            add(toIndex, removeAt(fromIndex))
+        }
+        val entries = reordered.mapIndexedNotNull { idx, item ->
+            item.id?.let { ReorderEntry(id = it, position = idx) }
+        }
+
+        // Optimistic update
+        val positionMap = entries.associate { it.id to it.position }
+        val updatedItems = currentList.items.map { item ->
+            if (item.id != null && item.id in positionMap) {
+                item.copy(position = positionMap[item.id]!!)
+            } else {
+                item
+            }
+        }
+        val updatedList = currentList.copy(items = updatedItems)
+        _uiState.value = _uiState.value.copy(
+            groceryList = updatedList,
+            storeGroups = buildStoreGroups(updatedList),
+        )
+
+        viewModelScope.launch {
+            try {
+                groceryListRepository.reorderItems(entries).getOrThrow()
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(error = e.message)
+                refresh()
+            }
+        }
+    }
+
     fun startSelection(itemId: String) {
         _uiState.value = _uiState.value.copy(
             isSelecting = true,
@@ -279,7 +319,7 @@ class GroceryViewModel(
 
         for ((key, items) in grouped) {
             val store = items.firstOrNull()?.store
-            storeMap[key] = StoreGroup(store = store, items = items)
+            storeMap[key] = StoreGroup(store = store, items = items.sortedBy { it.position })
         }
 
         return storeMap.values.sortedBy { it.store?.visitOrder ?: Int.MAX_VALUE }

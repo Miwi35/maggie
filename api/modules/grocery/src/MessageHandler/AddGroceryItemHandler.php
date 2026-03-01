@@ -124,6 +124,14 @@ class AddGroceryItemHandler
             $item->setUnit(Unit::from($command->unit));
         }
 
+        $maxPosition = 0;
+        foreach ($list->getItems() as $existing) {
+            if ($existing->getPosition() > $maxPosition) {
+                $maxPosition = $existing->getPosition();
+            }
+        }
+        $item->setPosition($maxPosition + 1);
+
         $list->addItem($item);
         $list->setUpdatedAt(new \DateTimeImmutable());
         $this->em->flush();

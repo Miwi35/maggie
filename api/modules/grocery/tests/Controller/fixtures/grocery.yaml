@@ -23,6 +23,7 @@ Maggie\Grocery\Entity\GroceryItem:
     checked: false
     source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
     store: '@supermarket'
+    position: 1
   item_milk:
     groceryList: '@grocery_list'
     customLabel: Lait
@@ -30,3 +31,4 @@ Maggie\Grocery\Entity\GroceryItem:
     unit: '<(Maggie\Grocery\Enum\Unit::Liter)>'
     checked: true
     source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 2

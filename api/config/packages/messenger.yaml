@@ -52,6 +52,7 @@ framework:
             'Maggie\Grocery\Message\EndErrandCommand': sync
             'Maggie\Grocery\Message\MoveToFallbackCommand': sync
             'Maggie\Grocery\Message\RemoveGroceryItemCommand': sync
+            'Maggie\Grocery\Message\ReorderGroceryItemsCommand': sync
             'Maggie\Grocery\Message\CreateStoreCommand': sync
             'Maggie\Grocery\Message\UpdateStoreCommand': sync
             'Maggie\Grocery\Message\DeleteStoreCommand': sync

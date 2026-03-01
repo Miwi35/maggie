@@ -131,6 +131,7 @@ class GroceryList implements MercurePublishable, OwnedByUserInterface, Indexable
                 'source' => $item->getSource()->value,
                 'storeId' => $item->getStore() !== null ? (string) $item->getStore()->getId() : null,
                 'buyAfter' => $item->getBuyAfter()?->format('Y-m-d'),
+                'position' => $item->getPosition(),
             ])->toArray(),
         ];
     }

@@ -14,6 +14,7 @@ use Maggie\Grocery\Mcp\Tool\EndErrandTool;
 use Maggie\Grocery\Mcp\Tool\GetGroceryListTool;
 use Maggie\Grocery\Mcp\Tool\MoveToFallbackTool;
 use Maggie\Grocery\Mcp\Tool\RemoveGroceryItemTool;
+use Maggie\Grocery\Mcp\Tool\ReorderGroceryItemsTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 class GroceryToolsTest extends KernelTestCase
@@ -254,5 +255,45 @@ class GroceryToolsTest extends KernelTestCase
         self::assertSame('Primeur', $item->getStore()->getName());
 
         $this->assertMercureUpdatePublished('/grocery_lists/');
+    }
+
+    public function testReorderGroceryItemsUpdatesPositions(): void
+    {
+        $this->loadFixtures('grocery.yaml');
+        $tomatoId = (string) $this->getFixture('item_tomato')->getId();
+        $checkedId = (string) $this->getFixture('item_checked')->getId();
+        $this->em()->clear();
+
+        $tool = self::getContainer()->get(ReorderGroceryItemsTool::class);
+        $result = $tool([
+            ['id' => $tomatoId, 'position' => 20],
+            ['id' => $checkedId, 'position' => 10],
+        ]);
+
+        $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
+        self::assertTrue($data['success']);
+
+        $this->em()->clear();
+        $tomato = $this->em()->find(GroceryItem::class, $tomatoId);
+        $checked = $this->em()->find(GroceryItem::class, $checkedId);
+        self::assertSame(20, $tomato->getPosition());
+        self::assertSame(10, $checked->getPosition());
+
+        $this->assertMercureUpdatePublished('/grocery_lists/');
+        $this->assertElasticsearchIndexDispatched(GroceryList::class);
+    }
+
+    public function testReorderGroceryItemsInvalidIdReturnsError(): void
+    {
+        $this->loadFixtures('grocery.yaml');
+        $this->em()->clear();
+
+        $tool = self::getContainer()->get(ReorderGroceryItemsTool::class);
+        $result = $tool([
+            ['id' => '01JNOTEXIST000000000000000', 'position' => 0],
+        ]);
+
+        $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
+        self::assertArrayHasKey('error', $data);
     }
 }

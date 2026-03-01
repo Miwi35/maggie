@@ -14,4 +14,5 @@ data class GroceryItem(
     val source: GroceryItemSource = GroceryItemSource.MANUAL,
     val store: Store? = null,
     val buyAfter: String? = null,
+    val position: Int = 0,
 )

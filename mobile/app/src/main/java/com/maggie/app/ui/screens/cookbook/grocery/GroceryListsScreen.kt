@@ -16,12 +16,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material3.AlertDialog
@@ -53,6 +55,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 import com.maggie.app.data.model.GroceryItem
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -159,13 +163,38 @@ fun GroceryScreen(
                         }
                     }
                     else -> {
+                        val lazyListState = rememberLazyListState()
+                        val reorderableLazyListState = rememberReorderableLazyListState(lazyListState) { from, to ->
+                            // Find which store group these items belong to
+                            val fromKey = from.key as? String ?: return@rememberReorderableLazyListState
+                            val toKey = to.key as? String ?: return@rememberReorderableLazyListState
+
+                            // Only allow reorder within same store group
+                            val fromStoreKey = fromKey.substringBefore("|")
+                            val toStoreKey = toKey.substringBefore("|")
+                            if (fromStoreKey != toStoreKey) return@rememberReorderableLazyListState
+
+                            val group = uiState.storeGroups.find {
+                                (it.store?.id ?: "__unassigned__") == fromStoreKey
+                            } ?: return@rememberReorderableLazyListState
+                            val fromId = fromKey.substringAfter("|")
+                            val toId = toKey.substringAfter("|")
+                            val fromIdx = group.items.indexOfFirst { it.id == fromId }
+                            val toIdx = group.items.indexOfFirst { it.id == toId }
+                            if (fromIdx != -1 && toIdx != -1) {
+                                viewModel.moveItem(fromStoreKey, fromIdx, toIdx)
+                            }
+                        }
+
                         LazyColumn(
+                            state = lazyListState,
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(16.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
                             uiState.storeGroups.forEach { group ->
-                                item {
+                                val storeKey = group.store?.id ?: "__unassigned__"
+                                item(key = "header-$storeKey") {
                                     Text(
                                         text = group.store?.name ?: "Non assign\u00e9",
                                         style = MaterialTheme.typography.titleSmall,
@@ -173,32 +202,46 @@ fun GroceryScreen(
                                     )
                                     HorizontalDivider()
                                 }
-                                items(group.items, key = { it.id ?: it.hashCode() }) { groceryItem ->
-                                    SwipeableGroceryItem(
-                                        item = groceryItem,
-                                        isSelecting = uiState.isSelecting,
-                                        isSelected = groceryItem.id in uiState.selectedIds,
-                                        onSwipeRight = {
-                                            if (!groceryItem.checked) {
-                                                viewModel.toggleItemChecked(groceryItem)
-                                            }
-                                        },
-                                        onSwipeLeft = {
-                                            if (groceryItem.checked) {
-                                                viewModel.toggleItemChecked(groceryItem)
+                                items(
+                                    group.items,
+                                    key = { "$storeKey|${it.id ?: it.hashCode()}" },
+                                ) { groceryItem ->
+                                    ReorderableItem(
+                                        reorderableLazyListState,
+                                        key = "$storeKey|${groceryItem.id ?: groceryItem.hashCode()}",
+                                    ) { isDragging ->
+                                        SwipeableGroceryItem(
+                                            item = groceryItem,
+                                            isSelecting = uiState.isSelecting,
+                                            isSelected = groceryItem.id in uiState.selectedIds,
+                                            isDragging = isDragging,
+                                            onSwipeRight = {
+                                                if (!groceryItem.checked) {
+                                                    viewModel.toggleItemChecked(groceryItem)
+                                                }
+                                            },
+                                            onSwipeLeft = {
+                                                if (groceryItem.checked) {
+                                                    viewModel.toggleItemChecked(groceryItem)
+                                                } else {
+                                                    itemPendingDelete = groceryItem
+                                                }
+                                            },
+                                            onLongPress = {
+                                                groceryItem.id?.let { viewModel.startSelection(it) }
+                                            },
+                                            onTap = {
+                                                if (uiState.isSelecting) {
+                                                    groceryItem.id?.let { viewModel.toggleSelection(it) }
+                                                }
+                                            },
+                                            dragModifier = if (!uiState.isSelecting) {
+                                                Modifier.draggableHandle()
                                             } else {
-                                                itemPendingDelete = groceryItem
-                                            }
-                                        },
-                                        onLongPress = {
-                                            groceryItem.id?.let { viewModel.startSelection(it) }
-                                        },
-                                        onTap = {
-                                            if (uiState.isSelecting) {
-                                                groceryItem.id?.let { viewModel.toggleSelection(it) }
-                                            }
-                                        },
-                                    )
+                                                Modifier
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -253,13 +296,15 @@ private fun SwipeableGroceryItem(
     item: GroceryItem,
     isSelecting: Boolean,
     isSelected: Boolean,
+    isDragging: Boolean = false,
     onSwipeRight: () -> Unit,
     onSwipeLeft: () -> Unit,
     onLongPress: () -> Unit,
     onTap: () -> Unit,
+    dragModifier: Modifier = Modifier,
 ) {
     val rowContent: @Composable () -> Unit = {
-        GroceryItemRow(item = item, isSelected = isSelected)
+        GroceryItemRow(item = item, isSelected = isSelected, isDragging = isDragging, dragModifier = dragModifier)
     }
 
     val clickModifier = Modifier.combinedClickable(
@@ -352,21 +397,29 @@ private fun DeleteConfirmDialog(
 private fun GroceryItemRow(
     item: GroceryItem,
     isSelected: Boolean = false,
+    isDragging: Boolean = false,
+    dragModifier: Modifier = Modifier,
 ) {
-    val backgroundColor = if (isSelected) {
-        MaterialTheme.colorScheme.primaryContainer
-    } else {
-        MaterialTheme.colorScheme.surface
+    val backgroundColor = when {
+        isDragging -> MaterialTheme.colorScheme.surfaceContainerHighest
+        isSelected -> MaterialTheme.colorScheme.primaryContainer
+        else -> MaterialTheme.colorScheme.surface
     }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(backgroundColor)
-            .padding(vertical = 8.dp, horizontal = 12.dp),
+            .padding(vertical = 8.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
+        Icon(
+            imageVector = Icons.Default.DragIndicator,
+            contentDescription = "Réordonner",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            modifier = dragModifier.size(24.dp),
+        )
         if (item.checked) {
             Icon(
                 imageVector = Icons.Default.CheckCircle,

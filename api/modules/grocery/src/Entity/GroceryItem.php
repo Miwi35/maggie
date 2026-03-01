@@ -47,6 +47,9 @@ class GroceryItem
     #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $buyAfter = null;
 
+    #[ORM\Column(options: ['default' => 0])]
+    private int $position = 0;
+
     public function __construct()
     {
         $this->id = new Ulid();
@@ -166,6 +169,18 @@ class GroceryItem
     public function setBuyAfter(?\DateTimeImmutable $buyAfter): static
     {
         $this->buyAfter = $buyAfter;
+
+        return $this;
+    }
+
+    public function getPosition(): int
+    {
+        return $this->position;
+    }
+
+    public function setPosition(int $position): static
+    {
+        $this->position = $position;
 
         return $this;
     }

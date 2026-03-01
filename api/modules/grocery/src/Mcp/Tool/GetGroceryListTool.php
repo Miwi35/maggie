@@ -70,6 +70,7 @@ class GetGroceryListTool
                 'unit' => $item->getUnit()?->value,
                 'source' => $item->getSource()->value,
                 'checked' => $item->isChecked(),
+                'position' => $item->getPosition(),
             ];
 
             if ($buyAfter !== null) {
@@ -78,6 +79,12 @@ class GetGroceryListTool
 
             $storeGroups[$storeKey]['items'][] = $itemData;
         }
+
+        // Sort items within each group by position
+        foreach ($storeGroups as &$group) {
+            usort($group['items'], fn (array $a, array $b) => $a['position'] <=> $b['position']);
+        }
+        unset($group);
 
         // Sort by visitOrder
         usort($storeGroups, fn (array $a, array $b) => $a['visitOrder'] <=> $b['visitOrder']);

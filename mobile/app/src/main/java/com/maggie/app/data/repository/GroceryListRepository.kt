@@ -2,6 +2,8 @@ package com.maggie.app.data.repository
 
 import com.maggie.app.data.api.AddGroceryItemRequest
 import com.maggie.app.data.api.MaggieApiService
+import com.maggie.app.data.api.ReorderEntry
+import com.maggie.app.data.api.ReorderGroceryItemsRequest
 import com.maggie.app.data.model.GroceryList
 
 class GroceryListRepository(
@@ -38,5 +40,9 @@ class GroceryListRepository(
                 category = category,
             ),
         )
+    }
+
+    suspend fun reorderItems(items: List<ReorderEntry>): Result<Unit> = runCatching {
+        apiService.reorderGroceryItems(ReorderGroceryItemsRequest(items = items))
     }
 }

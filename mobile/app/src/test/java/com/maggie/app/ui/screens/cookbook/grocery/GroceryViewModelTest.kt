@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.cookbook.grocery
 
+import com.maggie.app.data.api.ReorderEntry
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.GroceryItem
@@ -44,9 +45,9 @@ class GroceryViewModelTest {
     private val store = Store(id = "store-1", name = "Carrefour", visitOrder = 1)
 
     private val sampleItems = listOf(
-        GroceryItem(id = "item-1", customLabel = "Lait", checked = false, store = store),
-        GroceryItem(id = "item-2", customLabel = "Pain", checked = true, store = store),
-        GroceryItem(id = "item-3", customLabel = "Pommes", checked = false),
+        GroceryItem(id = "item-1", customLabel = "Lait", checked = false, store = store, position = 0),
+        GroceryItem(id = "item-2", customLabel = "Pain", checked = true, store = store, position = 1),
+        GroceryItem(id = "item-3", customLabel = "Pommes", checked = false, position = 0),
     )
 
     private val sampleList = GroceryList(id = "list-1", items = sampleItems)
@@ -65,6 +66,7 @@ class GroceryViewModelTest {
         coEvery { storeRepository.getStores() } returns Result.success(emptyList())
         coEvery { groceryListRepository.checkItem(any(), any()) } returns Result.success(Unit)
         coEvery { groceryListRepository.deleteItem(any()) } returns Result.success(Unit)
+        coEvery { groceryListRepository.reorderItems(any()) } returns Result.success(Unit)
     }
 
     private fun createViewModel(): GroceryViewModel {
@@ -411,5 +413,66 @@ class GroceryViewModelTest {
         assertNull(viewModel.uiState.value.error)
         assertEquals(3, viewModel.uiState.value.groceryList!!.items.size)
         assertTrue(viewModel.uiState.value.storeGroups.isNotEmpty())
+    }
+
+    @Test
+    fun `moveItem reorders items within store group`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // Carrefour group has item-1 (pos 0) and item-2 (pos 1)
+        viewModel.moveItem("store-1", 0, 1)
+        advanceUntilIdle()
+
+        val carrefourGroup = viewModel.uiState.value.storeGroups.find { it.store?.id == "store-1" }
+        assertNotNull(carrefourGroup)
+        // After move: item-2 should be first (position 0), item-1 second (position 1)
+        assertEquals("item-2", carrefourGroup!!.items[0].id)
+        assertEquals("item-1", carrefourGroup.items[1].id)
+    }
+
+    @Test
+    fun `moveItem calls repository reorderItems`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.moveItem("store-1", 0, 1)
+        advanceUntilIdle()
+
+        coVerify { groceryListRepository.reorderItems(any()) }
+    }
+
+    @Test
+    fun `moveItem server error triggers refresh`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        coEvery { groceryListRepository.reorderItems(any()) } returns Result.failure(RuntimeException("Network error"))
+
+        viewModel.moveItem("store-1", 0, 1)
+        advanceUntilIdle()
+
+        // Refresh was triggered after error
+        coVerify(atLeast = 2) { groceryListRepository.getGroceryList() }
+    }
+
+    @Test
+    fun `buildStoreGroups sorts items by position`() = runTest {
+        val itemsWithPositions = listOf(
+            GroceryItem(id = "item-a", label = "Beurre", customLabel = "Beurre", store = store, position = 2),
+            GroceryItem(id = "item-b", label = "Fromage", customLabel = "Fromage", store = store, position = 0),
+            GroceryItem(id = "item-c", label = "Yaourt", customLabel = "Yaourt", store = store, position = 1),
+        )
+        val listWithPositions = GroceryList(id = "list-1", items = itemsWithPositions)
+        coEvery { groceryListRepository.getGroceryList() } returns Result.success(listWithPositions)
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val carrefourGroup = viewModel.uiState.value.storeGroups.find { it.store?.id == "store-1" }
+        assertNotNull(carrefourGroup)
+        assertEquals("Fromage", carrefourGroup!!.items[0].label)
+        assertEquals("Yaourt", carrefourGroup.items[1].label)
+        assertEquals("Beurre", carrefourGroup.items[2].label)
     }
 }
