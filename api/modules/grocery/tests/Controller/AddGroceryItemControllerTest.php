@@ -39,7 +39,8 @@ class AddGroceryItemControllerTest extends WebTestCase
 
     public function testMissingLabelReturns400(): void
     {
-        $this->authenticateAsTestUser();
+        $this->loadFixtures('user.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
 
         $this->client->request('POST', '/api/grocery/add-item', [], [], array_merge(
             ['CONTENT_TYPE' => 'application/json'],
@@ -51,7 +52,8 @@ class AddGroceryItemControllerTest extends WebTestCase
 
     public function testAddItemCreatesGroceryItem(): void
     {
-        $this->authenticateAsTestUser();
+        $this->loadFixtures('user.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
 
         $this->client->request('POST', '/api/grocery/add-item', [], [], array_merge(
             ['CONTENT_TYPE' => 'application/json'],
@@ -124,19 +126,9 @@ class AddGroceryItemControllerTest extends WebTestCase
 
     public function testAddItemWithExistingProductReusesIt(): void
     {
-        $this->authenticateAsTestUser();
-
-        $em = self::getContainer()->get('doctrine.orm.entity_manager');
-
-        // Create an existing product
-        $product = new Product();
-        $product->setName('Bananes');
-        $product->setCategory(\Maggie\Grocery\Enum\ProductCategory::Produce);
-        $product->setUser($this->testUser);
-        $em->persist($product);
-        $em->flush();
-
-        $this->resetAsyncTransport();
+        $this->loadFixtures('product.yaml');
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
 
         $this->client->request('POST', '/api/grocery/add-item', [], [], array_merge(
             ['CONTENT_TYPE' => 'application/json'],
@@ -149,6 +141,7 @@ class AddGroceryItemControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
 
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $em->clear();
         $products = $em->getRepository(Product::class)->findAll();
         self::assertCount(1, $products, 'No new product should be created');
@@ -157,5 +150,91 @@ class AddGroceryItemControllerTest extends WebTestCase
         $items = $em->getRepository(GroceryItem::class)->findAll();
         self::assertCount(1, $items);
         self::assertSame((string) $products[0]->getId(), (string) $items[0]->getProduct()->getId());
+    }
+
+    public function testAddItemWithExistingProductAutoAssignsPreferredStore(): void
+    {
+        $this->loadFixtures('product.yaml');
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+
+        $this->client->request('POST', '/api/grocery/add-item', [], [], array_merge(
+            ['CONTENT_TYPE' => 'application/json'],
+            $this->authHeaders(),
+        ), json_encode([
+            'label' => 'Bananes',
+            'quantity' => 2,
+            'unit' => 'piece',
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $items = $em->getRepository(GroceryItem::class)->findAll();
+        self::assertCount(1, $items);
+        self::assertSame('Supermarché', $items[0]->getStore()->getName());
+    }
+
+    public function testAddItemCaseInsensitiveMatchReusesProduct(): void
+    {
+        $this->loadFixtures('product.yaml');
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+
+        $this->client->request('POST', '/api/grocery/add-item', [], [], array_merge(
+            ['CONTENT_TYPE' => 'application/json'],
+            $this->authHeaders(),
+        ), json_encode([
+            'label' => 'bananes',
+            'quantity' => 1,
+            'unit' => 'piece',
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $products = $em->getRepository(Product::class)->findAll();
+        self::assertCount(1, $products, 'Case-insensitive match should reuse existing product');
+        self::assertSame('Bananes', $products[0]->getName());
+
+        $items = $em->getRepository(GroceryItem::class)->findAll();
+        self::assertCount(1, $items);
+        self::assertSame((string) $products[0]->getId(), (string) $items[0]->getProduct()->getId());
+    }
+
+    public function testAddItemWithExistingProductStoreOverride(): void
+    {
+        $this->loadFixtures('product.yaml');
+        $storeId = (string) $this->getFixture('supermarket')->getId();
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+
+        // Add item with explicit storeId=null-ish different store — but here we test
+        // that an explicit storeId overrides the product's preferred store
+        // First, add item WITHOUT storeId — should get preferred store
+        $this->client->request('POST', '/api/grocery/add-item', [], [], array_merge(
+            ['CONTENT_TYPE' => 'application/json'],
+            $this->authHeaders(),
+        ), json_encode([
+            'label' => 'Lait',
+            'quantity' => 1,
+            'unit' => 'l',
+            'storeId' => $storeId,
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $items = $em->getRepository(GroceryItem::class)->findAll();
+        self::assertCount(1, $items);
+        // New product "Lait" has no preferred store, but explicit storeId is set
+        self::assertSame('Supermarché', $items[0]->getStore()->getName());
+
+        $products = $em->getRepository(Product::class)->findBy(['name' => 'Lait']);
+        self::assertCount(1, $products, 'New product should be created for Lait');
+        self::assertSame('other', $products[0]->getCategory()->value);
     }
 }

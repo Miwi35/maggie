@@ -9,6 +9,7 @@ use Maggie\Grocery\Message\RemoveGroceryItemCommand;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -33,6 +34,12 @@ final class RemoveGroceryItemController
             ));
 
             return new JsonResponse(['success' => true]);
+        } catch (HandlerFailedException $e) {
+            $cause = $e->getPrevious();
+            if ($cause instanceof \DomainException) {
+                return new JsonResponse(['error' => $cause->getMessage()], Response::HTTP_NOT_FOUND);
+            }
+            throw $e;
         } catch (\DomainException $e) {
             return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_NOT_FOUND);
         }

@@ -60,6 +60,50 @@ class GroceryToolsTest extends KernelTestCase
         $this->assertElasticsearchIndexDispatched(Product::class);
     }
 
+    public function testAddGroceryItemReusesExistingProduct(): void
+    {
+        $this->loadFixtures('product.yaml');
+
+        $tool = self::getContainer()->get(AddGroceryItemTool::class);
+        $result = $tool('Bananes', 3, 'piece');
+
+        $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
+        self::assertTrue($data['success']);
+
+        $this->em()->clear();
+        $products = $this->em()->getRepository(Product::class)->findAll();
+        self::assertCount(1, $products, 'No new product should be created');
+        self::assertSame('produce', $products[0]->getCategory()->value);
+
+        $items = $this->em()->getRepository(GroceryItem::class)->findAll();
+        self::assertCount(1, $items);
+        self::assertSame((string) $products[0]->getId(), (string) $items[0]->getProduct()->getId());
+        self::assertSame('Supermarché', $items[0]->getStore()->getName());
+
+        $this->assertMercureUpdatePublished('/grocery_lists/');
+        $this->assertElasticsearchIndexDispatched(GroceryList::class);
+    }
+
+    public function testAddGroceryItemCaseInsensitiveMatch(): void
+    {
+        $this->loadFixtures('product.yaml');
+
+        $tool = self::getContainer()->get(AddGroceryItemTool::class);
+        $result = $tool('bananes', 2, 'piece');
+
+        $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
+        self::assertTrue($data['success']);
+
+        $this->em()->clear();
+        $products = $this->em()->getRepository(Product::class)->findAll();
+        self::assertCount(1, $products, 'Case-insensitive match should reuse existing product');
+        self::assertSame('Bananes', $products[0]->getName());
+
+        $items = $this->em()->getRepository(GroceryItem::class)->findAll();
+        self::assertCount(1, $items);
+        self::assertSame((string) $products[0]->getId(), (string) $items[0]->getProduct()->getId());
+    }
+
     public function testGetGroceryListReturnsItems(): void
     {
         $this->loadFixtures('grocery.yaml');

@@ -25,6 +25,9 @@
         <testsuite name="Cookbook">
             <directory>modules/cookbook/tests/</directory>
         </testsuite>
+        <testsuite name="Grocery">
+            <directory>modules/grocery/tests/</directory>
+        </testsuite>
     </testsuites>
 
     <groups>
@@ -39,6 +42,7 @@
             <directory>modules/calendar/src/</directory>
             <directory>modules/core/src/</directory>
             <directory>modules/cookbook/src/</directory>
+            <directory>modules/grocery/src/</directory>
         </include>
         <exclude>
             <file>src/Kernel.php</file>

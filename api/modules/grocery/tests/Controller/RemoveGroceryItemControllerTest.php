@@ -39,7 +39,7 @@ class RemoveGroceryItemControllerTest extends WebTestCase
         $this->loadFixtures('grocery.yaml');
         $this->authenticateAsUser($this->getFixture('test_user'));
 
-        $this->client->request('DELETE', '/api/grocery_items/01JNONEXISTENT', [], [], $this->authHeaders());
+        $this->client->request('DELETE', '/api/grocery_items/01JNBA2TQV38079SXMWMQP3D1F', [], [], $this->authHeaders());
 
         self::assertResponseStatusCodeSame(404);
     }
