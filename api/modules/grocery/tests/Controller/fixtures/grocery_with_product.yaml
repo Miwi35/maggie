@@ -1,0 +1,42 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: grocery-test@example.com
+    googleId: google-grocery-test
+    name: Grocery Test User
+
+Maggie\Grocery\Entity\Store:
+  supermarket:
+    name: Supermarché
+    visitOrder: 1
+    user: '@test_user'
+
+Maggie\Grocery\Entity\Product:
+  product_bananes:
+    name: Bananes
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    user: '@test_user'
+    preferredStore: '@supermarket'
+
+Maggie\Grocery\Entity\GroceryList:
+  grocery_list:
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryItem:
+  item_bananes:
+    groceryList: '@grocery_list'
+    product: '@product_bananes'
+    quantity: 6
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@supermarket'
+    position: 1
+  item_custom:
+    groceryList: '@grocery_list'
+    customLabel: Savon
+    quantity: 2
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 2

@@ -266,10 +266,18 @@ fun GroceryScreen(
         )
     }
 
-    // Item detail bottom sheet
+    // Item edit bottom sheet
     detailItem?.let { item ->
         ItemDetailSheet(
             item = item,
+            products = uiState.products,
+            stores = uiState.stores,
+            onSave = { label, quantity, unit, storeId, storeName, category ->
+                item.id?.let { itemId ->
+                    viewModel.updateItem(itemId, label, quantity, unit, storeId, storeName, category)
+                }
+                detailItem = null
+            },
             onDismiss = { detailItem = null },
         )
     }

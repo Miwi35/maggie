@@ -176,6 +176,29 @@ class GroceryViewModel(
         }
     }
 
+    fun updateItem(
+        itemId: String,
+        label: String?,
+        quantity: Float?,
+        unit: String?,
+        storeId: String?,
+        storeName: String?,
+        category: String?,
+    ) {
+        viewModelScope.launch {
+            try {
+                groceryListRepository.editItem(itemId, label, quantity, unit, storeId, storeName, category).getOrThrow()
+                refresh()
+                // Reload stores/products if store or product may have been created
+                if (storeName != null || label != null) {
+                    loadProductsAndStores()
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(error = e.message)
+            }
+        }
+    }
+
     fun toggleItemChecked(item: GroceryItem) {
         viewModelScope.launch {
             try {

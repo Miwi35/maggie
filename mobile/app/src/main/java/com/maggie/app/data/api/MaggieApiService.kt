@@ -207,6 +207,16 @@ data class AddGroceryItemResponse(
 )
 
 @Serializable
+data class EditGroceryItemRequest(
+    val label: String? = null,
+    val quantity: Float? = null,
+    val unit: String? = null,
+    val storeId: String? = null,
+    val storeName: String? = null,
+    val category: String? = null,
+)
+
+@Serializable
 data class ReorderGroceryItemsRequest(
     val items: List<ReorderEntry>,
 )
@@ -615,6 +625,13 @@ class MaggieApiService(
     // Grocery Reorder Items
     suspend fun reorderGroceryItems(request: ReorderGroceryItemsRequest) {
         client.patch("$baseUrl/api/grocery/reorder") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+    }
+
+    suspend fun editGroceryItem(itemId: String, request: EditGroceryItemRequest) {
+        client.patch("$baseUrl/api/grocery/edit-item/$itemId") {
             contentType(ContentType.Application.Json)
             setBody(request)
         }

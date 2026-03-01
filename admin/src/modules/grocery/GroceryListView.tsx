@@ -191,6 +191,12 @@ export const GroceryListView = () => {
   const [storeInputValue, setStoreInputValue] = useState('')
   const [collapsedStores, setCollapsedStores] = useState<Set<string>>(new Set())
   const [detailItem, setDetailItem] = useState<GroceryItem | null>(null)
+  const [editLabel, setEditLabel] = useState('')
+  const [editQuantity, setEditQuantity] = useState('')
+  const [editUnit, setEditUnit] = useState('')
+  const [editCategory, setEditCategory] = useState('')
+  const [editSelectedStore, setEditSelectedStore] = useState<StoreOption | null>(null)
+  const [editStoreInput, setEditStoreInput] = useState('')
 
   const fetchList = useCallback(async () => {
     setLoading(true)
@@ -285,6 +291,45 @@ export const GroceryListView = () => {
     fetchOptions()
   }, [addDialogOpen, dataProvider])
 
+  // Initialize edit state when detail item changes
+  useEffect(() => {
+    if (!detailItem) return
+    setEditLabel(detailItem.label)
+    setEditQuantity(detailItem.quantity != null ? String(detailItem.quantity) : '')
+    setEditUnit(detailItem.unit ?? '')
+    setEditCategory('')
+    const s = detailItem.store
+    if (s) {
+      setEditSelectedStore({ id: s.id, name: s.name })
+      setEditStoreInput(s.name)
+    } else {
+      setEditSelectedStore(null)
+      setEditStoreInput('')
+    }
+    // Also fetch products/stores if not already loaded
+    if (products.length === 0) {
+      const fetchOptions = async () => {
+        try {
+          const [prodResult, storeResult] = await Promise.all([
+            dataProvider.getList('products', { pagination: { page: 1, perPage: 500 }, sort: { field: 'name', order: 'ASC' }, filter: {} }),
+            dataProvider.getList('stores', { pagination: { page: 1, perPage: 100 }, sort: { field: 'name', order: 'ASC' }, filter: {} }),
+          ])
+          setProducts(prodResult.data as ProductOption[])
+          setStores(storeResult.data as StoreOption[])
+        } catch {
+          // Non-blocking
+        }
+      }
+      fetchOptions()
+    }
+  }, [detailItem]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const filteredEditProducts = useMemo(() => {
+    if (editLabel.length < 2) return []
+    const lower = editLabel.toLowerCase()
+    return products.filter((p) => p.name.toLowerCase().includes(lower)).slice(0, 10)
+  }, [editLabel, products])
+
   const filteredProducts = useMemo(() => {
     if (newItemLabel.length < 2) return []
     const lower = newItemLabel.toLowerCase()
@@ -306,6 +351,40 @@ export const GroceryListView = () => {
         const { data } = await dataProvider.getOne('grocery_lists', { id: groceryList.id })
         setGroceryList(data as GroceryListData)
       }
+    } catch {
+      notify('Erreur', { type: 'error' })
+    }
+  }
+
+  const handleEditItem = async () => {
+    if (!groceryList || !detailItem || !editLabel) return
+    try {
+      const token = localStorage.getItem('token')
+      const payload: Record<string, unknown> = {
+        label: editLabel,
+        quantity: editQuantity ? parseFloat(editQuantity) : null,
+        unit: editUnit || null,
+      }
+      if (editCategory) {
+        payload.category = editCategory
+      }
+      if (editSelectedStore) {
+        payload.storeId = editSelectedStore.id
+      } else if (editStoreInput.trim()) {
+        payload.storeName = editStoreInput.trim()
+      }
+      await fetch(`${entrypoint}/grocery/edit-item/${detailItem.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      })
+      setDetailItem(null)
+      const { data } = await dataProvider.getOne('grocery_lists', { id: groceryList.id })
+      setGroceryList(data as GroceryListData)
+      notify('Article modifié', { type: 'success' })
     } catch {
       notify('Erreur', { type: 'error' })
     }
@@ -717,20 +796,108 @@ export const GroceryListView = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Item detail dialog */}
+      {/* Item edit dialog */}
       <Dialog open={detailItem !== null} onClose={() => setDetailItem(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>Détails de l&apos;article</DialogTitle>
+        <DialogTitle>Modifier l&apos;article</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-            <TextField label="Nom du produit" value={detailItem?.label ?? ''} disabled fullWidth />
+            <Autocomplete
+              freeSolo
+              options={filteredEditProducts}
+              getOptionLabel={(option) => (typeof option === 'string' ? option : option.name)}
+              inputValue={editLabel}
+              onInputChange={(_e, value) => setEditLabel(value)}
+              onChange={(_e, value) => {
+                if (value && typeof value !== 'string') {
+                  setEditLabel(value.name)
+                  if (value.defaultUnit) setEditUnit(value.defaultUnit)
+                  if (value.category) setEditCategory(value.category)
+                  if (value.preferredStore) {
+                    const ps = value.preferredStore
+                    if (typeof ps === 'object' && ps.id) {
+                      setEditSelectedStore(ps)
+                      setEditStoreInput(ps.name)
+                    } else if (typeof ps === 'string') {
+                      const id = ps.includes('/') ? ps.split('/').pop()! : ps
+                      const store = stores.find((s) => s.id === id)
+                      if (store) {
+                        setEditSelectedStore(store)
+                        setEditStoreInput(store.name)
+                      }
+                    }
+                  }
+                }
+              }}
+              renderInput={(params) => <TextField {...params} label="Article" autoFocus />}
+              renderOption={({ key, ...props }, option) => (
+                <li key={key} {...props}>
+                  <div>
+                    <div>{typeof option === 'string' ? option : option.name}</div>
+                    {typeof option !== 'string' && option.category && (
+                      <div style={{ fontSize: '0.8em', color: '#888' }}>{option.category}</div>
+                    )}
+                  </div>
+                </li>
+              )}
+              filterOptions={(x) => x}
+              noOptionsText={editLabel.length < 2 ? 'Tapez au moins 2 caractères' : 'Nouveau produit'}
+            />
             <TextField
               label="Quantité"
-              value={detailItem?.quantity != null ? String(detailItem.quantity) : ''}
-              disabled
-              fullWidth
+              type="number"
+              value={editQuantity}
+              onChange={(e) => setEditQuantity(e.target.value)}
             />
-            <TextField label="Unité" value={detailItem?.unit ?? ''} disabled fullWidth />
-            <TextField label="Magasin" value={detailItem?.store?.name ?? ''} disabled fullWidth />
+            <FormControl>
+              <InputLabel>Unité</InputLabel>
+              <Select value={editUnit} onChange={(e) => setEditUnit(e.target.value)} label="Unité">
+                <MenuItem value="">Aucune</MenuItem>
+                <MenuItem value="g">g</MenuItem>
+                <MenuItem value="kg">kg</MenuItem>
+                <MenuItem value="ml">ml</MenuItem>
+                <MenuItem value="l">l</MenuItem>
+                <MenuItem value="cl">cl</MenuItem>
+                <MenuItem value="piece">pièce</MenuItem>
+                <MenuItem value="bunch">botte</MenuItem>
+                <MenuItem value="can">boîte</MenuItem>
+                <MenuItem value="bottle">bouteille</MenuItem>
+                <MenuItem value="pack">paquet</MenuItem>
+                <MenuItem value="sachet">sachet</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl>
+              <InputLabel>Catégorie</InputLabel>
+              <Select
+                value={editCategory}
+                onChange={(e) => setEditCategory(e.target.value)}
+                label="Catégorie"
+              >
+                <MenuItem value="">Aucune</MenuItem>
+                {categoryChoices.map((c) => (
+                  <MenuItem key={c.id} value={c.id}>
+                    {c.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Autocomplete
+              freeSolo
+              options={stores}
+              getOptionLabel={(option) => (typeof option === 'string' ? option : option.name)}
+              value={editSelectedStore}
+              inputValue={editStoreInput}
+              onInputChange={(_e, value) => setEditStoreInput(value)}
+              onChange={(_e, value) => {
+                if (value && typeof value !== 'string') {
+                  setEditSelectedStore(value)
+                } else {
+                  setEditSelectedStore(null)
+                }
+              }}
+              renderInput={(params) => <TextField {...params} label="Magasin" />}
+              noOptionsText="Nouveau magasin"
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+            />
             <TextField
               label="Source"
               value={
@@ -746,8 +913,9 @@ export const GroceryListView = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDetailItem(null)} variant="contained">
-            Fermer
+          <Button onClick={() => setDetailItem(null)}>Annuler</Button>
+          <Button onClick={handleEditItem} variant="contained" disabled={!editLabel}>
+            Enregistrer
           </Button>
         </DialogActions>
       </Dialog>
