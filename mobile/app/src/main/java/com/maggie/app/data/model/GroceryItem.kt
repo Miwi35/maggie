@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 data class GroceryItem(
     val id: String? = null,
     val label: String = "Unknown",
-    val product: String? = null,
+    val product: Product? = null,
     val customLabel: String? = null,
     val quantity: Float? = null,
     val unit: CookbookUnit? = null,
