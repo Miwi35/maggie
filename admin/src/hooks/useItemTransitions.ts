@@ -14,7 +14,6 @@ export function useItemTransitions<T>(
   getId: (item: T) => string,
 ): { addedIds: Set<string>; removingItems: T[] } {
   const getIdRef = useRef(getId)
-  getIdRef.current = getId
 
   const prevMapRef = useRef<Map<string, T>>(new Map())
   const hasInitialDataRef = useRef(false)
@@ -22,6 +21,7 @@ export function useItemTransitions<T>(
   const [removingItems, setRemovingItems] = useState<T[]>([])
 
   useEffect(() => {
+    getIdRef.current = getId
     const fn = getIdRef.current
     const currentMap = new Map(items.map((i) => [fn(i), i]))
 
