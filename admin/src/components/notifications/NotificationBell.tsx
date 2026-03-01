@@ -48,7 +48,7 @@ export const NotificationBell = () => {
   })
 
   // Mercure subscription for real-time updates
-  useMercure(NOTIFICATION_TOPICS, refetch)
+  useMercure(NOTIFICATION_TOPICS, () => { refetch() })
 
   const unreadCount = notifications.filter((n) => !n.readAt).length
 

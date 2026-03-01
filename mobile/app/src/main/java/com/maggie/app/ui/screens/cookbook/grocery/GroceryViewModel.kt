@@ -16,8 +16,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.time.LocalDate
 
 data class StoreGroup(val store: Store?, val items: List<GroceryItem>)
@@ -59,19 +63,61 @@ class GroceryViewModel(
                 .collect { event ->
                     try {
                         val payload = json.parseToJsonElement(event.data).jsonObject
-                        val itemsElement = payload["items"]?.jsonArray ?: run { refresh(); return@collect }
-                        val items = json.decodeFromString<List<GroceryItem>>(itemsElement.toString())
-                        val currentList = _uiState.value.groceryList ?: return@collect
-                        val updatedList = currentList.copy(items = items)
-                        _uiState.value = _uiState.value.copy(
-                            groceryList = updatedList,
-                            storeGroups = buildStoreGroups(updatedList),
-                        )
+                        val action = payload["action"]?.jsonPrimitive?.contentOrNull
+
+                        when (action) {
+                            "reorder" -> {
+                                val patchItems = payload["items"]?.jsonArray ?: run { refresh(); return@collect }
+                                val positionMap = patchItems.associate { el ->
+                                    val obj = el.jsonObject
+                                    obj["id"]!!.jsonPrimitive.content to obj["position"]!!.jsonPrimitive.int
+                                }
+                                applyItemUpdate { item ->
+                                    if (item.id in positionMap) item.copy(position = positionMap[item.id]!!) else item
+                                }
+                            }
+                            "check" -> {
+                                val itemId = payload["itemId"]?.jsonPrimitive?.contentOrNull ?: run { refresh(); return@collect }
+                                val checked = payload["checked"]?.jsonPrimitive?.boolean ?: run { refresh(); return@collect }
+                                applyItemUpdate { item ->
+                                    if (item.id == itemId) item.copy(checked = checked) else item
+                                }
+                            }
+                            "remove" -> {
+                                val itemId = payload["itemId"]?.jsonPrimitive?.contentOrNull ?: run { refresh(); return@collect }
+                                val currentList = _uiState.value.groceryList ?: return@collect
+                                val updatedList = currentList.copy(items = currentList.items.filter { it.id != itemId })
+                                _uiState.value = _uiState.value.copy(
+                                    groceryList = updatedList,
+                                    storeGroups = buildStoreGroups(updatedList),
+                                )
+                            }
+                            else -> {
+                                // Full data payload (create/update) — replace items array
+                                val itemsElement = payload["items"]?.jsonArray ?: run { refresh(); return@collect }
+                                val items = json.decodeFromString<List<GroceryItem>>(itemsElement.toString())
+                                val currentList = _uiState.value.groceryList ?: return@collect
+                                val updatedList = currentList.copy(items = items)
+                                _uiState.value = _uiState.value.copy(
+                                    groceryList = updatedList,
+                                    storeGroups = buildStoreGroups(updatedList),
+                                )
+                            }
+                        }
                     } catch (_: Exception) {
                         refresh()
                     }
                 }
         }
+    }
+
+    private fun applyItemUpdate(transform: (GroceryItem) -> GroceryItem) {
+        val currentList = _uiState.value.groceryList ?: return
+        val updatedList = currentList.copy(items = currentList.items.map(transform))
+        _uiState.value = _uiState.value.copy(
+            groceryList = updatedList,
+            storeGroups = buildStoreGroups(updatedList),
+        )
     }
 
     fun refresh() {

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
 const MERCURE_URL = import.meta.env.VITE_MERCURE_PUBLIC_URL
 
@@ -21,6 +21,11 @@ function getUserId(): string | null {
  * @param onMessage  Called on every SSE message
  */
 export function useMercure(topics: string[], onMessage: (data?: string) => void): void {
+  const onMessageRef = useRef(onMessage)
+  useEffect(() => {
+    onMessageRef.current = onMessage
+  })
+
   useEffect(() => {
     const userId = getUserId()
     if (!userId || topics.length === 0) return
@@ -31,7 +36,7 @@ export function useMercure(topics: string[], onMessage: (data?: string) => void)
     }
 
     const es = new EventSource(url.toString(), { withCredentials: true })
-    es.onmessage = (event) => onMessage(event.data)
+    es.onmessage = (event) => onMessageRef.current(event.data)
     return () => es.close()
-  }, [topics, onMessage])
+  }, [topics])
 }

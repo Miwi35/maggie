@@ -411,6 +411,73 @@ class GroceryViewModelTest {
     }
 
     @Test
+    fun `mercure reorder patch updates positions`() = runTest {
+        val mercureFlow = MutableSharedFlow<MercureEvent>()
+        every { mercureService.subscribe(any()) } returns mercureFlow
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { groceryListRepository.getGroceryList() }
+
+        // Emit reorder patch — swap item-1 and item-2 positions
+        val payload = """{"@id":"/api/grocery_lists/list-1","action":"reorder","items":[
+            {"id":"item-1","position":1},
+            {"id":"item-2","position":0}
+        ]}"""
+        mercureFlow.emit(MercureEvent(data = payload))
+        advanceUntilIdle()
+
+        // No refresh — positions updated inline
+        coVerify(exactly = 1) { groceryListRepository.getGroceryList() }
+        val items = viewModel.uiState.value.groceryList!!.items
+        assertEquals(1, items.find { it.id == "item-1" }!!.position)
+        assertEquals(0, items.find { it.id == "item-2" }!!.position)
+    }
+
+    @Test
+    fun `mercure check patch updates item checked state`() = runTest {
+        val mercureFlow = MutableSharedFlow<MercureEvent>()
+        every { mercureService.subscribe(any()) } returns mercureFlow
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { groceryListRepository.getGroceryList() }
+
+        // Emit check patch — check item-1
+        val payload = """{"@id":"/api/grocery_lists/list-1","action":"check","itemId":"item-1","checked":true}"""
+        mercureFlow.emit(MercureEvent(data = payload))
+        advanceUntilIdle()
+
+        // No refresh — checked state updated inline
+        coVerify(exactly = 1) { groceryListRepository.getGroceryList() }
+        assertTrue(viewModel.uiState.value.groceryList!!.items.find { it.id == "item-1" }!!.checked)
+    }
+
+    @Test
+    fun `mercure remove patch removes item`() = runTest {
+        val mercureFlow = MutableSharedFlow<MercureEvent>()
+        every { mercureService.subscribe(any()) } returns mercureFlow
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { groceryListRepository.getGroceryList() }
+        assertEquals(3, viewModel.uiState.value.groceryList!!.items.size)
+
+        // Emit remove patch — remove item-1
+        val payload = """{"@id":"/api/grocery_lists/list-1","action":"remove","itemId":"item-1"}"""
+        mercureFlow.emit(MercureEvent(data = payload))
+        advanceUntilIdle()
+
+        // No refresh — item removed inline
+        coVerify(exactly = 1) { groceryListRepository.getGroceryList() }
+        assertEquals(2, viewModel.uiState.value.groceryList!!.items.size)
+        assertNull(viewModel.uiState.value.groceryList!!.items.find { it.id == "item-1" })
+    }
+
+    @Test
     fun `mercure subscription uses correct topic`() = runTest {
         viewModel = createViewModel()
         advanceUntilIdle()

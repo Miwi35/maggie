@@ -13,7 +13,7 @@ const STORE_TOPICS = ['/api/stores/{id}']
 
 const StoreDatagrid = () => {
   const { refetch } = useListContext()
-  useMercure(STORE_TOPICS, refetch)
+  useMercure(STORE_TOPICS, () => { refetch() })
 
   return (
     <Datagrid rowClick="edit">

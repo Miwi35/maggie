@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Maggie\Grocery\Message;
 
-final readonly class ReorderGroceryItemsCommand
+use Maggie\Core\Contract\MercurePatchable;
+
+final readonly class ReorderGroceryItemsCommand implements MercurePatchable
 {
     /**
      * @param array<array{id: string, position: int}> $items
@@ -13,5 +15,10 @@ final readonly class ReorderGroceryItemsCommand
         public string $userId,
         public array $items,
     ) {
+    }
+
+    public function toMercurePatch(): array
+    {
+        return ['action' => 'reorder', 'items' => $this->items];
     }
 }

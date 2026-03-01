@@ -14,7 +14,7 @@ const PRODUCT_TOPICS = ['/api/products/{id}']
 
 const ProductDatagrid = () => {
   const { refetch } = useListContext()
-  useMercure(PRODUCT_TOPICS, refetch)
+  useMercure(PRODUCT_TOPICS, () => { refetch() })
 
   return (
     <Datagrid rowClick="edit">

@@ -209,8 +209,41 @@ export const GroceryListView = () => {
       if (!data) { fetchList(); return }
       try {
         const payload = JSON.parse(data)
-        if (Array.isArray(payload.items)) {
-          setGroceryList((prev) => prev ? { ...prev, items: payload.items } : prev)
+        const action = payload.action as string | undefined
+
+        if (action === 'reorder' && Array.isArray(payload.items)) {
+          const positionMap = new Map<string, number>(
+            payload.items.map((i: { id: string; position: number }) => [i.id, i.position]),
+          )
+          setGroceryList((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  items: prev.items.map((item) => {
+                    const pos = positionMap.get(item.id)
+                    return pos !== undefined ? { ...item, position: pos } : item
+                  }),
+                }
+              : prev,
+          )
+        } else if (action === 'check' && payload.itemId) {
+          setGroceryList((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  items: prev.items.map((item) =>
+                    item.id === payload.itemId ? { ...item, checked: payload.checked } : item,
+                  ),
+                }
+              : prev,
+          )
+        } else if (action === 'remove' && payload.itemId) {
+          setGroceryList((prev) =>
+            prev ? { ...prev, items: prev.items.filter((item) => item.id !== payload.itemId) } : prev,
+          )
+        } else if (Array.isArray(payload.items)) {
+          // Full data payload (create/update) — replace items
+          setGroceryList((prev) => (prev ? { ...prev, items: payload.items } : prev))
         } else {
           fetchList()
         }

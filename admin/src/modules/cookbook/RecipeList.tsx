@@ -17,7 +17,7 @@ const RECIPE_TOPICS = ['/api/recipes/{id}']
 
 const RecipeDatagrid = () => {
   const { refetch } = useListContext()
-  useMercure(RECIPE_TOPICS, refetch)
+  useMercure(RECIPE_TOPICS, () => { refetch() })
 
   return (
     <Datagrid rowClick="edit">

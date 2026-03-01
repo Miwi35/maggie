@@ -2,6 +2,7 @@
 
 namespace Maggie\Core\Mercure\Middleware;
 
+use Maggie\Core\Contract\MercurePatchable;
 use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Contract\OwnedByUserInterface;
 use Maggie\Core\Contract\OwnedThroughInterface;
@@ -60,9 +61,12 @@ class MercurePublishMiddleware implements MiddlewareInterface
                     $topic = $parsed[1] ?? self::topicFromEntity($entity);
                     $userId = self::resolveUserId($entity) ?? $this->getCurrentUserId();
 
+                    // Use lightweight patch from command when available
+                    $patch = ($message instanceof MercurePatchable) ? $message->toMercurePatch() : null;
+
                     if ($userId !== null) {
-                        $this->publishEntity($entity, $topic, $userId);
-                        $this->publishEntityToParentTopics($entity, $topic, $userId);
+                        $this->publishEntity($entity, $topic, $userId, $patch);
+                        $this->publishEntityToParentTopics($entity, $topic, $userId, $patch);
                     }
                 }
             }
@@ -141,13 +145,15 @@ class MercurePublishMiddleware implements MiddlewareInterface
         return null;
     }
 
-    private function publishEntity(MercurePublishable $entity, string $topic, string $userId): void
+    /** @param array<string, mixed>|null $patch */
+    private function publishEntity(MercurePublishable $entity, string $topic, string $userId, ?array $patch = null): void
     {
         $iri = $topic . '/' . $entity->getId();
         $scopedTopic = '/users/' . $userId . $iri;
+        $payload = $patch ?? $entity->toMercurePayload();
         $this->hub->publish(new Update(
             topics: [$scopedTopic],
-            data: json_encode(['@id' => $iri] + $entity->toMercurePayload(), JSON_THROW_ON_ERROR),
+            data: json_encode(['@id' => $iri] + $payload, JSON_THROW_ON_ERROR),
         ));
     }
 
@@ -155,7 +161,8 @@ class MercurePublishMiddleware implements MiddlewareInterface
      * For entity inheritance hierarchies (e.g. Meal extends Event),
      * also publish to parent class topics.
      */
-    private function publishEntityToParentTopics(MercurePublishable $entity, string $primaryTopic, string $userId): void
+    /** @param array<string, mixed>|null $patch */
+    private function publishEntityToParentTopics(MercurePublishable $entity, string $primaryTopic, string $userId, ?array $patch = null): void
     {
         $parentClass = get_parent_class($entity);
 
@@ -165,7 +172,7 @@ class MercurePublishMiddleware implements MiddlewareInterface
 
         $parentTopic = self::topicFromClassName((new \ReflectionClass($parentClass))->getShortName());
         if ($parentTopic !== $primaryTopic) {
-            $this->publishEntity($entity, $parentTopic, $userId);
+            $this->publishEntity($entity, $parentTopic, $userId, $patch);
         }
     }
 
