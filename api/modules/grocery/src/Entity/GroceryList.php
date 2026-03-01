@@ -139,7 +139,30 @@ class GroceryList implements MercurePublishable, OwnedByUserInterface, Indexable
     public function toMercurePayload(): array
     {
         return [
-            'itemCount' => $this->items->count(),
+            'items' => array_values($this->items->map(fn (GroceryItem $item) => [
+                'id' => (string) $item->getId(),
+                'label' => $item->getLabel(),
+                'customLabel' => $item->getCustomLabel(),
+                'quantity' => $item->getQuantity(),
+                'unit' => $item->getUnit()?->value,
+                'checked' => $item->isChecked(),
+                'source' => $item->getSource()->value,
+                'store' => $item->getStore() !== null ? [
+                    'id' => (string) $item->getStore()->getId(),
+                    'name' => $item->getStore()->getName(),
+                    'visitOrder' => $item->getStore()->getVisitOrder(),
+                ] : null,
+                'product' => $item->getProduct() !== null ? [
+                    'id' => (string) $item->getProduct()->getId(),
+                    'name' => $item->getProduct()->getName(),
+                    'category' => $item->getProduct()->getCategory()->value,
+                    'defaultUnit' => $item->getProduct()->getDefaultUnit()?->value,
+                ] : null,
+                'buyAfter' => $item->getBuyAfter()?->format('Y-m-d'),
+                'position' => $item->getPosition(),
+            ])->toArray()),
+            'createdAt' => $this->createdAt->format('c'),
+            'updatedAt' => $this->updatedAt->format('c'),
         ];
     }
 }

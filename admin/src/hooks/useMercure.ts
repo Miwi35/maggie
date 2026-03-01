@@ -20,7 +20,7 @@ function getUserId(): string | null {
  * @param topics  Resource topic patterns, e.g. ['/api/recipes/{id}']
  * @param onMessage  Called on every SSE message
  */
-export function useMercure(topics: string[], onMessage: () => void): void {
+export function useMercure(topics: string[], onMessage: (data?: string) => void): void {
   useEffect(() => {
     const userId = getUserId()
     if (!userId || topics.length === 0) return
@@ -31,7 +31,7 @@ export function useMercure(topics: string[], onMessage: () => void): void {
     }
 
     const es = new EventSource(url.toString(), { withCredentials: true })
-    es.onmessage = () => onMessage()
+    es.onmessage = (event) => onMessage(event.data)
     return () => es.close()
   }, [topics, onMessage])
 }

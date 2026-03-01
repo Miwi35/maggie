@@ -15,6 +15,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import java.time.LocalDate
 
 data class StoreGroup(val store: Store?, val items: List<GroceryItem>)
@@ -47,11 +50,27 @@ class GroceryViewModel(
         subscribeToGroceryUpdates()
     }
 
+    private val json = Json { ignoreUnknownKeys = true }
+
     private fun subscribeToGroceryUpdates() {
         viewModelScope.launch {
             mercureService.subscribe("/users/{userId}/api/grocery_lists/{id}")
                 .catch { /* SSE connection errors — MercureService handles auto-reconnect */ }
-                .collect { refresh() }
+                .collect { event ->
+                    try {
+                        val payload = json.parseToJsonElement(event.data).jsonObject
+                        val itemsElement = payload["items"]?.jsonArray ?: run { refresh(); return@collect }
+                        val items = json.decodeFromString<List<GroceryItem>>(itemsElement.toString())
+                        val currentList = _uiState.value.groceryList ?: return@collect
+                        val updatedList = currentList.copy(items = items)
+                        _uiState.value = _uiState.value.copy(
+                            groceryList = updatedList,
+                            storeGroups = buildStoreGroups(updatedList),
+                        )
+                    } catch (_: Exception) {
+                        refresh()
+                    }
+                }
         }
     }
 

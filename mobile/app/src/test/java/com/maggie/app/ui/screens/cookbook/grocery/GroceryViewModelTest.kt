@@ -368,21 +368,45 @@ class GroceryViewModelTest {
     }
 
     @Test
-    fun `mercure event triggers refresh`() = runTest {
+    fun `mercure event with items updates state directly`() = runTest {
         val mercureFlow = MutableSharedFlow<MercureEvent>()
         every { mercureService.subscribe(any()) } returns mercureFlow
 
         viewModel = createViewModel()
         advanceUntilIdle()
 
-        // init called getGroceryList once
         coVerify(exactly = 1) { groceryListRepository.getGroceryList() }
 
-        // Emit a Mercure event
-        mercureFlow.emit(MercureEvent(data = "{}"))
+        // Emit Mercure event with full items payload
+        val payload = """{"@id":"/api/grocery_lists/list-1","items":[
+            {"id":"item-1","label":"Lait","checked":true,"source":"manual","position":0},
+            {"id":"item-2","label":"Pain","checked":true,"source":"manual","position":1},
+            {"id":"item-3","label":"Pommes","checked":false,"source":"manual","position":0}
+        ]}"""
+        mercureFlow.emit(MercureEvent(data = payload))
         advanceUntilIdle()
 
-        // refresh triggered by Mercure → second call
+        // State updated directly — no refresh call
+        coVerify(exactly = 1) { groceryListRepository.getGroceryList() }
+        val item1 = viewModel.uiState.value.groceryList!!.items.find { it.id == "item-1" }
+        assertTrue(item1!!.checked)
+    }
+
+    @Test
+    fun `mercure event without items falls back to refresh`() = runTest {
+        val mercureFlow = MutableSharedFlow<MercureEvent>()
+        every { mercureService.subscribe(any()) } returns mercureFlow
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { groceryListRepository.getGroceryList() }
+
+        // Emit Mercure event without items (e.g. delete event)
+        mercureFlow.emit(MercureEvent(data = """{"@id":"/api/grocery_lists/list-1","deleted":true}"""))
+        advanceUntilIdle()
+
+        // Falls back to refresh
         coVerify(exactly = 2) { groceryListRepository.getGroceryList() }
     }
 

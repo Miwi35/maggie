@@ -204,7 +204,23 @@ export const GroceryListView = () => {
     fetchList()
   }, [fetchList])
 
-  useMercure(GROCERY_LIST_TOPICS, fetchList)
+  const handleMercure = useCallback(
+    (data?: string) => {
+      if (!data) { fetchList(); return }
+      try {
+        const payload = JSON.parse(data)
+        if (Array.isArray(payload.items)) {
+          setGroceryList((prev) => prev ? { ...prev, items: payload.items } : prev)
+        } else {
+          fetchList()
+        }
+      } catch {
+        fetchList()
+      }
+    },
+    [fetchList],
+  )
+  useMercure(GROCERY_LIST_TOPICS, handleMercure)
 
   // Fetch products & stores when add dialog opens
   useEffect(() => {
