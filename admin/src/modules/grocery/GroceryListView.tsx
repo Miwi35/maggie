@@ -123,19 +123,16 @@ export const GroceryListView = () => {
     if (!groceryList || !newItemLabel) return
     try {
       const token = localStorage.getItem('token')
-      await fetch(`${entrypoint}/grocery_items`, {
+      await fetch(`${entrypoint}/grocery/add-item`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/ld+json',
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          groceryList: groceryList['@id'],
-          customLabel: newItemLabel,
+          label: newItemLabel,
           quantity: newItemQuantity ? parseFloat(newItemQuantity) : null,
           unit: newItemUnit || null,
-          source: 'manual',
-          checked: false,
         }),
       })
       setAddDialogOpen(false)
