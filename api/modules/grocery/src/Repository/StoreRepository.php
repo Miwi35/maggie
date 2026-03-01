@@ -25,6 +25,13 @@ class StoreRepository extends ServiceEntityRepository
 
     public function findByNameAndUser(string $name, User $user): ?Store
     {
-        return $this->findOneBy(['name' => $name, 'user' => $user]);
+        return $this->createQueryBuilder('s')
+            ->where('LOWER(s.name) = LOWER(:name)')
+            ->andWhere('s.user = :user')
+            ->setParameter('name', $name)
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 }

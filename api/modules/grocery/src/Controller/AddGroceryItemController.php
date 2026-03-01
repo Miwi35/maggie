@@ -43,6 +43,7 @@ final class AddGroceryItemController
             quantity: isset($body['quantity']) ? (float) $body['quantity'] : null,
             unit: $body['unit'] ?? null,
             storeId: $body['storeId'] ?? null,
+            storeName: $body['storeName'] ?? null,
         ));
 
         $list = $envelope->last(HandledStamp::class)?->getResult();

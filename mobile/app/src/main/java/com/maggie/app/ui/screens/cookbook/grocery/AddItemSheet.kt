@@ -39,7 +39,7 @@ import com.maggie.app.data.model.Store
 fun AddItemSheet(
     products: List<Product>,
     stores: List<Store>,
-    onAddItem: (label: String, quantity: Float?, unit: String?, storeId: String?) -> Unit,
+    onAddItem: (label: String, quantity: Float?, unit: String?, storeId: String?, storeName: String?) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -48,12 +48,18 @@ fun AddItemSheet(
     var quantityText by remember { mutableStateOf("") }
     var selectedUnit by remember { mutableStateOf<CookbookUnit?>(null) }
     var selectedStoreId by remember { mutableStateOf<String?>(null) }
+    var storeText by remember { mutableStateOf("") }
     var unitExpanded by remember { mutableStateOf(false) }
     var storeExpanded by remember { mutableStateOf(false) }
 
     val filteredProducts = remember(label, products) {
         if (label.length < 2) emptyList()
         else products.filter { it.name.contains(label, ignoreCase = true) }.take(5)
+    }
+
+    val filteredStores = remember(storeText, stores) {
+        if (storeText.length < 1) stores
+        else stores.filter { it.name.contains(storeText, ignoreCase = true) }
     }
 
     ModalBottomSheet(
@@ -97,8 +103,10 @@ fun AddItemSheet(
                                     // Auto-select preferred store
                                     product.preferredStore?.let { iri ->
                                         val id = iri.substringAfterLast("/")
-                                        if (stores.any { it.id == id }) {
+                                        val store = stores.find { it.id == id }
+                                        if (store != null) {
                                             selectedStoreId = id
+                                            storeText = store.name
                                         }
                                     }
                                 }
@@ -154,40 +162,50 @@ fun AddItemSheet(
                 }
             }
 
-            // Store picker
+            // Store autocomplete (editable — type a new name to create)
             ExposedDropdownMenuBox(
                 expanded = storeExpanded,
                 onExpandedChange = { storeExpanded = it },
             ) {
                 OutlinedTextField(
-                    value = stores.find { it.id == selectedStoreId }?.name ?: "",
-                    onValueChange = {},
-                    readOnly = true,
+                    value = storeText,
+                    onValueChange = { value ->
+                        storeText = value
+                        selectedStoreId = stores.find {
+                            it.name.equals(value, ignoreCase = true)
+                        }?.id
+                        if (!storeExpanded) storeExpanded = true
+                    },
                     label = { Text("Magasin") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = storeExpanded) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                        .menuAnchor(MenuAnchorType.PrimaryEditable),
+                    singleLine = true,
                 )
-                ExposedDropdownMenu(
-                    expanded = storeExpanded,
-                    onDismissRequest = { storeExpanded = false },
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Aucun") },
-                        onClick = {
-                            selectedStoreId = null
-                            storeExpanded = false
-                        },
-                    )
-                    stores.forEach { store ->
+                if (filteredStores.isNotEmpty()) {
+                    ExposedDropdownMenu(
+                        expanded = storeExpanded,
+                        onDismissRequest = { storeExpanded = false },
+                    ) {
                         DropdownMenuItem(
-                            text = { Text(store.name) },
+                            text = { Text("Aucun") },
                             onClick = {
-                                selectedStoreId = store.id
+                                selectedStoreId = null
+                                storeText = ""
                                 storeExpanded = false
                             },
                         )
+                        filteredStores.forEach { store ->
+                            DropdownMenuItem(
+                                text = { Text(store.name) },
+                                onClick = {
+                                    selectedStoreId = store.id
+                                    storeText = store.name
+                                    storeExpanded = false
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -198,7 +216,8 @@ fun AddItemSheet(
                     if (label.isNotBlank()) {
                         val qty = quantityText.toFloatOrNull()
                         val unitStr = selectedUnit?.name?.lowercase()
-                        onAddItem(label.trim(), qty, unitStr, selectedStoreId)
+                        val sName = if (selectedStoreId == null && storeText.isNotBlank()) storeText.trim() else null
+                        onAddItem(label.trim(), qty, unitStr, selectedStoreId, sName)
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),

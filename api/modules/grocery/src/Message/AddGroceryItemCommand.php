@@ -12,6 +12,7 @@ final readonly class AddGroceryItemCommand
         public ?float $quantity = null,
         public ?string $unit = null,
         public ?string $storeId = null,
+        public ?string $storeName = null,
         public string $source = 'manual',
     ) {
     }

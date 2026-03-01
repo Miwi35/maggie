@@ -9,6 +9,7 @@ use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\Product;
+use Maggie\Grocery\Entity\Store;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
@@ -236,5 +237,113 @@ class AddGroceryItemControllerTest extends WebTestCase
         $products = $em->getRepository(Product::class)->findBy(['name' => 'Lait']);
         self::assertCount(1, $products, 'New product should be created for Lait');
         self::assertSame('other', $products[0]->getCategory()->value);
+    }
+
+    public function testAddItemWithStoreNameCreatesStore(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+
+        $this->client->request('POST', '/api/grocery/add-item', [], [], array_merge(
+            ['CONTENT_TYPE' => 'application/json'],
+            $this->authHeaders(),
+        ), json_encode([
+            'label' => 'Pommes',
+            'quantity' => 1,
+            'unit' => 'kg',
+            'storeName' => 'Primeur',
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+
+        // Store was created
+        $stores = $em->getRepository(Store::class)->findAll();
+        self::assertCount(1, $stores);
+        self::assertSame('Primeur', $stores[0]->getName());
+        self::assertSame(0, $stores[0]->getVisitOrder());
+
+        // Item is assigned to the new store
+        $items = $em->getRepository(GroceryItem::class)->findAll();
+        self::assertCount(1, $items);
+        self::assertSame('Primeur', $items[0]->getStore()->getName());
+
+        // New product gets preferredStore set
+        $products = $em->getRepository(Product::class)->findAll();
+        self::assertCount(1, $products);
+        self::assertSame('Primeur', $products[0]->getPreferredStore()->getName());
+
+        $this->assertMercureUpdatePublished('/grocery_lists/');
+        $this->assertElasticsearchIndexDispatched(GroceryList::class);
+        $this->assertElasticsearchIndexDispatched(Product::class);
+        $this->assertElasticsearchIndexDispatched(Store::class);
+    }
+
+    public function testAddItemWithStoreNameMatchesExisting(): void
+    {
+        $this->loadFixtures('store.yaml');
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+
+        // Use different case to test case-insensitive match
+        $this->client->request('POST', '/api/grocery/add-item', [], [], array_merge(
+            ['CONTENT_TYPE' => 'application/json'],
+            $this->authHeaders(),
+        ), json_encode([
+            'label' => 'Lait',
+            'quantity' => 1,
+            'unit' => 'l',
+            'storeName' => 'supermarché',
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+
+        // No new store created — reused existing
+        $stores = $em->getRepository(Store::class)->findAll();
+        self::assertCount(1, $stores);
+        self::assertSame('Supermarché', $stores[0]->getName());
+
+        // Item assigned to existing store
+        $items = $em->getRepository(GroceryItem::class)->findAll();
+        self::assertCount(1, $items);
+        self::assertSame('Supermarché', $items[0]->getStore()->getName());
+    }
+
+    public function testAddItemStoreIdTakesPriorityOverStoreName(): void
+    {
+        $this->loadFixtures('store.yaml');
+        $storeId = (string) $this->getFixture('supermarket')->getId();
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+
+        $this->client->request('POST', '/api/grocery/add-item', [], [], array_merge(
+            ['CONTENT_TYPE' => 'application/json'],
+            $this->authHeaders(),
+        ), json_encode([
+            'label' => 'Savon',
+            'storeId' => $storeId,
+            'storeName' => 'Pharmacie',
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+
+        // storeId wins: no "Pharmacie" store created
+        $stores = $em->getRepository(Store::class)->findAll();
+        self::assertCount(1, $stores);
+        self::assertSame('Supermarché', $stores[0]->getName());
+
+        // Item assigned to store from storeId
+        $items = $em->getRepository(GroceryItem::class)->findAll();
+        self::assertCount(1, $items);
+        self::assertSame('Supermarché', $items[0]->getStore()->getName());
     }
 }

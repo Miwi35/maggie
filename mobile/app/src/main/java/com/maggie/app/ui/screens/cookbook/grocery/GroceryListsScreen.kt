@@ -213,8 +213,8 @@ fun GroceryScreen(
         AddItemSheet(
             products = uiState.products,
             stores = uiState.stores,
-            onAddItem = { label, quantity, unit, storeId ->
-                viewModel.addItem(label, quantity, unit, storeId)
+            onAddItem = { label, quantity, unit, storeId, storeName ->
+                viewModel.addItem(label, quantity, unit, storeId, storeName)
             },
             onDismiss = { viewModel.hideAddSheet() },
         )

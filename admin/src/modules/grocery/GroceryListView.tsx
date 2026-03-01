@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useDataProvider, useNotify, Title } from 'react-admin'
 import { useMercure } from '../../hooks/useMercure'
 import { useItemTransitions, transitionSx } from '../../hooks/useItemTransitions'
+import Autocomplete from '@mui/material/Autocomplete'
 import Box from '@mui/material/Box'
 import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
@@ -31,6 +32,19 @@ import AddIcon from '@mui/icons-material/Add'
 import ExpandLess from '@mui/icons-material/ExpandLess'
 import ExpandMore from '@mui/icons-material/ExpandMore'
 import DoneAllIcon from '@mui/icons-material/DoneAll'
+
+interface ProductOption {
+  id: string
+  name: string
+  category: string
+  defaultUnit?: string
+  preferredStore?: { id: string; name: string } | string
+}
+
+interface StoreOption {
+  id: string
+  name: string
+}
 
 interface GroceryItem {
   id: string
@@ -73,6 +87,10 @@ export const GroceryListView = () => {
   const [newItemLabel, setNewItemLabel] = useState('')
   const [newItemQuantity, setNewItemQuantity] = useState('')
   const [newItemUnit, setNewItemUnit] = useState('')
+  const [products, setProducts] = useState<ProductOption[]>([])
+  const [stores, setStores] = useState<StoreOption[]>([])
+  const [selectedStore, setSelectedStore] = useState<StoreOption | null>(null)
+  const [storeInputValue, setStoreInputValue] = useState('')
   const [collapsedStores, setCollapsedStores] = useState<Set<string>>(new Set())
 
   const fetchList = useCallback(async () => {
@@ -101,6 +119,30 @@ export const GroceryListView = () => {
 
   useMercure(GROCERY_LIST_TOPICS, fetchList)
 
+  // Fetch products & stores when add dialog opens
+  useEffect(() => {
+    if (!addDialogOpen) return
+    const fetchOptions = async () => {
+      try {
+        const [prodResult, storeResult] = await Promise.all([
+          dataProvider.getList('products', { pagination: { page: 1, perPage: 500 }, sort: { field: 'name', order: 'ASC' }, filter: {} }),
+          dataProvider.getList('stores', { pagination: { page: 1, perPage: 100 }, sort: { field: 'name', order: 'ASC' }, filter: {} }),
+        ])
+        setProducts(prodResult.data as ProductOption[])
+        setStores(storeResult.data as StoreOption[])
+      } catch {
+        // Non-blocking: autocomplete will work without options
+      }
+    }
+    fetchOptions()
+  }, [addDialogOpen, dataProvider])
+
+  const filteredProducts = useMemo(() => {
+    if (newItemLabel.length < 2) return []
+    const lower = newItemLabel.toLowerCase()
+    return products.filter((p) => p.name.toLowerCase().includes(lower)).slice(0, 10)
+  }, [newItemLabel, products])
+
   const handleCheck = async (item: GroceryItem) => {
     try {
       const token = localStorage.getItem('token')
@@ -125,22 +167,30 @@ export const GroceryListView = () => {
     if (!groceryList || !newItemLabel) return
     try {
       const token = localStorage.getItem('token')
+      const payload: Record<string, unknown> = {
+        label: newItemLabel,
+        quantity: newItemQuantity ? parseFloat(newItemQuantity) : null,
+        unit: newItemUnit || null,
+      }
+      if (selectedStore) {
+        payload.storeId = selectedStore.id
+      } else if (storeInputValue.trim()) {
+        payload.storeName = storeInputValue.trim()
+      }
       await fetch(`${entrypoint}/grocery/add-item`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          label: newItemLabel,
-          quantity: newItemQuantity ? parseFloat(newItemQuantity) : null,
-          unit: newItemUnit || null,
-        }),
+        body: JSON.stringify(payload),
       })
       setAddDialogOpen(false)
       setNewItemLabel('')
       setNewItemQuantity('')
       setNewItemUnit('')
+      setSelectedStore(null)
+      setStoreInputValue('')
       const { data } = await dataProvider.getOne('grocery_lists', { id: groceryList.id })
       setGroceryList(data as GroceryListData)
       notify('Article ajouté', { type: 'success' })
@@ -374,11 +424,31 @@ export const GroceryListView = () => {
         <DialogTitle>Ajouter un article</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-            <TextField
-              label="Article"
-              value={newItemLabel}
-              onChange={(e) => setNewItemLabel(e.target.value)}
-              autoFocus
+            <Autocomplete
+              freeSolo
+              options={filteredProducts}
+              getOptionLabel={(option) => (typeof option === 'string' ? option : option.name)}
+              inputValue={newItemLabel}
+              onInputChange={(_e, value) => setNewItemLabel(value)}
+              onChange={(_e, value) => {
+                if (value && typeof value !== 'string') {
+                  setNewItemLabel(value.name)
+                  if (value.defaultUnit) setNewItemUnit(value.defaultUnit)
+                }
+              }}
+              renderInput={(params) => <TextField {...params} label="Article" autoFocus />}
+              renderOption={({ key, ...props }, option) => (
+                <li key={key} {...props}>
+                  <div>
+                    <div>{typeof option === 'string' ? option : option.name}</div>
+                    {typeof option !== 'string' && option.category && (
+                      <div style={{ fontSize: '0.8em', color: '#888' }}>{option.category}</div>
+                    )}
+                  </div>
+                </li>
+              )}
+              filterOptions={(x) => x}
+              noOptionsText={newItemLabel.length < 2 ? 'Tapez au moins 2 caractères' : 'Nouveau produit'}
             />
             <TextField
               label="Quantité"
@@ -403,6 +473,24 @@ export const GroceryListView = () => {
                 <MenuItem value="sachet">sachet</MenuItem>
               </Select>
             </FormControl>
+            <Autocomplete
+              freeSolo
+              options={stores}
+              getOptionLabel={(option) => (typeof option === 'string' ? option : option.name)}
+              value={selectedStore}
+              inputValue={storeInputValue}
+              onInputChange={(_e, value) => setStoreInputValue(value)}
+              onChange={(_e, value) => {
+                if (value && typeof value !== 'string') {
+                  setSelectedStore(value)
+                } else {
+                  setSelectedStore(null)
+                }
+              }}
+              renderInput={(params) => <TextField {...params} label="Magasin" />}
+              noOptionsText="Nouveau magasin"
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+            />
           </Box>
         </DialogContent>
         <DialogActions>
