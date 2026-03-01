@@ -34,7 +34,8 @@ import DoneAllIcon from '@mui/icons-material/DoneAll'
 interface GroceryItem {
   id: string
   '@id': string
-  product?: { name: string; category: string }
+  label: string
+  product?: string
   customLabel?: string
   quantity?: number
   unit?: string
@@ -293,7 +294,7 @@ export const GroceryListView = () => {
                   >
                     <Collapse in={!isCollapsed}>
                       {group.items.map((item) => {
-                        const label = item.customLabel || item.product?.name || 'Article'
+                        const label = item.label
                         const detail =
                           item.quantity != null ? `${item.quantity}${item.unit ? ' ' + item.unit : ''}` : ''
 
@@ -408,7 +409,7 @@ export const GroceryListView = () => {
           ) : (
             <List dense>
               {uncheckedItems.map((item) => {
-                const label = item.customLabel || item.product?.name || 'Article'
+                const label = item.label
                 return (
                   <ListItem
                     key={item.id}
