@@ -70,6 +70,7 @@ fun GroceryScreen(
     var menuExpanded by remember { mutableStateOf(false) }
     var itemPendingDelete by remember { mutableStateOf<GroceryItem?>(null) }
     var showDeleteSelectedDialog by remember { mutableStateOf(false) }
+    var detailItem by remember { mutableStateOf<GroceryItem?>(null) }
 
     Scaffold(
         floatingActionButton = {
@@ -233,6 +234,8 @@ fun GroceryScreen(
                                             onTap = {
                                                 if (uiState.isSelecting) {
                                                     groceryItem.id?.let { viewModel.toggleSelection(it) }
+                                                } else {
+                                                    detailItem = groceryItem
                                                 }
                                             },
                                             dragModifier = if (!uiState.isSelecting) {
@@ -260,6 +263,14 @@ fun GroceryScreen(
                 viewModel.addItem(label, quantity, unit, storeId, storeName, category)
             },
             onDismiss = { viewModel.hideAddSheet() },
+        )
+    }
+
+    // Item detail bottom sheet
+    detailItem?.let { item ->
+        ItemDetailSheet(
+            item = item,
+            onDismiss = { detailItem = null },
         )
     }
 
@@ -309,7 +320,7 @@ private fun SwipeableGroceryItem(
 
     val clickModifier = Modifier.combinedClickable(
         onLongClick = { if (!isSelecting) onLongPress() },
-        onClick = { if (isSelecting) onTap() },
+        onClick = { onTap() },
     )
 
     if (item.id == null || isSelecting) {

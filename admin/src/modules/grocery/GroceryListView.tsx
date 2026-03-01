@@ -103,12 +103,14 @@ function SortableGroceryItem({
   addedIds,
   removingIds,
   onCheck,
+  onViewDetail,
   isDragDisabled,
 }: {
   item: GroceryItem
   addedIds: Set<string>
   removingIds: Set<string>
   onCheck: (item: GroceryItem) => void
+  onViewDetail: (item: GroceryItem) => void
   isDragDisabled: boolean
 }) {
   const isRemoving = removingIds.has(item.id)
@@ -137,9 +139,18 @@ function SortableGroceryItem({
       >
         <DragIndicatorIcon fontSize="small" sx={{ color: 'action.disabled' }} />
       </IconButton>
-      <ListItemButton onClick={isRemoving ? undefined : () => onCheck(item)} dense>
+      <ListItemButton onClick={isRemoving ? undefined : () => onViewDetail(item)} dense>
         <ListItemIcon>
-          <Checkbox edge="start" checked={item.checked} tabIndex={-1} disableRipple />
+          <Checkbox
+            edge="start"
+            checked={item.checked}
+            tabIndex={-1}
+            disableRipple
+            onClick={(e) => {
+              e.stopPropagation()
+              if (!isRemoving) onCheck(item)
+            }}
+          />
         </ListItemIcon>
         <ListItemText
           primary={label}
@@ -179,6 +190,7 @@ export const GroceryListView = () => {
   const [selectedStore, setSelectedStore] = useState<StoreOption | null>(null)
   const [storeInputValue, setStoreInputValue] = useState('')
   const [collapsedStores, setCollapsedStores] = useState<Set<string>>(new Set())
+  const [detailItem, setDetailItem] = useState<GroceryItem | null>(null)
 
   const fetchList = useCallback(async () => {
     setLoading(true)
@@ -566,6 +578,7 @@ export const GroceryListView = () => {
                               addedIds={addedIds}
                               removingIds={removingIds}
                               onCheck={handleCheck}
+                              onViewDetail={setDetailItem}
                               isDragDisabled={removingIds.size > 0 || addedIds.size > 0}
                             />
                           ))}
@@ -700,6 +713,41 @@ export const GroceryListView = () => {
           <Button onClick={() => setAddDialogOpen(false)}>Annuler</Button>
           <Button onClick={handleAddItem} variant="contained" disabled={!newItemLabel}>
             Ajouter
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Item detail dialog */}
+      <Dialog open={detailItem !== null} onClose={() => setDetailItem(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Détails de l&apos;article</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <TextField label="Nom du produit" value={detailItem?.label ?? ''} disabled fullWidth />
+            <TextField
+              label="Quantité"
+              value={detailItem?.quantity != null ? String(detailItem.quantity) : ''}
+              disabled
+              fullWidth
+            />
+            <TextField label="Unité" value={detailItem?.unit ?? ''} disabled fullWidth />
+            <TextField label="Magasin" value={detailItem?.store?.name ?? ''} disabled fullWidth />
+            <TextField
+              label="Source"
+              value={
+                detailItem?.source === 'recipe'
+                  ? 'Recette'
+                  : detailItem?.source === 'recurring'
+                    ? 'Récurrent'
+                    : 'Manuel'
+              }
+              disabled
+              fullWidth
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDetailItem(null)} variant="contained">
+            Fermer
           </Button>
         </DialogActions>
       </Dialog>
