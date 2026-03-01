@@ -315,6 +315,88 @@ class AddGroceryItemControllerTest extends WebTestCase
         self::assertSame('Supermarché', $items[0]->getStore()->getName());
     }
 
+    public function testAddItemWithCategoryCreatesProductWithCategory(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->client->request('POST', '/api/grocery/add-item', [], [], array_merge(
+            ['CONTENT_TYPE' => 'application/json'],
+            $this->authHeaders(),
+        ), json_encode([
+            'label' => 'Yaourt',
+            'quantity' => 4,
+            'unit' => 'piece',
+            'category' => 'dairy',
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $products = $em->getRepository(Product::class)->findAll();
+        self::assertCount(1, $products);
+        self::assertSame('dairy', $products[0]->getCategory()->value);
+
+        $this->assertElasticsearchIndexDispatched(Product::class);
+    }
+
+    public function testAddItemUpdatesExistingProductCategory(): void
+    {
+        $this->loadFixtures('product.yaml');
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+
+        // Bananes fixture is 'produce', update to 'other'
+        $this->client->request('POST', '/api/grocery/add-item', [], [], array_merge(
+            ['CONTENT_TYPE' => 'application/json'],
+            $this->authHeaders(),
+        ), json_encode([
+            'label' => 'Bananes',
+            'quantity' => 1,
+            'unit' => 'piece',
+            'category' => 'other',
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $products = $em->getRepository(Product::class)->findAll();
+        self::assertCount(1, $products);
+        self::assertSame('other', $products[0]->getCategory()->value);
+
+        $this->assertElasticsearchIndexDispatched(Product::class);
+    }
+
+    public function testAddItemUpdatesExistingProductPreferredStore(): void
+    {
+        $this->loadFixtures('product.yaml');
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+
+        // Bananes has preferredStore=supermarket, add with storeName to create a new store
+        $this->client->request('POST', '/api/grocery/add-item', [], [], array_merge(
+            ['CONTENT_TYPE' => 'application/json'],
+            $this->authHeaders(),
+        ), json_encode([
+            'label' => 'Bananes',
+            'quantity' => 2,
+            'unit' => 'piece',
+            'storeName' => 'Primeur',
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $products = $em->getRepository(Product::class)->findAll();
+        self::assertCount(1, $products);
+        self::assertSame('Primeur', $products[0]->getPreferredStore()->getName());
+
+        $this->assertElasticsearchIndexDispatched(Product::class);
+    }
+
     public function testAddItemStoreIdTakesPriorityOverStoreName(): void
     {
         $this->loadFixtures('store.yaml');

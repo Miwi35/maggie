@@ -44,6 +44,7 @@ final class AddGroceryItemController
             unit: $body['unit'] ?? null,
             storeId: $body['storeId'] ?? null,
             storeName: $body['storeName'] ?? null,
+            category: $body['category'] ?? null,
         ));
 
         $list = $envelope->last(HandledStamp::class)?->getResult();

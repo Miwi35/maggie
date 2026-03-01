@@ -32,6 +32,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.Product
+import com.maggie.app.data.model.ProductCategory
 import com.maggie.app.data.model.Store
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,7 +40,7 @@ import com.maggie.app.data.model.Store
 fun AddItemSheet(
     products: List<Product>,
     stores: List<Store>,
-    onAddItem: (label: String, quantity: Float?, unit: String?, storeId: String?, storeName: String?) -> Unit,
+    onAddItem: (label: String, quantity: Float?, unit: String?, storeId: String?, storeName: String?, category: String?) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -47,9 +48,11 @@ fun AddItemSheet(
     var label by remember { mutableStateOf("") }
     var quantityText by remember { mutableStateOf("") }
     var selectedUnit by remember { mutableStateOf<CookbookUnit?>(null) }
+    var selectedCategory by remember { mutableStateOf<ProductCategory?>(null) }
     var selectedStoreId by remember { mutableStateOf<String?>(null) }
     var storeText by remember { mutableStateOf("") }
     var unitExpanded by remember { mutableStateOf(false) }
+    var categoryExpanded by remember { mutableStateOf(false) }
     var storeExpanded by remember { mutableStateOf(false) }
 
     val filteredProducts = remember(label, products) {
@@ -100,6 +103,7 @@ fun AddItemSheet(
                                 .clickable {
                                     label = product.name
                                     product.defaultUnit?.let { selectedUnit = it }
+                                    selectedCategory = product.category
                                     // Auto-select preferred store
                                     product.preferredStore?.let { iri ->
                                         val id = iri.substringAfterLast("/")
@@ -162,6 +166,44 @@ fun AddItemSheet(
                 }
             }
 
+            // Category picker
+            ExposedDropdownMenuBox(
+                expanded = categoryExpanded,
+                onExpandedChange = { categoryExpanded = it },
+            ) {
+                OutlinedTextField(
+                    value = selectedCategory?.name?.lowercase() ?: "",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Catégorie") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                )
+                ExposedDropdownMenu(
+                    expanded = categoryExpanded,
+                    onDismissRequest = { categoryExpanded = false },
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Aucune") },
+                        onClick = {
+                            selectedCategory = null
+                            categoryExpanded = false
+                        },
+                    )
+                    ProductCategory.entries.forEach { cat ->
+                        DropdownMenuItem(
+                            text = { Text(cat.name.lowercase()) },
+                            onClick = {
+                                selectedCategory = cat
+                                categoryExpanded = false
+                            },
+                        )
+                    }
+                }
+            }
+
             // Store autocomplete (editable — type a new name to create)
             ExposedDropdownMenuBox(
                 expanded = storeExpanded,
@@ -217,7 +259,8 @@ fun AddItemSheet(
                         val qty = quantityText.toFloatOrNull()
                         val unitStr = selectedUnit?.name?.lowercase()
                         val sName = if (selectedStoreId == null && storeText.isNotBlank()) storeText.trim() else null
-                        onAddItem(label.trim(), qty, unitStr, selectedStoreId, sName)
+                        val catStr = selectedCategory?.name?.lowercase()
+                        onAddItem(label.trim(), qty, unitStr, selectedStoreId, sName, catStr)
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),

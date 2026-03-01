@@ -94,10 +94,10 @@ class GroceryViewModel(
         _uiState.value = _uiState.value.copy(showAddSheet = false)
     }
 
-    fun addItem(label: String, quantity: Float?, unit: String?, storeId: String?, storeName: String? = null) {
+    fun addItem(label: String, quantity: Float?, unit: String?, storeId: String?, storeName: String? = null, category: String? = null) {
         viewModelScope.launch {
             try {
-                groceryListRepository.addItem(label, quantity, unit, storeId, storeName).getOrThrow()
+                groceryListRepository.addItem(label, quantity, unit, storeId, storeName, category).getOrThrow()
                 _uiState.value = _uiState.value.copy(showAddSheet = false)
                 refresh()
                 // Reload stores if a new store may have been created

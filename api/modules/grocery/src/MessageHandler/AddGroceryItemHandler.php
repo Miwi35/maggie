@@ -56,15 +56,29 @@ class AddGroceryItemHandler
 
         $newProduct = null;
 
+        $productUpdated = false;
+
         if ($matched !== null) {
             $item->setProduct($matched);
             if ($matched->getPreferredStore() !== null) {
                 $item->setStore($matched->getPreferredStore());
             }
+            // Update category on existing product if provided and different
+            if ($command->category !== null) {
+                $cat = ProductCategory::tryFrom($command->category);
+                if ($cat !== null && $cat !== $matched->getCategory()) {
+                    $matched->setCategory($cat);
+                    $productUpdated = true;
+                }
+            }
         } else {
             $newProduct = new Product();
             $newProduct->setName($command->label);
-            $newProduct->setCategory(ProductCategory::Other);
+            $newProduct->setCategory(
+                $command->category !== null
+                    ? (ProductCategory::tryFrom($command->category) ?? ProductCategory::Other)
+                    : ProductCategory::Other,
+            );
             $newProduct->setUser($user);
             $this->em->persist($newProduct);
             $item->setProduct($newProduct);
@@ -97,6 +111,12 @@ class AddGroceryItemHandler
             $newProduct->setPreferredStore($resolvedStore);
         }
 
+        // Update preferred store on existing matched products if resolved store differs
+        if ($matched !== null && $resolvedStore !== null && $matched->getPreferredStore() !== $resolvedStore) {
+            $matched->setPreferredStore($resolvedStore);
+            $productUpdated = true;
+        }
+
         if ($command->quantity !== null) {
             $item->setQuantity($command->quantity);
         }
@@ -112,6 +132,11 @@ class AddGroceryItemHandler
             $this->bus->dispatch(new IndexDocumentCommand(
                 entityClass: Product::class,
                 entityId: (string) $newProduct->getId(),
+            ));
+        } elseif ($productUpdated && $matched !== null) {
+            $this->bus->dispatch(new IndexDocumentCommand(
+                entityClass: Product::class,
+                entityId: (string) $matched->getId(),
             ));
         }
 

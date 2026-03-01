@@ -73,6 +73,22 @@ interface StoreGroup {
   items: GroceryItem[]
 }
 
+const categoryChoices = [
+  { id: 'produce', name: 'Fruits & Légumes' },
+  { id: 'dairy', name: 'Produits laitiers' },
+  { id: 'meat', name: 'Viandes' },
+  { id: 'fish', name: 'Poissons' },
+  { id: 'grain', name: 'Céréales' },
+  { id: 'spice', name: 'Épices' },
+  { id: 'condiment', name: 'Condiments' },
+  { id: 'frozen', name: 'Surgelés' },
+  { id: 'beverage', name: 'Boissons' },
+  { id: 'household', name: 'Maison' },
+  { id: 'hygiene', name: 'Hygiène' },
+  { id: 'cleaning', name: 'Entretien' },
+  { id: 'other', name: 'Autre' },
+]
+
 const GROCERY_LIST_TOPICS = ['/api/grocery_lists/{id}']
 const entrypoint = import.meta.env.VITE_API_URL || 'http://localhost/api'
 
@@ -89,6 +105,7 @@ export const GroceryListView = () => {
   const [newItemUnit, setNewItemUnit] = useState('')
   const [products, setProducts] = useState<ProductOption[]>([])
   const [stores, setStores] = useState<StoreOption[]>([])
+  const [newItemCategory, setNewItemCategory] = useState('')
   const [selectedStore, setSelectedStore] = useState<StoreOption | null>(null)
   const [storeInputValue, setStoreInputValue] = useState('')
   const [collapsedStores, setCollapsedStores] = useState<Set<string>>(new Set())
@@ -172,6 +189,9 @@ export const GroceryListView = () => {
         quantity: newItemQuantity ? parseFloat(newItemQuantity) : null,
         unit: newItemUnit || null,
       }
+      if (newItemCategory) {
+        payload.category = newItemCategory
+      }
       if (selectedStore) {
         payload.storeId = selectedStore.id
       } else if (storeInputValue.trim()) {
@@ -189,6 +209,7 @@ export const GroceryListView = () => {
       setNewItemLabel('')
       setNewItemQuantity('')
       setNewItemUnit('')
+      setNewItemCategory('')
       setSelectedStore(null)
       setStoreInputValue('')
       const { data } = await dataProvider.getOne('grocery_lists', { id: groceryList.id })
@@ -434,6 +455,21 @@ export const GroceryListView = () => {
                 if (value && typeof value !== 'string') {
                   setNewItemLabel(value.name)
                   if (value.defaultUnit) setNewItemUnit(value.defaultUnit)
+                  if (value.category) setNewItemCategory(value.category)
+                  if (value.preferredStore) {
+                    const ps = value.preferredStore
+                    if (typeof ps === 'object' && ps.id) {
+                      setSelectedStore(ps)
+                      setStoreInputValue(ps.name)
+                    } else if (typeof ps === 'string') {
+                      const id = ps.includes('/') ? ps.split('/').pop()! : ps
+                      const store = stores.find((s) => s.id === id)
+                      if (store) {
+                        setSelectedStore(store)
+                        setStoreInputValue(store.name)
+                      }
+                    }
+                  }
                 }
               }}
               renderInput={(params) => <TextField {...params} label="Article" autoFocus />}
@@ -471,6 +507,21 @@ export const GroceryListView = () => {
                 <MenuItem value="bottle">bouteille</MenuItem>
                 <MenuItem value="pack">paquet</MenuItem>
                 <MenuItem value="sachet">sachet</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl>
+              <InputLabel>Catégorie</InputLabel>
+              <Select
+                value={newItemCategory}
+                onChange={(e) => setNewItemCategory(e.target.value)}
+                label="Catégorie"
+              >
+                <MenuItem value="">Aucune</MenuItem>
+                {categoryChoices.map((c) => (
+                  <MenuItem key={c.id} value={c.id}>
+                    {c.name}
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
             <Autocomplete

@@ -26,6 +26,7 @@ class GroceryListRepository(
         unit: String? = null,
         storeId: String? = null,
         storeName: String? = null,
+        category: String? = null,
     ): Result<Unit> = runCatching {
         apiService.addGroceryItem(
             AddGroceryItemRequest(
@@ -34,6 +35,7 @@ class GroceryListRepository(
                 unit = unit,
                 storeId = storeId,
                 storeName = storeName,
+                category = category,
             ),
         )
     }

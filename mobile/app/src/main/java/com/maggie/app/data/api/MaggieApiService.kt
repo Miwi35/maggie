@@ -197,6 +197,7 @@ data class AddGroceryItemRequest(
     val unit: String? = null,
     val storeId: String? = null,
     val storeName: String? = null,
+    val category: String? = null,
 )
 
 @Serializable

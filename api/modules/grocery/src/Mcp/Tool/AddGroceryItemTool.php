@@ -27,6 +27,7 @@ class AddGroceryItemTool
         ?string $unit = null,
         ?string $storeId = null,
         ?string $storeName = null,
+        ?string $category = null,
     ): string {
         try {
             $users = $this->userRepository->findAll();
@@ -39,6 +40,7 @@ class AddGroceryItemTool
                 unit: $unit,
                 storeId: $storeId,
                 storeName: $storeName,
+                category: $category,
             ));
 
             /** @var GroceryList $list */
