@@ -1,3 +1,5 @@
+"""AG-UI streaming gateway for token-by-token chat responses."""
+
 import json
 import logging
 import time
