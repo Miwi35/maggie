@@ -45,6 +45,11 @@ class MercurePublishMiddleware implements MiddlewareInterface
         $message = $envelope->getMessage();
         $parsed = self::parseCommandClass($message::class);
 
+        $this->logger->error('[Mercure-debug] Second pass for {command}, parsed={parsed}', [
+            'command' => $message::class,
+            'parsed' => $parsed,
+        ]);
+
         try {
             if ($parsed !== null && $parsed[0] === 'delete') {
                 $idProp = lcfirst($parsed[2]) . 'Id';
@@ -63,6 +68,12 @@ class MercurePublishMiddleware implements MiddlewareInterface
                     $topic = $parsed[1] ?? self::topicFromEntity($entity);
                     $userId = self::resolveUserId($entity) ?? $this->getCurrentUserId();
 
+                    $this->logger->error('[Mercure-debug] Publish path reached for {entity}, userId={userId}, topic={topic}', [
+                        'entity' => $entity::class,
+                        'userId' => $userId,
+                        'topic' => $topic,
+                    ]);
+
                     // Determine payload: action payload > differential update > full payload
                     if ($message instanceof MercureActionPayload) {
                         $payload = $message->toMercureActionPayload();
@@ -76,6 +87,10 @@ class MercurePublishMiddleware implements MiddlewareInterface
                     if ($userId !== null) {
                         $this->publishEntity($entity, $topic, $userId, $payload);
                         $this->publishEntityToParentTopics($entity, $topic, $userId, $payload);
+                    } else {
+                        $this->logger->error('[Mercure-debug] Skipping publish: userId is null for {entity}', [
+                            'entity' => $entity::class,
+                        ]);
                     }
                 }
             }
