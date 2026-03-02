@@ -19,7 +19,8 @@ class AgendaRepository extends ServiceEntityRepository
 
     public function findDefault(): ?Agenda
     {
-        return $this->findOneBy(['isDefault' => true]);
+        return $this->findOneBy(['isDefault' => true])
+            ?? $this->findOneBy([]);
     }
 
     /**
