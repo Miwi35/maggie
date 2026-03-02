@@ -190,6 +190,8 @@ services:
     image: ghcr.io/miwi35/maggie-agent:${AGENT_TAG:-latest}
     restart: unless-stopped
     env_file: .env.prod
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/
     volumes:
       - jwt_keys:/etc/jwt:ro
     depends_on:
