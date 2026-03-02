@@ -161,10 +161,10 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
         streamedMessageIdRef.current = messageId
         onAgentStateChange('thinking')
       },
-      onTextDelta: (_messageId, delta) => {
+      onTextDelta: (_mid, delta) => {
         setStreamingText((prev) => prev + delta)
       },
-      onTextEnd: (_messageId) => {
+      onTextEnd: () => {
         // Finalize: move streaming text into messages array
         setStreamingText((finalText) => {
           if (finalText.trim()) {
