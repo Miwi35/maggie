@@ -70,6 +70,32 @@ class CreateEventToolTest extends KernelTestCase
         self::assertSame('No agenda found.', $data['error']);
     }
 
+    public function testCreateEventWithSpecificAgenda(): void
+    {
+        $this->loadFixtures('CreateEventToolTest.yaml');
+
+        // Create a second agenda
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $user = $em->getRepository(\Maggie\Core\Entity\User::class)->findOneBy(['email' => 'fixture@example.com']);
+        $agenda = new \Maggie\Calendar\Entity\Agenda();
+        $agenda->setName('Concerts');
+        $agenda->setUser($user);
+        $em->persist($agenda);
+        $em->flush();
+
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $tool = $this->getTool();
+        $result = $tool('Rock show', '2026-04-10', '20:00', 180, null, 'Venue', (string) $agenda->getId());
+
+        $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
+        self::assertSame('Rock show', $data['event']['summary']);
+        self::assertSame('Concerts', $data['event']['agenda']);
+    }
+
     public function testCreateEventUsesDefaultDuration(): void
     {
         $this->loadFixtures('CreateEventToolTest.yaml');

@@ -1,0 +1,16 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+
+Maggie\Calendar\Entity\Agenda:
+  default_agenda:
+    name: Personal
+    isDefault: true
+    user: '@test_user'
+  concerts_agenda:
+    name: Concerts
+    isDefault: false
+    color: '#e91e63'
+    user: '@test_user'

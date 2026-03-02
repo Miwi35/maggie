@@ -9,7 +9,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'create_event', description: 'Create a new calendar event. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes (default 60). Returns the created event.')]
+#[McpTool(name: 'create_event', description: 'Create a new calendar event. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes (default 60). Use agenda_id to target a specific agenda (from list_agendas), or omit for the default agenda.')]
 class CreateEventTool
 {
     public function __construct(
@@ -24,6 +24,7 @@ class CreateEventTool
         int $duration = 60,
         ?string $description = null,
         ?string $location = null,
+        ?string $agenda_id = null,
     ): string {
         $startAt = new \DateTimeImmutable("{$date} {$time}", new \DateTimeZone('Europe/Paris'));
         $endAt = $startAt->modify("+{$duration} minutes");
@@ -33,6 +34,7 @@ class CreateEventTool
                 summary: $title,
                 startAt: $startAt,
                 endAt: $endAt,
+                agendaId: $agenda_id,
                 description: $description,
                 location: $location,
             ));
