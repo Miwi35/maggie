@@ -59,7 +59,7 @@ async def _daily_planning_loop() -> None:
 
         try:
             logger.info("Running daily proaction planning")
-            result = await gateway.proaction(DAILY_PLANNING_PROMPT, PLANNING_USER_ID)
+            result = await gateway.proaction(DAILY_PLANNING_PROMPT, PLANNING_USER_ID, silent=True)
             logger.info(f"Daily planning complete: {result['response'][:200]}")
         except Exception as e:
             logger.error(f"Daily planning failed: {e}")

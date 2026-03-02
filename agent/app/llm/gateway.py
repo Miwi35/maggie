@@ -59,10 +59,14 @@ class LLMGateway:
             logger.warning(f"Failed to load conversation history: {e}")
             return []
 
-    async def proaction(self, prompt: str, user_id: str) -> dict:
+    async def proaction(self, prompt: str, user_id: str, *, silent: bool = False) -> dict:
         """Execute a proaction prompt without conversation memory.
 
         Native tools (schedule_proaction, list_proactions) are available here.
+
+        Args:
+            silent: If True, planning mode — output is an internal log, not sent to user.
+                    If False, execution mode — output is a chat message for the user.
         """
         if self.client is None:
             return {
@@ -72,11 +76,21 @@ class LLMGateway:
 
         tools = await self.tool_router.get_tool_definitions(include_native=True)
 
-        system_prompt = await self._build_system_prompt(user_id, tools=tools) + (
-            "\n\nTu es en mode autonome (proaction). "
-            "Exécute la tâche demandée sans attendre de confirmation de l'utilisateur. "
-            "Utilise les outils disponibles si nécessaire."
-        )
+        if silent:
+            preamble = (
+                "\n\nTu es en mode planification autonome. "
+                "Planifie les proactions de la journée. "
+                "Ton output est un log interne — il ne sera pas envoyé à l'utilisateur."
+            )
+        else:
+            preamble = (
+                "\n\nTu es en mode proaction. "
+                "Exécute la tâche demandée et rédige un message clair pour l'utilisateur. "
+                "Ton message sera envoyé directement dans le chat. "
+                "Ne demande pas de confirmation avant d'agir — agis directement."
+            )
+
+        system_prompt = await self._build_system_prompt(user_id, tools=tools) + preamble
 
         messages = [{"role": "user", "content": prompt}]
         tool_calls_made = []

@@ -2,6 +2,7 @@ import logging
 
 import aio_pika
 
+from app.db.message_repository import message_repo
 from app.db.proaction_repository import proaction_repo
 from app.llm.gateway import LLMGateway
 from app.queue.connection import PROACTION_QUEUE, get_channel
@@ -36,6 +37,12 @@ async def start_consumer() -> None:
             try:
                 result = await gateway.proaction(proaction.prompt, proaction.user_id)
                 await proaction_repo.mark_completed(proaction_id, result["response"])
+                if result["response"]:
+                    await message_repo.create(
+                        user_id=proaction.user_id,
+                        role="assistant",
+                        content=result["response"],
+                    )
                 logger.info(f"Proaction {proaction_id} completed")
             except Exception as e:
                 error_msg = str(e)
