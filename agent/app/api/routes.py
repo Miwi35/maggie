@@ -1,3 +1,4 @@
+import json
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
@@ -5,11 +6,13 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.auth import get_current_user_id
+from app.db.context_repository import context_repo
 from app.db.instruction_repository import instruction_repo
 from app.db.message_repository import message_repo
 from app.db.proaction_repository import proaction_repo
 from app.db.user_setting_repository import user_setting_repo
 from app.llm.gateway import LLMGateway
+from app.llm.streaming import StreamingGateway
 from app.llm.transcription import transcribe_audio
 from app.skills.index import skill_index
 from app.tts.synthesis import DEFAULT_VOICE, VOICE_IDS, get_voices, synthesize_speech
@@ -19,6 +22,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 llm_gateway = LLMGateway()
+streaming_gateway = StreamingGateway()
 
 
 class ChatRequest(BaseModel):
@@ -75,6 +79,31 @@ async def chat(request: ChatRequest, user_id: str = Depends(get_current_user_id)
         tool_calls=result.get("tool_calls", []),
         messages=[user_msg.to_dict(), assistant_msg.to_dict()],
     )
+
+
+@router.post("/chat/stream")
+async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_user_id)):
+    """Stream a chat response using AG-UI protocol (Server-Sent Events)."""
+    logger.info(f"Stream chat request from user {user_id}: {request.message[:100]}")
+
+    user_msg = await message_repo.create(user_id=user_id, role="user", content=request.message)
+
+    async def generate():
+        async for event in streaming_gateway.chat_stream(request.message, user_id, user_msg.id):
+            yield f"data: {json.dumps(event)}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.get("/contexts")
+async def get_contexts(user_id: str = Depends(get_current_user_id)):
+    """Get active and dormant contexts for the Mind Panel."""
+    contexts = await context_repo.find_active(user_id)
+    return [c.to_dict() for c in contexts]
 
 
 @router.post("/proaction", response_model=ChatResponse)

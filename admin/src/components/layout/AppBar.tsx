@@ -5,6 +5,7 @@ import IconButton from '@mui/material/IconButton'
 import Badge from '@mui/material/Badge'
 import Tooltip from '@mui/material/Tooltip'
 import ChatIcon from '@mui/icons-material/Chat'
+import PsychologyIcon from '@mui/icons-material/Psychology'
 import MicIcon from '@mui/icons-material/Mic'
 import StopIcon from '@mui/icons-material/Stop'
 import HearingIcon from '@mui/icons-material/Hearing'
@@ -27,6 +28,8 @@ export const CustomAppBar = () => {
     pauseWakeWord,
     resumeWakeWord,
     clearWakeWordTrigger,
+    mindOpen,
+    onMindToggle,
   } = useChatContext()
   const recorder = useVoiceRecorder()
   const transcription = useTranscription()
@@ -99,6 +102,11 @@ export const CustomAppBar = () => {
             </span>
           </Tooltip>
           <NotificationBell />
+          <Tooltip title="Maggie's Mind">
+            <IconButton color="inherit" onClick={onMindToggle}>
+              <PsychologyIcon sx={{ color: mindOpen ? '#ce93d8' : 'inherit' }} />
+            </IconButton>
+          </Tooltip>
           <IconButton color="inherit" onClick={onChatToggle}>
             <Badge variant="dot" color="error" invisible={!unreadChat || chatOpen}>
               <ChatIcon />

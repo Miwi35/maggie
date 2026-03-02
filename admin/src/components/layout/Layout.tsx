@@ -2,15 +2,21 @@ import { useState, useCallback, useRef, useMemo } from 'react'
 import { Layout as RALayout, LayoutProps } from 'react-admin'
 import Box from '@mui/material/Box'
 import { ChatWidget, ChatWidgetRef } from '../chat/ChatWidget'
+import { MindPanel } from '../mind/MindPanel'
 import { CustomAppBar } from './AppBar'
 import { CustomMenu } from './Menu'
 import { ChatContext } from './ChatContext'
 import { useWakeWord } from '../../hooks/useWakeWord'
+import type { AgentState, ContextState, ToolCallState } from '../mind/types'
 
 export const Layout = (props: LayoutProps) => {
   const [chatOpen, setChatOpen] = useState(true)
   const [unreadChat, setUnreadChat] = useState(false)
   const [wakeWordTriggered, setWakeWordTriggered] = useState(false)
+  const [mindOpen, setMindOpen] = useState(false)
+  const [contexts, setContexts] = useState<ContextState[]>([])
+  const [toolCalls, setToolCalls] = useState<ToolCallState[]>([])
+  const [agentState, setAgentState] = useState<AgentState>('idle')
   const chatRef = useRef<ChatWidgetRef>(null)
 
   const triggerResize = useCallback(() => {
@@ -60,6 +66,16 @@ export const Layout = (props: LayoutProps) => {
     setWakeWordTriggered(false)
   }, [])
 
+  const handleMindToggle = useCallback(() => {
+    setMindOpen((prev) => !prev)
+    triggerResize()
+  }, [triggerResize])
+
+  const handleMindClose = useCallback(() => {
+    setMindOpen(false)
+    triggerResize()
+  }, [triggerResize])
+
   const wakeWord = useWakeWord({ onDetected: handleWakeWordDetected })
 
   const chatContext = useMemo(
@@ -75,6 +91,8 @@ export const Layout = (props: LayoutProps) => {
       pauseWakeWord: wakeWord.pause,
       resumeWakeWord: wakeWord.resume,
       clearWakeWordTrigger,
+      mindOpen,
+      onMindToggle: handleMindToggle,
     }),
     [
       chatOpen,
@@ -88,6 +106,8 @@ export const Layout = (props: LayoutProps) => {
       wakeWord.pause,
       wakeWord.resume,
       clearWakeWordTrigger,
+      mindOpen,
+      handleMindToggle,
     ],
   )
 
@@ -98,7 +118,23 @@ export const Layout = (props: LayoutProps) => {
           <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             {props.children}
           </Box>
-          <ChatWidget ref={chatRef} open={chatOpen} onClose={handleChatClose} onUnread={handleUnread} />
+          <ChatWidget
+            ref={chatRef}
+            open={chatOpen}
+            onClose={handleChatClose}
+            onUnread={handleUnread}
+            agentState={agentState}
+            onAgentStateChange={setAgentState}
+            onContextsChange={setContexts}
+            onToolCallsChange={setToolCalls}
+          />
+          <MindPanel
+            open={mindOpen}
+            contexts={contexts}
+            toolCalls={toolCalls}
+            agentState={agentState}
+            onClose={handleMindClose}
+          />
         </Box>
       </RALayout>
     </ChatContext.Provider>

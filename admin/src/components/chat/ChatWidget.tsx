@@ -18,6 +18,9 @@ import SmartToyIcon from '@mui/icons-material/SmartToy'
 import CircularProgress from '@mui/material/CircularProgress'
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder'
 import { useTranscription } from '../../hooks/useTranscription'
+import { useAgUiStream } from '../../hooks/useAgUiStream'
+import { ActivityPulse } from '../mind/ActivityPulse'
+import type { AgentState, ContextState, ToolCallState } from '../mind/types'
 
 interface ChatMessage {
   id: string
@@ -26,7 +29,6 @@ interface ChatMessage {
   createdAt: string
 }
 
-const AGENT_URL = '/agent/chat'
 const MESSAGES_URL = '/agent/messages'
 const MERCURE_URL = import.meta.env.VITE_MERCURE_PUBLIC_URL || 'http://maggie.local/.well-known/mercure'
 const SIDEBAR_WIDTH = 380
@@ -36,6 +38,10 @@ interface ChatWidgetProps {
   open: boolean
   onClose: () => void
   onUnread: () => void
+  agentState: AgentState
+  onAgentStateChange: (state: AgentState) => void
+  onContextsChange: (contexts: ContextState[]) => void
+  onToolCallsChange: (toolCalls: ToolCallState[]) => void
 }
 
 export interface ChatWidgetRef {
@@ -106,16 +112,20 @@ function getTimeSeparatorLabel(prev: ChatMessage | null, current: ChatMessage): 
 }
 
 export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
-  ({ open, onClose, onUnread }, ref) => {
+  ({ open, onClose, onUnread, agentState, onAgentStateChange, onContextsChange, onToolCallsChange }, ref) => {
     const [messages, setMessages] = useState<ChatMessage[]>([])
     const [input, setInput] = useState('')
-    const [loading, setLoading] = useState(false)
     const [loadingHistory, setLoadingHistory] = useState(false)
     const [hasMore, setHasMore] = useState(true)
     const [highlightId, setHighlightId] = useState<string | null>(null)
     const [isNearBottom, setIsNearBottom] = useState(true)
     const [unreadFromId, setUnreadFromId] = useState<string | null>(null)
     const [tappedId, setTappedId] = useState<string | null>(null)
+
+    // Streaming state
+    const [streamingText, setStreamingText] = useState('')
+    const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null)
+    const streamedMessageIdRef = useRef<string | null>(null)
 
     // Search state
     const [searchMode, setSearchMode] = useState(false)
@@ -131,6 +141,95 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
 
     const recorder = useVoiceRecorder()
     const transcription = useTranscription()
+
+    // AG-UI stream callbacks
+    const toolCallsRef = useRef<ToolCallState[]>([])
+    const contextsRef = useRef<ContextState[]>([])
+
+    const agUiStream = useAgUiStream({
+      onRunStarted: () => {
+        onAgentStateChange('thinking')
+        toolCallsRef.current = []
+        onToolCallsChange([])
+      },
+      onRunFinished: () => {
+        onAgentStateChange('idle')
+      },
+      onTextStart: (messageId) => {
+        setStreamingMsgId(messageId)
+        setStreamingText('')
+        streamedMessageIdRef.current = messageId
+        onAgentStateChange('thinking')
+      },
+      onTextDelta: (_messageId, delta) => {
+        setStreamingText((prev) => prev + delta)
+      },
+      onTextEnd: (_messageId) => {
+        // Finalize: move streaming text into messages array
+        setStreamingText((finalText) => {
+          if (finalText.trim()) {
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: `stream-${Date.now()}`,
+                role: 'assistant',
+                content: finalText,
+                createdAt: new Date().toISOString(),
+              },
+            ])
+          }
+          return ''
+        })
+        setStreamingMsgId(null)
+      },
+      onToolCallStart: (toolCallId, toolName) => {
+        onAgentStateChange('acting')
+        const newTc: ToolCallState = { toolCallId, toolName, status: 'running' }
+        toolCallsRef.current = [...toolCallsRef.current, newTc]
+        onToolCallsChange(toolCallsRef.current)
+      },
+      onToolCallEnd: (toolCallId) => {
+        // Status will be updated by onToolResult
+        toolCallsRef.current = toolCallsRef.current.map((tc) =>
+          tc.toolCallId === toolCallId && tc.status === 'running' ? { ...tc, status: 'success' } : tc,
+        )
+        onToolCallsChange(toolCallsRef.current)
+        onAgentStateChange('thinking')
+      },
+      onToolResult: (toolCallId, _toolName, status) => {
+        toolCallsRef.current = toolCallsRef.current.map((tc) =>
+          tc.toolCallId === toolCallId ? { ...tc, status: status as ToolCallState['status'] } : tc,
+        )
+        onToolCallsChange(toolCallsRef.current)
+      },
+      onContextUpdate: (value) => {
+        const action = value.action as string
+        const ctx: ContextState = {
+          id: value.id as string,
+          label: value.label as string,
+          status: value.status as ContextState['status'],
+        }
+        if (action === 'created') {
+          contextsRef.current = [ctx, ...contextsRef.current]
+        } else {
+          contextsRef.current = contextsRef.current.map((c) => (c.id === ctx.id ? ctx : c))
+        }
+        onContextsChange(contextsRef.current)
+      },
+      onError: (message) => {
+        console.error('Stream error:', message)
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `err-${Date.now()}`,
+            role: 'assistant',
+            content: "Erreur : impossible de contacter l'agent.",
+            createdAt: new Date().toISOString(),
+          },
+        ])
+        onAgentStateChange('idle')
+      },
+    })
 
     // --- Fetch helpers ---
 
@@ -260,7 +359,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
 
     const sendMessageDirect = useCallback(
       async (text: string) => {
-        if (!text.trim() || loading) return
+        if (!text.trim() || agUiStream.isStreaming) return
 
         const userMessage = text.trim()
         const tmpId = `tmp-${Date.now()}`
@@ -268,44 +367,11 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
           ...prev,
           { id: tmpId, role: 'user', content: userMessage, createdAt: new Date().toISOString() },
         ])
-        setLoading(true)
         setIsNearBottom(true)
 
-        try {
-          const res = await fetch(AGENT_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-            body: JSON.stringify({ message: userMessage }),
-          })
-
-          if (res.ok) {
-            const data = await res.json()
-            // Replace temp user message and add server messages (with dedup)
-            setMessages((prev) => {
-              const withoutTmp = prev.filter((m) => m.id !== tmpId)
-              const existingIds = new Set(withoutTmp.map((m) => m.id))
-              const newMsgs = (data.messages as ChatMessage[]).filter(
-                (m) => !existingIds.has(m.id),
-              )
-              return [...withoutTmp, ...newMsgs]
-            })
-          }
-        } catch (error) {
-          console.error('Chat error:', error)
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `err-${Date.now()}`,
-              role: 'assistant',
-              content: "Erreur : impossible de contacter l'agent.",
-              createdAt: new Date().toISOString(),
-            },
-          ])
-        } finally {
-          setLoading(false)
-        }
+        await agUiStream.send(userMessage)
       },
-      [loading],
+      [agUiStream],
     )
 
     useImperativeHandle(
@@ -332,7 +398,19 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
           const data = JSON.parse(event.data)
           if (data.id && data.content) {
             setMessages((prev) => {
+              // Dedup: skip if already in list or if content matches just-streamed message
               if (prev.some((m) => m.id === data.id)) return prev
+              // If the content matches a recent streamed message, skip it (Mercure echo)
+              if (
+                data.role === 'assistant' &&
+                prev.length > 0 &&
+                prev[prev.length - 1].role === 'assistant' &&
+                prev[prev.length - 1].id.startsWith('stream-') &&
+                prev[prev.length - 1].content === data.content
+              ) {
+                // Replace the stream-* id with the real persisted id
+                return prev.map((m, i) => (i === prev.length - 1 ? { ...m, id: data.id } : m))
+              }
               return [
                 ...prev,
                 {
@@ -462,6 +540,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     }
 
     const isTranscribing = recorder.state === 'processing' || transcription.loading
+    const isLoading = agUiStream.isStreaming
     const voiceError = recorder.error || transcription.error
 
     // --- Render ---
@@ -694,12 +773,33 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                     </Fragment>
                   )
                 })}
-                {loading && (
+                {/* Streaming bubble */}
+                {streamingMsgId && streamingText && (
+                  <Box
+                    sx={{
+                      alignSelf: 'flex-start',
+                      maxWidth: '85%',
+                      px: 1.5,
+                      py: 1,
+                      borderRadius: 2,
+                      bgcolor: 'grey.800',
+                      color: 'grey.100',
+                      fontSize: 14,
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {streamingText}
+                  </Box>
+                )}
+                {agentState !== 'idle' && !streamingText && (
                   <Box
                     sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', px: 1 }}
                   >
-                    <CircularProgress size={16} />
-                    <Typography variant="body2">Maggie réfléchit...</Typography>
+                    <ActivityPulse state={agentState} />
+                    <Typography variant="body2">
+                      {agentState === 'acting' ? 'Maggie agit...' : 'Maggie réfléchit...'}
+                    </Typography>
                   </Box>
                 )}
                 <div ref={messagesEndRef} />
@@ -793,7 +893,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                 <span>
                   <IconButton
                     onClick={handleMicClick}
-                    disabled={isTranscribing || loading}
+                    disabled={isTranscribing || isLoading}
                     color={recorder.state === 'recording' ? 'error' : 'default'}
                   >
                     {isTranscribing ? (
@@ -806,7 +906,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                   </IconButton>
                 </span>
               </Tooltip>
-              <IconButton color="primary" onClick={sendMessage} disabled={loading || !input.trim()}>
+              <IconButton color="primary" onClick={sendMessage} disabled={isLoading || !input.trim()}>
                 <SendIcon />
               </IconButton>
             </Box>

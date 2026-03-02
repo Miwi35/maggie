@@ -23,6 +23,14 @@ vi.mock('../../hooks/useTranscription', () => ({
   }),
 }))
 
+const mockSend = vi.fn()
+vi.mock('../../hooks/useAgUiStream', () => ({
+  useAgUiStream: () => ({
+    send: mockSend,
+    isStreaming: false,
+  }),
+}))
+
 // Mock EventSource globally before any render
 class MockEventSource {
   onmessage: ((event: MessageEvent) => void) | null = null
@@ -35,6 +43,10 @@ const defaultProps = {
   open: true,
   onClose: vi.fn(),
   onUnread: vi.fn(),
+  agentState: 'idle' as const,
+  onAgentStateChange: vi.fn(),
+  onContextsChange: vi.fn(),
+  onToolCallsChange: vi.fn(),
 }
 
 function mockFetch(responses: Record<string, unknown>) {
@@ -57,8 +69,12 @@ describe('ChatWidget', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     vi.stubGlobal('EventSource', MockEventSource)
+    mockSend.mockReset()
     defaultProps.onClose = vi.fn()
     defaultProps.onUnread = vi.fn()
+    defaultProps.onAgentStateChange = vi.fn()
+    defaultProps.onContextsChange = vi.fn()
+    defaultProps.onToolCallsChange = vi.fn()
     localStorage.removeItem('chat_lastReadMessageId')
   })
 
@@ -85,21 +101,8 @@ describe('ChatWidget', () => {
     })
   })
 
-  test('sends message and shows response', async () => {
-    const chatResponse = {
-      response: 'Hello from Maggie!',
-      messages: [
-        { id: 'msg-10', role: 'user', content: 'Hello Maggie', createdAt: '2026-01-01T10:00:00Z' },
-        { id: 'msg-11', role: 'assistant', content: 'Hello from Maggie!', createdAt: '2026-01-01T10:00:01Z' },
-      ],
-    }
-    vi.stubGlobal(
-      'fetch',
-      mockFetch({
-        '/agent/messages': [],
-        '/agent/chat': chatResponse,
-      }),
-    )
+  test('sends message via streaming', async () => {
+    vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
 
     const user = userEvent.setup()
     render(<ChatWidget {...defaultProps} />)
@@ -110,21 +113,13 @@ describe('ChatWidget', () => {
     const sendButton = screen.getByTestId('SendIcon').closest('button')!
     await user.click(sendButton)
 
-    // Verify fetch was called with correct payload
+    // Verify the streaming send was called
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith(
-        '/agent/chat',
-        expect.objectContaining({
-          method: 'POST',
-          body: JSON.stringify({ message: 'Hello Maggie' }),
-        }),
-      )
+      expect(mockSend).toHaveBeenCalledWith('Hello Maggie')
     })
 
-    // Verify assistant response appears
-    await waitFor(() => {
-      expect(screen.getByText('Hello from Maggie!')).toBeInTheDocument()
-    })
+    // Verify optimistic user message appears
+    expect(screen.getByText('Hello Maggie')).toBeInTheDocument()
   })
 
   test('does not duplicate messages with same ID', async () => {

@@ -12,6 +12,8 @@ interface ChatContextValue {
   pauseWakeWord: () => void
   resumeWakeWord: () => void
   clearWakeWordTrigger: () => void
+  mindOpen: boolean
+  onMindToggle: () => void
 }
 
 export const ChatContext = createContext<ChatContextValue>({
@@ -26,6 +28,8 @@ export const ChatContext = createContext<ChatContextValue>({
   pauseWakeWord: () => {},
   resumeWakeWord: () => {},
   clearWakeWordTrigger: () => {},
+  mindOpen: false,
+  onMindToggle: () => {},
 })
 
 export const useChatContext = () => useContext(ChatContext)

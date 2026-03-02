@@ -25,9 +25,9 @@ class MessageRepository:
         async with agent_engine.begin() as conn:
             await conn.run_sync(AgentBase.metadata.create_all)
 
-    async def create(self, user_id: str, role: str, content: str) -> Message:
+    async def create(self, user_id: str, role: str, content: str, context_id: str | None = None) -> Message:
         async with agent_session() as session:
-            msg = Message(user_id=user_id, role=role, content=content)
+            msg = Message(user_id=user_id, role=role, content=content, context_id=context_id)
             session.add(msg)
             await session.commit()
             await session.refresh(msg)
@@ -114,6 +114,15 @@ class MessageRepository:
             target_index = len(before)
 
             return {"messages": messages, "targetIndex": target_index}
+
+    async def update_context(self, message_id: str, context_id: str) -> None:
+        """Retroactively tag a message with a context ID."""
+        async with agent_session() as session:
+            result = await session.execute(select(Message).where(Message.id == message_id))
+            msg = result.scalar_one_or_none()
+            if msg:
+                msg.context_id = context_id
+                await session.commit()
 
     async def find_after(self, user_id: str, after: str | None = None) -> list[Message]:
         """Find messages after a given ISO timestamp (for incremental sync)."""

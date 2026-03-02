@@ -16,6 +16,7 @@ class Message(AgentBase):
     user_id = Column(String(36), nullable=False)
     role = Column(String(20), nullable=False)  # user, assistant
     content = Column(Text, nullable=False)
+    context_id = Column(String(32), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
 
     def to_dict(self) -> dict:
@@ -23,5 +24,6 @@ class Message(AgentBase):
             "id": self.id,
             "role": self.role,
             "content": self.content,
+            "contextId": self.context_id,
             "createdAt": self.created_at.isoformat() if self.created_at else "",
         }

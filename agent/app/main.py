@@ -8,6 +8,8 @@ from starlette.responses import Response
 
 from app.a2a import setup_a2a
 from app.api.routes import router
+from app.db.context_model import ConversationContext  # noqa: F401 — register model with AgentBase before create_all
+from app.db.context_repository import context_repo
 from app.db.instruction_model import Instruction  # noqa: F401 — register model with AgentBase before create_all
 from app.db.memory_model import Memory  # noqa: F401 — register model with AgentBase before create_all
 from app.db.models import Message  # noqa: F401 — register model with AgentBase before create_all
@@ -30,12 +32,19 @@ async def lifespan(app: FastAPI):
     """Application lifespan: init DB, MCP, RabbitMQ, scheduler, consumer."""
     logger.info("Starting Maggie Agent Hub...")
 
-    # Ensure agent DB tables exist (messages, proactions, memory, etc.)
+    # Ensure agent DB tables exist (messages, proactions, memory, contexts, etc.)
     try:
         await proaction_repo.ensure_table()
         logger.info("Agent database tables ready")
     except Exception as e:
         logger.warning(f"Could not create agent database tables: {e}")
+
+    # Run migrations for new columns on existing tables
+    try:
+        await context_repo.run_migrations()
+        logger.info("Agent database migrations applied")
+    except Exception as e:
+        logger.warning(f"Could not run agent database migrations: {e}")
 
     # Build skill index from files
     try:
