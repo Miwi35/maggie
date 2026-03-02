@@ -264,16 +264,18 @@ jobs:
               $COMPOSE pull ciqual
             fi
 
-            # Clean up stale containers from previous failed deploys
-            docker compose --env-file .env.prod -f docker-compose.prod.yml down --remove-orphans 2>/dev/null || true
+            # Deploy — rolling update: only recreates containers whose image or config changed
+            docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --remove-orphans
 
-            # Deploy — pull missing fetches :latest for unchanged services if not cached
-            docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
+            # Wait for database to be healthy
+            docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T database sh -c \
+              'for i in $(seq 1 30); do pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" && break; sleep 1; done'
 
-            # Wait for database to be ready
-            sleep 10
+            # Ensure agent database exists (init script only runs on fresh volumes)
+            docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T database sh -c \
+              'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tc "SELECT 1 FROM pg_database WHERE datname='"'"'maggie_agent'"'"'" | grep -q 1 || psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE DATABASE maggie_agent OWNER \"$POSTGRES_USER\""'
 
-            # Ensure database exists and run migrations
+            # Ensure main database exists and run Doctrine migrations
             docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T php bin/console doctrine:database:create --no-interaction --if-not-exists
             docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T php bin/console doctrine:migrations:migrate --no-interaction
 
