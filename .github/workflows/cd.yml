@@ -22,6 +22,7 @@ jobs:
       app: ${{ steps.filter.outputs.app }}
       agent: ${{ steps.filter.outputs.agent }}
       ciqual: ${{ steps.filter.outputs.ciqual }}
+      infra: ${{ steps.filter.outputs.infra }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -36,6 +37,7 @@ jobs:
           echo "app=$(echo "$CHANGED" | grep -qE '^(api/|admin/|\.docker/(php|nginx)/)' && echo true || echo false)" >> "$GITHUB_OUTPUT"
           echo "agent=$(echo "$CHANGED" | grep -qE '^(agent/|\.docker/python/)' && echo true || echo false)" >> "$GITHUB_OUTPUT"
           echo "ciqual=$(echo "$CHANGED" | grep -qE '^(ciqual/|\.docker/ciqual/)' && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "infra=$(echo "$CHANGED" | grep -qE '^(docker-compose\.prod\.yml|\.github/workflows/cd\.yml)' && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
   # ===========================================================================
   # Build PHP image (needed by nginx build)
@@ -189,7 +191,8 @@ jobs:
       always() && !failure() && !cancelled() &&
       (needs.build-nginx.result == 'success' ||
        needs.build-agent.result == 'success' ||
-       needs.build-ciqual.result == 'success')
+       needs.build-ciqual.result == 'success' ||
+       needs.changes.outputs.infra == 'true')
     environment: production
     permissions:
       contents: read
