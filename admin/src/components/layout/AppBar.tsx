@@ -19,7 +19,9 @@ import { useChatContext } from './ChatContext'
 export const CustomAppBar = () => {
   const {
     chatOpen,
+    sidebarTab,
     onChatToggle,
+    onMindToggle,
     unreadChat,
     onVoiceMessage,
     wakeWordEnabled,
@@ -28,8 +30,6 @@ export const CustomAppBar = () => {
     pauseWakeWord,
     resumeWakeWord,
     clearWakeWordTrigger,
-    mindOpen,
-    onMindToggle,
   } = useChatContext()
   const recorder = useVoiceRecorder()
   const transcription = useTranscription()
@@ -104,11 +104,11 @@ export const CustomAppBar = () => {
           <NotificationBell />
           <Tooltip title="Maggie's Mind">
             <IconButton color="inherit" onClick={onMindToggle}>
-              <PsychologyIcon sx={{ color: mindOpen ? '#ce93d8' : 'inherit' }} />
+              <PsychologyIcon sx={{ color: chatOpen && sidebarTab === 'mind' ? '#ce93d8' : 'inherit' }} />
             </IconButton>
           </Tooltip>
           <IconButton color="inherit" onClick={onChatToggle}>
-            <Badge variant="dot" color="error" invisible={!unreadChat || chatOpen}>
+            <Badge variant="dot" color="error" invisible={!unreadChat || (chatOpen && sidebarTab === 'chat')}>
               <ChatIcon />
             </Badge>
           </IconButton>

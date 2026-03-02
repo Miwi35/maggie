@@ -41,11 +41,15 @@ vi.stubGlobal('EventSource', MockEventSource)
 
 const defaultProps = {
   open: true,
+  sidebarTab: 'chat' as const,
+  onTabChange: vi.fn(),
   onClose: vi.fn(),
   onUnread: vi.fn(),
   agentState: 'idle' as const,
   onAgentStateChange: vi.fn(),
+  contexts: [] as { id: string; label: string; status: 'active' | 'dormant' | 'closed' }[],
   onContextsChange: vi.fn(),
+  toolCalls: [] as { toolCallId: string; toolName: string; status: 'running' | 'success' | 'error' }[],
   onToolCallsChange: vi.fn(),
 }
 
@@ -70,6 +74,7 @@ describe('ChatWidget', () => {
     vi.restoreAllMocks()
     vi.stubGlobal('EventSource', MockEventSource)
     mockSend.mockReset()
+    defaultProps.onTabChange = vi.fn()
     defaultProps.onClose = vi.fn()
     defaultProps.onUnread = vi.fn()
     defaultProps.onAgentStateChange = vi.fn()
@@ -78,11 +83,12 @@ describe('ChatWidget', () => {
     localStorage.removeItem('chat_lastReadMessageId')
   })
 
-  test('renders header and input when open', () => {
+  test('renders tabs and input when open', () => {
     vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
     render(<ChatWidget {...defaultProps} />)
 
-    expect(screen.getByText('Maggie')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /Chat/i })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /Mind/i })).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Demande à Maggie...')).toBeInTheDocument()
   })
 

@@ -7,6 +7,8 @@ import Tooltip from '@mui/material/Tooltip'
 import InputAdornment from '@mui/material/InputAdornment'
 import Chip from '@mui/material/Chip'
 import Divider from '@mui/material/Divider'
+import Tab from '@mui/material/Tab'
+import Tabs from '@mui/material/Tabs'
 import SendIcon from '@mui/icons-material/Send'
 import CloseIcon from '@mui/icons-material/Close'
 import MicIcon from '@mui/icons-material/Mic'
@@ -15,11 +17,16 @@ import SearchIcon from '@mui/icons-material/Search'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import PersonIcon from '@mui/icons-material/Person'
 import SmartToyIcon from '@mui/icons-material/SmartToy'
+import ChatIcon from '@mui/icons-material/Chat'
+import PsychologyIcon from '@mui/icons-material/Psychology'
 import CircularProgress from '@mui/material/CircularProgress'
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder'
 import { useTranscription } from '../../hooks/useTranscription'
 import { useAgUiStream } from '../../hooks/useAgUiStream'
 import { ActivityPulse } from '../mind/ActivityPulse'
+import { ContextList } from '../mind/ContextList'
+import { ToolCallList } from '../mind/ToolCallList'
+import type { SidebarTab } from '../layout/ChatContext'
 import type { AgentState, ContextState, ToolCallState } from '../mind/types'
 
 interface ChatMessage {
@@ -36,11 +43,15 @@ const PAGE_SIZE = 20
 
 interface ChatWidgetProps {
   open: boolean
+  sidebarTab: SidebarTab
+  onTabChange: (event: unknown, newTab: SidebarTab) => void
   onClose: () => void
   onUnread: () => void
   agentState: AgentState
   onAgentStateChange: (state: AgentState) => void
+  contexts: ContextState[]
   onContextsChange: (contexts: ContextState[]) => void
+  toolCalls: ToolCallState[]
   onToolCallsChange: (toolCalls: ToolCallState[]) => void
 }
 
@@ -112,7 +123,7 @@ function getTimeSeparatorLabel(prev: ChatMessage | null, current: ChatMessage): 
 }
 
 export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
-  ({ open, onClose, onUnread, agentState, onAgentStateChange, onContextsChange, onToolCallsChange }, ref) => {
+  ({ open, sidebarTab, onTabChange, onClose, onUnread, agentState, onAgentStateChange, contexts, onContextsChange, toolCalls, onToolCallsChange }, ref) => {
     const [messages, setMessages] = useState<ChatMessage[]>([])
     const [input, setInput] = useState('')
     const [loadingHistory, setLoadingHistory] = useState(false)
@@ -421,7 +432,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                 },
               ]
             })
-            if (!open) {
+            if (!open || sidebarTab !== 'chat') {
               onUnread()
             }
           }
@@ -431,7 +442,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
       }
 
       return () => eventSource.close()
-    }, [open, onUnread])
+    }, [open, sidebarTab, onUnread])
 
     // --- Search ---
 
@@ -572,11 +583,8 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
           {/* Header */}
           <Box
             sx={{
-              px: 2,
-              py: 1,
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
               borderBottom: 1,
               borderColor: 'divider',
               bgcolor: 'primary.main',
@@ -591,6 +599,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                 size="small"
                 autoFocus
                 fullWidth
+                sx={{ mx: 1 }}
                 slotProps={{
                   htmlInput: { sx: { color: 'primary.contrastText', fontSize: 14 } },
                   input: {
@@ -608,12 +617,28 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                 }}
               />
             ) : (
-              <Typography variant="subtitle1" fontWeight={600}>
-                Maggie
-              </Typography>
+              <Tabs
+                value={sidebarTab}
+                onChange={onTabChange}
+                sx={{
+                  flex: 1,
+                  minHeight: 42,
+                  '& .MuiTab-root': {
+                    minHeight: 42,
+                    color: 'rgba(255,255,255,0.7)',
+                    fontSize: 13,
+                    textTransform: 'none',
+                    '&.Mui-selected': { color: '#fff' },
+                  },
+                  '& .MuiTabs-indicator': { bgcolor: '#fff' },
+                }}
+              >
+                <Tab value="chat" label="Chat" icon={<ChatIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
+                <Tab value="mind" label="Mind" icon={<PsychologyIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
+              </Tabs>
             )}
-            <Box sx={{ display: 'flex', gap: 0.5, ml: 1 }}>
-              {!searchMode && (
+            <Box sx={{ display: 'flex', gap: 0.5, ml: 'auto', pr: 1 }}>
+              {!searchMode && sidebarTab === 'chat' && (
                 <IconButton size="small" onClick={openSearch} sx={{ color: 'inherit' }}>
                   <SearchIcon />
                 </IconButton>
@@ -628,287 +653,325 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
             </Box>
           </Box>
 
-          {/* Search Results */}
-          {searchMode ? (
-            <Box sx={{ flex: 1, overflowY: 'auto', p: 1.5 }}>
-              {searchLoading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                  <CircularProgress size={24} />
+          {/* Chat tab content */}
+          {sidebarTab === 'chat' && (
+            <>
+              {/* Search Results */}
+              {searchMode ? (
+                <Box sx={{ flex: 1, overflowY: 'auto', p: 1.5 }}>
+                  {searchLoading ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                      <CircularProgress size={24} />
+                    </Box>
+                  ) : searchQuery.trim() && searchResults.length === 0 ? (
+                    <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                      Aucun message trouvé
+                    </Typography>
+                  ) : (
+                    searchResults.map((result) => (
+                      <Box
+                        key={result.id}
+                        onClick={() => navigateToMessage(result.id)}
+                        sx={{
+                          p: 1.5,
+                          mb: 1,
+                          borderRadius: 1,
+                          cursor: 'pointer',
+                          bgcolor: 'action.hover',
+                          '&:hover': { bgcolor: 'action.selected' },
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 0.5,
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          {result.role === 'user' ? (
+                            <PersonIcon sx={{ fontSize: 16, color: 'primary.main' }} />
+                          ) : (
+                            <SmartToyIcon sx={{ fontSize: 16, color: 'secondary.main' }} />
+                          )}
+                          <Typography variant="caption" color="text.secondary">
+                            {formatDate(result.createdAt)}
+                          </Typography>
+                        </Box>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                          }}
+                          dangerouslySetInnerHTML={{
+                            __html: highlightSearchTerm(result.content, searchQuery),
+                          }}
+                        />
+                      </Box>
+                    ))
+                  )}
                 </Box>
-              ) : searchQuery.trim() && searchResults.length === 0 ? (
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                  Aucun message trouvé
-                </Typography>
               ) : (
-                searchResults.map((result) => (
+                <>
+                  {/* Messages */}
                   <Box
-                    key={result.id}
-                    onClick={() => navigateToMessage(result.id)}
+                    ref={messagesContainerRef}
+                    onScroll={handleScroll}
                     sx={{
+                      flex: 1,
+                      overflowY: 'auto',
                       p: 1.5,
-                      mb: 1,
-                      borderRadius: 1,
-                      cursor: 'pointer',
-                      bgcolor: 'action.hover',
-                      '&:hover': { bgcolor: 'action.selected' },
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: 0.5,
+                      gap: 1,
+                      position: 'relative',
                     }}
                   >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {result.role === 'user' ? (
-                        <PersonIcon sx={{ fontSize: 16, color: 'primary.main' }} />
-                      ) : (
-                        <SmartToyIcon sx={{ fontSize: 16, color: 'secondary.main' }} />
-                      )}
-                      <Typography variant="caption" color="text.secondary">
-                        {formatDate(result.createdAt)}
-                      </Typography>
-                    </Box>
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                      }}
-                      dangerouslySetInnerHTML={{
-                        __html: highlightSearchTerm(result.content, searchQuery),
-                      }}
-                    />
-                  </Box>
-                ))
-              )}
-            </Box>
-          ) : (
-            <>
-              {/* Messages */}
-              <Box
-                ref={messagesContainerRef}
-                onScroll={handleScroll}
-                sx={{
-                  flex: 1,
-                  overflowY: 'auto',
-                  p: 1.5,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 1,
-                  position: 'relative',
-                }}
-              >
-                {loadingHistory && (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
-                    <CircularProgress size={20} />
-                  </Box>
-                )}
-                {messages.map((msg, index) => {
-                  const prev = index > 0 ? messages[index - 1] : null
-                  const separator = getTimeSeparatorLabel(prev, msg)
-                  const showUnreadLine = msg.id === unreadFromId
+                    {loadingHistory && (
+                      <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
+                        <CircularProgress size={20} />
+                      </Box>
+                    )}
+                    {messages.map((msg, index) => {
+                      const prev = index > 0 ? messages[index - 1] : null
+                      const separator = getTimeSeparatorLabel(prev, msg)
+                      const showUnreadLine = msg.id === unreadFromId
 
-                  return (
-                    <Fragment key={msg.id}>
-                      {separator && (
-                        <Typography
-                          variant="caption"
-                          sx={{ alignSelf: 'center', color: 'text.secondary', py: 0.5 }}
-                        >
-                          {separator}
-                        </Typography>
-                      )}
-                      {showUnreadLine && (
-                        <Divider
-                          sx={{ my: 0.5, '&::before, &::after': { borderColor: 'warning.main' } }}
-                        >
-                          <Chip
-                            label="Messages non lus"
-                            size="small"
+                      return (
+                        <Fragment key={msg.id}>
+                          {separator && (
+                            <Typography
+                              variant="caption"
+                              sx={{ alignSelf: 'center', color: 'text.secondary', py: 0.5 }}
+                            >
+                              {separator}
+                            </Typography>
+                          )}
+                          {showUnreadLine && (
+                            <Divider
+                              sx={{ my: 0.5, '&::before, &::after': { borderColor: 'warning.main' } }}
+                            >
+                              <Chip
+                                label="Messages non lus"
+                                size="small"
+                                sx={{
+                                  bgcolor: 'warning.main',
+                                  color: 'warning.contrastText',
+                                  fontSize: 11,
+                                  height: 20,
+                                }}
+                              />
+                            </Divider>
+                          )}
+                          {tappedId === msg.id && !separator && (
+                            <Typography
+                              variant="caption"
+                              sx={{ alignSelf: 'center', color: 'text.secondary', py: 0.5 }}
+                            >
+                              {formatDayLabel(new Date(msg.createdAt)) + ' ' + formatTime(new Date(msg.createdAt))}
+                            </Typography>
+                          )}
+                          <Box
+                            id={`msg-${msg.id}`}
+                            onClick={() => setTappedId((prev) => (prev === msg.id ? null : msg.id))}
                             sx={{
-                              bgcolor: 'warning.main',
-                              color: 'warning.contrastText',
-                              fontSize: 11,
-                              height: 20,
+                              alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                              maxWidth: '85%',
+                              px: 1.5,
+                              py: 1,
+                              borderRadius: 2,
+                              bgcolor: msg.role === 'user' ? 'primary.main' : 'grey.800',
+                              color: msg.role === 'user' ? 'primary.contrastText' : 'grey.100',
+                              fontSize: 14,
+                              whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word',
+                              transition: 'box-shadow 0.3s ease',
+                              ...(highlightId === msg.id && {
+                                boxShadow: '0 0 0 2px #ff9800',
+                                animation: 'highlight-fade 2s ease-out',
+                                '@keyframes highlight-fade': {
+                                  '0%': { boxShadow: '0 0 0 3px #ff9800' },
+                                  '100%': { boxShadow: '0 0 0 0px transparent' },
+                                },
+                              }),
                             }}
-                          />
-                        </Divider>
-                      )}
-                      {tappedId === msg.id && !separator && (
-                        <Typography
-                          variant="caption"
-                          sx={{ alignSelf: 'center', color: 'text.secondary', py: 0.5 }}
-                        >
-                          {formatDayLabel(new Date(msg.createdAt)) + ' ' + formatTime(new Date(msg.createdAt))}
-                        </Typography>
-                      )}
+                          >
+                            {msg.content}
+                          </Box>
+                        </Fragment>
+                      )
+                    })}
+                    {/* Streaming bubble */}
+                    {streamingMsgId && streamingText && (
                       <Box
-                        id={`msg-${msg.id}`}
-                        onClick={() => setTappedId((prev) => (prev === msg.id ? null : msg.id))}
                         sx={{
-                          alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                          alignSelf: 'flex-start',
                           maxWidth: '85%',
                           px: 1.5,
                           py: 1,
                           borderRadius: 2,
-                          bgcolor: msg.role === 'user' ? 'primary.main' : 'grey.800',
-                          color: msg.role === 'user' ? 'primary.contrastText' : 'grey.100',
+                          bgcolor: 'grey.800',
+                          color: 'grey.100',
                           fontSize: 14,
                           whiteSpace: 'pre-wrap',
                           wordBreak: 'break-word',
-                          transition: 'box-shadow 0.3s ease',
-                          ...(highlightId === msg.id && {
-                            boxShadow: '0 0 0 2px #ff9800',
-                            animation: 'highlight-fade 2s ease-out',
-                            '@keyframes highlight-fade': {
-                              '0%': { boxShadow: '0 0 0 3px #ff9800' },
-                              '100%': { boxShadow: '0 0 0 0px transparent' },
-                            },
-                          }),
                         }}
                       >
-                        {msg.content}
+                        {streamingText}
                       </Box>
-                    </Fragment>
-                  )
-                })}
-                {/* Streaming bubble */}
-                {streamingMsgId && streamingText && (
+                    )}
+                    {agentState !== 'idle' && !streamingText && (
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', px: 1 }}
+                      >
+                        <ActivityPulse state={agentState} />
+                        <Typography variant="body2">
+                          {agentState === 'acting' ? 'Maggie agit...' : 'Maggie réfléchit...'}
+                        </Typography>
+                      </Box>
+                    )}
+                    <div ref={messagesEndRef} />
+                  </Box>
+
+                  {/* Back to latest button */}
+                  {!isNearBottom && (
+                    <Chip
+                      icon={<ArrowDownwardIcon />}
+                      label="Derniers messages"
+                      size="small"
+                      onClick={scrollToBottom}
+                      sx={{
+                        position: 'absolute',
+                        bottom: 80,
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        zIndex: 1,
+                        bgcolor: 'background.paper',
+                        boxShadow: 2,
+                      }}
+                    />
+                  )}
+                </>
+              )}
+
+              {/* Recording indicator */}
+              {recorder.state === 'recording' && (
+                <Box
+                  sx={{
+                    px: 1.5,
+                    py: 0.75,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    bgcolor: 'error.50',
+                    borderTop: 1,
+                    borderColor: 'divider',
+                  }}
+                >
                   <Box
                     sx={{
-                      alignSelf: 'flex-start',
-                      maxWidth: '85%',
-                      px: 1.5,
-                      py: 1,
-                      borderRadius: 2,
-                      bgcolor: 'grey.800',
-                      color: 'grey.100',
-                      fontSize: 14,
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      bgcolor: 'error.main',
+                      animation: 'pulse 1.5s ease-in-out infinite',
+                      '@keyframes pulse': {
+                        '0%, 100%': { opacity: 1 },
+                        '50%': { opacity: 0.3 },
+                      },
+                    }}
+                  />
+                  <Typography variant="caption" sx={{ flex: 1 }}>
+                    {recorder.duration}s
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    sx={{ cursor: 'pointer', color: 'error.main', fontWeight: 600 }}
+                    onClick={() => {
+                      recorder.cancelRecording()
                     }}
                   >
-                    {streamingText}
-                  </Box>
-                )}
-                {agentState !== 'idle' && !streamingText && (
-                  <Box
-                    sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', px: 1 }}
-                  >
-                    <ActivityPulse state={agentState} />
-                    <Typography variant="body2">
-                      {agentState === 'acting' ? 'Maggie agit...' : 'Maggie réfléchit...'}
-                    </Typography>
-                  </Box>
-                )}
-                <div ref={messagesEndRef} />
-              </Box>
+                    Annuler
+                  </Typography>
+                </Box>
+              )}
 
-              {/* Back to latest button */}
-              {!isNearBottom && (
-                <Chip
-                  icon={<ArrowDownwardIcon />}
-                  label="Derniers messages"
-                  size="small"
-                  onClick={scrollToBottom}
-                  sx={{
-                    position: 'absolute',
-                    bottom: 80,
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    zIndex: 1,
-                    bgcolor: 'background.paper',
-                    boxShadow: 2,
-                  }}
-                />
+              {/* Voice error */}
+              {voiceError && (
+                <Box sx={{ px: 1.5, py: 0.5 }}>
+                  <Typography variant="caption" color="error">
+                    {voiceError}
+                  </Typography>
+                </Box>
+              )}
+
+              {/* Input */}
+              {!searchMode && (
+                <Box sx={{ p: 1.5, borderTop: 1, borderColor: 'divider', display: 'flex', gap: 1 }}>
+                  <TextField
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Demande à Maggie..."
+                    size="small"
+                    fullWidth
+                    slotProps={{ htmlInput: { sx: { fontSize: 14 } } }}
+                  />
+                  <Tooltip title={recorder.state === 'recording' ? 'Arrêter' : 'Dicter'}>
+                    <span>
+                      <IconButton
+                        onClick={handleMicClick}
+                        disabled={isTranscribing || isLoading}
+                        color={recorder.state === 'recording' ? 'error' : 'default'}
+                      >
+                        {isTranscribing ? (
+                          <CircularProgress size={24} />
+                        ) : recorder.state === 'recording' ? (
+                          <StopIcon />
+                        ) : (
+                          <MicIcon />
+                        )}
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                  <IconButton color="primary" onClick={sendMessage} disabled={isLoading || !input.trim()}>
+                    <SendIcon />
+                  </IconButton>
+                </Box>
               )}
             </>
           )}
 
-          {/* Recording indicator */}
-          {recorder.state === 'recording' && (
-            <Box
-              sx={{
-                px: 1.5,
-                py: 0.75,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                bgcolor: 'error.50',
-                borderTop: 1,
-                borderColor: 'divider',
-              }}
-            >
-              <Box
-                sx={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  bgcolor: 'error.main',
-                  animation: 'pulse 1.5s ease-in-out infinite',
-                  '@keyframes pulse': {
-                    '0%, 100%': { opacity: 1 },
-                    '50%': { opacity: 0.3 },
-                  },
-                }}
-              />
-              <Typography variant="caption" sx={{ flex: 1 }}>
-                {recorder.duration}s
-              </Typography>
-              <Typography
-                variant="caption"
-                sx={{ cursor: 'pointer', color: 'error.main', fontWeight: 600 }}
-                onClick={() => {
-                  recorder.cancelRecording()
-                }}
-              >
-                Annuler
-              </Typography>
-            </Box>
-          )}
-
-          {/* Voice error */}
-          {voiceError && (
-            <Box sx={{ px: 1.5, py: 0.5 }}>
-              <Typography variant="caption" color="error">
-                {voiceError}
-              </Typography>
-            </Box>
-          )}
-
-          {/* Input */}
-          {!searchMode && (
-            <Box sx={{ p: 1.5, borderTop: 1, borderColor: 'divider', display: 'flex', gap: 1 }}>
-              <TextField
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Demande à Maggie..."
-                size="small"
-                fullWidth
-                slotProps={{ htmlInput: { sx: { fontSize: 14 } } }}
-              />
-              <Tooltip title={recorder.state === 'recording' ? 'Arrêter' : 'Dicter'}>
-                <span>
-                  <IconButton
-                    onClick={handleMicClick}
-                    disabled={isTranscribing || isLoading}
-                    color={recorder.state === 'recording' ? 'error' : 'default'}
-                  >
-                    {isTranscribing ? (
-                      <CircularProgress size={24} />
-                    ) : recorder.state === 'recording' ? (
-                      <StopIcon />
-                    ) : (
-                      <MicIcon />
-                    )}
-                  </IconButton>
-                </span>
-              </Tooltip>
-              <IconButton color="primary" onClick={sendMessage} disabled={isLoading || !input.trim()}>
-                <SendIcon />
-              </IconButton>
+          {/* Mind tab content */}
+          {sidebarTab === 'mind' && (
+            <Box sx={{ flex: 1, overflowY: 'auto' }}>
+              {agentState !== 'idle' && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1.5 }}>
+                  <ActivityPulse state={agentState} />
+                  <Typography variant="body2" color="text.secondary">
+                    {agentState === 'acting' ? 'Maggie agit...' : 'Maggie réfléchit...'}
+                  </Typography>
+                </Box>
+              )}
+              <Box sx={{ py: 1 }}>
+                <Typography
+                  variant="overline"
+                  sx={{ px: 2, color: 'text.secondary', fontSize: 10, letterSpacing: 1 }}
+                >
+                  Contextes
+                </Typography>
+                <ContextList contexts={contexts} />
+              </Box>
+              <Divider />
+              <Box sx={{ py: 1, flex: 1 }}>
+                <Typography
+                  variant="overline"
+                  sx={{ px: 2, color: 'text.secondary', fontSize: 10, letterSpacing: 1 }}
+                >
+                  Activité
+                </Typography>
+                <ToolCallList toolCalls={toolCalls} />
+              </Box>
             </Box>
           )}
         </Box>

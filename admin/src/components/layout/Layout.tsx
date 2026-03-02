@@ -2,18 +2,18 @@ import { useState, useCallback, useRef, useMemo } from 'react'
 import { Layout as RALayout, LayoutProps } from 'react-admin'
 import Box from '@mui/material/Box'
 import { ChatWidget, ChatWidgetRef } from '../chat/ChatWidget'
-import { MindPanel } from '../mind/MindPanel'
 import { CustomAppBar } from './AppBar'
 import { CustomMenu } from './Menu'
 import { ChatContext } from './ChatContext'
+import type { SidebarTab } from './ChatContext'
 import { useWakeWord } from '../../hooks/useWakeWord'
 import type { AgentState, ContextState, ToolCallState } from '../mind/types'
 
 export const Layout = (props: LayoutProps) => {
   const [chatOpen, setChatOpen] = useState(true)
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>('chat')
   const [unreadChat, setUnreadChat] = useState(false)
   const [wakeWordTriggered, setWakeWordTriggered] = useState(false)
-  const [mindOpen, setMindOpen] = useState(false)
   const [contexts, setContexts] = useState<ContextState[]>([])
   const [toolCalls, setToolCalls] = useState<ToolCallState[]>([])
   const [agentState, setAgentState] = useState<AgentState>('idle')
@@ -24,12 +24,30 @@ export const Layout = (props: LayoutProps) => {
   }, [])
 
   const handleChatToggle = useCallback(() => {
-    setChatOpen((prev) => {
-      if (!prev) setUnreadChat(false)
-      return !prev
-    })
+    if (!chatOpen) {
+      setChatOpen(true)
+      setSidebarTab('chat')
+      setUnreadChat(false)
+    } else if (sidebarTab === 'chat') {
+      setChatOpen(false)
+    } else {
+      setSidebarTab('chat')
+      setUnreadChat(false)
+    }
     triggerResize()
-  }, [triggerResize])
+  }, [chatOpen, sidebarTab, triggerResize])
+
+  const handleMindToggle = useCallback(() => {
+    if (!chatOpen) {
+      setChatOpen(true)
+      setSidebarTab('mind')
+    } else if (sidebarTab === 'mind') {
+      setChatOpen(false)
+    } else {
+      setSidebarTab('mind')
+    }
+    triggerResize()
+  }, [chatOpen, sidebarTab, triggerResize])
 
   const handleChatClose = useCallback(() => {
     setChatOpen(false)
@@ -40,12 +58,17 @@ export const Layout = (props: LayoutProps) => {
     setUnreadChat(true)
   }, [])
 
+  const handleTabChange = useCallback((_: unknown, newTab: SidebarTab) => {
+    setSidebarTab(newTab)
+  }, [])
+
   const handleVoiceMessage = useCallback(
     (text: string) => {
       if (!chatOpen) {
         setChatOpen(true)
         setUnreadChat(false)
       }
+      setSidebarTab('chat')
       setTimeout(() => {
         chatRef.current?.sendMessage(text)
       }, 100)
@@ -59,6 +82,7 @@ export const Layout = (props: LayoutProps) => {
       setUnreadChat(false)
       triggerResize()
     }
+    setSidebarTab('chat')
     setWakeWordTriggered(true)
   }, [chatOpen, triggerResize])
 
@@ -66,22 +90,14 @@ export const Layout = (props: LayoutProps) => {
     setWakeWordTriggered(false)
   }, [])
 
-  const handleMindToggle = useCallback(() => {
-    setMindOpen((prev) => !prev)
-    triggerResize()
-  }, [triggerResize])
-
-  const handleMindClose = useCallback(() => {
-    setMindOpen(false)
-    triggerResize()
-  }, [triggerResize])
-
   const wakeWord = useWakeWord({ onDetected: handleWakeWordDetected })
 
   const chatContext = useMemo(
     () => ({
       chatOpen,
+      sidebarTab,
       onChatToggle: handleChatToggle,
+      onMindToggle: handleMindToggle,
       unreadChat,
       onVoiceMessage: handleVoiceMessage,
       wakeWordEnabled: wakeWord.enabled,
@@ -91,12 +107,12 @@ export const Layout = (props: LayoutProps) => {
       pauseWakeWord: wakeWord.pause,
       resumeWakeWord: wakeWord.resume,
       clearWakeWordTrigger,
-      mindOpen,
-      onMindToggle: handleMindToggle,
     }),
     [
       chatOpen,
+      sidebarTab,
       handleChatToggle,
+      handleMindToggle,
       unreadChat,
       handleVoiceMessage,
       wakeWord.enabled,
@@ -106,8 +122,6 @@ export const Layout = (props: LayoutProps) => {
       wakeWord.pause,
       wakeWord.resume,
       clearWakeWordTrigger,
-      mindOpen,
-      handleMindToggle,
     ],
   )
 
@@ -121,19 +135,16 @@ export const Layout = (props: LayoutProps) => {
           <ChatWidget
             ref={chatRef}
             open={chatOpen}
+            sidebarTab={sidebarTab}
+            onTabChange={handleTabChange}
             onClose={handleChatClose}
             onUnread={handleUnread}
             agentState={agentState}
             onAgentStateChange={setAgentState}
-            onContextsChange={setContexts}
-            onToolCallsChange={setToolCalls}
-          />
-          <MindPanel
-            open={mindOpen}
             contexts={contexts}
+            onContextsChange={setContexts}
             toolCalls={toolCalls}
-            agentState={agentState}
-            onClose={handleMindClose}
+            onToolCallsChange={setToolCalls}
           />
         </Box>
       </RALayout>
