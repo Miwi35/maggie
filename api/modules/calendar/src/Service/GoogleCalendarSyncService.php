@@ -207,15 +207,16 @@ class GoogleCalendarSyncService
         $this->entityManager->flush();
 
         // Publish Mercure updates and index in Elasticsearch
+        $userId = (string) $user->getId();
         foreach ($changedEventIds as $eventId) {
-            $this->publishMercureUpdate($eventId);
+            $this->publishMercureUpdate($eventId, $userId);
             $this->messageBus->dispatch(new IndexDocumentCommand(
                 entityClass: Event::class,
                 entityId: $eventId,
             ));
         }
         foreach ($deletedEventIds as $eventId) {
-            $this->publishMercureUpdate($eventId);
+            $this->publishMercureUpdate($eventId, $userId);
             $this->messageBus->dispatch(new DeleteDocumentCommand(
                 indexName: 'events',
                 documentId: $eventId,
@@ -262,23 +263,24 @@ class GoogleCalendarSyncService
         return (string) $event->getId();
     }
 
-    private function publishMercureUpdate(string $eventId): void
+    private function publishMercureUpdate(string $eventId, string $userId): void
     {
         try {
             $event = $this->eventRepository->find($eventId);
+            $iri = '/api/events/' . $eventId;
+            $scopedTopic = '/users/' . $userId . $iri;
+
             if ($event === null) {
                 // Event was deleted
-                $iri = '/api/events/' . $eventId;
                 $this->hub->publish(new Update(
-                    topics: [$iri],
+                    topics: [$scopedTopic],
                     data: json_encode(['@id' => $iri, 'deleted' => true], JSON_THROW_ON_ERROR),
                 ));
                 return;
             }
 
-            $iri = '/api/events/' . $event->getId();
             $this->hub->publish(new Update(
-                topics: [$iri],
+                topics: [$scopedTopic],
                 data: json_encode(['@id' => $iri] + $event->toMercurePayload(), JSON_THROW_ON_ERROR),
             ));
         } catch (\Throwable $e) {
