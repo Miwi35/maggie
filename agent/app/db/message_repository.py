@@ -25,18 +25,21 @@ class MessageRepository:
         async with agent_engine.begin() as conn:
             await conn.run_sync(AgentBase.metadata.create_all)
 
-    async def create(self, user_id: str, role: str, content: str, context_id: str | None = None) -> Message:
+    async def create(
+        self, user_id: str, role: str, content: str, context_id: str | None = None, *, publish: bool = True
+    ) -> Message:
         async with agent_session() as session:
             msg = Message(user_id=user_id, role=role, content=content, context_id=context_id)
             session.add(msg)
             await session.commit()
             await session.refresh(msg)
 
-        # Auto-publish to Mercure
-        try:
-            await self.publisher.publish(f"/chat/{user_id}", msg.to_dict())
-        except Exception as e:
-            logger.warning(f"Failed to publish message to Mercure: {e}")
+        # Auto-publish to Mercure (skip for streaming flow where client already has the message)
+        if publish:
+            try:
+                await self.publisher.publish(f"/chat/{user_id}", msg.to_dict())
+            except Exception as e:
+                logger.warning(f"Failed to publish message to Mercure: {e}")
 
         return msg
 

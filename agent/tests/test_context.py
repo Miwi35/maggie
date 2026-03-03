@@ -173,5 +173,5 @@ class TestStreamRoute:
 
         authed_client.post("/chat/stream", json={"message": "Test message"})
         mock_msg_repo.create.assert_called_once_with(
-            user_id="test-user", role="user", content="Test message"
+            user_id="test-user", role="user", content="Test message", publish=False
         )

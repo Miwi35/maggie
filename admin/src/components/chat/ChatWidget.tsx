@@ -137,6 +137,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     const [streamingText, setStreamingText] = useState('')
     const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null)
     const streamedMessageIdRef = useRef<string | null>(null)
+    const streamingTextRef = useRef('')
 
     // Search state
     const [searchMode, setSearchMode] = useState(false)
@@ -173,28 +174,31 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
       onTextStart: (messageId) => {
         setStreamingMsgId(messageId)
         setStreamingText('')
+        streamingTextRef.current = ''
         streamedMessageIdRef.current = messageId
         onAgentStateChange('thinking')
       },
       onTextDelta: (_mid, delta) => {
+        streamingTextRef.current += delta
         setStreamingText((prev) => prev + delta)
       },
       onTextEnd: () => {
         // Finalize: move streaming text into messages array
-        setStreamingText((finalText) => {
-          if (finalText.trim()) {
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: `stream-${Date.now()}`,
-                role: 'assistant',
-                content: finalText,
-                createdAt: new Date().toISOString(),
-              },
-            ])
-          }
-          return ''
-        })
+        // Read from ref to avoid impure side effects in state updaters (breaks in StrictMode)
+        const finalText = streamingTextRef.current
+        if (finalText.trim()) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `stream-${Date.now()}`,
+              role: 'assistant',
+              content: finalText,
+              createdAt: new Date().toISOString(),
+            },
+          ])
+        }
+        streamingTextRef.current = ''
+        setStreamingText('')
         setStreamingMsgId(null)
       },
       onToolCallStart: (toolCallId, toolName) => {
@@ -436,19 +440,21 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
           const data = JSON.parse(event.data)
           if (data.id && data.content) {
             setMessages((prev) => {
-              // Dedup: skip if already in list or if content matches just-streamed message
+              // Dedup: skip if already in list by real ID
               if (prev.some((m) => m.id === data.id)) return prev
-              // If the content matches a recent streamed message, skip it (Mercure echo)
-              if (
-                data.role === 'assistant' &&
-                prev.length > 0 &&
-                prev[prev.length - 1].role === 'assistant' &&
-                prev[prev.length - 1].id.startsWith('stream-') &&
-                prev[prev.length - 1].content === data.content
-              ) {
-                // Replace the stream-* id with the real persisted id
-                return prev.map((m, i) => (i === prev.length - 1 ? { ...m, id: data.id } : m))
+              // Find a temp message matching this Mercure echo (stream-* for assistant, tmp-* for user)
+              const tempPrefix = data.role === 'assistant' ? 'stream-' : 'tmp-'
+              const tempIdx = prev.findIndex(
+                (m) =>
+                  m.id.startsWith(tempPrefix) &&
+                  m.role === data.role &&
+                  m.content.trim() === data.content.trim(),
+              )
+              if (tempIdx !== -1) {
+                // Replace the temp id with the real persisted id
+                return prev.map((m, i) => (i === tempIdx ? { ...m, id: data.id } : m))
               }
+              // Genuinely new message (other device or proactive agent)
               return [
                 ...prev,
                 {

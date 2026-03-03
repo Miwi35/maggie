@@ -96,12 +96,8 @@ class StreamingGateway:
             yield {"type": "RUN_FINISHED", "runId": run_id}
             return
 
-        # Load history and append current message
+        # Load history (already includes the just-persisted user message)
         messages = await self._load_conversation_history(user_id)
-        if messages and messages[-1]["role"] == "user":
-            messages[-1]["content"] += "\n" + message
-        else:
-            messages.append({"role": "user", "content": message})
 
         # Get tools (contexts are managed by the gateway, not by Claude)
         tools = await self.tool_router.get_tool_definitions(include_native=True)
@@ -117,6 +113,10 @@ class StreamingGateway:
         if ctx_resolution:
             yield {"type": "CUSTOM", "name": "context_update", "value": ctx_resolution}
 
+        # Single message ID across all iterations so the frontend sees one message bubble
+        msg_id = uuid.uuid4().hex[:16]
+        text_started = False
+
         for iteration in range(max_iterations):
             logger.info(f"Stream iteration {iteration + 1}, {len(tools)} tools, {len(messages)} messages")
 
@@ -131,8 +131,6 @@ class StreamingGateway:
                     tools=tools if tools else anthropic.NOT_GIVEN,
                 )
 
-                msg_id = uuid.uuid4().hex[:16]
-                text_started = False
                 current_text_block = ""
                 tool_use_blocks = []
                 response_content = []
@@ -181,10 +179,6 @@ class StreamingGateway:
                         output_tokens=response.usage.output_tokens,
                         duration_seconds=duration,
                     )
-
-                # End text message if one was started
-                if text_started:
-                    yield {"type": "TEXT_MESSAGE_END", "messageId": msg_id}
 
                 # Process tool calls if stop_reason is tool_use
                 if stop_reason == "tool_use":
@@ -272,24 +266,29 @@ class StreamingGateway:
                     status="error",
                 )
                 logger.error(f"Streaming error: {e}")
-                error_msg_id = uuid.uuid4().hex[:16]
-                yield {"type": "TEXT_MESSAGE_START", "messageId": error_msg_id, "role": "assistant"}
+                if not text_started:
+                    yield {"type": "TEXT_MESSAGE_START", "messageId": msg_id, "role": "assistant"}
+                    text_started = True
                 yield {
                     "type": "TEXT_MESSAGE_CONTENT",
-                    "messageId": error_msg_id,
+                    "messageId": msg_id,
                     "delta": "Désolé, une erreur est survenue. Réessaie.",
                 }
-                yield {"type": "TEXT_MESSAGE_END", "messageId": error_msg_id}
                 accumulated_text = "Désolé, une erreur est survenue. Réessaie."
                 break
 
-        # Persist the assistant message
+        # End the single text message that spans all iterations
+        if text_started:
+            yield {"type": "TEXT_MESSAGE_END", "messageId": msg_id}
+
+        # Persist the assistant message (no Mercure publish — client already has it from SSE)
         if accumulated_text.strip():
             await message_repo.create(
                 user_id=user_id,
                 role="assistant",
                 content=accumulated_text.strip(),
                 context_id=current_context_id,
+                publish=False,
             )
 
         yield {"type": "RUN_FINISHED", "runId": run_id}
