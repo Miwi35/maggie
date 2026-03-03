@@ -9,10 +9,13 @@ use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Entity\EventStatus;
 use Maggie\Calendar\Repository\AgendaRepository;
 use Maggie\Calendar\Repository\EventRepository;
+use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
+use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
 use Maggie\Core\Entity\User;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Mercure\HubInterface;
 use Symfony\Component\Mercure\Update;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 class GoogleCalendarSyncService
 {
@@ -23,6 +26,7 @@ class GoogleCalendarSyncService
         private readonly AgendaRepository $agendaRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly HubInterface $hub,
+        private readonly MessageBusInterface $messageBus,
         private readonly LoggerInterface $logger,
     ) {
     }
@@ -36,6 +40,8 @@ class GoogleCalendarSyncService
         $user = $agenda->getUser();
         $calendarId = $agenda->getGoogleCalendarId();
         $syncToken = $agenda->getGoogleSyncToken();
+
+        $this->syncAgendaColor($user, $agenda, $calendarId);
 
         try {
             $this->doPull($user, $agenda, $calendarId, $syncToken);
@@ -148,10 +154,28 @@ class GoogleCalendarSyncService
         }
     }
 
+    private function syncAgendaColor(User $user, Agenda $agenda, string $calendarId): void
+    {
+        try {
+            $calendarEntry = $this->apiClient->getCalendarListEntry($user, $calendarId);
+            $googleColor = $calendarEntry->getBackgroundColor();
+            if ($googleColor !== $agenda->getColor()) {
+                $agenda->setColor($googleColor);
+                $this->entityManager->flush();
+            }
+        } catch (\Throwable $e) {
+            $this->logger->warning('Failed to sync agenda color from Google: {error}', [
+                'error' => $e->getMessage(),
+                'agenda' => (string) $agenda->getId(),
+            ]);
+        }
+    }
+
     private function doPull(User $user, Agenda $agenda, string $calendarId, ?string $syncToken): void
     {
         $pageToken = null;
         $changedEventIds = [];
+        $deletedEventIds = [];
 
         do {
             $result = $this->apiClient->listEvents($user, $calendarId, $syncToken, $pageToken);
@@ -159,9 +183,16 @@ class GoogleCalendarSyncService
             $pageToken = $result['nextPageToken'];
 
             foreach ($events as $googleEvent) {
-                $eventId = $this->processGoogleEvent($googleEvent, $agenda);
-                if ($eventId !== null) {
-                    $changedEventIds[] = $eventId;
+                if ($googleEvent->getStatus() === 'cancelled') {
+                    $eventId = $this->processGoogleEvent($googleEvent, $agenda);
+                    if ($eventId !== null) {
+                        $deletedEventIds[] = $eventId;
+                    }
+                } else {
+                    $eventId = $this->processGoogleEvent($googleEvent, $agenda);
+                    if ($eventId !== null) {
+                        $changedEventIds[] = $eventId;
+                    }
                 }
             }
 
@@ -175,9 +206,20 @@ class GoogleCalendarSyncService
         $agenda->setLastGoogleSyncAt(new \DateTimeImmutable());
         $this->entityManager->flush();
 
-        // Publish Mercure updates for changed events
+        // Publish Mercure updates and index in Elasticsearch
         foreach ($changedEventIds as $eventId) {
             $this->publishMercureUpdate($eventId);
+            $this->messageBus->dispatch(new IndexDocumentCommand(
+                entityClass: Event::class,
+                entityId: $eventId,
+            ));
+        }
+        foreach ($deletedEventIds as $eventId) {
+            $this->publishMercureUpdate($eventId);
+            $this->messageBus->dispatch(new DeleteDocumentCommand(
+                indexName: 'events',
+                documentId: $eventId,
+            ));
         }
     }
 

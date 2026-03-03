@@ -17,13 +17,18 @@ use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Component\Mercure\HubInterface;
 use Symfony\Component\Mercure\Update;
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Uid\Ulid;
 
 class GoogleCalendarSyncServiceTest extends TestCase
 {
     /** @var Update[] */
     private array $publishedUpdates = [];
+    /** @var object[] */
+    private array $dispatchedMessages = [];
     private HubInterface $hub;
+    private MessageBusInterface $messageBus;
     private GoogleCalendarApiClient $apiClient;
     private GoogleEventMapper $eventMapper;
     private EventRepository $eventRepository;
@@ -33,10 +38,17 @@ class GoogleCalendarSyncServiceTest extends TestCase
     protected function setUp(): void
     {
         $this->publishedUpdates = [];
+        $this->dispatchedMessages = [];
         $this->hub = $this->createMock(HubInterface::class);
         $this->hub->method('publish')->willReturnCallback(function (Update $update) {
             $this->publishedUpdates[] = $update;
             return 'urn:uuid:' . new Ulid();
+        });
+
+        $this->messageBus = $this->createMock(MessageBusInterface::class);
+        $this->messageBus->method('dispatch')->willReturnCallback(function (object $message) {
+            $this->dispatchedMessages[] = $message;
+            return new Envelope($message);
         });
 
         $this->apiClient = $this->createMock(GoogleCalendarApiClient::class);
@@ -55,6 +67,7 @@ class GoogleCalendarSyncServiceTest extends TestCase
             $this->agendaRepository,
             $this->entityManager,
             $this->hub,
+            $this->messageBus,
             new NullLogger(),
         );
     }

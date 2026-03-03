@@ -38,6 +38,13 @@ class GoogleCalendarApiClient
         return $calendarList->getItems();
     }
 
+    public function getCalendarListEntry(User $user, string $calendarId): CalendarListEntry
+    {
+        $service = $this->getCalendarService($user);
+
+        return $service->calendarList->get($calendarId);
+    }
+
     /**
      * @return array{events: GoogleEvent[], nextSyncToken: string|null, nextPageToken: string|null}
      */
