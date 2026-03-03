@@ -171,35 +171,6 @@ INSTRUCTION_TOOLS = [
     },
 ]
 
-# Context management tool (handled by streaming gateway, not in _NATIVE_HANDLERS)
-MANAGE_CONTEXT_TOOL = {
-    "name": "manage_context",
-    "description": (
-        "Manage conversation contexts/topics. Use 'create' when the conversation shifts to a new topic. "
-        "Use 'switch' to reactivate a dormant context. Use 'close' when a topic is resolved. "
-        "This helps organize conversations into coherent threads."
-    ),
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "action": {
-                "type": "string",
-                "enum": ["create", "switch", "close"],
-                "description": "Action to perform on context",
-            },
-            "label": {
-                "type": "string",
-                "description": "Human-readable label for the context (required for 'create')",
-            },
-            "context_id": {
-                "type": "string",
-                "description": "Context ID (required for 'switch' and 'close')",
-            },
-        },
-        "required": ["action"],
-    },
-}
-
 # Skill tools (always available — chat + proaction)
 SKILL_TOOLS = [
     {

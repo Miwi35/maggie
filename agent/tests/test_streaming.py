@@ -1,5 +1,6 @@
 """Tests for StreamingGateway AG-UI event emission."""
 
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -49,93 +50,86 @@ class TestStreamingGateway:
             assert types[-1] == "RUN_FINISHED"
 
     @pytest.mark.asyncio
-    async def test_handle_manage_context_create(self):
-        """Test creating a new context via manage_context."""
-        with patch("app.llm.streaming.context_repo") as mock_repo:
+    async def test_resolve_context_creates_new(self):
+        """When no contexts exist, creates a new one."""
+        with (
+            patch("app.llm.streaming.context_repo") as mock_repo,
+            patch("app.llm.streaming.message_repo") as mock_msg_repo,
+        ):
+            mock_repo.find_active = AsyncMock(return_value=[])
             ctx = MagicMock()
-            ctx.id = "ctx-123"
-            ctx.label = "Shopping list"
+            ctx.id = "ctx-new"
+            ctx.label = "Liste de courses"
             ctx.status = MagicMock()
             ctx.status.value = "active"
             mock_repo.create = AsyncMock(return_value=ctx)
+            mock_msg_repo.update_context = AsyncMock()
 
             gw = StreamingGateway()
-            result = await gw._handle_manage_context(
-                {"action": "create", "label": "Shopping list"}, "user-1"
-            )
+            # Mock the Anthropic client response
+            response = MagicMock()
+            response.content = [MagicMock(text='{"context_id": null, "label": "Liste de courses"}')]
+            response.usage.input_tokens = 50
+            response.usage.output_tokens = 20
+            gw.client = MagicMock()
+            gw.client.messages = MagicMock()
+            gw.client.messages.create = AsyncMock(return_value=response)
 
-            assert result["id"] == "ctx-123"
+            result = await gw._resolve_context("Qu'est-ce que j'ai sur ma liste ?", "user-1", "msg-1")
+
             assert result["action"] == "created"
-            mock_repo.create.assert_called_once_with("user-1", "Shopping list")
+            assert result["label"] == "Liste de courses"
+            mock_repo.create.assert_called_once_with("user-1", "Liste de courses")
 
     @pytest.mark.asyncio
-    async def test_handle_manage_context_close(self):
-        """Test closing a context."""
-        with patch("app.llm.streaming.context_repo") as mock_repo:
-            ctx = MagicMock()
-            ctx.id = "ctx-123"
-            ctx.label = "Done topic"
-            ctx.status = MagicMock()
-            ctx.status.value = "closed"
-            mock_repo.update_status = AsyncMock(return_value=ctx)
+    async def test_resolve_context_matches_existing(self):
+        """When an existing context matches, returns it."""
+        with (
+            patch("app.llm.streaming.context_repo") as mock_repo,
+            patch("app.llm.streaming.message_repo") as mock_msg_repo,
+        ):
+            existing = MagicMock()
+            existing.id = "ctx-123"
+            existing.label = "Tâches urgentes"
+            existing.status = MagicMock()
+            existing.status.value = "active"
+            existing.updated_at = datetime.now(UTC)
+            mock_repo.find_active = AsyncMock(return_value=[existing])
+            mock_msg_repo.update_context = AsyncMock()
 
             gw = StreamingGateway()
-            result = await gw._handle_manage_context(
-                {"action": "close", "context_id": "ctx-123"}, "user-1"
-            )
+            response = MagicMock()
+            response.content = [MagicMock(text='{"context_id": "ctx-123"}')]
+            response.usage.input_tokens = 80
+            response.usage.output_tokens = 15
+            gw.client = MagicMock()
+            gw.client.messages = MagicMock()
+            gw.client.messages.create = AsyncMock(return_value=response)
 
+            result = await gw._resolve_context("Marque la première comme faite", "user-1", "msg-2")
+
+            assert result["action"] == "matched"
             assert result["id"] == "ctx-123"
-            assert result["action"] == "closed"
+            mock_repo.create.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_handle_manage_context_switch(self):
-        """Test switching to a dormant context."""
+    async def test_resolve_context_returns_none_on_error(self):
+        """On LLM error, returns None gracefully."""
         with patch("app.llm.streaming.context_repo") as mock_repo:
-            ctx = MagicMock()
-            ctx.id = "ctx-456"
-            ctx.label = "Old topic"
-            ctx.status = MagicMock()
-            ctx.status.value = "active"
-            mock_repo.update_status = AsyncMock(return_value=ctx)
+            mock_repo.find_active = AsyncMock(return_value=[])
 
             gw = StreamingGateway()
-            result = await gw._handle_manage_context(
-                {"action": "switch", "context_id": "ctx-456"}, "user-1"
-            )
+            gw.client = MagicMock()
+            gw.client.messages = MagicMock()
+            gw.client.messages.create = AsyncMock(side_effect=Exception("API error"))
 
-            assert result["id"] == "ctx-456"
-            assert result["action"] == "switched"
+            result = await gw._resolve_context("test", "user-1", "msg-1")
+            assert result is None
 
     @pytest.mark.asyncio
-    async def test_handle_manage_context_create_requires_label(self):
-        """Create without label returns error."""
+    async def test_resolve_context_no_client(self):
+        """When no client configured, returns None."""
         gw = StreamingGateway()
-        result = await gw._handle_manage_context({"action": "create"}, "user-1")
-        assert "error" in result
-
-    @pytest.mark.asyncio
-    async def test_handle_manage_context_close_requires_id(self):
-        """Close without context_id returns error."""
-        gw = StreamingGateway()
-        result = await gw._handle_manage_context({"action": "close"}, "user-1")
-        assert "error" in result
-
-    @pytest.mark.asyncio
-    async def test_handle_manage_context_unknown_action(self):
-        """Unknown action returns error."""
-        gw = StreamingGateway()
-        result = await gw._handle_manage_context({"action": "unknown"}, "user-1")
-        assert "error" in result
-
-    @pytest.mark.asyncio
-    async def test_handle_manage_context_not_found(self):
-        """Closing a non-existent context returns error."""
-        with patch("app.llm.streaming.context_repo") as mock_repo:
-            mock_repo.update_status = AsyncMock(return_value=None)
-
-            gw = StreamingGateway()
-            result = await gw._handle_manage_context(
-                {"action": "close", "context_id": "nonexistent"}, "user-1"
-            )
-
-            assert "error" in result
+        gw.client = None
+        result = await gw._resolve_context("test", "user-1", "msg-1")
+        assert result is None

@@ -114,6 +114,7 @@ export const EventListWidget = ({ events, loading, showDate = false }: EventList
                   secondary={
                     event.location ? (
                       <Box
+                        component="span"
                         sx={{
                           display: 'flex',
                           alignItems: 'center',
@@ -128,6 +129,7 @@ export const EventListWidget = ({ events, loading, showDate = false }: EventList
                       </Box>
                     ) : undefined
                   }
+                  secondaryTypographyProps={{ component: 'div' }}
                 />
               </ListItem>
             ))}

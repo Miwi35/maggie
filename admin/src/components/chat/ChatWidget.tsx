@@ -160,8 +160,12 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     const agUiStream = useAgUiStream({
       onRunStarted: () => {
         onAgentStateChange('thinking')
-        toolCallsRef.current = []
-        onToolCallsChange([])
+        // Keep last 10 completed tool calls as activity history
+        const recent = toolCallsRef.current
+          .filter((tc) => tc.status !== 'running')
+          .slice(-10)
+        toolCallsRef.current = recent
+        onToolCallsChange(recent)
       },
       onRunFinished: () => {
         onAgentStateChange('idle')
@@ -214,18 +218,18 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
         onToolCallsChange(toolCallsRef.current)
       },
       onContextUpdate: (value) => {
-        const action = value.action as string
         const ctx: ContextState = {
           id: value.id as string,
           label: value.label as string,
           status: value.status as ContextState['status'],
         }
-        if (action === 'created') {
-          contextsRef.current = [ctx, ...contextsRef.current]
-        } else {
+        const exists = contextsRef.current.some((c) => c.id === ctx.id)
+        if (exists) {
           contextsRef.current = contextsRef.current.map((c) => (c.id === ctx.id ? ctx : c))
+        } else {
+          contextsRef.current = [ctx, ...contextsRef.current]
         }
-        onContextsChange(contextsRef.current)
+        onContextsChange([...contextsRef.current])
       },
       onError: (message) => {
         console.error('Stream error:', message)
@@ -241,6 +245,29 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
         onAgentStateChange('idle')
       },
     })
+
+    // --- Fetch contexts on mount ---
+
+    useEffect(() => {
+      const loadContexts = async () => {
+        try {
+          const res = await fetch('/agent/contexts', { headers: getAuthHeaders() })
+          if (res.ok) {
+            const data = await res.json()
+            const mapped: ContextState[] = data.map((c: { id: string; label: string; status: string }) => ({
+              id: c.id,
+              label: c.label,
+              status: c.status as ContextState['status'],
+            }))
+            contextsRef.current = mapped
+            onContextsChange(mapped)
+          }
+        } catch (e) {
+          console.error('Failed to load contexts:', e)
+        }
+      }
+      loadContexts()
+    }, [onContextsChange])
 
     // --- Fetch helpers ---
 
@@ -443,6 +470,40 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
 
       return () => eventSource.close()
     }, [open, sidebarTab, onUnread])
+
+    // --- Mercure SSE subscription for context updates ---
+
+    useEffect(() => {
+      const userStr = localStorage.getItem('user')
+      const userId = userStr ? JSON.parse(userStr).id : 'default'
+      const url = new URL(MERCURE_URL)
+      url.searchParams.append('topic', `/contexts/${userId}`)
+
+      const eventSource = new EventSource(url.toString())
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          if (data.id && data.label) {
+            const ctx: ContextState = {
+              id: data.id,
+              label: data.label,
+              status: data.status as ContextState['status'],
+            }
+            const exists = contextsRef.current.some((c) => c.id === ctx.id)
+            if (exists) {
+              contextsRef.current = contextsRef.current.map((c) => (c.id === ctx.id ? ctx : c))
+            } else {
+              contextsRef.current = [ctx, ...contextsRef.current]
+            }
+            onContextsChange([...contextsRef.current])
+          }
+        } catch {
+          // Ignore malformed messages
+        }
+      }
+
+      return () => eventSource.close()
+    }, [onContextsChange])
 
     // --- Search ---
 
