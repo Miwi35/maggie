@@ -1,6 +1,9 @@
 package com.maggie.app.ui.screens.chat
 
+import android.util.Log
+import app.cash.turbine.test
 import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.model.AgUiEvent
 import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.data.repository.ChatPreferencesRepository
 import com.maggie.app.data.repository.ChatRepository
@@ -8,9 +11,12 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -42,6 +48,9 @@ class ChatViewModelTest {
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
+        mockkStatic(Log::class)
+        every { Log.w(any(), any<String>()) } returns 0
+        every { Log.d(any(), any<String>()) } returns 0
         repository = mockk()
         mercureService = mockk()
         chatPrefsRepository = mockk()
@@ -74,20 +83,53 @@ class ChatViewModelTest {
     }
 
     @Test
-    fun `sendMessage success posts to agent and clears loading`() = runTest {
+    fun `sendMessage via stream accumulates text and persists on end`() = runTest {
         viewModel = createViewModel()
         advanceUntilIdle()
 
-        val userMsg = ChatMessage(id = "abc-123", role = "user", content = "Bonjour", createdAt = "2026-02-15T11:00:00Z")
-        val assistantMsg = ChatMessage(id = "abc-456", role = "assistant", content = "Salut!", createdAt = "2026-02-15T11:00:01Z")
-        coEvery { repository.sendMessage("Bonjour") } returns listOf(userMsg, assistantMsg)
+        val streamEvents = flowOf(
+            AgUiEvent.RunStarted(runId = "run-1"),
+            AgUiEvent.TextMessageStart(messageId = "resp-1"),
+            AgUiEvent.TextMessageContent(messageId = "resp-1", delta = "Sal"),
+            AgUiEvent.TextMessageContent(messageId = "resp-1", delta = "ut!"),
+            AgUiEvent.TextMessageEnd(messageId = "resp-1"),
+            AgUiEvent.RunFinished(runId = "run-1"),
+        )
+        every { repository.sendMessageStream("Bonjour") } returns streamEvents
+        coEvery { repository.persistMessage(any()) } returns Unit
 
         viewModel.sendMessage("Bonjour")
         advanceUntilIdle()
 
-        coVerify { repository.sendMessage("Bonjour") }
+        val state = viewModel.uiState.value
+        assertFalse(state.isLoading)
+        // 2 initial + 1 optimistic user + 1 persisted assistant
+        assertEquals(4, state.messages.size)
+        assertEquals("Salut!", state.messages.last().content)
+        assertEquals("", state.streamingText)
+        assertNull(state.streamingMessageId)
+        coVerify { repository.persistMessage(any()) }
+    }
+
+    @Test
+    fun `sendMessage stream fallback on error`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // Stream throws, fallback to non-streaming
+        every { repository.sendMessageStream("Hello") } returns flow {
+            throw RuntimeException("Stream failed")
+        }
+        val userMsg = ChatMessage(id = "u-1", role = "user", content = "Hello", createdAt = "2026-02-15T11:00:00Z")
+        val assistantMsg = ChatMessage(id = "a-1", role = "assistant", content = "Hi!", createdAt = "2026-02-15T11:00:01Z")
+        coEvery { repository.sendMessage("Hello") } returns listOf(userMsg, assistantMsg)
+
+        viewModel.sendMessage("Hello")
+        advanceUntilIdle()
+
         assertFalse(viewModel.uiState.value.isLoading)
-        assertEquals(4, viewModel.uiState.value.messages.size)
+        // Should have used fallback: 2 initial (minus optimistic) + 2 from fallback
+        coVerify { repository.sendMessage("Hello") }
     }
 
     @Test
@@ -95,6 +137,10 @@ class ChatViewModelTest {
         viewModel = createViewModel()
         advanceUntilIdle()
 
+        // Both stream and fallback fail
+        every { repository.sendMessageStream("Hello") } returns flow {
+            throw RuntimeException("Stream error")
+        }
         coEvery { repository.sendMessage("Hello") } throws RuntimeException("Network error")
 
         viewModel.sendMessage("Hello")
@@ -208,5 +254,59 @@ class ChatViewModelTest {
 
         val hasUnreadDivider = viewModel.uiState.value.displayItems.any { it is ChatListItem.UnreadDivider }
         assertTrue(hasUnreadDivider)
+    }
+
+    @Test
+    fun `streaming text shows StreamingMessage display item`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // Simulate partial streaming
+        val streamEvents = flow {
+            emit(AgUiEvent.RunStarted(runId = "run-1"))
+            emit(AgUiEvent.TextMessageStart(messageId = "resp-1"))
+            emit(AgUiEvent.TextMessageContent(messageId = "resp-1", delta = "Partial"))
+            // Don't send end — simulate mid-stream state
+        }
+        every { repository.sendMessageStream("Test") } returns streamEvents
+        coEvery { repository.persistMessage(any()) } returns Unit
+
+        viewModel.sendMessage("Test")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("Partial", state.streamingText)
+        assertTrue(state.displayItems.any { it is ChatListItem.StreamingMessage })
+    }
+
+    @Test
+    fun `context update emitted on SharedFlow`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val contextEvent = AgUiEvent.ContextUpdate(
+            id = "ctx-1", label = "Courses", status = "active", action = "created",
+        )
+        val streamEvents = flowOf(
+            AgUiEvent.RunStarted(runId = "run-1"),
+            contextEvent,
+            AgUiEvent.TextMessageStart(messageId = "resp-1"),
+            AgUiEvent.TextMessageContent(messageId = "resp-1", delta = "OK"),
+            AgUiEvent.TextMessageEnd(messageId = "resp-1"),
+            AgUiEvent.RunFinished(runId = "run-1"),
+        )
+        every { repository.sendMessageStream("Test") } returns streamEvents
+        coEvery { repository.persistMessage(any()) } returns Unit
+
+        viewModel.contextUpdates.test {
+            viewModel.sendMessage("Test")
+            advanceUntilIdle()
+
+            val update = awaitItem()
+            assertEquals("ctx-1", update.id)
+            assertEquals("Courses", update.label)
+            assertEquals("active", update.status)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 }

@@ -43,9 +43,12 @@ import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.ui.components.AppDrawerContent
+import com.maggie.app.data.model.Context
 import com.maggie.app.ui.components.ChatBottomBar
 import com.maggie.app.ui.components.ChatSheet
+import com.maggie.app.ui.components.ContextListSheet
 import com.maggie.app.ui.components.MaggieTopBar
+import com.maggie.app.ui.screens.contexts.ContextViewModel
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.screens.cookbook.CookbookScreen
 import com.maggie.app.ui.screens.cookbook.grocery.GroceryScreen
@@ -140,6 +143,7 @@ fun NavGraph() {
     val isLocked by biometricLockManager.isLocked.collectAsState()
 
     val chatViewModel: ChatViewModel = koinViewModel()
+    val contextViewModel: ContextViewModel = koinViewModel()
     val dashboardViewModel: DashboardViewModel = koinViewModel()
     val calendarViewModel: FullCalendarViewModel = koinViewModel()
     val notificationViewModel: NotificationViewModel = koinViewModel()
@@ -148,6 +152,8 @@ fun NavGraph() {
     val groceryViewModel: GroceryViewModel = koinViewModel()
     var showChatSheet by rememberSaveable { mutableStateOf(false) }
     val chatSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var showContextSheet by rememberSaveable { mutableStateOf(false) }
+    val contextSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val voiceManager: VoiceManager = koinInject()
     var voiceModeActive by rememberSaveable { mutableStateOf(false) }
@@ -162,6 +168,18 @@ fun NavGraph() {
 
     // Notification unread count
     val notificationUiState by notificationViewModel.uiState.collectAsState()
+
+    // Context state
+    val contextUiState by contextViewModel.uiState.collectAsState()
+
+    // Bridge context updates from chat stream to context ViewModel
+    LaunchedEffect(Unit) {
+        chatViewModel.contextUpdates.collect { update ->
+            contextViewModel.handleStreamUpdate(
+                Context(id = update.id, label = update.label, status = update.status),
+            )
+        }
+    }
 
     // Sheet states (kept as overlays)
     var selectedEvent by remember { mutableStateOf<ExpandedEvent?>(null) }
@@ -267,6 +285,8 @@ fun NavGraph() {
                                 permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                             }
                         },
+                        onBrainClick = { showContextSheet = true },
+                        activeContextCount = contextUiState.activeCount,
                     )
                 }
             },
@@ -540,6 +560,15 @@ fun NavGraph() {
                 refreshAll()
             },
             voiceManager = if (voiceModeActive) voiceManager else null,
+        )
+    }
+
+    // Context sheet
+    if (showContextSheet) {
+        ContextListSheet(
+            sheetState = contextSheetState,
+            uiState = contextUiState,
+            onDismiss = { showContextSheet = false },
         )
     }
 

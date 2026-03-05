@@ -17,6 +17,7 @@ import com.maggie.app.data.repository.GroceryListRepository
 import com.maggie.app.data.repository.IngredientRepository
 import com.maggie.app.data.repository.MealRepository
 import com.maggie.app.data.repository.NotificationRepository
+import com.maggie.app.data.repository.ContextRepository
 import com.maggie.app.data.repository.ProactionRepository
 import com.maggie.app.data.repository.ProductRepository
 import com.maggie.app.data.repository.RecipeRepository
@@ -31,6 +32,7 @@ import com.maggie.app.ui.screens.cookbook.meals.MealsWeekViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeListViewModel
 import com.maggie.app.ui.screens.dashboard.DashboardViewModel
 import com.maggie.app.ui.screens.chat.ChatViewModel
+import com.maggie.app.ui.screens.contexts.ContextViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
 import com.maggie.app.ui.screens.login.LoginViewModel
 import com.maggie.app.ui.screens.notifications.NotificationViewModel
@@ -113,6 +115,7 @@ class MaggieApp : Application() {
             single { StoreRepository(get()) }
             single { NotificationRepository(get()) }
             single { SearchRepository(get()) }
+            single { ContextRepository(get()) }
             single { ProactionRepository(get()) }
             single { UserPreferenceRepository(get()) }
 
@@ -125,6 +128,7 @@ class MaggieApp : Application() {
             viewModel { DashboardViewModel(get(), get(), get(), get(), get()) }
             viewModel { FullCalendarViewModel(get(), get(), get(), get(), get()) }
             viewModel { ChatViewModel(get(), get(), get()) }
+            viewModel { ContextViewModel(get(), get(), get()) }
             viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get(), get()) }
             viewModel { NotificationViewModel(get(), get(), get()) }
             viewModel { SearchViewModel(get()) }

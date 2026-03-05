@@ -9,5 +9,6 @@ sealed class ChatListItem {
         val message: ChatMessage,
         val isHighlighted: Boolean = false,
     ) : ChatListItem()
+    data class StreamingMessage(val text: String) : ChatListItem()
     data object LoadingIndicator : ChatListItem()
 }

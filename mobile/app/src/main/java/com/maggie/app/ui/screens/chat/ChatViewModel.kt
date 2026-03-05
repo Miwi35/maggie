@@ -1,8 +1,10 @@
 package com.maggie.app.ui.screens.chat
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.model.AgUiEvent
 import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.data.repository.ChatPreferencesRepository
 import com.maggie.app.data.repository.ChatRepository
@@ -12,6 +14,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.debounce
@@ -35,6 +38,8 @@ data class ChatUiState(
     val unreadFromId: String? = null,
     val scrollToIndex: Int? = null,
     val scrollBehavior: ScrollBehavior = ScrollBehavior.NONE,
+    val streamingText: String = "",
+    val streamingMessageId: String? = null,
 )
 
 @OptIn(FlowPreview::class)
@@ -46,12 +51,16 @@ class ChatViewModel(
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState
 
+    private val _contextUpdates = MutableSharedFlow<AgUiEvent.ContextUpdate>(extraBufferCapacity = 16)
+    val contextUpdates: SharedFlow<AgUiEvent.ContextUpdate> = _contextUpdates
+
     private val json = Json { ignoreUnknownKeys = true }
     private val searchQueryFlow = MutableSharedFlow<String>(extraBufferCapacity = 1)
     private var highlightJob: Job? = null
 
     companion object {
         private const val PAGE_SIZE = 20
+        private const val TAG = "ChatViewModel"
     }
 
     init {
@@ -123,20 +132,116 @@ class ChatViewModel(
         if (text.isBlank()) return
 
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
+            // Add optimistic user message
+            val userMessage = ChatMessage(
+                id = "pending_${System.currentTimeMillis()}",
+                role = "user",
+                content = text,
+                createdAt = java.time.Instant.now().toString(),
+            )
+            _uiState.value = _uiState.value.copy(
+                messages = _uiState.value.messages + userMessage,
+                isLoading = true,
+                streamingText = "",
+                streamingMessageId = null,
+            )
+            rebuildDisplayItems()
+            scrollToBottom(animate = true)
 
             try {
-                val newMessages = repository.sendMessage(text)
-                if (newMessages.isNotEmpty()) {
-                    val merged = _uiState.value.messages + newMessages
-                    _uiState.value = _uiState.value.copy(messages = merged, isLoading = false)
-                    rebuildDisplayItems()
-                    scrollToBottom(animate = true)
-                } else {
-                    _uiState.value = _uiState.value.copy(isLoading = false)
+                repository.sendMessageStream(text)
+                    .collect { event -> handleStreamEvent(event) }
+            } catch (e: Exception) {
+                Log.w(TAG, "Stream failed, falling back to non-streaming: ${e.message}")
+                // Fallback to non-streaming
+                try {
+                    val newMessages = repository.sendMessage(text)
+                    if (newMessages.isNotEmpty()) {
+                        // Replace optimistic user message with server response
+                        val current = _uiState.value.messages.dropLast(1)
+                        _uiState.value = _uiState.value.copy(
+                            messages = current + newMessages,
+                            isLoading = false,
+                            streamingText = "",
+                            streamingMessageId = null,
+                        )
+                        rebuildDisplayItems()
+                        scrollToBottom(animate = true)
+                    } else {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            streamingText = "",
+                            streamingMessageId = null,
+                        )
+                    }
+                } catch (_: Exception) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        streamingText = "",
+                        streamingMessageId = null,
+                    )
                 }
-            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private suspend fun handleStreamEvent(event: AgUiEvent) {
+        when (event) {
+            is AgUiEvent.TextMessageStart -> {
+                _uiState.value = _uiState.value.copy(
+                    streamingMessageId = event.messageId,
+                    streamingText = "",
+                )
+                rebuildDisplayItems()
+                scrollToBottom(animate = true)
+            }
+            is AgUiEvent.TextMessageContent -> {
+                _uiState.value = _uiState.value.copy(
+                    streamingText = _uiState.value.streamingText + event.delta,
+                )
+                rebuildDisplayItems()
+                scrollToBottom(animate = false)
+            }
+            is AgUiEvent.TextMessageEnd -> {
+                val finalText = _uiState.value.streamingText
+                val messageId = _uiState.value.streamingMessageId ?: event.messageId
+                val assistantMessage = ChatMessage(
+                    id = messageId,
+                    role = "assistant",
+                    content = finalText,
+                    createdAt = java.time.Instant.now().toString(),
+                )
+                // Persist to Room
+                repository.persistMessage(assistantMessage)
+                _uiState.value = _uiState.value.copy(
+                    messages = _uiState.value.messages + assistantMessage,
+                    streamingText = "",
+                    streamingMessageId = null,
+                )
+                rebuildDisplayItems()
+                scrollToBottom(animate = true)
+            }
+            is AgUiEvent.RunFinished -> {
                 _uiState.value = _uiState.value.copy(isLoading = false)
+                rebuildDisplayItems()
+            }
+            is AgUiEvent.ContextUpdate -> {
+                _contextUpdates.tryEmit(event)
+            }
+            is AgUiEvent.Error -> {
+                Log.w(TAG, "Stream error: ${event.message}")
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    streamingText = "",
+                    streamingMessageId = null,
+                )
+                rebuildDisplayItems()
+            }
+            is AgUiEvent.RunStarted,
+            is AgUiEvent.ToolCallStart,
+            is AgUiEvent.ToolCallEnd,
+            is AgUiEvent.ToolResult -> {
+                // Acknowledged but no UI action in v1
             }
         }
     }
@@ -319,7 +424,10 @@ class ChatViewModel(
             )
         }
 
-        if (state.isLoading) {
+        // Streaming message (shows partial text while assistant is responding)
+        if (state.streamingText.isNotEmpty()) {
+            items.add(ChatListItem.StreamingMessage(state.streamingText))
+        } else if (state.isLoading) {
             items.add(ChatListItem.LoadingIndicator)
         }
 

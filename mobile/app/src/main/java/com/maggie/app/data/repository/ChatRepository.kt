@@ -4,6 +4,7 @@ import android.util.Log
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.local.dao.ChatMessageDao
 import com.maggie.app.data.local.entity.ChatMessageEntity
+import com.maggie.app.data.model.AgUiEvent
 import com.maggie.app.data.model.ChatMessage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -102,6 +103,16 @@ class ChatRepository(
             val entity = chatMessageDao.getById(messageId)
             listOfNotNull(entity?.toModel())
         }
+    }
+
+    /** Send a user message via AG-UI streaming. Returns a flow of AG-UI events. */
+    fun sendMessageStream(content: String): Flow<AgUiEvent> {
+        return apiService.sendChatStream(message = content)
+    }
+
+    /** Persist a completed assistant message to Room. */
+    suspend fun persistMessage(message: ChatMessage) {
+        chatMessageDao.upsert(ChatMessageEntity.fromModel(message))
     }
 
     /** Clear all chat history. */

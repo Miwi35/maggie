@@ -68,6 +68,7 @@ fun ChatMessageList(
                     is ChatListItem.DateSeparator -> "sep_${index}_${item.label}"
                     is ChatListItem.UnreadDivider -> "unread_divider"
                     is ChatListItem.MessageItem -> "msg_${item.message.id}"
+                    is ChatListItem.StreamingMessage -> "streaming_message"
                     is ChatListItem.LoadingIndicator -> "loading_indicator"
                 }
             },
@@ -112,6 +113,17 @@ fun ChatMessageList(
                         message = item.message,
                         onClick = { onMessageTapped(item.message.id) },
                         isHighlighted = item.isHighlighted,
+                    )
+                }
+                is ChatListItem.StreamingMessage -> {
+                    MessageBubble(
+                        message = com.maggie.app.data.model.ChatMessage(
+                            id = "streaming",
+                            role = "assistant",
+                            content = item.text,
+                        ),
+                        onClick = {},
+                        isHighlighted = false,
                     )
                 }
                 is ChatListItem.LoadingIndicator -> {

@@ -2,7 +2,9 @@ package com.maggie.app.data.api
 
 import com.maggie.app.BuildConfig
 import com.maggie.app.data.model.Agenda
+import com.maggie.app.data.model.AgUiEvent
 import com.maggie.app.data.model.ChatMessage
+import com.maggie.app.data.model.Context
 import com.maggie.app.data.model.CiqualFood
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.GoogleCalendar
@@ -38,6 +40,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.utils.io.readRemaining
 import kotlinx.io.readByteArray
+import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -432,6 +435,30 @@ class MaggieApiService(
             url.parameters.append("around", messageId)
             url.parameters.append("user_id", userId)
         }.body()
+    }
+
+    // Contexts — agent endpoint
+    suspend fun getContexts(): List<Context> {
+        return client.get("$baseUrl/agent/contexts").body()
+    }
+
+    // Chat streaming — AG-UI SSE endpoint
+    fun sendChatStream(message: String): Flow<AgUiEvent> = kotlinx.coroutines.flow.flow {
+        try {
+            val response = client.post("$baseUrl/agent/chat/stream") {
+                contentType(ContentType.Application.Json)
+                setBody(AgentChatRequest(message = message))
+            }
+            val status = response.status.value
+            if (status != 200) {
+                emit(AgUiEvent.Error("HTTP $status"))
+            } else {
+                val channel = response.bodyAsChannel()
+                AgUiStreamParser.parseStream(channel).collect { emit(it) }
+            }
+        } catch (e: Exception) {
+            emit(AgUiEvent.Error(e.message ?: "Stream error"))
+        }
     }
 
     suspend fun transcribe(audioFile: File): String {

@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -20,7 +23,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun ChatBottomBar(onOpenChat: () -> Unit, onMicClick: () -> Unit = {}) {
+fun ChatBottomBar(
+    onOpenChat: () -> Unit,
+    onMicClick: () -> Unit = {},
+    onBrainClick: () -> Unit = {},
+    activeContextCount: Int = 0,
+) {
     Surface(tonalElevation = 3.dp) {
         Row(
             modifier = Modifier
@@ -28,6 +36,20 @@ fun ChatBottomBar(onOpenChat: () -> Unit, onMicClick: () -> Unit = {}) {
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            IconButton(onClick = onBrainClick) {
+                if (activeContextCount > 0) {
+                    BadgedBox(
+                        badge = {
+                            Badge { Text(activeContextCount.toString()) }
+                        },
+                    ) {
+                        Icon(Icons.Default.Psychology, contentDescription = "Contextes")
+                    }
+                } else {
+                    Icon(Icons.Default.Psychology, contentDescription = "Contextes")
+                }
+            }
+
             IconButton(onClick = onMicClick) {
                 Icon(Icons.Default.Mic, contentDescription = "Micro")
             }
