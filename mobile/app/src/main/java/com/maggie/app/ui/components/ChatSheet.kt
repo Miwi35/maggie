@@ -1,20 +1,29 @@
 package com.maggie.app.ui.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -22,6 +31,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -37,6 +47,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.screens.chat.ScrollBehavior
 import com.maggie.app.voice.VoiceManager
@@ -131,54 +143,85 @@ fun ChatSheet(
             }
         }
     } else {
-        // Text mode
+        // Text mode — Dialog-based for precise keyboard handling
         LaunchedEffect(Unit) {
             focusRequester.requestFocus()
         }
 
-        ModalBottomSheet(
+        Dialog(
             onDismissRequest = onDismiss,
-            sheetState = sheetState,
-            dragHandle = null,
-            contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
-            modifier = Modifier.fillMaxHeight(0.85f),
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                decorFitsSystemWindows = false,
+            ),
         ) {
-            Column(modifier = Modifier.fillMaxWidth().imePadding()) {
-                SheetHeader(onClose = onDismiss, onSearch = viewModel::openSearch)
+            val scrimColor = BottomSheetDefaults.ScrimColor
 
-                ChatMessageList(
-                    displayItems = uiState.displayItems,
-                    listState = listState,
-                    isLoadingHistory = uiState.isLoadingHistory,
-                    onLoadMore = viewModel::loadOlderMessages,
-                    onMessageTapped = viewModel::onMessageTapped,
-                    modifier = Modifier.weight(1f),
-                )
-
-                Row(
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(scrimColor)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onDismiss,
+                    ),
+                contentAlignment = Alignment.BottomCenter,
+            ) {
+                Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                        .fillMaxHeight(0.85f)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {},
+                        ),
+                    shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                    color = BottomSheetDefaults.ContainerColor,
+                    tonalElevation = BottomSheetDefaults.Elevation,
                 ) {
-                    OutlinedTextField(
-                        value = input,
-                        onValueChange = { input = it },
-                        modifier = Modifier
-                            .weight(1f)
-                            .focusRequester(focusRequester),
-                        placeholder = { Text("Demander à Maggie...") },
-                        singleLine = true,
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    IconButton(
-                        onClick = {
-                            viewModel.sendMessage(input)
-                            input = ""
-                        },
-                        enabled = input.isNotBlank() && !uiState.isLoading,
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Envoyer")
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        SheetHeader(onClose = onDismiss, onSearch = viewModel::openSearch)
+
+                        ChatMessageList(
+                            displayItems = uiState.displayItems,
+                            listState = listState,
+                            isLoadingHistory = uiState.isLoadingHistory,
+                            onLoadMore = viewModel::loadOlderMessages,
+                            onMessageTapped = viewModel::onMessageTapped,
+                            modifier = Modifier.weight(1f),
+                        )
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .windowInsetsPadding(
+                                    WindowInsets.ime.union(WindowInsets.navigationBars),
+                                )
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            OutlinedTextField(
+                                value = input,
+                                onValueChange = { input = it },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .focusRequester(focusRequester),
+                                placeholder = { Text("Demander à Maggie...") },
+                                singleLine = true,
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            IconButton(
+                                onClick = {
+                                    viewModel.sendMessage(input)
+                                    input = ""
+                                },
+                                enabled = input.isNotBlank() && !uiState.isLoading,
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Envoyer")
+                            }
+                        }
                     }
                 }
             }
