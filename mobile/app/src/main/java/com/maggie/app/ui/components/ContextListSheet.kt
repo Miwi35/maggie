@@ -44,7 +44,7 @@ fun ContextListSheet(
         sheetState = sheetState,
         dragHandle = null,
         contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
-        modifier = Modifier.fillMaxHeight(0.5f),
+        modifier = Modifier.fillMaxHeight(0.85f),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             // Header
