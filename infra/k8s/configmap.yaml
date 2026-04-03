@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: maggie-config
+  namespace: maggie
+data:
+  APP_ENV: prod
+  APP_DEBUG: "0"
+  ELASTICSEARCH_URL: http://elasticsearch.shared.svc.cluster.local:9200
+  CIQUAL_SERVICE_URL: http://ciqual:8002
+  MERCURE_URL: http://mercure/.well-known/mercure
+  MERCURE_PUBLIC_URL: https://maggieai.fr/.well-known/mercure
+  MCP_SERVER_URL: http://nginx/_mcp
+  AGENT_BASE_URL: https://maggieai.fr/agent
+  TRUSTED_PROXIES: REMOTE_ADDR
+  CORS_ALLOW_ORIGIN: '^https://maggieai\.fr$'
+  GOOGLE_CLIENT_ID: "945014393623-rr1ja004uel8ml327e0gg0vsf51o2ajk.apps.googleusercontent.com"
+  GOOGLE_REDIRECT_URI: https://maggieai.fr/api/auth/google/callback
+  ADMIN_URL: https://maggieai.fr/admin
+  JWT_SECRET_KEY: "%kernel.project_dir%/config/jwt/private.pem"
+  JWT_PUBLIC_KEY: "%kernel.project_dir%/config/jwt/public.pem"
+  ANTHROPIC_MODEL: claude-haiku-4-5-20251001

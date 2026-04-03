@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: php
+  namespace: maggie
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: php
+  template:
+    metadata:
+      labels:
+        app: php
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      containers:
+        - name: php
+          image: ghcr.io/miwi35/maggie-php:latest
+          ports:
+            - containerPort: 9000
+          envFrom:
+            - configMapRef:
+                name: maggie-config
+            - secretRef:
+                name: maggie-env
+          volumeMounts:
+            - name: jwt-keys
+              mountPath: /var/www/api/config/jwt
+              readOnly: true
+          readinessProbe:
+            tcpSocket:
+              port: 9000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: 64Mi
+              cpu: 50m
+            limits:
+              memory: 256Mi
+              cpu: 500m
+      volumes:
+        - name: jwt-keys
+          secret:
+            secretName: jwt-keys

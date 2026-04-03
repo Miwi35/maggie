@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  namespace: maggie
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      containers:
+        - name: nginx
+          image: ghcr.io/miwi35/maggie-nginx:latest
+          ports:
+            - containerPort: 80
+          env:
+            - name: APP_DOMAIN
+              value: maggieai.fr
+            - name: NGINX_ENVSUBST_OUTPUT_DIR
+              value: /etc/nginx/conf.d
+          readinessProbe:
+            httpGet:
+              path: /admin
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: 16Mi
+              cpu: 10m
+            limits:
+              memory: 64Mi
+              cpu: 200m

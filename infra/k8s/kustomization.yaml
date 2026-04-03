@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: maggie
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - php-deployment.yaml
+  - nginx-deployment.yaml
+  - mercure-deployment.yaml
+  - worker-deployment.yaml
+  - cron-deployment.yaml
+  - agent-deployment.yaml
+  - ciqual-deployment.yaml
+  - services.yaml
+  - ingress.yaml
+
+images:
+  - name: ghcr.io/miwi35/maggie-php
+    newTag: latest
+  - name: ghcr.io/miwi35/maggie-nginx
+    newTag: latest
+  - name: ghcr.io/miwi35/maggie-agent
+    newTag: latest
+  - name: ghcr.io/miwi35/maggie-ciqual
+    newTag: latest

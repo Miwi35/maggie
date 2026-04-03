@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: maggie
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      containers:
+        - name: worker
+          image: ghcr.io/miwi35/maggie-php:latest
+          command: ["php", "bin/console", "messenger:consume", "async", "--time-limit=3600", "--memory-limit=128M"]
+          envFrom:
+            - configMapRef:
+                name: maggie-config
+            - secretRef:
+                name: maggie-env
+          volumeMounts:
+            - name: jwt-keys
+              mountPath: /var/www/api/config/jwt
+              readOnly: true
+          resources:
+            requests:
+              memory: 32Mi
+              cpu: 20m
+            limits:
+              memory: 192Mi
+              cpu: 500m
+      volumes:
+        - name: jwt-keys
+          secret:
+            secretName: jwt-keys

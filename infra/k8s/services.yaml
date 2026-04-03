@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: php
+  namespace: maggie
+spec:
+  selector:
+    app: php
+  ports:
+    - port: 9000
+      targetPort: 9000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+  namespace: maggie
+spec:
+  selector:
+    app: nginx
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mercure
+  namespace: maggie
+spec:
+  selector:
+    app: mercure
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent
+  namespace: maggie
+spec:
+  selector:
+    app: agent
+  ports:
+    - port: 8001
+      targetPort: 8001
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ciqual
+  namespace: maggie
+spec:
+  selector:
+    app: ciqual
+  ports:
+    - port: 8002
+      targetPort: 8002

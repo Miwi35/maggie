@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent
+  namespace: maggie
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agent
+  template:
+    metadata:
+      labels:
+        app: agent
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8001"
+        prometheus.io/path: /agent/metrics
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      containers:
+        - name: agent
+          image: ghcr.io/miwi35/maggie-agent:latest
+          ports:
+            - containerPort: 8001
+          envFrom:
+            - configMapRef:
+                name: maggie-config
+            - secretRef:
+                name: maggie-env
+          volumeMounts:
+            - name: jwt-keys
+              mountPath: /etc/jwt
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /agent/health
+              port: 8001
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: 128Mi
+              cpu: 50m
+            limits:
+              memory: 512Mi
+              cpu: 1000m
+      volumes:
+        - name: jwt-keys
+          secret:
+            secretName: jwt-keys
+            items:
+              - key: public.pem
+                path: public.pem

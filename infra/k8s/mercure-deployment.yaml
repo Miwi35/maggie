@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mercure
+  namespace: maggie
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mercure
+  template:
+    metadata:
+      labels:
+        app: mercure
+    spec:
+      containers:
+        - name: mercure
+          image: dunglas/mercure
+          ports:
+            - containerPort: 80
+          env:
+            - name: SERVER_NAME
+              value: ":80"
+            - name: MERCURE_PUBLISHER_JWT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: maggie-env
+                  key: MERCURE_JWT_SECRET
+            - name: MERCURE_SUBSCRIBER_JWT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: maggie-env
+                  key: MERCURE_JWT_SECRET
+            - name: MERCURE_EXTRA_DIRECTIVES
+              value: |
+                cors_origins https://maggieai.fr
+          readinessProbe:
+            tcpSocket:
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: 32Mi
+              cpu: 10m
+            limits:
+              memory: 128Mi
+              cpu: 200m

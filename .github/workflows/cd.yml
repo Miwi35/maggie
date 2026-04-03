@@ -37,7 +37,7 @@ jobs:
           echo "app=$(echo "$CHANGED" | grep -qE '^(api/|admin/|\.docker/(php|nginx)/)' && echo true || echo false)" >> "$GITHUB_OUTPUT"
           echo "agent=$(echo "$CHANGED" | grep -qE '^(agent/|\.docker/python/)' && echo true || echo false)" >> "$GITHUB_OUTPUT"
           echo "ciqual=$(echo "$CHANGED" | grep -qE '^(ciqual/|\.docker/ciqual/)' && echo true || echo false)" >> "$GITHUB_OUTPUT"
-          echo "infra=$(echo "$CHANGED" | grep -qE '^(docker-compose\.prod\.yml|\.github/workflows/cd\.yml)' && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "infra=$(echo "$CHANGED" | grep -qE '^(infra/k8s/|\.github/workflows/cd\.yml)' && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
   # ===========================================================================
   # Build PHP image (needed by nginx build)
@@ -181,7 +181,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=nginx
 
   # ===========================================================================
-  # Deploy to VPS
+  # Deploy to k3s via SSH
   # ===========================================================================
   deploy:
     name: Deploy
@@ -200,85 +200,56 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Copy compose file to VPS
+      - name: Copy k8s manifests to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: docker-compose.prod.yml
+          source: infra/k8s/
           target: /opt/maggie/
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_ACTOR: ${{ github.actor }}
           IMAGE_TAG: ${{ github.sha }}
           APP_CHANGED: ${{ needs.changes.outputs.app }}
           AGENT_CHANGED: ${{ needs.changes.outputs.agent }}
           CIQUAL_CHANGED: ${{ needs.changes.outputs.ciqual }}
+          INFRA_CHANGED: ${{ needs.changes.outputs.infra }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          envs: GH_TOKEN,GH_ACTOR,IMAGE_TAG,APP_CHANGED,AGENT_CHANGED,CIQUAL_CHANGED
+          envs: IMAGE_TAG,APP_CHANGED,AGENT_CHANGED,CIQUAL_CHANGED,INFRA_CHANGED
           script: |
             set -e
 
-            cd /opt/maggie
+            # Apply manifest changes if infra files changed
+            if [ "$INFRA_CHANGED" = "true" ]; then
+              kubectl apply -k /opt/maggie/infra/k8s/
+            fi
 
-            # Log in to GHCR
-            echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
-
-            # Clean up legacy IMAGE_TAG if present
-            sed -i '/^IMAGE_TAG=/d' .env.prod
-
-            # Set all service tags to latest, then override changed ones to the new SHA.
-            # This ensures unchanged services always use cached :latest images
-            # instead of stale SHA tags that may no longer exist.
-            sed -i 's/^APP_TAG=.*/APP_TAG=latest/' .env.prod
-            sed -i 's/^AGENT_TAG=.*/AGENT_TAG=latest/' .env.prod
-            sed -i 's/^CIQUAL_TAG=.*/CIQUAL_TAG=latest/' .env.prod
-            grep -q '^APP_TAG=' .env.prod || echo "APP_TAG=latest" >> .env.prod
-            grep -q '^AGENT_TAG=' .env.prod || echo "AGENT_TAG=latest" >> .env.prod
-            grep -q '^CIQUAL_TAG=' .env.prod || echo "CIQUAL_TAG=latest" >> .env.prod
-
-            # Override to commit SHA for rebuilt services
+            # Update image tags for changed services
             if [ "$APP_CHANGED" = "true" ]; then
-              sed -i 's/^APP_TAG=.*/APP_TAG='"$IMAGE_TAG"'/' .env.prod
+              kubectl set image deployment/php -n maggie php=ghcr.io/miwi35/maggie-php:$IMAGE_TAG
+              kubectl set image deployment/nginx -n maggie nginx=ghcr.io/miwi35/maggie-nginx:$IMAGE_TAG
+              kubectl set image deployment/worker -n maggie worker=ghcr.io/miwi35/maggie-php:$IMAGE_TAG
+              kubectl set image deployment/cron -n maggie cron=ghcr.io/miwi35/maggie-php:$IMAGE_TAG
             fi
             if [ "$AGENT_CHANGED" = "true" ]; then
-              sed -i 's/^AGENT_TAG=.*/AGENT_TAG='"$IMAGE_TAG"'/' .env.prod
+              kubectl set image deployment/agent -n maggie agent=ghcr.io/miwi35/maggie-agent:$IMAGE_TAG
             fi
             if [ "$CIQUAL_CHANGED" = "true" ]; then
-              sed -i 's/^CIQUAL_TAG=.*/CIQUAL_TAG='"$IMAGE_TAG"'/' .env.prod
+              kubectl set image deployment/ciqual -n maggie ciqual=ghcr.io/miwi35/maggie-ciqual:$IMAGE_TAG
             fi
 
-            # Pull all custom images to keep local cache fresh.
-            # Changed services get the new SHA tag; unchanged ones get
-            # the latest registry :latest (avoids stale local cache).
-            COMPOSE="docker compose --env-file .env.prod -f docker-compose.prod.yml"
-            $COMPOSE pull php nginx worker cron agent ciqual
+            # Wait for rollout
+            kubectl rollout status deployment/php -n maggie --timeout=120s
+            kubectl rollout status deployment/nginx -n maggie --timeout=60s
 
-            # Deploy — rolling update: only recreates containers whose image or config changed
-            docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --remove-orphans
+            # Run database migrations
+            kubectl exec deployment/php -n maggie -- bin/console doctrine:migrations:migrate --no-interaction
 
-            # Wait for database to be healthy
-            docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T database sh -c \
-              'for i in $(seq 1 30); do pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" && break; sleep 1; done'
-
-            # Ensure agent database exists (init script only runs on fresh volumes)
-            docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T database sh -c \
-              'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tc "SELECT 1 FROM pg_database WHERE datname='"'"'maggie_agent'"'"'" | grep -q 1 || psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE DATABASE maggie_agent OWNER \"$POSTGRES_USER\""'
-
-            # Ensure main database exists and run Doctrine migrations
-            docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T php bin/console doctrine:database:create --no-interaction --if-not-exists
-            docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T php bin/console doctrine:migrations:migrate --no-interaction
-
-            # Health check
-            sleep 5
-            docker compose --env-file .env.prod -f docker-compose.prod.yml ps
-
-            # Clean up old images
-            docker image prune -f
+            # Verify
+            kubectl get pods -n maggie

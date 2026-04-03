@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cron
+  namespace: maggie
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cron
+  template:
+    metadata:
+      labels:
+        app: cron
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      containers:
+        - name: cron
+          image: ghcr.io/miwi35/maggie-php:latest
+          command: ["crond", "-f", "-l", "2"]
+          securityContext:
+            runAsUser: 0
+          envFrom:
+            - configMapRef:
+                name: maggie-config
+            - secretRef:
+                name: maggie-env
+          volumeMounts:
+            - name: jwt-keys
+              mountPath: /var/www/api/config/jwt
+              readOnly: true
+          resources:
+            requests:
+              memory: 16Mi
+              cpu: 10m
+            limits:
+              memory: 128Mi
+              cpu: 300m
+      volumes:
+        - name: jwt-keys
+          secret:
+            secretName: jwt-keys
