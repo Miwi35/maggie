@@ -194,13 +194,36 @@ fun GroceryScreen(
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
                             uiState.storeGroups.forEach { group ->
-                                val storeKey = group.store?.id ?: "__unassigned__"
+                                val storeId = group.store?.id
+                                val storeKey = storeId ?: "__unassigned__"
+                                val storeName = group.store?.name ?: "Non assign\u00e9"
+                                val groupHasChecked = group.items.any { it.checked }
                                 item(key = "header-$storeKey") {
-                                    Text(
-                                        text = group.store?.name ?: "Non assign\u00e9",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
-                                    )
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 8.dp, bottom = 4.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Text(
+                                            text = storeName,
+                                            style = MaterialTheme.typography.titleSmall,
+                                        )
+                                        if (groupHasChecked && storeId != null && !uiState.isSelecting) {
+                                            TextButton(onClick = {
+                                                viewModel.finishStore(storeId, storeName)
+                                            }) {
+                                                Icon(
+                                                    Icons.Default.CheckCircle,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(18.dp),
+                                                )
+                                                Spacer(Modifier.width(4.dp))
+                                                Text("Termin\u00e9")
+                                            }
+                                        }
+                                    }
                                     HorizontalDivider()
                                 }
                                 items(
@@ -305,6 +328,33 @@ fun GroceryScreen(
                 showDeleteSelectedDialog = false
             },
             onDismiss = { showDeleteSelectedDialog = false },
+        )
+    }
+
+    // Remaining items sheet (after finishing a store) \u2014 pick transfer target via StorePickerDialog
+    var transferTargetItem by remember { mutableStateOf<com.maggie.app.data.api.EndErrandRemainingItem?>(null) }
+    val finishingStoreName = uiState.pendingFinishStoreName
+    if (finishingStoreName != null && uiState.pendingFinishItems.isNotEmpty()) {
+        RemainingItemsSheet(
+            storeName = finishingStoreName,
+            items = uiState.pendingFinishItems,
+            onTransferClick = { transferTargetItem = it },
+            onKeepClick = { viewModel.keepPendingItem(it.id) },
+            onDismiss = { viewModel.dismissPendingFinish() },
+        )
+    }
+
+    transferTargetItem?.let { item ->
+        val excludedStoreId = item.store?.id
+        StorePickerDialog(
+            stores = uiState.stores.filter { it.id != excludedStoreId },
+            onSelectStore = { store ->
+                store.id?.let { viewModel.transferPendingItem(item.id, it) }
+                transferTargetItem = null
+            },
+            onSelectNewStore = { _ -> transferTargetItem = null },
+            onSelectNone = { transferTargetItem = null },
+            onDismiss = { transferTargetItem = null },
         )
     }
 }

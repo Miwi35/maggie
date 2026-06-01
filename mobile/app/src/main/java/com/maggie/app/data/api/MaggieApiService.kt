@@ -230,6 +230,33 @@ data class ReorderEntry(
     val position: Int,
 )
 
+@Serializable
+data class EndErrandRequest(
+    val storeId: String? = null,
+)
+
+@Serializable
+data class EndErrandRemainingItem(
+    val id: String,
+    val label: String,
+    val quantity: Float? = null,
+    val unit: String? = null,
+    val store: EndErrandRemainingStore? = null,
+)
+
+@Serializable
+data class EndErrandRemainingStore(
+    val id: String,
+    val name: String,
+)
+
+@Serializable
+data class EndErrandResponse(
+    val success: Boolean,
+    val remainingItems: List<EndErrandRemainingItem> = emptyList(),
+    val remainingCount: Int = 0,
+)
+
 private val MERGE_PATCH = ContentType("application", "merge-patch+json")
 
 class MaggieApiService(
@@ -662,6 +689,13 @@ class MaggieApiService(
             contentType(ContentType.Application.Json)
             setBody(request)
         }
+    }
+
+    suspend fun endErrand(request: EndErrandRequest): EndErrandResponse {
+        return client.post("$baseUrl/api/grocery/end-errand") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.body()
     }
 
     // Notifications

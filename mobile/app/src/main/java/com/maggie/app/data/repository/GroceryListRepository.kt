@@ -2,6 +2,8 @@ package com.maggie.app.data.repository
 
 import com.maggie.app.data.api.AddGroceryItemRequest
 import com.maggie.app.data.api.EditGroceryItemRequest
+import com.maggie.app.data.api.EndErrandRequest
+import com.maggie.app.data.api.EndErrandResponse
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.api.ReorderEntry
 import com.maggie.app.data.api.ReorderGroceryItemsRequest
@@ -67,5 +69,9 @@ class GroceryListRepository(
                 category = category,
             ),
         )
+    }
+
+    suspend fun endErrand(storeId: String? = null): Result<EndErrandResponse> = runCatching {
+        apiService.endErrand(EndErrandRequest(storeId = storeId))
     }
 }

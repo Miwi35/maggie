@@ -3,6 +3,7 @@ package com.maggie.app.ui.screens.cookbook.grocery
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.api.EndErrandRemainingItem
 import com.maggie.app.data.api.ReorderEntry
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.GroceryList
@@ -36,6 +37,8 @@ data class GroceryUiState(
     val error: String? = null,
     val selectedIds: Set<String> = emptySet(),
     val isSelecting: Boolean = false,
+    val pendingFinishStoreName: String? = null,
+    val pendingFinishItems: List<EndErrandRemainingItem> = emptyList(),
 )
 
 class GroceryViewModel(
@@ -362,28 +365,49 @@ class GroceryViewModel(
         }
     }
 
-    fun endErrand(removeItemIds: List<String>) {
+    fun finishStore(storeId: String, storeName: String) {
         viewModelScope.launch {
-            try {
-                _uiState.value = _uiState.value.copy(isLoading = true)
-                val currentList = _uiState.value.groceryList ?: return@launch
-
-                // Delete checked items
-                for (item in currentList.items) {
-                    if (item.checked && item.id != null) {
-                        groceryListRepository.deleteItem(item.id)
-                    }
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            groceryListRepository.endErrand(storeId)
+                .onSuccess { response ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        pendingFinishStoreName = if (response.remainingItems.isNotEmpty()) storeName else null,
+                        pendingFinishItems = response.remainingItems,
+                    )
+                    refresh()
                 }
-
-                // Delete items the user chose to remove
-                for (itemId in removeItemIds) {
-                    groceryListRepository.deleteItem(itemId)
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
                 }
+        }
+    }
 
-                refresh()
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)
-            }
+    fun dismissPendingFinish() {
+        _uiState.value = _uiState.value.copy(
+            pendingFinishStoreName = null,
+            pendingFinishItems = emptyList(),
+        )
+    }
+
+    fun keepPendingItem(itemId: String) {
+        val remaining = _uiState.value.pendingFinishItems.filterNot { it.id == itemId }
+        _uiState.value = _uiState.value.copy(
+            pendingFinishItems = remaining,
+            pendingFinishStoreName = if (remaining.isEmpty()) null else _uiState.value.pendingFinishStoreName,
+        )
+    }
+
+    fun transferPendingItem(itemId: String, newStoreId: String) {
+        viewModelScope.launch {
+            groceryListRepository.editItem(itemId = itemId, storeId = newStoreId)
+                .onSuccess {
+                    keepPendingItem(itemId)
+                    refresh()
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(error = e.message)
+                }
         }
     }
 
