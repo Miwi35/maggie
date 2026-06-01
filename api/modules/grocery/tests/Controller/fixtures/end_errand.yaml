@@ -1,0 +1,66 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: end-errand-test@example.com
+    googleId: google-end-errand-test
+    name: End Errand Test User
+
+Maggie\Grocery\Entity\Store:
+  store_lidl:
+    name: Lidl
+    visitOrder: 1
+    user: '@test_user'
+  store_auchan:
+    name: Auchan
+    visitOrder: 2
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryList:
+  grocery_list:
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryItem:
+  item_tomato:
+    groceryList: '@grocery_list'
+    customLabel: Tomates
+    quantity: 3
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: true
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@store_lidl'
+    position: 1
+  item_milk:
+    groceryList: '@grocery_list'
+    customLabel: Lait
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Liter)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@store_lidl'
+    position: 2
+  item_butter:
+    groceryList: '@grocery_list'
+    customLabel: Beurre
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: true
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@store_lidl'
+    position: 3
+  item_chocolate:
+    groceryList: '@grocery_list'
+    customLabel: Chocolat
+    quantity: 2
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: true
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@store_auchan'
+    position: 4
+  item_bread:
+    groceryList: '@grocery_list'
+    customLabel: Pain
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@store_auchan'
+    position: 5

@@ -8,6 +8,7 @@ final readonly class EndErrandCommand
 {
     public function __construct(
         public string $userId,
+        public ?string $storeId = null,
     ) {
     }
 }

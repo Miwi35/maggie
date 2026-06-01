@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Grocery\MessageHandler;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Message\EndErrandCommand;
 use Maggie\Grocery\Repository\GroceryListRepository;
@@ -28,12 +29,23 @@ class EndErrandHandler
 
         $list = $this->groceryListRepository->findOrCreateForUser($user);
 
-        // Remove all checked (bought) items
-        foreach ($list->getItems()->toArray() as $item) {
-            if ($item->isChecked()) {
-                $list->removeItem($item);
-                $this->em->remove($item);
+        // Use a direct repository query rather than $list->getItems(): lazy ghost
+        // proxies can leave the PersistentCollection uninitialized in some flows,
+        // causing it to report 0 elements even when the DB has rows.
+        $items = $this->em->getRepository(GroceryItem::class)->findBy(['groceryList' => $list]);
+
+        foreach ($items as $item) {
+            if (!$item->isChecked()) {
+                continue;
             }
+            if ($command->storeId !== null) {
+                $itemStoreId = $item->getStore()?->getId();
+                if ($itemStoreId === null || (string) $itemStoreId !== $command->storeId) {
+                    continue;
+                }
+            }
+            $list->removeItem($item);
+            $this->em->remove($item);
         }
 
         $list->setUpdatedAt(new \DateTimeImmutable());
