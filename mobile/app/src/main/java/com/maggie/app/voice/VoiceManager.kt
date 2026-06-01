@@ -3,6 +3,7 @@ package com.maggie.app.voice
 import android.content.Context
 import android.media.MediaPlayer
 import android.media.MediaRecorder
+import android.media.PlaybackParams
 import android.os.Build
 import android.util.Log
 import com.maggie.app.data.api.MaggieApiService
@@ -106,6 +107,13 @@ class VoiceManager(
         timerJob?.cancel()
         timerJob = null
 
+        // Skip transcription for very short recordings (< 1s) — likely accidental tap
+        if (_duration.value == 0) {
+            cleanupRecording()
+            _state.value = VoiceState.IDLE
+            return
+        }
+
         try {
             recorder?.stop()
         } catch (e: Exception) {
@@ -161,6 +169,7 @@ class VoiceManager(
                 val player = MediaPlayer().apply {
                     setDataSource(tempFile.absolutePath)
                     prepare()
+                    playbackParams = PlaybackParams().setSpeed(1.5f)
                     setOnCompletionListener {
                         _state.value = VoiceState.IDLE
                         it.release()

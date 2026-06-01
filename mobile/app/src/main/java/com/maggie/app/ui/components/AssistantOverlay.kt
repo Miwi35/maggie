@@ -25,7 +25,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -43,16 +45,23 @@ fun AssistantOverlay(
     val uiState by viewModel.uiState.collectAsState()
     val voiceState by voiceManager.state.collectAsState()
     val listState = rememberLazyListState()
+    // Track last spoken message — initialize with current last assistant message
+    // so we only speak NEW responses, not old history
+    var lastSpokenMessageId by remember {
+        val lastAssistantId = uiState.messages.lastOrNull { it.role == "assistant" }?.id
+        mutableStateOf(lastAssistantId)
+    }
 
     LaunchedEffect(Unit) {
         voiceManager.onFinalResult = { text -> viewModel.sendMessage(text) }
     }
 
-    // Speak assistant responses
+    // Speak only new assistant responses
     LaunchedEffect(uiState.messages.size, uiState.isLoading) {
         if (!uiState.isLoading && uiState.messages.isNotEmpty()) {
             val last = uiState.messages.last()
-            if (last.role == "assistant") {
+            if (last.role == "assistant" && last.id != lastSpokenMessageId) {
+                lastSpokenMessageId = last.id
                 voiceManager.speak(last.content)
             }
         }
