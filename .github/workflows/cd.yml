@@ -200,56 +200,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Copy k8s manifests to VPS
+      - name: Copy k8s manifests and deploy script to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: infra/k8s/
+          source: "infra/k8s/,infra/scripts/deploy-k3s.sh"
           target: /opt/maggie/
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
         env:
           IMAGE_TAG: ${{ github.sha }}
-          APP_CHANGED: ${{ needs.changes.outputs.app }}
-          AGENT_CHANGED: ${{ needs.changes.outputs.agent }}
-          CIQUAL_CHANGED: ${{ needs.changes.outputs.ciqual }}
-          INFRA_CHANGED: ${{ needs.changes.outputs.infra }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          envs: IMAGE_TAG,APP_CHANGED,AGENT_CHANGED,CIQUAL_CHANGED,INFRA_CHANGED
+          envs: IMAGE_TAG
+          command_timeout: 15m
           script: |
             set -e
-
-            # Apply manifest changes if infra files changed
-            if [ "$INFRA_CHANGED" = "true" ]; then
-              kubectl apply -k /opt/maggie/infra/k8s/
-            fi
-
-            # Update image tags for changed services
-            if [ "$APP_CHANGED" = "true" ]; then
-              kubectl set image deployment/php -n maggie php=ghcr.io/miwi35/maggie-php:$IMAGE_TAG
-              kubectl set image deployment/nginx -n maggie nginx=ghcr.io/miwi35/maggie-nginx:$IMAGE_TAG
-              kubectl set image deployment/worker -n maggie worker=ghcr.io/miwi35/maggie-php:$IMAGE_TAG
-              kubectl set image deployment/cron -n maggie cron=ghcr.io/miwi35/maggie-php:$IMAGE_TAG
-            fi
-            if [ "$AGENT_CHANGED" = "true" ]; then
-              kubectl set image deployment/agent -n maggie agent=ghcr.io/miwi35/maggie-agent:$IMAGE_TAG
-            fi
-            if [ "$CIQUAL_CHANGED" = "true" ]; then
-              kubectl set image deployment/ciqual -n maggie ciqual=ghcr.io/miwi35/maggie-ciqual:$IMAGE_TAG
-            fi
-
-            # Wait for rollout
-            kubectl rollout status deployment/php -n maggie --timeout=120s
-            kubectl rollout status deployment/nginx -n maggie --timeout=60s
-
-            # Run database migrations
-            kubectl exec deployment/php -n maggie -- bin/console doctrine:migrations:migrate --no-interaction
-
-            # Verify
-            kubectl get pods -n maggie
+            chmod +x /opt/maggie/infra/scripts/deploy-k3s.sh
+            /opt/maggie/infra/scripts/deploy-k3s.sh "$IMAGE_TAG"

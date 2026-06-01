@@ -103,4 +103,4 @@ infra/k8s/secrets.yaml
 # =============================================================================
 .claude
 agent-os
-scripts
+/scripts
