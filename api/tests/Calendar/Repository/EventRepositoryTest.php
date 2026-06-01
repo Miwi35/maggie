@@ -53,9 +53,12 @@ class EventRepositoryTest extends KernelTestCase
     {
         $this->loadFixtures('EventRepositoryTest.yaml');
 
+        // Use a month with no fixture event so only the recurring master is
+        // returned. The "tomorrow" / "+60 days" fixtures shift with the clock,
+        // so February — before today's date — stays empty regardless of when.
         $results = $this->repository->findByDateRange(
-            new \DateTimeImmutable('2026-06-01 00:00'),
-            new \DateTimeImmutable('2026-06-30 23:59'),
+            new \DateTimeImmutable('2026-02-01 00:00'),
+            new \DateTimeImmutable('2026-02-28 23:59'),
         );
 
         self::assertCount(1, $results);
