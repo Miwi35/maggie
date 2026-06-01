@@ -60,6 +60,21 @@ class MaggieApp : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        // Swallow a known Ktor 3.0.2 crash where OkHttpSSESession.onFailure
+        // dereferences a null CompletableDeferred when the SSE connection
+        // drops. Until we bump Ktor past the fix, log and keep the process
+        // alive instead of taking the whole app down on every network blip.
+        val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+            val isKtorSseNpe = error is NullPointerException
+                && error.stackTrace.any { it.className.contains("OkHttpSSESession") }
+            if (isKtorSseNpe) {
+                android.util.Log.w("MaggieApp", "Swallowed Ktor OkHttpSSESession NPE on ${thread.name}", error)
+                return@setDefaultUncaughtExceptionHandler
+            }
+            previousHandler?.uncaughtException(thread, error)
+        }
+
         val appModule = module {
             // Auth
             single { AuthRepository(androidContext()) }

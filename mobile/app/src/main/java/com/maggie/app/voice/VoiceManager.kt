@@ -169,7 +169,6 @@ class VoiceManager(
                 val player = MediaPlayer().apply {
                     setDataSource(tempFile.absolutePath)
                     prepare()
-                    playbackParams = PlaybackParams().setSpeed(1.5f)
                     setOnCompletionListener {
                         _state.value = VoiceState.IDLE
                         it.release()
@@ -184,6 +183,14 @@ class VoiceManager(
                         true
                     }
                     start()
+                    // Speed-up after start() so a setPlaybackParams failure on certain
+                    // devices doesn't prevent playback; reuse the existing params so
+                    // sampling rate, fallback mode, etc. keep their defaults.
+                    try {
+                        playbackParams = playbackParams.setSpeed(1.5f)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to set TTS playback speed", e)
+                    }
                 }
                 mediaPlayer = player
             } catch (e: Exception) {
