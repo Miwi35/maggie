@@ -1,6 +1,8 @@
 import json
 import logging
 
+import anthropic
+import openai
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -196,7 +198,33 @@ async def transcribe(audio: UploadFile, _user_id: str = Depends(get_current_user
     if len(contents) > MAX_AUDIO_SIZE:
         raise HTTPException(status_code=400, detail="Audio file exceeds 25 MB limit")
 
-    result = await transcribe_audio(contents, audio.filename or "audio.webm")
+    try:
+        result = await transcribe_audio(contents, audio.filename or "audio.webm")
+    except openai.RateLimitError as exc:
+        logger.warning("Whisper quota exhausted: %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail="Quota OpenAI dépassé — recharge le compte pour réactiver la transcription.",
+        ) from exc
+    except anthropic.RateLimitError as exc:
+        logger.warning("Anthropic rate-limited during transcription cleanup: %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail="Anthropic est temporairement rate-limité, réessaie dans quelques instants.",
+        ) from exc
+    except openai.AuthenticationError as exc:
+        logger.error("OpenAI authentication failed: %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail="Clé API OpenAI invalide — vérifie la configuration côté agent.",
+        ) from exc
+    except (openai.APIError, anthropic.APIError) as exc:
+        logger.exception("LLM provider error during transcription")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Le service de transcription a échoué : {exc.__class__.__name__}",
+        ) from exc
+
     return result
 
 

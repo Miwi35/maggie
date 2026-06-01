@@ -38,6 +38,7 @@ fun VoiceControlBar(
 ) {
     val voiceState by voiceManager.state.collectAsState()
     val duration by voiceManager.duration.collectAsState()
+    val errorMessage by voiceManager.errorMessage.collectAsState()
 
     val isListening = voiceState == VoiceState.LISTENING
     val infiniteTransition = rememberInfiniteTransition(label = "mic_pulse")
@@ -66,7 +67,7 @@ fun VoiceControlBar(
         VoiceState.TRANSCRIBING -> "Transcription..."
         VoiceState.PROCESSING -> "Maggie réfléchit..."
         VoiceState.SPEAKING -> "Maggie parle..."
-        VoiceState.ERROR -> "Erreur — appuyez pour réessayer"
+        VoiceState.ERROR -> errorMessage ?: "Erreur — appuyez pour réessayer"
     }
 
     val icon = when (voiceState) {
@@ -118,7 +119,11 @@ fun VoiceControlBar(
         Text(
             text = stateLabel,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (voiceState == VoiceState.ERROR) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
         )
     }
 }

@@ -34,6 +34,8 @@ import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsChannel
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.isSuccess
 import io.ktor.http.ContentType
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
@@ -489,7 +491,7 @@ class MaggieApiService(
     }
 
     suspend fun transcribe(audioFile: File): String {
-        val response: TranscribeResponse = client.submitFormWithBinaryData(
+        val response = client.submitFormWithBinaryData(
             url = "$baseUrl/agent/transcribe",
             formData = formData {
                 append("audio", audioFile.readBytes(), Headers.build {
@@ -497,8 +499,16 @@ class MaggieApiService(
                     append(HttpHeaders.ContentType, "audio/mp4")
                 })
             },
-        ).body()
-        return response.clean.ifBlank { response.raw }
+        )
+        if (!response.status.isSuccess()) {
+            // FastAPI HTTPException payloads use {"detail": "..."} as JSON;
+            // fall back to the raw body when the server returned plain text.
+            val body = response.bodyAsText()
+            val detail = Regex("\"detail\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
+            throw IllegalStateException(detail ?: body.ifBlank { "HTTP ${response.status.value}" })
+        }
+        val parsed: TranscribeResponse = response.body()
+        return parsed.clean.ifBlank { parsed.raw }
     }
 
     // FCM Token

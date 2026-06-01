@@ -44,6 +44,9 @@ class VoiceManager(
     private val _duration = MutableStateFlow(0)
     val duration: StateFlow<Int> = _duration
 
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage
+
     var onFinalResult: ((String) -> Unit)? = null
 
     private var recorder: MediaRecorder? = null
@@ -71,6 +74,7 @@ class VoiceManager(
     fun startListening() {
         cancelListening()
         _duration.value = 0
+        _errorMessage.value = null
         _state.value = VoiceState.LISTENING
 
         val file = File(context.cacheDir, "voice_${System.currentTimeMillis()}.m4a")
@@ -140,6 +144,7 @@ class VoiceManager(
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Transcription failed", e)
+                _errorMessage.value = extractTranscribeErrorMessage(e)
                 _state.value = VoiceState.ERROR
             } finally {
                 file.delete()
@@ -238,4 +243,19 @@ class VoiceManager(
             MediaRecorder()
         }
     }
+}
+
+/**
+ * The agent returns FastAPI HTTPException payloads as {"detail": "..."}.
+ * Ktor wraps those in ResponseException-style messages. Try to pull the
+ * detail out so the UI can show what actually went wrong (quota, auth, …)
+ * instead of a generic "Erreur".
+ */
+private fun extractTranscribeErrorMessage(e: Throwable): String {
+    val detailRegex = Regex("\"detail\"\\s*:\\s*\"([^\"]+)\"")
+    val raw = e.message ?: e.cause?.message
+    if (raw != null) {
+        detailRegex.find(raw)?.groupValues?.getOrNull(1)?.let { return it }
+    }
+    return raw?.take(140) ?: "Erreur de transcription"
 }
