@@ -1,2 +1,7 @@
 controllers:
     resource: routing.controllers
+
+# Handled by the gesdinet refresh_jwt authenticator on the token_refresh firewall.
+api_refresh_token:
+    path: /api/token/refresh
+    methods: [POST]

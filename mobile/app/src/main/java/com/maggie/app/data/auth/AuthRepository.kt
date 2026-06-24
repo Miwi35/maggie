@@ -16,6 +16,7 @@ class AuthRepository(private val context: Context) {
 
     private object Keys {
         val TOKEN = stringPreferencesKey("jwt_token")
+        val REFRESH_TOKEN = stringPreferencesKey("refresh_token")
         val USER_ID = stringPreferencesKey("user_id")
         val USER_NAME = stringPreferencesKey("user_name")
         val USER_EMAIL = stringPreferencesKey("user_email")
@@ -27,9 +28,10 @@ class AuthRepository(private val context: Context) {
 
     val isAuthenticated: Flow<Boolean> = token.map { it != null }
 
-    suspend fun saveAuth(token: String, mercureToken: String?, id: String, name: String, email: String, avatar: String?) {
+    suspend fun saveAuth(token: String, refreshToken: String?, mercureToken: String?, id: String, name: String, email: String, avatar: String?) {
         context.authDataStore.edit { prefs ->
             prefs[Keys.TOKEN] = token
+            refreshToken?.let { prefs[Keys.REFRESH_TOKEN] = it }
             prefs[Keys.USER_ID] = id
             prefs[Keys.USER_NAME] = name
             prefs[Keys.USER_EMAIL] = email
@@ -38,7 +40,17 @@ class AuthRepository(private val context: Context) {
         }
     }
 
+    /** Persist rotated tokens after a refresh, leaving user/profile data untouched. */
+    suspend fun updateTokens(token: String, refreshToken: String?) {
+        context.authDataStore.edit { prefs ->
+            prefs[Keys.TOKEN] = token
+            refreshToken?.let { prefs[Keys.REFRESH_TOKEN] = it }
+        }
+    }
+
     suspend fun getToken(): String? = context.authDataStore.data.first()[Keys.TOKEN]
+
+    suspend fun getRefreshToken(): String? = context.authDataStore.data.first()[Keys.REFRESH_TOKEN]
 
     suspend fun getMercureToken(): String? = context.authDataStore.data.first()[Keys.MERCURE_TOKEN]
 

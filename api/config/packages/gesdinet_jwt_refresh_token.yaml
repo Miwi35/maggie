@@ -1,0 +1,7 @@
+gesdinet_jwt_refresh_token:
+    refresh_token_class: Maggie\Core\Entity\RefreshToken
+    # 30 days — long-lived so the mobile app doesn't force a re-login every 24h.
+    ttl: 2592000
+    # Rotate the refresh token on every use; the old one is invalidated.
+    single_use: true
+    token_parameter_name: refresh_token
