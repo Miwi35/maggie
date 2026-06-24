@@ -16,6 +16,8 @@ import com.maggie.app.util.EventExpander
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.time.Instant
 
@@ -44,7 +46,15 @@ class DashboardViewModel(
     val uiState: StateFlow<DashboardUiState> = _uiState
 
     init {
-        refresh()
+        // Refresh once the auth token is available (and again whenever the user
+        // logs in), instead of firing a single fetch in init that can race the
+        // login completing — which left the dashboard empty until a manual pull.
+        viewModelScope.launch {
+            authRepository.token
+                .map { it != null }
+                .distinctUntilChanged()
+                .collect { authenticated -> if (authenticated) refresh() }
+        }
         subscribeToMercure()
     }
 
@@ -63,7 +73,7 @@ class DashboardViewModel(
                 val agendas = agendaRepository.getAgendas()
                 val agendaMap = agendas.associateBy { it.id }
 
-                val rangeEvents = eventRepository.refreshEvents().getOrDefault(emptyList())
+                val rangeEvents = eventRepository.refreshEvents().getOrThrow()
                 val recurringEvents = eventRepository.getRecurringBefore(ranges.month.start.toString())
 
                 // Merge & deduplicate

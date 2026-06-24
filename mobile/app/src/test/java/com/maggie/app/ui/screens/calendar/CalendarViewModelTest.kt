@@ -15,6 +15,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -42,6 +43,7 @@ class CalendarViewModelTest {
         agendaRepository = mockk()
         mercureService = mockk()
         authRepository = mockk(relaxed = true)
+        every { authRepository.token } returns flowOf("test-jwt")
         every { mercureService.subscribe(any()) } returns emptyFlow()
     }
 

@@ -17,6 +17,11 @@ security:
             pattern: ^/api/calendar/google/webhook
             stateless: true
             security: false
+        token_refresh:
+            pattern: ^/api/token/refresh
+            stateless: true
+            refresh_jwt:
+                check_path: /api/token/refresh
         api:
             pattern: ^/api
             stateless: true
@@ -24,6 +29,7 @@ security:
 
     access_control:
         - { path: ^/api/auth, roles: PUBLIC_ACCESS }
+        - { path: ^/api/token/refresh, roles: PUBLIC_ACCESS }
         - { path: ^/api/calendar/google/webhook, roles: PUBLIC_ACCESS }
         - { path: ^/api/docs, roles: PUBLIC_ACCESS }
         - { path: ^/api/contexts, roles: PUBLIC_ACCESS }

@@ -19,6 +19,8 @@ import com.maggie.app.util.EventExpander
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.Instant
@@ -56,7 +58,14 @@ class FullCalendarViewModel(
     private var agendaMap: Map<String, Agenda> = emptyMap()
 
     init {
-        refresh()
+        // Load once the auth token is available (and again on each login), rather
+        // than racing the login in init.
+        viewModelScope.launch {
+            authRepository.token
+                .map { it != null }
+                .distinctUntilChanged()
+                .collect { authenticated -> if (authenticated) refresh() }
+        }
         subscribeToMercure()
     }
 
@@ -111,7 +120,7 @@ class FullCalendarViewModel(
                 val agendas = agendaRepository.refreshAgendas().getOrThrow()
                 agendaMap = agendas.associateBy { it.id }
 
-                val rangeEvents = eventRepository.refreshEvents().getOrDefault(emptyList())
+                val rangeEvents = eventRepository.refreshEvents().getOrThrow()
                 val range = getVisibleRange()
                 val recurringEvents = eventRepository.getRecurringBefore(range.start.toString())
 

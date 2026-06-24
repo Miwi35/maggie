@@ -3,6 +3,8 @@
 namespace Maggie\Core\Controller;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Gesdinet\JWTRefreshTokenBundle\Generator\RefreshTokenGeneratorInterface;
+use Gesdinet\JWTRefreshTokenBundle\Model\RefreshTokenManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Repository\UserRepository;
@@ -23,11 +25,14 @@ final class GoogleAuthController
         private readonly EntityManagerInterface $entityManager,
         private readonly JWTTokenManagerInterface $jwtManager,
         private readonly MessageBusInterface $messageBus,
+        private readonly RefreshTokenGeneratorInterface $refreshTokenGenerator,
+        private readonly RefreshTokenManagerInterface $refreshTokenManager,
         private readonly string $googleClientId,
         private readonly string $googleClientSecret,
         private readonly string $googleRedirectUri,
         private readonly string $adminUrl,
         private readonly string $mercureJwtSecret,
+        private readonly int $refreshTokenTtl,
     ) {
     }
 
@@ -66,9 +71,12 @@ final class GoogleAuthController
 
         $user = $this->findOrCreateUser($payload);
         $jwt = $this->jwtManager->create($user);
+        $refreshToken = $this->refreshTokenGenerator->createForUserWithTtl($user, $this->refreshTokenTtl);
+        $this->refreshTokenManager->save($refreshToken);
 
         return new JsonResponse([
             'token' => $jwt,
+            'refreshToken' => $refreshToken->getRefreshToken(),
             'mercureToken' => $this->createMercureSubscriberJwt($user),
             'user' => [
                 'id' => (string) $user->getId(),
