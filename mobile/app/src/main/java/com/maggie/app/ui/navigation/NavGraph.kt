@@ -96,6 +96,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
 import org.koin.compose.koinInject
 import java.time.Instant
 
@@ -119,7 +120,7 @@ sealed class Screen(val route: String, val label: String) {
     data object StoreList : Screen("stores", "Magasins")
     data object AccountList : Screen("accounts", "Comptes")
     data object CategoryList : Screen("categories", "Catégories")
-    data object TransactionList : Screen("transactions", "Transactions")
+    data object AccountTransactions : Screen("account_transactions", "Opérations")
     data object RecipeDetail : Screen("recipe/detail", "Recette")
     data object RecipeCreate : Screen("recipe/create", "Nouvelle recette")
     data object RecipeEdit : Screen("recipe/edit", "Modifier la recette")
@@ -200,6 +201,7 @@ fun NavGraph() {
     var editingTask by remember { mutableStateOf<Task?>(null) }
 
     // Cookbook transient state
+    var selectedAccount by remember { mutableStateOf<Pair<String, String>?>(null) }
     var detailRecipeId by remember { mutableStateOf<String?>(null) }
     var editRecipeId by remember { mutableStateOf<String?>(null) }
     var mealCreateState by remember { mutableStateOf<Pair<String, String>?>(null) }
@@ -482,6 +484,10 @@ fun NavGraph() {
                     AccountListScreen(
                         viewModel = accountViewModel,
                         onBack = { navController.popBackStack() },
+                        onOpenAccount = { accountId, accountName ->
+                            selectedAccount = accountId to accountName
+                            navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
+                        },
                     )
                 }
                 composable(Screen.CategoryList.route) {
@@ -491,12 +497,16 @@ fun NavGraph() {
                         onBack = { navController.popBackStack() },
                     )
                 }
-                composable(Screen.TransactionList.route) {
-                    val transactionViewModel: TransactionViewModel = koinViewModel()
-                    TransactionListScreen(
-                        viewModel = transactionViewModel,
-                        onBack = { navController.popBackStack() },
-                    )
+                composable(Screen.AccountTransactions.route) {
+                    val account = selectedAccount
+                    if (account != null) {
+                        val transactionViewModel: TransactionViewModel = koinViewModel { parametersOf(account.first) }
+                        TransactionListScreen(
+                            viewModel = transactionViewModel,
+                            accountName = account.second,
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
                 }
                 composable(Screen.RecipeDetail.route) {
                     val id = detailRecipeId

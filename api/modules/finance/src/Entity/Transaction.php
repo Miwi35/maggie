@@ -49,10 +49,12 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
     #[ORM\ManyToOne(targetEntity: Account::class)]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     #[Assert\NotNull]
+    #[IndexedRelation(targetEntity: Account::class, sourceField: 'accountId')]
     private Account $account;
 
     #[ORM\ManyToOne(targetEntity: Category::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    #[IndexedRelation(targetEntity: Category::class, sourceField: 'categoryId')]
     private ?Category $category = null;
 
     /** Signed amount in integer cents: negative = expense/debit, positive = income/credit. */

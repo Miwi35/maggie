@@ -748,9 +748,11 @@ class MaggieApiService(
     }
 
     // Finance — Transactions
-    suspend fun getTransactions(): List<Transaction> {
+    suspend fun getTransactions(accountId: String? = null): List<Transaction> {
         return client.get("$baseUrl/api/transactions") {
             accept(ContentType("application", "ld+json"))
+            url.parameters.append("order[bookedAt]", "desc")
+            accountId?.let { url.parameters.append("accountId", it) }
         }.body<ApiCollection<Transaction>>().member
     }
 

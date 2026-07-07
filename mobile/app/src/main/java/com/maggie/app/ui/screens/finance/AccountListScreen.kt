@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.finance
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,6 +52,7 @@ private val ACCOUNT_TYPES = listOf("checking", "savings", "investment", "cash")
 fun AccountListScreen(
     viewModel: AccountViewModel,
     onBack: () -> Unit,
+    onOpenAccount: (accountId: String, accountName: String) -> Unit = { _, _ -> },
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -96,7 +98,11 @@ fun AccountListScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(uiState.accounts, key = { it.id }) { account ->
-                        Card(modifier = Modifier.fillMaxWidth()) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onOpenAccount(account.id, account.name) },
+                        ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()

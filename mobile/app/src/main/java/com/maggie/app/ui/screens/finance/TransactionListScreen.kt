@@ -38,8 +38,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.maggie.app.data.api.TransactionCreateRequest
-import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.transactionStatusLabel
 import kotlin.math.roundToInt
@@ -48,6 +46,7 @@ import kotlin.math.roundToInt
 @Composable
 fun TransactionListScreen(
     viewModel: TransactionViewModel,
+    accountName: String,
     onBack: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -56,7 +55,7 @@ fun TransactionListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Transactions") },
+                title = { Text(accountName) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
@@ -66,7 +65,7 @@ fun TransactionListScreen(
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { showCreateDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Nouvelle transaction")
+                Icon(Icons.Default.Add, contentDescription = "Nouvelle opération")
             }
         },
     ) { paddingValues ->
@@ -84,7 +83,7 @@ fun TransactionListScreen(
                     modifier = Modifier.fillMaxSize().padding(paddingValues),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("Aucune transaction", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Aucune opération", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             else -> {
@@ -143,9 +142,8 @@ fun TransactionListScreen(
 
     if (showCreateDialog) {
         TransactionCreateDialog(
-            accounts = uiState.accounts,
-            onConfirm = { request ->
-                viewModel.createTransaction(request)
+            onConfirm = { amountCents, label ->
+                viewModel.createTransaction(amountCents, label)
                 showCreateDialog = false
             },
             onDismiss = { showCreateDialog = false },
@@ -156,20 +154,18 @@ fun TransactionListScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TransactionCreateDialog(
-    accounts: List<Account>,
-    onConfirm: (TransactionCreateRequest) -> Unit,
+    onConfirm: (amountCents: Int, label: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var label by remember { mutableStateOf("") }
     var amountText by remember { mutableStateOf("") }
     var isExpense by remember { mutableStateOf(true) }
-    var selectedAccountId by remember { mutableStateOf(accounts.firstOrNull()?.id) }
 
-    val canSubmit = label.isNotBlank() && selectedAccountId != null && amountText.toDoubleOrNull() != null
+    val canSubmit = label.isNotBlank() && amountText.toDoubleOrNull() != null
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Nouvelle transaction") },
+        title = { Text("Nouvelle opération") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
@@ -199,39 +195,14 @@ private fun TransactionCreateDialog(
                         label = { Text("Revenu") },
                     )
                 }
-                if (accounts.isEmpty()) {
-                    Text(
-                        "Crée d'abord un compte",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                } else {
-                    Text("Compte", style = MaterialTheme.typography.bodySmall)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        accounts.forEach { account ->
-                            FilterChip(
-                                selected = selectedAccountId == account.id,
-                                onClick = { selectedAccountId = account.id },
-                                label = { Text(account.name) },
-                            )
-                        }
-                    }
-                }
             }
         },
         confirmButton = {
             TextButton(
                 onClick = {
-                    val accountId = selectedAccountId ?: return@TextButton
                     val euros = amountText.toDoubleOrNull() ?: return@TextButton
                     val cents = (euros * 100).roundToInt().let { if (isExpense) -it else it }
-                    onConfirm(
-                        TransactionCreateRequest(
-                            account = "/api/accounts/$accountId",
-                            amountCents = cents,
-                            label = label.trim(),
-                        ),
-                    )
+                    onConfirm(cents, label.trim())
                 },
                 enabled = canSubmit,
             ) {

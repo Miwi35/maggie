@@ -7,8 +7,8 @@ import com.maggie.app.data.model.Transaction
 class TransactionRepository(
     private val apiService: MaggieApiService,
 ) {
-    suspend fun getTransactions(): Result<List<Transaction>> = runCatching {
-        apiService.getTransactions()
+    suspend fun getTransactions(accountId: String? = null): Result<List<Transaction>> = runCatching {
+        apiService.getTransactions(accountId)
     }
 
     suspend fun createTransaction(request: TransactionCreateRequest): Result<Transaction> = runCatching {

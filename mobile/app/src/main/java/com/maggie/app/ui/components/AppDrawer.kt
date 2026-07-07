@@ -7,7 +7,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Dashboard
-import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Settings
@@ -95,17 +94,6 @@ fun AppDrawerContent(
             selected = currentRoute == "categories",
             onClick = {
                 onNavigate("categories")
-                onCloseDrawer()
-            },
-            modifier = Modifier.padding(horizontal = 12.dp),
-        )
-
-        NavigationDrawerItem(
-            icon = { Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null) },
-            label = { Text("Transactions") },
-            selected = currentRoute == "transactions",
-            onClick = {
-                onNavigate("transactions")
                 onCloseDrawer()
             },
             modifier = Modifier.padding(horizontal = 12.dp),

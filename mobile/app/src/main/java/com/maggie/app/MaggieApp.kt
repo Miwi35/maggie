@@ -209,7 +209,7 @@ class MaggieApp : Application() {
             viewModel { StoreViewModel(get()) }
             viewModel { AccountViewModel(get()) }
             viewModel { CategoryViewModel(get()) }
-            viewModel { TransactionViewModel(get(), get()) }
+            viewModel { (accountId: String) -> TransactionViewModel(get(), accountId) }
         }
 
         startKoin {
