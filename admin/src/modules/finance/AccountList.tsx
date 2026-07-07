@@ -19,7 +19,7 @@ const AccountDatagrid = () => {
   useMercure(ACCOUNT_TOPICS, () => { refetch() })
 
   return (
-    <Datagrid rowClick="edit">
+    <Datagrid rowClick={(id) => `/accounts/${String(id).split('/').pop()}/transactions`}>
       <TextField source="name" label="Nom" />
       <TextField source="bank" label="Banque" />
       <FunctionField
