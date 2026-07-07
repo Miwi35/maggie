@@ -5,6 +5,9 @@ import { AccountList } from './AccountList'
 import { CategoryCreate } from './CategoryCreate'
 import { CategoryEdit } from './CategoryEdit'
 import { CategoryList } from './CategoryList'
+import { TransactionCreate } from './TransactionCreate'
+import { TransactionEdit } from './TransactionEdit'
+import { TransactionList } from './TransactionList'
 
 export const financeResources = (
   <>
@@ -19,6 +22,12 @@ export const financeResources = (
       list={CategoryList}
       create={CategoryCreate}
       edit={CategoryEdit}
+    />
+    <ResourceGuesser
+      name="transactions"
+      list={TransactionList}
+      create={TransactionCreate}
+      edit={TransactionEdit}
     />
   </>
 )

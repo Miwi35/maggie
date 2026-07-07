@@ -1,0 +1,32 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-api-test@example.com
+    googleId: google-finance-api-test
+    name: Finance Api Test User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+
+Maggie\Finance\Entity\Category:
+  food:
+    name: Alimentation
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  groceries:
+    account: '@checking'
+    category: '@food'
+    amountCents: -4599
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-01"))>'
+    label: Supermarché
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'

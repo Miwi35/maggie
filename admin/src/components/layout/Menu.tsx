@@ -141,6 +141,12 @@ export const CustomMenu = () => {
                 leftIcon={<CategoryIcon />}
                 sx={{ pl: 4 }}
               />
+              <MenuItemLink
+                to="/transactions"
+                primaryText="Transactions"
+                leftIcon={<ReceiptLongIcon />}
+                sx={{ pl: 4 }}
+              />
             </List>
           </Collapse>
 
