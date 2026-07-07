@@ -109,7 +109,7 @@ class MercurePublishMiddleware implements MiddlewareInterface
                 $entity = substr($name, strlen($prefix));
                 // Convert CamelCase to snake_case: GroceryList → grocery_list
                 $snake = strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $entity));
-                $topic = '/api/' . $snake . 's';
+                $topic = '/api/' . self::pluralize($snake);
 
                 return [strtolower($prefix), $topic, $entity];
             }
@@ -127,7 +127,21 @@ class MercurePublishMiddleware implements MiddlewareInterface
     {
         $snake = strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $shortName));
 
-        return '/api/' . $snake . 's';
+        return '/api/' . self::pluralize($snake);
+    }
+
+    /**
+     * Pluralize a snake_case entity name to match API Platform's collection route.
+     * Handles the consonant+"y" → "ies" case (e.g. category → categories);
+     * every other entity keeps the simple "+s" form.
+     */
+    private static function pluralize(string $snake): string
+    {
+        if (preg_match('/[bcdfghjklmnpqrstvwxz]y$/', $snake)) {
+            return substr($snake, 0, -1) . 'ies';
+        }
+
+        return $snake . 's';
     }
 
     private static function resolveUserId(object $entity): ?string

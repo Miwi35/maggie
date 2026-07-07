@@ -16,6 +16,7 @@ import com.maggie.app.data.model.Proaction
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.Recipe
 import com.maggie.app.data.model.Account
+import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.model.TtsVoice
 import com.maggie.app.data.model.RecurringGroceryItem
@@ -204,6 +205,15 @@ data class AccountCreateRequest(
     val currency: String = "EUR",
     val balanceCents: Int = 0,
     val isCushion: Boolean = false,
+)
+
+@Serializable
+data class CategoryCreateRequest(
+    val name: String,
+    val obligation: String = "optional",
+    val parent: String? = null,
+    val color: String? = null,
+    val icon: String? = null,
 )
 
 @Serializable
@@ -706,6 +716,25 @@ class MaggieApiService(
 
     suspend fun deleteAccount(id: String) {
         client.delete("$baseUrl/api/accounts/$id")
+    }
+
+    // Finance — Categories
+    suspend fun getCategories(): List<Category> {
+        return client.get("$baseUrl/api/categories") {
+            accept(ContentType("application", "ld+json"))
+        }.body<ApiCollection<Category>>().member
+    }
+
+    suspend fun createCategory(request: CategoryCreateRequest): Category {
+        return client.post("$baseUrl/api/categories") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.body()
+    }
+
+    suspend fun deleteCategory(id: String) {
+        client.delete("$baseUrl/api/categories/$id")
     }
 
     // Grocery Add Item

@@ -87,7 +87,7 @@ final class ElasticsearchIndexMiddleware implements MiddlewareInterface
         // Resolve index name from entity FQCN by scanning known entity classes
         // CamelCase to snake_case plural: GroceryList → grocery_lists
         $snake = strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $entityName));
-        $indexName = $snake . 's';
+        $indexName = self::pluralize($snake);
 
         $this->bus->dispatch(new DeleteDocumentCommand(
             indexName: $indexName,
@@ -112,12 +112,26 @@ final class ElasticsearchIndexMiddleware implements MiddlewareInterface
             if (str_starts_with($name, $prefix)) {
                 $entity = substr($name, strlen($prefix));
                 $snake = strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $entity));
-                $topic = '/api/' . $snake . 's';
+                $topic = '/api/' . self::pluralize($snake);
 
                 return [strtolower($prefix), $topic, $entity];
             }
         }
 
         return null;
+    }
+
+    /**
+     * Pluralize a snake_case entity name to match the Elasticsearch index name.
+     * Handles the consonant+"y" → "ies" case (e.g. category → categories);
+     * every other entity keeps the simple "+s" form.
+     */
+    private static function pluralize(string $snake): string
+    {
+        if (preg_match('/[bcdfghjklmnpqrstvwxz]y$/', $snake)) {
+            return substr($snake, 0, -1) . 'ies';
+        }
+
+        return $snake . 's';
     }
 }

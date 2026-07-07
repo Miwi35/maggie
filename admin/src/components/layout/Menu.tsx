@@ -135,6 +135,12 @@ export const CustomMenu = () => {
                 leftIcon={<AccountBalanceIcon />}
                 sx={{ pl: 4 }}
               />
+              <MenuItemLink
+                to="/categories"
+                primaryText="Catégories"
+                leftIcon={<CategoryIcon />}
+                sx={{ pl: 4 }}
+              />
             </List>
           </Collapse>
 

@@ -8,6 +8,7 @@ parameters:
         - src/
         - modules/calendar/src/
         - modules/core/src/
+        - modules/finance/src/
     excludePaths:
         - src/Kernel.php
     symfony:

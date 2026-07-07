@@ -18,6 +18,7 @@ import com.maggie.app.data.repository.IngredientRepository
 import com.maggie.app.data.repository.MealRepository
 import com.maggie.app.data.repository.NotificationRepository
 import com.maggie.app.data.repository.AccountRepository
+import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.ContextRepository
 import com.maggie.app.data.repository.ProactionRepository
 import com.maggie.app.data.repository.ProductRepository
@@ -28,6 +29,7 @@ import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.ui.screens.cookbook.grocery.GroceryViewModel
 import com.maggie.app.ui.screens.finance.AccountViewModel
+import com.maggie.app.ui.screens.finance.CategoryViewModel
 import com.maggie.app.ui.screens.grocery.ProductViewModel
 import com.maggie.app.ui.screens.grocery.StoreViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealsWeekViewModel
@@ -176,6 +178,7 @@ class MaggieApp : Application() {
             single { ProductRepository(get()) }
             single { StoreRepository(get()) }
             single { AccountRepository(get()) }
+            single { CategoryRepository(get()) }
             single { NotificationRepository(get()) }
             single { SearchRepository(get()) }
             single { ContextRepository(get()) }
@@ -202,6 +205,7 @@ class MaggieApp : Application() {
             viewModel { ProductViewModel(get(), get()) }
             viewModel { StoreViewModel(get()) }
             viewModel { AccountViewModel(get()) }
+            viewModel { CategoryViewModel(get()) }
         }
 
         startKoin {

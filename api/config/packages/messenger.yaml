@@ -63,6 +63,9 @@ framework:
             'Maggie\Finance\Message\CreateAccountCommand': sync
             'Maggie\Finance\Message\UpdateAccountCommand': sync
             'Maggie\Finance\Message\DeleteAccountCommand': sync
+            'Maggie\Finance\Message\CreateCategoryCommand': sync
+            'Maggie\Finance\Message\UpdateCategoryCommand': sync
+            'Maggie\Finance\Message\DeleteCategoryCommand': sync
             'Maggie\Core\Elasticsearch\Message\IndexDocumentCommand': async
             'Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand': async
 
