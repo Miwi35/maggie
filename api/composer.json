@@ -8,7 +8,8 @@
         {"type": "path", "url": "modules/core", "options": {"symlink": true}},
         {"type": "path", "url": "modules/notification", "options": {"symlink": true}},
         {"type": "path", "url": "modules/grocery", "options": {"symlink": true}},
-        {"type": "path", "url": "modules/cookbook", "options": {"symlink": true}}
+        {"type": "path", "url": "modules/cookbook", "options": {"symlink": true}},
+        {"type": "path", "url": "modules/finance", "options": {"symlink": true}}
     ],
     "require": {
         "php": ">=8.4",
@@ -25,6 +26,7 @@
         "maggie/calendar": "@dev",
         "maggie/cookbook": "@dev",
         "maggie/core": "@dev",
+        "maggie/finance": "@dev",
         "maggie/grocery": "@dev",
         "maggie/notification": "@dev",
         "nelmio/cors-bundle": "^2.6.1",
@@ -65,6 +67,7 @@
             "App\\Tests\\": "tests/",
             "Maggie\\Calendar\\Tests\\": "modules/calendar/tests/",
             "Maggie\\Core\\Tests\\": "modules/core/tests/",
+            "Maggie\\Finance\\Tests\\": "modules/finance/tests/",
             "Maggie\\Grocery\\Tests\\": "modules/grocery/tests/"
         }
     },

@@ -15,6 +15,7 @@ import com.maggie.app.data.model.Notification
 import com.maggie.app.data.model.Proaction
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.Recipe
+import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.model.TtsVoice
 import com.maggie.app.data.model.RecurringGroceryItem
@@ -193,6 +194,16 @@ data class StoreCreateRequest(
     val name: String,
     val description: String? = null,
     val visitOrder: Int = 0,
+)
+
+@Serializable
+data class AccountCreateRequest(
+    val name: String,
+    val type: String = "checking",
+    val bank: String? = null,
+    val currency: String = "EUR",
+    val balanceCents: Int = 0,
+    val isCushion: Boolean = false,
 )
 
 @Serializable
@@ -676,6 +687,25 @@ class MaggieApiService(
 
     suspend fun deleteStore(id: String) {
         client.delete("$baseUrl/api/stores/$id")
+    }
+
+    // Finance — Accounts
+    suspend fun getAccounts(): List<Account> {
+        return client.get("$baseUrl/api/accounts") {
+            accept(ContentType("application", "ld+json"))
+        }.body<ApiCollection<Account>>().member
+    }
+
+    suspend fun createAccount(request: AccountCreateRequest): Account {
+        return client.post("$baseUrl/api/accounts") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.body()
+    }
+
+    suspend fun deleteAccount(id: String) {
+        client.delete("$baseUrl/api/accounts/$id")
     }
 
     // Grocery Add Item

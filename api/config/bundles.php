@@ -14,6 +14,7 @@ return [
     Maggie\Notification\MaggieNotificationBundle::class => ['all' => true],
     Maggie\Grocery\MaggieGroceryBundle::class => ['all' => true],
     Maggie\Cookbook\MaggieCookbookBundle::class => ['all' => true],
+    Maggie\Finance\MaggieFinanceBundle::class => ['all' => true],
     Symfony\AI\McpBundle\McpBundle::class => ['all' => true],
     Nelmio\Alice\Bridge\Symfony\NelmioAliceBundle::class => ['dev' => true, 'test' => true],
     Fidry\AliceDataFixtures\Bridge\Symfony\FidryAliceDataFixturesBundle::class => ['dev' => true, 'test' => true],

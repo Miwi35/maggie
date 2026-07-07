@@ -119,6 +119,9 @@
     "maggie/core": {
         "version": "dev-main"
     },
+    "maggie/finance": {
+        "version": "dev-main"
+    },
     "maggie/grocery": {
         "version": "dev-main"
     },

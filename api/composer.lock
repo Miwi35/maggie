@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "47d1daaa9d32c0500182f782249d57b1",
+    "content-hash": "7efc74e24d2d9f2e3374d68307019dd1",
     "packages": [
         {
             "name": "api-platform/core",
@@ -2380,6 +2380,40 @@
                 "proprietary"
             ],
             "description": "Core module: users, auth, settings",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "maggie/finance",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "modules/finance",
+                "reference": "bd75661f124bbee609fb39281e9263497cbd2569"
+            },
+            "require": {
+                "api-platform/core": "^4.2",
+                "doctrine/doctrine-bundle": "^2.18",
+                "doctrine/orm": "^3.6",
+                "maggie/core": "@dev",
+                "php": ">=8.4",
+                "symfony/mcp-bundle": "^0.3",
+                "symfony/mercure-bundle": "^0.4",
+                "symfony/uid": "7.4.*",
+                "symfony/validator": "7.4.*"
+            },
+            "type": "symfony-bundle",
+            "autoload": {
+                "psr-4": {
+                    "Maggie\\Finance\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Finance module: accounts, categories, transactions, envelopes",
             "transport-options": {
                 "symlink": true,
                 "relative": true
@@ -12225,6 +12259,7 @@
         "maggie/calendar": 20,
         "maggie/cookbook": 20,
         "maggie/core": 20,
+        "maggie/finance": 20,
         "maggie/grocery": 20,
         "maggie/notification": 20
     },

@@ -28,10 +28,13 @@ import RestaurantMenuIcon from '@mui/icons-material/RestaurantMenu'
 import TuneIcon from '@mui/icons-material/Tune'
 import StorefrontIcon from '@mui/icons-material/Storefront'
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
 
 export const CustomMenu = () => {
   const [groceryOpen, setGroceryOpen] = useState(false)
   const [nutritionOpen, setNutritionOpen] = useState(false)
+  const [financeOpen, setFinanceOpen] = useState(false)
   const [rawDataOpen, setRawDataOpen] = useState(false)
   const [agendaRawOpen, setAgendaRawOpen] = useState(false)
   const [cuisineRawOpen, setCuisineRawOpen] = useState(false)
@@ -113,6 +116,28 @@ export const CustomMenu = () => {
               />
             </List>
           </Collapse>
+          <ListItemButton onClick={() => setFinanceOpen(!financeOpen)}>
+            <ListItemIcon sx={{ minWidth: 40 }}>
+              <AccountBalanceWalletIcon />
+            </ListItemIcon>
+            <ListItemText
+              primary="Finance"
+              primaryTypographyProps={{ fontSize: 14, color: 'text.secondary' }}
+            />
+            {financeOpen ? <ExpandLess /> : <ExpandMore />}
+          </ListItemButton>
+
+          <Collapse in={financeOpen} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding>
+              <MenuItemLink
+                to="/accounts"
+                primaryText="Comptes"
+                leftIcon={<AccountBalanceIcon />}
+                sx={{ pl: 4 }}
+              />
+            </List>
+          </Collapse>
+
           <ListItemButton onClick={() => setRawDataOpen(!rawDataOpen)}>
             <ListItemIcon sx={{ minWidth: 40 }}>
               <StorageIcon />

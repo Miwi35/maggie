@@ -9,6 +9,7 @@ import { calendarResources } from './modules/calendar'
 import { settingsResources } from './modules/settings'
 import { groceryResources } from './modules/grocery'
 import { cookbookResources } from './modules/cookbook'
+import { financeResources } from './modules/finance'
 import { searchResources } from './modules/search'
 import { authProvider, handleAuthCallback } from './auth/authProvider'
 import { LoginPage } from './auth/LoginPage'
@@ -74,6 +75,7 @@ function App() {
       {calendarResources}
       {groceryResources}
       {cookbookResources}
+      {financeResources}
       {settingsResources}
       {searchResources}
     </HydraAdmin>
