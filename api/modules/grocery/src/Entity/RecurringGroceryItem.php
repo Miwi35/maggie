@@ -17,6 +17,7 @@ use Maggie\Grocery\State\CreateRecurringGroceryItemProcessor;
 use Maggie\Grocery\State\DeleteRecurringGroceryItemProcessor;
 use Maggie\Grocery\State\UpdateRecurringGroceryItemProcessor;
 use Maggie\Core\Contract\IndexableInterface;
+use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Contract\OwnedByUserInterface;
 use Maggie\Core\Elasticsearch\Attribute\Indexed;
 use Maggie\Core\Elasticsearch\Attribute\IndexedField;
@@ -24,6 +25,7 @@ use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
 use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
 use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Entity\User;
+use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Ulid;
 
@@ -36,8 +38,10 @@ use Symfony\Component\Uid\Ulid;
     new Patch(processor: UpdateRecurringGroceryItemProcessor::class),
     new Delete(processor: DeleteRecurringGroceryItemProcessor::class),
 ])]
-class RecurringGroceryItem implements OwnedByUserInterface, IndexableInterface
+class RecurringGroceryItem implements OwnedByUserInterface, IndexableInterface, MercurePublishable
 {
+    use MercurePayloadFilterTrait;
+
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
     private Ulid $id;
@@ -166,5 +170,18 @@ class RecurringGroceryItem implements OwnedByUserInterface, IndexableInterface
             'userId' => (string) $this->user->getId(),
             'productId' => $this->product !== null ? (string) $this->product->getId() : null,
         ];
+    }
+
+    /** @return array<string, mixed> */
+    public function toMercurePayload(?array $changedProperties = null): array
+    {
+        return self::filterPayload([
+            'label' => $this->getLabel(),
+            'customLabel' => $this->customLabel,
+            'quantity' => $this->quantity,
+            'unit' => $this->unit?->value,
+            'frequency' => $this->frequency->value,
+            'productId' => $this->product !== null ? (string) $this->product->getId() : null,
+        ], $changedProperties);
     }
 }

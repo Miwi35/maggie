@@ -1,6 +1,6 @@
 <?php
 
-namespace Maggie\Calendar\Entity;
+namespace Maggie\Calendar\Enum;
 
 enum TaskCriticality: string
 {

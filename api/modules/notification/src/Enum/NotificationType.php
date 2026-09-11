@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Maggie\Notification\Entity;
+namespace Maggie\Notification\Enum;
 
 enum NotificationType: string
 {

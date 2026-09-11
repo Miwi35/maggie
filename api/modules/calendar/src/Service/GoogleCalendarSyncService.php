@@ -6,7 +6,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Google\Service\Exception as GoogleServiceException;
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Event;
-use Maggie\Calendar\Entity\EventStatus;
+use Maggie\Calendar\Enum\EventStatus;
 use Maggie\Calendar\Repository\AgendaRepository;
 use Maggie\Calendar\Repository\EventRepository;
 use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;

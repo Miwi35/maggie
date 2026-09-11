@@ -6,7 +6,7 @@ namespace Maggie\Notification\MessageHandler;
 
 use Maggie\Core\Repository\UserRepository;
 use Maggie\Notification\Entity\Notification;
-use Maggie\Notification\Entity\NotificationType;
+use Maggie\Notification\Enum\NotificationType;
 use Maggie\Notification\Message\CreateNotificationCommand;
 use Maggie\Notification\UseCase\CreateNotification;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;

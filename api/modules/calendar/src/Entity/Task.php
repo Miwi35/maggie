@@ -12,6 +12,8 @@ use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
+use Maggie\Calendar\Enum\TaskCriticality;
+use Maggie\Calendar\Enum\TaskPriority;
 use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Calendar\Repository\TaskRepository;

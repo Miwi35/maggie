@@ -4,7 +4,7 @@ namespace Maggie\Calendar\Repository;
 
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Event;
-use Maggie\Calendar\Entity\EventStatus;
+use Maggie\Calendar\Enum\EventStatus;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 

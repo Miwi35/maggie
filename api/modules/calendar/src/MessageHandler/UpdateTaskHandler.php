@@ -3,8 +3,8 @@
 namespace Maggie\Calendar\MessageHandler;
 
 use Maggie\Calendar\Entity\Task;
-use Maggie\Calendar\Entity\TaskCriticality;
-use Maggie\Calendar\Entity\TaskPriority;
+use Maggie\Calendar\Enum\TaskCriticality;
+use Maggie\Calendar\Enum\TaskPriority;
 use Maggie\Calendar\Message\PushTaskToGoogleCommand;
 use Maggie\Calendar\Message\UpdateTaskCommand;
 use Maggie\Calendar\Repository\TaskRepository;

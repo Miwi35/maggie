@@ -8,7 +8,7 @@ use Google\Service\Calendar\EventReminder;
 use Google\Service\Calendar\EventReminders;
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Event;
-use Maggie\Calendar\Entity\EventStatus;
+use Maggie\Calendar\Enum\EventStatus;
 
 class GoogleEventMapper
 {

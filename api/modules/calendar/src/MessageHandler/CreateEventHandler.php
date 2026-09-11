@@ -3,7 +3,7 @@
 namespace Maggie\Calendar\MessageHandler;
 
 use Maggie\Calendar\Entity\Event;
-use Maggie\Calendar\Entity\EventStatus;
+use Maggie\Calendar\Enum\EventStatus;
 use Maggie\Calendar\Message\CreateEventCommand;
 use Maggie\Calendar\Message\PushEventToGoogleCommand;
 use Maggie\Calendar\Repository\AgendaRepository;

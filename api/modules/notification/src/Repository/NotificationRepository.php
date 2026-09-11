@@ -45,7 +45,7 @@ class NotificationRepository extends ServiceEntityRepository
             ->andWhere('n.type = :type')
             ->setParameter('iri', $eventIri)
             ->setParameter('body', (string) $minutes)
-            ->setParameter('type', \Maggie\Notification\Entity\NotificationType::Reminder)
+            ->setParameter('type', \Maggie\Notification\Enum\NotificationType::Reminder)
             ->getQuery()
             ->getSingleScalarResult();
 

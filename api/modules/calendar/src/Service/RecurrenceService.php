@@ -3,7 +3,7 @@
 namespace Maggie\Calendar\Service;
 
 use Maggie\Calendar\Entity\Event;
-use Maggie\Calendar\Entity\EventStatus;
+use Maggie\Calendar\Enum\EventStatus;
 use Maggie\Calendar\Repository\EventRepository;
 use Recurr\Rule;
 use Recurr\Transformer\ArrayTransformer;

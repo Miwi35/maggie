@@ -21,6 +21,7 @@ use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
 use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
 use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Entity\User;
+use Maggie\Notification\Enum\NotificationType;
 use Maggie\Notification\Repository\NotificationRepository;
 use Maggie\Notification\State\CreateNotificationProcessor;
 use Maggie\Notification\State\DeleteNotificationProcessor;

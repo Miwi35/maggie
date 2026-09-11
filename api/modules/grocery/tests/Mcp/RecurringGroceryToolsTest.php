@@ -2,9 +2,10 @@
 
 namespace Maggie\Grocery\Tests\Mcp;
 
+use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
-use App\Tests\Support\SecurityTokenTrait;
 use App\Tests\Support\MercureAssertionTrait;
+use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Grocery\Entity\RecurringGroceryItem;
 use Maggie\Grocery\Mcp\Tool\AddRecurringGroceryTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -12,13 +13,15 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 class RecurringGroceryToolsTest extends KernelTestCase
 {
     use FixtureLoaderTrait;
-    use SecurityTokenTrait;
     use MercureAssertionTrait;
+    use ElasticsearchAssertionTrait;
+    use SecurityTokenTrait;
 
     protected function setUp(): void
     {
         self::bootKernel();
         $this->resetMercure();
+        $this->resetAsyncTransport();
     }
 
     public function testAddRecurringGroceryPersists(): void
@@ -38,5 +41,8 @@ class RecurringGroceryToolsTest extends KernelTestCase
         $items = $em->getRepository(RecurringGroceryItem::class)->findAll();
         self::assertCount(1, $items);
         self::assertSame('Pain de mie', $items[0]->getLabel());
+
+        $this->assertMercureUpdatePublished('/recurring_grocery_items/');
+        $this->assertElasticsearchIndexDispatched(RecurringGroceryItem::class);
     }
 }

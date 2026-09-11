@@ -27,7 +27,7 @@ Maggie\Calendar\Entity\Event:
     summary: Cancelled
     startAt: '<(new \DateTimeImmutable("2026-03-15 14:00"))>'
     endAt: '<(new \DateTimeImmutable("2026-03-15 15:00"))>'
-    status: '<(Maggie\Calendar\Entity\EventStatus::Cancelled)>'
+    status: '<(Maggie\Calendar\Enum\EventStatus::Cancelled)>'
     agenda: '@test_agenda'
 
   event_recurring:
