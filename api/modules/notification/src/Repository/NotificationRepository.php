@@ -34,6 +34,20 @@ class NotificationRepository extends ServiceEntityRepository
     }
 
     /**
+     * @return Notification[]
+     */
+    public function findByUser(User $user, int $limit = 50): array
+    {
+        return $this->createQueryBuilder('n')
+            ->where('n.user = :user')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->orderBy('n.createdAt', 'DESC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Check if a reminder notification already exists for a given event + minutes combo.
      */
     public function reminderExists(string $eventIri, int $minutes): bool

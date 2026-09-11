@@ -1,0 +1,29 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: notification-test@example.com
+    googleId: google-notification-test
+    name: Notification Test User
+
+  other_user:
+    email: other-notification@example.com
+    googleId: google-other-notification
+    name: Other User
+
+Maggie\Notification\Entity\Notification:
+  unread_reminder:
+    user: '@test_user'
+    type: '<(Maggie\Notification\Enum\NotificationType::Reminder)>'
+    title: 'Rendez-vous dentiste'
+    body: '15'
+    relatedEntityIri: '/api/events/01JABCDEF0123456789ABCDEFG'
+
+  read_reminder:
+    user: '@test_user'
+    type: '<(Maggie\Notification\Enum\NotificationType::Reminder)>'
+    title: 'Courses à faire'
+    readAt: '<(new \DateTimeImmutable("2026-03-01 09:00"))>'
+
+  other_user_reminder:
+    user: '@other_user'
+    type: '<(Maggie\Notification\Enum\NotificationType::Reminder)>'
+    title: 'Pas pour nous'

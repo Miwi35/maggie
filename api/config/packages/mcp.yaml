@@ -1,11 +1,12 @@
 mcp:
     app: 'maggie-mcp'
     version: '1.0.0'
-    description: 'Maggie AI Agent MCP Server — calendar, cookbook, grocery and finance tools'
+    description: 'Maggie AI Agent MCP Server — calendar, cookbook, grocery, finance and notification tools'
     instructions: |
         This MCP server exposes Maggie's business modules: calendar (events, tasks,
         conflict detection, RRULE recurrence), cookbook (recipes, meals, ingredients),
-        grocery (lists, products, stores) and finance (accounts, categories, transactions).
+        grocery (lists, products, stores), finance (accounts, categories, transactions)
+        and notifications.
         Every call acts for one user: send a user JWT, or the service token plus an
         X-Maggie-User-Id header naming the user.
 
@@ -17,6 +18,7 @@ mcp:
             - 'modules/core/src'
             - 'modules/finance/src'
             - 'modules/grocery/src'
+            - 'modules/notification/src'
         exclude_dirs:
             - 'DataFixtures'
 

@@ -7,10 +7,7 @@ use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Cookbook\Entity\Meal;
-use Maggie\Cookbook\Mcp\Tool\CreateMealTool;
-use Maggie\Cookbook\Mcp\Tool\DeleteMealTool;
-use Maggie\Cookbook\Mcp\Tool\GetMealsTool;
-use Maggie\Core\Entity\User;
+use Maggie\Cookbook\Mcp\Tool\ManageMealsTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 class MealToolsTest extends KernelTestCase
@@ -27,6 +24,65 @@ class MealToolsTest extends KernelTestCase
         $this->resetAsyncTransport();
     }
 
+    private function tool(): ManageMealsTool
+    {
+        return self::getContainer()->get(ManageMealsTool::class);
+    }
+
+    public function testListWithoutUserIsRefused(): void
+    {
+        $this->loadFixtures('meal.yaml');
+
+        $data = json_decode(($this->tool())('list', fromDate: '2026-03-19', toDate: '2026-03-21'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
+        self::assertStringContainsString('No user bound', $data['error']);
+    }
+
+    public function testListRequiresADateRange(): void
+    {
+        $this->loadFixtures('meal.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(($this->tool())('list'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
+    }
+
+    public function testUnknownActionIsRejected(): void
+    {
+        $this->loadFixtures('meal.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(($this->tool())('cook'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
+        self::assertStringContainsString('Unknown action', $data['error']);
+    }
+
+    public function testUpdateMovesTheMealAndPublishes(): void
+    {
+        $this->loadFixtures('meal.yaml');
+        $this->loginFixtureUser();
+
+        $created = json_decode(($this->tool())('create', date: '2026-03-20', slot: 'lunch'), true, 512, JSON_THROW_ON_ERROR);
+        $this->resetMercure();
+
+        $data = json_decode(($this->tool())('update', mealId: $created['meal']['id'], date: '2026-03-21', slot: 'dinner'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
+        self::assertSame('2026-03-21', $data['meal']['date']);
+        self::assertSame('dinner', $data['meal']['slot']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $stored = $em->find(Meal::class, $created['meal']['id']);
+        // Stored in UTC; the meal is planned in the Paris time zone.
+        self::assertSame('2026-03-21', $stored->getStartAt()->setTimezone(new \DateTimeZone('Europe/Paris'))->format('Y-m-d'));
+
+        $this->assertMercureUpdatePublished('/meals/');
+    }
+
     public function testCreateMealPersistsPublishesAndIndexes(): void
     {
         $this->loadFixtures('meal.yaml');
@@ -34,8 +90,7 @@ class MealToolsTest extends KernelTestCase
 
         $recipe = $this->getFixture('pasta');
 
-        $tool = self::getContainer()->get(CreateMealTool::class);
-        $result = $tool('2026-03-20', 'lunch', (string) $recipe->getId());
+        $result = ($this->tool())('create', date: '2026-03-20', slot: 'lunch', recipeIds: (string) $recipe->getId());
 
         $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
         self::assertTrue($data['success']);
@@ -57,17 +112,15 @@ class MealToolsTest extends KernelTestCase
         $this->assertElasticsearchIndexDispatched(Meal::class);
     }
 
-    public function testGetMealsReturnsPlannedMeals(): void
+    public function testListReturnsPlannedMeals(): void
     {
         $this->loadFixtures('meal.yaml');
         $this->loginFixtureUser();
 
         $recipe = $this->getFixture('pasta');
-        $createTool = self::getContainer()->get(CreateMealTool::class);
-        $createTool('2026-03-20', 'dinner', (string) $recipe->getId());
+        ($this->tool())('create', date: '2026-03-20', slot: 'dinner', recipeIds: (string) $recipe->getId());
 
-        $tool = self::getContainer()->get(GetMealsTool::class);
-        $result = $tool('2026-03-19', '2026-03-21');
+        $result = ($this->tool())('list', fromDate: '2026-03-19', toDate: '2026-03-21');
 
         $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
         self::assertCount(1, $data['meals']);
@@ -79,17 +132,13 @@ class MealToolsTest extends KernelTestCase
     {
         $this->loadFixtures('meal.yaml');
         $this->loginFixtureUser();
-        $this->loginUser($this->getFixture('test_user'));
 
-        $createTool = self::getContainer()->get(CreateMealTool::class);
-        $createResult = $createTool('2026-03-20', 'lunch');
-        $createData = json_decode($createResult, true, 512, JSON_THROW_ON_ERROR);
+        $createData = json_decode(($this->tool())('create', date: '2026-03-20', slot: 'lunch'), true, 512, JSON_THROW_ON_ERROR);
 
         $this->resetMercure();
         $this->resetAsyncTransport();
 
-        $tool = self::getContainer()->get(DeleteMealTool::class);
-        $result = $tool($createData['meal']['id']);
+        $result = ($this->tool())('delete', mealId: $createData['meal']['id']);
 
         $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
         self::assertTrue($data['success']);

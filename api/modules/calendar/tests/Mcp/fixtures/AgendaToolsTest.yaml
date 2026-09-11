@@ -4,6 +4,11 @@ Maggie\Core\Entity\User:
     googleId: google-fixture-id
     name: Fixture User
 
+  other_user:
+    email: other-agenda@example.com
+    googleId: google-other-agenda
+    name: Other User
+
 Maggie\Calendar\Entity\Agenda:
   default_agenda:
     name: Personal
@@ -14,3 +19,8 @@ Maggie\Calendar\Entity\Agenda:
     isDefault: false
     color: '#e91e63'
     user: '@test_user'
+
+  other_user_agenda:
+    name: Autre utilisateur
+    isDefault: false
+    user: '@other_user'

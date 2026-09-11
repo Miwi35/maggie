@@ -1,0 +1,5 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: notification-test@example.com
+    googleId: google-notification-test
+    name: Notification Test User

@@ -4,11 +4,11 @@ namespace Maggie\Grocery\Tests\Mcp;
 
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
-use App\Tests\Support\SecurityTokenTrait;
 use App\Tests\Support\MercureAssertionTrait;
+use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Mcp\Tool\AssignProductStoreTool;
-use Maggie\Grocery\Mcp\Tool\CreateProductTool;
+use Maggie\Grocery\Mcp\Tool\ManageProductsTool;
 use Maggie\Grocery\Mcp\Tool\SearchProductsTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -26,13 +26,84 @@ class ProductToolsTest extends KernelTestCase
         $this->resetAsyncTransport();
     }
 
+    private function manageProducts(): ManageProductsTool
+    {
+        return self::getContainer()->get(ManageProductsTool::class);
+    }
+
+    public function testCreateProductWithoutUserIsRefused(): void
+    {
+        $this->loadFixtures('user.yaml');
+
+        $data = json_decode(($this->manageProducts())('create', name: 'Papier toilette', category: 'household'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
+        self::assertStringContainsString('No user bound', $data['error']);
+    }
+
+    public function testCreateProductRequiresNameAndCategory(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(($this->manageProducts())('create', name: 'Papier toilette'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
+    }
+
+    public function testListProductsReturnsTheCurrentUserProducts(): void
+    {
+        $this->loadFixtures('product.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(($this->manageProducts())('list'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(1, $data['count']);
+        self::assertSame('Bananes', $data['products'][0]['name']);
+    }
+
+    public function testUpdateProductRenamesAndPublishes(): void
+    {
+        $this->loadFixtures('product.yaml');
+        $this->loginFixtureUser();
+
+        $product = $this->getFixture('product_bananes');
+
+        $data = json_decode(($this->manageProducts())('update', productId: (string) $product->getId(), name: 'Bananes bio'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertTrue($data['success']);
+        self::assertSame('Bananes bio', $data['product']['name']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertSame('Bananes bio', $em->find(Product::class, $product->getId())->getName());
+
+        $this->assertMercureUpdatePublished('/products/');
+        $this->assertElasticsearchIndexDispatched(Product::class);
+    }
+
+    public function testDeleteProductRemovesAndPublishes(): void
+    {
+        $this->loadFixtures('product.yaml');
+        $this->loginFixtureUser();
+
+        $product = $this->getFixture('product_bananes');
+
+        $data = json_decode(($this->manageProducts())('delete', productId: (string) $product->getId()), true, 512, JSON_THROW_ON_ERROR);
+        self::assertTrue($data['success']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNull($em->find(Product::class, $product->getId()));
+
+        $this->assertMercureUpdatePublished('/products/');
+    }
+
     public function testCreateProductPersistsPublishesAndIndexes(): void
     {
         $this->loadFixtures('user.yaml');
         $this->loginFixtureUser();
 
-        $tool = self::getContainer()->get(CreateProductTool::class);
-        $result = $tool('Papier toilette', 'household');
+        $result = ($this->manageProducts())('create', name: 'Papier toilette', category: 'household');
 
         $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
         self::assertTrue($data['success']);

@@ -26,6 +26,19 @@ class AgendaRepository extends ServiceEntityRepository
     /**
      * @return Agenda[]
      */
+    public function findByUser(User $user): array
+    {
+        return $this->createQueryBuilder('a')
+            ->where('a.user = :user')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->orderBy('a.name', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * @return Agenda[]
+     */
     public function findGoogleSyncedByUser(User $user): array
     {
         return $this->createQueryBuilder('a')
