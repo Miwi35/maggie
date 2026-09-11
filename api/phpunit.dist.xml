@@ -13,9 +13,6 @@
     </php>
 
     <testsuites>
-        <testsuite name="App">
-            <directory>tests/</directory>
-        </testsuite>
         <testsuite name="Calendar">
             <directory>modules/calendar/tests/</directory>
         </testsuite>
@@ -27,6 +24,9 @@
         </testsuite>
         <testsuite name="Grocery">
             <directory>modules/grocery/tests/</directory>
+        </testsuite>
+        <testsuite name="Notification">
+            <directory>modules/notification/tests/</directory>
         </testsuite>
         <testsuite name="Finance">
             <directory>modules/finance/tests/</directory>
@@ -46,6 +46,7 @@
             <directory>modules/core/src/</directory>
             <directory>modules/cookbook/src/</directory>
             <directory>modules/grocery/src/</directory>
+            <directory>modules/notification/src/</directory>
             <directory>modules/finance/src/</directory>
         </include>
         <exclude>
