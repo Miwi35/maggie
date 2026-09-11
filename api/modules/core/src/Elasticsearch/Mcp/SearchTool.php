@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Maggie\Core\Elasticsearch\Mcp;
 
 use Maggie\Core\Elasticsearch\SearchService;
-use Maggie\Core\Repository\UserRepository;
+use Maggie\Core\Mcp\McpUserContext;
+use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 
 #[McpTool(name: 'search', description: 'Full-text search across all Maggie data (events, tasks, recipes, products, grocery lists, notifications). Returns matching results with highlights.')]
@@ -13,14 +14,14 @@ class SearchTool
 {
     public function __construct(
         private readonly SearchService $searchService,
-        private readonly UserRepository $userRepository,
+        private readonly McpUserContext $userContext,
     ) {}
 
     public function __invoke(string $query, ?string $types = null, int $limit = 10): string
     {
-        $user = $this->userRepository->findOneBy([]);
+        $user = $this->userContext->getUser();
         if ($user === null) {
-            return json_encode(['error' => 'No user found.'], JSON_THROW_ON_ERROR);
+            return json_encode(['error' => MissingMcpUserException::MESSAGE], JSON_THROW_ON_ERROR);
         }
 
         $indices = $types !== null

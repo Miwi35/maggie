@@ -3,6 +3,7 @@
 namespace Maggie\Cookbook\Tests\Mcp;
 
 use App\Tests\Support\FixtureLoaderTrait;
+use App\Tests\Support\SecurityTokenTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Cookbook\Mcp\Tool\GenerateGroceryListTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -10,6 +11,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 class GenerateGroceryListToolTest extends KernelTestCase
 {
     use FixtureLoaderTrait;
+    use SecurityTokenTrait;
     use MercureAssertionTrait;
 
     protected function setUp(): void
@@ -21,6 +23,7 @@ class GenerateGroceryListToolTest extends KernelTestCase
     public function testGenerateGroceryListReturnsSuccess(): void
     {
         $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
 
         $tool = self::getContainer()->get(GenerateGroceryListTool::class);
         $result = $tool('2026-03-19', '2026-03-21');

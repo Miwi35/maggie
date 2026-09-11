@@ -5,13 +5,13 @@ namespace App\Tests\Core\Elasticsearch\Mcp;
 use Maggie\Core\Elasticsearch\Mcp\SearchTool;
 use Maggie\Core\Elasticsearch\SearchService;
 use Maggie\Core\Entity\User;
-use Maggie\Core\Repository\UserRepository;
+use Maggie\Core\Mcp\McpUserContext;
 use PHPUnit\Framework\TestCase;
 
 class SearchToolTest extends TestCase
 {
     private SearchService $searchService;
-    private UserRepository $userRepository;
+    private McpUserContext $userContext;
     private User $user;
 
     protected function setUp(): void
@@ -21,8 +21,8 @@ class SearchToolTest extends TestCase
         $this->user->setGoogleId('google-test-id');
         $this->user->setName('Test User');
 
-        $this->userRepository = $this->createMock(UserRepository::class);
-        $this->userRepository->method('findOneBy')->willReturn($this->user);
+        $this->userContext = $this->createMock(McpUserContext::class);
+        $this->userContext->method('getUser')->willReturn($this->user);
 
         $this->searchService = $this->createMock(SearchService::class);
     }
@@ -37,7 +37,7 @@ class SearchToolTest extends TestCase
             ],
         ]);
 
-        $tool = new SearchTool($this->searchService, $this->userRepository);
+        $tool = new SearchTool($this->searchService, $this->userContext);
         $result = json_decode($tool('meeting'), true);
 
         self::assertSame(2, $result['total']);
@@ -53,7 +53,7 @@ class SearchToolTest extends TestCase
             ->with('test', (string) $this->user->getId(), ['events', 'tasks'], 0, 5)
             ->willReturn(['total' => 0, 'results' => []]);
 
-        $tool = new SearchTool($this->searchService, $this->userRepository);
+        $tool = new SearchTool($this->searchService, $this->userContext);
         $result = json_decode($tool('test', 'events, tasks', 5), true);
 
         self::assertSame(0, $result['total']);
@@ -61,10 +61,10 @@ class SearchToolTest extends TestCase
 
     public function testSearchWithNoUserReturnsError(): void
     {
-        $userRepo = $this->createMock(UserRepository::class);
-        $userRepo->method('findOneBy')->willReturn(null);
+        $userContext = $this->createMock(McpUserContext::class);
+        $userContext->method('getUser')->willReturn(null);
 
-        $tool = new SearchTool($this->searchService, $userRepo);
+        $tool = new SearchTool($this->searchService, $userContext);
         $result = json_decode($tool('test'), true);
 
         self::assertArrayHasKey('error', $result);
@@ -75,7 +75,7 @@ class SearchToolTest extends TestCase
         $this->searchService->method('search')
             ->willThrowException(new \RuntimeException('ES connection refused'));
 
-        $tool = new SearchTool($this->searchService, $this->userRepository);
+        $tool = new SearchTool($this->searchService, $this->userContext);
         $result = json_decode($tool('test'), true);
 
         self::assertArrayHasKey('error', $result);

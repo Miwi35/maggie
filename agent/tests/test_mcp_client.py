@@ -117,3 +117,49 @@ class TestMcpClient:
         assert "error" in parsed
 
         await client.disconnect()
+
+    @respx.mock
+    async def test_call_tool_sends_user_header(self, client: McpClient, mcp_server_url: str):
+        """The MCP server needs to know which user the tool acts for."""
+        client._http_client = httpx.AsyncClient(timeout=30.0)
+        client._session_id = "session-existing"
+
+        route = respx.post(mcp_server_url).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "result": {"content": [{"type": "text", "text": "{}"}]},
+                },
+            )
+        )
+
+        await client.call_tool("manage_accounts", {"action": "list"}, user_id="01JABCDEF0123456789ABCDEFG")
+
+        assert route.calls.last.request.headers["X-Maggie-User-Id"] == "01JABCDEF0123456789ABCDEFG"
+
+        await client.disconnect()
+
+    @respx.mock
+    async def test_call_tool_without_user_omits_header(self, client: McpClient, mcp_server_url: str):
+        """No user in context means no impersonation header at all."""
+        client._http_client = httpx.AsyncClient(timeout=30.0)
+        client._session_id = "session-existing"
+
+        route = respx.post(mcp_server_url).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "result": {"content": [{"type": "text", "text": "{}"}]},
+                },
+            )
+        )
+
+        await client.call_tool("manage_accounts", {"action": "list"})
+
+        assert "X-Maggie-User-Id" not in route.calls.last.request.headers
+
+        await client.disconnect()

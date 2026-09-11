@@ -4,6 +4,7 @@ namespace App\Tests\Calendar\Mcp;
 
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
+use App\Tests\Support\SecurityTokenTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Mcp\Tool\CreateEventTool;
@@ -12,6 +13,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 class CreateEventToolTest extends KernelTestCase
 {
     use FixtureLoaderTrait;
+    use SecurityTokenTrait;
     use MercureAssertionTrait;
     use ElasticsearchAssertionTrait;
 
@@ -30,6 +32,7 @@ class CreateEventToolTest extends KernelTestCase
     public function testCreateEventPersistsPublishesAndIndexes(): void
     {
         $this->loadFixtures('CreateEventToolTest.yaml');
+        $this->loginFixtureUser();
 
         $tool = $this->getTool();
 
@@ -73,6 +76,7 @@ class CreateEventToolTest extends KernelTestCase
     public function testCreateEventWithSpecificAgenda(): void
     {
         $this->loadFixtures('CreateEventToolTest.yaml');
+        $this->loginFixtureUser();
 
         // Create a second agenda
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
@@ -99,6 +103,7 @@ class CreateEventToolTest extends KernelTestCase
     public function testCreateEventUsesDefaultDuration(): void
     {
         $this->loadFixtures('CreateEventToolTest.yaml');
+        $this->loginFixtureUser();
 
         $tool = $this->getTool();
 

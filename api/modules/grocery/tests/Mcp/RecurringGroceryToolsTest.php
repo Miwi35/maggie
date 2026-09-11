@@ -3,6 +3,7 @@
 namespace Maggie\Grocery\Tests\Mcp;
 
 use App\Tests\Support\FixtureLoaderTrait;
+use App\Tests\Support\SecurityTokenTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Grocery\Entity\RecurringGroceryItem;
 use Maggie\Grocery\Mcp\Tool\AddRecurringGroceryTool;
@@ -11,6 +12,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 class RecurringGroceryToolsTest extends KernelTestCase
 {
     use FixtureLoaderTrait;
+    use SecurityTokenTrait;
     use MercureAssertionTrait;
 
     protected function setUp(): void
@@ -22,6 +24,7 @@ class RecurringGroceryToolsTest extends KernelTestCase
     public function testAddRecurringGroceryPersists(): void
     {
         $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
 
         $tool = self::getContainer()->get(AddRecurringGroceryTool::class);
         $result = $tool('weekly', customLabel: 'Pain de mie', quantity: 1, unit: 'pack');

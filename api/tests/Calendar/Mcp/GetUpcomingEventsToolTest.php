@@ -3,6 +3,7 @@
 namespace App\Tests\Calendar\Mcp;
 
 use App\Tests\Support\FixtureLoaderTrait;
+use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Calendar\Mcp\Tool\GetUpcomingEventsTool;
 use Maggie\Calendar\Repository\EventRepository;
 use Maggie\Calendar\Service\RecurrenceService;
@@ -11,6 +12,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 class GetUpcomingEventsToolTest extends KernelTestCase
 {
     use FixtureLoaderTrait;
+    use SecurityTokenTrait;
 
     protected function setUp(): void
     {
@@ -28,6 +30,7 @@ class GetUpcomingEventsToolTest extends KernelTestCase
     public function testReturnsUpcomingEvents(): void
     {
         $this->loadFixtures('GetUpcomingEventsToolTest.yaml');
+        $this->loginFixtureUser();
 
         $result = $this->getTool()(7);
 
@@ -45,6 +48,7 @@ class GetUpcomingEventsToolTest extends KernelTestCase
     public function testReturnsEmptyForNoUpcomingEvents(): void
     {
         $this->loadFixtures('GetUpcomingEventsToolTest.yaml');
+        $this->loginFixtureUser();
 
         $result = $this->getTool()(7);
 
@@ -58,6 +62,7 @@ class GetUpcomingEventsToolTest extends KernelTestCase
     public function testExcludesCancelledEvents(): void
     {
         $this->loadFixtures('GetUpcomingEventsToolTest.yaml');
+        $this->loginFixtureUser();
 
         $result = $this->getTool()(7);
 
@@ -70,6 +75,7 @@ class GetUpcomingEventsToolTest extends KernelTestCase
     public function testOutputContainsAllExpectedFields(): void
     {
         $this->loadFixtures('GetUpcomingEventsToolTest.yaml');
+        $this->loginFixtureUser();
 
         $result = $this->getTool()(7);
 

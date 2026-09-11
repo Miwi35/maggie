@@ -27,6 +27,7 @@ class StoreToolsTest extends KernelTestCase
     public function testCreateStorePersistsAndPublishes(): void
     {
         $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
 
         $tool = self::getContainer()->get(ManageStoresTool::class);
         $result = $tool('create', name: 'Boulangerie', description: 'Bread shop', visitOrder: 3);
@@ -47,6 +48,7 @@ class StoreToolsTest extends KernelTestCase
     public function testListStoresReturnsAll(): void
     {
         $this->loadFixtures('store.yaml');
+        $this->loginFixtureUser();
 
         $tool = self::getContainer()->get(ManageStoresTool::class);
         $result = $tool('list');
@@ -58,6 +60,7 @@ class StoreToolsTest extends KernelTestCase
     public function testUpdateStoreUpdatesAndPublishes(): void
     {
         $this->loadFixtures('store.yaml');
+        $this->loginFixtureUser();
 
         $store = $this->getFixture('supermarket');
 
@@ -80,6 +83,7 @@ class StoreToolsTest extends KernelTestCase
     public function testDeleteStoreRemovesPublishesAndDeletes(): void
     {
         $this->loadFixtures('store.yaml');
+        $this->loginFixtureUser();
         $this->loginUser($this->getFixture('test_user'));
 
         $store = $this->getFixture('supermarket');

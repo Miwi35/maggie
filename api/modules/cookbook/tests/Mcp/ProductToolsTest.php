@@ -4,6 +4,7 @@ namespace Maggie\Cookbook\Tests\Mcp;
 
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
+use App\Tests\Support\SecurityTokenTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Cookbook\Entity\Ingredient;
 use Maggie\Cookbook\Mcp\Tool\CreateIngredientTool;
@@ -13,6 +14,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 class ProductToolsTest extends KernelTestCase
 {
     use FixtureLoaderTrait;
+    use SecurityTokenTrait;
     use MercureAssertionTrait;
     use ElasticsearchAssertionTrait;
 
@@ -26,6 +28,7 @@ class ProductToolsTest extends KernelTestCase
     public function testCreateIngredientPersistsAndPublishes(): void
     {
         $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
 
         $tool = self::getContainer()->get(CreateIngredientTool::class);
         $result = $tool('Carotte', 'produce', 'g');
@@ -47,6 +50,7 @@ class ProductToolsTest extends KernelTestCase
     public function testSearchIngredientsReturnsResults(): void
     {
         $this->loadFixtures('ingredient.yaml');
+        $this->loginFixtureUser();
 
         $tool = self::getContainer()->get(SearchIngredientsTool::class);
         $result = $tool('Tomate');

@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Maggie\Grocery\Mcp\Tool;
 
+use Maggie\Core\Mcp\McpUserContext;
+use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Grocery\Message\ReorderGroceryItemsCommand;
-use Maggie\Core\Repository\UserRepository;
 use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -15,7 +16,7 @@ class ReorderGroceryItemsTool
 {
     public function __construct(
         private readonly MessageBusInterface $bus,
-        private readonly UserRepository $userRepository,
+        private readonly McpUserContext $userContext,
     ) {
     }
 
@@ -24,11 +25,10 @@ class ReorderGroceryItemsTool
      */
     public function __invoke(array $items): string
     {
-        $users = $this->userRepository->findAll();
-        $user = $users[0] ?? null;
+        $user = $this->userContext->getUser();
 
         if ($user === null) {
-            return json_encode(['error' => 'No user found.'], JSON_THROW_ON_ERROR);
+            return json_encode(['error' => MissingMcpUserException::MESSAGE], JSON_THROW_ON_ERROR);
         }
 
         try {

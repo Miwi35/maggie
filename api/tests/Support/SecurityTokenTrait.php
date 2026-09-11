@@ -13,4 +13,21 @@ trait SecurityTokenTrait
         $token = new UsernamePasswordToken($user, 'main', $user->getRoles());
         $tokenStorage->setToken($token);
     }
+
+    /**
+     * Binds the fixture user to the security context, the way McpAccessListener
+     * does for a real MCP call. Requires FixtureLoaderTrait.
+     */
+    protected function loginFixtureUser(string $ref = 'test_user'): User
+    {
+        $user = $this->getFixture($ref);
+
+        if (!$user instanceof User) {
+            throw new \InvalidArgumentException(sprintf('Fixture "%s" is not a User.', $ref));
+        }
+
+        $this->loginUser($user);
+
+        return $user;
+    }
 }

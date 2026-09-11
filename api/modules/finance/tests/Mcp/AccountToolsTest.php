@@ -27,6 +27,7 @@ class AccountToolsTest extends KernelTestCase
     public function testCreateAccountPersistsAndPublishes(): void
     {
         $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
 
         $tool = self::getContainer()->get(ManageAccountsTool::class);
         $result = $tool('create', name: 'Compte courant', type: 'checking', bank: 'Crédit Agricole', balanceCents: 125000);
@@ -50,6 +51,7 @@ class AccountToolsTest extends KernelTestCase
     public function testCreateCushionAccount(): void
     {
         $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
 
         $tool = self::getContainer()->get(ManageAccountsTool::class);
         $result = $tool('create', name: 'Matelas', type: 'savings', isCushion: true);
@@ -62,6 +64,7 @@ class AccountToolsTest extends KernelTestCase
     public function testListAccountsReturnsAll(): void
     {
         $this->loadFixtures('account.yaml');
+        $this->loginFixtureUser();
 
         $tool = self::getContainer()->get(ManageAccountsTool::class);
         $result = $tool('list');
@@ -73,6 +76,7 @@ class AccountToolsTest extends KernelTestCase
     public function testUpdateAccountUpdatesAndPublishes(): void
     {
         $this->loadFixtures('account.yaml');
+        $this->loginFixtureUser();
 
         $account = $this->getFixture('checking');
 
@@ -97,6 +101,7 @@ class AccountToolsTest extends KernelTestCase
     public function testDeleteAccountRemovesPublishesAndDeletes(): void
     {
         $this->loadFixtures('account.yaml');
+        $this->loginFixtureUser();
         $this->loginUser($this->getFixture('test_user'));
 
         $account = $this->getFixture('checking');
@@ -118,6 +123,7 @@ class AccountToolsTest extends KernelTestCase
     public function testUnknownActionReturnsError(): void
     {
         $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
 
         $tool = self::getContainer()->get(ManageAccountsTool::class);
         $result = $tool('frobnicate');

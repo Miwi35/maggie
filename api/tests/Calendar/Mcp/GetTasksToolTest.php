@@ -3,6 +3,7 @@
 namespace App\Tests\Calendar\Mcp;
 
 use App\Tests\Support\FixtureLoaderTrait;
+use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Calendar\Mcp\Tool\GetTasksTool;
 use Maggie\Calendar\Repository\TaskRepository;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -10,6 +11,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 class GetTasksToolTest extends KernelTestCase
 {
     use FixtureLoaderTrait;
+    use SecurityTokenTrait;
 
     protected function setUp(): void
     {
@@ -24,6 +26,7 @@ class GetTasksToolTest extends KernelTestCase
     public function testReturnsPendingTasksByDefault(): void
     {
         $this->loadFixtures('GetTasksToolTest.yaml');
+        $this->loginFixtureUser();
 
         $result = $this->getTool()('pending');
 
@@ -38,6 +41,7 @@ class GetTasksToolTest extends KernelTestCase
     public function testReturnsOverdueTasks(): void
     {
         $this->loadFixtures('GetTasksToolTest.yaml');
+        $this->loginFixtureUser();
 
         $result = $this->getTool()('overdue');
 
@@ -51,6 +55,7 @@ class GetTasksToolTest extends KernelTestCase
     public function testReturnsDoneTasks(): void
     {
         $this->loadFixtures('GetTasksToolTest.yaml');
+        $this->loginFixtureUser();
 
         $result = $this->getTool()('done');
 
@@ -64,6 +69,7 @@ class GetTasksToolTest extends KernelTestCase
     public function testOutputContainsAllExpectedFields(): void
     {
         $this->loadFixtures('GetTasksToolTest.yaml');
+        $this->loginFixtureUser();
 
         $result = $this->getTool()('pending');
 

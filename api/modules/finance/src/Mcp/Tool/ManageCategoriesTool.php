@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\Mcp\Tool;
 
-use Maggie\Core\Repository\UserRepository;
+use Maggie\Core\Mcp\McpUserContext;
+use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Message\CreateCategoryCommand;
 use Maggie\Finance\Message\DeleteCategoryCommand;
@@ -21,7 +22,7 @@ class ManageCategoriesTool
     public function __construct(
         private readonly MessageBusInterface $bus,
         private readonly CategoryRepository $categoryRepository,
-        private readonly UserRepository $userRepository,
+        private readonly McpUserContext $userContext,
     ) {
     }
 
@@ -42,6 +43,8 @@ class ManageCategoriesTool
                 'delete' => $this->delete($categoryId),
                 default => json_encode(['error' => "Unknown action: {$action}. Use list, create, update, or delete."], JSON_THROW_ON_ERROR),
             };
+        } catch (MissingMcpUserException $e) {
+            return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
 
@@ -51,8 +54,7 @@ class ManageCategoriesTool
 
     private function list(): string
     {
-        $users = $this->userRepository->findAll();
-        $user = $users[0] ?? throw new \DomainException('No user found.');
+        $user = $this->userContext->requireUser();
 
         $categories = $this->categoryRepository->findByUser($user);
 
@@ -67,8 +69,7 @@ class ManageCategoriesTool
             return json_encode(['error' => 'Name is required for create.'], JSON_THROW_ON_ERROR);
         }
 
-        $users = $this->userRepository->findAll();
-        $user = $users[0] ?? throw new \DomainException('No user found.');
+        $user = $this->userContext->requireUser();
 
         $envelope = $this->bus->dispatch(new CreateCategoryCommand(
             userId: (string) $user->getId(),

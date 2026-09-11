@@ -3,12 +3,14 @@
 namespace App\Tests\Calendar\Mcp;
 
 use App\Tests\Support\FixtureLoaderTrait;
+use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Calendar\Mcp\Tool\ListAgendasTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 class ListAgendasToolTest extends KernelTestCase
 {
     use FixtureLoaderTrait;
+    use SecurityTokenTrait;
 
     protected function setUp(): void
     {
@@ -36,6 +38,7 @@ class ListAgendasToolTest extends KernelTestCase
     public function testListAgendasReturnsAllAgendas(): void
     {
         $this->loadFixtures('ListAgendasToolTest.yaml');
+        $this->loginFixtureUser();
 
         $tool = $this->getTool();
         $result = $tool();

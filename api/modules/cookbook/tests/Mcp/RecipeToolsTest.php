@@ -31,6 +31,7 @@ class RecipeToolsTest extends KernelTestCase
     public function testCreateRecipePersistsAndPublishes(): void
     {
         $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
 
         $tool = self::getContainer()->get(CreateRecipeTool::class);
         $result = $tool('Salade niçoise', 2, 'salad,summer', 'Best served cold');
@@ -53,6 +54,7 @@ class RecipeToolsTest extends KernelTestCase
     public function testGetRecipeReturnsWithIngredients(): void
     {
         $this->loadFixtures('recipe.yaml');
+        $this->loginFixtureUser();
 
         $recipe = $this->getFixture('pasta');
         $recipeId = (string) $recipe->getId();
@@ -72,6 +74,7 @@ class RecipeToolsTest extends KernelTestCase
     public function testSearchRecipesByName(): void
     {
         $this->loadFixtures('recipe.yaml');
+        $this->loginFixtureUser();
 
         $tool = self::getContainer()->get(SearchRecipesTool::class);
         $result = $tool(query: 'Pâtes');
@@ -84,6 +87,7 @@ class RecipeToolsTest extends KernelTestCase
     public function testSearchRecipesReturnsEmptyForNoMatch(): void
     {
         $this->loadFixtures('recipe.yaml');
+        $this->loginFixtureUser();
 
         $tool = self::getContainer()->get(SearchRecipesTool::class);
         $result = $tool(query: 'Nonexistent');
@@ -95,6 +99,7 @@ class RecipeToolsTest extends KernelTestCase
     public function testUpdateRecipeUpdatesAndPublishes(): void
     {
         $this->loadFixtures('recipe.yaml');
+        $this->loginFixtureUser();
 
         $recipe = $this->getFixture('pasta');
 
@@ -118,6 +123,7 @@ class RecipeToolsTest extends KernelTestCase
     public function testDeleteRecipeRemovesAndPublishes(): void
     {
         $this->loadFixtures('recipe.yaml');
+        $this->loginFixtureUser();
         $this->loginUser($this->getFixture('test_user'));
 
         $recipe = $this->getFixture('pasta');

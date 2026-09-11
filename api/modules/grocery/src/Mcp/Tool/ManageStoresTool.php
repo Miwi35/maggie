@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Maggie\Grocery\Mcp\Tool;
 
+use Maggie\Core\Mcp\McpUserContext;
+use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Grocery\Entity\Store;
 use Maggie\Grocery\Message\CreateStoreCommand;
 use Maggie\Grocery\Message\DeleteStoreCommand;
 use Maggie\Grocery\Message\UpdateStoreCommand;
 use Maggie\Grocery\Repository\StoreRepository;
-use Maggie\Core\Repository\UserRepository;
 use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -21,7 +22,7 @@ class ManageStoresTool
     public function __construct(
         private readonly MessageBusInterface $bus,
         private readonly StoreRepository $storeRepository,
-        private readonly UserRepository $userRepository,
+        private readonly McpUserContext $userContext,
     ) {
     }
 
@@ -40,6 +41,8 @@ class ManageStoresTool
                 'delete' => $this->delete($storeId),
                 default => json_encode(['error' => "Unknown action: {$action}. Use list, create, update, or delete."], JSON_THROW_ON_ERROR),
             };
+        } catch (MissingMcpUserException $e) {
+            return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
             return json_encode(['error' => $cause->getMessage()], JSON_THROW_ON_ERROR);
@@ -48,8 +51,7 @@ class ManageStoresTool
 
     private function list(): string
     {
-        $users = $this->userRepository->findAll();
-        $user = $users[0] ?? throw new \DomainException('No user found.');
+        $user = $this->userContext->requireUser();
 
         $stores = $this->storeRepository->findByUser($user);
 
@@ -69,8 +71,7 @@ class ManageStoresTool
             return json_encode(['error' => 'Name is required for create.'], JSON_THROW_ON_ERROR);
         }
 
-        $users = $this->userRepository->findAll();
-        $user = $users[0] ?? throw new \DomainException('No user found.');
+        $user = $this->userContext->requireUser();
 
         $envelope = $this->bus->dispatch(new CreateStoreCommand(
             userId: (string) $user->getId(),

@@ -1,11 +1,13 @@
 mcp:
     app: 'maggie-mcp'
     version: '1.0.0'
-    description: 'Maggie AI Agent MCP Server — Calendar tools and business API access'
+    description: 'Maggie AI Agent MCP Server — calendar, cookbook, grocery and finance tools'
     instructions: |
-        This MCP server provides tools for managing a personal calendar.
-        Use these tools to create, read, update, and delete calendar events.
-        Events support recurrence (RRULE), all-day events, and conflict detection.
+        This MCP server exposes Maggie's business modules: calendar (events, tasks,
+        conflict detection, RRULE recurrence), cookbook (recipes, meals, ingredients),
+        grocery (lists, products, stores) and finance (accounts, categories, transactions).
+        Every call acts for one user: send a user JWT, or the service token plus an
+        X-Maggie-User-Id header naming the user.
 
     discovery:
         scan_dirs:
@@ -13,7 +15,8 @@ mcp:
             - 'modules/calendar/src'
             - 'modules/cookbook/src'
             - 'modules/core/src'
-            - 'modules/memory/src'
+            - 'modules/finance/src'
+            - 'modules/grocery/src'
         exclude_dirs:
             - 'DataFixtures'
 

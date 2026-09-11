@@ -117,10 +117,12 @@ class TestToolRouter:
         mock_mcp_client.call_tool = AsyncMock(return_value="Event created successfully")
 
         router = ToolRouter()
-        result = await router.call_tool("create_event", {"title": "Test", "date": "2026-03-01"})
+        result = await router.call_tool("create_event", {"title": "Test", "date": "2026-03-01"}, user_id="user-1")
 
         assert result == "Event created successfully"
-        mock_mcp_client.call_tool.assert_awaited_once_with("create_event", {"title": "Test", "date": "2026-03-01"})
+        mock_mcp_client.call_tool.assert_awaited_once_with(
+            "create_event", {"title": "Test", "date": "2026-03-01"}, user_id="user-1"
+        )
 
     @patch("app.llm.tools.proaction_repo")
     async def test_call_native_tool_schedule_proaction(self, mock_repo):

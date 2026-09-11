@@ -484,7 +484,7 @@ class ToolRouter:
 
         # Fall through to MCP
         try:
-            result = await mcp_client.call_tool(name, arguments)
+            result = await mcp_client.call_tool(name, arguments, user_id=user_id)
             return result
         except Exception as e:
             logger.error(f"Tool call failed: {name}({arguments}): {e}")

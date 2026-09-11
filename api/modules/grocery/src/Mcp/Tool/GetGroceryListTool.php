@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Maggie\Grocery\Mcp\Tool;
 
+use Maggie\Core\Mcp\McpUserContext;
+use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Grocery\Repository\GroceryListRepository;
-use Maggie\Core\Repository\UserRepository;
 use Mcp\Capability\Attribute\McpTool;
 
 #[McpTool(name: 'get_grocery_list', description: 'Get the grocery list with items grouped by store in visit order. By default hides deferred items (buyAfter in the future). Set includeDeferred=true to see all items.')]
@@ -13,17 +14,16 @@ class GetGroceryListTool
 {
     public function __construct(
         private readonly GroceryListRepository $groceryListRepository,
-        private readonly UserRepository $userRepository,
+        private readonly McpUserContext $userContext,
     ) {
     }
 
     public function __invoke(bool $includeDeferred = false): string
     {
-        $users = $this->userRepository->findAll();
-        $user = $users[0] ?? null;
+        $user = $this->userContext->getUser();
 
         if ($user === null) {
-            return json_encode(['error' => 'No user found.'], JSON_THROW_ON_ERROR);
+            return json_encode(['error' => MissingMcpUserException::MESSAGE], JSON_THROW_ON_ERROR);
         }
 
         $list = $this->groceryListRepository->findOrCreateForUser($user);

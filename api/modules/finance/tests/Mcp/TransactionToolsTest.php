@@ -27,6 +27,7 @@ class TransactionToolsTest extends KernelTestCase
     public function testCreateExpensePersistsAndPublishes(): void
     {
         $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
         $account = $this->getFixture('checking');
 
         $tool = self::getContainer()->get(ManageTransactionsTool::class);
@@ -49,6 +50,7 @@ class TransactionToolsTest extends KernelTestCase
     public function testCreateRequiresAccountAndAmount(): void
     {
         $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
 
         $tool = self::getContainer()->get(ManageTransactionsTool::class);
         $result = $tool('create', label: 'Orphan');
@@ -60,6 +62,7 @@ class TransactionToolsTest extends KernelTestCase
     public function testListTransactionsReturnsAll(): void
     {
         $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
 
         $tool = self::getContainer()->get(ManageTransactionsTool::class);
         $result = $tool('list');
@@ -71,6 +74,7 @@ class TransactionToolsTest extends KernelTestCase
     public function testCategorizeTransaction(): void
     {
         $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
         $transaction = $this->getFixture('salary');
         $category = $this->getFixture('food');
 
@@ -88,6 +92,7 @@ class TransactionToolsTest extends KernelTestCase
     public function testUpdateTransactionUpdatesAndPublishes(): void
     {
         $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
         $transaction = $this->getFixture('groceries');
 
         $tool = self::getContainer()->get(ManageTransactionsTool::class);
@@ -110,6 +115,7 @@ class TransactionToolsTest extends KernelTestCase
     public function testDeleteTransactionRemovesPublishesAndDeletes(): void
     {
         $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
         $this->loginUser($this->getFixture('test_user'));
         $transaction = $this->getFixture('groceries');
 

@@ -6,7 +6,8 @@ namespace Maggie\Cookbook\Mcp\Tool;
 
 use Maggie\Cookbook\Entity\Recipe;
 use Maggie\Cookbook\Message\CreateRecipeCommand;
-use Maggie\Core\Repository\UserRepository;
+use Maggie\Core\Mcp\McpUserContext;
+use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -17,7 +18,7 @@ class CreateRecipeTool
 {
     public function __construct(
         private readonly MessageBusInterface $bus,
-        private readonly UserRepository $userRepository,
+        private readonly McpUserContext $userContext,
     ) {
     }
 
@@ -29,8 +30,7 @@ class CreateRecipeTool
         ?string $ingredients = null,
     ): string {
         try {
-            $users = $this->userRepository->findAll();
-            $user = $users[0] ?? throw new \DomainException('No user found.');
+            $user = $this->userContext->requireUser();
 
             $tagList = $tags !== '' ? array_map('trim', explode(',', $tags)) : [];
             $ingredientList = $ingredients !== null
@@ -58,6 +58,8 @@ class CreateRecipeTool
                     'tags' => $recipe->getTags(),
                 ],
             ], JSON_THROW_ON_ERROR);
+        } catch (MissingMcpUserException $e) {
+            return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
             return json_encode(['error' => $cause->getMessage()], JSON_THROW_ON_ERROR);

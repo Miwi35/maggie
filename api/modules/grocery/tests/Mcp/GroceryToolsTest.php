@@ -4,6 +4,7 @@ namespace Maggie\Grocery\Tests\Mcp;
 
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
+use App\Tests\Support\SecurityTokenTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
@@ -20,6 +21,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 class GroceryToolsTest extends KernelTestCase
 {
     use FixtureLoaderTrait;
+    use SecurityTokenTrait;
     use MercureAssertionTrait;
     use ElasticsearchAssertionTrait;
 
@@ -38,6 +40,7 @@ class GroceryToolsTest extends KernelTestCase
     public function testAddGroceryItemPersistsAndPublishes(): void
     {
         $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
 
         $tool = self::getContainer()->get(AddGroceryItemTool::class);
         $result = $tool('Bananes', 6, 'piece');
@@ -64,6 +67,7 @@ class GroceryToolsTest extends KernelTestCase
     public function testAddGroceryItemReusesExistingProduct(): void
     {
         $this->loadFixtures('product.yaml');
+        $this->loginFixtureUser();
 
         $tool = self::getContainer()->get(AddGroceryItemTool::class);
         $result = $tool('Bananes', 3, 'piece');
@@ -88,6 +92,7 @@ class GroceryToolsTest extends KernelTestCase
     public function testAddGroceryItemCaseInsensitiveMatch(): void
     {
         $this->loadFixtures('product.yaml');
+        $this->loginFixtureUser();
 
         $tool = self::getContainer()->get(AddGroceryItemTool::class);
         $result = $tool('bananes', 2, 'piece');
@@ -108,6 +113,7 @@ class GroceryToolsTest extends KernelTestCase
     public function testAddGroceryItemWithCategoryCreatesProductWithCategory(): void
     {
         $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
 
         $tool = self::getContainer()->get(AddGroceryItemTool::class);
         $result = $tool('Yaourt', 4, 'piece', null, null, 'dairy');
@@ -126,6 +132,7 @@ class GroceryToolsTest extends KernelTestCase
     public function testAddGroceryItemWithCategoryUpdatesExistingProduct(): void
     {
         $this->loadFixtures('product.yaml');
+        $this->loginFixtureUser();
 
         $tool = self::getContainer()->get(AddGroceryItemTool::class);
         // Bananes fixture is 'produce', update to 'frozen'
@@ -145,6 +152,7 @@ class GroceryToolsTest extends KernelTestCase
     public function testAddGroceryItemUpdatesExistingProductPreferredStore(): void
     {
         $this->loadFixtures('product.yaml');
+        $this->loginFixtureUser();
 
         $tool = self::getContainer()->get(AddGroceryItemTool::class);
         // Bananes has preferredStore=supermarket, add with new storeName
@@ -164,6 +172,7 @@ class GroceryToolsTest extends KernelTestCase
     public function testGetGroceryListReturnsItems(): void
     {
         $this->loadFixtures('grocery.yaml');
+        $this->loginFixtureUser();
         // Clear identity map so tool loads fresh data with relations from DB
         $this->em()->clear();
 
@@ -179,6 +188,7 @@ class GroceryToolsTest extends KernelTestCase
     public function testCheckGroceryItemUpdatesAndPublishes(): void
     {
         $this->loadFixtures('grocery.yaml');
+        $this->loginFixtureUser();
         $itemId = (string) $this->getFixture('item_tomato')->getId();
         $this->em()->clear();
 
@@ -199,6 +209,7 @@ class GroceryToolsTest extends KernelTestCase
     public function testRemoveGroceryItemDeletesAndPublishes(): void
     {
         $this->loadFixtures('grocery.yaml');
+        $this->loginFixtureUser();
         $itemId = (string) $this->getFixture('item_tomato')->getId();
         $this->em()->clear();
 
@@ -217,6 +228,7 @@ class GroceryToolsTest extends KernelTestCase
     public function testEndErrandRemovesCheckedItems(): void
     {
         $this->loadFixtures('grocery.yaml');
+        $this->loginFixtureUser();
         $this->em()->clear();
 
         $tool = self::getContainer()->get(EndErrandTool::class);
@@ -239,6 +251,7 @@ class GroceryToolsTest extends KernelTestCase
     public function testMoveToFallbackReassignsStore(): void
     {
         $this->loadFixtures('grocery.yaml');
+        $this->loginFixtureUser();
         $supermarketId = (string) $this->getFixture('supermarket')->getId();
         $tomatoItemId = (string) $this->getFixture('item_tomato')->getId();
         $this->em()->clear();
@@ -260,6 +273,7 @@ class GroceryToolsTest extends KernelTestCase
     public function testReorderGroceryItemsUpdatesPositions(): void
     {
         $this->loadFixtures('grocery.yaml');
+        $this->loginFixtureUser();
         $tomatoId = (string) $this->getFixture('item_tomato')->getId();
         $checkedId = (string) $this->getFixture('item_checked')->getId();
         $this->em()->clear();
@@ -286,6 +300,7 @@ class GroceryToolsTest extends KernelTestCase
     public function testReorderGroceryItemsInvalidIdReturnsError(): void
     {
         $this->loadFixtures('grocery.yaml');
+        $this->loginFixtureUser();
         $this->em()->clear();
 
         $tool = self::getContainer()->get(ReorderGroceryItemsTool::class);

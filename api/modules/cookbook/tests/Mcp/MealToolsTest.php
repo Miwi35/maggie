@@ -30,6 +30,7 @@ class MealToolsTest extends KernelTestCase
     public function testCreateMealPersistsPublishesAndIndexes(): void
     {
         $this->loadFixtures('meal.yaml');
+        $this->loginFixtureUser();
 
         $recipe = $this->getFixture('pasta');
 
@@ -59,6 +60,7 @@ class MealToolsTest extends KernelTestCase
     public function testGetMealsReturnsPlannedMeals(): void
     {
         $this->loadFixtures('meal.yaml');
+        $this->loginFixtureUser();
 
         $recipe = $this->getFixture('pasta');
         $createTool = self::getContainer()->get(CreateMealTool::class);
@@ -76,6 +78,7 @@ class MealToolsTest extends KernelTestCase
     public function testDeleteMealRemovesPublishesAndDeletes(): void
     {
         $this->loadFixtures('meal.yaml');
+        $this->loginFixtureUser();
         $this->loginUser($this->getFixture('test_user'));
 
         $createTool = self::getContainer()->get(CreateMealTool::class);

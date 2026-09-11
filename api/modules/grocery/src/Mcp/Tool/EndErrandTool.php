@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Maggie\Grocery\Mcp\Tool;
 
+use Maggie\Core\Mcp\McpUserContext;
+use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Message\EndErrandCommand;
-use Maggie\Core\Repository\UserRepository;
 use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -17,15 +18,14 @@ class EndErrandTool
 {
     public function __construct(
         private readonly MessageBusInterface $bus,
-        private readonly UserRepository $userRepository,
+        private readonly McpUserContext $userContext,
     ) {
     }
 
     public function __invoke(): string
     {
         try {
-            $users = $this->userRepository->findAll();
-            $user = $users[0] ?? throw new \DomainException('No user found.');
+            $user = $this->userContext->requireUser();
 
             $envelope = $this->bus->dispatch(new EndErrandCommand(
                 userId: (string) $user->getId(),
@@ -51,6 +51,8 @@ class EndErrandTool
                 'remainingItems' => $remaining,
                 'remainingCount' => count($remaining),
             ], JSON_THROW_ON_ERROR);
+        } catch (MissingMcpUserException $e) {
+            return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
             return json_encode(['error' => $cause->getMessage()], JSON_THROW_ON_ERROR);

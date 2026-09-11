@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\Mcp\Tool;
 
-use Maggie\Core\Repository\UserRepository;
+use Maggie\Core\Mcp\McpUserContext;
+use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Message\CreateAccountCommand;
 use Maggie\Finance\Message\DeleteAccountCommand;
@@ -21,7 +22,7 @@ class ManageAccountsTool
     public function __construct(
         private readonly MessageBusInterface $bus,
         private readonly AccountRepository $accountRepository,
-        private readonly UserRepository $userRepository,
+        private readonly McpUserContext $userContext,
     ) {
     }
 
@@ -43,6 +44,8 @@ class ManageAccountsTool
                 'delete' => $this->delete($accountId),
                 default => json_encode(['error' => "Unknown action: {$action}. Use list, create, update, or delete."], JSON_THROW_ON_ERROR),
             };
+        } catch (MissingMcpUserException $e) {
+            return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
 
@@ -52,8 +55,7 @@ class ManageAccountsTool
 
     private function list(): string
     {
-        $users = $this->userRepository->findAll();
-        $user = $users[0] ?? throw new \DomainException('No user found.');
+        $user = $this->userContext->requireUser();
 
         $accounts = $this->accountRepository->findByUser($user);
 
@@ -68,8 +70,7 @@ class ManageAccountsTool
             return json_encode(['error' => 'Name is required for create.'], JSON_THROW_ON_ERROR);
         }
 
-        $users = $this->userRepository->findAll();
-        $user = $users[0] ?? throw new \DomainException('No user found.');
+        $user = $this->userContext->requireUser();
 
         $envelope = $this->bus->dispatch(new CreateAccountCommand(
             userId: (string) $user->getId(),

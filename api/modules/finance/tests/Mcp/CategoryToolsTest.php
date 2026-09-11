@@ -27,6 +27,7 @@ class CategoryToolsTest extends KernelTestCase
     public function testCreateCategoryPersistsAndPublishes(): void
     {
         $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
 
         $tool = self::getContainer()->get(ManageCategoriesTool::class);
         $result = $tool('create', name: 'Alimentation', obligation: 'mandatory', color: '#4CAF50');
@@ -48,6 +49,7 @@ class CategoryToolsTest extends KernelTestCase
     public function testCreateSubCategoryUnderParent(): void
     {
         $this->loadFixtures('category.yaml');
+        $this->loginFixtureUser();
         $parent = $this->getFixture('food');
 
         $tool = self::getContainer()->get(ManageCategoriesTool::class);
@@ -61,6 +63,7 @@ class CategoryToolsTest extends KernelTestCase
     public function testCreateThirdLevelIsRejected(): void
     {
         $this->loadFixtures('category.yaml');
+        $this->loginFixtureUser();
         // 'leisure_concerts' is already a sub-category (has a parent)
         $sub = $this->getFixture('leisure_concerts');
 
@@ -75,6 +78,7 @@ class CategoryToolsTest extends KernelTestCase
     public function testListCategoriesReturnsAll(): void
     {
         $this->loadFixtures('category.yaml');
+        $this->loginFixtureUser();
 
         $tool = self::getContainer()->get(ManageCategoriesTool::class);
         $result = $tool('list');
@@ -86,6 +90,7 @@ class CategoryToolsTest extends KernelTestCase
     public function testUpdateCategoryUpdatesAndPublishes(): void
     {
         $this->loadFixtures('category.yaml');
+        $this->loginFixtureUser();
         $category = $this->getFixture('food');
 
         $tool = self::getContainer()->get(ManageCategoriesTool::class);
@@ -108,6 +113,7 @@ class CategoryToolsTest extends KernelTestCase
     public function testDeleteCategoryRemovesPublishesAndDeletes(): void
     {
         $this->loadFixtures('category.yaml');
+        $this->loginFixtureUser();
         $this->loginUser($this->getFixture('test_user'));
         $category = $this->getFixture('food');
 

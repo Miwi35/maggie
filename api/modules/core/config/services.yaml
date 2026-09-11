@@ -9,6 +9,7 @@ services:
             string $adminUrl: '%env(ADMIN_URL)%'
             string $mercureJwtSecret: '%env(MERCURE_JWT_SECRET)%'
             int $refreshTokenTtl: '%gesdinet_jwt_refresh_token.ttl%'
+            string $serviceToken: '%env(SERVICE_TOKEN)%'
 
     Maggie\Core\:
         resource: '../src/'

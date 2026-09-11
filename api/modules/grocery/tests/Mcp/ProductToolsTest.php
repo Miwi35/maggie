@@ -4,6 +4,7 @@ namespace Maggie\Grocery\Tests\Mcp;
 
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
+use App\Tests\Support\SecurityTokenTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Mcp\Tool\AssignProductStoreTool;
@@ -14,6 +15,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 class ProductToolsTest extends KernelTestCase
 {
     use FixtureLoaderTrait;
+    use SecurityTokenTrait;
     use MercureAssertionTrait;
     use ElasticsearchAssertionTrait;
 
@@ -27,6 +29,7 @@ class ProductToolsTest extends KernelTestCase
     public function testCreateProductPersistsPublishesAndIndexes(): void
     {
         $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
 
         $tool = self::getContainer()->get(CreateProductTool::class);
         $result = $tool('Papier toilette', 'household');
@@ -47,6 +50,7 @@ class ProductToolsTest extends KernelTestCase
     public function testSearchProductsReturnsResults(): void
     {
         $this->loadFixtures('ingredient.yaml');
+        $this->loginFixtureUser();
 
         $tool = self::getContainer()->get(SearchProductsTool::class);
         $result = $tool('Tomate');
@@ -59,6 +63,7 @@ class ProductToolsTest extends KernelTestCase
     public function testAssignProductStoreUpdates(): void
     {
         $this->loadFixtures('ingredient.yaml');
+        $this->loginFixtureUser();
 
         $tomato = $this->getFixture('tomato');
         $supermarket = $this->getFixture('supermarket');

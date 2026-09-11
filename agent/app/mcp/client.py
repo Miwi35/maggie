@@ -8,6 +8,8 @@ from app.config import settings
 
 SESSION_STALENESS_SECONDS = 300  # 5 minutes
 
+USER_HEADER = "X-Maggie-User-Id"
+
 logger = logging.getLogger(__name__)
 
 
@@ -80,14 +82,19 @@ class McpClient:
         await self.ensure_connected()
         return self._tools
 
-    async def call_tool(self, name: str, arguments: dict) -> str:
-        """Call an MCP tool and return the result as a string."""
+    async def call_tool(self, name: str, arguments: dict, user_id: str | None = None) -> str:
+        """Call an MCP tool and return the result as a string.
+
+        The MCP server acts for `user_id`; without it, tools touching user data
+        refuse the call.
+        """
         response = await self._send_request(
             "tools/call",
             {
                 "name": name,
                 "arguments": arguments,
             },
+            user_id=user_id,
         )
 
         # Retry once on session expiration
@@ -102,6 +109,7 @@ class McpClient:
                     "name": name,
                     "arguments": arguments,
                 },
+                user_id=user_id,
             )
 
         if response and "content" in response:
@@ -112,7 +120,7 @@ class McpClient:
 
         return json.dumps(response or {"error": "No response from MCP server"})
 
-    async def _send_request(self, method: str, params: dict) -> dict | None:
+    async def _send_request(self, method: str, params: dict, user_id: str | None = None) -> dict | None:
         """Send a JSON-RPC request to the MCP server."""
         if not self._http_client:
             logger.error("MCP client not connected")
@@ -128,6 +136,8 @@ class McpClient:
         headers = {"Content-Type": "application/json", "Accept": "application/json, text/event-stream"}
         if settings.service_token:
             headers["Authorization"] = f"Bearer {settings.service_token}"
+        if user_id:
+            headers[USER_HEADER] = user_id
         if self._session_id:
             headers["Mcp-Session-Id"] = self._session_id
 

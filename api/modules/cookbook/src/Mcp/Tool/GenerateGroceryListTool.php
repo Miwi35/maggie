@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Maggie\Cookbook\Mcp\Tool;
 
+use Maggie\Core\Mcp\McpUserContext;
+use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Cookbook\Message\GenerateGroceryListCommand;
-use Maggie\Core\Repository\UserRepository;
 use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -17,7 +18,7 @@ class GenerateGroceryListTool
 {
     public function __construct(
         private readonly MessageBusInterface $bus,
-        private readonly UserRepository $userRepository,
+        private readonly McpUserContext $userContext,
     ) {
     }
 
@@ -26,8 +27,7 @@ class GenerateGroceryListTool
         string $toDate,
     ): string {
         try {
-            $users = $this->userRepository->findAll();
-            $user = $users[0] ?? throw new \DomainException('No user found.');
+            $user = $this->userContext->requireUser();
 
             $envelope = $this->bus->dispatch(new GenerateGroceryListCommand(
                 userId: (string) $user->getId(),
@@ -77,6 +77,8 @@ class GenerateGroceryListTool
                     'totalItems' => $list->getItems()->count(),
                 ],
             ], JSON_THROW_ON_ERROR);
+        } catch (MissingMcpUserException $e) {
+            return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
             return json_encode(['error' => $cause->getMessage()], JSON_THROW_ON_ERROR);
