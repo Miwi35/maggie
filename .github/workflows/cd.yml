@@ -27,12 +27,23 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Detect changed paths
         id: filter
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          CHANGED=$(git diff --name-only HEAD~1 HEAD)
+          # Compare against the last commit we actually deployed. Diffing HEAD~1
+          # only exposes the final commit of a push, so a batch of commits could
+          # ship an API change while silently skipping the agent image it needs.
+          BASE=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/cd.yml/runs?status=success&per_page=1" \
+            --jq '.workflow_runs[0].head_sha' 2>/dev/null || true)
+          if [ -z "$BASE" ] || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            BASE=$(git rev-parse HEAD~1)
+          fi
+          echo "Comparing $BASE...HEAD"
+          CHANGED=$(git diff --name-only "$BASE" HEAD)
           echo "$CHANGED"
           echo "app=$(echo "$CHANGED" | grep -qE '^(api/|admin/|\.docker/(php|nginx)/)' && echo true || echo false)" >> "$GITHUB_OUTPUT"
           echo "agent=$(echo "$CHANGED" | grep -qE '^(agent/|\.docker/python/)' && echo true || echo false)" >> "$GITHUB_OUTPUT"
