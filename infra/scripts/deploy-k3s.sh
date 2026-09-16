@@ -80,8 +80,26 @@ log "Phase 3: Updating image tags to $TAG (only when image exists on GHCR)..."
 # Per-service build jobs only run when their scope changed, so a commit that
 # touches only one service produces a sha-tagged image for that service alone.
 # Updating every image's newTag to that sha would point the others at a
-# nonexistent tag → ImagePullBackOff. Skip the update when the tag is missing
-# (those images keep their previous tag).
+# nonexistent tag → ImagePullBackOff.
+#
+# Those other images must not fall back to the `latest` the repo ships either:
+# the manifests are copied from the repo on every deploy, so a service that is
+# not rebuilt would be re-pinned to a mobile tag. With imagePullPolicy: Always
+# that means a restarted pod silently picks up whatever `latest` points at, and
+# `kubectl rollout undo` rolls back to the very same tag. Instead we pin such a
+# service to the digest it is running right now: immutable, so restarts and
+# rollbacks land on known code.
+
+# One deployment per image, to read back the digest actually running.
+image_deployment() {
+  case "$1" in
+    *maggie-php) echo "php" ;;
+    *maggie-nginx) echo "nginx" ;;
+    *maggie-agent) echo "agent" ;;
+    *maggie-ciqual) echo "ciqual" ;;
+    *) echo "" ;;
+  esac
+}
 
 image_tag_exists() {
   if ! command -v docker >/dev/null 2>&1; then
@@ -90,12 +108,44 @@ image_tag_exists() {
   docker manifest inspect "$1:$2" >/dev/null 2>&1
 }
 
+# Digest of the image the deployment's pod is running, as repo@sha256:…
+running_digest() {
+  local deploy image image_id
+  deploy=$(image_deployment "$1")
+  image="$1"
+
+  [ -n "$deploy" ] || return 0
+
+  image_id=$($KUBECTL get pod -n "$NAMESPACE" -l "app=$deploy" \
+    --field-selector=status.phase=Running \
+    -o jsonpath='{.items[0].status.containerStatuses[0].imageID}' 2>/dev/null || true)
+
+  case "$image_id" in
+    "$image"@sha256:*) echo "${image_id#*@}" ;;
+    *) return 0 ;;
+  esac
+}
+
+set_image_field() {
+  # Rewrites the `newTag:`/`digest:` line right after `name: <image>`, keeping
+  # its indentation. The two fields are mutually exclusive in Kustomize, so one
+  # replaces the other rather than being added next to it.
+  local image="$1" field="$2" value="$3"
+  sed -i "/name: ${image//\//\\/}$/{n;s#^\([[:space:]]*\)[A-Za-z]*:.*#\1${field}: ${value}#;}" "$KUSTOMIZE_DIR/kustomization.yaml"
+}
+
 for image in "${IMAGES[@]}"; do
   if image_tag_exists "$image" "$TAG"; then
-    sed -i "/name: ${image//\//\\/}$/{n;s|newTag:.*|newTag: ${TAG}|;}" "$KUSTOMIZE_DIR/kustomization.yaml"
+    set_image_field "$image" "newTag" "$TAG"
     log "  $image → $TAG"
   else
-    log "  $image → (skipped — tag $TAG not on GHCR)"
+    digest=$(running_digest "$image")
+    if [ -n "$digest" ]; then
+      set_image_field "$image" "digest" "$digest"
+      log "  $image → pinned to running ${digest:0:26}… (tag $TAG not on GHCR)"
+    else
+      warn "  $image → left at latest (tag $TAG not on GHCR, no running digest found)"
+    fi
   fi
 done
 

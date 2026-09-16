@@ -48,7 +48,7 @@ jobs:
           echo "app=$(echo "$CHANGED" | grep -qE '^(api/|admin/|\.docker/(php|nginx)/)' && echo true || echo false)" >> "$GITHUB_OUTPUT"
           echo "agent=$(echo "$CHANGED" | grep -qE '^(agent/|\.docker/python/)' && echo true || echo false)" >> "$GITHUB_OUTPUT"
           echo "ciqual=$(echo "$CHANGED" | grep -qE '^(ciqual/|\.docker/ciqual/)' && echo true || echo false)" >> "$GITHUB_OUTPUT"
-          echo "infra=$(echo "$CHANGED" | grep -qE '^(infra/k8s/|\.github/workflows/cd\.yml)' && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "infra=$(echo "$CHANGED" | grep -qE '^(infra/(k8s|scripts)/|\.github/workflows/cd\.yml)' && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
   # ===========================================================================
   # Build PHP image (needed by nginx build)
