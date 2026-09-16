@@ -69,6 +69,9 @@ framework:
             'Maggie\Finance\Message\CreateTransactionCommand': sync
             'Maggie\Finance\Message\UpdateTransactionCommand': sync
             'Maggie\Finance\Message\DeleteTransactionCommand': sync
+            'Maggie\Finance\Message\CreateEnvelopeCommand': sync
+            'Maggie\Finance\Message\UpdateEnvelopeCommand': sync
+            'Maggie\Finance\Message\DeleteEnvelopeCommand': sync
             'Maggie\Core\Elasticsearch\Message\IndexDocumentCommand': async
             'Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand': async
 

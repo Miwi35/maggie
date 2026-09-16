@@ -55,6 +55,8 @@ import com.maggie.app.ui.screens.cookbook.grocery.GroceryScreen
 import com.maggie.app.ui.screens.cookbook.grocery.GroceryViewModel
 import com.maggie.app.ui.screens.finance.AccountListScreen
 import com.maggie.app.ui.screens.finance.AccountViewModel
+import com.maggie.app.ui.screens.finance.BudgetScreen
+import com.maggie.app.ui.screens.finance.BudgetViewModel
 import com.maggie.app.ui.screens.finance.CategoryListScreen
 import com.maggie.app.ui.screens.finance.CategoryViewModel
 import com.maggie.app.ui.screens.finance.TransactionListScreen
@@ -120,6 +122,7 @@ sealed class Screen(val route: String, val label: String) {
     data object StoreList : Screen("stores", "Magasins")
     data object AccountList : Screen("accounts", "Comptes")
     data object CategoryList : Screen("categories", "Catégories")
+    data object BudgetList : Screen("budgets", "Budgets")
     data object AccountTransactions : Screen("account_transactions", "Opérations")
     data object RecipeDetail : Screen("recipe/detail", "Recette")
     data object RecipeCreate : Screen("recipe/create", "Nouvelle recette")
@@ -494,6 +497,13 @@ fun NavGraph() {
                     val categoryViewModel: CategoryViewModel = koinViewModel()
                     CategoryListScreen(
                         viewModel = categoryViewModel,
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable(Screen.BudgetList.route) {
+                    val budgetViewModel: BudgetViewModel = koinViewModel()
+                    BudgetScreen(
+                        viewModel = budgetViewModel,
                         onBack = { navController.popBackStack() },
                     )
                 }

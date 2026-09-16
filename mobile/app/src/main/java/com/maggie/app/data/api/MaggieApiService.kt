@@ -16,8 +16,10 @@ import com.maggie.app.data.model.Proaction
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.Recipe
 import com.maggie.app.data.model.Account
+import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.Store
+import com.maggie.app.data.model.Envelope
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TtsVoice
 import com.maggie.app.data.model.RecurringGroceryItem
@@ -223,6 +225,16 @@ data class TransactionCreateRequest(
     val amountCents: Int,
     val label: String,
     val category: String? = null,
+    val currency: String = "EUR",
+)
+
+@Serializable
+data class EnvelopeCreateRequest(
+    val category: String,
+    val amountCents: Int,
+    val year: Int,
+    val mode: String = "monthly",
+    val month: Int? = null,
     val currency: String = "EUR",
 )
 
@@ -766,6 +778,32 @@ class MaggieApiService(
 
     suspend fun deleteTransaction(id: String) {
         client.delete("$baseUrl/api/transactions/$id")
+    }
+
+    // Finance — Envelopes (budgets)
+    suspend fun getEnvelopes(): List<Envelope> {
+        return client.get("$baseUrl/api/envelopes") {
+            accept(ContentType("application", "ld+json"))
+        }.body<ApiCollection<Envelope>>().member
+    }
+
+    suspend fun createEnvelope(request: EnvelopeCreateRequest): Envelope {
+        return client.post("$baseUrl/api/envelopes") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.body()
+    }
+
+    suspend fun deleteEnvelope(id: String) {
+        client.delete("$baseUrl/api/envelopes/$id")
+    }
+
+    suspend fun getBudgetStatus(year: Int, month: Int): BudgetStatus {
+        return client.get("$baseUrl/api/finance/budget-status") {
+            url.parameters.append("year", year.toString())
+            url.parameters.append("month", month.toString())
+        }.body()
     }
 
     // Grocery Add Item
