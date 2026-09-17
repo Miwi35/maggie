@@ -169,6 +169,21 @@ class BankConnection implements MercurePublishable, OwnedByUserInterface
         return $this;
     }
 
+    /**
+     * Sends the link back through consent: a fresh state, nothing of the old
+     * session kept. The accounts stay attached, so a renewed consent resumes
+     * where the previous one stopped instead of creating them again.
+     */
+    public function reopen(): static
+    {
+        $this->state = bin2hex(random_bytes(24));
+        $this->status = BankConnectionStatus::Pending;
+        $this->sessionId = null;
+        $this->consentExpiresAt = null;
+
+        return $this;
+    }
+
     /** Marks the link as live, with the date the bank's consent runs out. */
     public function activate(string $sessionId, ?\DateTimeImmutable $consentExpiresAt): static
     {

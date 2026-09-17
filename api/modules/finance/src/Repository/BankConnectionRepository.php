@@ -23,6 +23,19 @@ class BankConnectionRepository extends ServiceEntityRepository
         return $this->findBy(['user' => $user], ['createdAt' => 'DESC']);
     }
 
+    /**
+     * The link already held for this bank, whatever state it is in — a stale
+     * pending journey, or a consent that ran out. Reconnecting reuses it.
+     */
+    public function findOneByUserAndBank(User $user, string $bankName, string $country): ?BankConnection
+    {
+        return $this->findOneBy([
+            'user' => $user,
+            'bankName' => $bankName,
+            'country' => strtoupper($country),
+        ], ['createdAt' => 'DESC']);
+    }
+
     /** The journey a bank is answering about, found by the state we sent it. */
     public function findOneByState(string $state): ?BankConnection
     {

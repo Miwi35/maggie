@@ -7,7 +7,9 @@ namespace Maggie\Finance\Controller;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Bank\EnableBanking\EnableBankingClient;
 use Maggie\Finance\Entity\BankConnection;
+use Maggie\Finance\Enum\BankConnectionStatus;
 use Maggie\Finance\Repository\BankConnectionRepository;
+use Maggie\Finance\UseCase\ForgetBankConnection;
 use Maggie\Finance\UseCase\StartBankAuthorization;
 use Maggie\Finance\UseCase\SyncBankAccounts;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -15,6 +17,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Uid\Ulid;
 
 final class BankConnectionController
 {
@@ -24,6 +27,7 @@ final class BankConnectionController
         private readonly StartBankAuthorization $startBankAuthorization,
         private readonly BankConnectionRepository $connectionRepository,
         private readonly SyncBankAccounts $syncBankAccounts,
+        private readonly ForgetBankConnection $forgetBankConnection,
     ) {
     }
 
@@ -73,7 +77,8 @@ final class BankConnectionController
                     'consentExpiresAt' => $connection->getConsentExpiresAt()?->format(\DateTimeInterface::ATOM),
                     'daysBeforeExpiry' => $connection->daysBeforeExpiry(),
                     'lastSyncedAt' => $connection->getLastSyncedAt()?->format(\DateTimeInterface::ATOM),
-                    'needsReconnecting' => !$connection->isUsable(),
+                    'needsReconnecting' => $connection->getStatus() !== BankConnectionStatus::Pending
+                        && !$connection->isUsable(),
                 ],
                 $this->connectionRepository->findByUser($user),
             ),
@@ -138,5 +143,74 @@ final class BankConnectionController
             'authorizationUrl' => $started['url'],
             'connectionId' => (string) $started['connection']->getId(),
         ]);
+    }
+
+    /**
+     * Sends the user back through consent for a bank already in the list —
+     * an abandoned journey or an expired access, without making them find
+     * their bank in the picker again.
+     */
+    #[Route(
+        '/api/finance/bank-connections/{id}/reconnect',
+        name: 'api_finance_bank_reconnect',
+        methods: ['POST'],
+    )]
+    public function reconnect(string $id): JsonResponse
+    {
+        $connection = $this->ownedConnection($id);
+        if (!$connection instanceof BankConnection) {
+            return $connection;
+        }
+
+        try {
+            $started = $this->startBankAuthorization->execute(
+                $connection->getUser(),
+                $connection->getBankName(),
+                $connection->getCountry(),
+            );
+        } catch (\RuntimeException $e) {
+            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_BAD_GATEWAY);
+        }
+
+        return new JsonResponse([
+            'authorizationUrl' => $started['url'],
+            'connectionId' => (string) $started['connection']->getId(),
+        ]);
+    }
+
+    /** Removes a link. The accounts it brought are kept, only unhooked. */
+    #[Route('/api/finance/bank-connections/{id}', name: 'api_finance_bank_forget', methods: ['DELETE'])]
+    public function forget(string $id): JsonResponse
+    {
+        $connection = $this->ownedConnection($id);
+        if (!$connection instanceof BankConnection) {
+            return $connection;
+        }
+
+        $this->forgetBankConnection->execute($connection);
+
+        return new JsonResponse(['success' => true]);
+    }
+
+    /** The connection this user may act on, or the response saying why not. */
+    private function ownedConnection(string $id): BankConnection|JsonResponse
+    {
+        $user = $this->security->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        if (!Ulid::isValid($id)) {
+            return new JsonResponse(['error' => 'Not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $connection = $this->connectionRepository->find(Ulid::fromString($id));
+
+        // Someone else's connection is not theirs to know about either.
+        if ($connection === null || $connection->getUser()->getId() !== $user->getId()) {
+            return new JsonResponse(['error' => 'Not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        return $connection;
     }
 }

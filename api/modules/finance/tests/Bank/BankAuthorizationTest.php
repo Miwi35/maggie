@@ -50,6 +50,7 @@ class BankAuthorizationTest extends KernelTestCase
         return new StartBankAuthorization(
             $this->client($http),
             self::getContainer()->get('doctrine.orm.entity_manager'),
+            self::getContainer()->get(BankConnectionRepository::class),
             'https://maggieai.fr/api/finance/bank-callback',
         );
     }
@@ -208,6 +209,87 @@ class BankAuthorizationTest extends KernelTestCase
         $this->expectExceptionMessageMatches('/already been used/');
 
         $completer->execute($connection->getState(), 'code');
+    }
+
+    public function testReconnectingTheSameBankReopensTheLinkInsteadOfPilingUpAnother(): void
+    {
+        $this->loadFixtures('account.yaml');
+        $http = new MockHttpClient(fn () => new MockResponse(json_encode(['url' => 'https://bank.example/c'])));
+
+        $first = $this->starter($http)->execute($this->getFixture('test_user'), 'Revolut')['connection'];
+        $completeHttp = new MockHttpClient(fn () => new MockResponse(json_encode([
+            'session_id' => 'session-1',
+            'accounts' => [],
+        ])));
+        $this->completer($completeHttp)->execute($first->getState(), 'code');
+
+        $second = $this->starter($http)->execute($this->getFixture('test_user'), 'Revolut')['connection'];
+
+        // Same link, sent back through consent: a new state, no stale session.
+        self::assertTrue($first->getId()->equals($second->getId()));
+        self::assertSame(BankConnectionStatus::Pending, $second->getStatus());
+        self::assertNull($second->getSessionId());
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        self::assertCount(1, $em->getRepository(BankConnection::class)->findAll());
+    }
+
+    public function testAFailedReconnectionLeavesTheWorkingLinkAlone(): void
+    {
+        $this->loadFixtures('account.yaml');
+
+        $startHttp = new MockHttpClient(fn () => new MockResponse(json_encode(['url' => 'https://bank.example/c'])));
+        $connection = $this->starter($startHttp)->execute($this->getFixture('test_user'), 'N26')['connection'];
+
+        $completeHttp = new MockHttpClient(fn () => new MockResponse(json_encode([
+            'session_id' => 'session-live',
+            'access' => ['valid_until' => '2027-01-01T00:00:00+00:00'],
+            'accounts' => [],
+        ])));
+        $this->completer($completeHttp)->execute($connection->getState(), 'code');
+
+        $failing = new MockHttpClient(fn () => new MockResponse(json_encode(['message' => 'nope'])));
+
+        try {
+            $this->starter($failing)->execute($this->getFixture('test_user'), 'N26');
+            self::fail('the journey should not start without a URL');
+        } catch (\RuntimeException) {
+            // expected
+        }
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $refreshed = $em->find(BankConnection::class, $connection->getId());
+
+        // A failed attempt must not cost the user a consent that still works.
+        self::assertSame(BankConnectionStatus::Active, $refreshed->getStatus());
+        self::assertSame('session-live', $refreshed->getSessionId());
+    }
+
+    public function testForgettingALinkKeepsTheAccountsItBrought(): void
+    {
+        $this->loadFixtures('account.yaml');
+
+        $startHttp = new MockHttpClient(fn () => new MockResponse(json_encode(['url' => 'https://bank.example/c'])));
+        $connection = $this->starter($startHttp)->execute($this->getFixture('test_user'), 'Compte courant')['connection'];
+
+        $completeHttp = new MockHttpClient(fn () => new MockResponse(json_encode([
+            'session_id' => 'session-3',
+            'accounts' => [['uid' => 'remote-9', 'name' => 'Compte courant', 'currency' => 'EUR']],
+        ])));
+        $this->completer($completeHttp)->execute($connection->getState(), 'code');
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        self::getContainer()->get(\Maggie\Finance\UseCase\ForgetBankConnection::class)->execute($connection);
+
+        $em->clear();
+        self::assertCount(0, $em->getRepository(BankConnection::class)->findAll());
+
+        // Months of movements do not disappear because a consent was dropped.
+        $account = $em->find(Account::class, $this->getFixture('checking')->getId());
+        self::assertNotNull($account);
+        self::assertNull($account->getBankConnection());
+        self::assertNull($account->getExternalAccountId());
     }
 
     public function testAConnectionWithoutAnExpiryStaysUsable(): void
