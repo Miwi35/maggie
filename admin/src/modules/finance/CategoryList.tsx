@@ -77,6 +77,7 @@ export const CategoryList = () => {
       >
         <Tab label="Catégories" />
         <Tab label="Règles de catégorisation" />
+        <Tab label="Suggestions" />
       </Tabs>
 
       <Box hidden={tab !== 0}>

@@ -1,0 +1,68 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-suggestions-test@example.com
+    googleId: google-finance-suggestions-test
+    name: Finance Suggestions Test User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+
+Maggie\Finance\Entity\Category:
+  food:
+    name: Nourriture
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  fuel:
+    name: Essence
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  # The same shop, three visits, three labels — nothing groups them but the
+  # merchant buried in the middle.
+  groceries_1:
+    label: 'PAIEMENT PAR CARTE X9633 MP*CARREFOUR DAC VL 04/08'
+    amountCents: -10305
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-08-04"))>'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    account: '@checking'
+    user: '@test_user'
+  groceries_2:
+    label: 'PAIEMENT PAR CARTE X9633 MP*CARREFOUR DAC VL 11/08'
+    amountCents: -4210
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-08-11"))>'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    account: '@checking'
+    user: '@test_user'
+  fuel_1:
+    label: 'PAIEMENT PAR CARTE X9633 INTERMARCHE ESSENCE 30/07'
+    amountCents: -7007
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-30"))>'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    account: '@checking'
+    user: '@test_user'
+  fuel_2:
+    label: 'PAIEMENT PAR CARTE X9633 INTERMARCHE ESSENCE 12/08'
+    amountCents: -6500
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-08-12"))>'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    account: '@checking'
+    user: '@test_user'
+  one_off:
+    label: 'PAIEMENT PAR CARTE X9633 HUISSIER DE JUS PIPR 16/07'
+    amountCents: -6075
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-16"))>'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    account: '@checking'
+    user: '@test_user'

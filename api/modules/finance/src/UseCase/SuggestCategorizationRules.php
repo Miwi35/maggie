@@ -1,0 +1,202 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Maggie\Finance\UseCase;
+
+use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
+use Maggie\Core\Entity\User;
+use Maggie\Finance\Category\MerchantDictionary;
+use Maggie\Finance\Entity\CategorizationRule;
+use Maggie\Finance\Entity\Category;
+use Maggie\Finance\Entity\Transaction;
+use Maggie\Finance\Enum\AmountDirection;
+use Maggie\Finance\Enum\CategorySource;
+use Maggie\Finance\Enum\MatchType;
+use Maggie\Finance\Import\MerchantExtractor;
+use Maggie\Finance\Repository\CategorizationRuleRepository;
+use Maggie\Finance\Repository\CategoryRepository;
+use Maggie\Finance\Repository\TransactionRepository;
+use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Uid\Ulid;
+
+/**
+ * Reads the statement back and proposes the rules it implies.
+ *
+ * Writing rules from a blank page means remembering how your bank spells each
+ * shop — nobody does that. The history already holds the answer: the merchants
+ * that come back, how often, and for how much.
+ *
+ * Nothing is created here. A suggestion is an offer with a guessed heading at
+ * best; the user accepts what they recognise.
+ */
+class SuggestCategorizationRules
+{
+    /** A merchant seen once may never return; two is the sign of a habit. */
+    private const MIN_OCCURRENCES = 2;
+
+    public function __construct(
+        private readonly TransactionRepository $transactionRepository,
+        private readonly CategorizationRuleRepository $ruleRepository,
+        private readonly CategoryRepository $categoryRepository,
+        private readonly EntityManagerInterface $em,
+        private readonly MessageBusInterface $bus,
+    ) {
+    }
+
+    /**
+     * @return list<array{
+     *     pattern: string, occurrences: int, totalCents: int, direction: string,
+     *     categoryId: ?string, categoryName: ?string, samples: list<string>
+     * }>
+     */
+    public function suggest(User $user, int $minOccurrences = self::MIN_OCCURRENCES): array
+    {
+        $categoriesByName = [];
+        foreach ($this->categoryRepository->findByUser($user) as $category) {
+            $categoriesByName[mb_strtolower($category->getName())] = $category;
+        }
+
+        $covered = [];
+        foreach ($this->ruleRepository->findActiveForUser($user) as $rule) {
+            $covered[MerchantExtractor::key($rule->getLabelPattern())] = true;
+        }
+
+        $groups = [];
+
+        foreach ($this->transactionRepository->findByUser($user) as $transaction) {
+            // A category set by hand is an answer already given.
+            if ($transaction->getCategorySource() === CategorySource::Manual) {
+                continue;
+            }
+
+            $merchant = MerchantExtractor::extract($transaction->getLabel());
+            if ($merchant === null) {
+                continue;
+            }
+
+            $key = MerchantExtractor::key($merchant);
+            if ($key === '' || isset($covered[$key])) {
+                continue;
+            }
+
+            $group = $groups[$key] ?? [
+                'pattern' => $merchant,
+                'occurrences' => 0,
+                'totalCents' => 0,
+                'debits' => 0,
+                'credits' => 0,
+                'samples' => [],
+            ];
+
+            ++$group['occurrences'];
+            $group['totalCents'] += $transaction->getAmountCents();
+            $transaction->getAmountCents() < 0 ? ++$group['debits'] : ++$group['credits'];
+
+            if (\count($group['samples']) < 3) {
+                $group['samples'][] = $transaction->getLabel();
+            }
+
+            $groups[$key] = $group;
+        }
+
+        $suggestions = [];
+
+        foreach ($groups as $group) {
+            if ($group['occurrences'] < $minOccurrences) {
+                continue;
+            }
+
+            $guess = MerchantDictionary::categoryFor($group['pattern']);
+            $category = $guess === null ? null : ($categoriesByName[mb_strtolower($guess)] ?? null);
+
+            $suggestions[] = [
+                'pattern' => $group['pattern'],
+                'occurrences' => $group['occurrences'],
+                'totalCents' => $group['totalCents'],
+                'direction' => $this->directionOf($group['debits'], $group['credits'])->value,
+                'categoryId' => $category === null ? null : (string) $category->getId(),
+                'categoryName' => $category?->getName(),
+                'samples' => $group['samples'],
+            ];
+        }
+
+        // What weighs most, first: that is where a rule earns its keep.
+        usort($suggestions, static fn (array $a, array $b) => abs($b['totalCents']) <=> abs($a['totalCents']));
+
+        return $suggestions;
+    }
+
+    /**
+     * Turns accepted suggestions into rules.
+     *
+     * @param list<array<string, mixed>> $accepted Straight from the request:
+     *                                             every field is checked here.
+     *
+     * @return array{created: int, patterns: list<string>}
+     */
+    public function accept(User $user, array $accepted): array
+    {
+        $created = [];
+
+        foreach ($accepted as $entry) {
+            $pattern = \is_string($entry['pattern'] ?? null) ? trim($entry['pattern']) : '';
+            $categoryId = $entry['categoryId'] ?? null;
+
+            if ($pattern === '' || !\is_string($categoryId) || !Ulid::isValid($categoryId)) {
+                continue;
+            }
+
+            $category = $this->categoryRepository->find(Ulid::fromString($categoryId));
+            if (!$category instanceof Category || $category->getUser()->getId() !== $user->getId()) {
+                continue;
+            }
+
+            $rule = new CategorizationRule();
+            $rule->setUser($user);
+            $rule->setLabelPattern($pattern);
+            $rule->setMatchType(MatchType::Contains);
+            $rule->setCategory($category);
+            $direction = \is_string($entry['direction'] ?? null) ? $entry['direction'] : '';
+            $rule->setDirection(AmountDirection::tryFrom($direction) ?? AmountDirection::Any);
+            // Longer patterns are the specific ones: "INTERMARCHE ESSENCE"
+            // has to be read before "INTERMARCHE".
+            $rule->setPriority(mb_strlen($pattern));
+
+            $this->em->persist($rule);
+            $created[] = $rule;
+        }
+
+        $this->em->flush();
+
+        foreach ($created as $rule) {
+            $this->bus->dispatch(new IndexDocumentCommand(
+                entityClass: CategorizationRule::class,
+                entityId: (string) $rule->getId(),
+            ));
+        }
+
+        return [
+            'created' => \count($created),
+            'patterns' => array_map(
+                static fn (CategorizationRule $rule) => $rule->getLabelPattern(),
+                $created,
+            ),
+        ];
+    }
+
+    /** A merchant only ever paid is a debit rule; one that also refunds is not. */
+    private function directionOf(int $debits, int $credits): AmountDirection
+    {
+        if ($credits === 0) {
+            return AmountDirection::Debit;
+        }
+
+        if ($debits === 0) {
+            return AmountDirection::Credit;
+        }
+
+        return AmountDirection::Any;
+    }
+}
