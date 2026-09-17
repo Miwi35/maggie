@@ -58,6 +58,8 @@ import com.maggie.app.ui.screens.finance.AccountViewModel
 import com.maggie.app.ui.screens.finance.BudgetScreen
 import com.maggie.app.ui.screens.finance.CategorizationRuleListScreen
 import com.maggie.app.ui.screens.finance.CushionScreen
+import com.maggie.app.ui.screens.finance.LoanListScreen
+import com.maggie.app.ui.screens.finance.LoanViewModel
 import com.maggie.app.ui.screens.finance.CushionViewModel
 import com.maggie.app.ui.screens.finance.CategorizationRuleViewModel
 import com.maggie.app.ui.screens.finance.BudgetViewModel
@@ -129,6 +131,7 @@ sealed class Screen(val route: String, val label: String) {
     data object BudgetList : Screen("budgets", "Budgets")
     data object CategorizationRuleList : Screen("categorization_rules", "Règles")
     data object Cushion : Screen("cushion", "Matelas")
+    data object LoanList : Screen("loans", "Prêts")
     data object AccountTransactions : Screen("account_transactions", "Opérations")
     data object RecipeDetail : Screen("recipe/detail", "Recette")
     data object RecipeCreate : Screen("recipe/create", "Nouvelle recette")
@@ -529,6 +532,13 @@ fun NavGraph() {
                     val cushionViewModel: CushionViewModel = koinViewModel()
                     CushionScreen(
                         viewModel = cushionViewModel,
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable(Screen.LoanList.route) {
+                    val loanViewModel: LoanViewModel = koinViewModel()
+                    LoanListScreen(
+                        viewModel = loanViewModel,
                         onBack = { navController.popBackStack() },
                     )
                 }

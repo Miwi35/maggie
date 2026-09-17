@@ -21,6 +21,8 @@ import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.CategorizationRule
 import com.maggie.app.data.model.CushionStatus
 import com.maggie.app.data.model.DailyScore
+import com.maggie.app.data.model.DebtTimeline
+import com.maggie.app.data.model.Loan
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.model.Envelope
@@ -240,6 +242,17 @@ data class EnvelopeCreateRequest(
     val year: Int,
     val mode: String = "monthly",
     val month: Int? = null,
+    val currency: String = "EUR",
+)
+
+@Serializable
+data class LoanCreateRequest(
+    val name: String,
+    val principalRemainingCents: Int,
+    val monthlyPaymentCents: Int,
+    val annualRateBasisPoints: Int = 0,
+    val lender: String? = null,
+    val priority: Int = 0,
     val currency: String = "EUR",
 )
 
@@ -851,6 +864,31 @@ class MaggieApiService(
         return client.get("$baseUrl/api/finance/daily-score") {
             url.parameters.append("year", year.toString())
             url.parameters.append("month", month.toString())
+        }.body()
+    }
+
+    // Finance — Loans
+    suspend fun getLoans(): List<Loan> {
+        return client.get("$baseUrl/api/loans") {
+            accept(ContentType("application", "ld+json"))
+        }.body<ApiCollection<Loan>>().member
+    }
+
+    suspend fun createLoan(request: LoanCreateRequest): Loan {
+        return client.post("$baseUrl/api/loans") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.body()
+    }
+
+    suspend fun deleteLoan(id: String) {
+        client.delete("$baseUrl/api/loans/$id")
+    }
+
+    suspend fun getDebtTimeline(months: Int): DebtTimeline {
+        return client.get("$baseUrl/api/finance/debt-timeline") {
+            url.parameters.append("months", months.toString())
         }.body()
     }
 

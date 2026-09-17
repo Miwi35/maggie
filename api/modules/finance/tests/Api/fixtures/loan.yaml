@@ -1,0 +1,35 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-api-test@example.com
+    googleId: google-finance-api-test
+    name: Finance Api Test User
+
+Maggie\Finance\Entity\SafetyCushion:
+  cushion:
+    targetMonths: 3
+    monthlyNetIncomeCents: 350000
+    rechargeCapCents: 15000
+    rechargeTargetMonths: 6
+    completedAt: null
+    user: '@test_user'
+
+Maggie\Finance\Entity\Loan:
+  # 2 400 € left at 200 €/month, no interest: gone in exactly 12 months.
+  car:
+    name: Crédit auto
+    lender: Banque Populaire
+    principalRemainingCents: 240000
+    monthlyPaymentCents: 20000
+    annualRateBasisPoints: 0
+    priority: 10
+    currency: EUR
+    user: '@test_user'
+  # 1 200 € left at 400 €/month: gone in 3 months.
+  studies:
+    name: Prêt étudiant
+    principalRemainingCents: 120000
+    monthlyPaymentCents: 40000
+    annualRateBasisPoints: 0
+    priority: 5
+    currency: EUR
+    user: '@test_user'

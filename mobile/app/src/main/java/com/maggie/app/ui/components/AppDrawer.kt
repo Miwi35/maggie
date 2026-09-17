@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Savings
+import androidx.compose.material.icons.filled.CreditScore
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
@@ -118,6 +119,17 @@ fun AppDrawerContent(
             selected = currentRoute == "cushion",
             onClick = {
                 onNavigate("cushion")
+                onCloseDrawer()
+            },
+            modifier = Modifier.padding(horizontal = 12.dp),
+        )
+
+        NavigationDrawerItem(
+            icon = { Icon(Icons.Default.CreditScore, contentDescription = null) },
+            label = { Text("Prêts") },
+            selected = currentRoute == "loans",
+            onClick = {
+                onNavigate("loans")
                 onCloseDrawer()
             },
             modifier = Modifier.padding(horizontal = 12.dp),

@@ -76,6 +76,9 @@ framework:
             'Maggie\Finance\Message\UpdateCategorizationRuleCommand': sync
             'Maggie\Finance\Message\DeleteCategorizationRuleCommand': sync
             'Maggie\Finance\Message\UpdateSafetyCushionCommand': sync
+            'Maggie\Finance\Message\CreateLoanCommand': sync
+            'Maggie\Finance\Message\UpdateLoanCommand': sync
+            'Maggie\Finance\Message\DeleteLoanCommand': sync
             'Maggie\Core\Elasticsearch\Message\IndexDocumentCommand': async
             'Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand': async
 

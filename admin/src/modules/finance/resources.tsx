@@ -9,6 +9,9 @@ import { CategoryCreate } from './CategoryCreate'
 import { CategoryEdit } from './CategoryEdit'
 import { CategorizationRuleCreate } from './CategorizationRuleCreate'
 import { CushionPage } from './CushionPage'
+import { LoanCreate } from './LoanCreate'
+import { LoanEdit } from './LoanEdit'
+import { LoanList } from './LoanList'
 import { CategorizationRuleEdit } from './CategorizationRuleEdit'
 import { CategorizationRuleList } from './CategorizationRuleList'
 import { CategoryList } from './CategoryList'
@@ -48,6 +51,12 @@ export const financeResources = (
       list={CategorizationRuleList}
       create={CategorizationRuleCreate}
       edit={CategorizationRuleEdit}
+    />
+    <ResourceGuesser
+      name="loans"
+      list={LoanList}
+      create={LoanCreate}
+      edit={LoanEdit}
     />
     {/* Transactions are reached through their account (see AccountTransactionsView),
         not from the menu; the resource stays fully registered for routing. */}

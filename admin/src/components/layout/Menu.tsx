@@ -32,6 +32,7 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
 import SavingsIcon from '@mui/icons-material/Savings'
 import ShieldIcon from '@mui/icons-material/Shield'
+import CreditScoreIcon from '@mui/icons-material/CreditScore'
 
 export const CustomMenu = () => {
   const [groceryOpen, setGroceryOpen] = useState(false)
@@ -153,6 +154,12 @@ export const CustomMenu = () => {
                 to="/finance/cushion"
                 primaryText="Matelas"
                 leftIcon={<ShieldIcon />}
+                sx={{ pl: 4 }}
+              />
+              <MenuItemLink
+                to="/loans"
+                primaryText="Prêts"
+                leftIcon={<CreditScoreIcon />}
                 sx={{ pl: 4 }}
               />
             </List>
