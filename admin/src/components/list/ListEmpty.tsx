@@ -1,38 +1,60 @@
-import Box from '@mui/material/Box'
-import Typography from '@mui/material/Typography'
-import AddIcon from '@mui/icons-material/Add'
-import { CreateButton, useListContext } from 'react-admin'
-import type { ReactNode } from 'react'
+import Box from "@mui/material/Box";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
+import AddIcon from "@mui/icons-material/Add";
+import { CreateButton, useListContext } from "react-admin";
+import type { ReactNode } from "react";
 
 interface ListEmptyProps {
   /** What is missing, as the reader would say it: "Aucun compte pour l'instant". */
-  title: string
+  title: string;
   /** Why it is worth creating one — one sentence, no filler. */
-  description: ReactNode
+  description: ReactNode;
   /** Label of the create button; keep the verb the rest of the screen uses. */
-  action?: string
+  action?: string;
+  /** A second way out, when the screen offers one — a starting set, an import. */
+  secondaryAction?: ReactNode;
 }
 
 /**
  * An empty list is an invitation to act, not a dead end: it says what the
  * screen is for and offers the one thing to do next.
  */
-export const ListEmpty = ({ title, description, action = 'Créer' }: ListEmptyProps) => {
-  const { filterValues } = useListContext()
-  const isFiltered = filterValues != null && Object.keys(filterValues).length > 0
+export const ListEmpty = ({
+  title,
+  description,
+  action = "Créer",
+  secondaryAction,
+}: ListEmptyProps) => {
+  const { filterValues } = useListContext();
+  const isFiltered =
+    filterValues != null && Object.keys(filterValues).length > 0;
 
   return (
-    <Box sx={{ textAlign: 'center', px: 3, py: 8, maxWidth: 520, mx: 'auto' }}>
+    <Box sx={{ textAlign: "center", px: 3, py: 8, maxWidth: 520, mx: "auto" }}>
       <Typography variant="h6" sx={{ mb: 1 }}>
-        {isFiltered ? 'Aucun résultat pour ce filtre' : title}
+        {isFiltered ? "Aucun résultat pour ce filtre" : title}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        {isFiltered ? 'Élargissez ou retirez le filtre pour voir le reste.' : description}
+        {isFiltered
+          ? "Élargissez ou retirez le filtre pour voir le reste."
+          : description}
       </Typography>
-      {!isFiltered && <CreateButton variant="contained" label={action} icon={<AddIcon />} />}
+      {!isFiltered && (
+        <Stack
+          direction="row"
+          spacing={1}
+          justifyContent="center"
+          flexWrap="wrap"
+          useFlexGap
+        >
+          <CreateButton variant="contained" label={action} icon={<AddIcon />} />
+          {secondaryAction}
+        </Stack>
+      )}
     </Box>
-  )
-}
+  );
+};
 
 /** Same intent, for panels that are not a react-admin list. */
 export const Placeholder = ({
@@ -40,17 +62,21 @@ export const Placeholder = ({
   description,
   action,
 }: {
-  title: string
-  description: ReactNode
-  action?: ReactNode
+  title: string;
+  description: ReactNode;
+  action?: ReactNode;
 }) => (
-  <Box sx={{ textAlign: 'center', px: 3, py: 5 }}>
+  <Box sx={{ textAlign: "center", px: 3, py: 5 }}>
     <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
       {title}
     </Typography>
-    <Typography variant="body2" color="text.secondary" sx={{ mb: action ? 2 : 0 }}>
+    <Typography
+      variant="body2"
+      color="text.secondary"
+      sx={{ mb: action ? 2 : 0 }}
+    >
       {description}
     </Typography>
     {action}
   </Box>
-)
+);
