@@ -6,10 +6,12 @@ namespace Maggie\Finance\MessageHandler;
 
 use Maggie\Core\Repository\UserRepository;
 use Maggie\Finance\Entity\Transaction;
+use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Message\CreateTransactionCommand;
 use Maggie\Finance\Repository\AccountRepository;
 use Maggie\Finance\Repository\CategoryRepository;
+use Maggie\Finance\UseCase\CategorizeTransaction;
 use Maggie\Finance\UseCase\CreateTransaction;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -18,6 +20,7 @@ class CreateTransactionHandler
 {
     public function __construct(
         private readonly CreateTransaction $createTransaction,
+        private readonly CategorizeTransaction $categorizeTransaction,
         private readonly AccountRepository $accountRepository,
         private readonly CategoryRepository $categoryRepository,
         private readonly UserRepository $userRepository,
@@ -45,7 +48,9 @@ class CreateTransactionHandler
         if ($command->categoryId !== null) {
             $category = $this->categoryRepository->find($command->categoryId)
                 ?? throw new \DomainException("Category not found: {$command->categoryId}");
-            $transaction->setCategory($category);
+            $transaction->assignCategory($category, CategorySource::Manual);
+        } else {
+            $this->categorizeTransaction->apply($transaction);
         }
 
         return $this->createTransaction->execute($transaction);

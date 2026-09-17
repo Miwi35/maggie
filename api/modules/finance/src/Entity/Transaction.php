@@ -21,6 +21,7 @@ use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
 use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
+use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\State\CreateTransactionProcessor;
@@ -87,6 +88,16 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
     #[ORM\Column(type: 'boolean')]
     #[IndexedField(type: 'boolean')]
     private bool $isExceptional = false;
+
+    /** How the category was set: by hand, by a rule, or not at all. */
+    #[ORM\Column(length: 20, enumType: CategorySource::class)]
+    #[Assert\NotNull]
+    #[IndexedField(type: 'keyword')]
+    private CategorySource $categorySource = CategorySource::None;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    #[IndexedField(type: 'date')]
+    private ?\DateTimeImmutable $categorizedAt = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
@@ -200,6 +211,40 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
         return $this;
     }
 
+    public function getCategorySource(): CategorySource
+    {
+        return $this->categorySource;
+    }
+
+    public function setCategorySource(CategorySource $categorySource): static
+    {
+        $this->categorySource = $categorySource;
+
+        return $this;
+    }
+
+    public function getCategorizedAt(): ?\DateTimeImmutable
+    {
+        return $this->categorizedAt;
+    }
+
+    public function setCategorizedAt(?\DateTimeImmutable $categorizedAt): static
+    {
+        $this->categorizedAt = $categorizedAt;
+
+        return $this;
+    }
+
+    /** Record who decided the category, stamping when it happened. */
+    public function assignCategory(?Category $category, CategorySource $source): static
+    {
+        $this->category = $category;
+        $this->categorySource = $category === null ? CategorySource::None : $source;
+        $this->categorizedAt = $category === null ? null : new \DateTimeImmutable();
+
+        return $this;
+    }
+
     public function getUser(): User
     {
         return $this->user;
@@ -222,6 +267,8 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'bookedAt' => $this->bookedAt->format('Y-m-d'),
             'status' => $this->status->value,
             'isExceptional' => $this->isExceptional,
+            'categorySource' => $this->categorySource->value,
+            'categorizedAt' => $this->categorizedAt?->format(\DateTimeInterface::ATOM),
             'accountId' => (string) $this->account->getId(),
             'categoryId' => $this->category !== null ? (string) $this->category->getId() : null,
             'userId' => (string) $this->user->getId(),
@@ -238,6 +285,7 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'bookedAt' => $this->bookedAt->format('Y-m-d'),
             'status' => $this->status->value,
             'isExceptional' => $this->isExceptional,
+            'categorySource' => $this->categorySource->value,
             'accountId' => (string) $this->account->getId(),
             'categoryId' => $this->category !== null ? (string) $this->category->getId() : null,
         ], $changedProperties, ['account' => 'accountId', 'category' => 'categoryId']);

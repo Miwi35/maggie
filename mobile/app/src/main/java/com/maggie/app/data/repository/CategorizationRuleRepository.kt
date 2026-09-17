@@ -1,0 +1,26 @@
+package com.maggie.app.data.repository
+
+import com.maggie.app.data.api.CategorizationRuleCreateRequest
+import com.maggie.app.data.api.MaggieApiService
+import com.maggie.app.data.model.ApplyRulesResult
+import com.maggie.app.data.model.CategorizationRule
+
+class CategorizationRuleRepository(
+    private val apiService: MaggieApiService,
+) {
+    suspend fun getRules(): Result<List<CategorizationRule>> = runCatching {
+        apiService.getCategorizationRules()
+    }
+
+    suspend fun createRule(request: CategorizationRuleCreateRequest): Result<CategorizationRule> = runCatching {
+        apiService.createCategorizationRule(request)
+    }
+
+    suspend fun deleteRule(id: String): Result<Unit> = runCatching {
+        apiService.deleteCategorizationRule(id)
+    }
+
+    suspend fun applyRules(): Result<ApplyRulesResult> = runCatching {
+        apiService.applyCategorizationRules()
+    }
+}

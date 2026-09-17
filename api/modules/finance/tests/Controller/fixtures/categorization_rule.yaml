@@ -1,0 +1,69 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-controller-test@example.com
+    googleId: google-finance-controller-test
+    name: Finance Controller Test User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+
+Maggie\Finance\Entity\Category:
+  food:
+    name: Alimentation
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  leisure:
+    name: Loisirs
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  salary:
+    name: Salaire
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+
+Maggie\Finance\Entity\CategorizationRule:
+  rule_carrefour:
+    labelPattern: CARREFOUR
+    matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'
+    category: '@food'
+    direction: '<(Maggie\Finance\Enum\AmountDirection::Debit)>'
+    priority: 10
+    isActive: true
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  uncategorized_carrefour:
+    account: '@checking'
+    amountCents: -4599
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-01"))>'
+    label: CARREFOUR MARKET 4412
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  uncategorized_cinema:
+    account: '@checking'
+    amountCents: -1200
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-03"))>'
+    label: UGC CINE CITE
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  manual_carrefour:
+    account: '@checking'
+    category: '@leisure'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    amountCents: -2500
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-05"))>'
+    label: CARREFOUR CONTACT 77
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'

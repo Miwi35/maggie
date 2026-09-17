@@ -16,7 +16,9 @@ import com.maggie.app.data.model.Proaction
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.Recipe
 import com.maggie.app.data.model.Account
+import com.maggie.app.data.model.ApplyRulesResult
 import com.maggie.app.data.model.BudgetStatus
+import com.maggie.app.data.model.CategorizationRule
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.model.Envelope
@@ -236,6 +238,18 @@ data class EnvelopeCreateRequest(
     val mode: String = "monthly",
     val month: Int? = null,
     val currency: String = "EUR",
+)
+
+@Serializable
+data class CategorizationRuleCreateRequest(
+    val labelPattern: String,
+    val category: String,
+    val matchType: String = "contains",
+    val direction: String = "any",
+    val minAmountCents: Int? = null,
+    val maxAmountCents: Int? = null,
+    val priority: Int = 0,
+    val isActive: Boolean = true,
 )
 
 @Serializable
@@ -804,6 +818,29 @@ class MaggieApiService(
             url.parameters.append("year", year.toString())
             url.parameters.append("month", month.toString())
         }.body()
+    }
+
+    // Finance — Categorization rules
+    suspend fun getCategorizationRules(): List<CategorizationRule> {
+        return client.get("$baseUrl/api/categorization_rules") {
+            accept(ContentType("application", "ld+json"))
+        }.body<ApiCollection<CategorizationRule>>().member
+    }
+
+    suspend fun createCategorizationRule(request: CategorizationRuleCreateRequest): CategorizationRule {
+        return client.post("$baseUrl/api/categorization_rules") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.body()
+    }
+
+    suspend fun deleteCategorizationRule(id: String) {
+        client.delete("$baseUrl/api/categorization_rules/$id")
+    }
+
+    suspend fun applyCategorizationRules(): ApplyRulesResult {
+        return client.post("$baseUrl/api/finance/apply-categorization-rules").body()
     }
 
     // Grocery Add Item

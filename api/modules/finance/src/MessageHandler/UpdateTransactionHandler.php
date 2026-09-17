@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Finance\MessageHandler;
 
 use Maggie\Finance\Entity\Transaction;
+use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Message\UpdateTransactionCommand;
 use Maggie\Finance\Repository\AccountRepository;
@@ -54,11 +55,14 @@ class UpdateTransactionHandler
         }
         if ($command->categoryId !== null) {
             if ($command->categoryId === '') {
-                $transaction->setCategory(null);
+                $transaction->assignCategory(null, CategorySource::None);
             } else {
                 $category = $this->categoryRepository->find($command->categoryId)
                     ?? throw new \DomainException("Category not found: {$command->categoryId}");
-                $transaction->setCategory($category);
+                $transaction->assignCategory(
+                    $category,
+                    CategorySource::from($command->categorySource ?? CategorySource::Manual->value),
+                );
             }
         }
 

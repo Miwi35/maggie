@@ -72,6 +72,9 @@ framework:
             'Maggie\Finance\Message\CreateEnvelopeCommand': sync
             'Maggie\Finance\Message\UpdateEnvelopeCommand': sync
             'Maggie\Finance\Message\DeleteEnvelopeCommand': sync
+            'Maggie\Finance\Message\CreateCategorizationRuleCommand': sync
+            'Maggie\Finance\Message\UpdateCategorizationRuleCommand': sync
+            'Maggie\Finance\Message\DeleteCategorizationRuleCommand': sync
             'Maggie\Core\Elasticsearch\Message\IndexDocumentCommand': async
             'Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand': async
 

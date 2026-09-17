@@ -31,6 +31,7 @@ import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
 import SavingsIcon from '@mui/icons-material/Savings'
+import RuleIcon from '@mui/icons-material/Rule'
 
 export const CustomMenu = () => {
   const [groceryOpen, setGroceryOpen] = useState(false)
@@ -146,6 +147,12 @@ export const CustomMenu = () => {
                 to="/envelopes"
                 primaryText="Budgets"
                 leftIcon={<SavingsIcon />}
+                sx={{ pl: 4 }}
+              />
+              <MenuItemLink
+                to="/categorization_rules"
+                primaryText="Règles"
+                leftIcon={<RuleIcon />}
                 sx={{ pl: 4 }}
               />
             </List>

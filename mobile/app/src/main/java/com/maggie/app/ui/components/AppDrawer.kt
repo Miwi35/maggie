@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.Rule
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
@@ -106,6 +107,17 @@ fun AppDrawerContent(
             selected = currentRoute == "budgets",
             onClick = {
                 onNavigate("budgets")
+                onCloseDrawer()
+            },
+            modifier = Modifier.padding(horizontal = 12.dp),
+        )
+
+        NavigationDrawerItem(
+            icon = { Icon(Icons.Default.Rule, contentDescription = null) },
+            label = { Text("Règles") },
+            selected = currentRoute == "categorization_rules",
+            onClick = {
+                onNavigate("categorization_rules")
                 onCloseDrawer()
             },
             modifier = Modifier.padding(horizontal = 12.dp),

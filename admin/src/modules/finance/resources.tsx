@@ -7,6 +7,9 @@ import { AccountList } from './AccountList'
 import { AccountTransactionsView } from './AccountTransactionsView'
 import { CategoryCreate } from './CategoryCreate'
 import { CategoryEdit } from './CategoryEdit'
+import { CategorizationRuleCreate } from './CategorizationRuleCreate'
+import { CategorizationRuleEdit } from './CategorizationRuleEdit'
+import { CategorizationRuleList } from './CategorizationRuleList'
 import { CategoryList } from './CategoryList'
 import { EnvelopeCreate } from './EnvelopeCreate'
 import { EnvelopeEdit } from './EnvelopeEdit'
@@ -37,6 +40,12 @@ export const financeResources = (
       list={EnvelopeList}
       create={EnvelopeCreate}
       edit={EnvelopeEdit}
+    />
+    <ResourceGuesser
+      name="categorization_rules"
+      list={CategorizationRuleList}
+      create={CategorizationRuleCreate}
+      edit={CategorizationRuleEdit}
     />
     {/* Transactions are reached through their account (see AccountTransactionsView),
         not from the menu; the resource stays fully registered for routing. */}

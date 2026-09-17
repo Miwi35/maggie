@@ -9,6 +9,7 @@ use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Category;
+use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Entity\Transaction;
 
 /** @extends ServiceEntityRepository<Transaction> */
@@ -52,5 +53,24 @@ class TransactionRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
 
         return abs((int) $total);
+    }
+
+    /**
+     * Transactions still up for grabs by the rule engine: no category yet, and
+     * not deliberately left uncategorized by hand.
+     *
+     * @return Transaction[]
+     */
+    public function findUncategorizedForUser(User $user): array
+    {
+        return $this->createQueryBuilder('t')
+            ->andWhere('t.user = :user')
+            ->andWhere('t.category IS NULL')
+            ->andWhere('t.categorySource != :manual')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('manual', CategorySource::Manual->value)
+            ->orderBy('t.bookedAt', 'DESC')
+            ->getQuery()
+            ->getResult();
     }
 }

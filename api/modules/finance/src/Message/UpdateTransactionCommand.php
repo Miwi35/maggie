@@ -16,6 +16,7 @@ final readonly class UpdateTransactionCommand
         public ?string $currency = null,
         public ?bool $isExceptional = null,
         public ?string $categoryId = null,
+        public ?string $categorySource = null,
     ) {
     }
 }
