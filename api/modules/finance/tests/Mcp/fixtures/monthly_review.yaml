@@ -1,0 +1,94 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-test@example.com
+    googleId: google-finance-test
+    name: Finance Test User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 200000
+    isCushion: false
+    user: '@test_user'
+
+Maggie\Finance\Entity\Category:
+  rent:
+    name: Loyer
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  leisure:
+    name: Loisirs
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  # Mandatory: never offered for judgement.
+  rent_august:
+    account: '@checking'
+    category: '@rent'
+    amountCents: -90000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-08-02"))>'
+    label: Loyer août
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+
+  # Non-mandatory, still to judge.
+  concert:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: -12000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-08-10"))>'
+    label: Concert
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  takeaway:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: -3000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-08-14"))>'
+    label: Livraison sushi
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+
+  # Uncategorized: precisely the kind worth a second look.
+  unclassified:
+    account: '@checking'
+    amountCents: -5000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-08-20"))>'
+    label: Achat divers
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+
+  # July, for the month-on-month comparison.
+  july_spend:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: -60000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-12"))>'
+    label: Vacances
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+
+  # Same month last year.
+  august_last_year:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: -150000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2025-08-09"))>'
+    label: Festival
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'

@@ -22,6 +22,7 @@ use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Finance\Enum\CategorySource;
+use Maggie\Finance\Enum\RetrospectVerdict;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\State\CreateTransactionProcessor;
@@ -88,6 +89,12 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
     #[ORM\Column(type: 'boolean')]
     #[IndexedField(type: 'boolean')]
     private bool $isExceptional = false;
+
+    /** What the user made of this spend at the monthly review. */
+    #[ORM\Column(length: 20, enumType: RetrospectVerdict::class)]
+    #[Assert\NotNull]
+    #[IndexedField(type: 'keyword')]
+    private RetrospectVerdict $retrospect = RetrospectVerdict::Unrated;
 
     /** How the category was set: by hand, by a rule, or not at all. */
     #[ORM\Column(length: 20, enumType: CategorySource::class)]
@@ -211,6 +218,18 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
         return $this;
     }
 
+    public function getRetrospect(): RetrospectVerdict
+    {
+        return $this->retrospect;
+    }
+
+    public function setRetrospect(RetrospectVerdict $retrospect): static
+    {
+        $this->retrospect = $retrospect;
+
+        return $this;
+    }
+
     public function getCategorySource(): CategorySource
     {
         return $this->categorySource;
@@ -268,6 +287,7 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'status' => $this->status->value,
             'isExceptional' => $this->isExceptional,
             'categorySource' => $this->categorySource->value,
+            'retrospect' => $this->retrospect->value,
             'categorizedAt' => $this->categorizedAt?->format(\DateTimeInterface::ATOM),
             'accountId' => (string) $this->account->getId(),
             'categoryId' => $this->category !== null ? (string) $this->category->getId() : null,
@@ -286,6 +306,7 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'status' => $this->status->value,
             'isExceptional' => $this->isExceptional,
             'categorySource' => $this->categorySource->value,
+            'retrospect' => $this->retrospect->value,
             'accountId' => (string) $this->account->getId(),
             'categoryId' => $this->category !== null ? (string) $this->category->getId() : null,
         ], $changedProperties, ['account' => 'accountId', 'category' => 'categoryId']);

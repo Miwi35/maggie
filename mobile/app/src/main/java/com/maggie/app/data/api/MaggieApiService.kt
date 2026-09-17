@@ -23,6 +23,7 @@ import com.maggie.app.data.model.CushionStatus
 import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.DebtTimeline
 import com.maggie.app.data.model.Loan
+import com.maggie.app.data.model.MonthlyReview
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.model.Envelope
@@ -243,6 +244,11 @@ data class EnvelopeCreateRequest(
     val mode: String = "monthly",
     val month: Int? = null,
     val currency: String = "EUR",
+)
+
+@Serializable
+data class RetrospectRequest(
+    val retrospect: String,
 )
 
 @Serializable
@@ -890,6 +896,21 @@ class MaggieApiService(
         return client.get("$baseUrl/api/finance/debt-timeline") {
             url.parameters.append("months", months.toString())
         }.body()
+    }
+
+    // Finance — Monthly review
+    suspend fun getMonthlyReview(year: Int, month: Int): MonthlyReview {
+        return client.get("$baseUrl/api/finance/monthly-review") {
+            url.parameters.append("year", year.toString())
+            url.parameters.append("month", month.toString())
+        }.body()
+    }
+
+    suspend fun rateTransaction(id: String, verdict: String) {
+        client.patch("$baseUrl/api/transactions/$id") {
+            contentType(ContentType("application", "merge-patch+json"))
+            setBody(RetrospectRequest(retrospect = verdict))
+        }
     }
 
     // Finance — Categorization rules

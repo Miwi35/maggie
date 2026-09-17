@@ -11,6 +11,7 @@ use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
+use Maggie\Finance\Enum\ObligationFlag;
 use Maggie\Finance\Enum\TransactionStatus;
 
 /** @extends ServiceEntityRepository<Transaction> */
@@ -120,5 +121,32 @@ class TransactionRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
 
         return abs((int) $total);
+    }
+
+    /**
+     * Debits of a period that are up for review: everything outside the
+     * mandatory categories, uncategorized spends included — those are
+     * precisely the ones worth a second look. Biggest first.
+     *
+     * @return Transaction[]
+     */
+    public function findReviewableBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until): array
+    {
+        return $this->createQueryBuilder('t')
+            ->leftJoin('t.category', 'c')
+            ->andWhere('t.user = :user')
+            ->andWhere('t.amountCents < 0')
+            ->andWhere('t.status IN (:consumed)')
+            ->andWhere('t.bookedAt >= :from')
+            ->andWhere('t.bookedAt < :until')
+            ->andWhere('c.id IS NULL OR c.obligation != :mandatory')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
+            ->setParameter('from', $from)
+            ->setParameter('until', $until)
+            ->setParameter('mandatory', ObligationFlag::Mandatory->value)
+            ->orderBy('t.amountCents', 'ASC')
+            ->getQuery()
+            ->getResult();
     }
 }

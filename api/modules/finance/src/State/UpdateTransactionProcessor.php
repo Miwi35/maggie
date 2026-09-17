@@ -31,6 +31,7 @@ class UpdateTransactionProcessor implements ProcessorInterface
             currency: $data->getCurrency(),
             isExceptional: $data->isExceptional(),
             categoryId: $data->getCategory() !== null ? (string) $data->getCategory()->getId() : null,
+            retrospect: $data->getRetrospect()->value,
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();

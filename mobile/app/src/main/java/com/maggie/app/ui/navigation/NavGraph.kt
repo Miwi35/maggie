@@ -59,6 +59,8 @@ import com.maggie.app.ui.screens.finance.BudgetScreen
 import com.maggie.app.ui.screens.finance.CategorizationRuleListScreen
 import com.maggie.app.ui.screens.finance.CushionScreen
 import com.maggie.app.ui.screens.finance.LoanListScreen
+import com.maggie.app.ui.screens.finance.MonthlyReviewScreen
+import com.maggie.app.ui.screens.finance.MonthlyReviewViewModel
 import com.maggie.app.ui.screens.finance.LoanViewModel
 import com.maggie.app.ui.screens.finance.CushionViewModel
 import com.maggie.app.ui.screens.finance.CategorizationRuleViewModel
@@ -132,6 +134,7 @@ sealed class Screen(val route: String, val label: String) {
     data object CategorizationRuleList : Screen("categorization_rules", "Règles")
     data object Cushion : Screen("cushion", "Matelas")
     data object LoanList : Screen("loans", "Prêts")
+    data object MonthlyReview : Screen("monthly_review", "Revue mensuelle")
     data object AccountTransactions : Screen("account_transactions", "Opérations")
     data object RecipeDetail : Screen("recipe/detail", "Recette")
     data object RecipeCreate : Screen("recipe/create", "Nouvelle recette")
@@ -539,6 +542,13 @@ fun NavGraph() {
                     val loanViewModel: LoanViewModel = koinViewModel()
                     LoanListScreen(
                         viewModel = loanViewModel,
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable(Screen.MonthlyReview.route) {
+                    val reviewViewModel: MonthlyReviewViewModel = koinViewModel()
+                    MonthlyReviewScreen(
+                        viewModel = reviewViewModel,
                         onBack = { navController.popBackStack() },
                     )
                 }

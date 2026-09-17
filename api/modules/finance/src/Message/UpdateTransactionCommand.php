@@ -17,6 +17,7 @@ final readonly class UpdateTransactionCommand
         public ?bool $isExceptional = null,
         public ?string $categoryId = null,
         public ?string $categorySource = null,
+        public ?string $retrospect = null,
     ) {
     }
 }

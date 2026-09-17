@@ -8,6 +8,7 @@ use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Transaction;
+use Maggie\Finance\Enum\RetrospectVerdict;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
@@ -101,6 +102,32 @@ class TransactionApiTest extends WebTestCase
         ], JSON_THROW_ON_ERROR));
 
         self::assertResponseStatusCodeSame(422);
+    }
+
+    public function testRatingASpendThroughTheApiStoresTheVerdict(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+
+        $transaction = $this->getFixture('groceries');
+
+        $this->client->request('PATCH', '/api/transactions/' . $transaction->getId(), [], [], array_merge([
+            'CONTENT_TYPE' => 'application/merge-patch+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode([
+            'retrospect' => 'avoidable',
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertSame(
+            RetrospectVerdict::Avoidable,
+            $em->find(Transaction::class, $transaction->getId())->getRetrospect(),
+        );
     }
 
     public function testDeleteTransactionRemovesAndPublishes(): void

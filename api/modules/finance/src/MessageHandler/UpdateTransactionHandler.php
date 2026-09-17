@@ -6,6 +6,7 @@ namespace Maggie\Finance\MessageHandler;
 
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
+use Maggie\Finance\Enum\RetrospectVerdict;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Message\UpdateTransactionCommand;
 use Maggie\Finance\Repository\AccountRepository;
@@ -52,6 +53,9 @@ class UpdateTransactionHandler
         }
         if ($command->isExceptional !== null) {
             $transaction->setIsExceptional($command->isExceptional);
+        }
+        if ($command->retrospect !== null) {
+            $transaction->setRetrospect(RetrospectVerdict::from($command->retrospect));
         }
         if ($command->categoryId !== null) {
             if ($command->categoryId === '') {
