@@ -29,6 +29,10 @@ spec:
             - name: jwt-keys
               mountPath: /var/www/api/config/jwt
               readOnly: true
+            # Bank provider signing key — mounted, never baked into the image.
+            - name: bank-keys
+              mountPath: /var/www/api/config/bank
+              readOnly: true
           readinessProbe:
             tcpSocket:
               port: 9000
@@ -45,3 +49,9 @@ spec:
         - name: jwt-keys
           secret:
             secretName: jwt-keys
+        - name: bank-keys
+          secret:
+            secretName: bank-keys
+            # Absent on a cluster that has not connected a bank yet: the app
+            # starts anyway and the bank screen says it is unavailable.
+            optional: true

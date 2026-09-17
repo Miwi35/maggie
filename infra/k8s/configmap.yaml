@@ -20,3 +20,10 @@ data:
   JWT_SECRET_KEY: "%kernel.project_dir%/config/jwt/private.pem"
   JWT_PUBLIC_KEY: "%kernel.project_dir%/config/jwt/public.pem"
   ANTHROPIC_MODEL: claude-haiku-4-5-20251001
+  # Bank data provider. The application id is public — it travels as the JWT
+  # key id — like the Google client id above. The signing key itself is
+  # mounted from the bank-keys secret, which no deploy touches.
+  ENABLE_BANKING_APPLICATION_ID: "017258f5-892c-4bef-97f5-a6c6adb7d897"
+  ENABLE_BANKING_PRIVATE_KEY: "%kernel.project_dir%/config/bank/enablebanking.pem"
+  ENABLE_BANKING_BASE_URL: https://api.enablebanking.com
+  BANK_CALLBACK_URL: https://maggieai.fr/api/finance/bank-callback
