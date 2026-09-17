@@ -5,6 +5,7 @@ import com.maggie.app.data.api.RollOverRequest
 import com.maggie.app.data.model.BudgetLine
 import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.Category
+import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.Envelope
 import com.maggie.app.data.model.RollOverResult
 import com.maggie.app.data.repository.BudgetRepository
@@ -72,6 +73,8 @@ class BudgetViewModelTest {
         budgetRepository = mockk()
         categoryRepository = mockk()
         coEvery { budgetRepository.getBudgetStatus(any(), any()) } returns Result.success(sampleStatus)
+        coEvery { budgetRepository.getDailyScore(any(), any()) } returns
+            Result.success(DailyScore(score = "green", year = 2026, month = 7))
         coEvery { categoryRepository.getCategories() } returns Result.success(sampleCategories)
     }
 
@@ -215,6 +218,29 @@ class BudgetViewModelTest {
         val state = viewModel.uiState.value
         assertEquals("boom", state.error)
         assertFalse(state.isRollingOver)
+    }
+
+    @Test
+    fun `initial load also brings back the daily score`() = runTest {
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        assertEquals("green", viewModel.uiState.value.score?.score)
+        coVerify { budgetRepository.getDailyScore(2026, 7) }
+    }
+
+    @Test
+    fun `a failing score does not cost the user their budget view`() = runTest {
+        coEvery { budgetRepository.getDailyScore(any(), any()) } returns
+            Result.failure(RuntimeException("boom"))
+
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(sampleStatus, state.status)
+        assertNull(state.score)
+        assertNull(state.error)
     }
 
     @Test

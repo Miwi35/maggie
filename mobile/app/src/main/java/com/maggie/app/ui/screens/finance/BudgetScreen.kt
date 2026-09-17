@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -51,12 +52,15 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.EnvelopeCreateRequest
 import com.maggie.app.data.model.BudgetLine
+import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.budgetBreakdown
 import com.maggie.app.data.model.budgetPeriodLabel
 import com.maggie.app.data.model.consumedFraction
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.monthLabel
+import com.maggie.app.data.model.reasonText
+import com.maggie.app.data.model.scoreLabel
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -110,6 +114,8 @@ fun BudgetScreen(
                 onPrevious = { viewModel.shiftPeriod(-1) },
                 onNext = { viewModel.shiftPeriod(1) },
             )
+
+            uiState.score?.let { DailyScoreCard(it) }
 
             uiState.status?.let { status ->
                 if (status.budgets.isNotEmpty()) {
@@ -166,6 +172,36 @@ fun BudgetScreen(
             },
             onDismiss = { showCreateDialog = false },
         )
+    }
+}
+
+/**
+ * The daily signal, always with the reasons behind it: a score on its own
+ * reads as a verdict.
+ */
+@Composable
+private fun DailyScoreCard(score: DailyScore) {
+    val container = when (score.score) {
+        "green" -> MaterialTheme.colorScheme.primaryContainer
+        "orange" -> MaterialTheme.colorScheme.tertiaryContainer
+        "red" -> MaterialTheme.colorScheme.errorContainer
+        else -> MaterialTheme.colorScheme.surfaceVariant
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = container),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Text(scoreLabel(score.score), style = MaterialTheme.typography.titleMedium)
+            score.reasons.forEach { reason ->
+                Text(
+                    text = "• ${reasonText(reason)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
+        }
     }
 }
 

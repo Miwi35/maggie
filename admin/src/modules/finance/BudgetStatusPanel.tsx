@@ -12,6 +12,7 @@ import Typography from '@mui/material/Typography'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import { useNotify, useRefresh } from 'react-admin'
 import { useMercure } from '../../hooks/useMercure'
+import { DailyScoreBanner } from './DailyScoreBanner'
 import { formatCents } from './accountTypes'
 import { MONTH_CHOICES, consumedPercent, formatPeriod } from './budgetModes'
 import { useBudgetStatus } from './useBudgetStatus'
@@ -122,7 +123,9 @@ export const BudgetStatusPanel = () => {
   }
 
   return (
-    <Card sx={{ mb: 2 }}>
+    <>
+      <DailyScoreBanner year={year} month={month} />
+      <Card sx={{ mb: 2 }}>
       <CardContent>
         <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2, flexWrap: 'wrap' }}>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
@@ -183,6 +186,7 @@ export const BudgetStatusPanel = () => {
           </Typography>
         )}
       </CardContent>
-    </Card>
+      </Card>
+    </>
   )
 }

@@ -59,6 +59,7 @@ class GetBudgetStatus
                 'id' => (string) $envelope->getId(),
                 'categoryId' => (string) $envelope->getCategory()->getId(),
                 'categoryName' => $envelope->getCategory()->getName(),
+                'categoryObligation' => $envelope->getCategory()->getObligation()->value,
                 'mode' => $envelope->getMode()->value,
                 'amountCents' => $amountCents,
                 'currency' => $envelope->getCurrency(),

@@ -20,6 +20,7 @@ import com.maggie.app.data.model.ApplyRulesResult
 import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.CategorizationRule
 import com.maggie.app.data.model.CushionStatus
+import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.model.Envelope
@@ -843,6 +844,13 @@ class MaggieApiService(
         return client.post("$baseUrl/api/finance/rollover-envelopes") {
             contentType(ContentType.Application.Json)
             setBody(request)
+        }.body()
+    }
+
+    suspend fun getDailyScore(year: Int, month: Int): DailyScore {
+        return client.get("$baseUrl/api/finance/daily-score") {
+            url.parameters.append("year", year.toString())
+            url.parameters.append("month", month.toString())
         }.body()
     }
 

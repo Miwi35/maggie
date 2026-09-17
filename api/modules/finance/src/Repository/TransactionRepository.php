@@ -98,4 +98,27 @@ class TransactionRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * Everything that went out over a half-open period, as positive cents:
+     * spent and committed debits, every category together.
+     */
+    public function sumConsumedBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until): int
+    {
+        $total = $this->createQueryBuilder('t')
+            ->select('SUM(t.amountCents)')
+            ->andWhere('t.user = :user')
+            ->andWhere('t.amountCents < 0')
+            ->andWhere('t.status IN (:consumed)')
+            ->andWhere('t.bookedAt >= :from')
+            ->andWhere('t.bookedAt < :until')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
+            ->setParameter('from', $from)
+            ->setParameter('until', $until)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return abs((int) $total);
+    }
 }
