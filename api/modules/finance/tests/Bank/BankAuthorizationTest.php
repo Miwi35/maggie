@@ -187,6 +187,29 @@ class BankAuthorizationTest extends KernelTestCase
         $this->completer($http)->execute('a-state-we-never-issued', 'code');
     }
 
+    public function testAStateCannotBeUsedTwice(): void
+    {
+        $this->loadFixtures('account.yaml');
+
+        $startHttp = new MockHttpClient(fn () => new MockResponse(json_encode(['url' => 'https://bank.example/c'])));
+        $connection = $this->starter($startHttp)->execute($this->getFixture('test_user'), 'N26')['connection'];
+
+        $completeHttp = new MockHttpClient(fn () => new MockResponse(json_encode([
+            'session_id' => 'session-1',
+            'accounts' => [],
+        ])));
+
+        $completer = $this->completer($completeHttp);
+        $completer->execute($connection->getState(), 'code');
+
+        // The endpoint is public: replaying a state that already worked must
+        // not re-open the connection.
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessageMatches('/already been used/');
+
+        $completer->execute($connection->getState(), 'code');
+    }
+
     public function testAConnectionWithoutAnExpiryStaysUsable(): void
     {
         $this->loadFixtures('account.yaml');

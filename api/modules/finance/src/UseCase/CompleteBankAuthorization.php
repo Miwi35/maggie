@@ -9,6 +9,7 @@ use Maggie\Finance\Bank\EnableBanking\EnableBankingClient;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\BankConnection;
 use Maggie\Finance\Enum\AccountType;
+use Maggie\Finance\Enum\BankConnectionStatus;
 use Maggie\Finance\Repository\AccountRepository;
 use Maggie\Finance\Repository\BankConnectionRepository;
 
@@ -34,6 +35,12 @@ class CompleteBankAuthorization
     {
         $connection = $this->connectionRepository->findOneByState($state)
             ?? throw new \DomainException('This authorization does not match any pending connection.');
+
+        // The endpoint is public, so a state must be good exactly once:
+        // replaying one that already succeeded must not re-open anything.
+        if ($connection->getStatus() !== BankConnectionStatus::Pending) {
+            throw new \DomainException('This authorization has already been used.');
+        }
 
         $session = $this->client->createSession($code);
 
