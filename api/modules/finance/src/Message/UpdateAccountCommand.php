@@ -14,7 +14,7 @@ final readonly class UpdateAccountCommand
         public ?string $currency = null,
         public ?int $balanceCents = null,
         public ?bool $isCushion = null,
-        public ?string $bridgeAccountId = null,
+        public ?string $externalAccountId = null,
     ) {
     }
 }

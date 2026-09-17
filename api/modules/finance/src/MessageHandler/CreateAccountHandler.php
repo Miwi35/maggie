@@ -33,7 +33,7 @@ class CreateAccountHandler
         $account->setCurrency($command->currency);
         $account->setBalanceCents($command->balanceCents);
         $account->setIsCushion($command->isCushion);
-        $account->setBridgeAccountId($command->bridgeAccountId);
+        $account->setExternalAccountId($command->externalAccountId);
 
         return $this->createAccount->execute($account);
     }

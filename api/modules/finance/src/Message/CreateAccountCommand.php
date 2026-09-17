@@ -14,7 +14,7 @@ final readonly class CreateAccountCommand
         public string $currency = 'EUR',
         public int $balanceCents = 0,
         public bool $isCushion = false,
-        public ?string $bridgeAccountId = null,
+        public ?string $externalAccountId = null,
     ) {
     }
 }

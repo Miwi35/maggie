@@ -43,8 +43,8 @@ class UpdateAccountHandler
         if ($command->isCushion !== null) {
             $account->setIsCushion($command->isCushion);
         }
-        if ($command->bridgeAccountId !== null) {
-            $account->setBridgeAccountId($command->bridgeAccountId);
+        if ($command->externalAccountId !== null) {
+            $account->setExternalAccountId($command->externalAccountId);
         }
 
         return $this->updateAccount->execute($account);

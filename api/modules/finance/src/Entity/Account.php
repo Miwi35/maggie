@@ -76,7 +76,12 @@ class Account implements MercurePublishable, OwnedByUserInterface, IndexableInte
     private bool $isCushion = false;
 
     #[ORM\Column(length: 255, nullable: true)]
-    private ?string $bridgeAccountId = null;
+    private ?string $externalAccountId = null;
+
+    /** The live bank link this account came from, when it was not typed in. */
+    #[ORM\ManyToOne(targetEntity: BankConnection::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?BankConnection $bankConnection = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
@@ -165,14 +170,26 @@ class Account implements MercurePublishable, OwnedByUserInterface, IndexableInte
         return $this;
     }
 
-    public function getBridgeAccountId(): ?string
+    public function getExternalAccountId(): ?string
     {
-        return $this->bridgeAccountId;
+        return $this->externalAccountId;
     }
 
-    public function setBridgeAccountId(?string $bridgeAccountId): static
+    public function setExternalAccountId(?string $externalAccountId): static
     {
-        $this->bridgeAccountId = $bridgeAccountId;
+        $this->externalAccountId = $externalAccountId;
+
+        return $this;
+    }
+
+    public function getBankConnection(): ?BankConnection
+    {
+        return $this->bankConnection;
+    }
+
+    public function setBankConnection(?BankConnection $bankConnection): static
+    {
+        $this->bankConnection = $bankConnection;
 
         return $this;
     }

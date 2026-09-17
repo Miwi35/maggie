@@ -29,7 +29,7 @@ class UpdateAccountProcessor implements ProcessorInterface
             currency: $data->getCurrency(),
             balanceCents: $data->getBalanceCents(),
             isCushion: $data->isCushion(),
-            bridgeAccountId: $data->getBridgeAccountId(),
+            externalAccountId: $data->getExternalAccountId(),
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();

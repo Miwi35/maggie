@@ -33,6 +33,7 @@ import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
 import InsightsIcon from '@mui/icons-material/Insights'
 import SavingsIcon from '@mui/icons-material/Savings'
 import ShieldIcon from '@mui/icons-material/Shield'
+import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined'
 import CreditScoreIcon from '@mui/icons-material/CreditScore'
 import FactCheckIcon from '@mui/icons-material/FactCheck'
 
@@ -138,6 +139,12 @@ export const CustomMenu = () => {
                 to="/finance/dashboard"
                 primaryText="Vue d'ensemble"
                 leftIcon={<InsightsIcon />}
+                sx={{ pl: 4 }}
+              />
+              <MenuItemLink
+                to="/finance/banks"
+                primaryText="Banques"
+                leftIcon={<AccountBalanceOutlinedIcon />}
                 sx={{ pl: 4 }}
               />
               <MenuItemLink

@@ -1,0 +1,210 @@
+import { useEffect, useState } from 'react'
+import Alert from '@mui/material/Alert'
+import Autocomplete from '@mui/material/Autocomplete'
+import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import Card from '@mui/material/Card'
+import CardContent from '@mui/material/CardContent'
+import Chip from '@mui/material/Chip'
+import LinearProgress from '@mui/material/LinearProgress'
+import Stack from '@mui/material/Stack'
+import TextField from '@mui/material/TextField'
+import Typography from '@mui/material/Typography'
+import { Title, useNotify } from 'react-admin'
+import { useSearchParams } from 'react-router-dom'
+import { Placeholder } from '../../components/list/ListEmpty'
+import { FormSection } from '../../components/form/FormSection'
+import {
+  CONNECTION_STATUS_LABELS,
+  expiryNotice,
+  useBankConnections,
+} from './useBankConnections'
+import type { BankConnection } from './useBankConnections'
+
+/** What the callback told us on the way back from the bank. */
+const OUTCOMES: Record<string, { severity: 'success' | 'warning' | 'error'; message: string }> = {
+  connected: { severity: 'success', message: 'Banque connectée.' },
+  refused: { severity: 'warning', message: "L'accès a été refusé chez la banque. Rien n'a été connecté." },
+  incomplete: { severity: 'warning', message: 'La banque a répondu sans autorisation exploitable.' },
+  unknown: { severity: 'error', message: "Cette autorisation ne correspond à aucune demande en cours." },
+  failed: { severity: 'error', message: "La connexion n'a pas pu être finalisée." },
+}
+
+const statusColor = (connection: BankConnection): 'success' | 'warning' | 'default' => {
+  if (connection.needsReconnecting) {
+    return 'warning'
+  }
+
+  return connection.status === 'active' ? 'success' : 'default'
+}
+
+const ConnectionRow = ({ connection }: { connection: BankConnection }) => {
+  const notice = expiryNotice(connection)
+
+  return (
+    <Stack
+      direction="row"
+      spacing={2}
+      alignItems="center"
+      sx={{ py: 1.5, borderBottom: '1px solid', borderColor: 'divider', flexWrap: 'wrap' }}
+    >
+      <Box sx={{ flexGrow: 1, minWidth: 220 }}>
+        <Typography variant="body1">{connection.bankName}</Typography>
+        <Typography variant="caption" color="text.secondary">
+          {connection.lastSyncedAt
+            ? `Dernière synchronisation : ${new Date(connection.lastSyncedAt).toLocaleString('fr-FR')}`
+            : 'Jamais synchronisée'}
+        </Typography>
+        {notice && (
+          <Typography
+            variant="caption"
+            color={connection.needsReconnecting ? 'warning.main' : 'text.secondary'}
+            sx={{ display: 'block' }}
+          >
+            {notice}
+          </Typography>
+        )}
+      </Box>
+      <Chip
+        size="small"
+        color={statusColor(connection)}
+        label={CONNECTION_STATUS_LABELS[connection.status] ?? connection.status}
+      />
+    </Stack>
+  )
+}
+
+export const BankConnectionsPage = () => {
+  const { connections, banks, loading, banksError, refresh, loadBanks, connect } =
+    useBankConnections()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [country, setCountry] = useState('FR')
+  const [bankName, setBankName] = useState<string | null>(null)
+  const [connecting, setConnecting] = useState(false)
+  const notify = useNotify()
+
+  const outcome = searchParams.get('outcome')
+
+  useEffect(() => {
+    loadBanks(country)
+  }, [loadBanks, country])
+
+  const onConnect = async () => {
+    if (bankName === null) {
+      return
+    }
+    setConnecting(true)
+    const url = await connect(bankName, country)
+    setConnecting(false)
+
+    if (url === null) {
+      notify("La connexion n'a pas pu être ouverte", { type: 'error' })
+
+      return
+    }
+
+    // The consent happens at the bank, so we hand the browser over.
+    window.location.assign(url)
+  }
+
+  return (
+    <>
+      <Title title="Banques" />
+
+      {outcome && OUTCOMES[outcome] && (
+        <Alert
+          severity={OUTCOMES[outcome].severity}
+          sx={{ mb: 2 }}
+          onClose={() => {
+            setSearchParams({})
+            refresh()
+          }}
+        >
+          {OUTCOMES[outcome].message}
+          {outcome === 'connected' && searchParams.get('accounts') && (
+            <> {searchParams.get('accounts')} compte(s) rattaché(s).</>
+          )}
+        </Alert>
+      )}
+
+      <Card sx={{ mb: 2 }}>
+        <CardContent>
+          <FormSection
+            first
+            title="Connecter une banque"
+            description="Vous serez redirigé vers votre banque pour autoriser l'accès. Maggie lit les opérations, elle ne peut rien déclencher sur vos comptes."
+          />
+
+          {banksError && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              {banksError}
+            </Alert>
+          )}
+
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="flex-start">
+            <TextField
+              select
+              size="small"
+              label="Pays"
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              SelectProps={{ native: true }}
+              sx={{ width: 120 }}
+            >
+              <option value="FR">France</option>
+              <option value="DE">Allemagne</option>
+              <option value="BE">Belgique</option>
+              <option value="ES">Espagne</option>
+              <option value="IT">Italie</option>
+            </TextField>
+
+            <Autocomplete
+              options={banks.map((bank) => bank.name)}
+              value={bankName}
+              onChange={(_, value) => setBankName(value)}
+              sx={{ flexGrow: 1, minWidth: 260 }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  size="small"
+                  label="Banque"
+                  helperText="Pour le Crédit Agricole, choisissez votre caisse régionale."
+                />
+              )}
+            />
+
+            <Button
+              variant="contained"
+              onClick={onConnect}
+              disabled={bankName === null || connecting}
+              sx={{ flexShrink: 0 }}
+            >
+              Connecter
+            </Button>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+            Banques connectées
+          </Typography>
+
+          {loading && connections.length === 0 && <LinearProgress />}
+
+          {!loading && connections.length === 0 && (
+            <Placeholder
+              title="Aucune banque connectée"
+              description="Connectez une banque pour que vos opérations arrivent toutes seules, sans import de fichier."
+            />
+          )}
+
+          {connections.map((connection) => (
+            <ConnectionRow key={connection.id} connection={connection} />
+          ))}
+        </CardContent>
+      </Card>
+    </>
+  )
+}

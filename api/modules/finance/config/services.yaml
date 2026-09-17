@@ -15,3 +15,11 @@ services:
             $applicationId: '%env(ENABLE_BANKING_APPLICATION_ID)%'
             $privateKeyPath: '%env(resolve:ENABLE_BANKING_PRIVATE_KEY)%'
             $baseUrl: '%env(ENABLE_BANKING_BASE_URL)%'
+
+    Maggie\Finance\UseCase\StartBankAuthorization:
+        arguments:
+            $redirectUrl: '%env(BANK_CALLBACK_URL)%'
+
+    Maggie\Finance\Controller\BankCallbackController:
+        arguments:
+            $adminUrl: '%env(ADMIN_URL)%'
