@@ -8,12 +8,13 @@ describe('obligationFlags', () => {
     }
   })
 
-  test('covers the four API obligation flags', () => {
+  test('covers every API obligation flag, income included', () => {
     expect(OBLIGATION_CHOICES.map((c) => c.id)).toEqual([
       'mandatory',
       'optional',
       'saving',
       'investment',
+      'income',
     ])
   })
 })

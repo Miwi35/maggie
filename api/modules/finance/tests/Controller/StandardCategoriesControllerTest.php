@@ -66,6 +66,24 @@ class StandardCategoriesControllerTest extends WebTestCase
         $this->assertElasticsearchIndexDispatched(Category::class);
     }
 
+    public function testWhatComesInIsClassifiedToo(): void
+    {
+        $this->loadFixtures('bank_connection.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $data = $this->install();
+
+        self::assertContains('Salaire', $data['names']);
+        self::assertContains('Aides & allocations', $data['names']);
+        self::assertContains('Remboursements', $data['names']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $salary = $em->getRepository(Category::class)->findOneBy(['name' => 'Salaire']);
+
+        // A wage filed as a mandatory expense would be a lie every report reads.
+        self::assertSame(ObligationFlag::Income, $salary->getObligation());
+    }
+
     public function testSubscriptionsCarryTheUtilitiesUnderThem(): void
     {
         $this->loadFixtures('bank_connection.yaml');

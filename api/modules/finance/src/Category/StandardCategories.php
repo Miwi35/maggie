@@ -80,6 +80,33 @@ final class StandardCategories
                 'color' => '#EF5350',
                 'icon' => 'error-outline',
             ],
+
+            // Money coming in is classified too: a month is a balance, and
+            // "where did it go" only means something next to "what came in".
+            [
+                'name' => 'Salaire',
+                'obligation' => ObligationFlag::Income,
+                'color' => '#43A047',
+                'icon' => 'payments',
+            ],
+            [
+                'name' => 'Aides & allocations',
+                'obligation' => ObligationFlag::Income,
+                'color' => '#43A047',
+                'icon' => 'volunteer-activism',
+            ],
+            [
+                'name' => 'Remboursements',
+                'obligation' => ObligationFlag::Income,
+                'color' => '#43A047',
+                'icon' => 'undo',
+            ],
+            [
+                'name' => 'Revenus exceptionnels',
+                'obligation' => ObligationFlag::Income,
+                'color' => '#43A047',
+                'icon' => 'redeem',
+            ],
         ];
     }
 }

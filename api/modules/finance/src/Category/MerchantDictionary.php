@@ -17,7 +17,7 @@ namespace Maggie\Finance\Category;
  */
 final class MerchantDictionary
 {
-    /** @var list<array{needles: list<string>, category: string}> */
+    /** @var list<array{needles: list<string>, category: string, creditOnly?: bool}> */
     private const ENTRIES = [
         // Fuel first: supermarket brands run the stations too.
         ['needles' => ['ESSENCE', 'CARBURANT', 'ESS24', 'STATION', 'AVIA', 'ARAL', 'ESSO', 'AGIP',
@@ -42,14 +42,34 @@ final class MerchantDictionary
 
         ['needles' => ['WEEZEVENT', 'FESTIVAL', 'CINEMA', 'UGC', 'PATHE', 'FNAC', 'BILLETWEB',
             'TICKETMASTER', 'DECATHLON'], 'category' => 'Loisirs'],
+
+        // Money in. These only ever read a credit: "SALAIRE" on a debit is a
+        // transfer someone sent, not wages arriving.
+        ['needles' => ['SALAIRE', 'PAIE ', 'REM. SALAIRE', 'TRAITEMENT', 'SOLDE DE TOUT COMPTE'],
+            'category' => 'Salaire', 'creditOnly' => true],
+        ['needles' => ['CAF ', 'CAISSE D ALLOCATIONS', 'ALLOCATIONS FAMILIALES', 'POLE EMPLOI',
+            'FRANCE TRAVAIL', 'MSA '], 'category' => 'Aides & allocations', 'creditOnly' => true],
+        ['needles' => ['CPAM', 'AMELI', 'ASSURANCE MALADIE', 'MUTUELLE', 'HARMONIE MUTUELLE',
+            'MGEN', 'REMBOURSEMENT'], 'category' => 'Remboursements', 'creditOnly' => true],
     ];
 
-    /** The heading this merchant belongs under, or null when it is not obvious. */
-    public static function categoryFor(string $merchant): ?string
+    /**
+     * The heading this merchant belongs under, or null when it is not obvious.
+     *
+     * The direction is part of the reading: an income heading only ever fits
+     * money arriving. A refund from a shop, on the other hand, belongs under
+     * the same heading as the purchase it cancels — so expense entries stay
+     * indifferent to it.
+     */
+    public static function categoryFor(string $merchant, bool $isCredit = false): ?string
     {
         $haystack = mb_strtoupper($merchant);
 
         foreach (self::ENTRIES as $entry) {
+            if (($entry['creditOnly'] ?? false) && !$isCredit) {
+                continue;
+            }
+
             foreach ($entry['needles'] as $needle) {
                 if (str_contains($haystack, $needle)) {
                     return $entry['category'];

@@ -3,6 +3,7 @@ export const OBLIGATION_CHOICES = [
   { id: 'optional', name: 'Non-obligatoire' },
   { id: 'saving', name: 'Épargne' },
   { id: 'investment', name: 'Investissement' },
+  { id: 'income', name: 'Recette' },
 ]
 
 export const OBLIGATION_LABELS: Record<string, string> = Object.fromEntries(

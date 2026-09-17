@@ -55,7 +55,7 @@ export const CategoryForm = ({ withDefaults = false }: CategoryFormProps) => (
       defaultValue={withDefaults ? 'optional' : undefined}
       validate={required()}
       fullWidth
-      helperText="Obligatoire : loyer, courses. Non-obligatoire : loisirs. Épargne et investissement ne sont pas des dépenses."
+      helperText="Obligatoire : loyer, courses. Non-obligatoire : loisirs. Épargne et investissement ne sont pas des dépenses. Recette : ce qui rentre."
     />
 
     <FormSection title="Repères visuels" description="Facultatif, pour repérer la catégorie d'un coup d'œil." />

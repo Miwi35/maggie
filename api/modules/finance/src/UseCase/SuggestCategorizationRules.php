@@ -108,14 +108,18 @@ class SuggestCategorizationRules
                 continue;
             }
 
-            $guess = MerchantDictionary::categoryFor($group['pattern']);
+            $direction = $this->directionOf($group['debits'], $group['credits']);
+            $guess = MerchantDictionary::categoryFor(
+                $group['pattern'],
+                $direction === AmountDirection::Credit,
+            );
             $category = $guess === null ? null : ($categoriesByName[mb_strtolower($guess)] ?? null);
 
             $suggestions[] = [
                 'pattern' => $group['pattern'],
                 'occurrences' => $group['occurrences'],
                 'totalCents' => $group['totalCents'],
-                'direction' => $this->directionOf($group['debits'], $group['credits'])->value,
+                'direction' => $direction->value,
                 'categoryId' => $category === null ? null : (string) $category->getId(),
                 'categoryName' => $category?->getName(),
                 'samples' => $group['samples'],
