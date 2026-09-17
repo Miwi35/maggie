@@ -9,3 +9,9 @@ services:
             - '../src/Entity/'
             - '../src/Enum/'
             - '../src/MaggieFinanceBundle.php'
+
+    Maggie\Finance\Bank\EnableBanking\EnableBankingClient:
+        arguments:
+            $applicationId: '%env(ENABLE_BANKING_APPLICATION_ID)%'
+            $privateKeyPath: '%env(resolve:ENABLE_BANKING_PRIVATE_KEY)%'
+            $baseUrl: '%env(ENABLE_BANKING_BASE_URL)%'

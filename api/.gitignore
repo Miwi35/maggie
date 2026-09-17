@@ -17,3 +17,8 @@
 ###> lexik/jwt-authentication-bundle ###
 /config/jwt/*.pem
 ###< lexik/jwt-authentication-bundle ###
+
+###> maggie/bank-sync ###
+# Provider signing keys — never commit these
+/config/bank/*.pem
+###< maggie/bank-sync ###
