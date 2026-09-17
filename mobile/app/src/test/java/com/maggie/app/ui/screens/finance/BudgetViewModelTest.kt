@@ -1,10 +1,12 @@
 package com.maggie.app.ui.screens.finance
 
 import com.maggie.app.data.api.EnvelopeCreateRequest
+import com.maggie.app.data.api.RollOverRequest
 import com.maggie.app.data.model.BudgetLine
 import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.Envelope
+import com.maggie.app.data.model.RollOverResult
 import com.maggie.app.data.repository.BudgetRepository
 import com.maggie.app.data.repository.CategoryRepository
 import io.mockk.coEvery
@@ -52,7 +54,9 @@ class BudgetViewModelTest {
                 year = 2026,
                 month = 7,
                 spentCents = 4599,
+                consumedCents = 4599,
                 remainingCents = 35401,
+                availableCents = 35401,
             ),
         ),
     )
@@ -154,6 +158,63 @@ class BudgetViewModelTest {
 
         coVerify { budgetRepository.deleteEnvelope("env-1") }
         coVerify(atLeast = 2) { budgetRepository.getBudgetStatus(2026, 7) }
+    }
+
+    @Test
+    fun `rollOverPreviousPeriod copies the previous month onto the shown one`() = runTest {
+        coEvery { budgetRepository.rollOverEnvelopes(any()) } returns Result.success(
+            RollOverResult(success = true, created = 2, skipped = 1),
+        )
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        viewModel.rollOverPreviousPeriod()
+        advanceUntilIdle()
+
+        coVerify {
+            budgetRepository.rollOverEnvelopes(
+                RollOverRequest(fromYear = 2026, fromMonth = 6, year = 2026, month = 7),
+            )
+        }
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isRollingOver)
+        assertEquals("2 enveloppe(s) reconduite(s)", state.rollOverMessage)
+    }
+
+    @Test
+    fun `rollOverPreviousPeriod says so when there is nothing to carry over`() = runTest {
+        coEvery { budgetRepository.rollOverEnvelopes(any()) } returns Result.success(
+            RollOverResult(success = true, created = 0, skipped = 3),
+        )
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        viewModel.rollOverPreviousPeriod()
+        advanceUntilIdle()
+
+        assertEquals(
+            "Rien à reconduire : les enveloppes sont déjà en place",
+            viewModel.uiState.value.rollOverMessage,
+        )
+
+        viewModel.clearRollOverMessage()
+        assertNull(viewModel.uiState.value.rollOverMessage)
+    }
+
+    @Test
+    fun `rollOver failure surfaces the error and stops the spinner`() = runTest {
+        coEvery { budgetRepository.rollOverEnvelopes(any()) } returns
+            Result.failure(RuntimeException("boom"))
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        viewModel.rollOverPreviousPeriod()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("boom", state.error)
+        assertFalse(state.isRollingOver)
     }
 
     @Test

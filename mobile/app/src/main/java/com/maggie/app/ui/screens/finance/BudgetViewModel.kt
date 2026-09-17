@@ -3,6 +3,7 @@ package com.maggie.app.ui.screens.finance
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.api.EnvelopeCreateRequest
+import com.maggie.app.data.api.RollOverRequest
 import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.repository.BudgetRepository
@@ -18,6 +19,8 @@ data class BudgetUiState(
     val year: Int = LocalDate.now().year,
     val month: Int = LocalDate.now().monthValue,
     val isLoading: Boolean = false,
+    val isRollingOver: Boolean = false,
+    val rollOverMessage: String? = null,
     val error: String? = null,
 )
 
@@ -65,6 +68,42 @@ class BudgetViewModel(
         val shifted = LocalDate.of(state.year, state.month, 1).plusMonths(months)
         _uiState.value = state.copy(year = shifted.year, month = shifted.monthValue)
         refresh()
+    }
+
+    /** Copies the previous month's envelopes onto the period being shown. */
+    fun rollOverPreviousPeriod() {
+        val state = _uiState.value
+        val previous = LocalDate.of(state.year, state.month, 1).minusMonths(1)
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isRollingOver = true, rollOverMessage = null)
+            try {
+                val result = budgetRepository.rollOverEnvelopes(
+                    RollOverRequest(
+                        fromYear = previous.year,
+                        fromMonth = previous.monthValue,
+                        year = state.year,
+                        month = state.month,
+                    ),
+                ).getOrThrow()
+
+                _uiState.value = _uiState.value.copy(
+                    isRollingOver = false,
+                    rollOverMessage = if (result.created > 0) {
+                        "${result.created} enveloppe(s) reconduite(s)"
+                    } else {
+                        "Rien à reconduire : les enveloppes sont déjà en place"
+                    },
+                )
+                refresh()
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(isRollingOver = false, error = e.message)
+            }
+        }
+    }
+
+    fun clearRollOverMessage() {
+        _uiState.value = _uiState.value.copy(rollOverMessage = null)
     }
 
     fun createEnvelope(request: EnvelopeCreateRequest) {

@@ -1,0 +1,97 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-controller-test@example.com
+    googleId: google-finance-controller-test
+    name: Finance Controller Test User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+
+Maggie\Finance\Entity\Category:
+  travel:
+    name: Voyages
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  food:
+    name: Alimentation
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+
+Maggie\Finance\Entity\Envelope:
+  travel_2026:
+    category: '@travel'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Annual)>'
+    amountCents: 200000
+    currency: EUR
+    year: 2026
+    month: null
+    user: '@test_user'
+  food_september:
+    category: '@food'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 40000
+    currency: EUR
+    year: 2026
+    month: 9
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  # Travel envelope: one of each status, so every weight is exercised.
+  festival_ticket:
+    account: '@checking'
+    category: '@travel'
+    amountCents: -30000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-03-10"))>'
+    label: Billet festival juin
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Committed)>'
+    isExceptional: false
+    user: '@test_user'
+  past_trip:
+    account: '@checking'
+    category: '@travel'
+    amountCents: -50000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-02-01"))>'
+    label: Week-end Rome
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  planned_trip:
+    account: '@checking'
+    category: '@travel'
+    amountCents: -80000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-08-01"))>'
+    label: Voyage Lisbonne
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Planned)>'
+    isExceptional: false
+    user: '@test_user'
+  maybe_trip:
+    account: '@checking'
+    category: '@travel'
+    amountCents: -120000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-11-01"))>'
+    label: Japon ?
+    status: '<(Maggie\Finance\Enum\TransactionStatus::ToArbitrate)>'
+    isExceptional: false
+    user: '@test_user'
+
+  # Food envelope: plain September spending, for the rollover cases.
+  groceries:
+    account: '@checking'
+    category: '@food'
+    amountCents: -25000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-04"))>'
+    label: Supermarché
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'

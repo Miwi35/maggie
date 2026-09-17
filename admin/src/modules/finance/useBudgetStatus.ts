@@ -10,8 +10,14 @@ export interface BudgetLine {
   year: number
   month: number | null
   spentCents: number
+  committedCents: number
+  plannedCents: number
+  toArbitrateCents: number
+  consumedCents: number
   remainingCents: number
+  availableCents: number
   isOverspent: boolean
+  isOvercommitted: boolean
 }
 
 export interface BudgetStatus {
@@ -19,7 +25,11 @@ export interface BudgetStatus {
   month: number
   totalBudgetedCents: number
   totalSpentCents: number
+  totalCommittedCents: number
+  totalPlannedCents: number
+  totalConsumedCents: number
   totalRemainingCents: number
+  totalAvailableCents: number
   budgets: BudgetLine[]
 }
 

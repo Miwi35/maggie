@@ -24,8 +24,14 @@ data class BudgetLine(
     val year: Int = 0,
     val month: Int? = null,
     val spentCents: Int = 0,
+    val committedCents: Int = 0,
+    val plannedCents: Int = 0,
+    val toArbitrateCents: Int = 0,
+    val consumedCents: Int = 0,
     val remainingCents: Int = 0,
+    val availableCents: Int = 0,
     val isOverspent: Boolean = false,
+    val isOvercommitted: Boolean = false,
 )
 
 @Serializable
@@ -34,8 +40,19 @@ data class BudgetStatus(
     val month: Int = 0,
     val totalBudgetedCents: Int = 0,
     val totalSpentCents: Int = 0,
+    val totalCommittedCents: Int = 0,
+    val totalPlannedCents: Int = 0,
+    val totalConsumedCents: Int = 0,
     val totalRemainingCents: Int = 0,
+    val totalAvailableCents: Int = 0,
     val budgets: List<BudgetLine> = emptyList(),
+)
+
+@Serializable
+data class RollOverResult(
+    val success: Boolean = false,
+    val created: Int = 0,
+    val skipped: Int = 0,
 )
 
 /** Human-readable French label for a budget mode code. */
@@ -62,3 +79,11 @@ fun consumedFraction(spentCents: Int, amountCents: Int): Float {
     if (amountCents <= 0) return if (spentCents > 0) 1f else 0f
     return (spentCents.toFloat() / amountCents).coerceIn(0f, 1f)
 }
+
+/** What weighs on an envelope, spelled out: "250,00 € dépensés · 300,00 € engagés". */
+fun budgetBreakdown(line: BudgetLine): String = listOfNotNull(
+    line.spentCents.takeIf { it > 0 }?.let { "${formatCents(it, line.currency)} dépensés" },
+    line.committedCents.takeIf { it > 0 }?.let { "${formatCents(it, line.currency)} engagés" },
+    line.plannedCents.takeIf { it > 0 }?.let { "${formatCents(it, line.currency)} planifiés" },
+    line.toArbitrateCents.takeIf { it > 0 }?.let { "${formatCents(it, line.currency)} à arbitrer" },
+).joinToString(" · ")

@@ -37,6 +37,22 @@ class EnvelopeRepository extends ServiceEntityRepository
     }
 
     /**
+     * Envelopes belonging to exactly this period: the monthly ones of that
+     * month, or — when no month is given — the annual ones of that year.
+     *
+     * @return Envelope[]
+     */
+    public function findForPeriod(User $user, int $year, ?int $month): array
+    {
+        return $this->findBy([
+            'user' => $user,
+            'year' => $year,
+            'mode' => $month === null ? BudgetMode::Annual : BudgetMode::Monthly,
+            'month' => $month,
+        ], ['id' => 'ASC']);
+    }
+
+    /**
      * Envelopes covering a period: the monthly ones for that month plus the
      * annual ones for that year. A null month keeps every envelope of the year.
      *

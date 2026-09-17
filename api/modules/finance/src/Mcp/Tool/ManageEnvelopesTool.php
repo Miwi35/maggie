@@ -14,12 +14,13 @@ use Maggie\Finance\Message\UpdateEnvelopeCommand;
 use Maggie\Finance\Repository\CategoryRepository;
 use Maggie\Finance\Repository\EnvelopeRepository;
 use Maggie\Finance\UseCase\GetBudgetStatus;
+use Maggie\Finance\UseCase\RollOverEnvelopes;
 use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_envelopes', description: 'List, set, update or delete budget envelopes, and read the budget status of a period. An envelope budgets one category for one period: mode monthly needs year + month (1-12), mode annual needs year only. amountCents is a positive integer amount in cents. The set action creates the envelope or updates the existing one for that category and period. The status action reports budgeted, spent and remaining cents per envelope, defaulting to the current month.')]
+#[McpTool(name: 'manage_envelopes', description: 'List, set, update or delete budget envelopes, and read the budget status of a period. An envelope budgets one category for one period: mode monthly needs year + month (1-12), mode annual needs year only. amountCents is a positive integer amount in cents. The set action creates the envelope or updates the existing one for that category and period. The status action reports, per envelope, what is spent, committed, planned and to arbitrate, plus what is consumed (spent + committed), remaining and available (remaining minus planned); it defaults to the current month. The rollover action copies the envelopes of one period onto another (fromYear/fromMonth to year/month), keeping the same amounts unless useActualSpending is true, in which case each new envelope is budgeted on what its category actually consumed; envelopes already set on the target period are left untouched.')]
 class ManageEnvelopesTool
 {
     public function __construct(
@@ -27,6 +28,7 @@ class ManageEnvelopesTool
         private readonly EnvelopeRepository $envelopeRepository,
         private readonly CategoryRepository $categoryRepository,
         private readonly GetBudgetStatus $getBudgetStatus,
+        private readonly RollOverEnvelopes $rollOverEnvelopes,
         private readonly McpUserContext $userContext,
     ) {
     }
@@ -40,6 +42,9 @@ class ManageEnvelopesTool
         ?int $year = null,
         ?int $month = null,
         ?string $currency = null,
+        ?int $fromYear = null,
+        ?int $fromMonth = null,
+        ?bool $useActualSpending = null,
     ): string {
         try {
             return match ($action) {
@@ -47,8 +52,9 @@ class ManageEnvelopesTool
                 'set' => $this->set($categoryId, $amountCents, $mode, $year, $month, $currency),
                 'update' => $this->update($envelopeId, $categoryId, $amountCents, $mode, $year, $month, $currency),
                 'status' => $this->status($year, $month),
+                'rollover' => $this->rollover($fromYear, $fromMonth, $year, $month, $useActualSpending),
                 'delete' => $this->delete($envelopeId),
-                default => json_encode(['error' => "Unknown action: {$action}. Use list, set, update, status, or delete."], JSON_THROW_ON_ERROR),
+                default => json_encode(['error' => "Unknown action: {$action}. Use list, set, update, status, rollover, or delete."], JSON_THROW_ON_ERROR),
             };
         } catch (MissingMcpUserException $e) {
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
@@ -150,6 +156,26 @@ class ManageEnvelopesTool
             $user,
             $year ?? (int) $now->format('Y'),
             $month ?? (int) $now->format('n'),
+        ), JSON_THROW_ON_ERROR);
+    }
+
+    private function rollover(?int $fromYear, ?int $fromMonth, ?int $year, ?int $month, ?bool $useActualSpending): string
+    {
+        if ($fromYear === null || $year === null) {
+            return json_encode(['error' => 'fromYear and year are required for rollover.'], JSON_THROW_ON_ERROR);
+        }
+
+        $user = $this->userContext->requireUser();
+
+        return json_encode([
+            'success' => true,
+        ] + $this->rollOverEnvelopes->execute(
+            $user,
+            $fromYear,
+            $fromMonth,
+            $year,
+            $month,
+            $useActualSpending ?? false,
         ), JSON_THROW_ON_ERROR);
     }
 

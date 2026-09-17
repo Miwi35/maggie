@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -32,10 +33,13 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.EnvelopeCreateRequest
 import com.maggie.app.data.model.BudgetLine
 import com.maggie.app.data.model.Category
+import com.maggie.app.data.model.budgetBreakdown
 import com.maggie.app.data.model.budgetPeriodLabel
 import com.maggie.app.data.model.consumedFraction
 import com.maggie.app.data.model.formatCents
@@ -63,6 +68,14 @@ fun BudgetScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
     val budgets = uiState.status?.budgets ?: emptyList()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(uiState.rollOverMessage) {
+        uiState.rollOverMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearRollOverMessage()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -73,8 +86,17 @@ fun BudgetScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
                     }
                 },
+                actions = {
+                    IconButton(
+                        onClick = { viewModel.rollOverPreviousPeriod() },
+                        enabled = !uiState.isRollingOver,
+                    ) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = "Reconduire le mois précédent")
+                    }
+                },
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(onClick = { showCreateDialog = true }) {
                 Icon(Icons.Default.Add, contentDescription = "Nouvelle enveloppe")
@@ -92,9 +114,9 @@ fun BudgetScreen(
             uiState.status?.let { status ->
                 if (status.budgets.isNotEmpty()) {
                     Text(
-                        text = "${formatCents(status.totalSpentCents)} dépensés sur " +
-                            "${formatCents(status.totalBudgetedCents)} — reste " +
-                            formatCents(status.totalRemainingCents),
+                        text = "${formatCents(status.totalConsumedCents)} consommés sur " +
+                            "${formatCents(status.totalBudgetedCents)} — " +
+                            "${formatCents(status.totalAvailableCents)} encore libres",
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                     )
@@ -110,7 +132,7 @@ fun BudgetScreen(
                 budgets.isEmpty() -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
-                            "Aucune enveloppe pour cette période",
+                            "Aucune enveloppe pour cette période.\nReconduisez le mois précédent ou créez-en une.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -202,32 +224,44 @@ private fun BudgetCard(
             }
 
             LinearProgressIndicator(
-                progress = { consumedFraction(line.spentCents, line.amountCents) },
-                color = if (line.isOverspent) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme.primary
+                progress = { consumedFraction(line.consumedCents, line.amountCents) },
+                color = when {
+                    line.isOverspent -> MaterialTheme.colorScheme.error
+                    line.isOvercommitted -> MaterialTheme.colorScheme.tertiary
+                    else -> MaterialTheme.colorScheme.primary
                 },
                 modifier = Modifier.fillMaxWidth().height(8.dp).padding(top = 8.dp),
             )
 
             Text(
-                text = "${formatCents(line.spentCents, line.currency)} / " +
+                text = "${formatCents(line.consumedCents, line.currency)} / " +
                     formatCents(line.amountCents, line.currency),
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(top = 4.dp),
             )
+
+            val breakdown = budgetBreakdown(line)
+            if (breakdown.isNotEmpty()) {
+                Text(
+                    text = breakdown,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
             Text(
-                text = if (line.isOverspent) {
-                    "Dépassement de ${formatCents(-line.remainingCents, line.currency)}"
-                } else {
-                    "Reste ${formatCents(line.remainingCents, line.currency)}"
+                text = when {
+                    line.isOverspent ->
+                        "Dépassement de ${formatCents(-line.remainingCents, line.currency)}"
+                    line.plannedCents > 0 ->
+                        "${formatCents(line.availableCents, line.currency)} encore libres"
+                    else -> "Reste ${formatCents(line.remainingCents, line.currency)}"
                 },
                 style = MaterialTheme.typography.bodySmall,
-                color = if (line.isOverspent) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
+                color = when {
+                    line.isOverspent -> MaterialTheme.colorScheme.error
+                    line.isOvercommitted -> MaterialTheme.colorScheme.tertiary
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
                 },
             )
         }

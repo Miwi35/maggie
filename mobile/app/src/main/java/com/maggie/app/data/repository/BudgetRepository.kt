@@ -2,8 +2,10 @@ package com.maggie.app.data.repository
 
 import com.maggie.app.data.api.EnvelopeCreateRequest
 import com.maggie.app.data.api.MaggieApiService
+import com.maggie.app.data.api.RollOverRequest
 import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.Envelope
+import com.maggie.app.data.model.RollOverResult
 
 class BudgetRepository(
     private val apiService: MaggieApiService,
@@ -22,5 +24,9 @@ class BudgetRepository(
 
     suspend fun getBudgetStatus(year: Int, month: Int): Result<BudgetStatus> = runCatching {
         apiService.getBudgetStatus(year, month)
+    }
+
+    suspend fun rollOverEnvelopes(request: RollOverRequest): Result<RollOverResult> = runCatching {
+        apiService.rollOverEnvelopes(request)
     }
 }

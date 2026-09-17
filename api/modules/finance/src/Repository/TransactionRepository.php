@@ -9,8 +9,9 @@ use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Category;
-use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Entity\Transaction;
+use Maggie\Finance\Enum\CategorySource;
+use Maggie\Finance\Enum\TransactionStatus;
 
 /** @extends ServiceEntityRepository<Transaction> */
 class TransactionRepository extends ServiceEntityRepository
@@ -38,8 +39,21 @@ class TransactionRepository extends ServiceEntityRepository
      */
     public function sumSpentForCategoryBetween(User $user, Category $category, \DateTimeImmutable $from, \DateTimeImmutable $until): int
     {
-        $total = $this->createQueryBuilder('t')
-            ->select('SUM(t.amountCents)')
+        $byStatus = $this->sumByStatusForCategoryBetween($user, $category, $from, $until);
+
+        return $byStatus[TransactionStatus::Spent->value];
+    }
+
+    /**
+     * Debits on a category over a half-open period, split by status, as
+     * positive cents. Every status is present, zero when nothing matched.
+     *
+     * @return array<string, int>
+     */
+    public function sumByStatusForCategoryBetween(User $user, Category $category, \DateTimeImmutable $from, \DateTimeImmutable $until): array
+    {
+        $rows = $this->createQueryBuilder('t')
+            ->select('t.status AS status, SUM(t.amountCents) AS total')
             ->andWhere('t.user = :user')
             ->andWhere('t.category = :category')
             ->andWhere('t.amountCents < 0')
@@ -49,10 +63,21 @@ class TransactionRepository extends ServiceEntityRepository
             ->setParameter('category', $category->getId(), 'ulid')
             ->setParameter('from', $from)
             ->setParameter('until', $until)
+            ->groupBy('t.status')
             ->getQuery()
-            ->getSingleScalarResult();
+            ->getResult();
 
-        return abs((int) $total);
+        $totals = [];
+        foreach (TransactionStatus::cases() as $status) {
+            $totals[$status->value] = 0;
+        }
+
+        foreach ($rows as $row) {
+            $status = $row['status'] instanceof TransactionStatus ? $row['status']->value : (string) $row['status'];
+            $totals[$status] = abs((int) $row['total']);
+        }
+
+        return $totals;
     }
 
     /**

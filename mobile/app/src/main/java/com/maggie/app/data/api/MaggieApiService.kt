@@ -22,6 +22,7 @@ import com.maggie.app.data.model.CategorizationRule
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.model.Envelope
+import com.maggie.app.data.model.RollOverResult
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TtsVoice
 import com.maggie.app.data.model.RecurringGroceryItem
@@ -238,6 +239,15 @@ data class EnvelopeCreateRequest(
     val mode: String = "monthly",
     val month: Int? = null,
     val currency: String = "EUR",
+)
+
+@Serializable
+data class RollOverRequest(
+    val fromYear: Int,
+    val year: Int,
+    val fromMonth: Int? = null,
+    val month: Int? = null,
+    val useActualSpending: Boolean = false,
 )
 
 @Serializable
@@ -817,6 +827,13 @@ class MaggieApiService(
         return client.get("$baseUrl/api/finance/budget-status") {
             url.parameters.append("year", year.toString())
             url.parameters.append("month", month.toString())
+        }.body()
+    }
+
+    suspend fun rollOverEnvelopes(request: RollOverRequest): RollOverResult {
+        return client.post("$baseUrl/api/finance/rollover-envelopes") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
         }.body()
     }
 
