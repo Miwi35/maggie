@@ -37,9 +37,15 @@ class MerchantExtractorTest extends TestCase
             'PRELEVEMENT 0219534 CRCAM D ILLE ET VILAINE CREDIT AGRICOLE ASSURANCE AUTOMOBILE -ECHEANCE 08/2026',
             'CRCAM D ILLE ET',
         ];
-        yield 'cash withdrawal with a time' => [
+        // The machine's code names nothing a person recognises: what the line
+        // says is that money left as cash.
+        yield 'cash withdrawal' => [
             'RETRAIT AU DISTRIBUTEUR X9633 CC BEST 1. 12/08 17H00',
-            'CC BEST 1',
+            'RETRAIT AU DISTRIBUTEUR',
+        ];
+        yield 'cash withdrawal at a shop' => [
+            'RETRAIT AU DISTRIBUTEUR SUPER U JANZE 22/07 15H59',
+            'RETRAIT AU DISTRIBUTEUR',
         ];
         yield 'transfer in' => [
             'VIREMENT EN VOTRE FAVEUR DE M. BALZANO VINCENT',
@@ -66,6 +72,24 @@ class MerchantExtractorTest extends TestCase
     public function testItKeepsTheMerchantAndDropsTheBookkeeping(string $label, ?string $expected): void
     {
         self::assertSame($expected, MerchantExtractor::extract($label));
+    }
+
+    public function testEveryWithdrawalGroupsUnderTheOneThingItMeans(): void
+    {
+        $labels = [
+            'RETRAIT AU DISTRIBUTEUR X9633 CC BEST 1. 12/08 17H00',
+            'RETRAIT AU DISTRIBUTEUR X9633 06601 RENNES H 11/07 19H22',
+            'RETRAIT AU DISTRIBUTEUR SUPER U JANZE 16/07 18H35',
+        ];
+
+        $keys = array_map(
+            static fn (string $label) => MerchantExtractor::key((string) MerchantExtractor::extract($label)),
+            $labels,
+        );
+
+        // Three machines, one habit. Filing the last one under the supermarket
+        // it stands in would be wrong: no groceries were bought.
+        self::assertCount(1, array_unique($keys));
     }
 
     public function testTwoVisitsToTheSameShopGroupTogether(): void

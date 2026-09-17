@@ -16,10 +16,24 @@ namespace Maggie\Finance\Import;
  */
 final class MerchantExtractor
 {
+    /**
+     * Operations whose own wording is the identity.
+     *
+     * A cash withdrawal is the clear case: "CC BEST 1" is the machine, and
+     * nobody recognises their own bank's ATM codes. What the line means is
+     * that money left as cash — and that is true of every withdrawal, whatever
+     * machine it came out of. The key is spelled as the statement spells it,
+     * so it still matches the labels it came from.
+     */
+    private const SELF_NAMING = [
+        '/^RETRAIT AU DISTRIBUTEUR\b/iu' => 'RETRAIT AU DISTRIBUTEUR',
+        '/^RETRAIT D\'ESPECES\b/iu' => "RETRAIT D'ESPECES",
+        '/^REMBOURSEMENT DE PRET\b/iu' => 'REMBOURSEMENT DE PRET',
+    ];
+
     /** Operation wording banks put in front of the merchant. */
     private const PREFIXES = [
         '/^PAIEMENT PAR CARTE\s*(X\d+\s*)?/iu',
-        '/^RETRAIT AU DISTRIBUTEUR\s*(X\d+\s*)?/iu',
         '/^PRELEVEMENT\s+(\d+\s+)?/iu',
         '/^REJET PRLV\s+/iu',
         '/^REJET VIREMENT(\s+WEB)?\s+/iu',
@@ -59,6 +73,12 @@ final class MerchantExtractor
     public static function extract(string $label): ?string
     {
         $value = preg_replace('/\s+/u', ' ', trim($label)) ?? $label;
+
+        foreach (self::SELF_NAMING as $pattern => $name) {
+            if (preg_match($pattern, $value) === 1) {
+                return $name;
+            }
+        }
 
         foreach (self::PREFIXES as $prefix) {
             $value = preg_replace($prefix, '', $value) ?? $value;
