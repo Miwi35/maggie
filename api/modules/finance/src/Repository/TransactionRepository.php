@@ -225,4 +225,26 @@ class TransactionRepository extends ServiceEntityRepository
 
         return $spending;
     }
+
+    /**
+     * How many movements already recorded on this account look exactly like
+     * this one. Counting matters: two identical coffees on the same day are
+     * two real movements, not a duplicate — only the count above what is
+     * already stored should be imported.
+     */
+    public function countMatching(Account $account, \DateTimeImmutable $bookedAt, int $amountCents, string $label): int
+    {
+        return (int) $this->createQueryBuilder('t')
+            ->select('COUNT(t.id)')
+            ->andWhere('t.account = :account')
+            ->andWhere('t.bookedAt = :bookedAt')
+            ->andWhere('t.amountCents = :amountCents')
+            ->andWhere('LOWER(t.label) = :label')
+            ->setParameter('account', $account->getId(), 'ulid')
+            ->setParameter('bookedAt', $bookedAt)
+            ->setParameter('amountCents', $amountCents)
+            ->setParameter('label', mb_strtolower(trim($label)))
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
 }
