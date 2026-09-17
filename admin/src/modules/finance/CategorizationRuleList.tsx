@@ -88,7 +88,11 @@ const RuleActions = () => (
 )
 
 export const CategorizationRuleList = () => (
-  <List actions={<RuleActions />} sort={{ field: 'priority', order: 'DESC' }}>
+  <List
+    resource="categorization_rules"
+    actions={<RuleActions />}
+    sort={{ field: 'priority', order: 'DESC' }}
+  >
     <RuleDatagrid />
   </List>
 )

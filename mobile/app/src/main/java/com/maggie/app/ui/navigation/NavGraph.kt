@@ -57,6 +57,8 @@ import com.maggie.app.ui.screens.finance.AccountListScreen
 import com.maggie.app.ui.screens.finance.AccountViewModel
 import com.maggie.app.ui.screens.finance.BudgetScreen
 import com.maggie.app.ui.screens.finance.CategorizationRuleListScreen
+import com.maggie.app.ui.screens.finance.CushionScreen
+import com.maggie.app.ui.screens.finance.CushionViewModel
 import com.maggie.app.ui.screens.finance.CategorizationRuleViewModel
 import com.maggie.app.ui.screens.finance.BudgetViewModel
 import com.maggie.app.ui.screens.finance.CategoryListScreen
@@ -126,6 +128,7 @@ sealed class Screen(val route: String, val label: String) {
     data object CategoryList : Screen("categories", "Catégories")
     data object BudgetList : Screen("budgets", "Budgets")
     data object CategorizationRuleList : Screen("categorization_rules", "Règles")
+    data object Cushion : Screen("cushion", "Matelas")
     data object AccountTransactions : Screen("account_transactions", "Opérations")
     data object RecipeDetail : Screen("recipe/detail", "Recette")
     data object RecipeCreate : Screen("recipe/create", "Nouvelle recette")
@@ -501,6 +504,11 @@ fun NavGraph() {
                     CategoryListScreen(
                         viewModel = categoryViewModel,
                         onBack = { navController.popBackStack() },
+                        onOpenRules = {
+                            navController.navigate(Screen.CategorizationRuleList.route) {
+                                launchSingleTop = true
+                            }
+                        },
                     )
                 }
                 composable(Screen.BudgetList.route) {
@@ -514,6 +522,13 @@ fun NavGraph() {
                     val ruleViewModel: CategorizationRuleViewModel = koinViewModel()
                     CategorizationRuleListScreen(
                         viewModel = ruleViewModel,
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable(Screen.Cushion.route) {
+                    val cushionViewModel: CushionViewModel = koinViewModel()
+                    CushionScreen(
+                        viewModel = cushionViewModel,
                         onBack = { navController.popBackStack() },
                     )
                 }

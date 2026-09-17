@@ -20,6 +20,7 @@ import com.maggie.app.data.repository.NotificationRepository
 import com.maggie.app.data.repository.AccountRepository
 import com.maggie.app.data.repository.BudgetRepository
 import com.maggie.app.data.repository.CategorizationRuleRepository
+import com.maggie.app.data.repository.CushionRepository
 import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.TransactionRepository
 import com.maggie.app.data.repository.ContextRepository
@@ -34,6 +35,7 @@ import com.maggie.app.ui.screens.cookbook.grocery.GroceryViewModel
 import com.maggie.app.ui.screens.finance.AccountViewModel
 import com.maggie.app.ui.screens.finance.BudgetViewModel
 import com.maggie.app.ui.screens.finance.CategorizationRuleViewModel
+import com.maggie.app.ui.screens.finance.CushionViewModel
 import com.maggie.app.ui.screens.finance.CategoryViewModel
 import com.maggie.app.ui.screens.finance.TransactionViewModel
 import com.maggie.app.ui.screens.grocery.ProductViewModel
@@ -187,6 +189,7 @@ class MaggieApp : Application() {
             single { CategoryRepository(get()) }
             single { BudgetRepository(get()) }
             single { CategorizationRuleRepository(get()) }
+            single { CushionRepository(get()) }
             single { TransactionRepository(get()) }
             single { NotificationRepository(get()) }
             single { SearchRepository(get()) }
@@ -217,6 +220,7 @@ class MaggieApp : Application() {
             viewModel { CategoryViewModel(get()) }
             viewModel { BudgetViewModel(get(), get()) }
             viewModel { CategorizationRuleViewModel(get(), get()) }
+            viewModel { CushionViewModel(get()) }
             viewModel { (accountId: String) -> TransactionViewModel(get(), accountId) }
         }
 

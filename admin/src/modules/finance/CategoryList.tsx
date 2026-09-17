@@ -1,3 +1,7 @@
+import { useState } from 'react'
+import Box from '@mui/material/Box'
+import Tab from '@mui/material/Tab'
+import Tabs from '@mui/material/Tabs'
 import {
   List,
   Datagrid,
@@ -9,6 +13,7 @@ import {
   useListContext,
 } from 'react-admin'
 import { useMercure } from '../../hooks/useMercure'
+import { CategorizationRuleList } from './CategorizationRuleList'
 import { OBLIGATION_LABELS } from './obligationFlags'
 import type { RaRecord } from 'react-admin'
 
@@ -35,8 +40,31 @@ const CategoryDatagrid = () => {
   )
 }
 
-export const CategoryList = () => (
-  <List>
-    <CategoryDatagrid />
-  </List>
-)
+/**
+ * Categories and the rules that file transactions into them live on the same
+ * page: a rule only makes sense next to its category.
+ */
+export const CategoryList = () => {
+  const [tab, setTab] = useState(0)
+
+  return (
+    <>
+      <Tabs value={tab} onChange={(_, value: number) => setTab(value)} sx={{ mb: 1 }}>
+        <Tab label="Catégories" />
+        <Tab label="Règles de catégorisation" />
+      </Tabs>
+
+      <Box hidden={tab !== 0}>
+        {tab === 0 && (
+          <List>
+            <CategoryDatagrid />
+          </List>
+        )}
+      </Box>
+
+      <Box hidden={tab !== 1}>
+        {tab === 1 && <CategorizationRuleList />}
+      </Box>
+    </>
+  )
+}

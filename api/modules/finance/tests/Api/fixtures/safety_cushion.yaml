@@ -1,0 +1,38 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-api-test@example.com
+    googleId: google-finance-api-test
+    name: Finance Api Test User
+
+Maggie\Finance\Entity\Account:
+  livret:
+    name: Livret A
+    bank: Crédit Agricole
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 300000
+    isCushion: true
+    user: '@test_user'
+  ldds:
+    name: LDDS
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 150000
+    isCushion: true
+    user: '@test_user'
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 200000
+    isCushion: false
+    user: '@test_user'
+
+Maggie\Finance\Entity\SafetyCushion:
+  cushion:
+    targetMonths: 3
+    monthlyNetIncomeCents: 250000
+    rechargeCapCents: 15000
+    rechargeTargetMonths: 6
+    completedAt: null
+    user: '@test_user'

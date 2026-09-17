@@ -19,6 +19,7 @@ import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.ApplyRulesResult
 import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.CategorizationRule
+import com.maggie.app.data.model.CushionStatus
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.model.Envelope
@@ -239,6 +240,14 @@ data class EnvelopeCreateRequest(
     val mode: String = "monthly",
     val month: Int? = null,
     val currency: String = "EUR",
+)
+
+@Serializable
+data class CushionConfigRequest(
+    val targetMonths: Int? = null,
+    val monthlyNetIncomeCents: Int? = null,
+    val rechargeCapCents: Int? = null,
+    val rechargeTargetMonths: Int? = null,
 )
 
 @Serializable
@@ -858,6 +867,18 @@ class MaggieApiService(
 
     suspend fun applyCategorizationRules(): ApplyRulesResult {
         return client.post("$baseUrl/api/finance/apply-categorization-rules").body()
+    }
+
+    // Finance — Safety cushion
+    suspend fun getCushionStatus(): CushionStatus {
+        return client.get("$baseUrl/api/finance/cushion-status").body()
+    }
+
+    suspend fun configureCushion(request: CushionConfigRequest): CushionStatus {
+        return client.patch("$baseUrl/api/finance/cushion-config") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.body()
     }
 
     // Grocery Add Item

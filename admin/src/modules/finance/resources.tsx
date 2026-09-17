@@ -8,6 +8,7 @@ import { AccountTransactionsView } from './AccountTransactionsView'
 import { CategoryCreate } from './CategoryCreate'
 import { CategoryEdit } from './CategoryEdit'
 import { CategorizationRuleCreate } from './CategorizationRuleCreate'
+import { CushionPage } from './CushionPage'
 import { CategorizationRuleEdit } from './CategorizationRuleEdit'
 import { CategorizationRuleList } from './CategorizationRuleList'
 import { CategoryList } from './CategoryList'
@@ -22,6 +23,7 @@ export const financeResources = (
   <>
     <CustomRoutes>
       <Route path="/accounts/:id/transactions" element={<AccountTransactionsView />} />
+      <Route path="/finance/cushion" element={<CushionPage />} />
     </CustomRoutes>
     <ResourceGuesser
       name="accounts"

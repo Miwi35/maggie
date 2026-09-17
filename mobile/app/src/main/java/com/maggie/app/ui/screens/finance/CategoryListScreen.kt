@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.automirrored.filled.Rule
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -46,6 +47,7 @@ private val OBLIGATIONS = listOf("mandatory", "optional", "saving", "investment"
 fun CategoryListScreen(
     viewModel: CategoryViewModel,
     onBack: () -> Unit,
+    onOpenRules: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -57,6 +59,14 @@ fun CategoryListScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onOpenRules) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.Rule,
+                            contentDescription = "Règles de catégorisation",
+                        )
                     }
                 },
             )
