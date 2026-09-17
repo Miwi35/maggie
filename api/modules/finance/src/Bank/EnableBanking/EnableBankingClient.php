@@ -102,6 +102,27 @@ class EnableBankingClient
     }
 
     /**
+     * What the bank says the account holds right now.
+     *
+     * Worth its own call: a synced window covers the last months, never the
+     * whole life of the account, so a balance summed from the movements we
+     * hold would be wrong by everything that came before.
+     *
+     * @param array<string, string> $psuHeaders
+     *
+     * @return array<string, mixed>
+     */
+    public function getBalances(string $accountId, array $psuHeaders = []): array
+    {
+        return $this->request(
+            'GET',
+            sprintf('/accounts/%s/balances', urlencode($accountId)),
+            [],
+            $psuHeaders,
+        );
+    }
+
+    /**
      * @param array<string, mixed>  $options
      * @param array<string, string> $psuHeaders
      *

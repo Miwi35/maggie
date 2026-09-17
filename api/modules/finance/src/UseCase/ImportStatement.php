@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Maggie\Finance\UseCase;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Import\StatementRow;
 use Maggie\Finance\Repository\TransactionRepository;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
  * Turns the rows of a bank export into transactions on an account.
@@ -25,6 +27,7 @@ class ImportStatement
         private readonly TransactionRepository $transactionRepository,
         private readonly CategorizeTransaction $categorizeTransaction,
         private readonly EntityManagerInterface $em,
+        private readonly MessageBusInterface $bus,
     ) {
     }
 
@@ -40,6 +43,7 @@ class ImportStatement
         // Same movement, several times in the file: only what exceeds what is
         // already stored gets written.
         $seenInFile = [];
+        $written = [];
         $imported = 0;
         $skipped = 0;
         $categorized = 0;
@@ -78,6 +82,7 @@ class ImportStatement
 
             if (!$dryRun) {
                 $this->em->persist($transaction);
+                $written[] = $transaction;
             }
 
             ++$imported;
@@ -87,6 +92,16 @@ class ImportStatement
 
         if (!$dryRun && $imported > 0) {
             $this->em->flush();
+
+            // Imports write straight to the database, so nothing on the bus
+            // indexes them: without this the movements exist and the lists
+            // that read Elasticsearch show none of them.
+            foreach ($written as $transaction) {
+                $this->bus->dispatch(new IndexDocumentCommand(
+                    entityClass: Transaction::class,
+                    entityId: (string) $transaction->getId(),
+                ));
+            }
         }
 
         sort($dates);

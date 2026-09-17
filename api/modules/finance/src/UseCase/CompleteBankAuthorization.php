@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Finance\UseCase;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
 use Maggie\Finance\Bank\EnableBanking\EnableBankingClient;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\BankConnection;
@@ -12,6 +13,7 @@ use Maggie\Finance\Enum\AccountType;
 use Maggie\Finance\Enum\BankConnectionStatus;
 use Maggie\Finance\Repository\AccountRepository;
 use Maggie\Finance\Repository\BankConnectionRepository;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
  * Finishes the journey the bank is answering about: turns the one-time code
@@ -27,6 +29,7 @@ class CompleteBankAuthorization
         private readonly BankConnectionRepository $connectionRepository,
         private readonly AccountRepository $accountRepository,
         private readonly EntityManagerInterface $em,
+        private readonly MessageBusInterface $bus,
     ) {
     }
 
@@ -53,6 +56,7 @@ class CompleteBankAuthorization
 
         $linked = 0;
         $created = 0;
+        $touched = [];
 
         foreach ($this->readAccounts($session) as $remote) {
             $externalId = $this->readExternalId($remote);
@@ -77,9 +81,19 @@ class CompleteBankAuthorization
 
             $account->setExternalAccountId($externalId);
             $account->setBankConnection($connection);
+            $touched[] = $account;
         }
 
         $this->em->flush();
+
+        // Written straight to the database, so nothing on the bus indexed
+        // them: an account absent from Elasticsearch is absent from the list.
+        foreach ($touched as $account) {
+            $this->bus->dispatch(new IndexDocumentCommand(
+                entityClass: Account::class,
+                entityId: (string) $account->getId(),
+            ));
+        }
 
         return ['connection' => $connection, 'linked' => $linked, 'created' => $created];
     }

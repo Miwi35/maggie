@@ -2,6 +2,7 @@
 
 namespace Maggie\Finance\Tests\Bank;
 
+use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use Maggie\Finance\Bank\EnableBanking\EnableBankingClient;
 use Maggie\Finance\Entity\Account;
@@ -23,12 +24,14 @@ use Symfony\Component\HttpClient\Response\MockResponse;
 class SyncBankAccountsTest extends KernelTestCase
 {
     use FixtureLoaderTrait;
+    use ElasticsearchAssertionTrait;
 
     private string $keyPath;
 
     protected function setUp(): void
     {
         self::bootKernel();
+        $this->resetAsyncTransport();
 
         $this->keyPath = tempnam(sys_get_temp_dir(), 'eb-key-');
         $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
@@ -52,6 +55,7 @@ class SyncBankAccountsTest extends KernelTestCase
             $container->get(AccountRepository::class),
             $container->get(ImportStatement::class),
             $container->get('doctrine.orm.entity_manager'),
+            $container->get('messenger.default_bus'),
         );
     }
 
@@ -74,6 +78,36 @@ class SyncBankAccountsTest extends KernelTestCase
         $em->flush();
 
         return $connection;
+    }
+
+    /**
+     * A provider answering both endpoints a sync touches: the movements, and
+     * the balance asked for right after.
+     *
+     * @param callable|list<string> $pages
+     */
+    private function provider(callable|array $pages, string $balance = '1250.00'): MockHttpClient
+    {
+        $next = 0;
+
+        return new MockHttpClient(
+            function (string $method, string $url, array $options) use ($pages, $balance, &$next) {
+                if (str_contains($url, '/balances')) {
+                    return new MockResponse(json_encode([
+                        'balances' => [[
+                            'balance_type' => 'CLBD',
+                            'balance_amount' => ['amount' => $balance, 'currency' => 'EUR'],
+                        ]],
+                    ]));
+                }
+
+                if (\is_callable($pages)) {
+                    return $pages($method, $url, $options);
+                }
+
+                return new MockResponse($pages[min($next++, \count($pages) - 1)]);
+            },
+        );
     }
 
     /** @param array<int, array<string, mixed>> $transactions */
@@ -101,15 +135,16 @@ class SyncBankAccountsTest extends KernelTestCase
         $this->loadFixtures('account.yaml');
         $this->connectAccount();
 
-        $http = new MockHttpClient([new MockResponse($this->page([
+        $http = $this->provider([$this->page([
             $this->movement('2026-09-02', '45.99', 'DBIT', 'CARREFOUR MARKET'),
             $this->movement('2026-09-05', '3500.00', 'CRDT', 'SALAIRE'),
-        ]))]);
+        ])]);
 
         $result = $this->sync($http)->execute($this->getFixture('test_user'));
 
         self::assertSame(2, $result['imported']);
-        self::assertSame(1, $result['providerCalls']);
+        // One page of movements, plus the balance.
+        self::assertSame(2, $result['providerCalls']);
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $spend = $em->getRepository(Transaction::class)->findOneBy(['label' => 'CARREFOUR MARKET']);
@@ -120,13 +155,29 @@ class SyncBankAccountsTest extends KernelTestCase
         self::assertSame(350000, $income->getAmountCents());
     }
 
+    public function testWhatItWritesIsIndexedOrTheListsWouldNotShowIt(): void
+    {
+        $this->loadFixtures('account.yaml');
+        $this->connectAccount();
+
+        $http = $this->provider([$this->page([
+            $this->movement('2026-09-02', '45.99', 'DBIT', 'CARREFOUR'),
+        ])]);
+
+        $this->sync($http)->execute($this->getFixture('test_user'));
+
+        // A sync writes straight to the database, past the bus that normally
+        // indexes: without this the movements exist and no list shows them.
+        $this->assertElasticsearchIndexDispatched(Transaction::class);
+        $this->assertElasticsearchIndexDispatched(Account::class);
+    }
+
     public function testSyncingTwiceDoesNotDuplicateWhatIsAlreadyThere(): void
     {
         $this->loadFixtures('account.yaml');
         $this->connectAccount();
 
-        $page = $this->page([$this->movement('2026-09-02', '45.99', 'DBIT', 'CARREFOUR')]);
-        $http = new MockHttpClient([new MockResponse($page), new MockResponse($page)]);
+        $http = $this->provider([$this->page([$this->movement('2026-09-02', '45.99', 'DBIT', 'CARREFOUR')])]);
 
         $sync = $this->sync($http);
         $sync->execute($this->getFixture('test_user'));
@@ -141,7 +192,7 @@ class SyncBankAccountsTest extends KernelTestCase
         $this->loadFixtures('account.yaml');
         $urls = [];
 
-        $http = new MockHttpClient(function (string $method, string $url) use (&$urls) {
+        $http = $this->provider(function (string $method, string $url) use (&$urls) {
             $urls[] = $url;
 
             return new MockResponse($this->page([]));
@@ -171,13 +222,13 @@ class SyncBankAccountsTest extends KernelTestCase
         $this->connectAccount();
 
         // A provider that always hands back another key would page for ever.
-        $http = new MockHttpClient(fn () => new MockResponse(
+        $http = $this->provider(fn () => new MockResponse(
             $this->page([$this->movement('2026-09-02', '1.00', 'DBIT', 'X')], 'next-page'),
         ));
 
         $result = $this->sync($http)->execute($this->getFixture('test_user'));
 
-        self::assertSame(10, $result['providerCalls']);
+        self::assertSame(10, $result['accounts'][0]['pages']);
     }
 
     public function testARefusalStopsTheSyncInsteadOfBurningWhatIsLeft(): void
@@ -228,7 +279,7 @@ class SyncBankAccountsTest extends KernelTestCase
         $this->connectAccount();
 
         $headers = null;
-        $http = new MockHttpClient(function (string $method, string $url, array $options) use (&$headers) {
+        $http = $this->provider(function (string $method, string $url, array $options) use (&$headers) {
             $headers = $options['headers'];
 
             return new MockResponse($this->page([]));
@@ -248,9 +299,9 @@ class SyncBankAccountsTest extends KernelTestCase
         $this->loadFixtures('account.yaml');
         $this->connectAccount();
 
-        $http = new MockHttpClient([new MockResponse($this->page([
+        $http = $this->provider([$this->page([
             $this->movement('2026-09-02', '45.99', 'DBIT', 'CARREFOUR'),
-        ]))]);
+        ])]);
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $before = \count($em->getRepository(Transaction::class)->findAll());
@@ -259,6 +310,40 @@ class SyncBankAccountsTest extends KernelTestCase
 
         self::assertSame(1, $result['imported']);
         self::assertCount($before, $em->getRepository(Transaction::class)->findAll());
+    }
+
+    public function testItStoresTheBalanceTheBankReportsRatherThanSummingWhatWeHold(): void
+    {
+        $this->loadFixtures('account.yaml');
+        $this->connectAccount();
+
+        $http = $this->provider([$this->page([
+            $this->movement('2026-09-02', '45.99', 'DBIT', 'CARREFOUR'),
+        ])], balance: '842.13');
+
+        $this->sync($http)->execute($this->getFixture('test_user'));
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $account = $em->find(Account::class, $this->getFixture('checking')->getId());
+
+        // A synced window is months, not the whole life of the account: only
+        // the bank knows what it actually holds.
+        self::assertSame(84213, $account->getBalanceCents());
+    }
+
+    public function testARehearsalLeavesTheStoredBalanceAlone(): void
+    {
+        $this->loadFixtures('account.yaml');
+        $this->connectAccount();
+        $before = $this->getFixture('checking')->getBalanceCents();
+
+        $http = $this->provider([$this->page([])], balance: '1.00');
+        $this->sync($http)->execute($this->getFixture('test_user'), dryRun: true);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertSame($before, $em->find(Account::class, $this->getFixture('checking')->getId())->getBalanceCents());
     }
 
     public function testAnAccountNeverConnectedIsLeftAlone(): void
@@ -283,7 +368,7 @@ class SyncBankAccountsTest extends KernelTestCase
         $this->loadFixtures('account.yaml');
         $connection = $this->connectAccount();
 
-        $http = new MockHttpClient([new MockResponse($this->page([]))]);
+        $http = $this->provider([$this->page([])]);
         $this->sync($http)->execute($this->getFixture('test_user'));
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Finance\UseCase;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Bank\EnableBanking\EnableBankingClient;
 use Maggie\Finance\Bank\EnableBanking\RateLimitedException;
@@ -13,6 +14,7 @@ use Maggie\Finance\Entity\BankConnection;
 use Maggie\Finance\Import\StatementRow;
 use Maggie\Finance\Repository\AccountRepository;
 use Maggie\Finance\Repository\BankConnectionRepository;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
  * Pulls movements from the connected banks into the accounts they belong to.
@@ -39,6 +41,7 @@ class SyncBankAccounts
         private readonly AccountRepository $accountRepository,
         private readonly ImportStatement $importStatement,
         private readonly EntityManagerInterface $em,
+        private readonly MessageBusInterface $bus,
     ) {
     }
 
@@ -119,7 +122,7 @@ class SyncBankAccounts
     /**
      * @param array<string, string> $psuHeaders
      *
-     * @return array{imported: int, skipped: int, categorized: int, calls: int, from: string}
+     * @return array{imported: int, skipped: int, categorized: int, pages: int, calls: int, from: string, balanceCents: ?int}
      */
     private function syncAccount(
         BankConnection $connection,
@@ -130,7 +133,7 @@ class SyncBankAccounts
         $from = $this->windowStart($connection);
         $rows = [];
         $continuationKey = null;
-        $calls = 0;
+        $pages = 0;
 
         do {
             $page = $this->client->listTransactions(
@@ -140,7 +143,7 @@ class SyncBankAccounts
                 $continuationKey,
                 $psuHeaders,
             );
-            ++$calls;
+            ++$pages;
 
             foreach ($page['transactions'] ?? [] as $remote) {
                 $row = $this->toRow($remote, $account->getCurrency());
@@ -150,16 +153,28 @@ class SyncBankAccounts
             }
 
             $continuationKey = $page['continuation_key'] ?? null;
-        } while ($continuationKey !== null && $calls < self::MAX_PAGES_PER_ACCOUNT);
+        } while ($continuationKey !== null && $pages < self::MAX_PAGES_PER_ACCOUNT);
 
         $result = $this->importStatement->execute($account, $rows, $dryRun);
+
+        // The bank's own figure, asked for separately: a synced window covers
+        // months, never the whole life of the account, so a balance summed
+        // from what we hold would be short by everything that came before.
+        $balanceCents = $this->readBalance($account, $psuHeaders);
+
+        if ($balanceCents !== null && !$dryRun) {
+            $account->setBalanceCents($balanceCents);
+            $this->reindex($account);
+        }
 
         return [
             'imported' => $result['imported'],
             'skipped' => $result['skipped'],
             'categorized' => $result['categorized'],
-            'calls' => $calls,
+            'pages' => $pages,
+            'calls' => $pages + 1,
             'from' => $from->format('Y-m-d'),
+            'balanceCents' => $balanceCents,
         ];
     }
 
@@ -177,6 +192,63 @@ class SyncBankAccounts
         }
 
         return $lastSynced->modify(sprintf('-%d days', self::OVERLAP_DAYS));
+    }
+
+    /**
+     * The balance the bank reports, in cents.
+     *
+     * Banks publish several — booked, available, forward — under codes that
+     * vary. Booked first: it is the figure the user recognises from their app.
+     *
+     * @param array<string, string> $psuHeaders
+     */
+    private function readBalance(Account $account, array $psuHeaders): ?int
+    {
+        $response = $this->client->getBalances((string) $account->getExternalAccountId(), $psuHeaders);
+        $balances = array_values(array_filter($response['balances'] ?? [], 'is_array'));
+
+        if ($balances === []) {
+            return null;
+        }
+
+        $byType = [];
+        foreach ($balances as $balance) {
+            $type = \is_string($balance['balance_type'] ?? null) ? $balance['balance_type'] : '';
+            $byType[$type] = $balance;
+        }
+
+        foreach (['CLBD', 'ITBD', 'XPCD', 'ITAV', 'OTHR'] as $preferred) {
+            if (isset($byType[$preferred])) {
+                return $this->toCents($byType[$preferred]);
+            }
+        }
+
+        return $this->toCents($balances[0]);
+    }
+
+    /** @param array<string, mixed> $balance */
+    private function toCents(array $balance): ?int
+    {
+        $amount = $balance['balance_amount']['amount'] ?? null;
+
+        if (!\is_string($amount) && !\is_int($amount) && !\is_float($amount)) {
+            return null;
+        }
+
+        return (int) round(((float) $amount) * 100);
+    }
+
+    /**
+     * A sync writes straight to the database, so nothing on the bus indexes
+     * what it touched — and the lists that read Elasticsearch would keep
+     * showing the account as it was.
+     */
+    private function reindex(Account $account): void
+    {
+        $this->bus->dispatch(new IndexDocumentCommand(
+            entityClass: Account::class,
+            entityId: (string) $account->getId(),
+        ));
     }
 
     /** @return Account[] */

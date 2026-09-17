@@ -64,6 +64,7 @@ class BankAuthorizationTest extends KernelTestCase
             $container->get(BankConnectionRepository::class),
             $container->get(\Maggie\Finance\Repository\AccountRepository::class),
             $container->get('doctrine.orm.entity_manager'),
+            $container->get('messenger.default_bus'),
         );
     }
 
