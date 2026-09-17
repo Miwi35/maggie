@@ -1,7 +1,7 @@
-import { useState } from "react";
-import Button from "@mui/material/Button";
-import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
-import { useNotify, useRefresh } from "react-admin";
+import { useState } from 'react'
+import Button from '@mui/material/Button'
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
+import { useNotify, useRefresh } from 'react-admin'
 
 /**
  * Lays down a starting set of categories.
@@ -11,50 +11,50 @@ import { useNotify, useRefresh } from "react-admin";
  * a heading already there is left as the user shaped it.
  */
 export const StandardCategoriesButton = ({
-  variant = "outlined",
+  variant = 'outlined',
 }: {
-  variant?: "outlined" | "text";
+  variant?: 'outlined' | 'text'
 }) => {
-  const [installing, setInstalling] = useState(false);
-  const notify = useNotify();
-  const refresh = useRefresh();
+  const [installing, setInstalling] = useState(false)
+  const notify = useNotify()
+  const refresh = useRefresh()
 
   const onClick = async () => {
-    setInstalling(true);
+    setInstalling(true)
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch("/api/finance/categories/standard", {
-        method: "POST",
+      const token = localStorage.getItem('token')
+      const res = await fetch('/api/finance/categories/standard', {
+        method: 'POST',
         headers: {
-          Accept: "application/json",
+          Accept: 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-      });
+      })
 
       if (!res.ok) {
         notify("Les catégories de départ n'ont pas pu être créées", {
-          type: "error",
-        });
+          type: 'error',
+        })
 
-        return;
+        return
       }
 
-      const result = (await res.json()) as { created: number; kept: number };
+      const result = (await res.json()) as { created: number; kept: number }
       notify(
         result.created > 0
           ? `${result.created} catégorie(s) créée(s).`
-          : "Toutes les catégories de départ étaient déjà là.",
-        { type: "info" },
-      );
-      refresh();
+          : 'Toutes les catégories de départ étaient déjà là.',
+        { type: 'info' },
+      )
+      refresh()
     } catch {
       notify("Les catégories de départ n'ont pas pu être créées", {
-        type: "error",
-      });
+        type: 'error',
+      })
     } finally {
-      setInstalling(false);
+      setInstalling(false)
     }
-  };
+  }
 
   return (
     <Button
@@ -63,7 +63,7 @@ export const StandardCategoriesButton = ({
       disabled={installing}
       startIcon={<AutoAwesomeIcon />}
     >
-      {installing ? "Création…" : "Catégories de départ"}
+      {installing ? 'Création…' : 'Catégories de départ'}
     </Button>
-  );
-};
+  )
+}

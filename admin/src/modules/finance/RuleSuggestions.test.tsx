@@ -53,9 +53,7 @@ describe('RuleSuggestions', () => {
       Promise.resolve({
         ok: true,
         json: async () =>
-          init?.method === 'POST'
-            ? { created: 1, categorized: 4 }
-            : { suggestions: SUGGESTIONS },
+          init?.method === 'POST' ? { created: 1, categorized: 4 } : { suggestions: SUGGESTIONS },
       } as Response),
     )
     vi.stubGlobal('fetch', fetchMock)

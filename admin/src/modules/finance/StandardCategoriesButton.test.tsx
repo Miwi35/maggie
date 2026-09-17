@@ -25,7 +25,10 @@ describe('StandardCategoriesButton', () => {
   })
 
   test('it asks the API to lay down the starting set', async () => {
-    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ created: 12, kept: 0 }) } as Response)
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ created: 12, kept: 0 }),
+    } as Response)
 
     renderButton()
     await userEvent.click(screen.getByRole('button', { name: /Catégories de départ/ }))
@@ -39,7 +42,10 @@ describe('StandardCategoriesButton', () => {
   })
 
   test('a run that creates nothing says so rather than staying silent', async () => {
-    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ created: 0, kept: 12 }) } as Response)
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ created: 0, kept: 12 }),
+    } as Response)
 
     renderButton()
     await userEvent.click(screen.getByRole('button', { name: /Catégories de départ/ }))

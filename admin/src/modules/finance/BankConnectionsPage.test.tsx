@@ -82,7 +82,9 @@ describe('BankConnectionsPage', () => {
 
     // Answering no touches nothing.
     expect(
-      fetchMock.mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === 'DELETE'),
+      fetchMock.mock.calls.some(
+        ([, init]) => (init as RequestInit | undefined)?.method === 'DELETE',
+      ),
     ).toBe(false)
   })
 

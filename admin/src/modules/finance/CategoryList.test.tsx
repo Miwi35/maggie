@@ -1,4 +1,4 @@
-import { describe, test, expect } from 'vitest'
+import { describe, test, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AdminContext, ResourceContextProvider, testDataProvider } from 'react-admin'
@@ -48,6 +48,23 @@ describe('CategoryList', () => {
     expect(await screen.findByRole('tab', { name: 'Catégories' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Règles de catégorisation' })).toBeInTheDocument()
     expect(await screen.findByText('Alimentation')).toBeInTheDocument()
+  })
+
+  test('every tab opens onto something — an empty panel is a dead end', async () => {
+    const user = userEvent.setup()
+    // The suggestions panel asks the API for itself.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ suggestions: [] }) } as Response),
+    )
+
+    renderPage()
+
+    await user.click(await screen.findByRole('tab', { name: 'Suggestions' }))
+
+    expect(await screen.findByText(/Rien à proposer/)).toBeInTheDocument()
+
+    vi.unstubAllGlobals()
   })
 
   test('switching to the rules tab lists the rules', async () => {

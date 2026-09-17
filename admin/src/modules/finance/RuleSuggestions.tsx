@@ -1,52 +1,52 @@
-import { useCallback, useEffect, useState } from "react";
-import Alert from "@mui/material/Alert";
-import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
-import Checkbox from "@mui/material/Checkbox";
-import LinearProgress from "@mui/material/LinearProgress";
-import MenuItem from "@mui/material/MenuItem";
-import Stack from "@mui/material/Stack";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableHead from "@mui/material/TableHead";
-import TableRow from "@mui/material/TableRow";
-import TextField from "@mui/material/TextField";
-import Tooltip from "@mui/material/Tooltip";
-import Typography from "@mui/material/Typography";
-import { useGetList, useNotify } from "react-admin";
-import { Placeholder } from "../../components/list/ListEmpty";
-import { Amount } from "./AmountField";
+import { useCallback, useEffect, useState } from 'react'
+import Alert from '@mui/material/Alert'
+import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import Card from '@mui/material/Card'
+import CardContent from '@mui/material/CardContent'
+import Checkbox from '@mui/material/Checkbox'
+import LinearProgress from '@mui/material/LinearProgress'
+import MenuItem from '@mui/material/MenuItem'
+import Stack from '@mui/material/Stack'
+import Table from '@mui/material/Table'
+import TableBody from '@mui/material/TableBody'
+import TableCell from '@mui/material/TableCell'
+import TableHead from '@mui/material/TableHead'
+import TableRow from '@mui/material/TableRow'
+import TextField from '@mui/material/TextField'
+import Tooltip from '@mui/material/Tooltip'
+import Typography from '@mui/material/Typography'
+import { useGetList, useNotify } from 'react-admin'
+import { Placeholder } from '../../components/list/ListEmpty'
+import { Amount } from './AmountField'
 
 interface Suggestion {
-  pattern: string;
-  occurrences: number;
-  totalCents: number;
-  direction: string;
-  categoryId: string | null;
-  categoryName: string | null;
-  samples: string[];
+  pattern: string
+  occurrences: number
+  totalCents: number
+  direction: string
+  categoryId: string | null
+  categoryName: string | null
+  samples: string[]
 }
 
 interface Choice {
-  selected: boolean;
-  categoryId: string;
+  selected: boolean
+  categoryId: string
 }
 
 const authHeaders = (extra: Record<string, string> = {}) => {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem('token')
 
   return {
-    Accept: "application/json",
+    Accept: 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...extra,
-  };
-};
+  }
+}
 
 /** React-admin hands back categories as IRIs; the API wants the bare id. */
-const idOf = (iri: string) => iri.split("/").pop() ?? iri;
+const idOf = (iri: string) => iri.split('/').pop() ?? iri
 
 /**
  * The rules the statement already implies.
@@ -56,26 +56,26 @@ const idOf = (iri: string) => iri.split("/").pop() ?? iri;
  * that come back, what they cost, and a heading where it is obvious.
  */
 export const RuleSuggestions = () => {
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [choices, setChoices] = useState<Record<string, Choice>>({});
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const notify = useNotify();
-  const { data: categories } = useGetList("categories", {
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
+  const [choices, setChoices] = useState<Record<string, Choice>>({})
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const notify = useNotify()
+  const { data: categories } = useGetList('categories', {
     pagination: { page: 1, perPage: 200 },
-  });
+  })
 
   const load = useCallback(async () => {
-    setLoading(true);
+    setLoading(true)
     try {
-      const res = await fetch("/api/finance/categorization-rules/suggestions", {
+      const res = await fetch('/api/finance/categorization-rules/suggestions', {
         headers: authHeaders(),
-      });
+      })
       if (!res.ok) {
-        return;
+        return
       }
-      const body = (await res.json()) as { suggestions: Suggestion[] };
-      setSuggestions(body.suggestions);
+      const body = (await res.json()) as { suggestions: Suggestion[] }
+      setSuggestions(body.suggestions)
       setChoices(
         Object.fromEntries(
           body.suggestions.map((suggestion) => [
@@ -84,41 +84,40 @@ export const RuleSuggestions = () => {
             // question, and a question should not answer itself.
             {
               selected: suggestion.categoryId !== null,
-              categoryId: suggestion.categoryId ?? "",
+              categoryId: suggestion.categoryId ?? '',
             },
           ]),
         ),
-      );
+      )
     } catch {
-      notify("Les suggestions sont indisponibles", { type: "error" });
+      notify('Les suggestions sont indisponibles', { type: 'error' })
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }, [notify]);
+  }, [notify])
 
   useEffect(() => {
-    load();
-  }, [load]);
+    load()
+  }, [load])
 
   const update = (pattern: string, change: Partial<Choice>) => {
     setChoices((current) => ({
       ...current,
       [pattern]: { ...current[pattern], ...change },
-    }));
-  };
+    }))
+  }
 
   const kept = suggestions.filter(
     (suggestion) =>
-      choices[suggestion.pattern]?.selected &&
-      choices[suggestion.pattern]?.categoryId,
-  );
+      choices[suggestion.pattern]?.selected && choices[suggestion.pattern]?.categoryId,
+  )
 
   const onCreate = async () => {
-    setSaving(true);
+    setSaving(true)
     try {
-      const res = await fetch("/api/finance/categorization-rules/suggestions", {
-        method: "POST",
-        headers: authHeaders({ "Content-Type": "application/json" }),
+      const res = await fetch('/api/finance/categorization-rules/suggestions', {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           rules: kept.map((suggestion) => ({
             pattern: suggestion.pattern,
@@ -126,32 +125,31 @@ export const RuleSuggestions = () => {
             direction: suggestion.direction,
           })),
         }),
-      });
+      })
 
       if (!res.ok) {
-        notify("Les règles n'ont pas pu être créées", { type: "error" });
+        notify("Les règles n'ont pas pu être créées", { type: 'error' })
 
-        return;
+        return
       }
 
       const result = (await res.json()) as {
-        created: number;
-        categorized: number;
-      };
-      notify(
-        `${result.created} règle(s) créée(s), ${result.categorized} opération(s) rangée(s).`,
-        { type: "info" },
-      );
-      await load();
+        created: number
+        categorized: number
+      }
+      notify(`${result.created} règle(s) créée(s), ${result.categorized} opération(s) rangée(s).`, {
+        type: 'info',
+      })
+      await load()
     } catch {
-      notify("Les règles n'ont pas pu être créées", { type: "error" });
+      notify("Les règles n'ont pas pu être créées", { type: 'error' })
     } finally {
-      setSaving(false);
+      setSaving(false)
     }
-  };
+  }
 
   if (loading) {
-    return <LinearProgress />;
+    return <LinearProgress />
   }
 
   if (suggestions.length === 0) {
@@ -164,7 +162,7 @@ export const RuleSuggestions = () => {
           />
         </CardContent>
       </Card>
-    );
+    )
   }
 
   return (
@@ -174,9 +172,9 @@ export const RuleSuggestions = () => {
           Règles déduites de vos opérations
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Chaque ligne est un commerçant qui revient dans vos relevés. Vérifiez
-          la catégorie, décochez ce que vous ne voulez pas, et les règles
-          retenues seront appliquées à l'historique dans la foulée.
+          Chaque ligne est un commerçant qui revient dans vos relevés. Vérifiez la catégorie,
+          décochez ce que vous ne voulez pas, et les règles retenues seront appliquées à
+          l'historique dans la foulée.
         </Typography>
 
         {kept.length === 0 && (
@@ -185,7 +183,7 @@ export const RuleSuggestions = () => {
           </Alert>
         )}
 
-        <Box sx={{ overflowX: "auto" }}>
+        <Box sx={{ overflowX: 'auto' }}>
           <Table size="small">
             <TableHead>
               <TableRow>
@@ -210,14 +208,8 @@ export const RuleSuggestions = () => {
                     />
                   </TableCell>
                   <TableCell>
-                    <Tooltip
-                      title={suggestion.samples.join(" · ")}
-                      placement="top-start"
-                    >
-                      <Typography
-                        variant="body2"
-                        sx={{ fontFamily: "monospace" }}
-                      >
+                    <Tooltip title={suggestion.samples.join(' · ')} placement="top-start">
+                      <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
                         {suggestion.pattern}
                       </Typography>
                     </Tooltip>
@@ -231,7 +223,7 @@ export const RuleSuggestions = () => {
                       select
                       size="small"
                       fullWidth
-                      value={choices[suggestion.pattern]?.categoryId ?? ""}
+                      value={choices[suggestion.pattern]?.categoryId ?? ''}
                       onChange={(e) =>
                         update(suggestion.pattern, {
                           categoryId: e.target.value,
@@ -243,10 +235,7 @@ export const RuleSuggestions = () => {
                         <em>À choisir</em>
                       </MenuItem>
                       {(categories ?? []).map((category) => (
-                        <MenuItem
-                          key={category.id as string}
-                          value={idOf(category.id as string)}
-                        >
+                        <MenuItem key={category.id as string} value={idOf(category.id as string)}>
                           {category.name as string}
                         </MenuItem>
                       ))}
@@ -259,15 +248,11 @@ export const RuleSuggestions = () => {
         </Box>
 
         <Stack direction="row" justifyContent="flex-end" sx={{ mt: 2 }}>
-          <Button
-            variant="contained"
-            onClick={onCreate}
-            disabled={kept.length === 0 || saving}
-          >
-            {saving ? "Création…" : `Créer ${kept.length} règle(s)`}
+          <Button variant="contained" onClick={onCreate} disabled={kept.length === 0 || saving}>
+            {saving ? 'Création…' : `Créer ${kept.length} règle(s)`}
           </Button>
         </Stack>
       </CardContent>
     </Card>
-  );
-};
+  )
+}
