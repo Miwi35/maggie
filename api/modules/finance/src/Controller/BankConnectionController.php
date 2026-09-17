@@ -9,6 +9,7 @@ use Maggie\Finance\Bank\EnableBanking\EnableBankingClient;
 use Maggie\Finance\Entity\BankConnection;
 use Maggie\Finance\Repository\BankConnectionRepository;
 use Maggie\Finance\UseCase\StartBankAuthorization;
+use Maggie\Finance\UseCase\SyncBankAccounts;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -22,6 +23,7 @@ final class BankConnectionController
         private readonly EnableBankingClient $client,
         private readonly StartBankAuthorization $startBankAuthorization,
         private readonly BankConnectionRepository $connectionRepository,
+        private readonly SyncBankAccounts $syncBankAccounts,
     ) {
     }
 
@@ -76,6 +78,35 @@ final class BankConnectionController
                 $this->connectionRepository->findByUser($user),
             ),
         ]);
+    }
+
+    /**
+     * Pulls the movements of every connected account.
+     *
+     * The request carries who is asking: a person is waiting on the answer,
+     * and banks exempt those calls from the daily ceiling they apply to
+     * background fetching.
+     */
+    #[Route('/api/finance/bank-connections/sync', name: 'api_finance_bank_sync', methods: ['POST'])]
+    public function sync(Request $request): JsonResponse
+    {
+        $user = $this->security->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $psuHeaders = array_filter([
+            'psu-ip-address' => $request->getClientIp(),
+            'psu-user-agent' => $request->headers->get('User-Agent'),
+        ], static fn (?string $value) => $value !== null && $value !== '');
+
+        try {
+            $result = $this->syncBankAccounts->execute($user, false, $psuHeaders);
+        } catch (\RuntimeException $e) {
+            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_BAD_GATEWAY);
+        }
+
+        return new JsonResponse(['success' => true] + $result);
     }
 
     /** Opens the consent journey and hands back where to send the user. */

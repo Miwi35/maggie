@@ -49,6 +49,20 @@ function authHeaders(extra: Record<string, string> = {}) {
   }
 }
 
+export interface SyncResult {
+  imported: number
+  skipped: number
+  providerCalls: number
+  accounts: {
+    bankName?: string
+    accountName?: string
+    status: string
+    imported?: number
+    skipped?: number
+    message?: string
+  }[]
+}
+
 export function useBankConnections() {
   const [connections, setConnections] = useState<BankConnection[]>([])
   const [banks, setBanks] = useState<Bank[]>([])
@@ -103,9 +117,31 @@ export function useBankConnections() {
     }
   }, [])
 
+  /**
+   * Pulls what the banks have. Triggered by hand rather than on a timer:
+   * every fetch spends part of the bank's daily allowance.
+   */
+  const sync = useCallback(async (): Promise<SyncResult | null> => {
+    try {
+      const res = await fetch('/api/finance/bank-connections/sync', {
+        method: 'POST',
+        headers: authHeaders(),
+      })
+      if (!res.ok) {
+        return null
+      }
+      const result = (await res.json()) as SyncResult
+      await refresh()
+
+      return result
+    } catch {
+      return null
+    }
+  }, [refresh])
+
   useEffect(() => {
     refresh()
   }, [refresh])
 
-  return { connections, banks, loading, banksError, refresh, loadBanks, connect }
+  return { connections, banks, loading, banksError, refresh, loadBanks, connect, sync }
 }

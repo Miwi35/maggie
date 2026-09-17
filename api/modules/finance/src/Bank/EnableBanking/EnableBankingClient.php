@@ -74,6 +74,10 @@ class EnableBankingClient
      * One page of movements. The provider paginates with a continuation key
      * rather than an offset, so the caller loops until it stops sending one.
      *
+     * @param array<string, string> $psuHeaders Sent when a person is waiting on
+     *                                          the answer, which exempts the
+     *                                          call from the bank's daily cap.
+     *
      * @return array<string, mixed>
      */
     public function listTransactions(
@@ -81,6 +85,7 @@ class EnableBankingClient
         ?\DateTimeImmutable $from = null,
         ?\DateTimeImmutable $to = null,
         ?string $continuationKey = null,
+        array $psuHeaders = [],
     ): array {
         $query = array_filter([
             'date_from' => $from?->format('Y-m-d'),
@@ -92,25 +97,37 @@ class EnableBankingClient
             'GET',
             sprintf('/accounts/%s/transactions', urlencode($accountId)),
             ['query' => $query],
+            $psuHeaders,
         );
     }
 
     /**
-     * @param array<string, mixed> $options
+     * @param array<string, mixed>  $options
+     * @param array<string, string> $psuHeaders
      *
      * @return array<string, mixed>
      */
-    private function request(string $method, string $path, array $options = []): array
+    private function request(string $method, string $path, array $options = [], array $psuHeaders = []): array
     {
         $response = $this->httpClient->request($method, $this->baseUrl . $path, array_merge($options, [
-            'headers' => [
+            'headers' => array_merge([
                 'Authorization' => 'Bearer ' . $this->createToken(),
                 'Accept' => 'application/json',
-            ],
+            ], $psuHeaders),
         ]));
 
         $status = $response->getStatusCode();
         $body = $response->toArray(throw: false);
+
+        if ($status === 429) {
+            // The bank's own ceiling, not the provider's: most allow four
+            // fetches a day without the user present. Retrying now would only
+            // burn what is left, so say so and stop.
+            throw new RateLimitedException(sprintf(
+                'The bank refused a further fetch for now (%s). Most banks allow four a day without the user present; try again in a few hours.',
+                $body['error'] ?? 'rate limited',
+            ));
+        }
 
         if ($status >= 400) {
             throw new \RuntimeException(sprintf(

@@ -75,12 +75,13 @@ const ConnectionRow = ({ connection }: { connection: BankConnection }) => {
 }
 
 export const BankConnectionsPage = () => {
-  const { connections, banks, loading, banksError, refresh, loadBanks, connect } =
+  const { connections, banks, loading, banksError, refresh, loadBanks, connect, sync } =
     useBankConnections()
   const [searchParams, setSearchParams] = useSearchParams()
   const [country, setCountry] = useState('FR')
   const [bankName, setBankName] = useState<string | null>(null)
   const [connecting, setConnecting] = useState(false)
+  const [syncing, setSyncing] = useState(false)
   const notify = useNotify()
 
   const outcome = searchParams.get('outcome')
@@ -105,6 +106,34 @@ export const BankConnectionsPage = () => {
 
     // The consent happens at the bank, so we hand the browser over.
     window.location.assign(url)
+  }
+
+  const onSync = async () => {
+    setSyncing(true)
+    const result = await sync()
+    setSyncing(false)
+
+    if (result === null) {
+      notify('La synchronisation a échoué', { type: 'error' })
+
+      return
+    }
+
+    const refused = result.accounts.find((account) => account.status === 'rate_limited')
+    if (refused) {
+      notify(refused.message ?? 'La banque a refusé une récupération de plus pour le moment.', {
+        type: 'warning',
+      })
+
+      return
+    }
+
+    notify(
+      result.imported > 0
+        ? `${result.imported} opération(s) importée(s), ${result.skipped} déjà présente(s).`
+        : 'Aucune nouvelle opération.',
+      { type: 'info' },
+    )
   }
 
   return (
@@ -187,9 +216,16 @@ export const BankConnectionsPage = () => {
 
       <Card>
         <CardContent>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-            Banques connectées
-          </Typography>
+          <Stack direction="row" alignItems="center" sx={{ mb: 1 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, flexGrow: 1 }}>
+              Banques connectées
+            </Typography>
+            {connections.length > 0 && (
+              <Button size="small" onClick={onSync} disabled={syncing}>
+                {syncing ? 'Récupération…' : 'Récupérer les opérations'}
+              </Button>
+            )}
+          </Stack>
 
           {loading && connections.length === 0 && <LinearProgress />}
 
