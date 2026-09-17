@@ -95,7 +95,7 @@ services:
       - php
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.maggie-api.rule=PathPrefix(`/api`) || PathPrefix(`/_mcp`) || PathPrefix(`/bundles`)"
+      - "traefik.http.routers.maggie-api.rule=PathPrefix(`/api`) || PathPrefix(`/_mcp`) || PathPrefix(`/bundles`) || Path(`/privacy`) || Path(`/terms`)"
       - "traefik.http.routers.maggie-api.entrypoints=websecure"
       - "traefik.http.routers.maggie-api.tls=true"
       - "traefik.http.services.maggie-api.loadbalancer.server.port=80"

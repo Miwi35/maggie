@@ -43,6 +43,18 @@ server {
     }
 
     # ==========================================================================
+    # Legal pages — public by design: the bank data provider shows these to the
+    # user during the consent journey, so they must answer without auth.
+    # ==========================================================================
+    location = /privacy {
+        try_files /legal/privacy.html =404;
+    }
+
+    location = /terms {
+        try_files /legal/terms.html =404;
+    }
+
+    # ==========================================================================
     # API Routes (Symfony)
     # ==========================================================================
     location /api {
