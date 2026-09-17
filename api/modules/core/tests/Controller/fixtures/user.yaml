@@ -1,0 +1,5 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: preference-test@example.com
+    googleId: google-preference-test
+    name: Preference Test User

@@ -4,22 +4,22 @@ namespace Maggie\Core\Entity;
 
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Get;
-use ApiPlatform\Metadata\Patch;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Core\Contract\OwnedByUserInterface;
 use Maggie\Core\Repository\UserPreferenceRepository;
-use Maggie\Core\State\UpdateUserPreferenceProcessor;
 use Maggie\Core\State\UserPreferenceItemProvider;
 use Symfony\Component\Uid\Ulid;
 
 #[ORM\Entity(repositoryClass: UserPreferenceRepository::class)]
 #[ORM\UniqueConstraint(name: 'uniq_user_preference_user', columns: ['user_id'])]
+// Writes go through UpdateUserPreferenceController: an API Platform PATCH on
+// an identifier-less operation builds a fresh object instead of populating the
+// provider's, which used to make every update fail.
 #[ApiResource(operations: [
     new Get(uriTemplate: '/user_preferences/me', provider: UserPreferenceItemProvider::class),
-    new Patch(uriTemplate: '/user_preferences/me', provider: UserPreferenceItemProvider::class, processor: UpdateUserPreferenceProcessor::class),
 ])]
 class UserPreference implements MercurePublishable, OwnedByUserInterface
 {

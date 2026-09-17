@@ -1,0 +1,15 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: preference-test@example.com
+    googleId: google-preference-test
+    name: Preference Test User
+
+Maggie\Core\Entity\UserPreference:
+  preference:
+    theme: system
+    locale: fr
+    timezone: Europe/Paris
+    defaultCalendarView: month
+    enabledAgendaIds: ['agenda-1']
+    notificationsEnabled: true
+    user: '@test_user'
