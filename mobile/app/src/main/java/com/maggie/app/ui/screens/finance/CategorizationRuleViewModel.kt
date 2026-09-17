@@ -101,4 +101,8 @@ class CategorizationRuleViewModel(
     fun clearApplyMessage() {
         _uiState.value = _uiState.value.copy(lastApplyMessage = null)
     }
+
+    fun clearError() {
+        _uiState.value = _uiState.value.copy(error = null)
+    }
 }

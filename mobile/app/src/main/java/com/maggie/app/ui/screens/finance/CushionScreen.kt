@@ -45,6 +45,7 @@ import com.maggie.app.data.model.CushionStatus
 import com.maggie.app.data.model.cushionStateLabel
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.rechargePlanLabel
+import com.maggie.app.ui.components.ErrorSnackbar
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -62,6 +63,13 @@ fun CushionScreen(
             viewModel.clearSavedMessage()
         }
     }
+
+    ErrorSnackbar(
+        error = uiState.error,
+        snackbarHostState = snackbarHostState,
+        onDismiss = viewModel::clearError,
+        onRetry = viewModel::refresh,
+    )
 
     Scaffold(
         topBar = {

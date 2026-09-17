@@ -25,6 +25,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -39,6 +41,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.CategoryCreateRequest
 import com.maggie.app.data.model.obligationLabel
+import com.maggie.app.ui.components.EmptyState
+import com.maggie.app.ui.components.ErrorSnackbar
 
 private val OBLIGATIONS = listOf("mandatory", "optional", "saving", "investment")
 
@@ -50,7 +54,15 @@ fun CategoryListScreen(
     onOpenRules: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
     var showCreateDialog by remember { mutableStateOf(false) }
+
+    ErrorSnackbar(
+        error = uiState.error,
+        snackbarHostState = snackbarHostState,
+        onDismiss = viewModel::clearError,
+        onRetry = viewModel::refresh,
+    )
 
     Scaffold(
         topBar = {
@@ -71,6 +83,7 @@ fun CategoryListScreen(
                 },
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(onClick = { showCreateDialog = true }) {
                 Icon(Icons.Default.Add, contentDescription = "Nouvelle catégorie")
@@ -87,12 +100,13 @@ fun CategoryListScreen(
                 }
             }
             uiState.categories.isEmpty() -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("Aucune catégorie", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                EmptyState(
+                    modifier = Modifier.padding(paddingValues),
+                    title = "Aucune catégorie pour l'instant",
+                    description = "Les catégories portent les budgets, les règles et la revue mensuelle. Commencez par celles où va l'essentiel de votre argent.",
+                    actionLabel = "Créer une catégorie",
+                    onAction = { showCreateDialog = true },
+                )
             }
             else -> {
                 LazyColumn(

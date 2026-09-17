@@ -15,8 +15,9 @@ import {
 } from 'react-admin'
 import { useParams } from 'react-router-dom'
 import { useMercure } from '../../hooks/useMercure'
+import { FinancePlaceholder } from './FinanceEmpty'
 import { TRANSACTION_STATUS_LABELS } from './transactionStatuses'
-import { formatCents } from './accountTypes'
+import { Amount } from './AmountField'
 import type { RaRecord } from 'react-admin'
 
 const TRANSACTION_TOPICS = ['/api/transactions/{id}']
@@ -31,7 +32,14 @@ const TransactionDatagrid = () => {
       <TextField source="label" label="Libellé" />
       <FunctionField
         label="Montant"
-        render={(record: RaRecord) => formatCents(record.amountCents as number, record.currency as string)}
+        textAlign="right"
+        render={(record: RaRecord) => (
+          <Amount
+            cents={record.amountCents as number}
+            currency={record.currency as string}
+            signed
+          />
+        )}
       />
       <ReferenceField source="category" reference="categories" label="Catégorie" link={false}>
         <TextField source="name" />
@@ -72,6 +80,12 @@ export const AccountTransactionsView = () => {
       <List
         resource="transactions"
         filter={{ accountId: id }}
+        empty={
+          <FinancePlaceholder
+            title="Aucune opération sur ce compte"
+            description="Ajoutez-en une, ou attendez la prochaine synchronisation si ce compte est alimenté automatiquement."
+          />
+        }
         actions={actions}
         disableSyncWithLocation
         sort={{ field: 'bookedAt', order: 'DESC' }}

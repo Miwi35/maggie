@@ -9,7 +9,9 @@ import {
   useListContext,
 } from 'react-admin'
 import { useMercure } from '../../hooks/useMercure'
-import { ACCOUNT_TYPE_LABELS, formatCents } from './accountTypes'
+import { FinanceEmpty } from './FinanceEmpty'
+import { ACCOUNT_TYPE_LABELS } from './accountTypes'
+import { Amount } from './AmountField'
 import type { RaRecord } from 'react-admin'
 
 const ACCOUNT_TOPICS = ['/api/accounts/{id}']
@@ -28,7 +30,14 @@ const AccountDatagrid = () => {
       />
       <FunctionField
         label="Solde"
-        render={(record: RaRecord) => formatCents(record.balanceCents as number, record.currency as string)}
+        textAlign="right"
+        render={(record: RaRecord) => (
+          <Amount
+            cents={record.balanceCents as number}
+            currency={record.currency as string}
+            bold
+          />
+        )}
       />
       <BooleanField source="isCushion" label="Matelas" />
       <EditButton />
@@ -38,7 +47,15 @@ const AccountDatagrid = () => {
 }
 
 export const AccountList = () => (
-  <List>
+  <List
+    empty={
+      <FinanceEmpty
+        title="Aucun compte pour l'instant"
+        description="Ajoutez vos comptes courants et vos livrets : c'est d'eux que partent les opérations, le matelas et la vue d'ensemble."
+        action="Ajouter un compte"
+      />
+    }
+  >
     <AccountDatagrid />
   </List>
 )

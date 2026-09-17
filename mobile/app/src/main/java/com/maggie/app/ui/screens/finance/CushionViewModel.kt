@@ -59,4 +59,8 @@ class CushionViewModel(
     fun clearSavedMessage() {
         _uiState.value = _uiState.value.copy(savedMessage = null)
     }
+
+    fun clearError() {
+        _uiState.value = _uiState.value.copy(error = null)
+    }
 }

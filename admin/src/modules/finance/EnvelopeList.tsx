@@ -9,7 +9,8 @@ import {
   useListContext,
 } from 'react-admin'
 import { useMercure } from '../../hooks/useMercure'
-import { formatCents } from './accountTypes'
+import { FinanceEmpty } from './FinanceEmpty'
+import { Amount } from './AmountField'
 import { BUDGET_MODE_LABELS, formatPeriod } from './budgetModes'
 import { BudgetStatusPanel } from './BudgetStatusPanel'
 import type { RaRecord } from 'react-admin'
@@ -37,7 +38,10 @@ const EnvelopeDatagrid = () => {
       />
       <FunctionField
         label="Budget"
-        render={(record: RaRecord) => formatCents(record.amountCents as number, record.currency as string)}
+        textAlign="right"
+        render={(record: RaRecord) => (
+          <Amount cents={record.amountCents as number} currency={record.currency as string} />
+        )}
       />
       <EditButton />
       <DeleteButton />
@@ -48,7 +52,16 @@ const EnvelopeDatagrid = () => {
 export const EnvelopeList = () => (
   <>
     <BudgetStatusPanel />
-    <List sort={{ field: 'year', order: 'DESC' }}>
+    <List
+      empty={
+        <FinanceEmpty
+          title="Aucune enveloppe pour l'instant"
+          description="Une enveloppe fixe ce que vous vous autorisez sur une catégorie, et les dépenses s'en déduisent au fil du mois."
+          action="Créer une enveloppe"
+        />
+      }
+      sort={{ field: 'year', order: 'DESC' }}
+    >
       <EnvelopeDatagrid />
     </List>
   </>

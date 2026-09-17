@@ -47,6 +47,8 @@ import com.maggie.app.data.api.CategorizationRuleCreateRequest
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.describeRuleScope
 import com.maggie.app.data.model.matchTypeLabel
+import com.maggie.app.ui.components.EmptyState
+import com.maggie.app.ui.components.ErrorSnackbar
 
 private val MATCH_TYPES = listOf("contains", "starts_with", "equals")
 
@@ -66,6 +68,13 @@ fun CategorizationRuleListScreen(
             viewModel.clearApplyMessage()
         }
     }
+
+    ErrorSnackbar(
+        error = uiState.error,
+        snackbarHostState = snackbarHostState,
+        onDismiss = viewModel::clearError,
+        onRetry = viewModel::refresh,
+    )
 
     Scaffold(
         topBar = {
@@ -100,12 +109,13 @@ fun CategorizationRuleListScreen(
                 }
             }
             uiState.rules.isEmpty() -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("Aucune règle", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                EmptyState(
+                    modifier = Modifier.padding(paddingValues),
+                    title = "Aucune règle pour l'instant",
+                    description = "Une règle classe toute seule les opérations dont le libellé correspond, et vaut aussi pour l'historique.",
+                    actionLabel = "Écrire une règle",
+                    onAction = { showCreateDialog = true },
+                )
             }
             else -> {
                 LazyColumn(

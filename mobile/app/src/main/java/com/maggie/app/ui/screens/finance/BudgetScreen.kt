@@ -61,6 +61,7 @@ import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.monthLabel
 import com.maggie.app.data.model.reasonText
 import com.maggie.app.data.model.scoreLabel
+import com.maggie.app.ui.components.ErrorSnackbar
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -80,6 +81,13 @@ fun BudgetScreen(
             viewModel.clearRollOverMessage()
         }
     }
+
+    ErrorSnackbar(
+        error = uiState.error,
+        snackbarHostState = snackbarHostState,
+        onDismiss = viewModel::clearError,
+        onRetry = viewModel::refresh,
+    )
 
     Scaffold(
         topBar = {

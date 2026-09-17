@@ -27,6 +27,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -43,6 +45,8 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.AccountCreateRequest
 import com.maggie.app.data.model.accountTypeLabel
 import com.maggie.app.data.model.formatCents
+import com.maggie.app.ui.components.EmptyState
+import com.maggie.app.ui.components.ErrorSnackbar
 import kotlin.math.roundToInt
 
 private val ACCOUNT_TYPES = listOf("checking", "savings", "investment", "cash")
@@ -55,7 +59,15 @@ fun AccountListScreen(
     onOpenAccount: (accountId: String, accountName: String) -> Unit = { _, _ -> },
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
     var showCreateDialog by remember { mutableStateOf(false) }
+
+    ErrorSnackbar(
+        error = uiState.error,
+        snackbarHostState = snackbarHostState,
+        onDismiss = viewModel::clearError,
+        onRetry = viewModel::refresh,
+    )
 
     Scaffold(
         topBar = {
@@ -68,6 +80,7 @@ fun AccountListScreen(
                 },
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(onClick = { showCreateDialog = true }) {
                 Icon(Icons.Default.Add, contentDescription = "Nouveau compte")
@@ -84,12 +97,13 @@ fun AccountListScreen(
                 }
             }
             uiState.accounts.isEmpty() -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("Aucun compte", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                EmptyState(
+                    modifier = Modifier.padding(paddingValues),
+                    title = "Aucun compte pour l'instant",
+                    description = "Ajoutez vos comptes courants et vos livrets : c'est d'eux que partent les opérations et le matelas.",
+                    actionLabel = "Ajouter un compte",
+                    onAction = { showCreateDialog = true },
+                )
             }
             else -> {
                 LazyColumn(

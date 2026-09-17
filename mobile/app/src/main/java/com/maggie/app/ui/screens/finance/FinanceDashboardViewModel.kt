@@ -50,4 +50,8 @@ class FinanceDashboardViewModel(
         _uiState.value = state.copy(year = shifted.year, month = shifted.monthValue)
         refresh()
     }
+
+    fun clearError() {
+        _uiState.value = _uiState.value.copy(error = null)
+    }
 }

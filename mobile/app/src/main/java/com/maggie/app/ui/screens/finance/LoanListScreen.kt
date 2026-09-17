@@ -26,6 +26,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -44,6 +46,8 @@ import com.maggie.app.data.model.DebtTimeline
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.formatLoanMonth
 import com.maggie.app.data.model.formatRate
+import com.maggie.app.ui.components.EmptyState
+import com.maggie.app.ui.components.ErrorSnackbar
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,7 +57,15 @@ fun LoanListScreen(
     onBack: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
     var showCreateDialog by remember { mutableStateOf(false) }
+
+    ErrorSnackbar(
+        error = uiState.error,
+        snackbarHostState = snackbarHostState,
+        onDismiss = viewModel::clearError,
+        onRetry = viewModel::refresh,
+    )
 
     Scaffold(
         topBar = {
@@ -66,6 +78,7 @@ fun LoanListScreen(
                 },
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(onClick = { showCreateDialog = true }) {
                 Icon(Icons.Default.Add, contentDescription = "Nouveau prêt")
@@ -82,12 +95,13 @@ fun LoanListScreen(
                 }
             }
             uiState.loans.isEmpty() -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("Aucun prêt", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                EmptyState(
+                    modifier = Modifier.padding(paddingValues),
+                    title = "Aucun prêt enregistré",
+                    description = "Renseignez vos crédits en cours pour savoir quand chaque mensualité se libère.",
+                    actionLabel = "Ajouter un prêt",
+                    onAction = { showCreateDialog = true },
+                )
             }
             else -> {
                 LazyColumn(

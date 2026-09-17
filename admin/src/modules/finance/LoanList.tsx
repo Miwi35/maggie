@@ -8,7 +8,8 @@ import {
   useListContext,
 } from 'react-admin'
 import { useMercure } from '../../hooks/useMercure'
-import { formatCents } from './accountTypes'
+import { FinanceEmpty } from './FinanceEmpty'
+import { Amount } from './AmountField'
 import { DebtTimelinePanel } from './DebtTimelinePanel'
 import { formatRate } from './loans'
 import type { RaRecord } from 'react-admin'
@@ -25,15 +26,23 @@ const LoanDatagrid = () => {
       <TextField source="lender" label="Organisme" />
       <FunctionField
         label="Capital restant"
-        render={(record: RaRecord) =>
-          formatCents(record.principalRemainingCents as number, record.currency as string)
-        }
+        textAlign="right"
+        render={(record: RaRecord) => (
+          <Amount
+            cents={record.principalRemainingCents as number}
+            currency={record.currency as string}
+          />
+        )}
       />
       <FunctionField
         label="Mensualité"
-        render={(record: RaRecord) =>
-          formatCents(record.monthlyPaymentCents as number, record.currency as string)
-        }
+        textAlign="right"
+        render={(record: RaRecord) => (
+          <Amount
+            cents={record.monthlyPaymentCents as number}
+            currency={record.currency as string}
+          />
+        )}
       />
       <FunctionField
         label="Taux"
@@ -49,7 +58,16 @@ const LoanDatagrid = () => {
 export const LoanList = () => (
   <>
     <DebtTimelinePanel />
-    <List sort={{ field: 'priority', order: 'DESC' }}>
+    <List
+      empty={
+        <FinanceEmpty
+          title="Aucun prêt enregistré"
+          description="Renseignez vos crédits en cours pour savoir quand chaque mensualité se libère, et ce qu'il vous reste vraiment à épargner."
+          action="Ajouter un prêt"
+        />
+      }
+      sort={{ field: 'priority', order: 'DESC' }}
+    >
       <LoanDatagrid />
     </List>
   </>
