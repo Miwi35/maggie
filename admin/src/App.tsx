@@ -2,7 +2,7 @@ import { HydraAdmin, fetchHydra, hydraDataProvider } from '@api-platform/admin'
 import { parseHydraDocumentation } from '@api-platform/api-doc-parser'
 import { radiantLightTheme, radiantDarkTheme } from 'react-admin'
 import polyglotI18nProvider from 'ra-i18n-polyglot'
-import frenchMessages from 'ra-language-french'
+import { messages } from './i18n/messages'
 import { Layout } from './components/layout/Layout'
 import { Dashboard } from './modules/dashboard'
 import { calendarResources } from './modules/calendar'
@@ -21,7 +21,7 @@ handleAuthCallback()
 
 const entrypoint = import.meta.env.VITE_API_URL || 'http://localhost/api'
 
-const i18nProvider = polyglotI18nProvider(() => frenchMessages, 'fr')
+const i18nProvider = polyglotI18nProvider(() => messages, 'fr')
 
 const getAuthHeaders = (): HeadersInit => {
   const token = localStorage.getItem('token')

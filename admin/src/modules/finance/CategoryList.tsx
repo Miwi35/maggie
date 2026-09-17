@@ -14,7 +14,7 @@ import {
 } from 'react-admin'
 import { useMercure } from '../../hooks/useMercure'
 import { CategorizationRuleList } from './CategorizationRuleList'
-import { FinanceEmpty } from './FinanceEmpty'
+import { ListEmpty } from '../../components/list/ListEmpty'
 import { OBLIGATION_LABELS } from './obligationFlags'
 import type { RaRecord } from 'react-admin'
 
@@ -59,7 +59,7 @@ export const CategoryList = () => {
         {tab === 0 && (
           <List
             empty={
-              <FinanceEmpty
+              <ListEmpty
                 title="Aucune catégorie pour l'instant"
                 description="Les catégories portent les budgets, les règles automatiques et la revue mensuelle : commencez par celles où va l'essentiel de votre argent."
                 action="Créer une catégorie"

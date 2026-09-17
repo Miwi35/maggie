@@ -8,7 +8,7 @@ import {
   required,
 } from 'react-admin'
 import { ACCOUNT_TYPE_CHOICES } from './accountTypes'
-import { FormSection } from './FormSection'
+import { FormSection } from '../../components/form/FormSection'
 import { centsInput } from './categorizationRules'
 
 const formSx = { maxWidth: 680 }

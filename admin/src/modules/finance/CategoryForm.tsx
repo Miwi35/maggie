@@ -7,7 +7,7 @@ import {
   required,
 } from 'react-admin'
 import Box from '@mui/material/Box'
-import { FormSection } from './FormSection'
+import { FormSection } from '../../components/form/FormSection'
 import { OBLIGATION_CHOICES } from './obligationFlags'
 
 const formSx = { maxWidth: 680 }

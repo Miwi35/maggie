@@ -8,6 +8,7 @@ import {
   DeleteButton,
   useListContext,
 } from 'react-admin'
+import { ListEmpty } from '../../components/list/ListEmpty'
 import { useMercure } from '../../hooks/useMercure'
 
 const PRODUCT_TOPICS = ['/api/products/{id}']
@@ -32,7 +33,15 @@ const ProductDatagrid = () => {
 }
 
 export const ProductList = () => (
-  <List>
+  <List
+    empty={
+      <ListEmpty
+        title="Aucun produit pour l'instant"
+        description="Les produits sont ce que vous ajoutez à votre liste de courses : enregistrez ceux que vous rachetez souvent."
+        action="Ajouter un produit"
+      />
+    }
+  >
     <ProductDatagrid />
   </List>
 )

@@ -7,6 +7,7 @@ import {
   DeleteButton,
   useListContext,
 } from 'react-admin'
+import { ListEmpty } from '../../components/list/ListEmpty'
 import { useMercure } from '../../hooks/useMercure'
 
 const INGREDIENT_TOPICS = ['/api/ingredients/{id}']
@@ -31,7 +32,15 @@ const IngredientDatagrid = () => {
 }
 
 export const IngredientList = () => (
-  <List>
+  <List
+    empty={
+      <ListEmpty
+        title="Aucun ingrédient pour l'instant"
+        description="Les ingrédients alimentent vos recettes et leurs valeurs nutritionnelles."
+        action="Ajouter un ingrédient"
+      />
+    }
+  >
     <IngredientDatagrid />
   </List>
 )

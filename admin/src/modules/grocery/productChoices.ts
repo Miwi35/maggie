@@ -1,0 +1,29 @@
+export const CATEGORY_CHOICES = [
+  { id: 'produce', name: 'Fruits & Légumes' },
+  { id: 'dairy', name: 'Produits laitiers' },
+  { id: 'meat', name: 'Viandes' },
+  { id: 'fish', name: 'Poissons' },
+  { id: 'grain', name: 'Céréales' },
+  { id: 'spice', name: 'Épices' },
+  { id: 'condiment', name: 'Condiments' },
+  { id: 'frozen', name: 'Surgelés' },
+  { id: 'beverage', name: 'Boissons' },
+  { id: 'household', name: 'Maison' },
+  { id: 'hygiene', name: 'Hygiène' },
+  { id: 'cleaning', name: 'Entretien' },
+  { id: 'other', name: 'Autre' },
+]
+
+export const UNIT_CHOICES = [
+  { id: 'g', name: 'g' },
+  { id: 'kg', name: 'kg' },
+  { id: 'ml', name: 'ml' },
+  { id: 'l', name: 'l' },
+  { id: 'cl', name: 'cl' },
+  { id: 'piece', name: 'pièce' },
+  { id: 'bunch', name: 'botte' },
+  { id: 'can', name: 'boîte' },
+  { id: 'bottle', name: 'bouteille' },
+  { id: 'pack', name: 'paquet' },
+  { id: 'sachet', name: 'sachet' },
+]

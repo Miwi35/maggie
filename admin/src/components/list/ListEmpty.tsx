@@ -4,7 +4,7 @@ import AddIcon from '@mui/icons-material/Add'
 import { CreateButton, useListContext } from 'react-admin'
 import type { ReactNode } from 'react'
 
-interface FinanceEmptyProps {
+interface ListEmptyProps {
   /** What is missing, as the reader would say it: "Aucun compte pour l'instant". */
   title: string
   /** Why it is worth creating one — one sentence, no filler. */
@@ -17,7 +17,7 @@ interface FinanceEmptyProps {
  * An empty list is an invitation to act, not a dead end: it says what the
  * screen is for and offers the one thing to do next.
  */
-export const FinanceEmpty = ({ title, description, action = 'Créer' }: FinanceEmptyProps) => {
+export const ListEmpty = ({ title, description, action = 'Créer' }: ListEmptyProps) => {
   const { filterValues } = useListContext()
   const isFiltered = filterValues != null && Object.keys(filterValues).length > 0
 
@@ -35,7 +35,7 @@ export const FinanceEmpty = ({ title, description, action = 'Créer' }: FinanceE
 }
 
 /** Same intent, for panels that are not a react-admin list. */
-export const FinancePlaceholder = ({
+export const Placeholder = ({
   title,
   description,
   action,

@@ -9,6 +9,7 @@ import {
   DeleteButton,
   useListContext,
 } from 'react-admin'
+import { ListEmpty } from '../../components/list/ListEmpty'
 import Chip from '@mui/material/Chip'
 import Box from '@mui/material/Box'
 import { useMercure } from '../../hooks/useMercure'
@@ -51,7 +52,15 @@ const RecipeDatagrid = () => {
 }
 
 export const RecipeList = () => (
-  <List>
+  <List
+    empty={
+      <ListEmpty
+        title="Aucune recette pour l'instant"
+        description="Enregistrez vos recettes pour les retrouver et les planifier dans les repas de la semaine."
+        action="Ajouter une recette"
+      />
+    }
+  >
     <RecipeDatagrid />
   </List>
 )

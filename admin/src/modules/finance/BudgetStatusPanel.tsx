@@ -4,17 +4,16 @@ import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import LinearProgress from '@mui/material/LinearProgress'
-import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
-import TextField from '@mui/material/TextField'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import { useNotify, useRefresh } from 'react-admin'
 import { useMercure } from '../../hooks/useMercure'
 import { DailyScoreBanner } from './DailyScoreBanner'
+import { PeriodPicker } from './PeriodPicker'
 import { formatCents } from './accountTypes'
-import { MONTH_CHOICES, consumedPercent, formatPeriod } from './budgetModes'
+import { consumedPercent, formatPeriod } from './budgetModes'
 import { useBudgetStatus } from './useBudgetStatus'
 import { useRollOverEnvelopes } from './useRollOverEnvelopes'
 import type { BudgetLine } from './useBudgetStatus'
@@ -127,49 +126,33 @@ export const BudgetStatusPanel = () => {
       <DailyScoreBanner year={year} month={month} />
       <Card sx={{ mb: 2 }}>
       <CardContent>
-        <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2, flexWrap: 'wrap' }}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={2}
+          alignItems={{ xs: 'stretch', sm: 'center' }}
+          sx={{ mb: 2 }}
+        >
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             Budgets
           </Typography>
+          <PeriodPicker
+            year={year}
+            month={month}
+            onYearChange={setYear}
+            onMonthChange={setMonth}
+          />
           <Button
             size="small"
             startIcon={<ContentCopyIcon />}
             onClick={onRollOver}
             disabled={running}
+            sx={{ flexShrink: 0 }}
           >
             Reconduire le mois précédent
           </Button>
-          <TextField
-            select
-            size="small"
-            label="Mois"
-            value={month}
-            onChange={(e) => setMonth(Number(e.target.value))}
-            sx={{ minWidth: 140 }}
-          >
-            {MONTH_CHOICES.map((c) => (
-              <MenuItem key={c.id} value={c.id}>
-                {c.name}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            type="number"
-            size="small"
-            label="Année"
-            value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
-            sx={{ width: 110 }}
-          />
         </Stack>
 
         {loading && <LinearProgress sx={{ mb: 2 }} />}
-
-        {status && status.budgets.length === 0 && (
-          <Typography variant="body2" color="text.secondary">
-            Aucune enveloppe pour cette période. Reconduisez le mois précédent ou créez-en une.
-          </Typography>
-        )}
 
         {status?.budgets.map((line) => (
           <BudgetGauge key={line.id} line={line} />

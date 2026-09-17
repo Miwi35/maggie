@@ -16,7 +16,7 @@ import {
 import Button from '@mui/material/Button'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import { useMercure } from '../../hooks/useMercure'
-import { FinanceEmpty } from './FinanceEmpty'
+import { ListEmpty } from '../../components/list/ListEmpty'
 import { MATCH_TYPE_LABELS, describeRuleScope } from './categorizationRules'
 import { useApplyCategorizationRules } from './useApplyCategorizationRules'
 import type { RaRecord } from 'react-admin'
@@ -91,7 +91,7 @@ const RuleActions = () => (
 export const CategorizationRuleList = () => (
   <List
     empty={
-      <FinanceEmpty
+      <ListEmpty
         title="Aucune règle pour l'instant"
         description="Une règle classe toute seule les opérations dont le libellé correspond — une fois écrite, elle vaut pour tout l'historique."
         action="Écrire une règle"

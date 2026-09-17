@@ -15,7 +15,7 @@ import {
 } from 'react-admin'
 import { useParams } from 'react-router-dom'
 import { useMercure } from '../../hooks/useMercure'
-import { FinancePlaceholder } from './FinanceEmpty'
+import { Placeholder } from '../../components/list/ListEmpty'
 import { TRANSACTION_STATUS_LABELS } from './transactionStatuses'
 import { Amount } from './AmountField'
 import type { RaRecord } from 'react-admin'
@@ -81,7 +81,7 @@ export const AccountTransactionsView = () => {
         resource="transactions"
         filter={{ accountId: id }}
         empty={
-          <FinancePlaceholder
+          <Placeholder
             title="Aucune opération sur ce compte"
             description="Ajoutez-en une, ou attendez la prochaine synchronisation si ce compte est alimenté automatiquement."
           />

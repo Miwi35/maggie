@@ -11,7 +11,7 @@ import {
   required,
 } from 'react-admin'
 import { MATCH_TYPE_CHOICES, DIRECTION_CHOICES, centsInput } from './categorizationRules'
-import { FormSection } from './FormSection'
+import { FormSection } from '../../components/form/FormSection'
 import { RuleSummary } from './RuleSummary'
 
 const formSx = { maxWidth: 680 }

@@ -10,7 +10,7 @@ import {
   AutocompleteInput,
   required,
 } from 'react-admin'
-import { FormSection } from './FormSection'
+import { FormSection } from '../../components/form/FormSection'
 import { centsInput } from './categorizationRules'
 import { TRANSACTION_STATUS_CHOICES } from './transactionStatuses'
 

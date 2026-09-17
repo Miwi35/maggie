@@ -9,7 +9,7 @@ import {
   useListContext,
 } from 'react-admin'
 import { useMercure } from '../../hooks/useMercure'
-import { FinanceEmpty } from './FinanceEmpty'
+import { ListEmpty } from '../../components/list/ListEmpty'
 import { Amount } from './AmountField'
 import { BUDGET_MODE_LABELS, formatPeriod } from './budgetModes'
 import { BudgetStatusPanel } from './BudgetStatusPanel'
@@ -54,7 +54,7 @@ export const EnvelopeList = () => (
     <BudgetStatusPanel />
     <List
       empty={
-        <FinanceEmpty
+        <ListEmpty
           title="Aucune enveloppe pour l'instant"
           description="Une enveloppe fixe ce que vous vous autorisez sur une catégorie, et les dépenses s'en déduisent au fil du mois."
           action="Créer une enveloppe"

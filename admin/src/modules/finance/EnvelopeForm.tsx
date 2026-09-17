@@ -11,7 +11,7 @@ import {
 } from 'react-admin'
 import { BUDGET_MODE_CHOICES, MONTH_CHOICES } from './budgetModes'
 import { EnvelopeSummary } from './EnvelopeSummary'
-import { FormSection } from './FormSection'
+import { FormSection } from '../../components/form/FormSection'
 
 const now = new Date()
 

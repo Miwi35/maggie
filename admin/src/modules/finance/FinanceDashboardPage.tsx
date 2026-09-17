@@ -3,16 +3,15 @@ import Box from '@mui/material/Box'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import LinearProgress from '@mui/material/LinearProgress'
-import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
-import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { Title } from 'react-admin'
 import { useMercure } from '../../hooks/useMercure'
 import { formatCents } from './accountTypes'
-import { MONTH_CHOICES, consumedPercent } from './budgetModes'
+import { consumedPercent } from './budgetModes'
 import { DailyScoreBanner } from './DailyScoreBanner'
 import { MonthlyFlowsChart } from './MonthlyFlowsChart'
+import { PeriodPicker } from './PeriodPicker'
 import { useFinanceDashboard } from './useFinanceDashboard'
 import type { FinanceDashboard } from './useFinanceDashboard'
 
@@ -167,31 +166,20 @@ export const FinanceDashboardPage = () => {
     <>
       <Title title="Finance" />
 
-      <Stack direction="row" spacing={2} sx={{ mb: 2, flexWrap: 'wrap' }} alignItems="center">
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={2}
+        alignItems={{ xs: 'stretch', sm: 'center' }}
+        sx={{ mb: 2 }}
+      >
         <Typography variant="h6" sx={{ flexGrow: 1 }}>
           Vue d'ensemble
         </Typography>
-        <TextField
-          select
-          size="small"
-          label="Mois"
-          value={month}
-          onChange={(e) => setMonth(Number(e.target.value))}
-          sx={{ minWidth: 140 }}
-        >
-          {MONTH_CHOICES.map((c) => (
-            <MenuItem key={c.id} value={c.id}>
-              {c.name}
-            </MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          type="number"
-          size="small"
-          label="Année"
-          value={year}
-          onChange={(e) => setYear(Number(e.target.value))}
-          sx={{ width: 110 }}
+        <PeriodPicker
+          year={year}
+          month={month}
+          onYearChange={setYear}
+          onMonthChange={setMonth}
         />
       </Stack>
 

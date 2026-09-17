@@ -1,6 +1,6 @@
 import Box from '@mui/material/Box'
 import { SimpleForm, TextInput, NumberInput, required } from 'react-admin'
-import { FormSection } from './FormSection'
+import { FormSection } from '../../components/form/FormSection'
 import { basisPointsInput, centsInput } from './loans'
 
 const formSx = { maxWidth: 680 }
