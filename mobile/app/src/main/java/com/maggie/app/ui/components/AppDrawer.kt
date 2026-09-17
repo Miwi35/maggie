@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.DateRange
@@ -76,6 +77,17 @@ fun AppDrawerContent(
             selected = currentRoute == "grocery",
             onClick = {
                 onNavigate("grocery")
+                onCloseDrawer()
+            },
+            modifier = Modifier.padding(horizontal = 12.dp),
+        )
+
+        NavigationDrawerItem(
+            icon = { Icon(Icons.Default.Insights, contentDescription = null) },
+            label = { Text("Finance") },
+            selected = currentRoute == "finance_dashboard",
+            onClick = {
+                onNavigate("finance_dashboard")
                 onCloseDrawer()
             },
             modifier = Modifier.padding(horizontal = 12.dp),

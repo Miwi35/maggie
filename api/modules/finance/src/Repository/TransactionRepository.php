@@ -149,4 +149,80 @@ class TransactionRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * Money in and money out, month by month, over a half-open period.
+     * Only consumed movements count; both figures come back positive.
+     *
+     * Grouping happens in PHP: DQL has no portable way to take the year-month
+     * out of a date, and a window of a year of movements is small.
+     *
+     * @return array<string, array{incomeCents: int, expenseCents: int}> keyed by "Y-m"
+     */
+    public function sumMonthlyFlowsBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until): array
+    {
+        /** @var array<int, array{bookedAt: \DateTimeImmutable, amountCents: int}> $rows */
+        $rows = $this->createQueryBuilder('t')
+            ->select('t.bookedAt AS bookedAt, t.amountCents AS amountCents')
+            ->andWhere('t.user = :user')
+            ->andWhere('t.status IN (:consumed)')
+            ->andWhere('t.bookedAt >= :from')
+            ->andWhere('t.bookedAt < :until')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
+            ->setParameter('from', $from)
+            ->setParameter('until', $until)
+            ->getQuery()
+            ->getResult();
+
+        $flows = [];
+        foreach ($rows as $row) {
+            $month = $row['bookedAt']->format('Y-m');
+            $flows[$month] ??= ['incomeCents' => 0, 'expenseCents' => 0];
+
+            if ($row['amountCents'] >= 0) {
+                $flows[$month]['incomeCents'] += $row['amountCents'];
+            } else {
+                $flows[$month]['expenseCents'] += abs($row['amountCents']);
+            }
+        }
+
+        return $flows;
+    }
+
+    /**
+     * What each category cost over a half-open period, as positive cents,
+     * biggest first. Uncategorized spending comes back under a null id.
+     *
+     * @return array<int, array{categoryId: ?string, categoryName: ?string, spentCents: int}>
+     */
+    public function sumSpendingByCategoryBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until): array
+    {
+        $rows = $this->createQueryBuilder('t')
+            ->select('IDENTITY(t.category) AS categoryId, c.name AS categoryName, SUM(t.amountCents) AS total')
+            ->leftJoin('t.category', 'c')
+            ->andWhere('t.user = :user')
+            ->andWhere('t.amountCents < 0')
+            ->andWhere('t.status IN (:consumed)')
+            ->andWhere('t.bookedAt >= :from')
+            ->andWhere('t.bookedAt < :until')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
+            ->setParameter('from', $from)
+            ->setParameter('until', $until)
+            ->groupBy('categoryId')
+            ->addGroupBy('c.name')
+            ->getQuery()
+            ->getResult();
+
+        $spending = array_map(static fn (array $row) => [
+            'categoryId' => $row['categoryId'] === null ? null : (string) $row['categoryId'],
+            'categoryName' => $row['categoryName'],
+            'spentCents' => abs((int) $row['total']),
+        ], $rows);
+
+        usort($spending, static fn (array $a, array $b) => $b['spentCents'] <=> $a['spentCents']);
+
+        return $spending;
+    }
 }

@@ -70,3 +70,58 @@ fun reasonText(reason: ScoreReason): String {
         else -> reason.code
     }
 }
+
+@Serializable
+data class DashboardAccount(
+    val id: String,
+    val name: String,
+    val type: String = "checking",
+    val balanceCents: Int = 0,
+    val currency: String = "EUR",
+    val isCushion: Boolean = false,
+)
+
+@Serializable
+data class DashboardBalance(
+    val totalCents: Int = 0,
+    val cushionCents: Int = 0,
+    val availableCents: Int = 0,
+    val accounts: List<DashboardAccount> = emptyList(),
+)
+
+@Serializable
+data class MonthlyFlow(
+    val month: String,
+    val incomeCents: Int = 0,
+    val expenseCents: Int = 0,
+    val netCents: Int = 0,
+)
+
+@Serializable
+data class TopPost(
+    val categoryId: String? = null,
+    val categoryName: String? = null,
+    val spentCents: Int = 0,
+    val previousMonthCents: Int = 0,
+    val changeCents: Int = 0,
+)
+
+@Serializable
+data class FinanceDashboard(
+    val year: Int = 0,
+    val month: Int = 0,
+    val score: DailyScore = DailyScore(),
+    val balance: DashboardBalance = DashboardBalance(),
+    val monthlyFlows: List<MonthlyFlow> = emptyList(),
+    val budgets: List<BudgetLine> = emptyList(),
+    val topPosts: List<TopPost> = emptyList(),
+    val savingCapacity: SavingCapacity = SavingCapacity(),
+)
+
+/** How a post moved against last month, said plainly. */
+fun postChangeLabel(post: TopPost): String = when {
+    post.previousMonthCents == 0 -> "nouveau ce mois-ci"
+    post.changeCents > 0 -> "+${formatCents(post.changeCents)} vs mois dernier"
+    post.changeCents < 0 -> "${formatCents(post.changeCents)} vs mois dernier"
+    else -> "stable"
+}

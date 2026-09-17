@@ -9,6 +9,7 @@ import { CategoryCreate } from './CategoryCreate'
 import { CategoryEdit } from './CategoryEdit'
 import { CategorizationRuleCreate } from './CategorizationRuleCreate'
 import { CushionPage } from './CushionPage'
+import { FinanceDashboardPage } from './FinanceDashboardPage'
 import { LoanCreate } from './LoanCreate'
 import { MonthlyReviewPage } from './MonthlyReviewPage'
 import { LoanEdit } from './LoanEdit'
@@ -27,6 +28,7 @@ export const financeResources = (
   <>
     <CustomRoutes>
       <Route path="/accounts/:id/transactions" element={<AccountTransactionsView />} />
+      <Route path="/finance/dashboard" element={<FinanceDashboardPage />} />
       <Route path="/finance/cushion" element={<CushionPage />} />
       <Route path="/finance/monthly-review" element={<MonthlyReviewPage />} />
     </CustomRoutes>

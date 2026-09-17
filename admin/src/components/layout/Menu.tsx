@@ -30,6 +30,7 @@ import StorefrontIcon from '@mui/icons-material/Storefront'
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
+import InsightsIcon from '@mui/icons-material/Insights'
 import SavingsIcon from '@mui/icons-material/Savings'
 import ShieldIcon from '@mui/icons-material/Shield'
 import CreditScoreIcon from '@mui/icons-material/CreditScore'
@@ -133,6 +134,12 @@ export const CustomMenu = () => {
 
           <Collapse in={financeOpen} timeout="auto" unmountOnExit>
             <List component="div" disablePadding>
+              <MenuItemLink
+                to="/finance/dashboard"
+                primaryText="Vue d'ensemble"
+                leftIcon={<InsightsIcon />}
+                sx={{ pl: 4 }}
+              />
               <MenuItemLink
                 to="/accounts"
                 primaryText="Comptes"

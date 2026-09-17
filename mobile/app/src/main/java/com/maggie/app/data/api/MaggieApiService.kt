@@ -22,6 +22,7 @@ import com.maggie.app.data.model.CategorizationRule
 import com.maggie.app.data.model.CushionStatus
 import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.DebtTimeline
+import com.maggie.app.data.model.FinanceDashboard
 import com.maggie.app.data.model.Loan
 import com.maggie.app.data.model.MonthlyReview
 import com.maggie.app.data.model.Category
@@ -895,6 +896,14 @@ class MaggieApiService(
     suspend fun getDebtTimeline(months: Int): DebtTimeline {
         return client.get("$baseUrl/api/finance/debt-timeline") {
             url.parameters.append("months", months.toString())
+        }.body()
+    }
+
+    // Finance — Dashboard
+    suspend fun getFinanceDashboard(year: Int, month: Int): FinanceDashboard {
+        return client.get("$baseUrl/api/finance/dashboard") {
+            url.parameters.append("year", year.toString())
+            url.parameters.append("month", month.toString())
         }.body()
     }
 
