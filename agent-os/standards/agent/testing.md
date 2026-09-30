@@ -1,5 +1,10 @@
 # Agent Testing (pytest)
 
+Every route, gateway or service touched owes a happy path and every error branch (401,
+422, upstream failure, timeout). See the Definition of Done in
+[global/testing](../global/testing.md) for the rest, including the e2e journey on the
+deterministic fake LLM.
+
 ## File Location & Naming
 
 ```

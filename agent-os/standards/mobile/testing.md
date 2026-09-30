@@ -1,5 +1,9 @@
 # Mobile Testing (JUnit + MockK)
 
+Every ViewModel touched owes one test per state transition — loading, success, error. See
+the Definition of Done in [global/testing](../global/testing.md) for the rest, including
+the mandatory Maestro flow.
+
 ## File Location & Naming
 
 ```

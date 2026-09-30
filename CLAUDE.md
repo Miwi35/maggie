@@ -61,10 +61,15 @@ Symfony console: `task api:console -- <args>`.
 
 ## Tests — every change
 
-- Every API endpoint or MCP tool: 401 unauthenticated, 400 bad input, happy path asserting **DB state**, `assertMercureUpdatePublished`, `assertElasticsearchIndexDispatched`. Use `MercureAssertionTrait` + `ElasticsearchAssertionTrait`; call `resetMercure()` + `resetAsyncTransport()` in `setUp`. Reference: `api/modules/grocery/tests/Mcp/GroceryToolsTest.php`.
-- Every feature: unit/integration tests **and** a new or extended e2e journey (Playwright web, Maestro mobile). E2E use a deterministic fake LLM.
-- Every bug fix: write the failing reproduction test first, then fix.
-- Lint and tests of every touched component must pass before committing.
+A ticket is **done** only when all five hold. Full rules, including what each kind of unit owes: `agent-os/standards/global/testing.md`.
+
+1. **Every unit touched has a test.** API endpoint or MCP tool: 401 unauthenticated, 400 bad input, happy path asserting **DB state**, `assertMercureUpdatePublished`, `assertElasticsearchIndexDispatched`. Use `MercureAssertionTrait` + `ElasticsearchAssertionTrait`; call `resetMercure()` + `resetAsyncTransport()` in `setUp`. Reference: `api/modules/grocery/tests/Mcp/GroceryToolsTest.php`. Also: entity → Mercure Create/Update/Delete, admin component → render + interaction + error, mobile ViewModel → one test per state transition.
+2. **At least one e2e journey covers the feature**, new or extended (Playwright web, Maestro mobile, deterministic fake LLM). The harness isn't built yet: until then, write the journey as Given/When/Then in the spec's `plan.md` and name the journey ticket that will carry it.
+3. **Every bug fix ships its reproduction test**, written red before the fix.
+4. **CI green on a PR** that links the ticket.
+5. **Module functional spec and user guide updated in Linear** (ADR-006).
+
+No user-facing behavior (standards, docs, infra, pure refactor)? Write `E2E: N/A — <reason>` in `plan.md`. An exemption that isn't written down is a missing test. Lint and tests of every touched component must pass before committing.
 
 ## Commits
 

@@ -105,6 +105,12 @@ Use the Taskfile runner instead:
 
 ## Testing Requirements
 
+**Write the tests, then run them.** Running a green suite that covers nothing is not
+testing. Every unit you touch owes tests — MCP tool, endpoint, entity, service, admin
+component, mobile ViewModel, agent route — and a fixed bug owes the test that reproduces
+it, written red *before* the fix. The full list is the Definition of Done in
+`agent-os/standards/global/testing.md`; read it before you report a task finished.
+
 After implementing changes, run the relevant tests:
 
 - **API changes:** `task api:test` and `task api:phpstan`
@@ -128,5 +134,6 @@ Follow the testing standards in `agent-os/standards/{layer}/testing.md` for test
 2. Load applicable standards from `agent-os/standards/`
 3. Explore affected code areas with Glob, Grep, Read
 4. Implement changes following existing patterns in the codebase
-5. Run relevant tests and linters
-6. Fix any failures before completing
+5. Write the tests the Definition of Done requires for every unit touched
+6. Run relevant tests and linters
+7. Fix any failures before completing

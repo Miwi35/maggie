@@ -1,6 +1,6 @@
 ---
 name: pre-commit
-description: "Pre-commit lint and test rules. Use before committing code to ensure all changed components pass lint and tests."
+description: "Pre-commit lint and test rules, plus the definition of done. Use before committing code and before calling a ticket finished."
 user-invocable: false
 ---
 
@@ -15,7 +15,7 @@ user-invocable: false
 | API | `task api:lint` | `task api:test` |
 | Agent | `task agent:lint && task agent:format:check` | `task agent:test` |
 | Admin | `task admin:lint && task admin:typecheck` | `task admin:test` |
-| Mobile | `cd mobile && ./gradlew lintProdRelease` | `cd mobile && ./gradlew testProdReleaseUnitTest` |
+| Mobile | CI only (local `lintProdRelease` crashes on a known AGP/K2 bug) | `cd mobile && ./gradlew testProdReleaseUnitTest` |
 
 ## Multi-Component Shortcut
 
@@ -25,13 +25,32 @@ task lint:all && task test:all
 
 This runs API + Admin + Agent lint and tests (excludes mobile).
 
-## Test Pyramid
+**In a git worktree**, `task *:test` runs against the dev stack, which mounts the main
+checkout — it would test the wrong code, and a second stack collides on host ports. Push
+and let CI verify (MAG-94 will provide an isolated stack).
 
-| Layer | What | Runs in CI |
-|-------|------|------------|
-| Unit | Pure logic, mocked deps | Always |
-| Integration | Real DB, real DI container | With service containers |
-| API/HTTP | Full request cycle | With service containers |
+## Definition of Done — check before saying a ticket is finished
+
+Green lint and tests are the floor, not the bar. All five must hold:
+
+- [ ] **Every unit touched has a unit or integration test** — MCP tool, endpoint, entity,
+      service, admin component, mobile ViewModel, agent route. Minimum per unit:
+    - MCP tool: no user bound, bad input (missing arg **and** unknown `action`), happy
+      path asserting DB state, `assertMercureUpdatePublished()`,
+      `assertElasticsearchIndexDispatched()` when indexed
+    - endpoint: 401 unauthenticated, 400 bad input, then the same list
+    - entity: Create/Update/Delete Mercure publication
+    - admin component: render, the interaction it exists for, error/empty state
+    - mobile ViewModel: one test per state transition (loading, success, error)
+- [ ] **At least one e2e journey covers the feature**, new or extended. The harness is not
+      built yet (MAG-97/98) — until then, a Given/When/Then `## E2E journey` section in the
+      spec's `plan.md` plus the journey ticket that will carry it (MAG-99→MAG-103). No
+      user-facing behavior → write `E2E: N/A — <reason>` in `plan.md`.
+- [ ] **A fixed bug has the test that reproduces it**, written red before the fix.
+- [ ] **CI green on a PR** that links the ticket. One ticket = one branch = one PR.
+- [ ] **Module functional spec and user guide updated in Linear** (ADR-006).
+
+An exemption that isn't written down in `plan.md` is a missing test, not an exemption.
 
 ## Rules
 

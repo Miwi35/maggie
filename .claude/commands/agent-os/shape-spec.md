@@ -93,7 +93,10 @@ If no product folder exists, skip this step.
 
 Read `agent-os/standards/index.yml` to identify relevant standards based on the feature being built.
 
-Use AskUserQuestion to confirm:
+`global/testing` is **always** relevant — it holds the Definition of Done that every
+ticket must satisfy. Read it now; do not put it up for confirmation.
+
+Use AskUserQuestion to confirm the others:
 
 ```
 Based on what we're building, these standards may apply:
@@ -107,7 +110,41 @@ Should I include these in the spec? (yes / adjust: remove 3, add frontend/forms)
 
 Read the confirmed standards files to include their content in the plan context.
 
-### Step 6: Generate Spec Folder Name
+### Step 6: Shape the E2E Journey
+
+**Every spec has this section. No spec is shaped without it.** Per the Definition of Done
+(`agent-os/standards/global/testing.md`), at least one e2e journey covers the feature.
+
+Derive the journey yourself from the scope, then confirm it with AskUserQuestion:
+
+```
+Here's the e2e journey I'll write for this feature:
+
+**Extends:** MAG-101 — Parcours e2e : recettes, menus et courses
+
+- **Given** a logged-in user with the "Dahl de lentilles" recipe
+- **When** they plan it for Tuesday dinner
+- **Then** its ingredients appear in the grocery list, quantities merged
+- **And** the other open tab receives the update via Mercure
+
+(confirm / adjust / this feature has no user-facing behavior)
+```
+
+Rules:
+
+- **Extend before creating.** Name the existing journey ticket this belongs to — MAG-99
+  chat, MAG-100 agenda, MAG-101 recipes/meals/groceries, MAG-102 finance, MAG-103
+  settings/search/notifications. A new journey only when none of them fits.
+- Write it as **Given / When / Then**, precise enough to be transcribed into a Playwright
+  spec or a Maestro flow without deciding anything again: selectors by role and text, the
+  real-time updates to wait for, the DB state to check.
+- The harness is not built yet (MAG-94, MAG-95, MAG-97, MAG-98). Until it lands, the
+  written journey *is* the deliverable; once it lands, the executable flow is part of the
+  ticket.
+- **No user-facing behavior** — standards, docs, prompts, infra, refactor with no behavior
+  change: record `E2E: N/A — <reason>` instead. One line, in the plan.
+
+### Step 7: Generate Spec Folder Name
 
 Create a folder name using this format:
 ```
@@ -122,7 +159,7 @@ Example: `2026-01-15-1430-user-comment-system/`
 
 **Note:** If `agent-os/specs/` doesn't exist, create it when saving the spec folder.
 
-### Step 7: Structure the Plan
+### Step 8: Structure the Plan
 
 Now build the plan with **Task 1 always being "Save spec documentation"**.
 
@@ -151,21 +188,30 @@ Create `agent-os/specs/{folder-name}/` with:
 
 ...
 
+## Tests
+
+[The tests each implementation task owes — see the Definition of Done]
+
+## E2E journey
+
+[The Given/When/Then from Step 6, or `N/A — reason`]
+
 ---
 
 Does this plan structure look right? I'll fill in the implementation tasks next.
 ```
 
-### Step 8: Complete the Plan
+### Step 9: Complete the Plan
 
 After Task 1 is confirmed, continue building out the remaining implementation tasks based on:
 - The feature scope from Step 1
 - Patterns from reference implementations (Step 3)
 - Constraints from standards (Step 5)
 
-Each task should be specific and actionable.
+Each task should be specific and actionable, and each task that touches code **names the
+tests it owes** — no separate "write the tests" task at the end, tests ship with the code.
 
-### Step 9: Ready for Execution
+### Step 10: Ready for Execution
 
 When the full plan is ready:
 
@@ -184,11 +230,55 @@ The spec folder will contain:
 
 ```
 agent-os/specs/{YYYY-MM-DD-HHMM-feature-slug}/
-├── plan.md           # The full plan
+├── plan.md           # The full plan, incl. Tests and E2E journey sections
 ├── shape.md          # Shaping decisions and context
 ├── standards.md      # Which standards apply and key points
 ├── references.md     # Pointers to similar code
 └── visuals/          # Mockups, screenshots (if any)
+```
+
+## plan.md Content
+
+The plan holds the implementation tasks, then **two mandatory sections**. A plan missing
+either is not a plan — `/implement-spec` has nothing to verify against.
+
+```markdown
+# {Feature Name} — Plan
+
+## Task 1: Save Spec Documentation
+...
+## Task N: {Implementation task}
+
+{What changes} — tests it owes: {e.g. 401, 400, happy path + DB state, Mercure, ES}
+
+## Tests
+
+Per unit touched, from `agent-os/standards/global/testing.md`:
+
+| Unit | Tests |
+|---|---|
+| `CreateMealTool` | no user bound, missing `recipeId`, unknown action, happy path asserting DB, Mercure, ES |
+| `MealPlanner.tsx` | render, plan a meal, API error |
+
+Bug fix in scope? Name the reproduction test, written red before the fix.
+
+## E2E journey
+
+**Extends:** MAG-101 — Parcours e2e : recettes, menus et courses
+
+- **Given** …
+- **When** …
+- **Then** …
+
+(or: `N/A — standards only, no user-facing behavior`)
+
+## Definition of Done
+
+- [ ] Unit/integration tests above, green
+- [ ] E2E journey written (executable once MAG-97/98 land)
+- [ ] Bug fix has its red-first reproduction test
+- [ ] CI green on a PR linking the ticket
+- [ ] Module functional spec + user guide updated in Linear (ADR-006)
 ```
 
 ## shape.md Content
@@ -263,5 +353,7 @@ The following standards apply to this work.
 
 - **Keep shaping fast** — Don't over-document. Capture enough to start, refine as you build.
 - **Visuals are optional** — Not every feature needs mockups.
-- **Standards guide, not dictate** — They inform the plan but aren't always mandatory.
+- **Standards guide, not dictate** — They inform the plan but aren't always mandatory. The
+  one exception is the Definition of Done in `global/testing`: it applies to every ticket,
+  and every exemption is written in the plan with its reason.
 - **Specs are discoverable** — Months later, someone can find this spec and understand what was built and why.

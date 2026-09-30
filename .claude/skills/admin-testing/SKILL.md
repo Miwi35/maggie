@@ -6,6 +6,22 @@ user-invocable: false
 
 # Admin Testing (Vitest)
 
+## Required Coverage — nothing ships without it
+
+**Every component touched** gets a `.test.tsx` covering, at minimum:
+
+- initial render (the data it displays, or its empty state)
+- the user interaction it exists for — click, submit, select — with `userEvent`
+- the error state: failed fetch, invalid form, missing permission
+- for components subscribing to Mercure: an `EventSource` message updates the UI
+
+Assert what the user sees, not that a mock was called.
+
+**Bug fix → red first.** Write the failing test, run it, then fix. Both in the same PR.
+
+**The feature also needs an e2e journey** (Playwright, `e2e/web/`) — see
+`agent-os/standards/global/testing.md` (Definition of Done).
+
 ## File Location
 
 Co-located with source: `{Component}.test.tsx` next to `{Component}.tsx`.

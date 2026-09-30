@@ -1,5 +1,9 @@
 # API Testing (PHPUnit)
 
+Coverage is not optional: see the Definition of Done in
+[global/testing](../global/testing.md) for what every ticket owes, including the
+mandatory e2e journey and the red-first rule for bug fixes.
+
 ## Base Classes
 
 | Type | Extends | When |
@@ -119,6 +123,23 @@ public function testReturnsPendingTasksByDefault(): void
     self::assertContains('Pending task', array_map(fn($t) => $t['name'], $data['tasks']));
 }
 ```
+
+## Enforcement: Endpoint Tests
+
+**Every REST controller and API Platform operation MUST have a test class** in
+`modules/{module}/tests/Controller/` or `tests/Api/` (`WebTestCase`), covering:
+
+- **401** — the same request without `authHeaders()` from `AuthenticatedTestTrait`
+- **400** — a missing or invalid field in the payload
+- **happy path with DB assertions** — reload the entity and check its state
+- **Mercure** — `assertMercureUpdatePublished()`
+- **Elasticsearch** — `assertElasticsearchIndexDispatched()`, or
+  `assertElasticsearchDeleteDispatched()` on delete, for indexed entities
+
+Reference: `modules/grocery/tests/Controller/CheckGroceryItemControllerTest.php`.
+
+Never declare a `Patch` on an `uriTemplate` without an identifier (`/…/me`) — it
+instantiates a new entity and returns 500. Use a dedicated controller and test it here.
 
 ## Enforcement: Mercure Publication Tests
 
