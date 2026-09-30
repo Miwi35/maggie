@@ -229,7 +229,7 @@ sudo k3s kubectl -n maggie exec deploy/php -- bin/console doctrine:migrations:mi
 - Internal URL: `http://mercure/.well-known/mercure` (used by PHP to publish)
 - Public URL: `https://maggieai.fr/.well-known/mercure` (used by clients to subscribe)
 - CORS origin: `https://maggieai.fr`
-- JWT auth: shared secret between PHP and Mercure
+- JWT auth: shared secret between PHP, the agent and Mercure (`MERCURE_JWT_SECRET`, at least 32 bytes — see `global/real-time.md`)
 
 ---
 
