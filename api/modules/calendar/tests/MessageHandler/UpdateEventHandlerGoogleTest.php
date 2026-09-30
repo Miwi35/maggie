@@ -52,11 +52,19 @@ class UpdateEventHandlerGoogleTest extends TestCase
 
     private function handle(Event $event, UpdateEventCommand $command, ?Agenda $target = null): Event
     {
+        return $this->handleWithAgendas($event, $command, null === $target ? [] : [$target]);
+    }
+
+    /** @param list<Agenda> $known */
+    private function handleWithAgendas(Event $event, UpdateEventCommand $command, array $known): Event
+    {
         $events = $this->createStub(EventRepository::class);
         $events->method('find')->willReturn($event);
 
         $agendas = $this->createStub(AgendaRepository::class);
-        $agendas->method('find')->willReturn($target);
+        $agendas->method('find')->willReturnCallback(
+            static fn (string $id) => array_values(array_filter($known, static fn (Agenda $a) => (string) $a->getId() === $id))[0] ?? null,
+        );
 
         $em = $this->createStub(\Doctrine\ORM\EntityManagerInterface::class);
 
@@ -113,6 +121,44 @@ class UpdateEventHandlerGoogleTest extends TestCase
         self::assertSame('move', $push->action);
         self::assertSame('cal-a', $push->fromGoogleCalendarId);
         self::assertSame(['agenda'], $push->changedFields);
+    }
+
+    public function testMoveFromTheApiPathUsesThePreviousAgendaWhenTheEntityIsAlreadyMoved(): void
+    {
+        $from = $this->agenda('cal-a');
+        $to = $this->agenda('cal-b');
+        $event = $this->event($to, 'g-1');
+
+        $this->handleWithAgendas($event, new UpdateEventCommand(
+            eventId: (string) $event->getId(),
+            agendaId: (string) $to->getId(),
+            previousAgendaId: (string) $from->getId(),
+        ), [$from, $to]);
+
+        $push = $this->dispatched[0];
+        self::assertInstanceOf(PushEventToGoogleCommand::class, $push);
+        self::assertSame('move', $push->action);
+        self::assertSame('cal-a', $push->fromGoogleCalendarId);
+        self::assertSame(['agenda'], $push->changedFields);
+    }
+
+    public function testLeavingGoogleFromTheApiPathDeletesTheCopyOnThePreviousAgenda(): void
+    {
+        $from = $this->agenda('cal-a');
+        $to = $this->agenda(null);
+        $event = $this->event($to, 'g-1');
+
+        $this->handleWithAgendas($event, new UpdateEventCommand(
+            eventId: (string) $event->getId(),
+            agendaId: (string) $to->getId(),
+            previousAgendaId: (string) $from->getId(),
+        ), [$from, $to]);
+
+        self::assertNull($event->getGoogleEventId());
+        $delete = $this->dispatched[0];
+        self::assertInstanceOf(DeleteEventFromGoogleCommand::class, $delete);
+        self::assertSame((string) $from->getId(), $delete->agendaId);
+        self::assertSame('g-1', $delete->googleEventId);
     }
 
     public function testMovingFromASyncedAgendaToALocalOneRemovesTheGoogleCopy(): void

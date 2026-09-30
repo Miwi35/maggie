@@ -64,6 +64,7 @@ class UpdateEventProcessorTest extends TestCase
         $command = $this->process($data, $previous);
 
         self::assertSame((string) $target->getId(), $command->agendaId);
+        self::assertSame((string) $previous->getAgenda()->getId(), $command->previousAgendaId);
     }
 
     public function testRemindersChangeIsSent(): void
