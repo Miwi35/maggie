@@ -1,0 +1,15 @@
+{
+  "name": "maggie-e2e-web",
+  "private": true,
+  "type": "module",
+  "description": "Playwright journeys for the admin web app — run through `task e2e:web`",
+  "scripts": {
+    "test": "playwright test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "^22.10.2",
+    "typescript": "~5.9.3"
+  }
+}

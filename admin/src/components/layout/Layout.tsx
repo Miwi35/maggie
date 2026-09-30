@@ -129,7 +129,16 @@ export const Layout = (props: LayoutProps) => {
     <ChatContext.Provider value={chatContext}>
       <RALayout {...props} menu={CustomMenu} appBar={CustomAppBar}>
         <Box sx={{ display: 'flex', flex: 1, minHeight: 0 }}>
-          <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {/* `page-content` and the chat panel's `chat-panel` are the two
+              handles the e2e journeys scope their locators to (MAG-97).
+              React-admin puts the sidebar, the page and the chat side by side
+              inside one <main>, so the landmark alone cannot tell them apart —
+              and Maggie's answers quote the page's own wording often enough
+              that an unscoped getByText matches twice. */}
+          <Box
+            data-testid="page-content"
+            sx={{ flex: 1, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+          >
             {props.children}
           </Box>
           <ChatWidget

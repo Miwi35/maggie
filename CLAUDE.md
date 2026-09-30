@@ -110,7 +110,9 @@ For a journey, or anything needing the whole system, bring up the e2e stack — 
 |---|---|
 | `task e2e:up` | start (build, install, migrate), prints the URL |
 | `task e2e:seed` | deterministic fixtures + Elasticsearch rebuild |
-| `task e2e:smoke` | the smoke journey |
+| `task e2e:smoke` | the smoke journey (HTTP) |
+| `task e2e:web` | the Playwright journeys for the admin (MAG-97) |
+| `task e2e:admin:build` | rebuild the admin bundle after editing `admin/src` |
 | `task e2e:test:api` | PHPUnit inside the stack |
 | `task e2e:eval` | the prompt-lab scenarios on the **real** model — nightly, outside CI |
 | `task e2e:down` | remove everything |

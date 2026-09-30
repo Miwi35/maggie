@@ -37,6 +37,10 @@ interface ChatMessage {
 }
 
 const MESSAGES_URL = '/agent/messages'
+// May be relative in production ('/.well-known/mercure'), so every `new URL()`
+// below passes `window.location.origin` as its base — without it the
+// constructor throws and the subscription dies, which is how b16916d reached
+// production once already, in useMercure.
 const MERCURE_URL = import.meta.env.VITE_MERCURE_PUBLIC_URL || 'http://maggie.local/.well-known/mercure'
 const SIDEBAR_WIDTH = 380
 const PAGE_SIZE = 20
@@ -625,6 +629,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
 
     return (
       <Box
+        data-testid="chat-panel"
         sx={{
           width: open ? SIDEBAR_WIDTH : 0,
           flexShrink: 0,

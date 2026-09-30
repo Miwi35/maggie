@@ -292,6 +292,18 @@ jobs:
       - name: Smoke journey
         run: task e2e:smoke
 
+      - name: The web journeys type-check
+        # Seconds, in the container the journeys themselves run in, and it
+        # catches a renamed page object or helper before eleven services have
+        # been driven through a browser to find out.
+        run: task e2e:web:typecheck
+
+      - name: Web journeys (Playwright)
+        # Reseeds on its own — the smoke journey above writes, and these
+        # assert on the seeded world. Stays in this job rather than becoming
+        # its own: the stack takes minutes to build and there is only one.
+        run: task e2e:web
+
       - name: The eval scenarios parse
         # Cheap — no key, no model call — and the only place a scenario file
         # that went missing or grew a typo'd expectation fails loudly. Without
@@ -305,6 +317,20 @@ jobs:
         # forces `in-memory://` for the async transport, which no container
         # variable can displace, so only ELASTICSEARCH_URL really differs.
         run: task e2e:test:api
+
+      - name: Playwright report
+        if: failure()
+        # The traces are the point: `npx playwright show-trace` replays the
+        # failing journey step by step, which beats reading a stack trace out
+        # of a log for a browser failure nobody can reproduce locally.
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: |
+            e2e/web/playwright-report
+            e2e/web/test-results
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Stack logs
         if: failure()

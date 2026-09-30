@@ -62,19 +62,27 @@ eval suite, `task e2e:eval`, on the real model, nightly and outside CI. An
 assertion that would hold with any plausible wording belongs in a journey with
 the fake, not in the eval.
 
-**The browser and emulator harnesses do not exist yet** (MAG-97 Playwright,
-MAG-98 Maestro). Until they land, a ticket satisfies this rule by:
+**The browser harness exists** (MAG-97): `e2e/web/`, `task e2e:web`, run by CI
+on every pull request. A web-facing ticket writes its journey as a Playwright
+spec — fixtures for the signed-in user and the neighbour, page objects per
+module, helpers for real-time and for the AG-UI chat stream, and three
+viewport widths. Read [e2e/web/README.md](../../../e2e/web/README.md) before
+writing one; the traps it lists (index lag, subscribing after acting, locators
+that match Maggie's answer as well as the page) are all ones that have already
+cost a debugging session.
+
+**The emulator harness does not exist yet** (MAG-98 Maestro). Until it lands, a
+mobile ticket satisfies this rule by:
 
 - a `## E2E journey` section in its `plan.md`, written as Given / When / Then steps
-  precise enough to be transcribed into a Playwright spec or a Maestro flow without
-  deciding anything again — selectors by role and text, the real-time updates to wait
-  for, the DB state to check;
+  precise enough to be transcribed into a Maestro flow without deciding anything
+  again — selectors by role and text, the real-time updates to wait for, the DB
+  state to check;
 - naming the journey ticket that will carry it, so no journey gets lost: MAG-99 chat,
   MAG-100 agenda, MAG-101 recipes/meals/groceries, MAG-102 finance, MAG-103
   settings/search/notifications.
 
-Once the browser harness exists, the executable flow is part of the ticket and CI
-runs it. A journey written today should already name the fixtures it needs in
+A journey written today should already name the fixtures it needs in
 `api/fixtures/e2e/`, since the stack that will run it is there.
 
 **No user-facing behavior** — standards, docs, prompts, infra, refactor with no
@@ -111,7 +119,7 @@ Entry point: the team document « Index de la documentation Maggie ».
 | Unit | Pure logic, mocked deps | Always |
 | Integration | Real DB, real DI container | With service containers |
 | API/HTTP | Full request cycle | With service containers |
-| E2E | Playwright (web) and Maestro (mobile), fake LLM | Blocking, once the harness lands (MAG-96) |
+| E2E | Playwright (web, `task e2e:web`) and Maestro (mobile, MAG-98), fake LLM | Blocking (MAG-96) |
 | Eval | Real model, prompt-lab scenarios | Nightly, non-blocking (ADR-005) |
 
 ## Per-Component Quick Reference
@@ -122,6 +130,7 @@ Entry point: the team document « Index de la documentation Maggie ».
 | Agent | pytest 9 | `task agent:test` | `agent/pyproject.toml` |
 | Admin | Vitest 3 | `task admin:test` | `admin/vite.config.ts` |
 | Mobile | JUnit 4 + MockK | `cd mobile && ./gradlew testProdReleaseUnitTest` | `build.gradle.kts` |
+| Web journeys | Playwright | `task e2e:web` (needs `task e2e:up`) | `e2e/web/playwright.config.ts` |
 
 ## Rules
 
