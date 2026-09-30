@@ -238,13 +238,14 @@ tasks:
     # Separate from CI on purpose (.github/workflows/eval.yml, nightly and on
     # demand): a prompt regression is a signal, not a merge blocker.
     #
-    # Two things to know before reading a local run's report. It reseeds first,
-    # because the scenarios write (basil lands on the grocery list twice over)
-    # and a second run on an unreseeded stack has the model failing for a data
-    # reason. And unless you export ANTHROPIC_MODEL, the agent falls back to its
-    # own default rather than what production serves — the nightly reads that
-    # from infra/k8s/configmap.yaml, and the two have differed. The report
-    # header prints whichever model answered.
+    # Three things to know before reading a local run's report. It reseeds first,
+    # because the scenarios write and a second run on an unreseeded stack has the
+    # model failing for a data reason. It does *not* reseed afterwards, so it
+    # leaves its own writes and the last scenario's conversation behind — run
+    # `task e2e:seed` before a journey. And unless you export ANTHROPIC_MODEL, the
+    # agent falls back to its own default rather than what production serves — the
+    # nightly reads that from infra/k8s/configmap.yaml, and the two have differed.
+    # The report header prints whichever model answered.
     vars:
       BASE_URL:
         sh: 'echo "http://127.0.0.1:$(docker compose -f {{.COMPOSE_FILE}} -p {{.PROJECT}} port traefik 80 | sed "s/.*://")"'

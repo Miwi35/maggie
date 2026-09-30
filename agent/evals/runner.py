@@ -91,6 +91,10 @@ class Scenario:
     description: str = ""
 
 
+def plural(count: int, word: str) -> str:
+    return word if count == 1 else f"{word}s"
+
+
 def _as_list(value) -> list[str]:
     if value is None:
         return []
@@ -388,7 +392,7 @@ def report(scenarios: list[Scenario], failures: list[Failure], model: str) -> st
     lines = [
         "## Eval suite",
         "",
-        f"`{model}` · {len(scenarios)} scenarios · "
+        f"`{model}` · {len(scenarios)} {plural(len(scenarios), 'scenario')} · "
         f"{len(scenarios) - len(by_scenario)} passed, {len(by_scenario)} failed",
         "",
         "| Scenario | Steps | Result |",
@@ -437,39 +441,54 @@ async def main() -> int:
             return 2
         for scenario in scenarios:
             count = len(scenario.steps)
-            print(f"{scenario.name} ({scenario.channel}, {count} step{'s' if count > 1 else ''})")
+            print(f"{scenario.name} ({scenario.channel}, {count} {plural(count, 'step')})")
             for position, step in enumerate(scenario.steps, start=1):
                 judged = "judged" if step.expected_behavior else "unjudged"
                 print(f"  {position}. « {step.user_message[:60]} » — {judged}")
         print(f"\n{len(scenarios)} scenarios parse.")
         return 0 if scenarios else 2
 
+    def cannot_run(reason: str) -> int:
+        """Every way the suite fails to start, reported the same way.
+
+        The step summary is what gets read in the morning, so it has to say "could
+        not run" rather than stay empty — an empty summary looks like a suite
+        nobody ran, and a red nightly nobody can explain is a nightly nobody
+        reads.
+        """
+        print(f"\n{reason}\nThe eval suite could not run — this is not a prompt regression.")
+        if args.report:
+            args.report.write_text(f"## Eval suite\n\n**Could not run.** {reason}\n")
+        return 2
+
     # The whole point is the real model, so refuse rather than produce a green
     # run that proved nothing.
     if settings.llm_provider == FAKE:
-        print("LLM_PROVIDER=fake: the eval suite needs the real model. Run it through `task e2e:eval`.")
-        return 2
+        return cannot_run("LLM_PROVIDER=fake: the eval suite needs the real model. Run it through `task e2e:eval`.")
     if not settings.anthropic_api_key:
-        print("ANTHROPIC_API_KEY is empty: the eval suite has no model to call.")
-        return 2
+        return cannot_run("ANTHROPIC_API_KEY is empty: the eval suite has no model to call.")
 
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s:%(name)s: %(message)s")
 
     try:
         scenarios = load_scenarios(args.scenarios, only=args.only)
     except (ValueError, yaml.YAMLError) as exc:
-        print(f"a scenario file is not valid: {exc}")
-        return 2
+        return cannot_run(f"a scenario file is not valid: {exc}")
     if not scenarios:
-        print(f"no scenario matched in {args.scenarios}")
-        return 2
+        return cannot_run(f"no scenario matched in {args.scenarios}")
 
-    print(f"Eval suite: {len(scenarios)} scenarios on {settings.anthropic_model}, judged by {args.judge_model}\n")
+    print(
+        f"Eval suite: {len(scenarios)} {plural(len(scenarios), 'scenario')} "
+        f"on {settings.anthropic_model}, judged by {args.judge_model}\n"
+    )
 
     failures: list[Failure] = []
     async with httpx.AsyncClient(timeout=30.0) as http:
         stack = Stack(args.api_url, args.agent_url, http)
-        await stack.login()
+        try:
+            await stack.login()
+        except httpx.HTTPError as exc:
+            return cannot_run(f"the test login failed — is the stack up and seeded? {exc}")
         judge = Judge(args.judge_model)
 
         for scenario in scenarios:
@@ -477,14 +496,7 @@ async def main() -> int:
             try:
                 failures.extend(await run_scenario(scenario, stack, judge))
             except ModelUnreachable as exc:
-                message = f"{exc}\nThe eval suite could not run — this is not a prompt regression."
-                print(f"\n{message}")
-                if args.report:
-                    # The step summary is what gets read in the morning; leaving
-                    # it empty would make an unrunnable suite look like a suite
-                    # nobody ran.
-                    args.report.write_text(f"## Eval suite\n\n**Could not run.** {exc}\n")
-                return 2
+                return cannot_run(str(exc))
 
     markdown = report(scenarios, failures, settings.anthropic_model)
     print("\n" + markdown)

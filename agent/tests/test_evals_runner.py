@@ -25,6 +25,7 @@ from evals.runner import (
     check_step,
     load_scenarios,
     parse_scenario,
+    plural,
     report,
 )
 
@@ -321,6 +322,15 @@ class TestDrivingTheAgent:
         assert answer.text == "Vous avez un déjeuner."
         assert answer.tools == ["get_upcoming_events"]
         assert answer.context_action == "matched"
+
+
+class TestPluralising:
+    def test_it_agrees(self):
+        # The report is what a human reads in the morning; "1 scenarios" is how a
+        # report starts looking machine-generated and stops being read.
+        assert plural(1, "scenario") == "scenario"
+        assert plural(0, "step") == "steps"
+        assert plural(2, "step") == "steps"
 
 
 class TestTheReport:

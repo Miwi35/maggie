@@ -361,28 +361,43 @@ assert_eq matched "$(context_action "$followup")" \
 assert_eq "$contexts_before" "$(curl -sS "${AUTH[@]}" "$BASE_URL/agent/contexts" | jq -r 'length')" \
   "the follow-up opened no second context for the same subject"
 
-# The voice path, which is the one place two stand-ins have to agree: WireMock
-# dictates a fixed sentence, and a scenario returns that sentence cleaned. Each
-# is plausible on its own, so only driving both at once catches one being edited
-# without the other.
-dictated="$(jq -r '.mappings[0].response.body' "$REPO_ROOT/.docker/e2e/wiremock/mappings/openai.json")"
+# The voice path, the one place two stand-ins have to agree: WireMock dictates a
+# fixed sentence, and a scenario returns that sentence cleaned. Each is plausible
+# on its own, so only driving both at once catches one being edited without the
+# other.
+#
+# Selected on the stub's URL rather than by index, so a second OpenAI stub cannot
+# silently retarget this.
+dictated="$(jq -r '.mappings[] | select(.request.urlPathPattern | test("transcriptions")) | .response.body' \
+  "$REPO_ROOT/.docker/e2e/wiremock/mappings/openai.json")"
 
 # Any non-empty bytes: the route refuses an empty upload, and WireMock answers
-# its fixed sentence whatever it receives.
+# its fixed sentence whatever it receives. Trapped, because `set -e` would skip
+# the cleanup if the request failed.
 dictation="$(mktemp --suffix=.webm)"
+trap 'rm -f "$dictation"' EXIT
 printf 'not really webm, and WireMock does not care' >"$dictation"
 transcript="$(curl -sS -X POST "${AUTH[@]}" -F "audio=@$dictation;type=audio/webm" \
   "$BASE_URL/agent/transcribe")"
-rm -f "$dictation"
 
 assert_eq "$dictated" "$(printf '%s' "$transcript" | jq -r '.raw // empty')" \
   "Whisper answered from WireMock, not from OpenAI"
 
 cleaned="$(printf '%s' "$transcript" | jq -r '.clean // empty')"
-if [ -n "$cleaned" ] && [ "$cleaned" != "$dictated" ]; then
-  pass "the scripted model cleaned the dictated sentence"
+
+# The assertion that actually binds the two: comparing `.raw` to the mapping is a
+# tautology — the stub *is* the mapping — and "the answer changed" only proves
+# something happened. The longest word of what was dictated has to survive into
+# what the model handed back, and the `[fake-llm]` check is what stops the
+# no-scenario sentence from passing: it quotes the dictated text back, so every
+# word of it would be found there too.
+keyword="$(printf '%s' "$dictated" | tr ' ' '\n' | awk '{ print length, $0 }' | sort -rn | head -1 | cut -d' ' -f2-)"
+if printf '%s' "$cleaned" | grep -qF -- '[fake-llm]'; then
+  fail "no scenario cleaned the dictation — is 20-transcription-cleanup.yaml still matching? Got: $cleaned"
 else
-  fail "the cleanup returned '$cleaned' — is 20-transcription-cleanup.yaml still matching?"
+  assert_contains "$cleaned" "$keyword" "the cleanup kept what Whisper dictated ('$keyword')"
+  assert_eq false "$([ "$cleaned" = "$dictated" ] && echo true || echo false)" \
+    "the cleanup returned something other than the raw transcript"
 fi
 
 # And the cleaned sentence is itself scripted, so dictating ends on a real write
