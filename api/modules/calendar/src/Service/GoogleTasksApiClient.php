@@ -15,6 +15,12 @@ class GoogleTasksApiClient
         private readonly EntityManagerInterface $entityManager,
         private readonly string $googleClientId,
         private readonly string $googleClientSecret,
+        /**
+         * Empty everywhere but the e2e stack, where it points at the WireMock
+         * stand-in so a journey's Google sync never leaves the Docker network.
+         * Empty means the library's own root — dev and prod are unchanged.
+         */
+        private readonly string $googleApiBaseUrl = '',
     ) {
     }
 
@@ -22,7 +28,7 @@ class GoogleTasksApiClient
     {
         $client = $this->buildClient($user);
 
-        return new GoogleTasksService($client);
+        return new GoogleTasksService($client, $this->googleApiBaseUrl !== '' ? $this->googleApiBaseUrl : null);
     }
 
     /**

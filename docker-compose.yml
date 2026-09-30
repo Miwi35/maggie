@@ -10,6 +10,10 @@ services:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--providers.docker.network=maggie"
+      # Only containers of the dev stack. Traefik reads the Docker socket, not
+      # this file, so without the constraint it would also claim the per-worktree
+      # e2e stacks (docker-compose.e2e.yml) and route dev traffic into them.
+      - "--providers.docker.constraints=Label(`maggie.stack`,`dev`)"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
       - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
@@ -24,6 +28,7 @@ services:
       - ./.docker/traefik/certs:/etc/traefik/certs:ro
       - ./.docker/traefik/tls.yml:/etc/traefik/tls.yml:ro
     labels:
+      - "maggie.stack=dev"
       - "traefik.enable=true"
       # Root redirect → /admin
       - "traefik.http.routers.maggie-root.rule=Path(`/`)"
@@ -94,6 +99,7 @@ services:
     depends_on:
       - php
     labels:
+      - "maggie.stack=dev"
       - "traefik.enable=true"
       - "traefik.http.routers.maggie-api.rule=PathPrefix(`/api`) || PathPrefix(`/_mcp`) || PathPrefix(`/bundles`) || Path(`/privacy`) || Path(`/terms`)"
       - "traefik.http.routers.maggie-api.entrypoints=websecure"
@@ -120,6 +126,7 @@ services:
       VITE_MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL}
       VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
     labels:
+      - "maggie.stack=dev"
       - "traefik.enable=true"
       - "traefik.http.routers.maggie-admin.rule=PathPrefix(`/admin`)"
       - "traefik.http.routers.maggie-admin.entrypoints=websecure"
@@ -165,6 +172,7 @@ services:
         anonymous
         cors_origins *
     labels:
+      - "maggie.stack=dev"
       - "traefik.enable=true"
       - "traefik.http.routers.maggie-mercure.rule=PathPrefix(`/.well-known/mercure`)"
       - "traefik.http.routers.maggie-mercure.entrypoints=websecure"
@@ -339,6 +347,7 @@ services:
       rabbitmq:
         condition: service_healthy
     labels:
+      - "maggie.stack=dev"
       - "traefik.enable=true"
       - "traefik.http.routers.maggie-agent.rule=PathPrefix(`/agent`)"
       - "traefik.http.routers.maggie-agent.entrypoints=websecure"
@@ -362,6 +371,7 @@ services:
     volumes:
       - ./ciqual:/app:cached
     labels:
+      - "maggie.stack=dev"
       - "traefik.enable=true"
       - "traefik.http.routers.maggie-ciqual.rule=PathPrefix(`/ciqual`)"
       - "traefik.http.routers.maggie-ciqual.entrypoints=websecure"

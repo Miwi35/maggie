@@ -25,9 +25,24 @@ task lint:all && task test:all
 
 This runs API + Admin + Agent lint and tests (excludes mobile).
 
-**In a git worktree**, `task *:test` runs against the dev stack, which mounts the main
-checkout — it would test the wrong code, and a second stack collides on host ports. Push
-and let CI verify (MAG-94 will provide an isolated stack).
+**In a git worktree**, `task api:test` runs against the dev stack, which mounts the main
+checkout — it would test the wrong code. Use the worktree-local tasks:
+
+```
+task wt:phpstan -- <changed files>    # ~2 s warm, one container
+task wt:test:api                      # PHPUnit on a throwaway Postgres, ~30 s
+task wt:lint:admin && task wt:test:admin
+task wt:lint:agent && task wt:test:agent
+task wt:lint:ciqual && task wt:test:ciqual
+```
+
+Minimal, one shot, no published port, and a load guard that refuses to start when the
+machine is busy — exit code 75 means "push and let CI run it", not "your change is
+broken". Details: `agent-os/standards/global/worktree-checks.md`.
+
+For a journey, or anything needing the whole system, bring up the e2e stack instead:
+`task e2e:up && task e2e:seed && task e2e:smoke`, then `task e2e:down`
+(`agent-os/standards/global/e2e-environment.md`).
 
 ## Definition of Done — check before saying a ticket is finished
 
@@ -42,9 +57,11 @@ Green lint and tests are the floor, not the bar. All five must hold:
     - entity: Create/Update/Delete Mercure publication
     - admin component: render, the interaction it exists for, error/empty state
     - mobile ViewModel: one test per state transition (loading, success, error)
-- [ ] **At least one e2e journey covers the feature**, new or extended. The harness is not
-      built yet (MAG-97/98) — until then, a Given/When/Then `## E2E journey` section in the
-      spec's `plan.md` plus the journey ticket that will carry it (MAG-99→MAG-103). No
+- [ ] **At least one e2e journey covers the feature**, new or extended. The stack exists
+      (`task e2e:up`), the browser harness does not yet (MAG-97/98) — until then, a
+      Given/When/Then `## E2E journey` section in the spec's `plan.md` plus the journey
+      ticket that will carry it (MAG-99→MAG-103). Data the journey needs goes in
+      `api/fixtures/e2e/` now, with its counts added to `E2eSeedCommandTest`. No
       user-facing behavior → write `E2E: N/A — <reason>` in `plan.md`.
 - [ ] **A fixed bug has the test that reproduces it**, written red before the fix.
 - [ ] **CI green on a PR** that links the ticket. One ticket = one branch = one PR.

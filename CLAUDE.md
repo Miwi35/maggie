@@ -86,9 +86,29 @@ Never run `php`, `composer`, `bin/console`, `npm`, `pytest` or `uv` on the host:
 
 Symfony console: `task api:console -- <args>`.
 
-**Before every push**: run the formatters in write mode, then the linters — `task agent:format` + `task agent:lint:fix`, `task ciqual:format` + `task ciqual:lint:fix`, then `task lint:all`; and **PHPStan on every PHP file you changed** — none may introduce a violation: `task api:phpstan -- $(git diff --name-only origin/main...HEAD -- 'api/*.php' | sed 's#^api/##')`. API PHP-CS-Fixer and a worktree-safe `task fix:all` come with MAG-133.
+**Before every push**: run the formatters in write mode, then the linters — `task agent:format` + `task agent:lint:fix`, `task ciqual:format` + `task ciqual:lint:fix`, then `task lint:all`; and **PHPStan on every PHP file you changed** — none may introduce a violation: `task api:phpstan -- $(git diff --name-only origin/main...HEAD -- 'api/*.php' | sed 's#^api/##')` — from a worktree, `task wt:phpstan -- …` instead, same arguments. API PHP-CS-Fixer and a `task fix:all` built on `wt:*` come with MAG-133.
 
-**In a git worktree** (parallel agents): every `task` command runs `docker compose exec` against the dev stack, which mounts the main checkout, not your worktree — tests and linters would check the wrong code, and **formatters would rewrite the owner's working copy: never run them from a worktree**. A worktree may instead start a **minimal, one-shot stack** of its own: only the services the command needs, no fixed host port, `run --rm` / `down -v` even on failure, resources released as soon as the command ends — and only after the load guard passes (enough free RAM, load under the core count; otherwise wait, then fall back to CI). The `task wt:*` tasks come with MAG-94; until then, push and let CI verify — and read its failures (see Reporting).
+**In a git worktree** (parallel agents): every `task api:*`, `task admin:*`, `task agent:*` and `task ciqual:*` command runs `docker compose exec` against the dev stack, which mounts the main checkout, not your worktree — tests and linters would check the wrong code, and **formatters would rewrite the owner's working copy: never run them from a worktree**. Use `task wt:*` instead: minimal one-shot containers, nothing published, `--rm` / `down -v` even on failure, and a load guard that waits then sends you to CI (exit 75 = the machine is busy, not your change). Details: `agent-os/standards/global/worktree-checks.md`.
+
+| Worktree checks | |
+|---|---|
+| `task wt:phpstan -- <files>` | PHPStan, one container, ~2 s warm |
+| `task wt:test:api` | PHPUnit on a throwaway Postgres |
+| `task wt:lint:admin`, `task wt:test:admin` | ESLint + tsc, Vitest |
+| `task wt:lint:agent`, `task wt:test:agent` | Ruff, pytest |
+| `task wt:lint:ciqual`, `task wt:test:ciqual` | Ruff, pytest |
+
+For a journey, or anything needing the whole system, bring up the e2e stack — one per worktree, one ephemeral loopback port, isolated from dev:
+
+| E2E stack | |
+|---|---|
+| `task e2e:up` | start (build, install, migrate), prints the URL |
+| `task e2e:seed` | deterministic fixtures + Elasticsearch rebuild |
+| `task e2e:smoke` | the smoke journey |
+| `task e2e:test:api` | PHPUnit inside the stack |
+| `task e2e:down` | remove everything |
+
+Test login: `POST /api/auth/e2e/login` with `X-E2E-Token`, mounted only in `APP_ENV=e2e`. External services (Enable Banking, Google, Whisper, TTS) are simulated. Details: `agent-os/standards/global/e2e-environment.md`.
 
 ## Tests — every change
 

@@ -1,9 +1,17 @@
-"""Edge TTS synthesis — streams MP3 audio from Microsoft neural voices."""
+"""Speech synthesis — Edge TTS in real life, a fixed clip under e2e."""
 
 import re
 from collections.abc import AsyncGenerator
 
 import edge_tts
+
+from app.config import settings
+
+# A valid, silent MP3 frame. The e2e provider streams this instead of calling
+# Microsoft: journeys assert that audio arrived and that the player handles it,
+# never what it sounds like, so a real voice would only add latency and a
+# dependency on a service that can be down.
+SILENT_MP3_FRAME = bytes.fromhex("fffb90c4" + "00" * 100)
 
 # Curated French voices (fr-FR, fr-BE, fr-CA)
 VOICES = [
@@ -120,9 +128,26 @@ def get_voices() -> list[dict]:
     return VOICES
 
 
+async def _synthesize_fake(text: str) -> AsyncGenerator[bytes, None]:
+    """Stream a silent clip, one chunk per 50 characters of prepared text.
+
+    Chunked rather than returned whole so the streaming path — the part that
+    actually breaks — is the same one the journeys exercise.
+    """
+    chunks = max(1, (len(text) + 49) // 50)
+    for _ in range(chunks):
+        yield SILENT_MP3_FRAME
+
+
 async def synthesize_speech(text: str, voice: str = DEFAULT_VOICE) -> AsyncGenerator[bytes, None]:
-    """Stream MP3 chunks from Edge TTS."""
+    """Stream MP3 chunks: from Edge TTS, or from the fake provider under e2e."""
     text = prepare_text_for_tts(text)
+
+    if settings.tts_provider == "fake":
+        async for chunk in _synthesize_fake(text):
+            yield chunk
+        return
+
     communicate = edge_tts.Communicate(text, voice)
     async for chunk in communicate.stream():
         if chunk["type"] == "audio":

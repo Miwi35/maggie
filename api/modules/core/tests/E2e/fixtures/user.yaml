@@ -1,0 +1,5 @@
+Maggie\Core\Entity\User:
+    test_user:
+        email: 'e2e@maggie.local'
+        googleId: 'e2e-google-id'
+        name: 'E2E User'

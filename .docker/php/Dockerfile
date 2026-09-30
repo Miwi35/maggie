@@ -98,6 +98,27 @@ EXPOSE 9000
 CMD ["php-fpm"]
 
 # =============================================================================
+# E2E stage — the deterministic test stack (MAG-94)
+# =============================================================================
+# Between dev and prod, deliberately:
+#
+#   - production php.ini, because several past regressions were prod-only and
+#     an e2e run in development mode would hide exactly that class of bug;
+#   - no Xdebug, which would slow every request in a suite whose whole point is
+#     to run often, and which nobody attaches a debugger to in CI;
+#   - source still bind-mounted, not copied, because the stack exists to test
+#     the current worktree's code.
+FROM base AS e2e
+
+RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
+
+USER app
+
+EXPOSE 9000
+
+CMD ["php-fpm"]
+
+# =============================================================================
 # Production stage
 # =============================================================================
 FROM base AS prod

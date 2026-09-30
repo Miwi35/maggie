@@ -49,8 +49,13 @@ Per ADR-005: Playwright for the web (`e2e/web/`), Maestro for the mobile app
 (`e2e/mobile/`), both on an isolated stack with test data, a test login and a
 **deterministic fake LLM**. E2E block pull requests.
 
-**The harness does not exist yet** (MAG-94 environment, MAG-95 fake LLM, MAG-97
-Playwright, MAG-98 Maestro). Until it lands, a ticket satisfies this rule by:
+**The stack exists** (MAG-94): `task e2e:up`, `task e2e:seed`, `task e2e:smoke`,
+`task e2e:down`, one per git worktree. How to use it, what the test login is,
+how the fixtures stay deterministic and which external services are simulated:
+[global/e2e-environment](e2e-environment.md).
+
+**The browser and emulator harnesses do not exist yet** (MAG-95 fake LLM, MAG-97
+Playwright, MAG-98 Maestro). Until they land, a ticket satisfies this rule by:
 
 - a `## E2E journey` section in its `plan.md`, written as Given / When / Then steps
   precise enough to be transcribed into a Playwright spec or a Maestro flow without
@@ -60,7 +65,9 @@ Playwright, MAG-98 Maestro). Until it lands, a ticket satisfies this rule by:
   MAG-100 agenda, MAG-101 recipes/meals/groceries, MAG-102 finance, MAG-103
   settings/search/notifications.
 
-Once the harness exists, the executable flow is part of the ticket and CI runs it.
+Once the browser harness exists, the executable flow is part of the ticket and CI
+runs it. A journey written today should already name the fixtures it needs in
+`api/fixtures/e2e/`, since the stack that will run it is there.
 
 **No user-facing behavior** — standards, docs, prompts, infra, refactor with no
 behavior change: write `E2E: N/A — <reason>` in `plan.md`. Anything the user can see
@@ -78,9 +85,10 @@ One ticket = one branch = one PR that links the ticket. Lint and tests of every 
 component pass before committing — see the [pre-commit](../../../.claude/skills/pre-commit/SKILL.md)
 skill for the commands.
 
-**In a git worktree** (parallel agents), `task *:test` runs against the dev stack, which
-mounts the main checkout — it would test the wrong code. Push and let CI verify until the
-isolated e2e stack exists (MAG-94).
+**In a git worktree** (parallel agents), `task api:test` runs against the dev stack, which
+mounts the main checkout — it would test the wrong code. Use `task e2e:test:api` instead:
+it runs PHPUnit inside the stack that mounts *this* worktree. See
+[global/e2e-environment](e2e-environment.md).
 
 ### 5. Documentation up to date (ADR-006)
 

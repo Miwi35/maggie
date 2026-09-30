@@ -1,0 +1,225 @@
+{
+  "mappings": [
+    {
+      "name": "List banks in France",
+      "request": {
+        "method": "GET",
+        "urlPathPattern": "/enablebanking/aspsps"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "aspsps": [
+            {
+              "name": "Mock Bank",
+              "country": "FR",
+              "logo": "https://example.invalid/mock-bank.png",
+              "psu_types": [
+                "personal"
+              ],
+              "maximum_consent_validity": 7776000
+            },
+            {
+              "name": "Other Mock Bank",
+              "country": "FR",
+              "logo": "https://example.invalid/other-mock-bank.png",
+              "psu_types": [
+                "personal"
+              ],
+              "maximum_consent_validity": 7776000
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Start authorization — hands back the consent URL",
+      "request": {
+        "method": "POST",
+        "urlPathPattern": "/enablebanking/auth"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "url": "http://wiremock:8080/enablebanking/consent-screen",
+          "authorization_id": "e2e-authorization-id",
+          "psu_id_hash": "e2e-psu-hash"
+        }
+      }
+    },
+    {
+      "name": "Exchange the one-time code for a session",
+      "request": {
+        "method": "POST",
+        "urlPathPattern": "/enablebanking/sessions"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "session_id": "e2e-session-id",
+          "access": {
+            "valid_until": "2027-01-01T00:00:00Z"
+          },
+          "accounts": [
+            {
+              "uid": "e2e-account-checking",
+              "identification_hash": "e2e-hash-checking",
+              "account_id": {
+                "iban": "FR7630001007941234567890185"
+              },
+              "name": "Compte courant Mock",
+              "currency": "EUR",
+              "cash_account_type": "CACC"
+            },
+            {
+              "uid": "e2e-account-savings",
+              "identification_hash": "e2e-hash-savings",
+              "account_id": {
+                "iban": "FR7630001007941234567890186"
+              },
+              "name": "Livret Mock",
+              "currency": "EUR",
+              "cash_account_type": "SVGS"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Balances for the checking account",
+      "request": {
+        "method": "GET",
+        "urlPathPattern": "/enablebanking/accounts/e2e-account-checking/balances"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "balances": [
+            {
+              "name": "Booked",
+              "balance_amount": {
+                "currency": "EUR",
+                "amount": "1845.50"
+              },
+              "balance_type": "CLBD"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Transactions for the checking account",
+      "request": {
+        "method": "GET",
+        "urlPathPattern": "/enablebanking/accounts/e2e-account-checking/transactions"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "transactions": [
+            {
+              "entry_reference": "e2e-bank-tx-1",
+              "transaction_amount": {
+                "currency": "EUR",
+                "amount": "-42.90"
+              },
+              "credit_debit_indicator": "DBIT",
+              "status": "BOOK",
+              "booking_date": "2026-03-10",
+              "value_date": "2026-03-10",
+              "remittance_information": [
+                "LECLERC RENNES CB"
+              ]
+            },
+            {
+              "entry_reference": "e2e-bank-tx-2",
+              "transaction_amount": {
+                "currency": "EUR",
+                "amount": "-18.00"
+              },
+              "credit_debit_indicator": "DBIT",
+              "status": "BOOK",
+              "booking_date": "2026-03-11",
+              "value_date": "2026-03-11",
+              "remittance_information": [
+                "SNCF CONNECT"
+              ]
+            },
+            {
+              "entry_reference": "e2e-bank-tx-3",
+              "transaction_amount": {
+                "currency": "EUR",
+                "amount": "2350.00"
+              },
+              "credit_debit_indicator": "CRDT",
+              "status": "BOOK",
+              "booking_date": "2026-03-01",
+              "value_date": "2026-03-01",
+              "remittance_information": [
+                "VIREMENT SALAIRE"
+              ]
+            }
+          ],
+          "continuation_key": null
+        }
+      }
+    },
+    {
+      "name": "Balances for the savings account",
+      "request": {
+        "method": "GET",
+        "urlPathPattern": "/enablebanking/accounts/e2e-account-savings/balances"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "balances": [
+            {
+              "name": "Booked",
+              "balance_amount": {
+                "currency": "EUR",
+                "amount": "4200.00"
+              },
+              "balance_type": "CLBD"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Transactions for the savings account — empty, a real case",
+      "request": {
+        "method": "GET",
+        "urlPathPattern": "/enablebanking/accounts/e2e-account-savings/transactions"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "transactions": [],
+          "continuation_key": null
+        }
+      }
+    }
+  ]
+}

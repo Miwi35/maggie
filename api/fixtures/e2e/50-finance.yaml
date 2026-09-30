@@ -1,0 +1,279 @@
+# Finance data for the MAG-102 journey: two accounts, a category tree,
+# transactions across this month and last, an envelope, a rule, a cushion and
+# a loan.
+#
+# Amounts are in cents and chosen so totals are easy to assert by hand:
+# this month's "Courses" transactions add up to 12 000 cents exactly.
+
+Maggie\Finance\Entity\BankConnection:
+  # Pointed at the WireMock stand-in, so the sync journey never leaves the
+  # Docker network. Declared first because the accounts below reference it.
+  e2e_bank_connection:
+    bankName: 'Mock Bank'
+    country: 'FR'
+    status: '<(Maggie\Finance\Enum\BankConnectionStatus::Active)>'
+    sessionId: 'e2e-session-id'
+    # NOT anchored: isUsable() compares this to the real clock, so a run with
+    # --now in the past would make the connection look expired and the sync
+    # would quietly do nothing.
+    consentExpiresAt: '<(new \DateTimeImmutable("2099-01-01T00:00:00+00:00"))>'
+    user: '@e2e_user'
+
+Maggie\Finance\Entity\Account:
+  # externalAccountId and bankConnection are what make the bank sync journey
+  # possible: the sync walks the accounts of a connection and asks WireMock
+  # for these exact ids (.docker/e2e/wiremock/mappings/enablebanking.json).
+  e2e_account_checking:
+    name: Compte courant
+    bank: Crédit Mutuel
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 184550
+    isCushion: false
+    externalAccountId: 'e2e-account-checking'
+    bankConnection: '@e2e_bank_connection'
+    user: '@e2e_user'
+
+  e2e_account_savings:
+    name: Livret A
+    bank: Crédit Mutuel
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 420000
+    isCushion: true
+    externalAccountId: 'e2e-account-savings'
+    bankConnection: '@e2e_bank_connection'
+    user: '@e2e_user'
+
+Maggie\Finance\Entity\Category:
+  e2e_category_essentials:
+    name: Vie courante
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    color: '#2e7d32'
+    icon: 'home'
+    user: '@e2e_user'
+
+  e2e_category_groceries:
+    name: Courses
+    parent: '@e2e_category_essentials'
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    color: '#66bb6a'
+    icon: 'cart'
+    user: '@e2e_user'
+
+  e2e_category_leisure:
+    name: Loisirs
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    color: '#ef6c00'
+    icon: 'ticket'
+    user: '@e2e_user'
+
+  e2e_category_income:
+    name: Salaire
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    color: '#1565c0'
+    icon: 'wallet'
+    user: '@e2e_user'
+
+Maggie\Finance\Entity\Transaction:
+  # This month, category set by hand.
+  e2e_transaction_salary:
+    account: '@e2e_account_checking'
+    category: '@e2e_category_income'
+    amountCents: 235000
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month")>'
+    label: 'VIREMENT SALAIRE'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    categorizedAt: '<e2eDate("first day of this month")>'
+    user: '@e2e_user'
+
+  e2e_transaction_groceries_1:
+    account: '@e2e_account_checking'
+    category: '@e2e_category_groceries'
+    amountCents: -4500
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month +2 days")>'
+    label: 'LECLERC RENNES'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Rule)>'
+    categorizedAt: '<e2eDate("first day of this month +2 days")>'
+    user: '@e2e_user'
+
+  e2e_transaction_groceries_2:
+    account: '@e2e_account_checking'
+    category: '@e2e_category_groceries'
+    amountCents: -3200
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month +9 days")>'
+    label: 'LECLERC RENNES'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Rule)>'
+    categorizedAt: '<e2eDate("first day of this month +9 days")>'
+    user: '@e2e_user'
+
+  e2e_transaction_groceries_3:
+    account: '@e2e_account_checking'
+    category: '@e2e_category_groceries'
+    amountCents: -4300
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month +16 days")>'
+    label: 'PRIMEUR DU MARCHE'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    categorizedAt: '<e2eDate("first day of this month +16 days")>'
+    user: '@e2e_user'
+
+  e2e_transaction_leisure:
+    account: '@e2e_account_checking'
+    category: '@e2e_category_leisure'
+    amountCents: -2400
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month +5 days")>'
+    label: 'CINEMA GAUMONT'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    retrospect: '<(Maggie\Finance\Enum\RetrospectVerdict::Keep)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    user: '@e2e_user'
+
+  # Uncategorised on purpose: the categorisation rule below matches its label,
+  # so a journey can run the rule and watch this row change.
+  e2e_transaction_uncategorised:
+    account: '@e2e_account_checking'
+    amountCents: -5600
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month +18 days")>'
+    label: 'LECLERC DRIVE RENNES'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::None)>'
+    user: '@e2e_user'
+
+  e2e_transaction_to_arbitrate:
+    account: '@e2e_account_checking'
+    amountCents: -8900
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month +20 days")>'
+    label: 'DARTY'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::ToArbitrate)>'
+    isExceptional: true
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::None)>'
+    user: '@e2e_user'
+
+  # Last month, so the monthly review has a closed period to look back on.
+  e2e_transaction_last_month_salary:
+    account: '@e2e_account_checking'
+    category: '@e2e_category_income'
+    amountCents: 235000
+    currency: EUR
+    bookedAt: '<e2eDate("first day of last month")>'
+    label: 'VIREMENT SALAIRE'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    user: '@e2e_user'
+
+  e2e_transaction_last_month_groceries:
+    account: '@e2e_account_checking'
+    category: '@e2e_category_groceries'
+    amountCents: -38000
+    currency: EUR
+    bookedAt: '<e2eDate("first day of last month +10 days")>'
+    label: 'LECLERC RENNES'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Rule)>'
+    user: '@e2e_user'
+
+  e2e_transaction_last_month_leisure:
+    account: '@e2e_account_checking'
+    category: '@e2e_category_leisure'
+    amountCents: -12000
+    currency: EUR
+    bookedAt: '<e2eDate("first day of last month +21 days")>'
+    label: 'FNAC'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    retrospect: '<(Maggie\Finance\Enum\RetrospectVerdict::Avoidable)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    user: '@e2e_user'
+
+  e2e_transaction_savings_transfer:
+    account: '@e2e_account_savings'
+    amountCents: 20000
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month +1 day")>'
+    label: 'VIREMENT EPARGNE'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::None)>'
+    user: '@e2e_user'
+
+  # In the future: "planned" must stay out of what has actually been spent.
+  e2e_transaction_planned_rent:
+    account: '@e2e_account_checking'
+    category: '@e2e_category_essentials'
+    amountCents: -75000
+    currency: EUR
+    bookedAt: '<e2eDate("first day of next month")>'
+    label: 'LOYER'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Planned)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    user: '@e2e_user'
+
+Maggie\Finance\Entity\Envelope:
+  # Monthly: 20 000 cents budgeted against 12 000 spent this month.
+  e2e_envelope_groceries:
+    category: '@e2e_category_groceries'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 20000
+    currency: EUR
+    year: '<e2eYear()>'
+    month: '<e2eMonth()>'
+    user: '@e2e_user'
+
+  # Annual, so both envelope modes are exercised (MAG-102).
+  e2e_envelope_leisure_annual:
+    category: '@e2e_category_leisure'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Annual)>'
+    amountCents: 120000
+    currency: EUR
+    year: '<e2eYear()>'
+    user: '@e2e_user'
+
+Maggie\Finance\Entity\CategorizationRule:
+  e2e_rule_leclerc:
+    labelPattern: 'LECLERC'
+    matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'
+    category: '@e2e_category_groceries'
+    direction: '<(Maggie\Finance\Enum\AmountDirection::Debit)>'
+    priority: 10
+    isActive: true
+    user: '@e2e_user'
+
+  # Inactive, so "activate a rule" has a target and the active/inactive split
+  # is visible in the list.
+  e2e_rule_fnac_inactive:
+    labelPattern: 'FNAC'
+    matchType: '<(Maggie\Finance\Enum\MatchType::StartsWith)>'
+    category: '@e2e_category_leisure'
+    direction: '<(Maggie\Finance\Enum\AmountDirection::Debit)>'
+    priority: 20
+    isActive: false
+    user: '@e2e_user'
+
+Maggie\Finance\Entity\SafetyCushion:
+  e2e_cushion:
+    user: '@e2e_user'
+    targetMonths: 3
+    monthlyNetIncomeCents: 235000
+    rechargeCapCents: 15000
+    rechargeTargetMonths: 6
+
+Maggie\Finance\Entity\Loan:
+  e2e_loan_car:
+    name: Crédit voiture
+    lender: Crédit Mutuel
+    principalRemainingCents: 480000
+    monthlyPaymentCents: 21000
+    annualRateBasisPoints: 320
+    priority: 1
+    currency: EUR
+    user: '@e2e_user'

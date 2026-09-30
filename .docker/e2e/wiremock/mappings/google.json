@@ -1,0 +1,239 @@
+{
+  "mappings": [
+    {
+      "name": "Calendar list",
+      "request": {
+        "method": "GET",
+        "urlPathPattern": "/google/calendar/v3/users/me/calendarList"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "kind": "calendar#calendarList",
+          "items": [
+            {
+              "kind": "calendar#calendarListEntry",
+              "id": "e2e@maggie.local",
+              "summary": "Agenda Google de test",
+              "timeZone": "Europe/Paris",
+              "primary": true,
+              "accessRole": "owner"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Events on the test calendar",
+      "request": {
+        "method": "GET",
+        "urlPathPattern": "/google/calendar/v3/calendars/[^/]+/events"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "kind": "calendar#events",
+          "nextSyncToken": "e2e-sync-token",
+          "items": [
+            {
+              "kind": "calendar#event",
+              "id": "e2e-google-event-1",
+              "status": "confirmed",
+              "summary": "Réunion importée de Google",
+              "location": "Visioconférence",
+              "start": {
+                "dateTime": "2026-03-16T10:00:00+01:00",
+                "timeZone": "Europe/Paris"
+              },
+              "end": {
+                "dateTime": "2026-03-16T11:00:00+01:00",
+                "timeZone": "Europe/Paris"
+              },
+              "updated": "2026-03-15T08:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Create an event — echoes back an id the sync can store",
+      "request": {
+        "method": "POST",
+        "urlPathPattern": "/google/calendar/v3/calendars/[^/]+/events"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "kind": "calendar#event",
+          "id": "e2e-google-event-created",
+          "status": "confirmed",
+          "updated": "2026-03-15T08:00:00.000Z"
+        }
+      }
+    },
+    {
+      "name": "Update an event",
+      "request": {
+        "method": "PUT",
+        "urlPathPattern": "/google/calendar/v3/calendars/[^/]+/events/[^/]+"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "kind": "calendar#event",
+          "id": "e2e-google-event-created",
+          "status": "confirmed",
+          "updated": "2026-03-15T09:00:00.000Z"
+        }
+      }
+    },
+    {
+      "name": "Delete an event",
+      "request": {
+        "method": "DELETE",
+        "urlPathPattern": "/google/calendar/v3/calendars/[^/]+/events/[^/]+"
+      },
+      "response": {
+        "status": 204
+      }
+    },
+    {
+      "name": "Register a push channel",
+      "request": {
+        "method": "POST",
+        "urlPathPattern": "/google/calendar/v3/calendars/[^/]+/events/watch"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "kind": "api#channel",
+          "id": "e2e-channel-id",
+          "resourceId": "e2e-resource-id",
+          "expiration": "4102444800000"
+        }
+      }
+    },
+    {
+      "name": "Stop a push channel",
+      "request": {
+        "method": "POST",
+        "urlPathPattern": "/google/calendar/v3/channels/stop"
+      },
+      "response": {
+        "status": 204
+      }
+    },
+    {
+      "name": "Task lists",
+      "request": {
+        "method": "GET",
+        "urlPathPattern": "/google/tasks/v1/users/@me/lists"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "kind": "tasks#taskLists",
+          "items": [
+            {
+              "kind": "tasks#taskList",
+              "id": "e2e-task-list",
+              "title": "Mes tâches"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Tasks in a list",
+      "request": {
+        "method": "GET",
+        "urlPathPattern": "/google/tasks/v1/lists/[^/]+/tasks"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "kind": "tasks#tasks",
+          "items": [
+            {
+              "kind": "tasks#task",
+              "id": "e2e-google-task-1",
+              "title": "Tâche importée de Google",
+              "status": "needsAction",
+              "due": "2026-03-18T00:00:00.000Z",
+              "updated": "2026-03-15T08:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Create a task",
+      "request": {
+        "method": "POST",
+        "urlPathPattern": "/google/tasks/v1/lists/[^/]+/tasks"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "kind": "tasks#task",
+          "id": "e2e-google-task-created",
+          "status": "needsAction",
+          "updated": "2026-03-15T08:00:00.000Z"
+        }
+      }
+    },
+    {
+      "name": "Update a task",
+      "request": {
+        "method": "PUT",
+        "urlPathPattern": "/google/tasks/v1/lists/[^/]+/tasks/[^/]+"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "kind": "tasks#task",
+          "id": "e2e-google-task-created",
+          "status": "completed",
+          "updated": "2026-03-15T09:00:00.000Z"
+        }
+      }
+    },
+    {
+      "name": "Delete a task",
+      "request": {
+        "method": "DELETE",
+        "urlPathPattern": "/google/tasks/v1/lists/[^/]+/tasks/[^/]+"
+      },
+      "response": {
+        "status": 204
+      }
+    }
+  ]
+}

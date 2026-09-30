@@ -16,6 +16,7 @@
 
 ###> lexik/jwt-authentication-bundle ###
 /config/jwt/*.pem
+/config/jwt/e2e/
 ###< lexik/jwt-authentication-bundle ###
 
 ###> maggie/bank-sync ###

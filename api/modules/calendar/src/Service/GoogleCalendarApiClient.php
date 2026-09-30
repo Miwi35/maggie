@@ -17,6 +17,12 @@ class GoogleCalendarApiClient
         private readonly EntityManagerInterface $entityManager,
         private readonly string $googleClientId,
         private readonly string $googleClientSecret,
+        /**
+         * Empty everywhere but the e2e stack, where it points at the WireMock
+         * stand-in so a journey's Google sync never leaves the Docker network.
+         * Empty means the library's own root — dev and prod are unchanged.
+         */
+        private readonly string $googleApiBaseUrl = '',
     ) {
     }
 
@@ -24,7 +30,7 @@ class GoogleCalendarApiClient
     {
         $client = $this->buildClient($user);
 
-        return new GoogleCalendarService($client);
+        return new GoogleCalendarService($client, $this->googleApiBaseUrl !== '' ? $this->googleApiBaseUrl : null);
     }
 
     /**
