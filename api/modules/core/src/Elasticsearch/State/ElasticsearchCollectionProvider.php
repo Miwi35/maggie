@@ -62,7 +62,7 @@ final class ElasticsearchCollectionProvider implements ProviderInterface
     {
         $userId = $this->getCurrentUserId();
         $filters = $context['filters'] ?? [];
-        $translated = $this->filterTranslator->translate($filters);
+        $translated = $this->filterTranslator->translate($filters, $meta['fields']);
 
         // Pagination
         $page = (int) ($filters['page'] ?? 1);

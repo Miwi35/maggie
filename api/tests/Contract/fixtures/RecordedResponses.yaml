@@ -1,0 +1,167 @@
+# The world the recorded responses are taken from.
+#
+# Deliberately small and deliberately not round: a nullable field left null
+# everywhere, or an amount of zero, records a response that proves nothing
+# about how the clients read a real one. Every optional field is filled at
+# least once across the set.
+
+Maggie\Core\Entity\User:
+  recorded_user:
+    email: recorded@example.com
+    googleId: google-recorded
+    name: Recorded User
+
+Maggie\Core\Entity\UserPreference:
+  recorded_preference:
+    user: '@recorded_user'
+    theme: dark
+    locale: en
+    timezone: Europe/Lisbon
+    defaultCalendarView: week
+    enabledAgendaIds: ['01JAAAAAAAAAAAAAAAAAAAAAAA']
+    notificationsEnabled: false
+
+Maggie\Calendar\Entity\Agenda:
+  recorded_agenda:
+    name: Recorded Agenda
+    description: The agenda the recorded events belong to
+    color: '#336699'
+    isDefault: true
+    googleCalendarId: recorded@group.calendar.google.com
+    user: '@recorded_user'
+
+Maggie\Calendar\Entity\Event:
+  recorded_event:
+    summary: Recorded event
+    description: An event with every optional field filled
+    location: Lisbon
+    startAt: '<(new \DateTimeImmutable("2026-03-15 10:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-03-15 11:00"))>'
+    agenda: '@recorded_agenda'
+
+  recorded_recurring_event:
+    summary: Recorded recurring event
+    startAt: '<(new \DateTimeImmutable("2026-03-01 08:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-03-01 08:30"))>'
+    rrule: 'FREQ=WEEKLY;BYDAY=MO'
+    agenda: '@recorded_agenda'
+
+Maggie\Calendar\Entity\Task:
+  recorded_open_task:
+    title: Recorded open task
+    description: A task with a due date and no completion
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::High)>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::High)>'
+    dueDate: '<(new \DateTimeImmutable("2026-03-20 10:00"))>'
+    user: '@recorded_user'
+
+  recorded_done_task:
+    title: Recorded completed task
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Low)>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Low)>'
+    completedAt: '<(new \DateTimeImmutable("2026-03-19 10:00"))>'
+    user: '@recorded_user'
+
+Maggie\Cookbook\Entity\Recipe:
+  recorded_recipe:
+    name: Recorded Recipe
+    servings: 2
+    tags: ['quick', 'vegetarian']
+    notes: The notes the client renders
+    user: '@recorded_user'
+
+Maggie\Cookbook\Entity\Meal:
+  recorded_meal:
+    summary: Recorded meal
+    slot: '<(Maggie\Cookbook\Enum\MealSlot::Dinner)>'
+    startAt: '<(new \DateTimeImmutable("2026-03-16 19:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-03-16 20:00"))>'
+    agenda: '@recorded_agenda'
+    recipes: ['@recorded_recipe']
+
+Maggie\Grocery\Entity\Store:
+  recorded_store:
+    name: Recorded Store
+    description: The shop the recorded products are bought at
+    visitOrder: 2
+    user: '@recorded_user'
+
+  recorded_fallback_store:
+    name: Recorded Fallback Store
+    visitOrder: 9
+    user: '@recorded_user'
+
+Maggie\Grocery\Entity\Product:
+  recorded_product:
+    name: Recorded Product
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+    preferredStore: '@recorded_store'
+    fallbackStore: '@recorded_fallback_store'
+    shelfLifeDays: 5
+    kcalPer100g: 52.0
+    proteinPer100g: 0.3
+    carbsPer100g: 14.0
+    fatPer100g: 0.2
+    user: '@recorded_user'
+
+Maggie\Cookbook\Entity\Ingredient:
+  recorded_ingredient:
+    name: Recorded Ingredient
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Kilogram)>'
+    kcalPer100g: 340.0
+    proteinPer100g: 12.5
+    carbsPer100g: 71.0
+    fatPer100g: 1.5
+    user: '@recorded_user'
+
+Maggie\Grocery\Entity\GroceryList:
+  recorded_grocery_list:
+    user: '@recorded_user'
+
+Maggie\Notification\Entity\Notification:
+  recorded_unread_notification:
+    user: '@recorded_user'
+    type: '<(Maggie\Notification\Enum\NotificationType::Reminder)>'
+    title: Recorded unread notification
+    body: The body the client renders
+    relatedEntityIri: '/api/events/01JAAAAAAAAAAAAAAAAAAAAAAA'
+
+  recorded_read_notification:
+    user: '@recorded_user'
+    type: '<(Maggie\Notification\Enum\NotificationType::Reminder)>'
+    title: Recorded read notification
+    readAt: '<(new \DateTimeImmutable("2026-03-18 09:00"))>'
+
+Maggie\Finance\Entity\Account:
+  recorded_account:
+    name: Recorded Account
+    bank: Recorded Bank
+    currency: EUR
+    balanceCents: 123456
+    isCushion: true
+    user: '@recorded_user'
+
+Maggie\Finance\Entity\Category:
+  recorded_parent_category:
+    name: Recorded Parent Category
+    user: '@recorded_user'
+
+  recorded_category:
+    name: Recorded Category
+    parent: '@recorded_parent_category'
+    color: '#aa3344'
+    icon: cart
+    user: '@recorded_user'
+
+Maggie\Finance\Entity\Transaction:
+  recorded_transaction:
+    account: '@recorded_account'
+    category: '@recorded_category'
+    amountCents: -4250
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-03-17"))>'
+    label: Recorded transaction
+    isExceptional: true
+    user: '@recorded_user'

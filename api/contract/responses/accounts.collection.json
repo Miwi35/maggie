@@ -1,0 +1,20 @@
+{
+    "@context": "/api/contexts/Account",
+    "@id": "/api/accounts",
+    "@type": "Collection",
+    "totalItems": 1,
+    "member": [
+        {
+            "@id": "/api/accounts/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Account",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Recorded Account",
+            "bank": "Recorded Bank",
+            "type": "checking",
+            "currency": "EUR",
+            "balanceCents": 123456,
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "cushion": true
+        }
+    ]
+}

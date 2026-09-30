@@ -1,0 +1,37 @@
+{
+    "@context": "/api/contexts/Recipe",
+    "@id": "/api/recipes",
+    "@type": "Collection",
+    "totalItems": 1,
+    "member": [
+        {
+            "@id": "/api/recipes/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Recipe",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Recorded Recipe",
+            "servings": 2,
+            "tags": [
+                "quick",
+                "vegetarian"
+            ],
+            "notes": "The notes the client renders",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "ingredients": [],
+            "createdAt": "2026-01-01T00:00:00+00:00",
+            "updatedAt": "2026-01-01T00:00:00+00:00"
+        }
+    ],
+    "search": {
+        "@type": "IriTemplate",
+        "template": "/api/recipes{?order[name]}",
+        "variableRepresentation": "BasicRepresentation",
+        "mapping": [
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "order[name]",
+                "property": "name",
+                "required": false
+            }
+        ]
+    }
+}

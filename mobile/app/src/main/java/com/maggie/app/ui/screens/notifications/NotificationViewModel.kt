@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.Notification
 import com.maggie.app.data.repository.NotificationRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -78,7 +79,7 @@ class NotificationViewModel(
     private fun subscribeToMercure() {
         viewModelScope.launch {
             val userId = authRepository.getUserId() ?: return@launch
-            mercureService.subscribe("/users/$userId/api/notifications/{id}")
+            mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.NOTIFICATIONS))
                 .catch { /* SSE reconnects automatically */ }
                 .collect { refresh() }
         }

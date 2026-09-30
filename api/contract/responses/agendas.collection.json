@@ -1,0 +1,39 @@
+{
+    "@context": "/api/contexts/Agenda",
+    "@id": "/api/agendas",
+    "@type": "Collection",
+    "totalItems": 1,
+    "member": [
+        {
+            "@id": "/api/agendas/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Agenda",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Recorded Agenda",
+            "description": "The agenda the recorded events belong to",
+            "timeZone": "Europe/Paris",
+            "color": "#336699",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "events": [
+                "/api/events/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "/api/events/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "/api/meals/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+            ],
+            "googleCalendarId": "recorded@group.calendar.google.com",
+            "default": true,
+            "googleSynced": true
+        }
+    ],
+    "search": {
+        "@type": "IriTemplate",
+        "template": "/api/agendas{?order[name]}",
+        "variableRepresentation": "BasicRepresentation",
+        "mapping": [
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "order[name]",
+                "property": "name",
+                "required": false
+            }
+        ]
+    }
+}

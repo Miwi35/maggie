@@ -1,6 +1,7 @@
 package com.maggie.app.ui.screens.cookbook.grocery
 
 import com.maggie.app.data.api.ReorderEntry
+import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.GroceryItem
@@ -40,6 +41,7 @@ class GroceryViewModelTest {
     private lateinit var productRepository: ProductRepository
     private lateinit var storeRepository: StoreRepository
     private lateinit var mercureService: MercureService
+    private lateinit var authRepository: AuthRepository
     private lateinit var viewModel: GroceryViewModel
 
     private val store = Store(id = "store-1", name = "Carrefour", visitOrder = 1)
@@ -59,7 +61,9 @@ class GroceryViewModelTest {
         productRepository = mockk()
         storeRepository = mockk()
         mercureService = mockk()
+        authRepository = mockk()
 
+        coEvery { authRepository.getUserId() } returns "user-1"
         every { mercureService.subscribe(any()) } returns emptyFlow()
         coEvery { groceryListRepository.getGroceryList() } returns Result.success(sampleList)
         coEvery { productRepository.getProducts() } returns Result.success(emptyList())
@@ -70,7 +74,7 @@ class GroceryViewModelTest {
     }
 
     private fun createViewModel(): GroceryViewModel {
-        return GroceryViewModel(groceryListRepository, productRepository, storeRepository, mercureService)
+        return GroceryViewModel(groceryListRepository, productRepository, storeRepository, mercureService, authRepository)
     }
 
     @After
@@ -482,7 +486,10 @@ class GroceryViewModelTest {
         viewModel = createViewModel()
         advanceUntilIdle()
 
-        verify { mercureService.subscribe("/users/{userId}/api/grocery_lists/{id}") }
+        // The user id is substituted; only {id} stays a placeholder, because
+        // it is a URI-template wildcard in the topic selector. The literal
+        // "{userId}" that used to be here matched nothing the API publishes.
+        verify { mercureService.subscribe("/users/user-1/api/grocery_lists/{id}") }
     }
 
     @Test

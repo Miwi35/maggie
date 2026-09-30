@@ -1,0 +1,48 @@
+{
+    "@context": "/api/contexts/Notification",
+    "@id": "/api/notifications",
+    "@type": "Collection",
+    "totalItems": 2,
+    "member": [
+        {
+            "@id": "/api/notifications/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Notification",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "type": "reminder",
+            "title": "Recorded read notification",
+            "readAt": "2026-03-18T09:00:00+00:00",
+            "createdAt": "2026-01-01T00:00:00+00:00"
+        },
+        {
+            "@id": "/api/notifications/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Notification",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "type": "reminder",
+            "title": "Recorded unread notification",
+            "body": "The body the client renders",
+            "relatedEntityIri": "/api/events/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "createdAt": "2026-01-01T00:00:00+00:00"
+        }
+    ],
+    "search": {
+        "@type": "IriTemplate",
+        "template": "/api/notifications{?exists[readAt],order[createdAt]}",
+        "variableRepresentation": "BasicRepresentation",
+        "mapping": [
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "exists[readAt]",
+                "property": "readAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "order[createdAt]",
+                "property": "createdAt",
+                "required": false
+            }
+        ]
+    }
+}

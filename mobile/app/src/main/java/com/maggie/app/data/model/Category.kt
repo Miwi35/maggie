@@ -7,7 +7,10 @@ data class Category(
     val id: String,
     val name: String,
     val obligation: String = "optional",
-    val parentId: String? = null,
+    // A full IRI ("/api/categories/01H…"), not an id: what the provider
+    // returns is the identifier, never something to prefix. CategoryCreateRequest
+    // already sends it back under this name.
+    val parent: String? = null,
     val color: String? = null,
     val icon: String? = null,
 )

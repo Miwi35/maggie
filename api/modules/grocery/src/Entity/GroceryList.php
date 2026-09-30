@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Maggie\Grocery\Entity;
 
+use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
+use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
@@ -12,6 +14,7 @@ use Maggie\Grocery\Repository\GroceryListRepository;
 use Maggie\Core\Contract\IndexableInterface;
 use Maggie\Core\Contract\OwnedByUserInterface;
 use Maggie\Core\Elasticsearch\Attribute\Indexed;
+use Maggie\Core\Elasticsearch\Attribute\IndexedField;
 use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
 use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
 use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
@@ -24,6 +27,7 @@ use Symfony\Component\Uid\Ulid;
 
 #[ORM\Entity(repositoryClass: GroceryListRepository::class)]
 #[ORM\UniqueConstraint(name: 'uniq_grocery_list_user', columns: ['user_id'])]
+#[ApiFilter(OrderFilter::class, properties: ['createdAt'])]
 #[Indexed(index: 'grocery_lists', module: 'grocery')]
 #[ApiResource(operations: [
     new GetCollection(provider: ElasticsearchCollectionProvider::class),
@@ -44,7 +48,11 @@ class GroceryList implements MercurePublishable, OwnedByUserInterface, Indexable
     #[ORM\OneToMany(targetEntity: GroceryItem::class, mappedBy: 'groceryList', cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $items;
 
+    // Indexed because the admin sorts grocery lists by it, and the collection
+    // is served from Elasticsearch: a sort on a field the index does not hold
+    // throws, and the provider then falls back to Doctrine without a word.
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE)]
+    #[IndexedField(type: 'date')]
     private \DateTimeImmutable $createdAt;
 
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE)]

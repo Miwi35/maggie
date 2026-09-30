@@ -1,0 +1,112 @@
+{
+    "@context": "/api/contexts/Task",
+    "@id": "/api/tasks",
+    "@type": "Collection",
+    "totalItems": 2,
+    "member": [
+        {
+            "@id": "/api/tasks/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Task",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "title": "Recorded open task",
+            "description": "A task with a due date and no completion",
+            "priority": "high",
+            "criticality": "high",
+            "dueDate": "2026-03-20T10:00:00+00:00",
+            "done": false,
+            "googleSynced": false
+        },
+        {
+            "@id": "/api/tasks/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Task",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "title": "Recorded completed task",
+            "priority": "low",
+            "criticality": "low",
+            "completedAt": "2026-03-19T10:00:00+00:00",
+            "done": true,
+            "googleSynced": false
+        }
+    ],
+    "search": {
+        "@type": "IriTemplate",
+        "template": "/api/tasks{?dueDate[before],dueDate[strictly_before],dueDate[after],dueDate[strictly_after],exists[completedAt],exists[dueDate],priority,priority[],criticality,criticality[],order[dueDate],order[criticality]}",
+        "variableRepresentation": "BasicRepresentation",
+        "mapping": [
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "dueDate[before]",
+                "property": "dueDate",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "dueDate[strictly_before]",
+                "property": "dueDate",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "dueDate[after]",
+                "property": "dueDate",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "dueDate[strictly_after]",
+                "property": "dueDate",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "exists[completedAt]",
+                "property": "completedAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "exists[dueDate]",
+                "property": "dueDate",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "priority",
+                "property": "priority",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "priority[]",
+                "property": "priority",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "criticality",
+                "property": "criticality",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "criticality[]",
+                "property": "criticality",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "order[dueDate]",
+                "property": "dueDate",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "order[criticality]",
+                "property": "criticality",
+                "required": false
+            }
+        ]
+    }
+}

@@ -1,5 +1,6 @@
 package com.maggie.app.data.model
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -10,7 +11,9 @@ data class Transaction(
     val currency: String = "EUR",
     val bookedAt: String? = null,
     val status: String = "spent",
-    val isExceptional: Boolean = false,
+    // Serialised as "exceptional" by the API, for the same reason as
+    // Account.isCushion.
+    @SerialName("exceptional") val isExceptional: Boolean = false,
 )
 
 /** Human-readable French label for a transaction status code. */

@@ -9,10 +9,12 @@ final class ElasticsearchFilterTranslator
     /**
      * Translates API Platform request filters to ES query clauses.
      *
-     * @param array<string, mixed> $filters Request query parameters
+     * @param array<string, mixed>               $filters Request query parameters
+     * @param array<string, array<string, mixed>> $fields  The index mapping, as IndexMetadataReader returns it.
+     *                                                     Only sorting needs it — see sortField().
      * @return array{must: array<int, array<string, mixed>>, filter: array<int, array<string, mixed>>, sort: array<int, array<string, string>>}
      */
-    public function translate(array $filters): array
+    public function translate(array $filters, array $fields = []): array
     {
         $must = [];
         $filter = [];
@@ -33,7 +35,7 @@ final class ElasticsearchFilterTranslator
 
             if ($key === 'order' && \is_array($value)) {
                 foreach ($value as $field => $direction) {
-                    $sort[] = [$field => strtolower($direction)];
+                    $sort[] = [self::sortField($field, $fields) => strtolower($direction)];
                 }
                 continue;
             }
@@ -64,6 +66,39 @@ final class ElasticsearchFilterTranslator
             'filter' => $filter,
             'sort' => $sort,
         ];
+    }
+
+    /**
+     * Elasticsearch refuses to sort on an analysed `text` field: the values it
+     * holds are the tokens, not the string. Where the mapping declares a
+     * `keyword` sub-field, that is the sortable form of the same value.
+     *
+     * Without this, `order[name]=asc` made the search throw,
+     * ElasticsearchCollectionProvider swallowed the exception and fell back to
+     * Doctrine. The list came back sorted, so nothing looked wrong — the
+     * collection was simply served by the other implementation, one extra
+     * query and one warning line at a time. Silence of that kind is what this
+     * ticket is about.
+     *
+     * A `text` field with no keyword sub-field is left alone, which still
+     * throws. That is deliberate: the fix belongs on the entity
+     * (`#[IndexedField(type: 'text', keyword: true)]`), and
+     * QueryParameterContractTest fails on it before anyone can ship it.
+     *
+     * @param array<string, array<string, mixed>> $fields
+     */
+    private static function sortField(string $field, array $fields): string
+    {
+        $mapping = $fields[$field] ?? null;
+
+        if (\is_array($mapping)
+            && ($mapping['type'] ?? null) === 'text'
+            && isset($mapping['fields']['keyword'])
+        ) {
+            return $field . '.keyword';
+        }
+
+        return $field;
     }
 
     /**

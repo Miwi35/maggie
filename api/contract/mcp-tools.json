@@ -1,0 +1,1740 @@
+{
+    "add_grocery_item": {
+        "name": "add_grocery_item",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": [
+                        "null",
+                        "number"
+                    ],
+                    "default": null
+                },
+                "unit": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "storeId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "storeName": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "category": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "label"
+            ]
+        },
+        "description": "Add an item to the grocery list by label. Works for any product: food ingredients, household supplies, hygiene items, etc. If a matching product exists, its preferred store is auto-assigned. For unknown products, determine the store from store descriptions (e.g. potatoes → greengrocer, toilet paper → supermarket). Set storeId directly when you can determine it. Only ask the user when you genuinely cannot determine the right store."
+    },
+    "assign_product_store": {
+        "name": "assign_product_store",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "productId": {
+                    "type": "string"
+                },
+                "preferredStoreId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "fallbackStoreId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "shelfLifeDays": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "productId"
+            ]
+        },
+        "description": "Set the preferred/fallback store and shelf life for a product. shelfLifeDays indicates how many days the product stays fresh (null = non-perishable)."
+    },
+    "check_conflicts": {
+        "name": "check_conflicts",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string"
+                },
+                "time": {
+                    "type": "string"
+                },
+                "duration": {
+                    "type": "integer",
+                    "default": 60
+                }
+            },
+            "required": [
+                "date",
+                "time"
+            ]
+        },
+        "description": "Check for scheduling conflicts at a given date, time, and duration. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes (default 60)."
+    },
+    "check_grocery_item": {
+        "name": "check_grocery_item",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "groceryItemId": {
+                    "type": "string"
+                },
+                "checked": {
+                    "type": "boolean",
+                    "default": true
+                }
+            },
+            "required": [
+                "groceryItemId"
+            ]
+        },
+        "description": "Toggle the checked state of a grocery item. Set checked=true when bought, false to uncheck."
+    },
+    "create_event": {
+        "name": "create_event",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string"
+                },
+                "date": {
+                    "type": "string"
+                },
+                "time": {
+                    "type": "string",
+                    "default": "09:00"
+                },
+                "duration": {
+                    "type": "integer",
+                    "default": 60
+                },
+                "description": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "location": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "agenda_id": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "title",
+                "date"
+            ]
+        },
+        "description": "Create a new calendar event. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes (default 60). Use agenda_id to target a specific agenda (from list_agendas), or omit for the default agenda."
+    },
+    "create_recipe": {
+        "name": "create_recipe",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "servings": {
+                    "type": "integer",
+                    "default": 4
+                },
+                "tags": {
+                    "type": "string",
+                    "default": ""
+                },
+                "notes": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "ingredients": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "name"
+            ]
+        },
+        "description": "Create a new recipe. Ingredients is a JSON array of objects with quantity, unit, and either ingredientId or ciqualAlimCode (to auto-create an Ingredient from Ciqual). Tags is a comma-separated list."
+    },
+    "create_task": {
+        "name": "create_task",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "priority": {
+                    "type": "string",
+                    "default": "medium"
+                },
+                "criticality": {
+                    "type": "string",
+                    "default": "low"
+                },
+                "dueDate": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "title"
+            ]
+        },
+        "description": "Create a new task. Priority: low/medium/high. Criticality: low/medium/high/critical. Due date format: YYYY-MM-DD."
+    },
+    "delete_event": {
+        "name": "delete_event",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "id"
+            ]
+        },
+        "description": "Delete a calendar event by its ID. Returns confirmation of deletion."
+    },
+    "delete_recipe": {
+        "name": "delete_recipe",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "recipeId": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "recipeId"
+            ]
+        },
+        "description": "Delete a recipe by ID."
+    },
+    "delete_task": {
+        "name": "delete_task",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "id"
+            ]
+        },
+        "description": "Delete a task by its ID. Returns confirmation of deletion."
+    },
+    "end_errand": {
+        "name": "end_errand",
+        "inputSchema": {
+            "type": "object",
+            "properties": []
+        },
+        "description": "End shopping errand. Removes all checked (bought) items and returns remaining unchecked items. The agent should then ask the user about EACH remaining item: keep on the list for later, or remove. Use remove_grocery_item to remove items the user no longer wants."
+    },
+    "generate_grocery_list": {
+        "name": "generate_grocery_list",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "fromDate": {
+                    "type": "string"
+                },
+                "toDate": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "fromDate",
+                "toDate"
+            ]
+        },
+        "description": "Generate grocery items from planned meals in a date range plus recurring items. Items are added to the existing grocery list. Date format: YYYY-MM-DD."
+    },
+    "get_daily_score": {
+        "name": "get_daily_score",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "year": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "month": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                }
+            }
+        },
+        "description": "Read the daily financial signal for a month (defaults to the current one): green, neutral, orange or red, with the reasons behind it. Red means the month's total budget is over, or a mandatory category is; orange means a non-mandatory category is over, or planned spending would take it over; green additionally requires a complete safety cushion and spending below the same month last year; neutral is everything else, including having no envelope at all. Reasons come as codes with amounts in cents (mandatory_category_exceeded, optional_category_exceeded, plans_exceed_category_budget, total_budget_exceeded, cushion_incomplete, below_last_year, above_last_year, no_budget) — phrase them for the user rather than reading them out."
+    },
+    "get_events_by_date": {
+        "name": "get_events_by_date",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "date"
+            ]
+        },
+        "description": "Get all events for a specific date (YYYY-MM-DD format). Returns events from all of the user agendas, including expanded recurring events."
+    },
+    "get_finance_dashboard": {
+        "name": "get_finance_dashboard",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "year": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "month": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                }
+            }
+        },
+        "description": "Read the whole financial picture for a month (defaults to the current one) in one call: the daily score with its reasons, the balance of every account and what of it is the safety cushion, twelve rolling months of money in and out, the budget gauges per envelope, the five biggest spending posts against the same posts last month, and the net saving capacity. Prefer this over calling the budget, score and loan tools one by one. All amounts are integer cents."
+    },
+    "get_grocery_list": {
+        "name": "get_grocery_list",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "includeDeferred": {
+                    "type": "boolean",
+                    "default": false
+                }
+            }
+        },
+        "description": "Get the grocery list with items grouped by store in visit order. By default hides deferred items (buyAfter in the future). Set includeDeferred=true to see all items."
+    },
+    "get_recipe": {
+        "name": "get_recipe",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "recipeId": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "recipeId"
+            ]
+        },
+        "description": "Get a recipe by ID with its ingredients."
+    },
+    "get_tasks": {
+        "name": "get_tasks",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "default": "pending"
+                },
+                "days": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                }
+            }
+        },
+        "description": "Get tasks filtered by status. Status: pending (not done), done, overdue (past due date and not done), all. Optional days parameter limits upcoming scope."
+    },
+    "get_upcoming_events": {
+        "name": "get_upcoming_events",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "days": {
+                    "type": "integer",
+                    "default": 7
+                }
+            }
+        },
+        "description": "Get upcoming events for the next N days (default 7). Returns events from all of the user agendas, including expanded recurring events."
+    },
+    "manage_accounts": {
+        "name": "manage_accounts",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "accountId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "name": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "type": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "bank": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "currency": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "balanceCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "isCushion": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ],
+                    "default": null
+                },
+                "clear": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "List, create, update, or delete bank accounts. An account has a name, bank, type (checking, savings, investment, cash), currency (ISO 4217), a balance in cents, and an optional cushion flag (emergency-fund account). Amounts are always in integer cents. On update, only provided fields change; to empty the optional bank, list it in clear."
+    },
+    "manage_agendas": {
+        "name": "manage_agendas",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "default": "list"
+                },
+                "agendaId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "name": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "description": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "timeZone": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "color": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "isDefault": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ],
+                    "default": null
+                },
+                "clear": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
+                }
+            }
+        },
+        "description": "List, create, update, or delete agendas (calendars). An agenda has a name, description, IANA time zone, colour, and a default flag. Events always belong to an agenda. On update, to empty an optional field, list its name in clear (description, color)."
+    },
+    "manage_categories": {
+        "name": "manage_categories",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "categoryId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "name": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "obligation": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "parentId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "color": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "icon": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "clear": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "List, create, update, or delete budget categories. Categories form a two-level tree (a category may have a parentId, sub-categories cannot have children). Each category has an obligation flag: mandatory, optional, saving, or investment. On update, only provided fields change; to empty an optional field (make it a top-level category, drop its color or icon), list parentId, color or icon in clear."
+    },
+    "manage_categorization_rules": {
+        "name": "manage_categorization_rules",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "categorizationRuleId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "labelPattern": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "categoryId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "matchType": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "direction": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "minAmountCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "maxAmountCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "priority": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "isActive": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ],
+                    "default": null
+                },
+                "transactionId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "clear": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "List, create, update or delete the rules that file transactions under a category automatically, apply them to the uncategorized history, or learn a new rule from a transaction. A rule matches a label (matchType: contains, starts_with, equals — case-insensitive) and may narrow by amount: minAmountCents/maxAmountCents are ABSOLUTE cents (a 15,99 € expense matches 1000..2000) and direction is any, debit (expense) or credit (income). The highest priority rule that matches wins. A category set by hand is never overwritten. On update, only provided fields change; to remove an amount bound, list minAmountCents or maxAmountCents in clear."
+    },
+    "manage_envelopes": {
+        "name": "manage_envelopes",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "envelopeId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "categoryId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "amountCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "mode": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "year": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "month": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "currency": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "fromYear": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "fromMonth": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "useActualSpending": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "List, set, update or delete budget envelopes, and read the budget status of a period. An envelope budgets one category for one period: mode monthly needs year + month (1-12), mode annual needs year only. amountCents is a positive integer amount in cents. The set action creates the envelope or updates the existing one for that category and period. The status action reports, per envelope, what is spent, committed, planned and to arbitrate, plus what is consumed (spent + committed), remaining and available (remaining minus planned); it defaults to the current month. The rollover action copies the envelopes of one period onto another (fromYear/fromMonth to year/month), keeping the same amounts unless useActualSpending is true, in which case each new envelope is budgeted on what its category actually consumed; envelopes already set on the target period are left untouched."
+    },
+    "manage_ingredients": {
+        "name": "manage_ingredients",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "ingredientId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "name": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "category": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "defaultUnit": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "ciqualAlimCode": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "kcalPer100g": {
+                    "type": [
+                        "null",
+                        "number"
+                    ],
+                    "default": null
+                },
+                "proteinPer100g": {
+                    "type": [
+                        "null",
+                        "number"
+                    ],
+                    "default": null
+                },
+                "carbsPer100g": {
+                    "type": [
+                        "null",
+                        "number"
+                    ],
+                    "default": null
+                },
+                "fatPer100g": {
+                    "type": [
+                        "null",
+                        "number"
+                    ],
+                    "default": null
+                },
+                "clear": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "Create, update, or delete food ingredients. Categories: produce, dairy, meat, fish, grain, spice, condiment, frozen, beverage, other. Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet. Call search_ciqual_foods first for nutrition data and pass the ciqualAlimCode; use search_ingredients to look one up. To empty an optional field on update, list its name in clear (defaultUnit, ciqualAlimCode, kcalPer100g, proteinPer100g, carbsPer100g, fatPer100g)."
+    },
+    "manage_loans": {
+        "name": "manage_loans",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "loanId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "name": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "principalRemainingCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "monthlyPaymentCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "annualRateBasisPoints": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "lender": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "priority": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "currency": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "horizonMonths": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "clear": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "List, create, update or delete loans being repaid, and read the debt timeline. A loan is described by its remaining capital, its monthly payment and its annual rate in BASIS POINTS (350 = 3.50 %); the end date is never given, it is computed from those three. A payment that does not cover the monthly interest is refused, since such a loan would never be repaid. The timeline action amortises every loan month by month over a horizon (60 months by default) and reports when each one frees up, how much monthly payment that releases, and the net saving capacity — reference income minus loan payments minus the lifestyle measured over the last three months. All amounts are integer cents. On update, only provided fields change; to empty the optional lender, list it in clear."
+    },
+    "manage_meals": {
+        "name": "manage_meals",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "mealId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "fromDate": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "toDate": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "date": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "slot": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "recipeIds": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "List, plan, update, or delete meals. Dates are YYYY-MM-DD, slot is lunch or dinner, and recipeIds is a comma-separated list. List needs fromDate and toDate."
+    },
+    "manage_notifications": {
+        "name": "manage_notifications",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "notificationId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "unreadOnly": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "limit": {
+                    "type": "integer",
+                    "default": 50
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "List, mark as read, or delete notifications. Notifications are raised by Maggie itself (event reminders for now); use unreadOnly to see what still needs attention."
+    },
+    "manage_products": {
+        "name": "manage_products",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "productId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "name": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "category": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "defaultUnit": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "clear": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "List, create, update, or delete non-food products (household, hygiene, cleaning, other). Create food items with create_ingredient instead — they are products too, so they show up in the list. To search by name use search_products. To empty an optional field on update, list its name in clear (defaultUnit)."
+    },
+    "manage_recurring_groceries": {
+        "name": "manage_recurring_groceries",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "recurringItemId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "frequency": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "productId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "customLabel": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "quantity": {
+                    "type": [
+                        "null",
+                        "number"
+                    ],
+                    "default": null
+                },
+                "unit": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "clear": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "List, create, update, or delete recurring grocery items — the staples automatically added to generated lists. Frequency: weekly, biweekly, monthly. Give either a productId or a customLabel. To empty an optional field on update, list its name in clear (productId, customLabel, quantity, unit); an item must keep a productId or a customLabel."
+    },
+    "manage_safety_cushion": {
+        "name": "manage_safety_cushion",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "targetMonths": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "monthlyNetIncomeCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "rechargeCapCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "rechargeTargetMonths": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "Read or configure the safety cushion — the emergency fund that must be full before any investment or project starts. The status action reports its state (building, complete, recharging), its target (targetMonths x monthly net income), what the cushion accounts currently hold, the deficit, and the monthly recharge plan. Its current amount is never set by hand: it is the balance of the accounts flagged as cushion. The configure action sets targetMonths, monthlyNetIncomeCents, rechargeCapCents (the most that may go back in per month) and rechargeTargetMonths (the wished-for recharge horizon; when the cap is lower, the recharge simply takes longer). All amounts are integer cents."
+    },
+    "manage_stores": {
+        "name": "manage_stores",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "storeId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "name": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "description": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "visitOrder": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "clear": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "List, create, update, or delete stores. Stores represent shops with a visit order and a description of what they sell (used to auto-assign products). To empty an optional field on update, list its name in clear (description)."
+    },
+    "manage_transactions": {
+        "name": "manage_transactions",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "transactionId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "accountId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "amountCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "label": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "bookedAt": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "status": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "currency": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "isExceptional": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ],
+                    "default": null
+                },
+                "categoryId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "clear": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "List, create, update, delete, or categorize transactions. Amounts are signed integer cents: negative = expense/debit, positive = income/credit. bookedAt is an ISO date (defaults to today). status is one of spent, committed, planned, to_arbitrate. On update, only provided fields change; to remove the category, list categoryId in clear."
+    },
+    "monthly_review": {
+        "name": "monthly_review",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "year": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "month": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "transactionId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "verdict": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "Run the monthly look back over a month (defaults to the one just ended). The review action lists the non-mandatory spends still waiting for a verdict, biggest first, and reports how much was kept, how much was judged avoidable, an optimisation score (the share of the judged amount worth keeping, null when nothing has been judged yet), and how the month compares with the previous one, the average of the last three and the same month last year. The rate action records one verdict: keep, avoidable, or unrated to undo it. Only non-mandatory spends are offered — asking whether someone could have skipped their rent helps nobody."
+    },
+    "move_to_fallback": {
+        "name": "move_to_fallback",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "storeId": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "storeId"
+            ]
+        },
+        "description": "When a store is closed, move all unchecked items from that store to their fallback stores."
+    },
+    "remove_grocery_item": {
+        "name": "remove_grocery_item",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "groceryItemId": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "groceryItemId"
+            ]
+        },
+        "description": "Remove a specific item from the grocery list."
+    },
+    "reorder_grocery_items": {
+        "name": "reorder_grocery_items",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "object"
+                }
+            },
+            "required": [
+                "items"
+            ]
+        },
+        "description": "Reorder grocery items by setting their position. Pass an array of {id, position} pairs."
+    },
+    "search": {
+        "name": "search",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string"
+                },
+                "types": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "limit": {
+                    "type": "integer",
+                    "default": 10
+                }
+            },
+            "required": [
+                "query"
+            ]
+        },
+        "description": "Full-text search across all Maggie data (events, tasks, recipes, products, grocery lists, notifications). Returns matching results with highlights."
+    },
+    "search_ciqual_foods": {
+        "name": "search_ciqual_foods",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string"
+                },
+                "limit": {
+                    "type": "integer",
+                    "default": 10
+                }
+            },
+            "required": [
+                "query"
+            ]
+        },
+        "description": "Search the Ciqual (ANSES) French food composition database by name. Returns foods with core macros (kcal, protein, carbs, fat per 100g). Use this to find nutrition data for ingredients."
+    },
+    "search_ingredients": {
+        "name": "search_ingredients",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "query"
+            ]
+        },
+        "description": "Search food ingredients by name. Returns matching ingredients with id, name, and category."
+    },
+    "search_products": {
+        "name": "search_products",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "query"
+            ]
+        },
+        "description": "Search all products (food and non-food) by name. Returns matching products with id, name, category, and type."
+    },
+    "search_recipes": {
+        "name": "search_recipes",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "tag": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                }
+            }
+        },
+        "description": "Search recipes by name or tag. Provide either query (name search) or tag (tag search)."
+    },
+    "update_event": {
+        "name": "update_event",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "date": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "time": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "duration": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "description": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "location": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "clear": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "id"
+            ]
+        },
+        "description": "Update an existing calendar event. Only provided fields will be updated. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes. To empty an optional field, list its name in clear (description, location, rrule)."
+    },
+    "update_recipe": {
+        "name": "update_recipe",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "recipeId": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "servings": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "tags": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "notes": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "ingredients": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "clear": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "recipeId"
+            ]
+        },
+        "description": "Update an existing recipe. Only provided fields will be updated. Ingredients replaces the full list if provided. Each ingredient object needs quantity, unit, and either ingredientId or ciqualAlimCode. To empty an optional field, list its name in clear (notes); an empty tags string empties the tags."
+    },
+    "update_task": {
+        "name": "update_task",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "description": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "priority": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "criticality": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "dueDate": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "done": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ],
+                    "default": null
+                },
+                "clear": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "id"
+            ]
+        },
+        "description": "Update an existing task. Only provided fields will be updated. Set done=true to mark as completed, done=false to reopen. To empty an optional field, list its name in clear (description, dueDate)."
+    }
+}

@@ -64,6 +64,7 @@
     },
     "autoload-dev": {
         "psr-4": {
+            "App\\Tests\\Contract\\": "tests/Contract/",
             "App\\Tests\\Support\\": "tests/Support/",
             "Maggie\\Calendar\\Tests\\": "modules/calendar/tests/",
             "Maggie\\Cookbook\\Tests\\": "modules/cookbook/tests/",

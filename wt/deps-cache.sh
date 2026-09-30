@@ -197,7 +197,14 @@ case "$command" in
         # which can make a vendor tree installed under the old runtime wrong —
         # and does it without needing the image to exist yet.
         runtime="$(hash_of "$REPO_ROOT/.docker/php/Dockerfile")"
-        prepare api "php-$runtime-$(hash_of "$REPO_ROOT/api/composer.lock")" fill_api "$image"
+        # composer.json is part of the key, not just the lockfile: the
+        # generated autoloader is built from it, so adding a PSR-4 namespace
+        # changes vendor/ without changing a single dependency. Keyed on the
+        # lockfile alone, a new test namespace resolved in CI (which installs
+        # from scratch) and nowhere else — a "class not found" that no amount
+        # of reading the diff explains.
+        manifest="$(hash_of "$REPO_ROOT/api/composer.json")"
+        prepare api "php-$runtime-$(hash_of "$REPO_ROOT/api/composer.lock")-$manifest" fill_api "$image"
         ;;
     admin)
         image="${2:?an image is required}"

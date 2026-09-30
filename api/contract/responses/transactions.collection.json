@@ -1,0 +1,49 @@
+{
+    "@context": "/api/contexts/Transaction",
+    "@id": "/api/transactions",
+    "@type": "Collection",
+    "totalItems": 1,
+    "member": [
+        {
+            "@id": "/api/transactions/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Transaction",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "account": "/api/accounts/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "category": "/api/categories/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "amountCents": -4250,
+            "currency": "EUR",
+            "bookedAt": "2026-03-17T00:00:00+00:00",
+            "label": "Recorded transaction",
+            "status": "spent",
+            "retrospect": "unrated",
+            "categorySource": "none",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "exceptional": true
+        }
+    ],
+    "search": {
+        "@type": "IriTemplate",
+        "template": "/api/transactions{?order[bookedAt],account,account[]}",
+        "variableRepresentation": "BasicRepresentation",
+        "mapping": [
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "order[bookedAt]",
+                "property": "bookedAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "account",
+                "property": "account",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "account[]",
+                "property": "account",
+                "required": false
+            }
+        ]
+    }
+}
