@@ -27,6 +27,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import anthropic
 import httpx
 import yaml
 from sqlalchemy import text
@@ -137,7 +138,14 @@ def parse_scenario(raw: dict, source: str) -> Scenario:
         raise ValueError(f"{source}: channel must be 'chat' or 'stream', not {channel!r}")
 
     raw_steps = raw.get("steps")
-    if not raw_steps:
+    if raw_steps:
+        # One shape or the other, never half of each: a top-level expectation
+        # beside `steps` is read by nobody, so accepting it would leave a
+        # scenario asserting less than its author wrote.
+        stray = set(raw) & set(STEP_KEYS)
+        if stray:
+            raise ValueError(f"{source}: {sorted(stray)} sit beside 'steps' — move them into a step")
+    else:
         # The single-turn shape /prompt-lab documents: the expectations sit at
         # the top level.
         raw_steps = [{key: raw[key] for key in STEP_KEYS if key in raw}]
@@ -253,6 +261,15 @@ class Stack:
 # ---------------------------------------------------------------------------
 
 
+class ModelUnreachable(Exception):
+    """The suite could not run, as opposed to a prompt that regressed.
+
+    Kept apart because the two call for opposite reactions: a bad key is
+    somebody's to fix now, and reporting it as six failing scenarios is how a
+    nightly stops being read.
+    """
+
+
 class Judge:
     def __init__(self, model: str):
         self.client = create_llm_client()
@@ -264,12 +281,20 @@ class Judge:
             f"Outils appelés : {', '.join(answer.tools) or 'aucun'}\n\n"
             f"Réponse de l'assistant :\n{answer.text}"
         )
-        response = await self.client.messages.create(
-            model=self.model,
-            max_tokens=300,
-            system=JUDGE_SYSTEM,
-            messages=[{"role": "user", "content": prompt}],
-        )
+        try:
+            response = await self.client.messages.create(
+                model=self.model,
+                max_tokens=300,
+                system=JUDGE_SYSTEM,
+                messages=[{"role": "user", "content": prompt}],
+            )
+        except (anthropic.AuthenticationError, anthropic.PermissionDeniedError) as exc:
+            raise ModelUnreachable(f"the judge was refused by the API: {exc}") from exc
+        except anthropic.APIError as exc:
+            # Rate limits, overloads, timeouts: this one step could not be
+            # verified. Never a pass by default.
+            return False, f"the judge could not be reached: {exc}"
+
         raw = "".join(block.text for block in response.content if hasattr(block, "text")).strip()
         if raw.startswith("```"):
             raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
@@ -378,6 +403,9 @@ async def main() -> int:
     parser.add_argument("--only", help="run the scenarios whose name contains this")
     parser.add_argument("--api-url", default=os.environ.get("E2E_API_URL", DEFAULT_API_URL))
     parser.add_argument("--agent-url", default=os.environ.get("E2E_AGENT_URL", DEFAULT_AGENT_URL))
+    # The judge defaults to the model under test: a grader weaker than the
+    # subject is worse than none, and this one is at least its equal.
+    # `EVAL_JUDGE_MODEL` pins a different one when a criterion needs it.
     parser.add_argument("--judge-model", default=os.environ.get("EVAL_JUDGE_MODEL", settings.anthropic_model))
     parser.add_argument("--report", type=Path, help="write the markdown report here as well")
     parser.add_argument(
@@ -398,7 +426,8 @@ async def main() -> int:
             print(f"a scenario file is not valid: {exc}")
             return 2
         for scenario in scenarios:
-            print(f"{scenario.name} ({scenario.channel}, {len(scenario.steps)} steps)")
+            count = len(scenario.steps)
+            print(f"{scenario.name} ({scenario.channel}, {count} step{'s' if count > 1 else ''})")
             for position, step in enumerate(scenario.steps, start=1):
                 judged = "judged" if step.expected_behavior else "unjudged"
                 print(f"  {position}. « {step.user_message[:60]} » — {judged}")
@@ -435,7 +464,11 @@ async def main() -> int:
 
         for scenario in scenarios:
             print(f"  {scenario.name} ({scenario.channel})")
-            failures.extend(await run_scenario(scenario, stack, judge))
+            try:
+                failures.extend(await run_scenario(scenario, stack, judge))
+            except ModelUnreachable as exc:
+                print(f"\n{exc}\nThe eval suite could not run — this is not a prompt regression.")
+                return 2
 
     markdown = report(scenarios, failures, settings.anthropic_model)
     print("\n" + markdown)

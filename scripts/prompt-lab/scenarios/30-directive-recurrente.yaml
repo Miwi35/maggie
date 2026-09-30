@@ -1,0 +1,15 @@
+# A recurring rule is a directive, a one-off is a proaction. The prompt draws
+# that line explicitly because getting it wrong is invisible: scheduling a single
+# proaction for "every morning" runs once and then never again, and nobody
+# notices until the morning it does not come.
+name: directive-recurrente
+description: A recurring instruction becomes a directive, not a one-off proaction.
+channel: chat
+
+steps:
+  - user_message: "Tous les matins à 8h, fais-moi un résumé de ma journée"
+    expected_tools: [add_instruction]
+    forbidden_tools: [schedule_proaction]
+    expected_behavior: >
+      Elle enregistre la règle récurrente et le confirme brièvement, sans
+      programmer une action unique pour demain matin.

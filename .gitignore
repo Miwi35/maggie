@@ -105,7 +105,12 @@ infra/k8s/secrets.yaml
 # AI tools
 # =============================================================================
 .claude/settings.local.json
-/scripts
+# Scratch scripts, except the prompt lab: its scenarios are what `/prompt-lab`
+# and `task e2e:eval` both read (MAG-95), so they belong in the repository.
+# A negation cannot re-include a path inside an ignored *directory*, hence
+# `/scripts/*` rather than `/scripts`.
+/scripts/*
+!/scripts/prompt-lab/
 
 # =============================================================================
 # E2E stack

@@ -9,6 +9,7 @@ expectation key must not turn into a step that quietly asserts nothing.
 import json
 from unittest.mock import AsyncMock, MagicMock
 
+import anthropic
 import httpx
 import pytest
 import yaml
@@ -17,6 +18,7 @@ from evals.runner import (
     Answer,
     Failure,
     Judge,
+    ModelUnreachable,
     Scenario,
     Stack,
     Step,
@@ -65,6 +67,35 @@ class TestParsingScenarios:
                 {"name": "x", "user_message": "salut", "expected_tool": ["get_tasks"]},
                 source="x.yaml",
             )
+
+    def test_a_typo_at_the_top_level_is_refused(self):
+        # The single-turn shape reads its expectations from the top level, so a
+        # typo there is dropped on the floor rather than caught per step.
+        with pytest.raises(ValueError, match="unknown key"):
+            parse_scenario({"name": "x", "user_message": "salut", "expected_absents": ["a"]}, source="x.yaml")
+
+    def test_an_expectation_beside_steps_is_refused(self):
+        # Read by nobody: with `steps` present the top level is ignored, so
+        # accepting this would leave a scenario asserting less than it says.
+        with pytest.raises(ValueError, match="move them into a step"):
+            parse_scenario(
+                {
+                    "name": "x",
+                    "expected_tools": ["get_tasks"],
+                    "steps": [{"user_message": "salut"}],
+                },
+                source="x.yaml",
+            )
+
+    def test_prompt_labs_own_key_is_accepted_and_ignored(self):
+        # /prompt-lab can stub a tool's answer; this runner drives the real
+        # stack. Rejecting the key would break the other consumer's files.
+        scenario = parse_scenario(
+            {"name": "x", "user_message": "salut", "mock_tool_results": {"get_tasks": "[]"}},
+            source="x.yaml",
+        )
+
+        assert len(scenario.steps) == 1
 
     def test_a_step_needs_a_message(self):
         with pytest.raises(ValueError, match="needs a 'user_message'"):
@@ -149,17 +180,23 @@ class TestCheckingAStep:
 
 
 class TestTheJudge:
-    async def _verdict(self, raw: str) -> tuple[bool, str]:
+    def _judge(self, *, raw: str | None = None, raises: Exception | None = None) -> Judge:
         judge = Judge.__new__(Judge)
         judge.model = "claude-test"
-        block = MagicMock()
-        block.text = raw
-        response = MagicMock()
-        response.content = [block]
         judge.client = MagicMock()
         judge.client.messages = MagicMock()
-        judge.client.messages.create = AsyncMock(return_value=response)
-        return await judge.verdict("Elle répond en français.", Answer(text="Bonjour", tools=[]))
+        if raises is not None:
+            judge.client.messages.create = AsyncMock(side_effect=raises)
+        else:
+            block = MagicMock()
+            block.text = raw
+            response = MagicMock()
+            response.content = [block]
+            judge.client.messages.create = AsyncMock(return_value=response)
+        return judge
+
+    async def _verdict(self, raw: str) -> tuple[bool, str]:
+        return await self._judge(raw=raw).verdict("Elle répond en français.", Answer(text="Bonjour", tools=[]))
 
     async def test_a_pass(self):
         assert await self._verdict('{"pass": true, "reason": "en français"}') == (True, "en français")
@@ -178,6 +215,30 @@ class TestTheJudge:
         passed, reason = await self._verdict("Oui, la réponse est correcte.")
         assert passed is False
         assert "did not answer JSON" in reason
+
+    async def test_a_rate_limit_fails_the_step_it_could_not_verify(self):
+        error = anthropic.RateLimitError(
+            "slow down",
+            response=httpx.Response(429, request=httpx.Request("POST", "https://api.anthropic.com")),
+            body=None,
+        )
+
+        passed, reason = await self._judge(raises=error).verdict("x", Answer(text="y", tools=[]))
+
+        assert passed is False
+        assert "could not be reached" in reason
+
+    async def test_a_refused_key_stops_the_suite_instead_of_failing_every_scenario(self):
+        # A bad key is not a prompt regression, and reporting it as six failing
+        # scenarios is how a nightly stops being read.
+        error = anthropic.AuthenticationError(
+            "API key is invalid.",
+            response=httpx.Response(401, request=httpx.Request("POST", "https://api.anthropic.com")),
+            body=None,
+        )
+
+        with pytest.raises(ModelUnreachable, match="refused by the API"):
+            await self._judge(raises=error).verdict("x", Answer(text="y", tools=[]))
 
 
 class TestDrivingTheAgent:

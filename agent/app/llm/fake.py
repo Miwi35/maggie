@@ -191,11 +191,22 @@ def parse_scenario(raw: Any, source: str) -> Scenario:
     if not turns:
         raise ValueError(f"{source}: a scenario needs at least one turn")
 
+    # Compiled here rather than at match time: a typo'd pattern must be a file
+    # this loader refuses, not a `re.error` escaping `resolve()` — which would
+    # come out as a 500 on /chat and "Désolé, une erreur est survenue." on the
+    # stream, with the `[fake-llm]` sentence never printed.
+    user_matches = match.get("user_matches")
+    if user_matches is not None:
+        try:
+            re.compile(str(user_matches))
+        except re.error as exc:
+            raise ValueError(f"{source}: 'user_matches' is not a valid regex: {exc}") from exc
+
     return Scenario(
         name=str(name),
         turns=tuple(turns),
         user_contains=_as_tuple(match.get("user_contains")),
-        user_matches=match.get("user_matches"),
+        user_matches=str(user_matches) if user_matches is not None else None,
         system_contains=_as_tuple(match.get("system_contains")),
         is_default=bool(raw.get("default")),
         source=source,

@@ -50,6 +50,21 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Use the model production serves
+        if: steps.key.outputs.skip == 'false'
+        # Read from the production configmap rather than pinned here, because
+        # the eval's whole job is to watch *that* model. Note it is not
+        # necessarily `anthropic_model` in agent/app/config.py: the configmap
+        # wins in production, and the two have differed.
+        run: |
+          model=$(grep -oP '^\s*ANTHROPIC_MODEL:\s*\K\S+' infra/k8s/configmap.yaml)
+          if [ -z "$model" ]; then
+            echo "::error::no ANTHROPIC_MODEL in infra/k8s/configmap.yaml — the eval has no model to test"
+            exit 1
+          fi
+          echo "ANTHROPIC_MODEL=$model" >> "$GITHUB_ENV"
+          echo "::notice::Eval suite running on $model"
+
       - uses: arduino/setup-task@v2
         if: steps.key.outputs.skip == 'false'
         with:
@@ -72,7 +87,13 @@ jobs:
         # The report path is inside the agent container, which mounts ./agent —
         # so it comes out at agent/eval-report.md on the runner. stdout stays the
         # log; the file is just the verdict table.
-        run: task e2e:eval -- --report /app/eval-report.md ${{ inputs.only && format('--only {0}', inputs.only) || '' }}
+        #
+        # `only` goes through the environment, never interpolated into the
+        # command line.
+        env:
+          ONLY: ${{ inputs.only }}
+        run: |
+          task e2e:eval -- --report /app/eval-report.md ${ONLY:+--only "$ONLY"}
 
       - name: Report
         if: always() && steps.key.outputs.skip == 'false'

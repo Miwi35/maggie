@@ -311,6 +311,14 @@ grocery="$(curl -sS -X POST "${AUTH[@]}" "${mcp_headers[@]}" \
 assert_contains "$grocery" 'Basilic' "the item Maggie added is on the list"
 
 # The streamed path: same fake, same loop, but the AG-UI events a client reads.
+#
+# Contexts only exist here, and everything below needs the conversation to start
+# from nothing — which `task e2e:seed` guarantees, since it now empties the
+# agent's own database too. Asserted rather than assumed: without it, a second
+# smoke run on a stack nobody reseeded fails on "created" with no hint as to why.
+assert_eq 0 "$(curl -sS "${AUTH[@]}" "$BASE_URL/agent/contexts" | jq -r 'length')" \
+  "the seed left no conversation context behind — run 'task e2e:seed' if this fails"
+
 stream="$(curl -sS -N -X POST "${AUTH[@]}" -H 'Content-Type: application/json' \
   -H 'Accept: text/event-stream' \
   -d "$(chat_body "$AGENDA_QUESTION")" "$BASE_URL/agent/chat/stream")"
@@ -350,8 +358,6 @@ followup="$(curl -sS -N -X POST "${AUTH[@]}" -H 'Content-Type: application/json'
 assert_eq matched "$(context_action "$followup")" \
   "the next message joins the context already open"
 
-# Counted rather than fixed at one, so the step survives a second smoke run on
-# a stack nobody reseeded.
 assert_eq "$contexts_before" "$(curl -sS "${AUTH[@]}" "$BASE_URL/agent/contexts" | jq -r 'length')" \
   "the follow-up opened no second context for the same subject"
 

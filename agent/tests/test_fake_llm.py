@@ -118,6 +118,13 @@ class TestParsing:
         scenario = parse_scenario({"turns": [{"text": "ok"}]}, source="30-upcoming-events.yaml")
         assert scenario.name == "30-upcoming-events"
 
+    def test_an_invalid_regex_is_refused_at_load(self):
+        # Not at match time: a `re.error` out of `resolve()` comes back as a 500
+        # on /chat and as "Désolé, une erreur est survenue." on the stream, and
+        # the `[fake-llm]` sentence never gets printed.
+        with pytest.raises(ValueError, match="not a valid regex"):
+            parse_scenario({"match": {"user_matches": "ajoute("}, "turns": [{"text": "ok"}]}, source="x.yaml")
+
     def test_a_broken_file_is_skipped_not_fatal(self, fixtures_dir):
         (fixtures_dir / "10-broken.yaml").write_text("turns: []\n")
         write_scenario(fixtures_dir, "20-fine.yaml", {"match": {"user_contains": "salut"}, "turns": [{"text": "ok"}]})
