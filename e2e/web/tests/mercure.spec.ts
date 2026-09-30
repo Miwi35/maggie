@@ -113,18 +113,13 @@ test('the hub refuses a subscriber asking for another user\'s topic', async ({
   session,
   otherUser,
 }) => {
-  // Expected to fail today, and that is the point: it holds the contract the
-  // fix has to satisfy, and it turns red — "passed unexpectedly" — the moment
-  // somebody fixes it, so the bug cannot be closed without noticing.
-  //
-  // What it found: every update is published without `private: true`, and a
-  // public update is delivered to any subscriber whose *requested* topic
-  // matches, whatever their token's `mercure.subscribe` claim says. So a user
-  // holding a perfectly valid token of their own receives another user's
-  // updates by asking for their topic — and user ids are in every API
-  // response. This is c2d3758's family, still open: MAG-139.
-  test.fail()
-
+  // The assertion this harness was written to make, and the one that found
+  // MAG-139: updates used to be published without `private: true`, and a
+  // public update reaches any subscriber whose *requested* topic matches,
+  // whatever their token's `mercure.subscribe` claim says. So a user holding
+  // a perfectly valid token of their own received another user's updates by
+  // asking for their topic — and user ids are in every API response. Fixed
+  // on main; this is what keeps it fixed.
   await new PreferencesPage(page).open()
   await new PreferencesPage(otherUser.page).open()
 

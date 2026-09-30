@@ -109,7 +109,7 @@ Worth knowing, because each was invisible to every test that existed before:
 - A logged-out visitor waits 7–25 seconds on a blank page before the login
   screen appears (MAG-140). `LoginPage.expectShown` carries a timeout that
   comes down when it is fixed.
-- Updates are published without `private: true`, so a user holding their own
-  valid token receives another user's updates by subscribing to their topic
-  (MAG-139). `tests/mercure.spec.ts` holds the contract as a `test.fail()`,
-  which turns red the moment it is fixed.
+- Updates were published without `private: true`, so a user holding their own
+  valid token received another user's updates by subscribing to their topic.
+  Fixed by MAG-139 while this branch was in review; `tests/mercure.spec.ts` is
+  what keeps it fixed.
