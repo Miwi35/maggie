@@ -178,7 +178,7 @@ SKILL_TOOLS = [
         "description": (
             "Create a new skill file. Skills teach Maggie HOW to perform specific tasks "
             "(e.g. 'when adding a concert, search for the event webpage'). "
-            "Skills are automatically loaded when the task context matches their tags."
+            "Skills are listed by name and description in the system prompt and loaded on demand with get_skill."
         ),
         "input_schema": {
             "type": "object",
@@ -194,7 +194,7 @@ SKILL_TOOLS = [
                 "tags": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Keywords for contextual matching (e.g. ['concert', 'calendrier', 'lien'])",
+                    "description": "Keywords describing the skill (e.g. ['concert', 'calendrier', 'lien'])",
                 },
                 "content": {
                     "type": "string",
