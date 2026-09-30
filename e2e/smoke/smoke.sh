@@ -120,7 +120,7 @@ assert_eq 2 "$(printf '%s' "$agendas" | jq -r '.totalItems // (.member | length)
 
 # The anchor the seed actually used, not today's date. They are the same in CI
 # and in a default local run, but a seed and a smoke run straddling midnight
-# UTC would drift, and anyone passing --now deliberately would break this step
+# in Paris would drift, and anyone passing --now deliberately would break this step
 # for no reason. The seed records the anchor for exactly this.
 manifest="$REPO_ROOT/api/var/e2e/seed-manifest.json"
 if [ -f "$manifest" ]; then

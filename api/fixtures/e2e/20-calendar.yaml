@@ -26,8 +26,8 @@ Maggie\Calendar\Entity\Event:
     summary: Déjeuner avec Alex
     description: Brasserie du coin
     location: 12 rue des Lilas, Rennes
-    startAt: '<e2eDate("+12 hours")>'
-    endAt: '<e2eDate("+13 hours")>'
+    startAt: '<e2eDate("12:00")>'
+    endAt: '<e2eDate("13:00")>'
     timeZone: 'Europe/Paris'
     status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
     agenda: '@e2e_agenda_personal'

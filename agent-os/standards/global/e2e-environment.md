@@ -13,7 +13,7 @@ Done itself lives in [testing.md](testing.md).
 
 | Command | What it does |
 |---|---|
-| `task e2e:up` | Build, install, clear cache, migrate, print the URL |
+| `task e2e:up` | Start the stack (build locally, install, clear cache, migrate), print the URL |
 | `task e2e:seed` | Reset the database to the fixture set, empty the agent's own tables, rebuild and refresh the search indices |
 | `task e2e:smoke` | Run the smoke journey (HTTP) against the running stack |
 | `task e2e:web` | Reseed, then run the Playwright journeys for the admin |
@@ -23,7 +23,7 @@ Done itself lives in [testing.md](testing.md).
 | `task e2e:admin:build` | **After changing admin code** — see below |
 | `task e2e:eval` | Replay the prompt-lab scenarios on the **real** model — see below |
 | `task e2e:eval:check` | Check those scenarios parse, without calling the model |
-| `task e2e:test:api` | PHPUnit **inside** this worktree's stack |
+| `task e2e:test:api` | PHPUnit **inside** this worktree's stack — for debugging against a running stack; CI does not run it (the `API Tests` job does) |
 | `task e2e:down` | Remove containers, network and volumes |
 | `task e2e:url` | Print the stack's URL |
 | `task e2e:cache:clear` | **After changing PHP code or config** — see below |
@@ -44,12 +44,50 @@ Never run `docker compose -f docker-compose.e2e.yml` by hand: the project name
 and the resolved host port both come from the Taskfile, and both are what keep
 stacks apart.
 
+## Start-up time in CI (MAG-135)
+
+The job used to spend ~265 s in `task e2e:up`: four images built from scratch on
+every run, `composer install` and `npm ci` from nothing, and every step waiting
+for the previous one. Now:
+
+- **Images are built once per set of build inputs.** `e2e/images.sh` tags each
+  one `ghcr.io/miwi35/maggie-e2e-<service>:<hash>`, the hash covering the files
+  its Dockerfile copies and the resolved `build:` stanza of the Compose file
+  (target, args, UID/GID). CI pulls the
+  tag, and builds and pushes it only when it does not exist. php and worker share
+  one image. Editing `.docker/php/`, `.docker/nginx/`, `.docker/python/Dockerfile`,
+  `.docker/ciqual/Dockerfile` or `ciqual/pyproject.toml` is what makes a run
+  build; WireMock stubs, Postgres init and everything under `api/`, `agent/` and
+  `admin/` do not, because they are mounted. A tagged image is never refreshed
+  by itself: base images such as `php:8.4-fpm-alpine`, `composer:latest` or
+  `uv:latest` move only when one of those inputs changes.
+- **Locally nothing changes.** The Compose file reads `E2E_IMAGE_<SERVICE>` and
+  falls back to `build:`; only CI sets it, with `E2E_PREBUILT=1` so a missing
+  image fails instead of being rebuilt.
+- **Dependencies are restored by lockfile** — `api/vendor`, `admin/node_modules`,
+  `e2e/web/node_modules` and the agent's uv cache (`.e2e-cache/uv`, which is also
+  what makes the agent's start-up install a copy). Their keys are separate from
+  the other CI jobs': the stack installs in containers, the admin's in alpine,
+  whose native binaries are not the runner's.
+- **Start-up overlaps.** `up` starts the API, then boots admin-build, nginx, the
+  agent and Elasticsearch *while* composer, `cache:clear` and the migrations run,
+  and ends with one `up --wait` on the healthchecks. php only needs Elasticsearch
+  *started*; the final wait needs it healthy. Do not make php wait
+  for it again, and do not replace that last command with a bare `up`: Compose
+  would run `admin-build` a second time.
+
+Adding a service with its own Dockerfile: give it `image: ${E2E_IMAGE_<SVC>:-…}`
+in the Compose file and a case in `e2e/images.sh`.
+
 ## In a git worktree
 
 `task api:test` runs `docker compose exec` against the **dev** stack, which
 mounts the main checkout — in a worktree it tests the wrong code. Use
-`task e2e:test:api`, which runs against the stack mounting *this* worktree. It
-creates the PHPUnit database first, since the e2e stack has never made one.
+`task wt:test:api` (see `worktree-checks.md`). `task e2e:test:api` runs the same
+suite against the stack mounting *this* worktree — useful to debug a test that
+needs the real services; it creates the PHPUnit database first, since the e2e
+stack has never made one. CI does not run it: the `API Tests (PHPUnit)` job
+already does.
 
 One difference worth knowing: PHPUnit forces `APP_ENV=test`, but Symfony's
 Dotenv never overwrites a variable the environment already defines — so the
@@ -122,10 +160,22 @@ year: '<e2eYear()>'
 ```
 
 `app:e2e:seed --now=<ISO8601>` moves the anchor; it defaults to today at
-midnight UTC. That is what lets a journey assert both "this week" and an exact
-value. A literal date in a fixture makes every "upcoming" query empty; a
+midnight **in Paris** (`Europe/Paris`, the test user's time zone — the dashboard,
+the reminders and the daily score reason in local time, and a UTC midnight would
+leave the seed on yesterday between 00:00 and 02:00 there). `--now` is snapped to
+the Paris midnight of its Paris day; a value without offset is read in Paris.
+That is what lets a journey assert both "this week" and an exact value.
+A literal date in a fixture makes every "upcoming" query empty; a
 `+2 days` computed from `date()` makes the fixture pass on a Tuesday and fail
 across a month boundary.
+
+Write times of day as wall clock (`12:00`, `+2 days 18:00`), not as `+12 hours`:
+an elapsed-time offset means different wall-clock times on the two days a year
+Paris changes its clocks. Mind that the API
+itself runs with `date.timezone = UTC`: code that calls `new DateTimeImmutable()`
+(finance period, upcoming events) changes day at 02:00 Paris, so on the first of a
+month between 00:00 and 02:00 a finance journey would see the seed's month ahead
+of the API's.
 
 **Leave `--now` alone unless you know why you are moving it.** Production code
 derives its period from the real clock — `FinanceDashboardController`,

@@ -22,6 +22,23 @@
 x-stack-label: &stack-label
   maggie.stack: ${COMPOSE_PROJECT_NAME:-maggie-e2e}
 
+# One image for php and worker: same Dockerfile, same args, so one build and one
+# pull. The tag is the hash of the build inputs, set by e2e/images.sh in CI
+# (MAG-135); locally the variable is unset and `build:` does the work.
+x-php-image: &php-image
+  image: ${E2E_IMAGE_PHP:-${COMPOSE_PROJECT_NAME:-maggie-e2e}-php}
+  build:
+    context: .
+    dockerfile: .docker/php/Dockerfile
+    target: e2e
+    labels:
+      # Links the pushed image to this repository, so GHCR lets its workflows pull and push it.
+      org.opencontainers.image.source: https://github.com/Miwi35/maggie
+    args:
+      PHP_VERSION: ${PHP_VERSION:-8.4}
+      UID: ${UID:-1000}
+      GID: ${GID:-1000}
+
 x-php-environment: &php-environment
   APP_ENV: e2e
   APP_DEBUG: "0"
@@ -98,14 +115,7 @@ services:
   # PHP-FPM — the worktree's own code, in the e2e environment
   # ===========================================================================
   php:
-    build:
-      context: .
-      dockerfile: .docker/php/Dockerfile
-      target: e2e
-      args:
-        PHP_VERSION: ${PHP_VERSION:-8.4}
-        UID: ${UID:-1000}
-        GID: ${GID:-1000}
+    <<: *php-image
     volumes:
       # The whole point of a per-worktree stack: this is the branch's code,
       # not the main checkout the dev stack mounts.
@@ -116,10 +126,15 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-      elasticsearch:
-        condition: service_healthy
       wiremock:
         condition: service_healthy
+      # Started, not healthy: Elasticsearch takes the longest to come up, and
+      # composer, cache:clear and the migrations do not touch it. Waiting for it
+      # here would serialise its boot in front of all of them. The final
+      # `up --wait` still waits for it (the worker declares it healthy, but the
+      # final wait runs with --no-deps, so that wait is what enforces it).
+      elasticsearch:
+        condition: service_started
     labels:
       <<: *stack-label
     networks:
@@ -129,10 +144,14 @@ services:
   # Nginx — serves the built admin and proxies PHP, same config as dev
   # ===========================================================================
   nginx:
+    image: ${E2E_IMAGE_NGINX:-${COMPOSE_PROJECT_NAME:-maggie-e2e}-nginx}
     build:
       context: .
       dockerfile: .docker/nginx/Dockerfile
       target: dev
+      labels:
+        # Links the pushed image to this repository, so GHCR lets its workflows pull and push it.
+        org.opencontainers.image.source: https://github.com/Miwi35/maggie
     volumes:
       - ./api/public:/var/www/api/public:ro
       - ./admin/dist:/var/www/admin:ro
@@ -201,14 +220,7 @@ services:
   # Worker — consumes the async transport, as in production
   # ===========================================================================
   worker:
-    build:
-      context: .
-      dockerfile: .docker/php/Dockerfile
-      target: e2e
-      args:
-        PHP_VERSION: ${PHP_VERSION:-8.4}
-        UID: ${UID:-1000}
-        GID: ${GID:-1000}
+    <<: *php-image
     volumes:
       - ./api:/var/www/api:cached
     environment: *php-environment
@@ -216,6 +228,8 @@ services:
       database:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      elasticsearch:
         condition: service_healthy
     command: ["php", "bin/console", "messenger:consume", "async", "--time-limit=3600", "--memory-limit=128M"]
     restart: unless-stopped
@@ -320,14 +334,16 @@ services:
       - discovery.type=single-node
       - xpack.security.enabled=false
       - xpack.security.enrollment.enabled=false
-      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     tmpfs:
       - /usr/share/elasticsearch/data
     healthcheck:
       test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health || exit 1"]
-      interval: 5s
+      # Polled every 2 s: `up --wait` returns one interval after the node is
+      # ready, so a long interval is dead time on every start.
+      interval: 2s
       timeout: 5s
-      retries: 30
+      retries: 75
     labels:
       <<: *stack-label
     networks:
@@ -337,10 +353,14 @@ services:
   # Python Agent Hub
   # ===========================================================================
   agent:
+    image: ${E2E_IMAGE_AGENT:-${COMPOSE_PROJECT_NAME:-maggie-e2e}-agent}
     build:
       context: .
       dockerfile: .docker/python/Dockerfile
       target: dev
+      labels:
+        # Links the pushed image to this repository, so GHCR lets its workflows pull and push it.
+        org.opencontainers.image.source: https://github.com/Miwi35/maggie
       args:
         PYTHON_VERSION: ${PYTHON_VERSION:-3.12}
         UID: ${UID:-1000}
@@ -351,7 +371,12 @@ services:
       # The eval suite's scenarios and nothing else the agent needs — it reads
       # them from inside this container, where the stack is reachable.
       - ./scripts:/scripts:ro
+      # The agent runs `uv pip install` on every start, since its dependencies
+      # are not baked into the image. The cache turns that from a download into
+      # a copy; CI restores it keyed on the agent's lockfile (MAG-135).
+      - ./.e2e-cache/uv:/home/app/.cache/uv
     environment:
+      UV_LINK_MODE: copy
       # Maggie answers from agent/fixtures/fake-llm/ instead of calling Claude:
       # a journey that talks to her is fast, free and the same every time
       # (MAG-95). `E2E_LLM_PROVIDER=anthropic` switches this stack to the real
@@ -397,10 +422,10 @@ services:
       # arrives, and Traefik answers 502 — a flaky failure that looks like a
       # broken route.
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/health')\" || exit 1"]
-      interval: 5s
+      interval: 2s
       timeout: 5s
-      retries: 40
-      start_period: 30s
+      retries: 100
+      start_period: 10s
     labels:
       <<: *stack-label
       traefik.enable: "true"
@@ -414,10 +439,14 @@ services:
   # Ciqual — food composition, called by the recipe and grocery journeys
   # ===========================================================================
   ciqual:
+    image: ${E2E_IMAGE_CIQUAL:-${COMPOSE_PROJECT_NAME:-maggie-e2e}-ciqual}
     build:
       context: .
       dockerfile: .docker/ciqual/Dockerfile
       target: dev
+      labels:
+        # Links the pushed image to this repository, so GHCR lets its workflows pull and push it.
+        org.opencontainers.image.source: https://github.com/Miwi35/maggie
       args:
         PYTHON_VERSION: ${PYTHON_VERSION:-3.12}
         UID: ${UID:-1000}

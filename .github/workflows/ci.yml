@@ -264,6 +264,10 @@ jobs:
     needs: changes
     if: needs.changes.outputs.e2e == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # The stack's images are pushed once per set of build inputs (MAG-135).
+      packages: write
     env:
       # Same derivation the Taskfile does, except the run id replaces the
       # worktree hash: concurrent jobs must not share containers or a network.
@@ -276,6 +280,58 @@ jobs:
         with:
           version: 3.x
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Dependencies the stack would otherwise install at every start. Keyed on
+      # the lockfile, like the jobs above, but under their own keys: the stack
+      # installs inside containers (alpine for the admin, where the native
+      # binaries are musl ones), so a tree built on this runner would not do.
+      - uses: actions/cache@v4
+        with:
+          path: api/vendor
+          key: e2e-vendor-php8.4-${{ hashFiles('api/composer.lock') }}
+
+      - uses: actions/cache@v4
+        with:
+          path: admin/node_modules
+          key: e2e-admin-node-modules-node22-alpine-${{ hashFiles('admin/package-lock.json') }}
+
+      - uses: actions/cache@v4
+        with:
+          path: e2e/web/node_modules
+          key: e2e-web-node-modules-${{ hashFiles('e2e/web/package-lock.json') }}
+
+      - uses: actions/cache@v4
+        with:
+          # The agent reinstalls its dependencies at every start; this makes it
+          # a copy instead of a download. A near miss is still a good start.
+          path: .e2e-cache/uv
+          key: e2e-uv-${{ hashFiles('agent/pyproject.toml', 'agent/uv.lock') }}
+          restore-keys: e2e-uv-
+
+      - name: Mark the restored node_modules as current
+        # The stack reinstalls when package-lock.json is newer than node_modules,
+        # and a cache restore keeps the mtime of the day it was saved. The key
+        # is the lockfile's hash, so a restored tree is by construction current.
+        run: |
+          for d in admin/node_modules e2e/web/node_modules; do
+            if [ -d "$d" ]; then touch "$d"; fi
+          done
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull or build the stack's images
+        # An image is named after the hash of what its Dockerfile reads, so a pull
+        # request that changes none of it builds nothing: four pulls, run beside
+        # the third-party ones. Only a changed .docker/ file or build arg builds
+        # — once, and pushes it for every run after.
+        run: |
+          e2e/images.sh env >> "$GITHUB_ENV"
+          echo "E2E_PREBUILT=1" >> "$GITHUB_ENV"
+          e2e/images.sh ensure
 
       - name: Start the stack
         run: task e2e:up
@@ -310,13 +366,6 @@ jobs:
         # it the first symptom is the nightly going red at 03:17 for a reason
         # that has nothing to do with prompts.
         run: task e2e:eval:check
-
-      - name: API tests inside the stack
-        # Proof that the worktree-safe path agents are told to use actually
-        # works. It is close to the api-test job by design: `when@test` still
-        # forces `in-memory://` for the async transport, which no container
-        # variable can displace, so only ELASTICSEARCH_URL really differs.
-        run: task e2e:test:api
 
       - name: Playwright report
         if: failure()

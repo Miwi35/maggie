@@ -56,10 +56,10 @@ export function seedId(reference: string): string {
 }
 
 /**
- * The date the seed anchored on, as `YYYY-MM-DD`.
+ * The date the seed anchored on, as `YYYY-MM-DD` — the day in Paris.
  *
  * Read this rather than the wall clock: a seed and a journey either side of
- * midnight UTC disagree, and anyone passing `--now` deliberately would break
+ * midnight in Paris disagree, and anyone passing `--now` deliberately would break
  * assertions that had no reason to care.
  */
 export function seedAnchorDate(): string {

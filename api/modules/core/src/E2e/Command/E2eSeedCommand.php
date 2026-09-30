@@ -57,7 +57,7 @@ final class E2eSeedCommand extends Command
                 'now',
                 null,
                 InputOption::VALUE_REQUIRED,
-                'Anchor every fixture date to this instant (ISO-8601). Defaults to today at midnight UTC.',
+                'Anchor every fixture date to the Europe/Paris day of this instant (ISO-8601; a date without offset is read in Paris). Defaults to today, Paris time.',
             )
             // No --no-purge option on purpose: with a single fixture set,
             // loading it on top of itself violates the first unique index it
@@ -122,11 +122,11 @@ final class E2eSeedCommand extends Command
     private function resolveAnchor(?string $now): \DateTimeImmutable
     {
         if (null === $now || '' === $now) {
-            return new \DateTimeImmutable('today midnight', new \DateTimeZone('UTC'));
+            return E2eDateProvider::anchorFor(new \DateTimeImmutable());
         }
 
         try {
-            return new \DateTimeImmutable($now, new \DateTimeZone('UTC'));
+            return E2eDateProvider::anchorFor(new \DateTimeImmutable($now, new \DateTimeZone(E2eDateProvider::TIMEZONE)));
         } catch (\Exception) {
             throw new \InvalidArgumentException(sprintf('"%s" is not a date --now understands.', $now));
         }
