@@ -25,7 +25,7 @@ class TestMaggieAgentExecutor:
 
         await executor.execute(context, event_queue)
 
-        executor.gateway.chat.assert_awaited_once_with("What's on my calendar?", "a2a")
+        executor.gateway.chat.assert_awaited_once_with("What's on my calendar?", "a2a", source="a2a")
         event_queue.enqueue_event.assert_awaited_once()
 
     @patch.object(MaggieAgentExecutor, "__init__", lambda self: None)

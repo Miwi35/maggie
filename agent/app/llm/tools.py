@@ -471,8 +471,11 @@ class ToolRouter:
 
         return tools
 
-    async def call_tool(self, name: str, arguments: dict, user_id: str | None = None) -> str:
-        """Route a tool call to native handler or MCP server."""
+    async def call_tool(self, name: str, arguments: dict, user_id: str | None = None, source: str = "chat") -> str:
+        """Route a tool call to native handler or MCP server.
+
+        `source` says who triggered the call: chat, chat_stream, proaction, subagent:<name>, a2a or approval.
+        """
         if name in _NATIVE_HANDLERS:
             if user_id is None:
                 return json.dumps({"error": "user_id required for native tools"})
