@@ -19,18 +19,18 @@ jobs:
     name: Detect changes
     runs-on: ubuntu-latest
     outputs:
-      api: ${{ github.event_name == 'schedule' || steps.filter.outputs.api == 'true' }}
-      agent: ${{ github.event_name == 'schedule' || steps.filter.outputs.agent == 'true' }}
-      ciqual: ${{ github.event_name == 'schedule' || steps.filter.outputs.ciqual == 'true' }}
-      admin: ${{ github.event_name == 'schedule' || steps.filter.outputs.admin == 'true' }}
-      e2e: ${{ github.event_name == 'schedule' || steps.filter.outputs.e2e == 'true' }}
+      api: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.api == 'true' }}
+      agent: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.agent == 'true' }}
+      ciqual: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.ciqual == 'true' }}
+      admin: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.admin == 'true' }}
+      e2e: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.e2e == 'true' }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
         id: filter
-        # The nightly run has no base to compare with, and needs none: it runs
+        # The nightly run (scheduled or manual) has no base to compare with, and needs none: it runs
         # everything (the outputs above).
-        if: github.event_name != 'schedule'
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
         with:
           filters: |
             api:

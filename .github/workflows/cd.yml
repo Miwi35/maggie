@@ -274,7 +274,7 @@ jobs:
     # The build jobs are listed for their digests (MAG-96). `always()` because a
     # build that did not run is skipped, and a skipped need would skip this job.
     needs: [deploy, build-php, build-nginx, build-agent, build-ciqual]
-    if: always() && needs.deploy.result == 'success'
+    if: always() && !cancelled() && needs.deploy.result == 'success'
     timeout-minutes: 15
     permissions:
       contents: read
