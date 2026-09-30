@@ -35,19 +35,19 @@ class CreateMealHandler
     {
         $slot = MealSlot::from($command->slot);
 
-        // Find or create "Repas" agenda
+        // Find or create the current user's "Repas" agenda
         $agenda = null;
         if ($command->agendaId !== null) {
             $agenda = $this->agendaRepository->find($command->agendaId);
         }
         if ($agenda === null) {
-            $agenda = $this->agendaRepository->findOneBy(['name' => 'Repas']);
+            $user = ($command->userId !== null ? $this->userRepository->find($command->userId) : null)
+                ?? throw new \DomainException('No user found.');
+
+            $agenda = $this->agendaRepository->findOneBy(['name' => 'Repas', 'user' => $user]);
         }
         if ($agenda === null) {
             // Auto-create the Repas agenda
-            $users = $this->userRepository->findAll();
-            $user = $users[0] ?? throw new \DomainException('No user found.');
-
             $agenda = new Agenda();
             $agenda->setUser($user);
             $agenda->setName('Repas');
@@ -68,7 +68,7 @@ class CreateMealHandler
         // Add recipes and build summary
         $recipeNames = [];
         foreach ($command->recipeIds as $recipeId) {
-            $recipe = $this->recipeRepository->find($recipeId)
+            $recipe = $this->recipeRepository->findOneForUser($recipeId, $agenda->getUser())
                 ?? throw new \DomainException("Recipe not found: {$recipeId}");
             $meal->addRecipe($recipe);
             $recipeNames[] = $recipe->getName();

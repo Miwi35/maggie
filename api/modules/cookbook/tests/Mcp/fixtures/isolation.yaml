@@ -1,0 +1,70 @@
+Maggie\Core\Entity\User:
+  other_user:
+    email: other-cookbook@example.com
+    googleId: google-other-cookbook
+    name: Other Cookbook User
+  test_user:
+    email: cookbook-test@example.com
+    googleId: google-cookbook-test
+    name: Cookbook Test User
+
+Maggie\Cookbook\Entity\Ingredient:
+  other_ingredient:
+    name: Tomme
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Dairy)>'
+    user: '@other_user'
+  own_ingredient:
+    name: Tomate
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\Recipe:
+  other_recipe:
+    name: Tarte de l'autre
+    servings: 4
+    tags: ['dessert']
+    user: '@other_user'
+  own_recipe:
+    name: Ma tarte
+    servings: 2
+    tags: ['dessert']
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\RecipeIngredient:
+  other_ri:
+    recipe: '@other_recipe'
+    ingredient: '@other_ingredient'
+    quantity: 200
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+  own_ri:
+    recipe: '@own_recipe'
+    ingredient: '@own_ingredient'
+    quantity: 500
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+
+Maggie\Calendar\Entity\Agenda:
+  other_repas_agenda:
+    name: Repas
+    color: '#FF6B35'
+    user: '@other_user'
+  own_agenda:
+    name: Mon agenda
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\Meal:
+  other_meal:
+    summary: 'Dîner : Tarte de l''autre'
+    slot: '<(Maggie\Cookbook\Enum\MealSlot::Dinner)>'
+    allDay: true
+    startAt: '<(new \DateTimeImmutable("2030-01-15 00:00:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("2030-01-15 23:59:59", new \DateTimeZone("Europe/Paris")))>'
+    agenda: '@other_repas_agenda'
+    recipes: ['@other_recipe']
+  own_meal:
+    summary: 'Déjeuner : Ma tarte'
+    slot: '<(Maggie\Cookbook\Enum\MealSlot::Lunch)>'
+    allDay: true
+    startAt: '<(new \DateTimeImmutable("2030-01-15 00:00:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("2030-01-15 23:59:59", new \DateTimeZone("Europe/Paris")))>'
+    agenda: '@own_agenda'
+    recipes: ['@own_recipe']

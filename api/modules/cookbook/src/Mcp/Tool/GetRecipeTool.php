@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Maggie\Cookbook\Mcp\Tool;
 
 use Maggie\Cookbook\Repository\RecipeRepository;
+use Maggie\Core\Mcp\McpUserContext;
+use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 
 #[McpTool(name: 'get_recipe', description: 'Get a recipe by ID with its ingredients.')]
@@ -12,12 +14,19 @@ class GetRecipeTool
 {
     public function __construct(
         private readonly RecipeRepository $recipeRepository,
+        private readonly McpUserContext $userContext,
     ) {
     }
 
     public function __invoke(string $recipeId): string
     {
-        $recipe = $this->recipeRepository->find($recipeId);
+        try {
+            $user = $this->userContext->requireUser();
+        } catch (MissingMcpUserException $e) {
+            return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
+        }
+
+        $recipe = $this->recipeRepository->findOneForUser($recipeId, $user);
         if ($recipe === null) {
             return json_encode(['error' => "Recipe not found: {$recipeId}"], JSON_THROW_ON_ERROR);
         }

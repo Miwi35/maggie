@@ -83,6 +83,7 @@ class ManageMealsTool
             date: $date,
             slot: $slot,
             recipeIds: $this->parseRecipeIds($recipeIds) ?? [],
+            userId: (string) $this->userContext->requireUser()->getId(),
         ));
 
         /** @var Meal $meal */

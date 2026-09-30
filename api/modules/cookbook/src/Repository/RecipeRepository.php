@@ -7,6 +7,7 @@ namespace Maggie\Cookbook\Repository;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Cookbook\Entity\Recipe;
+use Maggie\Core\Entity\User;
 
 /** @extends ServiceEntityRepository<Recipe> */
 class RecipeRepository extends ServiceEntityRepository
@@ -16,11 +17,18 @@ class RecipeRepository extends ServiceEntityRepository
         parent::__construct($registry, Recipe::class);
     }
 
+    public function findOneForUser(string $id, User $user): ?Recipe
+    {
+        return $this->findOneBy(['id' => $id, 'user' => $user]);
+    }
+
     /** @return Recipe[] */
-    public function searchByName(string $query): array
+    public function searchByName(User $user, string $query): array
     {
         return $this->createQueryBuilder('r')
-            ->where('LOWER(r.name) LIKE LOWER(:query)')
+            ->where('r.user = :user')
+            ->andWhere('LOWER(r.name) LIKE LOWER(:query)')
+            ->setParameter('user', $user->getId(), 'ulid')
             ->setParameter('query', '%' . $query . '%')
             ->orderBy('r.name', 'ASC')
             ->getQuery()
@@ -28,10 +36,12 @@ class RecipeRepository extends ServiceEntityRepository
     }
 
     /** @return Recipe[] */
-    public function searchByTags(string $tag): array
+    public function searchByTags(User $user, string $tag): array
     {
         return $this->createQueryBuilder('r')
-            ->where('r.tags LIKE :tag')
+            ->where('r.user = :user')
+            ->andWhere('r.tags LIKE :tag')
+            ->setParameter('user', $user->getId(), 'ulid')
             ->setParameter('tag', '%"' . $tag . '"%')
             ->orderBy('r.name', 'ASC')
             ->getQuery()

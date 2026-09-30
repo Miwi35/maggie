@@ -7,6 +7,7 @@ use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Repository\EventRepository;
 use Maggie\Calendar\Service\ConflictDetectionService;
 use Maggie\Calendar\Service\RecurrenceService;
+use Maggie\Core\Entity\User;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -16,6 +17,7 @@ class ConflictDetectionServiceTest extends TestCase
     private RecurrenceService&MockObject $recurrenceService;
     private ConflictDetectionService $conflictDetectionService;
     private Agenda $agenda;
+    private User $user;
 
     protected function setUp(): void
     {
@@ -26,8 +28,10 @@ class ConflictDetectionServiceTest extends TestCase
             $this->recurrenceService,
         );
 
+        $this->user = new User();
         $this->agenda = new Agenda();
         $this->agenda->setName('Test');
+        $this->agenda->setUser($this->user);
     }
 
     public function testFindConflictsReturnsOverlappingEvents(): void
@@ -43,7 +47,7 @@ class ConflictDetectionServiceTest extends TestCase
 
         $this->eventRepository
             ->method('findByDateRange')
-            ->with($rangeStart, $rangeEnd)
+            ->with($this->user, $rangeStart, $rangeEnd)
             ->willReturn([$overlapping]);
 
         // expandAll passes events through unchanged
@@ -52,7 +56,7 @@ class ConflictDetectionServiceTest extends TestCase
             ->with([$overlapping], $rangeStart, $rangeEnd)
             ->willReturn([$overlapping]);
 
-        $conflicts = $this->conflictDetectionService->findConflicts($rangeStart, $rangeEnd);
+        $conflicts = $this->conflictDetectionService->findConflicts($this->user, $rangeStart, $rangeEnd);
 
         self::assertCount(1, $conflicts);
         self::assertSame($overlapping, $conflicts[0]);
@@ -71,7 +75,7 @@ class ConflictDetectionServiceTest extends TestCase
 
         $this->eventRepository
             ->method('findByDateRange')
-            ->with($rangeStart, $rangeEnd)
+            ->with($this->user, $rangeStart, $rangeEnd)
             ->willReturn([$existing]);
 
         $this->recurrenceService
@@ -80,7 +84,7 @@ class ConflictDetectionServiceTest extends TestCase
             ->willReturn([$existing]);
 
         // Exclude the event itself (simulates updating an existing event)
-        $conflicts = $this->conflictDetectionService->findConflicts($rangeStart, $rangeEnd, $existing);
+        $conflicts = $this->conflictDetectionService->findConflicts($this->user, $rangeStart, $rangeEnd, $existing);
 
         self::assertCount(0, $conflicts);
     }
@@ -99,7 +103,7 @@ class ConflictDetectionServiceTest extends TestCase
 
         $this->eventRepository
             ->method('findByDateRange')
-            ->with($rangeStart, $rangeEnd)
+            ->with($this->user, $rangeStart, $rangeEnd)
             ->willReturn([$allDayEvent]);
 
         $this->recurrenceService
@@ -107,7 +111,7 @@ class ConflictDetectionServiceTest extends TestCase
             ->with([$allDayEvent], $rangeStart, $rangeEnd)
             ->willReturn([$allDayEvent]);
 
-        $conflicts = $this->conflictDetectionService->findConflicts($rangeStart, $rangeEnd);
+        $conflicts = $this->conflictDetectionService->findConflicts($this->user, $rangeStart, $rangeEnd);
 
         self::assertCount(0, $conflicts);
     }
@@ -125,7 +129,7 @@ class ConflictDetectionServiceTest extends TestCase
 
         $this->eventRepository
             ->method('findByDateRange')
-            ->with($rangeStart, $rangeEnd)
+            ->with($this->user, $rangeStart, $rangeEnd)
             ->willReturn([$overlapping]);
 
         $this->recurrenceService
@@ -133,7 +137,7 @@ class ConflictDetectionServiceTest extends TestCase
             ->with([$overlapping], $rangeStart, $rangeEnd)
             ->willReturn([$overlapping]);
 
-        self::assertTrue($this->conflictDetectionService->hasConflicts($rangeStart, $rangeEnd));
+        self::assertTrue($this->conflictDetectionService->hasConflicts($this->user, $rangeStart, $rangeEnd));
     }
 
     public function testHasConflictsReturnsFalseWhenNoOverlap(): void
@@ -149,7 +153,7 @@ class ConflictDetectionServiceTest extends TestCase
 
         $this->eventRepository
             ->method('findByDateRange')
-            ->with($rangeStart, $rangeEnd)
+            ->with($this->user, $rangeStart, $rangeEnd)
             ->willReturn([$nonOverlapping]);
 
         $this->recurrenceService
@@ -157,6 +161,6 @@ class ConflictDetectionServiceTest extends TestCase
             ->with([$nonOverlapping], $rangeStart, $rangeEnd)
             ->willReturn([$nonOverlapping]);
 
-        self::assertFalse($this->conflictDetectionService->hasConflicts($rangeStart, $rangeEnd));
+        self::assertFalse($this->conflictDetectionService->hasConflicts($this->user, $rangeStart, $rangeEnd));
     }
 }

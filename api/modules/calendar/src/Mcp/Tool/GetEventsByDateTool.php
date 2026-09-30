@@ -4,24 +4,33 @@ namespace Maggie\Calendar\Mcp\Tool;
 
 use Maggie\Calendar\Repository\EventRepository;
 use Maggie\Calendar\Service\RecurrenceService;
+use Maggie\Core\Mcp\McpUserContext;
+use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_events_by_date', description: 'Get all events for a specific date (YYYY-MM-DD format). Returns events from all agendas, including expanded recurring events.')]
+#[McpTool(name: 'get_events_by_date', description: 'Get all events for a specific date (YYYY-MM-DD format). Returns events from all the user's agendas, including expanded recurring events.')]
 class GetEventsByDateTool
 {
     public function __construct(
         private readonly EventRepository $eventRepository,
         private readonly RecurrenceService $recurrenceService,
+        private readonly McpUserContext $userContext,
     ) {
     }
 
     public function __invoke(string $date): string
     {
+        try {
+            $user = $this->userContext->requireUser();
+        } catch (MissingMcpUserException $e) {
+            return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
+        }
+
         $dateObj = new \DateTimeImmutable($date);
         $start = $dateObj->setTime(0, 0);
         $end = $dateObj->setTime(23, 59, 59);
 
-        $events = $this->eventRepository->findByDateRange($start, $end);
+        $events = $this->eventRepository->findByDateRange($user, $start, $end);
         $expanded = $this->recurrenceService->expandAll($events, $start, $end);
 
         $result = array_map(fn ($event) => [

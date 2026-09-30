@@ -43,7 +43,7 @@ class UpdateMealHandler
                 $meal->removeRecipe($recipe);
             }
             foreach ($command->recipeIds as $recipeId) {
-                $recipe = $this->recipeRepository->find($recipeId)
+                $recipe = $this->recipeRepository->findOneForUser($recipeId, $meal->getAgenda()->getUser())
                     ?? throw new \DomainException("Recipe not found: {$recipeId}");
                 $meal->addRecipe($recipe);
             }

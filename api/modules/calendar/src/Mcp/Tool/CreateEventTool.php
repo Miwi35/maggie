@@ -4,6 +4,7 @@ namespace Maggie\Calendar\Mcp\Tool;
 
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Message\CreateEventCommand;
+use Maggie\Core\Mcp\McpUserContext;
 use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -14,6 +15,7 @@ class CreateEventTool
 {
     public function __construct(
         private readonly MessageBusInterface $bus,
+        private readonly McpUserContext $userContext,
     ) {
     }
 
@@ -28,6 +30,7 @@ class CreateEventTool
     ): string {
         $startAt = new \DateTimeImmutable("{$date} {$time}", new \DateTimeZone('Europe/Paris'));
         $endAt = $startAt->modify("+{$duration} minutes");
+        $user = $this->userContext->getUser();
 
         try {
             $envelope = $this->bus->dispatch(new CreateEventCommand(
@@ -37,6 +40,7 @@ class CreateEventTool
                 agendaId: $agenda_id,
                 description: $description,
                 location: $location,
+                userId: $user !== null ? (string) $user->getId() : null,
             ));
 
             /** @var Event $event */

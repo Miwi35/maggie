@@ -35,7 +35,7 @@ class CheckRemindersCommand extends Command
         $horizon = $now->modify('+24 hours');
 
         // Find events in the next 24h that have reminders
-        $events = $this->eventRepository->findByDateRange($now, $horizon);
+        $events = $this->eventRepository->findByDateRangeForAllUsers($now, $horizon);
         $created = 0;
 
         foreach ($events as $event) {

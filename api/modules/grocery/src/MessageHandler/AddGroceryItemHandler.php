@@ -45,7 +45,7 @@ class AddGroceryItemHandler
         $item->setSource(GroceryItemSource::from($command->source));
 
         // Search products by label for auto-matching
-        $products = $this->productRepository->searchByName($command->label);
+        $products = $this->productRepository->searchByName($user, $command->label);
         $matched = null;
         foreach ($products as $product) {
             if (mb_strtolower($product->getName()) === mb_strtolower($command->label)) {

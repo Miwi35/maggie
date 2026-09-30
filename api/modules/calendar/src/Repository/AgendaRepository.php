@@ -17,10 +17,10 @@ class AgendaRepository extends ServiceEntityRepository
         parent::__construct($registry, Agenda::class);
     }
 
-    public function findDefault(): ?Agenda
+    public function findDefault(User $user): ?Agenda
     {
-        return $this->findOneBy(['isDefault' => true])
-            ?? $this->findOneBy([]);
+        return $this->findOneBy(['user' => $user, 'isDefault' => true])
+            ?? $this->findOneBy(['user' => $user], ['name' => 'ASC']);
     }
 
     /**

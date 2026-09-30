@@ -1,0 +1,40 @@
+Maggie\Core\Entity\User:
+  other_user:
+    email: other-grocery@example.com
+    googleId: google-other-grocery
+    name: Other Grocery User
+  test_user:
+    email: grocery-test@example.com
+    googleId: google-grocery-test
+    name: Grocery Test User
+
+Maggie\Grocery\Entity\Store:
+  other_store:
+    name: Magasin de l'autre
+    visitOrder: 1
+    user: '@other_user'
+
+Maggie\Grocery\Entity\Product:
+  other_bananes:
+    name: Bananes
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Dairy)>'
+    user: '@other_user'
+    preferredStore: '@other_store'
+  own_plantain:
+    name: Bananes plantain
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryList:
+  own_list:
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryItem:
+  own_item_without_product:
+    groceryList: '@own_list'
+    customLabel: Bananes
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 1

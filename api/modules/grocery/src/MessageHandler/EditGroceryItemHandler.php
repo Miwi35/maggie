@@ -58,7 +58,7 @@ class EditGroceryItemHandler
                 }
             } else {
                 // No product linked — find or create one (same logic as AddGroceryItemHandler)
-                $products = $this->productRepository->searchByName($command->label);
+                $products = $this->productRepository->searchByName($user, $command->label);
                 $matched = null;
                 foreach ($products as $p) {
                     if (mb_strtolower($p->getName()) === mb_strtolower($command->label)) {
