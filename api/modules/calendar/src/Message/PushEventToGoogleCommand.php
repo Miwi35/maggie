@@ -9,8 +9,9 @@ final readonly class PushEventToGoogleCommand
      */
     public function __construct(
         public string $eventId,
-        public string $action, // 'create' or 'update'
+        public string $action, // 'create', 'update' or 'move'
         public ?array $changedFields = null,
+        public ?string $fromGoogleCalendarId = null, // 'move': the Google calendar the event leaves
     ) {
     }
 }

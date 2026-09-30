@@ -162,6 +162,9 @@ class GoogleEventMapper
         if (isset($fields['status'])) {
             $googleEvent->setStatus($event->getStatus()->value);
         }
+        if (isset($fields['reminders'])) {
+            $googleEvent->setReminders($this->remindersToGoogle($event->getReminders() ?? ['useDefault' => true]));
+        }
 
         return $googleEvent;
     }
@@ -200,23 +203,29 @@ class GoogleEventMapper
         $googleEvent->setStatus($event->getStatus()->value);
 
         // Reminders
-        $reminderData = $event->getReminders();
-        if (null !== $reminderData) {
-            $reminders = new EventReminders();
-            $reminders->setUseDefault($reminderData['useDefault'] ?? true);
-            if (isset($reminderData['overrides'])) {
-                $overrides = array_map(function (array $o) {
-                    $r = new EventReminder();
-                    $r->setMethod($o['method']);
-                    $r->setMinutes($o['minutes']);
-
-                    return $r;
-                }, $reminderData['overrides']);
-                $reminders->setOverrides($overrides);
-            }
-            $googleEvent->setReminders($reminders);
+        if (null !== $event->getReminders()) {
+            $googleEvent->setReminders($this->remindersToGoogle($event->getReminders()));
         }
 
         return $googleEvent;
+    }
+
+    /** @param array<string, mixed> $reminderData */
+    private function remindersToGoogle(array $reminderData): EventReminders
+    {
+        $reminders = new EventReminders();
+        $reminders->setUseDefault($reminderData['useDefault'] ?? true);
+        if (isset($reminderData['overrides'])) {
+            $overrides = array_map(function (array $o) {
+                $r = new EventReminder();
+                $r->setMethod($o['method']);
+                $r->setMinutes($o['minutes']);
+
+                return $r;
+            }, $reminderData['overrides']);
+            $reminders->setOverrides($overrides);
+        }
+
+        return $reminders;
     }
 }

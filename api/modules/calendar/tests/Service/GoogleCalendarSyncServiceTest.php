@@ -290,6 +290,97 @@ class GoogleCalendarSyncServiceTest extends TestCase
         self::assertSame('"new-etag"', $event->getGoogleEtag());
     }
 
+    private function syncedEvent(Agenda $agenda): Event
+    {
+        $event = new Event();
+        $event->setSummary('Test Event');
+        $event->setStartAt(new \DateTimeImmutable('2026-03-20T10:00:00+01:00'));
+        $event->setEndAt(new \DateTimeImmutable('2026-03-20T11:00:00+01:00'));
+        $event->setAgenda($agenda);
+        $event->setGoogleEventId('g-evt-existing');
+
+        return $event;
+    }
+
+    private function googleResult(string $etag): GoogleEvent
+    {
+        $result = new GoogleEvent();
+        $result->setEtag($etag);
+        $result->setUpdated('2026-03-20T12:00:00Z');
+
+        return $result;
+    }
+
+    public function testPushMoveAsksGoogleToMoveTheEventToTheNewCalendar(): void
+    {
+        $agenda = $this->createSyncedAgenda();
+        $agenda->setGoogleCalendarId('cal-new');
+        $event = $this->syncedEvent($agenda);
+
+        $this->eventMapper = new GoogleEventMapper();
+
+        $this->apiClient->expects(self::once())
+            ->method('moveEvent')
+            ->with($agenda->getUser(), 'cal-old', 'g-evt-existing', 'cal-new')
+            ->willReturn($this->googleResult('"moved-etag"'));
+        $this->apiClient->expects(self::never())->method('patchEvent');
+        $this->apiClient->expects(self::never())->method('updateEvent');
+        $this->apiClient->expects(self::never())->method('insertEvent');
+
+        $this->createService()->pushEventToGoogle($event, 'move', ['agenda'], 'cal-old');
+
+        self::assertSame('"moved-etag"', $event->getGoogleEtag());
+        self::assertSame('g-evt-existing', $event->getGoogleEventId());
+    }
+
+    public function testPushMoveAlsoPatchesTheOtherChangedFieldsOnTheNewCalendar(): void
+    {
+        $agenda = $this->createSyncedAgenda();
+        $agenda->setGoogleCalendarId('cal-new');
+        $event = $this->syncedEvent($agenda);
+        $event->setStatus(\Maggie\Calendar\Enum\EventStatus::Tentative);
+
+        $this->eventMapper = new GoogleEventMapper();
+
+        $this->apiClient->expects(self::once())
+            ->method('moveEvent')
+            ->willReturn($this->googleResult('"moved-etag"'));
+        $this->apiClient->expects(self::once())
+            ->method('patchEvent')
+            ->with($agenda->getUser(), 'cal-new', 'g-evt-existing', self::callback(
+                fn (GoogleEvent $e) => 'tentative' === $e->getStatus() && null === $e->getSummary(),
+            ))
+            ->willReturn($this->googleResult('"patched-etag"'));
+
+        $this->createService()->pushEventToGoogle($event, 'move', ['agenda', 'status'], 'cal-old');
+
+        self::assertSame('"patched-etag"', $event->getGoogleEtag());
+    }
+
+    public function testPushPatchCarriesTheStatusAndTheReminders(): void
+    {
+        $agenda = $this->createSyncedAgenda();
+        $event = $this->syncedEvent($agenda);
+        $event->setStatus(\Maggie\Calendar\Enum\EventStatus::Cancelled);
+        $event->setReminders(['useDefault' => false, 'overrides' => [['method' => 'popup', 'minutes' => 30]]]);
+
+        $this->eventMapper = new GoogleEventMapper();
+
+        $this->apiClient->expects(self::once())
+            ->method('patchEvent')
+            ->with($agenda->getUser(), 'google-cal-id', 'g-evt-existing', self::callback(function (GoogleEvent $e) {
+                $overrides = $e->getReminders()?->getOverrides() ?? [];
+
+                return 'cancelled' === $e->getStatus()
+                    && false === $e->getReminders()?->getUseDefault()
+                    && 1 === \count($overrides)
+                    && 30 === $overrides[0]->getMinutes();
+            }))
+            ->willReturn($this->googleResult('"new-etag"'));
+
+        $this->createService()->pushEventToGoogle($event, 'update', ['summary', 'status', 'reminders']);
+    }
+
     public function testPullPublishesMercureDeleteForCancelledEvent(): void
     {
         $agenda = $this->createSyncedAgenda();

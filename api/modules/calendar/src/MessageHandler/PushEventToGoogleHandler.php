@@ -23,6 +23,6 @@ class PushEventToGoogleHandler
             return;
         }
 
-        $this->syncService->pushEventToGoogle($event, $command->action, $command->changedFields);
+        $this->syncService->pushEventToGoogle($event, $command->action, $command->changedFields, $command->fromGoogleCalendarId);
     }
 }
