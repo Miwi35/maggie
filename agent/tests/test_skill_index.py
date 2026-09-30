@@ -188,8 +188,9 @@ class TestSystemPromptSkills:
         with patch("app.llm.gateway.skill_index", index):
             prompt = await gateway._build_system_prompt("user-1")
 
-        assert "- recipe-grocery-link: Lier recette et courses" in prompt
-        assert "Corps secret" not in prompt
+        text = "".join(block["text"] for block in prompt)
+        assert "- recipe-grocery-link: Lier recette et courses" in text
+        assert "Corps secret" not in text
 
 
 class TestSkillRoutes:

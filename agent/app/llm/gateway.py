@@ -5,10 +5,11 @@ import anthropic
 from app.config import settings
 from app.db.message_repository import message_repo
 from app.llm.capabilities import generate_capability_summary
+from app.llm.prompt_cache import build_system
 from app.llm.runner import run_tool_loop
 from app.llm.tools import ToolRouter
 from app.memory.agent_memory import AgentMemory
-from app.personality.engine import PersonalityEngine
+from app.personality.engine import PersonalityEngine, current_datetime_line
 from app.skills.index import skill_index
 
 logger = logging.getLogger(__name__)
@@ -25,13 +26,16 @@ class LLMGateway:
         self.tool_router = ToolRouter()
         self.agent_memory = AgentMemory()
 
-    async def _build_system_prompt(self, user_id: str, tools: list[dict] | None = None) -> str:
-        """Build the full system prompt: personality + persistent memory context + skill context."""
+    async def _build_system_prompt(
+        self, user_id: str, tools: list[dict] | None = None, preamble: str = ""
+    ) -> list[dict]:
+        """Build the system blocks: cached prefix (personality + skill index), then memory, date and preamble."""
         capabilities = generate_capability_summary(tools) if tools else ""
         base = await self.personality.get_system_prompt(user_id, capabilities=capabilities)
-        memory_context = await self.agent_memory.get_memory_context(user_id)
         skill_context = skill_index.get_skills_index()
-        return base + memory_context + skill_context
+        memory_context = await self.agent_memory.get_memory_context(user_id)
+        volatile = f"{memory_context}\n\n{current_datetime_line()}{preamble}"
+        return build_system(base + skill_context, volatile)
 
     async def _load_conversation_history(self, user_id: str) -> list[dict]:
         """Load conversation history from the database."""
@@ -89,7 +93,7 @@ class LLMGateway:
                 "Ne demande pas de confirmation avant d'agir — agis directement."
             )
 
-        system_prompt = await self._build_system_prompt(user_id, tools=tools) + preamble
+        system_prompt = await self._build_system_prompt(user_id, tools=tools, preamble=preamble)
 
         messages = [{"role": "user", "content": prompt}]
 

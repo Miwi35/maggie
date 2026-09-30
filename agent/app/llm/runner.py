@@ -3,7 +3,8 @@ import time
 
 import anthropic
 
-from app.metrics import TOOL_CALLS, record_llm_usage
+from app.llm.prompt_cache import cache_tools
+from app.metrics import TOOL_CALLS, record_llm_usage, usage_kwargs
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +14,7 @@ ITERATION_LIMIT_MESSAGE = "I encountered an issue processing your request. Pleas
 
 
 async def run_tool_loop(
-    system: str,
+    system: str | list[dict],
     messages: list,
     tools: list[dict] | None,
     *,
@@ -28,10 +29,12 @@ async def run_tool_loop(
 ) -> dict:
     """Call Claude, execute the tools it asks for, and loop until it answers with text.
 
-    `messages` is extended in place. `tools=None` (or empty) yields a plain answer without tools.
+    `system` is a string or a list of system blocks (see `build_system`). `messages` is extended in place.
+    `tools=None` (or empty) yields a plain answer without tools. The tool list gets a prompt-cache breakpoint.
     API errors are not caught: callers decide how to present them.
     """
     tool_calls_made: list[dict] = []
+    cached_tools = cache_tools(tools)
 
     for _ in range(max_iterations):
         logger.info(f"Calling Claude with {len(tools or [])} tools, {len(messages)} messages")
@@ -43,14 +46,13 @@ async def run_tool_loop(
                 max_tokens=max_tokens,
                 system=system,
                 messages=messages,
-                tools=tools if tools else anthropic.NOT_GIVEN,
+                tools=cached_tools if cached_tools else anthropic.NOT_GIVEN,
             )
             record_llm_usage(
                 model=model,
                 call_type=call_type,
-                input_tokens=response.usage.input_tokens,
-                output_tokens=response.usage.output_tokens,
                 duration_seconds=time.monotonic() - t0,
+                **usage_kwargs(response.usage),
             )
         except Exception:
             record_llm_usage(

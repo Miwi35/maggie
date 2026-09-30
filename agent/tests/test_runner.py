@@ -69,6 +69,41 @@ async def _run(client, tool_router, messages=None, tools=None, **kwargs):
     )
 
 
+class TestPromptCaching:
+    async def test_passes_system_blocks_and_marks_last_tool_cacheable(self, client, tool_router, usage):
+        client.messages.create.return_value = _text_response("ok")
+        system = [{"type": "text", "text": "stable", "cache_control": {"type": "ephemeral"}}]
+        tools = [{"name": "a"}, {"name": "b"}]
+
+        await run_tool_loop(
+            system,
+            [{"role": "user", "content": "hi"}],
+            tools,
+            client=client,
+            tool_router=tool_router,
+            user_id="user-1",
+            model="claude-test",
+        )
+
+        kwargs = client.messages.create.call_args.kwargs
+        assert kwargs["system"] == system
+        assert kwargs["tools"][-1]["cache_control"] == {"type": "ephemeral"}
+        assert "cache_control" not in kwargs["tools"][0]
+        assert "cache_control" not in tools[-1]
+
+    async def test_records_cache_tokens(self, client, tool_router, usage):
+        response = _text_response("ok")
+        response.usage.cache_creation_input_tokens = 120
+        response.usage.cache_read_input_tokens = 800
+        client.messages.create.return_value = response
+
+        await _run(client, tool_router, tools=[{"name": "a"}])
+
+        kwargs = usage.call_args.kwargs
+        assert kwargs["cache_creation_input_tokens"] == 120
+        assert kwargs["cache_read_input_tokens"] == 800
+
+
 class TestRunToolLoop:
     async def test_text_response(self, client, tool_router, usage):
         client.messages.create.return_value = _text_response("Bonjour")

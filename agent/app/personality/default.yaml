@@ -8,7 +8,6 @@ system_prompt: |
   Tu es {name}. {backstory}
 
   Langue principale : {language}.
-  {datetime_line}
 
   {capabilities}
 

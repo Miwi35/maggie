@@ -14,10 +14,11 @@ from app.db.context_model import ContextStatus
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
 from app.llm.capabilities import generate_capability_summary
+from app.llm.prompt_cache import build_system, cache_tools
 from app.llm.tools import ToolRouter
 from app.memory.agent_memory import AgentMemory
-from app.metrics import TOOL_CALLS, record_llm_usage
-from app.personality.engine import PersonalityEngine
+from app.metrics import TOOL_CALLS, record_llm_usage, usage_kwargs
+from app.personality.engine import PersonalityEngine, current_datetime_line
 from app.skills.index import skill_index
 
 logger = logging.getLogger(__name__)
@@ -34,12 +35,12 @@ class StreamingGateway:
         self.tool_router = ToolRouter()
         self.agent_memory = AgentMemory()
 
-    async def _build_system_prompt(self, user_id: str, tools: list[dict] | None = None) -> str:
-        """Build full system prompt: personality + memory + skills + active contexts."""
+    async def _build_system_prompt(self, user_id: str, tools: list[dict] | None = None) -> list[dict]:
+        """Build the system blocks: cached prefix (personality + skill index), then memory, contexts and date."""
         capabilities = generate_capability_summary(tools) if tools else ""
         base = await self.personality.get_system_prompt(user_id, capabilities=capabilities)
-        memory_context = await self.agent_memory.get_memory_context(user_id)
         skill_context = skill_index.get_skills_index()
+        memory_context = await self.agent_memory.get_memory_context(user_id)
 
         # Inject active contexts so Claude knows ongoing topics
         active_contexts = await context_repo.find_active(user_id)
@@ -51,7 +52,8 @@ class StreamingGateway:
                 lines.append(f"- {status_icon} {ctx.label} ({ctx.status.value})")
             context_section = "\n".join(lines)
 
-        return base + memory_context + skill_context + context_section
+        volatile = f"{memory_context}{context_section}\n\n{current_datetime_line()}"
+        return build_system(base + skill_context, volatile)
 
     async def _load_conversation_history(self, user_id: str) -> list[dict]:
         """Load conversation history from the database."""
@@ -103,6 +105,7 @@ class StreamingGateway:
         tools = await self.tool_router.get_tool_definitions(include_native=True)
 
         system_prompt = await self._build_system_prompt(user_id, tools=tools)
+        cached_tools = cache_tools(tools)
 
         accumulated_text = ""
         max_iterations = 5
@@ -128,7 +131,7 @@ class StreamingGateway:
                     max_tokens=4096,
                     system=system_prompt,
                     messages=messages,
-                    tools=tools if tools else anthropic.NOT_GIVEN,
+                    tools=cached_tools if cached_tools else anthropic.NOT_GIVEN,
                 )
 
                 current_text_block = ""
@@ -175,9 +178,8 @@ class StreamingGateway:
                     record_llm_usage(
                         model=settings.anthropic_model,
                         call_type="chat_stream",
-                        input_tokens=response.usage.input_tokens,
-                        output_tokens=response.usage.output_tokens,
                         duration_seconds=duration,
+                        **usage_kwargs(response.usage),
                     )
 
                 # Process tool calls if stop_reason is tool_use
