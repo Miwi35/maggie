@@ -217,6 +217,22 @@ contract the harness will rely on:
 - Linear: the module functional spec has no e2e section to update, so this lands in the
   team documentation index as a new "Environnement e2e" page (ADR-006).
 
+## Task 10: Worktree-local checks (`task wt:*`)
+
+Added by the owner mid-implementation, once the e2e stack showed that the only
+worktree-safe runner was an eleven-service stack — too heavy to run for a lint.
+
+`wt/`: `Taskfile.yml`, `guard.sh`, `deps-cache.sh`, `docker-compose.wt.yml`,
+`limits.env`. Eight tasks (phpstan, test:api, lint/test for admin, agent and
+ciqual), each honouring five conditions: minimal services, one shot with an
+unconditional teardown, no published port, a load guard that falls back to CI,
+and resources released at the end of the command rather than the session.
+
+Dependencies come from a cache keyed by lockfile hash — the local equivalent of
+`actions/cache` in `ci.yml` — filled once into a temp directory then renamed,
+and mounted read-only. Standard: `agent-os/standards/global/worktree-checks.md`.
+MAG-133 builds `task fix:all` and `api:phpstan:changed` on these.
+
 ## Tests
 
 | Unit touched | Tests |
@@ -242,10 +258,14 @@ On the stack this ticket builds, in this worktree — which is itself the proof 
 | `task e2e:up` | stack up, one ephemeral port (32781), no named volume, own network |
 | `task e2e:seed` | 24 tables truncated, 61 objects, manifest written, indices rebuilt |
 | `task e2e:smoke` | **31 passed, 0 failed** |
-| `task e2e:test:api` | **535 tests, 2243 assertions, 0 failures** |
-| `vendor/bin/phpstan analyse` | no errors |
-| agent `pytest` | 135 passed (7 of them new) |
-| agent `ruff check app/` + `ruff format --check app/` | clean |
+| `task e2e:test:api` | **543 tests, 2251 assertions, 0 failures** |
+| `task wt:phpstan` (whole paths list) | no errors; 1.9 s warm on a subset |
+| `task wt:test:api` | 543 tests, 0 failures, ~30 s; nothing left behind |
+| `task wt:test:admin` | 154 passed · `task wt:lint:admin` clean |
+| `task wt:test:agent` | 135 passed (7 new) · `task wt:lint:agent` clean |
+| `task wt:test:ciqual` | 21 passed · `task wt:lint:ciqual` clean |
+| `task wt:guard` | passes, prints its numbers |
+| A fill that fails | leaves no partial cache entry (checked with a bad image) |
 
 Isolation checked by hand: a second stack started beside the first took port 32782, got
 its own network, and its Traefik answered 404 on `/api/docs` — proof the label constraint

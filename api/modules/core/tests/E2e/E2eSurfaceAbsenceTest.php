@@ -133,7 +133,12 @@ final class E2eSurfaceAbsenceTest extends TestCase
         $kernel = new Kernel($environment, $environment !== 'prod');
         $kernel->boot();
 
-        return $kernel->getContainer();
+        // The container object outlives the kernel; shutting down keeps each
+        // environment from holding one open for the rest of the suite.
+        $container = $kernel->getContainer();
+        $kernel->shutdown();
+
+        return $container;
     }
 
     private function routesFor(string $environment): RouteCollection

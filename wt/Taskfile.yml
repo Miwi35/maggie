@@ -56,10 +56,15 @@ tasks:
   # ===========================================================================
   image:
     desc: Build the PHP image the worktree tasks use
-    # The e2e target: production php.ini, no Xdebug. Layer caching makes this
-    # a no-op once built, and it is shared by every worktree.
-    status:
-      - docker image inspect {{.PHP_IMAGE}} >/dev/null 2>&1
+    # The e2e target: production php.ini, no Xdebug.
+    #
+    # No `status:` guard on purpose. The tag is global, so a branch touching
+    # .docker/php/Dockerfile — this one does — would otherwise keep analysing
+    # against the previous runtime on any machine that already built it: wrong
+    # extensions, wrong php.ini, no warning. Layer caching makes the
+    # no-change case cheap, which is the same call e2e:_up:rest makes with
+    # `--build`.
+    deps: [guard]
     cmds:
       - docker build -f {{.ROOT_DIR}}/.docker/php/Dockerfile --target e2e
         --build-arg UID=$(id -u) --build-arg GID=$(id -g)
@@ -75,7 +80,7 @@ tasks:
     # users are outside the file list. That is an artefact of the subset, not a
     # finding — re-run without arguments, or with the traits' users included,
     # before believing it.
-    deps: [guard, image]
+    deps: [image]
     cmds:
       # The cache is resolved here rather than in `vars`, because Task
       # evaluates `vars` before `deps` — and filling it needs the image the
@@ -83,12 +88,19 @@ tasks:
       - |
         set -euo pipefail
         VENDOR="$({{.DEPS_CACHE}} api {{.PHP_IMAGE}})"
+        # PHPStan's result cache lives under sys_get_temp_dir(), which --rm
+        # would throw away, making every run cold. TMPDIR points it at a shared
+        # host directory instead; the cache is keyed on file contents, so a
+        # stale entry is not a risk.
+        PHPSTAN_CACHE="$(task wt:cache:path)/phpstan"
+        mkdir -p "$PHPSTAN_CACHE"
         docker run --rm \
           --memory {{.WT_MEMORY}} --cpus {{.WT_CPUS}} \
           -u $(id -u):$(id -g) \
-          -e APP_ENV=dev -e APP_DEBUG=1 \
+          -e APP_ENV=dev -e APP_DEBUG=1 -e TMPDIR=/tmp/phpstan \
           -v "{{.ROOT_DIR}}/api":/app \
           -v "$VENDOR":/app/vendor:ro \
+          -v "$PHPSTAN_CACHE":/tmp/phpstan \
           -w /app \
           --entrypoint sh {{.PHP_IMAGE}} -c '
             # phpstan.neon reads the compiled Symfony container, so it has to
@@ -102,7 +114,7 @@ tasks:
     desc: PHPUnit on this worktree, on a throwaway Postgres
     # The one task here that needs Compose: the suite talks to a real database.
     # Two services, no published port, and `down -v` runs even on failure.
-    deps: [guard, image]
+    deps: [image]
     cmds:
       # Lexik needs a key pair to sign with. Reusing the e2e generator rather
       # than adding a second one: the keys are gitignored local test keys, and
@@ -120,7 +132,7 @@ tasks:
         # Rule 2: the teardown is registered before anything starts, so it runs
         # whatever happens next. EXIT alone — Task's shell does not accept
         # signal names, and it fires EXIT on interrupt anyway.
-        trap 'compose down -v --remove-orphans >/dev/null 2>&1 || true' EXIT
+        trap 'compose down -v --remove-orphans >/dev/null || echo "WARNING: teardown failed — run: docker compose -p $COMPOSE_PROJECT_NAME -f {{.ROOT_DIR}}/wt/docker-compose.wt.yml down -v" >&2' EXIT
 
         compose up -d --wait database
         compose run --rm --entrypoint sh php -c '
@@ -175,8 +187,19 @@ tasks:
           sh -c 'npm run test -- --run {{.CLI_ARGS}}'
 
   # ===========================================================================
-  # Agent and ciqual — a shared uv cache is enough, uv hardlinks out of it
+  # Agent and ciqual — a shared uv download cache, one venv per worktree
   # ===========================================================================
+  # Unlike api and admin, these keep a per-worktree `.venv`: uv builds it in
+  # the project directory, and pointing several worktrees at one environment
+  # would make two branches with different dependencies overwrite each other.
+  # The shared cache is the downloads, so building it is seconds, not minutes.
+  #
+  # `--frozen`, matching ci.yml's `uv sync --frozen --extra dev`: use the lock
+  # as it stands, never rewrite it. A verification command that edits a tracked
+  # lockfile behind the author's back is a bug — this one did, until it was
+  # caught in review. Not `--locked`, which additionally fails when the lock is
+  # stale against pyproject.toml: agent/uv.lock currently is, on main as well
+  # as here, and that is its own ticket.
   lint:agent:
     desc: Ruff on this worktree's agent code
     deps: [guard]
@@ -184,7 +207,7 @@ tasks:
       - task: _uv
         vars:
           DIR: agent
-          COMMAND: 'uv run --extra dev ruff check app/ && uv run --extra dev ruff format --check app/'
+          COMMAND: 'uv run --frozen --extra dev ruff check app/ && uv run --frozen --extra dev ruff format --check app/'
 
   test:agent:
     desc: pytest on this worktree's agent code
@@ -193,7 +216,29 @@ tasks:
       - task: _uv
         vars:
           DIR: agent
-          COMMAND: 'uv run --extra dev pytest -q {{.CLI_ARGS}}'
+          COMMAND: 'uv run --frozen --extra dev pytest -q {{.CLI_ARGS}}'
+
+  lint:ciqual:
+    desc: Ruff on this worktree's ciqual code
+    # `task ciqual:*` execs into the dev stack, so in a worktree it lints the
+    # main checkout — the same mistake wt:* exists to remove for the others.
+    deps: [guard]
+    cmds:
+      - task: _uv
+        vars:
+          DIR: ciqual
+          # ciqual has no uv.lock — ci.yml installs it with `uv venv && uv
+          # pip install -e ".[dev]"`, so this does the same.
+          COMMAND: 'uv venv -q --allow-existing && uv pip install -q -e ".[dev]" && uv run ruff check app/ tests/ && uv run ruff format --check app/ tests/'
+
+  test:ciqual:
+    desc: pytest on this worktree's ciqual code
+    deps: [guard]
+    cmds:
+      - task: _uv
+        vars:
+          DIR: ciqual
+          COMMAND: 'uv venv -q --allow-existing && uv pip install -q -e ".[dev]" && uv run pytest -q {{.CLI_ARGS}}'
 
   _uv:
     internal: true

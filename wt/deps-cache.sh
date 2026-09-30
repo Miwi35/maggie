@@ -34,6 +34,22 @@ KEEP_DAYS="${WT_CACHE_KEEP_DAYS:-14}"
 
 log() { printf '%s\n' "$*" >&2; }
 
+# Set by prepare() while a fill is in flight. The trap is at script scope
+# rather than a RETURN trap inside the function, because `set -e` tears the
+# shell down without the function ever returning — so a failed install (a
+# registry blip, an OOM kill from the memory cap) used to leave a partial
+# vendor tree of several hundred MB behind, forever.
+TMP_IN_FLIGHT=""
+cleanup() {
+    # `return 0` matters: as the last command of an EXIT trap, a false test
+    # would become the script's exit status and fail an otherwise fine run.
+    if [ -n "$TMP_IN_FLIGHT" ]; then
+        rm -rf "$TMP_IN_FLIGHT"
+    fi
+    return 0
+}
+trap cleanup EXIT
+
 # Tool caches (Composer's, npm's, uv's) live beside the dependency caches, as
 # host directories rather than named volumes: Docker creates a named volume
 # owned by root, and every container here runs as the host user, so the tool
@@ -63,8 +79,7 @@ prepare() {
     mkdir -p "$CACHE_ROOT/$component"
     local tmp
     tmp="$(mktemp -d "$CACHE_ROOT/$component/.tmp-XXXXXX")"
-    # Never leave a temp directory behind, however this exits.
-    trap 'rm -rf "$tmp"' RETURN
+    TMP_IN_FLIGHT="$tmp"
 
     log "Cache miss: $component/$key — filling once, shared by every worktree"
     "$@" "$tmp"
@@ -77,6 +92,7 @@ prepare() {
         log "Another run filled $component/$key first — using theirs"
     fi
 
+    TMP_IN_FLIGHT=""
     printf '%s\n' "$dir"
 }
 
@@ -127,16 +143,29 @@ fill_admin() {
 }
 
 prune() {
-    local component dir
+    local component dir index
+    local dirs=()
+
     for component in api admin; do
         [ -d "$CACHE_ROOT/$component" ] || continue
 
-        # Anything untouched for KEEP_DAYS, except the newest KEEP_PER_COMPONENT.
-        mapfile -t dirs < <(find "$CACHE_ROOT/$component" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' \
-            | sort -rn | cut -d' ' -f2-)
+        # Leftovers from a fill that died before the trap existed, or was
+        # killed outright. They are plain directories, so without this they
+        # would occupy keep slots ahead of real entries.
+        while IFS= read -r dir; do
+            log "Removing partial fill $dir"
+            rm -rf "$dir"
+        done < <(find "$CACHE_ROOT/$component" -mindepth 1 -maxdepth 1 -type d -name '.tmp-*')
 
-        local index=0
-        for dir in "${dirs[@]}"; do
+        # Newest first, so the keep count is the most recently used ones.
+        dirs=()
+        while IFS= read -r dir; do
+            dirs+=("$dir")
+        done < <(find "$CACHE_ROOT/$component" -mindepth 1 -maxdepth 1 -type d -not -name '.tmp-*' \
+            -printf '%T@ %p\n' | sort -rn | cut -d' ' -f2-)
+
+        index=0
+        for dir in ${dirs[@]+"${dirs[@]}"}; do
             index=$((index + 1))
             if [ "$index" -le "$KEEP_PER_COMPONENT" ]; then
                 continue

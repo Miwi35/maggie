@@ -115,9 +115,10 @@ agendas="$(curl -sS "${AUTH[@]}" -H 'Accept: application/ld+json' "$BASE_URL/api
 assert_eq 2 "$(printf '%s' "$agendas" | jq -r '.totalItems // (.member | length)')" \
   "both seeded agendas belong to the test user"
 
-# The anchor the seed actually used, not today's date: CI seeds with an
-# explicit --now so the fixed WireMock dates line up, and a run that straddles
-# midnight UTC would drift anyway. The seed records it for exactly this.
+# The anchor the seed actually used, not today's date. They are the same in CI
+# and in a default local run, but a seed and a smoke run straddling midnight
+# UTC would drift, and anyone passing --now deliberately would break this step
+# for no reason. The seed records the anchor for exactly this.
 manifest="$REPO_ROOT/api/var/e2e/seed-manifest.json"
 if [ -f "$manifest" ]; then
   anchor_date="$(jq -r '.anchor' "$manifest" | cut -c1-10)"
