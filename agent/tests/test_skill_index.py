@@ -1,6 +1,9 @@
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+from app.llm.gateway import LLMGateway
 from app.skills.index import SkillIndex
 
 
@@ -33,46 +36,6 @@ class TestSkillIndex:
         assert index.entries[0].name == "concert-link"
         assert index.entries[0].description == "Add concert links"
         assert index.entries[0].tags == ["concert", "lien"]
-
-    def test_search_matches_tags(self, tmp_path):
-        """Search should match query words against skill tags."""
-        skill_file = tmp_path / "concert.md"
-        skill_file.write_text(
-            "---\nname: concert-link\ndescription: Add concert links\ntags: [concert, musique, lien]\n---\n\nContent\n"
-        )
-
-        index = SkillIndex(tmp_path)
-        index.rebuild()
-
-        results = index.search("je veux un concert de musique")
-        assert len(results) == 1
-        assert results[0].name == "concert-link"
-
-    def test_search_accent_insensitive(self, tmp_path):
-        """Search should be accent-insensitive."""
-        skill_file = tmp_path / "evenement.md"
-        skill_file.write_text(
-            "---\nname: evenement\ndescription: Gestion événements\ntags: [événement, calendrier]\n---\n\nContent\n"
-        )
-
-        index = SkillIndex(tmp_path)
-        index.rebuild()
-
-        results = index.search("evenement")
-        assert len(results) == 1
-
-    def test_search_no_match(self, tmp_path):
-        """Search with no matching words should return empty."""
-        skill_file = tmp_path / "concert.md"
-        skill_file.write_text(
-            "---\nname: concert-link\ndescription: Concert links\ntags: [concert]\n---\n\nContent\n"
-        )
-
-        index = SkillIndex(tmp_path)
-        index.rebuild()
-
-        results = index.search("recette cuisine")
-        assert len(results) == 0
 
     def test_get_existing_skill(self, tmp_path):
         """Get should return full file content for a known skill."""
@@ -143,42 +106,57 @@ class TestSkillIndex:
         assert len(index.entries) == 0
         assert not skill_file.exists()
 
-    def test_get_relevant_skills_context_no_match(self, tmp_path):
-        """get_relevant_skills_context with no matching skills should still return index."""
-        skill_file = tmp_path / "concert.md"
-        skill_file.write_text(
+    def test_skills_index_lists_name_and_description(self, tmp_path):
+        """The index lists every skill as '- name: description'."""
+        (tmp_path / "concert.md").write_text(
             "---\nname: concert-link\ndescription: Concert links\ntags: [concert]\n---\n\nContent\n"
+        )
+        (tmp_path / "recipe.md").write_text(
+            "---\nname: recipe-grocery-link\ndescription: Lier recette et courses\ntags: [recette]\n---\n\nBody\n"
         )
 
         index = SkillIndex(tmp_path)
         index.rebuild()
 
-        context = index.get_relevant_skills_context("recette de cuisine")
+        context = index.get_skills_index()
         assert "Compétences disponibles" in context
-        assert "concert-link" in context
-        assert "Compétences à appliquer" not in context
+        assert "- concert-link: Concert links" in context
+        assert "- recipe-grocery-link: Lier recette et courses" in context
 
-    def test_get_relevant_skills_context_with_match(self, tmp_path):
-        """get_relevant_skills_context with matching skills should include full content."""
-        skill_file = tmp_path / "concert.md"
-        skill_file.write_text(
+    def test_skills_index_injects_no_body(self, tmp_path):
+        """Skill bodies and tags never appear in the index."""
+        (tmp_path / "concert.md").write_text(
             "---\nname: concert-link\ndescription: Concert links\ntags: [concert, musique]\n---\n\nCherche le lien\n"
         )
 
         index = SkillIndex(tmp_path)
         index.rebuild()
 
-        context = index.get_relevant_skills_context("ajoute un concert de Radiohead")
-        assert "Compétences à appliquer" in context
-        assert "concert-link" in context
-        assert "Cherche le lien" in context
+        context = index.get_skills_index()
+        assert "Cherche le lien" not in context
+        assert "musique" not in context
 
-    def test_get_relevant_skills_context_empty_message(self, tmp_path):
-        """get_relevant_skills_context with empty message should return empty string."""
+    def test_skills_index_order_is_stable(self, tmp_path):
+        """The index is sorted by name whatever the insertion order, so it can be cached."""
+        for name in ("zebra", "alpha", "mid"):
+            (tmp_path / f"{name}.md").write_text(f"---\nname: {name}\ndescription: d\ntags: []\n---\n\nB\n")
+
+        first = SkillIndex(tmp_path)
+        first.rebuild()
+        second = SkillIndex(tmp_path)
+        second.rebuild()
+        second.entries.reverse()
+
+        assert first.get_skills_index() == second.get_skills_index()
+        lines = first.get_skills_index().splitlines()
+        assert [line.split(":")[0] for line in lines if line.startswith("- ")] == ["- alpha", "- mid", "- zebra"]
+
+    def test_skills_index_empty(self, tmp_path):
+        """No skills means no section at all."""
         index = SkillIndex(tmp_path)
         index.rebuild()
 
-        assert index.get_relevant_skills_context("") == ""
+        assert index.get_skills_index() == ""
 
     def test_skip_invalid_files(self, tmp_path):
         """Rebuild should skip files without valid frontmatter."""
@@ -191,6 +169,27 @@ class TestSkillIndex:
 
         assert len(index.entries) == 1
         assert index.entries[0].name == "valid"
+
+
+class TestSystemPromptSkills:
+    @pytest.mark.asyncio
+    async def test_system_prompt_carries_index_without_body(self, tmp_path):
+        """The system prompt (used by chat and proactions) has the skill index but no skill body."""
+        (tmp_path / "recipe.md").write_text(
+            "---\nname: recipe-grocery-link\ndescription: Lier recette et courses\ntags: []\n---\n\nCorps secret\n"
+        )
+        index = SkillIndex(tmp_path)
+        index.rebuild()
+
+        gateway = LLMGateway.__new__(LLMGateway)
+        gateway.personality = MagicMock(get_system_prompt=AsyncMock(return_value="BASE"))
+        gateway.agent_memory = MagicMock(get_memory_context=AsyncMock(return_value=""))
+
+        with patch("app.llm.gateway.skill_index", index):
+            prompt = await gateway._build_system_prompt("user-1")
+
+        assert "- recipe-grocery-link: Lier recette et courses" in prompt
+        assert "Corps secret" not in prompt
 
 
 class TestSkillRoutes:

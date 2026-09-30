@@ -25,12 +25,12 @@ class LLMGateway:
         self.tool_router = ToolRouter()
         self.agent_memory = AgentMemory()
 
-    async def _build_system_prompt(self, user_id: str, message: str = "", tools: list[dict] | None = None) -> str:
+    async def _build_system_prompt(self, user_id: str, tools: list[dict] | None = None) -> str:
         """Build the full system prompt: personality + persistent memory context + skill context."""
         capabilities = generate_capability_summary(tools) if tools else ""
         base = await self.personality.get_system_prompt(user_id, capabilities=capabilities)
         memory_context = await self.agent_memory.get_memory_context(user_id)
-        skill_context = skill_index.get_relevant_skills_context(message)
+        skill_context = skill_index.get_skills_index()
         return base + memory_context + skill_context
 
     async def _load_conversation_history(self, user_id: str) -> list[dict]:
@@ -136,7 +136,7 @@ class LLMGateway:
         tools = await self.tool_router.get_tool_definitions(include_native=True)
 
         try:
-            system_prompt = await self._build_system_prompt(user_id, message=message, tools=tools)
+            system_prompt = await self._build_system_prompt(user_id, tools=tools)
             return await run_tool_loop(
                 system_prompt,
                 messages,

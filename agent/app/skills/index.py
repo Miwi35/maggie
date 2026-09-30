@@ -1,6 +1,5 @@
 import logging
 import re
-import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -62,37 +61,6 @@ class SkillIndex:
             tags=frontmatter.get("tags", []),
             file_path=path,
         )
-
-    @staticmethod
-    def _normalize(text: str) -> str:
-        """Normalize text for matching: lowercase, strip accents."""
-        text = text.lower()
-        text = unicodedata.normalize("NFD", text)
-        text = "".join(c for c in text if unicodedata.category(c) != "Mn")
-        return text
-
-    def search(self, query: str) -> list[SkillEntry]:
-        """Match query words against skill tags (normalized, accent-stripped)."""
-        words = re.findall(r"\w+", self._normalize(query))
-        if not words:
-            return []
-
-        results = []
-        for entry in self.entries:
-            normalized_tags = [self._normalize(tag) for tag in entry.tags]
-            normalized_desc = self._normalize(entry.description)
-            normalized_name = self._normalize(entry.name)
-            score = 0
-            for word in words:
-                if any(word in tag for tag in normalized_tags):
-                    score += 2
-                elif word in normalized_name or word in normalized_desc:
-                    score += 1
-            if score > 0:
-                results.append((score, entry))
-
-        results.sort(key=lambda x: x[0], reverse=True)
-        return [entry for _, entry in results]
 
     def get(self, name: str) -> str | None:
         """Load full skill file content by name."""
@@ -192,35 +160,14 @@ class SkillIndex:
 
         return True
 
-    def get_relevant_skills_context(self, message: str) -> str:
-        """Build skill context section for system prompt based on message content."""
-        if not message or not self.entries:
+    def get_skills_index(self) -> str:
+        """Build the system prompt section listing every skill (name and description only), sorted by name."""
+        if not self.entries:
             return ""
-
-        matched = self.search(message)
-
-        # Build compact index of ALL skills
-        parts = []
-        if self.entries:
-            index_lines = ["\n\nCompétences disponibles :"]
-            for entry in self.entries:
-                tags_str = ", ".join(entry.tags) if entry.tags else ""
-                index_lines.append(f"- {entry.name}: {entry.description} [{tags_str}]")
-            parts.append("\n".join(index_lines))
-
-        # Load full content of matched skills
-        if matched:
-            skill_lines = ["\n\nCompétences à appliquer pour cette tâche :"]
-            for entry in matched[:3]:  # Limit to top 3 matches
-                content = self.get(entry.name)
-                if content:
-                    # Strip frontmatter from content
-                    stripped = content.split("---", 2)
-                    body = stripped[2].strip() if len(stripped) >= 3 else content
-                    skill_lines.append(f"\n### {entry.name}\n{body}")
-            parts.append("\n".join(skill_lines))
-
-        return "".join(parts)
+        lines = ["\n\nCompétences disponibles (charge-les avec get_skill avant d'agir) :"]
+        for entry in sorted(self.entries, key=lambda e: e.name):
+            lines.append(f"- {entry.name}: {entry.description}")
+        return "\n".join(lines)
 
 
 skill_index = SkillIndex(Path("/app/data/skills"))

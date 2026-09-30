@@ -214,7 +214,10 @@ SKILL_TOOLS = [
     },
     {
         "name": "get_skill",
-        "description": "Load the full content of a skill by name (for on-demand loading).",
+        "description": (
+            "Charge une compétence AVANT d'exécuter une tâche qu'elle couvre "
+            "(voir l'index des compétences du system prompt)."
+        ),
         "input_schema": {
             "type": "object",
             "properties": {
