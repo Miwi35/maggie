@@ -1,5 +1,5 @@
-import { describe, test, expect, vi, beforeEach, type Mock } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { describe, test, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ChatWidget } from './ChatWidget'
 
@@ -127,6 +127,68 @@ describe('ChatWidget', () => {
     for (const es of MockEventSource.instances) {
       expect(es.init?.withCredentials).toBe(true)
     }
+  })
+
+  // A proaction is persisted and published by the agent on /chat/{id}; the
+  // panel holds no temp message for it, so the Mercure echo is the only way
+  // it reaches the screen (MAG-109).
+  describe('messages published on the chat topic', () => {
+    function chatSource(): MockEventSource {
+      const source = MockEventSource.instances.find(
+        (es) => new URL(es.url, 'http://localhost').searchParams.get('topic') === '/chat/user-1',
+      )
+      if (!source) throw new Error('the panel is not subscribed to /chat/user-1')
+      return source
+    }
+
+    function publish(source: MockEventSource, payload: Record<string, unknown>) {
+      act(() => {
+        source.onmessage?.({ data: JSON.stringify(payload) } as MessageEvent)
+      })
+    }
+
+    beforeEach(() => {
+      localStorage.setItem('user', JSON.stringify({ id: 'user-1' }))
+    })
+
+    afterEach(() => {
+      localStorage.removeItem('user')
+    })
+
+    test('flags a proactive message as unread when the panel is closed', async () => {
+      vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
+      render(<ChatWidget {...defaultProps} open={false} />)
+
+      const message = {
+        id: 'proaction-1',
+        role: 'assistant',
+        content: 'Petit rappel : les poubelles sortent ce soir.',
+        createdAt: '2026-10-01T18:00:00Z',
+      }
+      publish(chatSource(), message)
+      publish(chatSource(), message)
+
+      expect(defaultProps.onUnread).toHaveBeenCalled()
+    })
+
+    test('appends a proactive message to an open chat, without duplicating a replay', async () => {
+      vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
+      render(<ChatWidget {...defaultProps} />)
+
+      const message = {
+        id: 'proaction-1',
+        role: 'assistant',
+        content: 'Petit rappel : les poubelles sortent ce soir.',
+        createdAt: '2026-10-01T18:00:00Z',
+      }
+      publish(chatSource(), message)
+      publish(chatSource(), message)
+
+      await waitFor(() => {
+        expect(screen.getAllByText(message.content)).toHaveLength(1)
+      })
+      expect(defaultProps.onUnread).not.toHaveBeenCalled()
+    })
   })
 
   test('loads history on open', async () => {
