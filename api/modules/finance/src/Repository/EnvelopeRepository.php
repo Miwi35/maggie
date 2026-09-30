@@ -32,7 +32,7 @@ class EnvelopeRepository extends ServiceEntityRepository
             'category' => $category,
             'mode' => $mode,
             'year' => $year,
-            'month' => $mode === BudgetMode::Monthly ? $month : null,
+            'month' => BudgetMode::Monthly === $mode ? $month : null,
         ]);
     }
 
@@ -47,7 +47,7 @@ class EnvelopeRepository extends ServiceEntityRepository
         return $this->findBy([
             'user' => $user,
             'year' => $year,
-            'mode' => $month === null ? BudgetMode::Annual : BudgetMode::Monthly,
+            'mode' => null === $month ? BudgetMode::Annual : BudgetMode::Monthly,
             'month' => $month,
         ], ['id' => 'ASC']);
     }
@@ -68,7 +68,7 @@ class EnvelopeRepository extends ServiceEntityRepository
             ->orderBy('e.mode', 'ASC')
             ->addOrderBy('e.month', 'ASC');
 
-        if ($month !== null) {
+        if (null !== $month) {
             $qb->andWhere('e.month = :month OR e.month IS NULL')
                 ->setParameter('month', $month);
         }

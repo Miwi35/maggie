@@ -197,7 +197,9 @@ task api:console -- <args>      # Run any Symfony console command
 task api:test                   # Run PHPUnit tests
 task api:test:coverage          # PHPUnit with HTML coverage report
 task api:phpstan                # Run PHPStan static analysis
-task api:lint                   # Alias for phpstan
+task api:cs:fix                 # PHP-CS-Fixer, write mode
+task api:cs:check               # PHP-CS-Fixer dry run (CI mode)
+task api:lint                   # cs:check + phpstan
 task api:require                # composer require <package>
 task api:update                 # composer update
 task api:validate               # composer validate

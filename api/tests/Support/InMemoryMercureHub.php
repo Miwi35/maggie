@@ -16,7 +16,7 @@ class InMemoryMercureHub implements HubInterface
     {
         $this->updates[] = $update;
 
-        return 'urn:uuid:' . new Ulid();
+        return 'urn:uuid:'.new Ulid();
     }
 
     public function getPublicUrl(): string

@@ -57,7 +57,7 @@ final class SmokeTokenCommand extends Command
     {
         $user = $this->userRepository->findOneBy(['email' => self::EMAIL]);
 
-        if ($user === null) {
+        if (null === $user) {
             $user = (new User())
                 ->setEmail(self::EMAIL)
                 ->setGoogleId(self::GOOGLE_ID)

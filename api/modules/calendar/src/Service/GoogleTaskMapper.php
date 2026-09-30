@@ -30,7 +30,7 @@ class GoogleTaskMapper
         // Completion status
         /** @var ?string $status */
         $status = $googleTask->getStatus();
-        if ($status === 'completed') {
+        if ('completed' === $status) {
             /** @var ?string $completed */
             $completed = $googleTask->getCompleted();
             if ($completed) {
@@ -71,12 +71,12 @@ class GoogleTaskMapper
             $googleTask->setNotes($task->getDescription());
         }
         if (isset($fields['dueDate'])) {
-            if ($task->getDueDate() !== null) {
+            if (null !== $task->getDueDate()) {
                 $googleTask->setDue($task->getDueDate()->format(\DateTimeInterface::RFC3339));
             }
         }
         if (isset($fields['completedAt'])) {
-            if ($task->getCompletedAt() !== null) {
+            if (null !== $task->getCompletedAt()) {
                 $googleTask->setStatus('completed');
                 $googleTask->setCompleted($task->getCompletedAt()->format(\DateTimeInterface::RFC3339));
             } else {
@@ -95,12 +95,12 @@ class GoogleTaskMapper
         $googleTask->setNotes($task->getDescription());
 
         // Due date
-        if ($task->getDueDate() !== null) {
+        if (null !== $task->getDueDate()) {
             $googleTask->setDue($task->getDueDate()->format(\DateTimeInterface::RFC3339));
         }
 
         // Completion status
-        if ($task->getCompletedAt() !== null) {
+        if (null !== $task->getCompletedAt()) {
             $googleTask->setStatus('completed');
             $googleTask->setCompleted($task->getCompletedAt()->format(\DateTimeInterface::RFC3339));
         } else {

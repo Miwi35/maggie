@@ -18,7 +18,7 @@ trait MercurePayloadFilterTrait
      */
     protected static function filterPayload(array $payload, ?array $changedProperties, array $propertyMap = []): array
     {
-        if ($changedProperties === null) {
+        if (null === $changedProperties) {
             return $payload;
         }
 
@@ -31,6 +31,6 @@ trait MercurePayloadFilterTrait
         $filtered = array_intersect_key($payload, array_flip($payloadKeys));
 
         // Fallback to full payload if no keys matched (e.g. unmapped collection changes)
-        return $filtered !== [] ? $filtered : $payload;
+        return [] !== $filtered ? $filtered : $payload;
     }
 }

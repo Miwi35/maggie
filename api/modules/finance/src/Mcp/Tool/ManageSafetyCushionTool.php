@@ -57,10 +57,10 @@ class ManageSafetyCushionTool
 
     private function configure(?int $targetMonths, ?int $monthlyNetIncomeCents, ?int $rechargeCapCents, ?int $rechargeTargetMonths): string
     {
-        if ($targetMonths === null
-            && $monthlyNetIncomeCents === null
-            && $rechargeCapCents === null
-            && $rechargeTargetMonths === null
+        if (null === $targetMonths
+            && null === $monthlyNetIncomeCents
+            && null === $rechargeCapCents
+            && null === $rechargeTargetMonths
         ) {
             return json_encode(['error' => 'configure needs at least one of targetMonths, monthlyNetIncomeCents, rechargeCapCents or rechargeTargetMonths.'], JSON_THROW_ON_ERROR);
         }
@@ -68,7 +68,7 @@ class ManageSafetyCushionTool
         $user = $this->userContext->requireUser();
         $cushion = $this->cushionRepository->findOneByUser($user);
 
-        if ($cushion === null) {
+        if (null === $cushion) {
             // Reading the status creates the cushion on first use.
             $this->getCushionStatus->execute($user);
             $cushion = $this->cushionRepository->findOneByUser($user);

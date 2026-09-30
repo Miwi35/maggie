@@ -5,11 +5,14 @@ the dev stack and with other agents.
 
 | Command | Runs on |
 |---|---|
+| **`task fix:all`** | every fixer in write mode, every linter, PHPStan on changed files — one container at a time |
 | `task wt:phpstan -- <files>` | one PHP container, no database |
+| `task wt:phpstan:changed` | same, on the PHP files changed since `origin/main` |
+| `task wt:cs:fix` / `task wt:cs:check` | one PHP container, PHP-CS-Fixer write / dry run |
 | `task wt:test:api -- <args>` | PHP + a throwaway Postgres |
-| `task wt:lint:admin` / `task wt:test:admin` | one Node container |
-| `task wt:lint:agent` / `task wt:test:agent` | one uv container |
-| `task wt:lint:ciqual` / `task wt:test:ciqual` | one uv container |
+| `task wt:fix:admin` / `task wt:lint:admin` / `task wt:test:admin` | one Node container |
+| `task wt:fix:agent` / `task wt:lint:agent` / `task wt:test:agent` | one uv container |
+| `task wt:fix:ciqual` / `task wt:lint:ciqual` / `task wt:test:ciqual` | one uv container |
 | `task wt:guard` | the load check the others run first |
 | `task wt:cache:prune` | housekeeping |
 
@@ -111,8 +114,21 @@ them:
   process environment for template values. The guard thresholds do honour an
   export, because `guard.sh` reads them from the environment.
 
-## For MAG-133
+## `task fix:all`
 
-`task fix:all` and `api:phpstan:changed` build on this: call `wt:guard` first,
-then pass only the changed files to `wt:phpstan`. Do not add a second way to run
-a container from a worktree.
+The one command before every push. Order matters: the fixers first (PHP-CS-Fixer,
+ruff `--fix` then `format` for agent and ciqual, ESLint `--fix`), so the linters
+see the final tree; then the linters; then PHPStan on the PHP files changed since
+`origin/main`. It stops at the first failure, and exit 75 from the guard means the
+machine is busy — push and let CI run it.
+
+- **Everything goes through `wt:*`**, so it fixes and checks the code of the
+  checkout it is launched from. The dev-stack `api:cs:fix` and `admin:lint:fix`
+  mount the main checkout: from a worktree they would rewrite the owner's files.
+- **"Changed" is computed by `wt/changed-php.sh`**: merge-base with `origin/main`,
+  committed, staged, unstaged and untracked files, restricted to the `paths` of
+  `api/phpstan.neon` (minus `excludePaths`). PHPStan analyses a file passed by name
+  even when its config leaves it out, which would report violations CI never sees.
+  Run `git fetch origin main` first if `origin/main` is stale or missing.
+- Do not add a second way to run a container from a worktree: new tasks go through
+  `_php` / `_uv` or the Node block above.

@@ -44,7 +44,7 @@ final class GoogleCalendarConnectController
         }
 
         $calendars = $this->apiClient->listCalendars($user);
-        $result = array_map(fn($cal) => [
+        $result = array_map(fn ($cal) => [
             'id' => $cal->getId(),
             'summary' => $cal->getSummary(),
             'description' => $cal->getDescription(),
@@ -88,7 +88,7 @@ final class GoogleCalendarConnectController
             }
         }
 
-        if ($googleCal === null) {
+        if (null === $googleCal) {
             return new JsonResponse(
                 ['error' => 'Google Calendar not found.'],
                 Response::HTTP_NOT_FOUND,
@@ -106,7 +106,7 @@ final class GoogleCalendarConnectController
         ));
 
         $agenda = $envelope->last(HandledStamp::class)?->getResult();
-        if ($agenda === null) {
+        if (null === $agenda) {
             return new JsonResponse(
                 ['error' => 'Failed to create agenda.'],
                 Response::HTTP_INTERNAL_SERVER_ERROR,
@@ -172,11 +172,11 @@ final class GoogleCalendarConnectController
         }
 
         $agenda = $this->agendaRepository->find($agendaId);
-        if ($agenda === null || $agenda->getUser() !== $user) {
+        if (null === $agenda || $agenda->getUser() !== $user) {
             return new JsonResponse(['error' => 'Agenda not found.'], Response::HTTP_NOT_FOUND);
         }
 
-        if ($agenda->getGoogleCalendarId() !== null) {
+        if (null !== $agenda->getGoogleCalendarId()) {
             return new JsonResponse(
                 ['error' => 'Agenda is already synced with Google Calendar.'],
                 Response::HTTP_CONFLICT,
@@ -223,5 +223,4 @@ final class GoogleCalendarConnectController
             'googleCalendarId' => $agenda->getGoogleCalendarId(),
         ], Response::HTTP_CREATED);
     }
-
 }

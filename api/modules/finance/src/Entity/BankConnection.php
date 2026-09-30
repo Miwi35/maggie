@@ -200,17 +200,17 @@ class BankConnection implements MercurePublishable, OwnedByUserInterface
      */
     public function isUsable(\DateTimeImmutable $now = new \DateTimeImmutable()): bool
     {
-        if ($this->status !== BankConnectionStatus::Active) {
+        if (BankConnectionStatus::Active !== $this->status) {
             return false;
         }
 
-        return $this->consentExpiresAt === null || $this->consentExpiresAt > $now;
+        return null === $this->consentExpiresAt || $this->consentExpiresAt > $now;
     }
 
     /** Days before the consent runs out; negative once it has. */
     public function daysBeforeExpiry(\DateTimeImmutable $now = new \DateTimeImmutable()): ?int
     {
-        if ($this->consentExpiresAt === null) {
+        if (null === $this->consentExpiresAt) {
             return null;
         }
 

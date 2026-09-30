@@ -163,7 +163,7 @@ final class QueryParameterContractTest extends WebTestCase
         $translator = new ElasticsearchFilterTranslator();
 
         foreach ($parameters as $name => $sender) {
-            $query = self::parseQueryString($name . '=' . self::sampleValueFor($name));
+            $query = self::parseQueryString($name.'='.self::sampleValueFor($name));
             $translated = $translator->translate($query);
 
             $clauses = \count($translated['must']) + \count($translated['filter']) + \count($translated['sort']);
@@ -208,7 +208,7 @@ final class QueryParameterContractTest extends WebTestCase
         self::assertInstanceOf(IndexMetadataReader::class, $reader);
         $meta = $reader->read($entityClass);
 
-        if ($meta === null) {
+        if (null === $meta) {
             // Not an indexed entity: Doctrine serves the collection and works
             // off the ORM mapping, which API Platform already validated when
             // it accepted the filter declaration.
@@ -228,7 +228,7 @@ final class QueryParameterContractTest extends WebTestCase
             $sorting = (bool) preg_match('/^order\[(.+)]$/', $name, $matches);
             $property = $sorting ? $matches[1] : self::filteredProperty($name);
 
-            if ($property === null) {
+            if (null === $property) {
                 // exists[…] compiles to an `exists` query, which is
                 // meaningful on any field, present or not.
                 continue;
@@ -255,7 +255,7 @@ final class QueryParameterContractTest extends WebTestCase
             }
 
             self::assertTrue(
-                $declared['type'] !== 'text' || isset($declared['fields']['keyword']),
+                'text' !== $declared['type'] || isset($declared['fields']['keyword']),
                 sprintf(
                     "GET %s accepts \"%s\" (sent by %s), but %s::\$%s is indexed as an analysed text field with no keyword sub-field.\nElasticsearch throws on such a sort, the provider falls back to Doctrine and the degradation is invisible.\nAdd keyword: true to its #[IndexedField] and reindex.",
                     $path,
@@ -279,7 +279,7 @@ final class QueryParameterContractTest extends WebTestCase
         }
 
         // dueDate[before] → dueDate
-        if (preg_match('/^([A-Za-z0-9_]+)\[[a-z_]+]$/', $name, $matches) === 1) {
+        if (1 === preg_match('/^([A-Za-z0-9_]+)\[[a-z_]+]$/', $name, $matches)) {
             return $matches[1];
         }
 
@@ -320,7 +320,7 @@ final class QueryParameterContractTest extends WebTestCase
         self::assertInstanceOf(User::class, $user);
         $this->authenticateAsUser($user);
 
-        $labels = $this->labelsOf($path . '?' . $query, $labelField);
+        $labels = $this->labelsOf($path.'?'.$query, $labelField);
 
         foreach ($expected as $label) {
             self::assertContains($label, $labels, sprintf('GET %s?%s dropped "%s", which it should keep.', $path, $query, $label));
@@ -353,7 +353,7 @@ final class QueryParameterContractTest extends WebTestCase
         self::assertInstanceOf(User::class, $user);
         $this->authenticateAsUser($user);
 
-        $labels = $this->labelsOf($path . '?' . $query, $labelField);
+        $labels = $this->labelsOf($path.'?'.$query, $labelField);
 
         self::assertSame($expected, array_values(array_intersect($labels, $expected)), sprintf(
             'GET %s?%s did not order the collection as asked. An ignored sort returns the rows in insertion order, which looks right often enough to go unnoticed.',
@@ -446,7 +446,7 @@ final class QueryParameterContractTest extends WebTestCase
         if (str_contains($uri, 'IRI:')) {
             $uri = (string) preg_replace_callback(
                 '/IRI:([a-z_]+)/',
-                fn (array $m): string => rawurlencode('/api/accounts/' . $this->getFixture($m[1])->getId()),
+                fn (array $m): string => rawurlencode('/api/accounts/'.$this->getFixture($m[1])->getId()),
                 $uri,
             );
         }
@@ -522,7 +522,7 @@ final class QueryParameterContractTest extends WebTestCase
         foreach ($names->create() as $resourceClass) {
             foreach ($metadata->create($resourceClass) as $resource) {
                 foreach ($resource->getOperations() ?? [] as $operation) {
-                    if ($operation instanceof GetCollection && '/api' . $operation->getUriTemplate() === $path . '{._format}') {
+                    if ($operation instanceof GetCollection && '/api'.$operation->getUriTemplate() === $path.'{._format}') {
                         return $resourceClass;
                     }
                 }

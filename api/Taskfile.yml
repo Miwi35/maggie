@@ -59,12 +59,30 @@ tasks:
   lint:
     desc: Run all linting tools
     cmds:
+      - task: cs:check
       - task: phpstan
 
   phpstan:
     desc: Run PHPStan static analysis
     cmds:
       - docker compose -f {{.COMPOSE_FILE}} exec php vendor/bin/phpstan analyse {{.CLI_ARGS}}
+
+  phpstan:changed:
+    desc: PHPStan on the PHP files changed since origin/main, on the code of the checkout you run it from
+    # Delegates to the worktree-local runner: the dev stack behind `api:phpstan`
+    # mounts the main checkout, so in a worktree it would analyse the wrong code.
+    cmds:
+      - task: :wt:phpstan:changed
+
+  cs:fix:
+    desc: Fix PHP code style (PHP-CS-Fixer, dev stack — from a worktree use `task wt:cs:fix`)
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} exec php vendor/bin/php-cs-fixer fix --diff {{.CLI_ARGS}}
+
+  cs:check:
+    desc: Check PHP code style without changing anything (CI mode)
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} exec php vendor/bin/php-cs-fixer fix --dry-run --diff {{.CLI_ARGS}}
 
   # ===========================================================================
   # Elasticsearch

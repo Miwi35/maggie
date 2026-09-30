@@ -33,13 +33,13 @@ class CreateEnvelopeHandler
             ?? throw new \DomainException("Category not found: {$command->categoryId}");
 
         $mode = BudgetMode::from($command->mode);
-        $month = $mode === BudgetMode::Monthly ? $command->month : null;
+        $month = BudgetMode::Monthly === $mode ? $command->month : null;
 
-        if ($mode === BudgetMode::Monthly && $month === null) {
+        if (BudgetMode::Monthly === $mode && null === $month) {
             throw new \DomainException('A monthly envelope requires a month.');
         }
 
-        if ($this->envelopeRepository->findOneForPeriod($category, $mode, $command->year, $month) !== null) {
+        if (null !== $this->envelopeRepository->findOneForPeriod($category, $mode, $command->year, $month)) {
             throw new \DomainException('An envelope already budgets this category for that period.');
         }
 

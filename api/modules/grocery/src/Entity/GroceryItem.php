@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Maggie\Grocery\Entity;
 
-use Maggie\Grocery\Enum\GroceryItemSource;
-use Maggie\Grocery\Enum\Unit;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Maggie\Grocery\Enum\GroceryItemSource;
+use Maggie\Grocery\Enum\Unit;
 use Symfony\Component\Uid\Ulid;
 
 #[ORM\Entity]

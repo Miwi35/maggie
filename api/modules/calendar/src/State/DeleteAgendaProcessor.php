@@ -22,7 +22,7 @@ class DeleteAgendaProcessor implements ProcessorInterface
     {
         $deleteGoogleCalendar = false;
         $request = $this->requestStack->getCurrentRequest();
-        if ($request !== null) {
+        if (null !== $request) {
             $deleteGoogleCalendar = filter_var(
                 $request->query->get('deleteGoogleCalendar', 'false'),
                 \FILTER_VALIDATE_BOOLEAN,

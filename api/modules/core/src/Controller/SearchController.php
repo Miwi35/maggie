@@ -17,7 +17,8 @@ final class SearchController
     public function __construct(
         private readonly SearchService $searchService,
         private readonly Security $security,
-    ) {}
+    ) {
+    }
 
     #[Route('/api/search', name: 'api_search', methods: ['GET'])]
     public function __invoke(Request $request): JsonResponse
@@ -28,7 +29,7 @@ final class SearchController
         }
 
         $query = $request->query->getString('q');
-        if ($query === '') {
+        if ('' === $query) {
             return new JsonResponse(['error' => 'Missing required parameter: q'], Response::HTTP_BAD_REQUEST);
         }
 
@@ -37,7 +38,7 @@ final class SearchController
         $from = ($page - 1) * $limit;
 
         $typesParam = $request->query->getString('types');
-        $types = $typesParam !== ''
+        $types = '' !== $typesParam
             ? array_map('trim', explode(',', $typesParam))
             : null;
 

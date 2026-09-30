@@ -427,7 +427,7 @@ class AddGroceryItemControllerTest extends WebTestCase
         $productIndexDispatched = false;
         foreach ($sent as $envelope) {
             $msg = $envelope->getMessage();
-            if ($msg instanceof \Maggie\Core\Elasticsearch\Message\IndexDocumentCommand && $msg->entityClass === Product::class) {
+            if ($msg instanceof \Maggie\Core\Elasticsearch\Message\IndexDocumentCommand && Product::class === $msg->entityClass) {
                 $productIndexDispatched = true;
             }
         }
@@ -463,7 +463,7 @@ class AddGroceryItemControllerTest extends WebTestCase
         $productIndexDispatched = false;
         foreach ($sent as $envelope) {
             $msg = $envelope->getMessage();
-            if ($msg instanceof \Maggie\Core\Elasticsearch\Message\IndexDocumentCommand && $msg->entityClass === Product::class) {
+            if ($msg instanceof \Maggie\Core\Elasticsearch\Message\IndexDocumentCommand && Product::class === $msg->entityClass) {
                 $productIndexDispatched = true;
             }
         }
@@ -500,7 +500,7 @@ class AddGroceryItemControllerTest extends WebTestCase
         $productIndexDispatched = false;
         foreach ($sent as $envelope) {
             $msg = $envelope->getMessage();
-            if ($msg instanceof \Maggie\Core\Elasticsearch\Message\IndexDocumentCommand && $msg->entityClass === Product::class) {
+            if ($msg instanceof \Maggie\Core\Elasticsearch\Message\IndexDocumentCommand && Product::class === $msg->entityClass) {
                 $productIndexDispatched = true;
             }
         }

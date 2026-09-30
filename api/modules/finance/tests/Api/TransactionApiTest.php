@@ -38,7 +38,7 @@ class TransactionApiTest extends WebTestCase
             'CONTENT_TYPE' => 'application/ld+json',
             'HTTP_ACCEPT' => 'application/ld+json',
         ], json_encode([
-            'account' => '/api/accounts/' . $account->getId(),
+            'account' => '/api/accounts/'.$account->getId(),
             'amountCents' => -1599,
             'label' => 'Boulangerie',
             'bookedAt' => '2026-07-08',
@@ -61,8 +61,8 @@ class TransactionApiTest extends WebTestCase
             'CONTENT_TYPE' => 'application/ld+json',
             'HTTP_ACCEPT' => 'application/ld+json',
         ], $this->authHeaders()), json_encode([
-            'account' => '/api/accounts/' . $account->getId(),
-            'category' => '/api/categories/' . $category->getId(),
+            'account' => '/api/accounts/'.$account->getId(),
+            'category' => '/api/categories/'.$category->getId(),
             'amountCents' => -1599,
             'currency' => 'EUR',
             'label' => 'Boulangerie',
@@ -97,7 +97,7 @@ class TransactionApiTest extends WebTestCase
             'HTTP_ACCEPT' => 'application/ld+json',
         ], $this->authHeaders()), json_encode([
             // Missing required 'label'
-            'account' => '/api/accounts/' . $account->getId(),
+            'account' => '/api/accounts/'.$account->getId(),
             'amountCents' => -100,
             'bookedAt' => '2026-07-08',
         ], JSON_THROW_ON_ERROR));
@@ -114,7 +114,7 @@ class TransactionApiTest extends WebTestCase
 
         $transaction = $this->getFixture('groceries');
 
-        $this->client->request('PATCH', '/api/transactions/' . $transaction->getId(), [], [], array_merge([
+        $this->client->request('PATCH', '/api/transactions/'.$transaction->getId(), [], [], array_merge([
             'CONTENT_TYPE' => 'application/merge-patch+json',
             'HTTP_ACCEPT' => 'application/ld+json',
         ], $this->authHeaders()), json_encode([
@@ -139,7 +139,7 @@ class TransactionApiTest extends WebTestCase
             'HTTP_ACCEPT' => 'application/ld+json',
         ];
 
-        $this->client->request('PATCH', '/api/transactions/' . $id, [], [], $authenticated
+        $this->client->request('PATCH', '/api/transactions/'.$id, [], [], $authenticated
             ? array_merge($headers, $this->authHeaders())
             : $headers, json_encode($body, JSON_THROW_ON_ERROR));
     }
@@ -207,7 +207,7 @@ class TransactionApiTest extends WebTestCase
         $transaction = $this->getFixture('groceries');
         $transactionId = $transaction->getId();
 
-        $this->client->request('DELETE', '/api/transactions/' . $transactionId, [], [], array_merge([
+        $this->client->request('DELETE', '/api/transactions/'.$transactionId, [], [], array_merge([
             'HTTP_ACCEPT' => 'application/ld+json',
         ], $this->authHeaders()));
 

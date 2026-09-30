@@ -30,27 +30,29 @@ final class GoogleCalendarWebhookController
         // Verify token
         if ($token !== $this->googleWebhookToken) {
             $this->logger->warning('Invalid webhook token received');
+
             return new Response('', Response::HTTP_FORBIDDEN);
         }
 
         // Initial sync handshake
-        if ($resourceState === 'sync') {
+        if ('sync' === $resourceState) {
             return new Response('', Response::HTTP_OK);
         }
 
-        if ($resourceState !== 'exists') {
+        if ('exists' !== $resourceState) {
             return new Response('', Response::HTTP_OK);
         }
 
-        if ($channelId === null) {
+        if (null === $channelId) {
             return new Response('', Response::HTTP_BAD_REQUEST);
         }
 
         $agenda = $this->agendaRepository->findByGoogleWatchChannelId($channelId);
-        if ($agenda === null) {
+        if (null === $agenda) {
             $this->logger->warning('Webhook received for unknown channel: {channelId}', [
                 'channelId' => $channelId,
             ]);
+
             return new Response('', Response::HTTP_OK);
         }
 

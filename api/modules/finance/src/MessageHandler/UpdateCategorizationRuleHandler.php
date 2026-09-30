@@ -28,43 +28,43 @@ class UpdateCategorizationRuleHandler
         $rule = $this->ruleRepository->find($command->categorizationRuleId)
             ?? throw new \DomainException("Categorization rule not found: {$command->categorizationRuleId}");
 
-        if ($command->categoryId !== null) {
+        if (null !== $command->categoryId) {
             $category = $this->categoryRepository->find($command->categoryId)
                 ?? throw new \DomainException("Category not found: {$command->categoryId}");
             $rule->setCategory($category);
         }
-        if ($command->labelPattern !== null) {
-            if ($command->labelPattern === '') {
+        if (null !== $command->labelPattern) {
+            if ('' === $command->labelPattern) {
                 throw new \DomainException('A rule needs a label pattern to match on.');
             }
             $rule->setLabelPattern($command->labelPattern);
         }
-        if ($command->matchType !== null) {
+        if (null !== $command->matchType) {
             $rule->setMatchType(MatchType::from($command->matchType));
         }
-        if ($command->direction !== null) {
+        if (null !== $command->direction) {
             $rule->setDirection(AmountDirection::from($command->direction));
         }
-        if ($command->minAmountCents !== null) {
+        if (null !== $command->minAmountCents) {
             $rule->setMinAmountCents($command->minAmountCents);
         } elseif ($command->clears('minAmountCents')) {
             $rule->setMinAmountCents(null);
         }
-        if ($command->maxAmountCents !== null) {
+        if (null !== $command->maxAmountCents) {
             $rule->setMaxAmountCents($command->maxAmountCents);
         } elseif ($command->clears('maxAmountCents')) {
             $rule->setMaxAmountCents(null);
         }
-        if ($command->priority !== null) {
+        if (null !== $command->priority) {
             $rule->setPriority($command->priority);
         }
-        if ($command->isActive !== null) {
+        if (null !== $command->isActive) {
             $rule->setIsActive($command->isActive);
         }
 
         $min = $rule->getMinAmountCents();
         $max = $rule->getMaxAmountCents();
-        if ($min !== null && $max !== null && $min > $max) {
+        if (null !== $min && null !== $max && $min > $max) {
             throw new \DomainException('The minimum amount must not exceed the maximum amount.');
         }
 

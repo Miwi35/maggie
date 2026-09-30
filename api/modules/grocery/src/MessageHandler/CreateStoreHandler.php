@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Maggie\Grocery\MessageHandler;
 
+use Maggie\Core\Repository\UserRepository;
 use Maggie\Grocery\Entity\Store;
 use Maggie\Grocery\Message\CreateStoreCommand;
 use Maggie\Grocery\UseCase\CreateStore;
-use Maggie\Core\Repository\UserRepository;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -29,7 +29,7 @@ class CreateStoreHandler
         $store->setName($command->name);
         $store->setVisitOrder($command->visitOrder);
 
-        if ($command->description !== null) {
+        if (null !== $command->description) {
             $store->setDescription($command->description);
         }
 

@@ -42,12 +42,12 @@ final class ConfigureCushionController
         }
 
         $content = $request->getContent();
-        $body = $content === '' ? [] : json_decode($content, true, 512, \JSON_THROW_ON_ERROR);
+        $body = '' === $content ? [] : json_decode($content, true, 512, \JSON_THROW_ON_ERROR);
 
         $given = array_intersect_key($body, array_flip(self::FIELDS));
-        if ($given === []) {
+        if ([] === $given) {
             return new JsonResponse(
-                ['error' => 'Provide at least one of: ' . implode(', ', self::FIELDS)],
+                ['error' => 'Provide at least one of: '.implode(', ', self::FIELDS)],
                 Response::HTTP_BAD_REQUEST,
             );
         }
@@ -55,7 +55,7 @@ final class ConfigureCushionController
         foreach ($given as $name => $value) {
             if (!\is_int($value)) {
                 return new JsonResponse(
-                    ["error" => "{$name} must be an integer"],
+                    ['error' => "{$name} must be an integer"],
                     Response::HTTP_BAD_REQUEST,
                 );
             }

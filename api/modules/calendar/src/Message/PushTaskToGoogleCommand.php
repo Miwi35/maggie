@@ -5,7 +5,7 @@ namespace Maggie\Calendar\Message;
 final readonly class PushTaskToGoogleCommand
 {
     /**
-     * @param string[] | null $changedFields
+     * @param string[]|null $changedFields
      */
     public function __construct(
         public string $taskId,

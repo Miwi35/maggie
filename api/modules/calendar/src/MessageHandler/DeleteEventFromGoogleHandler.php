@@ -19,7 +19,7 @@ class DeleteEventFromGoogleHandler
     public function __invoke(DeleteEventFromGoogleCommand $command): void
     {
         $agenda = $this->agendaRepository->find($command->agendaId);
-        if ($agenda === null) {
+        if (null === $agenda) {
             return;
         }
 

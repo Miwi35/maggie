@@ -9,5 +9,6 @@ final readonly class DeleteDocumentCommand
     public function __construct(
         public string $indexName,
         public string $documentId,
-    ) {}
+    ) {
+    }
 }

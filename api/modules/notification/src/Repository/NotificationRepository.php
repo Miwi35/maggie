@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Maggie\Notification\Repository;
 
-use Maggie\Core\Entity\User;
-use Maggie\Notification\Entity\Notification;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Maggie\Core\Entity\User;
+use Maggie\Notification\Entity\Notification;
 
 /**
  * @extends ServiceEntityRepository<Notification>

@@ -121,7 +121,7 @@ final class E2eSeedCommand extends Command
 
     private function resolveAnchor(?string $now): \DateTimeImmutable
     {
-        if ($now === null || $now === '') {
+        if (null === $now || '' === $now) {
             return new \DateTimeImmutable('today midnight', new \DateTimeZone('UTC'));
         }
 
@@ -141,7 +141,7 @@ final class E2eSeedCommand extends Command
         $connection = $this->entityManager->getConnection();
         $tables = $this->truncatableTables($connection);
 
-        if ($tables === []) {
+        if ([] === $tables) {
             return 0;
         }
 
@@ -187,10 +187,10 @@ final class E2eSeedCommand extends Command
     /** @return list<string> */
     private function fixtureFiles(): array
     {
-        $dir = $this->projectDir . '/fixtures/e2e';
-        $files = glob($dir . '/*.yaml');
+        $dir = $this->projectDir.'/fixtures/e2e';
+        $files = glob($dir.'/*.yaml');
 
-        if ($files === false || $files === []) {
+        if (false === $files || [] === $files) {
             throw new \RuntimeException(sprintf('No e2e fixture file found in %s.', $dir));
         }
 
@@ -208,7 +208,7 @@ final class E2eSeedCommand extends Command
      */
     private function writeManifest(array $objects, \DateTimeImmutable $anchor, string $path): string
     {
-        $absolute = str_starts_with($path, '/') ? $path : $this->projectDir . '/' . $path;
+        $absolute = str_starts_with($path, '/') ? $path : $this->projectDir.'/'.$path;
 
         $entries = [];
         foreach ($objects as $reference => $object) {
@@ -235,7 +235,7 @@ final class E2eSeedCommand extends Command
             // setId() on every entity purely for the tests.
             'anchor' => $anchor->format(\DATE_ATOM),
             'references' => $entries,
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n");
 
         return $absolute;
     }
@@ -244,7 +244,7 @@ final class E2eSeedCommand extends Command
     {
         $application = $this->getApplication();
 
-        if ($application === null) {
+        if (null === $application) {
             throw new \LogicException('The seed command needs a console application to rebuild indices.');
         }
 
@@ -256,7 +256,7 @@ final class E2eSeedCommand extends Command
             new NullOutput(),
         );
 
-        if ($exitCode !== Command::SUCCESS) {
+        if (Command::SUCCESS !== $exitCode) {
             throw new \RuntimeException('Elasticsearch reindex failed; use --skip-search if the stack has no search service.');
         }
 

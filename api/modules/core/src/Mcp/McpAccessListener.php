@@ -57,7 +57,7 @@ final class McpAccessListener
 
         $credentials = $this->extractBearer($request);
 
-        if ($credentials === null) {
+        if (null === $credentials) {
             $event->setResponse($this->unauthorized('Missing bearer token.'));
 
             return;
@@ -66,7 +66,7 @@ final class McpAccessListener
         if ($this->isServiceToken($credentials)) {
             $user = $this->resolveImpersonatedUser($request);
 
-            if ($user !== null) {
+            if (null !== $user) {
                 $this->authenticate($user);
             }
 
@@ -75,7 +75,7 @@ final class McpAccessListener
 
         $user = $this->resolveJwtUser($credentials);
 
-        if ($user === null) {
+        if (null === $user) {
             $event->setResponse($this->unauthorized('Invalid bearer token.'));
 
             return;
@@ -94,19 +94,19 @@ final class McpAccessListener
 
         $token = trim(substr($header, 7));
 
-        return $token === '' ? null : $token;
+        return '' === $token ? null : $token;
     }
 
     private function isServiceToken(string $credentials): bool
     {
-        return $this->serviceToken !== '' && hash_equals($this->serviceToken, $credentials);
+        return '' !== $this->serviceToken && hash_equals($this->serviceToken, $credentials);
     }
 
     private function resolveImpersonatedUser(Request $request): ?User
     {
         $id = $this->toUlid($request->headers->get(self::USER_HEADER));
 
-        return $id !== null ? $this->userRepository->find($id) : null;
+        return null !== $id ? $this->userRepository->find($id) : null;
     }
 
     private function resolveJwtUser(string $credentials): ?User
@@ -119,7 +119,7 @@ final class McpAccessListener
 
         $subject = $this->toUlid($payload['sub'] ?? null);
 
-        if ($subject !== null) {
+        if (null !== $subject) {
             return $this->userRepository->find($subject);
         }
 
@@ -131,7 +131,7 @@ final class McpAccessListener
     /** Accepts both ULID spellings: base32 (26 chars) and RFC 4122. */
     private function toUlid(mixed $value): ?Ulid
     {
-        if (!is_string($value) || $value === '') {
+        if (!is_string($value) || '' === $value) {
             return null;
         }
 

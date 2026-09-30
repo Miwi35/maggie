@@ -30,8 +30,8 @@ class UpdateRecipeTool
         ?array $clear = null,
     ): string {
         try {
-            $tagList = $tags !== null ? ($tags === '' ? [] : array_map('trim', explode(',', $tags))) : null;
-            $ingredientList = $ingredients !== null
+            $tagList = null !== $tags ? ('' === $tags ? [] : array_map('trim', explode(',', $tags))) : null;
+            $ingredientList = null !== $ingredients
                 ? json_decode($ingredients, true, 512, JSON_THROW_ON_ERROR)
                 : null;
 
@@ -59,6 +59,7 @@ class UpdateRecipeTool
             ], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
+
             return json_encode(['error' => $cause->getMessage()], JSON_THROW_ON_ERROR);
         }
     }

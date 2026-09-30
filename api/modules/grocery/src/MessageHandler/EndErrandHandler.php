@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Maggie\Grocery\MessageHandler;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Core\Repository\UserRepository;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Message\EndErrandCommand;
 use Maggie\Grocery\Repository\GroceryListRepository;
-use Maggie\Core\Repository\UserRepository;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -38,9 +38,9 @@ class EndErrandHandler
             if (!$item->isChecked()) {
                 continue;
             }
-            if ($command->storeId !== null) {
+            if (null !== $command->storeId) {
                 $itemStoreId = $item->getStore()?->getId();
-                if ($itemStoreId === null || (string) $itemStoreId !== $command->storeId) {
+                if (null === $itemStoreId || (string) $itemStoreId !== $command->storeId) {
                     continue;
                 }
             }

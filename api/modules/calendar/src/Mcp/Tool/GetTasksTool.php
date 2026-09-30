@@ -26,7 +26,7 @@ class GetTasksTool
         }
 
         $tasks = match ($status) {
-            'pending' => $days !== null
+            'pending' => null !== $days
                 ? $this->taskRepository->findUpcoming($user, $days)
                 : $this->taskRepository->findPending($user),
             'done' => $this->taskRepository->findDone($user),

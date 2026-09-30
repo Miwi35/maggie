@@ -49,7 +49,7 @@ class RecurrenceService
         $exceptions = $this->eventRepository->findExceptionsForRecurringEvent($event);
         $exceptionDates = [];
         foreach ($exceptions as $exception) {
-            if ($exception->getOriginalStartAt() !== null) {
+            if (null !== $exception->getOriginalStartAt()) {
                 $exceptionDates[$exception->getOriginalStartAt()->format('Y-m-d\TH:i:s')] = $exception;
             }
         }
@@ -76,7 +76,7 @@ class RecurrenceService
             $key = $occurrenceStart->format('Y-m-d\TH:i:s');
             if (isset($exceptionDates[$key])) {
                 $exception = $exceptionDates[$key];
-                if ($exception->getStatus() !== EventStatus::Cancelled) {
+                if (EventStatus::Cancelled !== $exception->getStatus()) {
                     $occurrences[] = $exception;
                 }
                 continue;
@@ -96,6 +96,7 @@ class RecurrenceService
      * Expand all events (including recurring) within a date range.
      *
      * @param Event[] $events
+     *
      * @return Event[]
      */
     public function expandAll(array $events, \DateTimeImmutable $rangeStart, \DateTimeImmutable $rangeEnd): array

@@ -34,11 +34,11 @@ class CreateCategoryHandler
         $category->setColor($command->color);
         $category->setIcon($command->icon);
 
-        if ($command->parentId !== null) {
+        if (null !== $command->parentId) {
             $parent = $this->categoryRepository->find($command->parentId)
                 ?? throw new \DomainException("Parent category not found: {$command->parentId}");
 
-            if ($parent->getParent() !== null) {
+            if (null !== $parent->getParent()) {
                 throw new \DomainException('Categories support only two levels: a sub-category cannot have children.');
             }
 

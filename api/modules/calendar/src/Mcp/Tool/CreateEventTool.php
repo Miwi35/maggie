@@ -40,7 +40,7 @@ class CreateEventTool
                 agendaId: $agenda_id,
                 description: $description,
                 location: $location,
-                userId: $user !== null ? (string) $user->getId() : null,
+                userId: null !== $user ? (string) $user->getId() : null,
             ));
 
             /** @var Event $event */
@@ -58,6 +58,7 @@ class CreateEventTool
             ], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
+
             return json_encode(['error' => $cause->getMessage()], JSON_THROW_ON_ERROR);
         }
     }

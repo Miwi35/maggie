@@ -26,27 +26,27 @@ class AssignProductStoreTool
         ?int $shelfLifeDays = null,
     ): string {
         $product = $this->productRepository->find($productId);
-        if ($product === null) {
+        if (null === $product) {
             return json_encode(['error' => "Product not found: {$productId}"], JSON_THROW_ON_ERROR);
         }
 
-        if ($preferredStoreId !== null) {
+        if (null !== $preferredStoreId) {
             $store = $this->storeRepository->find($preferredStoreId);
-            if ($store === null) {
+            if (null === $store) {
                 return json_encode(['error' => "Store not found: {$preferredStoreId}"], JSON_THROW_ON_ERROR);
             }
             $product->setPreferredStore($store);
         }
 
-        if ($fallbackStoreId !== null) {
+        if (null !== $fallbackStoreId) {
             $store = $this->storeRepository->find($fallbackStoreId);
-            if ($store === null) {
+            if (null === $store) {
                 return json_encode(['error' => "Store not found: {$fallbackStoreId}"], JSON_THROW_ON_ERROR);
             }
             $product->setFallbackStore($store);
         }
 
-        if ($shelfLifeDays !== null) {
+        if (null !== $shelfLifeDays) {
             $product->setShelfLifeDays($shelfLifeDays);
         }
 

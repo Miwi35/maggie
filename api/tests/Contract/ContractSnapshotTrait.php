@@ -28,12 +28,12 @@ trait ContractSnapshotTrait
     protected static function contractDir(): string
     {
         // __DIR__ is api/tests/Contract.
-        return \dirname(__DIR__, 2) . '/contract';
+        return \dirname(__DIR__, 2).'/contract';
     }
 
     protected static function contractPath(string $relativePath): string
     {
-        return self::contractDir() . '/' . $relativePath;
+        return self::contractDir().'/'.$relativePath;
     }
 
     protected static function updatingContract(): bool
@@ -96,6 +96,6 @@ trait ContractSnapshotTrait
         return json_encode(
             $data,
             \JSON_PRETTY_PRINT | \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE | \JSON_THROW_ON_ERROR,
-        ) . "\n";
+        )."\n";
     }
 }

@@ -31,7 +31,7 @@ class CreateCategoryProcessor implements ProcessorInterface
             userId: (string) $user->getId(),
             name: $data->getName(),
             obligation: $data->getObligation()->value,
-            parentId: $data->getParent() !== null ? (string) $data->getParent()->getId() : null,
+            parentId: null !== $data->getParent() ? (string) $data->getParent()->getId() : null,
             color: $data->getColor(),
             icon: $data->getIcon(),
         ));

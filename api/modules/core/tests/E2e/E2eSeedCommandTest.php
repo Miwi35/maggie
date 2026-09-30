@@ -218,7 +218,7 @@ final class E2eSeedCommandTest extends KernelTestCase
 
     private function manifestPath(): string
     {
-        return self::getContainer()->getParameter('kernel.project_dir') . '/var/test/e2e-seed-manifest.json';
+        return self::getContainer()->getParameter('kernel.project_dir').'/var/test/e2e-seed-manifest.json';
     }
 
     private function command(): E2eSeedCommand

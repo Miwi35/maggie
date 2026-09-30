@@ -83,7 +83,7 @@ class CategoryApiTest extends WebTestCase
         ], $this->authHeaders()), json_encode([
             'name' => 'Cinéma',
             'obligation' => 'optional',
-            'parent' => '/api/categories/' . $parent->getId(),
+            'parent' => '/api/categories/'.$parent->getId(),
         ], JSON_THROW_ON_ERROR));
 
         self::assertResponseStatusCodeSame(201);
@@ -118,7 +118,7 @@ class CategoryApiTest extends WebTestCase
             'HTTP_ACCEPT' => 'application/ld+json',
         ];
 
-        $this->client->request('PATCH', '/api/categories/' . $id, [], [], $authenticated
+        $this->client->request('PATCH', '/api/categories/'.$id, [], [], $authenticated
             ? array_merge($headers, $this->authHeaders())
             : $headers, json_encode($body, JSON_THROW_ON_ERROR));
     }
@@ -186,7 +186,7 @@ class CategoryApiTest extends WebTestCase
         $category = $this->getFixture('food');
         $categoryId = $category->getId();
 
-        $this->client->request('DELETE', '/api/categories/' . $categoryId, [], [], array_merge([
+        $this->client->request('DELETE', '/api/categories/'.$categoryId, [], [], array_merge([
             'HTTP_ACCEPT' => 'application/ld+json',
         ], $this->authHeaders()));
 

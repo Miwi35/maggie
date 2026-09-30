@@ -45,7 +45,7 @@ class CreateTransactionHandler
         $transaction->setCurrency($command->currency);
         $transaction->setIsExceptional($command->isExceptional);
 
-        if ($command->categoryId !== null) {
+        if (null !== $command->categoryId) {
             $category = $this->categoryRepository->find($command->categoryId)
                 ?? throw new \DomainException("Category not found: {$command->categoryId}");
             $transaction->assignCategory($category, CategorySource::Manual);

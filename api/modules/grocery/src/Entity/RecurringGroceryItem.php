@@ -10,12 +10,7 @@ use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
-use Maggie\Grocery\Enum\RecurringFrequency;
-use Maggie\Grocery\Enum\Unit;
-use Maggie\Grocery\Repository\RecurringGroceryItemRepository;
-use Maggie\Grocery\State\CreateRecurringGroceryItemProcessor;
-use Maggie\Grocery\State\DeleteRecurringGroceryItemProcessor;
-use Maggie\Grocery\State\UpdateRecurringGroceryItemProcessor;
+use Doctrine\ORM\Mapping as ORM;
 use Maggie\Core\Contract\IndexableInterface;
 use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Contract\OwnedByUserInterface;
@@ -26,7 +21,12 @@ use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
 use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
-use Doctrine\ORM\Mapping as ORM;
+use Maggie\Grocery\Enum\RecurringFrequency;
+use Maggie\Grocery\Enum\Unit;
+use Maggie\Grocery\Repository\RecurringGroceryItemRepository;
+use Maggie\Grocery\State\CreateRecurringGroceryItemProcessor;
+use Maggie\Grocery\State\DeleteRecurringGroceryItemProcessor;
+use Maggie\Grocery\State\UpdateRecurringGroceryItemProcessor;
 use Symfony\Component\Uid\Ulid;
 
 #[ORM\Entity(repositoryClass: RecurringGroceryItemRepository::class)]
@@ -168,7 +168,7 @@ class RecurringGroceryItem implements OwnedByUserInterface, IndexableInterface, 
             'quantity' => $this->quantity,
             'unit' => $this->unit?->value,
             'userId' => (string) $this->user->getId(),
-            'productId' => $this->product !== null ? (string) $this->product->getId() : null,
+            'productId' => null !== $this->product ? (string) $this->product->getId() : null,
         ];
     }
 
@@ -181,7 +181,7 @@ class RecurringGroceryItem implements OwnedByUserInterface, IndexableInterface, 
             'quantity' => $this->quantity,
             'unit' => $this->unit?->value,
             'frequency' => $this->frequency->value,
-            'productId' => $this->product !== null ? (string) $this->product->getId() : null,
+            'productId' => null !== $this->product ? (string) $this->product->getId() : null,
         ], $changedProperties);
     }
 }

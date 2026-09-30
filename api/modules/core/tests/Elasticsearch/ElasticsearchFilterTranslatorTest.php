@@ -102,7 +102,7 @@ final class ElasticsearchFilterTranslatorTest extends TestCase
     public function testARelationFilterAcceptsTheIriTheClientsWereGiven(): void
     {
         $translated = $this->translator->translate(
-            self::query('account=' . rawurlencode('/api/accounts/01ARZ3NDEKTSV4RRFFQ69G5FAV')),
+            self::query('account='.rawurlencode('/api/accounts/01ARZ3NDEKTSV4RRFFQ69G5FAV')),
             [],
             ['account' => ['targetEntity' => 'Account', 'sourceField' => 'accountId']],
         );
@@ -143,7 +143,7 @@ final class ElasticsearchFilterTranslatorTest extends TestCase
     public function testARelationFilterWithAnUnparseableValueMatchesNothing(): void
     {
         $translated = $this->translator->translate(
-            self::query('account=' . rawurlencode('/api/accounts/not-a-ulid')),
+            self::query('account='.rawurlencode('/api/accounts/not-a-ulid')),
             [],
             ['account' => ['targetEntity' => 'Account', 'sourceField' => 'accountId']],
         );

@@ -20,26 +20,26 @@ class UpdateUserPreferenceHandler
     public function __invoke(UpdateUserPreferenceCommand $command): UserPreference
     {
         $pref = $this->repository->find($command->userPreferenceId);
-        if ($pref === null) {
+        if (null === $pref) {
             throw new \DomainException("UserPreference not found: {$command->userPreferenceId}");
         }
 
-        if ($command->theme !== null) {
+        if (null !== $command->theme) {
             $pref->setTheme($command->theme);
         }
-        if ($command->locale !== null) {
+        if (null !== $command->locale) {
             $pref->setLocale($command->locale);
         }
-        if ($command->timezone !== null) {
+        if (null !== $command->timezone) {
             $pref->setTimezone($command->timezone);
         }
-        if ($command->defaultCalendarView !== null) {
+        if (null !== $command->defaultCalendarView) {
             $pref->setDefaultCalendarView($command->defaultCalendarView);
         }
-        if ($command->enabledAgendaIds !== null) {
+        if (null !== $command->enabledAgendaIds) {
             $pref->setEnabledAgendaIds($command->enabledAgendaIds);
         }
-        if ($command->notificationsEnabled !== null) {
+        if (null !== $command->notificationsEnabled) {
             $pref->setNotificationsEnabled($command->notificationsEnabled);
         }
 

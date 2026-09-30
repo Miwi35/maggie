@@ -33,8 +33,8 @@ final class MonthlyReviewController
         $year = $request->query->get('year');
         $month = $request->query->get('month');
 
-        $year = $year === null ? (int) $period->format('Y') : (int) $year;
-        $month = $month === null ? (int) $period->format('n') : (int) $month;
+        $year = null === $year ? (int) $period->format('Y') : (int) $year;
+        $month = null === $month ? (int) $period->format('n') : (int) $month;
 
         if ($month < 1 || $month > 12) {
             return new JsonResponse(['error' => 'month must be between 1 and 12'], Response::HTTP_BAD_REQUEST);

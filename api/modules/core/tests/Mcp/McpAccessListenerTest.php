@@ -64,7 +64,7 @@ class McpAccessListenerTest extends TestCase
 
     public function testServiceTokenAloneAuthenticatesWithoutUser(): void
     {
-        $event = $this->dispatch('/_mcp', ['HTTP_AUTHORIZATION' => 'Bearer ' . self::SERVICE_TOKEN]);
+        $event = $this->dispatch('/_mcp', ['HTTP_AUTHORIZATION' => 'Bearer '.self::SERVICE_TOKEN]);
 
         self::assertNull($event->getResponse());
         self::assertNull($this->tokenStorage->getToken());
@@ -76,7 +76,7 @@ class McpAccessListenerTest extends TestCase
         $this->userRepository->method('find')->willReturn($this->user);
 
         $event = $this->dispatch('/_mcp', [
-            'HTTP_AUTHORIZATION' => 'Bearer ' . self::SERVICE_TOKEN,
+            'HTTP_AUTHORIZATION' => 'Bearer '.self::SERVICE_TOKEN,
             'HTTP_X_MAGGIE_USER_ID' => (string) $id,
         ]);
 

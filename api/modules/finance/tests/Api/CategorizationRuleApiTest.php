@@ -39,7 +39,7 @@ class CategorizationRuleApiTest extends WebTestCase
             'HTTP_ACCEPT' => 'application/ld+json',
         ], json_encode([
             'labelPattern' => 'UGC',
-            'category' => '/api/categories/' . $category->getId(),
+            'category' => '/api/categories/'.$category->getId(),
         ], JSON_THROW_ON_ERROR));
 
         self::assertResponseStatusCodeSame(401);
@@ -60,7 +60,7 @@ class CategorizationRuleApiTest extends WebTestCase
         ], $this->authHeaders()), json_encode([
             'labelPattern' => 'UGC',
             'matchType' => 'starts_with',
-            'category' => '/api/categories/' . $category->getId(),
+            'category' => '/api/categories/'.$category->getId(),
             'direction' => 'debit',
             'minAmountCents' => 500,
             'maxAmountCents' => 5000,
@@ -95,7 +95,7 @@ class CategorizationRuleApiTest extends WebTestCase
             'HTTP_ACCEPT' => 'application/ld+json',
         ], $this->authHeaders()), json_encode([
             // Missing required 'labelPattern'
-            'category' => '/api/categories/' . $category->getId(),
+            'category' => '/api/categories/'.$category->getId(),
         ], JSON_THROW_ON_ERROR));
 
         self::assertResponseStatusCodeSame(422);
@@ -115,7 +115,7 @@ class CategorizationRuleApiTest extends WebTestCase
             'HTTP_ACCEPT' => 'application/ld+json',
         ], $this->authHeaders()), json_encode([
             'labelPattern' => 'UGC',
-            'category' => '/api/categories/' . $category->getId(),
+            'category' => '/api/categories/'.$category->getId(),
             'minAmountCents' => 5000,
             'maxAmountCents' => 1000,
         ], JSON_THROW_ON_ERROR));
@@ -131,7 +131,7 @@ class CategorizationRuleApiTest extends WebTestCase
             'HTTP_ACCEPT' => 'application/ld+json',
         ];
 
-        $this->client->request('PATCH', '/api/categorization_rules/' . $id, [], [], $authenticated
+        $this->client->request('PATCH', '/api/categorization_rules/'.$id, [], [], $authenticated
             ? array_merge($headers, $this->authHeaders())
             : $headers, json_encode($body, JSON_THROW_ON_ERROR));
     }
@@ -199,7 +199,7 @@ class CategorizationRuleApiTest extends WebTestCase
         $rule = $this->getFixture('rule_carrefour');
         $ruleId = $rule->getId();
 
-        $this->client->request('DELETE', '/api/categorization_rules/' . $ruleId, [], [], array_merge([
+        $this->client->request('DELETE', '/api/categorization_rules/'.$ruleId, [], [], array_merge([
             'HTTP_ACCEPT' => 'application/ld+json',
         ], $this->authHeaders()));
 
@@ -227,7 +227,7 @@ class CategorizationRuleApiTest extends WebTestCase
             'CONTENT_TYPE' => 'application/ld+json',
             'HTTP_ACCEPT' => 'application/ld+json',
         ], $this->authHeaders()), json_encode([
-            'account' => '/api/accounts/' . $account->getId(),
+            'account' => '/api/accounts/'.$account->getId(),
             'amountCents' => -3200,
             'currency' => 'EUR',
             'label' => 'CARREFOUR CITY 88',

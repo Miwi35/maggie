@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Maggie\Grocery\MessageHandler;
 
+use Maggie\Core\Repository\UserRepository;
 use Maggie\Grocery\Entity\RecurringGroceryItem;
 use Maggie\Grocery\Enum\RecurringFrequency;
 use Maggie\Grocery\Enum\Unit;
 use Maggie\Grocery\Message\CreateRecurringGroceryItemCommand;
 use Maggie\Grocery\Repository\ProductRepository;
 use Maggie\Grocery\UseCase\CreateRecurringGroceryItem;
-use Maggie\Core\Repository\UserRepository;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -32,18 +32,18 @@ class CreateRecurringGroceryItemHandler
         $item->setUser($user);
         $item->setFrequency(RecurringFrequency::from($command->frequency));
 
-        if ($command->productId !== null) {
+        if (null !== $command->productId) {
             $product = $this->productRepository->find($command->productId)
                 ?? throw new \DomainException("Product not found: {$command->productId}");
             $item->setProduct($product);
         }
-        if ($command->customLabel !== null) {
+        if (null !== $command->customLabel) {
             $item->setCustomLabel($command->customLabel);
         }
-        if ($command->quantity !== null) {
+        if (null !== $command->quantity) {
             $item->setQuantity($command->quantity);
         }
-        if ($command->unit !== null) {
+        if (null !== $command->unit) {
             $item->setUnit(Unit::from($command->unit));
         }
 

@@ -21,7 +21,7 @@ class DeleteTaskFromGoogleHandler
     public function __invoke(DeleteTaskFromGoogleCommand $command): void
     {
         $user = $this->userRepository->find($command->userId);
-        if ($user === null) {
+        if (null === $user) {
             return;
         }
 

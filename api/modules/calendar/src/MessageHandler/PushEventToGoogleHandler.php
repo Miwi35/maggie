@@ -19,7 +19,7 @@ class PushEventToGoogleHandler
     public function __invoke(PushEventToGoogleCommand $command): void
     {
         $event = $this->eventRepository->find($command->eventId);
-        if ($event === null) {
+        if (null === $event) {
             return;
         }
 

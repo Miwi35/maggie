@@ -6,9 +6,9 @@ namespace Maggie\Grocery\State;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
+use Maggie\Core\Entity\User;
 use Maggie\Grocery\Entity\RecurringGroceryItem;
 use Maggie\Grocery\Message\CreateRecurringGroceryItemCommand;
-use Maggie\Core\Entity\User;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
@@ -30,7 +30,7 @@ class CreateRecurringGroceryItemProcessor implements ProcessorInterface
         $envelope = $this->bus->dispatch(new CreateRecurringGroceryItemCommand(
             userId: (string) $user->getId(),
             frequency: $data->getFrequency()->value,
-            productId: $data->getProduct() !== null ? (string) $data->getProduct()->getId() : null,
+            productId: null !== $data->getProduct() ? (string) $data->getProduct()->getId() : null,
             customLabel: $data->getCustomLabel(),
             quantity: $data->getQuantity(),
             unit: $data->getUnit()?->value,

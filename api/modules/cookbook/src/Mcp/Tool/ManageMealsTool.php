@@ -54,7 +54,7 @@ class ManageMealsTool
 
     private function list(?string $fromDate, ?string $toDate): string
     {
-        if ($fromDate === null || $toDate === null) {
+        if (null === $fromDate || null === $toDate) {
             return json_encode(['error' => 'fromDate and toDate are required for list.'], JSON_THROW_ON_ERROR);
         }
 
@@ -64,7 +64,7 @@ class ManageMealsTool
         $meals = $this->mealRepository->findByDateRangeForUser(
             $user,
             new \DateTimeImmutable($fromDate, $timeZone),
-            new \DateTimeImmutable($toDate . ' 23:59:59', $timeZone),
+            new \DateTimeImmutable($toDate.' 23:59:59', $timeZone),
         );
 
         return json_encode([
@@ -75,7 +75,7 @@ class ManageMealsTool
 
     private function create(?string $date, ?string $slot, ?string $recipeIds): string
     {
-        if ($date === null || $slot === null) {
+        if (null === $date || null === $slot) {
             return json_encode(['error' => 'date and slot are required for create.'], JSON_THROW_ON_ERROR);
         }
 
@@ -94,7 +94,7 @@ class ManageMealsTool
 
     private function update(?string $mealId, ?string $date, ?string $slot, ?string $recipeIds): string
     {
-        if ($mealId === null) {
+        if (null === $mealId) {
             return json_encode(['error' => 'mealId is required for update.'], JSON_THROW_ON_ERROR);
         }
 
@@ -113,7 +113,7 @@ class ManageMealsTool
 
     private function delete(?string $mealId): string
     {
-        if ($mealId === null) {
+        if (null === $mealId) {
             return json_encode(['error' => 'mealId is required for delete.'], JSON_THROW_ON_ERROR);
         }
 
@@ -125,11 +125,11 @@ class ManageMealsTool
     /** @return string[]|null */
     private function parseRecipeIds(?string $recipeIds): ?array
     {
-        if ($recipeIds === null) {
+        if (null === $recipeIds) {
             return null;
         }
 
-        return $recipeIds !== '' ? array_map('trim', explode(',', $recipeIds)) : [];
+        return '' !== $recipeIds ? array_map('trim', explode(',', $recipeIds)) : [];
     }
 
     /** @return array<string, mixed> */

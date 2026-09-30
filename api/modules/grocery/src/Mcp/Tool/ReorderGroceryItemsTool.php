@@ -27,7 +27,7 @@ class ReorderGroceryItemsTool
     {
         $user = $this->userContext->getUser();
 
-        if ($user === null) {
+        if (null === $user) {
             return json_encode(['error' => MissingMcpUserException::MESSAGE], JSON_THROW_ON_ERROR);
         }
 

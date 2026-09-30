@@ -21,12 +21,12 @@ class DeleteAgendaHandler
     public function __invoke(DeleteAgendaCommand $command): void
     {
         $agenda = $this->agendaRepository->find($command->agendaId);
-        if ($agenda === null) {
+        if (null === $agenda) {
             throw new \DomainException("Agenda not found: {$command->agendaId}");
         }
 
         // Stop Google webhook if active
-        if ($agenda->getGoogleWatchChannelId() !== null && $agenda->getGoogleWatchResourceId() !== null) {
+        if (null !== $agenda->getGoogleWatchChannelId() && null !== $agenda->getGoogleWatchResourceId()) {
             try {
                 $this->googleApiClient->stopWatch(
                     $agenda->getUser(),
@@ -39,7 +39,7 @@ class DeleteAgendaHandler
         }
 
         // Delete Google Calendar if requested
-        if ($command->deleteGoogleCalendar && $agenda->getGoogleCalendarId() !== null) {
+        if ($command->deleteGoogleCalendar && null !== $agenda->getGoogleCalendarId()) {
             try {
                 $this->googleApiClient->deleteCalendar(
                     $agenda->getUser(),

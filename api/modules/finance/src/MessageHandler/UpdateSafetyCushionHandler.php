@@ -24,25 +24,25 @@ class UpdateSafetyCushionHandler
         $cushion = $this->repository->find($command->safetyCushionId)
             ?? throw new \DomainException("Safety cushion not found: {$command->safetyCushionId}");
 
-        if ($command->targetMonths !== null) {
+        if (null !== $command->targetMonths) {
             if ($command->targetMonths < 1) {
                 throw new \DomainException('The cushion target must be at least one month.');
             }
             $cushion->setTargetMonths($command->targetMonths);
         }
-        if ($command->monthlyNetIncomeCents !== null) {
+        if (null !== $command->monthlyNetIncomeCents) {
             if ($command->monthlyNetIncomeCents < 0) {
                 throw new \DomainException('The reference income cannot be negative.');
             }
             $cushion->setMonthlyNetIncomeCents($command->monthlyNetIncomeCents);
         }
-        if ($command->rechargeCapCents !== null) {
+        if (null !== $command->rechargeCapCents) {
             if ($command->rechargeCapCents < 0) {
                 throw new \DomainException('The recharge cap cannot be negative.');
             }
             $cushion->setRechargeCapCents($command->rechargeCapCents);
         }
-        if ($command->rechargeTargetMonths !== null) {
+        if (null !== $command->rechargeTargetMonths) {
             if ($command->rechargeTargetMonths < 1) {
                 throw new \DomainException('The recharge horizon must be at least one month.');
             }

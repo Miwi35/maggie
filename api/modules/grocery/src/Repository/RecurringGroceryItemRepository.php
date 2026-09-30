@@ -6,9 +6,9 @@ namespace Maggie\Grocery\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Maggie\Core\Entity\User;
 use Maggie\Grocery\Entity\RecurringGroceryItem;
 use Maggie\Grocery\Enum\RecurringFrequency;
-use Maggie\Core\Entity\User;
 
 /** @extends ServiceEntityRepository<RecurringGroceryItem> */
 class RecurringGroceryItemRepository extends ServiceEntityRepository

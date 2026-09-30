@@ -31,7 +31,7 @@ final class ResourceIdentifier
      */
     public static function fromRequestValue(mixed $value): ?Ulid
     {
-        if (!\is_string($value) || $value === '') {
+        if (!\is_string($value) || '' === $value) {
             return null;
         }
 

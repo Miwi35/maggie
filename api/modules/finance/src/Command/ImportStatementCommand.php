@@ -62,14 +62,14 @@ class ImportStatementCommand extends Command
         }
 
         $user = $this->userRepository->findOneBy(['email' => $input->getArgument('email')]);
-        if ($user === null) {
+        if (null === $user) {
             $io->error(sprintf('No user with email "%s".', $input->getArgument('email')));
 
             return Command::FAILURE;
         }
 
         $accounts = $this->accountRepository->findByUser($user);
-        if ($accounts === []) {
+        if ([] === $accounts) {
             $io->error('This user has no account yet — create one before importing.');
 
             return Command::FAILURE;
@@ -79,7 +79,7 @@ class ImportStatementCommand extends Command
         $account = null;
 
         foreach ($accounts as $candidate) {
-            if ($wanted !== null
+            if (null !== $wanted
                 && (mb_strtolower($candidate->getName()) === mb_strtolower((string) $wanted)
                     || (string) $candidate->getId() === $wanted)
             ) {
@@ -88,7 +88,7 @@ class ImportStatementCommand extends Command
             }
         }
 
-        if ($account === null) {
+        if (null === $account) {
             $io->error(sprintf(
                 'Name the account to import into with --account. Available: %s.',
                 implode(', ', array_map(static fn ($a) => sprintf('"%s"', $a->getName()), $accounts)),
@@ -103,7 +103,7 @@ class ImportStatementCommand extends Command
             $io->warning($error);
         }
 
-        if ($parsed['rows'] === []) {
+        if ([] === $parsed['rows']) {
             $io->error('No movement could be read from this file.');
 
             return Command::FAILURE;
@@ -118,7 +118,7 @@ class ImportStatementCommand extends Command
             ['À importer' => $result['imported']],
             ['Déjà présentes' => $result['skipped']],
             ['Catégorisées par règle' => $result['categorized']],
-            ['Période' => $result['first'] === null
+            ['Période' => null === $result['first']
                 ? '—'
                 : sprintf('%s → %s', $result['first'], $result['last'])],
             ['Solde des mouvements' => sprintf('%.2f %s', $result['totalCents'] / 100, $account->getCurrency())],

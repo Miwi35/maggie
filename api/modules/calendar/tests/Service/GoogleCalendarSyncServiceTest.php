@@ -2,6 +2,7 @@
 
 namespace Maggie\Calendar\Tests\Service;
 
+use Doctrine\ORM\EntityManagerInterface;
 use Google\Service\Calendar\Event as GoogleEvent;
 use Google\Service\Calendar\EventDateTime;
 use Maggie\Calendar\Entity\Agenda;
@@ -13,7 +14,6 @@ use Maggie\Calendar\Service\GoogleCalendarSyncService;
 use Maggie\Calendar\Service\GoogleEventMapper;
 use Maggie\Core\Entity\User;
 use PHPUnit\Framework\TestCase;
-use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Component\Mercure\HubInterface;
 use Symfony\Component\Mercure\Update;
@@ -42,12 +42,14 @@ class GoogleCalendarSyncServiceTest extends TestCase
         $this->hub = $this->createMock(HubInterface::class);
         $this->hub->method('publish')->willReturnCallback(function (Update $update) {
             $this->publishedUpdates[] = $update;
-            return 'urn:uuid:' . new Ulid();
+
+            return 'urn:uuid:'.new Ulid();
         });
 
         $this->messageBus = $this->createMock(MessageBusInterface::class);
         $this->messageBus->method('dispatch')->willReturnCallback(function (object $message) {
             $this->dispatchedMessages[] = $message;
+
             return new Envelope($message);
         });
 
@@ -138,7 +140,7 @@ class GoogleCalendarSyncServiceTest extends TestCase
 
         // After flush + Mercure publish, eventRepository->find() returns the events
         $this->eventRepository->method('find')
-            ->willReturnCallback(fn(string $id) => match ($id) {
+            ->willReturnCallback(fn (string $id) => match ($id) {
                 (string) $event1->getId() => $event1,
                 (string) $event2->getId() => $event2,
                 default => null,
@@ -150,11 +152,11 @@ class GoogleCalendarSyncServiceTest extends TestCase
         self::assertCount(2, $this->publishedUpdates);
 
         $data1 = json_decode($this->publishedUpdates[0]->getData(), true);
-        self::assertSame('/api/events/' . $event1->getId(), $data1['@id']);
+        self::assertSame('/api/events/'.$event1->getId(), $data1['@id']);
         self::assertSame('Meeting', $data1['summary']);
 
         $data2 = json_decode($this->publishedUpdates[1]->getData(), true);
-        self::assertSame('/api/events/' . $event2->getId(), $data2['@id']);
+        self::assertSame('/api/events/'.$event2->getId(), $data2['@id']);
         self::assertSame('Lunch', $data2['summary']);
     }
 
@@ -187,7 +189,7 @@ class GoogleCalendarSyncServiceTest extends TestCase
         $this->eventMapper->expects(self::never())->method('fromGoogle');
 
         $this->eventRepository->method('find')
-            ->willReturnCallback(fn(string $id) => match ($id) {
+            ->willReturnCallback(fn (string $id) => match ($id) {
                 (string) $existingEvent->getId() => $existingEvent,
                 default => null,
             });
@@ -237,7 +239,7 @@ class GoogleCalendarSyncServiceTest extends TestCase
             ->willReturn($updatedEvent);
 
         $this->eventRepository->method('find')
-            ->willReturnCallback(fn(string $id) => match ($id) {
+            ->willReturnCallback(fn (string $id) => match ($id) {
                 (string) $updatedEvent->getId() => $updatedEvent,
                 default => null,
             });
@@ -275,7 +277,7 @@ class GoogleCalendarSyncServiceTest extends TestCase
         $this->apiClient->expects(self::once())
             ->method('patchEvent')
             ->with($user, 'google-cal-id', 'g-evt-existing', self::callback(
-                fn(GoogleEvent $e) => $e->getSummary() === 'Test Event' && $e->getDescription() === null,
+                fn (GoogleEvent $e) => 'Test Event' === $e->getSummary() && null === $e->getDescription(),
             ))
             ->willReturn($resultGoogleEvent);
 
@@ -319,7 +321,7 @@ class GoogleCalendarSyncServiceTest extends TestCase
         self::assertCount(1, $this->publishedUpdates);
 
         $data = json_decode($this->publishedUpdates[0]->getData(), true);
-        self::assertSame('/api/events/' . $eventId, $data['@id']);
+        self::assertSame('/api/events/'.$eventId, $data['@id']);
         self::assertTrue($data['deleted']);
     }
 }

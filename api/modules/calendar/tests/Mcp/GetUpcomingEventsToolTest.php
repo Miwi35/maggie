@@ -50,7 +50,7 @@ class GetUpcomingEventsToolTest extends KernelTestCase
         $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
 
         // Far-future event is excluded from upcoming results
-        $summaries = array_map(fn($e) => $e['summary'], $data['events']);
+        $summaries = array_map(fn ($e) => $e['summary'], $data['events']);
         self::assertNotContains('Far away', $summaries);
     }
 

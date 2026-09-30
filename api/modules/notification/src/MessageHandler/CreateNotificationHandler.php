@@ -22,14 +22,14 @@ class CreateNotificationHandler
 
     public function __invoke(CreateNotificationCommand $command): Notification
     {
-        if ($command->userId !== null) {
+        if (null !== $command->userId) {
             $user = $this->userRepository->find($command->userId);
         } else {
             $users = $this->userRepository->findAll();
             $user = $users[0] ?? null;
         }
 
-        if ($user === null) {
+        if (null === $user) {
             throw new \DomainException('No user found.');
         }
 

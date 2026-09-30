@@ -6,6 +6,7 @@ namespace Maggie\Grocery\MessageHandler;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
+use Maggie\Core\Repository\UserRepository;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\Product;
@@ -16,7 +17,6 @@ use Maggie\Grocery\Message\EditGroceryItemCommand;
 use Maggie\Grocery\Message\UpdateProductCommand;
 use Maggie\Grocery\Repository\ProductRepository;
 use Maggie\Grocery\Repository\StoreRepository;
-use Maggie\Core\Repository\UserRepository;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
 
@@ -50,8 +50,8 @@ class EditGroceryItemHandler
         $newStore = null;
 
         // Label change: update product name or find-or-create product
-        if ($command->label !== null) {
-            if ($product !== null) {
+        if (null !== $command->label) {
+            if (null !== $product) {
                 if (mb_strtolower($product->getName()) !== mb_strtolower($command->label)) {
                     $product->setName($command->label);
                     $productUpdated = true;
@@ -67,7 +67,7 @@ class EditGroceryItemHandler
                     }
                 }
 
-                if ($matched !== null) {
+                if (null !== $matched) {
                     $item->setProduct($matched);
                     $product = $matched;
                 } else {
@@ -85,38 +85,38 @@ class EditGroceryItemHandler
         }
 
         // Category change
-        if ($command->category !== null && $product !== null) {
+        if (null !== $command->category && null !== $product) {
             $cat = ProductCategory::tryFrom($command->category);
-            if ($cat !== null && $cat !== $product->getCategory()) {
+            if (null !== $cat && $cat !== $product->getCategory()) {
                 $product->setCategory($cat);
                 $productUpdated = true;
             }
         }
 
         // Quantity change
-        if ($command->quantity !== null) {
+        if (null !== $command->quantity) {
             $item->setQuantity($command->quantity);
         }
 
         // Unit change
-        if ($command->unit !== null) {
+        if (null !== $command->unit) {
             $unit = Unit::from($command->unit);
             $item->setUnit($unit);
-            if ($product !== null && $product->getDefaultUnit() !== $unit) {
+            if (null !== $product && $product->getDefaultUnit() !== $unit) {
                 $product->setDefaultUnit($unit);
                 $productUpdated = true;
             }
         }
 
         // Store resolution: storeId > storeName > keep current
-        if ($command->storeId !== null) {
+        if (null !== $command->storeId) {
             $store = $this->storeRepository->find($command->storeId);
-            if ($store !== null) {
+            if (null !== $store) {
                 $item->setStore($store);
             }
-        } elseif ($command->storeName !== null && $command->storeName !== '') {
+        } elseif (null !== $command->storeName && '' !== $command->storeName) {
             $store = $this->storeRepository->findByNameAndUser($command->storeName, $user);
-            if ($store !== null) {
+            if (null !== $store) {
                 $item->setStore($store);
             } else {
                 $newStore = new Store();
@@ -130,7 +130,7 @@ class EditGroceryItemHandler
 
         // Update product preferred store if store changed
         $resolvedStore = $item->getStore();
-        if ($product !== null && $resolvedStore !== null && $product->getPreferredStore() !== $resolvedStore) {
+        if (null !== $product && null !== $resolvedStore && $product->getPreferredStore() !== $resolvedStore) {
             $product->setPreferredStore($resolvedStore);
             $productUpdated = true;
         }
@@ -139,19 +139,19 @@ class EditGroceryItemHandler
         $this->em->flush();
 
         // Dispatch ES indexing for changed entities
-        if ($newProduct !== null) {
+        if (null !== $newProduct) {
             $this->bus->dispatch(new IndexDocumentCommand(
                 entityClass: Product::class,
                 entityId: (string) $newProduct->getId(),
             ));
-        } elseif ($productUpdated && $product !== null) {
+        } elseif ($productUpdated && null !== $product) {
             $this->bus->dispatch(new IndexDocumentCommand(
                 entityClass: Product::class,
                 entityId: (string) $product->getId(),
             ));
         }
 
-        if ($newStore !== null) {
+        if (null !== $newStore) {
             $this->bus->dispatch(new IndexDocumentCommand(
                 entityClass: Store::class,
                 entityId: (string) $newStore->getId(),
@@ -159,7 +159,7 @@ class EditGroceryItemHandler
         }
 
         // Dispatch UpdateProductCommand to trigger Product Mercure publish
-        if ($product !== null && ($productUpdated || $newProduct !== null)) {
+        if (null !== $product && ($productUpdated || null !== $newProduct)) {
             $this->bus->dispatch(new UpdateProductCommand(
                 productId: (string) $product->getId(),
             ));

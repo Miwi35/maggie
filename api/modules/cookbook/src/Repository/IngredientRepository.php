@@ -35,7 +35,7 @@ class IngredientRepository extends ServiceEntityRepository
             ->where('i.user = :user')
             ->andWhere('LOWER(i.name) LIKE LOWER(:query)')
             ->setParameter('user', $user->getId(), 'ulid')
-            ->setParameter('query', '%' . $query . '%')
+            ->setParameter('query', '%'.$query.'%')
             ->orderBy('i.name', 'ASC')
             ->getQuery()
             ->getResult();

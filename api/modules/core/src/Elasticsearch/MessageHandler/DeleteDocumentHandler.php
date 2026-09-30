@@ -15,7 +15,8 @@ final class DeleteDocumentHandler
     public function __construct(
         private readonly IndexManager $indexManager,
         private readonly LoggerInterface $logger,
-    ) {}
+    ) {
+    }
 
     public function __invoke(DeleteDocumentCommand $command): void
     {

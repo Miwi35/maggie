@@ -10,5 +10,6 @@ final class IndexedRelation
     public function __construct(
         public readonly string $targetEntity,
         public readonly string $sourceField,
-    ) {}
+    ) {
+    }
 }

@@ -32,16 +32,16 @@ class UpdateEventTool
             $startAt = null;
             $endAt = null;
 
-            if ($date !== null || $time !== null) {
+            if (null !== $date || null !== $time) {
                 $tz = new \DateTimeZone('Europe/Paris');
                 $resolvedDate = $date ?? (new \DateTimeImmutable('now', $tz))->format('Y-m-d');
                 $resolvedTime = $time ?? '00:00';
                 $startAt = new \DateTimeImmutable("{$resolvedDate} {$resolvedTime}", $tz);
 
-                if ($duration !== null) {
+                if (null !== $duration) {
                     $endAt = $startAt->modify("+{$duration} minutes");
                 }
-            } elseif ($duration !== null) {
+            } elseif (null !== $duration) {
                 // Duration change only — handler will compute from current startAt
                 $endAt = null; // handled below
             }
@@ -70,6 +70,7 @@ class UpdateEventTool
             ], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
+
             return json_encode(['error' => $cause->getMessage()], JSON_THROW_ON_ERROR);
         }
     }

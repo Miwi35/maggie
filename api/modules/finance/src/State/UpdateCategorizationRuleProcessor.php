@@ -27,7 +27,7 @@ class UpdateCategorizationRuleProcessor implements ProcessorInterface
             'minAmountCents' => $data->getMinAmountCents(),
             'maxAmountCents' => $data->getMaxAmountCents(),
         ] as $field => $value) {
-            if ($value === null) {
+            if (null === $value) {
                 $clearFields[] = $field;
             }
         }

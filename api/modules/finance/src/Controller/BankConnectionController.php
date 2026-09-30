@@ -77,7 +77,7 @@ final class BankConnectionController
                     'consentExpiresAt' => $connection->getConsentExpiresAt()?->format(\DateTimeInterface::ATOM),
                     'daysBeforeExpiry' => $connection->daysBeforeExpiry(),
                     'lastSyncedAt' => $connection->getLastSyncedAt()?->format(\DateTimeInterface::ATOM),
-                    'needsReconnecting' => $connection->getStatus() !== BankConnectionStatus::Pending
+                    'needsReconnecting' => BankConnectionStatus::Pending !== $connection->getStatus()
                         && !$connection->isUsable(),
                 ],
                 $this->connectionRepository->findByUser($user),
@@ -103,7 +103,7 @@ final class BankConnectionController
         $psuHeaders = array_filter([
             'psu-ip-address' => $request->getClientIp(),
             'psu-user-agent' => $request->headers->get('User-Agent'),
-        ], static fn (?string $value) => $value !== null && $value !== '');
+        ], static fn (?string $value) => null !== $value && '' !== $value);
 
         try {
             $result = $this->syncBankAccounts->execute($user, false, $psuHeaders);
@@ -124,10 +124,10 @@ final class BankConnectionController
         }
 
         $content = $request->getContent();
-        $body = $content === '' ? [] : json_decode($content, true, 512, \JSON_THROW_ON_ERROR);
+        $body = '' === $content ? [] : json_decode($content, true, 512, \JSON_THROW_ON_ERROR);
 
         $bankName = $body['bankName'] ?? null;
-        if (!\is_string($bankName) || trim($bankName) === '') {
+        if (!\is_string($bankName) || '' === trim($bankName)) {
             return new JsonResponse(['error' => 'bankName is required'], Response::HTTP_BAD_REQUEST);
         }
 
@@ -207,7 +207,7 @@ final class BankConnectionController
         $connection = $this->connectionRepository->find(Ulid::fromString($id));
 
         // Someone else's connection is not theirs to know about either.
-        if ($connection === null || $connection->getUser()->getId() !== $user->getId()) {
+        if (null === $connection || $connection->getUser()->getId() !== $user->getId()) {
             return new JsonResponse(['error' => 'Not found'], Response::HTTP_NOT_FOUND);
         }
 

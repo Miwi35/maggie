@@ -24,7 +24,7 @@ final class MaggieCalendarBundle extends AbstractBundle
                         'MaggieCalendar' => [
                             'type' => 'attribute',
                             'is_bundle' => false,
-                            'dir' => $this->getPath() . '/src/Entity',
+                            'dir' => $this->getPath().'/src/Entity',
                             'prefix' => 'Maggie\Calendar\Entity',
                             'alias' => 'MaggieCalendar',
                         ],

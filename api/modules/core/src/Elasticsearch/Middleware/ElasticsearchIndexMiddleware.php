@@ -42,7 +42,7 @@ final class ElasticsearchIndexMiddleware implements MiddlewareInterface
         $parsed = self::parseCommandClass($message::class);
 
         try {
-            if ($parsed !== null && $parsed[0] === 'delete') {
+            if (null !== $parsed && 'delete' === $parsed[0]) {
                 $this->handleDelete($message, $parsed);
             } else {
                 // For CRUD commands and non-CRUD commands alike, index if result is IndexableInterface.
@@ -78,7 +78,7 @@ final class ElasticsearchIndexMiddleware implements MiddlewareInterface
     private function handleDelete(object $message, array $parsed): void
     {
         $entityName = $parsed[2];
-        $idProp = lcfirst($entityName) . 'Id';
+        $idProp = lcfirst($entityName).'Id';
 
         if (!property_exists($message, $idProp)) {
             return;
@@ -112,7 +112,7 @@ final class ElasticsearchIndexMiddleware implements MiddlewareInterface
             if (str_starts_with($name, $prefix)) {
                 $entity = substr($name, strlen($prefix));
                 $snake = strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $entity));
-                $topic = '/api/' . self::pluralize($snake);
+                $topic = '/api/'.self::pluralize($snake);
 
                 return [strtolower($prefix), $topic, $entity];
             }
@@ -129,9 +129,9 @@ final class ElasticsearchIndexMiddleware implements MiddlewareInterface
     private static function pluralize(string $snake): string
     {
         if (preg_match('/[bcdfghjklmnpqrstvwxz]y$/', $snake)) {
-            return substr($snake, 0, -1) . 'ies';
+            return substr($snake, 0, -1).'ies';
         }
 
-        return $snake . 's';
+        return $snake.'s';
     }
 }

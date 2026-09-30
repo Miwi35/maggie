@@ -46,9 +46,9 @@ class SyncBankAccounts
     }
 
     /**
-     * @param array<string, string> $psuHeaders Sent when a person is waiting on
+     * @param array<string, string> $psuHeaders sent when a person is waiting on
      *                                          the answer: banks exempt those
-     *                                          calls from the daily ceiling.
+     *                                          calls from the daily ceiling
      *
      * @return array<string, mixed>
      */
@@ -147,13 +147,13 @@ class SyncBankAccounts
 
             foreach ($page['transactions'] ?? [] as $remote) {
                 $row = $this->toRow($remote, $account->getCurrency());
-                if ($row !== null) {
+                if (null !== $row) {
                     $rows[] = $row;
                 }
             }
 
             $continuationKey = $page['continuation_key'] ?? null;
-        } while ($continuationKey !== null && $pages < self::MAX_PAGES_PER_ACCOUNT);
+        } while (null !== $continuationKey && $pages < self::MAX_PAGES_PER_ACCOUNT);
 
         $result = $this->importStatement->execute($account, $rows, $dryRun);
 
@@ -162,7 +162,7 @@ class SyncBankAccounts
         // from what we hold would be short by everything that came before.
         $balanceCents = $this->readBalance($account, $psuHeaders);
 
-        if ($balanceCents !== null && !$dryRun) {
+        if (null !== $balanceCents && !$dryRun) {
             $account->setBalanceCents($balanceCents);
             $this->reindex($account);
         }
@@ -187,7 +187,7 @@ class SyncBankAccounts
     {
         $lastSynced = $connection->getLastSyncedAt();
 
-        if ($lastSynced === null) {
+        if (null === $lastSynced) {
             return (new \DateTimeImmutable())->modify(sprintf('-%d days', self::FIRST_SYNC_DAYS));
         }
 
@@ -207,7 +207,7 @@ class SyncBankAccounts
         $response = $this->client->getBalances((string) $account->getExternalAccountId(), $psuHeaders);
         $balances = array_values(array_filter($response['balances'] ?? [], 'is_array'));
 
-        if ($balances === []) {
+        if ([] === $balances) {
             return null;
         }
 
@@ -257,7 +257,7 @@ class SyncBankAccounts
         return array_values(array_filter(
             $this->accountRepository->findByUser($connection->getUser()),
             static fn (Account $account) => $account->getBankConnection()?->getId()?->equals($connection->getId())
-                && $account->getExternalAccountId() !== null,
+                && null !== $account->getExternalAccountId(),
         ));
     }
 
@@ -268,7 +268,7 @@ class SyncBankAccounts
         $currency = $remote['transaction_amount']['currency'] ?? $fallbackCurrency;
         $date = $remote['booking_date'] ?? $remote['value_date'] ?? $remote['transaction_date'] ?? null;
 
-        if ($amount === null || !\is_string($date)) {
+        if (null === $amount || !\is_string($date)) {
             return null;
         }
 
@@ -309,7 +309,7 @@ class SyncBankAccounts
         ];
 
         foreach ($candidates as $candidate) {
-            if (\is_string($candidate) && trim($candidate) !== '') {
+            if (\is_string($candidate) && '' !== trim($candidate)) {
                 return trim(preg_replace('/\s+/u', ' ', $candidate) ?? $candidate);
             }
         }

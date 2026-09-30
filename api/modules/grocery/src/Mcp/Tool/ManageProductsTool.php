@@ -66,7 +66,7 @@ class ManageProductsTool
 
     private function create(?string $name, ?string $category, ?string $defaultUnit): string
     {
-        if ($name === null || $category === null) {
+        if (null === $name || null === $category) {
             return json_encode(['error' => 'name and category are required for create.'], JSON_THROW_ON_ERROR);
         }
 
@@ -88,7 +88,7 @@ class ManageProductsTool
     /** @param list<string>|null $clear */
     private function update(?string $productId, ?string $name, ?string $category, ?string $defaultUnit, ?array $clear): string
     {
-        if ($productId === null) {
+        if (null === $productId) {
             return json_encode(['error' => 'productId is required for update.'], JSON_THROW_ON_ERROR);
         }
 
@@ -108,7 +108,7 @@ class ManageProductsTool
 
     private function delete(?string $productId): string
     {
-        if ($productId === null) {
+        if (null === $productId) {
             return json_encode(['error' => 'productId is required for delete.'], JSON_THROW_ON_ERROR);
         }
 

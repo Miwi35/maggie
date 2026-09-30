@@ -47,11 +47,11 @@ class MercurePublishMiddleware implements MiddlewareInterface
         $parsed = self::parseCommandClass($message::class);
 
         try {
-            if ($parsed !== null && $parsed[0] === 'delete') {
-                $idProp = lcfirst($parsed[2]) . 'Id';
+            if (null !== $parsed && 'delete' === $parsed[0]) {
+                $idProp = lcfirst($parsed[2]).'Id';
                 $userId = $this->getCurrentUserId();
 
-                if ($userId !== null) {
+                if (null !== $userId) {
                     $this->publishDelete($parsed[1], $message->$idProp, $userId);
                     $this->publishDeleteToParentTopics($message::class, $parsed[2], $message->$idProp, $userId);
                 }
@@ -67,14 +67,14 @@ class MercurePublishMiddleware implements MiddlewareInterface
                     // Determine payload: action payload > differential update > full payload
                     if ($message instanceof MercureActionPayload) {
                         $payload = $message->toMercureActionPayload();
-                    } elseif ($parsed !== null && $parsed[0] === 'update') {
+                    } elseif (null !== $parsed && 'update' === $parsed[0]) {
                         $changedProperties = $this->changesetStore->get($entity);
                         $payload = $entity->toMercurePayload($changedProperties);
                     } else {
                         $payload = $entity->toMercurePayload();
                     }
 
-                    if ($userId !== null) {
+                    if (null !== $userId) {
                         $this->publishEntity($entity, $topic, $userId, $payload);
                         $this->publishEntityToParentTopics($entity, $topic, $userId, $payload);
                     }
@@ -135,7 +135,7 @@ class MercurePublishMiddleware implements MiddlewareInterface
         if ($entity instanceof OwnedThroughInterface) {
             try {
                 $relation = $entity::getOwnerRelation();
-                $getter = 'get' . ucfirst($relation);
+                $getter = 'get'.ucfirst($relation);
                 $parent = $entity->$getter();
 
                 if ($parent instanceof OwnedByUserInterface) {
@@ -171,7 +171,7 @@ class MercurePublishMiddleware implements MiddlewareInterface
     {
         $parentClass = get_parent_class($entity);
 
-        if ($parentClass === false || !(new \ReflectionClass($parentClass))->implementsInterface(MercurePublishable::class)) {
+        if (false === $parentClass || !(new \ReflectionClass($parentClass))->implementsInterface(MercurePublishable::class)) {
             return;
         }
 
@@ -199,8 +199,8 @@ class MercurePublishMiddleware implements MiddlewareInterface
     {
         // Derive entity FQCN: replace \Message\Delete{X}Command with \Entity\{X}
         $entityFqcn = preg_replace(
-            '/\\\\Message\\\\Delete' . preg_quote($entityShortName, '/') . 'Command$/',
-            '\\Entity\\' . $entityShortName,
+            '/\\\\Message\\\\Delete'.preg_quote($entityShortName, '/').'Command$/',
+            '\\Entity\\'.$entityShortName,
             $commandFqcn,
         );
 
@@ -209,7 +209,7 @@ class MercurePublishMiddleware implements MiddlewareInterface
         }
 
         $parentClass = get_parent_class($entityFqcn);
-        if ($parentClass === false || !(new \ReflectionClass($parentClass))->implementsInterface(MercurePublishable::class)) {
+        if (false === $parentClass || !(new \ReflectionClass($parentClass))->implementsInterface(MercurePublishable::class)) {
             return;
         }
 

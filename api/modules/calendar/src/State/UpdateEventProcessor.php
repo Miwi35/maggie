@@ -24,9 +24,9 @@ class UpdateEventProcessor implements ProcessorInterface
 
         // A nullable field that was set and is now null is an explicit clear
         $clearFields = [];
-        if ($previous !== null) {
+        if (null !== $previous) {
             foreach (['description' => 'getDescription', 'location' => 'getLocation', 'rrule' => 'getRrule'] as $field => $getter) {
-                if ($data->$getter() === null && $previous->$getter() !== null) {
+                if (null === $data->$getter() && null !== $previous->$getter()) {
                     $clearFields[] = $field;
                 }
             }
@@ -35,13 +35,13 @@ class UpdateEventProcessor implements ProcessorInterface
         // Only send fields that actually changed compared to previous state
         $envelope = $this->bus->dispatch(new UpdateEventCommand(
             eventId: (string) $data->getId(),
-            summary: $previous === null || $data->getSummary() !== $previous->getSummary() ? $data->getSummary() : null,
-            startAt: $previous === null || $data->getStartAt() != $previous->getStartAt() ? $data->getStartAt() : null,
-            endAt: $previous === null || $data->getEndAt() != $previous->getEndAt() ? $data->getEndAt() : null,
-            description: $previous === null || $data->getDescription() !== $previous->getDescription() ? $data->getDescription() : null,
-            location: $previous === null || $data->getLocation() !== $previous->getLocation() ? $data->getLocation() : null,
-            allDay: $previous === null || $data->isAllDay() !== $previous->isAllDay() ? $data->isAllDay() : null,
-            rrule: $previous === null || $data->getRrule() !== $previous->getRrule() ? $data->getRrule() : null,
+            summary: null === $previous || $data->getSummary() !== $previous->getSummary() ? $data->getSummary() : null,
+            startAt: null === $previous || $data->getStartAt() != $previous->getStartAt() ? $data->getStartAt() : null,
+            endAt: null === $previous || $data->getEndAt() != $previous->getEndAt() ? $data->getEndAt() : null,
+            description: null === $previous || $data->getDescription() !== $previous->getDescription() ? $data->getDescription() : null,
+            location: null === $previous || $data->getLocation() !== $previous->getLocation() ? $data->getLocation() : null,
+            allDay: null === $previous || $data->isAllDay() !== $previous->isAllDay() ? $data->isAllDay() : null,
+            rrule: null === $previous || $data->getRrule() !== $previous->getRrule() ? $data->getRrule() : null,
             clearFields: $clearFields,
         ));
 

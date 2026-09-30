@@ -29,7 +29,7 @@ class UpdateRecurringGroceryItemHandler
             ?? throw new \DomainException("Recurring grocery item not found: {$command->recurringGroceryItemId}");
 
         $product = $item->getProduct();
-        if ($command->productId !== null) {
+        if (null !== $command->productId) {
             $product = $this->productRepository->find($command->productId)
                 ?? throw new \DomainException("Product not found: {$command->productId}");
         } elseif ($command->clears('productId')) {
@@ -37,7 +37,7 @@ class UpdateRecurringGroceryItemHandler
         }
 
         $customLabel = $item->getCustomLabel();
-        if ($command->customLabel !== null) {
+        if (null !== $command->customLabel) {
             $customLabel = $command->customLabel;
         } elseif ($command->clears('customLabel')) {
             $customLabel = null;
@@ -45,23 +45,23 @@ class UpdateRecurringGroceryItemHandler
 
         // Clearing must not leave the item with neither a product nor a label
         if (($command->clears('productId') || $command->clears('customLabel'))
-            && $product === null
-            && $customLabel === null
+            && null === $product
+            && null === $customLabel
         ) {
             throw new \DomainException('A recurring grocery item needs a product or a custom label.');
         }
 
-        if ($command->frequency !== null) {
+        if (null !== $command->frequency) {
             $item->setFrequency(RecurringFrequency::from($command->frequency));
         }
         $item->setProduct($product);
         $item->setCustomLabel($customLabel);
-        if ($command->quantity !== null) {
+        if (null !== $command->quantity) {
             $item->setQuantity($command->quantity);
         } elseif ($command->clears('quantity')) {
             $item->setQuantity(null);
         }
-        if ($command->unit !== null) {
+        if (null !== $command->unit) {
             $item->setUnit(Unit::from($command->unit));
         } elseif ($command->clears('unit')) {
             $item->setUnit(null);

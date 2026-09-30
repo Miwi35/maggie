@@ -24,7 +24,7 @@ final class MaggieGroceryBundle extends AbstractBundle
                         'MaggieGrocery' => [
                             'type' => 'attribute',
                             'is_bundle' => false,
-                            'dir' => $this->getPath() . '/src/Entity',
+                            'dir' => $this->getPath().'/src/Entity',
                             'prefix' => 'Maggie\Grocery\Entity',
                             'alias' => 'MaggieGrocery',
                         ],

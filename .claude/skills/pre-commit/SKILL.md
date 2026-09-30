@@ -29,7 +29,8 @@ This runs API + Admin + Agent lint (excludes mobile). **Tests: only the targeted
 checkout — it would test the wrong code. Use the worktree-local tasks:
 
 ```
-task wt:phpstan -- <changed files>    # ~2 s warm, one container
+task fix:all                          # before every push: all fixers, all linters, PHPStan on changed files
+task wt:phpstan -- <files>            # ~2 s warm, one container
 task wt:test:api                      # PHPUnit on a throwaway Postgres, ~30 s
 task wt:lint:admin && task wt:test:admin
 task wt:lint:agent && task wt:test:agent

@@ -12,12 +12,13 @@ final class IndexManager
         private readonly Client $client,
         private readonly IndexMetadataReader $metadataReader,
         private readonly IndexableEntityRegistry $registry,
-    ) {}
+    ) {
+    }
 
     public function createOrUpdateIndex(string $entityClass): void
     {
         $meta = $this->metadataReader->read($entityClass);
-        if ($meta === null) {
+        if (null === $meta) {
             return;
         }
 
@@ -82,7 +83,7 @@ final class IndexManager
      */
     public function bulkIndex(array $operations): void
     {
-        if ($operations === []) {
+        if ([] === $operations) {
             return;
         }
 
@@ -118,6 +119,7 @@ final class IndexManager
 
     /**
      * @param array{index: string, module: ?string, fields: array<string, array<string, mixed>>, relations: array<string, array{targetEntity: string, sourceField: string}>} $meta
+     *
      * @return array<string, array<string, mixed>>
      */
     private function buildProperties(array $meta): array

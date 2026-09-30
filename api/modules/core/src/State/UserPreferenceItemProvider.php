@@ -30,7 +30,7 @@ class UserPreferenceItemProvider implements ProviderInterface
 
         $pref = $this->repository->findOneByUser($user);
 
-        if ($pref === null) {
+        if (null === $pref) {
             $pref = (new UserPreference())->setUser($user);
             $this->entityManager->persist($pref);
             $this->entityManager->flush();

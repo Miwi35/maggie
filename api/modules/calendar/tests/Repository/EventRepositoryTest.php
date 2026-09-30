@@ -37,7 +37,7 @@ class EventRepositoryTest extends KernelTestCase
             new \DateTimeImmutable('2026-03-31 23:59'),
         );
 
-        $summaries = array_map(fn(Event $e) => $e->getSummary(), $results);
+        $summaries = array_map(fn (Event $e) => $e->getSummary(), $results);
         self::assertContains('In range', $summaries);
         self::assertNotContains('Out of range', $summaries);
     }
@@ -52,7 +52,7 @@ class EventRepositoryTest extends KernelTestCase
             new \DateTimeImmutable('2026-03-31 23:59'),
         );
 
-        $summaries = array_map(fn(Event $e) => $e->getSummary(), $results);
+        $summaries = array_map(fn (Event $e) => $e->getSummary(), $results);
         self::assertContains('In range', $summaries);
         self::assertNotContains('Cancelled', $summaries);
     }
@@ -80,7 +80,7 @@ class EventRepositoryTest extends KernelTestCase
 
         $results = $this->repository->findUpcoming($this->user(), 7);
 
-        $summaries = array_map(fn(Event $e) => $e->getSummary(), $results);
+        $summaries = array_map(fn (Event $e) => $e->getSummary(), $results);
         self::assertContains('Soon', $summaries);
         self::assertNotContains('Far away', $summaries);
     }

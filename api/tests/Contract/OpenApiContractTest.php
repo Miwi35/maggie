@@ -74,7 +74,7 @@ final class OpenApiContractTest extends KernelTestCase
         // topic containing an absolute, host-dependent IRI.
         unset($document['servers']);
 
-        /** @var array<string, mixed> $document */
+        /* @var array<string, mixed> $document */
         return $document;
     }
 }

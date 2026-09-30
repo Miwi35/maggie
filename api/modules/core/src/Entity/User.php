@@ -7,11 +7,11 @@ use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\Patch;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
-use Maggie\Core\Contract\MercurePublishable;
-use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Core\Contract\IndexableInterface;
+use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Elasticsearch\Attribute\Indexed;
 use Maggie\Core\Elasticsearch\Attribute\IndexedField;
+use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Core\Repository\UserRepository;
 use Maggie\Core\State\UpdateUserProcessor;
 use Maggie\Core\State\UserItemProvider;
@@ -166,7 +166,7 @@ class User implements UserInterface, MercurePublishable, IndexableInterface
     #[Ignore]
     public function hasGoogleCalendarTokens(): bool
     {
-        return $this->googleRefreshToken !== null;
+        return null !== $this->googleRefreshToken;
     }
 
     /** @return array<string, mixed> */

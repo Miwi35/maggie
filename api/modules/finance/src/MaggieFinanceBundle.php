@@ -24,7 +24,7 @@ final class MaggieFinanceBundle extends AbstractBundle
                         'MaggieFinance' => [
                             'type' => 'attribute',
                             'is_bundle' => false,
-                            'dir' => $this->getPath() . '/src/Entity',
+                            'dir' => $this->getPath().'/src/Entity',
                             'prefix' => 'Maggie\Finance\Entity',
                             'alias' => 'MaggieFinance',
                         ],

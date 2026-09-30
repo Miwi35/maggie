@@ -32,12 +32,12 @@ final class BankCallbackController
         $code = (string) $request->query->get('code', '');
         $error = $request->query->get('error');
 
-        if ($error !== null) {
+        if (null !== $error) {
             // The user said no, or the bank refused: that is an answer, not a bug.
             return $this->back('refused');
         }
 
-        if ($state === '' || $code === '') {
+        if ('' === $state || '' === $code) {
             return $this->back('incomplete');
         }
 

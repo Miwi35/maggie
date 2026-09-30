@@ -16,8 +16,6 @@ use Maggie\Calendar\Message\DeleteTaskCommand;
 use Maggie\Calendar\Message\UpdateAgendaCommand;
 use Maggie\Calendar\Message\UpdateEventCommand;
 use Maggie\Calendar\Message\UpdateTaskCommand;
-use Maggie\Core\Mercure\ChangesetStore;
-use Maggie\Core\Mercure\Middleware\MercurePublishMiddleware;
 use Maggie\Cookbook\Entity\Ingredient;
 use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Entity\Recipe;
@@ -28,6 +26,9 @@ use Maggie\Cookbook\Message\CreateRecipeCommand;
 use Maggie\Cookbook\Message\DeleteMealCommand;
 use Maggie\Cookbook\Message\DeleteRecipeCommand;
 use Maggie\Cookbook\Message\UpdateRecipeCommand;
+use Maggie\Core\Entity\User;
+use Maggie\Core\Mercure\ChangesetStore;
+use Maggie\Core\Mercure\Middleware\MercurePublishMiddleware;
 use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\Store;
 use Maggie\Grocery\Enum\ProductCategory;
@@ -35,7 +36,6 @@ use Maggie\Grocery\Message\AddGroceryItemCommand;
 use Maggie\Grocery\Message\CreateStoreCommand;
 use Maggie\Grocery\Message\DeleteStoreCommand;
 use Maggie\Grocery\Message\UpdateStoreCommand;
-use Maggie\Core\Entity\User;
 use PHPUnit\Framework\TestCase;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Mercure\HubInterface;
@@ -63,7 +63,8 @@ class MercurePublishMiddlewareTest extends TestCase
         $this->hub = $this->createMock(HubInterface::class);
         $this->hub->method('publish')->willReturnCallback(function (Update $update) {
             $this->publishedUpdates[] = $update;
-            return 'urn:uuid:' . new Ulid();
+
+            return 'urn:uuid:'.new Ulid();
         });
 
         $this->user = new User();
@@ -80,9 +81,10 @@ class MercurePublishMiddlewareTest extends TestCase
         $next = $this->createMock(MiddlewareInterface::class);
         $next->method('handle')->willReturnCallback(
             function (Envelope $envelope) use ($result) {
-                if ($result !== null) {
+                if (null !== $result) {
                     return $envelope->with(new HandledStamp($result, 'handler'));
                 }
+
                 return $envelope->with(new HandledStamp(null, 'handler'));
             }
         );
@@ -116,7 +118,7 @@ class MercurePublishMiddlewareTest extends TestCase
 
         self::assertCount(1, $this->publishedUpdates);
         $topic = $this->publishedUpdates[0]->getTopics()[0];
-        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/events/', $topic);
+        self::assertStringStartsWith('/users/'.$this->user->getId().'/api/events/', $topic);
         $data = json_decode($this->publishedUpdates[0]->getData(), true);
         self::assertSame('Meeting', $data['summary']);
         self::assertStringContainsString('/api/events/', $data['@id']);
@@ -135,7 +137,7 @@ class MercurePublishMiddlewareTest extends TestCase
 
         self::assertCount(1, $this->publishedUpdates);
         $topic = $this->publishedUpdates[0]->getTopics()[0];
-        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/events/', $topic);
+        self::assertStringStartsWith('/users/'.$this->user->getId().'/api/events/', $topic);
         $data = json_decode($this->publishedUpdates[0]->getData(), true);
         self::assertSame('Updated Meeting', $data['summary']);
     }
@@ -149,9 +151,9 @@ class MercurePublishMiddlewareTest extends TestCase
 
         self::assertCount(1, $this->publishedUpdates);
         $topic = $this->publishedUpdates[0]->getTopics()[0];
-        self::assertSame('/users/' . $this->user->getId() . '/api/events/' . $eventId, $topic);
+        self::assertSame('/users/'.$this->user->getId().'/api/events/'.$eventId, $topic);
         $data = json_decode($this->publishedUpdates[0]->getData(), true);
-        self::assertSame('/api/events/' . $eventId, $data['@id']);
+        self::assertSame('/api/events/'.$eventId, $data['@id']);
         self::assertTrue($data['deleted']);
     }
 
@@ -167,7 +169,7 @@ class MercurePublishMiddlewareTest extends TestCase
 
         self::assertCount(1, $this->publishedUpdates);
         $topic = $this->publishedUpdates[0]->getTopics()[0];
-        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/agendas/', $topic);
+        self::assertStringStartsWith('/users/'.$this->user->getId().'/api/agendas/', $topic);
         $data = json_decode($this->publishedUpdates[0]->getData(), true);
         self::assertSame('Work', $data['name']);
         self::assertSame('#ff0000', $data['color']);
@@ -184,7 +186,7 @@ class MercurePublishMiddlewareTest extends TestCase
 
         self::assertCount(1, $this->publishedUpdates);
         $topic = $this->publishedUpdates[0]->getTopics()[0];
-        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/agendas/', $topic);
+        self::assertStringStartsWith('/users/'.$this->user->getId().'/api/agendas/', $topic);
     }
 
     public function testDeleteAgendaPublishesToUserScopedTopic(): void
@@ -196,7 +198,7 @@ class MercurePublishMiddlewareTest extends TestCase
 
         self::assertCount(1, $this->publishedUpdates);
         $topic = $this->publishedUpdates[0]->getTopics()[0];
-        self::assertSame('/users/' . $this->user->getId() . '/api/agendas/' . $agendaId, $topic);
+        self::assertSame('/users/'.$this->user->getId().'/api/agendas/'.$agendaId, $topic);
         $data = json_decode($this->publishedUpdates[0]->getData(), true);
         self::assertTrue($data['deleted']);
     }
@@ -215,7 +217,7 @@ class MercurePublishMiddlewareTest extends TestCase
 
         self::assertCount(1, $this->publishedUpdates);
         $topic = $this->publishedUpdates[0]->getTopics()[0];
-        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/tasks/', $topic);
+        self::assertStringStartsWith('/users/'.$this->user->getId().'/api/tasks/', $topic);
         $data = json_decode($this->publishedUpdates[0]->getData(), true);
         self::assertSame('Buy groceries', $data['title']);
         self::assertFalse($data['isDone']);
@@ -234,7 +236,7 @@ class MercurePublishMiddlewareTest extends TestCase
 
         self::assertCount(1, $this->publishedUpdates);
         $topic = $this->publishedUpdates[0]->getTopics()[0];
-        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/tasks/', $topic);
+        self::assertStringStartsWith('/users/'.$this->user->getId().'/api/tasks/', $topic);
     }
 
     public function testDeleteTaskPublishesToUserScopedTopic(): void
@@ -246,7 +248,7 @@ class MercurePublishMiddlewareTest extends TestCase
 
         self::assertCount(1, $this->publishedUpdates);
         $topic = $this->publishedUpdates[0]->getTopics()[0];
-        self::assertSame('/users/' . $this->user->getId() . '/api/tasks/' . $taskId, $topic);
+        self::assertSame('/users/'.$this->user->getId().'/api/tasks/'.$taskId, $topic);
         $data = json_decode($this->publishedUpdates[0]->getData(), true);
         self::assertTrue($data['deleted']);
     }
@@ -265,7 +267,7 @@ class MercurePublishMiddlewareTest extends TestCase
 
         self::assertCount(1, $this->publishedUpdates);
         $topic = $this->publishedUpdates[0]->getTopics()[0];
-        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/recipes/', $topic);
+        self::assertStringStartsWith('/users/'.$this->user->getId().'/api/recipes/', $topic);
         $data = json_decode($this->publishedUpdates[0]->getData(), true);
         self::assertSame('Pâtes carbonara', $data['name']);
     }
@@ -281,7 +283,7 @@ class MercurePublishMiddlewareTest extends TestCase
 
         self::assertCount(1, $this->publishedUpdates);
         $topic = $this->publishedUpdates[0]->getTopics()[0];
-        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/recipes/', $topic);
+        self::assertStringStartsWith('/users/'.$this->user->getId().'/api/recipes/', $topic);
     }
 
     public function testDeleteRecipePublishesToUserScopedTopic(): void
@@ -293,7 +295,7 @@ class MercurePublishMiddlewareTest extends TestCase
 
         self::assertCount(1, $this->publishedUpdates);
         $topic = $this->publishedUpdates[0]->getTopics()[0];
-        self::assertSame('/users/' . $this->user->getId() . '/api/recipes/' . $recipeId, $topic);
+        self::assertSame('/users/'.$this->user->getId().'/api/recipes/'.$recipeId, $topic);
         $data = json_decode($this->publishedUpdates[0]->getData(), true);
         self::assertTrue($data['deleted']);
     }
@@ -310,7 +312,7 @@ class MercurePublishMiddlewareTest extends TestCase
 
         self::assertCount(1, $this->publishedUpdates);
         $topic = $this->publishedUpdates[0]->getTopics()[0];
-        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/stores/', $topic);
+        self::assertStringStartsWith('/users/'.$this->user->getId().'/api/stores/', $topic);
         $data = json_decode($this->publishedUpdates[0]->getData(), true);
         self::assertSame('Boulangerie', $data['name']);
     }
@@ -326,7 +328,7 @@ class MercurePublishMiddlewareTest extends TestCase
 
         self::assertCount(1, $this->publishedUpdates);
         $topic = $this->publishedUpdates[0]->getTopics()[0];
-        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/stores/', $topic);
+        self::assertStringStartsWith('/users/'.$this->user->getId().'/api/stores/', $topic);
     }
 
     public function testDeleteStorePublishesToUserScopedTopic(): void
@@ -338,7 +340,7 @@ class MercurePublishMiddlewareTest extends TestCase
 
         self::assertCount(1, $this->publishedUpdates);
         $topic = $this->publishedUpdates[0]->getTopics()[0];
-        self::assertSame('/users/' . $this->user->getId() . '/api/stores/' . $storeId, $topic);
+        self::assertSame('/users/'.$this->user->getId().'/api/stores/'.$storeId, $topic);
         $data = json_decode($this->publishedUpdates[0]->getData(), true);
         self::assertTrue($data['deleted']);
     }
@@ -357,12 +359,12 @@ class MercurePublishMiddlewareTest extends TestCase
         self::assertCount(2, $this->publishedUpdates);
 
         $ingredientTopic = $this->publishedUpdates[0]->getTopics()[0];
-        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/ingredients/', $ingredientTopic);
+        self::assertStringStartsWith('/users/'.$this->user->getId().'/api/ingredients/', $ingredientTopic);
         $data = json_decode($this->publishedUpdates[0]->getData(), true);
         self::assertSame('Carotte', $data['name']);
 
         $productTopic = $this->publishedUpdates[1]->getTopics()[0];
-        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/products/', $productTopic);
+        self::assertStringStartsWith('/users/'.$this->user->getId().'/api/products/', $productTopic);
     }
 
     public function testAddGroceryItemPublishesGroceryListTopic(): void
@@ -375,7 +377,7 @@ class MercurePublishMiddlewareTest extends TestCase
 
         self::assertCount(1, $this->publishedUpdates);
         $topic = $this->publishedUpdates[0]->getTopics()[0];
-        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/grocery_lists/', $topic);
+        self::assertStringStartsWith('/users/'.$this->user->getId().'/api/grocery_lists/', $topic);
     }
 
     public function testCreateMealPublishesToBothMealsAndEventsTopics(): void
@@ -398,14 +400,14 @@ class MercurePublishMiddlewareTest extends TestCase
 
         // First update: /api/meals/ topic
         $mealTopic = $this->publishedUpdates[0]->getTopics()[0];
-        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/meals/', $mealTopic);
+        self::assertStringStartsWith('/users/'.$this->user->getId().'/api/meals/', $mealTopic);
         $mealData = json_decode($this->publishedUpdates[0]->getData(), true);
         self::assertSame('Déjeuner', $mealData['summary']);
         self::assertSame('lunch', $mealData['slot']);
 
         // Second update: /api/events/ topic (parent class)
         $eventTopic = $this->publishedUpdates[1]->getTopics()[0];
-        self::assertStringStartsWith('/users/' . $this->user->getId() . '/api/events/', $eventTopic);
+        self::assertStringStartsWith('/users/'.$this->user->getId().'/api/events/', $eventTopic);
         $eventData = json_decode($this->publishedUpdates[1]->getData(), true);
         self::assertSame('Déjeuner', $eventData['summary']);
     }
@@ -421,13 +423,13 @@ class MercurePublishMiddlewareTest extends TestCase
 
         // First: /api/meals/ delete
         $mealTopic = $this->publishedUpdates[0]->getTopics()[0];
-        self::assertSame('/users/' . $this->user->getId() . '/api/meals/' . $mealId, $mealTopic);
+        self::assertSame('/users/'.$this->user->getId().'/api/meals/'.$mealId, $mealTopic);
         $mealData = json_decode($this->publishedUpdates[0]->getData(), true);
         self::assertTrue($mealData['deleted']);
 
         // Second: /api/events/ delete (parent class)
         $eventTopic = $this->publishedUpdates[1]->getTopics()[0];
-        self::assertSame('/users/' . $this->user->getId() . '/api/events/' . $mealId, $eventTopic);
+        self::assertSame('/users/'.$this->user->getId().'/api/events/'.$mealId, $eventTopic);
         $eventData = json_decode($this->publishedUpdates[1]->getData(), true);
         self::assertTrue($eventData['deleted']);
     }
@@ -454,7 +456,7 @@ class MercurePublishMiddlewareTest extends TestCase
 
         self::assertCount(2, $this->publishedUpdates);
         $topic = $this->publishedUpdates[0]->getTopics()[0];
-        self::assertStringContainsString('/users/' . $this->user->getId(), $topic);
+        self::assertStringContainsString('/users/'.$this->user->getId(), $topic);
     }
 
     public function testUnrelatedMessageDoesNotPublish(): void

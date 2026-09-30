@@ -29,14 +29,14 @@ final class MercureSubscriberTokenFactory
     {
         $header = $this->base64UrlEncode(json_encode(['typ' => 'JWT', 'alg' => 'HS256'], JSON_THROW_ON_ERROR));
         $payload = $this->base64UrlEncode(json_encode([
-            'mercure' => ['subscribe' => ['/users/' . $user->getId() . '/{topic}']],
+            'mercure' => ['subscribe' => ['/users/'.$user->getId().'/{topic}']],
             'exp' => time() + self::TTL_SECONDS,
         ], JSON_THROW_ON_ERROR));
         $signature = $this->base64UrlEncode(
-            hash_hmac('sha256', $header . '.' . $payload, $this->mercureJwtSecret, true)
+            hash_hmac('sha256', $header.'.'.$payload, $this->mercureJwtSecret, true)
         );
 
-        return $header . '.' . $payload . '.' . $signature;
+        return $header.'.'.$payload.'.'.$signature;
     }
 
     /**

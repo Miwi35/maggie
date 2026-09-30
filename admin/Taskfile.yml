@@ -43,6 +43,11 @@ tasks:
     cmds:
       - docker compose exec node npm run lint
 
+  lint:fix:
+    desc: Run ESLint with --fix (dev stack — from a worktree use `task wt:fix:admin`)
+    cmds:
+      - docker compose exec node npm run lint -- --fix
+
   typecheck:
     desc: Run TypeScript type checking
     cmds:

@@ -41,14 +41,14 @@ class CompleteBankAuthorization
 
         // The endpoint is public, so a state must be good exactly once:
         // replaying one that already succeeded must not re-open anything.
-        if ($connection->getStatus() !== BankConnectionStatus::Pending) {
+        if (BankConnectionStatus::Pending !== $connection->getStatus()) {
             throw new \DomainException('This authorization has already been used.');
         }
 
         $session = $this->client->createSession($code);
 
         $sessionId = $session['session_id'] ?? null;
-        if (!\is_string($sessionId) || $sessionId === '') {
+        if (!\is_string($sessionId) || '' === $sessionId) {
             throw new \RuntimeException('The provider returned no session for this authorization.');
         }
 
@@ -60,13 +60,13 @@ class CompleteBankAuthorization
 
         foreach ($this->readAccounts($session) as $remote) {
             $externalId = $this->readExternalId($remote);
-            if ($externalId === null) {
+            if (null === $externalId) {
                 continue;
             }
 
             $account = $this->matchExistingAccount($connection, $remote, $externalId);
 
-            if ($account === null) {
+            if (null === $account) {
                 $account = new Account();
                 $account->setUser($connection->getUser());
                 $account->setName($this->readName($remote, $connection->getBankName()));
@@ -117,7 +117,7 @@ class CompleteBankAuthorization
         $name = mb_strtolower($this->readName($remote, $connection->getBankName()));
 
         foreach ($accounts as $account) {
-            if ($account->getExternalAccountId() !== null) {
+            if (null !== $account->getExternalAccountId()) {
                 continue;
             }
             if (mb_strtolower($account->getName()) === $name
@@ -162,7 +162,7 @@ class CompleteBankAuthorization
     private function readExternalId(array $remote): ?string
     {
         foreach (['uid', 'resource_id', 'id'] as $key) {
-            if (isset($remote[$key]) && \is_string($remote[$key]) && $remote[$key] !== '') {
+            if (isset($remote[$key]) && \is_string($remote[$key]) && '' !== $remote[$key]) {
                 return $remote[$key];
             }
         }
@@ -174,13 +174,13 @@ class CompleteBankAuthorization
     private function readName(array $remote, string $fallback): string
     {
         foreach (['name', 'product', 'details'] as $key) {
-            if (isset($remote[$key]) && \is_string($remote[$key]) && trim($remote[$key]) !== '') {
+            if (isset($remote[$key]) && \is_string($remote[$key]) && '' !== trim($remote[$key])) {
                 return trim($remote[$key]);
             }
         }
 
         $iban = $remote['account_id']['iban'] ?? null;
-        if (\is_string($iban) && $iban !== '') {
+        if (\is_string($iban) && '' !== $iban) {
             // The last four digits are enough to tell two accounts apart.
             return sprintf('%s ••%s', $fallback, substr($iban, -4));
         }

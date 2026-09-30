@@ -32,7 +32,7 @@ class SafetyCushionItemProvider implements ProviderInterface
 
         $cushion = $this->repository->findOneByUser($user);
 
-        if ($cushion === null) {
+        if (null === $cushion) {
             $cushion = (new SafetyCushion())->setUser($user);
             $this->em->persist($cushion);
             $this->em->flush();

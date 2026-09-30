@@ -27,7 +27,7 @@ class GetRecipeTool
         }
 
         $recipe = $this->recipeRepository->findOneForUser($recipeId, $user);
-        if ($recipe === null) {
+        if (null === $recipe) {
             return json_encode(['error' => "Recipe not found: {$recipeId}"], JSON_THROW_ON_ERROR);
         }
 

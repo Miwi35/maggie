@@ -7,15 +7,15 @@ namespace Maggie\Cookbook\MessageHandler;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Repository\AgendaRepository;
-use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Cookbook\Entity\Meal;
-use Maggie\Grocery\Enum\GroceryItemSource;
 use Maggie\Cookbook\Enum\MealSlot;
 use Maggie\Cookbook\Message\CreateMealCommand;
-use Maggie\Grocery\Repository\GroceryListRepository;
 use Maggie\Cookbook\Repository\RecipeRepository;
 use Maggie\Cookbook\UseCase\CreateMeal;
 use Maggie\Core\Repository\UserRepository;
+use Maggie\Grocery\Entity\GroceryItem;
+use Maggie\Grocery\Enum\GroceryItemSource;
+use Maggie\Grocery\Repository\GroceryListRepository;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -37,16 +37,16 @@ class CreateMealHandler
 
         // Find or create the current user's "Repas" agenda
         $agenda = null;
-        if ($command->agendaId !== null) {
+        if (null !== $command->agendaId) {
             $agenda = $this->agendaRepository->find($command->agendaId);
         }
-        if ($agenda === null) {
-            $user = ($command->userId !== null ? $this->userRepository->find($command->userId) : null)
+        if (null === $agenda) {
+            $user = (null !== $command->userId ? $this->userRepository->find($command->userId) : null)
                 ?? throw new \DomainException('No user found.');
 
             $agenda = $this->agendaRepository->findOneBy(['name' => 'Repas', 'user' => $user]);
         }
-        if ($agenda === null) {
+        if (null === $agenda) {
             // Auto-create the Repas agenda
             $agenda = new Agenda();
             $agenda->setUser($user);
@@ -75,9 +75,9 @@ class CreateMealHandler
             $recipeNames[] = $recipe->getName();
         }
 
-        $slotLabel = $slot === MealSlot::Lunch ? 'Déjeuner' : 'Dîner';
-        $summary = $recipeNames !== []
-            ? $slotLabel . ' : ' . implode(', ', $recipeNames)
+        $slotLabel = MealSlot::Lunch === $slot ? 'Déjeuner' : 'Dîner';
+        $summary = [] !== $recipeNames
+            ? $slotLabel.' : '.implode(', ', $recipeNames)
             : $slotLabel;
         $meal->setSummary($summary);
 
@@ -95,7 +95,7 @@ class CreateMealHandler
                 // Compute buyAfter from shelf life
                 $buyAfter = null;
                 $shelfLifeDays = $ingredient->getShelfLifeDays();
-                if ($shelfLifeDays !== null) {
+                if (null !== $shelfLifeDays) {
                     $buyAfter = $date->modify("-{$shelfLifeDays} days");
                     if ($buyAfter <= new \DateTimeImmutable('today', new \DateTimeZone('Europe/Paris'))) {
                         $buyAfter = null; // Already past or today → immediately visible
@@ -108,13 +108,13 @@ class CreateMealHandler
                     if ($existing->isChecked()) {
                         continue;
                     }
-                    if ($existing->getProduct() !== null
+                    if (null !== $existing->getProduct()
                         && (string) $existing->getProduct()->getId() === (string) $ingredient->getId()
                         && $existing->getUnit() === $unit
                     ) {
                         $existing->setQuantity(($existing->getQuantity() ?? 0) + $ri->getQuantity());
                         // Keep the earlier buyAfter
-                        if ($buyAfter !== null && ($existing->getBuyAfter() === null || $buyAfter < $existing->getBuyAfter())) {
+                        if (null !== $buyAfter && (null === $existing->getBuyAfter() || $buyAfter < $existing->getBuyAfter())) {
                             $existing->setBuyAfter($buyAfter);
                         }
                         $merged = true;

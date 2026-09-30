@@ -26,17 +26,17 @@ class UpdateRecurringGroceryItemProcessor implements ProcessorInterface
 
         // A nullable field that was set and is now null is an explicit clear
         $clearFields = [];
-        if ($previous !== null) {
-            if ($data->getProduct() === null && $previous->getProduct() !== null) {
+        if (null !== $previous) {
+            if (null === $data->getProduct() && null !== $previous->getProduct()) {
                 $clearFields[] = 'productId';
             }
-            if ($data->getCustomLabel() === null && $previous->getCustomLabel() !== null) {
+            if (null === $data->getCustomLabel() && null !== $previous->getCustomLabel()) {
                 $clearFields[] = 'customLabel';
             }
-            if ($data->getQuantity() === null && $previous->getQuantity() !== null) {
+            if (null === $data->getQuantity() && null !== $previous->getQuantity()) {
                 $clearFields[] = 'quantity';
             }
-            if ($data->getUnit() === null && $previous->getUnit() !== null) {
+            if (null === $data->getUnit() && null !== $previous->getUnit()) {
                 $clearFields[] = 'unit';
             }
         }
@@ -44,7 +44,7 @@ class UpdateRecurringGroceryItemProcessor implements ProcessorInterface
         $envelope = $this->bus->dispatch(new UpdateRecurringGroceryItemCommand(
             recurringGroceryItemId: (string) $data->getId(),
             frequency: $data->getFrequency()->value,
-            productId: $data->getProduct() !== null ? (string) $data->getProduct()->getId() : null,
+            productId: null !== $data->getProduct() ? (string) $data->getProduct()->getId() : null,
             customLabel: $data->getCustomLabel(),
             quantity: $data->getQuantity(),
             unit: $data->getUnit()?->value,

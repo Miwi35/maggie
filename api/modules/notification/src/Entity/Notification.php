@@ -12,9 +12,10 @@ use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
-use Maggie\Core\Contract\MercurePublishable;
-use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
+use Doctrine\DBAL\Types\Types;
+use Doctrine\ORM\Mapping as ORM;
 use Maggie\Core\Contract\IndexableInterface;
+use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Contract\OwnedByUserInterface;
 use Maggie\Core\Elasticsearch\Attribute\Indexed;
 use Maggie\Core\Elasticsearch\Attribute\IndexedField;
@@ -22,13 +23,11 @@ use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
 use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
 use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Entity\User;
+use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Notification\Enum\NotificationType;
 use Maggie\Notification\Repository\NotificationRepository;
-use Maggie\Notification\State\CreateNotificationProcessor;
 use Maggie\Notification\State\DeleteNotificationProcessor;
 use Maggie\Notification\State\MarkReadProcessor;
-use Doctrine\DBAL\Types\Types;
-use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Ulid;
 
 #[ORM\Entity(repositoryClass: NotificationRepository::class)]

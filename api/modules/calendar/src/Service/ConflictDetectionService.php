@@ -36,7 +36,7 @@ class ConflictDetectionService
         $conflicts = [];
         foreach ($expanded as $event) {
             // Skip the event we're checking against (for updates)
-            if ($excludeEvent !== null && $event->getId()->equals($excludeEvent->getId())) {
+            if (null !== $excludeEvent && $event->getId()->equals($excludeEvent->getId())) {
                 continue;
             }
 

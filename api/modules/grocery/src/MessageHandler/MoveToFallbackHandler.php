@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Maggie\Grocery\MessageHandler;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Core\Repository\UserRepository;
 use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Message\MoveToFallbackCommand;
 use Maggie\Grocery\Repository\GroceryListRepository;
 use Maggie\Grocery\Repository\StoreRepository;
-use Maggie\Core\Repository\UserRepository;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -37,13 +37,13 @@ class MoveToFallbackHandler
             if ($item->isChecked()) {
                 continue;
             }
-            if ($item->getStore() === null || (string) $item->getStore()->getId() !== (string) $store->getId()) {
+            if (null === $item->getStore() || (string) $item->getStore()->getId() !== (string) $store->getId()) {
                 continue;
             }
 
             $product = $item->getProduct();
             $fallback = $product?->getFallbackStore();
-            if ($fallback !== null) {
+            if (null !== $fallback) {
                 $item->setStore($fallback);
             }
         }

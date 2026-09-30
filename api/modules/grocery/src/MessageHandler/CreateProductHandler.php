@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Maggie\Grocery\MessageHandler;
 
+use Maggie\Core\Repository\UserRepository;
 use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Enum\ProductCategory;
 use Maggie\Grocery\Enum\Unit;
 use Maggie\Grocery\Message\CreateProductCommand;
 use Maggie\Grocery\UseCase\CreateProduct;
-use Maggie\Core\Repository\UserRepository;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -31,7 +31,7 @@ class CreateProductHandler
         $product->setName($command->name);
         $product->setCategory(ProductCategory::from($command->category));
 
-        if ($command->defaultUnit !== null) {
+        if (null !== $command->defaultUnit) {
             $product->setDefaultUnit(Unit::from($command->defaultUnit));
         }
 

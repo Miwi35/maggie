@@ -263,8 +263,8 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
     public function assignCategory(?Category $category, CategorySource $source): static
     {
         $this->category = $category;
-        $this->categorySource = $category === null ? CategorySource::None : $source;
-        $this->categorizedAt = $category === null ? null : new \DateTimeImmutable();
+        $this->categorySource = null === $category ? CategorySource::None : $source;
+        $this->categorizedAt = null === $category ? null : new \DateTimeImmutable();
 
         return $this;
     }
@@ -295,7 +295,7 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'retrospect' => $this->retrospect->value,
             'categorizedAt' => $this->categorizedAt?->format(\DateTimeInterface::ATOM),
             'accountId' => (string) $this->account->getId(),
-            'categoryId' => $this->category !== null ? (string) $this->category->getId() : null,
+            'categoryId' => null !== $this->category ? (string) $this->category->getId() : null,
             'userId' => (string) $this->user->getId(),
         ];
     }
@@ -313,7 +313,7 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'categorySource' => $this->categorySource->value,
             'retrospect' => $this->retrospect->value,
             'accountId' => (string) $this->account->getId(),
-            'categoryId' => $this->category !== null ? (string) $this->category->getId() : null,
+            'categoryId' => null !== $this->category ? (string) $this->category->getId() : null,
         ], $changedProperties, ['account' => 'accountId', 'category' => 'categoryId']);
     }
 }

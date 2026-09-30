@@ -80,25 +80,25 @@ class ManageEnvelopesTool
 
     private function set(?string $categoryId, ?int $amountCents, ?string $mode, ?int $year, ?int $month, ?string $currency): string
     {
-        if ($categoryId === null || $amountCents === null) {
+        if (null === $categoryId || null === $amountCents) {
             return json_encode(['error' => 'categoryId and amountCents are required for set.'], JSON_THROW_ON_ERROR);
         }
 
         $user = $this->userContext->requireUser();
 
         $category = $this->categoryRepository->find($categoryId);
-        if ($category === null) {
+        if (null === $category) {
             return json_encode(['error' => "Category not found: {$categoryId}"], JSON_THROW_ON_ERROR);
         }
 
         $budgetMode = BudgetMode::from($mode ?? BudgetMode::Monthly->value);
         $now = new \DateTimeImmutable();
         $year ??= (int) $now->format('Y');
-        $resolvedMonth = $budgetMode === BudgetMode::Monthly ? ($month ?? (int) $now->format('n')) : null;
+        $resolvedMonth = BudgetMode::Monthly === $budgetMode ? ($month ?? (int) $now->format('n')) : null;
 
         $existing = $this->envelopeRepository->findOneForPeriod($category, $budgetMode, $year, $resolvedMonth);
 
-        if ($existing !== null) {
+        if (null !== $existing) {
             return $this->update((string) $existing->getId(), null, $amountCents, null, null, null, $currency);
         }
 
@@ -123,7 +123,7 @@ class ManageEnvelopesTool
 
     private function update(?string $envelopeId, ?string $categoryId, ?int $amountCents, ?string $mode, ?int $year, ?int $month, ?string $currency): string
     {
-        if ($envelopeId === null) {
+        if (null === $envelopeId) {
             return json_encode(['error' => 'envelopeId is required for update.'], JSON_THROW_ON_ERROR);
         }
 
@@ -161,7 +161,7 @@ class ManageEnvelopesTool
 
     private function rollover(?int $fromYear, ?int $fromMonth, ?int $year, ?int $month, ?bool $useActualSpending): string
     {
-        if ($fromYear === null || $year === null) {
+        if (null === $fromYear || null === $year) {
             return json_encode(['error' => 'fromYear and year are required for rollover.'], JSON_THROW_ON_ERROR);
         }
 
@@ -181,7 +181,7 @@ class ManageEnvelopesTool
 
     private function delete(?string $envelopeId): string
     {
-        if ($envelopeId === null) {
+        if (null === $envelopeId) {
             return json_encode(['error' => 'envelopeId is required for delete.'], JSON_THROW_ON_ERROR);
         }
 

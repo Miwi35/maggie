@@ -99,6 +99,6 @@ trait HasGoogleCalendarSyncTrait
 
     public function isGoogleSynced(): bool
     {
-        return $this->googleCalendarId !== null;
+        return null !== $this->googleCalendarId;
     }
 }

@@ -24,7 +24,7 @@ final class MaggieCoreBundle extends AbstractBundle
                         'MaggieCore' => [
                             'type' => 'attribute',
                             'is_bundle' => false,
-                            'dir' => $this->getPath() . '/src/Entity',
+                            'dir' => $this->getPath().'/src/Entity',
                             'prefix' => 'Maggie\Core\Entity',
                             'alias' => 'MaggieCore',
                         ],

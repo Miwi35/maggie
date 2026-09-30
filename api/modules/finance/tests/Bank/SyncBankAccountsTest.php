@@ -116,7 +116,7 @@ class SyncBankAccountsTest extends KernelTestCase
         return json_encode(array_filter([
             'transactions' => $transactions,
             'continuation_key' => $continuationKey,
-        ], static fn ($value) => $value !== null), JSON_THROW_ON_ERROR);
+        ], static fn ($value) => null !== $value), JSON_THROW_ON_ERROR);
     }
 
     /** @return array<string, mixed> */
@@ -202,7 +202,7 @@ class SyncBankAccountsTest extends KernelTestCase
         $this->sync($http)->execute($this->getFixture('test_user'));
 
         $firstFrom = (new \DateTimeImmutable('-90 days'))->format('Y-m-d');
-        self::assertStringContainsString('date_from=' . $firstFrom, $urls[0]);
+        self::assertStringContainsString('date_from='.$firstFrom, $urls[0]);
 
         // Once synced, only the days since — with a few of overlap for
         // movements the bank settles late.

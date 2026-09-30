@@ -31,14 +31,15 @@ final class ElasticsearchCollectionProvider implements ProviderInterface
         private readonly LoggerInterface $logger,
         private readonly ProviderInterface $doctrineProvider,
         private readonly string $environment = 'prod',
-    ) {}
+    ) {
+    }
 
     public function provide(Operation $operation, array $uriVariables = [], array $context = []): object|array|null
     {
         $entityClass = $operation->getClass();
         $meta = $this->metadataReader->read($entityClass);
 
-        if ($meta === null || $this->environment === 'test') {
+        if (null === $meta || 'test' === $this->environment) {
             return $this->doctrineProvider->provide($operation, $uriVariables, $context);
         }
 
@@ -56,7 +57,7 @@ final class ElasticsearchCollectionProvider implements ProviderInterface
 
     /**
      * @param array{index: string, module: ?string, fields: array<string, mixed>, relations: array<string, mixed>} $meta
-     * @param array<string, mixed> $context
+     * @param array<string, mixed>                                                                                 $context
      */
     private function doProvide(array $meta, string $entityClass, Operation $operation, array $context): ElasticsearchPaginator
     {
@@ -77,7 +78,7 @@ final class ElasticsearchCollectionProvider implements ProviderInterface
             ),
         ];
 
-        if ($translated['must'] !== []) {
+        if ([] !== $translated['must']) {
             $boolQuery['must'] = $translated['must'];
         }
 
@@ -88,9 +89,9 @@ final class ElasticsearchCollectionProvider implements ProviderInterface
         ];
 
         // Sort
-        if ($translated['sort'] !== []) {
+        if ([] !== $translated['sort']) {
             $body['sort'] = $translated['sort'];
-        } elseif ($operation->getOrder() !== null) {
+        } elseif (null !== $operation->getOrder()) {
             $body['sort'] = [];
             foreach ($operation->getOrder() as $field => $direction) {
                 $body['sort'][] = [$field => strtolower($direction)];

@@ -15,14 +15,15 @@ final class IndexableEntityRegistry
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly IndexMetadataReader $metadataReader,
-    ) {}
+    ) {
+    }
 
     /**
      * @return array<string, class-string<IndexableInterface>> Map of index name → entity FQCN
      */
     public function getAll(): array
     {
-        if ($this->registry === null) {
+        if (null === $this->registry) {
             $this->registry = $this->discover();
         }
 
@@ -56,7 +57,7 @@ final class IndexableEntityRegistry
             }
 
             $indexMeta = $this->metadataReader->read($class);
-            if ($indexMeta === null) {
+            if (null === $indexMeta) {
                 continue;
             }
 

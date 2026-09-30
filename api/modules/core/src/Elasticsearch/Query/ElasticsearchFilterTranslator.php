@@ -11,13 +11,14 @@ final class ElasticsearchFilterTranslator
     /**
      * Translates API Platform request filters to ES query clauses.
      *
-     * @param array<string, mixed>                                        $filters   Request query parameters
-     * @param array<string, array<string, mixed>>                         $fields    The index mapping, as
-     *                                                                               IndexMetadataReader returns it.
-     *                                                                               Sorting needs it — see sortField().
+     * @param array<string, mixed>                                            $filters   Request query parameters
+     * @param array<string, array<string, mixed>>                             $fields    The index mapping, as
+     *                                                                                   IndexMetadataReader returns it.
+     *                                                                                   Sorting needs it — see sortField().
      * @param array<string, array{targetEntity: string, sourceField: string}> $relations The indexed relations, same
-     *                                                                               source. Filtering on one needs
-     *                                                                               it — see relationClause().
+     *                                                                                   source. Filtering on one needs
+     *                                                                                   it — see relationClause().
+     *
      * @return array{must: array<int, array<string, mixed>>, filter: array<int, array<string, mixed>>, sort: array<int, array<string, string>>}
      */
     public function translate(array $filters, array $fields = [], array $relations = []): array
@@ -32,14 +33,14 @@ final class ElasticsearchFilterTranslator
             // dueDate[before]=...      → ['dueDate' => ['before' => '...']]
             // order[startAt]=asc       → ['order' => ['startAt' => 'asc']]
 
-            if ($key === 'exists' && \is_array($value)) {
+            if ('exists' === $key && \is_array($value)) {
                 foreach ($value as $field => $flag) {
                     $filter[] = $this->buildExistsFilter($field, $flag);
                 }
                 continue;
             }
 
-            if ($key === 'order' && \is_array($value)) {
+            if ('order' === $key && \is_array($value)) {
                 foreach ($value as $field => $direction) {
                     $sort[] = [self::sortField($field, $fields) => strtolower($direction)];
                 }
@@ -74,7 +75,7 @@ final class ElasticsearchFilterTranslator
             }
 
             // Search filter (exact)
-            if (\is_string($value) && $value !== '') {
+            if (\is_string($value) && '' !== $value) {
                 $filter[] = ['term' => [$key => $value]];
             }
         }
@@ -105,13 +106,14 @@ final class ElasticsearchFilterTranslator
      * Elasticsearch throws.
      *
      * @param array<string, array{targetEntity: string, sourceField: string}> $relations
+     *
      * @return array<string, mixed>
      */
     private static function relationClause(string $key, mixed $value, array $relations): array
     {
         $identifier = ResourceIdentifier::fromRequestValue($value);
 
-        if ($identifier === null) {
+        if (null === $identifier) {
             // An `ids` query with no value matches no document, whatever the
             // mapping holds.
             return ['ids' => ['values' => []]];
@@ -147,7 +149,7 @@ final class ElasticsearchFilterTranslator
             && ($mapping['type'] ?? null) === 'text'
             && isset($mapping['fields']['keyword'])
         ) {
-            return $field . '.keyword';
+            return $field.'.keyword';
         }
 
         return $field;

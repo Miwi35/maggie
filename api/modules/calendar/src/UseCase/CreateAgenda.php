@@ -2,8 +2,8 @@
 
 namespace Maggie\Calendar\UseCase;
 
-use Maggie\Calendar\Entity\Agenda;
 use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Calendar\Entity\Agenda;
 
 class CreateAgenda
 {

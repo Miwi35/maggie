@@ -50,21 +50,23 @@ final class ElasticsearchReindexCommand extends Command
         $entityName = $input->getOption('entity');
         $moduleName = $input->getOption('module');
 
-        if (!$all && $entityName === null && $moduleName === null) {
+        if (!$all && null === $entityName && null === $moduleName) {
             $io->error('Specify --all, --entity, or --module');
+
             return Command::FAILURE;
         }
 
         $entities = $this->resolveEntities($all, $entityName, $moduleName);
 
-        if ($entities === []) {
+        if ([] === $entities) {
             $io->warning('No indexable entities found');
+
             return Command::SUCCESS;
         }
 
         foreach ($entities as $indexName => $entityClass) {
             $meta = $this->metadataReader->read($entityClass);
-            if ($meta === null) {
+            if (null === $meta) {
                 continue;
             }
 
@@ -108,7 +110,7 @@ final class ElasticsearchReindexCommand extends Command
                     }
                 }
 
-                if ($operations !== []) {
+                if ([] !== $operations) {
                     $this->indexManager->bulkIndex($operations);
                 }
 
@@ -135,14 +137,14 @@ final class ElasticsearchReindexCommand extends Command
             return $this->registry->getAll();
         }
 
-        if ($moduleName !== null) {
+        if (null !== $moduleName) {
             return $this->registry->getByModule($moduleName);
         }
 
         // Find by entity short name
         foreach ($this->registry->getAll() as $indexName => $entityClass) {
             $shortName = substr($entityClass, strrpos($entityClass, '\\') + 1);
-            if (strcasecmp($shortName, $entityName) === 0) {
+            if (0 === strcasecmp($shortName, $entityName)) {
                 return [$indexName => $entityClass];
             }
         }

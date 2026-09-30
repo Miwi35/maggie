@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Maggie\Cookbook\MessageHandler;
 
 use Maggie\Cookbook\Entity\Ingredient;
-use Maggie\Grocery\Enum\ProductCategory;
-use Maggie\Grocery\Enum\Unit;
 use Maggie\Cookbook\Message\UpdateIngredientCommand;
 use Maggie\Cookbook\Repository\IngredientRepository;
+use Maggie\Grocery\Enum\ProductCategory;
+use Maggie\Grocery\Enum\Unit;
 use Maggie\Grocery\UseCase\UpdateProduct;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -26,38 +26,38 @@ class UpdateIngredientHandler
         $ingredient = $this->ingredientRepository->find($command->ingredientId)
             ?? throw new \DomainException("Ingredient not found: {$command->ingredientId}");
 
-        if ($command->name !== null) {
+        if (null !== $command->name) {
             $ingredient->setName($command->name);
         }
-        if ($command->category !== null) {
+        if (null !== $command->category) {
             $ingredient->setCategory(ProductCategory::from($command->category));
         }
-        if ($command->defaultUnit !== null) {
+        if (null !== $command->defaultUnit) {
             $ingredient->setDefaultUnit(Unit::from($command->defaultUnit));
         } elseif ($command->clears('defaultUnit')) {
             $ingredient->setDefaultUnit(null);
         }
-        if ($command->ciqualAlimCode !== null) {
+        if (null !== $command->ciqualAlimCode) {
             $ingredient->setCiqualAlimCode($command->ciqualAlimCode);
         } elseif ($command->clears('ciqualAlimCode')) {
             $ingredient->setCiqualAlimCode(null);
         }
-        if ($command->kcalPer100g !== null) {
+        if (null !== $command->kcalPer100g) {
             $ingredient->setKcalPer100g($command->kcalPer100g);
         } elseif ($command->clears('kcalPer100g')) {
             $ingredient->setKcalPer100g(null);
         }
-        if ($command->proteinPer100g !== null) {
+        if (null !== $command->proteinPer100g) {
             $ingredient->setProteinPer100g($command->proteinPer100g);
         } elseif ($command->clears('proteinPer100g')) {
             $ingredient->setProteinPer100g(null);
         }
-        if ($command->carbsPer100g !== null) {
+        if (null !== $command->carbsPer100g) {
             $ingredient->setCarbsPer100g($command->carbsPer100g);
         } elseif ($command->clears('carbsPer100g')) {
             $ingredient->setCarbsPer100g(null);
         }
-        if ($command->fatPer100g !== null) {
+        if (null !== $command->fatPer100g) {
             $ingredient->setFatPer100g($command->fatPer100g);
         } elseif ($command->clears('fatPer100g')) {
             $ingredient->setFatPer100g(null);

@@ -98,7 +98,7 @@ export const EventCreateDialog = ({ open, onClose, onCreated, defaultStart, defa
     setSummary('')
     setRrule(null)
     setSummaryError(false)
-  }, [open, defaultStart, defaultEnd, defaultAllDay]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, defaultStart, defaultEnd, defaultAllDay])
 
   const handleAllDayToggle = (checked: boolean) => {
     setAllDay(checked)

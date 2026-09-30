@@ -69,6 +69,6 @@ trait HasGoogleOAuthTokensTrait
 
     public function hasGoogleCalendarTokens(): bool
     {
-        return $this->googleRefreshToken !== null;
+        return null !== $this->googleRefreshToken;
     }
 }

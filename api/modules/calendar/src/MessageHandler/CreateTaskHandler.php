@@ -34,25 +34,25 @@ class CreateTaskHandler
         $task->setUser($user);
         $task->setTitle($command->title);
 
-        if ($command->description !== null) {
+        if (null !== $command->description) {
             $task->setDescription($command->description);
         }
-        if ($command->priority !== null) {
+        if (null !== $command->priority) {
             $task->setPriority(TaskPriority::from($command->priority));
         }
-        if ($command->criticality !== null) {
+        if (null !== $command->criticality) {
             $task->setCriticality(TaskCriticality::from($command->criticality));
         }
-        if ($command->dueDate !== null) {
+        if (null !== $command->dueDate) {
             $task->setDueDate($command->dueDate);
         }
-        if ($command->completedAt !== null) {
+        if (null !== $command->completedAt) {
             $task->setCompletedAt($command->completedAt);
         }
 
         $task = $this->createTask->execute($task);
 
-        if ($user->getGoogleTaskListId() !== null) {
+        if (null !== $user->getGoogleTaskListId()) {
             $pushCommand = new PushTaskToGoogleCommand(taskId: (string) $task->getId());
             try {
                 $this->bus->dispatch($pushCommand);

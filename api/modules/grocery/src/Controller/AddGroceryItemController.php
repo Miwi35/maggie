@@ -20,7 +20,8 @@ final class AddGroceryItemController
     public function __construct(
         private readonly MessageBusInterface $messageBus,
         private readonly Security $security,
-    ) {}
+    ) {
+    }
 
     #[Route('/api/grocery/add-item', name: 'api_grocery_add_item', methods: ['POST'])]
     public function __invoke(Request $request): JsonResponse
@@ -33,7 +34,7 @@ final class AddGroceryItemController
         $body = json_decode($request->getContent(), true, 512, \JSON_THROW_ON_ERROR);
 
         $label = $body['label'] ?? null;
-        if (!\is_string($label) || $label === '') {
+        if (!\is_string($label) || '' === $label) {
             return new JsonResponse(['error' => 'Missing required field: label'], Response::HTTP_BAD_REQUEST);
         }
 
@@ -48,7 +49,7 @@ final class AddGroceryItemController
         ));
 
         $list = $envelope->last(HandledStamp::class)?->getResult();
-        $itemCount = $list !== null ? \count($list->getItems()->filter(fn (GroceryItem $i) => !$i->isChecked())) : 0;
+        $itemCount = null !== $list ? \count($list->getItems()->filter(fn (GroceryItem $i) => !$i->isChecked())) : 0;
 
         return new JsonResponse([
             'success' => true,

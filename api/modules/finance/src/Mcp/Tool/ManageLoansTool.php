@@ -74,7 +74,7 @@ class ManageLoansTool
 
     private function create(?string $name, ?int $principalRemainingCents, ?int $monthlyPaymentCents, ?int $annualRateBasisPoints, ?string $lender, ?int $priority, ?string $currency): string
     {
-        if ($name === null || $principalRemainingCents === null || $monthlyPaymentCents === null) {
+        if (null === $name || null === $principalRemainingCents || null === $monthlyPaymentCents) {
             return json_encode(['error' => 'name, principalRemainingCents and monthlyPaymentCents are required for create.'], JSON_THROW_ON_ERROR);
         }
 
@@ -103,7 +103,7 @@ class ManageLoansTool
     /** @param list<string>|null $clear */
     private function update(?string $loanId, ?string $name, ?int $principalRemainingCents, ?int $monthlyPaymentCents, ?int $annualRateBasisPoints, ?string $lender, ?int $priority, ?string $currency, ?array $clear): string
     {
-        if ($loanId === null) {
+        if (null === $loanId) {
             return json_encode(['error' => 'loanId is required for update.'], JSON_THROW_ON_ERROR);
         }
 
@@ -130,7 +130,7 @@ class ManageLoansTool
 
     private function delete(?string $loanId): string
     {
-        if ($loanId === null) {
+        if (null === $loanId) {
             return json_encode(['error' => 'loanId is required for delete.'], JSON_THROW_ON_ERROR);
         }
 

@@ -6,8 +6,8 @@ namespace Maggie\Grocery\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
-use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Core\Entity\User;
+use Maggie\Grocery\Entity\GroceryList;
 
 /** @extends ServiceEntityRepository<GroceryList> */
 class GroceryListRepository extends ServiceEntityRepository
@@ -21,7 +21,7 @@ class GroceryListRepository extends ServiceEntityRepository
     {
         $list = $this->findOneBy(['user' => $user]);
 
-        if ($list === null) {
+        if (null === $list) {
             $list = new GroceryList();
             $list->setUser($user);
             $this->getEntityManager()->persist($list);

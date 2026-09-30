@@ -27,7 +27,7 @@ class UpdateAccountProcessor implements ProcessorInterface
             'bank' => $data->getBank(),
             'externalAccountId' => $data->getExternalAccountId(),
         ] as $field => $value) {
-            if ($value === null) {
+            if (null === $value) {
                 $clearFields[] = $field;
             }
         }

@@ -48,14 +48,14 @@ class GetCushionStatus
 
         // Remember the first time the target was ever reached: that is what
         // tells "still building" from "was complete, now recharging".
-        if ($isComplete && $cushion->getCompletedAt() === null) {
+        if ($isComplete && null === $cushion->getCompletedAt()) {
             $cushion->setCompletedAt(new \DateTimeImmutable());
             $this->em->flush();
         }
 
         $state = match (true) {
             $isComplete => CushionState::Complete,
-            $cushion->getCompletedAt() !== null => CushionState::Recharging,
+            null !== $cushion->getCompletedAt() => CushionState::Recharging,
             default => CushionState::Building,
         };
 
@@ -80,7 +80,7 @@ class GetCushionStatus
             'rechargeMonths' => $plan['rechargeMonths'],
             'isCappedByRechargeCap' => $plan['isCapped'],
             // What the score layer reads: no green while the net is not full.
-            'blocksGreenScore' => $state !== CushionState::Complete,
+            'blocksGreenScore' => CushionState::Complete !== $state,
             'isConfigured' => $cushion->getMonthlyNetIncomeCents() > 0,
             'accounts' => array_map(static fn (Account $account) => [
                 'id' => (string) $account->getId(),
@@ -100,7 +100,7 @@ class GetCushionStatus
      */
     private function rechargePlan(SafetyCushion $cushion, int $deficitCents): array
     {
-        if ($deficitCents === 0) {
+        if (0 === $deficitCents) {
             return ['monthlyRechargeCents' => 0, 'rechargeMonths' => 0, 'isCapped' => false];
         }
 

@@ -13,20 +13,20 @@ use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
-use Maggie\Core\Contract\MercurePublishable;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
+use Doctrine\ORM\Mapping as ORM;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Cookbook\Enum\MealSlot;
 use Maggie\Cookbook\Repository\MealRepository;
 use Maggie\Cookbook\State\CreateMealProcessor;
 use Maggie\Cookbook\State\DeleteMealProcessor;
 use Maggie\Cookbook\State\UpdateMealProcessor;
+use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Elasticsearch\Attribute\Indexed;
 use Maggie\Core\Elasticsearch\Attribute\IndexedField;
 use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
 use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
-use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\Common\Collections\Collection;
-use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: MealRepository::class)]
 #[ApiFilter(DateFilter::class, properties: ['startAt'])]

@@ -3,8 +3,8 @@
 namespace Maggie\Cookbook\Tests\Mcp;
 
 use App\Tests\Support\FixtureLoaderTrait;
-use App\Tests\Support\SecurityTokenTrait;
 use App\Tests\Support\MercureAssertionTrait;
+use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Cookbook\Mcp\Tool\GenerateGroceryListTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 

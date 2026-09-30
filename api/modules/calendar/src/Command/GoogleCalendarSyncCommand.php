@@ -51,8 +51,9 @@ class GoogleCalendarSyncCommand extends Command
 
         if ($agendaId) {
             $agenda = $this->agendaRepository->find($agendaId);
-            if ($agenda === null || !$agenda->isGoogleSynced()) {
+            if (null === $agenda || !$agenda->isGoogleSynced()) {
                 $io->error('Agenda not found or not Google-synced.');
+
                 return Command::FAILURE;
             }
 
@@ -64,13 +65,15 @@ class GoogleCalendarSyncCommand extends Command
 
             $this->syncService->pullFromGoogle($agenda);
             $io->success('Sync complete.');
+
             return Command::SUCCESS;
         }
 
         if ($userId) {
             $user = $this->userRepository->find($userId);
-            if ($user === null) {
+            if (null === $user) {
                 $io->error('User not found.');
+
                 return Command::FAILURE;
             }
 
@@ -92,13 +95,14 @@ class GoogleCalendarSyncCommand extends Command
 
             try {
                 $this->syncService->pullFromGoogle($agenda);
-                $count++;
+                ++$count;
             } catch (\Throwable $e) {
                 $io->warning("Failed to sync agenda {$agenda->getName()}: {$e->getMessage()}");
             }
         }
 
         $io->success("Synced {$count} agenda(s).");
+
         return Command::SUCCESS;
     }
 
@@ -106,8 +110,9 @@ class GoogleCalendarSyncCommand extends Command
     {
         if ($userId) {
             $user = $this->userRepository->find($userId);
-            if ($user === null) {
+            if (null === $user) {
                 $io->error('User not found.');
+
                 return Command::FAILURE;
             }
             $users = [$user];
@@ -124,13 +129,14 @@ class GoogleCalendarSyncCommand extends Command
 
             try {
                 $this->tasksSyncService->pullFromGoogle($user);
-                $count++;
+                ++$count;
             } catch (\Throwable $e) {
                 $io->warning("Failed to sync tasks for {$user->getEmail()}: {$e->getMessage()}");
             }
         }
 
         $io->success("Synced tasks for {$count} user(s).");
+
         return Command::SUCCESS;
     }
 }

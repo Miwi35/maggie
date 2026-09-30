@@ -51,7 +51,7 @@ class SyncBanksCommand extends Command
         $io = new SymfonyStyle($input, $output);
 
         $user = $this->userRepository->findOneBy(['email' => $input->getArgument('email')]);
-        if ($user === null) {
+        if (null === $user) {
             $io->error(sprintf('No user with email "%s".', $input->getArgument('email')));
 
             return Command::FAILURE;
@@ -67,7 +67,7 @@ class SyncBanksCommand extends Command
             return Command::FAILURE;
         }
 
-        if ($result['accounts'] === []) {
+        if ([] === $result['accounts']) {
             $io->warning('No connected account: connect a bank from the admin first.');
 
             return Command::SUCCESS;

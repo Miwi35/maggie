@@ -31,9 +31,9 @@ class RollOverEnvelopes
     }
 
     /**
-     * @param bool $useActualSpending Budget the target period on what the
+     * @param bool $useActualSpending budget the target period on what the
      *                                source period actually consumed, rather
-     *                                than on what it had budgeted.
+     *                                than on what it had budgeted
      *
      * @return array{created: int, skipped: int, envelopes: array<int, array<string, mixed>>}
      */
@@ -53,9 +53,9 @@ class RollOverEnvelopes
 
         foreach ($sources as $source) {
             $mode = $source->getMode();
-            $targetMonth = $mode === BudgetMode::Monthly ? $toMonth : null;
+            $targetMonth = BudgetMode::Monthly === $mode ? $toMonth : null;
 
-            if ($mode === BudgetMode::Monthly && $targetMonth === null) {
+            if (BudgetMode::Monthly === $mode && null === $targetMonth) {
                 // Nothing sensible to roll a monthly envelope into.
                 ++$skipped;
                 continue;
@@ -68,7 +68,7 @@ class RollOverEnvelopes
                 $targetMonth,
             );
 
-            if ($existing !== null) {
+            if (null !== $existing) {
                 ++$skipped;
                 continue;
             }

@@ -76,7 +76,7 @@ final class E2eSurfaceAbsenceTest extends TestCase
     #[DataProvider('environmentsWithoutTheRoute')]
     public function testSeedCommandIsNotRegisteredOutsideE2e(string $environment): void
     {
-        $kernel = new Kernel($environment, $environment !== 'prod');
+        $kernel = new Kernel($environment, 'prod' !== $environment);
         $kernel->boot();
 
         $names = array_keys((new Application($kernel))->all());
@@ -130,7 +130,7 @@ final class E2eSurfaceAbsenceTest extends TestCase
 
     private function containerFor(string $environment): ContainerInterface
     {
-        $kernel = new Kernel($environment, $environment !== 'prod');
+        $kernel = new Kernel($environment, 'prod' !== $environment);
         $kernel->boot();
 
         // The container object outlives the kernel; shutting down keeps each
@@ -143,7 +143,7 @@ final class E2eSurfaceAbsenceTest extends TestCase
 
     private function routesFor(string $environment): RouteCollection
     {
-        $kernel = new Kernel($environment, $environment !== 'prod');
+        $kernel = new Kernel($environment, 'prod' !== $environment);
         $kernel->boot();
 
         $router = $kernel->getContainer()->get('router');

@@ -29,7 +29,7 @@ final class RollOverEnvelopesController
         }
 
         $content = $request->getContent();
-        $body = $content === '' ? [] : json_decode($content, true, 512, \JSON_THROW_ON_ERROR);
+        $body = '' === $content ? [] : json_decode($content, true, 512, \JSON_THROW_ON_ERROR);
 
         $fromYear = $body['fromYear'] ?? null;
         $year = $body['year'] ?? null;
@@ -45,9 +45,9 @@ final class RollOverEnvelopesController
         $month = $body['month'] ?? null;
 
         foreach (['fromMonth' => $fromMonth, 'month' => $month] as $name => $value) {
-            if ($value !== null && (!\is_int($value) || $value < 1 || $value > 12)) {
+            if (null !== $value && (!\is_int($value) || $value < 1 || $value > 12)) {
                 return new JsonResponse(
-                    ["error" => "{$name} must be an integer between 1 and 12"],
+                    ['error' => "{$name} must be an integer between 1 and 12"],
                     Response::HTTP_BAD_REQUEST,
                 );
             }

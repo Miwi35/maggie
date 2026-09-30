@@ -38,7 +38,7 @@ class ProductRepository extends ServiceEntityRepository
             ->where('p.user = :user')
             ->andWhere('LOWER(p.name) LIKE LOWER(:query)')
             ->setParameter('user', $user->getId(), 'ulid')
-            ->setParameter('query', '%' . $query . '%')
+            ->setParameter('query', '%'.$query.'%')
             ->orderBy('p.name', 'ASC')
             ->getQuery()
             ->getResult();

@@ -22,7 +22,7 @@ class MarkNotificationReadHandler
     public function __invoke(MarkNotificationReadCommand $command): Notification
     {
         $notification = $this->notificationRepository->find($command->notificationId);
-        if ($notification === null) {
+        if (null === $notification) {
             throw new \DomainException("Notification not found: {$command->notificationId}");
         }
 

@@ -93,7 +93,7 @@ final class RecordedResponseContractTest extends WebTestCase
             self::assertIsArray($body);
 
             $this->assertMatchesContract(
-                'responses/' . $name . '.json',
+                'responses/'.$name.'.json',
                 self::stabilise($body),
                 sprintf('GET %s no longer returns what it used to. The mobile DTOs are written against this response; check mobile/app/src/main/java/com/maggie/app/data/model/ before regenerating.', $path),
             );
@@ -111,7 +111,7 @@ final class RecordedResponseContractTest extends WebTestCase
                 continue;
             }
 
-            $path = self::contractPath('responses/' . $name . '.json');
+            $path = self::contractPath('responses/'.$name.'.json');
 
             if (!is_file($path)) {
                 // testTheRecordingsAreCurrent already reports the absence,
@@ -144,6 +144,7 @@ final class RecordedResponseContractTest extends WebTestCase
      * flattening it here would hide precisely that.
      *
      * @param array<mixed> $value
+     *
      * @return array<mixed>
      */
     private static function stabilise(array $value): array

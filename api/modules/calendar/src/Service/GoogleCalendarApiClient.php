@@ -5,8 +5,8 @@ namespace Maggie\Calendar\Service;
 use Doctrine\ORM\EntityManagerInterface;
 use Google\Client as GoogleClient;
 use Google\Service\Calendar as GoogleCalendarService;
-use Google\Service\Calendar\Channel;
 use Google\Service\Calendar\CalendarListEntry;
+use Google\Service\Calendar\Channel;
 use Google\Service\Calendar\Event as GoogleEvent;
 use Google\Service\Calendar\Events as GoogleEvents;
 use Maggie\Core\Entity\User;
@@ -30,7 +30,7 @@ class GoogleCalendarApiClient
     {
         $client = $this->buildClient($user);
 
-        return new GoogleCalendarService($client, $this->googleApiBaseUrl !== '' ? $this->googleApiBaseUrl : null);
+        return new GoogleCalendarService($client, '' !== $this->googleApiBaseUrl ? $this->googleApiBaseUrl : null);
     }
 
     /**
@@ -66,13 +66,13 @@ class GoogleCalendarApiClient
             'singleEvents' => false,
         ];
 
-        if ($syncToken !== null) {
+        if (null !== $syncToken) {
             $params['syncToken'] = $syncToken;
         } else {
             $params['timeMin'] = (new \DateTimeImmutable('-1 year'))->format(\DateTimeInterface::RFC3339);
         }
 
-        if ($pageToken !== null) {
+        if (null !== $pageToken) {
             $params['pageToken'] = $pageToken;
         }
 
@@ -143,10 +143,10 @@ class GoogleCalendarApiClient
         ];
     }
 
-    public function insertCalendar(User $user, string $name, ?string $description = null): \Google\Service\Calendar\Calendar
+    public function insertCalendar(User $user, string $name, ?string $description = null): GoogleCalendarService\Calendar
     {
         $service = $this->getCalendarService($user);
-        $calendar = new \Google\Service\Calendar\Calendar();
+        $calendar = new GoogleCalendarService\Calendar();
         $calendar->setSummary($name);
         if ($description) {
             $calendar->setDescription($description);
@@ -197,7 +197,7 @@ class GoogleCalendarApiClient
             $user->setGoogleAccessToken($newToken['access_token']);
             if (isset($newToken['expires_in'])) {
                 $user->setGoogleTokenExpiresAt(
-                    new \DateTimeImmutable('+' . $newToken['expires_in'] . ' seconds')
+                    new \DateTimeImmutable('+'.$newToken['expires_in'].' seconds')
                 );
             }
             if (isset($newToken['refresh_token'])) {

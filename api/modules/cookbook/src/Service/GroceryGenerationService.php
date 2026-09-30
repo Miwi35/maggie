@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Maggie\Cookbook\Service;
 
+use Maggie\Cookbook\Repository\MealRepository;
+use Maggie\Core\Entity\User;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Enum\GroceryItemSource;
-use Maggie\Cookbook\Repository\MealRepository;
 use Maggie\Grocery\Repository\RecurringGroceryItemRepository;
-use Maggie\Core\Entity\User;
 
 class GroceryGenerationService
 {
@@ -34,7 +34,7 @@ class GroceryGenerationService
                 foreach ($recipe->getIngredients() as $ri) {
                     $product = $ri->getIngredient();
                     $unit = $ri->getUnit();
-                    $key = (string) $product->getId() . ':' . $unit->value;
+                    $key = (string) $product->getId().':'.$unit->value;
 
                     if (isset($aggregated[$key])) {
                         $aggregated[$key]['quantity'] += $ri->getQuantity();
@@ -69,7 +69,7 @@ class GroceryGenerationService
             $item->setUnit($recurring->getUnit());
             $item->setSource(GroceryItemSource::Recurring);
             $product = $recurring->getProduct();
-            if ($product !== null) {
+            if (null !== $product) {
                 $item->setStore($product->getPreferredStore());
             }
             $items[] = $item;

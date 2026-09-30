@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Maggie\Grocery\UseCase;
 
-use Maggie\Grocery\Entity\Product;
 use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Grocery\Entity\Product;
 
 class CreateProduct
 {

@@ -2,14 +2,14 @@
 
 namespace Maggie\Calendar\DataFixtures;
 
-use Maggie\Calendar\Entity\Agenda;
-use Maggie\Calendar\Entity\Event;
-use Maggie\Calendar\Enum\EventStatus;
-use Maggie\Calendar\Entity\Task;
-use Maggie\Calendar\Enum\TaskCriticality;
-use Maggie\Calendar\Enum\TaskPriority;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
+use Maggie\Calendar\Entity\Agenda;
+use Maggie\Calendar\Entity\Event;
+use Maggie\Calendar\Entity\Task;
+use Maggie\Calendar\Enum\EventStatus;
+use Maggie\Calendar\Enum\TaskCriticality;
+use Maggie\Calendar\Enum\TaskPriority;
 
 class CalendarFixtures extends Fixture
 {

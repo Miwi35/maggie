@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Maggie\Cookbook\UseCase;
 
-use Maggie\Cookbook\Entity\Recipe;
 use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Cookbook\Entity\Recipe;
 
 class CreateRecipe
 {

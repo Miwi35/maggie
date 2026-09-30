@@ -26,7 +26,7 @@ class UpdateProductProcessor implements ProcessorInterface
 
         // A nullable field that was set and is now null is an explicit clear
         $clearFields = [];
-        if ($previous !== null && $data->getDefaultUnit() === null && $previous->getDefaultUnit() !== null) {
+        if (null !== $previous && null === $data->getDefaultUnit() && null !== $previous->getDefaultUnit()) {
             $clearFields[] = 'defaultUnit';
         }
 

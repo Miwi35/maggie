@@ -43,7 +43,7 @@ final class E2eDateProvider
      */
     public function e2eDate(string $modifier = ''): \DateTimeImmutable
     {
-        if ($modifier === '') {
+        if ('' === $modifier) {
             return $this->anchor;
         }
 
@@ -53,11 +53,7 @@ final class E2eDateProvider
             // wrong day.
             return $this->anchor->modify($modifier);
         } catch (\Throwable $e) {
-            throw new \InvalidArgumentException(
-                sprintf('Cannot apply "%s" to the e2e anchor.', $modifier),
-                0,
-                $e,
-            );
+            throw new \InvalidArgumentException(sprintf('Cannot apply "%s" to the e2e anchor.', $modifier), 0, $e);
         }
     }
 

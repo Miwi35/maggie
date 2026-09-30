@@ -12,11 +12,12 @@ final class ElasticsearchEntityHydrator
 {
     public function __construct(
         private readonly EntityManagerInterface $em,
-    ) {}
+    ) {
+    }
 
     /**
-     * @param array<string, mixed> $source ES _source document
-     * @param class-string $entityClass
+     * @param array<string, mixed> $source      ES _source document
+     * @param class-string         $entityClass
      */
     public function hydrate(array $source, string $entityClass): object
     {
@@ -34,15 +35,15 @@ final class ElasticsearchEntityHydrator
 
         // Set all other fields from source
         foreach ($source as $key => $value) {
-            if ($key === 'id') {
+            if ('id' === $key) {
                 continue;
             }
 
             // Check if this is a relation source field (e.g. 'agendaId' → 'agenda')
             $relProp = $this->findRelationBySourceField($relations, $key);
-            if ($relProp !== null) {
+            if (null !== $relProp) {
                 [$propName, $relMeta] = $relProp;
-                if ($value !== null) {
+                if (null !== $value) {
                     /** @var class-string $targetEntity */
                     $targetEntity = $relMeta['targetEntity'];
                     $reference = $this->em->getReference($targetEntity, Ulid::fromString($value));
@@ -64,6 +65,7 @@ final class ElasticsearchEntityHydrator
 
     /**
      * @param \ReflectionClass<object> $ref
+     *
      * @return array<string, array{targetEntity: string, sourceField: string}>
      */
     private function getRelationMap(\ReflectionClass $ref): array
@@ -82,13 +84,14 @@ final class ElasticsearchEntityHydrator
                 }
             }
             $current = $current->getParentClass();
-        } while ($current !== false);
+        } while (false !== $current);
 
         return $relations;
     }
 
     /**
      * @param array<string, array{targetEntity: string, sourceField: string}> $relations
+     *
      * @return array{string, array{targetEntity: string, sourceField: string}}|null
      */
     private function findRelationBySourceField(array $relations, string $sourceField): ?array
@@ -111,7 +114,7 @@ final class ElasticsearchEntityHydrator
                 return true;
             }
             $current = $current->getParentClass();
-        } while ($current !== false);
+        } while (false !== $current);
 
         return false;
     }
@@ -125,7 +128,7 @@ final class ElasticsearchEntityHydrator
                 return $current->getProperty($name);
             }
             $current = $current->getParentClass();
-        } while ($current !== false);
+        } while (false !== $current);
 
         throw new \RuntimeException("Property {$name} not found on {$ref->getName()}");
     }
@@ -138,28 +141,29 @@ final class ElasticsearchEntityHydrator
             if ($current->hasProperty($name)) {
                 $prop = $current->getProperty($name);
                 $prop->setValue($entity, $value);
+
                 return;
             }
             $current = $current->getParentClass();
-        } while ($current !== false);
+        } while (false !== $current);
     }
 
     private function castValue(mixed $value, \ReflectionProperty $prop): mixed
     {
         $type = $prop->getType();
 
-        if ($type === null || $value === null) {
+        if (null === $type || null === $value) {
             return $value;
         }
 
         $typeName = $type instanceof \ReflectionNamedType ? $type->getName() : null;
 
-        if ($typeName === null) {
+        if (null === $typeName) {
             return $value;
         }
 
         // Handle DateTimeImmutable
-        if ($typeName === \DateTimeImmutable::class && \is_string($value)) {
+        if (\DateTimeImmutable::class === $typeName && \is_string($value)) {
             return new \DateTimeImmutable($value);
         }
 
@@ -172,7 +176,7 @@ final class ElasticsearchEntityHydrator
         }
 
         // Handle Ulid
-        if ($typeName === Ulid::class && \is_string($value)) {
+        if (Ulid::class === $typeName && \is_string($value)) {
             return Ulid::fromString($value);
         }
 

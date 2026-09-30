@@ -85,16 +85,16 @@ class GetDailyScore
         ];
 
         $score = $this->decide(
-            hasBudget: $budget['budgets'] !== [],
+            hasBudget: [] !== $budget['budgets'],
             totalOverspent: $totalOverspent,
-            overspentMandatory: $overspentMandatory !== [],
-            overspentOptional: $overspentOptional !== [],
-            overcommitted: $overcommitted !== [],
+            overspentMandatory: [] !== $overspentMandatory,
+            overspentOptional: [] !== $overspentOptional,
+            overcommitted: [] !== $overcommitted,
             cushionBlocksGreen: $cushion['blocksGreenScore'],
             betterThanLastYear: $comparison['isBetter'],
         );
 
-        if ($budget['budgets'] === []) {
+        if ([] === $budget['budgets']) {
             $reasons = [['code' => 'no_budget']];
         }
 

@@ -40,7 +40,7 @@ final class GoogleAuthController
     {
         $url = rtrim($this->adminUrl, '/');
         if ($query) {
-            $url .= '?' . $query;
+            $url .= '?'.$query;
         }
 
         return new RedirectResponse($url);
@@ -102,7 +102,7 @@ final class GoogleAuthController
             'prompt' => 'consent',
         ]);
 
-        return new RedirectResponse('https://accounts.google.com/o/oauth2/v2/auth?' . $params);
+        return new RedirectResponse('https://accounts.google.com/o/oauth2/v2/auth?'.$params);
     }
 
     /**
@@ -115,7 +115,7 @@ final class GoogleAuthController
         $error = $request->query->get('error');
 
         if ($error || !$code) {
-            return $this->adminRedirect('auth_error=' . ($error ?? 'missing_code'));
+            return $this->adminRedirect('auth_error='.($error ?? 'missing_code'));
         }
 
         // Exchange authorization code for tokens
@@ -129,7 +129,7 @@ final class GoogleAuthController
             ],
         ]);
 
-        if ($tokenResponse->getStatusCode() !== 200) {
+        if (200 !== $tokenResponse->getStatusCode()) {
             return $this->adminRedirect('auth_error=token_exchange_failed');
         }
 
@@ -157,7 +157,7 @@ final class GoogleAuthController
         }
         if (isset($tokens['expires_in'])) {
             $user->setGoogleTokenExpiresAt(
-                new \DateTimeImmutable('+' . $tokens['expires_in'] . ' seconds')
+                new \DateTimeImmutable('+'.$tokens['expires_in'].' seconds')
             );
         }
         $this->entityManager->flush();
@@ -194,7 +194,7 @@ final class GoogleAuthController
             'query' => ['id_token' => $idToken],
         ]);
 
-        if ($response->getStatusCode() !== 200) {
+        if (200 !== $response->getStatusCode()) {
             return null;
         }
 
@@ -223,5 +223,4 @@ final class GoogleAuthController
 
         return $user;
     }
-
 }

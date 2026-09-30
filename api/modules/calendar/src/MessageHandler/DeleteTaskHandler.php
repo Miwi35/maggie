@@ -25,7 +25,7 @@ class DeleteTaskHandler
     public function __invoke(DeleteTaskCommand $command): void
     {
         $task = $this->taskRepository->find($command->taskId);
-        if ($task === null) {
+        if (null === $task) {
             throw new \DomainException("Task not found: {$command->taskId}");
         }
 

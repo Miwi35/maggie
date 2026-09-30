@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Maggie\Grocery\MessageHandler;
 
+use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Message\CheckGroceryItemCommand;
-use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]

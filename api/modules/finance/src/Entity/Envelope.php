@@ -96,13 +96,13 @@ class Envelope implements MercurePublishable, OwnedByUserInterface, IndexableInt
     #[Assert\Callback]
     public function validatePeriod(ExecutionContextInterface $context): void
     {
-        if ($this->mode === BudgetMode::Monthly && $this->month === null) {
+        if (BudgetMode::Monthly === $this->mode && null === $this->month) {
             $context->buildViolation('A monthly envelope requires a month.')
                 ->atPath('month')
                 ->addViolation();
         }
 
-        if ($this->mode === BudgetMode::Annual && $this->month !== null) {
+        if (BudgetMode::Annual === $this->mode && null !== $this->month) {
             $context->buildViolation('An annual envelope must not carry a month.')
                 ->atPath('month')
                 ->addViolation();
@@ -207,7 +207,7 @@ class Envelope implements MercurePublishable, OwnedByUserInterface, IndexableInt
     /** First day after the period this envelope budgets. */
     public function getPeriodEnd(): \DateTimeImmutable
     {
-        return $this->getPeriodStart()->modify($this->mode === BudgetMode::Monthly ? '+1 month' : '+1 year');
+        return $this->getPeriodStart()->modify(BudgetMode::Monthly === $this->mode ? '+1 month' : '+1 year');
     }
 
     /** @return array<string, mixed> */

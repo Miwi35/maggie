@@ -24,43 +24,41 @@ class UpdateLoanHandler
         $loan = $this->loanRepository->find($command->loanId)
             ?? throw new \DomainException("Loan not found: {$command->loanId}");
 
-        if ($command->name !== null) {
+        if (null !== $command->name) {
             $loan->setName($command->name);
         }
-        if ($command->lender !== null) {
-            $loan->setLender($command->lender === '' ? null : $command->lender);
+        if (null !== $command->lender) {
+            $loan->setLender('' === $command->lender ? null : $command->lender);
         } elseif ($command->clears('lender')) {
             $loan->setLender(null);
         }
-        if ($command->principalRemainingCents !== null) {
+        if (null !== $command->principalRemainingCents) {
             if ($command->principalRemainingCents < 0) {
                 throw new \DomainException('The remaining capital cannot be negative.');
             }
             $loan->setPrincipalRemainingCents($command->principalRemainingCents);
         }
-        if ($command->monthlyPaymentCents !== null) {
+        if (null !== $command->monthlyPaymentCents) {
             if ($command->monthlyPaymentCents <= 0) {
                 throw new \DomainException('The monthly payment must be positive.');
             }
             $loan->setMonthlyPaymentCents($command->monthlyPaymentCents);
         }
-        if ($command->annualRateBasisPoints !== null) {
+        if (null !== $command->annualRateBasisPoints) {
             if ($command->annualRateBasisPoints < 0) {
                 throw new \DomainException('The rate cannot be negative.');
             }
             $loan->setAnnualRateBasisPoints($command->annualRateBasisPoints);
         }
-        if ($command->priority !== null) {
+        if (null !== $command->priority) {
             $loan->setPriority($command->priority);
         }
-        if ($command->currency !== null) {
+        if (null !== $command->currency) {
             $loan->setCurrency($command->currency);
         }
 
         if ($loan->getPrincipalRemainingCents() > 0 && !$loan->amortises()) {
-            throw new \DomainException(
-                'The monthly payment does not cover the interest: this loan would never be repaid.',
-            );
+            throw new \DomainException('The monthly payment does not cover the interest: this loan would never be repaid.');
         }
 
         return $this->updateLoan->execute($loan);

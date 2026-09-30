@@ -62,7 +62,7 @@ class ManageNotificationsTool
 
     private function markRead(?string $notificationId): string
     {
-        if ($notificationId === null) {
+        if (null === $notificationId) {
             return json_encode(['error' => 'notificationId is required for mark_read.'], JSON_THROW_ON_ERROR);
         }
 
@@ -73,7 +73,7 @@ class ManageNotificationsTool
 
     private function delete(?string $notificationId): string
     {
-        if ($notificationId === null) {
+        if (null === $notificationId) {
             return json_encode(['error' => 'notificationId is required for delete.'], JSON_THROW_ON_ERROR);
         }
 
