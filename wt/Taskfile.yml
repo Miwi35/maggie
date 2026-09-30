@@ -1,0 +1,231 @@
+version: '3'
+
+# Worktree-local checks: the fast path for an agent verifying its own change.
+#
+# `task api:*` talks to the dev stack, which mounts the main checkout — wrong
+# code in a worktree. `task e2e:*` is right but heavy: eleven services for a
+# lint is not a trade anyone should make.
+#
+# These sit between the two. Five rules, in order of how much trouble breaking
+# them causes on a machine shared by several agents:
+#
+#   1. Minimal      — only what the command needs. PHPStan and lint want a PHP
+#                     container and nothing else; the API suite wants Postgres
+#                     too. Never the whole stack.
+#   2. One shot     — `docker run --rm`, or Compose up followed by an
+#                     unconditional `down -v` through a trap. Nothing survives
+#                     the command.
+#   3. No fixed port — nothing published at all here. Nothing needs it.
+#   4. Guarded      — wt:guard refuses to start when the machine is short of
+#                     memory or already loaded, waits briefly, then sends you
+#                     to CI.
+#   5. Released     — resources come back when the command ends, not when the
+#                     session does.
+#
+# Dependencies come from a shared cache keyed by lockfile hash, the same way
+# `actions/cache` keys them in ci.yml, mounted read-only. No per-worktree
+# install.
+
+vars:
+  PHP_IMAGE: 'maggie-wt-php:local'
+  NODE_IMAGE: 'node:{{.NODE_VERSION | default "22"}}-alpine'
+  GUARD: '{{.ROOT_DIR}}/wt/guard.sh'
+  DEPS_CACHE: '{{.ROOT_DIR}}/wt/deps-cache.sh'
+  PROJECT:
+    sh: |
+      slug=$(basename "{{.ROOT_DIR}}" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed 's/-*$//')
+      hash=$(printf '%s' "{{.ROOT_DIR}}" | sha1sum | cut -c1-8)
+      echo "maggie-wt-${slug}-${hash}"
+
+# Thresholds live in wt/limits.env, loaded by the root Taskfile — Task refuses
+# a `dotenv` declaration in an included file. The scripts carry the same
+# defaults, so running them directly still works.
+
+tasks:
+  # ===========================================================================
+  # The guard — every task below goes through it
+  # ===========================================================================
+  guard:
+    desc: Refuse to start local work when the machine is too busy
+    cmds:
+      - '{{.GUARD}}'
+    silent: true
+
+  # ===========================================================================
+  # PHP: PHPStan and the API suite
+  # ===========================================================================
+  image:
+    desc: Build the PHP image the worktree tasks use
+    # The e2e target: production php.ini, no Xdebug. Layer caching makes this
+    # a no-op once built, and it is shared by every worktree.
+    status:
+      - docker image inspect {{.PHP_IMAGE}} >/dev/null 2>&1
+    cmds:
+      - docker build -f {{.ROOT_DIR}}/.docker/php/Dockerfile --target e2e
+        --build-arg UID=$(id -u) --build-arg GID=$(id -g)
+        -t {{.PHP_IMAGE}} {{.ROOT_DIR}}
+
+  phpstan:
+    desc: PHPStan on this worktree (task wt:phpstan -- modules/core/src/Foo.php)
+    # One container, no network, no database, no port. Analysing only the files
+    # you pass keeps it to seconds; with no arguments it runs the whole
+    # configured paths list, like CI.
+    #
+    # Caveat of a partial run: PHPStan reports `trait.unused` for a trait whose
+    # users are outside the file list. That is an artefact of the subset, not a
+    # finding — re-run without arguments, or with the traits' users included,
+    # before believing it.
+    deps: [guard, image]
+    cmds:
+      # The cache is resolved here rather than in `vars`, because Task
+      # evaluates `vars` before `deps` — and filling it needs the image the
+      # `image` dep builds.
+      - |
+        set -euo pipefail
+        VENDOR="$({{.DEPS_CACHE}} api {{.PHP_IMAGE}})"
+        docker run --rm \
+          --memory {{.WT_MEMORY}} --cpus {{.WT_CPUS}} \
+          -u $(id -u):$(id -g) \
+          -e APP_ENV=dev -e APP_DEBUG=1 \
+          -v "{{.ROOT_DIR}}/api":/app \
+          -v "$VENDOR":/app/vendor:ro \
+          -w /app \
+          --entrypoint sh {{.PHP_IMAGE}} -c '
+            # phpstan.neon reads the compiled Symfony container, so it has to
+            # exist before the analysis — this is why the task warms the cache
+            # rather than calling phpstan straight away.
+            php bin/console cache:warmup -q \
+            && vendor/bin/phpstan analyse --memory-limit=1G --no-progress {{.CLI_ARGS}}
+          '
+
+  test:api:
+    desc: PHPUnit on this worktree, on a throwaway Postgres
+    # The one task here that needs Compose: the suite talks to a real database.
+    # Two services, no published port, and `down -v` runs even on failure.
+    deps: [guard, image]
+    cmds:
+      # Lexik needs a key pair to sign with. Reusing the e2e generator rather
+      # than adding a second one: the keys are gitignored local test keys, and
+      # two generators would mean two passphrases to keep in step.
+      - task: :e2e:keys
+      - |
+        set -euo pipefail
+        export COMPOSE_PROJECT_NAME='{{.PROJECT}}'
+        export WT_VENDOR_DIR="$({{.DEPS_CACHE}} api {{.PHP_IMAGE}})"
+        export WT_MEMORY='{{.WT_MEMORY}}'
+        export WT_CPUS='{{.WT_CPUS}}'
+        export UID_GID="$(id -u):$(id -g)"
+        compose() { docker compose -f '{{.ROOT_DIR}}/wt/docker-compose.wt.yml' "$@"; }
+
+        # Rule 2: the teardown is registered before anything starts, so it runs
+        # whatever happens next. EXIT alone — Task's shell does not accept
+        # signal names, and it fires EXIT on interrupt anyway.
+        trap 'compose down -v --remove-orphans >/dev/null 2>&1 || true' EXIT
+
+        compose up -d --wait database
+        compose run --rm --entrypoint sh php -c '
+          bin/console --env=test doctrine:database:create --no-interaction --if-not-exists -q \
+          && bin/console --env=test doctrine:schema:create --no-interaction -q \
+          && bin/phpunit {{.CLI_ARGS}}
+        '
+
+  # ===========================================================================
+  # Admin
+  # ===========================================================================
+  lint:admin:
+    desc: ESLint and tsc on this worktree
+    deps: [guard]
+    cmds:
+      - |
+        set -euo pipefail
+        MODULES="$({{.DEPS_CACHE}} admin {{.NODE_IMAGE}})"
+        NPM_CACHE="$(task wt:cache:path)/npm"
+        docker run --rm \
+          --memory {{.WT_MEMORY}} --cpus {{.WT_CPUS}} \
+          -u $(id -u):$(id -g) \
+          -e HOME=/tmp -e npm_config_cache=/tmp/npm-cache -e npm_config_update_notifier=false \
+          -v "{{.ROOT_DIR}}/admin":/app \
+          -v "$MODULES":/app/node_modules:ro \
+          -v "$NPM_CACHE":/tmp/npm-cache \
+          -w /app {{.NODE_IMAGE}} \
+          sh -c 'npm run lint && npm run typecheck'
+
+  test:admin:
+    desc: Vitest on this worktree
+    deps: [guard]
+    cmds:
+      - |
+        set -euo pipefail
+        MODULES="$({{.DEPS_CACHE}} admin {{.NODE_IMAGE}})"
+        NPM_CACHE="$(task wt:cache:path)/npm"
+        # Vitest writes into node_modules, which is mounted read-only from the
+        # shared cache. A tmpfs covers just the two directories it needs;
+        # mode=1777 because a Docker tmpfs belongs to root and this container
+        # runs as the host user.
+        docker run --rm \
+          --memory {{.WT_MEMORY}} --cpus {{.WT_CPUS}} \
+          -u $(id -u):$(id -g) \
+          -e HOME=/tmp -e npm_config_cache=/tmp/npm-cache -e npm_config_update_notifier=false \
+          -v "{{.ROOT_DIR}}/admin":/app \
+          -v "$MODULES":/app/node_modules:ro \
+          -v "$NPM_CACHE":/tmp/npm-cache \
+          --tmpfs /app/node_modules/.vite-temp:mode=1777 \
+          --tmpfs /app/node_modules/.vite:mode=1777 \
+          -w /app {{.NODE_IMAGE}} \
+          sh -c 'npm run test -- --run {{.CLI_ARGS}}'
+
+  # ===========================================================================
+  # Agent and ciqual — a shared uv cache is enough, uv hardlinks out of it
+  # ===========================================================================
+  lint:agent:
+    desc: Ruff on this worktree's agent code
+    deps: [guard]
+    cmds:
+      - task: _uv
+        vars:
+          DIR: agent
+          COMMAND: 'uv run --extra dev ruff check app/ && uv run --extra dev ruff format --check app/'
+
+  test:agent:
+    desc: pytest on this worktree's agent code
+    deps: [guard]
+    cmds:
+      - task: _uv
+        vars:
+          DIR: agent
+          COMMAND: 'uv run --extra dev pytest -q {{.CLI_ARGS}}'
+
+  _uv:
+    internal: true
+    cmds:
+      - |
+        set -euo pipefail
+        # A host directory rather than a named volume: Docker creates a named
+        # volume owned by root, and these containers run as the host user, so
+        # uv cannot write its cache there. Creating the directory ourselves
+        # gets the ownership right, and it lands beside the other caches where
+        # `wt:cache:prune` can see it.
+        UV_CACHE="$(task wt:cache:path)/uv"
+        mkdir -p "$UV_CACHE"
+        docker run --rm \
+          --memory {{.WT_MEMORY}} --cpus {{.WT_CPUS}} \
+          -u $(id -u):$(id -g) \
+          -e HOME=/tmp -e UV_CACHE_DIR=/cache -e UV_LINK_MODE=copy \
+          -v "{{.ROOT_DIR}}/{{.DIR}}":/app \
+          -v "$UV_CACHE":/cache \
+          -w /app ghcr.io/astral-sh/uv:python3.12-alpine \
+          sh -c '{{.COMMAND}}'
+
+  # ===========================================================================
+  # Cache housekeeping
+  # ===========================================================================
+  cache:prune:
+    desc: Drop dependency cache entries unused for 14 days, keeping the 3 newest
+    cmds:
+      - '{{.DEPS_CACHE}} prune'
+
+  cache:path:
+    desc: Print where the shared dependency caches live
+    cmds:
+      - 'echo "${WT_CACHE_ROOT:-${XDG_CACHE_HOME:-$HOME/.cache}/maggie}"'
+    silent: true

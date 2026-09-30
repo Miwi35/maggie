@@ -33,7 +33,21 @@ The admin API is enabled, so a journey that needs a one-off answer can push a
 stub at runtime against `http://wiremock:8080/__admin/mappings` from inside the
 stack, and `DELETE /__admin/mappings` resets to what is on disk.
 
-Dates in the fixtures here are fixed (`2026-03-…`) rather than anchored, because
-WireMock has no access to the seed anchor. A journey asserting on imported
-Google data should pass `--now=2026-03-15T00:00:00+00:00` to `task e2e:seed` so
-the two line up.
+## Dates in these stubs
+
+They are fixed (`2026-03-…`) because WireMock has no access to the seed anchor.
+
+**Do not line them up by pinning the anchor** with `task e2e:seed -- --now=…`.
+That moves the entire seeded world into the past while the containers' clock
+stays real, so every endpoint deriving its period from `new DateTimeImmutable`
+— the finance dashboard, the daily score, "upcoming events" — returns an empty
+list. The failure is silent and CI-only.
+
+A journey that needs imported data near today should template the stub instead:
+response templating is enabled on the container, so
+
+```json
+"booking_date": "{{now offset='-3 days' format='yyyy-MM-dd'}}"
+```
+
+gives a date relative to the run, with no effect on the anchor.

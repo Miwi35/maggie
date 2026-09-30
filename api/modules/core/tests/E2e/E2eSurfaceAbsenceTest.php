@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Maggie\Core\Tests\E2e;
 
 use App\Kernel;
-use Maggie\Core\E2e\Command\E2eSeedCommand;
 use Maggie\Core\E2e\Controller\E2eLoginController;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Psr\Container\ContainerInterface;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Routing\RouteCollection;
 use Symfony\Component\Routing\RouterInterface;
@@ -101,27 +101,23 @@ final class E2eSurfaceAbsenceTest extends TestCase
     }
 
     #[DataProvider('environmentsWithoutTheRoute')]
-    public function testE2eServicesAreNotInTheContainerOutsideE2e(string $environment): void
+    public function testTheLoginControllerIsNotAServiceOutsideE2e(string $environment): void
     {
-        // The services.yaml exclude is what keeps them out. Asserting on the
-        // container catches a future e2e-only class that has neither a route
-        // nor a command — the next thing added under src/E2e/.
-        $kernel = new Kernel($environment, $environment !== 'prod');
-        $kernel->boot();
+        self::assertFalse(
+            $this->containerFor($environment)->has(E2eLoginController::class),
+            sprintf('E2eLoginController must not be a service in the "%s" environment.', $environment),
+        );
+    }
 
-        $container = $kernel->getContainer();
-        $has = [
-            E2eLoginController::class => $container->has(E2eLoginController::class),
-            E2eSeedCommand::class => $container->has(E2eSeedCommand::class),
-        ];
-        $kernel->shutdown();
-
-        foreach ($has as $class => $registered) {
-            self::assertFalse(
-                $registered,
-                sprintf('%s must not be a service in the "%s" environment.', $class, $environment),
-            );
-        }
+    public function testTheLoginControllerIsAServiceInE2e(): void
+    {
+        // The mirror that keeps the assertion above honest. It works only
+        // because controllers are made public by the
+        // `controller.service_arguments` pass — `Container::has()` answers
+        // false for any private id, so the same check on E2eSeedCommand would
+        // pass in `e2e` too and prove nothing. That command's absence is
+        // covered by the console-application cases instead.
+        self::assertTrue($this->containerFor('e2e')->has(E2eLoginController::class));
     }
 
     /** @return iterable<string, array{string}> */
@@ -130,6 +126,14 @@ final class E2eSurfaceAbsenceTest extends TestCase
         yield 'prod' => ['prod'];
         yield 'dev' => ['dev'];
         yield 'test' => ['test'];
+    }
+
+    private function containerFor(string $environment): ContainerInterface
+    {
+        $kernel = new Kernel($environment, $environment !== 'prod');
+        $kernel->boot();
+
+        return $kernel->getContainer();
     }
 
     private function routesFor(string $environment): RouteCollection

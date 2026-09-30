@@ -1,5 +1,10 @@
 version: '3'
 
+# Load guard and container limits for `task wt:*`. Declared here because Task
+# refuses `dotenv` in an included Taskfile; the values are documented in the
+# file itself.
+dotenv: ['wt/limits.env']
+
 includes:
   api:
     taskfile: ./api/Taskfile.yml
@@ -15,6 +20,8 @@ includes:
     dir: ./ciqual
   e2e:
     taskfile: ./e2e/Taskfile.yml
+  wt:
+    taskfile: ./wt/Taskfile.yml
 
 tasks:
   # ===========================================================================

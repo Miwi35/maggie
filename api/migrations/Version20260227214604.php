@@ -47,10 +47,10 @@ final class Version20260227214604 extends AbstractMigration
 
     public function down(Schema $schema): void
     {
-        // Guarded to match up(). Without this, rolling back on a database
-        // where up() no-opped would drop ciqual_alim_code — the column
-        // Version20260226230621 owns — and that migration's own down() would
-        // then fail on a column that is already gone.
+        // Guarded to match up(), so a rollback on a database where up()
+        // no-opped raises no error. It still drops ciqual_alim_code, the column
+        // Version20260226230621 owns — rolling back past this migration means
+        // rolling back that one too.
         $this->addSql('CREATE TABLE IF NOT EXISTS agent_message (id VARCHAR(26) NOT NULL, user_id VARCHAR(36) NOT NULL, role VARCHAR(20) NOT NULL, content TEXT NOT NULL, created_at TIMESTAMP(0) WITH TIME ZONE NOT NULL, PRIMARY KEY (id))');
         $this->addSql('CREATE INDEX idx_agent_message_user_created ON agent_message (user_id, created_at)');
         $this->addSql('CREATE TABLE IF NOT EXISTS ciqual_food (id UUID NOT NULL, alim_code VARCHAR(10) NOT NULL, alim_name_fr VARCHAR(255) NOT NULL, alim_group_code VARCHAR(10) DEFAULT NULL, alim_group_name_fr VARCHAR(255) DEFAULT NULL, alim_ssgroup_code VARCHAR(10) DEFAULT NULL, alim_ssgroup_name_fr VARCHAR(255) DEFAULT NULL, PRIMARY KEY (id))');

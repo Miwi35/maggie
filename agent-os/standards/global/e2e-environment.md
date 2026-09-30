@@ -114,6 +114,14 @@ value. A literal date in a fixture makes every "upcoming" query empty; a
 `+2 days` computed from `date()` makes the fixture pass on a Tuesday and fail
 across a month boundary.
 
+**Leave `--now` alone unless you know why you are moving it.** Production code
+derives its period from the real clock — `FinanceDashboardController`,
+`DailyScoreController`, `EnvelopeRepository::findForPeriod`,
+`GetUpcomingEventsTool` all call `new DateTimeImmutable()`. Anchor the seed in
+the past and every one of them returns an empty list while the data sits there,
+which is the same silent failure as a literal date, applied to the whole
+dataset. CI deliberately does not pin it.
+
 **What must not be anchored.** Anything the *production code* compares to the
 real clock: an OAuth token expiry, a bank consent validity, anything gating a
 `isExpired()` / `isUsable()` check. Anchored, a run with `--now` in the past
@@ -150,11 +158,22 @@ Simulated by one WireMock container — see
 | Edge TTS | `TTS_PROVIDER=fake` — no URL to redirect, it opens its own WebSocket |
 
 All four default to today's behaviour when unset, so dev and prod are untouched.
-Google sign-in is deliberately not stubbed: the test login replaces it.
 
-The conversation model is **not** simulated yet — MAG-95 brings
-`LLM_PROVIDER=fake`. Until then, a journey that talks to Maggie is not
-deterministic, and the smoke journey does not.
+### What can still reach the internet
+
+Two things, and a journey author should know before writing a step that touches
+them:
+
+- **Google's OAuth endpoints.** `accounts.google.com` and
+  `oauth2.googleapis.com` are hard-coded in `GoogleAuthController`,
+  `GoogleCalendarConnectController` and the client libraries' token refresh —
+  no base URL redirects them. Sign-in is fine because the test login replaces
+  it; the refresh path is fine only because the seeded token expiry is a
+  far-future literal. **A "connect Google Calendar" step would go out to the
+  real internet.** Stub it first.
+- **Anthropic.** The agent still talks to the real model, since MAG-95 has not
+  landed. A journey that talks to Maggie is therefore not deterministic, which
+  is why the smoke journey does not.
 
 ## What a new journey owes
 

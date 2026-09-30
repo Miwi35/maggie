@@ -241,7 +241,7 @@ On the stack this ticket builds, in this worktree — which is itself the proof 
 |---|---|
 | `task e2e:up` | stack up, one ephemeral port (32781), no named volume, own network |
 | `task e2e:seed` | 24 tables truncated, 61 objects, manifest written, indices rebuilt |
-| `task e2e:smoke` | **30 passed, 0 failed** |
+| `task e2e:smoke` | **31 passed, 0 failed** |
 | `task e2e:test:api` | **535 tests, 2243 assertions, 0 failures** |
 | `vendor/bin/phpstan analyse` | no errors |
 | agent `pytest` | 135 passed (7 of them new) |

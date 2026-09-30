@@ -26,15 +26,22 @@ task lint:all && task test:all
 This runs API + Admin + Agent lint and tests (excludes mobile).
 
 **In a git worktree**, `task api:test` runs against the dev stack, which mounts the main
-checkout — it would test the wrong code. Use the per-worktree e2e stack instead:
+checkout — it would test the wrong code. Use the worktree-local tasks:
 
 ```
-task e2e:up && task e2e:seed && task e2e:test:api
+task wt:phpstan -- <changed files>    # ~3 s warm, one container
+task wt:test:api                      # PHPUnit on a throwaway Postgres, ~30 s
+task wt:lint:admin && task wt:test:admin
+task wt:lint:agent && task wt:test:agent
 ```
 
-It runs on an ephemeral port with its own volumes, so it disturbs neither the dev stack
-nor another worktree's. `task e2e:down` when finished. Details:
-`agent-os/standards/global/e2e-environment.md`.
+Minimal, one shot, no published port, and a load guard that refuses to start when the
+machine is busy — exit code 75 means "push and let CI run it", not "your change is
+broken". Details: `agent-os/standards/global/worktree-checks.md`.
+
+For a journey, or anything needing the whole system, bring up the e2e stack instead:
+`task e2e:up && task e2e:seed && task e2e:smoke`, then `task e2e:down`
+(`agent-os/standards/global/e2e-environment.md`).
 
 ## Definition of Done — check before saying a ticket is finished
 

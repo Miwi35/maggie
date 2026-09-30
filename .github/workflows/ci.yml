@@ -268,17 +268,22 @@ jobs:
         run: task e2e:up
 
       - name: Seed
-        # The anchor is pinned so the WireMock fixtures, whose dates are fixed,
-        # line up with the seeded ones.
-        run: task e2e:seed -- --now=2026-03-15T00:00:00+00:00
+        # No --now. Pinning the anchor to a past date would move the whole
+        # seeded world into that month while the containers' clock stays real,
+        # so every endpoint that derives its period from `new DateTimeImmutable`
+        # — the finance dashboard, the daily score, "upcoming events" — would
+        # return an empty list in CI and only in CI. Journeys that need a fixed
+        # date should template the stub instead (response templating is on).
+        run: task e2e:seed
 
       - name: Smoke journey
         run: task e2e:smoke
 
       - name: API tests inside the stack
-        # Proof that the worktree-safe path works, and the API suite runs
-        # against a real RabbitMQ and a real Elasticsearch here rather than
-        # the in-memory transports the unit job uses.
+        # Proof that the worktree-safe path agents are told to use actually
+        # works. It is close to the api-test job by design: `when@test` still
+        # forces `in-memory://` for the async transport, which no container
+        # variable can displace, so only ELASTICSEARCH_URL really differs.
         run: task e2e:test:api
 
       - name: Stack logs

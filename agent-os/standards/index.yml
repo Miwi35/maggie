@@ -39,6 +39,8 @@ global:
     description: The e2e stack — task e2e:*, per-worktree isolation, APP_ENV=e2e, test login, app:e2e:seed and anchored fixtures, simulated external services
   real-time:
     description: Mercure SSE for all real-time — native API Platform integration
+  worktree-checks:
+    description: task wt:* — minimal one-shot containers for lint, PHPStan and tests in a worktree, load guard, lockfile-keyed shared dependency cache
   taskfile:
     description: Task runner rules — Docker-first enforcement, naming, quick reference
   testing:
