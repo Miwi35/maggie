@@ -334,11 +334,23 @@ services:
     volumes:
       - ./agent:/app:cached
       - ./api/config/jwt/e2e/public.pem:/etc/jwt/public.pem:ro
+      # The eval suite's scenarios and nothing else the agent needs — it reads
+      # them from inside this container, where the stack is reachable.
+      - ./scripts:/scripts:ro
     environment:
-      # Still the real model until MAG-95 lands the fake LLM. Journeys that
-      # talk to Maggie wait for that ticket; the rest of the stack does not.
+      # Maggie answers from agent/fixtures/fake-llm/ instead of calling Claude:
+      # a journey that talks to her is fast, free and the same every time
+      # (MAG-95). `E2E_LLM_PROVIDER=anthropic` switches this stack to the real
+      # model — what `task e2e:eval` does, and nothing else should.
+      LLM_PROVIDER: ${E2E_LLM_PROVIDER:-fake}
+      # Empty under the fake, which needs no key. Only the eval sets it.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-haiku-4-5-20251001}
+      # Passed through from the caller when set, absent otherwise — no default,
+      # because the one thing that cares is `task e2e:eval`, which has to run on
+      # the model production serves, and a value pinned here would silently win
+      # over the caller's. eval.yml reads it from infra/k8s/configmap.yaml, the
+      # only place that decides it. Under the fake it merely labels a metric.
+      ANTHROPIC_MODEL:
       OPENAI_API_KEY: e2e-openai-key
       OPENAI_BASE_URL: http://wiremock:8080/openai/v1
       # edge_tts opens its own WebSocket to Microsoft, so there is no URL to
@@ -349,6 +361,9 @@ services:
       MERCURE_PUBLIC_URL: ${E2E_BASE_URL:-http://localhost}/.well-known/mercure
       MERCURE_JWT_SECRET: e2e-mercure-secret
       SERVICE_TOKEN: e2e-service-token
+      # The eval runner logs in from inside this container, the same way any
+      # other e2e client does.
+      E2E_LOGIN_TOKEN: ${E2E_LOGIN_TOKEN:-e2e-login-token}
       DATABASE_URL: "postgresql://maggie:maggie@database:5432/maggie_e2e"
       AGENT_DATABASE_URL: "postgresql://maggie:maggie@database:5432/maggie_agent"
       RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"

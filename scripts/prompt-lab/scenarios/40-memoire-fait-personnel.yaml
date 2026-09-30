@@ -1,0 +1,20 @@
+# Memory has to be proactive: the prompt asks her to store a personal fact
+# without being told to. A model that answers warmly and stores nothing looks
+# fine in the moment and has forgotten by tomorrow.
+name: memoire-fait-personnel
+description: A personal fact mentioned in passing gets stored.
+channel: chat
+
+steps:
+  - user_message: "Au fait, je suis allergique aux fruits à coque."
+    expected_tools: [store_memory]
+    expected_behavior: >
+      Elle enregistre l'allergie comme fait personnel et répond en une phrase,
+      sans demander la permission de s'en souvenir.
+
+  - user_message: "Tu te souviens de mes allergies ?"
+    expected_tools: [search_memory]
+    expected_contains: ["coque"]
+    expected_behavior: >
+      Elle retrouve l'allergie en cherchant dans sa mémoire, et ne se contente
+      pas de la répéter depuis l'historique de la conversation.

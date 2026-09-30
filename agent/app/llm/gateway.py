@@ -5,6 +5,7 @@ import anthropic
 from app.config import settings
 from app.db.message_repository import message_repo
 from app.llm.capabilities import generate_capability_summary
+from app.llm.client import create_llm_client, llm_configured
 from app.llm.prompt_cache import build_system
 from app.llm.runner import run_tool_loop
 from app.llm.tools import ToolRouter
@@ -19,9 +20,7 @@ class LLMGateway:
     """Claude API gateway with tool use support."""
 
     def __init__(self):
-        self.client = (
-            anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key) if settings.anthropic_api_key else None
-        )
+        self.client = create_llm_client() if llm_configured() else None
         self.personality = PersonalityEngine()
         self.tool_router = ToolRouter()
         self.agent_memory = AgentMemory()

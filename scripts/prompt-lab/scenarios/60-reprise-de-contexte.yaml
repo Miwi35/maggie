@@ -1,0 +1,34 @@
+# Context resumption, on the only channel that has contexts: the streamed one.
+#
+# A fast classifier decides, before every streamed message, whether it belongs
+# to a conversation already open or starts a new one. It is a separate prompt
+# from Maggie's, cheap to get wrong and easy to miss — a Mind Panel filling up
+# with one context per message looks like a UI bug, not a prompt regression.
+name: reprise-de-contexte
+description: A follow-up joins the context the first message opened; a new subject opens its own.
+channel: stream
+
+steps:
+  - user_message: "Qu'est-ce que j'ai de prévu cette semaine ?"
+    expected_tools: [get_upcoming_events]
+    expected_context: created
+    expected_behavior: >
+      Elle répond sur l'agenda de la semaine, en français et en phrases
+      naturelles.
+
+  - user_message: "Et le cours de piano, c'est à quelle heure ?"
+    expected_context: matched
+    expected_behavior: >
+      Elle reste sur l'agenda et donne l'horaire du cours de piano, sans
+      redemander de quel cours il s'agit.
+
+  # A read and not a write: 20-courses-ajout.yaml already adds basil, and a
+  # second scenario writing the same item would leave the list depending on the
+  # order the suite ran in. `run_scenario` resets the agent's database between
+  # scenarios, never the API's.
+  - user_message: "Change de sujet : qu'est-ce qu'il y a sur ma liste de courses ?"
+    expected_tools: [get_grocery_list]
+    expected_context: created
+    expected_behavior: >
+      Elle lit la liste de courses et l'annonce — et le routeur a bien vu que
+      les courses ne sont pas l'agenda.

@@ -14,6 +14,7 @@ from app.db.context_model import ContextStatus
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
 from app.llm.capabilities import generate_capability_summary
+from app.llm.client import create_llm_client, llm_configured
 from app.llm.prompt_cache import build_system, cache_tools
 from app.llm.tools import ToolRouter
 from app.memory.agent_memory import AgentMemory
@@ -28,9 +29,7 @@ class StreamingGateway:
     """Claude API gateway with AG-UI streaming event emission."""
 
     def __init__(self):
-        self.client = (
-            anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key) if settings.anthropic_api_key else None
-        )
+        self.client = create_llm_client() if llm_configured() else None
         self.personality = PersonalityEngine()
         self.tool_router = ToolRouter()
         self.agent_memory = AgentMemory()

@@ -1,0 +1,20 @@
+# A write. The prompt's hardest rule: never confirm an action without having
+# called the tool. A model that answers "c'est ajouté !" and calls nothing is the
+# single worst failure Maggie can have, because the user believes her.
+name: courses-ajout
+description: Adding an item has to go through the tool, and the confirmation comes after.
+channel: chat
+
+steps:
+  - user_message: "Ajoute du basilic à ma liste de courses"
+    expected_tools: [add_grocery_item]
+    expected_behavior: >
+      Elle confirme l'ajout du basilic après avoir appelé l'outil, en une phrase,
+      sans demander confirmation avant d'agir.
+
+  - user_message: "Qu'est-ce qu'il y a sur ma liste ?"
+    expected_tools: [get_grocery_list]
+    expected_contains: ["basilic"]
+    expected_behavior: >
+      Elle relit la liste et le basilic y figure — la preuve que l'ajout du tour
+      précédent a bien été écrit et non seulement annoncé.

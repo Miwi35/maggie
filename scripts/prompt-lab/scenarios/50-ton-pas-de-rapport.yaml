@@ -1,0 +1,16 @@
+# The style rules, on the request that makes them hardest to keep: several
+# items, each with a date and a priority, is exactly the shape a model wants to
+# render as a bulleted table. The prompt forbids it and shows the good and bad
+# versions side by side; this is what checks the instruction still lands.
+name: ton-pas-de-rapport
+description: Several results still come back as prose, not as a report.
+channel: chat
+
+steps:
+  - user_message: "Qu'est-ce que j'ai à faire ?"
+    expected_tools: [get_tasks]
+    expected_absent: ["##", "| ", "**Priorité", "**Échéance"]
+    expected_behavior: >
+      Elle présente les tâches en phrases fluides, en français : pas de liste à
+      puces ni numérotée, pas de titre markdown, pas de gras sur les libellés
+      comme « Priorité » ou « Échéance », et pas de tableau.

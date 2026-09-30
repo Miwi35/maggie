@@ -54,8 +54,16 @@ Per ADR-005: Playwright for the web (`e2e/web/`), Maestro for the mobile app
 how the fixtures stay deterministic and which external services are simulated:
 [global/e2e-environment](e2e-environment.md).
 
-**The browser and emulator harnesses do not exist yet** (MAG-95 fake LLM, MAG-97
-Playwright, MAG-98 Maestro). Until they land, a ticket satisfies this rule by:
+**The fake LLM exists** (MAG-95): the stack runs on `LLM_PROVIDER=fake`, so a
+journey can talk to Maggie deterministically. It replaces the model and nothing
+else — the tool loop, the streaming gateway and MCP are the production ones.
+Judgement (tone, tool choice, keeping the thread) is checked separately by the
+eval suite, `task e2e:eval`, on the real model, nightly and outside CI. An
+assertion that would hold with any plausible wording belongs in a journey with
+the fake, not in the eval.
+
+**The browser and emulator harnesses do not exist yet** (MAG-97 Playwright,
+MAG-98 Maestro). Until they land, a ticket satisfies this rule by:
 
 - a `## E2E journey` section in its `plan.md`, written as Given / When / Then steps
   precise enough to be transcribed into a Playwright spec or a Maestro flow without

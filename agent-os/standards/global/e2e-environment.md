@@ -1,9 +1,10 @@
 # The E2E Environment
 
 An isolated stack, deterministic data, a login that does not go through Google,
-and stand-ins for every external service. One per git worktree, so parallel
-agents never collide. Built by MAG-94; the browser and emulator harnesses that
-sit on top are MAG-97 and MAG-98.
+and stand-ins for every external service — the model included. One per git
+worktree, so parallel agents never collide. Built by MAG-94, with the fake LLM
+and the eval suite from MAG-95; the browser and emulator harnesses that sit on
+top are MAG-97 and MAG-98.
 
 Read this before writing anything that runs against the stack. The Definition of
 Done itself lives in [testing.md](testing.md).
@@ -13,8 +14,10 @@ Done itself lives in [testing.md](testing.md).
 | Command | What it does |
 |---|---|
 | `task e2e:up` | Build, install, clear cache, migrate, print the URL |
-| `task e2e:seed` | Reset the database to the fixture set, rebuild and refresh the search indices |
+| `task e2e:seed` | Reset the database to the fixture set, empty the agent's own tables, rebuild and refresh the search indices |
 | `task e2e:smoke` | Run the smoke journey against the running stack |
+| `task e2e:eval` | Replay the prompt-lab scenarios on the **real** model — see below |
+| `task e2e:eval:check` | Check those scenarios parse, without calling the model |
 | `task e2e:test:api` | PHPUnit **inside** this worktree's stack |
 | `task e2e:down` | Remove containers, network and volumes |
 | `task e2e:url` | Print the stack's URL |
@@ -156,13 +159,14 @@ Simulated by one WireMock container — see
 | Google Calendar, Google Tasks | `GOOGLE_API_BASE_URL` |
 | Whisper | `OPENAI_BASE_URL` |
 | Edge TTS | `TTS_PROVIDER=fake` — no URL to redirect, it opens its own WebSocket |
+| Anthropic | `LLM_PROVIDER=fake` — scripted answers, see below |
 
-All four default to today's behaviour when unset, so dev and prod are untouched.
+All five default to today's behaviour when unset, so dev and prod are untouched.
 
 ### What can still reach the internet
 
-Two things, and a journey author should know before writing a step that touches
-them:
+One thing, and a journey author should know before writing a step that touches
+it:
 
 - **Google's OAuth endpoints.** `accounts.google.com` and
   `oauth2.googleapis.com` are hard-coded in `GoogleAuthController`,
@@ -171,9 +175,62 @@ them:
   it; the refresh path is fine only because the seeded token expiry is a
   far-future literal. **A "connect Google Calendar" step would go out to the
   real internet.** Stub it first.
-- **Anthropic.** The agent still talks to the real model, since MAG-95 has not
-  landed. A journey that talks to Maggie is therefore not deterministic, which
-  is why the smoke journey does not.
+
+## The fake LLM
+
+`LLM_PROVIDER=fake` (MAG-95), what this stack runs on. Maggie answers from the
+scenario files in `agent/fixtures/fake-llm/` — their
+[README](../../../agent/fixtures/fake-llm/README.md) is the format — instead of
+calling Claude. So a journey can talk to her and stay fast, free and the same
+every time.
+
+**Only the model is replaced.** The tool loop, the AG-UI streaming gateway, the
+MCP client and the metrics are the production ones: a scenario scripts the
+model's side of the conversation, and the tools it asks for really run against
+the real MCP server and the seeded database. `create_llm_client()` in
+`agent/app/llm/client.py` is the single switch — every call to a model goes
+through it, including the context router and the transcript cleanup, so no
+caller takes an e2e-only branch.
+
+Three things to know before writing a step that talks to her:
+
+- **Nothing matches → she says so.** The answer is `[fake-llm] aucun scénario ne
+  correspond à : '…'`, so the assertion fails on a sentence that names its own
+  cause. No catch-all ships, on purpose: a bland default would turn "nobody
+  scripted this" into a plausible wrong answer.
+- **The scripted text is a fixture, not a truth.** The fake does not read tool
+  results, so a scripted sentence cannot describe data it has not seen. Assert
+  Maggie's wording against the scenario; assert *data* against the database or
+  MCP.
+- **The scenario has to exist before the step does.** Add it to
+  `agent/fixtures/fake-llm/`, numbered so it matches before a broader one. The
+  files reload on change — no agent restart.
+
+`task e2e:seed` also empties the agent's own database (conversations, contexts,
+memory, directives), so a second run of a journey does not start with the first
+run's conversation behind it.
+
+### The eval suite
+
+The other half of the split. Judgement — right tool, right tone, keeps the
+thread — is what the fake cannot check, so it is checked separately, on the real
+model:
+
+```sh
+task e2e:eval              # all scenarios, needs ANTHROPIC_API_KEY
+task e2e:eval -- --only agenda
+task e2e:eval:check        # the scenarios parse — no key, no tokens
+```
+
+Scenarios live in `scripts/prompt-lab/scenarios/`, shared with `/prompt-lab`;
+their [README](../../../scripts/prompt-lab/scenarios/README.md) is the format.
+`task e2e:eval` restarts the agent on `LLM_PROVIDER=anthropic` and puts the fake
+back afterwards, even on failure.
+
+It runs nightly and on demand (`.github/workflows/eval.yml`), never in CI: a
+prompt regression is a signal, not a merge blocker. **An assertion that would
+hold with any plausible wording belongs in a journey with the fake instead** —
+cheaper, deterministic, and it runs on every PR.
 
 ## What a new journey owes
 

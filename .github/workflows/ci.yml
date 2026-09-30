@@ -45,6 +45,12 @@ jobs:
               - 'ciqual/**'
               - '.docker/**'
               - 'e2e/**'
+              # The eval scenarios, whose only guard is the `e2e:eval:check`
+              # step in this job. Without them here, a pull request touching
+              # nothing else skips the job, a skipped job satisfies branch
+              # protection, and a typo'd expectation merges green — to surface
+              # as a red nightly at 03:17 that looks like a prompt regression.
+              - 'scripts/prompt-lab/**'
               - 'docker-compose.e2e.yml'
               - '.github/workflows/ci.yml'
 
@@ -86,8 +92,8 @@ jobs:
           enable-cache: true
           cache-dependency-glob: agent/uv.lock
       - run: uv sync --frozen --extra dev
-      - run: uv run ruff check app/
-      - run: uv run ruff format --check app/
+      - run: uv run ruff check app/ evals/
+      - run: uv run ruff format --check app/ evals/
 
   ciqual-lint:
     name: Ciqual Lint (Ruff)
@@ -278,6 +284,13 @@ jobs:
 
       - name: Smoke journey
         run: task e2e:smoke
+
+      - name: The eval scenarios parse
+        # Cheap — no key, no model call — and the only place a scenario file
+        # that went missing or grew a typo'd expectation fails loudly. Without
+        # it the first symptom is the nightly going red at 03:17 for a reason
+        # that has nothing to do with prompts.
+        run: task e2e:eval:check
 
       - name: API tests inside the stack
         # Proof that the worktree-safe path agents are told to use actually

@@ -1,0 +1,16 @@
+# A native tool rather than an MCP one: `store_memory` is handled inside the
+# agent process, so this is the scenario that proves the fake reaches both
+# halves of the tool router.
+name: memory-allergy
+description: Store a personal fact through the agent's own memory tool.
+
+match:
+  user_contains: "allergique"
+
+turns:
+  - tools:
+      - name: store_memory
+        input:
+          content: "Allergique aux fruits à coque"
+          type: factual
+  - text: "C'est noté, je m'en souviendrai."

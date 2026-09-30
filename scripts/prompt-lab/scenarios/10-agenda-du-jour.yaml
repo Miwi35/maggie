@@ -1,0 +1,29 @@
+# Does she read the agenda before answering, and does she keep the thread?
+#
+# The prompt says it twice — "pour toute demande d'informations tu DOIS appeler
+# les outils de consultation" and "ne dis JAMAIS que tu n'as pas accès aux
+# données" — because both failures happened. This is what would catch them
+# coming back.
+name: agenda-du-jour
+description: Read the agenda through the calendar tool, then follow up on it.
+channel: chat
+
+# « cette semaine » and not « aujourd'hui »: the seeded lunch sits at the anchor
+# plus twelve hours, so `get_upcoming_events` — which counts from *now* — drops it
+# during the afternoon. An on-demand run would then report a prompt regression
+# that is really a data artefact. The recurring piano lesson is inside a 7-day
+# window at any hour.
+steps:
+  - user_message: "Qu'est-ce que j'ai de prévu cette semaine ?"
+    expected_tools: [get_upcoming_events]
+    expected_contains: ["piano"]
+    expected_absent: ["je n'ai pas accès", "je ne peux pas accéder"]
+    expected_behavior: >
+      Elle annonce les rendez-vous de la semaine en une ou deux phrases
+      naturelles, en français, sans liste à puces, sans titre markdown et sans
+      gras sur chaque libellé.
+
+  - user_message: "Et le cours de piano, c'est à quelle heure ?"
+    expected_behavior: >
+      Elle comprend que la question porte encore sur l'agenda, donne l'horaire du
+      cours de piano, et ne redemande pas de quel cours il s'agit.

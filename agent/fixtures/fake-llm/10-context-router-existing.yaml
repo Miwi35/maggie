@@ -1,0 +1,24 @@
+# The context router, when the conversation already has one.
+#
+# `_resolve_context` sends the list of active contexts as `id="<id>" label=…`,
+# and expects a JSON answer. Answering with the first id in that list is what
+# makes a follow-up message land in the same context as the one before it —
+# real context resumption, without the fake knowing an id it cannot know.
+#
+# 32 lowercase hex characters, because a conversation context's id is a
+# `uuid4().hex` and not a ULID like the API's entities — see
+# `ConversationContext.id`. A ULID pattern here matches nothing, and the only
+# symptom is a Mind Panel that opens a new context per message.
+#
+# Matched before 11-context-router-new.yaml, so "no context yet" only reaches
+# that file when the list really is empty. A journey that needs a *new* context
+# mid-run adds a scenario numbered below this one, matching its own message.
+name: context-router-existing
+description: Route a streamed message into the conversation's first active context.
+
+match:
+  system_contains: "routeur de contexte"
+  user_matches: 'id="([0-9a-f]{32})"'
+
+turns:
+  - text: '{"context_id": "\1"}'

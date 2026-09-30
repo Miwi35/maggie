@@ -1,0 +1,18 @@
+# "Add basil to the list" — a write, so a journey can assert on database state
+# afterwards rather than on Maggie's wording.
+#
+# Basil on purpose: it is a seeded ingredient (so `add_grocery_item` finds its
+# preferred store, the greengrocer, without being told) but it is *not* on the
+# seeded grocery list — so its appearance there proves the write happened,
+# which asserting on an item the seed already put there could not.
+name: grocery-add-basil
+description: Add a basil bunch to the grocery list through MCP.
+
+match:
+  user_matches: "ajoute.*basilic"
+
+turns:
+  - tools:
+      - name: add_grocery_item
+        input: {label: "Basilic", quantity: 1}
+  - text: "C'est ajouté : un bouquet de basilic, au primeur du marché."
