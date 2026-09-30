@@ -162,10 +162,12 @@ RUN mkdir -p config/jwt \
     && openssl rsa -pubout -in config/jwt/private.pem -out config/jwt/public.pem -passin pass:${JWT_PASSPHRASE} \
     && chown app:app config/jwt/private.pem config/jwt/public.pem
 
-# Run post-install scripts and warm up cache
+# Run post-install scripts and warm up the cache: the pod starts with it ready,
+# so the deploy never has to clear it (MAG-146). The build fails without it.
 ENV JWT_PASSPHRASE=${JWT_PASSPHRASE}
 RUN composer run-script --no-dev post-install-cmd \
-    && bin/console cache:warmup
+    && bin/console cache:warmup \
+    && test -d var/cache/prod
 
 # Ensure var directory permissions
 RUN chown -R app:app var

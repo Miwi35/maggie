@@ -100,7 +100,7 @@ docker/build-push-action:
    2. **Backup** — `pg_dump | gzip` into `/opt/maggie/backups`, keeping the last 10 (a failed or empty dump aborts the deploy)
    3. **Apply** — record the current revision of every deployment (`/opt/maggie/state/pre-deploy-revisions`) and the digest every image runs (`pre-deploy-digests`), bump the image tags in `kustomization.yaml` (only for images actually published for that SHA), then `kubectl apply -k`
    4. **Wait** — `rollout status` on php, nginx, worker, cron, agent, ciqual, mercure
-   5. **Post-deploy** — migrations, `cache:clear`, Elasticsearch mapping update and reindex
+   5. **Post-deploy** — migrations (no `cache:clear`: the image ships a warmed cache), Elasticsearch mapping update and reindex
    6. **Verify** — pod list plus an HTTP check on `https://maggieai.fr/api/docs`
 
 ### Smoke job (MAG-106)
@@ -120,7 +120,7 @@ Its own chat history is the only thing it writes. Unit tests of the scripts: `in
 **Runs when:** the deploy script started and failed, or the smoke job failed.
 
 1. `rollback-k3s.sh` runs `kubectl rollout undo --to-revision` on the deployments whose revision moved, using the record written before the apply. No record: nothing is undone. The record is kept when an undo fails, so the script can be run again by hand.
-2. A GitHub issue labelled `incident` is opened with the commit and run link. It says when the rollback itself failed.
+2. `open-incident.sh` opens a Linear ticket (`Bug`, Urgent, label `incident`, team Maggie) through the Linear API, with the commit, run link, failed step and revisions restored; it says when the rollback itself failed. GitHub issues are disabled on this repository, so nothing goes there. Needs the `LINEAR_API_KEY` Actions secret; the run summary carries the same text if the call fails.
 3. The run ends red.
 
 **Not reverted:** database migrations and Elasticsearch mappings. The pre-deploy dump is in `/opt/maggie/backups`.
