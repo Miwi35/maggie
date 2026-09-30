@@ -2,6 +2,7 @@
 
 namespace Maggie\Core\Mercure\Middleware;
 
+use Lcobucci\JWT\Exception as JwtException;
 use Maggie\Core\Contract\MercureActionPayload;
 use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Contract\OwnedByUserInterface;
@@ -80,6 +81,12 @@ class MercurePublishMiddleware implements MiddlewareInterface
                     }
                 }
             }
+        } catch (JwtException $e) {
+            // Not rethrown: the write is done and a worker would retry the command.
+            $this->logger->critical('Mercure updates cannot be signed, check MERCURE_JWT_SECRET (at least 32 bytes): {error}', [
+                'error' => $e->getMessage(),
+                'message' => $message::class,
+            ]);
         } catch (\Throwable $e) {
             $this->logger->error('Failed to publish Mercure update: {error}', [
                 'error' => $e->getMessage(),

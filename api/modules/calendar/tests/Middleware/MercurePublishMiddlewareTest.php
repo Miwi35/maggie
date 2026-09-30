@@ -2,6 +2,7 @@
 
 namespace Maggie\Calendar\Tests\Middleware;
 
+use Lcobucci\JWT\Signer\InvalidKeyProvided;
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Entity\Task;
@@ -37,6 +38,8 @@ use Maggie\Grocery\Message\CreateStoreCommand;
 use Maggie\Grocery\Message\DeleteStoreCommand;
 use Maggie\Grocery\Message\UpdateStoreCommand;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\AbstractLogger;
+use Psr\Log\LogLevel;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Mercure\HubInterface;
 use Symfony\Component\Mercure\Update;
@@ -594,5 +597,69 @@ class MercurePublishMiddlewareTest extends TestCase
         foreach ($this->publishedUpdates as $update) {
             self::assertTrue($update->isPrivate(), 'Update on '.implode(', ', $update->getTopics()).' is public.');
         }
+    }
+
+    // --- Failure reporting ---
+
+    /**
+     * The write has already happened when publishing fails, and a worker
+     * would retry the whole command if we threw — so nothing is rethrown, but
+     * a bad secret must not read like a hub that is merely down (MAG-141).
+     */
+    public function testAnUnsignableSecretIsLoggedAsCriticalAndNamesTheConfiguration(): void
+    {
+        $this->hub = $this->createStub(HubInterface::class);
+        $this->hub->method('publish')->willThrowException(InvalidKeyProvided::tooShort(256, 144));
+        $logger = $this->recordingLogger();
+
+        $event = $this->anEvent();
+        $envelope = (new MercurePublishMiddleware($this->hub, $this->security, $this->changesetStore, $logger))->handle(
+            $this->received(new CreateEventCommand('Meeting', $event->getStartAt(), $event->getEndAt())),
+            $this->createPassthroughStack($event),
+        );
+
+        self::assertNotNull($envelope->last(HandledStamp::class), 'The write must still succeed.');
+        self::assertCount(1, $logger->records);
+        self::assertSame(LogLevel::CRITICAL, $logger->records[0]['level']);
+        self::assertStringContainsString('MERCURE_JWT_SECRET', $logger->records[0]['message']);
+    }
+
+    public function testAnUnavailableHubStaysAnOrdinaryLoggedError(): void
+    {
+        $this->hub = $this->createStub(HubInterface::class);
+        $this->hub->method('publish')->willThrowException(new \RuntimeException('Connection refused'));
+        $logger = $this->recordingLogger();
+
+        $event = $this->anEvent();
+        (new MercurePublishMiddleware($this->hub, $this->security, $this->changesetStore, $logger))->handle(
+            $this->received(new CreateEventCommand('Meeting', $event->getStartAt(), $event->getEndAt())),
+            $this->createPassthroughStack($event),
+        );
+
+        self::assertCount(1, $logger->records);
+        self::assertSame(LogLevel::ERROR, $logger->records[0]['level']);
+    }
+
+    private function anEvent(): Event
+    {
+        $event = new Event();
+        $event->setSummary('Meeting');
+        $event->setStartAt(new \DateTimeImmutable('2026-03-20T10:00:00+01:00'));
+        $event->setEndAt(new \DateTimeImmutable('2026-03-20T11:00:00+01:00'));
+
+        return $event;
+    }
+
+    private function recordingLogger(): AbstractLogger
+    {
+        return new class extends AbstractLogger {
+            /** @var list<array{level: mixed, message: string}> */
+            public array $records = [];
+
+            public function log($level, string|\Stringable $message, array $context = []): void
+            {
+                $this->records[] = ['level' => $level, 'message' => (string) $message];
+            }
+        };
     }
 }
