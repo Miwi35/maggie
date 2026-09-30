@@ -31,12 +31,12 @@ class CreateCategorizationRuleHandler
         $category = $this->categoryRepository->find($command->categoryId)
             ?? throw new \DomainException("Category not found: {$command->categoryId}");
 
-        if ($command->labelPattern === '') {
+        if ('' === $command->labelPattern) {
             throw new \DomainException('A rule needs a label pattern to match on.');
         }
 
-        if ($command->minAmountCents !== null
-            && $command->maxAmountCents !== null
+        if (null !== $command->minAmountCents
+            && null !== $command->maxAmountCents
             && $command->minAmountCents > $command->maxAmountCents
         ) {
             throw new \DomainException('The minimum amount must not exceed the maximum amount.');

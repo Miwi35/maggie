@@ -29,11 +29,11 @@ class CreateTaskTool
     ): string {
         try {
             $user = $this->userContext->getUser();
-            if ($user === null) {
+            if (null === $user) {
                 return json_encode(['error' => MissingMcpUserException::MESSAGE], JSON_THROW_ON_ERROR);
             }
 
-            $dueDateObj = $dueDate !== null
+            $dueDateObj = null !== $dueDate
                 ? new \DateTimeImmutable($dueDate, new \DateTimeZone('Europe/Paris'))
                 : null;
 
@@ -61,6 +61,7 @@ class CreateTaskTool
             ], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
+
             return json_encode(['error' => $cause->getMessage()], JSON_THROW_ON_ERROR);
         }
     }

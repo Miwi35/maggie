@@ -159,7 +159,7 @@ class Category implements MercurePublishable, OwnedByUserInterface, IndexableInt
         return [
             'name' => $this->name,
             'obligation' => $this->obligation->value,
-            'parentId' => $this->parent !== null ? (string) $this->parent->getId() : null,
+            'parentId' => null !== $this->parent ? (string) $this->parent->getId() : null,
             'color' => $this->color,
             'icon' => $this->icon,
             'userId' => (string) $this->user->getId(),
@@ -172,7 +172,7 @@ class Category implements MercurePublishable, OwnedByUserInterface, IndexableInt
         return self::filterPayload([
             'name' => $this->name,
             'obligation' => $this->obligation->value,
-            'parentId' => $this->parent !== null ? (string) $this->parent->getId() : null,
+            'parentId' => null !== $this->parent ? (string) $this->parent->getId() : null,
             'color' => $this->color,
             'icon' => $this->icon,
         ], $changedProperties, ['parent' => 'parentId']);

@@ -20,7 +20,8 @@ final class IndexDocumentHandler
         private readonly IndexManager $indexManager,
         private readonly IndexMetadataReader $metadataReader,
         private readonly LoggerInterface $logger,
-    ) {}
+    ) {
+    }
 
     public function __invoke(IndexDocumentCommand $command): void
     {
@@ -28,11 +29,12 @@ final class IndexDocumentHandler
         $entityClass = $command->entityClass;
         $entity = $this->em->find($entityClass, $command->entityId);
 
-        if ($entity === null) {
+        if (null === $entity) {
             $this->logger->warning('Entity not found for ES indexation (may have been deleted)', [
                 'class' => $command->entityClass,
                 'id' => $command->entityId,
             ]);
+
             return;
         }
 
@@ -41,7 +43,7 @@ final class IndexDocumentHandler
         }
 
         $meta = $this->metadataReader->read($command->entityClass);
-        if ($meta === null) {
+        if (null === $meta) {
             return;
         }
 

@@ -6,9 +6,9 @@ namespace Maggie\Grocery\State;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
+use Maggie\Core\Entity\User;
 use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Message\CreateProductCommand;
-use Maggie\Core\Entity\User;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;

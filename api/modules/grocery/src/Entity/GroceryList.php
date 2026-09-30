@@ -9,9 +9,12 @@ use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
-use Maggie\Core\Contract\MercurePublishable;
-use Maggie\Grocery\Repository\GroceryListRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
+use Doctrine\DBAL\Types\Types;
+use Doctrine\ORM\Mapping as ORM;
 use Maggie\Core\Contract\IndexableInterface;
+use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Contract\OwnedByUserInterface;
 use Maggie\Core\Elasticsearch\Attribute\Indexed;
 use Maggie\Core\Elasticsearch\Attribute\IndexedField;
@@ -19,10 +22,7 @@ use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
 use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
 use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Entity\User;
-use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\Common\Collections\Collection;
-use Doctrine\DBAL\Types\Types;
-use Doctrine\ORM\Mapping as ORM;
+use Maggie\Grocery\Repository\GroceryListRepository;
 use Symfony\Component\Uid\Ulid;
 
 #[ORM\Entity(repositoryClass: GroceryListRepository::class)]
@@ -131,13 +131,13 @@ class GroceryList implements MercurePublishable, OwnedByUserInterface, Indexable
             'updatedAt' => $this->updatedAt->format('c'),
             'userId' => (string) $this->user->getId(),
             'items' => $this->items->map(fn (GroceryItem $item) => [
-                'productId' => $item->getProduct() !== null ? (string) $item->getProduct()->getId() : null,
+                'productId' => null !== $item->getProduct() ? (string) $item->getProduct()->getId() : null,
                 'customLabel' => $item->getCustomLabel(),
                 'quantity' => $item->getQuantity(),
                 'unit' => $item->getUnit()?->value,
                 'checked' => $item->isChecked(),
                 'source' => $item->getSource()->value,
-                'storeId' => $item->getStore() !== null ? (string) $item->getStore()->getId() : null,
+                'storeId' => null !== $item->getStore() ? (string) $item->getStore()->getId() : null,
                 'buyAfter' => $item->getBuyAfter()?->format('Y-m-d'),
                 'position' => $item->getPosition(),
             ])->toArray(),
@@ -155,12 +155,12 @@ class GroceryList implements MercurePublishable, OwnedByUserInterface, Indexable
                 'unit' => $item->getUnit()?->value,
                 'checked' => $item->isChecked(),
                 'source' => $item->getSource()->value,
-                'store' => $item->getStore() !== null ? [
+                'store' => null !== $item->getStore() ? [
                     'id' => (string) $item->getStore()->getId(),
                     'name' => $item->getStore()->getName(),
                     'visitOrder' => $item->getStore()->getVisitOrder(),
                 ] : null,
-                'product' => $item->getProduct() !== null ? [
+                'product' => null !== $item->getProduct() ? [
                     'id' => (string) $item->getProduct()->getId(),
                     'name' => $item->getProduct()->getName(),
                     'category' => $item->getProduct()->getCategory()->value,

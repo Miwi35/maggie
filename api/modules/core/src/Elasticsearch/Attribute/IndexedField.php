@@ -17,5 +17,6 @@ final class IndexedField
         public readonly ?string $analyzer = null,
         public readonly bool $keyword = false,
         public readonly array $properties = [],
-    ) {}
+    ) {
+    }
 }

@@ -26,7 +26,7 @@ class UpdateIngredientProcessor implements ProcessorInterface
 
         // A nullable field that was set and is now null is an explicit clear
         $clearFields = [];
-        if ($previous !== null) {
+        if (null !== $previous) {
             foreach ([
                 'defaultUnit' => 'getDefaultUnit',
                 'ciqualAlimCode' => 'getCiqualAlimCode',
@@ -35,7 +35,7 @@ class UpdateIngredientProcessor implements ProcessorInterface
                 'carbsPer100g' => 'getCarbsPer100g',
                 'fatPer100g' => 'getFatPer100g',
             ] as $field => $getter) {
-                if ($data->$getter() === null && $previous->$getter() !== null) {
+                if (null === $data->$getter() && null !== $previous->$getter()) {
                     $clearFields[] = $field;
                 }
             }

@@ -24,7 +24,7 @@ final class MaggieCookbookBundle extends AbstractBundle
                         'MaggieCookbook' => [
                             'type' => 'attribute',
                             'is_bundle' => false,
-                            'dir' => $this->getPath() . '/src/Entity',
+                            'dir' => $this->getPath().'/src/Entity',
                             'prefix' => 'Maggie\Cookbook\Entity',
                             'alias' => 'MaggieCookbook',
                         ],

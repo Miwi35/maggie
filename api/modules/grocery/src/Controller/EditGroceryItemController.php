@@ -18,7 +18,8 @@ final class EditGroceryItemController
     public function __construct(
         private readonly MessageBusInterface $messageBus,
         private readonly Security $security,
-    ) {}
+    ) {
+    }
 
     #[Route('/api/grocery/edit-item/{id}', name: 'api_grocery_edit_item', methods: ['PATCH'])]
     public function __invoke(string $id, Request $request): JsonResponse
@@ -30,7 +31,7 @@ final class EditGroceryItemController
 
         $body = json_decode($request->getContent(), true, 512, \JSON_THROW_ON_ERROR);
 
-        if (\array_key_exists('label', $body) && (!\is_string($body['label']) || $body['label'] === '')) {
+        if (\array_key_exists('label', $body) && (!\is_string($body['label']) || '' === $body['label'])) {
             return new JsonResponse(['error' => 'Label must be a non-empty string'], Response::HTTP_BAD_REQUEST);
         }
 

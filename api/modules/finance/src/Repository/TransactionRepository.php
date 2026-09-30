@@ -216,7 +216,7 @@ class TransactionRepository extends ServiceEntityRepository
             ->getResult();
 
         $spending = array_map(static fn (array $row) => [
-            'categoryId' => $row['categoryId'] === null ? null : (string) $row['categoryId'],
+            'categoryId' => null === $row['categoryId'] ? null : (string) $row['categoryId'],
             'categoryName' => $row['categoryName'],
             'spentCents' => abs((int) $row['total']),
         ], $rows);

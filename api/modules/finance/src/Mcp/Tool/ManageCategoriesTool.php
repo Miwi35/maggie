@@ -67,7 +67,7 @@ class ManageCategoriesTool
 
     private function create(?string $name, ?string $obligation, ?string $parentId, ?string $color, ?string $icon): string
     {
-        if ($name === null) {
+        if (null === $name) {
             return json_encode(['error' => 'Name is required for create.'], JSON_THROW_ON_ERROR);
         }
 
@@ -94,7 +94,7 @@ class ManageCategoriesTool
     /** @param list<string>|null $clear */
     private function update(?string $categoryId, ?string $name, ?string $obligation, ?string $parentId, ?string $color, ?string $icon, ?array $clear): string
     {
-        if ($categoryId === null) {
+        if (null === $categoryId) {
             return json_encode(['error' => 'categoryId is required for update.'], JSON_THROW_ON_ERROR);
         }
 
@@ -119,7 +119,7 @@ class ManageCategoriesTool
 
     private function delete(?string $categoryId): string
     {
-        if ($categoryId === null) {
+        if (null === $categoryId) {
             return json_encode(['error' => 'categoryId is required for delete.'], JSON_THROW_ON_ERROR);
         }
 
@@ -135,7 +135,7 @@ class ManageCategoriesTool
             'id' => (string) $category->getId(),
             'name' => $category->getName(),
             'obligation' => $category->getObligation()->value,
-            'parentId' => $category->getParent() !== null ? (string) $category->getParent()->getId() : null,
+            'parentId' => null !== $category->getParent() ? (string) $category->getParent()->getId() : null,
             'color' => $category->getColor(),
             'icon' => $category->getIcon(),
         ];

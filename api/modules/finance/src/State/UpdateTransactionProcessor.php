@@ -30,10 +30,10 @@ class UpdateTransactionProcessor implements ProcessorInterface
             status: $data->getStatus()->value,
             currency: $data->getCurrency(),
             isExceptional: $data->isExceptional(),
-            categoryId: $data->getCategory() !== null ? (string) $data->getCategory()->getId() : null,
+            categoryId: null !== $data->getCategory() ? (string) $data->getCategory()->getId() : null,
             retrospect: $data->getRetrospect()->value,
             // A null category after the merge-patch is an explicit clear
-            clearFields: $data->getCategory() === null ? ['categoryId'] : [],
+            clearFields: null === $data->getCategory() ? ['categoryId'] : [],
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();

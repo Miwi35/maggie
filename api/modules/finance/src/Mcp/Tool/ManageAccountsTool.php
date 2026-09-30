@@ -68,7 +68,7 @@ class ManageAccountsTool
 
     private function create(?string $name, ?string $type, ?string $bank, ?string $currency, ?int $balanceCents, ?bool $isCushion): string
     {
-        if ($name === null) {
+        if (null === $name) {
             return json_encode(['error' => 'Name is required for create.'], JSON_THROW_ON_ERROR);
         }
 
@@ -96,7 +96,7 @@ class ManageAccountsTool
     /** @param list<string>|null $clear */
     private function update(?string $accountId, ?string $name, ?string $type, ?string $bank, ?string $currency, ?int $balanceCents, ?bool $isCushion, ?array $clear): string
     {
-        if ($accountId === null) {
+        if (null === $accountId) {
             return json_encode(['error' => 'accountId is required for update.'], JSON_THROW_ON_ERROR);
         }
 
@@ -122,7 +122,7 @@ class ManageAccountsTool
 
     private function delete(?string $accountId): string
     {
-        if ($accountId === null) {
+        if (null === $accountId) {
             return json_encode(['error' => 'accountId is required for delete.'], JSON_THROW_ON_ERROR);
         }
 

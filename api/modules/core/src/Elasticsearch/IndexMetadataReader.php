@@ -18,7 +18,7 @@ final class IndexMetadataReader
         $ref = new \ReflectionClass($className);
         $indexedAttrs = $ref->getAttributes(Indexed::class);
 
-        if ($indexedAttrs === []) {
+        if ([] === $indexedAttrs) {
             return null;
         }
 
@@ -34,16 +34,16 @@ final class IndexMetadataReader
                 $mapping = ['type' => $field->type];
 
                 // boost is query-time only — not included in ES mapping
-                if ($field->boost !== null) {
+                if (null !== $field->boost) {
                     $boosts[$fieldName] = $field->boost;
                 }
-                if ($field->analyzer !== null) {
+                if (null !== $field->analyzer) {
                     $mapping['analyzer'] = $field->analyzer;
                 }
-                if ($field->keyword && $field->type === 'text') {
+                if ($field->keyword && 'text' === $field->type) {
                     $mapping['fields'] = ['keyword' => ['type' => 'keyword', 'ignore_above' => 256]];
                 }
-                if ($field->properties !== []) {
+                if ([] !== $field->properties) {
                     $mapping['properties'] = $field->properties;
                 }
 
@@ -61,23 +61,23 @@ final class IndexMetadataReader
 
         // Also check parent class properties (for inheritance like Meal extends Event)
         $parent = $ref->getParentClass();
-        while ($parent !== false) {
+        while (false !== $parent) {
             foreach ($parent->getProperties() as $prop) {
                 foreach ($prop->getAttributes(IndexedField::class) as $fieldAttr) {
                     $field = $fieldAttr->newInstance();
                     $fieldName = $field->name ?? $prop->getName();
                     if (!isset($fields[$fieldName])) {
                         $mapping = ['type' => $field->type];
-                        if ($field->boost !== null) {
+                        if (null !== $field->boost) {
                             $boosts[$fieldName] = $field->boost;
                         }
-                        if ($field->analyzer !== null) {
+                        if (null !== $field->analyzer) {
                             $mapping['analyzer'] = $field->analyzer;
                         }
-                        if ($field->keyword && $field->type === 'text') {
+                        if ($field->keyword && 'text' === $field->type) {
                             $mapping['fields'] = ['keyword' => ['type' => 'keyword', 'ignore_above' => 256]];
                         }
-                        if ($field->properties !== []) {
+                        if ([] !== $field->properties) {
                             $mapping['properties'] = $field->properties;
                         }
                         $fields[$fieldName] = $mapping;
@@ -113,13 +113,13 @@ final class IndexMetadataReader
     {
         $meta = $this->read($className);
 
-        return $meta !== null ? $meta['fields'] : [];
+        return null !== $meta ? $meta['fields'] : [];
     }
 
     public function getIndexName(string $className): ?string
     {
         $meta = $this->read($className);
 
-        return $meta !== null ? $meta['index'] : null;
+        return null !== $meta ? $meta['index'] : null;
     }
 }

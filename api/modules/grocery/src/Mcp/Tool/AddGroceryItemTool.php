@@ -54,6 +54,7 @@ class AddGroceryItemTool
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
+
             return json_encode(['error' => $cause->getMessage()], JSON_THROW_ON_ERROR);
         }
     }

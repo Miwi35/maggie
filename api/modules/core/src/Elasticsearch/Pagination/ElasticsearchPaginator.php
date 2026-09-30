@@ -21,7 +21,8 @@ final class ElasticsearchPaginator implements PaginatorInterface, \IteratorAggre
         private readonly float $currentPage,
         private readonly float $itemsPerPage,
         private readonly float $totalItems,
-    ) {}
+    ) {
+    }
 
     public function getCurrentPage(): float
     {

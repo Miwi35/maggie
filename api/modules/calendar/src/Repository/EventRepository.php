@@ -2,14 +2,14 @@
 
 namespace Maggie\Calendar\Repository;
 
-use Maggie\Calendar\Entity\Agenda;
-use Maggie\Calendar\Entity\Event;
-use Maggie\Calendar\Enum\EventStatus;
-use Maggie\Core\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
+use Maggie\Calendar\Entity\Agenda;
+use Maggie\Calendar\Entity\Event;
+use Maggie\Calendar\Enum\EventStatus;
+use Maggie\Core\Entity\User;
 
 /**
  * @extends ServiceEntityRepository<Event>

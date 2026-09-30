@@ -38,7 +38,7 @@ final class TransactionAccountFilterTest extends WebTestCase
     {
         $this->loadWorld();
 
-        $labels = $this->get('/api/transactions?account=' . rawurlencode('/api/accounts/' . $this->account('filter_account')->getId()));
+        $labels = $this->get('/api/transactions?account='.rawurlencode('/api/accounts/'.$this->account('filter_account')->getId()));
 
         self::assertSame(['On account A'], $labels);
     }
@@ -53,7 +53,7 @@ final class TransactionAccountFilterTest extends WebTestCase
     {
         $this->loadWorld();
 
-        $labels = $this->get('/api/transactions?account=' . $this->account('filter_other_account')->getId());
+        $labels = $this->get('/api/transactions?account='.$this->account('filter_other_account')->getId());
 
         self::assertSame(['On account B'], $labels);
     }
@@ -67,7 +67,7 @@ final class TransactionAccountFilterTest extends WebTestCase
     {
         $this->loadWorld();
 
-        $labels = $this->get('/api/transactions?account=' . rawurlencode('/api/accounts/not-a-ulid'));
+        $labels = $this->get('/api/transactions?account='.rawurlencode('/api/accounts/not-a-ulid'));
 
         self::assertSame([], $labels, 'An unparseable account returned transactions. Returning the unfiltered collection here puts one account\'s history on another account\'s screen.');
     }
@@ -76,7 +76,7 @@ final class TransactionAccountFilterTest extends WebTestCase
     {
         $this->loadWorld();
 
-        $labels = $this->get('/api/transactions?account=' . rawurlencode('/api/accounts/01ARZ3NDEKTSV4RRFFQ69G5FAV'));
+        $labels = $this->get('/api/transactions?account='.rawurlencode('/api/accounts/01ARZ3NDEKTSV4RRFFQ69G5FAV'));
 
         self::assertSame([], $labels);
     }
@@ -90,7 +90,7 @@ final class TransactionAccountFilterTest extends WebTestCase
     {
         $this->loadWorld();
 
-        $labels = $this->get('/api/transactions?account[]=' . rawurlencode('/api/accounts/' . $this->account('filter_account')->getId()));
+        $labels = $this->get('/api/transactions?account[]='.rawurlencode('/api/accounts/'.$this->account('filter_account')->getId()));
 
         self::assertSame([], $labels, 'An array-shaped account parameter was ignored, and the response carried every account\'s transactions.');
     }
@@ -122,7 +122,7 @@ final class TransactionAccountFilterTest extends WebTestCase
         // The Contract suite's fixture: two accounts, one transaction each.
         // Shared rather than copied so the filter and its contract test
         // cannot drift into describing different worlds.
-        $this->loadFixtures(\dirname(__DIR__, 4) . '/tests/Contract/fixtures/QueryParameters.yaml');
+        $this->loadFixtures(\dirname(__DIR__, 4).'/tests/Contract/fixtures/QueryParameters.yaml');
 
         $user = $this->getFixture('filter_user');
         self::assertInstanceOf(User::class, $user);

@@ -12,30 +12,30 @@ use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
+use Doctrine\DBAL\Types\Types;
+use Doctrine\ORM\Mapping as ORM;
 use Maggie\Calendar\Enum\EventStatus;
-use Maggie\Core\Contract\MercurePublishable;
-use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Calendar\Repository\EventRepository;
+use Maggie\Calendar\State\CreateEventProcessor;
+use Maggie\Calendar\State\DeleteEventProcessor;
+use Maggie\Calendar\State\UpdateEventProcessor;
 use Maggie\Calendar\Trait\HasGoogleEventTrackingTrait;
 use Maggie\Core\Contract\IndexableInterface;
+use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Contract\OwnedThroughInterface;
 use Maggie\Core\Elasticsearch\Attribute\Indexed;
 use Maggie\Core\Elasticsearch\Attribute\IndexedField;
 use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
 use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
 use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
-use Maggie\Calendar\State\CreateEventProcessor;
-use Maggie\Calendar\State\DeleteEventProcessor;
-use Maggie\Calendar\State\UpdateEventProcessor;
-use Doctrine\DBAL\Types\Types;
-use Doctrine\ORM\Mapping as ORM;
+use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: EventRepository::class)]
-#[ORM\InheritanceType("JOINED")]
-#[ORM\DiscriminatorColumn(name: "dtype", type: "string", length: 20)]
-#[ORM\DiscriminatorMap(["event" => Event::class])]
+#[ORM\InheritanceType('JOINED')]
+#[ORM\DiscriminatorColumn(name: 'dtype', type: 'string', length: 20)]
+#[ORM\DiscriminatorMap(['event' => Event::class])]
 #[ORM\Index(columns: ['start_at', 'end_at'], name: 'idx_event_dates')]
 #[ORM\Index(columns: ['status'], name: 'idx_event_status')]
 #[ORM\UniqueConstraint(name: 'uniq_google_event_agenda', columns: ['google_event_id', 'agenda_id'])]
@@ -59,7 +59,6 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
     {
         return 'agenda';
     }
-
 
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
@@ -115,6 +114,7 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
 
     /**
      * Reminders as JSON: {useDefault: bool, overrides: [{method: "popup"|"email", minutes: int}]}
+     *
      * @var array<string, mixed>|null
      */
     #[ORM\Column(type: Types::JSON, nullable: true)]
@@ -296,12 +296,12 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
 
     public function isRecurring(): bool
     {
-        return $this->rrule !== null;
+        return null !== $this->rrule;
     }
 
     public function isException(): bool
     {
-        return $this->recurringEvent !== null;
+        return null !== $this->recurringEvent;
     }
 
     /** @return array<string, mixed> */

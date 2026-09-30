@@ -18,7 +18,8 @@ final class RemoveGroceryItemController
     public function __construct(
         private readonly MessageBusInterface $messageBus,
         private readonly Security $security,
-    ) {}
+    ) {
+    }
 
     #[Route('/api/grocery_items/{id}', name: 'api_grocery_item_remove', methods: ['DELETE'])]
     public function __invoke(string $id): JsonResponse

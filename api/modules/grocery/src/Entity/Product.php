@@ -12,15 +12,9 @@ use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
-use Maggie\Core\Contract\MercurePublishable;
-use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
-use Maggie\Grocery\Enum\ProductCategory;
-use Maggie\Grocery\Enum\Unit;
-use Maggie\Grocery\Repository\ProductRepository;
-use Maggie\Grocery\State\CreateProductProcessor;
-use Maggie\Grocery\State\DeleteProductProcessor;
-use Maggie\Grocery\State\UpdateProductProcessor;
+use Doctrine\ORM\Mapping as ORM;
 use Maggie\Core\Contract\IndexableInterface;
+use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Contract\OwnedByUserInterface;
 use Maggie\Core\Elasticsearch\Attribute\Indexed;
 use Maggie\Core\Elasticsearch\Attribute\IndexedField;
@@ -28,14 +22,20 @@ use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
 use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
 use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Entity\User;
-use Doctrine\ORM\Mapping as ORM;
+use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
+use Maggie\Grocery\Enum\ProductCategory;
+use Maggie\Grocery\Enum\Unit;
+use Maggie\Grocery\Repository\ProductRepository;
+use Maggie\Grocery\State\CreateProductProcessor;
+use Maggie\Grocery\State\DeleteProductProcessor;
+use Maggie\Grocery\State\UpdateProductProcessor;
 use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: ProductRepository::class)]
-#[ORM\InheritanceType("SINGLE_TABLE")]
-#[ORM\DiscriminatorColumn(name: "dtype", type: "string", length: 20)]
-#[ORM\DiscriminatorMap(["product" => Product::class])]
+#[ORM\InheritanceType('SINGLE_TABLE')]
+#[ORM\DiscriminatorColumn(name: 'dtype', type: 'string', length: 20)]
+#[ORM\DiscriminatorMap(['product' => Product::class])]
 #[ApiFilter(OrderFilter::class, properties: ['name'])]
 #[Indexed(index: 'products', module: 'grocery')]
 #[ApiResource(operations: [
@@ -265,8 +265,8 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
             'proteinPer100g' => $this->proteinPer100g,
             'carbsPer100g' => $this->carbsPer100g,
             'fatPer100g' => $this->fatPer100g,
-            'preferredStoreId' => $this->preferredStore !== null ? (string) $this->preferredStore->getId() : null,
-            'fallbackStoreId' => $this->fallbackStore !== null ? (string) $this->fallbackStore->getId() : null,
+            'preferredStoreId' => null !== $this->preferredStore ? (string) $this->preferredStore->getId() : null,
+            'fallbackStoreId' => null !== $this->fallbackStore ? (string) $this->fallbackStore->getId() : null,
             'shelfLifeDays' => $this->shelfLifeDays,
         ];
     }
@@ -280,8 +280,8 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
             'proteinPer100g' => $this->proteinPer100g,
             'carbsPer100g' => $this->carbsPer100g,
             'fatPer100g' => $this->fatPer100g,
-            'preferredStoreId' => $this->preferredStore !== null ? (string) $this->preferredStore->getId() : null,
-            'fallbackStoreId' => $this->fallbackStore !== null ? (string) $this->fallbackStore->getId() : null,
+            'preferredStoreId' => null !== $this->preferredStore ? (string) $this->preferredStore->getId() : null,
+            'fallbackStoreId' => null !== $this->fallbackStore ? (string) $this->fallbackStore->getId() : null,
             'shelfLifeDays' => $this->shelfLifeDays,
         ], $changedProperties, ['preferredStore' => 'preferredStoreId', 'fallbackStore' => 'fallbackStoreId']);
     }

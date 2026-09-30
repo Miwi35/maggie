@@ -27,30 +27,30 @@ class UpdateEnvelopeHandler
         $envelope = $this->envelopeRepository->find($command->envelopeId)
             ?? throw new \DomainException("Envelope not found: {$command->envelopeId}");
 
-        if ($command->categoryId !== null) {
+        if (null !== $command->categoryId) {
             $category = $this->categoryRepository->find($command->categoryId)
                 ?? throw new \DomainException("Category not found: {$command->categoryId}");
             $envelope->setCategory($category);
         }
-        if ($command->amountCents !== null) {
+        if (null !== $command->amountCents) {
             $envelope->setAmountCents($command->amountCents);
         }
-        if ($command->year !== null) {
+        if (null !== $command->year) {
             $envelope->setYear($command->year);
         }
-        if ($command->mode !== null) {
+        if (null !== $command->mode) {
             $envelope->setMode(BudgetMode::from($command->mode));
         }
-        if ($command->month !== null) {
+        if (null !== $command->month) {
             $envelope->setMonth($command->month);
         }
-        if ($command->currency !== null) {
+        if (null !== $command->currency) {
             $envelope->setCurrency($command->currency);
         }
 
-        if ($envelope->getMode() === BudgetMode::Annual) {
+        if (BudgetMode::Annual === $envelope->getMode()) {
             $envelope->setMonth(null);
-        } elseif ($envelope->getMonth() === null) {
+        } elseif (null === $envelope->getMonth()) {
             throw new \DomainException('A monthly envelope requires a month.');
         }
 

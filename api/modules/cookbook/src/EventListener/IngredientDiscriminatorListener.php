@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Maggie\Cookbook\EventListener;
 
 use Doctrine\ORM\Event\LoadClassMetadataEventArgs;
-use Maggie\Grocery\Entity\Product;
 use Maggie\Cookbook\Entity\Ingredient;
+use Maggie\Grocery\Entity\Product;
 
 class IngredientDiscriminatorListener
 {
@@ -14,7 +14,7 @@ class IngredientDiscriminatorListener
     {
         $metadata = $event->getClassMetadata();
 
-        if ($metadata->name !== Product::class) {
+        if (Product::class !== $metadata->name) {
             return;
         }
 

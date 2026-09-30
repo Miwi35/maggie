@@ -64,16 +64,16 @@ final class CategorizationRuleSuggestionsController
         }
 
         $content = $request->getContent();
-        $body = $content === '' ? [] : json_decode($content, true, 512, \JSON_THROW_ON_ERROR);
+        $body = '' === $content ? [] : json_decode($content, true, 512, \JSON_THROW_ON_ERROR);
         $accepted = $body['rules'] ?? null;
 
-        if (!\is_array($accepted) || $accepted === []) {
+        if (!\is_array($accepted) || [] === $accepted) {
             return new JsonResponse(['error' => 'rules is required'], Response::HTTP_BAD_REQUEST);
         }
 
         $result = $this->suggestCategorizationRules->accept($user, array_values($accepted));
 
-        if ($result['created'] === 0) {
+        if (0 === $result['created']) {
             return new JsonResponse(['error' => 'No usable rule in the request.'], Response::HTTP_BAD_REQUEST);
         }
 

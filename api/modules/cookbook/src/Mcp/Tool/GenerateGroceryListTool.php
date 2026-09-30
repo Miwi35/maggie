@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Maggie\Cookbook\Mcp\Tool;
 
+use Maggie\Cookbook\Message\GenerateGroceryListCommand;
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Grocery\Entity\GroceryList;
-use Maggie\Cookbook\Message\GenerateGroceryListCommand;
 use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -41,11 +41,11 @@ class GenerateGroceryListTool
             $storeGroups = [];
             foreach ($list->getItems() as $item) {
                 $store = $item->getStore();
-                $storeKey = $store !== null ? (string) $store->getId() : '__unassigned__';
+                $storeKey = null !== $store ? (string) $store->getId() : '__unassigned__';
 
                 if (!isset($storeGroups[$storeKey])) {
                     $storeGroups[$storeKey] = [
-                        'storeId' => $store !== null ? (string) $store->getId() : null,
+                        'storeId' => null !== $store ? (string) $store->getId() : null,
                         'storeName' => $store?->getName() ?? 'Non assigné',
                         'visitOrder' => $store?->getVisitOrder() ?? PHP_INT_MAX,
                         'items' => [],
@@ -81,6 +81,7 @@ class GenerateGroceryListTool
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
+
             return json_encode(['error' => $cause->getMessage()], JSON_THROW_ON_ERROR);
         }
     }

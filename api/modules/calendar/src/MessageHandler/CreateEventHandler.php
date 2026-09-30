@@ -31,11 +31,11 @@ class CreateEventHandler
 
     public function __invoke(CreateEventCommand $command): Event
     {
-        $agenda = $command->agendaId !== null
+        $agenda = null !== $command->agendaId
             ? $this->agendaRepository->find($command->agendaId)
             : $this->findDefaultAgenda($command->userId);
 
-        if ($agenda === null || ($command->userId !== null && (string) $agenda->getUser()->getId() !== $command->userId)) {
+        if (null === $agenda || (null !== $command->userId && (string) $agenda->getUser()->getId() !== $command->userId)) {
             throw new \DomainException('No agenda found.');
         }
 
@@ -47,25 +47,25 @@ class CreateEventHandler
         $event->setAgenda($agenda);
         $event->setAllDay($command->allDay);
 
-        if ($command->description !== null) {
+        if (null !== $command->description) {
             $event->setDescription($command->description);
         }
-        if ($command->location !== null) {
+        if (null !== $command->location) {
             $event->setLocation($command->location);
         }
-        if ($command->rrule !== null) {
+        if (null !== $command->rrule) {
             $event->setRrule($command->rrule);
         }
-        if ($command->recurringEventId !== null) {
+        if (null !== $command->recurringEventId) {
             $recurringEvent = $this->eventRepository->find($command->recurringEventId);
-            if ($recurringEvent !== null) {
+            if (null !== $recurringEvent) {
                 $event->setRecurringEvent($recurringEvent);
             }
         }
-        if ($command->originalStartAt !== null) {
+        if (null !== $command->originalStartAt) {
             $event->setOriginalStartAt($command->originalStartAt);
         }
-        if ($command->status !== null) {
+        if (null !== $command->status) {
             $event->setStatus(EventStatus::from($command->status));
         }
 
@@ -89,8 +89,8 @@ class CreateEventHandler
 
     private function findDefaultAgenda(?string $userId): ?Agenda
     {
-        $user = $userId !== null ? $this->userRepository->find($userId) : null;
+        $user = null !== $userId ? $this->userRepository->find($userId) : null;
 
-        return $user !== null ? $this->agendaRepository->findDefault($user) : null;
+        return null !== $user ? $this->agendaRepository->findDefault($user) : null;
     }
 }

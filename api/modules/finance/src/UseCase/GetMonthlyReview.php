@@ -47,7 +47,7 @@ class GetMonthlyReview
                 RetrospectVerdict::Unrated => $unratedCents += $amount,
             };
 
-            if ($transaction->getRetrospect() === RetrospectVerdict::Unrated) {
+            if (RetrospectVerdict::Unrated === $transaction->getRetrospect()) {
                 $pending[] = $this->serialize($transaction);
             }
         }
@@ -69,7 +69,7 @@ class GetMonthlyReview
             'optimisationScore' => $ratedCents > 0
                 ? (int) round($keptCents / $ratedCents * 100)
                 : null,
-            'isComplete' => $pending === [] && $reviewable !== [],
+            'isComplete' => [] === $pending && [] !== $reviewable,
             'pending' => $pending,
             'comparison' => $this->compare($user, $start),
         ];
@@ -104,7 +104,7 @@ class GetMonthlyReview
             'amountCents' => $transaction->getAmountCents(),
             'currency' => $transaction->getCurrency(),
             'bookedAt' => $transaction->getBookedAt()->format('Y-m-d'),
-            'categoryId' => $transaction->getCategory() !== null
+            'categoryId' => null !== $transaction->getCategory()
                 ? (string) $transaction->getCategory()->getId()
                 : null,
             'categoryName' => $transaction->getCategory()?->getName(),

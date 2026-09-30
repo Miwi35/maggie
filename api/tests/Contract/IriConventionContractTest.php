@@ -48,14 +48,14 @@ final class IriConventionContractTest extends WebTestCase
     {
         $this->loadContractFixtures();
 
-        $event = $this->get('/api/events/' . $this->fixtureEvent()->getId());
+        $event = $this->get('/api/events/'.$this->fixtureEvent()->getId());
 
         self::assertIsString($event['agenda'], 'The agenda relation is not a string; the clients read it as an IRI.');
         self::assertStringStartsWith('/api/agendas/', $event['agenda'], sprintf(
             'The agenda relation is "%s". A client that treats it as an id and prefixes it produces "/api/agendas//api/agendas/…" — c359b43.',
             $event['agenda'],
         ));
-        self::assertSame('/api/agendas/' . $this->fixtureAgenda()->getId(), $event['agenda']);
+        self::assertSame('/api/agendas/'.$this->fixtureAgenda()->getId(), $event['agenda']);
 
         // The resource's own identifier follows the same rule.
         self::assertStringStartsWith('/api/events/', $event['@id']);
@@ -83,7 +83,7 @@ final class IriConventionContractTest extends WebTestCase
     {
         $this->loadContractFixtures();
 
-        $agendaIri = $this->get('/api/events/' . $this->fixtureEvent()->getId())['agenda'];
+        $agendaIri = $this->get('/api/events/'.$this->fixtureEvent()->getId())['agenda'];
 
         $this->client->request('POST', '/api/events', [], [], array_merge([
             'CONTENT_TYPE' => 'application/ld+json',
@@ -110,9 +110,9 @@ final class IriConventionContractTest extends WebTestCase
         $this->loadContractFixtures();
 
         $event = $this->fixtureEvent();
-        $agendaIri = $this->get('/api/events/' . $event->getId())['agenda'];
+        $agendaIri = $this->get('/api/events/'.$event->getId())['agenda'];
 
-        $this->client->request('PATCH', '/api/events/' . $event->getId(), [], [], array_merge([
+        $this->client->request('PATCH', '/api/events/'.$event->getId(), [], [], array_merge([
             'CONTENT_TYPE' => 'application/merge-patch+json',
             'HTTP_ACCEPT' => 'application/ld+json',
         ], $this->authHeaders()), json_encode(['agenda' => $agendaIri], \JSON_THROW_ON_ERROR));
@@ -133,7 +133,7 @@ final class IriConventionContractTest extends WebTestCase
     {
         $this->loadContractFixtures();
 
-        $agendaIri = $this->get('/api/events/' . $this->fixtureEvent()->getId())['agenda'];
+        $agendaIri = $this->get('/api/events/'.$this->fixtureEvent()->getId())['agenda'];
 
         $this->client->request('POST', '/api/events', [], [], array_merge([
             'CONTENT_TYPE' => 'application/ld+json',
@@ -142,12 +142,12 @@ final class IriConventionContractTest extends WebTestCase
             'summary' => 'Created with a doubled prefix',
             'startAt' => '2026-04-01T09:00:00+00:00',
             'endAt' => '2026-04-01T10:00:00+00:00',
-            'agenda' => '/api/agendas' . $agendaIri,
+            'agenda' => '/api/agendas'.$agendaIri,
         ], \JSON_THROW_ON_ERROR));
 
         self::assertGreaterThanOrEqual(400, $this->client->getResponse()->getStatusCode(), sprintf(
             'The API accepted "%s", an IRI that had been prefixed a second time. Accepting both spellings is how the clients end up disagreeing about which one is the contract.',
-            '/api/agendas' . $agendaIri,
+            '/api/agendas'.$agendaIri,
         ));
     }
 
@@ -195,7 +195,7 @@ final class IriConventionContractTest extends WebTestCase
         $decoded = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
         self::assertIsArray($decoded);
 
-        /** @var array<string, mixed> $decoded */
+        /* @var array<string, mixed> $decoded */
         return $decoded;
     }
 }

@@ -29,7 +29,7 @@ class TaskApiTest extends WebTestCase
     /** @param array<string, mixed> $payload */
     private function patchTask(Task $task, array $payload): void
     {
-        $this->client->request('PATCH', '/api/tasks/' . $task->getId(), [], [], array_merge([
+        $this->client->request('PATCH', '/api/tasks/'.$task->getId(), [], [], array_merge([
             'CONTENT_TYPE' => 'application/merge-patch+json',
             'HTTP_ACCEPT' => 'application/ld+json',
         ], $this->authHeaders()), json_encode($payload, JSON_THROW_ON_ERROR));
@@ -55,7 +55,7 @@ class TaskApiTest extends WebTestCase
     {
         $task = $this->loadDoneTask();
 
-        $this->client->request('PATCH', '/api/tasks/' . $task->getId(), [], [], [
+        $this->client->request('PATCH', '/api/tasks/'.$task->getId(), [], [], [
             'CONTENT_TYPE' => 'application/merge-patch+json',
         ], json_encode(['completedAt' => null], JSON_THROW_ON_ERROR));
 

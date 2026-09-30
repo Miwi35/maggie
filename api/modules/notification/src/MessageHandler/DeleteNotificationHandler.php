@@ -21,7 +21,7 @@ class DeleteNotificationHandler
     public function __invoke(DeleteNotificationCommand $command): void
     {
         $notification = $this->notificationRepository->find($command->notificationId);
-        if ($notification === null) {
+        if (null === $notification) {
             throw new \DomainException("Notification not found: {$command->notificationId}");
         }
 

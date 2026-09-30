@@ -49,18 +49,18 @@ final class E2eLoginController
     #[Route('/api/auth/e2e/login', name: 'auth_e2e_login', methods: ['POST'])]
     public function __invoke(Request $request): JsonResponse
     {
-        if ($this->environment !== 'e2e') {
+        if ('e2e' !== $this->environment) {
             throw new NotFoundHttpException();
         }
 
-        if ($this->e2eLoginToken === '' || !hash_equals($this->e2eLoginToken, (string) $request->headers->get('X-E2E-Token'))) {
+        if ('' === $this->e2eLoginToken || !hash_equals($this->e2eLoginToken, (string) $request->headers->get('X-E2E-Token'))) {
             return new JsonResponse(['error' => 'Invalid e2e token'], Response::HTTP_UNAUTHORIZED);
         }
 
         $data = json_decode((string) $request->getContent(), true);
         $email = \is_array($data) ? ($data['email'] ?? null) : null;
 
-        if (!\is_string($email) || $email === '') {
+        if (!\is_string($email) || '' === $email) {
             return new JsonResponse(['error' => 'Missing email'], Response::HTTP_BAD_REQUEST);
         }
 

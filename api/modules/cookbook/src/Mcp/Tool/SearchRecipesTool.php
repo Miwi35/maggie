@@ -28,9 +28,9 @@ class SearchRecipesTool
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
         }
 
-        if ($query !== null) {
+        if (null !== $query) {
             $recipes = $this->recipeRepository->searchByName($user, $query);
-        } elseif ($tag !== null) {
+        } elseif (null !== $tag) {
             $recipes = $this->recipeRepository->searchByTags($user, $tag);
         } else {
             return json_encode(['error' => 'Provide either query or tag parameter'], JSON_THROW_ON_ERROR);

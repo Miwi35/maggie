@@ -24,7 +24,7 @@ final class MaggieNotificationBundle extends AbstractBundle
                         'MaggieNotification' => [
                             'type' => 'attribute',
                             'is_bundle' => false,
-                            'dir' => $this->getPath() . '/src/Entity',
+                            'dir' => $this->getPath().'/src/Entity',
                             'prefix' => 'Maggie\Notification\Entity',
                             'alias' => 'MaggieNotification',
                         ],

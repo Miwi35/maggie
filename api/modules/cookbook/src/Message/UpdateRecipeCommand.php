@@ -11,9 +11,9 @@ final readonly class UpdateRecipeCommand
     use ClearsFieldsTrait;
 
     /**
-     * @param string[]|null $tags
+     * @param string[]|null                                                                                    $tags
      * @param array<array{quantity: float, unit: string, ingredientId?: string, ciqualAlimCode?: string}>|null $ingredients
-     * @param list<'notes'> $clearFields
+     * @param list<'notes'>                                                                                    $clearFields
      */
     public function __construct(
         public string $recipeId,

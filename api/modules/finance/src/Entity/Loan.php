@@ -118,7 +118,7 @@ class Loan implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
     /** Interest owed for one month on a given capital, in cents. */
     public function monthlyInterestOn(int $principalCents): int
     {
-        if ($this->annualRateBasisPoints === 0) {
+        if (0 === $this->annualRateBasisPoints) {
             return 0;
         }
 

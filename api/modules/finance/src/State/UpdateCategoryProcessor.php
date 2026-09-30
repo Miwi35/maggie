@@ -28,7 +28,7 @@ class UpdateCategoryProcessor implements ProcessorInterface
             'color' => $data->getColor(),
             'icon' => $data->getIcon(),
         ] as $field => $value) {
-            if ($value === null) {
+            if (null === $value) {
                 $clearFields[] = $field;
             }
         }
@@ -37,7 +37,7 @@ class UpdateCategoryProcessor implements ProcessorInterface
             categoryId: (string) $data->getId(),
             name: $data->getName(),
             obligation: $data->getObligation()->value,
-            parentId: $data->getParent() !== null ? (string) $data->getParent()->getId() : null,
+            parentId: null !== $data->getParent() ? (string) $data->getParent()->getId() : null,
             color: $data->getColor(),
             icon: $data->getIcon(),
             clearFields: $clearFields,

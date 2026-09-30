@@ -28,30 +28,30 @@ class UpdateTaskHandler
     public function __invoke(UpdateTaskCommand $command): Task
     {
         $task = $this->taskRepository->find($command->taskId);
-        if ($task === null) {
+        if (null === $task) {
             throw new \DomainException("Task not found: {$command->taskId}");
         }
 
-        if ($command->title !== null) {
+        if (null !== $command->title) {
             $task->setTitle($command->title);
         }
-        if ($command->description !== null) {
+        if (null !== $command->description) {
             $task->setDescription($command->description);
         } elseif ($command->clears('description')) {
             $task->setDescription(null);
         }
-        if ($command->priority !== null) {
+        if (null !== $command->priority) {
             $task->setPriority(TaskPriority::from($command->priority));
         }
-        if ($command->criticality !== null) {
+        if (null !== $command->criticality) {
             $task->setCriticality(TaskCriticality::from($command->criticality));
         }
-        if ($command->dueDate !== null) {
+        if (null !== $command->dueDate) {
             $task->setDueDate($command->dueDate);
         } elseif ($command->clears('dueDate')) {
             $task->setDueDate(null);
         }
-        if ($command->completedAt !== null) {
+        if (null !== $command->completedAt) {
             $task->setCompletedAt($command->completedAt);
         } elseif ($command->clears('completedAt')) {
             $task->setCompletedAt(null);
@@ -59,16 +59,16 @@ class UpdateTaskHandler
 
         // Track which fields were explicitly set in the command
         $changedFields = [];
-        if ($command->title !== null) {
+        if (null !== $command->title) {
             $changedFields[] = 'title';
         }
-        if ($command->description !== null || $command->clears('description')) {
+        if (null !== $command->description || $command->clears('description')) {
             $changedFields[] = 'description';
         }
-        if ($command->dueDate !== null || $command->clears('dueDate')) {
+        if (null !== $command->dueDate || $command->clears('dueDate')) {
             $changedFields[] = 'dueDate';
         }
-        if ($command->completedAt !== null || $command->clears('completedAt')) {
+        if (null !== $command->completedAt || $command->clears('completedAt')) {
             $changedFields[] = 'completedAt';
         }
 

@@ -32,7 +32,7 @@ class GetTasksToolTest extends KernelTestCase
         $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
 
         self::assertSame('pending', $data['status']);
-        $titles = array_map(fn($t) => $t['title'], $data['tasks']);
+        $titles = array_map(fn ($t) => $t['title'], $data['tasks']);
         self::assertContains('Pending task', $titles);
         self::assertNotContains('Done task', $titles);
     }
@@ -77,7 +77,7 @@ class GetTasksToolTest extends KernelTestCase
         // Find the task_future fixture (has all fields populated)
         $fullTask = null;
         foreach ($data['tasks'] as $task) {
-            if ($task['title'] === 'Future task') {
+            if ('Future task' === $task['title']) {
                 $fullTask = $task;
                 break;
             }

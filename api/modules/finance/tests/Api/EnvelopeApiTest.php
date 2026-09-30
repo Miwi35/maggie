@@ -36,7 +36,7 @@ class EnvelopeApiTest extends WebTestCase
             'CONTENT_TYPE' => 'application/ld+json',
             'HTTP_ACCEPT' => 'application/ld+json',
         ], json_encode([
-            'category' => '/api/categories/' . $category->getId(),
+            'category' => '/api/categories/'.$category->getId(),
             'amountCents' => 15000,
             'year' => 2026,
             'month' => 8,
@@ -58,7 +58,7 @@ class EnvelopeApiTest extends WebTestCase
             'CONTENT_TYPE' => 'application/ld+json',
             'HTTP_ACCEPT' => 'application/ld+json',
         ], $this->authHeaders()), json_encode([
-            'category' => '/api/categories/' . $category->getId(),
+            'category' => '/api/categories/'.$category->getId(),
             'mode' => 'monthly',
             'amountCents' => 15000,
             'currency' => 'EUR',
@@ -94,7 +94,7 @@ class EnvelopeApiTest extends WebTestCase
             'HTTP_ACCEPT' => 'application/ld+json',
         ], $this->authHeaders()), json_encode([
             // 'month' missing while the default mode is monthly
-            'category' => '/api/categories/' . $category->getId(),
+            'category' => '/api/categories/'.$category->getId(),
             'amountCents' => 15000,
             'year' => 2026,
         ], JSON_THROW_ON_ERROR));
@@ -115,7 +115,7 @@ class EnvelopeApiTest extends WebTestCase
             'CONTENT_TYPE' => 'application/ld+json',
             'HTTP_ACCEPT' => 'application/ld+json',
         ], $this->authHeaders()), json_encode([
-            'category' => '/api/categories/' . $category->getId(),
+            'category' => '/api/categories/'.$category->getId(),
             'mode' => 'annual',
             'amountCents' => 120000,
             'year' => 2026,
@@ -135,7 +135,7 @@ class EnvelopeApiTest extends WebTestCase
         $envelope = $this->getFixture('food_july');
         $envelopeId = $envelope->getId();
 
-        $this->client->request('PATCH', '/api/envelopes/' . $envelopeId, [], [], array_merge([
+        $this->client->request('PATCH', '/api/envelopes/'.$envelopeId, [], [], array_merge([
             'CONTENT_TYPE' => 'application/merge-patch+json',
             'HTTP_ACCEPT' => 'application/ld+json',
         ], $this->authHeaders()), json_encode([
@@ -162,7 +162,7 @@ class EnvelopeApiTest extends WebTestCase
         $envelope = $this->getFixture('food_july');
         $envelopeId = $envelope->getId();
 
-        $this->client->request('DELETE', '/api/envelopes/' . $envelopeId, [], [], array_merge([
+        $this->client->request('DELETE', '/api/envelopes/'.$envelopeId, [], [], array_merge([
             'HTTP_ACCEPT' => 'application/ld+json',
         ], $this->authHeaders()));
 

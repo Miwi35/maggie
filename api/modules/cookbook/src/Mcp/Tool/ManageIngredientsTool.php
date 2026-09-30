@@ -66,7 +66,7 @@ class ManageIngredientsTool
         ?float $carbsPer100g,
         ?float $fatPer100g,
     ): string {
-        if ($name === null || $category === null) {
+        if (null === $name || null === $category) {
             return json_encode(['error' => 'name and category are required for create.'], JSON_THROW_ON_ERROR);
         }
 
@@ -103,7 +103,7 @@ class ManageIngredientsTool
         ?float $fatPer100g,
         ?array $clear,
     ): string {
-        if ($ingredientId === null) {
+        if (null === $ingredientId) {
             return json_encode(['error' => 'ingredientId is required for update.'], JSON_THROW_ON_ERROR);
         }
 
@@ -128,7 +128,7 @@ class ManageIngredientsTool
 
     private function delete(?string $ingredientId): string
     {
-        if ($ingredientId === null) {
+        if (null === $ingredientId) {
             return json_encode(['error' => 'ingredientId is required for delete.'], JSON_THROW_ON_ERROR);
         }
 

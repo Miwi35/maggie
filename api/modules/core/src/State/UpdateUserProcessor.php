@@ -24,7 +24,7 @@ class UpdateUserProcessor implements ProcessorInterface
 
         // A nullable field that was set and is now null is an explicit clear
         $clearFields = [];
-        if ($previous !== null && $data->getAvatar() === null && $previous->getAvatar() !== null) {
+        if (null !== $previous && null === $data->getAvatar() && null !== $previous->getAvatar()) {
             $clearFields[] = 'avatar';
         }
 

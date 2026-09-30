@@ -29,7 +29,7 @@ class EventClearApiTest extends WebTestCase
     /** @param array<string, mixed> $payload */
     private function patch(Event $entity, array $payload): void
     {
-        $this->client->request('PATCH', '/api/events/' . $entity->getId(), [], [], array_merge([
+        $this->client->request('PATCH', '/api/events/'.$entity->getId(), [], [], array_merge([
             'CONTENT_TYPE' => 'application/merge-patch+json',
             'HTTP_ACCEPT' => 'application/ld+json',
         ], $this->authHeaders()), json_encode($payload, JSON_THROW_ON_ERROR));
@@ -55,7 +55,7 @@ class EventClearApiTest extends WebTestCase
     {
         $entity = $this->load();
 
-        $this->client->request('PATCH', '/api/events/' . $entity->getId(), [], [], [
+        $this->client->request('PATCH', '/api/events/'.$entity->getId(), [], [], [
             'CONTENT_TYPE' => 'application/merge-patch+json',
         ], json_encode(['description' => null], JSON_THROW_ON_ERROR));
 

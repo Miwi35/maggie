@@ -7,13 +7,13 @@ namespace Maggie\Cookbook\MessageHandler;
 use Maggie\Cookbook\Entity\Ingredient;
 use Maggie\Cookbook\Entity\Recipe;
 use Maggie\Cookbook\Entity\RecipeIngredient;
-use Maggie\Grocery\Enum\Unit;
 use Maggie\Cookbook\Message\UpdateRecipeCommand;
 use Maggie\Cookbook\Repository\IngredientRepository;
 use Maggie\Cookbook\Repository\RecipeRepository;
 use Maggie\Cookbook\Service\IngredientFromCiqualResolver;
 use Maggie\Cookbook\UseCase\UpdateRecipe;
 use Maggie\Core\Entity\User;
+use Maggie\Grocery\Enum\Unit;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -32,22 +32,22 @@ class UpdateRecipeHandler
         $recipe = $this->recipeRepository->find($command->recipeId)
             ?? throw new \DomainException("Recipe not found: {$command->recipeId}");
 
-        if ($command->name !== null) {
+        if (null !== $command->name) {
             $recipe->setName($command->name);
         }
-        if ($command->servings !== null) {
+        if (null !== $command->servings) {
             $recipe->setServings($command->servings);
         }
-        if ($command->tags !== null) {
+        if (null !== $command->tags) {
             $recipe->setTags($command->tags);
         }
-        if ($command->notes !== null) {
+        if (null !== $command->notes) {
             $recipe->setNotes($command->notes);
         } elseif ($command->clears('notes')) {
             $recipe->setNotes(null);
         }
 
-        if ($command->ingredients !== null) {
+        if (null !== $command->ingredients) {
             $user = $recipe->getUser();
             $recipe->clearIngredients();
             foreach ($command->ingredients as $item) {

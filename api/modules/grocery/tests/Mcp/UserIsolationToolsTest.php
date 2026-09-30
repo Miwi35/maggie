@@ -87,7 +87,7 @@ class UserIsolationToolsTest extends KernelTestCase
         $this->em()->clear();
         $added = array_values(array_filter(
             $this->em()->getRepository(GroceryItem::class)->findAll(),
-            fn (GroceryItem $item) => $item->getProduct() !== null,
+            fn (GroceryItem $item) => null !== $item->getProduct(),
         ));
         self::assertCount(1, $added);
         $product = $added[0]->getProduct();

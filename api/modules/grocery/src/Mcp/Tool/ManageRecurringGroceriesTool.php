@@ -68,7 +68,7 @@ class ManageRecurringGroceriesTool
 
     private function create(?string $frequency, ?string $productId, ?string $customLabel, ?float $quantity, ?string $unit): string
     {
-        if ($frequency === null) {
+        if (null === $frequency) {
             return json_encode(['error' => 'frequency is required for create.'], JSON_THROW_ON_ERROR);
         }
 
@@ -92,7 +92,7 @@ class ManageRecurringGroceriesTool
     /** @param list<string>|null $clear */
     private function update(?string $recurringItemId, ?string $frequency, ?string $productId, ?string $customLabel, ?float $quantity, ?string $unit, ?array $clear): string
     {
-        if ($recurringItemId === null) {
+        if (null === $recurringItemId) {
             return json_encode(['error' => 'recurringItemId is required for update.'], JSON_THROW_ON_ERROR);
         }
 
@@ -114,7 +114,7 @@ class ManageRecurringGroceriesTool
 
     private function delete(?string $recurringItemId): string
     {
-        if ($recurringItemId === null) {
+        if (null === $recurringItemId) {
             return json_encode(['error' => 'recurringItemId is required for delete.'], JSON_THROW_ON_ERROR);
         }
 
@@ -132,7 +132,7 @@ class ManageRecurringGroceriesTool
             'frequency' => $item->getFrequency()->value,
             'quantity' => $item->getQuantity(),
             'unit' => $item->getUnit()?->value,
-            'productId' => $item->getProduct() !== null ? (string) $item->getProduct()->getId() : null,
+            'productId' => null !== $item->getProduct() ? (string) $item->getProduct()->getId() : null,
         ];
     }
 }

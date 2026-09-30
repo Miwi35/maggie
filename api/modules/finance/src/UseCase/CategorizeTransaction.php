@@ -35,12 +35,12 @@ class CategorizeTransaction
     /** Applies the winning rule in place; true when the transaction was categorized. */
     public function apply(Transaction $transaction): bool
     {
-        if ($transaction->getCategorySource() === CategorySource::Manual) {
+        if (CategorySource::Manual === $transaction->getCategorySource()) {
             return false;
         }
 
         $rule = $this->match($transaction);
-        if ($rule === null) {
+        if (null === $rule) {
             return false;
         }
 

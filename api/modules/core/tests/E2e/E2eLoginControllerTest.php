@@ -148,7 +148,7 @@ final class E2eLoginControllerTest extends KernelTestCase
             JSON_THROW_ON_ERROR,
         );
 
-        self::assertSame(['/users/' . $user->getId() . '/{topic}'], $claims['mercure']['subscribe']);
+        self::assertSame(['/users/'.$user->getId().'/{topic}'], $claims['mercure']['subscribe']);
     }
 
     public function testCookieIsNotSecureOverPlainHttp(): void
@@ -182,7 +182,7 @@ final class E2eLoginControllerTest extends KernelTestCase
     /** @param array<string, mixed>|null $body */
     private function request(?array $body = null, ?string $token = self::TOKEN, ?string $rawBody = null): Request
     {
-        $headers = $token === null ? [] : ['HTTP_X_E2E_TOKEN' => $token];
+        $headers = null === $token ? [] : ['HTTP_X_E2E_TOKEN' => $token];
 
         return Request::create(
             '/api/auth/e2e/login',

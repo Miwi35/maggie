@@ -25,7 +25,7 @@ class DeleteEventHandler
     public function __invoke(DeleteEventCommand $command): void
     {
         $event = $this->eventRepository->find($command->eventId);
-        if ($event === null) {
+        if (null === $event) {
             throw new \DomainException("Event not found: {$command->eventId}");
         }
 
@@ -36,7 +36,7 @@ class DeleteEventHandler
 
         $this->deleteEvent->execute($event);
 
-        if ($wasGoogleSynced && $googleEventId !== null) {
+        if ($wasGoogleSynced && null !== $googleEventId) {
             $deleteCommand = new DeleteEventFromGoogleCommand(
                 agendaId: $agendaId,
                 googleEventId: $googleEventId,

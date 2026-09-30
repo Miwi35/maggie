@@ -111,7 +111,7 @@ class EnableBankingClientTest extends TestCase
         $raw = base64_decode(strtr($signature, '-_', '+/'), true);
 
         $verified = openssl_verify(
-            $header . '.' . $claims,
+            $header.'.'.$claims,
             (string) $raw,
             openssl_pkey_get_public(openssl_pkey_get_details(
                 openssl_pkey_get_private((string) file_get_contents($this->keyPath)),

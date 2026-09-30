@@ -69,6 +69,6 @@ trait HasGoogleTaskTrackingTrait
 
     public function isGoogleSynced(): bool
     {
-        return $this->googleTaskId !== null;
+        return null !== $this->googleTaskId;
     }
 }

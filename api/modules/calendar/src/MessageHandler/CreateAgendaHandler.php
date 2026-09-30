@@ -28,10 +28,10 @@ class CreateAgendaHandler
         $agenda->setTimeZone($command->timeZone);
         $agenda->setIsDefault($command->isDefault);
 
-        if ($command->description !== null) {
+        if (null !== $command->description) {
             $agenda->setDescription($command->description);
         }
-        if ($command->color !== null) {
+        if (null !== $command->color) {
             $agenda->setColor($command->color);
         }
 

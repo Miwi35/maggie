@@ -110,8 +110,8 @@ class ImportStatement
             'imported' => $imported,
             'skipped' => $skipped,
             'categorized' => $categorized,
-            'first' => $dates === [] ? null : $dates[0]->format('Y-m-d'),
-            'last' => $dates === [] ? null : end($dates)->format('Y-m-d'),
+            'first' => [] === $dates ? null : $dates[0]->format('Y-m-d'),
+            'last' => [] === $dates ? null : end($dates)->format('Y-m-d'),
             'totalCents' => $totalCents,
         ];
     }

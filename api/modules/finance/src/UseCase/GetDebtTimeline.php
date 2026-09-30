@@ -51,8 +51,8 @@ class GetDebtTimeline
 
         // Sorted by when they free up: the next relief comes first.
         usort($schedules, static function (array $a, array $b) {
-            if ($a['freedOn'] === null || $b['freedOn'] === null) {
-                return $a['freedOn'] === null ? 1 : -1;
+            if (null === $a['freedOn'] || null === $b['freedOn']) {
+                return null === $a['freedOn'] ? 1 : -1;
             }
 
             return $a['freedOn'] <=> $b['freedOn'];
@@ -107,7 +107,7 @@ class GetDebtTimeline
             $interestPaid += $interest;
             ++$months;
 
-            if ($principal === 0) {
+            if (0 === $principal) {
                 $freedOn = $from->modify(sprintf('+%d months', $months))->format('Y-m');
             }
         }
@@ -121,11 +121,11 @@ class GetDebtTimeline
             'monthlyPaymentCents' => $loan->getMonthlyPaymentCents(),
             'annualRateBasisPoints' => $loan->getAnnualRateBasisPoints(),
             'priority' => $loan->getPriority(),
-            'monthsRemaining' => $freedOn === null ? null : $months,
+            'monthsRemaining' => null === $freedOn ? null : $months,
             'freedOn' => $freedOn,
             'totalInterestCents' => $interestPaid,
             // Still running at the end of the horizon: we only know it is longer.
-            'endsBeyondHorizon' => $freedOn === null,
+            'endsBeyondHorizon' => null === $freedOn,
         ];
     }
 
@@ -138,13 +138,13 @@ class GetDebtTimeline
     {
         $freedByMonth = [];
         foreach ($schedules as $schedule) {
-            if ($schedule['freedOn'] === null) {
+            if (null === $schedule['freedOn']) {
                 continue;
             }
             $freedByMonth[$schedule['freedOn']][] = $schedule;
         }
 
-        if ($freedByMonth === []) {
+        if ([] === $freedByMonth) {
             return [];
         }
 

@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Maggie\Cookbook\MessageHandler;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Cookbook\Message\GenerateGroceryListCommand;
-use Maggie\Grocery\Repository\GroceryListRepository;
 use Maggie\Cookbook\Service\GroceryGenerationService;
 use Maggie\Core\Repository\UserRepository;
+use Maggie\Grocery\Entity\GroceryList;
+use Maggie\Grocery\Repository\GroceryListRepository;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]

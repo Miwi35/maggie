@@ -30,7 +30,7 @@ class IngredientApiTest extends WebTestCase
     /** @param array<string, mixed> $payload */
     private function patchIngredient(Ingredient $ingredient, array $payload): void
     {
-        $this->client->request('PATCH', '/api/ingredients/' . $ingredient->getId(), [], [], array_merge([
+        $this->client->request('PATCH', '/api/ingredients/'.$ingredient->getId(), [], [], array_merge([
             'CONTENT_TYPE' => 'application/merge-patch+json',
             'HTTP_ACCEPT' => 'application/ld+json',
         ], $this->authHeaders()), json_encode($payload, JSON_THROW_ON_ERROR));
@@ -56,7 +56,7 @@ class IngredientApiTest extends WebTestCase
     {
         $tomato = $this->loadTomato();
 
-        $this->client->request('PATCH', '/api/ingredients/' . $tomato->getId(), [], [], [
+        $this->client->request('PATCH', '/api/ingredients/'.$tomato->getId(), [], [], [
             'CONTENT_TYPE' => 'application/merge-patch+json',
         ], json_encode(['kcalPer100g' => null], JSON_THROW_ON_ERROR));
 

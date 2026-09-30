@@ -60,7 +60,7 @@ final class UlidRelationFilter extends AbstractFilter
         // `?account[]=…`, a hand-typed id from a stale link.
         $ulid = ResourceIdentifier::fromRequestValue($value);
 
-        if ($ulid === null) {
+        if (null === $ulid) {
             // A request that names nothing must come back with nothing.
             // Skipping the clause instead would answer a narrowed request
             // with the whole collection, which is the failure this ticket is

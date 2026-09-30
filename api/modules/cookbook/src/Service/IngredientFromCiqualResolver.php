@@ -6,10 +6,10 @@ namespace Maggie\Cookbook\Service;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Cookbook\Entity\Ingredient;
-use Maggie\Grocery\Enum\ProductCategory;
-use Maggie\Grocery\Enum\Unit;
 use Maggie\Cookbook\Repository\IngredientRepository;
 use Maggie\Core\Entity\User;
+use Maggie\Grocery\Enum\ProductCategory;
+use Maggie\Grocery\Enum\Unit;
 
 class IngredientFromCiqualResolver
 {
@@ -42,12 +42,12 @@ class IngredientFromCiqualResolver
     public function resolve(string $ciqualAlimCode, User $user): Ingredient
     {
         $existing = $this->ingredientRepository->findOneByUserAndCiqualAlimCode($user, $ciqualAlimCode);
-        if ($existing !== null) {
+        if (null !== $existing) {
             return $existing;
         }
 
         $foodData = $this->ciqualClient->getFood($ciqualAlimCode);
-        if ($foodData === null) {
+        if (null === $foodData) {
             throw new \DomainException("Ciqual food not found: {$ciqualAlimCode}");
         }
 
@@ -65,8 +65,8 @@ class IngredientFromCiqualResolver
         }
 
         foreach (self::NUTRIENT_CODES as $code => $field) {
-            if (isset($nutrientMap[$code]) && $nutrientMap[$code] !== null) {
-                $setter = 'set' . ucfirst($field);
+            if (isset($nutrientMap[$code]) && null !== $nutrientMap[$code]) {
+                $setter = 'set'.ucfirst($field);
                 $ingredient->$setter((float) $nutrientMap[$code]);
             }
         }
@@ -78,7 +78,7 @@ class IngredientFromCiqualResolver
 
     private function mapCategory(?string $groupName): ProductCategory
     {
-        if ($groupName === null) {
+        if (null === $groupName) {
             return ProductCategory::Other;
         }
 

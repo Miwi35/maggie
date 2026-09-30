@@ -16,10 +16,12 @@ class SearchService
         private readonly IndexMetadataReader $metadataReader,
         private readonly EntityManagerInterface $em,
         private readonly LoggerInterface $logger,
-    ) {}
+    ) {
+    }
 
     /**
      * @param string[]|null $indices
+     *
      * @return array{total: int, results: array<int, array{index: string, id: string, score: float, data: array<string, mixed>, highlights: array<string, string[]>}>}
      */
     public function search(
@@ -42,6 +44,7 @@ class SearchService
 
     /**
      * @param string[]|null $indices
+     *
      * @return array{total: int, results: array<int, array{index: string, id: string, score: float, data: array<string, mixed>, highlights: array<string, string[]>}>}
      */
     private function elasticsearchSearch(
@@ -53,7 +56,7 @@ class SearchService
     ): array {
         $targetIndices = $indices ?? array_keys($this->registry->getAll());
 
-        if ($targetIndices === []) {
+        if ([] === $targetIndices) {
             return ['total' => 0, 'results' => []];
         }
 
@@ -67,12 +70,12 @@ class SearchService
                 'fuzziness' => 'AUTO',
             ],
         ];
-        if ($boostedFields !== []) {
+        if ([] !== $boostedFields) {
             $fuzzyMatch['multi_match']['fields'] = $boostedFields;
         }
 
         // Wildcard substring match (*query*) on all text fields
-        $wildcardPattern = '*' . mb_strtolower($query) . '*';
+        $wildcardPattern = '*'.mb_strtolower($query).'*';
         $textFields = $this->getTextFields($targetIndices);
         $wildcardClauses = [];
         foreach ($textFields as $field) {
@@ -80,7 +83,7 @@ class SearchService
         }
 
         $shouldClauses = [$fuzzyMatch];
-        if ($wildcardClauses !== []) {
+        if ([] !== $wildcardClauses) {
             $shouldClauses[] = ['bool' => ['should' => $wildcardClauses]];
         }
 
@@ -132,6 +135,7 @@ class SearchService
      * Doctrine ILIKE fallback when Elasticsearch is unavailable.
      *
      * @param string[]|null $indices
+     *
      * @return array{total: int, results: array<int, array{index: string, id: string, score: float, data: array<string, mixed>, highlights: array<string, string[]>}>}
      */
     private function doctrineSearch(
@@ -145,7 +149,7 @@ class SearchService
         $targetIndices = $indices ?? array_keys($allEntities);
         $results = [];
 
-        $likePattern = '%' . str_replace(['%', '_'], ['\\%', '\\_'], mb_strtolower($query)) . '%';
+        $likePattern = '%'.str_replace(['%', '_'], ['\\%', '\\_'], mb_strtolower($query)).'%';
 
         foreach ($allEntities as $indexName => $entityClass) {
             if (!\in_array($indexName, $targetIndices, true)) {
@@ -153,7 +157,7 @@ class SearchService
             }
 
             $meta = $this->metadataReader->read($entityClass);
-            if ($meta === null) {
+            if (null === $meta) {
                 continue;
             }
 
@@ -164,7 +168,7 @@ class SearchService
                 }
             }
 
-            if ($textFields === []) {
+            if ([] === $textFields) {
                 continue;
             }
 
@@ -180,14 +184,14 @@ class SearchService
             $orConditions = [];
             foreach ($textFields as $i => $field) {
                 $dqlField = $this->toDqlField($entityClass, $field);
-                if ($dqlField === null) {
+                if (null === $dqlField) {
                     continue;
                 }
                 $orConditions[] = "LOWER({$dqlField}) LIKE :pattern_{$i}";
                 $qb->setParameter("pattern_{$i}", $likePattern);
             }
 
-            if ($orConditions === []) {
+            if ([] === $orConditions) {
                 continue;
             }
 
@@ -265,6 +269,7 @@ class SearchService
      * Build fields list with boost notation (e.g. "summary^3") from entity metadata.
      *
      * @param string[] $targetIndices
+     *
      * @return string[]
      */
     private function getBoostedFields(array $targetIndices): array
@@ -273,12 +278,12 @@ class SearchService
         $allEntities = $this->registry->getAll();
 
         foreach ($allEntities as $indexName => $entityClass) {
-            if ($targetIndices !== [] && !\in_array($indexName, $targetIndices, true)) {
+            if ([] !== $targetIndices && !\in_array($indexName, $targetIndices, true)) {
                 continue;
             }
 
             $meta = $this->metadataReader->read($entityClass);
-            if ($meta === null) {
+            if (null === $meta) {
                 continue;
             }
 
@@ -289,7 +294,7 @@ class SearchService
                 }
 
                 $boost = $meta['boosts'][$fieldName] ?? null;
-                $key = $boost !== null ? "{$fieldName}^{$boost}" : $fieldName;
+                $key = null !== $boost ? "{$fieldName}^{$boost}" : $fieldName;
 
                 if (!\in_array($key, $fields, true)) {
                     $fields[] = $key;
@@ -304,6 +309,7 @@ class SearchService
      * Get plain text field names (without boost notation) for wildcard queries.
      *
      * @param string[] $targetIndices
+     *
      * @return string[]
      */
     private function getTextFields(array $targetIndices): array
@@ -312,12 +318,12 @@ class SearchService
         $allEntities = $this->registry->getAll();
 
         foreach ($allEntities as $indexName => $entityClass) {
-            if ($targetIndices !== [] && !\in_array($indexName, $targetIndices, true)) {
+            if ([] !== $targetIndices && !\in_array($indexName, $targetIndices, true)) {
                 continue;
             }
 
             $meta = $this->metadataReader->read($entityClass);
-            if ($meta === null) {
+            if (null === $meta) {
                 continue;
             }
 

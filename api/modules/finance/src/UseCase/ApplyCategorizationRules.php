@@ -31,7 +31,7 @@ class ApplyCategorizationRules
 
         foreach ($transactions as $transaction) {
             $rule = $this->categorizeTransaction->match($transaction);
-            if ($rule === null) {
+            if (null === $rule) {
                 continue;
             }
 

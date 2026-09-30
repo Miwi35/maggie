@@ -26,33 +26,33 @@ class UpdateEventHandler
     public function __invoke(UpdateEventCommand $command): Event
     {
         $event = $this->eventRepository->find($command->eventId);
-        if ($event === null) {
+        if (null === $event) {
             throw new \DomainException("Event not found: {$command->eventId}");
         }
 
-        if ($command->summary !== null) {
+        if (null !== $command->summary) {
             $event->setSummary($command->summary);
         }
-        if ($command->description !== null) {
+        if (null !== $command->description) {
             $event->setDescription($command->description);
         } elseif ($command->clears('description')) {
             $event->setDescription(null);
         }
-        if ($command->location !== null) {
+        if (null !== $command->location) {
             $event->setLocation($command->location);
         } elseif ($command->clears('location')) {
             $event->setLocation(null);
         }
-        if ($command->startAt !== null) {
+        if (null !== $command->startAt) {
             $event->setStartAt($command->startAt);
         }
-        if ($command->endAt !== null) {
+        if (null !== $command->endAt) {
             $event->setEndAt($command->endAt);
         }
-        if ($command->allDay !== null) {
+        if (null !== $command->allDay) {
             $event->setAllDay($command->allDay);
         }
-        if ($command->rrule !== null) {
+        if (null !== $command->rrule) {
             $event->setRrule($command->rrule);
         } elseif ($command->clears('rrule')) {
             $event->setRrule(null);
@@ -60,25 +60,25 @@ class UpdateEventHandler
 
         // Track which fields were explicitly set in the command
         $changedFields = [];
-        if ($command->summary !== null) {
+        if (null !== $command->summary) {
             $changedFields[] = 'summary';
         }
-        if ($command->description !== null || $command->clears('description')) {
+        if (null !== $command->description || $command->clears('description')) {
             $changedFields[] = 'description';
         }
-        if ($command->location !== null || $command->clears('location')) {
+        if (null !== $command->location || $command->clears('location')) {
             $changedFields[] = 'location';
         }
-        if ($command->startAt !== null) {
+        if (null !== $command->startAt) {
             $changedFields[] = 'startAt';
         }
-        if ($command->endAt !== null) {
+        if (null !== $command->endAt) {
             $changedFields[] = 'endAt';
         }
-        if ($command->allDay !== null) {
+        if (null !== $command->allDay) {
             $changedFields[] = 'allDay';
         }
-        if ($command->rrule !== null || $command->clears('rrule')) {
+        if (null !== $command->rrule || $command->clears('rrule')) {
             $changedFields[] = 'rrule';
         }
 

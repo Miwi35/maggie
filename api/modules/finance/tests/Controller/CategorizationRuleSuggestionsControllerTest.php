@@ -7,7 +7,6 @@ use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use Maggie\Finance\Entity\CategorizationRule;
 use Maggie\Finance\Entity\Transaction;
-use Maggie\Finance\Enum\AmountDirection;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 

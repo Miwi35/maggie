@@ -25,24 +25,24 @@ class UpdateCategoryHandler
         $category = $this->categoryRepository->find($command->categoryId)
             ?? throw new \DomainException("Category not found: {$command->categoryId}");
 
-        if ($command->name !== null) {
+        if (null !== $command->name) {
             $category->setName($command->name);
         }
-        if ($command->obligation !== null) {
+        if (null !== $command->obligation) {
             $category->setObligation(ObligationFlag::from($command->obligation));
         }
-        if ($command->color !== null) {
+        if (null !== $command->color) {
             $category->setColor($command->color);
         } elseif ($command->clears('color')) {
             $category->setColor(null);
         }
-        if ($command->icon !== null) {
+        if (null !== $command->icon) {
             $category->setIcon($command->icon);
         } elseif ($command->clears('icon')) {
             $category->setIcon(null);
         }
-        if ($command->parentId !== null) {
-            if ($command->parentId === '') {
+        if (null !== $command->parentId) {
+            if ('' === $command->parentId) {
                 $category->setParent(null);
             } else {
                 if ($command->parentId === $command->categoryId) {
@@ -52,7 +52,7 @@ class UpdateCategoryHandler
                 $parent = $this->categoryRepository->find($command->parentId)
                     ?? throw new \DomainException("Parent category not found: {$command->parentId}");
 
-                if ($parent->getParent() !== null) {
+                if (null !== $parent->getParent()) {
                     throw new \DomainException('Categories support only two levels: a sub-category cannot have children.');
                 }
 

@@ -4,8 +4,8 @@ namespace Maggie\Calendar\Tests\Mcp;
 
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
-use App\Tests\Support\SecurityTokenTrait;
 use App\Tests\Support\MercureAssertionTrait;
+use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Mcp\Tool\CreateEventTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;

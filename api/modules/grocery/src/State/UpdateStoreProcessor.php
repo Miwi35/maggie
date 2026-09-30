@@ -26,7 +26,7 @@ class UpdateStoreProcessor implements ProcessorInterface
 
         // A nullable field that was set and is now null is an explicit clear
         $clearFields = [];
-        if ($previous !== null && $data->getDescription() === null && $previous->getDescription() !== null) {
+        if (null !== $previous && null === $data->getDescription() && null !== $previous->getDescription()) {
             $clearFields[] = 'description';
         }
 

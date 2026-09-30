@@ -42,7 +42,7 @@ final class UpdateUserPreferenceController
         }
 
         $content = $request->getContent();
-        $body = $content === '' ? [] : json_decode($content, true, 512, \JSON_THROW_ON_ERROR);
+        $body = '' === $content ? [] : json_decode($content, true, 512, \JSON_THROW_ON_ERROR);
 
         if (!\is_array($body)) {
             return new JsonResponse(['error' => 'A JSON object is expected'], Response::HTTP_BAD_REQUEST);
@@ -50,7 +50,7 @@ final class UpdateUserPreferenceController
 
         foreach (['theme', 'locale', 'timezone', 'defaultCalendarView'] as $name) {
             if (\array_key_exists($name, $body) && !\is_string($body[$name])) {
-                return new JsonResponse(["error" => "{$name} must be a string"], Response::HTTP_BAD_REQUEST);
+                return new JsonResponse(['error' => "{$name} must be a string"], Response::HTTP_BAD_REQUEST);
             }
         }
 
@@ -62,7 +62,7 @@ final class UpdateUserPreferenceController
         }
 
         $agendaIds = $body['enabledAgendaIds'] ?? null;
-        if ($agendaIds !== null && (!\is_array($agendaIds) || array_filter($agendaIds, 'is_string') !== $agendaIds)) {
+        if (null !== $agendaIds && (!\is_array($agendaIds) || array_filter($agendaIds, 'is_string') !== $agendaIds)) {
             return new JsonResponse(
                 ['error' => 'enabledAgendaIds must be an array of strings'],
                 Response::HTTP_BAD_REQUEST,
@@ -80,7 +80,7 @@ final class UpdateUserPreferenceController
                 locale: $body['locale'] ?? null,
                 timezone: $body['timezone'] ?? null,
                 defaultCalendarView: $body['defaultCalendarView'] ?? null,
-                enabledAgendaIds: $agendaIds === null ? null : array_values($agendaIds),
+                enabledAgendaIds: null === $agendaIds ? null : array_values($agendaIds),
                 notificationsEnabled: $body['notificationsEnabled'] ?? null,
             ));
         } catch (HandlerFailedException $e) {

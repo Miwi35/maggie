@@ -54,6 +54,6 @@ trait HasGoogleEventTrackingTrait
 
     public function isGoogleSynced(): bool
     {
-        return $this->googleEventId !== null;
+        return null !== $this->googleEventId;
     }
 }

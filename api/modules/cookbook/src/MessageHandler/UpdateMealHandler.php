@@ -27,17 +27,17 @@ class UpdateMealHandler
         $meal = $this->mealRepository->find($command->mealId)
             ?? throw new \DomainException("Meal not found: {$command->mealId}");
 
-        if ($command->slot !== null) {
+        if (null !== $command->slot) {
             $meal->setSlot(MealSlot::from($command->slot));
         }
 
-        if ($command->date !== null) {
+        if (null !== $command->date) {
             $date = new \DateTimeImmutable($command->date, new \DateTimeZone('Europe/Paris'));
             $meal->setStartAt($date->setTime(0, 0));
             $meal->setEndAt($date->setTime(23, 59, 59));
         }
 
-        if ($command->recipeIds !== null) {
+        if (null !== $command->recipeIds) {
             // Clear and re-add recipes
             foreach ($meal->getRecipes()->toArray() as $recipe) {
                 $meal->removeRecipe($recipe);
@@ -51,9 +51,9 @@ class UpdateMealHandler
 
         // Regenerate summary
         $recipeNames = $meal->getRecipes()->map(fn ($r) => $r->getName())->toArray();
-        $slotLabel = $meal->getSlot() === MealSlot::Lunch ? 'Déjeuner' : 'Dîner';
-        $summary = $recipeNames !== []
-            ? $slotLabel . ' : ' . implode(', ', $recipeNames)
+        $slotLabel = MealSlot::Lunch === $meal->getSlot() ? 'Déjeuner' : 'Dîner';
+        $summary = [] !== $recipeNames
+            ? $slotLabel.' : '.implode(', ', $recipeNames)
             : $slotLabel;
         $meal->setSummary($summary);
 

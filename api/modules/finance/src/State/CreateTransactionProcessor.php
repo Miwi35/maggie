@@ -36,7 +36,7 @@ class CreateTransactionProcessor implements ProcessorInterface
             status: $data->getStatus()->value,
             currency: $data->getCurrency(),
             isExceptional: $data->isExceptional(),
-            categoryId: $data->getCategory() !== null ? (string) $data->getCategory()->getId() : null,
+            categoryId: null !== $data->getCategory() ? (string) $data->getCategory()->getId() : null,
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();

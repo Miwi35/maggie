@@ -68,7 +68,7 @@ class ManageAgendasTool
 
     private function create(?string $name, ?string $description, ?string $timeZone, ?string $color, ?bool $isDefault): string
     {
-        if ($name === null) {
+        if (null === $name) {
             return json_encode(['error' => 'Name is required for create.'], JSON_THROW_ON_ERROR);
         }
 
@@ -92,7 +92,7 @@ class ManageAgendasTool
     /** @param list<string>|null $clear */
     private function update(?string $agendaId, ?string $name, ?string $description, ?string $timeZone, ?string $color, ?bool $isDefault, ?array $clear = null): string
     {
-        if ($agendaId === null) {
+        if (null === $agendaId) {
             return json_encode(['error' => 'agendaId is required for update.'], JSON_THROW_ON_ERROR);
         }
 
@@ -114,7 +114,7 @@ class ManageAgendasTool
 
     private function delete(?string $agendaId): string
     {
-        if ($agendaId === null) {
+        if (null === $agendaId) {
             return json_encode(['error' => 'agendaId is required for delete.'], JSON_THROW_ON_ERROR);
         }
 

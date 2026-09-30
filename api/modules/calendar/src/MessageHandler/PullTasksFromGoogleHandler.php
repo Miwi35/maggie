@@ -19,7 +19,7 @@ class PullTasksFromGoogleHandler
     public function __invoke(PullTasksFromGoogleCommand $command): void
     {
         $user = $this->userRepository->find($command->userId);
-        if ($user === null) {
+        if (null === $user) {
             return;
         }
 

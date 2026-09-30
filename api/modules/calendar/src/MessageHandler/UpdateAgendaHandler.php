@@ -20,27 +20,27 @@ class UpdateAgendaHandler
     public function __invoke(UpdateAgendaCommand $command): Agenda
     {
         $agenda = $this->agendaRepository->find($command->agendaId);
-        if ($agenda === null) {
+        if (null === $agenda) {
             throw new \DomainException("Agenda not found: {$command->agendaId}");
         }
 
-        if ($command->name !== null) {
+        if (null !== $command->name) {
             $agenda->setName($command->name);
         }
-        if ($command->description !== null) {
+        if (null !== $command->description) {
             $agenda->setDescription($command->description);
         } elseif ($command->clears('description')) {
             $agenda->setDescription(null);
         }
-        if ($command->timeZone !== null) {
+        if (null !== $command->timeZone) {
             $agenda->setTimeZone($command->timeZone);
         }
-        if ($command->color !== null) {
+        if (null !== $command->color) {
             $agenda->setColor($command->color);
         } elseif ($command->clears('color')) {
             $agenda->setColor(null);
         }
-        if ($command->isDefault !== null) {
+        if (null !== $command->isDefault) {
             $agenda->setIsDefault($command->isDefault);
         }
 

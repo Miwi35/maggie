@@ -40,7 +40,7 @@ class StartBankAuthorization
     public function execute(User $user, string $bankName, string $country = 'FR'): array
     {
         $existing = $this->connectionRepository->findOneByUserAndBank($user, $bankName, $country);
-        $previous = $existing === null ? null : [
+        $previous = null === $existing ? null : [
             $existing->getStatus(),
             $existing->getSessionId(),
             $existing->getConsentExpiresAt(),
@@ -72,7 +72,7 @@ class StartBankAuthorization
             throw $e;
         }
 
-        if (!\is_string($url) || $url === '') {
+        if (!\is_string($url) || '' === $url) {
             // Nothing to send the user to: keep no half-open journey behind.
             $this->abandon($connection, $previous);
 
@@ -91,7 +91,7 @@ class StartBankAuthorization
      */
     private function abandon(BankConnection $connection, ?array $previous): void
     {
-        if ($previous === null) {
+        if (null === $previous) {
             $this->em->remove($connection);
             $this->em->flush();
 

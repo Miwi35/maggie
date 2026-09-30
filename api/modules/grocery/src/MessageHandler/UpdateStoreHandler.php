@@ -24,15 +24,15 @@ class UpdateStoreHandler
         $store = $this->storeRepository->find($command->storeId)
             ?? throw new \DomainException("Store not found: {$command->storeId}");
 
-        if ($command->name !== null) {
+        if (null !== $command->name) {
             $store->setName($command->name);
         }
-        if ($command->description !== null) {
+        if (null !== $command->description) {
             $store->setDescription($command->description);
         } elseif ($command->clears('description')) {
             $store->setDescription(null);
         }
-        if ($command->visitOrder !== null) {
+        if (null !== $command->visitOrder) {
             $store->setVisitOrder($command->visitOrder);
         }
 

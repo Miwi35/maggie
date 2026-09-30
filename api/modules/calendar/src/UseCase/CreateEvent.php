@@ -2,8 +2,8 @@
 
 namespace Maggie\Calendar\UseCase;
 
-use Maggie\Calendar\Entity\Event;
 use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Calendar\Entity\Event;
 
 class CreateEvent
 {

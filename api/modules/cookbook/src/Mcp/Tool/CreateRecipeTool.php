@@ -32,8 +32,8 @@ class CreateRecipeTool
         try {
             $user = $this->userContext->requireUser();
 
-            $tagList = $tags !== '' ? array_map('trim', explode(',', $tags)) : [];
-            $ingredientList = $ingredients !== null
+            $tagList = '' !== $tags ? array_map('trim', explode(',', $tags)) : [];
+            $ingredientList = null !== $ingredients
                 ? json_decode($ingredients, true, 512, JSON_THROW_ON_ERROR)
                 : null;
 
@@ -62,6 +62,7 @@ class CreateRecipeTool
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
+
             return json_encode(['error' => $cause->getMessage()], JSON_THROW_ON_ERROR);
         }
     }

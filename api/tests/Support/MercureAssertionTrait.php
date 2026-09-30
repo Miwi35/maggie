@@ -19,7 +19,7 @@ trait MercureAssertionTrait
         $updates = $this->getMercureHub()->getUpdates();
         self::assertNotEmpty($updates, 'Expected at least one Mercure update to be published.');
 
-        if ($topicSubstring !== null) {
+        if (null !== $topicSubstring) {
             $found = false;
             foreach ($updates as $update) {
                 foreach ($update->getTopics() as $topic) {

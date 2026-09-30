@@ -39,6 +39,6 @@ trait AuthenticatedTestTrait
      */
     protected function authHeaders(): array
     {
-        return ['HTTP_AUTHORIZATION' => 'Bearer ' . $this->testToken];
+        return ['HTTP_AUTHORIZATION' => 'Bearer '.$this->testToken];
     }
 }

@@ -6,18 +6,18 @@ namespace Maggie\Grocery\MessageHandler;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
+use Maggie\Core\Repository\UserRepository;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\Product;
+use Maggie\Grocery\Entity\Store;
 use Maggie\Grocery\Enum\GroceryItemSource;
 use Maggie\Grocery\Enum\ProductCategory;
 use Maggie\Grocery\Enum\Unit;
-use Maggie\Grocery\Entity\Store;
 use Maggie\Grocery\Message\AddGroceryItemCommand;
 use Maggie\Grocery\Repository\GroceryListRepository;
 use Maggie\Grocery\Repository\ProductRepository;
 use Maggie\Grocery\Repository\StoreRepository;
-use Maggie\Core\Repository\UserRepository;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
 
@@ -58,15 +58,15 @@ class AddGroceryItemHandler
 
         $productUpdated = false;
 
-        if ($matched !== null) {
+        if (null !== $matched) {
             $item->setProduct($matched);
-            if ($matched->getPreferredStore() !== null) {
+            if (null !== $matched->getPreferredStore()) {
                 $item->setStore($matched->getPreferredStore());
             }
             // Update category on existing product if provided and different
-            if ($command->category !== null) {
+            if (null !== $command->category) {
                 $cat = ProductCategory::tryFrom($command->category);
-                if ($cat !== null && $cat !== $matched->getCategory()) {
+                if (null !== $cat && $cat !== $matched->getCategory()) {
                     $matched->setCategory($cat);
                     $productUpdated = true;
                 }
@@ -75,7 +75,7 @@ class AddGroceryItemHandler
             $newProduct = new Product();
             $newProduct->setName($command->label);
             $newProduct->setCategory(
-                $command->category !== null
+                null !== $command->category
                     ? (ProductCategory::tryFrom($command->category) ?? ProductCategory::Other)
                     : ProductCategory::Other,
             );
@@ -86,14 +86,14 @@ class AddGroceryItemHandler
 
         // Resolve store: storeId takes priority, then storeName (match or create)
         $newStore = null;
-        if ($command->storeId !== null) {
+        if (null !== $command->storeId) {
             $store = $this->storeRepository->find($command->storeId);
-            if ($store !== null) {
+            if (null !== $store) {
                 $item->setStore($store);
             }
-        } elseif ($command->storeName !== null && $command->storeName !== '') {
+        } elseif (null !== $command->storeName && '' !== $command->storeName) {
             $store = $this->storeRepository->findByNameAndUser($command->storeName, $user);
-            if ($store !== null) {
+            if (null !== $store) {
                 $item->setStore($store);
             } else {
                 $newStore = new Store();
@@ -107,20 +107,20 @@ class AddGroceryItemHandler
 
         // Set preferred store on newly created products
         $resolvedStore = $item->getStore();
-        if ($newProduct !== null && $resolvedStore !== null && $newProduct->getPreferredStore() === null) {
+        if (null !== $newProduct && null !== $resolvedStore && null === $newProduct->getPreferredStore()) {
             $newProduct->setPreferredStore($resolvedStore);
         }
 
         // Update preferred store on existing matched products if resolved store differs
-        if ($matched !== null && $resolvedStore !== null && $matched->getPreferredStore() !== $resolvedStore) {
+        if (null !== $matched && null !== $resolvedStore && $matched->getPreferredStore() !== $resolvedStore) {
             $matched->setPreferredStore($resolvedStore);
             $productUpdated = true;
         }
 
-        if ($command->quantity !== null) {
+        if (null !== $command->quantity) {
             $item->setQuantity($command->quantity);
         }
-        if ($command->unit !== null) {
+        if (null !== $command->unit) {
             $item->setUnit(Unit::from($command->unit));
         }
 
@@ -136,19 +136,19 @@ class AddGroceryItemHandler
         $list->setUpdatedAt(new \DateTimeImmutable());
         $this->em->flush();
 
-        if ($newProduct !== null) {
+        if (null !== $newProduct) {
             $this->bus->dispatch(new IndexDocumentCommand(
                 entityClass: Product::class,
                 entityId: (string) $newProduct->getId(),
             ));
-        } elseif ($productUpdated && $matched !== null) {
+        } elseif ($productUpdated && null !== $matched) {
             $this->bus->dispatch(new IndexDocumentCommand(
                 entityClass: Product::class,
                 entityId: (string) $matched->getId(),
             ));
         }
 
-        if ($newStore !== null) {
+        if (null !== $newStore) {
             $this->bus->dispatch(new IndexDocumentCommand(
                 entityClass: Store::class,
                 entityId: (string) $newStore->getId(),

@@ -37,6 +37,7 @@ class GoogleCalendarRenewWatchCommand extends Command
 
         if (empty($agendas)) {
             $io->info('No watch channels need renewal.');
+
             return Command::SUCCESS;
         }
 
@@ -70,13 +71,14 @@ class GoogleCalendarRenewWatchCommand extends Command
                 );
 
                 $this->entityManager->flush();
-                $renewed++;
+                ++$renewed;
             } catch (\Throwable $e) {
                 $io->warning("Failed to renew watch for {$agenda->getName()}: {$e->getMessage()}");
             }
         }
 
         $io->success("Renewed {$renewed} watch channel(s).");
+
         return Command::SUCCESS;
     }
 }

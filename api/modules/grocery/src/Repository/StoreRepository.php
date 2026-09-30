@@ -6,8 +6,8 @@ namespace Maggie\Grocery\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
-use Maggie\Grocery\Entity\Store;
 use Maggie\Core\Entity\User;
+use Maggie\Grocery\Entity\Store;
 
 /** @extends ServiceEntityRepository<Store> */
 class StoreRepository extends ServiceEntityRepository

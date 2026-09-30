@@ -44,7 +44,7 @@ class InstallStandardCategories
         foreach (StandardCategories::all() as $definition) {
             $parent = $existing[self::key($definition['name'])] ?? null;
 
-            if ($parent === null) {
+            if (null === $parent) {
                 $parent = $this->create(
                     $user,
                     $definition['name'],

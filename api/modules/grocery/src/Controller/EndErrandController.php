@@ -24,7 +24,8 @@ final class EndErrandController
         private readonly Security $security,
         private readonly GroceryListRepository $groceryListRepository,
         private readonly EntityManagerInterface $em,
-    ) {}
+    ) {
+    }
 
     #[Route('/api/grocery/end-errand', name: 'api_grocery_end_errand', methods: ['POST'])]
     public function __invoke(Request $request): JsonResponse
@@ -35,10 +36,10 @@ final class EndErrandController
         }
 
         $content = $request->getContent();
-        $body = $content === '' ? [] : json_decode($content, true, 512, \JSON_THROW_ON_ERROR);
+        $body = '' === $content ? [] : json_decode($content, true, 512, \JSON_THROW_ON_ERROR);
 
         $storeId = $body['storeId'] ?? null;
-        if ($storeId !== null && !\is_string($storeId)) {
+        if (null !== $storeId && !\is_string($storeId)) {
             return new JsonResponse(['error' => 'storeId must be a string'], Response::HTTP_BAD_REQUEST);
         }
 
@@ -63,9 +64,9 @@ final class EndErrandController
             if ($item->isChecked()) {
                 continue;
             }
-            if ($storeId !== null) {
+            if (null !== $storeId) {
                 $itemStoreId = $item->getStore()?->getId();
-                if ($itemStoreId === null || (string) $itemStoreId !== $storeId) {
+                if (null === $itemStoreId || (string) $itemStoreId !== $storeId) {
                     continue;
                 }
             }
@@ -74,7 +75,7 @@ final class EndErrandController
                 'label' => $item->getLabel(),
                 'quantity' => $item->getQuantity(),
                 'unit' => $item->getUnit()?->value,
-                'store' => $item->getStore() === null ? null : [
+                'store' => null === $item->getStore() ? null : [
                     'id' => (string) $item->getStore()->getId(),
                     'name' => $item->getStore()->getName(),
                 ],

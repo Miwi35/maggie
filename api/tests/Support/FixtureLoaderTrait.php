@@ -14,7 +14,7 @@ trait FixtureLoaderTrait
         $this->purgeDatabase();
 
         $loader = new NativeLoader();
-        $fixturesDir = dirname((new \ReflectionClass(static::class))->getFileName()) . '/fixtures/';
+        $fixturesDir = dirname((new \ReflectionClass(static::class))->getFileName()).'/fixtures/';
 
         $this->fixtures = [];
         foreach ($files as $file) {
@@ -22,7 +22,7 @@ trait FixtureLoaderTrait
             // world two suites care about can be shared instead of copied —
             // two copies of the same world drift, and then the two suites
             // disagree about what they are testing.
-            $path = str_starts_with($file, '/') ? $file : $fixturesDir . $file;
+            $path = str_starts_with($file, '/') ? $file : $fixturesDir.$file;
 
             $objectSet = $loader->loadFile($path, [], $this->fixtures);
             $this->fixtures = array_merge($this->fixtures, $objectSet->getObjects());
@@ -46,11 +46,7 @@ trait FixtureLoaderTrait
     protected function getFixture(string $ref): object
     {
         if (!isset($this->fixtures[$ref])) {
-            throw new \InvalidArgumentException(sprintf(
-                'Fixture "%s" not found. Available: %s',
-                $ref,
-                implode(', ', array_keys($this->fixtures)),
-            ));
+            throw new \InvalidArgumentException(sprintf('Fixture "%s" not found. Available: %s', $ref, implode(', ', array_keys($this->fixtures))));
         }
 
         return $this->fixtures[$ref];

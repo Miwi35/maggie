@@ -2,10 +2,10 @@
 
 namespace Maggie\Calendar\Repository;
 
-use Maggie\Calendar\Entity\Task;
-use Maggie\Core\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Maggie\Calendar\Entity\Task;
+use Maggie\Core\Entity\User;
 
 /**
  * @extends ServiceEntityRepository<Task>

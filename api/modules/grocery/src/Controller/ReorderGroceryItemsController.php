@@ -19,7 +19,8 @@ final class ReorderGroceryItemsController
     public function __construct(
         private readonly MessageBusInterface $messageBus,
         private readonly Security $security,
-    ) {}
+    ) {
+    }
 
     #[Route('/api/grocery/reorder', name: 'api_grocery_reorder', methods: ['PATCH'])]
     public function __invoke(Request $request): JsonResponse
@@ -32,7 +33,7 @@ final class ReorderGroceryItemsController
         $body = json_decode($request->getContent(), true, 512, \JSON_THROW_ON_ERROR);
 
         $items = $body['items'] ?? null;
-        if (!\is_array($items) || $items === []) {
+        if (!\is_array($items) || [] === $items) {
             return new JsonResponse(['error' => 'Missing required field: items'], Response::HTTP_BAD_REQUEST);
         }
 

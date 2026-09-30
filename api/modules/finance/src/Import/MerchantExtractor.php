@@ -75,7 +75,7 @@ final class MerchantExtractor
         $value = preg_replace('/\s+/u', ' ', trim($label)) ?? $label;
 
         foreach (self::SELF_NAMING as $pattern => $name) {
-            if (preg_match($pattern, $value) === 1) {
+            if (1 === preg_match($pattern, $value)) {
                 return $name;
             }
         }
@@ -92,7 +92,7 @@ final class MerchantExtractor
 
         $value = trim($value, " \t\n\r\0\x0B-*/,.");
 
-        if ($value === '') {
+        if ('' === $value) {
             return null;
         }
 
@@ -101,7 +101,7 @@ final class MerchantExtractor
 
         // A pattern of one or two characters would claim half the statement,
         // and a bare card number names no one.
-        if (mb_strlen($merchant) < 3 || preg_match('/^X?\d+$/', $merchant) === 1) {
+        if (mb_strlen($merchant) < 3 || 1 === preg_match('/^X?\d+$/', $merchant)) {
             return null;
         }
 

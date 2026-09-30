@@ -4,13 +4,10 @@ namespace Maggie\Core\Tests\Elasticsearch;
 
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Event;
-use Maggie\Calendar\Entity\Task;
-use Maggie\Calendar\Enum\TaskCriticality;
-use Maggie\Calendar\Enum\TaskPriority;
 use Maggie\Calendar\Message\CreateEventCommand;
 use Maggie\Calendar\Message\DeleteEventCommand;
-use Maggie\Calendar\Message\UpdateEventCommand;
 use Maggie\Calendar\Message\PullFromGoogleCommand;
+use Maggie\Calendar\Message\UpdateEventCommand;
 use Maggie\Core\Elasticsearch\IndexMetadataReader;
 use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
 use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
@@ -40,6 +37,7 @@ class ElasticsearchIndexMiddlewareTest extends TestCase
         $this->bus = $this->createMock(MessageBusInterface::class);
         $this->bus->method('dispatch')->willReturnCallback(function (object $message) {
             $this->dispatched[] = $message;
+
             return new Envelope($message);
         });
 
@@ -56,9 +54,10 @@ class ElasticsearchIndexMiddlewareTest extends TestCase
         $next = $this->createMock(MiddlewareInterface::class);
         $next->method('handle')->willReturnCallback(
             function (Envelope $envelope) use ($result) {
-                if ($result !== null) {
+                if (null !== $result) {
                     return $envelope->with(new HandledStamp($result, 'handler'));
                 }
+
                 return $envelope->with(new HandledStamp(null, 'handler'));
             }
         );

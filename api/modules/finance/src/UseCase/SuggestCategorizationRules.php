@@ -10,7 +10,6 @@ use Maggie\Core\Entity\User;
 use Maggie\Finance\Category\MerchantDictionary;
 use Maggie\Finance\Entity\CategorizationRule;
 use Maggie\Finance\Entity\Category;
-use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\AmountDirection;
 use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\MatchType;
@@ -67,17 +66,17 @@ class SuggestCategorizationRules
 
         foreach ($this->transactionRepository->findByUser($user) as $transaction) {
             // A category set by hand is an answer already given.
-            if ($transaction->getCategorySource() === CategorySource::Manual) {
+            if (CategorySource::Manual === $transaction->getCategorySource()) {
                 continue;
             }
 
             $merchant = MerchantExtractor::extract($transaction->getLabel());
-            if ($merchant === null) {
+            if (null === $merchant) {
                 continue;
             }
 
             $key = MerchantExtractor::key($merchant);
-            if ($key === '' || isset($covered[$key])) {
+            if ('' === $key || isset($covered[$key])) {
                 continue;
             }
 
@@ -111,16 +110,16 @@ class SuggestCategorizationRules
             $direction = $this->directionOf($group['debits'], $group['credits']);
             $guess = MerchantDictionary::categoryFor(
                 $group['pattern'],
-                $direction === AmountDirection::Credit,
+                AmountDirection::Credit === $direction,
             );
-            $category = $guess === null ? null : ($categoriesByName[mb_strtolower($guess)] ?? null);
+            $category = null === $guess ? null : ($categoriesByName[mb_strtolower($guess)] ?? null);
 
             $suggestions[] = [
                 'pattern' => $group['pattern'],
                 'occurrences' => $group['occurrences'],
                 'totalCents' => $group['totalCents'],
                 'direction' => $direction->value,
-                'categoryId' => $category === null ? null : (string) $category->getId(),
+                'categoryId' => null === $category ? null : (string) $category->getId(),
                 'categoryName' => $category?->getName(),
                 'samples' => $group['samples'],
             ];
@@ -135,8 +134,8 @@ class SuggestCategorizationRules
     /**
      * Turns accepted suggestions into rules.
      *
-     * @param list<array<string, mixed>> $accepted Straight from the request:
-     *                                             every field is checked here.
+     * @param list<array<string, mixed>> $accepted straight from the request:
+     *                                             every field is checked here
      *
      * @return array{created: int, patterns: list<string>}
      */
@@ -148,7 +147,7 @@ class SuggestCategorizationRules
             $pattern = \is_string($entry['pattern'] ?? null) ? trim($entry['pattern']) : '';
             $categoryId = $entry['categoryId'] ?? null;
 
-            if ($pattern === '' || !\is_string($categoryId) || !Ulid::isValid($categoryId)) {
+            if ('' === $pattern || !\is_string($categoryId) || !Ulid::isValid($categoryId)) {
                 continue;
             }
 
@@ -193,11 +192,11 @@ class SuggestCategorizationRules
     /** A merchant only ever paid is a debit rule; one that also refunds is not. */
     private function directionOf(int $debits, int $credits): AmountDirection
     {
-        if ($credits === 0) {
+        if (0 === $credits) {
             return AmountDirection::Debit;
         }
 
-        if ($debits === 0) {
+        if (0 === $debits) {
             return AmountDirection::Credit;
         }
 

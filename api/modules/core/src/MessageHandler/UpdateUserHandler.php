@@ -20,14 +20,14 @@ class UpdateUserHandler
     public function __invoke(UpdateUserCommand $command): User
     {
         $user = $this->userRepository->find($command->userId);
-        if ($user === null) {
+        if (null === $user) {
             throw new \DomainException("User not found: {$command->userId}");
         }
 
-        if ($command->name !== null) {
+        if (null !== $command->name) {
             $user->setName($command->name);
         }
-        if ($command->avatar !== null) {
+        if (null !== $command->avatar) {
             $user->setAvatar($command->avatar);
         } elseif ($command->clears('avatar')) {
             $user->setAvatar(null);

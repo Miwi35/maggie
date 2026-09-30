@@ -120,7 +120,7 @@ class LoanApiTest extends WebTestCase
             'HTTP_ACCEPT' => 'application/ld+json',
         ];
 
-        $this->client->request('PATCH', '/api/loans/' . $id, [], [], $authenticated
+        $this->client->request('PATCH', '/api/loans/'.$id, [], [], $authenticated
             ? array_merge($headers, $this->authHeaders())
             : $headers, json_encode($body, JSON_THROW_ON_ERROR));
     }
@@ -168,7 +168,7 @@ class LoanApiTest extends WebTestCase
         $loan = $this->getFixture('car');
         $loanId = $loan->getId();
 
-        $this->client->request('DELETE', '/api/loans/' . $loanId, [], [], array_merge([
+        $this->client->request('DELETE', '/api/loans/'.$loanId, [], [], array_merge([
             'HTTP_ACCEPT' => 'application/ld+json',
         ], $this->authHeaders()));
 

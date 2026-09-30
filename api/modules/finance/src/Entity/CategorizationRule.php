@@ -106,8 +106,8 @@ class CategorizationRule implements MercurePublishable, OwnedByUserInterface, In
     #[Assert\Callback]
     public function validateAmountRange(ExecutionContextInterface $context): void
     {
-        if ($this->minAmountCents !== null
-            && $this->maxAmountCents !== null
+        if (null !== $this->minAmountCents
+            && null !== $this->maxAmountCents
             && $this->minAmountCents > $this->maxAmountCents
         ) {
             $context->buildViolation('The minimum amount must not exceed the maximum amount.')
@@ -242,21 +242,21 @@ class CategorizationRule implements MercurePublishable, OwnedByUserInterface, In
 
         $amountCents = $transaction->getAmountCents();
 
-        if ($this->direction === AmountDirection::Debit && $amountCents >= 0) {
+        if (AmountDirection::Debit === $this->direction && $amountCents >= 0) {
             return false;
         }
 
-        if ($this->direction === AmountDirection::Credit && $amountCents <= 0) {
+        if (AmountDirection::Credit === $this->direction && $amountCents <= 0) {
             return false;
         }
 
         $absolute = abs($amountCents);
 
-        if ($this->minAmountCents !== null && $absolute < $this->minAmountCents) {
+        if (null !== $this->minAmountCents && $absolute < $this->minAmountCents) {
             return false;
         }
 
-        return $this->maxAmountCents === null || $absolute <= $this->maxAmountCents;
+        return null === $this->maxAmountCents || $absolute <= $this->maxAmountCents;
     }
 
     private function matchesLabel(string $label): bool
@@ -265,8 +265,8 @@ class CategorizationRule implements MercurePublishable, OwnedByUserInterface, In
         $needle = mb_strtolower($this->labelPattern);
 
         return match ($this->matchType) {
-            MatchType::Contains => $needle !== '' && str_contains($haystack, $needle),
-            MatchType::StartsWith => $needle !== '' && str_starts_with($haystack, $needle),
+            MatchType::Contains => '' !== $needle && str_contains($haystack, $needle),
+            MatchType::StartsWith => '' !== $needle && str_starts_with($haystack, $needle),
             MatchType::Equals => $haystack === $needle,
         };
     }

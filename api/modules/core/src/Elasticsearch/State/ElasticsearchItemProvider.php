@@ -12,6 +12,7 @@ use Maggie\Core\Elasticsearch\Hydrator\ElasticsearchEntityHydrator;
 use Maggie\Core\Elasticsearch\IndexMetadataReader;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
+
 /**
  * @implements ProviderInterface<object>
  */
@@ -27,27 +28,29 @@ final class ElasticsearchItemProvider implements ProviderInterface
         private readonly Security $security,
         private readonly LoggerInterface $logger,
         private readonly ProviderInterface $doctrineProvider,
-    ) {}
+    ) {
+    }
 
     public function provide(Operation $operation, array $uriVariables = [], array $context = []): object|array|null
     {
         $entityClass = $operation->getClass();
         $meta = $this->metadataReader->read($entityClass);
 
-        if ($meta === null) {
+        if (null === $meta) {
             return $this->doctrineProvider->provide($operation, $uriVariables, $context);
         }
 
         $id = $uriVariables['id'] ?? null;
-        if ($id === null) {
+        if (null === $id) {
             return $this->doctrineProvider->provide($operation, $uriVariables, $context);
         }
 
         try {
             $result = $this->doProvide($meta, $entityClass, (string) $id);
-            if ($result !== null) {
+            if (null !== $result) {
                 return $result;
             }
+
             // Document not in ES (not yet indexed, or index doesn't exist) — fallback to Doctrine
             return $this->doctrineProvider->provide($operation, $uriVariables, $context);
         } catch (\Throwable $e) {
@@ -72,7 +75,7 @@ final class ElasticsearchItemProvider implements ProviderInterface
                 'id' => $id,
             ])->asArray();
         } catch (ClientResponseException $e) {
-            if ($e->getCode() === 404) {
+            if (404 === $e->getCode()) {
                 return null;
             }
             throw $e;

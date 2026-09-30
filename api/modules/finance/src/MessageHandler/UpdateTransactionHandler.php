@@ -31,35 +31,35 @@ class UpdateTransactionHandler
         $transaction = $this->transactionRepository->find($command->transactionId)
             ?? throw new \DomainException("Transaction not found: {$command->transactionId}");
 
-        if ($command->accountId !== null) {
+        if (null !== $command->accountId) {
             $account = $this->accountRepository->find($command->accountId)
                 ?? throw new \DomainException("Account not found: {$command->accountId}");
             $transaction->setAccount($account);
         }
-        if ($command->amountCents !== null) {
+        if (null !== $command->amountCents) {
             $transaction->setAmountCents($command->amountCents);
         }
-        if ($command->label !== null) {
+        if (null !== $command->label) {
             $transaction->setLabel($command->label);
         }
-        if ($command->bookedAt !== null) {
+        if (null !== $command->bookedAt) {
             $transaction->setBookedAt(new \DateTimeImmutable($command->bookedAt));
         }
-        if ($command->status !== null) {
+        if (null !== $command->status) {
             $transaction->setStatus(TransactionStatus::from($command->status));
         }
-        if ($command->currency !== null) {
+        if (null !== $command->currency) {
             $transaction->setCurrency($command->currency);
         }
-        if ($command->isExceptional !== null) {
+        if (null !== $command->isExceptional) {
             $transaction->setIsExceptional($command->isExceptional);
         }
-        if ($command->retrospect !== null) {
+        if (null !== $command->retrospect) {
             $transaction->setRetrospect(RetrospectVerdict::from($command->retrospect));
         }
-        if ($command->categoryId !== null) {
+        if (null !== $command->categoryId) {
             // '' is the historical way to empty the category; clearFields is the explicit one.
-            if ($command->categoryId === '') {
+            if ('' === $command->categoryId) {
                 $transaction->assignCategory(null, CategorySource::None);
             } else {
                 $category = $this->categoryRepository->find($command->categoryId)

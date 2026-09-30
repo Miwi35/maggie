@@ -29,7 +29,7 @@ class RecipeRepository extends ServiceEntityRepository
             ->where('r.user = :user')
             ->andWhere('LOWER(r.name) LIKE LOWER(:query)')
             ->setParameter('user', $user->getId(), 'ulid')
-            ->setParameter('query', '%' . $query . '%')
+            ->setParameter('query', '%'.$query.'%')
             ->orderBy('r.name', 'ASC')
             ->getQuery()
             ->getResult();

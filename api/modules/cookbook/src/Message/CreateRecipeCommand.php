@@ -7,7 +7,7 @@ namespace Maggie\Cookbook\Message;
 final readonly class CreateRecipeCommand
 {
     /**
-     * @param string[] $tags
+     * @param string[]                                                                                         $tags
      * @param array<array{quantity: float, unit: string, ingredientId?: string, ciqualAlimCode?: string}>|null $ingredients
      */
     public function __construct(

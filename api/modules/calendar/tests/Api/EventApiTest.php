@@ -49,7 +49,7 @@ class EventApiTest extends WebTestCase
 
         $event = $this->getFixture('event_1');
 
-        $this->client->request('GET', '/api/events/' . $event->getId(), [], [], array_merge(
+        $this->client->request('GET', '/api/events/'.$event->getId(), [], [], array_merge(
             ['HTTP_ACCEPT' => 'application/ld+json'],
             $this->authHeaders(),
         ));
@@ -76,7 +76,7 @@ class EventApiTest extends WebTestCase
             'summary' => 'New Event',
             'startAt' => '2026-03-20T10:00:00+01:00',
             'endAt' => '2026-03-20T11:00:00+01:00',
-            'agenda' => '/api/agendas/' . $agenda->getId(),
+            'agenda' => '/api/agendas/'.$agenda->getId(),
         ], JSON_THROW_ON_ERROR));
 
         self::assertResponseStatusCodeSame(201);
@@ -101,7 +101,7 @@ class EventApiTest extends WebTestCase
             // Missing required 'summary'
             'startAt' => '2026-03-20T10:00:00+01:00',
             'endAt' => '2026-03-20T11:00:00+01:00',
-            'agenda' => '/api/agendas/' . $agenda->getId(),
+            'agenda' => '/api/agendas/'.$agenda->getId(),
         ], JSON_THROW_ON_ERROR));
 
         self::assertResponseStatusCodeSame(422);

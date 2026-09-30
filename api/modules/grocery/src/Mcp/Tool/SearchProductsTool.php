@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Maggie\Grocery\Mcp\Tool;
 
-use Maggie\Grocery\Repository\ProductRepository;
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
+use Maggie\Grocery\Repository\ProductRepository;
 use Mcp\Capability\Attribute\McpTool;
 
 #[McpTool(name: 'search_products', description: 'Search all products (food and non-food) by name. Returns matching products with id, name, category, and type.')]

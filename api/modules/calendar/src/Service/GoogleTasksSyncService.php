@@ -30,11 +30,11 @@ class GoogleTasksSyncService
         }
 
         $taskListId = $user->getGoogleTaskListId();
-        if ($taskListId === null) {
+        if (null === $taskListId) {
             // Auto-detect: pick the first available task list
             try {
                 $lists = $this->apiClient->listTaskLists($user);
-                if ($lists === []) {
+                if ([] === $lists) {
                     return;
                 }
                 $taskListId = $lists[0]->getId();
@@ -45,6 +45,7 @@ class GoogleTasksSyncService
                     'error' => $e->getMessage(),
                     'userId' => (string) $user->getId(),
                 ]);
+
                 return;
             }
         }
@@ -67,7 +68,7 @@ class GoogleTasksSyncService
         $existingByGoogleId = [];
         foreach ($existingTasks as $task) {
             $googleTaskId = $task->getGoogleTaskId();
-            if ($googleTaskId !== null) {
+            if (null !== $googleTaskId) {
                 $existingByGoogleId[$googleTaskId] = $task;
             }
         }
@@ -96,11 +97,11 @@ class GoogleTasksSyncService
             $existing = $existingByGoogleId[$googleTaskId] ?? null;
 
             // Skip if Google hasn't changed since our last sync
-            if ($existing !== null) {
+            if (null !== $existing) {
                 /** @var ?string $googleUpdated */
                 $googleUpdated = $googleTask->getUpdated();
                 $localUpdated = $existing->getGoogleTaskUpdatedAt();
-                if ($localUpdated !== null && $googleUpdated !== null) {
+                if (null !== $localUpdated && null !== $googleUpdated) {
                     if (new \DateTimeImmutable($googleUpdated) <= $localUpdated) {
                         continue;
                     }
@@ -110,7 +111,7 @@ class GoogleTasksSyncService
             $task = $this->taskMapper->fromGoogle($googleTask, $user, $existing);
             $task->setGoogleTaskListId($taskListId);
 
-            if ($existing === null) {
+            if (null === $existing) {
                 $this->entityManager->persist($task);
             }
 
@@ -144,13 +145,13 @@ class GoogleTasksSyncService
         }
 
         $taskListId = $user->getGoogleTaskListId();
-        if ($taskListId === null) {
+        if (null === $taskListId) {
             return;
         }
 
         try {
             $googleTaskId = $task->getGoogleTaskId();
-            if ($googleTaskId === null) {
+            if (null === $googleTaskId) {
                 // Create new task on Google
                 $googleTask = $this->taskMapper->toGoogle($task);
                 $result = $this->apiClient->insertTask($user, $taskListId, $googleTask);
@@ -162,7 +163,7 @@ class GoogleTasksSyncService
                 if ($updatedAt) {
                     $task->setGoogleTaskUpdatedAt(new \DateTimeImmutable($updatedAt));
                 }
-            } elseif ($changedFields !== null && $changedFields !== []) {
+            } elseif (null !== $changedFields && [] !== $changedFields) {
                 // Partial update via PATCH
                 $googleTask = $this->taskMapper->toGooglePatch($task, $changedFields);
                 $result = $this->apiClient->patchTask($user, $taskListId, $googleTaskId, $googleTask);
@@ -204,18 +205,19 @@ class GoogleTasksSyncService
         $taskListId = $task->getGoogleTaskListId() ?? $user->getGoogleTaskListId();
         $googleTaskId = $task->getGoogleTaskId();
 
-        if ($taskListId === null || $googleTaskId === null) {
+        if (null === $taskListId || null === $googleTaskId) {
             return;
         }
 
         try {
             $this->apiClient->deleteTask($user, $taskListId, $googleTaskId);
         } catch (GoogleServiceException $e) {
-            if ($e->getCode() === 404 || $e->getCode() === 410) {
+            if (404 === $e->getCode() || 410 === $e->getCode()) {
                 // Already deleted on Google side, ignore
                 $this->logger->info('Task already deleted on Google: {googleTaskId}', [
                     'googleTaskId' => $googleTaskId,
                 ]);
+
                 return;
             }
             throw $e;
@@ -226,17 +228,18 @@ class GoogleTasksSyncService
     {
         try {
             $task = $this->taskRepository->find($taskId);
-            if ($task === null) {
+            if (null === $task) {
                 // Task was deleted
-                $iri = '/api/tasks/' . $taskId;
+                $iri = '/api/tasks/'.$taskId;
                 $this->hub->publish(new Update(
                     topics: [$iri],
                     data: json_encode(['@id' => $iri, 'deleted' => true], JSON_THROW_ON_ERROR),
                 ));
+
                 return;
             }
 
-            $iri = '/api/tasks/' . $task->getId();
+            $iri = '/api/tasks/'.$task->getId();
             $this->hub->publish(new Update(
                 topics: [$iri],
                 data: json_encode(['@id' => $iri] + $task->toMercurePayload(), JSON_THROW_ON_ERROR),

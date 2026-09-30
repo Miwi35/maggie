@@ -52,7 +52,7 @@ class ListBanksCommand extends Command
         }
 
         $search = $input->getOption('search');
-        if ($search !== null) {
+        if (null !== $search) {
             $needle = mb_strtolower((string) $search);
             $banks = array_values(array_filter(
                 $banks,
@@ -60,7 +60,7 @@ class ListBanksCommand extends Command
             ));
         }
 
-        if ($banks === []) {
+        if ([] === $banks) {
             $io->warning(sprintf('No bank found for %s.', strtoupper($country)));
 
             return Command::SUCCESS;

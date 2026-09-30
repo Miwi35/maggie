@@ -6,7 +6,6 @@ use Doctrine\ORM\EntityManagerInterface;
 use Google\Service\Exception as GoogleServiceException;
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Event;
-use Maggie\Calendar\Enum\EventStatus;
 use Maggie\Calendar\Repository\AgendaRepository;
 use Maggie\Calendar\Repository\EventRepository;
 use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
@@ -46,7 +45,7 @@ class GoogleCalendarSyncService
         try {
             $this->doPull($user, $agenda, $calendarId, $syncToken);
         } catch (GoogleServiceException $e) {
-            if ($e->getCode() === 410) {
+            if (410 === $e->getCode()) {
                 // Sync token expired, do a full sync
                 $this->logger->info('Sync token expired for agenda {agenda}, doing full sync', [
                     'agenda' => $agenda->getId(),
@@ -84,7 +83,7 @@ class GoogleCalendarSyncService
 
         try {
             $googleEventId = $event->getGoogleEventId();
-            if ($action === 'create' || $googleEventId === null) {
+            if ('create' === $action || null === $googleEventId) {
                 $googleEvent = $this->eventMapper->toGoogle($event);
                 $result = $this->apiClient->insertEvent($user, $calendarId, $googleEvent);
                 $event->setGoogleEventId($result->getId());
@@ -94,7 +93,7 @@ class GoogleCalendarSyncService
                 if ($updatedAt) {
                     $event->setGoogleUpdatedAt(new \DateTimeImmutable($updatedAt));
                 }
-            } elseif ($changedFields !== null && $changedFields !== []) {
+            } elseif (null !== $changedFields && [] !== $changedFields) {
                 $googleEvent = $this->eventMapper->toGooglePatch($event, $changedFields);
                 $result = $this->apiClient->patchEvent($user, $calendarId, $googleEventId, $googleEvent);
                 $event->setGoogleEtag($result->getEtag());
@@ -134,11 +133,12 @@ class GoogleCalendarSyncService
         try {
             $this->apiClient->deleteEvent($agenda->getUser(), $agenda->getGoogleCalendarId(), $googleEventId);
         } catch (GoogleServiceException $e) {
-            if ($e->getCode() === 404 || $e->getCode() === 410) {
+            if (404 === $e->getCode() || 410 === $e->getCode()) {
                 // Already deleted on Google side, ignore
                 $this->logger->info('Event already deleted on Google: {googleEventId}', [
                     'googleEventId' => $googleEventId,
                 ]);
+
                 return;
             }
             throw $e;
@@ -183,24 +183,24 @@ class GoogleCalendarSyncService
             $pageToken = $result['nextPageToken'];
 
             foreach ($events as $googleEvent) {
-                if ($googleEvent->getStatus() === 'cancelled') {
+                if ('cancelled' === $googleEvent->getStatus()) {
                     $eventId = $this->processGoogleEvent($googleEvent, $agenda);
-                    if ($eventId !== null) {
+                    if (null !== $eventId) {
                         $deletedEventIds[] = $eventId;
                     }
                 } else {
                     $eventId = $this->processGoogleEvent($googleEvent, $agenda);
-                    if ($eventId !== null) {
+                    if (null !== $eventId) {
                         $changedEventIds[] = $eventId;
                     }
                 }
             }
 
             $this->entityManager->flush();
-        } while ($pageToken !== null);
+        } while (null !== $pageToken);
 
         // Store new sync token
-        if ($result['nextSyncToken'] !== null) {
+        if (null !== $result['nextSyncToken']) {
             $agenda->setGoogleSyncToken($result['nextSyncToken']);
         }
         $agenda->setLastGoogleSyncAt(new \DateTimeImmutable());
@@ -232,21 +232,23 @@ class GoogleCalendarSyncService
         $existing = $this->eventRepository->findByGoogleEventId($googleEventId, $agenda);
 
         // Handle cancelled events
-        if ($googleEvent->getStatus() === 'cancelled') {
-            if ($existing !== null) {
+        if ('cancelled' === $googleEvent->getStatus()) {
+            if (null !== $existing) {
                 $eventId = (string) $existing->getId();
                 $this->entityManager->remove($existing);
+
                 return $eventId;
             }
+
             return null;
         }
 
         // Skip if Google hasn't changed since our last sync
-        if ($existing !== null) {
+        if (null !== $existing) {
             /** @var ?string $googleUpdated */
             $googleUpdated = $googleEvent->getUpdated();
             $localUpdated = $existing->getGoogleUpdatedAt();
-            if ($localUpdated !== null && $googleUpdated !== null) {
+            if (null !== $localUpdated && null !== $googleUpdated) {
                 if (new \DateTimeImmutable($googleUpdated) <= $localUpdated) {
                     return (string) $existing->getId();
                 }
@@ -256,7 +258,7 @@ class GoogleCalendarSyncService
         // Create or update
         $event = $this->eventMapper->fromGoogle($googleEvent, $agenda, $existing);
 
-        if ($existing === null) {
+        if (null === $existing) {
             $this->entityManager->persist($event);
         }
 
@@ -267,15 +269,16 @@ class GoogleCalendarSyncService
     {
         try {
             $event = $this->eventRepository->find($eventId);
-            $iri = '/api/events/' . $eventId;
-            $scopedTopic = '/users/' . $userId . $iri;
+            $iri = '/api/events/'.$eventId;
+            $scopedTopic = '/users/'.$userId.$iri;
 
-            if ($event === null) {
+            if (null === $event) {
                 // Event was deleted
                 $this->hub->publish(new Update(
                     topics: [$scopedTopic],
                     data: json_encode(['@id' => $iri, 'deleted' => true], JSON_THROW_ON_ERROR),
                 ));
+
                 return;
             }
 

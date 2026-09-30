@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Maggie\Cookbook\Entity;
 
-use Maggie\Grocery\Enum\Unit;
 use Doctrine\ORM\Mapping as ORM;
+use Maggie\Grocery\Enum\Unit;
 use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
 

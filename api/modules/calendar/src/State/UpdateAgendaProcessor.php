@@ -21,10 +21,10 @@ class UpdateAgendaProcessor implements ProcessorInterface
     {
         // This processor sends every field: a nullable one that is null is an explicit clear
         $clearFields = [];
-        if ($data->getDescription() === null) {
+        if (null === $data->getDescription()) {
             $clearFields[] = 'description';
         }
-        if ($data->getColor() === null) {
+        if (null === $data->getColor()) {
             $clearFields[] = 'color';
         }
 

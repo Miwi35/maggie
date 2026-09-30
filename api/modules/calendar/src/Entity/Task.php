@@ -13,13 +13,17 @@ use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
+use Doctrine\DBAL\Types\Types;
+use Doctrine\ORM\Mapping as ORM;
 use Maggie\Calendar\Enum\TaskCriticality;
 use Maggie\Calendar\Enum\TaskPriority;
-use Maggie\Core\Contract\MercurePublishable;
-use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Calendar\Repository\TaskRepository;
+use Maggie\Calendar\State\CreateTaskProcessor;
+use Maggie\Calendar\State\DeleteTaskProcessor;
+use Maggie\Calendar\State\UpdateTaskProcessor;
 use Maggie\Calendar\Trait\HasGoogleTaskTrackingTrait;
 use Maggie\Core\Contract\IndexableInterface;
+use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Contract\OwnedByUserInterface;
 use Maggie\Core\Elasticsearch\Attribute\Indexed;
 use Maggie\Core\Elasticsearch\Attribute\IndexedField;
@@ -27,11 +31,7 @@ use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
 use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
 use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Entity\User;
-use Maggie\Calendar\State\CreateTaskProcessor;
-use Maggie\Calendar\State\DeleteTaskProcessor;
-use Maggie\Calendar\State\UpdateTaskProcessor;
-use Doctrine\DBAL\Types\Types;
-use Doctrine\ORM\Mapping as ORM;
+use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -185,7 +185,7 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
 
     public function isDone(): bool
     {
-        return $this->completedAt !== null;
+        return null !== $this->completedAt;
     }
 
     /** @return array<string, mixed> */

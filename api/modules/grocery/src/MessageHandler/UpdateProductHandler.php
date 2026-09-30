@@ -26,13 +26,13 @@ class UpdateProductHandler
         $product = $this->productRepository->find($command->productId)
             ?? throw new \DomainException("Product not found: {$command->productId}");
 
-        if ($command->name !== null) {
+        if (null !== $command->name) {
             $product->setName($command->name);
         }
-        if ($command->category !== null) {
+        if (null !== $command->category) {
             $product->setCategory(ProductCategory::from($command->category));
         }
-        if ($command->defaultUnit !== null) {
+        if (null !== $command->defaultUnit) {
             $product->setDefaultUnit(Unit::from($command->defaultUnit));
         } elseif ($command->clears('defaultUnit')) {
             $product->setDefaultUnit(null);

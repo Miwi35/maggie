@@ -27,16 +27,16 @@ class CsvStatementParser
     public function parse(string $contents, ?string $defaultCurrency = null): array
     {
         $lines = preg_split('/\R/u', $this->stripBom($contents)) ?: [];
-        $lines = array_values(array_filter($lines, static fn (string $line) => trim($line) !== ''));
+        $lines = array_values(array_filter($lines, static fn (string $line) => '' !== trim($line)));
 
-        if ($lines === []) {
+        if ([] === $lines) {
             return ['rows' => [], 'errors' => ['The file is empty.']];
         }
 
         $separator = $this->detectSeparator($lines);
         $headerIndex = $this->findHeaderLine($lines, $separator);
 
-        if ($headerIndex === null) {
+        if (null === $headerIndex) {
             return [
                 'rows' => [],
                 'errors' => ['No header row found: expected a line naming at least a date and an amount column.'],
@@ -60,7 +60,7 @@ class CsvStatementParser
                 continue;
             }
 
-            if ($row !== null) {
+            if (null !== $row) {
                 $rows[] = $row;
             }
         }
@@ -75,11 +75,11 @@ class CsvStatementParser
     private function toRow(array $cells, array $columns, int $lineNumber, ?string $defaultCurrency): ?StatementRow
     {
         $read = static function (?int $index) use ($cells): string {
-            return $index === null ? '' : trim($cells[$index] ?? '');
+            return null === $index ? '' : trim($cells[$index] ?? '');
         };
 
         $rawDate = $read($columns['date'] ?? null);
-        if ($rawDate === '') {
+        if ('' === $rawDate) {
             // Export footers and blank separators are not errors worth reporting.
             return null;
         }
@@ -91,7 +91,7 @@ class CsvStatementParser
             ?? throw new \RuntimeException('cannot read the amount.');
 
         $label = $read($columns['label'] ?? null);
-        if ($label === '') {
+        if ('' === $label) {
             $label = 'Sans libellé';
         }
 
@@ -118,18 +118,18 @@ class CsvStatementParser
         if (isset($columns['amount'])) {
             $amount = $this->parseAmount($read($columns['amount']));
 
-            return $amount === null ? null : $amount;
+            return null === $amount ? null : $amount;
         }
 
         // Separate debit and credit columns: exactly one of them is filled.
         $debit = $this->parseAmount($read($columns['debit'] ?? null));
         $credit = $this->parseAmount($read($columns['credit'] ?? null));
 
-        if ($debit !== null && $debit !== 0) {
+        if (null !== $debit && 0 !== $debit) {
             return -abs($debit);
         }
 
-        if ($credit !== null && $credit !== 0) {
+        if (null !== $credit && 0 !== $credit) {
             return abs($credit);
         }
 
@@ -140,7 +140,7 @@ class CsvStatementParser
     private function parseAmount(string $raw): ?int
     {
         $raw = trim(str_replace(["\u{00A0}", "\u{202F}", ' ', '€', 'CHF', 'EUR', '$'], '', $raw));
-        if ($raw === '' || $raw === '-') {
+        if ('' === $raw || '-' === $raw) {
             return null;
         }
 
@@ -151,14 +151,14 @@ class CsvStatementParser
         $lastComma = strrpos($raw, ',');
         $lastDot = strrpos($raw, '.');
 
-        if ($lastComma !== false && $lastDot !== false) {
+        if (false !== $lastComma && false !== $lastDot) {
             $decimal = $lastComma > $lastDot ? ',' : '.';
-            $raw = str_replace($decimal === ',' ? '.' : ',', '', $raw);
+            $raw = str_replace(',' === $decimal ? '.' : ',', '', $raw);
             $raw = str_replace($decimal, '.', $raw);
-        } elseif ($lastComma !== false) {
+        } elseif (false !== $lastComma) {
             // A lone comma is decimal unless it groups thousands: "1,234".
             $decimals = \strlen($raw) - $lastComma - 1;
-            $raw = $decimals === 3 ? str_replace(',', '', $raw) : str_replace(',', '.', $raw);
+            $raw = 3 === $decimals ? str_replace(',', '', $raw) : str_replace(',', '.', $raw);
         }
 
         if (!is_numeric($raw)) {
@@ -176,7 +176,7 @@ class CsvStatementParser
 
         foreach (['d/m/Y', 'd-m-Y', 'd.m.Y', 'Y-m-d', 'Y/m/d', 'd/m/y', 'Y-m-d H:i:s', 'd/m/Y H:i', 'Y-m-d\TH:i:s'] as $format) {
             $date = \DateTimeImmutable::createFromFormat($format, $raw);
-            if ($date !== false && $date->format($format) === $raw) {
+            if (false !== $date && $date->format($format) === $raw) {
                 return $date->setTime(0, 0);
             }
         }

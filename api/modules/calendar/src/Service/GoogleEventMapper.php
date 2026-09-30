@@ -80,7 +80,7 @@ class GoogleEventMapper
         $statusStr = $googleEvent->getStatus();
         if ($statusStr) {
             $status = EventStatus::tryFrom($statusStr);
-            if ($status !== null) {
+            if (null !== $status) {
                 $event->setStatus($status);
             }
         }
@@ -93,7 +93,7 @@ class GoogleEventMapper
             $overrides = $reminders->getOverrides();
             if (!empty($overrides)) {
                 $reminderData['overrides'] = array_map(
-                    fn(EventReminder $r) => [
+                    fn (EventReminder $r) => [
                         'method' => $r->getMethod(),
                         'minutes' => $r->getMinutes(),
                     ],
@@ -153,8 +153,8 @@ class GoogleEventMapper
             $googleEvent->setEnd($end);
         }
         if (isset($fields['rrule'])) {
-            if ($event->getRrule() !== null) {
-                $googleEvent->setRecurrence(['RRULE:' . $event->getRrule()]);
+            if (null !== $event->getRrule()) {
+                $googleEvent->setRecurrence(['RRULE:'.$event->getRrule()]);
             } else {
                 $googleEvent->setRecurrence([]);
             }
@@ -192,8 +192,8 @@ class GoogleEventMapper
         $googleEvent->setEnd($end);
 
         // Recurrence
-        if ($event->getRrule() !== null) {
-            $googleEvent->setRecurrence(['RRULE:' . $event->getRrule()]);
+        if (null !== $event->getRrule()) {
+            $googleEvent->setRecurrence(['RRULE:'.$event->getRrule()]);
         }
 
         // Status
@@ -201,7 +201,7 @@ class GoogleEventMapper
 
         // Reminders
         $reminderData = $event->getReminders();
-        if ($reminderData !== null) {
+        if (null !== $reminderData) {
             $reminders = new EventReminders();
             $reminders->setUseDefault($reminderData['useDefault'] ?? true);
             if (isset($reminderData['overrides'])) {
@@ -209,6 +209,7 @@ class GoogleEventMapper
                     $r = new EventReminder();
                     $r->setMethod($o['method']);
                     $r->setMinutes($o['minutes']);
+
                     return $r;
                 }, $reminderData['overrides']);
                 $reminders->setOverrides($overrides);

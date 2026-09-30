@@ -29,7 +29,7 @@ trait ElasticsearchAssertionTrait
         foreach ($sent as $envelope) {
             $message = $envelope->getMessage();
             if ($message instanceof IndexDocumentCommand) {
-                if ($entityClass === null || $message->entityClass === $entityClass) {
+                if (null === $entityClass || $message->entityClass === $entityClass) {
                     $found = true;
                     break;
                 }
@@ -38,7 +38,7 @@ trait ElasticsearchAssertionTrait
 
         self::assertTrue($found, sprintf(
             'Expected IndexDocumentCommand%s to be dispatched to async transport.',
-            $entityClass !== null ? " for {$entityClass}" : '',
+            null !== $entityClass ? " for {$entityClass}" : '',
         ));
     }
 
@@ -50,7 +50,7 @@ trait ElasticsearchAssertionTrait
         foreach ($sent as $envelope) {
             $message = $envelope->getMessage();
             if ($message instanceof DeleteDocumentCommand) {
-                if ($indexName === null || $message->indexName === $indexName) {
+                if (null === $indexName || $message->indexName === $indexName) {
                     $found = true;
                     break;
                 }
@@ -59,7 +59,7 @@ trait ElasticsearchAssertionTrait
 
         self::assertTrue($found, sprintf(
             'Expected DeleteDocumentCommand%s to be dispatched to async transport.',
-            $indexName !== null ? " for index {$indexName}" : '',
+            null !== $indexName ? " for index {$indexName}" : '',
         ));
     }
 }

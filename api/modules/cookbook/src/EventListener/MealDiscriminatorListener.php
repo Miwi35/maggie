@@ -14,7 +14,7 @@ class MealDiscriminatorListener
     {
         $metadata = $event->getClassMetadata();
 
-        if ($metadata->name !== Event::class) {
+        if (Event::class !== $metadata->name) {
             return;
         }
 

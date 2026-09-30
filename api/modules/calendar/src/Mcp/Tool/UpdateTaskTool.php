@@ -29,15 +29,15 @@ class UpdateTaskTool
         ?array $clear = null,
     ): string {
         try {
-            $dueDateObj = $dueDate !== null
+            $dueDateObj = null !== $dueDate
                 ? new \DateTimeImmutable($dueDate, new \DateTimeZone('Europe/Paris'))
                 : null;
 
             $completedAt = null;
             $clearFields = array_values(array_intersect($clear ?? [], ['description', 'dueDate']));
-            if ($done === true) {
+            if (true === $done) {
                 $completedAt = new \DateTimeImmutable('now', new \DateTimeZone('Europe/Paris'));
-            } elseif ($done === false) {
+            } elseif (false === $done) {
                 $clearFields[] = 'completedAt';
             }
 
@@ -68,6 +68,7 @@ class UpdateTaskTool
             ], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
+
             return json_encode(['error' => $cause->getMessage()], JSON_THROW_ON_ERROR);
         }
     }

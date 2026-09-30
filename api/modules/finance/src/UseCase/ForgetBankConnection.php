@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Maggie\Finance\UseCase;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\BankConnection;
 use Maggie\Finance\Repository\AccountRepository;
 
@@ -27,7 +26,7 @@ class ForgetBankConnection
     public function execute(BankConnection $connection): void
     {
         foreach ($this->accountRepository->findByUser($connection->getUser()) as $account) {
-            if ($account->getBankConnection()?->getId()?->equals($connection->getId()) !== true) {
+            if (true !== $account->getBankConnection()?->getId()?->equals($connection->getId())) {
                 continue;
             }
 

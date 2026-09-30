@@ -67,16 +67,16 @@ class EnableBankingClient
     /** @return array<string, mixed> */
     public function getSession(string $sessionId): array
     {
-        return $this->request('GET', '/sessions/' . urlencode($sessionId));
+        return $this->request('GET', '/sessions/'.urlencode($sessionId));
     }
 
     /**
      * One page of movements. The provider paginates with a continuation key
      * rather than an offset, so the caller loops until it stops sending one.
      *
-     * @param array<string, string> $psuHeaders Sent when a person is waiting on
+     * @param array<string, string> $psuHeaders sent when a person is waiting on
      *                                          the answer, which exempts the
-     *                                          call from the bank's daily cap.
+     *                                          call from the bank's daily cap
      *
      * @return array<string, mixed>
      */
@@ -91,7 +91,7 @@ class EnableBankingClient
             'date_from' => $from?->format('Y-m-d'),
             'date_to' => $to?->format('Y-m-d'),
             'continuation_key' => $continuationKey,
-        ], static fn (?string $value) => $value !== null);
+        ], static fn (?string $value) => null !== $value);
 
         return $this->request(
             'GET',
@@ -130,9 +130,9 @@ class EnableBankingClient
      */
     private function request(string $method, string $path, array $options = [], array $psuHeaders = []): array
     {
-        $response = $this->httpClient->request($method, $this->baseUrl . $path, array_merge($options, [
+        $response = $this->httpClient->request($method, $this->baseUrl.$path, array_merge($options, [
             'headers' => array_merge([
-                'Authorization' => 'Bearer ' . $this->createToken(),
+                'Authorization' => 'Bearer '.$this->createToken(),
                 'Accept' => 'application/json',
             ], $psuHeaders),
         ]));
@@ -140,23 +140,15 @@ class EnableBankingClient
         $status = $response->getStatusCode();
         $body = $response->toArray(throw: false);
 
-        if ($status === 429) {
+        if (429 === $status) {
             // The bank's own ceiling, not the provider's: most allow four
             // fetches a day without the user present. Retrying now would only
             // burn what is left, so say so and stop.
-            throw new RateLimitedException(sprintf(
-                'The bank refused a further fetch for now (%s). Most banks allow four a day without the user present; try again in a few hours.',
-                $body['error'] ?? 'rate limited',
-            ));
+            throw new RateLimitedException(sprintf('The bank refused a further fetch for now (%s). Most banks allow four a day without the user present; try again in a few hours.', $body['error'] ?? 'rate limited'));
         }
 
         if ($status >= 400) {
-            throw new \RuntimeException(sprintf(
-                'Enable Banking answered %d on %s: %s',
-                $status,
-                $path,
-                $body['message'] ?? $body['error'] ?? 'no message',
-            ));
+            throw new \RuntimeException(sprintf('Enable Banking answered %d on %s: %s', $status, $path, $body['message'] ?? $body['error'] ?? 'no message'));
         }
 
         return $body;
@@ -178,10 +170,10 @@ class EnableBankingClient
             'exp' => $issuedAt + self::TOKEN_TTL_SECONDS,
         ];
 
-        $payload = $this->base64Url($header) . '.' . $this->base64Url($claims);
+        $payload = $this->base64Url($header).'.'.$this->base64Url($claims);
 
         $key = openssl_pkey_get_private($this->readPrivateKey());
-        if ($key === false) {
+        if (false === $key) {
             throw new \RuntimeException('The Enable Banking private key could not be read.');
         }
 
@@ -189,16 +181,13 @@ class EnableBankingClient
             throw new \RuntimeException('Could not sign the Enable Banking token.');
         }
 
-        return $payload . '.' . $this->base64UrlEncode($signature);
+        return $payload.'.'.$this->base64UrlEncode($signature);
     }
 
     private function readPrivateKey(): string
     {
         if (!is_readable($this->privateKeyPath)) {
-            throw new \RuntimeException(sprintf(
-                'The Enable Banking private key is missing at "%s".',
-                $this->privateKeyPath,
-            ));
+            throw new \RuntimeException(sprintf('The Enable Banking private key is missing at "%s".', $this->privateKeyPath));
         }
 
         return (string) file_get_contents($this->privateKeyPath);

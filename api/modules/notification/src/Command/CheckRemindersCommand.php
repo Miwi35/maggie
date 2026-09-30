@@ -40,7 +40,7 @@ class CheckRemindersCommand extends Command
 
         foreach ($events as $event) {
             $reminders = $event->getReminders();
-            if ($reminders === null) {
+            if (null === $reminders) {
                 continue;
             }
 
@@ -49,7 +49,7 @@ class CheckRemindersCommand extends Command
                 continue;
             }
 
-            $eventIri = '/api/events/' . $event->getId();
+            $eventIri = '/api/events/'.$event->getId();
 
             foreach ($overrides as $override) {
                 $minutes = (int) ($override['minutes'] ?? 0);
@@ -78,7 +78,7 @@ class CheckRemindersCommand extends Command
                     userId: $userId,
                 ));
 
-                $created++;
+                ++$created;
                 $io->writeln(sprintf(
                     '  Created reminder for "%s" (%d min before)',
                     $event->getSummary(),
@@ -87,7 +87,7 @@ class CheckRemindersCommand extends Command
             }
         }
 
-        if ($created === 0) {
+        if (0 === $created) {
             $io->info('No due reminders found.');
         } else {
             $io->success(sprintf('Created %d reminder notification(s).', $created));

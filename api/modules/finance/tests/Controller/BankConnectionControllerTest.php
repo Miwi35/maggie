@@ -42,7 +42,7 @@ class BankConnectionControllerTest extends WebTestCase
         $this->loadFixtures('bank_connection.yaml');
         $connection = $this->connectionFor();
 
-        $this->client->request('DELETE', '/api/finance/bank-connections/' . $connection->getId());
+        $this->client->request('DELETE', '/api/finance/bank-connections/'.$connection->getId());
 
         self::assertResponseStatusCodeSame(401);
     }
@@ -81,7 +81,7 @@ class BankConnectionControllerTest extends WebTestCase
 
         $this->client->request(
             'DELETE',
-            '/api/finance/bank-connections/' . $connection->getId(),
+            '/api/finance/bank-connections/'.$connection->getId(),
             [],
             [],
             $this->authHeaders(),

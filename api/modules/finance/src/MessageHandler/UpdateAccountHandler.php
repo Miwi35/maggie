@@ -25,27 +25,27 @@ class UpdateAccountHandler
         $account = $this->accountRepository->find($command->accountId)
             ?? throw new \DomainException("Account not found: {$command->accountId}");
 
-        if ($command->name !== null) {
+        if (null !== $command->name) {
             $account->setName($command->name);
         }
-        if ($command->type !== null) {
+        if (null !== $command->type) {
             $account->setType(AccountType::from($command->type));
         }
-        if ($command->bank !== null) {
+        if (null !== $command->bank) {
             $account->setBank($command->bank);
         } elseif ($command->clears('bank')) {
             $account->setBank(null);
         }
-        if ($command->currency !== null) {
+        if (null !== $command->currency) {
             $account->setCurrency($command->currency);
         }
-        if ($command->balanceCents !== null) {
+        if (null !== $command->balanceCents) {
             $account->setBalanceCents($command->balanceCents);
         }
-        if ($command->isCushion !== null) {
+        if (null !== $command->isCushion) {
             $account->setIsCushion($command->isCushion);
         }
-        if ($command->externalAccountId !== null) {
+        if (null !== $command->externalAccountId) {
             $account->setExternalAccountId($command->externalAccountId);
         } elseif ($command->clears('externalAccountId')) {
             $account->setExternalAccountId(null);

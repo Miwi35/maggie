@@ -47,6 +47,7 @@ class ManageStoresTool
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
+
             return json_encode(['error' => $cause->getMessage()], JSON_THROW_ON_ERROR);
         }
     }
@@ -69,7 +70,7 @@ class ManageStoresTool
 
     private function create(?string $name, ?string $description, ?int $visitOrder): string
     {
-        if ($name === null) {
+        if (null === $name) {
             return json_encode(['error' => 'Name is required for create.'], JSON_THROW_ON_ERROR);
         }
 
@@ -99,7 +100,7 @@ class ManageStoresTool
     /** @param list<string>|null $clear */
     private function update(?string $storeId, ?string $name, ?string $description, ?int $visitOrder, ?array $clear): string
     {
-        if ($storeId === null) {
+        if (null === $storeId) {
             return json_encode(['error' => 'storeId is required for update.'], JSON_THROW_ON_ERROR);
         }
 
@@ -127,7 +128,7 @@ class ManageStoresTool
 
     private function delete(?string $storeId): string
     {
-        if ($storeId === null) {
+        if (null === $storeId) {
             return json_encode(['error' => 'storeId is required for delete.'], JSON_THROW_ON_ERROR);
         }
 

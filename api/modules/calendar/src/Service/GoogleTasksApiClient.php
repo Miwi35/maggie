@@ -28,7 +28,7 @@ class GoogleTasksApiClient
     {
         $client = $this->buildClient($user);
 
-        return new GoogleTasksService($client, $this->googleApiBaseUrl !== '' ? $this->googleApiBaseUrl : null);
+        return new GoogleTasksService($client, '' !== $this->googleApiBaseUrl ? $this->googleApiBaseUrl : null);
     }
 
     /**
@@ -58,17 +58,17 @@ class GoogleTasksApiClient
                 'showHidden' => true,
             ];
 
-            if ($pageToken !== null) {
+            if (null !== $pageToken) {
                 $params['pageToken'] = $pageToken;
             }
 
             $result = $service->tasks->listTasks($taskListId, $params);
             $items = $result->getItems();
-            if ($items !== null) {
+            if (null !== $items) {
                 $allTasks = array_merge($allTasks, $items);
             }
             $pageToken = $result->getNextPageToken();
-        } while ($pageToken !== null);
+        } while (null !== $pageToken);
 
         return $allTasks;
     }
@@ -125,7 +125,7 @@ class GoogleTasksApiClient
             $user->setGoogleAccessToken($newToken['access_token']);
             if (isset($newToken['expires_in'])) {
                 $user->setGoogleTokenExpiresAt(
-                    new \DateTimeImmutable('+' . $newToken['expires_in'] . ' seconds')
+                    new \DateTimeImmutable('+'.$newToken['expires_in'].' seconds')
                 );
             }
             if (isset($newToken['refresh_token'])) {

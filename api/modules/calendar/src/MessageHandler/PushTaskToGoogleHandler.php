@@ -19,7 +19,7 @@ class PushTaskToGoogleHandler
     public function __invoke(PushTaskToGoogleCommand $command): void
     {
         $task = $this->taskRepository->find($command->taskId);
-        if ($task === null) {
+        if (null === $task) {
             return;
         }
 

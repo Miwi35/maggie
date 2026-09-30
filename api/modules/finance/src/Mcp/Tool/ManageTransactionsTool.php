@@ -71,7 +71,7 @@ class ManageTransactionsTool
 
     private function create(?string $accountId, ?int $amountCents, ?string $label, ?string $bookedAt, ?string $status, ?string $currency, ?bool $isExceptional, ?string $categoryId): string
     {
-        if ($accountId === null || $label === null || $amountCents === null) {
+        if (null === $accountId || null === $label || null === $amountCents) {
             return json_encode(['error' => 'accountId, amountCents and label are required for create.'], JSON_THROW_ON_ERROR);
         }
 
@@ -101,7 +101,7 @@ class ManageTransactionsTool
     /** @param list<string>|null $clear */
     private function update(?string $transactionId, ?string $accountId, ?int $amountCents, ?string $label, ?string $bookedAt, ?string $status, ?string $currency, ?bool $isExceptional, ?string $categoryId, ?array $clear): string
     {
-        if ($transactionId === null) {
+        if (null === $transactionId) {
             return json_encode(['error' => 'transactionId is required for update.'], JSON_THROW_ON_ERROR);
         }
 
@@ -129,7 +129,7 @@ class ManageTransactionsTool
 
     private function categorize(?string $transactionId, ?string $categoryId): string
     {
-        if ($transactionId === null || $categoryId === null) {
+        if (null === $transactionId || null === $categoryId) {
             return json_encode(['error' => 'transactionId and categoryId are required for categorize.'], JSON_THROW_ON_ERROR);
         }
 
@@ -149,7 +149,7 @@ class ManageTransactionsTool
 
     private function delete(?string $transactionId): string
     {
-        if ($transactionId === null) {
+        if (null === $transactionId) {
             return json_encode(['error' => 'transactionId is required for delete.'], JSON_THROW_ON_ERROR);
         }
 
@@ -170,7 +170,7 @@ class ManageTransactionsTool
             'status' => $transaction->getStatus()->value,
             'isExceptional' => $transaction->isExceptional(),
             'accountId' => (string) $transaction->getAccount()->getId(),
-            'categoryId' => $transaction->getCategory() !== null ? (string) $transaction->getCategory()->getId() : null,
+            'categoryId' => null !== $transaction->getCategory() ? (string) $transaction->getCategory()->getId() : null,
         ];
     }
 }

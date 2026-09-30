@@ -22,7 +22,7 @@ class GetGroceryListTool
     {
         $user = $this->userContext->getUser();
 
-        if ($user === null) {
+        if (null === $user) {
             return json_encode(['error' => MissingMcpUserException::MESSAGE], JSON_THROW_ON_ERROR);
         }
 
@@ -38,24 +38,24 @@ class GetGroceryListTool
             $buyAfter = $item->getBuyAfter();
 
             // Count deferred
-            if ($buyAfter !== null && $buyAfter > $today) {
-                $deferredCount++;
+            if (null !== $buyAfter && $buyAfter > $today) {
+                ++$deferredCount;
                 if (!$includeDeferred) {
                     continue;
                 }
             }
 
-            $totalItems++;
+            ++$totalItems;
             if ($item->isChecked()) {
-                $checkedItems++;
+                ++$checkedItems;
             }
 
             $store = $item->getStore();
-            $storeKey = $store !== null ? (string) $store->getId() : '__unassigned__';
+            $storeKey = null !== $store ? (string) $store->getId() : '__unassigned__';
 
             if (!isset($storeGroups[$storeKey])) {
                 $storeGroups[$storeKey] = [
-                    'storeId' => $store !== null ? (string) $store->getId() : null,
+                    'storeId' => null !== $store ? (string) $store->getId() : null,
                     'storeName' => $store?->getName() ?? 'Non assigné',
                     'storeDescription' => $store?->getDescription(),
                     'visitOrder' => $store?->getVisitOrder() ?? PHP_INT_MAX,
@@ -73,7 +73,7 @@ class GetGroceryListTool
                 'position' => $item->getPosition(),
             ];
 
-            if ($buyAfter !== null) {
+            if (null !== $buyAfter) {
                 $itemData['buyAfter'] = $buyAfter->format('Y-m-d');
             }
 

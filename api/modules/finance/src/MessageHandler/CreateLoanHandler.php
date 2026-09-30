@@ -46,9 +46,7 @@ class CreateLoanHandler
         }
 
         if ($loan->getPrincipalRemainingCents() > 0 && !$loan->amortises()) {
-            throw new \DomainException(
-                'The monthly payment does not cover the interest: this loan would never be repaid.',
-            );
+            throw new \DomainException('The monthly payment does not cover the interest: this loan would never be repaid.');
         }
     }
 }

@@ -29,9 +29,9 @@ final class DebtTimelineController
         }
 
         $horizon = $request->query->get('months');
-        $horizon = $horizon === null ? null : (int) $horizon;
+        $horizon = null === $horizon ? null : (int) $horizon;
 
-        if ($horizon !== null && ($horizon < 1 || $horizon > 480)) {
+        if (null !== $horizon && ($horizon < 1 || $horizon > 480)) {
             return new JsonResponse(
                 ['error' => 'months must be between 1 and 480'],
                 Response::HTTP_BAD_REQUEST,

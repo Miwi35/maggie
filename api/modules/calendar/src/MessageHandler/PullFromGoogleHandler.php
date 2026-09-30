@@ -19,7 +19,7 @@ class PullFromGoogleHandler
     public function __invoke(PullFromGoogleCommand $command): void
     {
         $agenda = $this->agendaRepository->find($command->agendaId);
-        if ($agenda === null) {
+        if (null === $agenda) {
             return;
         }
 

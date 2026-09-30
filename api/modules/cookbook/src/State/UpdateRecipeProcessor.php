@@ -30,7 +30,7 @@ class UpdateRecipeProcessor implements ProcessorInterface
             tags: $data->getTags(),
             notes: $data->getNotes(),
             ingredients: $ingredients,
-            clearFields: $data->getNotes() === null ? ['notes'] : [],
+            clearFields: null === $data->getNotes() ? ['notes'] : [],
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();
@@ -40,7 +40,7 @@ class UpdateRecipeProcessor implements ProcessorInterface
     private function extractIngredients(array $context): ?array
     {
         $request = $context['request'] ?? null;
-        if ($request === null) {
+        if (null === $request) {
             return null;
         }
 
@@ -52,7 +52,7 @@ class UpdateRecipeProcessor implements ProcessorInterface
         return array_map(fn (array $item) => [
             'quantity' => (float) ($item['quantity'] ?? 0),
             'unit' => $item['unit'] ?? 'g',
-            ...($this->extractId($item, 'ingredient') !== null ? ['ingredientId' => $this->extractId($item, 'ingredient')] : []),
+            ...(null !== $this->extractId($item, 'ingredient') ? ['ingredientId' => $this->extractId($item, 'ingredient')] : []),
             ...(isset($item['ciqualAlimCode']) && \is_string($item['ciqualAlimCode']) ? ['ciqualAlimCode' => $item['ciqualAlimCode']] : []),
         ], $body['ingredients']);
     }

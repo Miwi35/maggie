@@ -48,7 +48,7 @@ final class MercureTopic
         // GroceryList → grocery_list
         $snake = strtolower((string) preg_replace('/(?<!^)[A-Z]/', '_$0', $shortName));
 
-        return '/api/' . self::pluralize($snake);
+        return '/api/'.self::pluralize($snake);
     }
 
     /**
@@ -57,7 +57,7 @@ final class MercureTopic
      */
     public static function item(string $collectionTopic, string $id): string
     {
-        return $collectionTopic . '/' . $id;
+        return $collectionTopic.'/'.$id;
     }
 
     /**
@@ -70,7 +70,7 @@ final class MercureTopic
      */
     public static function scoped(string $userId, string $topic): string
     {
-        return '/users/' . $userId . $topic;
+        return '/users/'.$userId.$topic;
     }
 
     /**
@@ -81,7 +81,7 @@ final class MercureTopic
      */
     public static function subscriptionPattern(string $collectionTopic): string
     {
-        return '/users/{userId}' . $collectionTopic . '/{id}';
+        return '/users/{userId}'.$collectionTopic.'/{id}';
     }
 
     /**
@@ -92,9 +92,9 @@ final class MercureTopic
     private static function pluralize(string $snake): string
     {
         if (preg_match('/[bcdfghjklmnpqrstvwxz]y$/', $snake)) {
-            return substr($snake, 0, -1) . 'ies';
+            return substr($snake, 0, -1).'ies';
         }
 
-        return $snake . 's';
+        return $snake.'s';
     }
 }

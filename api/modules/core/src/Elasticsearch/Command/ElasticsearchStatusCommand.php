@@ -52,13 +52,14 @@ final class ElasticsearchStatusCommand extends Command
                 [[$health['status'], $health['number_of_nodes'], $health['active_primary_shards']]],
             );
         } catch (\Throwable $e) {
-            $io->error('Cannot connect to Elasticsearch: ' . $e->getMessage());
+            $io->error('Cannot connect to Elasticsearch: '.$e->getMessage());
+
             return Command::FAILURE;
         }
 
         $indices = $this->indexManager->getIndicesStatus();
 
-        if ($indices !== []) {
+        if ([] !== $indices) {
             $io->section('Indices');
             $rows = [];
             foreach ($indices as $name => $info) {
@@ -82,7 +83,7 @@ final class ElasticsearchStatusCommand extends Command
     {
         $entities = $this->registry->getAll();
 
-        if ($entities === []) {
+        if ([] === $entities) {
             return Command::SUCCESS;
         }
 

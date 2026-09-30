@@ -7,13 +7,13 @@ namespace Maggie\Cookbook\MessageHandler;
 use Maggie\Cookbook\Entity\Ingredient;
 use Maggie\Cookbook\Entity\Recipe;
 use Maggie\Cookbook\Entity\RecipeIngredient;
-use Maggie\Grocery\Enum\Unit;
 use Maggie\Cookbook\Message\CreateRecipeCommand;
 use Maggie\Cookbook\Repository\IngredientRepository;
 use Maggie\Cookbook\Service\IngredientFromCiqualResolver;
 use Maggie\Cookbook\UseCase\CreateRecipe;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Repository\UserRepository;
+use Maggie\Grocery\Enum\Unit;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -38,11 +38,11 @@ class CreateRecipeHandler
         $recipe->setServings($command->servings);
         $recipe->setTags($command->tags);
 
-        if ($command->notes !== null) {
+        if (null !== $command->notes) {
             $recipe->setNotes($command->notes);
         }
 
-        if ($command->ingredients !== null) {
+        if (null !== $command->ingredients) {
             foreach ($command->ingredients as $item) {
                 $ingredient = $this->resolveIngredient($item, $user);
 

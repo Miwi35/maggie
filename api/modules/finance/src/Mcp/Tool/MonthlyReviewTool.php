@@ -65,7 +65,7 @@ class MonthlyReviewTool
 
     private function rate(?string $transactionId, ?string $verdict): string
     {
-        if ($transactionId === null || $verdict === null) {
+        if (null === $transactionId || null === $verdict) {
             return json_encode(['error' => 'transactionId and verdict are required for rate.'], JSON_THROW_ON_ERROR);
         }
 

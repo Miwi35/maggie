@@ -140,7 +140,7 @@ final class MercureTopicContractTest extends WebTestCase
             $topic,
             'The topic does not follow the /users/{userId}/api/{resource}/{id} convention the clients subscribe to.',
         );
-        self::assertStringStartsWith('/users/' . $user->getId() . '/api/tasks/', $topic);
+        self::assertStringStartsWith('/users/'.$user->getId().'/api/tasks/', $topic);
 
         $payload = json_decode($updates[0]->getData(), true, 512, \JSON_THROW_ON_ERROR);
         self::assertIsArray($payload);
@@ -180,10 +180,10 @@ final class MercureTopicContractTest extends WebTestCase
 
         $topic = $updates[0]->getTopics()[0];
 
-        self::assertStringStartsWith('/users/' . $owner->getId() . '/', $topic, sprintf(
+        self::assertStringStartsWith('/users/'.$owner->getId().'/', $topic, sprintf(
             "The update was published to \"%s\", which is not the owner's scope (%s).\nThe owner's screen will not refresh, and whoever triggered the change receives an update about data that is not theirs (8380178).",
             $topic,
-            '/users/' . $owner->getId(),
+            '/users/'.$owner->getId(),
         ));
         self::assertStringNotContainsString((string) $actor->getId(), $topic);
     }
@@ -364,11 +364,11 @@ final class MercureTopicContractTest extends WebTestCase
                     }
 
                     $uriTemplate = $operation->getUriTemplate();
-                    if ($uriTemplate === null) {
+                    if (null === $uriTemplate) {
                         continue;
                     }
 
-                    yield $resourceClass => '/api' . str_replace('{._format}', '', $uriTemplate);
+                    yield $resourceClass => '/api'.str_replace('{._format}', '', $uriTemplate);
 
                     continue 3;
                 }

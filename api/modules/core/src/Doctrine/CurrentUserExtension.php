@@ -48,7 +48,7 @@ final class CurrentUserExtension implements QueryCollectionExtensionInterface, Q
 
         if (is_subclass_of($resourceClass, OwnedThroughInterface::class)) {
             $parentRelation = $resourceClass::getOwnerRelation();
-            $parentAlias = 'owner_filter_' . $parentRelation;
+            $parentAlias = 'owner_filter_'.$parentRelation;
             $queryBuilder->join(sprintf('%s.%s', $rootAlias, $parentRelation), $parentAlias);
             $queryBuilder->andWhere(sprintf('%s.user = :current_user', $parentAlias));
             $queryBuilder->setParameter('current_user', $user->getId(), 'ulid');

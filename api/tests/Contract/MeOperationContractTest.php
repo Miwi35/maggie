@@ -91,11 +91,11 @@ final class MeOperationContractTest extends WebTestCase
                     // its own, and flagging {ulid} as identifier-less would
                     // be a false positive somebody has to argue with.
                     // {._format} is the format suffix every template carries.
-                    if ($uriTemplate === null) {
+                    if (null === $uriTemplate) {
                         continue;
                     }
 
-                    if (preg_match('/\{(?!\._format)[^}]+}/', $uriTemplate) === 1) {
+                    if (1 === preg_match('/\{(?!\._format)[^}]+}/', $uriTemplate)) {
                         continue;
                     }
 
@@ -311,7 +311,7 @@ final class MeOperationContractTest extends WebTestCase
         $decoded = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
         self::assertIsArray($decoded);
 
-        /** @var array<string, mixed> $decoded */
+        /* @var array<string, mixed> $decoded */
         return $decoded;
     }
 }

@@ -82,7 +82,7 @@ class ManageCategorizationRulesTool
 
     private function create(?string $labelPattern, ?string $categoryId, ?string $matchType, ?string $direction, ?int $minAmountCents, ?int $maxAmountCents, ?int $priority, ?bool $isActive): string
     {
-        if ($labelPattern === null || $categoryId === null) {
+        if (null === $labelPattern || null === $categoryId) {
             return json_encode(['error' => 'labelPattern and categoryId are required for create.'], JSON_THROW_ON_ERROR);
         }
 
@@ -112,7 +112,7 @@ class ManageCategorizationRulesTool
     /** @param list<string>|null $clear */
     private function update(?string $categorizationRuleId, ?string $labelPattern, ?string $categoryId, ?string $matchType, ?string $direction, ?int $minAmountCents, ?int $maxAmountCents, ?int $priority, ?bool $isActive, ?array $clear): string
     {
-        if ($categorizationRuleId === null) {
+        if (null === $categorizationRuleId) {
             return json_encode(['error' => 'categorizationRuleId is required for update.'], JSON_THROW_ON_ERROR);
         }
 
@@ -140,7 +140,7 @@ class ManageCategorizationRulesTool
 
     private function delete(?string $categorizationRuleId): string
     {
-        if ($categorizationRuleId === null) {
+        if (null === $categorizationRuleId) {
             return json_encode(['error' => 'categorizationRuleId is required for delete.'], JSON_THROW_ON_ERROR);
         }
 
@@ -164,19 +164,19 @@ class ManageCategorizationRulesTool
      */
     private function learn(?string $transactionId, ?string $categoryId, ?string $labelPattern, ?string $matchType, ?int $priority): string
     {
-        if ($transactionId === null || $categoryId === null) {
+        if (null === $transactionId || null === $categoryId) {
             return json_encode(['error' => 'transactionId and categoryId are required for learn.'], JSON_THROW_ON_ERROR);
         }
 
         $user = $this->userContext->requireUser();
 
         $transaction = $this->transactionRepository->find($transactionId);
-        if ($transaction === null) {
+        if (null === $transaction) {
             return json_encode(['error' => "Transaction not found: {$transactionId}"], JSON_THROW_ON_ERROR);
         }
 
         $pattern = $labelPattern ?? self::patternFromLabel($transaction->getLabel());
-        if ($pattern === '') {
+        if ('' === $pattern) {
             return json_encode(['error' => 'Could not derive a pattern from that transaction label; pass labelPattern explicitly.'], JSON_THROW_ON_ERROR);
         }
 
@@ -210,23 +210,23 @@ class ManageCategorizationRulesTool
     public static function patternFromLabel(string $label): string
     {
         $normalized = trim(preg_replace('/\s+/u', ' ', $label) ?? '');
-        if ($normalized === '') {
+        if ('' === $normalized) {
             return '';
         }
 
         $words = [];
         foreach (explode(' ', $normalized) as $word) {
             // Stop at the first token that looks like a number, date or reference.
-            if (preg_match('/\d/u', $word) === 1) {
+            if (1 === preg_match('/\d/u', $word)) {
                 break;
             }
             $words[] = $word;
-            if (\count($words) === 3) {
+            if (3 === \count($words)) {
                 break;
             }
         }
 
-        return $words === [] ? $normalized : implode(' ', $words);
+        return [] === $words ? $normalized : implode(' ', $words);
     }
 
     /** @return array<string, mixed> */

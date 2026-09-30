@@ -2,6 +2,7 @@
 
 namespace Maggie\Calendar\Tests\Service;
 
+use Doctrine\ORM\EntityManagerInterface;
 use Google\Service\Tasks\Task as GoogleTask;
 use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Repository\TaskRepository;
@@ -10,7 +11,6 @@ use Maggie\Calendar\Service\GoogleTasksApiClient;
 use Maggie\Calendar\Service\GoogleTasksSyncService;
 use Maggie\Core\Entity\User;
 use PHPUnit\Framework\TestCase;
-use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Component\Mercure\HubInterface;
 use Symfony\Component\Mercure\Update;
@@ -32,7 +32,8 @@ class GoogleTasksSyncServiceTest extends TestCase
         $this->hub = $this->createMock(HubInterface::class);
         $this->hub->method('publish')->willReturnCallback(function (Update $update) {
             $this->publishedUpdates[] = $update;
-            return 'urn:uuid:' . new Ulid();
+
+            return 'urn:uuid:'.new Ulid();
         });
 
         $this->apiClient = $this->createMock(GoogleTasksApiClient::class);
@@ -131,7 +132,7 @@ class GoogleTasksSyncServiceTest extends TestCase
             ->willReturn($updatedTask);
 
         $this->taskRepository->method('find')
-            ->willReturnCallback(fn(string $id) => match ($id) {
+            ->willReturnCallback(fn (string $id) => match ($id) {
                 (string) $updatedTask->getId() => $updatedTask,
                 default => null,
             });
@@ -165,7 +166,7 @@ class GoogleTasksSyncServiceTest extends TestCase
         $this->apiClient->expects(self::once())
             ->method('patchTask')
             ->with($user, 'task-list-1', 'g-task-existing', self::callback(
-                fn(GoogleTask $t) => $t->getStatus() === 'completed' && $t->getTitle() === null,
+                fn (GoogleTask $t) => 'completed' === $t->getStatus() && null === $t->getTitle(),
             ))
             ->willReturn($resultGoogleTask);
 

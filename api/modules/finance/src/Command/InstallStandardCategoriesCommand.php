@@ -48,7 +48,7 @@ class InstallStandardCategoriesCommand extends Command
         $email = (string) $input->getArgument('email');
 
         $user = $this->userRepository->findOneBy(['email' => $email]);
-        if ($user === null) {
+        if (null === $user) {
             $io->error(sprintf('No user with email "%s".', $email));
 
             return Command::FAILURE;
@@ -56,7 +56,7 @@ class InstallStandardCategoriesCommand extends Command
 
         $result = $this->installStandardCategories->execute($user);
 
-        if ($result['created'] === 0) {
+        if (0 === $result['created']) {
             $io->success('Toutes les catégories de départ étaient déjà là.');
 
             return Command::SUCCESS;
