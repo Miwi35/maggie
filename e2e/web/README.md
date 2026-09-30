@@ -6,7 +6,8 @@ Playwright against the admin, running inside the e2e stack (MAG-97).
 task e2e:up            # the stack, once
 task e2e:web           # reseed, then every journey
 task e2e:web -- --project=phone tests/smoke.spec.ts
-task e2e:web:typecheck # seconds; run it after editing a helper
+task e2e:web:lint      # ESLint + the Playwright plugin; also in `task lint:all`
+task e2e:web:typecheck # seconds; run both after editing a helper
 task e2e:web:shell     # a shell in the Playwright container
 task e2e:admin:build   # after editing admin/src — nginx serves a built bundle
 ```

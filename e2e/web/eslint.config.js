@@ -20,9 +20,13 @@ export default tseslint.config(
       globals: { ...globals.node, ...globals.browser },
     },
   },
+  // Everything, not just `tests/` — most of the suite's `expect()` calls live
+  // in the page objects and helpers, and `missing-playwright-await` (the rule
+  // this plugin is here for) would have been switched off over all of them.
+  // An un-awaited `expect(locator).toBeVisible()` passes whatever happens.
   {
     ...playwright.configs['flat/recommended'],
-    files: ['tests/**/*.ts'],
+    files: ['**/*.ts'],
     rules: {
       ...playwright.configs['flat/recommended'].rules,
       // The assertions live in the page objects and helpers, which is the
@@ -48,6 +52,16 @@ export default tseslint.config(
           ],
         },
       ],
+    },
+  },
+  {
+    // The two rules that only make sense inside a test file. A page object is
+    // *supposed* to hold a bare `expect` outside a `test()`, and it has no
+    // `test()` of its own for `expect-expect` to look into.
+    files: ['pages/**/*.ts', 'helpers/**/*.ts', 'fixtures/**/*.ts'],
+    rules: {
+      'playwright/no-standalone-expect': 'off',
+      'playwright/expect-expect': 'off',
     },
   },
 )

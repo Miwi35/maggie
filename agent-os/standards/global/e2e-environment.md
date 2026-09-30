@@ -17,6 +17,7 @@ Done itself lives in [testing.md](testing.md).
 | `task e2e:seed` | Reset the database to the fixture set, empty the agent's own tables, rebuild and refresh the search indices |
 | `task e2e:smoke` | Run the smoke journey (HTTP) against the running stack |
 | `task e2e:web` | Reseed, then run the Playwright journeys for the admin |
+| `task e2e:web:lint` | ESLint on the journeys — also part of `task lint:all` |
 | `task e2e:web:typecheck` | Type-check the journeys without running them |
 | `task e2e:web:shell` | A shell in the Playwright container |
 | `task e2e:admin:build` | **After changing admin code** — see below |

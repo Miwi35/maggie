@@ -299,6 +299,10 @@ tasks:
     # context, a tool call lands a row — so a second run on an unreseeded stack
     # starts in a world the first one moved, and the failure looks like a flaky
     # assertion rather than like leftover data.
+    # The one task here that really needs the stack; lint and typecheck do not.
+    preconditions:
+      - sh: '{{.COMPOSE}} ps --status running --services | grep -qx traefik'
+        msg: 'The e2e stack is not running — start it with `task e2e:up`.'
     cmds:
       - task: seed
         # CLI_ARGS is global in Task: without this, `task e2e:web -- --project=phone`
@@ -309,16 +313,26 @@ tasks:
         vars:
           COMMAND: 'npx playwright test {{.CLI_ARGS}}'
 
-  web:typecheck:
-    desc: Lint and type-check the journeys without running them
-    # What to run after editing a helper: seconds, where a journey would take
-    # the whole stack and several minutes. ESLint carries the Playwright
-    # plugin, which catches the mistakes that make a suite lie — an `expect`
-    # nobody awaited passes whatever happens.
+  web:lint:
+    desc: ESLint on the journeys — part of `task lint:all`
+    # ESLint carries eslint-plugin-playwright, which catches the mistakes that
+    # make a suite lie: an `expect` nobody awaited passes whatever happens, a
+    # conditional assertion, a `test.only` left behind.
+    #
+    # No stack needed — `compose run` starts a one-off container on its own.
     cmds:
       - task: web:run
         vars:
-          COMMAND: 'npx eslint . && npx tsc --noEmit'
+          COMMAND: 'npx eslint .'
+
+  web:typecheck:
+    desc: Type-check the journeys without running them
+    # What to run after editing a helper: seconds, where a journey would take
+    # the whole stack and several minutes.
+    cmds:
+      - task: web:run
+        vars:
+          COMMAND: 'npx tsc --noEmit'
 
   web:install:
     desc: Install the journeys' dependencies (also done by e2e:web)
@@ -340,11 +354,11 @@ tasks:
     # --no-deps on purpose. Compose would otherwise re-evaluate nginx's
     # dependency chain, and nginx waits on admin-build — a one-shot that has
     # already completed. Compose re-runs it, `npm ci` fails on a tree it built
-    # once, and the browser never starts. The precondition below is what turns
-    # "the stack is not up" into a sentence instead.
-    preconditions:
-      - sh: '{{.COMPOSE}} ps --status running --services | grep -qx traefik'
-        msg: 'The e2e stack is not running — start it with `task e2e:up`.'
+    # once, and the browser never starts.
+    #
+    # No precondition here: `compose run` brings up a one-off container and
+    # its network on its own, which is all lint and typecheck need. Only
+    # `web` requires a running stack, and it says so itself.
     cmds:
       # Created here rather than relied upon: Docker would otherwise make the
       # bind mount itself, owned by root, and the read-only seed mount would
@@ -353,6 +367,12 @@ tasks:
       - >-
         {{.COMPOSE}} --profile tools run --rm --no-deps {{if .TTY}}{{else}}-T{{end}} playwright
         bash -lc 'if [ ! -d node_modules ] || [ package-lock.json -nt node_modules ]; then npm ci --no-audit --no-fund; fi && {{.COMMAND}}'
+      # `compose run` creates the network and never removes it, so linting on
+      # a machine with no stack up would leave one empty bridge behind per
+      # worktree. Removed only when nothing else is using it, so this is a
+      # no-op while the stack is running. `defer`, so it also runs when the
+      # command above failed.
+      - defer: '{{.COMPOSE}} ps -q | grep -q . || docker network rm {{.PROJECT}}-net >/dev/null 2>&1 || true'
 
   smoke:
     desc: Run the smoke journey against the running e2e stack

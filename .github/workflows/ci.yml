@@ -292,11 +292,11 @@ jobs:
       - name: Smoke journey
         run: task e2e:smoke
 
-      - name: The web journeys type-check
+      - name: The web journeys lint and type-check
         # Seconds, in the container the journeys themselves run in, and it
-        # catches a renamed page object or helper before eleven services have
-        # been driven through a browser to find out.
-        run: task e2e:web:typecheck
+        # catches a renamed page object or an `expect` nobody awaited before
+        # eleven services have been driven through a browser to find out.
+        run: task e2e:web:lint && task e2e:web:typecheck
 
       - name: Web journeys (Playwright)
         # Reseeds on its own — the smoke journey above writes, and these

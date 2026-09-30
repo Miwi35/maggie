@@ -261,6 +261,11 @@ tasks:
       - task: ciqual:lint
       - task: admin:lint
       - task: admin:typecheck
+      # The Playwright journeys are TypeScript too, and their linter is the
+      # one that catches an `expect` nobody awaited. It runs in a one-off
+      # container and needs no stack.
+      - task: e2e:web:lint
+      - task: e2e:web:typecheck
 
   fix:all:
     desc: Fixers in write mode, then linters, on this checkout's own code — run before every push

@@ -91,11 +91,16 @@ export async function openMercureProbe(page: Page, topics: string[]): Promise<Me
 
       source.onopen = () => {
         state.open = true
+        // Cleared, not just set once: EventSource reconnects on its own, and
+        // a flag that stayed true after a transient blip would make the
+        // isolation journeys red for a reason that is not the feature's.
+        // `failed` means "not connected right now", which is what
+        // `expectSilence` needs to know.
+        state.failed = false
       }
-      // EventSource retries forever on its own, so an error is not fatal —
-      // but it has to be visible. An isolation assertion reads silence as
-      // proof; a dropped stream is silence for the wrong reason, and
-      // `expectSilence` refuses to pass on it.
+      // An error is not fatal — the stream comes back — but it has to be
+      // visible. An isolation assertion reads silence as proof, and a dropped
+      // stream is silence for the wrong reason.
       source.onerror = () => {
         state.failed = true
       }
@@ -148,11 +153,17 @@ export async function openMercureProbe(page: Page, topics: string[]): Promise<Me
           )
         }
 
+        // A custom poller rather than `expect.poll`, because this returns the
+        // matching message and not just a verdict.
+        // eslint-disable-next-line playwright/no-wait-for-timeout
         await page.waitForTimeout(100)
       }
     },
 
     async expectSilence(ms = 3_000) {
+      // The one place a fixed wait is the assertion: proving an absence needs
+      // a window, and there is no event to wait on instead.
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await page.waitForTimeout(ms)
 
       // Checked first, and this is the whole point of tracking it: an empty
