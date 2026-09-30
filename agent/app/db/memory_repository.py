@@ -46,9 +46,10 @@ class MemoryRepository:
             result = await session.execute(stmt)
             return list(result.scalars().all())
 
-    async def update(self, memory_id: str, content: str, metadata: dict | None = None) -> Memory | None:
+    async def update(self, user_id: str, memory_id: str, content: str, metadata: dict | None = None) -> Memory | None:
+        """Update a memory owned by user_id; None if it does not exist or belongs to someone else."""
         async with agent_session() as session:
-            result = await session.execute(select(Memory).where(Memory.id == memory_id))
+            result = await session.execute(select(Memory).where(Memory.id == memory_id, Memory.user_id == user_id))
             memory = result.scalar_one_or_none()
             if memory:
                 memory.content = content
@@ -59,9 +60,10 @@ class MemoryRepository:
                 await session.refresh(memory)
             return memory
 
-    async def delete(self, memory_id: str) -> bool:
+    async def delete(self, user_id: str, memory_id: str) -> bool:
+        """Delete a memory owned by user_id; False if it does not exist or belongs to someone else."""
         async with agent_session() as session:
-            result = await session.execute(select(Memory).where(Memory.id == memory_id))
+            result = await session.execute(select(Memory).where(Memory.id == memory_id, Memory.user_id == user_id))
             memory = result.scalar_one_or_none()
             if memory:
                 await session.delete(memory)

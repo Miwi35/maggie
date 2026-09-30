@@ -328,7 +328,7 @@ async def _handle_update_memory(arguments: dict, user_id: str) -> str:
     if not memory_id or not content:
         return json.dumps({"error": "'memory_id' and 'content' are required"})
 
-    memory = await memory_repo.update(memory_id, content)
+    memory = await memory_repo.update(user_id, memory_id, content)
     if memory is None:
         return json.dumps({"error": f"Memory '{memory_id}' not found"})
     return json.dumps(memory.to_dict())
@@ -340,7 +340,7 @@ async def _handle_delete_memory(arguments: dict, user_id: str) -> str:
     if not memory_id:
         return json.dumps({"error": "'memory_id' is required"})
 
-    deleted = await memory_repo.delete(memory_id)
+    deleted = await memory_repo.delete(user_id, memory_id)
     if not deleted:
         return json.dumps({"error": f"Memory '{memory_id}' not found"})
     return json.dumps({"deleted": True, "id": memory_id})
@@ -363,7 +363,7 @@ async def _handle_delete_instruction(arguments: dict, user_id: str) -> str:
     instruction_id = arguments.get("instruction_id", "")
     if not instruction_id:
         return json.dumps({"error": "'instruction_id' is required"})
-    deleted = await instruction_repo.delete(instruction_id)
+    deleted = await instruction_repo.delete(user_id, instruction_id)
     if not deleted:
         return json.dumps({"error": f"Instruction '{instruction_id}' not found"})
     return json.dumps({"deleted": True, "id": instruction_id})

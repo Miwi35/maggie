@@ -38,9 +38,12 @@ class InstructionRepository:
             )
             return list(result.scalars().all())
 
-    async def update(self, instruction_id: str, content: str) -> Instruction | None:
+    async def update(self, user_id: str, instruction_id: str, content: str) -> Instruction | None:
+        """Update an instruction owned by user_id; None if it does not exist or belongs to someone else."""
         async with agent_session() as session:
-            result = await session.execute(select(Instruction).where(Instruction.id == instruction_id))
+            result = await session.execute(
+                select(Instruction).where(Instruction.id == instruction_id, Instruction.user_id == user_id)
+            )
             instruction = result.scalar_one_or_none()
             if instruction:
                 instruction.content = content
@@ -56,13 +59,15 @@ class InstructionRepository:
 
         return instruction
 
-    async def delete(self, instruction_id: str) -> bool:
+    async def delete(self, user_id: str, instruction_id: str) -> bool:
+        """Delete an instruction owned by user_id; False if it does not exist or belongs to someone else."""
         async with agent_session() as session:
-            result = await session.execute(select(Instruction).where(Instruction.id == instruction_id))
+            result = await session.execute(
+                select(Instruction).where(Instruction.id == instruction_id, Instruction.user_id == user_id)
+            )
             instruction = result.scalar_one_or_none()
             if not instruction:
                 return False
-            user_id = instruction.user_id
             inst_id = instruction.id
             await session.delete(instruction)
             await session.commit()
