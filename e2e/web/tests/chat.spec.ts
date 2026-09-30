@@ -39,8 +39,12 @@ test('a scripted question runs its tool and streams the answer back', async ({ p
   // whole answer, which is the bug streaming exists to avoid.
   expect(deltaCount(events), 'the answer did not stream').toBeGreaterThan(1)
 
-  // And the context router opened a context for it.
-  expect(contextAction(events)).toBe('created')
+  // And the context router placed it: `created` on a freshly seeded stack,
+  // `matched` on a retry that re-runs after the first attempt already opened
+  // one. Which of the two it is belongs to the shell journey (e2e/smoke,
+  // step 9), which owns a stack nobody has talked to; asserting it here made
+  // the suite fail on its own retry.
+  expect(['created', 'matched']).toContain(contextAction(events))
 
   await expect(chat.message(/déjeuner avec Alex/i)).toBeVisible()
 })

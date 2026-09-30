@@ -258,6 +258,12 @@ here because they are properties of the *stack*, not of Playwright:
   WireMock stubs: an external call is a bug, not a dependency.
 - **Three widths.** `desktop` (1440), `tablet` (834), `phone` (393). Only tests
   tagged `@responsive` run on all three.
+- **The Mercure image is pinned by digest, and must stay pinned.** An
+  untagged `dunglas/mercure` moved to a build that renamed the subscribe
+  parameter from `topic` to `match`, and every subscription in the admin, the
+  agent and the mobile app answered `400`. CI pulls fresh, so it broke there
+  first while every local stack stayed green on a cached image. MAG-142 moves
+  us to the new parameter.
 - **`MERCURE_JWT_SECRET` must be at least 32 bytes.** lcobucci/jwt refuses to
   sign HS256 with less, `MercurePublishMiddleware` catches and logs the
   failure, and the stack then has no real-time at all while looking perfectly

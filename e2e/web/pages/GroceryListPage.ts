@@ -22,25 +22,19 @@ export class GroceryListPage extends AdminShell {
   }
 
   /**
-   * Waits for an item to show up, reloading between attempts.
+   * Reloads once, then waits for the item.
    *
-   * A grocery item is written through Doctrine, dispatched to RabbitMQ and
-   * indexed by the worker — and this view is served from Elasticsearch, which
-   * refreshes on its own schedule. The page fetches once when it mounts and
-   * again on a Mercure update, and both can happen before the index caught up.
-   * Reloading is the only way to ask again, and asking once is how a working
-   * write gets reported as broken.
+   * Call it *after* the write is known to be indexed — `waitForIndexed` on
+   * the collection. This view fetches when it mounts and again on a Mercure
+   * update, and both can happen before the index caught up, so the page in
+   * front of you may be stale even though the data is not. One reload is
+   * enough once the index is confirmed; polling `open()` in a loop meant each
+   * attempt paid for a full page load and, on a loaded CI runner, the budget
+   * went entirely on loading.
    */
-  async expectItemEventually(label: string, timeout = 45_000): Promise<void> {
-    await expect
-      .poll(
-        async () => {
-          await this.open()
-
-          return this.item(label).isVisible()
-        },
-        { timeout, intervals: [1_000, 2_000, 3_000], message: `'${label}' never appeared on the grocery list` },
-      )
-      .toBe(true)
+  async expectItemEventually(label: string): Promise<void> {
+    await this.page.reload()
+    await expect(this.heading).toBeVisible()
+    await expect(this.item(label)).toBeVisible()
   }
 }

@@ -91,6 +91,14 @@ unchanged, and real-time looks dead when it is not.
 
 Worth knowing, because each was invisible to every test that existed before:
 
+- **The Mercure image was unpinned, everywhere.** CI pulls fresh, got a build
+  that had renamed the subscribe parameter from `topic` to
+  `match`/`match_urlpattern`, and every subscription answered
+  `400 unknown topic matcher query parameter`. Production had
+  `imagePullPolicy: Always` and no version either — one pod restart from the
+  same silence. Pinned by digest to what production already serves; moving to
+  the new parameter is MAG-142.
+
 - `MERCURE_JWT_SECRET` was 144 bits. lcobucci/jwt refuses to sign HS256 with
   less, `MercurePublishMiddleware` catches and logs the failure, so the stack
   had no real-time at all and looked healthy. Fixed here for e2e and for the

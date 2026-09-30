@@ -15,7 +15,14 @@ spec:
     spec:
       containers:
         - name: mercure
-          image: dunglas/mercure
+          # Pinned by digest, and it has to stay pinned. `dunglas/mercure`
+          # untagged moved to a build that renamed the subscribe parameter from
+          # `topic` to `match`/`match_urlpattern`; everything that subscribes
+          # still speaks the old one, so an unpinned hub answers 400 and all
+          # real-time dies. With imagePullPolicy: Always and no tag, that was
+          # one pod restart away. This digest is what the running pod already
+          # serves. Found by the web journeys (MAG-97).
+          image: dunglas/mercure@sha256:916834e499613d475e9ad5118cd2349875338f52d99d65b58aeff82f97ccb0c6
           ports:
             - containerPort: 80
           env:
