@@ -18,7 +18,13 @@ trait FixtureLoaderTrait
 
         $this->fixtures = [];
         foreach ($files as $file) {
-            $objectSet = $loader->loadFile($fixturesDir . $file, [], $this->fixtures);
+            // An absolute path is taken as given, so a fixture describing a
+            // world two suites care about can be shared instead of copied —
+            // two copies of the same world drift, and then the two suites
+            // disagree about what they are testing.
+            $path = str_starts_with($file, '/') ? $file : $fixturesDir . $file;
+
+            $objectSet = $loader->loadFile($path, [], $this->fixtures);
             $this->fixtures = array_merge($this->fixtures, $objectSet->getObjects());
         }
 

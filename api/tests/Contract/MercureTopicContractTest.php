@@ -222,6 +222,66 @@ final class MercureTopicContractTest extends WebTestCase
     }
 
     /**
+     * The same flag is spelled one way over REST and another over Mercure,
+     * and a client can only be written against one of them.
+     *
+     * Symfony serialises `isCushion()` as `cushion`, so that is what the
+     * collection carries; the Mercure payloads are hand-written arrays and
+     * kept the property name. Three flags diverge that way today, and the
+     * mobile DTOs had all three wrong — they read their own defaults, so the
+     * "Matelas" badge never appeared and no agenda was ever marked default.
+     *
+     * The divergence is pinned rather than resolved: renaming either side
+     * breaks clients written against it, and the two names are the contract
+     * until somebody decides otherwise. What this test buys is that the
+     * decision cannot be made by accident — change either spelling and it
+     * fails here, next to the reason.
+     */
+    public function testTheMercureAndRestSpellingsOfTheSameFlagsAreBothPinned(): void
+    {
+        $payloadKeys = [
+            \Maggie\Finance\Entity\Account::class => 'isCushion',
+            \Maggie\Calendar\Entity\Agenda::class => 'isDefault',
+            \Maggie\Finance\Entity\Transaction::class => 'isExceptional',
+        ];
+
+        foreach ($payloadKeys as $entityClass => $key) {
+            $source = (string) file_get_contents((string) (new \ReflectionClass($entityClass))->getFileName());
+            $payload = substr($source, (int) strpos($source, 'function toMercurePayload'));
+
+            self::assertStringContainsString(sprintf("'%s' =>", $key), $payload, sprintf(
+                '%s no longer publishes "%s" over Mercure. The REST collection spells it "%s"; a client written against one and reading the other gets its own default, silently.',
+                $entityClass,
+                $key,
+                lcfirst(substr($key, 2)),
+            ));
+        }
+
+        // And the REST side, from a recording rather than from the entity:
+        // the serializer is what decides, not the getter's name.
+        foreach ([
+            'responses/accounts.collection.json' => 'cushion',
+            'responses/agendas.collection.json' => 'default',
+            'responses/transactions.collection.json' => 'exceptional',
+        ] as $recording => $key) {
+            $path = self::contractPath($recording);
+
+            if (!is_file($path)) {
+                continue;
+            }
+
+            $body = json_decode((string) file_get_contents($path), true, 512, \JSON_THROW_ON_ERROR);
+            self::assertIsArray($body);
+
+            $keys = array_merge(...array_map(array_keys(...), $body['member']));
+            self::assertContains($key, $keys, sprintf(
+                'The REST collection no longer carries "%s". The mobile DTO declares it under that name through @SerialName; renaming it makes the field read its default instead.',
+                $key,
+            ));
+        }
+    }
+
+    /**
      * 6ba9859 itself. The grocery list published an update that did not carry
      * the items, so the mobile app re-read /api/grocery_lists — served from
      * an Elasticsearch index the write had not reached yet — and redrew the

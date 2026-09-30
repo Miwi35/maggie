@@ -10,14 +10,18 @@ Maggie\Core\Entity\User:
     googleId: google-query-parameters
     name: Query Parameter User
 
+# Declared B before A, and the completed task before the open one: the
+# ordering cases below assert an ascending sort, and rows come back in
+# insertion order when the sort is dropped. Inserting them already sorted
+# would let an ignored `order[…]` pass.
 Maggie\Calendar\Entity\Agenda:
+  filter_other_agenda:
+    name: Agenda B
+    user: '@filter_user'
+
   filter_agenda:
     name: Agenda A
     isDefault: true
-    user: '@filter_user'
-
-  filter_other_agenda:
-    name: Agenda B
     user: '@filter_user'
 
 Maggie\Calendar\Entity\Event:
@@ -35,6 +39,14 @@ Maggie\Calendar\Entity\Event:
     agenda: '@filter_agenda'
 
 Maggie\Calendar\Entity\Task:
+  filter_done_task_first:
+    title: Completed
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Low)>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Low)>'
+    dueDate: '<(new \DateTimeImmutable("2026-06-01 10:00"))>'
+    completedAt: '<(new \DateTimeImmutable("2026-03-19 10:00"))>'
+    user: '@filter_user'
+
   filter_open_dated_task:
     title: Open, due in March
     priority: '<(Maggie\Calendar\Enum\TaskPriority::Low)>'
@@ -46,14 +58,6 @@ Maggie\Calendar\Entity\Task:
     title: Open, no due date
     priority: '<(Maggie\Calendar\Enum\TaskPriority::High)>'
     criticality: '<(Maggie\Calendar\Enum\TaskCriticality::High)>'
-    user: '@filter_user'
-
-  filter_done_task:
-    title: Completed
-    priority: '<(Maggie\Calendar\Enum\TaskPriority::Low)>'
-    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Low)>'
-    dueDate: '<(new \DateTimeImmutable("2026-06-01 10:00"))>'
-    completedAt: '<(new \DateTimeImmutable("2026-03-19 10:00"))>'
     user: '@filter_user'
 
 Maggie\Notification\Entity\Notification:

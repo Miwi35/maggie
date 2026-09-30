@@ -21,9 +21,13 @@ use Symfony\Component\Uid\Ulid;
  * list, not an unfiltered one: an error page.
  *
  * That is why no resource declared a relation filter, and why the mobile app
- * fell back to sending `accountId`, which nothing declared and API Platform
- * therefore dropped — so every account screen showed every account's
- * transactions.
+ * sent `accountId`, a parameter nothing declared. It worked, by accident:
+ * ElasticsearchFilterTranslator turned any unrecognised string parameter into
+ * a term query, and the index happens to hold the relation under exactly that
+ * name. So the account screen was right in production and wrong everywhere
+ * the Doctrine path served the collection — tests included, which is how a
+ * contract this thin survived. Declaring the filter makes both paths agree
+ * for the same reason rather than by coincidence.
  *
  * The filter takes the IRI, because that is what the provider hands the
  * clients and re-prefixing it is its own regression (c359b43). A bare ULID is
@@ -40,10 +44,6 @@ final class UlidRelationFilter extends AbstractFilter
         ?Operation $operation = null,
         array $context = [],
     ): void {
-        if (!\is_string($value) || $value === '') {
-            return;
-        }
-
         if (!$this->isPropertyEnabled($property, $resourceClass)
             || !$this->isPropertyMapped($property, $resourceClass, true)
         ) {
@@ -54,13 +54,18 @@ final class UlidRelationFilter extends AbstractFilter
         $parameter = $queryNameGenerator->generateParameterName($property);
         $join = $queryNameGenerator->generateJoinAlias($property);
 
-        $ulid = self::identifierOf($value);
+        // Reaching here means the parameter was sent: API Platform only calls
+        // filterProperty for parameters present in the request. So anything
+        // that is not a ULID names nothing — an empty value, an array from
+        // `?account[]=…`, a hand-typed id from a stale link.
+        $ulid = \is_string($value) ? self::identifierOf($value) : null;
 
         if ($ulid === null) {
-            // A value that names nothing must return nothing. Ignoring it
-            // would answer a narrowed request with the whole collection,
-            // which is the failure this whole ticket is about — and here it
-            // would leak one account's transactions onto another's screen.
+            // A request that names nothing must come back with nothing.
+            // Skipping the clause instead would answer a narrowed request
+            // with the whole collection, which is the failure this ticket is
+            // about — and here it would put one account's transactions on
+            // another account's screen.
             $queryBuilder->andWhere('1 = 0');
 
             return;
