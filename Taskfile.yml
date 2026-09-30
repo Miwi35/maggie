@@ -24,6 +24,40 @@ includes:
     taskfile: ./wt/Taskfile.yml
 
 tasks:
+  ci:watch:
+    desc: Follow a PR's CI safely — conflict check, CI must start within 2 min, then watch (task ci:watch -- <pr>)
+    # The one way agents wait for CI. A hand-rolled `until … sleep` loop waited
+    # 9 minutes on a conflicting PR, for which GitHub never starts a run.
+    silent: true
+    cmds:
+      - |
+        set -euo pipefail
+        PR='{{.CLI_ARGS}}'
+        [ -n "$PR" ] || { echo "usage: task ci:watch -- <pr number>" >&2; exit 64; }
+        # 1. A conflicting PR gets no CI at all.
+        for _ in 1 2 3 4 5 6; do
+          M=$(gh pr view "$PR" --json mergeable -q .mergeable)
+          [ "$M" != UNKNOWN ] && break
+          sleep 5   # GitHub computes mergeability lazily after a push
+        done
+        if [ "$M" = CONFLICTING ]; then
+          echo "PR #$PR conflicts with main: no CI will run. Rebase: git fetch origin && git rebase origin/main, resolve, git push --force-with-lease." >&2
+          exit 2
+        fi
+        # 2. A CI run must exist for the PR's head within 2 minutes.
+        SHA=$(gh pr view "$PR" --json headRefOid -q .headRefOid)
+        for i in $(seq 1 12); do
+          RUN=$(gh run list --commit "$SHA" --workflow CI --json databaseId -q '.[0].databaseId' 2>/dev/null || true)
+          [ -n "$RUN" ] && break
+          sleep 10
+        done
+        if [ -z "${RUN:-}" ]; then
+          echo "No CI run for $SHA after 2 minutes. Check: the push reached GitHub (git ls-remote), the workflow triggers, https://www.githubstatus.com. Still nothing: comment it, needs-human, stop." >&2
+          exit 3
+        fi
+        echo "CI run $RUN started for $SHA — watching."
+        # 3. Only now, wait for the checks.
+        gh pr checks "$PR" --watch --fail-fast
   # ===========================================================================
   # Docker Compose Commands
   # ===========================================================================
