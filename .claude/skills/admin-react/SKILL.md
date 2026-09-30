@@ -24,9 +24,9 @@ user-invocable: false
 Use native `EventSource` API — no library:
 
 ```tsx
-const url = new URL(MERCURE_URL)
+const url = new URL(MERCURE_URL, window.location.origin)
 url.searchParams.append('topic', '/api/events/{id}')
-const eventSource = new EventSource(url.toString())
+const eventSource = new EventSource(url.toString(), { withCredentials: true }) // private updates need the cookie
 ```
 
 Use `VITE_MERCURE_PUBLIC_URL` env var, fallback to `http://maggie.local/.well-known/mercure`.
