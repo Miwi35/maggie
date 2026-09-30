@@ -56,13 +56,18 @@ fixture fixed mid-session takes effect on the next message — no agent restart.
 
 ## Beyond chat
 
-Two calls in the agent are not a conversation, and each has its scenario here
+Three calls in the agent are not a conversation, and each has its scenario here
 because otherwise they would fall through to "no scenario":
 
 | Call | Matched on |
 |---|---|
 | Context routing, before every streamed message | `system_contains: routeur de contexte` |
 | Transcript cleanup, after Whisper | `user_contains: assistant de transcription` |
+| A proaction (`POST /agent/proaction`) | the prompt it was scheduled with |
+
+A proaction is the one entry point with no context routing and no conversation
+history: the prompt is the whole request. `80-proaction-bin-night.yaml` is the
+one the chat journey triggers.
 
 The transcript cleanup pairs with the WireMock Whisper stub: that stub returns
 one fixed sentence, and `20-transcription-cleanup.yaml` returns it cleaned. Change

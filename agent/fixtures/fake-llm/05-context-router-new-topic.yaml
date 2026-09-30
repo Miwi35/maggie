@@ -1,0 +1,25 @@
+# The context router, when the conversation changes subject mid-run.
+#
+# 10-context-router-existing.yaml answers with the first id it is shown, so once
+# a context is open every later message joins it — which is what "resume a
+# thread" needs, and exactly what makes "change of subject" unreachable. This
+# file is numbered below it so that the one message in the suite that talks
+# about the budget opens a second context instead. It will do that every time
+# it is asked, so a journey that sends it twice gets two contexts: the chat
+# journey sends it once, and turns retries off for that reason.
+#
+# Matched on `Message : …` rather than on the word alone: the router is handed
+# the list of existing contexts *and* the message, and a bare `finances` would
+# match again on the next turn through a label that quotes it.
+#
+# Its pair on the chat side is 70-budget-question.yaml, which answers the same
+# message once the router has placed it.
+name: context-router-new-topic
+description: Open a second context for a message about the budget.
+
+match:
+  system_contains: "routeur de contexte"
+  user_matches: 'Message : .*finances'
+
+turns:
+  - text: '{"context_id": null, "label": "Budget e2e"}'

@@ -1,0 +1,36 @@
+# A write to the agenda, so a journey can watch a tool Maggie called land in the
+# database and then on the calendar.
+#
+# The date is a far-future literal, and here that is the only option: the
+# anchoring rule of the e2e standard is about `api/fixtures/e2e/*.yaml`, which
+# has `<e2eDate()>` to express "in two days" — a scenario file has no templating
+# at all, so whatever is written here is what the tool receives. 2099 is the
+# right constant rather than merely an acceptable one: the journey has to find
+# this event by itself, and any nearby date would mix it into what the seeded
+# dashboards and `get_upcoming_events` compute from the real clock. Nothing
+# reads it as "upcoming" — the journey reaches it through the calendar's
+# `?eventId=` deep link, which goes to whatever date the event carries.
+#
+# No `system_contains` guard, unlike 05-context-router-new-topic.yaml, and it
+# is not needed: the router is handed the user's message verbatim, so
+# `dentiste` matches its call too — but every router call is claimed first by
+# 05, 10 or 11, and 11's only condition is the router's own system prompt. No
+# router call ever reaches a file numbered above it.
+#
+# `create_event` really runs: it dispatches CreateEventCommand, writes through
+# Doctrine and publishes on Mercure, like any other caller.
+name: create-event
+description: Book a dentist appointment through the calendar MCP tool.
+
+match:
+  user_matches: "dentiste"
+
+turns:
+  - tools:
+      - name: create_event
+        input:
+          title: "Dentiste"
+          date: "2099-03-12"
+          time: "14:00"
+          duration: 30
+  - text: "C'est noté : dentiste le 12 mars 2099 à 14h, pour une demi-heure."

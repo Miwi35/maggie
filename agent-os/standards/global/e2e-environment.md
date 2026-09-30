@@ -306,6 +306,16 @@ here because they are properties of the *stack*, not of Playwright:
 - **Nothing leaves the network.** Every request to another origin is aborted —
   the Google font the admin pulls, react-admin's telemetry. Same rule as the
   WireMock stubs: an external call is a bug, not a dependency.
+- **The origin is not trustworthy, so the browser has no microphone.**
+  `http://traefik` is plain HTTP, `window.isSecureContext` is false, and
+  `navigator.mediaDevices` therefore does not exist. Nothing in Playwright
+  works around it: the microphone permission is granted and the property stays
+  absent, Chromium's fake capture device has no API to feed, and
+  `--unsafely-treat-insecure-origin-as-secure` is ignored by the bundled build
+  even with a persistent profile. A step that needs `getUserMedia` — dictation,
+  the wake word — belongs in `e2e/smoke/smoke.sh` over HTTP until MAG-145
+  changes the origin. The symptom, if you forget, is "Accès au microphone
+  refusé", which reads like a permission problem and is not one.
 - **Three widths.** `desktop` (1440), `tablet` (834), `phone` (393). Only tests
   tagged `@responsive` run on all three.
 - **The Mercure image is pinned by digest, and must stay pinned.** An

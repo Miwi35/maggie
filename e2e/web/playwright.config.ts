@@ -16,6 +16,15 @@ import { defineConfig, devices } from '@playwright/test'
  * three widths would triple a suite whose slowest steps — the chat stream, the
  * two-tab Mercure wait — have nothing to do with layout. The tag is what MAG-38
  * and MAG-90 will grow: put it on a test whose *layout* is the point.
+ *
+ * One thing the browser cannot do here, and it is the origin's fault rather
+ * than the config's: `http://traefik` is not a trustworthy origin, so
+ * `navigator.mediaDevices` does not exist and nothing can drive the microphone
+ * — not `permissions: ['microphone']`, not Chromium's fake capture device, not
+ * `--unsafely-treat-insecure-origin-as-secure`, which this build ignores even
+ * with a persistent profile. Dictation is therefore covered by
+ * `e2e/smoke/smoke.sh` over HTTP until MAG-145 gives the stack a trustworthy
+ * origin.
  */
 
 const RESPONSIVE = /@responsive/

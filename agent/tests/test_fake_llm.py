@@ -585,6 +585,30 @@ class TestTheShippedFixtures:
         )
         assert json.loads(text_of(reused)) == {"context_id": context_id}
 
+    async def test_a_change_of_subject_opens_a_second_context(self):
+        # The one message that must *not* join the context already open, so the
+        # chat journey has a second one to find in the Mind Panel. It only works
+        # because 05-context-router-new-topic.yaml is numbered below
+        # 10-context-router-existing.yaml, which would otherwise answer first
+        # with the id it was shown — and the symptom of losing that ordering is
+        # a journey failing on "matched" with nothing naming the cause.
+        client = build_client(DEFAULT_FIXTURES_DIR)
+        router_system = "Tu es un routeur de contexte. Analyse le message et les contextes existants."
+        context_id = uuid.uuid4().hex
+
+        switched = await ask(
+            client,
+            f'Contextes existants :\n- id="{context_id}" label="Conversation e2e"\n\n'
+            "Message : Parlons de mes finances, où en est mon budget ?",
+            system=router_system,
+        )
+
+        assert json.loads(text_of(switched)) == {"context_id": None, "label": "Budget e2e"}
+
+        # And the chat side answers that same message, so the switch does not
+        # end on "[fake-llm] aucun scénario".
+        assert "[fake-llm]" not in text_of(await ask(client, "Parlons de mes finances, où en est mon budget ?"))
+
     async def test_the_voice_path_cleans_the_stubbed_whisper_sentence(self):
         client = build_client(DEFAULT_FIXTURES_DIR)
 
@@ -610,3 +634,26 @@ class TestTheShippedFixtures:
         assert [block.name for block in answer.content if isinstance(block, FakeToolUseBlock)] == [
             "get_upcoming_events"
         ]
+
+    async def test_booking_an_appointment_calls_the_write_tool(self):
+        client = build_client(DEFAULT_FIXTURES_DIR)
+
+        answer = await ask(client, "Note-moi un dentiste le 12 mars 2099 à 14h")
+
+        assert answer.stop_reason == "tool_use"
+        booked = next(block for block in answer.content if isinstance(block, FakeToolUseBlock))
+        assert booked.name == "create_event"
+        # Read by the chat journey to find what Maggie wrote, so the two have to
+        # agree: a title edited here and not there fails on an empty collection.
+        assert booked.input["title"] == "Dentiste"
+        assert booked.input["date"].startswith("2099-")
+
+    async def test_a_proaction_prompt_has_something_to_say(self):
+        # `POST /agent/proaction` runs the tool loop without the context router,
+        # so nothing else in this directory covers that entry point.
+        client = build_client(DEFAULT_FIXTURES_DIR)
+
+        answer = await ask(client, "Rappelle-lui de sortir les poubelles")
+
+        assert answer.stop_reason == "end_turn"
+        assert "[fake-llm]" not in text_of(answer)

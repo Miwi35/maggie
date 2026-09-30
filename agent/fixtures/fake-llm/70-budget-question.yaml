@@ -1,0 +1,14 @@
+# The chat side of the change of subject: 05-context-router-new-topic.yaml puts
+# this message in a context of its own, and this answers it.
+#
+# No tool, deliberately. What the journey asserts here is where the message
+# landed, not what it read — a tool call would only add a second reason for the
+# test to go red.
+name: budget-question
+description: Answer a question about the budget, in its own context.
+
+match:
+  user_contains: "finances"
+
+turns:
+  - text: "Votre budget tient la route ce mois-ci, rien d'inquiétant de mon côté."
