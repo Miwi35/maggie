@@ -6,12 +6,12 @@ You are entering Maggie's Prompt Lab — test and iterate on the AI agent's prom
 
 Run these commands to gather Maggie's live configuration:
 
-1. **Login**: `scripts/prompt-lab/mcp-session.sh login` (generates a 24h JWT token)
-2. **Full context**: `scripts/prompt-lab/mcp-session.sh context [chat|proaction]`
+1. **Login**: `scripts/prompt-lab/mcp-session.sh login` (24h JWT, cached in the gitignored `scripts/prompt-lab/.token`; the other subcommands log in again by themselves when it is missing or about to expire). It needs the dev stack (`task up`) and acts as the only user of the dev DB — set `PROMPT_LAB_USER_EMAIL` if there are several.
+2. **Full context**: `scripts/prompt-lab/mcp-session.sh context [chat|proaction [planning|execution]]`
 
 Two modes matching how the real agent works:
-- `context chat` (default) — base prompt + capabilities + skill index. This is what the LLM sees during normal conversation. Skills are listed as a compact index (`- name: description`, sorted by name, no body); the agent loads a skill's content on demand with `get_skill`.
-- `context proaction` — everything above + user instructions + autonomous preamble. Instructions are ONLY injected during daily proaction planning, never in regular chat.
+- `context chat` (default) — personality + capabilities + skill index, then memory and the date, built by the agent's own `LLMGateway`. This is what the LLM sees during normal conversation. Skills are listed as a compact index (`- name: description`, sorted by name, no body); the agent loads a skill's content on demand with `get_skill`.
+- `context proaction [planning|execution]` — everything above + the autonomous preamble (`planning` by default: the silent daily planning; `execution`: a scheduled proaction that writes to the chat) + the user's instructions. Instructions are ONLY used by proactions, never in regular chat: in production the agent reads them with `list_instructions`, the lab inlines them because a subagent has no native tools.
 
 3. Show the assembled prompt to the user for review
 
@@ -28,9 +28,9 @@ Use AskUserQuestion to ask:
 ### Interactive Mode — Chat
 The user provides a test message. You:
 1. Run `scripts/prompt-lab/mcp-session.sh context chat` to get the base system prompt
-2. Fetch the skill list via `scripts/prompt-lab/mcp-session.sh skills` and append the index (`- name: description`, sorted by name, no body) to the system prompt, like `get_skills_index()` in `agent/app/skills/index.py`. Do not inject any skill body: the subagent loads one with `get_skill` when it needs it
+2. The output already ends with the skill index (`- name: description`, sorted by name, no body): do not inject any skill body, the subagent loads one with `get_skill` when it needs it
 3. Spawn a subagent (model: sonnet by default) with:
-   - **System instructions**: The assembled system prompt (base + skill index)
+   - **System instructions**: The assembled system prompt
    - **Task**: "You are Maggie, responding to this user message. Respond exactly as Maggie would. When you would call a tool, use the Bash tool to execute: `scripts/prompt-lab/mcp-session.sh call <tool_name> '<json_args>'` and incorporate the real result into your response. Stay in character throughout."
    - **User message**: The test input
 
@@ -41,7 +41,7 @@ After the subagent responds, show the user:
 
 ### Interactive Mode — Proaction Planning
 For testing daily planning or proaction execution. You:
-1. Run `scripts/prompt-lab/mcp-session.sh context proaction` to get the proaction system prompt (includes instructions + autonomous preamble)
+1. Run `scripts/prompt-lab/mcp-session.sh context proaction` to get the proaction system prompt (includes the autonomous preamble + instructions)
 2. Spawn a subagent (model: sonnet by default) with:
    - **System instructions**: The proaction system prompt
    - **Task**: "You are Maggie in autonomous proaction mode. Execute the task below without asking the user for confirmation. When you would call a tool, use the Bash tool to execute: `scripts/prompt-lab/mcp-session.sh call <tool_name> '<json_args>'` and incorporate the real result. Stay in character throughout."
@@ -122,5 +122,5 @@ When iterating on prompts:
 - Subagent tokens come from Claude Code subscription, NOT the Anthropic API key
 - MCP tool calls hit the REAL API database — be aware of side effects with write operations
 - Native tools (memory, skills, instructions, proactions) are handled within the agent process — for testing, mock their results in scenarios or test via the agent REST API
-- `context chat` builds the base prompt (same as production minus conversation history). The skill index is appended by the prompt lab (no body; the agent calls `get_skill`)
+- `context chat` builds the prompt the way production does (same as production minus conversation history), skill index included (no body; the agent calls `get_skill`)
 - `context proaction` includes instructions — use this when testing daily planning or autonomous tasks

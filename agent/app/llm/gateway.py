@@ -15,6 +15,18 @@ from app.skills.index import skill_index
 
 logger = logging.getLogger(__name__)
 
+PLANNING_PREAMBLE = (
+    "\n\nTu es en mode planification autonome. "
+    "Planifie les proactions de la journée. "
+    "Ton output est un log interne — il ne sera pas envoyé à l'utilisateur."
+)
+EXECUTION_PREAMBLE = (
+    "\n\nTu es en mode proaction. "
+    "Exécute la tâche demandée et rédige un message clair pour l'utilisateur. "
+    "Ton message sera envoyé directement dans le chat. "
+    "Ne demande pas de confirmation avant d'agir — agis directement."
+)
+
 
 class LLMGateway:
     """Claude API gateway with tool use support."""
@@ -78,19 +90,7 @@ class LLMGateway:
 
         tools = await self.tool_router.get_tool_definitions(include_native=True)
 
-        if silent:
-            preamble = (
-                "\n\nTu es en mode planification autonome. "
-                "Planifie les proactions de la journée. "
-                "Ton output est un log interne — il ne sera pas envoyé à l'utilisateur."
-            )
-        else:
-            preamble = (
-                "\n\nTu es en mode proaction. "
-                "Exécute la tâche demandée et rédige un message clair pour l'utilisateur. "
-                "Ton message sera envoyé directement dans le chat. "
-                "Ne demande pas de confirmation avant d'agir — agis directement."
-            )
+        preamble = PLANNING_PREAMBLE if silent else EXECUTION_PREAMBLE
 
         system_prompt = await self._build_system_prompt(user_id, tools=tools, preamble=preamble)
 
