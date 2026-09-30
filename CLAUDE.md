@@ -20,7 +20,9 @@ Project skills are in `.claude/skills/`, agent-os commands in `.claude/commands/
 
 ## Autonomy — decide by default, ask only when it matters
 
-Agents take tickets unattended, from shaping to PR. At any step, **decide and move on** when the ticket, the module's functional spec, the standards or the existing code give an answer; state the assumption in the plan, the PR and a ticket comment.
+Agents take tickets unattended, from shaping to PR. At any step, **decide and move on** when the ticket, the module's functional spec, the standards or the existing code give an answer.
+
+Every decision taken alone leaves a trace: a comment on the Linear ticket, posted when the decision is made, with **Dilemma** (the question, in one line), **Options** (those considered), **Choice** and **Why** (the ticket, spec, standard or code that settles it). Repeat the list in the PR description.
 
 Stop and ask only for:
 - a product, UX or data-model decision nothing answers and that is costly to undo;
