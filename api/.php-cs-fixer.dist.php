@@ -18,5 +18,11 @@ $finder = (new Finder())
     ->exclude(['var', 'vendor']);
 
 return (new Config())
-    ->setRules(['@Symfony' => true])
+    ->setRules([
+        '@Symfony' => true,
+        // API Platform publishes docblocks as OpenAPI descriptions, which
+        // contract/openapi.json freezes: adding the final period would change
+        // what the clients read.
+        'phpdoc_summary' => false,
+    ])
     ->setFinder($finder);
