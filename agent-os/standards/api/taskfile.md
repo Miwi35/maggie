@@ -33,4 +33,10 @@ Common:
 | `task api:test` | PHPUnit |
 | `task api:test:coverage` | PHPUnit + HTML coverage |
 | `task api:phpstan` | Static analysis |
-| `task api:lint` | All linting (runs phpstan) |
+| `task api:cs:check` | PHP-CS-Fixer dry run (`@Symfony`), as in CI |
+| `task api:cs:fix` | PHP-CS-Fixer in write mode |
+| `task api:phpstan:changed` | PHPStan on the PHP files changed since `origin/main` |
+| `task api:lint` | All linting (runs cs:check and phpstan) |
+
+`api:cs:*` run in the dev stack, which mounts the main checkout. From a worktree use
+`task fix:all` / `task wt:cs:fix`.

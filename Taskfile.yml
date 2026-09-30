@@ -219,13 +219,33 @@ tasks:
   # Linting
   # ===========================================================================
   lint:all:
-    desc: Run all linters (phpstan + ruff + eslint + typecheck)
+    desc: Run all linters (php-cs-fixer + phpstan + ruff + eslint + typecheck)
     cmds:
+      - task: api:cs:check
       - task: api:phpstan
       - task: agent:lint
       - task: ciqual:lint
       - task: admin:lint
       - task: admin:typecheck
+
+  fix:all:
+    desc: Fixers in write mode, then linters, on this checkout's own code — run before every push
+    # Built on `wt:*`, not on the dev-stack tasks: those mount the main checkout,
+    # so from a worktree they would fix and lint the owner's files instead of
+    # yours. Fixers first, so the linters see the final tree; PHPStan last, on
+    # the PHP files this branch changed since origin/main. Stops at the first
+    # failure. Exit 75 means the machine is busy (see wt:guard), not that your
+    # change is wrong: push and let CI run.
+    cmds:
+      - task: wt:cs:fix
+      - task: wt:fix:agent
+      - task: wt:fix:ciqual
+      - task: wt:fix:admin
+      - task: wt:cs:check
+      - task: wt:lint:agent
+      - task: wt:lint:ciqual
+      - task: wt:lint:admin
+      - task: wt:phpstan:changed
 
   # ===========================================================================
   # CI (local)

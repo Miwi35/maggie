@@ -79,20 +79,23 @@ Never run `php`, `composer`, `bin/console`, `npm`, `pytest` or `uv` on the host:
 
 | Component | Lint | Tests |
 |---|---|---|
-| API | `task api:lint` | `task api:test` (`-- --testsuite <Module>` to narrow) |
+| API | `task api:lint` (PHP-CS-Fixer check + PHPStan) | `task api:test` (`-- --testsuite <Module>` to narrow) |
 | Agent | `task agent:lint` + `task agent:format:check` | `task agent:test` |
 | Admin | `task admin:lint` + `task admin:typecheck` | `task admin:test` |
 | Mobile | CI (local `lintProdRelease` crashes on a known AGP/K2 bug) | `cd mobile && ./gradlew testProdReleaseUnitTest` (Java 21 via `org.gradle.java.home`) |
 
 Symfony console: `task api:console -- <args>`.
 
-**Before every push**: run the formatters in write mode, then the linters — `task agent:format` + `task agent:lint:fix`, `task ciqual:format` + `task ciqual:lint:fix`, then `task lint:all`; and **PHPStan on every PHP file you changed** — none may introduce a violation: `task api:phpstan -- $(git diff --name-only origin/main...HEAD -- 'api/*.php' | sed 's#^api/##')` — from a worktree, `task wt:phpstan -- …` instead, same arguments. API PHP-CS-Fixer and a `task fix:all` built on `wt:*` come with MAG-133.
+**Before every push: `task fix:all`.** It runs every fixer in write mode (PHP-CS-Fixer, ruff `--fix` + `format` for agent and ciqual, ESLint `--fix`), then every linter, then PHPStan on the PHP files you changed since `origin/main` (committed or not) — none may introduce a violation. It runs on the code of the checkout you launch it from, worktree included, and never touches another checkout. Commit what it rewrote, then push. CI fails on code php-cs-fixer would still change.
 
-**In a git worktree** (parallel agents): every `task api:*`, `task admin:*`, `task agent:*` and `task ciqual:*` command runs `docker compose exec` against the dev stack, which mounts the main checkout, not your worktree — tests and linters would check the wrong code, and **formatters would rewrite the owner's working copy: never run them from a worktree**. Use `task wt:*` instead: minimal one-shot containers, nothing published, `--rm` / `down -v` even on failure, and a load guard that waits then sends you to CI (exit 75 = the machine is busy, not your change). Details: `agent-os/standards/global/worktree-checks.md`.
+**In a git worktree** (parallel agents): every `task api:*`, `task admin:*`, `task agent:*` and `task ciqual:*` command runs `docker compose exec` against the dev stack, which mounts the main checkout, not your worktree — tests and linters would check the wrong code, and **formatters would rewrite the owner's working copy: never run them from a worktree**. Use `task fix:all` and `task wt:*` instead: minimal one-shot containers, nothing published, `--rm` / `down -v` even on failure, and a load guard that waits then sends you to CI (exit 75 = the machine is busy, not your change). Details: `agent-os/standards/global/worktree-checks.md`.
 
 | Worktree checks | |
 |---|---|
+| `task fix:all` | every fixer, every linter, PHPStan on changed files |
 | `task wt:phpstan -- <files>` | PHPStan, one container, ~2 s warm |
+| `task wt:phpstan:changed` | PHPStan on the PHP files changed since `origin/main` (also `task api:phpstan:changed`) |
+| `task wt:cs:fix`, `task wt:cs:check` | PHP-CS-Fixer, write / dry-run |
 | `task wt:test:api` | PHPUnit on a throwaway Postgres |
 | `task wt:lint:admin`, `task wt:test:admin` | ESLint + tsc, Vitest |
 | `task wt:lint:agent`, `task wt:test:agent` | Ruff, pytest |
