@@ -19,10 +19,20 @@ class UpdateUserProcessor implements ProcessorInterface
 
     public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): User
     {
+        /** @var User|null $previous */
+        $previous = $context['previous_data'] ?? null;
+
+        // A nullable field that was set and is now null is an explicit clear
+        $clearFields = [];
+        if ($previous !== null && $data->getAvatar() === null && $previous->getAvatar() !== null) {
+            $clearFields[] = 'avatar';
+        }
+
         $envelope = $this->bus->dispatch(new UpdateUserCommand(
             userId: (string) $data->getId(),
             name: $data->getName(),
             avatar: $data->getAvatar(),
+            clearFields: $clearFields,
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();

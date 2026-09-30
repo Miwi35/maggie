@@ -29,6 +29,8 @@ class UpdateStoreHandler
         }
         if ($command->description !== null) {
             $store->setDescription($command->description);
+        } elseif ($command->clears('description')) {
+            $store->setDescription(null);
         }
         if ($command->visitOrder !== null) {
             $store->setVisitOrder($command->visitOrder);

@@ -22,6 +22,16 @@ class UpdateEventProcessor implements ProcessorInterface
         /** @var Event|null $previous */
         $previous = $context['previous_data'] ?? null;
 
+        // A nullable field that was set and is now null is an explicit clear
+        $clearFields = [];
+        if ($previous !== null) {
+            foreach (['description' => 'getDescription', 'location' => 'getLocation', 'rrule' => 'getRrule'] as $field => $getter) {
+                if ($data->$getter() === null && $previous->$getter() !== null) {
+                    $clearFields[] = $field;
+                }
+            }
+        }
+
         // Only send fields that actually changed compared to previous state
         $envelope = $this->bus->dispatch(new UpdateEventCommand(
             eventId: (string) $data->getId(),
@@ -32,6 +42,7 @@ class UpdateEventProcessor implements ProcessorInterface
             location: $previous === null || $data->getLocation() !== $previous->getLocation() ? $data->getLocation() : null,
             allDay: $previous === null || $data->isAllDay() !== $previous->isAllDay() ? $data->isAllDay() : null,
             rrule: $previous === null || $data->getRrule() !== $previous->getRrule() ? $data->getRrule() : null,
+            clearFields: $clearFields,
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();

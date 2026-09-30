@@ -16,7 +16,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_products', description: 'List, create, update, or delete non-food products (household, hygiene, cleaning, other). Create food items with create_ingredient instead — they are products too, so they show up in the list. To search by name use search_products.')]
+#[McpTool(name: 'manage_products', description: 'List, create, update, or delete non-food products (household, hygiene, cleaning, other). Create food items with create_ingredient instead — they are products too, so they show up in the list. To search by name use search_products. To empty an optional field on update, list its name in clear (defaultUnit).')]
 class ManageProductsTool
 {
     public function __construct(
@@ -32,12 +32,13 @@ class ManageProductsTool
         ?string $name = null,
         ?string $category = null,
         ?string $defaultUnit = null,
+        ?array $clear = null,
     ): string {
         try {
             return match ($action) {
                 'list' => $this->list(),
                 'create' => $this->create($name, $category, $defaultUnit),
-                'update' => $this->update($productId, $name, $category, $defaultUnit),
+                'update' => $this->update($productId, $name, $category, $defaultUnit, $clear),
                 'delete' => $this->delete($productId),
                 default => json_encode(['error' => "Unknown action: {$action}. Use list, create, update, or delete."], JSON_THROW_ON_ERROR),
             };
@@ -83,7 +84,8 @@ class ManageProductsTool
         return json_encode(['success' => true, 'product' => $this->serialize($product)], JSON_THROW_ON_ERROR);
     }
 
-    private function update(?string $productId, ?string $name, ?string $category, ?string $defaultUnit): string
+    /** @param array<mixed>|null $clear */
+    private function update(?string $productId, ?string $name, ?string $category, ?string $defaultUnit, ?array $clear): string
     {
         if ($productId === null) {
             return json_encode(['error' => 'productId is required for update.'], JSON_THROW_ON_ERROR);
@@ -94,6 +96,7 @@ class ManageProductsTool
             name: $name,
             category: $category,
             defaultUnit: $defaultUnit,
+            clearFields: array_values(array_intersect($clear ?? [], ['defaultUnit'])),
         ));
 
         /** @var Product $product */

@@ -30,6 +30,8 @@ class UpdateLoanProcessor implements ProcessorInterface
             lender: $data->getLender(),
             priority: $data->getPriority(),
             currency: $data->getCurrency(),
+            // A null lender after the merge-patch is an explicit clear
+            clearFields: $data->getLender() === null ? ['lender'] : [],
         ));
 
         return $stamped->last(HandledStamp::class)->getResult();

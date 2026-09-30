@@ -30,6 +30,7 @@ class UpdateRecipeProcessor implements ProcessorInterface
             tags: $data->getTags(),
             notes: $data->getNotes(),
             ingredients: $ingredients,
+            clearFields: $data->getNotes() === null ? ['notes'] : [],
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();

@@ -33,6 +33,8 @@ class UpdateAccountHandler
         }
         if ($command->bank !== null) {
             $account->setBank($command->bank);
+        } elseif ($command->clears('bank')) {
+            $account->setBank(null);
         }
         if ($command->currency !== null) {
             $account->setCurrency($command->currency);
@@ -45,6 +47,8 @@ class UpdateAccountHandler
         }
         if ($command->externalAccountId !== null) {
             $account->setExternalAccountId($command->externalAccountId);
+        } elseif ($command->clears('externalAccountId')) {
+            $account->setExternalAccountId(null);
         }
 
         return $this->updateAccount->execute($account);

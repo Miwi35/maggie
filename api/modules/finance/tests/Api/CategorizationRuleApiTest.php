@@ -123,6 +123,72 @@ class CategorizationRuleApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(422);
     }
 
+    /** @param array<string, mixed> $body */
+    private function patch(string $id, array $body, bool $authenticated = true): void
+    {
+        $headers = [
+            'CONTENT_TYPE' => 'application/merge-patch+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ];
+
+        $this->client->request('PATCH', '/api/categorization_rules/' . $id, [], [], $authenticated
+            ? array_merge($headers, $this->authHeaders())
+            : $headers, json_encode($body, JSON_THROW_ON_ERROR));
+    }
+
+    public function testPatchRuleRequiresAuthentication(): void
+    {
+        $this->loadFixtures('categorization_rule_ranged.yaml');
+        $rule = $this->getFixture('ranged_rule');
+
+        $this->patch((string) $rule->getId(), ['maxAmountCents' => null], authenticated: false);
+
+        self::assertResponseStatusCodeSame(401);
+    }
+
+    public function testPatchWithNullMaximumRemovesTheBound(): void
+    {
+        $this->loadFixtures('categorization_rule_ranged.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+        $rule = $this->getFixture('ranged_rule');
+
+        $this->patch((string) $rule->getId(), ['maxAmountCents' => null]);
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $refreshed = $em->find(CategorizationRule::class, $rule->getId());
+        self::assertNull($refreshed->getMaxAmountCents());
+        self::assertSame(1000, $refreshed->getMinAmountCents());
+        self::assertSame('CARREFOUR', $refreshed->getLabelPattern());
+
+        $this->assertMercureUpdatePublished('/categorization_rules/');
+        $this->assertElasticsearchIndexDispatched(CategorizationRule::class);
+    }
+
+    public function testPatchWithoutBoundsLeavesThemUntouched(): void
+    {
+        $this->loadFixtures('categorization_rule_ranged.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+        $rule = $this->getFixture('ranged_rule');
+
+        $this->patch((string) $rule->getId(), ['priority' => 20]);
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $refreshed = $em->find(CategorizationRule::class, $rule->getId());
+        self::assertSame(20, $refreshed->getPriority());
+        self::assertSame(1000, $refreshed->getMinAmountCents());
+        self::assertSame(5000, $refreshed->getMaxAmountCents());
+    }
+
     public function testDeleteRuleRemovesAndPublishes(): void
     {
         $this->loadFixtures('categorization_rule.yaml');

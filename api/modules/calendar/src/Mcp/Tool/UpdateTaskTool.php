@@ -9,7 +9,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'update_task', description: 'Update an existing task. Only provided fields will be updated. Set done=true to mark as completed, done=false to reopen.')]
+#[McpTool(name: 'update_task', description: 'Update an existing task. Only provided fields will be updated. Set done=true to mark as completed, done=false to reopen. To empty an optional field, list its name in clear (description, dueDate).')]
 class UpdateTaskTool
 {
     public function __construct(
@@ -25,6 +25,7 @@ class UpdateTaskTool
         ?string $criticality = null,
         ?string $dueDate = null,
         ?bool $done = null,
+        ?array $clear = null,
     ): string {
         try {
             $dueDateObj = $dueDate !== null
@@ -32,10 +33,11 @@ class UpdateTaskTool
                 : null;
 
             $completedAt = null;
+            $clearFields = array_values(array_intersect($clear ?? [], ['description', 'dueDate']));
             if ($done === true) {
                 $completedAt = new \DateTimeImmutable('now', new \DateTimeZone('Europe/Paris'));
             } elseif ($done === false) {
-                $completedAt = null;
+                $clearFields[] = 'completedAt';
             }
 
             $envelope = $this->bus->dispatch(new UpdateTaskCommand(
@@ -46,6 +48,7 @@ class UpdateTaskTool
                 criticality: $criticality,
                 dueDate: $dueDateObj,
                 completedAt: $completedAt,
+                clearFields: $clearFields,
             ));
 
             /** @var Task $task */

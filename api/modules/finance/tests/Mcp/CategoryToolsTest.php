@@ -110,6 +110,61 @@ class CategoryToolsTest extends KernelTestCase
         $this->assertElasticsearchIndexDispatched(Category::class);
     }
 
+    public function testClearMakesASubCategoryTopLevel(): void
+    {
+        $this->loadFixtures('category.yaml');
+        $this->loginFixtureUser();
+        $concerts = $this->getFixture('leisure_concerts');
+
+        $tool = self::getContainer()->get(ManageCategoriesTool::class);
+        $result = $tool('update', categoryId: (string) $concerts->getId(), clear: ['parentId']);
+
+        $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
+        self::assertTrue($data['success']);
+        self::assertNull($data['category']['parentId']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $refreshed = $em->find(Category::class, $concerts->getId());
+        self::assertNull($refreshed->getParent());
+        self::assertSame('Concerts', $refreshed->getName());
+
+        $this->assertMercureUpdatePublished('/categories/');
+        $this->assertElasticsearchIndexDispatched(Category::class);
+    }
+
+    public function testClearEmptiesTheColorButNotTheName(): void
+    {
+        $this->loadFixtures('category.yaml');
+        $this->loginFixtureUser();
+        $food = $this->getFixture('food');
+
+        $tool = self::getContainer()->get(ManageCategoriesTool::class);
+        $result = $tool('update', categoryId: (string) $food->getId(), clear: ['color', 'icon', 'name']);
+
+        $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
+        self::assertTrue($data['success']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $refreshed = $em->find(Category::class, $food->getId());
+        self::assertNull($refreshed->getColor());
+        self::assertNull($refreshed->getIcon());
+        self::assertSame('Alimentation', $refreshed->getName(), 'Required fields cannot be cleared');
+        self::assertSame('mandatory', $refreshed->getObligation()->value);
+    }
+
+    public function testClearOnAnUnknownCategoryReturnsAnError(): void
+    {
+        $this->loadFixtures('category.yaml');
+        $this->loginFixtureUser();
+
+        $tool = self::getContainer()->get(ManageCategoriesTool::class);
+        $data = json_decode($tool('update', categoryId: '01ARZ3NDEKTSV4RRFFQ69G5FAV', clear: ['color']), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
+    }
+
     public function testDeleteCategoryRemovesPublishesAndDeletes(): void
     {
         $this->loadFixtures('category.yaml');

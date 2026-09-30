@@ -17,7 +17,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_loans', description: 'List, create, update or delete loans being repaid, and read the debt timeline. A loan is described by its remaining capital, its monthly payment and its annual rate in BASIS POINTS (350 = 3.50 %); the end date is never given, it is computed from those three. A payment that does not cover the monthly interest is refused, since such a loan would never be repaid. The timeline action amortises every loan month by month over a horizon (60 months by default) and reports when each one frees up, how much monthly payment that releases, and the net saving capacity — reference income minus loan payments minus the lifestyle measured over the last three months. All amounts are integer cents.')]
+#[McpTool(name: 'manage_loans', description: 'List, create, update or delete loans being repaid, and read the debt timeline. A loan is described by its remaining capital, its monthly payment and its annual rate in BASIS POINTS (350 = 3.50 %); the end date is never given, it is computed from those three. A payment that does not cover the monthly interest is refused, since such a loan would never be repaid. The timeline action amortises every loan month by month over a horizon (60 months by default) and reports when each one frees up, how much monthly payment that releases, and the net saving capacity — reference income minus loan payments minus the lifestyle measured over the last three months. All amounts are integer cents. On update, only provided fields change; to empty the optional lender, list it in clear.')]
 class ManageLoansTool
 {
     public function __construct(
@@ -39,12 +39,13 @@ class ManageLoansTool
         ?int $priority = null,
         ?string $currency = null,
         ?int $horizonMonths = null,
+        ?array $clear = null,
     ): string {
         try {
             return match ($action) {
                 'list' => $this->list(),
                 'create' => $this->create($name, $principalRemainingCents, $monthlyPaymentCents, $annualRateBasisPoints, $lender, $priority, $currency),
-                'update' => $this->update($loanId, $name, $principalRemainingCents, $monthlyPaymentCents, $annualRateBasisPoints, $lender, $priority, $currency),
+                'update' => $this->update($loanId, $name, $principalRemainingCents, $monthlyPaymentCents, $annualRateBasisPoints, $lender, $priority, $currency, $clear),
                 'delete' => $this->delete($loanId),
                 'timeline' => $this->timeline($horizonMonths),
                 default => json_encode(['error' => "Unknown action: {$action}. Use list, create, update, delete, or timeline."], JSON_THROW_ON_ERROR),
@@ -98,7 +99,7 @@ class ManageLoansTool
         ], JSON_THROW_ON_ERROR);
     }
 
-    private function update(?string $loanId, ?string $name, ?int $principalRemainingCents, ?int $monthlyPaymentCents, ?int $annualRateBasisPoints, ?string $lender, ?int $priority, ?string $currency): string
+    private function update(?string $loanId, ?string $name, ?int $principalRemainingCents, ?int $monthlyPaymentCents, ?int $annualRateBasisPoints, ?string $lender, ?int $priority, ?string $currency, ?array $clear): string
     {
         if ($loanId === null) {
             return json_encode(['error' => 'loanId is required for update.'], JSON_THROW_ON_ERROR);
@@ -113,6 +114,7 @@ class ManageLoansTool
             lender: $lender,
             priority: $priority,
             currency: $currency,
+            clearFields: array_values(array_intersect($clear ?? [], ['lender'])),
         ));
 
         /** @var Loan $loan */

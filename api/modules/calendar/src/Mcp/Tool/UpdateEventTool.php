@@ -9,7 +9,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'update_event', description: 'Update an existing calendar event. Only provided fields will be updated. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes.')]
+#[McpTool(name: 'update_event', description: 'Update an existing calendar event. Only provided fields will be updated. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes. To empty an optional field, list its name in clear (description, location, rrule).')]
 class UpdateEventTool
 {
     public function __construct(
@@ -25,6 +25,7 @@ class UpdateEventTool
         ?int $duration = null,
         ?string $description = null,
         ?string $location = null,
+        ?array $clear = null,
     ): string {
         try {
             $startAt = null;
@@ -51,6 +52,7 @@ class UpdateEventTool
                 endAt: $endAt,
                 description: $description,
                 location: $location,
+                clearFields: array_values(array_intersect($clear ?? [], ['description', 'location', 'rrule'])),
             ));
 
             /** @var Event $event */

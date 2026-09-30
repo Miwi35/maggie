@@ -1,0 +1,12 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: grocery-handler-test@example.com
+    googleId: google-grocery-handler-test
+    name: Grocery Handler Test User
+
+Maggie\Grocery\Entity\Store:
+  store:
+    name: Supermarché
+    description: Supermarket for general groceries
+    visitOrder: 4
+    user: '@test_user'

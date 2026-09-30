@@ -43,6 +43,8 @@ class UpdateRecipeHandler
         }
         if ($command->notes !== null) {
             $recipe->setNotes($command->notes);
+        } elseif ($command->clears('notes')) {
+            $recipe->setNotes(null);
         }
 
         if ($command->ingredients !== null) {

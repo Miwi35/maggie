@@ -123,6 +123,48 @@ class LoanToolsTest extends KernelTestCase
         $this->assertElasticsearchIndexDispatched(Loan::class);
     }
 
+    public function testClearEmptiesTheLender(): void
+    {
+        $this->loadFixtures('loan.yaml');
+        $this->loginFixtureUser();
+        $loan = $this->getFixture('car');
+
+        $data = json_decode(
+            $this->tool()('update', loanId: (string) $loan->getId(), clear: ['lender', 'name']),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertTrue($data['success']);
+        self::assertNull($data['loan']['lender']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $refreshed = $em->find(Loan::class, $loan->getId());
+        self::assertNull($refreshed->getLender());
+        self::assertSame('Crédit auto', $refreshed->getName(), 'Required fields cannot be cleared');
+        self::assertSame(240000, $refreshed->getPrincipalRemainingCents());
+
+        $this->assertMercureUpdatePublished('/loans/');
+        $this->assertElasticsearchIndexDispatched(Loan::class);
+    }
+
+    public function testClearOnAnUnknownLoanReturnsAnError(): void
+    {
+        $this->loadFixtures('loan.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(
+            $this->tool()('update', loanId: '01ARZ3NDEKTSV4RRFFQ69G5FAV', clear: ['lender']),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertArrayHasKey('error', $data);
+    }
+
     public function testDeleteRemovesPublishesAndDeletes(): void
     {
         $this->loadFixtures('loan.yaml');

@@ -11,7 +11,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'update_recipe', description: 'Update an existing recipe. Only provided fields will be updated. Ingredients replaces the full list if provided. Each ingredient object needs quantity, unit, and either ingredientId or ciqualAlimCode.')]
+#[McpTool(name: 'update_recipe', description: 'Update an existing recipe. Only provided fields will be updated. Ingredients replaces the full list if provided. Each ingredient object needs quantity, unit, and either ingredientId or ciqualAlimCode. To empty an optional field, list its name in clear (notes); an empty tags string empties the tags.')]
 class UpdateRecipeTool
 {
     public function __construct(
@@ -26,9 +26,10 @@ class UpdateRecipeTool
         ?string $tags = null,
         ?string $notes = null,
         ?string $ingredients = null,
+        ?array $clear = null,
     ): string {
         try {
-            $tagList = $tags !== null ? array_map('trim', explode(',', $tags)) : null;
+            $tagList = $tags !== null ? ($tags === '' ? [] : array_map('trim', explode(',', $tags))) : null;
             $ingredientList = $ingredients !== null
                 ? json_decode($ingredients, true, 512, JSON_THROW_ON_ERROR)
                 : null;
@@ -40,6 +41,7 @@ class UpdateRecipeTool
                 tags: $tagList,
                 notes: $notes,
                 ingredients: $ingredientList,
+                clearFields: array_values(array_intersect($clear ?? [], ['notes'])),
             ));
 
             /** @var Recipe $recipe */

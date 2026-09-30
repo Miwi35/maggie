@@ -133,4 +133,44 @@ class ProductToolsTest extends KernelTestCase
         self::assertCount(1, $data['ingredients']);
         self::assertSame('Tomate', $data['ingredients'][0]['name']);
     }
+
+    public function testUpdateIngredientClearEmptiesOptionalFields(): void
+    {
+        $this->loadFixtures('ingredient_nutrition.yaml');
+        $this->loginFixtureUser();
+
+        $tomato = $this->getFixture('tomato');
+
+        $data = json_decode(
+            ($this->manageIngredients())('update', ingredientId: (string) $tomato->getId(), clear: ['ciqualAlimCode', 'kcalPer100g', 'defaultUnit', 'name', 'category']),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertTrue($data['success']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $stored = $em->find(Ingredient::class, $tomato->getId());
+        self::assertNull($stored->getCiqualAlimCode());
+        self::assertNull($stored->getKcalPer100g());
+        self::assertNull($stored->getDefaultUnit());
+        self::assertSame(0.9, $stored->getProteinPer100g(), 'Fields not listed in clear are untouched');
+        self::assertSame('Tomate', $stored->getName(), 'Required fields cannot be cleared');
+        self::assertSame('produce', $stored->getCategory()->value, 'Required fields cannot be cleared');
+
+        $this->assertMercureUpdatePublished('/ingredients/');
+        $this->assertElasticsearchIndexDispatched(Ingredient::class);
+    }
+
+    public function testUpdateUnknownIngredientReturnsAnError(): void
+    {
+        $this->loadFixtures('ingredient_nutrition.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(($this->manageIngredients())('update', ingredientId: '01ARZ3NDEKTSV4RRFFQ69G5FAV', clear: ['kcalPer100g']), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
+    }
 }

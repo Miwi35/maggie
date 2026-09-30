@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\Message;
 
+use Maggie\Core\Message\ClearsFieldsTrait;
+
 final readonly class UpdateCategoryCommand
 {
+    use ClearsFieldsTrait;
+
+    /** @param list<'parentId'|'color'|'icon'> $clearFields */
     public function __construct(
         public string $categoryId,
         public ?string $name = null,
@@ -13,6 +18,7 @@ final readonly class UpdateCategoryCommand
         public ?string $parentId = null,
         public ?string $color = null,
         public ?string $icon = null,
+        public array $clearFields = [],
     ) {
     }
 }

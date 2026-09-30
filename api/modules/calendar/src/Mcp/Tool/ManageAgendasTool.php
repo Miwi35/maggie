@@ -16,7 +16,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_agendas', description: 'List, create, update, or delete agendas (calendars). An agenda has a name, description, IANA time zone, colour, and a default flag. Events always belong to an agenda.')]
+#[McpTool(name: 'manage_agendas', description: 'List, create, update, or delete agendas (calendars). An agenda has a name, description, IANA time zone, colour, and a default flag. Events always belong to an agenda. On update, to empty an optional field, list its name in clear (description, color).')]
 class ManageAgendasTool
 {
     public function __construct(
@@ -34,12 +34,13 @@ class ManageAgendasTool
         ?string $timeZone = null,
         ?string $color = null,
         ?bool $isDefault = null,
+        ?array $clear = null,
     ): string {
         try {
             return match ($action) {
                 'list' => $this->list(),
                 'create' => $this->create($name, $description, $timeZone, $color, $isDefault),
-                'update' => $this->update($agendaId, $name, $description, $timeZone, $color, $isDefault),
+                'update' => $this->update($agendaId, $name, $description, $timeZone, $color, $isDefault, $clear),
                 'delete' => $this->delete($agendaId),
                 default => json_encode(['error' => "Unknown action: {$action}. Use list, create, update, or delete."], JSON_THROW_ON_ERROR),
             };
@@ -87,7 +88,8 @@ class ManageAgendasTool
         return json_encode(['success' => true, 'agenda' => $this->serialize($agenda)], JSON_THROW_ON_ERROR);
     }
 
-    private function update(?string $agendaId, ?string $name, ?string $description, ?string $timeZone, ?string $color, ?bool $isDefault): string
+    /** @param list<string>|null $clear */
+    private function update(?string $agendaId, ?string $name, ?string $description, ?string $timeZone, ?string $color, ?bool $isDefault, ?array $clear = null): string
     {
         if ($agendaId === null) {
             return json_encode(['error' => 'agendaId is required for update.'], JSON_THROW_ON_ERROR);
@@ -100,6 +102,7 @@ class ManageAgendasTool
             timeZone: $timeZone,
             color: $color,
             isDefault: $isDefault,
+            clearFields: array_values(array_intersect($clear ?? [], ['description', 'color'])),
         ));
 
         /** @var Agenda $agenda */

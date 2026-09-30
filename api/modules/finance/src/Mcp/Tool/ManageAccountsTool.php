@@ -16,7 +16,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_accounts', description: 'List, create, update, or delete bank accounts. An account has a name, bank, type (checking, savings, investment, cash), currency (ISO 4217), a balance in cents, and an optional cushion flag (emergency-fund account). Amounts are always in integer cents.')]
+#[McpTool(name: 'manage_accounts', description: 'List, create, update, or delete bank accounts. An account has a name, bank, type (checking, savings, investment, cash), currency (ISO 4217), a balance in cents, and an optional cushion flag (emergency-fund account). Amounts are always in integer cents. On update, only provided fields change; to empty the optional bank, list it in clear.')]
 class ManageAccountsTool
 {
     public function __construct(
@@ -35,12 +35,13 @@ class ManageAccountsTool
         ?string $currency = null,
         ?int $balanceCents = null,
         ?bool $isCushion = null,
+        ?array $clear = null,
     ): string {
         try {
             return match ($action) {
                 'list' => $this->list(),
                 'create' => $this->create($name, $type, $bank, $currency, $balanceCents, $isCushion),
-                'update' => $this->update($accountId, $name, $type, $bank, $currency, $balanceCents, $isCushion),
+                'update' => $this->update($accountId, $name, $type, $bank, $currency, $balanceCents, $isCushion, $clear),
                 'delete' => $this->delete($accountId),
                 default => json_encode(['error' => "Unknown action: {$action}. Use list, create, update, or delete."], JSON_THROW_ON_ERROR),
             };
@@ -91,7 +92,7 @@ class ManageAccountsTool
         ], JSON_THROW_ON_ERROR);
     }
 
-    private function update(?string $accountId, ?string $name, ?string $type, ?string $bank, ?string $currency, ?int $balanceCents, ?bool $isCushion): string
+    private function update(?string $accountId, ?string $name, ?string $type, ?string $bank, ?string $currency, ?int $balanceCents, ?bool $isCushion, ?array $clear): string
     {
         if ($accountId === null) {
             return json_encode(['error' => 'accountId is required for update.'], JSON_THROW_ON_ERROR);
@@ -105,6 +106,7 @@ class ManageAccountsTool
             currency: $currency,
             balanceCents: $balanceCents,
             isCushion: $isCushion,
+            clearFields: array_values(array_intersect($clear ?? [], ['bank'])),
         ));
 
         /** @var Account $account */

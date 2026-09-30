@@ -1,0 +1,6 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: update-user-test@example.com
+    googleId: google-update-user-test
+    name: Update User Test
+    avatar: https://example.com/avatar.png

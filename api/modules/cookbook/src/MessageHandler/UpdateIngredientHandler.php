@@ -34,21 +34,33 @@ class UpdateIngredientHandler
         }
         if ($command->defaultUnit !== null) {
             $ingredient->setDefaultUnit(Unit::from($command->defaultUnit));
+        } elseif ($command->clears('defaultUnit')) {
+            $ingredient->setDefaultUnit(null);
         }
         if ($command->ciqualAlimCode !== null) {
             $ingredient->setCiqualAlimCode($command->ciqualAlimCode);
+        } elseif ($command->clears('ciqualAlimCode')) {
+            $ingredient->setCiqualAlimCode(null);
         }
         if ($command->kcalPer100g !== null) {
             $ingredient->setKcalPer100g($command->kcalPer100g);
+        } elseif ($command->clears('kcalPer100g')) {
+            $ingredient->setKcalPer100g(null);
         }
         if ($command->proteinPer100g !== null) {
             $ingredient->setProteinPer100g($command->proteinPer100g);
+        } elseif ($command->clears('proteinPer100g')) {
+            $ingredient->setProteinPer100g(null);
         }
         if ($command->carbsPer100g !== null) {
             $ingredient->setCarbsPer100g($command->carbsPer100g);
+        } elseif ($command->clears('carbsPer100g')) {
+            $ingredient->setCarbsPer100g(null);
         }
         if ($command->fatPer100g !== null) {
             $ingredient->setFatPer100g($command->fatPer100g);
+        } elseif ($command->clears('fatPer100g')) {
+            $ingredient->setFatPer100g(null);
         }
 
         return $this->updateProduct->execute($ingredient);

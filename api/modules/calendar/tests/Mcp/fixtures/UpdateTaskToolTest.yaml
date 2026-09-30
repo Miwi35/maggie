@@ -1,0 +1,15 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+
+Maggie\Calendar\Entity\Task:
+  task_done:
+    title: Done task
+    description: Some notes
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::High)>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Low)>'
+    dueDate: '<(new \DateTimeImmutable("2026-03-20 10:00"))>'
+    completedAt: '<(new \DateTimeImmutable("2026-03-19 10:00"))>'
+    user: '@test_user'

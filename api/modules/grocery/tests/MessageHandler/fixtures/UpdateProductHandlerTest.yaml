@@ -1,0 +1,12 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: grocery-handler-test@example.com
+    googleId: google-grocery-handler-test
+    name: Grocery Handler Test User
+
+Maggie\Grocery\Entity\Product:
+  product:
+    name: Riz
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Other)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Kilogram)>'
+    user: '@test_user'

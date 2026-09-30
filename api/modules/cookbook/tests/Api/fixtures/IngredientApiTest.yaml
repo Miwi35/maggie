@@ -1,0 +1,17 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: cookbook-test@example.com
+    googleId: google-cookbook-test
+    name: Cookbook Test User
+
+Maggie\Cookbook\Entity\Ingredient:
+  tomato:
+    name: Tomate
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+    ciqualAlimCode: '20047'
+    kcalPer100g: 18.0
+    proteinPer100g: 0.9
+    carbsPer100g: 2.8
+    fatPer100g: 0.2
+    user: '@test_user'

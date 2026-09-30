@@ -29,6 +29,8 @@ class UpdateLoanHandler
         }
         if ($command->lender !== null) {
             $loan->setLender($command->lender === '' ? null : $command->lender);
+        } elseif ($command->clears('lender')) {
+            $loan->setLender(null);
         }
         if ($command->principalRemainingCents !== null) {
             if ($command->principalRemainingCents < 0) {

@@ -1,0 +1,70 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-handler-test@example.com
+    googleId: google-finance-handler-test
+    name: Finance Handler Test User
+
+Maggie\Finance\Entity\Account:
+  bank_account:
+    name: Compte courant
+    bank: Crédit Agricole
+    externalAccountId: ext-account-123
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+
+Maggie\Finance\Entity\Category:
+  food:
+    name: Alimentation
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  leisure:
+    name: Loisirs
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  concerts:
+    name: Concerts
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    parent: '@leisure'
+    color: '#9C27B0'
+    icon: music
+    user: '@test_user'
+
+Maggie\Finance\Entity\CategorizationRule:
+  ranged_rule:
+    labelPattern: CARREFOUR
+    matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'
+    category: '@food'
+    direction: '<(Maggie\Finance\Enum\AmountDirection::Debit)>'
+    minAmountCents: 1000
+    maxAmountCents: 5000
+    priority: 10
+    isActive: true
+    user: '@test_user'
+
+Maggie\Finance\Entity\Loan:
+  car:
+    name: Crédit auto
+    lender: Banque Populaire
+    principalRemainingCents: 240000
+    monthlyPaymentCents: 20000
+    annualRateBasisPoints: 0
+    priority: 10
+    currency: EUR
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  groceries:
+    account: '@bank_account'
+    category: '@food'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    categorizedAt: '<(new \DateTimeImmutable("2026-07-01"))>'
+    amountCents: -4599
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-01"))>'
+    label: Supermarché
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'

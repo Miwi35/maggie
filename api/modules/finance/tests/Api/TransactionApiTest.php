@@ -8,6 +8,7 @@ use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Transaction;
+use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\RetrospectVerdict;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -128,6 +129,72 @@ class TransactionApiTest extends WebTestCase
             RetrospectVerdict::Avoidable,
             $em->find(Transaction::class, $transaction->getId())->getRetrospect(),
         );
+    }
+
+    /** @param array<string, mixed> $body */
+    private function patch(string $id, array $body, bool $authenticated = true): void
+    {
+        $headers = [
+            'CONTENT_TYPE' => 'application/merge-patch+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ];
+
+        $this->client->request('PATCH', '/api/transactions/' . $id, [], [], $authenticated
+            ? array_merge($headers, $this->authHeaders())
+            : $headers, json_encode($body, JSON_THROW_ON_ERROR));
+    }
+
+    public function testPatchTransactionRequiresAuthentication(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $transaction = $this->getFixture('groceries');
+
+        $this->patch((string) $transaction->getId(), ['category' => null], authenticated: false);
+
+        self::assertResponseStatusCodeSame(401);
+    }
+
+    public function testPatchWithNullCategoryRemovesIt(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+        $transaction = $this->getFixture('groceries');
+
+        $this->patch((string) $transaction->getId(), ['category' => null]);
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $refreshed = $em->find(Transaction::class, $transaction->getId());
+        self::assertNull($refreshed->getCategory());
+        self::assertSame(CategorySource::None, $refreshed->getCategorySource());
+        self::assertSame('Supermarché', $refreshed->getLabel());
+        self::assertSame(-4599, $refreshed->getAmountCents());
+
+        $this->assertMercureUpdatePublished('/transactions/');
+        $this->assertElasticsearchIndexDispatched(Transaction::class);
+    }
+
+    public function testPatchWithoutCategoryLeavesItUntouched(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+        $transaction = $this->getFixture('groceries');
+
+        $this->patch((string) $transaction->getId(), ['label' => 'Courses']);
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $refreshed = $em->find(Transaction::class, $transaction->getId());
+        self::assertSame('Courses', $refreshed->getLabel());
+        self::assertSame('Alimentation', $refreshed->getCategory()?->getName());
     }
 
     public function testDeleteTransactionRemovesAndPublishes(): void

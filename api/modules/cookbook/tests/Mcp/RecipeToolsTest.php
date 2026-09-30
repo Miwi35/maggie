@@ -141,4 +141,58 @@ class RecipeToolsTest extends KernelTestCase
         $this->assertMercureUpdatePublished('/recipes/');
         $this->assertElasticsearchDeleteDispatched('recipes');
     }
+
+    public function testUpdateRecipeClearEmptiesNotes(): void
+    {
+        $this->loadFixtures('recipe_notes.yaml');
+        $this->loginFixtureUser();
+
+        $recipe = $this->getFixture('pasta');
+
+        $tool = self::getContainer()->get(UpdateRecipeTool::class);
+        $data = json_decode($tool((string) $recipe->getId(), clear: ['notes', 'name']), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $stored = $em->find(Recipe::class, $recipe->getId());
+        self::assertNull($stored->getNotes());
+        self::assertSame('Pâtes à la tomate', $stored->getName(), 'Required fields cannot be cleared');
+        self::assertSame(['pasta', 'italian'], $stored->getTags());
+
+        $this->assertMercureUpdatePublished('/recipes/');
+        $this->assertElasticsearchIndexDispatched(Recipe::class);
+    }
+
+    public function testUpdateRecipeWithEmptyTagsEmptiesTheTags(): void
+    {
+        $this->loadFixtures('recipe_notes.yaml');
+        $this->loginFixtureUser();
+
+        $recipe = $this->getFixture('pasta');
+
+        $tool = self::getContainer()->get(UpdateRecipeTool::class);
+        $data = json_decode($tool((string) $recipe->getId(), tags: ''), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
+        self::assertSame([], $data['recipe']['tags']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $stored = $em->find(Recipe::class, $recipe->getId());
+        self::assertSame([], $stored->getTags());
+        self::assertSame('Ajouter du basilic', $stored->getNotes());
+    }
+
+    public function testUpdateUnknownRecipeReturnsAnError(): void
+    {
+        $this->loadFixtures('recipe_notes.yaml');
+        $this->loginFixtureUser();
+
+        $tool = self::getContainer()->get(UpdateRecipeTool::class);
+        $data = json_decode($tool('01ARZ3NDEKTSV4RRFFQ69G5FAV', clear: ['notes']), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
+    }
 }

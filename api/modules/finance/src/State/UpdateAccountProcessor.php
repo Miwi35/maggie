@@ -21,6 +21,17 @@ class UpdateAccountProcessor implements ProcessorInterface
 
     public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): Account
     {
+        // A nullable field that is null after the merge-patch is an explicit clear
+        $clearFields = [];
+        foreach ([
+            'bank' => $data->getBank(),
+            'externalAccountId' => $data->getExternalAccountId(),
+        ] as $field => $value) {
+            if ($value === null) {
+                $clearFields[] = $field;
+            }
+        }
+
         $envelope = $this->bus->dispatch(new UpdateAccountCommand(
             accountId: (string) $data->getId(),
             name: $data->getName(),
@@ -30,6 +41,7 @@ class UpdateAccountProcessor implements ProcessorInterface
             balanceCents: $data->getBalanceCents(),
             isCushion: $data->isCushion(),
             externalAccountId: $data->getExternalAccountId(),
+            clearFields: $clearFields,
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();
