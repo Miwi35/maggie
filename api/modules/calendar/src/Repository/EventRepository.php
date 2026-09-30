@@ -7,6 +7,7 @@ use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Enum\EventStatus;
 use Maggie\Core\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -84,8 +85,8 @@ class EventRepository extends ServiceEntityRepository
                 .' OR (e.rrule IS NOT NULL)'
             )
             ->setParameter('cancelled', EventStatus::Cancelled)
-            ->setParameter('start', $start)
-            ->setParameter('end', $end)
+            ->setParameter('start', $start, Types::DATETIMETZ_IMMUTABLE)
+            ->setParameter('end', $end, Types::DATETIMETZ_IMMUTABLE)
             ->orderBy('e.startAt', 'ASC');
     }
 

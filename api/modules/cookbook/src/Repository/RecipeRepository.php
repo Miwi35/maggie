@@ -38,13 +38,14 @@ class RecipeRepository extends ServiceEntityRepository
     /** @return Recipe[] */
     public function searchByTags(User $user, string $tag): array
     {
-        return $this->createQueryBuilder('r')
+        // `tags` is a JSON column: Postgres has no LIKE operator on json, so match in PHP.
+        $recipes = $this->createQueryBuilder('r')
             ->where('r.user = :user')
-            ->andWhere('r.tags LIKE :tag')
             ->setParameter('user', $user->getId(), 'ulid')
-            ->setParameter('tag', '%"' . $tag . '"%')
             ->orderBy('r.name', 'ASC')
             ->getQuery()
             ->getResult();
+
+        return array_values(array_filter($recipes, static fn (Recipe $recipe) => in_array($tag, $recipe->getTags(), true)));
     }
 }

@@ -174,7 +174,7 @@ class UserIsolationToolsTest extends KernelTestCase
 
         $data = $this->decode((self::getContainer()->get(ManageMealsTool::class))('create', date: '2030-02-01', slot: 'lunch'));
 
-        self::assertTrue($data['success']);
+        self::assertTrue($data['success'] ?? false, json_encode($data, JSON_THROW_ON_ERROR));
 
         $this->em()->clear();
         $meal = $this->em()->getRepository(Meal::class)->find($data['meal']['id']);
@@ -193,7 +193,7 @@ class UserIsolationToolsTest extends KernelTestCase
 
         $data = $this->decode((self::getContainer()->get(ManageMealsTool::class))('create', date: '2030-02-01', slot: 'dinner', recipeIds: $this->ids['other_recipe']));
 
-        self::assertArrayHasKey('error', $data);
+        self::assertStringContainsString('Recipe not found', $data['error'] ?? '');
         self::assertSame(2, $this->em()->getRepository(Meal::class)->count([]));
     }
 }
