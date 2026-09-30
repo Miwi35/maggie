@@ -41,7 +41,9 @@ vars:
   # two worktrees on the same Dockerfile share it, two on different ones get
   # different tags, and nothing rebuilds until .docker/php/** changes.
   PHP_IMAGE:
-    sh: '{{.ROOT_DIR}}/wt/image.sh tag'
+    # The fallback keeps `wt:down`, `wt:ps` and `wt:prune` working when Compose or
+    # jq cannot compute the hash: stopping must not depend on the build inputs.
+    sh: '{{.ROOT_DIR}}/wt/image.sh tag 2>/dev/null || echo maggie-wt-php:unknown'
   NODE_IMAGE: 'node:{{.NODE_VERSION | default "22"}}-alpine'
   GUARD: '{{.ROOT_DIR}}/wt/guard.sh'
   STACK: '{{.ROOT_DIR}}/wt/stack.sh'
@@ -183,6 +185,9 @@ tasks:
         # A failed start must not leave a half-built stack for the reaper to
         # find in a quarter of an hour.
         trap 'rc=$?; [ $rc -eq 0 ] || {{.STACK}} down "$COMPOSE_PROJECT_NAME" >&2' EXIT
+        # Stamp first: a stale one from an earlier stack must not let another
+        # worktree's guard prune this one while it is still starting.
+        {{.STACK}} touch "$COMPOSE_PROJECT_NAME"
         compose up -d --wait database
         # Created here, once: the test runs then only drop and recreate the schema.
         compose run --rm --entrypoint sh php -c \

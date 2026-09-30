@@ -111,7 +111,7 @@ For a journey, or anything needing the whole system, bring up the e2e stack — 
 
 | E2E stack | |
 |---|---|
-| `task e2e:up` | start (build, install, migrate), prints the URL. Load guard first: ≥ 5 GB RAM available and load under 0.8 × cores, else wait, then CI (exit 75). Every service has a `mem_limit` (~2.6 GiB total) |
+| `task e2e:up` | start (build, install, migrate), prints the URL. Load guard first: ≥ 5 GB RAM available and load under 0.8 × cores, else wait, then CI (exit 75). Every service has a `mem_limit` (~3 GiB of limits in total) |
 | `task e2e:seed` | deterministic fixtures + Elasticsearch rebuild |
 | `task e2e:smoke` | the smoke journey (HTTP) |
 | `task e2e:web` | the Playwright journeys for the admin (MAG-97) |

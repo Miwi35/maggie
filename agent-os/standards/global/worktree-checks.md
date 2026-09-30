@@ -44,8 +44,8 @@ task wt:down                                 # the moment verification is over, 
 - **Safety net, `WT_IDLE_MINUTES` (15).** Activity is a stamp file under
   `~/.cache/maggie/wt-stacks/`, touched by every `wt:*` launch (through the
   guard) and at the end of each `wt:test:api`. An idle stack is removed by
-  `wt:guard` (it prunes before measuring, so `wt:prune` also runs on every
-  task), and by a detached reaper that `wt:up` starts (one per project, polls
+  `wt:guard` (it prunes before measuring, and every `wt:*` task except
+  `wt:down`/`wt:ps`/`wt:prune` goes through it), and by a detached reaper that `wt:up` starts (one per project, polls
   every minute, exits when the stack is gone): worst case IDLE + 1 min.
 - **The guard counts stacks**: it waits, then exits 75, when `WT_MAX_STACKS` (3)
   other worktrees have one up. Your own does not count against you.
@@ -59,8 +59,8 @@ task wt:down                                 # the moment verification is over, 
 ## Memory budget of the stacks
 
 The e2e stack (`docker-compose.e2e.yml`) gives every service a `mem_limit`, and a
-`memswap_limit` equal to it: about 2.6 GiB in steady state, Elasticsearch
-included (1 GiB, 384 MB heap, ML off — 1.3 GB unbounded before), plus two
+`memswap_limit` equal to it: about 3 GiB of limits in steady state (~2.3 GiB used at rest),
+Elasticsearch included (1 GiB, 384 MB heap, ML off — 1.3 GB unbounded before), plus two
 one-shots outside it, `admin-build` and the Playwright profile. An overflow is an
 OOM kill inside the faulty container, not on the workstation. The wt stack is
 2 GB for php (`WT_MEMORY`) and 512 MB for Postgres (`WT_DB_MEMORY`). Raise a

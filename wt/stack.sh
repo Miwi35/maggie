@@ -73,9 +73,20 @@ idle_seconds() {
     echo $(($(date +%s) - ref))
 }
 
+# A pid file can outlive its process, and the pid then belongs to something else:
+# only a process that really is our reaper counts.
+is_reaper() {
+    [ -r "/proc/$1/cmdline" ] && tr '\0' ' ' <"/proc/$1/cmdline" | grep -q 'stack.sh reaper'
+}
+
 down() {
     require_project "$1"
-    local project="$1" ids
+    local project="$1" ids pid
+    # The reaper of a stack that is going away has nothing left to watch. Not
+    # when the reaper itself is the caller: it exits on its own right after.
+    if [ -f "$STATE_DIR/$project.pid" ] && pid="$(cat "$STATE_DIR/$project.pid")" && [ "$pid" != "$$" ] && is_reaper "$pid"; then
+        kill "$pid" 2>/dev/null || true
+    fi
     ids="$(docker ps -aq --filter "label=$LABEL=$project")"
     if [ -n "$ids" ]; then
         # shellcheck disable=SC2086
@@ -104,7 +115,7 @@ start_reaper() {
     require_project "$1"
     mkdir -p "$STATE_DIR"
     local pidfile="$STATE_DIR/$1.pid" pid
-    if [ -f "$pidfile" ] && pid="$(cat "$pidfile")" && kill -0 "$pid" 2>/dev/null; then
+    if [ -f "$pidfile" ] && pid="$(cat "$pidfile")" && is_reaper "$pid"; then
         return 0
     fi
     setsid nohup "$0" reaper "$1" >/dev/null 2>&1 &
