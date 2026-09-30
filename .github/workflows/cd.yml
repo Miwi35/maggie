@@ -6,6 +6,12 @@ on:
     types: [completed]
     branches: [main]
 
+# One deployment at a time: two runs 10 s apart once raced on cache:clear in the same pod.
+# Queued, never cancelled, so the last merge always ends up deployed.
+concurrency:
+  group: cd-production
+  cancel-in-progress: false
+
 env:
   REGISTRY: ghcr.io
   PHP_IMAGE: ghcr.io/miwi35/maggie-php
