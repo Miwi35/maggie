@@ -6,6 +6,23 @@ user-invocable: false
 
 # Agent Testing (pytest)
 
+## Required Coverage — nothing ships without it
+
+**Every route, gateway or service touched** covers:
+
+- happy path, asserting the response body or the returned object
+- every error branch: upstream 4xx/5xx, timeout, malformed payload
+- for routes: unauthenticated → 401, invalid body → 422
+- for the tool loop: the MCP call is issued with the arguments the model asked for
+
+Mock HTTP with `respx`; never call Claude or the API for real in a unit test.
+
+**Bug fix → red first.** Write the failing test, run it, then fix. Both in the same PR.
+
+**The feature also needs an e2e journey** — chat journeys run against the deterministic
+fake LLM (ADR-005, MAG-95). See `agent-os/standards/global/testing.md`
+(Definition of Done).
+
 ## File Location & Naming
 
 ```

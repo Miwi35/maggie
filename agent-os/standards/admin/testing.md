@@ -1,5 +1,9 @@
 # Admin Testing (Vitest)
 
+Every component touched owes a test — initial render, the interaction it exists for, its
+error/empty state. See the Definition of Done in [global/testing](../global/testing.md)
+for the rest of what a ticket owes, including the mandatory Playwright journey.
+
 ## File Location & Naming
 
 Co-located with source:
