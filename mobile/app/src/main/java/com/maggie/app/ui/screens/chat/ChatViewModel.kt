@@ -436,6 +436,12 @@ class ChatViewModel(
 
     private fun subscribeToChatUpdates() {
         viewModelScope.launch {
+            // MAG-138: "{userId}" is never substituted — MercureService
+            // passes the topic through — so this subscription has never
+            // delivered anything. Left as it is on purpose: the agent
+            // publishes /chat/{user_id} and the admin subscribes
+            // /agent/chat/${userId}, three spellings over two services, and
+            // the agent's notion of a user is not the API's.
             mercureService.subscribe("/chat/{userId}")
                 .catch { /* SSE connection errors — silently retry on next app resume */ }
                 .collect { event ->

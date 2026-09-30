@@ -6,6 +6,7 @@ import com.maggie.app.data.api.AgendaCreateRequest
 import com.maggie.app.data.api.GoogleCalendarImportRequest
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.ExpandedEvent
@@ -237,19 +238,18 @@ class FullCalendarViewModel(
     private fun subscribeToMercure() {
         viewModelScope.launch {
             val userId = authRepository.getUserId() ?: return@launch
-            val prefix = "/users/$userId"
             launch {
-                mercureService.subscribe("$prefix/api/events/{id}")
+                mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.EVENTS))
                     .catch { /* SSE reconnects automatically */ }
                     .collect { refresh() }
             }
             launch {
-                mercureService.subscribe("$prefix/api/tasks/{id}")
+                mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.TASKS))
                     .catch { /* SSE reconnects automatically */ }
                     .collect { refresh() }
             }
             launch {
-                mercureService.subscribe("$prefix/api/agendas/{id}")
+                mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.AGENDAS))
                     .catch { /* SSE reconnects automatically */ }
                     .collect { refresh() }
             }

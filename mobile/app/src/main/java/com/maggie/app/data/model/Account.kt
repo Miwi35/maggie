@@ -1,5 +1,6 @@
 package com.maggie.app.data.model
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -10,7 +11,10 @@ data class Account(
     val type: String = "checking",
     val currency: String = "EUR",
     val balanceCents: Int = 0,
-    val isCushion: Boolean = false,
+    // The API serialises isCushion() as "cushion" — Symfony drops the "is"
+    // prefix. Without this the flag reads false forever and the "Matelas"
+    // badge never appears.
+    @SerialName("cushion") val isCushion: Boolean = false,
 )
 
 /** Human-readable French label for an account type code. */

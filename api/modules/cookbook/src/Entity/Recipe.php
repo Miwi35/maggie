@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Maggie\Cookbook\Entity;
 
+use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
+use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
@@ -32,6 +34,7 @@ use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: RecipeRepository::class)]
+#[ApiFilter(OrderFilter::class, properties: ['name'])]
 #[Indexed(index: 'recipes', module: 'cookbook')]
 #[ApiResource(operations: [
     new GetCollection(provider: ElasticsearchCollectionProvider::class),
@@ -50,7 +53,9 @@ class Recipe implements MercurePublishable, OwnedByUserInterface, IndexableInter
 
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank]
-    #[IndexedField(type: 'text', boost: 3.0)]
+    // keyword: the admin sorts recipes by name, and Elasticsearch cannot sort
+    // on an analysed text field — only on its keyword sub-field.
+    #[IndexedField(type: 'text', boost: 3.0, keyword: true)]
     private string $name;
 
     #[ORM\Column]

@@ -8,6 +8,7 @@ use Maggie\Core\Contract\OwnedByUserInterface;
 use Maggie\Core\Contract\OwnedThroughInterface;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\ChangesetStore;
+use Maggie\Core\Mercure\MercureTopic;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -107,11 +108,8 @@ class MercurePublishMiddleware implements MiddlewareInterface
         foreach (['Create', 'Update', 'Delete'] as $prefix) {
             if (str_starts_with($name, $prefix)) {
                 $entity = substr($name, strlen($prefix));
-                // Convert CamelCase to snake_case: GroceryList → grocery_list
-                $snake = strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $entity));
-                $topic = '/api/' . self::pluralize($snake);
 
-                return [strtolower($prefix), $topic, $entity];
+                return [strtolower($prefix), MercureTopic::collectionFromShortName($entity), $entity];
             }
         }
 
@@ -120,28 +118,12 @@ class MercurePublishMiddleware implements MiddlewareInterface
 
     private static function topicFromEntity(object $entity): string
     {
-        return self::topicFromClassName((new \ReflectionClass($entity))->getShortName());
+        return MercureTopic::collection($entity);
     }
 
     private static function topicFromClassName(string $shortName): string
     {
-        $snake = strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $shortName));
-
-        return '/api/' . self::pluralize($snake);
-    }
-
-    /**
-     * Pluralize a snake_case entity name to match API Platform's collection route.
-     * Handles the consonant+"y" → "ies" case (e.g. category → categories);
-     * every other entity keeps the simple "+s" form.
-     */
-    private static function pluralize(string $snake): string
-    {
-        if (preg_match('/[bcdfghjklmnpqrstvwxz]y$/', $snake)) {
-            return substr($snake, 0, -1) . 'ies';
-        }
-
-        return $snake . 's';
+        return MercureTopic::collectionFromShortName($shortName);
     }
 
     private static function resolveUserId(object $entity): ?string
@@ -171,8 +153,8 @@ class MercurePublishMiddleware implements MiddlewareInterface
     /** @param array<string, mixed> $payload */
     private function publishEntity(MercurePublishable $entity, string $topic, string $userId, array $payload): void
     {
-        $iri = $topic . '/' . $entity->getId();
-        $scopedTopic = '/users/' . $userId . $iri;
+        $iri = MercureTopic::item($topic, (string) $entity->getId());
+        $scopedTopic = MercureTopic::scoped($userId, $iri);
         $this->hub->publish(new Update(
             topics: [$scopedTopic],
             data: json_encode(['@id' => $iri] + $payload, JSON_THROW_ON_ERROR),
@@ -201,8 +183,8 @@ class MercurePublishMiddleware implements MiddlewareInterface
 
     private function publishDelete(string $topic, string $id, string $userId): void
     {
-        $iri = $topic . '/' . $id;
-        $scopedTopic = '/users/' . $userId . $iri;
+        $iri = MercureTopic::item($topic, $id);
+        $scopedTopic = MercureTopic::scoped($userId, $iri);
         $this->hub->publish(new Update(
             topics: [$scopedTopic],
             data: json_encode(['@id' => $iri, 'deleted' => true], JSON_THROW_ON_ERROR),

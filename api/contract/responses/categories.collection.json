@@ -1,0 +1,27 @@
+{
+    "@context": "/api/contexts/Category",
+    "@id": "/api/categories",
+    "@type": "Collection",
+    "totalItems": 2,
+    "member": [
+        {
+            "@id": "/api/categories/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Category",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Recorded Parent Category",
+            "obligation": "optional",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+        },
+        {
+            "@id": "/api/categories/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Category",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Recorded Category",
+            "parent": "/api/categories/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "obligation": "optional",
+            "color": "#aa3344",
+            "icon": "cart",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+        }
+    ]
+}

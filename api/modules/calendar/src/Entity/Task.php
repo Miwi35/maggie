@@ -4,6 +4,7 @@ namespace Maggie\Calendar\Entity;
 
 use ApiPlatform\Doctrine\Orm\Filter\DateFilter;
 use ApiPlatform\Doctrine\Orm\Filter\ExistsFilter;
+use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
 use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
 use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Metadata\ApiResource;
@@ -40,6 +41,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ApiFilter(DateFilter::class, properties: ['dueDate'])]
 #[ApiFilter(ExistsFilter::class, properties: ['completedAt', 'dueDate'])]
 #[ApiFilter(SearchFilter::class, properties: ['priority' => 'exact', 'criticality' => 'exact'])]
+#[ApiFilter(OrderFilter::class, properties: ['dueDate', 'criticality'])]
 #[Indexed(index: 'tasks', module: 'calendar')]
 #[ApiResource(operations: [
     new GetCollection(provider: ElasticsearchCollectionProvider::class),

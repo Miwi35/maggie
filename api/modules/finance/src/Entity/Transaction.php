@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\Entity;
 
+use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
+use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
@@ -14,6 +16,7 @@ use Doctrine\ORM\Mapping as ORM;
 use Maggie\Core\Contract\IndexableInterface;
 use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Contract\OwnedByUserInterface;
+use Maggie\Core\Doctrine\Filter\UlidRelationFilter;
 use Maggie\Core\Elasticsearch\Attribute\Indexed;
 use Maggie\Core\Elasticsearch\Attribute\IndexedField;
 use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
@@ -32,6 +35,8 @@ use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: TransactionRepository::class)]
+#[ApiFilter(OrderFilter::class, properties: ['bookedAt'])]
+#[ApiFilter(UlidRelationFilter::class, properties: ['account'])]
 #[Indexed(index: 'transactions', module: 'finance')]
 #[ApiResource(operations: [
     new GetCollection(provider: ElasticsearchCollectionProvider::class),

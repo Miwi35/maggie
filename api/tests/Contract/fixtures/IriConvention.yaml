@@ -1,0 +1,18 @@
+Maggie\Core\Entity\User:
+  contract_user:
+    email: iri-contract@example.com
+    googleId: google-iri-contract
+    name: IRI Contract User
+
+Maggie\Calendar\Entity\Agenda:
+  contract_agenda:
+    name: Contract Agenda
+    isDefault: true
+    user: '@contract_user'
+
+Maggie\Calendar\Entity\Event:
+  contract_event:
+    summary: An event whose agenda the client reads back
+    startAt: '<(new \DateTimeImmutable("2026-03-15 10:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-03-15 11:00"))>'
+    agenda: '@contract_agenda'

@@ -1,0 +1,46 @@
+{
+    "/api/events": {
+        "startAt[after]": "admin CalendarView and Dashboard, mobile getEvents",
+        "startAt[before]": "admin CalendarView and Dashboard",
+        "startAt[strictly_before]": "admin recurring-event lookup, mobile getRecurringEvents",
+        "endAt[before]": "mobile getEvents",
+        "exists[rrule]": "admin recurring-event lookup, mobile getRecurringEvents",
+        "order[startAt]": "admin CalendarView, Dashboard and MealsWeekView"
+    },
+    "/api/tasks": {
+        "exists[completedAt]": "admin Dashboard, mobile getOpenTasks",
+        "exists[dueDate]": "admin Dashboard, mobile getUndatedTasks",
+        "dueDate[after]": "admin CalendarView",
+        "dueDate[before]": "admin CalendarView and Dashboard, mobile getOpenTasks",
+        "order[dueDate]": "admin CalendarView and Dashboard",
+        "order[criticality]": "admin Dashboard"
+    },
+    "/api/meals": {
+        "startAt[after]": "admin MealsWeekView and CalendarView, mobile getMeals",
+        "startAt[before]": "admin MealsWeekView and CalendarView, mobile getMeals",
+        "order[startAt]": "admin MealsWeekView and CalendarView"
+    },
+    "/api/notifications": {
+        "exists[readAt]": "admin NotificationBell, mobile getNotifications",
+        "order[createdAt]": "admin NotificationBell"
+    },
+    "/api/transactions": {
+        "account": "mobile getTransactions, narrowing to one account",
+        "order[bookedAt]": "mobile getTransactions"
+    },
+    "/api/grocery_lists": {
+        "order[createdAt]": "admin GroceryListView"
+    },
+    "/api/agendas": {
+        "order[name]": "admin CalendarView, EventCreateDialog and UserPreferenceSettings"
+    },
+    "/api/recipes": {
+        "order[name]": "admin MealsWeekView"
+    },
+    "/api/products": {
+        "order[name]": "admin GroceryListView"
+    },
+    "/api/stores": {
+        "order[name]": "admin GroceryListView"
+    }
+}

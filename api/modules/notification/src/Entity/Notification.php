@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Notification\Entity;
 
 use ApiPlatform\Doctrine\Orm\Filter\ExistsFilter;
+use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
 use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
@@ -34,6 +35,7 @@ use Symfony\Component\Uid\Ulid;
 #[ORM\Index(columns: ['user_id', 'read_at'], name: 'idx_notification_user_read')]
 #[ORM\Index(columns: ['created_at'], name: 'idx_notification_created')]
 #[ApiFilter(ExistsFilter::class, properties: ['readAt'])]
+#[ApiFilter(OrderFilter::class, properties: ['createdAt'])]
 #[Indexed(index: 'notifications', module: 'notification')]
 #[ApiResource(
     operations: [

@@ -1,0 +1,125 @@
+{
+    "@context": "/api/contexts/Meal",
+    "@id": "/api/meals",
+    "@type": "Collection",
+    "totalItems": 1,
+    "member": [
+        {
+            "@id": "/api/meals/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Meal",
+            "slot": "dinner",
+            "recipes": [
+                "/api/recipes/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+            ],
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "summary": "Recorded meal",
+            "allDay": false,
+            "startAt": "2026-03-16T19:00:00+00:00",
+            "endAt": "2026-03-16T20:00:00+00:00",
+            "timeZone": "Europe/Paris",
+            "status": "confirmed",
+            "agenda": "/api/agendas/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "ownerRelation": "agenda",
+            "recurring": false,
+            "exception": false,
+            "googleSynced": false
+        }
+    ],
+    "search": {
+        "@type": "IriTemplate",
+        "template": "/api/meals{?startAt[before],startAt[strictly_before],startAt[after],startAt[strictly_after],order[startAt],startAt[before],startAt[strictly_before],startAt[after],startAt[strictly_after],endAt[before],endAt[strictly_before],endAt[after],endAt[strictly_after],exists[rrule],order[startAt]}",
+        "variableRepresentation": "BasicRepresentation",
+        "mapping": [
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "startAt[before]",
+                "property": "startAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "startAt[strictly_before]",
+                "property": "startAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "startAt[after]",
+                "property": "startAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "startAt[strictly_after]",
+                "property": "startAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "order[startAt]",
+                "property": "startAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "startAt[before]",
+                "property": "startAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "startAt[strictly_before]",
+                "property": "startAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "startAt[after]",
+                "property": "startAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "startAt[strictly_after]",
+                "property": "startAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "endAt[before]",
+                "property": "endAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "endAt[strictly_before]",
+                "property": "endAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "endAt[after]",
+                "property": "endAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "endAt[strictly_after]",
+                "property": "endAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "exists[rrule]",
+                "property": "rrule",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "order[startAt]",
+                "property": "startAt",
+                "required": false
+            }
+        ]
+    }
+}

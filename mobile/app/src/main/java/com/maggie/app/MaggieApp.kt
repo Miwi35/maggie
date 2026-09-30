@@ -220,9 +220,9 @@ class MaggieApp : Application() {
             viewModel { NotificationViewModel(get(), get(), get()) }
             viewModel { SearchViewModel(get()) }
             viewModel { ProactionViewModel(get()) }
-            viewModel { RecipeListViewModel(get(), get()) }
+            viewModel { RecipeListViewModel(get(), get(), get()) }
             viewModel { MealsWeekViewModel(get()) }
-            viewModel { GroceryViewModel(get(), get(), get(), get()) }
+            viewModel { GroceryViewModel(get(), get(), get(), get(), get()) }
             viewModel { ProductViewModel(get(), get()) }
             viewModel { StoreViewModel(get()) }
             viewModel { AccountViewModel(get()) }

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.TtsVoice
 import com.maggie.app.data.model.User
@@ -175,7 +176,7 @@ class SettingsViewModel(
     private fun subscribeToMercure() {
         viewModelScope.launch {
             val userId = authRepository.getUserId() ?: return@launch
-            mercureService.subscribe("/users/$userId/api/user_preferences/{id}")
+            mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.USER_PREFERENCES))
                 .catch { /* SSE reconnects automatically */ }
                 .collect {
                     userPreferenceRepository.refresh()

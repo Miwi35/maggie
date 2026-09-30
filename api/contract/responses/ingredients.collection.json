@@ -1,0 +1,34 @@
+{
+    "@context": "/api/contexts/Ingredient",
+    "@id": "/api/ingredients",
+    "@type": "Collection",
+    "totalItems": 1,
+    "member": [
+        {
+            "@id": "/api/ingredients/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Ingredient",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Recorded Ingredient",
+            "defaultUnit": "kg",
+            "category": "grain",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "kcalPer100g": 340,
+            "proteinPer100g": 12.5,
+            "carbsPer100g": 71,
+            "fatPer100g": 1.5
+        }
+    ],
+    "search": {
+        "@type": "IriTemplate",
+        "template": "/api/ingredients{?order[name]}",
+        "variableRepresentation": "BasicRepresentation",
+        "mapping": [
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "order[name]",
+                "property": "name",
+                "required": false
+            }
+        ]
+    }
+}

@@ -1,0 +1,50 @@
+{
+    "@context": "/api/contexts/Product",
+    "@id": "/api/products",
+    "@type": "Collection",
+    "totalItems": 2,
+    "member": [
+        {
+            "@id": "/api/products/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Product",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Recorded Product",
+            "defaultUnit": "g",
+            "category": "produce",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "kcalPer100g": 52,
+            "proteinPer100g": 0.3,
+            "carbsPer100g": 14,
+            "fatPer100g": 0.2,
+            "preferredStore": "/api/stores/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "fallbackStore": "/api/stores/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "shelfLifeDays": 5
+        },
+        {
+            "@id": "/api/ingredients/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Ingredient",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Recorded Ingredient",
+            "defaultUnit": "kg",
+            "category": "grain",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "kcalPer100g": 340,
+            "proteinPer100g": 12.5,
+            "carbsPer100g": 71,
+            "fatPer100g": 1.5
+        }
+    ],
+    "search": {
+        "@type": "IriTemplate",
+        "template": "/api/products{?order[name]}",
+        "variableRepresentation": "BasicRepresentation",
+        "mapping": [
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "order[name]",
+                "property": "name",
+                "required": false
+            }
+        ]
+    }
+}

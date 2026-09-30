@@ -2,7 +2,9 @@ package com.maggie.app.ui.screens.cookbook.grocery
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.api.EndErrandRemainingItem
 import com.maggie.app.data.api.ReorderEntry
 import com.maggie.app.data.model.GroceryItem
@@ -46,6 +48,7 @@ class GroceryViewModel(
     private val productRepository: ProductRepository,
     private val storeRepository: StoreRepository,
     private val mercureService: MercureService,
+    private val authRepository: AuthRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GroceryUiState())
@@ -61,7 +64,8 @@ class GroceryViewModel(
 
     private fun subscribeToGroceryUpdates() {
         viewModelScope.launch {
-            mercureService.subscribe("/users/{userId}/api/grocery_lists/{id}")
+            val userId = authRepository.getUserId() ?: return@launch
+            mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.GROCERY_LISTS))
                 .catch { /* SSE connection errors — MercureService handles auto-reconnect */ }
                 .collect { event ->
                     try {

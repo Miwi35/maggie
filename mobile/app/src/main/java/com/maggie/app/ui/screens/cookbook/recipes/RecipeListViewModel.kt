@@ -2,7 +2,9 @@ package com.maggie.app.ui.screens.cookbook.recipes
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.Recipe
 import com.maggie.app.data.repository.RecipeRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,6 +21,7 @@ data class RecipeListUiState(
 class RecipeListViewModel(
     private val recipeRepository: RecipeRepository,
     private val mercureService: MercureService,
+    private val authRepository: AuthRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RecipeListUiState())
@@ -52,7 +55,8 @@ class RecipeListViewModel(
 
     private fun subscribeToMercure() {
         viewModelScope.launch {
-            mercureService.subscribe("/api/recipes/{id}")
+            val userId = authRepository.getUserId() ?: return@launch
+            mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.RECIPES))
                 .catch { /* SSE reconnects automatically */ }
                 .collect { refresh() }
         }

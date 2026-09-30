@@ -1,0 +1,17 @@
+{
+    "@context": "/api/contexts/UserPreference",
+    "@id": "/api/user_preferences/me",
+    "@type": "UserPreference",
+    "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "theme": "dark",
+    "locale": "en",
+    "timezone": "Europe/Lisbon",
+    "defaultCalendarView": "week",
+    "enabledAgendaIds": [
+        "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+    ],
+    "notificationsEnabled": false,
+    "createdAt": "2026-01-01T00:00:00+00:00",
+    "updatedAt": "2026-01-01T00:00:00+00:00"
+}

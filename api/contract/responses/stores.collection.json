@@ -1,0 +1,38 @@
+{
+    "@context": "/api/contexts/Store",
+    "@id": "/api/stores",
+    "@type": "Collection",
+    "totalItems": 2,
+    "member": [
+        {
+            "@id": "/api/stores/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Store",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Recorded Store",
+            "description": "The shop the recorded products are bought at",
+            "visitOrder": 2,
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+        },
+        {
+            "@id": "/api/stores/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Store",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Recorded Fallback Store",
+            "visitOrder": 9,
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+        }
+    ],
+    "search": {
+        "@type": "IriTemplate",
+        "template": "/api/stores{?order[name]}",
+        "variableRepresentation": "BasicRepresentation",
+        "mapping": [
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "order[name]",
+                "property": "name",
+                "required": false
+            }
+        ]
+    }
+}

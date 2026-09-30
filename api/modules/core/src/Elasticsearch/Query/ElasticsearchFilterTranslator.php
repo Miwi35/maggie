@@ -4,15 +4,23 @@ declare(strict_types=1);
 
 namespace Maggie\Core\Elasticsearch\Query;
 
+use Maggie\Core\Identifier\ResourceIdentifier;
+
 final class ElasticsearchFilterTranslator
 {
     /**
      * Translates API Platform request filters to ES query clauses.
      *
-     * @param array<string, mixed> $filters Request query parameters
+     * @param array<string, mixed>                                        $filters   Request query parameters
+     * @param array<string, array<string, mixed>>                         $fields    The index mapping, as
+     *                                                                               IndexMetadataReader returns it.
+     *                                                                               Sorting needs it — see sortField().
+     * @param array<string, array{targetEntity: string, sourceField: string}> $relations The indexed relations, same
+     *                                                                               source. Filtering on one needs
+     *                                                                               it — see relationClause().
      * @return array{must: array<int, array<string, mixed>>, filter: array<int, array<string, mixed>>, sort: array<int, array<string, string>>}
      */
-    public function translate(array $filters): array
+    public function translate(array $filters, array $fields = [], array $relations = []): array
     {
         $must = [];
         $filter = [];
@@ -33,13 +41,25 @@ final class ElasticsearchFilterTranslator
 
             if ($key === 'order' && \is_array($value)) {
                 foreach ($value as $field => $direction) {
-                    $sort[] = [$field => strtolower($direction)];
+                    $sort[] = [self::sortField($field, $fields) => strtolower($direction)];
                 }
                 continue;
             }
 
             // Skip pagination params
             if (\in_array($key, ['page', 'itemsPerPage', '_page', '_per_page'], true)) {
+                continue;
+            }
+
+            // A relation, before the generic branches below: it is the one
+            // parameter whose field name on the wire is not the field name in
+            // the index, and the one whose unusable values must not fall
+            // through to "no clause". `?account[]=…` is an array and
+            // `?account=` is empty; either would otherwise reach the end of
+            // this loop, produce nothing, and answer a request for one
+            // account with every account's rows.
+            if (isset($relations[$key])) {
+                $filter[] = self::relationClause($key, $value, $relations);
                 continue;
             }
 
@@ -64,6 +84,73 @@ final class ElasticsearchFilterTranslator
             'filter' => $filter,
             'sort' => $sort,
         ];
+    }
+
+    /**
+     * The clause for a relation, resolving both halves of the mismatch the
+     * clients cannot see.
+     *
+     * The name: API Platform calls the filter after the property —
+     * `account` — while IndexManager flattens the relation to its
+     * `sourceField`, `accountId`. A term query on `account` names a field
+     * the mapping does not declare and matches nothing.
+     *
+     * The value: the clients send the IRI the provider handed them; the
+     * index holds the bare identifier.
+     *
+     * A value naming no resource gets a clause that matches nothing, never
+     * no clause at all. This is the same rule UlidRelationFilter applies on
+     * the Doctrine side, and it has to hold here too — in production this is
+     * the path that serves the collection, and Doctrine only takes over when
+     * Elasticsearch throws.
+     *
+     * @param array<string, array{targetEntity: string, sourceField: string}> $relations
+     * @return array<string, mixed>
+     */
+    private static function relationClause(string $key, mixed $value, array $relations): array
+    {
+        $identifier = ResourceIdentifier::fromRequestValue($value);
+
+        if ($identifier === null) {
+            // An `ids` query with no value matches no document, whatever the
+            // mapping holds.
+            return ['ids' => ['values' => []]];
+        }
+
+        return ['term' => [$relations[$key]['sourceField'] => (string) $identifier]];
+    }
+
+    /**
+     * Elasticsearch refuses to sort on an analysed `text` field: the values it
+     * holds are the tokens, not the string. Where the mapping declares a
+     * `keyword` sub-field, that is the sortable form of the same value.
+     *
+     * Without this, `order[name]=asc` made the search throw,
+     * ElasticsearchCollectionProvider swallowed the exception and fell back to
+     * Doctrine. The list came back sorted, so nothing looked wrong — the
+     * collection was simply served by the other implementation, one extra
+     * query and one warning line at a time. Silence of that kind is what this
+     * ticket is about.
+     *
+     * A `text` field with no keyword sub-field is left alone, which still
+     * throws. That is deliberate: the fix belongs on the entity
+     * (`#[IndexedField(type: 'text', keyword: true)]`), and
+     * QueryParameterContractTest fails on it before anyone can ship it.
+     *
+     * @param array<string, array<string, mixed>> $fields
+     */
+    private static function sortField(string $field, array $fields): string
+    {
+        $mapping = $fields[$field] ?? null;
+
+        if (\is_array($mapping)
+            && ($mapping['type'] ?? null) === 'text'
+            && isset($mapping['fields']['keyword'])
+        ) {
+            return $field . '.keyword';
+        }
+
+        return $field;
     }
 
     /**

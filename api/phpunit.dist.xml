@@ -13,6 +13,12 @@
     </php>
 
     <testsuites>
+        <!-- Cross-module: what the admin, the mobile app and the agent are
+             entitled to rely on. Lives outside the module suites because the
+             contract is the whole API, not one bundle's slice of it. -->
+        <testsuite name="Contract">
+            <directory>tests/Contract/</directory>
+        </testsuite>
         <testsuite name="Calendar">
             <directory>modules/calendar/tests/</directory>
         </testsuite>

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Maggie\Grocery\Entity;
 
+use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
+use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
@@ -34,6 +36,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\InheritanceType("SINGLE_TABLE")]
 #[ORM\DiscriminatorColumn(name: "dtype", type: "string", length: 20)]
 #[ORM\DiscriminatorMap(["product" => Product::class])]
+#[ApiFilter(OrderFilter::class, properties: ['name'])]
 #[Indexed(index: 'products', module: 'grocery')]
 #[ApiResource(operations: [
     new GetCollection(provider: ElasticsearchCollectionProvider::class),

@@ -1,0 +1,22 @@
+{
+    "Account": "/users/{userId}/api/accounts/{id}",
+    "Agenda": "/users/{userId}/api/agendas/{id}",
+    "CategorizationRule": "/users/{userId}/api/categorization_rules/{id}",
+    "Category": "/users/{userId}/api/categories/{id}",
+    "Envelope": "/users/{userId}/api/envelopes/{id}",
+    "Event": "/users/{userId}/api/events/{id}",
+    "GroceryList": "/users/{userId}/api/grocery_lists/{id}",
+    "Ingredient": "/users/{userId}/api/ingredients/{id}",
+    "Loan": "/users/{userId}/api/loans/{id}",
+    "Meal": "/users/{userId}/api/meals/{id}",
+    "Notification": "/users/{userId}/api/notifications/{id}",
+    "Product": "/users/{userId}/api/products/{id}",
+    "Recipe": "/users/{userId}/api/recipes/{id}",
+    "RecurringGroceryItem": "/users/{userId}/api/recurring_grocery_items/{id}",
+    "SafetyCushion": "/users/{userId}/api/safety_cushions/{id}",
+    "Store": "/users/{userId}/api/stores/{id}",
+    "Task": "/users/{userId}/api/tasks/{id}",
+    "Transaction": "/users/{userId}/api/transactions/{id}",
+    "User": "/users/{userId}/api/users/{id}",
+    "UserPreference": "/users/{userId}/api/user_preferences/{id}"
+}

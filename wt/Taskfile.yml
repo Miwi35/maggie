@@ -147,7 +147,10 @@ tasks:
         trap 'compose down -v --remove-orphans >/dev/null || echo "WARNING: teardown failed — run: docker compose -p $COMPOSE_PROJECT_NAME -f {{.ROOT_DIR}}/wt/docker-compose.wt.yml down -v" >&2' EXIT
 
         compose up -d --wait database
-        compose run --rm --entrypoint sh php -c '
+        # UPDATE_CONTRACT is forwarded so the contract files under
+        # api/contract/ can be regenerated from here. It is read only by the
+        # Contract suite, and unset it is a plain verification run.
+        compose run --rm -e "UPDATE_CONTRACT=${UPDATE_CONTRACT:-}" --entrypoint sh php -c '
           bin/console --env=test doctrine:database:create --no-interaction --if-not-exists -q \
           && bin/console --env=test doctrine:schema:create --no-interaction -q \
           && bin/phpunit {{.CLI_ARGS}}
@@ -186,6 +189,12 @@ tasks:
         # shared cache. A tmpfs covers just the two directories it needs;
         # mode=1777 because a Docker tmpfs belongs to root and this container
         # runs as the host user.
+        #
+        # api/contract is mounted too, read-only: useMercure.contract.test.ts
+        # compares the admin's Mercure subscriptions against what the API
+        # says it publishes. /app is admin/, so the contract sits at
+        # /api/contract — the same place relative to the sources as in the
+        # checkout, which is what the test walks up to find.
         docker run --rm \
           --memory {{.WT_MEMORY}} --cpus {{.WT_CPUS}} \
           -u $(id -u):$(id -g) \
@@ -193,6 +202,7 @@ tasks:
           -v "{{.ROOT_DIR}}/admin":/app \
           -v "$MODULES":/app/node_modules:ro \
           -v "$NPM_CACHE":/tmp/npm-cache \
+          -v "{{.ROOT_DIR}}/api/contract":/api/contract:ro \
           --tmpfs /app/node_modules/.vite-temp:mode=1777 \
           --tmpfs /app/node_modules/.vite:mode=1777 \
           -w /app {{.NODE_IMAGE}} \

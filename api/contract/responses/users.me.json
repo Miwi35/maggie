@@ -1,0 +1,8 @@
+{
+    "@context": "/api/contexts/User",
+    "@id": "/api/users/me",
+    "@type": "User",
+    "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "email": "recorded@example.com",
+    "name": "Recorded User"
+}

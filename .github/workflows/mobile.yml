@@ -1,14 +1,24 @@
 name: Mobile CI
 
+# The two path lists are duplicated because GitHub Actions does not expand
+# YAML anchors in workflow files. Keep them identical.
 on:
   push:
     branches: [main]
     paths:
       - 'mobile/**'
+      # The DTO and Mercure-topic contract tests read api/contract/, which the
+      # API suite generates. A change there is a change to what the app
+      # receives, so it has to run these tests — filtered on mobile/** alone,
+      # the one job that would have caught it is the one that does not run.
+      - 'api/contract/**'
+      - '.github/workflows/mobile.yml'
   pull_request:
     branches: [main]
     paths:
       - 'mobile/**'
+      - 'api/contract/**'
+      - '.github/workflows/mobile.yml'
 
 jobs:
   test:

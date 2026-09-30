@@ -818,7 +818,11 @@ class MaggieApiService(
         return client.get("$baseUrl/api/transactions") {
             accept(ContentType("application", "ld+json"))
             url.parameters.append("order[bookedAt]", "desc")
-            accountId?.let { url.parameters.append("accountId", it) }
+            // "account", not "accountId": API Platform names a relation
+            // filter after the property, and takes the IRI the provider hands
+            // out. "accountId" was declared nowhere, so it was dropped and
+            // every account showed the full transaction list.
+            accountId?.let { url.parameters.append("account", "/api/accounts/$it") }
         }.body<ApiCollection<Transaction>>().member
     }
 

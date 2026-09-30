@@ -4,6 +4,7 @@ namespace Maggie\Calendar\Entity;
 
 use ApiPlatform\Doctrine\Orm\Filter\DateFilter;
 use ApiPlatform\Doctrine\Orm\Filter\ExistsFilter;
+use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
 use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
@@ -40,6 +41,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\UniqueConstraint(name: 'uniq_google_event_agenda', columns: ['google_event_id', 'agenda_id'])]
 #[ApiFilter(DateFilter::class, properties: ['startAt', 'endAt'])]
 #[ApiFilter(ExistsFilter::class, properties: ['rrule'])]
+#[ApiFilter(OrderFilter::class, properties: ['startAt'])]
 #[Indexed(index: 'events', module: 'calendar')]
 #[ApiResource(operations: [
     new GetCollection(provider: ElasticsearchCollectionProvider::class),
