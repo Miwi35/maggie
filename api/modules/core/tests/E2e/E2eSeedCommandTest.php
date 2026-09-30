@@ -53,7 +53,7 @@ final class E2eSeedCommandTest extends KernelTestCase
 
     protected function tearDown(): void
     {
-        // This class leaves the full 61-object e2e world in the shared test
+        // This class leaves the whole e2e world in the shared test
         // database. Any later class that does not purge first would silently
         // depend on the order tests happen to run in.
         (new ORMPurger($this->entityManager()))->purge();
@@ -68,9 +68,13 @@ final class E2eSeedCommandTest extends KernelTestCase
 
         $this->tester->assertCommandIsSuccessful();
 
-        // One user: a journey signing in as somebody else is a broken journey.
-        self::assertSame(1, $this->rowsOf(User::class));
+        // Two users, and only two. Journeys sign in as e2e@maggie.local; the
+        // neighbour exists so the web harness can prove a Mercure update
+        // published for one user never reaches the other (MAG-97). A third
+        // would mean somebody added an account without saying why.
+        self::assertSame(2, $this->rowsOf(User::class));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e@maggie.local']));
+        self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-other@maggie.local']));
 
         self::assertSame(2, $this->rowsOf(Agenda::class));
         // Events include the meal, which extends Event: 5 events + 1 meal.
@@ -103,6 +107,21 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertSame(2, $this->rowsOf(Notification::class, ['user' => $user]));
     }
 
+    public function testTheNeighbourOwnsNothingButItsPreferences(): void
+    {
+        $this->seed();
+
+        $neighbour = $this->repository(User::class)->findOneBy(['email' => 'e2e-other@maggie.local']);
+        self::assertNotNull($neighbour);
+
+        // The account exists to prove isolation, not to be a second world. Data
+        // attached to it would show up in no journey and quietly make the
+        // "nothing leaks" assertions weaker than they look.
+        foreach ([Agenda::class, Task::class, Recipe::class, Account::class, Transaction::class, Notification::class] as $entity) {
+            self::assertSame(0, $this->rowsOf($entity, ['user' => $neighbour]), $entity);
+        }
+    }
+
     public function testRunningTwiceLeavesTheSameCounts(): void
     {
         $this->seed();
@@ -123,11 +142,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         $stray->setName('Stray');
         $this->entityManager()->persist($stray);
         $this->entityManager()->flush();
-        self::assertSame(2, $this->rowsOf(User::class));
+        self::assertSame(3, $this->rowsOf(User::class));
 
         $this->seed();
 
-        self::assertSame(1, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
+        self::assertSame(2, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
     }
 
     public function testDatesFollowTheAnchor(): void
@@ -166,7 +185,7 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertSame(User::class, $manifest['references']['e2e_user']['class']);
         self::assertMatchesRegularExpression('/^[0-9A-HJKMNP-TV-Z]{26}$/', $manifest['references']['e2e_user']['id']);
 
-        foreach (['e2e_agenda_personal', 'e2e_recipe_pasta', 'e2e_account_checking', 'e2e_grocery_list'] as $reference) {
+        foreach (['e2e_other_user', 'e2e_agenda_personal', 'e2e_recipe_pasta', 'e2e_account_checking', 'e2e_grocery_list'] as $reference) {
             self::assertArrayHasKey($reference, $manifest['references']);
         }
     }

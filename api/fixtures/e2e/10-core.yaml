@@ -1,4 +1,5 @@
-# The one account every e2e journey signs in as.
+# The account every e2e journey signs in as, and a second one that exists only
+# to prove nothing leaks between users.
 #
 # Loaded by app:e2e:seed, in file-name order — everything below depends on this
 # user, so it has to come first.
@@ -27,9 +28,33 @@ Maggie\Core\Entity\User:
         googleTokenExpiresAt: '<(new \DateTimeImmutable("2099-01-01T00:00:00+00:00"))>'
         googleTaskListId: 'e2e-task-list'
 
+    # The neighbour. Journeys never sign in as this account: it is here so the
+    # harness can prove that what one user does never reaches another —
+    # Mercure topics scoped per user (MAG-93, b333376 and c2d3758), and reads
+    # filtered by user everywhere else. You cannot demonstrate isolation with a
+    # single account, and a second one invented at runtime would not be
+    # deterministic.
+    #
+    # No Google credentials on purpose: nothing syncs for this user, and a
+    # token here would give the Google journeys a second candidate to pick up.
+    e2e_other_user:
+        email: 'e2e-other@maggie.local'
+        googleId: 'e2e-other-google-id'
+        name: 'Dominique Voisin'
+
 Maggie\Core\Entity\UserPreference:
     e2e_user_preference:
         user: '@e2e_user'
+        theme: 'light'
+        locale: 'fr'
+        timezone: 'Europe/Paris'
+        defaultCalendarView: 'week'
+        notificationsEnabled: true
+
+    # Its own row, so the neighbour's settings page renders instead of hanging
+    # on a preference the API would have to create on first write.
+    e2e_other_user_preference:
+        user: '@e2e_other_user'
         theme: 'light'
         locale: 'fr'
         timezone: 'Europe/Paris'

@@ -125,3 +125,8 @@ infra/k8s/secrets.yaml
 .task/
 # Written by app:e2e:seed — reference → id map, one per run
 api/var/e2e/
+# The Playwright harness (MAG-97): dependencies and what a run leaves behind —
+# traces, videos and screenshots of failures. CI uploads them as an artifact.
+e2e/web/node_modules/
+e2e/web/playwright-report/
+e2e/web/test-results/

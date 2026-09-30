@@ -32,7 +32,12 @@ x-php-environment: &php-environment
   MESSENGER_TRANSPORT_DSN: "amqp://guest:guest@rabbitmq:5672/%2f/messages"
   MERCURE_URL: http://mercure/.well-known/mercure
   MERCURE_PUBLIC_URL: ${E2E_BASE_URL:-http://localhost}/.well-known/mercure
-  MERCURE_JWT_SECRET: e2e-mercure-secret
+  # At least 32 bytes, and that is not decoration: lcobucci/jwt refuses to sign
+  # HS256 with anything shorter, so a 144-bit secret made every publish throw
+  # "Key provided is shorter than 256 bits". MercurePublishMiddleware catches
+  # and logs that, so the stack looked healthy and simply had no real-time at
+  # all — found by the first browser journey to assert on it (MAG-97).
+  MERCURE_JWT_SECRET: e2e-mercure-secret-at-least-32-bytes-long
   ELASTICSEARCH_URL: http://elasticsearch:9200
   CIQUAL_SERVICE_URL: http://ciqual:8002
   CORS_ALLOW_ORIGIN: '^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$$'
@@ -258,11 +263,21 @@ services:
   # Mercure
   # ===========================================================================
   mercure:
-    image: dunglas/mercure
+    # Pinned by digest, and it has to stay pinned. `dunglas/mercure` untagged
+    # moved to a build that renamed the subscribe parameter from `topic` to
+    # `match`/`match_urlpattern`; the admin, the agent, the mobile app and the
+    # subscriber tokens all still speak the old one, so an unpinned hub answers
+    # `400 unknown topic matcher query parameter` and every real-time update
+    # dies at once. CI pulls fresh, so it broke there first (MAG-97).
+    #
+    # This exact digest is what production runs, so it is the version validated
+    # by use — no tag points at it any more. Moving to the new parameter is its
+    # own ticket.
+    image: dunglas/mercure@sha256:916834e499613d475e9ad5118cd2349875338f52d99d65b58aeff82f97ccb0c6
     environment:
       SERVER_NAME: ':80'
-      MERCURE_PUBLISHER_JWT_KEY: e2e-mercure-secret
-      MERCURE_SUBSCRIBER_JWT_KEY: e2e-mercure-secret
+      MERCURE_PUBLISHER_JWT_KEY: e2e-mercure-secret-at-least-32-bytes-long
+      MERCURE_SUBSCRIBER_JWT_KEY: e2e-mercure-secret-at-least-32-bytes-long
       MERCURE_EXTRA_DIRECTIVES: |
         cors_origins *
     labels:
@@ -358,7 +373,7 @@ services:
       MCP_SERVER_URL: http://nginx/_mcp
       MERCURE_URL: http://mercure/.well-known/mercure
       MERCURE_PUBLIC_URL: ${E2E_BASE_URL:-http://localhost}/.well-known/mercure
-      MERCURE_JWT_SECRET: e2e-mercure-secret
+      MERCURE_JWT_SECRET: e2e-mercure-secret-at-least-32-bytes-long
       SERVICE_TOKEN: e2e-service-token
       # The eval runner logs in from inside this container, the same way any
       # other e2e client does.
@@ -432,6 +447,45 @@ services:
       interval: 3s
       timeout: 5s
       retries: 20
+    labels:
+      <<: *stack-label
+    networks:
+      - e2e
+
+  # ===========================================================================
+  # Playwright — the browser harness (MAG-97), one shot, on demand
+  # ===========================================================================
+  # Behind a profile: `task e2e:up` must not start it, and `docker compose run`
+  # enables the profile of whatever it is asked to run.
+  #
+  # It browses `http://traefik` — the stack's own router, from inside its
+  # network. That is the one origin every relative URL the admin is built with
+  # (`/api`, `/.well-known/mercure`, `/agent`) resolves against, exactly as in
+  # production; and it means the journeys never have to discover the ephemeral
+  # host port.
+  playwright:
+    profiles: [tools]
+    # The tag must match @playwright/test in e2e/web/package.json: the image
+    # bakes the browsers, and Playwright refuses a version it did not ship.
+    image: mcr.microsoft.com/playwright:v1.63.0-noble
+    working_dir: /e2e
+    user: ${UID:-1000}:${GID:-1000}
+    volumes:
+      - ./e2e/web:/e2e:cached
+      # Read-only, and only this: the journeys read ids from the seed manifest
+      # and must not be able to write anything back into the repository.
+      - ./api/var/e2e:/seed:ro
+    environment:
+      E2E_BASE_URL: http://traefik
+      E2E_LOGIN_TOKEN: ${E2E_LOGIN_TOKEN:-e2e-login-token}
+      E2E_SEED_MANIFEST: /seed/seed-manifest.json
+      # Retries, the GitHub reporter and `forbidOnly` all key off this.
+      CI: ${CI:-}
+      # The container runs as the host's uid, which has no entry in the image's
+      # passwd — HOME would resolve to / and npm could not write its cache.
+      HOME: /tmp
+      npm_config_cache: /tmp/.npm-cache
+      npm_config_update_notifier: "false"
     labels:
       <<: *stack-label
     networks:

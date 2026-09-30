@@ -3,8 +3,8 @@
 An isolated stack, deterministic data, a login that does not go through Google,
 and stand-ins for every external service — the model included. One per git
 worktree, so parallel agents never collide. Built by MAG-94, with the fake LLM
-and the eval suite from MAG-95; the browser and emulator harnesses that sit on
-top are MAG-97 and MAG-98.
+and the eval suite from MAG-95 and the browser harness from MAG-97; the
+emulator harness that sits on top is MAG-98.
 
 Read this before writing anything that runs against the stack. The Definition of
 Done itself lives in [testing.md](testing.md).
@@ -15,7 +15,12 @@ Done itself lives in [testing.md](testing.md).
 |---|---|
 | `task e2e:up` | Build, install, clear cache, migrate, print the URL |
 | `task e2e:seed` | Reset the database to the fixture set, empty the agent's own tables, rebuild and refresh the search indices |
-| `task e2e:smoke` | Run the smoke journey against the running stack |
+| `task e2e:smoke` | Run the smoke journey (HTTP) against the running stack |
+| `task e2e:web` | Reseed, then run the Playwright journeys for the admin |
+| `task e2e:web:lint` | ESLint on the journeys — also part of `task lint:all` |
+| `task e2e:web:typecheck` | Type-check the journeys without running them |
+| `task e2e:web:shell` | A shell in the Playwright container |
+| `task e2e:admin:build` | **After changing admin code** — see below |
 | `task e2e:eval` | Replay the prompt-lab scenarios on the **real** model — see below |
 | `task e2e:eval:check` | Check those scenarios parse, without calling the model |
 | `task e2e:test:api` | PHPUnit **inside** this worktree's stack |
@@ -29,6 +34,11 @@ Done itself lives in [testing.md](testing.md).
 **`APP_DEBUG=0` means the compiled service container is never invalidated.** The stack
 mounts your worktree, so a change to a service, a route or a config file is invisible
 until `task e2e:cache:clear`. Symptom: your change appears to do nothing at all.
+
+**The admin is a built bundle, not a dev server.** nginx serves `admin/dist`,
+produced once by the `admin-build` one-shot; Compose will not re-run it just
+because you edited `admin/src`. `task e2e:admin:build` is the SPA's
+`cache:clear`, with the same symptom when you forget it.
 
 Never run `docker compose -f docker-compose.e2e.yml` by hand: the project name
 and the resolved host port both come from the Taskfile, and both are what keep
@@ -231,6 +241,34 @@ It runs nightly and on demand (`.github/workflows/eval.yml`), never in CI: a
 prompt regression is a signal, not a merge blocker. **An assertion that would
 hold with any plausible wording belongs in a journey with the fake instead** —
 cheaper, deterministic, and it runs on every PR.
+
+## The browser harness
+
+`e2e/web/`, driven by `task e2e:web` — Playwright in a container on the stack's
+own network, browsing `http://traefik`. Its
+[README](../../../e2e/web/README.md) is the full guide; four things belong
+here because they are properties of the *stack*, not of Playwright:
+
+- **One origin, no host port.** The journeys never resolve the ephemeral port:
+  from inside the network Traefik answers on `http://traefik`, and the admin's
+  relative URLs (`/api`, `/.well-known/mercure`, `/agent`) all land on it, as
+  they do in production.
+- **Nothing leaves the network.** Every request to another origin is aborted —
+  the Google font the admin pulls, react-admin's telemetry. Same rule as the
+  WireMock stubs: an external call is a bug, not a dependency.
+- **Three widths.** `desktop` (1440), `tablet` (834), `phone` (393). Only tests
+  tagged `@responsive` run on all three.
+- **The Mercure image is pinned by digest, and must stay pinned.** An
+  untagged `dunglas/mercure` moved to a build that renamed the subscribe
+  parameter from `topic` to `match`, and every subscription in the admin, the
+  agent and the mobile app answered `400`. CI pulls fresh, so it broke there
+  first while every local stack stayed green on a cached image. MAG-142 moves
+  us to the new parameter.
+- **`MERCURE_JWT_SECRET` must be at least 32 bytes.** lcobucci/jwt refuses to
+  sign HS256 with less, `MercurePublishMiddleware` catches and logs the
+  failure, and the stack then has no real-time at all while looking perfectly
+  healthy. That is how it shipped until the first browser journey asserted on
+  a live update.
 
 ## What a new journey owes
 

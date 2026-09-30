@@ -1,0 +1,21 @@
+{
+  "name": "maggie-e2e-web",
+  "private": true,
+  "type": "module",
+  "description": "Playwright journeys for the admin web app — run through `task e2e:web`",
+  "scripts": {
+    "test": "playwright test",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@playwright/test": "1.63.0",
+    "@types/node": "^22.10.2",
+    "eslint": "^9.39.1",
+    "eslint-plugin-playwright": "^2.2.0",
+    "globals": "^16.5.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.46.4"
+  }
+}
