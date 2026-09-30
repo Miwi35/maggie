@@ -67,7 +67,7 @@ class MercureTopicsContractTest {
      * ViewModel that builds its own string is exactly how the two dead
      * subscriptions got in. Topics outside the API's namespace — the agent's
      * `/chat/…` and `/contexts/…` — are not this contract's business and are
-     * skipped.
+     * skipped; one of them is dead in exactly the same way, which is MAG-138.
      */
     @Test
     fun `no ViewModel builds an api topic by hand`() {
