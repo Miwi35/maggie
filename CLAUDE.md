@@ -13,10 +13,10 @@ Project skills are in `.claude/skills/`, agent-os commands in `.claude/commands/
 
 ## Workflow
 
-- Follow the agent-os protocol: `/shape-spec` then `/implement-spec`. Pull standards on demand with `/inject-standards` — never paste all of `agent-os/standards/` into context.
+- No code without a plan: the ticket needs `agent-os/specs/*/plan.md`. No spec yet → `/shape-spec`; otherwise `/implement-spec`. Pull standards on demand with `/inject-standards` (index: `agent-os/standards/index.yml`) — never paste all of them into context.
 - One ticket = one branch = one PR that links the ticket.
 - Blocked by an ambiguity or a missing decision: comment on the Linear ticket, add the `needs-human` label, stop cleanly. Do not guess.
-- Delivering a spec also means updating the module's functional spec and the user guide (Linear Documents).
+- Delivering a spec also means updating the module's functional spec and the user guide (Linear Documents, entry point: team doc « Index de la documentation Maggie »).
 - Keep specs, prompts and comments short and actionable: acceptance criteria and e2e journeys, not prose.
 
 ## Commands — Docker only
@@ -28,7 +28,7 @@ Never run `php`, `composer`, `bin/console`, `npm`, `pytest` or `uv` on the host:
 | API | `task api:lint` | `task api:test` (`-- --testsuite <Module>` to narrow) |
 | Agent | `task agent:lint` + `task agent:format:check` | `task agent:test` |
 | Admin | `task admin:lint` + `task admin:typecheck` | `task admin:test` |
-| Mobile | CI (local `lintProdRelease` crashes on a known AGP/K2 bug) | `cd mobile && ./gradlew testProdReleaseUnitTest` |
+| Mobile | CI (local `lintProdRelease` crashes on a known AGP/K2 bug) | `cd mobile && ./gradlew testProdReleaseUnitTest` (Java 21 via `org.gradle.java.home`) |
 
 Symfony console: `task api:console -- <args>`.
 
@@ -43,7 +43,7 @@ Symfony console: `task api:console -- <args>`.
 
 ## Commits
 
-- English, subject says the intent (what changes for the user or the code), body explains why.
+- English, imperative subject that says the intent (what changes for the user or the code), body explains why.
 - **No `Co-Authored-By` trailer.**
 - This repository is **public**: never commit secrets, `.env.local`, `*.pem`, keystores or real personal data.
 
