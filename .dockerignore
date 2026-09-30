@@ -18,6 +18,7 @@ mobile/build
 .env.local
 .env.*.local
 .docker-data
+.e2e-cache
 
 # Production build excludes
 mobile/

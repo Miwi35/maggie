@@ -130,3 +130,6 @@ api/var/e2e/
 e2e/web/node_modules/
 e2e/web/playwright-report/
 e2e/web/test-results/
+
+# E2E stack caches (MAG-135)
+.e2e-cache/

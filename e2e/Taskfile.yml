@@ -49,24 +49,33 @@ tasks:
     desc: Start the e2e stack for this worktree (ephemeral port, isolated volumes)
     cmds:
       - task: keys
+      # Created here rather than left to Docker, which would make the bind
+      # mount itself, owned by root: the agent's uv cache (MAG-135).
+      - mkdir -p {{.ROOT_DIR}}/.e2e-cache/uv
       # Traefik first and alone: its published port is what every other
       # service's public URLs are built from, and Docker only assigns it once
       # the container exists.
       - '{{.COMPOSE}} up -d traefik'
-      - task: _up:rest
-      - task: install
-      - task: cache:clear
-      - task: migrate
+      # The API and what it needs, then the two halves that do not depend on
+      # each other, side by side: the slow services boot (admin bundle, agent
+      # install, Elasticsearch) while the API is prepared. Sequentially these
+      # were the stack's whole start-up time (MAG-135).
+      - task: _up:api
+      - task: _up:parallel
       # The worker comes last, once vendor/ and the schema exist. Started with
       # the rest it dies on "Dependencies are missing", and `restart:
       # unless-stopped` then backs off exponentially — so it is still asleep
       # when the first journey dispatches a message, and an indexed entity
       # never becomes findable. The failure looks like a broken index, not
       # like a worker that never woke up.
-      - task: _up:worker
+      #
+      # This `up --wait` is also the stack's readiness gate: it returns when
+      # every service with a healthcheck is healthy — Elasticsearch and the
+      # agent included, which the steps above deliberately did not wait for.
+      - task: _up:wait
       - task: url
 
-  _up:rest:
+  _up:api:
     internal: true
     vars:
       BASE_URL:
@@ -74,15 +83,26 @@ tasks:
     env:
       E2E_BASE_URL: '{{.BASE_URL}}'
     cmds:
-      # --build, not just up: the images bake the host's uid into their `app`
-      # user, and Compose reuses an existing image without checking whether the
-      # build args still match. Layer caching makes the no-change case cheap.
+      # --build, not just up, locally: the images bake the host's uid into their
+      # `app` user, and Compose reuses an existing image without checking whether
+      # the build args still match. Layer caching makes the no-change case cheap.
       #
-      # --scale worker=0: it needs vendor/ and the migrated schema, neither of
-      # which exists yet. `up` starts it separately afterwards.
-      - '{{.COMPOSE}} up -d --wait --build --scale worker=0'
+      # E2E_PREBUILT=1 (CI) is the opposite: e2e/images.sh has already pulled or
+      # built every image under its hash tag, and --no-build makes a missing one
+      # fail here instead of being quietly rebuilt from scratch.
+      #
+      # php pulls in its dependencies (database, rabbitmq, wiremock, and
+      # Elasticsearch merely started) and nothing else. No worker: it needs
+      # vendor/ and the migrated schema, which do not exist yet.
+      - '{{.COMPOSE}} up -d {{if .E2E_PREBUILT}}--no-build{{else}}--build{{end}} php'
 
-  _up:worker:
+  _up:parallel:
+    internal: true
+    deps:
+      - _up:edge
+      - _up:prepare
+
+  _up:edge:
     internal: true
     vars:
       BASE_URL:
@@ -90,7 +110,31 @@ tasks:
     env:
       E2E_BASE_URL: '{{.BASE_URL}}'
     cmds:
-      - '{{.COMPOSE}} up -d --wait worker'
+      # nginx waits for admin-build to complete and the agent waits for nginx,
+      # so this is the long pole. Not --wait: the agent's dependency install and
+      # Elasticsearch finish during `_up:prepare`, and `_up:wait` collects them.
+      - '{{.COMPOSE}} up -d {{if .E2E_PREBUILT}}--no-build{{else}}--build{{end}} nginx agent ciqual mercure'
+
+  _up:prepare:
+    internal: true
+    cmds:
+      - task: install
+      - task: cache:clear
+      - task: migrate
+
+  _up:wait:
+    internal: true
+    vars:
+      BASE_URL:
+        sh: 'echo "http://127.0.0.1:$(docker compose -f {{.COMPOSE_FILE}} -p {{.PROJECT}} port traefik 80 | sed "s/.*://")"'
+    env:
+      E2E_BASE_URL: '{{.BASE_URL}}'
+    cmds:
+      # --no-deps with the services spelled out, and not a bare `up`: Compose
+      # starts an exited container again, so a bare `up` would re-run
+      # admin-build — a second Vite build, racing the nginx that is already
+      # serving the first. The one-shot has done its job; it is not waited for.
+      - '{{.COMPOSE}} up -d --wait --no-deps php worker nginx agent ciqual mercure database rabbitmq elasticsearch wiremock'
 
   down:
     desc: Stop the e2e stack and remove its volumes
@@ -260,7 +304,7 @@ tasks:
       BASE_URL:
         sh: 'echo "http://127.0.0.1:$(docker compose -f {{.COMPOSE_FILE}} -p {{.PROJECT}} port traefik 80 | sed "s/.*://")"'
     env:
-      # Same as `_up:rest`: recreating a service without it would rebuild its
+      # Same as `_up:api`: recreating a service without it would rebuild its
       # public URLs from the `http://localhost` default.
       E2E_BASE_URL: '{{.BASE_URL}}'
     preconditions:

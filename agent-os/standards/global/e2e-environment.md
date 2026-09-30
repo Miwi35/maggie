@@ -13,7 +13,7 @@ Done itself lives in [testing.md](testing.md).
 
 | Command | What it does |
 |---|---|
-| `task e2e:up` | Build, install, clear cache, migrate, print the URL |
+| `task e2e:up` | Start the stack (build locally, install, clear cache, migrate), print the URL |
 | `task e2e:seed` | Reset the database to the fixture set, empty the agent's own tables, rebuild and refresh the search indices |
 | `task e2e:smoke` | Run the smoke journey (HTTP) against the running stack |
 | `task e2e:web` | Reseed, then run the Playwright journeys for the admin |
@@ -43,6 +43,38 @@ because you edited `admin/src`. `task e2e:admin:build` is the SPA's
 Never run `docker compose -f docker-compose.e2e.yml` by hand: the project name
 and the resolved host port both come from the Taskfile, and both are what keep
 stacks apart.
+
+## Start-up time in CI (MAG-135)
+
+The job used to spend ~265 s in `task e2e:up`: four images built from scratch on
+every run, `composer install` and `npm ci` from nothing, and every step waiting
+for the previous one. Now:
+
+- **Images are built once per set of build inputs.** `e2e/images.sh` tags each
+  one `ghcr.io/miwi35/maggie-e2e-<service>:<hash>`, the hash covering the files
+  its Dockerfile copies and the build args (php version, UID/GID). CI pulls the
+  tag, and builds and pushes it only when it does not exist. php and worker share
+  one image. Editing `.docker/php/`, `.docker/nginx/`, `.docker/python/Dockerfile`,
+  `.docker/ciqual/Dockerfile` or `ciqual/pyproject.toml` is what makes a run
+  build; WireMock stubs, Postgres init and everything under `api/`, `agent/` and
+  `admin/` do not, because they are mounted.
+- **Locally nothing changes.** The Compose file reads `E2E_IMAGE_<SERVICE>` and
+  falls back to `build:`; only CI sets it, with `E2E_PREBUILT=1` so a missing
+  image fails instead of being rebuilt.
+- **Dependencies are restored by lockfile** — `api/vendor`, `admin/node_modules`,
+  `e2e/web/node_modules` and the agent's uv cache (`.e2e-cache/uv`, which is also
+  what makes the agent's start-up install a copy). Their keys are separate from
+  the other CI jobs': the stack installs in containers, the admin's in alpine,
+  whose native binaries are not the runner's.
+- **Start-up overlaps.** `up` starts the API, then boots admin-build, nginx, the
+  agent and Elasticsearch *while* composer, `cache:clear` and the migrations run,
+  and ends with one `up --wait` on the healthchecks. php only needs Elasticsearch
+  *started*; the worker and the final wait need it healthy. Do not make php wait
+  for it again, and do not replace that last command with a bare `up`: Compose
+  would run `admin-build` a second time.
+
+Adding a service with its own Dockerfile: give it `image: ${E2E_IMAGE_<SVC>:-…}`
+in the Compose file and a case in `e2e/images.sh`.
 
 ## In a git worktree
 
@@ -122,7 +154,12 @@ year: '<e2eYear()>'
 ```
 
 `app:e2e:seed --now=<ISO8601>` moves the anchor; it defaults to today at
-midnight UTC. That is what lets a journey assert both "this week" and an exact
+midnight **in Paris** (`Europe/Paris`, the test user's time zone — the dashboard,
+the reminders and the daily score reason in local time, and a UTC midnight would
+leave the seed on yesterday between 00:00 and 02:00 there). `--now` is snapped to
+the Paris midnight of its Paris day; a value without offset is read in Paris.
+Write times of day as wall clock (`12:00`, `+2 days 18:00`), not as `+12 hours`,
+which drifts on the two days a year Paris changes its clocks. That is what lets a journey assert both "this week" and an exact
 value. A literal date in a fixture makes every "upcoming" query empty; a
 `+2 days` computed from `date()` makes the fixture pass on a Tuesday and fail
 across a month boundary.
