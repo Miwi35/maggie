@@ -13,15 +13,21 @@ set -euo pipefail
 #   4. Wait        — rollout status on every Maggie deployment
 #   5. Post-deploy — migrations, cache:clear, ES mapping + reindex
 #   6. Verify      — pod list + healthcheck
+#
+# The revisions the deployments had before phase 3 are recorded for
+# rollback-k3s.sh, which the CD workflow runs if the deploy or the post-deploy
+# smoke suite fails (MAG-106).
 # =============================================================================
 
 TAG="${1:?Usage: deploy-k3s.sh <image-tag>}"
 NAMESPACE="maggie"
 SHARED_NS="shared"
 KUSTOMIZE_DIR="/opt/maggie/infra/k8s"
-BACKUP_DIR="/opt/maggie/backups"
+BACKUP_DIR="${MAGGIE_BACKUP_DIR:-/opt/maggie/backups}"
 KUBECTL="${KUBECTL:-sudo k3s kubectl}"
 HEALTH_URL="https://maggieai.fr/api/docs"
+STATE_DIR="${MAGGIE_STATE_DIR:-/opt/maggie/state}"
+REVISIONS_FILE="$STATE_DIR/pre-deploy-revisions"
 
 # GHCR images managed by Kustomize
 IMAGES=(
@@ -37,6 +43,12 @@ DEPLOYMENTS=(php nginx worker cron agent ciqual mercure)
 log()  { echo "==> $*"; }
 warn() { echo "WARNING: $*" >&2; }
 fail() { echo "FATAL: $*" >&2; exit 1; }
+
+# A record left by the previous deploy describes a world that no longer exists:
+# if this run dies before writing its own, rolling back with it would undo a
+# deploy that was fine. No record means nothing to roll back.
+mkdir -p "$STATE_DIR"
+rm -f "$REVISIONS_FILE"
 
 # === PHASE 1 : PREFLIGHT ===
 log "Phase 1: Preflight checks..."
@@ -148,6 +160,21 @@ for image in "${IMAGES[@]}"; do
     fi
   fi
 done
+
+# Revision of every deployment right before the apply. `rollout undo` alone
+# would be wrong: a deployment this deploy did not touch has no new revision, so
+# undoing it would send it back to an older release than the one it serves.
+# Recording lets the rollback restore exactly the ones that moved.
+: > "$REVISIONS_FILE.tmp"
+for deploy in "${DEPLOYMENTS[@]}"; do
+  revision=$($KUBECTL get "deployment/$deploy" -n "$NAMESPACE" \
+    -o jsonpath='{.metadata.annotations.deployment\.kubernetes\.io/revision}' 2>/dev/null || true)
+  if [ -n "$revision" ]; then
+    echo "$deploy $revision" >> "$REVISIONS_FILE.tmp"
+  fi
+done
+mv "$REVISIONS_FILE.tmp" "$REVISIONS_FILE"
+log "Recorded pre-deploy revisions: $(tr '\n' ' ' < "$REVISIONS_FILE")"
 
 log "Applying manifests..."
 $KUBECTL apply -k "$KUSTOMIZE_DIR"

@@ -50,6 +50,10 @@ Steps (SSH to VPS):
 4. Health check
 5. Prune old images
 
+### Smoke and rollback (MAG-106)
+
+After **deploy**, the **smoke** job runs `infra/scripts/smoke-prod.sh` on production as a technical account (read-only). If the deploy script or the smoke fails, **rollback** runs `infra/scripts/rollback-k3s.sh` (`rollout undo` to the recorded revisions), opens an `incident` issue and leaves the run red. Migrations are not reverted. Details in the standard below.
+
 ## Mobile CI (`.github/workflows/mobile.yml`)
 
 Separate pipeline — triggered by `mobile/**` changes only.

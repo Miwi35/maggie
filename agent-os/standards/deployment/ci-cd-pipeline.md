@@ -94,14 +94,34 @@ docker/build-push-action:
 **Environment:** `production` (requires GitHub approval)
 
 **Steps (SSH to VPS):**
-1. `scp` `infra/k8s/` and `infra/scripts/deploy-k3s.sh` to `/opt/maggie/`
+1. `scp` `infra/k8s/`, `infra/scripts/deploy-k3s.sh` and `infra/scripts/rollback-k3s.sh` to `/opt/maggie/`
 2. Run `deploy-k3s.sh <github.sha>`, which does:
    1. **Preflight** — kubectl reachable, shared `postgres`/`elasticsearch`/`rabbitmq` ready in the `shared` namespace
    2. **Backup** — `pg_dump | gzip` into `/opt/maggie/backups`, keeping the last 10 (a failed or empty dump aborts the deploy)
-   3. **Apply** — bump the image tags in `kustomization.yaml` (only for images actually published for that SHA), then `kubectl apply -k`
+   3. **Apply** — record the current revision of every deployment (`/opt/maggie/state/pre-deploy-revisions`), bump the image tags in `kustomization.yaml` (only for images actually published for that SHA), then `kubectl apply -k`
    4. **Wait** — `rollout status` on php, nginx, worker, cron, agent, ciqual, mercure
    5. **Post-deploy** — migrations, `cache:clear`, Elasticsearch mapping update and reindex
    6. **Verify** — pod list plus an HTTP check on `https://maggieai.fr/api/docs`
+
+### Smoke job (MAG-106)
+
+**Requires:** deploy succeeded. Read-only, as the technical account `smoke@maggieai.fr`.
+
+1. SSH to the VPS, `bin/console app:smoke:token` in the php pod prints a JWT (account created on first use; token masked in the public log).
+2. `infra/scripts/smoke-prod.sh` checks: public URLs (`/`, `/admin` with and without trailing slash, no `http://` redirect), API, agent and Mercure health (+ Mercure CORS), `/_mcp` `tools/list`, `app:elasticsearch:status --check`, and one question to Maggie that must call a tool.
+3. Every check is run even after a failure, so one red run lists everything that is broken.
+
+Its own chat history is the only thing it writes. Unit tests of the scripts: `infra/scripts/tests/*.test.sh` (CI job `infra-scripts`).
+
+### Rollback job
+
+**Runs when:** the deploy script started and failed, or the smoke job failed.
+
+1. `rollback-k3s.sh` runs `kubectl rollout undo --to-revision` on the deployments whose revision moved, using the record written before the apply. No record: nothing is undone. The record is kept when an undo fails, so the script can be run again by hand.
+2. A GitHub issue labelled `incident` is opened with the commit and run link. It says when the rollback itself failed.
+3. The run ends red.
+
+**Not reverted:** database migrations and Elasticsearch mappings. The pre-deploy dump is in `/opt/maggie/backups`.
 
 > Deployment targets k3s, not Docker Compose: manifests live in `infra/k8s/`
 > (Deployments, Services, Ingress, ConfigMap, Secret, Kustomization) and
