@@ -32,7 +32,7 @@ export class ChatPanel {
       return
     }
 
-    await this.page.getByRole('button', { name: /chat/i }).first().click()
+    await this.page.getByRole('banner').getByRole('button', { name: 'Chat avec Maggie' }).click()
     await expect(this.input).toBeVisible()
   }
 

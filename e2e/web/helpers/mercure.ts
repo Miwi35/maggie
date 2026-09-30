@@ -92,9 +92,10 @@ export async function openMercureProbe(page: Page, topics: string[]): Promise<Me
       source.onopen = () => {
         state.open = true
       }
-      // EventSource retries forever on its own; the flag is only there so a
-      // hub that refuses the subscription shows up as "refused" rather than as
-      // a silent probe, which is what an isolation assertion expects to see.
+      // EventSource retries forever on its own, so an error is not fatal —
+      // but it has to be visible. An isolation assertion reads silence as
+      // proof; a dropped stream is silence for the wrong reason, and
+      // `expectSilence` refuses to pass on it.
       source.onerror = () => {
         state.failed = true
       }
@@ -121,6 +122,9 @@ export async function openMercureProbe(page: Page, topics: string[]): Promise<Me
 
     return raw.map((message) => ({ data: message.data, parsed: safeParse(message.data) }))
   }
+
+  const dropped = async (): Promise<boolean> =>
+    page.evaluate((id) => window.__maggieMercureProbes?.[id]?.failed === true, id)
 
   return {
     messages: read,
@@ -150,6 +154,15 @@ export async function openMercureProbe(page: Page, topics: string[]): Promise<Me
 
     async expectSilence(ms = 3_000) {
       await page.waitForTimeout(ms)
+
+      // Checked first, and this is the whole point of tracking it: an empty
+      // message list proves isolation only if the connection was still open
+      // to receive something. A hub that dropped the stream is silent too.
+      expect(
+        await dropped(),
+        `the connection to ${topics.join(', ')} dropped — its silence proves nothing`,
+      ).toBe(false)
+
       const seen = await read()
       expect(
         seen.map((message) => message.data),

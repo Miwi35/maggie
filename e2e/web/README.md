@@ -92,7 +92,8 @@ Worth knowing, because each was invisible to every test that existed before:
 
 - `MERCURE_JWT_SECRET` was 144 bits. lcobucci/jwt refuses to sign HS256 with
   less, `MercurePublishMiddleware` catches and logs the failure, so the stack
-  had no real-time at all and looked healthy. Fixed here.
+  had no real-time at all and looked healthy. Fixed here for e2e and for the
+  example files; MAG-141 checks the deployed value and adds a boot-time guard.
 - `ChatWidget` called `new URL()` on a Mercure URL that is relative in
   production — b16916d again, in a second place. Fixed here, with a unit test
   that loads the module with the production value.

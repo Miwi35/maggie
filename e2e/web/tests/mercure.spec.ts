@@ -34,6 +34,13 @@ test.describe.configure({ mode: 'default' })
 
 const PREFERENCE_TOPIC = '/api/user_preferences/{id}'
 
+// Unconditional, so a failing assertion still leaves the seeded value behind
+// for the next test and the next retry. Putting it at the end of each test
+// meant the first failure poisoned everything after it.
+test.afterEach(async ({ api }) => {
+  await setCalendarView(api, 'week')
+})
+
 test('one window sees what the other did, without reloading', async ({ twoWindows, api }) => {
   const { actor, observer } = twoWindows
   const actorPage = new PreferencesPage(actor)
@@ -52,8 +59,6 @@ test('one window sees what the other did, without reloading', async ({ twoWindow
     () => actorPage.chooseCalendarView(target),
     () => observerPage.expectCalendarView(target),
   )
-
-  await setCalendarView(api, before)
 })
 
 test('the hub delivers on the user-scoped topic the API publishes to', async ({ page, api, session }) => {
@@ -69,7 +74,6 @@ test('the hub delivers on the user-scoped topic the API publishes to', async ({ 
   expect(update.parsed?.defaultCalendarView, 'the payload must carry what changed').toBe(target)
 
   await probe.close()
-  await setCalendarView(api, before)
 })
 
 test("nothing published for one user shows up on another's own topics", async ({
@@ -101,7 +105,6 @@ test("nothing published for one user shows up on another's own topics", async ({
   await neighbour.expectSilence()
 
   await Promise.all([owner.close(), neighbour.close()])
-  await setCalendarView(api, before)
 })
 
 test('the hub refuses a subscriber asking for another user\'s topic', async ({
@@ -133,7 +136,6 @@ test('the hub refuses a subscriber asking for another user\'s topic', async ({
   await eavesdrop.expectSilence()
 
   await eavesdrop.close()
-  await setCalendarView(api, before)
 })
 
 test("the admin's own subscription is relative and user-scoped", async ({ page, session }) => {

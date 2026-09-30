@@ -27,10 +27,6 @@ test.describe('Admin smoke @responsive', () => {
     // resource 401'd at schema introspection), and the search index the seed
     // rebuilt is being read.
     await expect(dashboard.entry('Déjeuner avec Alex')).toBeVisible()
-
-    // Not today's date — the anchor the seed actually used. The two differ for
-    // anyone passing `--now`, and either side of midnight UTC.
-    expect(seedAnchorDate()).toMatch(/^\d{4}-\d{2}-\d{2}$/)
   })
 
   test('the menu opens and navigates, folded or not', async ({ page }) => {
@@ -46,6 +42,14 @@ test.describe('Admin smoke @responsive', () => {
     await dashboard.navigateTo('Événements', 'Données brutes', 'Agenda')
     await expect(page).toHaveURL(new RegExp(`#${ROUTES.events}$`))
     await expect(dashboard.content.getByText('Cours de piano').first()).toBeVisible()
+
+    // The seeded lunch sits *on* the anchor. Read from the manifest rather
+    // than from the wall clock: the two differ either side of midnight UTC,
+    // and for anyone who passed `--now` to the seed on purpose.
+    const [year, month, day] = seedAnchorDate().split('-')
+    await expect(
+      dashboard.content.getByRole('row', { name: /Déjeuner avec Alex/ }),
+    ).toContainText(`${day}/${month}/${year}`)
 
     await dashboard.navigateTo('Tableau de bord')
     await dashboard.expectReady()

@@ -107,7 +107,10 @@ export const CustomAppBar = () => {
               <PsychologyIcon sx={{ color: chatOpen && sidebarTab === 'mind' ? '#ce93d8' : 'inherit' }} />
             </IconButton>
           </Tooltip>
-          <IconButton color="inherit" onClick={onChatToggle}>
+          {/* The only icon button in the bar with no name of its own — a
+              screen reader announced it as "button", and a journey had no way
+              to address it. Its neighbour gets one from its tooltip. */}
+          <IconButton color="inherit" onClick={onChatToggle} aria-label="Chat avec Maggie">
             <Badge variant="dot" color="error" invisible={!unreadChat || (chatOpen && sidebarTab === 'chat')}>
               <ChatIcon />
             </Badge>

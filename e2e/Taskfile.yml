@@ -310,13 +310,15 @@ tasks:
           COMMAND: 'npx playwright test {{.CLI_ARGS}}'
 
   web:typecheck:
-    desc: Type-check the journeys without running them
-    # What to run after editing a helper: tsc catches a renamed page object in
-    # seconds, where a journey would take the whole stack and several minutes.
+    desc: Lint and type-check the journeys without running them
+    # What to run after editing a helper: seconds, where a journey would take
+    # the whole stack and several minutes. ESLint carries the Playwright
+    # plugin, which catches the mistakes that make a suite lie — an `expect`
+    # nobody awaited passes whatever happens.
     cmds:
       - task: web:run
         vars:
-          COMMAND: 'npx tsc --noEmit'
+          COMMAND: 'npx eslint . && npx tsc --noEmit'
 
   web:install:
     desc: Install the journeys' dependencies (also done by e2e:web)

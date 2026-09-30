@@ -96,8 +96,8 @@ test('signing out drops the credentials and shows the login screen', async ({ pa
   await shell.goto(ROUTES.dashboard)
   await shell.expectLoaded()
 
-  await page.getByRole('button', { name: /profil|compte|utilisateur|camille/i }).first().click()
-  await page.getByRole('menuitem', { name: /déconnexion|se déconnecter/i }).click()
+  await page.getByRole('banner').getByRole('button', { name: 'Profil' }).click()
+  await page.getByRole('menuitem', { name: 'Déconnexion' }).click()
 
   await login.expectShown()
   await expect.poll(async () => (await login.storedCredentials()).token).toBeNull()
