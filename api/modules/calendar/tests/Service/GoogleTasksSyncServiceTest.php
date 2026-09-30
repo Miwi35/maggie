@@ -143,7 +143,7 @@ class GoogleTasksSyncServiceTest extends TestCase
         self::assertCount(1, $this->publishedUpdates);
         self::assertTrue($this->publishedUpdates[0]->isPrivate());
         self::assertSame(
-            '/users/' . $user->getId() . '/api/tasks/' . $updatedTask->getId(),
+            '/users/'.$user->getId().'/api/tasks/'.$updatedTask->getId(),
             $this->publishedUpdates[0]->getTopics()[0],
         );
         $data = json_decode($this->publishedUpdates[0]->getData(), true);

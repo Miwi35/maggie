@@ -58,8 +58,8 @@ final class MercureSubscriberTokenFactory
         $id = (string) $user->getId();
 
         return [
-            '/users/' . $id . '/{+topic}',
-            ...array_map(static fn (string $topic): string => '/' . $topic . '/' . $id, self::AGENT_TOPICS),
+            '/users/'.$id.'/{+topic}',
+            ...array_map(static fn (string $topic): string => '/'.$topic.'/'.$id, self::AGENT_TOPICS),
         ];
     }
 

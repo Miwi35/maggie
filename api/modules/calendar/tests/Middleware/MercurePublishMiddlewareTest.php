@@ -592,7 +592,7 @@ class MercurePublishMiddlewareTest extends TestCase
 
         self::assertCount(3, $this->publishedUpdates);
         foreach ($this->publishedUpdates as $update) {
-            self::assertTrue($update->isPrivate(), 'Update on ' . implode(', ', $update->getTopics()) . ' is public.');
+            self::assertTrue($update->isPrivate(), 'Update on '.implode(', ', $update->getTopics()).' is public.');
         }
     }
 }

@@ -21,12 +21,12 @@ final class MercureSubscriberTokenFactoryTest extends TestCase
         // {topic} (simple expansion) stops at "/" and would match nothing
         // under /users/<id>/api/tasks/<id>; {+topic} (reserved expansion)
         // crosses segments. Private updates depend on it.
-        self::assertContains('/users/' . $id . '/{+topic}', $subscribe);
-        self::assertNotContains('/users/' . $id . '/{topic}', $subscribe);
+        self::assertContains('/users/'.$id.'/{+topic}', $subscribe);
+        self::assertNotContains('/users/'.$id.'/{topic}', $subscribe);
 
         // The agent publishes outside /users/…, on topics keyed by the user id.
         foreach (['chat', 'contexts', 'proactions', 'instructions', 'skills'] as $name) {
-            self::assertContains('/' . $name . '/' . $id, $subscribe);
+            self::assertContains('/'.$name.'/'.$id, $subscribe);
         }
 
         foreach ($subscribe as $selector) {
