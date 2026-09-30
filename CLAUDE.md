@@ -33,6 +33,7 @@ Writing costs as much time as coding: say things once, where they belong.
 - **Ticket**: one final comment, **10 lines at most** — what was delivered, the PR link, what is left or out of scope. No second summary.
 - **Decisions**: 4 lines each (Dilemma · Options · Choice · Why), posted when taken.
 - **PR**: the detail — changes, verification, decisions, Review section.
+- **Never end a session with the ticket In Progress.** A PR moves it to In Review by itself. No PR (an analysis, Linear docs only): move it yourself — `Task` → Done, otherwise Recette. Waiting for an answer → `needs-human`.
 
 ## Creating Linear tickets
 
