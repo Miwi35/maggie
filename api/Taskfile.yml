@@ -64,7 +64,7 @@ tasks:
   phpstan:
     desc: Run PHPStan static analysis
     cmds:
-      - docker compose -f {{.COMPOSE_FILE}} exec php vendor/bin/phpstan analyse
+      - docker compose -f {{.COMPOSE_FILE}} exec php vendor/bin/phpstan analyse {{.CLI_ARGS}}
 
   # ===========================================================================
   # Elasticsearch
