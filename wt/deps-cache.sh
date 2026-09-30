@@ -192,8 +192,12 @@ command="${1:?usage: deps-cache.sh api|admin|prune [image]}"
 case "$command" in
     api)
         image="${2:?an image is required}"
-        php_tag="${WT_PHP_TAG:-php84}"
-        prepare api "$php_tag-$(hash_of "$REPO_ROOT/api/composer.lock")" fill_api "$image"
+        # The key names the runtime as well as the lockfile. Hashing the
+        # Dockerfile catches a PHP bump or an extension change, either of
+        # which can make a vendor tree installed under the old runtime wrong —
+        # and does it without needing the image to exist yet.
+        runtime="$(hash_of "$REPO_ROOT/.docker/php/Dockerfile")"
+        prepare api "php-$runtime-$(hash_of "$REPO_ROOT/api/composer.lock")" fill_api "$image"
         ;;
     admin)
         image="${2:?an image is required}"

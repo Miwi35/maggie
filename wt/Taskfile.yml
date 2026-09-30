@@ -27,10 +27,8 @@ version: '3'
 # install.
 
 vars:
-  PHP_IMAGE: 'maggie-wt-php:{{.WT_PROJECT}}'
-  NODE_IMAGE: 'node:{{.NODE_VERSION | default "22"}}-alpine'
-  GUARD: '{{.ROOT_DIR}}/wt/guard.sh'
-  DEPS_CACHE: '{{.ROOT_DIR}}/wt/deps-cache.sh'
+  # Declared first because PHP_IMAGE below references it.
+  #
   # Named WT_PROJECT, not PROJECT: file-level vars collide across included
   # Taskfiles, and e2e/Taskfile.yml defines a PROJECT of its own — which is
   # what the image tag silently picked up before this.
@@ -39,6 +37,12 @@ vars:
       slug=$(basename "{{.ROOT_DIR}}" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed 's/-*$//')
       hash=$(printf '%s' "{{.ROOT_DIR}}" | sha1sum | cut -c1-8)
       echo "maggie-wt-${slug}-${hash}"
+  # Per-worktree tag: a shared one lets two worktrees with different
+  # Dockerfiles overwrite each other between a build and the run that uses it.
+  PHP_IMAGE: 'maggie-wt-php:{{.WT_PROJECT}}'
+  NODE_IMAGE: 'node:{{.NODE_VERSION | default "22"}}-alpine'
+  GUARD: '{{.ROOT_DIR}}/wt/guard.sh'
+  DEPS_CACHE: '{{.ROOT_DIR}}/wt/deps-cache.sh'
 
 # Thresholds live in wt/limits.env, loaded by the root Taskfile — Task refuses
 # a `dotenv` declaration in an included file. The scripts carry the same
@@ -125,7 +129,11 @@ tasks:
       - task: :e2e:keys
       - |
         set -euo pipefail
-        export COMPOSE_PROJECT_NAME='{{.WT_PROJECT}}'
+        # :? — an empty name would make Compose fall back to the compose
+        # file's directory (`wt`), shared by every worktree, and the teardown
+        # below would then reach somebody else's stack.
+        COMPOSE_PROJECT_NAME='{{.WT_PROJECT}}'
+        export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:?the worktree project name must not be empty}"
         export WT_VENDOR_DIR="$({{.DEPS_CACHE}} api {{.PHP_IMAGE}})"
         export WT_PHP_IMAGE='{{.PHP_IMAGE}}'
         export WT_MEMORY='{{.WT_MEMORY}}'
