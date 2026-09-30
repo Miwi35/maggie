@@ -15,6 +15,8 @@ from app.llm.fake import FakeAnthropicClient
 logger = logging.getLogger(__name__)
 
 FAKE = "fake"
+ANTHROPIC = "anthropic"
+PROVIDERS = (ANTHROPIC, FAKE)
 
 
 def llm_configured() -> bool:
@@ -27,4 +29,9 @@ def create_llm_client():
     if settings.llm_provider == FAKE:
         logger.info("LLM_PROVIDER=fake — answers come from the scenario fixtures, not from Claude")
         return FakeAnthropicClient()
+    if settings.llm_provider != ANTHROPIC:
+        # Refused rather than treated as "not fake". `LLM_PROVIDER=Fake` would
+        # otherwise reach the real API with whatever key is around, and the only
+        # clue would be a journey that got slow and stopped being deterministic.
+        raise ValueError(f"LLM_PROVIDER={settings.llm_provider!r} is not one of {PROVIDERS}")
     return anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)

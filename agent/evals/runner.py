@@ -290,9 +290,14 @@ class Judge:
             )
         except (anthropic.AuthenticationError, anthropic.PermissionDeniedError) as exc:
             raise ModelUnreachable(f"the judge was refused by the API: {exc}") from exc
+        except anthropic.APIConnectionError as exc:
+            # Nothing reached the API at all — every remaining scenario would
+            # fail the same way, which is the report `ModelUnreachable` exists
+            # to prevent.
+            raise ModelUnreachable(f"the API could not be reached at all: {exc}") from exc
         except anthropic.APIError as exc:
-            # Rate limits, overloads, timeouts: this one step could not be
-            # verified. Never a pass by default.
+            # Rate limits, overloads, a malformed request: this one step could
+            # not be verified. Never a pass by default.
             return False, f"the judge could not be reached: {exc}"
 
         raw = "".join(block.text for block in response.content if hasattr(block, "text")).strip()

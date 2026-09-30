@@ -109,6 +109,10 @@ infra/k8s/secrets.yaml
 # and `task e2e:eval` both read (MAG-95), so they belong in the repository.
 # A negation cannot re-include a path inside an ignored *directory*, hence
 # `/scripts/*` rather than `/scripts`.
+#
+# The whole prompt-lab directory and not just `scenarios/`, deliberately: the
+# tooling `/prompt-lab` documents lives beside them (mcp-session.sh, MAG-136),
+# and narrowing this would have git silently refuse to add it.
 /scripts/*
 !/scripts/prompt-lab/
 

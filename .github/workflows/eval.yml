@@ -34,6 +34,10 @@ jobs:
       COMPOSE_PROJECT_NAME: maggie-eval-${{ github.run_id }}-${{ github.run_attempt }}
       E2E_LOGIN_TOKEN: ci-e2e-login-token
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      # The subject is whatever production serves (read below); the grader has to
+      # be stronger than it, or the suite mostly measures a model agreeing with
+      # itself. Production runs Haiku 4.5 for cost; the judge does not have to.
+      EVAL_JUDGE_MODEL: claude-sonnet-5-5
     steps:
       - uses: actions/checkout@v4
 

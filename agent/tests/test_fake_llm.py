@@ -518,6 +518,15 @@ class TestTheProviderSwitch:
         assert llm_configured() is True
         assert isinstance(create_llm_client(), anthropic.AsyncAnthropic)
 
+    def test_an_unknown_provider_is_refused(self, monkeypatch):
+        # Not treated as "not fake": `LLM_PROVIDER=Fake` would otherwise reach
+        # the real API with whatever key is around, and the only clue would be a
+        # journey that got slow and stopped being deterministic.
+        monkeypatch.setattr("app.llm.client.settings.llm_provider", "Fake")
+
+        with pytest.raises(ValueError, match="is not one of"):
+            create_llm_client()
+
     def test_the_fixtures_dir_is_configurable(self, monkeypatch, fixtures_dir):
         monkeypatch.setattr("app.llm.client.settings.llm_provider", "fake")
         monkeypatch.setattr(fake_module.settings, "fake_llm_fixtures_dir", str(fixtures_dir))

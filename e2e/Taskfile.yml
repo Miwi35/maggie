@@ -237,6 +237,14 @@ tasks:
     #
     # Separate from CI on purpose (.github/workflows/eval.yml, nightly and on
     # demand): a prompt regression is a signal, not a merge blocker.
+    #
+    # Two things to know before reading a local run's report. It reseeds first,
+    # because the scenarios write (basil lands on the grocery list twice over)
+    # and a second run on an unreseeded stack has the model failing for a data
+    # reason. And unless you export ANTHROPIC_MODEL, the agent falls back to its
+    # own default rather than what production serves — the nightly reads that
+    # from infra/k8s/configmap.yaml, and the two have differed. The report
+    # header prints whichever model answered.
     vars:
       BASE_URL:
         sh: 'echo "http://127.0.0.1:$(docker compose -f {{.COMPOSE_FILE}} -p {{.PROJECT}} port traefik 80 | sed "s/.*://")"'
@@ -253,6 +261,7 @@ tasks:
       # re-runs it, `npm ci` fails on a tree it built once, and the agent never
       # gets recreated. Everything agent needs is already up.
       - defer: '{{.COMPOSE}} up -d --wait --no-deps --force-recreate agent'
+      - task: seed
       - 'E2E_LLM_PROVIDER=anthropic {{.COMPOSE}} up -d --wait --no-deps --force-recreate agent'
       - '{{.COMPOSE}} exec -T agent python -m evals.runner {{.CLI_ARGS}}'
 

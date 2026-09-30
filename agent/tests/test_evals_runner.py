@@ -228,6 +228,14 @@ class TestTheJudge:
         assert passed is False
         assert "could not be reached" in reason
 
+    async def test_an_unreachable_api_stops_the_suite(self):
+        # Every remaining scenario would fail the same way, so a report full of
+        # "judged failing" would say the prompt regressed when nothing did.
+        error = anthropic.APIConnectionError(request=httpx.Request("POST", "https://api.anthropic.com"))
+
+        with pytest.raises(ModelUnreachable, match="could not be reached at all"):
+            await self._judge(raises=error).verdict("x", Answer(text="y", tools=[]))
+
     async def test_a_refused_key_stops_the_suite_instead_of_failing_every_scenario(self):
         # A bad key is not a prompt regression, and reporting it as six failing
         # scenarios is how a nightly stops being read.

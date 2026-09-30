@@ -45,6 +45,12 @@ jobs:
               - 'ciqual/**'
               - '.docker/**'
               - 'e2e/**'
+              # The eval scenarios, whose only guard is the `e2e:eval:check`
+              # step in this job. Without them here, a pull request touching
+              # nothing else skips the job, a skipped job satisfies branch
+              # protection, and a typo'd expectation merges green — to surface
+              # as a red nightly at 03:17 that looks like a prompt regression.
+              - 'scripts/prompt-lab/**'
               - 'docker-compose.e2e.yml'
               - '.github/workflows/ci.yml'
 
