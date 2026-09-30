@@ -7,6 +7,9 @@ services:
             string $googleClientSecret: '%env(GOOGLE_CLIENT_SECRET)%'
             string $googleWebhookUrl: '%env(GOOGLE_WEBHOOK_URL)%'
             string $googleWebhookToken: '%env(GOOGLE_WEBHOOK_TOKEN)%'
+            # Only the e2e stack sets this; everywhere else it stays empty and
+            # the Google libraries keep their own root URL.
+            string $googleApiBaseUrl: '%env(string:default::GOOGLE_API_BASE_URL)%'
 
     Maggie\Calendar\:
         resource: '../src/'

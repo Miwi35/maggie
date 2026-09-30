@@ -1,0 +1,56 @@
+# Recipes and a planned meal for the MAG-101 journey.
+#
+# Meal extends Event, so it needs an agenda — the one seeded in 20-calendar.
+
+Maggie\Cookbook\Entity\Recipe:
+  e2e_recipe_pasta:
+    name: Pâtes à la tomate
+    servings: 4
+    tags: ['rapide', 'végétarien']
+    notes: |
+      Faire revenir les tomates, ajouter le basilic en fin de cuisson.
+    user: '@e2e_user'
+
+  e2e_recipe_gratin:
+    name: Gratin de courgettes
+    servings: 2
+    tags: ['four']
+    user: '@e2e_user'
+
+Maggie\Cookbook\Entity\RecipeIngredient:
+  e2e_recipe_ingredient_tomato:
+    recipe: '@e2e_recipe_pasta'
+    ingredient: '@e2e_ingredient_tomato'
+    quantity: 4
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+
+  e2e_recipe_ingredient_pasta:
+    recipe: '@e2e_recipe_pasta'
+    ingredient: '@e2e_ingredient_pasta'
+    quantity: 400
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+
+  e2e_recipe_ingredient_basil:
+    recipe: '@e2e_recipe_pasta'
+    ingredient: '@e2e_ingredient_basil'
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Bunch)>'
+
+  # Deliberately shared with the pasta recipe: planning both meals is how a
+  # journey checks that quantities merge instead of duplicating (MAG-116).
+  e2e_recipe_ingredient_gratin_parmesan:
+    recipe: '@e2e_recipe_gratin'
+    ingredient: '@e2e_ingredient_parmesan'
+    quantity: 80
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+
+Maggie\Cookbook\Entity\Meal:
+  e2e_meal_dinner_tomorrow:
+    summary: Pâtes à la tomate
+    slot: '<(Maggie\Cookbook\Enum\MealSlot::Dinner)>'
+    startAt: '<e2eDate("+1 day 19:30")>'
+    endAt: '<e2eDate("+1 day 20:30")>'
+    timeZone: 'Europe/Paris'
+    status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
+    agenda: '@e2e_agenda_shared'
+    recipes: ['@e2e_recipe_pasta']

@@ -19,21 +19,30 @@ final class Version20260227214604 extends AbstractMigration
 
     public function up(Schema $schema): void
     {
-        // Drop product FK to ciqual_food first (before dropping the referenced table)
-        $this->addSql('ALTER TABLE product DROP CONSTRAINT fk_d34a04adb76d9487');
-        $this->addSql('DROP INDEX idx_d34a04adb76d9487');
-        $this->addSql('ALTER TABLE product ADD ciqual_alim_code VARCHAR(10) DEFAULT NULL');
-        $this->addSql('ALTER TABLE product DROP ciqual_food_id');
+        // Every drop here is guarded, because nothing in this migration chain
+        // ever created what it removes: the ciqual tables, product.ciqual_food_id
+        // and agent_message reached the dev database through schema:update, not
+        // through a migration. Replaying the chain on an empty database — which
+        // is what the e2e stack does on every start, and what a restore would
+        // do — therefore failed here (MAG-94).
+        //
+        // IF EXISTS changes nothing where the migration already ran.
+        $this->addSql('ALTER TABLE IF EXISTS product DROP CONSTRAINT IF EXISTS fk_d34a04adb76d9487');
+        $this->addSql('DROP INDEX IF EXISTS idx_d34a04adb76d9487');
+        // Version20260226230621 already adds this column the day before; on the
+        // dev database that migration had not run when this one was written.
+        $this->addSql('ALTER TABLE product ADD COLUMN IF NOT EXISTS ciqual_alim_code VARCHAR(10) DEFAULT NULL');
+        $this->addSql('ALTER TABLE product DROP COLUMN IF EXISTS ciqual_food_id');
 
         // Drop ciqual tables (data moved to separate Ciqual microservice)
-        $this->addSql('ALTER TABLE ciqual_food_nutrient DROP CONSTRAINT fk_e345e30dba8e87c4');
-        $this->addSql('ALTER TABLE ciqual_food_nutrient DROP CONSTRAINT fk_e345e30d27373320');
-        $this->addSql('DROP TABLE ciqual_food_nutrient');
-        $this->addSql('DROP TABLE ciqual_food');
-        $this->addSql('DROP TABLE ciqual_nutrient');
+        $this->addSql('ALTER TABLE IF EXISTS ciqual_food_nutrient DROP CONSTRAINT IF EXISTS fk_e345e30dba8e87c4');
+        $this->addSql('ALTER TABLE IF EXISTS ciqual_food_nutrient DROP CONSTRAINT IF EXISTS fk_e345e30d27373320');
+        $this->addSql('DROP TABLE IF EXISTS ciqual_food_nutrient');
+        $this->addSql('DROP TABLE IF EXISTS ciqual_food');
+        $this->addSql('DROP TABLE IF EXISTS ciqual_nutrient');
 
         // Drop unused agent_message table (agent stores messages in Python)
-        $this->addSql('DROP TABLE agent_message');
+        $this->addSql('DROP TABLE IF EXISTS agent_message');
     }
 
     public function down(Schema $schema): void

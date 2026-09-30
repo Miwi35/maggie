@@ -13,6 +13,8 @@ includes:
   ciqual:
     taskfile: ./ciqual/Taskfile.yml
     dir: ./ciqual
+  e2e:
+    taskfile: ./e2e/Taskfile.yml
 
 tasks:
   # ===========================================================================

@@ -1,0 +1,17 @@
+# One read and one unread notification, for the MAG-103 journey: the badge
+# count has to be 1, and "mark as read" has something to mark.
+
+Maggie\Notification\Entity\Notification:
+  e2e_notification_unread:
+    user: '@e2e_user'
+    type: '<(Maggie\Notification\Enum\NotificationType::Reminder)>'
+    title: 'Rendez-vous dentiste dans 30 minutes'
+    body: 'Rendez-vous dentiste commence bientôt.'
+    readAt: null
+
+  e2e_notification_read:
+    user: '@e2e_user'
+    type: '<(Maggie\Notification\Enum\NotificationType::Reminder)>'
+    title: 'Cours de piano dans 30 minutes'
+    body: 'Cours de piano commence bientôt.'
+    readAt: '<e2eDate("-2 days 17:35")>'

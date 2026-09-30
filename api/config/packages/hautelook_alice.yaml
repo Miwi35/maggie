@@ -3,3 +3,9 @@ when@dev: &dev
         fixtures_path: fixtures
 
 when@test: *dev
+
+when@e2e:
+    hautelook_alice:
+        # Not `fixtures`: the e2e set is a single deterministic world loaded by
+        # app:e2e:seed, kept apart from the per-test fixtures under fixtures/.
+        fixtures_path: fixtures/e2e

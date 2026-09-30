@@ -103,3 +103,11 @@ infra/k8s/secrets.yaml
 # =============================================================================
 .claude/settings.local.json
 /scripts
+
+# =============================================================================
+# E2E stack
+# =============================================================================
+# Task's fingerprint cache for e2e:install and the key generators
+.task/
+# Written by app:e2e:seed — reference → id map, one per run
+api/var/e2e/

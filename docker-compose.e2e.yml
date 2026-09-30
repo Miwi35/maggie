@@ -1,0 +1,413 @@
+# Deterministic e2e stack (MAG-94).
+#
+# Standalone on purpose — not a profile of docker-compose.yml and not an
+# override of it. The three things that must differ from dev are exactly the
+# three a profile shares: named volumes, fixed host ports, and the project
+# name. See agent-os/specs/2026-09-30-1700-e2e-environment/shape.md.
+#
+# Run it through `task e2e:up`, never `docker compose -f` by hand: the task
+# derives COMPOSE_PROJECT_NAME from the worktree path and resolves the
+# ephemeral host port, and both are load-bearing.
+#
+# Three rules hold this file together:
+#   1. No host port anywhere except traefik, which publishes one ephemeral one.
+#   2. No persistent volume. Data directories are tmpfs, so a stack that never
+#      persists cannot leak state between runs and `e2e:down` cannot forget to
+#      remove anything.
+#   3. Every service carries `maggie.stack`, and this stack's Traefik only
+#      looks at containers carrying its own value. Without that, the dev
+#      Traefik would claim these containers and two e2e stacks would fight
+#      over the same router names.
+
+x-stack-label: &stack-label
+  maggie.stack: ${COMPOSE_PROJECT_NAME:-maggie-e2e}
+
+x-php-environment: &php-environment
+  APP_ENV: e2e
+  APP_DEBUG: "0"
+  APP_SECRET: e2e-secret-not-used-outside-the-test-stack
+  DATABASE_URL: "postgresql://maggie:maggie@database:5432/maggie_e2e?serverVersion=17&charset=utf8"
+  # Real RabbitMQ and a real worker. Dispatching synchronously would skip the
+  # async path the journeys exist to check.
+  MESSENGER_TRANSPORT_DSN: "amqp://guest:guest@rabbitmq:5672/%2f/messages"
+  MERCURE_URL: http://mercure/.well-known/mercure
+  MERCURE_PUBLIC_URL: ${E2E_BASE_URL:-http://localhost}/.well-known/mercure
+  MERCURE_JWT_SECRET: e2e-mercure-secret
+  ELASTICSEARCH_URL: http://elasticsearch:9200
+  CIQUAL_SERVICE_URL: http://ciqual:8002
+  CORS_ALLOW_ORIGIN: '^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$$'
+  ADMIN_URL: ${E2E_BASE_URL:-http://localhost}/admin
+  SERVICE_TOKEN: e2e-service-token
+  E2E_LOGIN_TOKEN: ${E2E_LOGIN_TOKEN:-e2e-login-token}
+  JWT_PASSPHRASE: e2e-jwt-passphrase
+  # Google sign-in is replaced by the test login, so these are placeholders.
+  GOOGLE_CLIENT_ID: e2e-google-client-id
+  GOOGLE_CLIENT_SECRET: e2e-google-client-secret
+  GOOGLE_REDIRECT_URI: ${E2E_BASE_URL:-http://localhost}/api/auth/google/callback
+  GOOGLE_WEBHOOK_URL: ${E2E_BASE_URL:-http://localhost}/api/calendar/google/webhook
+  GOOGLE_WEBHOOK_TOKEN: e2e-webhook-token
+  # Calendar and Tasks do have callers, so they go to WireMock.
+  GOOGLE_API_BASE_URL: http://wiremock:8080/google/
+  ENABLE_BANKING_APPLICATION_ID: e2e-application-id
+  ENABLE_BANKING_PRIVATE_KEY: /var/www/api/config/bank/e2e.pem
+  ENABLE_BANKING_BASE_URL: http://wiremock:8080/enablebanking
+  BANK_CALLBACK_URL: ${E2E_BASE_URL:-http://localhost}/api/finance/bank-callback
+  TRUSTED_PROXIES: 0.0.0.0/0
+
+services:
+  # ===========================================================================
+  # Traefik — the stack's single door, on one ephemeral host port
+  # ===========================================================================
+  traefik:
+    image: traefik:v3.6
+    command:
+      - "--api.dashboard=false"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=${COMPOSE_PROJECT_NAME:-maggie-e2e}-net"
+      # The isolation guarantee. Drop this line and this Traefik starts
+      # routing to the dev stack, and the dev one to this stack.
+      - "--providers.docker.constraints=Label(`maggie.stack`,`${COMPOSE_PROJECT_NAME:-maggie-e2e}`)"
+      # Plain HTTP: no certificate for Playwright to trust, no /etc/hosts entry,
+      # no HTTPS redirect. The cost is that the e2e stack does not exercise TLS,
+      # which Traefik terminates identically in dev and prod anyway.
+      - "--entrypoints.web.address=:80"
+    ports:
+      # No host side: Docker picks a free port. `task e2e:url` resolves it.
+      - "80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      <<: *stack-label
+    networks:
+      - e2e
+
+  # ===========================================================================
+  # PHP-FPM — the worktree's own code, in the e2e environment
+  # ===========================================================================
+  php:
+    build:
+      context: .
+      dockerfile: .docker/php/Dockerfile
+      target: e2e
+      args:
+        PHP_VERSION: ${PHP_VERSION:-8.4}
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    volumes:
+      # The whole point of a per-worktree stack: this is the branch's code,
+      # not the main checkout the dev stack mounts.
+      - ./api:/var/www/api:cached
+    environment: *php-environment
+    depends_on:
+      database:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      wiremock:
+        condition: service_healthy
+    labels:
+      <<: *stack-label
+    networks:
+      - e2e
+
+  # ===========================================================================
+  # Nginx — serves the built admin and proxies PHP, same config as dev
+  # ===========================================================================
+  nginx:
+    build:
+      context: .
+      dockerfile: .docker/nginx/Dockerfile
+      target: dev
+    volumes:
+      - ./api/public:/var/www/api/public:ro
+      - ./admin/dist:/var/www/admin:ro
+    environment:
+      APP_DOMAIN: localhost
+      NGINX_ENVSUBST_OUTPUT_DIR: /etc/nginx/conf.d
+    depends_on:
+      php:
+        condition: service_started
+      admin-build:
+        condition: service_completed_successfully
+    healthcheck:
+      # The favicon location answers 204 without touching PHP, so this checks
+      # nginx itself rather than the whole chain behind it. 127.0.0.1, not
+      # localhost: that resolves to ::1 here and nginx only listens on IPv4.
+      test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1/favicon.ico || exit 1"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+    labels:
+      <<: *stack-label
+      traefik.enable: "true"
+      traefik.http.routers.e2e-api.rule: "PathPrefix(`/api`) || PathPrefix(`/_mcp`) || PathPrefix(`/bundles`) || PathPrefix(`/admin`) || Path(`/`) || Path(`/privacy`) || Path(`/terms`)"
+      traefik.http.routers.e2e-api.entrypoints: "web"
+      traefik.http.services.e2e-api.loadbalancer.server.port: "80"
+    networks:
+      - e2e
+
+  # ===========================================================================
+  # Admin build — runs once, then exits; nginx waits for it
+  # ===========================================================================
+  # Journeys test the built SPA, the way production serves it, rather than the
+  # Vite dev server. A bug that only appears in a production build — and those
+  # exist — would otherwise reach users unseen.
+  admin-build:
+    image: node:${NODE_VERSION:-22}-alpine
+    working_dir: /var/www/admin
+    user: ${UID:-1000}:${GID:-1000}
+    volumes:
+      - ./admin:/var/www/admin:cached
+    environment:
+      # Relative URLs, so the build does not depend on the ephemeral host port.
+      VITE_API_URL: /api
+      VITE_MERCURE_PUBLIC_URL: /.well-known/mercure
+      VITE_GOOGLE_CLIENT_ID: e2e-google-client-id
+      # The container runs as the host's uid, which has no entry in the image's
+      # passwd — so HOME resolves to / and npm cannot write its cache there.
+      HOME: /tmp
+      npm_config_cache: /tmp/.npm-cache
+      npm_config_update_notifier: "false"
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        if [ ! -d node_modules ] || [ package-lock.json -nt node_modules ]; then
+          npm ci
+        fi
+        npm run build
+    labels:
+      <<: *stack-label
+    networks:
+      - e2e
+
+  # ===========================================================================
+  # Worker — consumes the async transport, as in production
+  # ===========================================================================
+  worker:
+    build:
+      context: .
+      dockerfile: .docker/php/Dockerfile
+      target: e2e
+      args:
+        PHP_VERSION: ${PHP_VERSION:-8.4}
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    volumes:
+      - ./api:/var/www/api:cached
+    environment: *php-environment
+    depends_on:
+      database:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    command: ["php", "bin/console", "messenger:consume", "async", "--time-limit=3600", "--memory-limit=128M"]
+    restart: unless-stopped
+    labels:
+      <<: *stack-label
+    networks:
+      - e2e
+
+  # ===========================================================================
+  # PostgreSQL — in memory, unpublished
+  # ===========================================================================
+  database:
+    image: postgres:${POSTGRES_VERSION:-17}-alpine
+    environment:
+      POSTGRES_USER: maggie
+      POSTGRES_PASSWORD: maggie
+      POSTGRES_DB: maggie_e2e
+    volumes:
+      - ./.docker/postgres/init-agent-db.sql:/docker-entrypoint-initdb.d/10-create-agent-db.sql:ro
+    tmpfs:
+      # Faster, and it makes "state survived a down" impossible by construction.
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U maggie -d maggie_e2e"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+    labels:
+      <<: *stack-label
+    networks:
+      - e2e
+
+  # ===========================================================================
+  # Mercure
+  # ===========================================================================
+  mercure:
+    image: dunglas/mercure
+    environment:
+      SERVER_NAME: ':80'
+      MERCURE_PUBLISHER_JWT_KEY: e2e-mercure-secret
+      MERCURE_SUBSCRIBER_JWT_KEY: e2e-mercure-secret
+      MERCURE_EXTRA_DIRECTIVES: |
+        anonymous
+        cors_origins *
+    labels:
+      <<: *stack-label
+      traefik.enable: "true"
+      traefik.http.routers.e2e-mercure.rule: "PathPrefix(`/.well-known/mercure`)"
+      traefik.http.routers.e2e-mercure.entrypoints: "web"
+      traefik.http.services.e2e-mercure.loadbalancer.server.port: "80"
+    networks:
+      - e2e
+
+  # ===========================================================================
+  # RabbitMQ
+  # ===========================================================================
+  rabbitmq:
+    image: rabbitmq:3-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    tmpfs:
+      - /var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    labels:
+      <<: *stack-label
+    networks:
+      - e2e
+
+  # ===========================================================================
+  # Elasticsearch — always on here, unlike dev where it sits behind a profile
+  # ===========================================================================
+  # A stale or missing index returns an empty list in silence, so search
+  # journeys would pass for the wrong reason without it.
+  elasticsearch:
+    image: elasticsearch:8.17.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+    tmpfs:
+      - /usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    labels:
+      <<: *stack-label
+    networks:
+      - e2e
+
+  # ===========================================================================
+  # Python Agent Hub
+  # ===========================================================================
+  agent:
+    build:
+      context: .
+      dockerfile: .docker/python/Dockerfile
+      target: dev
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.12}
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    volumes:
+      - ./agent:/app:cached
+      - ./api/config/jwt/public.pem:/etc/jwt/public.pem:ro
+    environment:
+      # Still the real model until MAG-95 lands the fake LLM. Journeys that
+      # talk to Maggie wait for that ticket; the rest of the stack does not.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-haiku-4-5-20251001}
+      OPENAI_API_KEY: e2e-openai-key
+      OPENAI_BASE_URL: http://wiremock:8080/openai/v1
+      # edge_tts opens its own WebSocket to Microsoft, so there is no URL to
+      # redirect — the provider switch is the only way out.
+      TTS_PROVIDER: fake
+      MCP_SERVER_URL: http://nginx/_mcp
+      MERCURE_URL: http://mercure/.well-known/mercure
+      MERCURE_PUBLIC_URL: ${E2E_BASE_URL:-http://localhost}/.well-known/mercure
+      MERCURE_JWT_SECRET: e2e-mercure-secret
+      SERVICE_TOKEN: e2e-service-token
+      DATABASE_URL: "postgresql://maggie:maggie@database:5432/maggie_e2e"
+      AGENT_DATABASE_URL: "postgresql://maggie:maggie@database:5432/maggie_agent"
+      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
+      AGENT_BASE_URL: ${E2E_BASE_URL:-http://localhost}/agent
+    depends_on:
+      database:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      nginx:
+        condition: service_started
+      wiremock:
+        condition: service_healthy
+    healthcheck:
+      # `up --wait` only waits for services that declare one. Without this the
+      # agent is still running `uv sync` when a journey's first request
+      # arrives, and Traefik answers 502 — a flaky failure that looks like a
+      # broken route.
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/health')\" || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 30s
+    labels:
+      <<: *stack-label
+      traefik.enable: "true"
+      traefik.http.routers.e2e-agent.rule: "PathPrefix(`/agent`)"
+      traefik.http.routers.e2e-agent.entrypoints: "web"
+      traefik.http.services.e2e-agent.loadbalancer.server.port: "8001"
+    networks:
+      - e2e
+
+  # ===========================================================================
+  # Ciqual — food composition, called by the recipe and grocery journeys
+  # ===========================================================================
+  ciqual:
+    build:
+      context: .
+      dockerfile: .docker/ciqual/Dockerfile
+      target: dev
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.12}
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    volumes:
+      - ./ciqual:/app:cached
+    labels:
+      <<: *stack-label
+      traefik.enable: "true"
+      traefik.http.routers.e2e-ciqual.rule: "PathPrefix(`/ciqual`)"
+      traefik.http.routers.e2e-ciqual.entrypoints: "web"
+      traefik.http.services.e2e-ciqual.loadbalancer.server.port: "8002"
+    networks:
+      - e2e
+
+  # ===========================================================================
+  # WireMock — every third-party API the stack would otherwise call
+  # ===========================================================================
+  # See .docker/e2e/wiremock/README.md for what is stubbed and what is not.
+  wiremock:
+    image: wiremock/wiremock:3.9.1
+    command: ["--disable-banner", "--local-response-templating"]
+    volumes:
+      - ./.docker/e2e/wiremock/mappings:/home/wiremock/mappings:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8080/__admin/health || exit 1"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+    labels:
+      <<: *stack-label
+    networks:
+      - e2e
+
+networks:
+  e2e:
+    # Named explicitly so Traefik's --providers.docker.network can point at it
+    # without guessing how Compose prefixed it.
+    name: ${COMPOSE_PROJECT_NAME:-maggie-e2e}-net
+    driver: bridge

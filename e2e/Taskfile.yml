@@ -1,0 +1,239 @@
+version: '3'
+
+# Tasks for the deterministic e2e stack (MAG-94).
+#
+# Two things make this stack safe to run beside the dev stack, and beside
+# another worktree's e2e stack:
+#
+#   COMPOSE_PROJECT_NAME  derived from the worktree's absolute path, so
+#                         containers, volumes and the network never collide.
+#                         The hash covers the path, not the branch, so two
+#                         worktrees of the same branch still differ.
+#   E2E_BASE_URL          resolved after Traefik starts, because the host port
+#                         is ephemeral and nothing can know it beforehand.
+#
+# Export COMPOSE_PROJECT_NAME yourself to override the derivation — CI passes
+# the run id.
+
+vars:
+  COMPOSE_FILE: '{{.ROOT_DIR}}/docker-compose.e2e.yml'
+  PROJECT:
+    sh: |
+      if [ -n "$COMPOSE_PROJECT_NAME" ]; then
+        echo "$COMPOSE_PROJECT_NAME"
+      else
+        slug=$(basename "{{.ROOT_DIR}}" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed 's/-*$//')
+        hash=$(printf '%s' "{{.ROOT_DIR}}" | sha1sum | cut -c1-8)
+        echo "maggie-e2e-${slug}-${hash}"
+      fi
+  COMPOSE: 'docker compose -f {{.COMPOSE_FILE}} -p {{.PROJECT}}'
+  # `UID` is a shell variable, not an environment one, so `${UID:-1000}` in a
+  # Compose file silently falls back to 1000. On a host whose user is not 1000
+  # every bind mount then becomes unwritable — `npm ci` is the first to hit it.
+  # The dev stack papers over this with a gitignored .env; a worktree has none.
+  HOST_UID:
+    sh: id -u
+  HOST_GID:
+    sh: id -g
+
+env:
+  COMPOSE_PROJECT_NAME: '{{.PROJECT}}'
+  UID: '{{.HOST_UID}}'
+  GID: '{{.HOST_GID}}'
+
+tasks:
+  # ===========================================================================
+  # Lifecycle
+  # ===========================================================================
+  up:
+    desc: Start the e2e stack for this worktree (ephemeral port, isolated volumes)
+    cmds:
+      - task: keys
+      # Traefik first and alone: its published port is what every other
+      # service's public URLs are built from, and Docker only assigns it once
+      # the container exists.
+      - '{{.COMPOSE}} up -d traefik'
+      - task: _up:rest
+      - task: install
+      - task: cache:clear
+      - task: migrate
+      - task: url
+
+  _up:rest:
+    internal: true
+    vars:
+      BASE_URL:
+        sh: 'echo "http://127.0.0.1:$(docker compose -f {{.COMPOSE_FILE}} -p {{.PROJECT}} port traefik 80 | sed "s/.*://")"'
+    env:
+      E2E_BASE_URL: '{{.BASE_URL}}'
+    cmds:
+      # --build, not just up: the images bake the host's uid into their `app`
+      # user, and Compose reuses an existing image without checking whether the
+      # build args still match. Layer caching makes the no-change case cheap.
+      - '{{.COMPOSE}} up -d --wait --build'
+
+  down:
+    desc: Stop the e2e stack and remove its volumes
+    cmds:
+      # -v even though the data directories are tmpfs: anonymous volumes an
+      # image declares would otherwise pile up, one set per run.
+      - '{{.COMPOSE}} down -v --remove-orphans'
+
+  restart:
+    desc: Restart the e2e stack
+    cmds:
+      - task: down
+      - task: up
+
+  build:
+    desc: Build the e2e images
+    cmds:
+      - '{{.COMPOSE}} build {{.CLI_ARGS}}'
+
+  ps:
+    desc: Show the e2e stack's containers
+    cmds:
+      - '{{.COMPOSE}} ps'
+
+  logs:
+    desc: Tail the e2e stack's logs (task e2e:logs -- php)
+    cmds:
+      - '{{.COMPOSE}} logs -f {{.CLI_ARGS}}'
+
+  logs:dump:
+    desc: Print the e2e stack's logs and return — what CI uploads on failure
+    cmds:
+      - '{{.COMPOSE}} logs --no-log-prefix --tail=400 {{.CLI_ARGS}}'
+
+  url:
+    desc: Print the URL the e2e stack answers on
+    cmds:
+      - 'echo "http://127.0.0.1:$({{.COMPOSE}} port traefik 80 | sed "s/.*://")"'
+    silent: true
+
+  project:
+    desc: Print this worktree's Compose project name
+    cmds:
+      - 'echo "{{.PROJECT}}"'
+    silent: true
+
+  # ===========================================================================
+  # Data
+  # ===========================================================================
+  install:
+    desc: Install PHP dependencies inside the e2e stack
+    # A fresh worktree has no api/vendor, and the stack mounts the worktree
+    # rather than an image with dependencies baked in. Skipped when the lock
+    # file has not moved since the last install.
+    sources:
+      - '{{.ROOT_DIR}}/api/composer.lock'
+    generates:
+      - '{{.ROOT_DIR}}/api/vendor/autoload.php'
+    cmds:
+      - '{{.COMPOSE}} exec -T php composer install --no-interaction --no-progress'
+
+  cache:clear:
+    desc: Rebuild the e2e container cache after changing PHP code or config
+    # APP_DEBUG=0 means the compiled service container is never invalidated on
+    # its own. The stack mounts your worktree, so a change to a service, a
+    # route or a config file is invisible until this runs. Part of `e2e:up`;
+    # run it by hand after editing during a session.
+    cmds:
+      - '{{.COMPOSE}} exec -T php bin/console --env=e2e cache:clear'
+
+  migrate:
+    desc: Apply Doctrine migrations to the e2e database
+    cmds:
+      - '{{.COMPOSE}} exec -T php bin/console --env=e2e doctrine:migrations:migrate --no-interaction --allow-no-migration'
+
+  seed:
+    desc: Reset the e2e database to its deterministic fixture set
+    cmds:
+      - '{{.COMPOSE}} exec -T php bin/console --env=e2e app:e2e:seed {{.CLI_ARGS}}'
+
+  console:
+    desc: Run a Symfony command in the e2e stack (task e2e:console -- debug:router)
+    cmds:
+      - '{{.COMPOSE}} exec php bin/console --env=e2e {{.CLI_ARGS}}'
+
+  # ===========================================================================
+  # Tests
+  # ===========================================================================
+  test:api:
+    desc: Run PHPUnit inside this worktree's e2e stack — the worktree-safe way
+    # `task api:test` runs against the dev stack, which mounts the main
+    # checkout: in a worktree it would test the wrong code. This one mounts
+    # this worktree.
+    cmds:
+      - task: test:prepare
+      - '{{.COMPOSE}} exec -T php bin/phpunit {{.CLI_ARGS}}'
+
+  test:prepare:
+    desc: Create the PHPUnit database inside the e2e stack
+    # PHPUnit forces APP_ENV=test, which reads api/.env.test and points at its
+    # own database — one the e2e stack has never created. Without this the
+    # whole suite errors out on "database does not exist", which reads like
+    # hundreds of broken tests rather than one missing schema.
+    cmds:
+      - '{{.COMPOSE}} exec -T php bin/console --env=test doctrine:database:create --no-interaction --if-not-exists'
+      - '{{.COMPOSE}} exec -T php bin/console --env=test doctrine:schema:drop --no-interaction --force --full-database'
+      - '{{.COMPOSE}} exec -T php bin/console --env=test doctrine:schema:create --no-interaction'
+
+  smoke:
+    desc: Run the smoke journey against the running e2e stack
+    vars:
+      BASE_URL:
+        sh: 'echo "http://127.0.0.1:$(docker compose -f {{.COMPOSE_FILE}} -p {{.PROJECT}} port traefik 80 | sed "s/.*://")"'
+    cmds:
+      - 'E2E_BASE_URL={{.BASE_URL}} {{.ROOT_DIR}}/e2e/smoke/smoke.sh'
+
+  # ===========================================================================
+  # Debugging
+  # ===========================================================================
+  sh:
+    desc: Open a shell in an e2e container (task e2e:sh -- agent)
+    cmds:
+      - '{{.COMPOSE}} exec {{.CLI_ARGS | default "php"}} sh'
+
+  psql:
+    desc: Open psql on the e2e database
+    cmds:
+      - '{{.COMPOSE}} exec database psql -U maggie -d maggie_e2e'
+
+  restart:wiremock:
+    desc: Reload the WireMock stubs after editing a mapping file
+    cmds:
+      - '{{.COMPOSE}} restart wiremock'
+
+  # ===========================================================================
+  # Internals
+  # ===========================================================================
+  keys:
+    desc: Generate the signing keys this worktree's e2e stack needs
+    cmds:
+      - task: keys:jwt
+      - task: keys:bank
+
+  keys:jwt:
+    internal: true
+    # Gitignored, so a fresh worktree has none and Lexik fails on the first
+    # token. The passphrase matches api/.env.e2e; these keys sign nothing
+    # outside the test stack.
+    status:
+      - test -f {{.ROOT_DIR}}/api/config/jwt/private.pem
+      - test -f {{.ROOT_DIR}}/api/config/jwt/public.pem
+    cmds:
+      - mkdir -p {{.ROOT_DIR}}/api/config/jwt
+      - openssl genpkey -algorithm RSA -out {{.ROOT_DIR}}/api/config/jwt/private.pem -aes256 -pkeyopt rsa_keygen_bits:4096 -pass pass:e2e-jwt-passphrase
+      - openssl pkey -in {{.ROOT_DIR}}/api/config/jwt/private.pem -passin pass:e2e-jwt-passphrase -pubout -out {{.ROOT_DIR}}/api/config/jwt/public.pem
+
+  keys:bank:
+    internal: true
+    # EnableBankingClient signs every call with this key. WireMock does not
+    # check the signature, but the client refuses to build a request without a
+    # readable key, so the sync journey needs one.
+    status:
+      - test -f {{.ROOT_DIR}}/api/config/bank/e2e.pem
+    cmds:
+      - mkdir -p {{.ROOT_DIR}}/api/config/bank
+      - openssl genpkey -algorithm RSA -out {{.ROOT_DIR}}/api/config/bank/e2e.pem -pkeyopt rsa_keygen_bits:2048

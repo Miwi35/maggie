@@ -7,8 +7,8 @@ use Gesdinet\JWTRefreshTokenBundle\Generator\RefreshTokenGeneratorInterface;
 use Gesdinet\JWTRefreshTokenBundle\Model\RefreshTokenManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Maggie\Core\Entity\User;
+use Maggie\Core\Mercure\MercureSubscriberTokenFactory;
 use Maggie\Core\Repository\UserRepository;
-use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -27,11 +27,11 @@ final class GoogleAuthController
         private readonly MessageBusInterface $messageBus,
         private readonly RefreshTokenGeneratorInterface $refreshTokenGenerator,
         private readonly RefreshTokenManagerInterface $refreshTokenManager,
+        private readonly MercureSubscriberTokenFactory $mercureSubscriberTokenFactory,
         private readonly string $googleClientId,
         private readonly string $googleClientSecret,
         private readonly string $googleRedirectUri,
         private readonly string $adminUrl,
-        private readonly string $mercureJwtSecret,
         private readonly int $refreshTokenTtl,
     ) {
     }
@@ -77,7 +77,7 @@ final class GoogleAuthController
         return new JsonResponse([
             'token' => $jwt,
             'refreshToken' => $refreshToken->getRefreshToken(),
-            'mercureToken' => $this->createMercureSubscriberJwt($user),
+            'mercureToken' => $this->mercureSubscriberTokenFactory->createForUser($user),
             'user' => [
                 'id' => (string) $user->getId(),
                 'email' => $user->getEmail(),
@@ -180,7 +180,7 @@ final class GoogleAuthController
         ]);
 
         $response = $this->adminRedirect($params);
-        $response->headers->setCookie($this->createMercureSubscriberCookie($user));
+        $response->headers->setCookie($this->mercureSubscriberTokenFactory->createCookieForUser($user));
 
         return $response;
     }
@@ -224,32 +224,4 @@ final class GoogleAuthController
         return $user;
     }
 
-    private function createMercureSubscriberJwt(User $user): string
-    {
-        $header = $this->base64UrlEncode(json_encode(['typ' => 'JWT', 'alg' => 'HS256']));
-        $payload = $this->base64UrlEncode(json_encode([
-            'mercure' => ['subscribe' => ['/users/' . $user->getId() . '/{topic}']],
-            'exp' => time() + 86400,
-        ]));
-        $signature = $this->base64UrlEncode(
-            hash_hmac('sha256', $header . '.' . $payload, $this->mercureJwtSecret, true)
-        );
-
-        return $header . '.' . $payload . '.' . $signature;
-    }
-
-    private function createMercureSubscriberCookie(User $user): Cookie
-    {
-        return Cookie::create('mercureAuthorization')
-            ->withValue($this->createMercureSubscriberJwt($user))
-            ->withPath('/.well-known/mercure')
-            ->withSecure(true)
-            ->withHttpOnly(true)
-            ->withSameSite('lax');
-    }
-
-    private function base64UrlEncode(string $data): string
-    {
-        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
-    }
 }

@@ -1,0 +1,23 @@
+# The one account every e2e journey signs in as.
+#
+# Loaded by app:e2e:seed, in file-name order — everything below depends on this
+# user, so it has to come first.
+#
+# Dates come from <e2eDate(...)>, never from date() or a literal: see
+# Maggie\Core\E2e\Fixture\E2eDateProvider for why.
+
+Maggie\Core\Entity\User:
+    e2e_user:
+        email: 'e2e@maggie.local'
+        googleId: 'e2e-google-id'
+        name: 'Camille Test'
+        avatar: 'https://example.invalid/avatar.png'
+
+Maggie\Core\Entity\UserPreference:
+    e2e_user_preference:
+        user: '@e2e_user'
+        theme: 'light'
+        locale: 'fr'
+        timezone: 'Europe/Paris'
+        defaultCalendarView: 'week'
+        notificationsEnabled: true

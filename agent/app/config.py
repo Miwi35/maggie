@@ -7,6 +7,15 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-5-5"
     openai_api_key: str = ""
+    # Whisper lives behind the OpenAI client, so pointing that client
+    # elsewhere is all the e2e stack needs to stop calling out. Empty means
+    # the real API (MAG-94).
+    openai_base_url: str = ""
+
+    # Speech synthesis. "edge" reaches Microsoft over a WebSocket the library
+    # opens itself, which no base URL can redirect — so the e2e stack switches
+    # provider instead, to one that returns a fixed silent clip.
+    tts_provider: str = "edge"
 
     # MCP Server
     mcp_server_url: str = "http://nginx/_mcp"

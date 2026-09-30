@@ -29,6 +29,23 @@ when@test:
                 path: "%kernel.logs_dir%/%kernel.environment%.log"
                 level: debug
 
+when@e2e:
+    monolog:
+        handlers:
+            # No fingers_crossed: a journey that fails needs the whole run, not
+            # the tail of a buffer, and the stack is short-lived anyway.
+            main:
+                type: stream
+                path: php://stderr
+                level: debug
+                channels: ["!event", "!deprecation"]
+                formatter: monolog.formatter.json
+            deprecation:
+                type: stream
+                channels: [deprecation]
+                path: php://stderr
+                formatter: monolog.formatter.json
+
 when@prod:
     monolog:
         handlers:

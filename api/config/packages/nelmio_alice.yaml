@@ -10,3 +10,8 @@ when@dev: &dev
             - 'sha1'
 
 when@test: *dev
+
+# app:e2e:seed loads Alice fixtures, so the e2e environment needs the same
+# blacklist — `date()` in a fixture is exactly the non-determinism this stack
+# exists to remove.
+when@e2e: *dev

@@ -17,6 +17,11 @@ services:
             - '../src/Entity/'
             - '../src/Trait/'
             - '../src/MaggieCoreBundle.php'
+            # Never registered by default. Routes come from registered
+            # controller services, so leaving E2e/ out here is what makes the
+            # test login structurally absent from prod (MAG-94), not a
+            # convention someone has to remember.
+            - '../src/E2e/'
 
     Elastic\Elasticsearch\Client:
         factory: ['Maggie\Core\Elasticsearch\ElasticsearchClientFactory', 'create']
@@ -35,3 +40,37 @@ services:
     Maggie\Core\EventListener\JWTCreatedListener:
         tags:
             - { name: kernel.event_listener, event: lexik_jwt_authentication.on_jwt_created, method: onJWTCreated }
+
+# The date provider alone, so PHPUnit can load the real e2e fixture files and
+# catch a typo in them before a journey does. Deliberately not the controller
+# or the command — the test login stays absent here, which is what
+# E2eLoginRouteAbsenceTest asserts.
+when@test:
+    services:
+        _defaults:
+            autowire: true
+            autoconfigure: true
+
+        Maggie\Core\E2e\Fixture\E2eDateProvider:
+            tags: ['nelmio_alice.faker.provider']
+
+# The only place the e2e-only services exist. Everything under src/E2e/ is
+# excluded above; this block is the single reason any of it is ever built.
+when@e2e:
+    services:
+        _defaults:
+            autowire: true
+            autoconfigure: true
+            bind:
+                int $refreshTokenTtl: '%gesdinet_jwt_refresh_token.ttl%'
+                string $environment: '%kernel.environment%'
+                string $e2eLoginToken: '%env(E2E_LOGIN_TOKEN)%'
+                string $projectDir: '%kernel.project_dir%'
+
+        Maggie\Core\E2e\:
+            resource: '../src/E2e/'
+
+        # Makes <e2eDate("+2 days 09:00")> usable in the fixture files. Without
+        # the tag Faker never sees the provider and every such call throws.
+        Maggie\Core\E2e\Fixture\E2eDateProvider:
+            tags: ['nelmio_alice.faker.provider']

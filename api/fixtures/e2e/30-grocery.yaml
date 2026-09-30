@@ -1,0 +1,135 @@
+# Stores, products and a grocery list for the MAG-101 journey.
+#
+# Ingredients are Products (Ingredient extends Product), so they live here
+# rather than in the cookbook file — the recipes below reference them.
+
+Maggie\Grocery\Entity\Store:
+  e2e_store_supermarket:
+    name: Supermarché Leclerc
+    description: Magasin principal
+    visitOrder: 1
+    user: '@e2e_user'
+  e2e_store_greengrocer:
+    name: Primeur du marché
+    description: Fruits et légumes
+    visitOrder: 2
+    user: '@e2e_user'
+
+Maggie\Cookbook\Entity\Ingredient:
+  e2e_ingredient_tomato:
+    name: Tomate
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    user: '@e2e_user'
+    preferredStore: '@e2e_store_greengrocer'
+    fallbackStore: '@e2e_store_supermarket'
+    shelfLifeDays: 7
+
+  e2e_ingredient_pasta:
+    name: Pâtes complètes
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+    user: '@e2e_user'
+    preferredStore: '@e2e_store_supermarket'
+
+  e2e_ingredient_parmesan:
+    name: Parmesan
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Dairy)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+    user: '@e2e_user'
+    preferredStore: '@e2e_store_supermarket'
+
+  e2e_ingredient_basil:
+    name: Basilic
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Bunch)>'
+    user: '@e2e_user'
+    preferredStore: '@e2e_store_greengrocer'
+
+Maggie\Grocery\Entity\Product:
+  e2e_product_milk:
+    name: Lait demi-écrémé
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Dairy)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Liter)>'
+    user: '@e2e_user'
+    preferredStore: '@e2e_store_supermarket'
+  e2e_product_soap:
+    name: Liquide vaisselle
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Cleaning)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Bottle)>'
+    user: '@e2e_user'
+    preferredStore: '@e2e_store_supermarket'
+
+Maggie\Grocery\Entity\GroceryList:
+  e2e_grocery_list:
+    user: '@e2e_user'
+
+Maggie\Grocery\Entity\GroceryItem:
+  # Unchecked, in a known position: the "check an item in the shop" step.
+  e2e_grocery_item_tomato:
+    groceryList: '@e2e_grocery_list'
+    product: '@e2e_ingredient_tomato'
+    quantity: 6
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Recipe)>'
+    store: '@e2e_store_greengrocer'
+    position: 1
+
+  e2e_grocery_item_pasta:
+    groceryList: '@e2e_grocery_list'
+    product: '@e2e_ingredient_pasta'
+    quantity: 500
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Recipe)>'
+    store: '@e2e_store_supermarket'
+    position: 2
+
+  # Already checked, so "end the errand" has both states to sort out.
+  e2e_grocery_item_milk:
+    groceryList: '@e2e_grocery_list'
+    product: '@e2e_product_milk'
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Liter)>'
+    checked: true
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Recurring)>'
+    store: '@e2e_store_supermarket'
+    position: 3
+
+  # Free text, no product: the path where a label carries the whole item.
+  e2e_grocery_item_custom:
+    groceryList: '@e2e_grocery_list'
+    customLabel: Pile LR03
+    quantity: 4
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 4
+
+  # Deferred: must stay out of today's list and appear later.
+  e2e_grocery_item_deferred:
+    groceryList: '@e2e_grocery_list'
+    product: '@e2e_product_soap'
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Bottle)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@e2e_store_supermarket'
+    buyAfter: '<e2eDate("+5 days")>'
+    position: 5
+
+Maggie\Grocery\Entity\RecurringGroceryItem:
+  e2e_recurring_milk:
+    product: '@e2e_product_milk'
+    quantity: 2
+    unit: '<(Maggie\Grocery\Enum\Unit::Liter)>'
+    frequency: '<(Maggie\Grocery\Enum\RecurringFrequency::Weekly)>'
+    user: '@e2e_user'
+
+  e2e_recurring_soap:
+    product: '@e2e_product_soap'
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Bottle)>'
+    frequency: '<(Maggie\Grocery\Enum\RecurringFrequency::Monthly)>'
+    user: '@e2e_user'

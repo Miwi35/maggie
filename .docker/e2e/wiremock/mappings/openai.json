@@ -1,0 +1,18 @@
+{
+  "mappings": [
+    {
+      "name": "Whisper transcription — one fixed sentence",
+      "request": {
+        "method": "POST",
+        "urlPathPattern": "/openai/v1/audio/transcriptions"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "text/plain"
+        },
+        "body": "euh ajoute des tomates à la liste de courses s'il te plaît"
+      }
+    }
+  ]
+}

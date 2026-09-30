@@ -19,6 +19,7 @@ jobs:
       agent: ${{ steps.filter.outputs.agent }}
       ciqual: ${{ steps.filter.outputs.ciqual }}
       admin: ${{ steps.filter.outputs.admin }}
+      e2e: ${{ steps.filter.outputs.e2e }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -36,6 +37,15 @@ jobs:
               - '.github/workflows/ci.yml'
             admin:
               - 'admin/**'
+              - '.github/workflows/ci.yml'
+            e2e:
+              - 'api/**'
+              - 'admin/**'
+              - 'agent/**'
+              - 'ciqual/**'
+              - '.docker/**'
+              - 'e2e/**'
+              - 'docker-compose.e2e.yml'
               - '.github/workflows/ci.yml'
 
   api-lint:
@@ -235,3 +245,46 @@ jobs:
       - if: steps.node-modules.outputs.cache-hit != 'true'
         run: npm ci
       - run: npm run test
+
+  e2e-stack:
+    name: E2E Stack (smoke journey)
+    needs: changes
+    if: needs.changes.outputs.e2e == 'true'
+    runs-on: ubuntu-latest
+    env:
+      # Same derivation the Taskfile does, except the run id replaces the
+      # worktree hash: concurrent jobs must not share containers or a network.
+      COMPOSE_PROJECT_NAME: maggie-e2e-ci-${{ github.run_id }}-${{ github.run_attempt }}
+      E2E_LOGIN_TOKEN: ci-e2e-login-token
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start the stack
+        run: task e2e:up
+
+      - name: Seed
+        # The anchor is pinned so the WireMock fixtures, whose dates are fixed,
+        # line up with the seeded ones.
+        run: task e2e:seed -- --now=2026-03-15T00:00:00+00:00
+
+      - name: Smoke journey
+        run: task e2e:smoke
+
+      - name: API tests inside the stack
+        # Proof that the worktree-safe path works, and the API suite runs
+        # against a real RabbitMQ and a real Elasticsearch here rather than
+        # the in-memory transports the unit job uses.
+        run: task e2e:test:api
+
+      - name: Stack logs
+        if: failure()
+        run: task e2e:logs:dump || true
+
+      - name: Tear down
+        if: always()
+        run: task e2e:down

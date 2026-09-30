@@ -19,7 +19,12 @@ CLEANUP_PROMPT = (
 
 async def _whisper_transcribe(audio_bytes: bytes, filename: str) -> str:
     """Transcribe audio using OpenAI Whisper."""
-    client = openai.AsyncOpenAI(api_key=settings.openai_api_key)
+    # base_url is only set on the e2e stack, where it points at WireMock.
+    # Passing None keeps the library's own default for dev and prod.
+    client = openai.AsyncOpenAI(
+        api_key=settings.openai_api_key,
+        base_url=settings.openai_base_url or None,
+    )
     transcript = await client.audio.transcriptions.create(
         model="whisper-1",
         file=(filename, audio_bytes),

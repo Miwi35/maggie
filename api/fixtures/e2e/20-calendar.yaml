@@ -1,0 +1,91 @@
+# Agenda data for the MAG-100 journey: a plain event, a weekly recurrence with
+# one overridden occurrence, an event carrying a reminder, and two tasks.
+#
+# Every date is an offset from the seed anchor, so "this week" is always this
+# week and the values are still the same on every run.
+
+Maggie\Calendar\Entity\Agenda:
+  e2e_agenda_personal:
+    name: Perso
+    description: Agenda par défaut de l'utilisateur e2e
+    isDefault: true
+    color: '#3f51b5'
+    timeZone: 'Europe/Paris'
+    user: '@e2e_user'
+  e2e_agenda_shared:
+    name: Famille
+    description: Agenda partagé
+    isDefault: false
+    color: '#e91e63'
+    timeZone: 'Europe/Paris'
+    user: '@e2e_user'
+
+Maggie\Calendar\Entity\Event:
+  # Today, so a "what's on today" assertion always has something to find.
+  e2e_event_today:
+    summary: Déjeuner avec Alex
+    description: Brasserie du coin
+    location: 12 rue des Lilas, Rennes
+    startAt: '<e2eDate("+12 hours")>'
+    endAt: '<e2eDate("+13 hours")>'
+    timeZone: 'Europe/Paris'
+    status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
+    agenda: '@e2e_agenda_personal'
+
+  # Weekly recurrence. The exception instance below overrides its third
+  # occurrence, which is the case MAG-100 exists to protect.
+  e2e_event_recurring:
+    summary: Cours de piano
+    startAt: '<e2eDate("+2 days 18:00")>'
+    endAt: '<e2eDate("+2 days 19:00")>'
+    timeZone: 'Europe/Paris'
+    rrule: 'FREQ=WEEKLY;COUNT=8'
+    status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
+    agenda: '@e2e_agenda_personal'
+
+  e2e_event_recurring_exception:
+    summary: Cours de piano (décalé)
+    # Moved an hour later than the occurrence it replaces.
+    startAt: '<e2eDate("+16 days 19:00")>'
+    endAt: '<e2eDate("+16 days 20:00")>'
+    originalStartAt: '<e2eDate("+16 days 18:00")>'
+    recurringEvent: '@e2e_event_recurring'
+    timeZone: 'Europe/Paris'
+    status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
+    agenda: '@e2e_agenda_personal'
+
+  e2e_event_with_reminder:
+    summary: Rendez-vous dentiste
+    startAt: '<e2eDate("+4 days 09:30")>'
+    endAt: '<e2eDate("+4 days 10:00")>'
+    timeZone: 'Europe/Paris'
+    reminders: [{ method: 'popup', minutes: 30 }]
+    status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
+    agenda: '@e2e_agenda_personal'
+
+  e2e_event_all_day:
+    summary: Anniversaire de Sacha
+    allDay: true
+    startAt: '<e2eDate("+9 days 00:00")>'
+    endAt: '<e2eDate("+10 days 00:00")>'
+    timeZone: 'Europe/Paris'
+    status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
+    agenda: '@e2e_agenda_shared'
+
+Maggie\Calendar\Entity\Task:
+  e2e_task_open:
+    title: Appeler le garage
+    description: Prendre rendez-vous pour la révision
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::High)>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Medium)>'
+    dueDate: '<e2eDate("+3 days 17:00")>'
+    user: '@e2e_user'
+
+  # Done, so "reopen a task" has something to reopen — the MAG-112 regression.
+  e2e_task_done:
+    title: Sortir les poubelles
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Low)>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Low)>'
+    dueDate: '<e2eDate("-1 day 20:00")>'
+    completedAt: '<e2eDate("-1 day 20:15")>'
+    user: '@e2e_user'
