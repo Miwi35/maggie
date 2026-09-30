@@ -244,14 +244,15 @@ final class MercureTopicContractTest extends WebTestCase
      */
     public function testTheMercureAndRestSpellingsOfTheSameFlagsAreBothPinned(): void
     {
-        $payloadKeys = [
-            \Maggie\Finance\Entity\Account::class => 'isCushion',
-            \Maggie\Calendar\Entity\Agenda::class => 'isDefault',
-            \Maggie\Finance\Entity\Transaction::class => 'isExceptional',
-            \Maggie\Finance\Entity\Category::class => 'parentId',
+        // entity => [the Mercure spelling, the REST spelling]
+        $divergences = [
+            \Maggie\Finance\Entity\Account::class => ['isCushion', 'cushion'],
+            \Maggie\Calendar\Entity\Agenda::class => ['isDefault', 'default'],
+            \Maggie\Finance\Entity\Transaction::class => ['isExceptional', 'exceptional'],
+            \Maggie\Finance\Entity\Category::class => ['parentId', 'parent'],
         ];
 
-        foreach ($payloadKeys as $entityClass => $key) {
+        foreach ($divergences as $entityClass => [$key, $restKey]) {
             // Bounded by the method's own lines. A substr from a strpos that
             // missed would search the whole file, where each of these keys
             // also appears in toSearchDocument() — the test would then report
@@ -270,7 +271,7 @@ final class MercureTopicContractTest extends WebTestCase
                 '%s no longer publishes "%s" over Mercure. The REST collection spells it "%s"; a client written against one and reading the other gets its own default, silently.',
                 $entityClass,
                 $key,
-                lcfirst(substr($key, 2)),
+                $restKey,
             ));
         }
 
