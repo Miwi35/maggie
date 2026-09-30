@@ -19,7 +19,7 @@ Carry out one `Task` ticket: work nobody can accept through the UI — docs, ref
    - **Tests** — each new test must fail when the behaviour it guards is broken.
    - **Docs, standards, commands** — check every path, command and name you write against the repo.
 4. **Do it**, following the surrounding code and structure.
-5. **Verify**: lint and tests of every touched component (`CLAUDE.md` › Commands, and its worktree note). The plan's `E2E` line is `N/A — task`.
+5. **Verify**: lint of every touched component and the targeted tests of the change — never the full suite, CI runs it (`CLAUDE.md` › Tests, and the worktree note). The plan's `E2E` line is `N/A — task`.
 6. **Review loop** (`CLAUDE.md` › Review loop).
 7. **Commit and PR** — the PR says what changed and how it was verified, then the Review section.
 8. **Report**: the final ticket comment (`CLAUDE.md` › Reporting). After merge the ticket goes to **Done**, not Recette.

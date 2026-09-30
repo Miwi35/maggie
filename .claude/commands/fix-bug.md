@@ -16,7 +16,7 @@ For tickets labelled `Bug`. Features go through `/shape-spec` then `/implement-s
 2. **Reproduce with a test, red first.** Write the smallest test at the lowest level that shows the bug: unit or API test first, the e2e journey only when the bug lives in the interaction. Run it and **see it fail for the reported reason**. Cannot reproduce after a real attempt → comment what you tried, add `needs-human`, stop.
 3. **Find the cause**, not the symptom: why does the code do this? If the same cause affects other places, fix them in the same PR and list them.
 4. **Fix minimally.** Follow the surrounding code; no unrelated cleanup, no new pattern. A fix that needs a schema change, a new endpoint or a design decision is no longer a bug fix: comment, `needs-human`, stop.
-5. **Verify**: the reproduction test passes; lint and tests of every touched component pass (`CLAUDE.md` › Commands, and its worktree note).
+5. **Verify**: the reproduction test passes; lint of every touched component and the targeted tests of the fix pass — never the full suite, CI runs it (`CLAUDE.md` › Tests, and the worktree note).
 6. **Review loop** (`CLAUDE.md` › Review loop). For a fix it usually ends in one round.
 7. **Commit and PR.** One commit: the subject says what now works, the body gives the cause. PR: link the ticket, *Cause* / *Fix* / *Test* in three short paragraphs, then the Review section.
 8. **Report**: the final ticket comment (`CLAUDE.md` › Reporting) — cause, fix, test, PR link.

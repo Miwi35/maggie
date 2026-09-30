@@ -20,10 +20,10 @@ user-invocable: false
 ## Multi-Component Shortcut
 
 ```
-task lint:all && task test:all
+task lint:all
 ```
 
-This runs API + Admin + Agent lint and tests (excludes mobile).
+This runs API + Admin + Agent lint (excludes mobile). **Tests: only the targeted ones** — the tests of what you changed (`task api:test -- --filter …`, one spec file, one pytest path). The full suites run in CI on every PR; never run them locally.
 
 **In a git worktree**, `task api:test` runs against the dev stack, which mounts the main
 checkout — it would test the wrong code. Use the worktree-local tasks:

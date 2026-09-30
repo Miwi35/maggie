@@ -127,7 +127,7 @@ pass. Do not start a second stack either; host ports collide. So:
 - Still write the tests. Skipping the *run* is a worktree limitation; skipping
   the *tests* is not allowed.
 
-Lint and tests of every touched component must pass before committing. A
+Lint of every touched component and the task's targeted tests (never the full suite: CI runs it) must pass before committing. A
 failure is yours to fix: do not commit red and do not move on. If the failure
 sits in code the task never touched and you cannot explain it, treat it as an
 ambiguity (Step 8).

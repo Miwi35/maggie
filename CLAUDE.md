@@ -67,7 +67,7 @@ To ask: reply in the ticket's agent thread with short questions, each as options
 Once the ticket is implemented and its tests pass, the session orchestrates a review until the reviewer accepts:
 
 1. Send the branch to a fresh `code-reviewer` subagent with the ticket, the spec folder and the base branch.
-2. `CHANGES_REQUIRED` → hand the blocking findings to a `fullstack-developer` subagent to fix (tests first when a test is missing), then re-run lint and tests.
+2. `CHANGES_REQUIRED` → hand the blocking findings to a `fullstack-developer` subagent to fix (tests first when a test is missing), then re-run lint and the targeted tests of what the fix touched.
 3. Resubmit to a new `code-reviewer` with the previous findings and the commit it reviewed: it checks **only the fixes** since then, not the whole branch again. Repeat until `ACCEPT`.
 4. Three rounds without `ACCEPT`: stop and ask (`needs-human`), listing what is left.
 
@@ -123,7 +123,7 @@ A ticket is **done** only when all five hold. Full rules, including what each ki
 4. **CI green on a PR** that links the ticket.
 5. **Module functional spec and user guide updated in Linear** (ADR-006).
 
-No user-facing behavior (standards, docs, infra, pure refactor)? Write `E2E: N/A — <reason>` in `plan.md`. An exemption that isn't written down is a missing test. Lint and tests of every touched component must pass before committing.
+No user-facing behavior (standards, docs, infra, pure refactor)? Write `E2E: N/A — <reason>` in `plan.md`. An exemption that isn't written down is a missing test. Before committing: lint of every touched component, and the **targeted tests** — those of the change and of the code it touches (a `--filter` or `--testsuite`, one spec file, one pytest path). **Never the full suite locally: CI runs it on every PR.**
 
 ## Commits
 
