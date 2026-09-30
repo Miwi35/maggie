@@ -115,10 +115,20 @@ agendas="$(curl -sS "${AUTH[@]}" -H 'Accept: application/ld+json' "$BASE_URL/api
 assert_eq 2 "$(printf '%s' "$agendas" | jq -r '.totalItems // (.member | length)')" \
   "both seeded agendas belong to the test user"
 
-# The anchor defaults to today at midnight UTC, so the lunch starts today.
+# The anchor the seed actually used, not today's date: CI seeds with an
+# explicit --now so the fixed WireMock dates line up, and a run that straddles
+# midnight UTC would drift anyway. The seed records it for exactly this.
+manifest="$REPO_ROOT/api/var/e2e/seed-manifest.json"
+if [ -f "$manifest" ]; then
+  anchor_date="$(jq -r '.anchor' "$manifest" | cut -c1-10)"
+else
+  fail "no seed manifest at $manifest — run 'task e2e:seed' first"
+  anchor_date=""
+fi
+
 lunch_date="$(printf '%s' "$events" | jq -r '[.member[] | select(.summary == "Déjeuner avec Alex")][0].startAt // empty' | cut -c1-10)"
-assert_eq "$(date -u +%Y-%m-%d)" "$lunch_date" \
-  "seeded dates are anchored, not hard-coded"
+assert_eq "$anchor_date" "$lunch_date" \
+  "seeded dates follow the seed's anchor, not the wall clock"
 
 accounts="$(curl -sS "${AUTH[@]}" -H 'Accept: application/ld+json' "$BASE_URL/api/accounts")"
 assert_contains "$accounts" 'Compte courant' "the seeded finance accounts are listed"
@@ -223,12 +233,27 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-step "8. Nothing left the Docker network"
+step "8. The Google redirect holds end to end"
 # ---------------------------------------------------------------------------
-# The stack has no route to Google or Microsoft in a journey; if a client ever
-# stopped honouring its base URL, this is where it would show.
-google_calls="$(printf '%s' "$requests" | jq -r '[.requests[]? | select(.request.url | startswith("/google"))] | length')"
-pass "Google calls seen by WireMock: ${google_calls:-0} (0 is expected here — the sync does not touch Google)"
+# Not just the unit test on ->rootUrl: drive a real Google Tasks pull and check
+# it landed on WireMock. If a client ever stopped honouring its base URL, an
+# e2e run would otherwise reach the real API and only fail on someone's quota.
+"${COMPOSE[@]}" exec -T wiremock sh -c 'curl -sS -X POST http://localhost:8080/__admin/requests/reset' >/dev/null
+
+google_output="$("${COMPOSE[@]}" exec -T php \
+  bin/console --env=e2e maggie:google-calendar:sync --tasks 2>&1 || true)"
+
+google_requests="$("${COMPOSE[@]}" exec -T wiremock sh -c 'curl -sS http://localhost:8080/__admin/requests')"
+google_calls="$(printf '%s' "$google_requests" | jq -r '[.requests[]? | select(.request.url | startswith("/google"))] | length')"
+
+if [ "${google_calls:-0}" -gt 0 ]; then
+  pass "the Google client reached WireMock ($google_calls calls), not googleapis.com"
+else
+  fail "no Google call reached WireMock — GOOGLE_API_BASE_URL is not honoured. Sync said: $(printf '%s' "$google_output" | tail -c 300)"
+fi
+
+google_unmatched="$("${COMPOSE[@]}" exec -T wiremock sh -c 'curl -sS http://localhost:8080/__admin/requests/unmatched' | jq -r '.requests | length')"
+assert_eq 0 "$google_unmatched" "every Google request the sync made had a stub"
 
 # ---------------------------------------------------------------------------
 printf '\n\033[1mSmoke journey: %d passed, %d failed\033[0m\n' "$passed" "$failed"

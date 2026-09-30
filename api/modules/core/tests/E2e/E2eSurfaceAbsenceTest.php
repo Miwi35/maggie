@@ -5,23 +5,31 @@ declare(strict_types=1);
 namespace Maggie\Core\Tests\E2e;
 
 use App\Kernel;
+use Maggie\Core\E2e\Command\E2eSeedCommand;
+use Maggie\Core\E2e\Controller\E2eLoginController;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Routing\RouteCollection;
 use Symfony\Component\Routing\RouterInterface;
 
 /**
- * MAG-94 asks for the test login's absence from production to be tested
+ * MAG-94 asks for the e2e-only surface's absence from production to be tested
  * explicitly, not asserted in prose. This is that test.
  *
- * It boots a real kernel per environment and asks its router, because the
- * router is what actually decides whether a request can reach the controller.
- * A test that merely checked a class annotation would still pass the day
- * someone adds the route to a config file.
+ * It boots a real kernel per environment and asks the router and the console
+ * application, because those are what actually decide whether anything can
+ * reach the code. A test that merely checked a class annotation would still
+ * pass the day someone adds the route to a config file.
+ *
+ * The seed command matters at least as much as the login: it issues
+ * `TRUNCATE TABLE <every table> RESTART IDENTITY CASCADE`, and it has no route
+ * to be absent from — only its service registration keeps it out.
  */
-final class E2eLoginRouteAbsenceTest extends TestCase
+final class E2eSurfaceAbsenceTest extends TestCase
 {
     private const ROUTE = 'auth_e2e_login';
+    private const COMMAND = 'app:e2e:seed';
 
     protected function setUp(): void
     {
@@ -63,6 +71,57 @@ final class E2eLoginRouteAbsenceTest extends TestCase
         self::assertNotNull($route, 'The e2e test login must be routable in the "e2e" environment.');
         self::assertSame('/api/auth/e2e/login', $route->getPath());
         self::assertSame(['POST'], $route->getMethods());
+    }
+
+    #[DataProvider('environmentsWithoutTheRoute')]
+    public function testSeedCommandIsNotRegisteredOutsideE2e(string $environment): void
+    {
+        $kernel = new Kernel($environment, $environment !== 'prod');
+        $kernel->boot();
+
+        $names = array_keys((new Application($kernel))->all());
+        $kernel->shutdown();
+
+        self::assertNotContains(
+            self::COMMAND,
+            $names,
+            sprintf('app:e2e:seed truncates every table; it must not exist in the "%s" environment.', $environment),
+        );
+    }
+
+    public function testSeedCommandIsRegisteredInE2e(): void
+    {
+        $kernel = new Kernel('e2e', true);
+        $kernel->boot();
+
+        $names = array_keys((new Application($kernel))->all());
+        $kernel->shutdown();
+
+        self::assertContains(self::COMMAND, $names);
+    }
+
+    #[DataProvider('environmentsWithoutTheRoute')]
+    public function testE2eServicesAreNotInTheContainerOutsideE2e(string $environment): void
+    {
+        // The services.yaml exclude is what keeps them out. Asserting on the
+        // container catches a future e2e-only class that has neither a route
+        // nor a command — the next thing added under src/E2e/.
+        $kernel = new Kernel($environment, $environment !== 'prod');
+        $kernel->boot();
+
+        $container = $kernel->getContainer();
+        $has = [
+            E2eLoginController::class => $container->has(E2eLoginController::class),
+            E2eSeedCommand::class => $container->has(E2eSeedCommand::class),
+        ];
+        $kernel->shutdown();
+
+        foreach ($has as $class => $registered) {
+            self::assertFalse(
+                $registered,
+                sprintf('%s must not be a service in the "%s" environment.', $class, $environment),
+            );
+        }
     }
 
     /** @return iterable<string, array{string}> */

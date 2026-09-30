@@ -35,7 +35,16 @@ stacks apart.
 
 `task api:test` runs `docker compose exec` against the **dev** stack, which
 mounts the main checkout — in a worktree it tests the wrong code. Use
-`task e2e:test:api`, which runs against the stack mounting *this* worktree.
+`task e2e:test:api`, which runs against the stack mounting *this* worktree. It
+creates the PHPUnit database first, since the e2e stack has never made one.
+
+One difference worth knowing: PHPUnit forces `APP_ENV=test`, but Symfony's
+Dotenv never overwrites a variable the environment already defines — so the
+container's `ELASTICSEARCH_URL`, `MERCURE_URL`, `MERCURE_JWT_SECRET` and
+`APP_SECRET` win over `api/.env.test`. Harmless today (the `test` environment
+uses the in-memory Mercure hub and an `in-memory://` async transport, and the
+`elasticsearch` group is excluded), but if you write a test that depends on one
+of those values, check it under both runners.
 
 The stack is safe to run beside the dev stack and beside another worktree's:
 
@@ -80,9 +89,12 @@ the Google callback, so no client takes an e2e-only branch.
 
 Guarded three times: the service exists only under `when@e2e`, the controller
 throws `NotFoundHttpException` outside `e2e`, and the token must match.
-`E2eLoginRouteAbsenceTest` asserts the route is absent from the `prod`, `dev`
-and `test` routers — **if you add anything else e2e-only to the HTTP surface,
-extend that test**.
+
+`E2eSurfaceAbsenceTest` boots the `prod`, `dev` and `test` kernels and asserts
+the route is not in the router, the seed command is not in the console
+application, and neither service is in the container. **Anything else you add
+under `src/E2e/` belongs in that test** — the seed command is there because it
+truncates every table and has no route to be absent from.
 
 ## Seeded data
 
@@ -101,6 +113,20 @@ midnight UTC. That is what lets a journey assert both "this week" and an exact
 value. A literal date in a fixture makes every "upcoming" query empty; a
 `+2 days` computed from `date()` makes the fixture pass on a Tuesday and fail
 across a month boundary.
+
+**What must not be anchored.** Anything the *production code* compares to the
+real clock: an OAuth token expiry, a bank consent validity, anything gating a
+`isExpired()` / `isUsable()` check. Anchored, a run with `--now` in the past
+makes them look expired — and the failure is indirect: Google's client library
+refreshes an "expired" token by calling `oauth2.googleapis.com` directly, an URL
+no base URL redirects, so the e2e stack silently reaches the real internet. Use
+a fixed far-future literal instead:
+
+```yaml
+googleTokenExpiresAt: '<(new \DateTimeImmutable("2099-01-01T00:00:00+00:00"))>'
+```
+
+Still deterministic — it is a constant — and it never expires.
 
 ULIDs carry a timestamp, so they differ between runs even with identical data.
 The seed writes `api/var/e2e/seed-manifest.json` mapping every Alice reference

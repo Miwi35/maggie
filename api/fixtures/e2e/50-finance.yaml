@@ -13,7 +13,10 @@ Maggie\Finance\Entity\BankConnection:
     country: 'FR'
     status: '<(Maggie\Finance\Enum\BankConnectionStatus::Active)>'
     sessionId: 'e2e-session-id'
-    consentExpiresAt: '<e2eDate("+80 days")>'
+    # NOT anchored: isUsable() compares this to the real clock, so a run with
+    # --now in the past would make the connection look expired and the sync
+    # would quietly do nothing.
+    consentExpiresAt: '<(new \DateTimeImmutable("2099-01-01T00:00:00+00:00"))>'
     user: '@e2e_user'
 
 Maggie\Finance\Entity\Account:

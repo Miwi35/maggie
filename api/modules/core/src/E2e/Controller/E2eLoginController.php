@@ -30,7 +30,7 @@ use Symfony\Component\Routing\Attribute\Route;
  * 3. the caller must present E2E_LOGIN_TOKEN, so a stack booted in `e2e` on a
  *    reachable host is not an open door to every account.
  *
- * Guarantee 1 is what E2eLoginRouteAbsenceTest asserts, per MAG-94.
+ * Guarantee 1 is what E2eSurfaceAbsenceTest asserts, per MAG-94.
  */
 final class E2eLoginController
 {

@@ -39,6 +39,10 @@ x-php-environment: &php-environment
   ADMIN_URL: ${E2E_BASE_URL:-http://localhost}/admin
   SERVICE_TOKEN: e2e-service-token
   E2E_LOGIN_TOKEN: ${E2E_LOGIN_TOKEN:-e2e-login-token}
+  # Their own directory, so the stack never picks up dev keys with a different
+  # passphrase. `task e2e:up` generates them.
+  JWT_SECRET_KEY: /var/www/api/config/jwt/e2e/private.pem
+  JWT_PUBLIC_KEY: /var/www/api/config/jwt/e2e/public.pem
   JWT_PASSPHRASE: e2e-jwt-passphrase
   # Google sign-in is replaced by the test login, so these are placeholders.
   GOOGLE_CLIENT_ID: e2e-google-client-id
@@ -73,8 +77,11 @@ services:
       # which Traefik terminates identically in dev and prod anyway.
       - "--entrypoints.web.address=:80"
     ports:
-      # No host side: Docker picks a free port. `task e2e:url` resolves it.
-      - "80"
+      # No host port chosen: Docker picks a free one, `task e2e:url` resolves
+      # it. Bound to the loopback, because E2E_LOGIN_TOKEN has a committed
+      # default — on 0.0.0.0 anyone on the same network could mint a JWT
+      # against a running stack.
+      - "127.0.0.1::80"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     labels:
@@ -315,7 +322,7 @@ services:
         GID: ${GID:-1000}
     volumes:
       - ./agent:/app:cached
-      - ./api/config/jwt/public.pem:/etc/jwt/public.pem:ro
+      - ./api/config/jwt/e2e/public.pem:/etc/jwt/public.pem:ro
     environment:
       # Still the real model until MAG-95 lands the fake LLM. Journeys that
       # talk to Maggie wait for that ticket; the rest of the stack does not.

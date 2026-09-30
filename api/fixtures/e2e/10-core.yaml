@@ -12,6 +12,20 @@ Maggie\Core\Entity\User:
         googleId: 'e2e-google-id'
         name: 'Camille Test'
         avatar: 'https://example.invalid/avatar.png'
+        # Placeholder Google credentials. They authenticate nothing — WireMock
+        # checks no signature — but without them the Google sync has no user to
+        # run for, and the smoke journey could not prove the redirect holds.
+        googleAccessToken: 'e2e-google-access-token'
+        googleRefreshToken: 'e2e-google-refresh-token'
+        # NOT anchored, deliberately. This date is compared against the real
+        # clock, not against the anchor: Google's client library refreshes an
+        # expired token by calling oauth2.googleapis.com directly, an URL no
+        # base URL redirects. Anchored, a run with --now in the past would let
+        # the e2e stack reach the real internet and fail on "invalid_client".
+        # Anything measured against wall-clock time belongs here, not in
+        # <e2eDate()>.
+        googleTokenExpiresAt: '<(new \DateTimeImmutable("2099-01-01T00:00:00+00:00"))>'
+        googleTaskListId: 'e2e-task-list'
 
 Maggie\Core\Entity\UserPreference:
     e2e_user_preference:

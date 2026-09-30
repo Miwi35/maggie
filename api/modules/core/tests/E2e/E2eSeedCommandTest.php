@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maggie\Core\Tests\E2e;
 
+use Doctrine\Common\DataFixtures\Purger\ORMPurger;
 use Doctrine\ORM\EntityManagerInterface;
 use Fidry\AliceDataFixtures\LoaderInterface;
 use Maggie\Calendar\Entity\Agenda;
@@ -48,6 +49,17 @@ final class E2eSeedCommandTest extends KernelTestCase
         $application->add($this->command());
 
         $this->tester = new CommandTester($application->find('app:e2e:seed'));
+    }
+
+    protected function tearDown(): void
+    {
+        // This class leaves the full 61-object e2e world in the shared test
+        // database. Any later class that does not purge first would silently
+        // depend on the order tests happen to run in.
+        (new ORMPurger($this->entityManager()))->purge();
+        $this->entityManager()->clear();
+
+        parent::tearDown();
     }
 
     public function testItLoadsTheWholeFixtureSet(): void

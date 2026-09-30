@@ -22,7 +22,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  * Behaviour of the e2e test login.
  *
  * The controller is deliberately absent from the `test` container — that
- * absence is the point of E2eLoginRouteAbsenceTest — so these cases build it
+ * absence is the point of E2eSurfaceAbsenceTest — so these cases build it
  * by hand from real collaborators pulled out of the container, and drive
  * `__invoke` directly. Everything asserted here is observable state: status
  * codes, the decoded JWT, rows in the database.

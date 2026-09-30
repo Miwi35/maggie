@@ -216,16 +216,17 @@ tasks:
 
   keys:jwt:
     internal: true
-    # Gitignored, so a fresh worktree has none and Lexik fails on the first
-    # token. The passphrase matches api/.env.e2e; these keys sign nothing
-    # outside the test stack.
+    # Their own directory, not api/config/jwt/: that one may already hold dev
+    # keys with a different passphrase, and Lexik would then fail to load them
+    # with an error nowhere near the cause. This is the last file the e2e stack
+    # would have shared with dev.
     status:
-      - test -f {{.ROOT_DIR}}/api/config/jwt/private.pem
-      - test -f {{.ROOT_DIR}}/api/config/jwt/public.pem
+      - test -f {{.ROOT_DIR}}/api/config/jwt/e2e/private.pem
+      - test -f {{.ROOT_DIR}}/api/config/jwt/e2e/public.pem
     cmds:
-      - mkdir -p {{.ROOT_DIR}}/api/config/jwt
-      - openssl genpkey -algorithm RSA -out {{.ROOT_DIR}}/api/config/jwt/private.pem -aes256 -pkeyopt rsa_keygen_bits:4096 -pass pass:e2e-jwt-passphrase
-      - openssl pkey -in {{.ROOT_DIR}}/api/config/jwt/private.pem -passin pass:e2e-jwt-passphrase -pubout -out {{.ROOT_DIR}}/api/config/jwt/public.pem
+      - mkdir -p {{.ROOT_DIR}}/api/config/jwt/e2e
+      - openssl genpkey -algorithm RSA -out {{.ROOT_DIR}}/api/config/jwt/e2e/private.pem -aes256 -pkeyopt rsa_keygen_bits:4096 -pass pass:e2e-jwt-passphrase
+      - openssl pkey -in {{.ROOT_DIR}}/api/config/jwt/e2e/private.pem -passin pass:e2e-jwt-passphrase -pubout -out {{.ROOT_DIR}}/api/config/jwt/e2e/public.pem
 
   keys:bank:
     internal: true
