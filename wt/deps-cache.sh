@@ -11,7 +11,7 @@
 #
 # Filling is atomic — install into a temp directory, then `mv` — so two agents
 # starting at once cannot read a half-written cache. `mv` on the same
-# filesystem is a rename; the loser of the race just discards its own copy.
+# filesystem is a rename; the loser of the race deletes its own copy.
 #
 # Usage:
 #   wt/deps-cache.sh api <php-image>   # prints the vendor directory
@@ -60,7 +60,7 @@ hash_of() {
     sha256sum "$1" | cut -c1-16
 }
 
-# prepare <component> <subdir> <key> <fill-command...>
+# prepare <component> <key> <fill-command...>
 #
 # Fills $CACHE_ROOT/<component>/<key> if missing, touches it, prints its path.
 prepare() {
@@ -85,11 +85,15 @@ prepare() {
     "$@" "$tmp"
 
     # Atomic against another agent doing the same thing: whoever renames first
-    # wins, the other finds the directory already there and drops its copy.
+    # wins, the other drops its copy. `mv -T` fails and leaves the source in
+    # place when the destination exists and is non-empty, so the loser has to
+    # delete its own tree — clearing TMP_IN_FLIGHT without that would hand the
+    # trap nothing to clean and leak a whole vendor copy.
     if mv -T "$tmp" "$dir" 2>/dev/null; then
         log "Cache filled: $dir"
     else
-        log "Another run filled $component/$key first — using theirs"
+        log "Another run filled $component/$key first — dropping our copy"
+        rm -rf "$tmp"
     fi
 
     TMP_IN_FLIGHT=""
@@ -149,13 +153,18 @@ prune() {
     for component in api admin; do
         [ -d "$CACHE_ROOT/$component" ] || continue
 
-        # Leftovers from a fill that died before the trap existed, or was
-        # killed outright. They are plain directories, so without this they
-        # would occupy keep slots ahead of real entries.
+        # Leftovers from a fill that was killed outright. They are plain
+        # directories, so without this they would occupy keep slots ahead of
+        # real entries.
+        #
+        # -mmin +60, not all of them: another agent's install may be running
+        # right now, and deleting its bind-mount source mid-run would fail it
+        # for a reason it could never explain. An hour is far longer than any
+        # install here takes.
         while IFS= read -r dir; do
             log "Removing partial fill $dir"
             rm -rf "$dir"
-        done < <(find "$CACHE_ROOT/$component" -mindepth 1 -maxdepth 1 -type d -name '.tmp-*')
+        done < <(find "$CACHE_ROOT/$component" -mindepth 1 -maxdepth 1 -type d -name '.tmp-*' -mmin +60)
 
         # Newest first, so the keep count is the most recently used ones.
         dirs=()

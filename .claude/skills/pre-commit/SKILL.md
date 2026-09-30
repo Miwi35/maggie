@@ -29,10 +29,11 @@ This runs API + Admin + Agent lint and tests (excludes mobile).
 checkout — it would test the wrong code. Use the worktree-local tasks:
 
 ```
-task wt:phpstan -- <changed files>    # ~3 s warm, one container
+task wt:phpstan -- <changed files>    # ~2 s warm, one container
 task wt:test:api                      # PHPUnit on a throwaway Postgres, ~30 s
 task wt:lint:admin && task wt:test:admin
 task wt:lint:agent && task wt:test:agent
+task wt:lint:ciqual && task wt:test:ciqual
 ```
 
 Minimal, one shot, no published port, and a load guard that refuses to start when the

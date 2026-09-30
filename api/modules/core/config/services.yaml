@@ -44,7 +44,7 @@ services:
 # The date provider alone, so PHPUnit can load the real e2e fixture files and
 # catch a typo in them before a journey does. Deliberately not the controller
 # or the command — the test login stays absent here, which is what
-# E2eLoginRouteAbsenceTest asserts.
+# E2eSurfaceAbsenceTest asserts.
 when@test:
     services:
         _defaults:

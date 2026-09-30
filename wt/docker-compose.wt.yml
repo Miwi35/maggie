@@ -29,7 +29,9 @@ services:
       - wt
 
   php:
-    image: maggie-wt-php:local
+    # Tag is per-worktree, passed by the Taskfile: a shared tag would let two
+    # worktrees with different Dockerfiles overwrite each other's image.
+    image: ${WT_PHP_IMAGE:?the Taskfile must pass the image tag}
     user: ${UID_GID:-1000:1000}
     volumes:
       - ../api:/var/www/api

@@ -295,7 +295,7 @@ fail if any of the three comes back.
 ## E2E journey
 
 This ticket *is* the harness, so its journey is the one that proves the harness works —
-`e2e/smoke/smoke.sh`, run by CI, transcribed into Playwright by MAG-97.
+`e2e/smoke/smoke.sh` — 31 checks, run by CI, transcribed into Playwright by MAG-97.
 
 **Given** a worktree with no stack running
 **When** `task e2e:up && task e2e:seed`
@@ -336,8 +336,8 @@ to run.
 
 ## Definition of Done
 
-- [x] Unit/integration tests — Task 3, 4, 5; 535 API tests and 135 agent tests green
-- [x] E2E journey — the smoke journey above, executable, 30/30, run by CI
+- [x] Unit/integration tests — Task 3, 4, 5, 10; 543 API tests and 135 agent tests green
+- [x] E2E journey — the smoke journey above, executable, 31/31, run by CI
 - [x] Bug fix reproduction test — the three bugs above were found *by* the smoke journey
       and the stack start, which are their regression tests
 - [ ] CI green on a PR linking MAG-94

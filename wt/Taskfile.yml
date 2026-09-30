@@ -27,11 +27,14 @@ version: '3'
 # install.
 
 vars:
-  PHP_IMAGE: 'maggie-wt-php:local'
+  PHP_IMAGE: 'maggie-wt-php:{{.WT_PROJECT}}'
   NODE_IMAGE: 'node:{{.NODE_VERSION | default "22"}}-alpine'
   GUARD: '{{.ROOT_DIR}}/wt/guard.sh'
   DEPS_CACHE: '{{.ROOT_DIR}}/wt/deps-cache.sh'
-  PROJECT:
+  # Named WT_PROJECT, not PROJECT: file-level vars collide across included
+  # Taskfiles, and e2e/Taskfile.yml defines a PROJECT of its own — which is
+  # what the image tag silently picked up before this.
+  WT_PROJECT:
     sh: |
       slug=$(basename "{{.ROOT_DIR}}" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed 's/-*$//')
       hash=$(printf '%s' "{{.ROOT_DIR}}" | sha1sum | cut -c1-8)
@@ -122,8 +125,9 @@ tasks:
       - task: :e2e:keys
       - |
         set -euo pipefail
-        export COMPOSE_PROJECT_NAME='{{.PROJECT}}'
+        export COMPOSE_PROJECT_NAME='{{.WT_PROJECT}}'
         export WT_VENDOR_DIR="$({{.DEPS_CACHE}} api {{.PHP_IMAGE}})"
+        export WT_PHP_IMAGE='{{.PHP_IMAGE}}'
         export WT_MEMORY='{{.WT_MEMORY}}'
         export WT_CPUS='{{.WT_CPUS}}'
         export UID_GID="$(id -u):$(id -g)"
@@ -227,9 +231,12 @@ tasks:
       - task: _uv
         vars:
           DIR: ciqual
-          # ciqual has no uv.lock — ci.yml installs it with `uv venv && uv
-          # pip install -e ".[dev]"`, so this does the same.
-          COMMAND: 'uv venv -q --allow-existing && uv pip install -q -e ".[dev]" && uv run ruff check app/ tests/ && uv run ruff format --check app/ tests/'
+          # ciqual has no lockfile — ci.yml installs it with `uv venv && uv
+          # pip install -e ".[dev]"`, so this does the same. The venv binaries
+          # are called directly rather than through `uv run`, which would
+          # write a uv.lock as a side effect: a command whose job is to check
+          # the code must not add a file to the tree.
+          COMMAND: 'uv venv -q --allow-existing && uv pip install -q -e ".[dev]" && .venv/bin/ruff check app/ tests/ && .venv/bin/ruff format --check app/ tests/'
 
   test:ciqual:
     desc: pytest on this worktree's ciqual code
@@ -238,7 +245,7 @@ tasks:
       - task: _uv
         vars:
           DIR: ciqual
-          COMMAND: 'uv venv -q --allow-existing && uv pip install -q -e ".[dev]" && uv run pytest -q {{.CLI_ARGS}}'
+          COMMAND: 'uv venv -q --allow-existing && uv pip install -q -e ".[dev]" && .venv/bin/pytest -q {{.CLI_ARGS}}'
 
   _uv:
     internal: true
