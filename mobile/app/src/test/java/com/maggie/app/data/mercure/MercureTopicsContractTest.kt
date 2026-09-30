@@ -71,20 +71,29 @@ class MercureTopicsContractTest {
      */
     @Test
     fun `no ViewModel builds an api topic by hand`() {
-        val offenders = sourceRoot().walkTopDown()
+        val subscriptions = sourceRoot().walkTopDown()
             .filter { it.isFile && it.extension == "kt" }
             .flatMap { file ->
-                Regex("""mercureService\.subscribe\(\s*"([^"]*)"""")
+                Regex("""mercureService\.subscribe\(([^)]*)\)""")
                     .findAll(file.readText())
-                    .map { file.name to it.groupValues[1] }
+                    .map { file.name to it.groupValues[1].trim() }
             }
-            .filter { (_, topic) -> topic.contains("/api/") }
             .toList()
+
+        // Without this the test passes on nothing the day subscribe() moves
+        // behind a helper, which is how the two dead subscriptions it was
+        // written for would come back.
+        assertTrue(
+            "Found no mercureService.subscribe call at all, so this test checked nothing.",
+            subscriptions.size >= 8,
+        )
+
+        val offenders = subscriptions.filter { (_, argument) -> argument.contains("/api/") }
 
         assertTrue(
             "These subscriptions build an API topic from a literal instead of going through MercureTopics, " +
                 "so nothing checks them against the API's contract:\n" +
-                offenders.joinToString("\n") { (file, topic) -> "  $file: \"$topic\"" },
+                offenders.joinToString("\n") { (file, argument) -> "  $file: $argument" },
             offenders.isEmpty(),
         )
     }

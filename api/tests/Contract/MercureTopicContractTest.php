@@ -231,6 +231,11 @@ final class MercureTopicContractTest extends WebTestCase
      * mobile DTOs had all three wrong — they read their own defaults, so the
      * "Matelas" badge never appeared and no agenda was ever marked default.
      *
+     * Category diverges further still and is pinned with them: REST sends
+     * `parent` as an IRI, Mercure sends `parentId` as a bare id, so the name
+     * and the shape both differ. Nothing subscribes to categories today,
+     * which is the only reason it has cost nothing.
+     *
      * The divergence is pinned rather than resolved: renaming either side
      * breaks clients written against it, and the two names are the contract
      * until somebody decides otherwise. What this test buys is that the
@@ -243,11 +248,23 @@ final class MercureTopicContractTest extends WebTestCase
             \Maggie\Finance\Entity\Account::class => 'isCushion',
             \Maggie\Calendar\Entity\Agenda::class => 'isDefault',
             \Maggie\Finance\Entity\Transaction::class => 'isExceptional',
+            \Maggie\Finance\Entity\Category::class => 'parentId',
         ];
 
         foreach ($payloadKeys as $entityClass => $key) {
-            $source = (string) file_get_contents((string) (new \ReflectionClass($entityClass))->getFileName());
-            $payload = substr($source, (int) strpos($source, 'function toMercurePayload'));
+            // Bounded by the method's own lines. A substr from a strpos that
+            // missed would search the whole file, where each of these keys
+            // also appears in toSearchDocument() — the test would then report
+            // the payload as pinned after the payload method was deleted.
+            $method = (new \ReflectionClass($entityClass))->getMethod('toMercurePayload');
+            $lines = file((string) $method->getFileName(), \FILE_IGNORE_NEW_LINES);
+            self::assertIsArray($lines);
+
+            $payload = implode("\n", \array_slice(
+                $lines,
+                $method->getStartLine() - 1,
+                $method->getEndLine() - $method->getStartLine() + 1,
+            ));
 
             self::assertStringContainsString(sprintf("'%s' =>", $key), $payload, sprintf(
                 '%s no longer publishes "%s" over Mercure. The REST collection spells it "%s"; a client written against one and reading the other gets its own default, silently.',
@@ -263,12 +280,14 @@ final class MercureTopicContractTest extends WebTestCase
             'responses/accounts.collection.json' => 'cushion',
             'responses/agendas.collection.json' => 'default',
             'responses/transactions.collection.json' => 'exceptional',
+            'responses/categories.collection.json' => 'parent',
         ] as $recording => $key) {
             $path = self::contractPath($recording);
 
-            if (!is_file($path)) {
-                continue;
-            }
+            self::assertFileExists($path, sprintf(
+                'The recording contract/%s is missing, so this pin checks nothing. Regenerate it: UPDATE_CONTRACT=1 task wt:test:api -- --testsuite Contract',
+                $recording,
+            ));
 
             $body = json_decode((string) file_get_contents($path), true, 512, \JSON_THROW_ON_ERROR);
             self::assertIsArray($body);

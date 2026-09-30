@@ -296,6 +296,18 @@ final class QueryParameterContractTest extends WebTestCase
      * row the filter must keep and a row it must drop, and asserts on which
      * rows came back rather than on how many.
      *
+     * Eleven of the twenty-four parameters in the contract get a case of
+     * their own: one per filter *kind* per resource — an exists, a date
+     * operator, a relation, a sort — rather than one per parameter. The
+     * remainder are the same kind on another field (`startAt[before]` beside
+     * `startAt[after]`, `order[name]` on four resources), and they rest on
+     * the three checks every parameter gets: declared, translated to
+     * Elasticsearch, and naming a field the index holds. Repeating the
+     * fixtures for each would grow a world nobody reads without testing a
+     * new way for a filter to be wrong. Written down rather than left
+     * implicit, because "which ones are covered" is the question a reader of
+     * this file will have.
+     *
      * @param list<string> $expected labels that must come back
      * @param list<string> $excluded labels that must not
      */

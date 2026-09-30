@@ -8,7 +8,7 @@ use ApiPlatform\Doctrine\Orm\Filter\AbstractFilter;
 use ApiPlatform\Doctrine\Orm\Util\QueryNameGeneratorInterface;
 use ApiPlatform\Metadata\Operation;
 use Doctrine\ORM\QueryBuilder;
-use Symfony\Component\Uid\Ulid;
+use Maggie\Core\Identifier\ResourceIdentifier;
 
 /**
  * Narrows a collection to one related entity, addressed by its IRI.
@@ -58,7 +58,7 @@ final class UlidRelationFilter extends AbstractFilter
         // filterProperty for parameters present in the request. So anything
         // that is not a ULID names nothing — an empty value, an array from
         // `?account[]=…`, a hand-typed id from a stale link.
-        $ulid = \is_string($value) ? self::identifierOf($value) : null;
+        $ulid = ResourceIdentifier::fromRequestValue($value);
 
         if ($ulid === null) {
             // A request that names nothing must come back with nothing.
@@ -100,18 +100,5 @@ final class UlidRelationFilter extends AbstractFilter
         }
 
         return $description;
-    }
-
-    /**
-     * "/api/accounts/01ARZ3NDEK…" or "01ARZ3NDEK…" → the Ulid; null when the
-     * value is not one.
-     */
-    private static function identifierOf(string $value): ?Ulid
-    {
-        $candidate = str_contains($value, '/')
-            ? substr($value, strrpos($value, '/') + 1)
-            : $value;
-
-        return Ulid::isValid($candidate) ? Ulid::fromString($candidate) : null;
     }
 }

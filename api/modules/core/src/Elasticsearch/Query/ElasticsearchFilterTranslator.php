@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Maggie\Core\Elasticsearch\Query;
 
+use Maggie\Core\Identifier\ResourceIdentifier;
+
 final class ElasticsearchFilterTranslator
 {
     /**
@@ -15,7 +17,7 @@ final class ElasticsearchFilterTranslator
      *                                                                               Sorting needs it — see sortField().
      * @param array<string, array{targetEntity: string, sourceField: string}> $relations The indexed relations, same
      *                                                                               source. Filtering on one needs
-     *                                                                               it — see termClause().
+     *                                                                               it — see relationClause().
      * @return array{must: array<int, array<string, mixed>>, filter: array<int, array<string, mixed>>, sort: array<int, array<string, string>>}
      */
     public function translate(array $filters, array $fields = [], array $relations = []): array
@@ -49,6 +51,18 @@ final class ElasticsearchFilterTranslator
                 continue;
             }
 
+            // A relation, before the generic branches below: it is the one
+            // parameter whose field name on the wire is not the field name in
+            // the index, and the one whose unusable values must not fall
+            // through to "no clause". `?account[]=…` is an array and
+            // `?account=` is empty; either would otherwise reach the end of
+            // this loop, produce nothing, and answer a request for one
+            // account with every account's rows.
+            if (isset($relations[$key])) {
+                $filter[] = self::relationClause($key, $value, $relations);
+                continue;
+            }
+
             // Nested array on a field name → date filter operators
             if (\is_array($value)) {
                 foreach ($value as $operator => $operand) {
@@ -61,7 +75,7 @@ final class ElasticsearchFilterTranslator
 
             // Search filter (exact)
             if (\is_string($value) && $value !== '') {
-                $filter[] = self::termClause($key, $value, $relations);
+                $filter[] = ['term' => [$key => $value]];
             }
         }
 
@@ -73,33 +87,37 @@ final class ElasticsearchFilterTranslator
     }
 
     /**
-     * An exact-match clause, taking the index's word for how the field is
-     * stored.
+     * The clause for a relation, resolving both halves of the mismatch the
+     * clients cannot see.
      *
-     * A relation is the case that bites. API Platform names the filter after
-     * the property — `account` — and accepts either an IRI or a bare
-     * identifier. Elasticsearch holds neither: IndexManager flattens the
-     * relation to its `sourceField`, `accountId`, holding the raw ULID. A
-     * term query on `account` therefore matches nothing, and a term query on
-     * the IRI matches nothing either. Both come back as an empty list with no
-     * error — worse than the unfiltered list that prompted this ticket, and
-     * just as quiet.
+     * The name: API Platform calls the filter after the property —
+     * `account` — while IndexManager flattens the relation to its
+     * `sourceField`, `accountId`. A term query on `account` names a field
+     * the mapping does not declare and matches nothing.
+     *
+     * The value: the clients send the IRI the provider handed them; the
+     * index holds the bare identifier.
+     *
+     * A value naming no resource gets a clause that matches nothing, never
+     * no clause at all. This is the same rule UlidRelationFilter applies on
+     * the Doctrine side, and it has to hold here too — in production this is
+     * the path that serves the collection, and Doctrine only takes over when
+     * Elasticsearch throws.
      *
      * @param array<string, array{targetEntity: string, sourceField: string}> $relations
      * @return array<string, mixed>
      */
-    private static function termClause(string $key, string $value, array $relations): array
+    private static function relationClause(string $key, mixed $value, array $relations): array
     {
-        if (!isset($relations[$key])) {
-            return ['term' => [$key => $value]];
+        $identifier = ResourceIdentifier::fromRequestValue($value);
+
+        if ($identifier === null) {
+            // An `ids` query with no value matches no document, whatever the
+            // mapping holds.
+            return ['ids' => ['values' => []]];
         }
 
-        // "/api/accounts/01H…" → "01H…". The clients send the IRI, because
-        // that is what the provider handed them (c359b43); the index holds
-        // the identifier.
-        $identifier = str_contains($value, '/') ? substr($value, strrpos($value, '/') + 1) : $value;
-
-        return ['term' => [$relations[$key]['sourceField'] => $identifier]];
+        return ['term' => [$relations[$key]['sourceField'] => (string) $identifier]];
     }
 
     /**

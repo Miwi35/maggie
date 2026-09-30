@@ -60,6 +60,11 @@ const TransactionDatagrid = () => {
  */
 export const AccountTransactionsView = () => {
   const { id } = useParams()
+  // The list below filters on `account` with this IRI, not on `accountId`.
+  // API Platform names a relation filter after the property, and `accountId`
+  // was declared nowhere: it narrowed the list only because the Elasticsearch
+  // translator turned any unrecognised string into a term query, and not at
+  // all once the collection fell back to Doctrine.
   const accountIri = `/api/accounts/${id}`
   const { data: account } = useGetOne('accounts', { id: accountIri })
   const accountName = (account?.name as string) ?? 'Compte'
@@ -79,7 +84,7 @@ export const AccountTransactionsView = () => {
       <Title title={`Opérations — ${accountName}`} />
       <List
         resource="transactions"
-        filter={{ accountId: id }}
+        filter={{ account: accountIri }}
         empty={
           <Placeholder
             title="Aucune opération sur ce compte"

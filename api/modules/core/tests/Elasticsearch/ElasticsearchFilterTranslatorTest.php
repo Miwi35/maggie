@@ -110,6 +110,47 @@ final class ElasticsearchFilterTranslatorTest extends TestCase
         self::assertSame([['term' => ['accountId' => '01ARZ3NDEKTSV4RRFFQ69G5FAV']]], $translated['filter']);
     }
 
+    /**
+     * The half that has to agree with UlidRelationFilter: a value naming no
+     * account produces a clause that matches nothing, not the absence of a
+     * clause. Elasticsearch serves this collection in production, so a miss
+     * here is one account's screen carrying another account's rows — which
+     * is exactly what the Doctrine-side test asserts cannot happen, on the
+     * path that never runs in the test environment.
+     */
+    public function testARelationFilterWithAnArrayValueMatchesNothing(): void
+    {
+        $translated = $this->translator->translate(
+            self::query('account[]=01ARZ3NDEKTSV4RRFFQ69G5FAV'),
+            [],
+            ['account' => ['targetEntity' => 'Account', 'sourceField' => 'accountId']],
+        );
+
+        self::assertSame([['ids' => ['values' => []]]], $translated['filter']);
+    }
+
+    public function testARelationFilterWithAnEmptyValueMatchesNothing(): void
+    {
+        $translated = $this->translator->translate(
+            self::query('account='),
+            [],
+            ['account' => ['targetEntity' => 'Account', 'sourceField' => 'accountId']],
+        );
+
+        self::assertSame([['ids' => ['values' => []]]], $translated['filter']);
+    }
+
+    public function testARelationFilterWithAnUnparseableValueMatchesNothing(): void
+    {
+        $translated = $this->translator->translate(
+            self::query('account=' . rawurlencode('/api/accounts/not-a-ulid')),
+            [],
+            ['account' => ['targetEntity' => 'Account', 'sourceField' => 'accountId']],
+        );
+
+        self::assertSame([['ids' => ['values' => []]]], $translated['filter']);
+    }
+
     public function testANonRelationTermFilterKeepsItsName(): void
     {
         $translated = $this->translator->translate(self::query('priority=high'));
