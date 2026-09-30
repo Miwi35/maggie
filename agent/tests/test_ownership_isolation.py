@@ -1,4 +1,5 @@
 import json
+from unittest.mock import AsyncMock, patch
 
 from app.db.instruction_model import Instruction
 from app.db.memory_model import Memory
@@ -108,3 +109,13 @@ class TestInstructionIsolation:
 
     def test_delete_route_requires_auth(self, client):
         assert client.delete("/instructions/whatever").status_code in (401, 403)
+
+    async def test_delete_publishes_mercure_only_for_the_owner(self, agent_db):
+        instruction_id = _seed_instruction(agent_db)
+
+        with patch("app.db.instruction_repository.instruction_repo.publisher.publish", new=AsyncMock()) as publish:
+            await _call("delete_instruction", {"instruction_id": instruction_id}, OTHER)
+            publish.assert_not_awaited()
+
+            await _call("delete_instruction", {"instruction_id": instruction_id}, OWNER)
+            publish.assert_awaited_once_with(f"/instructions/{OWNER}", {"id": instruction_id, "deleted": True})
