@@ -1,0 +1,62 @@
+name: Nightly
+
+# The whole suite, every night (MAG-96): CI and the mobile tests with no path
+# filter, so a regression that slipped past a filtered pull-request run, or a
+# flaky stack, shows up within a day. Nothing here is a required check.
+#
+# A failure opens an issue (or comments on the one already open): the owner is
+# notified, and a run that stays red for a week is one issue, not seven.
+#
+# The real-model eval has its own nightly (eval.yml) because it is billed.
+
+on:
+  schedule:
+    # 02:43 UTC: off the hour, and before eval.yml's 03:17.
+    - cron: '43 2 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+# What the called workflows ask for: the e2e stack pushes its images to GHCR.
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  mobile:
+    name: Mobile
+    uses: ./.github/workflows/mobile.yml
+
+  alert:
+    name: Alert on failure
+    needs: [ci, mobile]
+    if: always() && (needs.ci.result == 'failure' || needs.mobile.result == 'failure')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      CI_RESULT: ${{ needs.ci.result }}
+      MOBILE_RESULT: ${{ needs.mobile.result }}
+    steps:
+      - name: Open or update the nightly issue
+        run: |
+          gh label create nightly-failure --color B60205 --description "The nightly suite failed" 2>/dev/null || true
+
+          body="$(printf 'The nightly suite failed.\n\n- Run: %s\n- CI: %s, mobile: %s\n' "$RUN_URL" "$CI_RESULT" "$MOBILE_RESULT")"
+
+          open="$(gh issue list --label nightly-failure --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body "$body"
+          else
+            gh issue create --label nightly-failure --title "Nightly suite failed" --body "$body"
+          fi
