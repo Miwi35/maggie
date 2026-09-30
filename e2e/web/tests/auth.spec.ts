@@ -50,7 +50,7 @@ test('an expired token is refused and its credentials dropped', async ({ pageWit
   // e799109: `checkAuth` did not look at `exp`, so an expired session looked
   // alive until the first request failed. What must happen is the login
   // screen, and no expired token left in storage for the next page to reuse.
-  await login.expectShown()
+  await login.expectShown(3_000)
   await expect.poll(async () => (await login.storedCredentials()).token).toBeNull()
   await expect(page.getByTestId('page-content')).toHaveCount(0)
 })
@@ -64,7 +64,7 @@ test('a session the server refuses sends the user back to the login screen', asy
   // The regression (a163dcb) was a blank page: the 401 came back, nothing
   // caught it, and the app rendered nothing at all. What must happen instead
   // is the login screen, with the dead credentials dropped.
-  await login.expectShown()
+  await login.expectShown(3_000)
   await expect.poll(async () => (await login.storedCredentials()).token).toBeNull()
   await expect.poll(async () => (await login.storedCredentials()).user).toBeNull()
 })

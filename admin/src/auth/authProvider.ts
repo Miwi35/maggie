@@ -64,7 +64,7 @@ export const authProvider: AuthProvider = {
  *
  * Left to `requireAuth`, react-admin mounts its auth gate on the first route,
  * which logs out, clears the query cache, re-runs the failing auth check and
- * logs out again. That loop starves the router for 7 to 35 s, during which the
+ * logs out again. That loop starves the router for 7 to 25 s, during which the
  * page stays blank. Call this before the router reads the location.
  */
 export function routeVisitorWithoutSessionToLogin(): void {
