@@ -311,3 +311,22 @@ jobs:
       - name: Tear down
         if: always()
         run: task e2e:down
+
+  # The scripts the CD workflow runs on the VPS (MAG-106). They only execute
+  # after a merge, so a typo would otherwise surface as a failed deploy.
+  infra-scripts:
+    name: Infra scripts and workflows
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint workflows
+        run: |
+          docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:latest -color -ignore 'SC2129' .github/workflows/cd.yml .github/workflows/ci.yml
+      - name: Lint shell scripts
+        run: |
+          docker run --rm -v "$PWD":/mnt -w /mnt koalaman/shellcheck:stable -x --severity=warning \
+            infra/scripts/*.sh infra/scripts/tests/*.sh
+      - name: Test the smoke suite and the rollback
+        run: |
+          bash infra/scripts/tests/smoke-prod.test.sh
+          bash infra/scripts/tests/rollback-k3s.test.sh

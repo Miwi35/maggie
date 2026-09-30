@@ -211,6 +211,8 @@ jobs:
        needs.build-ciqual.result == 'success' ||
        needs.changes.outputs.infra == 'true')
     environment: production
+    outputs:
+      script_started: ${{ steps.mark.outputs.started }}
     permissions:
       contents: read
       packages: read
@@ -223,8 +225,15 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: "infra/k8s/,infra/scripts/deploy-k3s.sh"
+          source: "infra/k8s/,infra/scripts/deploy-k3s.sh,infra/scripts/rollback-k3s.sh"
           target: /opt/maggie/
+
+      # Lets the rollback job tell "the deploy script ran and failed" from "it
+      # never reached the cluster": in the second case the record it would find
+      # belongs to the previous, healthy deploy and must not be undone.
+      - name: Mark the deploy script as started
+        id: mark
+        run: echo "started=true" >> "$GITHUB_OUTPUT"
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
@@ -240,3 +249,122 @@ jobs:
             set -e
             chmod +x /opt/maggie/infra/scripts/deploy-k3s.sh
             /opt/maggie/infra/scripts/deploy-k3s.sh "$IMAGE_TAG"
+
+  # ===========================================================================
+  # Smoke tests on production (MAG-106)
+  #
+  # Read-only, as a technical account. Covers what CI cannot see: production
+  # config, image digests, a stale index. A failure rolls the deploy back.
+  # ===========================================================================
+  smoke:
+    name: Smoke test production
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: needs.deploy.result == 'success'
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure SSH to the VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/vps_key
+          chmod 600 ~/.ssh/vps_key
+          printf 'Host vps\n  HostName %s\n  User %s\n  IdentityFile ~/.ssh/vps_key\n  StrictHostKeyChecking accept-new\n  BatchMode yes\n' \
+            "$VPS_HOST" "$VPS_USER" > ~/.ssh/config
+
+      # Google sign-in cannot be driven from CI, so the php pod mints a JWT for
+      # the technical account. The runner's logs are public: the token is masked
+      # before it is stored and never echoed.
+      - name: Get a token for the technical account
+        run: |
+          token=$(ssh vps 'sudo k3s kubectl exec deployment/php -n maggie -- bin/console app:smoke:token --no-interaction')
+          if ! printf '%s' "$token" | grep -qE '^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$'; then
+            echo "::error::app:smoke:token did not print a JWT"
+            exit 1
+          fi
+          echo "::add-mask::$token"
+          echo "SMOKE_TOKEN=$token" >> "$GITHUB_ENV"
+
+      - name: Run the smoke suite
+        env:
+          BASE_URL: https://maggieai.fr
+          ES_CHECK_CMD: ssh vps 'sudo k3s kubectl exec deployment/php -n maggie -- bin/console app:elasticsearch:status --check --no-interaction'
+        run: infra/scripts/smoke-prod.sh
+
+      # A green release needs no rollback record. Left behind, it would let a
+      # later deploy that dies before reaching the cluster (SSH down) undo this
+      # healthy one.
+      - name: Drop the rollback record
+        run: ssh vps 'rm -f /opt/maggie/state/pre-deploy-revisions' || echo "::warning::could not drop the rollback record"
+
+  # ===========================================================================
+  # Roll back, then alert, when the deploy or the smoke suite failed
+  # ===========================================================================
+  rollback:
+    name: Roll back production
+    runs-on: ubuntu-latest
+    needs: [deploy, smoke]
+    if: always() && (needs.deploy.result == 'failure' || needs.smoke.result == 'failure')
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Configure SSH to the VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/vps_key
+          chmod 600 ~/.ssh/vps_key
+          printf 'Host vps\n  HostName %s\n  User %s\n  IdentityFile ~/.ssh/vps_key\n  StrictHostKeyChecking accept-new\n  BatchMode yes\n' \
+            "$VPS_HOST" "$VPS_USER" > ~/.ssh/config
+
+      # Restores only the deployments this deploy moved, to the revision
+      # deploy-k3s.sh recorded. Nothing recorded means nothing was applied.
+      - name: Roll back with kubectl rollout undo
+        id: rollback
+        if: needs.deploy.outputs.script_started == 'true' || needs.smoke.result == 'failure'
+        run: ssh vps bash /opt/maggie/infra/scripts/rollback-k3s.sh
+
+      - name: Open an incident issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          SMOKE_RESULT: ${{ needs.smoke.result }}
+          ROLLBACK_OUTCOME: ${{ steps.rollback.outcome }}
+          SCRIPT_STARTED: ${{ needs.deploy.outputs.script_started }}
+        run: |
+          gh label create incident --color B60205 --description "Production incident" 2>/dev/null || true
+
+          if [ "$DEPLOY_RESULT" = "failure" ]; then
+            cause="the deploy itself failed"
+          else
+            cause="the post-deploy smoke suite failed"
+          fi
+
+          if [ "$ROLLBACK_OUTCOME" = "success" ]; then
+            state="Production was rolled back to the previous release."
+          elif [ "$ROLLBACK_OUTCOME" = "skipped" ] && [ "$SCRIPT_STARTED" != "true" ] && [ "$SMOKE_RESULT" != "failure" ]; then
+            state="The deploy failed before its script started: the cluster was not touched, nothing to roll back."
+          else
+            state="**The rollback itself failed: production may be running the broken release. Act now.**"
+          fi
+
+          gh issue create \
+            --title "Production: ${cause} for ${SHA:0:7}" \
+            --label incident \
+            --body "$(printf '%s\n\n- Commit: %s\n- Run: %s\n- Deploy: %s, smoke: %s\n\nMigrations, Elasticsearch mappings, the ConfigMap and the Secret are not reverted by the rollback; the pre-deploy database dump is in /opt/maggie/backups on the VPS.\n' \
+              "$state" "$SHA" "$RUN_URL" "$DEPLOY_RESULT" "$SMOKE_RESULT")"
