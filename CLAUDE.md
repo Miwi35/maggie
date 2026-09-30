@@ -87,7 +87,7 @@ Symfony console: `task api:console -- <args>`.
 
 **Before every push**: run the formatters in write mode, then the linters — `task agent:format` + `task agent:lint:fix`, `task ciqual:format` + `task ciqual:lint:fix`, then `task lint:all`; and **PHPStan on every PHP file you changed** — none may introduce a violation: `task api:phpstan -- $(git diff --name-only origin/main...HEAD -- 'api/*.php' | sed 's#^api/##')`. API PHP-CS-Fixer and a worktree-safe `task fix:all` come with MAG-133.
 
-**In a git worktree** (parallel agents): every `task` command runs `docker compose exec` against the dev stack, which mounts the main checkout, not your worktree — tests and linters would check the wrong code, and **formatters would rewrite the owner's working copy: never run them from a worktree**. Do not start a second stack either (host ports collide). Until the per-worktree stack (MAG-94) lands, push and let CI verify — and read its failures (see Reporting).
+**In a git worktree** (parallel agents): every `task` command runs `docker compose exec` against the dev stack, which mounts the main checkout, not your worktree — tests and linters would check the wrong code, and **formatters would rewrite the owner's working copy: never run them from a worktree**. A worktree may instead start a **minimal, one-shot stack** of its own: only the services the command needs, no fixed host port, `run --rm` / `down -v` even on failure, resources released as soon as the command ends — and only after the load guard passes (enough free RAM, load under the core count; otherwise wait, then fall back to CI). The `task wt:*` tasks come with MAG-94; until then, push and let CI verify — and read its failures (see Reporting).
 
 ## Tests — every change
 
