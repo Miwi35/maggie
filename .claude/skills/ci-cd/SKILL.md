@@ -56,8 +56,20 @@ After **deploy**, the **smoke** job runs `infra/scripts/smoke-prod.sh` on produc
 
 ## Mobile CI (`.github/workflows/mobile.yml`)
 
-Separate pipeline — triggered by `mobile/**` changes only.
-Command: `./gradlew :app:testDebugUnitTest`
+Separate pipeline — triggered by `mobile/**` and `api/contract/**` changes (and the nightly run).
+Command: `./gradlew :app:testProdReleaseUnitTest` (the variant that ships)
+
+## Nightly (`.github/workflows/nightly.yml`)
+
+Calls `ci.yml` and `mobile.yml` with no path filter; a failure opens a `nightly-failure` issue.
+
+## Digest assertion (MAG-96)
+
+`infra/scripts/verify-digests.sh` runs first in the CD smoke job: every pod must run the digest just built, or the pre-deploy one for a service not rebuilt.
+
+## Required checks
+
+A new job in `ci.yml` must be added to the required checks of `main` in the same delivery.
 
 ## GitHub Actions Secrets
 

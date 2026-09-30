@@ -19,10 +19,12 @@ on:
       - 'mobile/**'
       - 'api/contract/**'
       - '.github/workflows/mobile.yml'
+  # The nightly run (MAG-96) calls this workflow, paths or not.
+  workflow_call:
 
 jobs:
   test:
-    name: Mobile Unit Tests
+    name: Mobile Unit Tests (release)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -34,4 +36,6 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
-      - run: ./gradlew :app:testDevDebugUnitTest -Dorg.gradle.java.home=$JAVA_HOME
+      # The variant that ships, not the dev debug one: three CI fixes came from
+      # the gap between what was tested and what was delivered (MAG-96).
+      - run: ./gradlew :app:testProdReleaseUnitTest -Dorg.gradle.java.home="$JAVA_HOME"

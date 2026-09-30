@@ -28,6 +28,7 @@ KUBECTL="${KUBECTL:-sudo k3s kubectl}"
 HEALTH_URL="https://maggieai.fr/api/docs"
 STATE_DIR="${MAGGIE_STATE_DIR:-/opt/maggie/state}"
 REVISIONS_FILE="$STATE_DIR/pre-deploy-revisions"
+DIGESTS_FILE="$STATE_DIR/pre-deploy-digests"
 
 # GHCR images managed by Kustomize
 IMAGES=(
@@ -48,7 +49,7 @@ fail() { echo "FATAL: $*" >&2; exit 1; }
 # if this run dies before writing its own, rolling back with it would undo a
 # deploy that was fine. No record means nothing to roll back.
 mkdir -p "$STATE_DIR"
-rm -f "$REVISIONS_FILE"
+rm -f "$REVISIONS_FILE" "$DIGESTS_FILE"
 
 # === PHASE 1 : PREFLIGHT ===
 log "Phase 1: Preflight checks..."
@@ -145,6 +146,17 @@ set_image_field() {
   local image="$1" field="$2" value="$3"
   sed -i "/name: ${image//\//\\/}$/{n;s#^\([[:space:]]*\)[A-Za-z]*:.*#\1${field}: ${value}#;}" "$KUSTOMIZE_DIR/kustomization.yaml"
 }
+
+# What each image runs before anything changes: verify-digests.sh holds every
+# service not rebuilt by this deploy to it.
+: > "$DIGESTS_FILE.tmp"
+for image in "${IMAGES[@]}"; do
+  before=$(running_digest "$image")
+  if [ -n "$before" ]; then
+    echo "$image $before" >> "$DIGESTS_FILE.tmp"
+  fi
+done
+mv "$DIGESTS_FILE.tmp" "$DIGESTS_FILE"
 
 for image in "${IMAGES[@]}"; do
   if image_tag_exists "$image" "$TAG"; then

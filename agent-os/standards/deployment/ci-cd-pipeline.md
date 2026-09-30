@@ -94,11 +94,11 @@ docker/build-push-action:
 **Environment:** `production` (requires GitHub approval)
 
 **Steps (SSH to VPS):**
-1. `scp` `infra/k8s/`, `infra/scripts/deploy-k3s.sh` and `infra/scripts/rollback-k3s.sh` to `/opt/maggie/`
+1. `scp` `infra/k8s/`, `infra/scripts/deploy-k3s.sh`, `rollback-k3s.sh` and `verify-digests.sh` to `/opt/maggie/`
 2. Run `deploy-k3s.sh <github.sha>`, which does:
    1. **Preflight** — kubectl reachable, shared `postgres`/`elasticsearch`/`rabbitmq` ready in the `shared` namespace
    2. **Backup** — `pg_dump | gzip` into `/opt/maggie/backups`, keeping the last 10 (a failed or empty dump aborts the deploy)
-   3. **Apply** — record the current revision of every deployment (`/opt/maggie/state/pre-deploy-revisions`), bump the image tags in `kustomization.yaml` (only for images actually published for that SHA), then `kubectl apply -k`
+   3. **Apply** — record the current revision of every deployment (`/opt/maggie/state/pre-deploy-revisions`) and the digest every image runs (`pre-deploy-digests`), bump the image tags in `kustomization.yaml` (only for images actually published for that SHA), then `kubectl apply -k`
    4. **Wait** — `rollout status` on php, nginx, worker, cron, agent, ciqual, mercure
    5. **Post-deploy** — migrations, `cache:clear`, Elasticsearch mapping update and reindex
    6. **Verify** — pod list plus an HTTP check on `https://maggieai.fr/api/docs`
@@ -107,6 +107,7 @@ docker/build-push-action:
 
 **Requires:** deploy succeeded. Read-only, as the technical account `smoke@maggieai.fr`.
 
+0. **Digest assertion (MAG-96)**, first: `infra/scripts/verify-digests.sh` checks that every pod of php, worker, cron, nginx, agent and ciqual runs the digest the build job pushed in this run — or, for a service this run did not rebuild, the digest it ran before the deploy (`pre-deploy-digests`). A service on a stale tag fails the smoke job, hence the rollback. A green rollout is not enough: eleven past fixes were one stale-tag redeploy. Expected digests come from the build jobs' `digest` output; the build jobs are therefore `needs` of the smoke job.
 1. SSH to the VPS, `bin/console app:smoke:token` in the php pod prints a JWT (account created on first use; token masked in the public log).
 2. `infra/scripts/smoke-prod.sh` checks: public URLs (`/`, `/admin` with and without trailing slash, no `http://` redirect), API, agent and Mercure health (+ Mercure CORS), `/_mcp` `tools/list`, `app:elasticsearch:status --check`, and one question to Maggie that must call a tool.
 3. On success the smoke job deletes the rollback record, so a later deploy that never reaches the cluster cannot undo this healthy release.
@@ -133,15 +134,27 @@ Its own chat history is the only thing it writes. Unit tests of the scripts: `in
 
 ## Mobile CI (`.github/workflows/mobile.yml`)
 
-**Trigger:** Push/PR with changes to `mobile/**`
+**Trigger:** Push/PR with changes to `mobile/**` or `api/contract/**`, and the nightly run.
 
-**Job:** Mobile Unit Tests
+**Job:** Mobile Unit Tests (release)
 - Runtime: Java 17 (Temurin), Gradle
-- Command: `./gradlew :app:testDebugUnitTest`
+- Command: `./gradlew :app:testProdReleaseUnitTest` — the variant that ships (three CI fixes came from testing `devDebug` while delivering `prodRelease`)
 
-> Mobile is tested separately — not part of the main CI/CD pipeline.
+> Path-filtered, so it cannot be a required check (a skipped workflow never reports). The Maestro job on an emulator comes with MAG-98.
 
 ---
+
+## Nightly (`.github/workflows/nightly.yml`, MAG-96)
+
+**Trigger:** 02:43 UTC every day, and on demand. Calls `ci.yml` (every job, path filters bypassed) and `mobile.yml`. A failure opens an issue labelled `nightly-failure`, or comments on the one already open. The real-model eval has its own nightly, `eval.yml`.
+
+---
+
+## Branch protection on `main`
+
+Required checks are the job names of `ci.yml`: Detect changes, API Lint (PHPStan), API Tests (PHPUnit), Agent Lint (Ruff), Agent Tests (pytest), Ciqual Lint (Ruff), Ciqual Tests (pytest), Admin Lint (ESLint + TypeScript), Admin Tests (Vitest), E2E Stack (smoke journey), Infra scripts and workflows. The Playwright journeys run inside `E2E Stack (smoke journey)`, traces and videos kept as the `playwright-report-<run>` artifact on failure.
+
+**Rule:** a new job in `ci.yml` is added to the required checks in the same delivery (Settings → Branches → `main`), or auto-merge does not wait for it. Settings need repo admin: an agent token cannot change them.
 
 ## GitHub Actions Secrets
 
