@@ -23,17 +23,7 @@ export class LoginPage {
     await this.page.goto('/admin/#/login')
   }
 
-  /**
-   * The timeout is deliberate and should shrink.
-   *
-   * A signed-in dashboard renders in under a second, but a visitor with no
-   * session — or a dead one — waits between 7 and 25 seconds on a blank page
-   * before this screen appears: react-admin retries the rejected `checkAuth`
-   * with exponential backoff, and nothing is rendered in the meantime. That is
-   * the same family as a163dcb and is filed as MAG-140; the journeys assert
-   * the behaviour today and the budget comes down to 5s once it is fixed.
-   */
-  async expectShown(timeout = 35_000): Promise<void> {
+  async expectShown(timeout = 5_000): Promise<void> {
     await expect(this.prompt).toBeVisible({ timeout })
     await expect(this.googleButton).toBeVisible()
   }

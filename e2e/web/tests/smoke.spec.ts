@@ -62,5 +62,6 @@ test('an anonymous visitor gets the login screen, not a blank page @responsive',
   const login = new LoginPage(anonymousPage)
   await anonymousPage.goto(adminUrl(ROUTES.dashboard))
 
-  await login.expectShown()
+  // MAG-140: this used to take 7 to 25 seconds, on a blank page.
+  await login.expectShown(3_000)
 })
