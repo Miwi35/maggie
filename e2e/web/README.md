@@ -106,9 +106,10 @@ Worth knowing, because each was invisible to every test that existed before:
 - `ChatWidget` called `new URL()` on a Mercure URL that is relative in
   production — b16916d again, in a second place. Fixed here, with a unit test
   that loads the module with the production value.
-- A logged-out visitor waits 7–25 seconds on a blank page before the login
-  screen appears (MAG-140). `LoginPage.expectShown` carries a timeout that
-  comes down when it is fixed.
+- A logged-out visitor waited 7–25 seconds on a blank page before the login
+  screen appeared (MAG-140: a livelock in react-admin's `requireAuth` gate, not
+  the query retries). Fixed; `LoginPage.expectShown` now allows 5 seconds and
+  the smoke journey holds an anonymous visitor to 3.
 - Updates were published without `private: true`, so a user holding their own
   valid token received another user's updates by subscribing to their topic.
   Fixed by MAG-139 while this branch was in review; `tests/mercure.spec.ts` is
