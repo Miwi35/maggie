@@ -9,12 +9,16 @@ final class ElasticsearchFilterTranslator
     /**
      * Translates API Platform request filters to ES query clauses.
      *
-     * @param array<string, mixed>               $filters Request query parameters
-     * @param array<string, array<string, mixed>> $fields  The index mapping, as IndexMetadataReader returns it.
-     *                                                     Only sorting needs it — see sortField().
+     * @param array<string, mixed>                                        $filters   Request query parameters
+     * @param array<string, array<string, mixed>>                         $fields    The index mapping, as
+     *                                                                               IndexMetadataReader returns it.
+     *                                                                               Sorting needs it — see sortField().
+     * @param array<string, array{targetEntity: string, sourceField: string}> $relations The indexed relations, same
+     *                                                                               source. Filtering on one needs
+     *                                                                               it — see termClause().
      * @return array{must: array<int, array<string, mixed>>, filter: array<int, array<string, mixed>>, sort: array<int, array<string, string>>}
      */
-    public function translate(array $filters, array $fields = []): array
+    public function translate(array $filters, array $fields = [], array $relations = []): array
     {
         $must = [];
         $filter = [];
@@ -57,7 +61,7 @@ final class ElasticsearchFilterTranslator
 
             // Search filter (exact)
             if (\is_string($value) && $value !== '') {
-                $filter[] = ['term' => [$key => $value]];
+                $filter[] = self::termClause($key, $value, $relations);
             }
         }
 
@@ -66,6 +70,36 @@ final class ElasticsearchFilterTranslator
             'filter' => $filter,
             'sort' => $sort,
         ];
+    }
+
+    /**
+     * An exact-match clause, taking the index's word for how the field is
+     * stored.
+     *
+     * A relation is the case that bites. API Platform names the filter after
+     * the property — `account` — and accepts either an IRI or a bare
+     * identifier. Elasticsearch holds neither: IndexManager flattens the
+     * relation to its `sourceField`, `accountId`, holding the raw ULID. A
+     * term query on `account` therefore matches nothing, and a term query on
+     * the IRI matches nothing either. Both come back as an empty list with no
+     * error — worse than the unfiltered list that prompted this ticket, and
+     * just as quiet.
+     *
+     * @param array<string, array{targetEntity: string, sourceField: string}> $relations
+     * @return array<string, mixed>
+     */
+    private static function termClause(string $key, string $value, array $relations): array
+    {
+        if (!isset($relations[$key])) {
+            return ['term' => [$key => $value]];
+        }
+
+        // "/api/accounts/01H…" → "01H…". The clients send the IRI, because
+        // that is what the provider handed them (c359b43); the index holds
+        // the identifier.
+        $identifier = str_contains($value, '/') ? substr($value, strrpos($value, '/') + 1) : $value;
+
+        return ['term' => [$relations[$key]['sourceField'] => $identifier]];
     }
 
     /**

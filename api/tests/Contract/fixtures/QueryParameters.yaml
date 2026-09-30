@@ -1,0 +1,97 @@
+# A world where every filter the clients send has something to exclude.
+#
+# Each collection holds at least one row the filter must keep and one it must
+# drop, so "the filter narrowed the list" cannot be satisfied by an empty
+# table or by a filter that drops everything.
+
+Maggie\Core\Entity\User:
+  filter_user:
+    email: query-parameters@example.com
+    googleId: google-query-parameters
+    name: Query Parameter User
+
+Maggie\Calendar\Entity\Agenda:
+  filter_agenda:
+    name: Agenda A
+    isDefault: true
+    user: '@filter_user'
+
+  filter_other_agenda:
+    name: Agenda B
+    user: '@filter_user'
+
+Maggie\Calendar\Entity\Event:
+  filter_plain_event:
+    summary: A one-off event, early
+    startAt: '<(new \DateTimeImmutable("2026-03-10 09:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-03-10 10:00"))>'
+    agenda: '@filter_agenda'
+
+  filter_recurring_event:
+    summary: A recurring event, late
+    startAt: '<(new \DateTimeImmutable("2026-05-20 09:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-05-20 10:00"))>'
+    rrule: 'FREQ=WEEKLY;BYDAY=MO'
+    agenda: '@filter_agenda'
+
+Maggie\Calendar\Entity\Task:
+  filter_open_dated_task:
+    title: Open, due in March
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Low)>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Low)>'
+    dueDate: '<(new \DateTimeImmutable("2026-03-20 10:00"))>'
+    user: '@filter_user'
+
+  filter_open_undated_task:
+    title: Open, no due date
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::High)>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::High)>'
+    user: '@filter_user'
+
+  filter_done_task:
+    title: Completed
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Low)>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Low)>'
+    dueDate: '<(new \DateTimeImmutable("2026-06-01 10:00"))>'
+    completedAt: '<(new \DateTimeImmutable("2026-03-19 10:00"))>'
+    user: '@filter_user'
+
+Maggie\Notification\Entity\Notification:
+  filter_unread_notification:
+    user: '@filter_user'
+    type: '<(Maggie\Notification\Enum\NotificationType::Reminder)>'
+    title: Unread
+
+  filter_read_notification:
+    user: '@filter_user'
+    type: '<(Maggie\Notification\Enum\NotificationType::Reminder)>'
+    title: Read
+    readAt: '<(new \DateTimeImmutable("2026-03-18 09:00"))>'
+
+Maggie\Finance\Entity\Account:
+  filter_account:
+    name: Account A
+    currency: EUR
+    user: '@filter_user'
+
+  filter_other_account:
+    name: Account B
+    currency: EUR
+    user: '@filter_user'
+
+Maggie\Finance\Entity\Transaction:
+  filter_transaction_a:
+    account: '@filter_account'
+    amountCents: -1000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-03-01"))>'
+    label: On account A
+    user: '@filter_user'
+
+  filter_transaction_b:
+    account: '@filter_other_account'
+    amountCents: -2000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-03-02"))>'
+    label: On account B
+    user: '@filter_user'

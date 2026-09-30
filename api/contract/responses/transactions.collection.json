@@ -23,7 +23,7 @@
     ],
     "search": {
         "@type": "IriTemplate",
-        "template": "/api/transactions{?order[bookedAt],account,account[]}",
+        "template": "/api/transactions{?order[bookedAt],account}",
         "variableRepresentation": "BasicRepresentation",
         "mapping": [
             {
@@ -35,12 +35,6 @@
             {
                 "@type": "IriTemplateMapping",
                 "variable": "account",
-                "property": "account",
-                "required": false
-            },
-            {
-                "@type": "IriTemplateMapping",
-                "variable": "account[]",
                 "property": "account",
                 "required": false
             }

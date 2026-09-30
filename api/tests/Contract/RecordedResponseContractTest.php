@@ -27,6 +27,13 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
  * changes in the same commit and the Kotlin test fails there and then,
  * without a stack, an emulator or a network.
  *
+ * One limit, worth knowing before trusting a recording: the suite runs with
+ * no Elasticsearch, so ElasticsearchCollectionProvider takes its `test`
+ * short-circuit and every collection here is the Doctrine serialisation. The
+ * two paths hydrate the same entities through the same serializer, so the
+ * field names these tests are about are the same — but a difference that
+ * lived only in the Elasticsearch hydrator would not show up here.
+ *
  * Regenerate with UPDATE_CONTRACT=1 — see ContractSnapshotTrait.
  */
 final class RecordedResponseContractTest extends WebTestCase

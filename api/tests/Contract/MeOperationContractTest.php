@@ -86,7 +86,16 @@ final class MeOperationContractTest extends WebTestCase
 
                     $uriTemplate = $operation->getUriTemplate();
 
-                    if ($uriTemplate === null || str_contains($uriTemplate, '{id}')) {
+                    // Any variable segment counts as an identifier, not only
+                    // one spelled {id}: API Platform lets an operation name
+                    // its own, and flagging {ulid} as identifier-less would
+                    // be a false positive somebody has to argue with.
+                    // {._format} is the format suffix every template carries.
+                    if ($uriTemplate === null) {
+                        continue;
+                    }
+
+                    if (preg_match('/\{(?!\._format)[^}]+}/', $uriTemplate) === 1) {
                         continue;
                     }
 

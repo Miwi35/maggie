@@ -7021,29 +7021,15 @@
                     {
                         "name": "account",
                         "in": "query",
-                        "description": "",
+                        "description": "Restrict to one account, given as its IRI.",
                         "required": false,
                         "deprecated": false,
                         "schema": {
                             "type": "string"
                         },
                         "style": "form",
-                        "explode": false
-                    },
-                    {
-                        "name": "account[]",
-                        "in": "query",
-                        "description": "",
-                        "required": false,
-                        "deprecated": false,
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "style": "form",
-                        "explode": true
+                        "explode": false,
+                        "example": "/api/accounts/01ARZ3NDEKTSV4RRFFQ69G5FAV"
                     }
                 ]
             },

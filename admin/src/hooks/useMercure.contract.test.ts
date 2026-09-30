@@ -16,7 +16,10 @@ import { describe, expect, it } from 'vitest'
  * notice and no log to read.
  */
 
-const TOPIC_LITERAL = /'(\/api\/[a-z_]+\/\{id\})'/g
+// Matches both the resource-relative form the call sites are meant to use and
+// the user-scoped form they must not: the pre-scoped check below is only worth
+// making if a pre-scoped literal can actually be matched.
+const TOPIC_LITERAL = /'((?:\/users\/[^']*)?\/api\/[a-z_]+\/\{id\})'/g
 
 /**
  * The contract directory, wherever this suite happens to be running from: the

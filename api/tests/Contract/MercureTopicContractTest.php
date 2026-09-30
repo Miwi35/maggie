@@ -86,7 +86,7 @@ final class MercureTopicContractTest extends WebTestCase
 
     /**
      * Published for the admin and mobile suites to check themselves against.
-     * MercureSubscriptionContractTest on the mobile side, and
+     * MercureTopicsContractTest on the mobile side, and
      * useMercure.contract.test.ts on the admin side, read this file.
      */
     public function testTheSubscriptionPatternsArePublished(): void
@@ -194,10 +194,16 @@ final class MercureTopicContractTest extends WebTestCase
      * deliberately (Ingredient takes Product's payload, and adds no field of
      * its own).
      *
-     * What this rules out is the shape of 6ba9859: an entity that satisfies
-     * the interface through a trait and publishes an empty payload, leaving
-     * the client to re-read a resource whose Elasticsearch index has not
-     * caught up.
+     * What this rules out is an entity that inherits its payload from a
+     * class that is not itself publishable — nobody chose what the clients
+     * receive for it.
+     *
+     * It does not catch a payload provided by a trait:
+     * ReflectionMethod::getDeclaringClass() reports the *using* class for a
+     * trait method, so such an entity looks like it declared its own. The
+     * emptiness of a payload is covered where it can be, on real publishes —
+     * testARealPublishIsScopedRelativeAndSingle and
+     * testTheGroceryListPayloadCarriesItsItems.
      */
     public function testEveryPublishableEntityOwnsItsPayload(): void
     {

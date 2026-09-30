@@ -41,9 +41,6 @@ class DtoContractTest {
      * a decision — write down the reason.
      */
     private val fieldsTheApiDoesNotEmit: Map<String, Set<String>> = mapOf(
-        // Derived on the client from `completedAt`; the API also sends a
-        // `done` boolean, which the app does not read.
-        "Task" to setOf(),
         // Set by the recurrence expansion on the client, and by the API only
         // on an exception instance — which the recorded world has none of.
         "Event" to setOf("recurringEvent", "originalStartAt"),
