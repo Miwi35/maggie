@@ -15,9 +15,21 @@ Project skills are in `.claude/skills/`, agent-os commands in `.claude/commands/
 
 - No code without a plan: the ticket needs `agent-os/specs/*/plan.md`. No spec yet → `/shape-spec`; otherwise `/implement-spec`. Pull standards on demand with `/inject-standards` (index: `agent-os/standards/index.yml`) — never paste all of them into context.
 - One ticket = one branch = one PR that links the ticket.
-- Blocked by an ambiguity or a missing decision: comment on the Linear ticket, add the `needs-human` label, stop cleanly. Do not guess.
 - Delivering a spec also means updating the module's functional spec and the user guide (Linear Documents, entry point: team doc « Index de la documentation Maggie »).
 - Keep specs, prompts and comments short and actionable: acceptance criteria and e2e journeys, not prose.
+
+## Autonomy — decide by default, ask only when it matters
+
+Agents take tickets unattended, from shaping to PR. At any step, **decide and move on** when the ticket, the module's functional spec, the standards or the existing code give an answer; state the assumption in the plan, the PR and a ticket comment.
+
+Stop and ask only for:
+- a product, UX or data-model decision nothing answers and that is costly to undo;
+- conflicting requirements;
+- something destructive or irreversible (deleting data, prod, secrets, infra);
+- a missing access or credential;
+- the same failure twice (CI still red after a fix, a rebase conflict you cannot resolve).
+
+To ask: reply in the ticket's agent thread with short questions, each as options with your recommendation first; add the `needs-human` label; stop cleanly. When the answer arrives in the thread, remove `needs-human` and resume where you stopped.
 
 ## Commands — Docker only
 
