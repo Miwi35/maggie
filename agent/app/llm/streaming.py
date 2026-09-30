@@ -194,7 +194,9 @@ class StreamingGateway:
                             logger.info(f"Tool call: {tool_name}({tool_input})")
                             TOOL_CALLS.labels(tool_name=tool_name, source="chat_stream").inc()
 
-                            result = await self.tool_router.call_tool(tool_name, tool_input, user_id=user_id)
+                            result = await self.tool_router.call_tool(
+                                tool_name, tool_input, user_id=user_id, source="chat_stream"
+                            )
                             tool_use_blocks.append(
                                 {
                                     "name": tool_name,

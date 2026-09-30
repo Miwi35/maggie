@@ -124,6 +124,17 @@ class TestToolRouter:
             "create_event", {"title": "Test", "date": "2026-03-01"}, user_id="user-1"
         )
 
+    @patch("app.llm.tools.mcp_client")
+    async def test_call_tool_accepts_source(self, mock_mcp_client):
+        """call_tool accepts a source without changing how the call is routed."""
+        mock_mcp_client.call_tool = AsyncMock(return_value="ok")
+
+        router = ToolRouter()
+        result = await router.call_tool("create_event", {"title": "Test"}, user_id="user-1", source="subagent:cook")
+
+        assert result == "ok"
+        mock_mcp_client.call_tool.assert_awaited_once_with("create_event", {"title": "Test"}, user_id="user-1")
+
     @patch("app.llm.tools.proaction_repo")
     async def test_call_native_tool_schedule_proaction(self, mock_repo):
         """Native schedule_proaction tool should create a proaction."""

@@ -1,14 +1,13 @@
 import logging
-import time
 
 import anthropic
 
 from app.config import settings
 from app.db.message_repository import message_repo
 from app.llm.capabilities import generate_capability_summary
+from app.llm.runner import run_tool_loop
 from app.llm.tools import ToolRouter
 from app.memory.agent_memory import AgentMemory
-from app.metrics import TOOL_CALLS, record_llm_usage
 from app.personality.engine import PersonalityEngine
 from app.skills.index import skill_index
 
@@ -93,11 +92,18 @@ class LLMGateway:
         system_prompt = await self._build_system_prompt(user_id, tools=tools) + preamble
 
         messages = [{"role": "user", "content": prompt}]
-        tool_calls_made = []
 
         try:
-            return await self._run_tool_loop(
-                system_prompt, messages, tools, tool_calls_made, user_id=user_id, call_type="proaction"
+            return await run_tool_loop(
+                system_prompt,
+                messages,
+                tools,
+                client=self.client,
+                tool_router=self.tool_router,
+                user_id=user_id,
+                model=settings.anthropic_model,
+                call_type="proaction",
+                source="proaction",
             )
         except anthropic.APIStatusError as e:
             logger.error(f"Proaction API error: {e.message}")
@@ -106,7 +112,7 @@ class LLMGateway:
             logger.error(f"Proaction connection error: {e}")
             return {"response": "Unable to reach the AI service.", "tool_calls": []}
 
-    async def chat(self, message: str, user_id: str) -> dict:
+    async def chat(self, message: str, user_id: str, *, source: str = "chat") -> dict:
         """Process a chat message through Claude with MCP tool support."""
         if self.client is None:
             return {
@@ -129,15 +135,19 @@ class LLMGateway:
         # Get all tools including proaction tools (so user can schedule reminders from chat)
         tools = await self.tool_router.get_tool_definitions(include_native=True)
 
-        # Call Claude
-        tool_calls_made = []
-
         try:
             system_prompt = await self._build_system_prompt(user_id, message=message, tools=tools)
-            result = await self._run_tool_loop(
-                system_prompt, messages, tools, tool_calls_made, user_id=user_id, call_type="chat"
+            return await run_tool_loop(
+                system_prompt,
+                messages,
+                tools,
+                client=self.client,
+                tool_router=self.tool_router,
+                user_id=user_id,
+                model=settings.anthropic_model,
+                call_type="chat",
+                source=source,
             )
-            return result
         except anthropic.APIStatusError as e:
             logger.error(f"Anthropic API error: {e.message}")
             return {
@@ -150,84 +160,3 @@ class LLMGateway:
                 "response": "Unable to reach the AI service. Please try again later.",
                 "tool_calls": [],
             }
-
-    async def _run_tool_loop(
-        self,
-        system_prompt: str,
-        messages: list,
-        tools: list,
-        tool_calls_made: list,
-        max_iterations: int = 5,
-        user_id: str | None = None,
-        call_type: str = "chat",
-    ) -> dict:
-        model = settings.anthropic_model
-        for _ in range(max_iterations):
-            logger.info(f"Calling Claude with {len(tools)} tools, {len(messages)} messages")
-
-            t0 = time.monotonic()
-            try:
-                response = await self.client.messages.create(
-                    model=model,
-                    max_tokens=4096,
-                    system=system_prompt,
-                    messages=messages,
-                    tools=tools if tools else anthropic.NOT_GIVEN,
-                )
-                duration = time.monotonic() - t0
-                record_llm_usage(
-                    model=model,
-                    call_type=call_type,
-                    input_tokens=response.usage.input_tokens,
-                    output_tokens=response.usage.output_tokens,
-                    duration_seconds=duration,
-                )
-            except Exception:
-                duration = time.monotonic() - t0
-                record_llm_usage(
-                    model=model,
-                    call_type=call_type,
-                    input_tokens=0,
-                    output_tokens=0,
-                    duration_seconds=duration,
-                    status="error",
-                )
-                raise
-
-            logger.info(f"Claude response: stop_reason={response.stop_reason}, blocks={len(response.content)}")
-
-            if response.stop_reason == "tool_use":
-                assistant_content = response.content
-                messages.append({"role": "assistant", "content": assistant_content})
-
-                tool_results = []
-                for block in assistant_content:
-                    if block.type == "tool_use":
-                        logger.info(f"Tool call: {block.name}({block.input})")
-                        TOOL_CALLS.labels(tool_name=block.name, source=call_type).inc()
-                        result = await self.tool_router.call_tool(block.name, block.input, user_id=user_id)
-                        tool_calls_made.append({"name": block.name, "input": block.input, "result": result})
-                        tool_results.append(
-                            {
-                                "type": "tool_result",
-                                "tool_use_id": block.id,
-                                "content": result,
-                            }
-                        )
-
-                messages.append({"role": "user", "content": tool_results})
-            else:
-                text_response = ""
-                for block in response.content:
-                    if hasattr(block, "text"):
-                        text_response += block.text
-
-                return {
-                    "response": text_response,
-                    "tool_calls": tool_calls_made,
-                }
-
-        return {
-            "response": "I encountered an issue processing your request. Please try again.",
-            "tool_calls": tool_calls_made,
-        }
