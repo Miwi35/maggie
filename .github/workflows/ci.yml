@@ -24,6 +24,7 @@ jobs:
       ciqual: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.ciqual == 'true' }}
       admin: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.admin == 'true' }}
       e2e: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.e2e == 'true' }}
+      cron: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.cron == 'true' }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -49,6 +50,11 @@ jobs:
               # or the one check that would catch it is the one that is
               # skipped.
               - 'api/contract/**'
+              - '.github/workflows/ci.yml'
+            cron:
+              - '.docker/php/**'
+              - 'infra/k8s/cron-deployment.yaml'
+              - 'infra/scripts/tests/cron-image.test.sh'
               - '.github/workflows/ci.yml'
             e2e:
               - 'api/**'
@@ -403,7 +409,7 @@ jobs:
   cron-image:
     name: Cron image (scheduler runs jobs as non-root)
     needs: changes
-    if: needs.changes.outputs.e2e == 'true'
+    if: needs.changes.outputs.cron == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
