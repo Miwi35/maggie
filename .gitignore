@@ -115,6 +115,8 @@ infra/k8s/secrets.yaml
 # and narrowing this would have git silently refuse to add it.
 /scripts/*
 !/scripts/prompt-lab/
+# JWT cached by `mcp-session.sh login`
+/scripts/prompt-lab/.token
 
 # =============================================================================
 # E2E stack
