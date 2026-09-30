@@ -26,6 +26,7 @@ class ManageRecurringGroceriesTool
     ) {
     }
 
+    /** @param list<string>|null $clear */
     public function __invoke(
         string $action,
         ?string $recurringItemId = null,
@@ -88,7 +89,7 @@ class ManageRecurringGroceriesTool
         return json_encode(['success' => true, 'recurringItem' => $this->serialize($item)], JSON_THROW_ON_ERROR);
     }
 
-    /** @param array<mixed>|null $clear */
+    /** @param list<string>|null $clear */
     private function update(?string $recurringItemId, ?string $frequency, ?string $productId, ?string $customLabel, ?float $quantity, ?string $unit, ?array $clear): string
     {
         if ($recurringItemId === null) {

@@ -26,6 +26,7 @@ class ManageAgendasTool
     ) {
     }
 
+    /** @param list<string>|null $clear */
     public function __invoke(
         string $action = 'list',
         ?string $agendaId = null,

@@ -26,6 +26,7 @@ class ManageTransactionsTool
     ) {
     }
 
+    /** @param list<string>|null $clear */
     public function __invoke(
         string $action,
         ?string $transactionId = null,
@@ -97,6 +98,7 @@ class ManageTransactionsTool
         ], JSON_THROW_ON_ERROR);
     }
 
+    /** @param list<string>|null $clear */
     private function update(?string $transactionId, ?string $accountId, ?int $amountCents, ?string $label, ?string $bookedAt, ?string $status, ?string $currency, ?bool $isExceptional, ?string $categoryId, ?array $clear): string
     {
         if ($transactionId === null) {

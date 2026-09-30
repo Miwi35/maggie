@@ -26,6 +26,7 @@ class ManageAccountsTool
     ) {
     }
 
+    /** @param list<string>|null $clear */
     public function __invoke(
         string $action,
         ?string $accountId = null,
@@ -92,6 +93,7 @@ class ManageAccountsTool
         ], JSON_THROW_ON_ERROR);
     }
 
+    /** @param list<string>|null $clear */
     private function update(?string $accountId, ?string $name, ?string $type, ?string $bank, ?string $currency, ?int $balanceCents, ?bool $isCushion, ?array $clear): string
     {
         if ($accountId === null) {

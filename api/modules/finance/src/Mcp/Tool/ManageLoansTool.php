@@ -28,6 +28,7 @@ class ManageLoansTool
     ) {
     }
 
+    /** @param list<string>|null $clear */
     public function __invoke(
         string $action,
         ?string $loanId = null,
@@ -99,6 +100,7 @@ class ManageLoansTool
         ], JSON_THROW_ON_ERROR);
     }
 
+    /** @param list<string>|null $clear */
     private function update(?string $loanId, ?string $name, ?int $principalRemainingCents, ?int $monthlyPaymentCents, ?int $annualRateBasisPoints, ?string $lender, ?int $priority, ?string $currency, ?array $clear): string
     {
         if ($loanId === null) {

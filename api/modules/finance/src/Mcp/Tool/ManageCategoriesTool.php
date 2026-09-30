@@ -26,6 +26,7 @@ class ManageCategoriesTool
     ) {
     }
 
+    /** @param list<string>|null $clear */
     public function __invoke(
         string $action,
         ?string $categoryId = null,
@@ -90,6 +91,7 @@ class ManageCategoriesTool
         ], JSON_THROW_ON_ERROR);
     }
 
+    /** @param list<string>|null $clear */
     private function update(?string $categoryId, ?string $name, ?string $obligation, ?string $parentId, ?string $color, ?string $icon, ?array $clear): string
     {
         if ($categoryId === null) {

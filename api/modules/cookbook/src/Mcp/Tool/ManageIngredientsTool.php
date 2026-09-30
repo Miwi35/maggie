@@ -26,6 +26,7 @@ class ManageIngredientsTool
     ) {
     }
 
+    /** @param list<string>|null $clear */
     public function __invoke(
         string $action,
         ?string $ingredientId = null,
@@ -89,6 +90,7 @@ class ManageIngredientsTool
         return json_encode(['success' => true, 'ingredient' => $this->serialize($ingredient)], JSON_THROW_ON_ERROR);
     }
 
+    /** @param list<string>|null $clear */
     private function update(
         ?string $ingredientId,
         ?string $name,

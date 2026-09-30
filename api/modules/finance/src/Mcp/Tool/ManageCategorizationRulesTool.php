@@ -32,6 +32,7 @@ class ManageCategorizationRulesTool
     ) {
     }
 
+    /** @param list<string>|null $clear */
     public function __invoke(
         string $action,
         ?string $categorizationRuleId = null,
@@ -108,6 +109,7 @@ class ManageCategorizationRulesTool
         ], JSON_THROW_ON_ERROR);
     }
 
+    /** @param list<string>|null $clear */
     private function update(?string $categorizationRuleId, ?string $labelPattern, ?string $categoryId, ?string $matchType, ?string $direction, ?int $minAmountCents, ?int $maxAmountCents, ?int $priority, ?bool $isActive, ?array $clear): string
     {
         if ($categorizationRuleId === null) {

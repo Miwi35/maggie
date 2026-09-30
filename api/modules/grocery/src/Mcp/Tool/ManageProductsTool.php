@@ -26,6 +26,7 @@ class ManageProductsTool
     ) {
     }
 
+    /** @param list<string>|null $clear */
     public function __invoke(
         string $action,
         ?string $productId = null,
@@ -84,7 +85,7 @@ class ManageProductsTool
         return json_encode(['success' => true, 'product' => $this->serialize($product)], JSON_THROW_ON_ERROR);
     }
 
-    /** @param array<mixed>|null $clear */
+    /** @param list<string>|null $clear */
     private function update(?string $productId, ?string $name, ?string $category, ?string $defaultUnit, ?array $clear): string
     {
         if ($productId === null) {

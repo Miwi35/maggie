@@ -17,6 +17,7 @@ class UpdateEventTool
     ) {
     }
 
+    /** @param list<string>|null $clear */
     public function __invoke(
         string $id,
         ?string $title = null,

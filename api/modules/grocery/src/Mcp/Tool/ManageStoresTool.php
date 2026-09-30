@@ -26,6 +26,7 @@ class ManageStoresTool
     ) {
     }
 
+    /** @param list<string>|null $clear */
     public function __invoke(
         string $action,
         ?string $storeId = null,
@@ -95,7 +96,7 @@ class ManageStoresTool
         ], JSON_THROW_ON_ERROR);
     }
 
-    /** @param array<mixed>|null $clear */
+    /** @param list<string>|null $clear */
     private function update(?string $storeId, ?string $name, ?string $description, ?int $visitOrder, ?array $clear): string
     {
         if ($storeId === null) {

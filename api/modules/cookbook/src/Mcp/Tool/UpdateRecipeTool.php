@@ -19,6 +19,7 @@ class UpdateRecipeTool
     ) {
     }
 
+    /** @param list<string>|null $clear */
     public function __invoke(
         string $recipeId,
         ?string $name = null,
