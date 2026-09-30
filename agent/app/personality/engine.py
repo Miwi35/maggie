@@ -17,6 +17,12 @@ DAYS_FR = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanch
 EDITABLE_FIELDS = ("name", "language", "backstory")
 
 
+def current_datetime_line() -> str:
+    """Current date and hour in Paris. Kept out of the system prompt prefix so it does not break the prompt cache."""
+    now = datetime.now(TZ_PARIS)
+    return f"Nous sommes le {DAYS_FR[now.weekday()]} {now.strftime('%Y-%m-%d')}, il est {now.strftime('%Hh')}."
+
+
 class PersonalityEngine:
     """Loads personality configuration and constructs the system prompt."""
 
@@ -34,7 +40,7 @@ class PersonalityEngine:
                 "name": "Maggie",
                 "language": "fr",
                 "backstory": "Une assistante personnelle IA intelligente et bienveillante.",
-                "system_prompt": "Tu es {name}. {backstory}\n\nLangue : {language}.\n{datetime_line}",
+                "system_prompt": "Tu es {name}. {backstory}\n\nLangue : {language}.\n{capabilities}",
             }
 
     def _yaml_defaults(self) -> dict:
@@ -62,16 +68,12 @@ class PersonalityEngine:
         return {"name": row.name, "language": row.language, "backstory": row.backstory}
 
     async def get_system_prompt(self, user_id: str, capabilities: str = "") -> str:
-        """Build system prompt: template from YAML, values from DB."""
+        """Build the stable system prompt: template from YAML, values from DB (no date, it would break caching)."""
         config = await self.get_config(user_id)
         template = self._yaml.get("system_prompt", "")
-        now = datetime.now(TZ_PARIS)
-        day_name = DAYS_FR[now.weekday()]
-        datetime_line = f"Nous sommes le {day_name} {now.strftime('%Y-%m-%d')}, il est {now.strftime('%Hh')}."
         return template.format(
             name=config.get("name", "Maggie"),
             language=config.get("language", "fr"),
             backstory=config.get("backstory", ""),
-            datetime_line=datetime_line,
             capabilities=capabilities,
         )

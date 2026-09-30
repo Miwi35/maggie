@@ -99,7 +99,7 @@ When iterating on prompts:
 
 ## Available models for subagents
 
-- **sonnet** (default) — closest to production (Maggie uses Sonnet 4.5, this is Sonnet 4.6)
+- **sonnet** (default) — same family as production (Maggie defaults to Sonnet 5.5 via `ANTHROPIC_MODEL`; check the subagent model before comparing tone)
 - **haiku** — fast iteration, cheaper, good for bulk scenario testing
 - **opus** — highest quality, use for evaluating difficult edge cases
 

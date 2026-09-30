@@ -1,12 +1,11 @@
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
-from zoneinfo import ZoneInfo
 
 import pytest
 import yaml
 
-from app.personality.engine import DAYS_FR, TZ_PARIS, PersonalityEngine
+from app.personality.engine import DAYS_FR, TZ_PARIS, PersonalityEngine, current_datetime_line
 
 
 @pytest.fixture
@@ -18,17 +17,11 @@ def yaml_config(tmp_path: Path) -> Path:
                 "name": "TestBot",
                 "language": "en",
                 "backstory": "A helpful test bot.",
-                "system_prompt": "You are {name}. {backstory}\nLanguage: {language}. {datetime_line}\n{capabilities}",
+                "system_prompt": "You are {name}. {backstory}\nLanguage: {language}.\n{capabilities}",
             }
         )
     )
     return config_file
-
-
-def _expected_datetime_line() -> str:
-    now = datetime.now(TZ_PARIS)
-    day_name = DAYS_FR[now.weekday()]
-    return f"Nous sommes le {day_name} {now.strftime('%Y-%m-%d')}, il est {now.strftime('%Hh')}."
 
 
 class TestPersonalityEngine:
@@ -94,8 +87,7 @@ class TestPersonalityEngine:
             mock_repo.get = AsyncMock(return_value=db_row)
             prompt = await engine.get_system_prompt("user-1")
 
-        dt_line = _expected_datetime_line()
-        assert prompt == f"You are DBBot. Smart assistant.\nLanguage: fr. {dt_line}\n"
+        assert prompt == "You are DBBot. Smart assistant.\nLanguage: fr.\n"
 
     @pytest.mark.asyncio
     async def test_get_system_prompt_uses_yaml_defaults_when_no_db(self, yaml_config: Path):
@@ -106,8 +98,7 @@ class TestPersonalityEngine:
             mock_repo.get = AsyncMock(return_value=None)
             prompt = await engine.get_system_prompt("user-1")
 
-        dt_line = _expected_datetime_line()
-        assert prompt == f"You are TestBot. A helpful test bot.\nLanguage: en. {dt_line}\n"
+        assert prompt == "You are TestBot. A helpful test bot.\nLanguage: en.\n"
 
     @pytest.mark.asyncio
     async def test_get_system_prompt_includes_capabilities(self, yaml_config: Path):
@@ -118,8 +109,25 @@ class TestPersonalityEngine:
             mock_repo.get = AsyncMock(return_value=None)
             prompt = await engine.get_system_prompt("user-1", capabilities="Cap summary")
 
-        dt_line = _expected_datetime_line()
-        assert prompt == f"You are TestBot. A helpful test bot.\nLanguage: en. {dt_line}\nCap summary"
+        assert prompt == "You are TestBot. A helpful test bot.\nLanguage: en.\nCap summary"
+
+    def test_current_datetime_line_is_paris_time(self):
+        """The date line gives the weekday, the date and the hour in Paris."""
+        now = datetime.now(TZ_PARIS)
+        line = current_datetime_line()
+        assert line.startswith(f"Nous sommes le {DAYS_FR[now.weekday()]} {now.strftime('%Y-%m-%d')}")
+
+    @pytest.mark.asyncio
+    async def test_default_prompt_has_no_date(self):
+        """The shipped template carries no date: the prefix must stay identical between calls."""
+        engine = PersonalityEngine()
+
+        with patch("app.personality.engine.personality_repo") as mock_repo:
+            mock_repo.get = AsyncMock(return_value=None)
+            prompt = await engine.get_system_prompt("user-1", capabilities="Cap summary")
+
+        assert "Nous sommes le" not in prompt
+        assert "Cap summary" in prompt
 
     def test_fallback_config_on_missing_yaml(self, tmp_path: Path):
         """When YAML file does not exist, hardcoded defaults are used."""
