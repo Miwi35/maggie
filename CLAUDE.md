@@ -13,17 +13,33 @@ Project skills are in `.claude/skills/`, agent-os commands in `.claude/commands/
 
 ## Workflow
 
-- No code without a plan: the ticket needs `agent-os/specs/*/plan.md`. No spec yet → `/shape-spec`; otherwise `/implement-spec`. Pull standards on demand with `/inject-standards` (index: `agent-os/standards/index.yml`) — never paste all of them into context.
+- **Pick the path from the ticket's type label** — the effort follows the ticket, not one ceremony for all:
+
+  | Type | What it is | Path | E2E | After merge |
+  |---|---|---|---|---|
+  | `Feature` | something the user sees or does in the app | spec folder: `/shape-spec` then `/implement-spec`; a small one gets a short plan comment instead of a spec folder | journey required | **Recette** |
+  | `Bug` | the app does not do what it should | `/fix-bug` — reproduction test red first | extend the journey ticket if user-visible | **Recette** |
+  | `Task` | not acceptable through the UI: docs, refactoring, upgrades, CI/CD, tests, tooling | `/run-task` | `N/A — task` | **Done** |
+
+  No type label → decide from the content, set it, and say so in the plan. Found a bug while using the app → `/report-bug`.
+- Pull standards on demand with `/inject-standards` (index: `agent-os/standards/index.yml`) — never paste all of them into context.
 - One ticket = one branch = one PR that links the ticket.
 - Delivering a spec also means updating the module's functional spec and the user guide (Linear Documents, entry point: team doc « Index de la documentation Maggie »).
 - Keep specs, prompts and comments short and actionable: acceptance criteria and e2e journeys, not prose.
+
+## Reporting — short, once
+
+Writing costs as much time as coding: say things once, where they belong.
+- **Ticket**: one final comment, **10 lines at most** — what was delivered, the PR link, what is left or out of scope. No second summary.
+- **Decisions**: 4 lines each (Dilemma · Options · Choice · Why), posted when taken.
+- **PR**: the detail — changes, verification, decisions, Review section.
 
 ## Creating Linear tickets
 
 Tickets are created by agents through the Linear MCP and picked up unattended by the dispatcher, so each one must be workable without a conversation. Before creating, search Linear for a duplicate. Write in French.
 
-- **Description**, in this order: **Contexte** (why, with links) · **À faire** · **Critères d'acceptation** (verifiable, one per line) · **Parcours e2e** (Given/When/Then and the journey ticket MAG-99…103 it extends, or `N/A — raison`) · **Fichiers probables** · **Hors périmètre**. End with `Définition de « terminé » : agent-os/standards/global/testing.md` — link it, do not copy it.
-- **Team** Maggie, **project** of the feature (attached to an initiative), **priority** set (Urgent: fixes and test foundation · High: Maggie works · Medium: rest), **type label** Bug / Feature / Improvement.
+- **Description**, in this order: **Contexte** (why, with links) · **À faire** · **Critères d'acceptation** (verifiable, one per line) · **Parcours e2e** (Given/When/Then and the journey ticket MAG-99…103 it extends; `N/A — task` for a Task) · **Fichiers probables** · **Hors périmètre**. End with `Définition de « terminé » : agent-os/standards/global/testing.md` — link it, do not copy it.
+- **Team** Maggie, **project** of the feature (attached to an initiative), **priority** set (Urgent: fixes and test foundation · High: Maggie works · Medium: rest), **type label** `Feature` (user-visible), `Bug` or `Task` (not acceptable through the UI) — it decides the path and whether the ticket goes to Recette.
 - **Dispatcher labels**: one `area:*` per component touched, `lock:migration` if it adds a schema migration, `needs-shaping` if a spec must be shaped first.
 - **Dependencies** as `blockedBy`, never only in prose: the dispatcher skips blocked tickets.
 - One ticket = one deliverable a single PR can close; split anything larger into a project with one ticket per plan task.
