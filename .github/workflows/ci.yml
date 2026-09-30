@@ -86,8 +86,8 @@ jobs:
           enable-cache: true
           cache-dependency-glob: agent/uv.lock
       - run: uv sync --frozen --extra dev
-      - run: uv run ruff check app/
-      - run: uv run ruff format --check app/
+      - run: uv run ruff check app/ evals/
+      - run: uv run ruff format --check app/ evals/
 
   ciqual-lint:
     name: Ciqual Lint (Ruff)

@@ -1,0 +1,17 @@
+# The end of the voice path: 20-transcription-cleanup.yaml hands back the
+# sentence the WireMock Whisper stub dictated, and this is what Maggie does with
+# it. Dictating the stubbed clip therefore ends on a real row in the database.
+#
+# Tomatoes are already on the seeded list, so this one adds to an existing item
+# rather than creating one — assert on the quantity, not on the item's presence.
+name: grocery-add-dictated
+description: Add tomatoes, the item the stubbed Whisper clip asks for.
+
+match:
+  user_matches: "ajoute.*tomate"
+
+turns:
+  - tools:
+      - name: add_grocery_item
+        input: {label: "Tomate", quantity: 4}
+  - text: "C'est ajouté : quatre tomates, au primeur du marché."

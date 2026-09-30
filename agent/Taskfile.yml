@@ -34,19 +34,19 @@ tasks:
   lint:
     desc: Run ruff linter
     cmds:
-      - docker compose -f {{.COMPOSE_FILE}} exec agent ruff check app/
+      - docker compose -f {{.COMPOSE_FILE}} exec agent ruff check app/ evals/
 
   lint:fix:
     desc: Fix linting issues
     cmds:
-      - docker compose -f {{.COMPOSE_FILE}} exec agent ruff check --fix app/
+      - docker compose -f {{.COMPOSE_FILE}} exec agent ruff check --fix app/ evals/
 
   format:
     desc: Format code with ruff
     cmds:
-      - docker compose -f {{.COMPOSE_FILE}} exec agent ruff format app/
+      - docker compose -f {{.COMPOSE_FILE}} exec agent ruff format app/ evals/
 
   format:check:
     desc: Check code formatting (CI mode)
     cmds:
-      - docker compose -f {{.COMPOSE_FILE}} exec agent ruff format --check app/
+      - docker compose -f {{.COMPOSE_FILE}} exec agent ruff format --check app/ evals/

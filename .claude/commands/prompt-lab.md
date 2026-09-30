@@ -59,20 +59,34 @@ Key differences from chat mode:
 The user provides two prompt variations (or you propose them). Run both in parallel using two subagents with model: sonnet, same user message, different system prompts. Present outputs side-by-side for comparison.
 
 ### Automated Suite Mode
-Load test scenarios from `scripts/prompt-lab/scenarios/*.yaml`. Each scenario has:
+Load test scenarios from `scripts/prompt-lab/scenarios/*.yaml`. The format is in
+that directory's `README.md` — the same files the eval suite replays on the real
+model (`task e2e:eval`, MAG-95), so keep them in step rather than inventing keys:
+
 ```yaml
 name: descriptive-name
-user_message: "the message to test"
-expected_tools: [tool_name_1, tool_name_2]
-expected_behavior: "description of correct behavior"
-mock_tool_results:  # optional: use these instead of real MCP calls
+channel: chat                     # chat (default) or stream
+steps:                            # or `user_message` at the top level, for one turn
+  - user_message: "the message to test"
+    expected_tools: [tool_name_1]
+    forbidden_tools: [tool_name_2]
+    expected_contains: ["Alex"]
+    expected_absent: ["je n'ai pas accès"]
+    expected_context: created     # created | matched, channel: stream only
+    expected_behavior: "description of correct behavior"
+mock_tool_results:                # prompt-lab only: use these instead of real MCP calls
   tool_name_1: '{"result": "mocked"}'
 ```
 
 Run all scenarios, report pass/fail based on:
-- Did Maggie call the expected tools?
+- Did Maggie call the expected tools, and none of the forbidden ones?
 - Was the response in French (unless English input)?
 - Did she stay in character (vouvoiement, formal tone)?
+- Does the answer satisfy `expected_behavior`?
+
+`task e2e:eval:check` validates the files without spending anything — run it after
+editing one, since an unknown expectation key is refused there rather than
+silently asserting nothing.
 
 ## Tool execution in subagents
 

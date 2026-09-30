@@ -1,0 +1,13 @@
+# "What is on my list?" — the read that pairs with the two writes above, so a
+# journey can add then read back through separate exchanges.
+name: grocery-list
+description: Read the grocery list through MCP.
+
+match:
+  user_matches: "(ma|la) liste de courses|qu'est-ce qu'il (me )?faut acheter"
+
+turns:
+  - tools:
+      - name: get_grocery_list
+        input: {includeDeferred: false}
+  - text: "Sur votre liste il y a des tomates, des pâtes et des piles."

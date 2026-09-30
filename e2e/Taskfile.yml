@@ -170,6 +170,30 @@ tasks:
     desc: Reset the e2e database to its deterministic fixture set
     cmds:
       - '{{.COMPOSE}} exec -T php bin/console --env=e2e app:e2e:seed {{.CLI_ARGS}}'
+      - task: seed:agent
+
+  seed:agent:
+    desc: Empty the agent's own database — conversations, contexts, memory
+    # `app:e2e:seed` is a Symfony command and only knows the API database. The
+    # agent keeps its state in maggie_agent: messages, contexts, memories,
+    # instructions, proactions. Left alone, a second run of a journey starts
+    # with the first run's conversation behind it — Maggie then answers with
+    # context nobody seeded, and the failure looks like a flaky assertion.
+    #
+    # Everything in that database is agent state, so emptying all of it is the
+    # whole reset. The loop skips the tables the agent has not created yet,
+    # which is the case on a stack that has just come up.
+    cmds:
+      - |
+        {{.COMPOSE}} exec -T database psql -U maggie -d maggie_agent -v ON_ERROR_STOP=1 -q -c "
+        DO \$\$
+        DECLARE t text;
+        BEGIN
+          FOR t IN SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+          LOOP
+            EXECUTE format('TRUNCATE TABLE %I CASCADE', t);
+          END LOOP;
+        END \$\$;"
 
   console:
     desc: Run a Symfony command in the e2e stack (task e2e:console -- debug:router)
@@ -198,6 +222,47 @@ tasks:
       - '{{.COMPOSE}} exec -T php bin/console --env=test doctrine:database:create --no-interaction --if-not-exists'
       - '{{.COMPOSE}} exec -T php bin/console --env=test doctrine:schema:drop --no-interaction --force --full-database'
       - '{{.COMPOSE}} exec -T php bin/console --env=test doctrine:schema:create --no-interaction'
+
+  eval:
+    desc: Replay the prompt-lab scenarios on the real model (needs ANTHROPIC_API_KEY)
+    # The other half of MAG-95. Journeys run on the fake and assert on plumbing;
+    # this asks the real model for judgement — right tool, right tone, keeps the
+    # thread — against the same seeded data, so a failure is the prompt or the
+    # model and never the fixtures.
+    #
+    # It restarts the agent with LLM_PROVIDER=anthropic and puts the fake back
+    # afterwards, even on failure: a stack left on the real model would make the
+    # next journey slow, billed and flaky, which is exactly what this ticket
+    # removed.
+    #
+    # Separate from CI on purpose (.github/workflows/eval.yml, nightly and on
+    # demand): a prompt regression is a signal, not a merge blocker.
+    vars:
+      BASE_URL:
+        sh: 'echo "http://127.0.0.1:$(docker compose -f {{.COMPOSE_FILE}} -p {{.PROJECT}} port traefik 80 | sed "s/.*://")"'
+    env:
+      # Same as `_up:rest`: recreating a service without it would rebuild its
+      # public URLs from the `http://localhost` default.
+      E2E_BASE_URL: '{{.BASE_URL}}'
+    preconditions:
+      - sh: '[ -n "$ANTHROPIC_API_KEY" ]'
+        msg: 'ANTHROPIC_API_KEY is empty — the eval suite calls the real model.'
+    cmds:
+      # --no-deps: `up agent` would otherwise pull in its dependency chain, and
+      # nginx waits on admin-build, a one-shot that has already run. Compose
+      # re-runs it, `npm ci` fails on a tree it built once, and the agent never
+      # gets recreated. Everything agent needs is already up.
+      - defer: '{{.COMPOSE}} up -d --wait --no-deps --force-recreate agent'
+      - 'E2E_LLM_PROVIDER=anthropic {{.COMPOSE}} up -d --wait --no-deps --force-recreate agent'
+      - '{{.COMPOSE}} exec -T agent python -m evals.runner {{.CLI_ARGS}}'
+
+  eval:check:
+    desc: Check the eval scenarios parse, without calling the model
+    # No key, no restart, no tokens: what to run after editing a scenario file.
+    # The runner refuses unknown expectation keys, so a typo surfaces here rather
+    # than as a step that silently asserted nothing at 3am.
+    cmds:
+      - '{{.COMPOSE}} exec -T agent python -m evals.runner --check {{.CLI_ARGS}}'
 
   smoke:
     desc: Run the smoke journey against the running e2e stack

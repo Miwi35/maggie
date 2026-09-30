@@ -54,13 +54,13 @@ class TestTranscriptionService:
         )
 
     @pytest.mark.asyncio
-    @patch("app.llm.transcription.anthropic")
-    async def test_cleanup_called_with_raw_text(self, mock_anthropic_module):
-        """_cleanup_with_llm sends raw text to Claude for cleanup."""
+    @patch("app.llm.transcription.create_llm_client")
+    async def test_cleanup_called_with_raw_text(self, mock_create_client):
+        """_cleanup_with_llm sends raw text to whichever client the provider switch hands it."""
         from app.llm.transcription import _cleanup_with_llm
 
         mock_client = AsyncMock()
-        mock_anthropic_module.AsyncAnthropic.return_value = mock_client
+        mock_create_client.return_value = mock_client
         mock_content_block = MagicMock()
         mock_content_block.text = "Texte propre."
         mock_usage = MagicMock()

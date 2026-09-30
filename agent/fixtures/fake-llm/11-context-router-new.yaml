@@ -1,0 +1,13 @@
+# The context router, on the first message of a run: the list is "(aucun)", so
+# 10-context-router-existing.yaml cannot match and this one opens a context.
+#
+# The label is fixed, which is the point — a journey asserting on the Mind
+# Panel's context knows what to look for.
+name: context-router-new
+description: Open a context for the first streamed message of a run.
+
+match:
+  system_contains: "routeur de contexte"
+
+turns:
+  - text: '{"context_id": null, "label": "Conversation e2e"}'

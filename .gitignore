@@ -49,6 +49,9 @@ agent/.pytest_cache/
 agent/.mypy_cache/
 agent/.ruff_cache/
 agent/data/
+# What `task e2e:eval --report` writes: the agent container mounts ./agent, so
+# its report lands here.
+agent/eval-report.md
 
 # =============================================================================
 # Mobile (Android)

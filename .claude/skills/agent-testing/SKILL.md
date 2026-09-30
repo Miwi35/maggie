@@ -20,8 +20,12 @@ Mock HTTP with `respx`; never call Claude or the API for real in a unit test.
 **Bug fix → red first.** Write the failing test, run it, then fix. Both in the same PR.
 
 **The feature also needs an e2e journey** — chat journeys run against the deterministic
-fake LLM (ADR-005, MAG-95). See `agent-os/standards/global/testing.md`
-(Definition of Done).
+fake LLM, `LLM_PROVIDER=fake`, scripted by the scenario files in
+`agent/fixtures/fake-llm/` (ADR-005, MAG-95). Touching the tool loop, the streaming
+gateway or `create_llm_client()` means checking those fixtures still drive them:
+`task e2e:up && task e2e:seed && task e2e:smoke`, step 9. See
+`agent-os/standards/global/testing.md` (Definition of Done) and
+`agent-os/standards/global/e2e-environment.md` (The fake LLM).
 
 ## File Location & Naming
 

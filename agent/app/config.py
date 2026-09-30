@@ -6,6 +6,13 @@ class Settings(BaseSettings):
     # LLM
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-5-5"
+    # "anthropic" talks to the real model. "fake" answers from the scenario
+    # files in agent/fixtures/fake-llm/ instead, through the same tool loop and
+    # the same streaming gateway — what the e2e stack runs, so a journey that
+    # talks to Maggie is fast, free and deterministic (MAG-95).
+    llm_provider: str = "anthropic"
+    # Empty means agent/fixtures/fake-llm/. Only the tests move it.
+    fake_llm_fixtures_dir: str = ""
     openai_api_key: str = ""
     # Whisper lives behind the OpenAI client, so pointing that client
     # elsewhere is all the e2e stack needs to stop calling out. Empty means

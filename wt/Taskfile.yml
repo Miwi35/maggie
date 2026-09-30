@@ -209,9 +209,14 @@ tasks:
   # `--frozen`, matching ci.yml's `uv sync --frozen --extra dev`: use the lock
   # as it stands, never rewrite it. A verification command that edits a tracked
   # lockfile behind the author's back is a bug — this one did, until it was
-  # caught in review. Not `--locked`, which additionally fails when the lock is
-  # stale against pyproject.toml: agent/uv.lock currently is, on main as well
-  # as here, and that is its own ticket.
+  # caught in review.
+  #
+  # Which makes a stale lock fatal *here* and invisible in CI, where `uv run`
+  # without `--frozen` quietly resolves what the lock is missing. agent/uv.lock
+  # was stale for edge-tts and prometheus-client, so `wt:test:agent` could not
+  # import the app at all while agent-test stayed green; MAG-95 relocked it.
+  # If this command dies on ModuleNotFoundError for a package pyproject.toml
+  # does declare, that is the same failure again: run `uv lock`, commit it.
   lint:agent:
     desc: Ruff on this worktree's agent code
     deps: [guard]
@@ -219,7 +224,7 @@ tasks:
       - task: _uv
         vars:
           DIR: agent
-          COMMAND: 'uv run --frozen --extra dev ruff check app/ && uv run --frozen --extra dev ruff format --check app/'
+          COMMAND: 'uv run --frozen --extra dev ruff check app/ evals/ && uv run --frozen --extra dev ruff format --check app/ evals/'
 
   test:agent:
     desc: pytest on this worktree's agent code

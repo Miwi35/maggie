@@ -1,0 +1,94 @@
+name: Eval
+
+# The prompt-lab scenarios on the real model (MAG-95).
+#
+# Its own workflow, never part of CI: it calls Claude, so it is slow and billed,
+# and its verdict is about judgement rather than correctness. A prompt that got
+# colder is worth knowing about; it is not worth blocking a merge on. Nothing
+# here is a required check, which is what makes "non-blocking" a fact rather
+# than a promise.
+#
+# Nightly, and on demand from the Actions tab — `--only <name>` narrows it to one
+# scenario while iterating on a prompt.
+
+on:
+  schedule:
+    # 03:17 UTC: off the hour, so it does not queue behind everyone else's cron.
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      only:
+        description: 'Run only the scenarios whose name contains this'
+        required: false
+        type: string
+
+concurrency:
+  group: eval
+  cancel-in-progress: false
+
+jobs:
+  eval:
+    name: Eval suite (real model)
+    runs-on: ubuntu-latest
+    env:
+      COMPOSE_PROJECT_NAME: maggie-eval-${{ github.run_id }}-${{ github.run_attempt }}
+      E2E_LOGIN_TOKEN: ci-e2e-login-token
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the key is there
+        id: key
+        # Without it the run can only fail, and a red nightly that means "no
+        # secret configured" trains everyone to ignore the nightly. Skip loudly
+        # instead.
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::notice::ANTHROPIC_API_KEY is not configured — skipping the eval suite."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: arduino/setup-task@v2
+        if: steps.key.outputs.skip == 'false'
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start the stack
+        if: steps.key.outputs.skip == 'false'
+        run: task e2e:up
+
+      - name: Seed
+        # No --now, for the reason ci.yml gives: the seeded world has to stay in
+        # step with the containers' clock, or every "upcoming" query comes back
+        # empty and the model is blamed for it.
+        if: steps.key.outputs.skip == 'false'
+        run: task e2e:seed
+
+      - name: Eval suite
+        if: steps.key.outputs.skip == 'false'
+        # The report path is inside the agent container, which mounts ./agent —
+        # so it comes out at agent/eval-report.md on the runner. stdout stays the
+        # log; the file is just the verdict table.
+        run: task e2e:eval -- --report /app/eval-report.md ${{ inputs.only && format('--only {0}', inputs.only) || '' }}
+
+      - name: Report
+        if: always() && steps.key.outputs.skip == 'false'
+        run: cat agent/eval-report.md >> "$GITHUB_STEP_SUMMARY" || true
+
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.key.outputs.skip == 'false'
+        with:
+          name: eval-report
+          path: agent/eval-report.md
+          if-no-files-found: ignore
+
+      - name: Stack logs
+        if: failure() && steps.key.outputs.skip == 'false'
+        run: task e2e:logs:dump || true
+
+      - name: Tear down
+        if: always() && steps.key.outputs.skip == 'false'
+        run: task e2e:down || true

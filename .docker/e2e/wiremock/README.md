@@ -18,8 +18,15 @@ Two things are **not** here:
   a fixed silent clip. See `agent/app/tts/synthesis.py`.
 - **Google sign-in.** The e2e test login (`POST /api/auth/e2e/login`) replaces it
   entirely, so a stubbed `tokeninfo` would have no caller.
+- **Anthropic.** Same reason as Edge TTS, and then some: a stubbed HTTP response
+  would have to script a whole tool-use conversation in JSON. The agent switches
+  provider instead — `LLM_PROVIDER=fake` answers from the scenario files in
+  `agent/fixtures/fake-llm/` (MAG-95).
 
-The conversation model is not stubbed here either — that is MAG-95's fake LLM.
+One pairing to keep in mind: `mappings/openai.json` dictates a fixed sentence,
+and `agent/fixtures/fake-llm/20-transcription-cleanup.yaml` returns that sentence
+cleaned up. Change one and change the other, or the voice path stops making sense
+end to end.
 
 ## Editing a stub
 

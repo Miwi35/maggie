@@ -8,6 +8,9 @@
 # module's tools, search reads a rebuilt index, and the bank sync reaches
 # WireMock rather than the internet.
 #
+# Step 9 came with MAG-95: Maggie answers from the scripted model, so the agent
+# is part of the harness rather than the reason a journey is flaky.
+#
 # Written in shell rather than Playwright on purpose: MAG-97 owns the browser
 # harness. Every step here is a contract that harness will rely on, so it is
 # worth having under CI before the browser arrives — and it stays afterwards as
@@ -255,6 +258,102 @@ fi
 
 google_unmatched="$("${COMPOSE[@]}" exec -T wiremock sh -c 'curl -sS http://localhost:8080/__admin/requests/unmatched' | jq -r '.requests | length')"
 assert_eq 0 "$google_unmatched" "every Google request the sync made had a stub"
+
+# ---------------------------------------------------------------------------
+step "9. Maggie answers from the scripted model, not from Claude"
+# ---------------------------------------------------------------------------
+# LLM_PROVIDER=fake replaces the model and nothing else: the tool loop, the
+# AG-UI streaming gateway and the MCP client are the production ones (MAG-95).
+# So these steps exercise the whole chain — the only thing they do not exercise
+# is Claude's judgement, which the eval suite covers on the real model.
+#
+# The first assertion is the one that proves the switch is in effect at all: an
+# unscripted question answers with a sentence naming its own cause, which the
+# real model would never produce.
+AGENDA_QUESTION="Qu'est-ce que j'ai de prévu aujourd'hui ?"
+
+chat_body() { jq -nc --arg m "$1" '{message: $m}'; }
+
+chat() {
+  curl -sS -X POST "${AUTH[@]}" -H 'Content-Type: application/json' \
+    -d "$(chat_body "$1")" "$BASE_URL/agent/chat"
+}
+
+unscripted="$(chat "une question que personne n'a scriptée")"
+assert_contains "$unscripted" '[fake-llm] aucun sc' \
+  "an unscripted message says so instead of improvising"
+
+agenda="$(chat "$AGENDA_QUESTION")"
+assert_contains "$agenda" 'déjeuner avec Alex' "the scripted answer comes back"
+assert_eq get_upcoming_events "$(printf '%s' "$agenda" | jq -r '.tool_calls[0].name // empty')" \
+  "the scripted tool really ran"
+if printf '%s' "$agenda" | jq -e '.tool_calls[0].result | fromjson | if type == "object" then has("error") else false end' >/dev/null 2>&1; then
+  fail "the tool ran but errored — result: $(printf '%s' "$agenda" | jq -r '.tool_calls[0].result' | head -c 300)"
+else
+  pass "the tool returned the seeded agenda, not an error"
+fi
+# The recurring event, and not the seeded lunch: the lunch sits at the anchor
+# plus twelve hours, so `get_upcoming_events` — which counts from *now* — drops
+# it once the afternoon starts, and the step would pass in the morning and fail
+# in the evening. Accent-free too, because the tool result is PHP's json_encode
+# and arrives escaped as \uXXXX.
+assert_contains "$agenda" 'Cours de piano' "the tool result carries the seeded agenda"
+
+# A write, asserted through MCP rather than through Maggie's wording: basil is
+# a seeded ingredient that the seed deliberately leaves off the grocery list.
+basil="$(chat "Ajoute du basilic à ma liste de courses")"
+assert_eq add_grocery_item "$(printf '%s' "$basil" | jq -r '.tool_calls[0].name // empty')" \
+  "asking for an item calls the write tool"
+
+grocery="$(curl -sS -X POST "${AUTH[@]}" "${mcp_headers[@]}" \
+  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"get_grocery_list","arguments":{}}}' \
+  "$BASE_URL/_mcp" | sed 's/^data: //')"
+assert_contains "$grocery" 'Basilic' "the item Maggie added is on the list"
+
+# The streamed path: same fake, same loop, but the AG-UI events a client reads.
+stream="$(curl -sS -N -X POST "${AUTH[@]}" -H 'Content-Type: application/json' \
+  -H 'Accept: text/event-stream' \
+  -d "$(chat_body "$AGENDA_QUESTION")" "$BASE_URL/agent/chat/stream")"
+
+for event in RUN_STARTED TOOL_CALL_START TOOL_CALL_END TEXT_MESSAGE_START TEXT_MESSAGE_CONTENT RUN_FINISHED; do
+  assert_contains "$stream" "$event" "the stream emits $event"
+done
+
+# More than one content event: a single delta would mean the gateway buffered
+# the whole answer, which is the bug streaming exists to avoid.
+deltas="$(printf '%s' "$stream" | grep -c 'TEXT_MESSAGE_CONTENT' || true)"
+if [ "${deltas:-0}" -gt 1 ]; then
+  pass "the answer arrives as $deltas deltas, token by token"
+else
+  fail "the answer arrived in $deltas event — the stream is not streaming"
+fi
+
+# Parsed rather than grepped: the events are `json.dumps` output, so the
+# separators carry spaces and a compact needle never matches.
+context_action() { printf '%s' "$1" | sed -n 's/^data: //p' | jq -r 'select(.name == "context_update") | .value.action'; }
+
+assert_eq created "$(context_action "$stream")" \
+  "the context router opened a context"
+assert_contains "$stream" 'Conversation e2e' \
+  "the context it opened carries the scripted label"
+
+# A second streamed message has to land in that same context. This is the one
+# step that checks the router's answer *fits* — it hands back an id it read from
+# its own prompt, and a pattern matching the wrong id format would still make
+# every message look fine while opening a context per message.
+contexts_before="$(curl -sS "${AUTH[@]}" "$BASE_URL/agent/contexts" | jq -r 'length')"
+
+followup="$(curl -sS -N -X POST "${AUTH[@]}" -H 'Content-Type: application/json' \
+  -H 'Accept: text/event-stream' \
+  -d "$(chat_body "Et mes rendez-vous de la semaine prochaine ?")" \
+  "$BASE_URL/agent/chat/stream")"
+assert_eq matched "$(context_action "$followup")" \
+  "the next message joins the context already open"
+
+# Counted rather than fixed at one, so the step survives a second smoke run on
+# a stack nobody reseeded.
+assert_eq "$contexts_before" "$(curl -sS "${AUTH[@]}" "$BASE_URL/agent/contexts" | jq -r 'length')" \
+  "the follow-up opened no second context for the same subject"
 
 # ---------------------------------------------------------------------------
 printf '\n\033[1mSmoke journey: %d passed, %d failed\033[0m\n' "$passed" "$failed"

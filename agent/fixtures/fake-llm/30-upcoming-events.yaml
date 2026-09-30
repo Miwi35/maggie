@@ -1,0 +1,21 @@
+# "What do I have coming up?" — one tool round, then an answer.
+#
+# The tool call is real: `get_upcoming_events` runs against the seeded agenda,
+# so a journey checks the whole chain (agent → MCP → Doctrine → back) and not
+# just that Maggie said something. The answer names seeded events so the
+# assertion has something stable to look for.
+#
+# Fixed text, so it says nothing the seed cannot back at any hour: the lunch
+# sits at the anchor plus twelve hours and drops out of "upcoming" during the
+# afternoon, which is why the wording does not claim it is today.
+name: upcoming-events
+description: Read the agenda through MCP before answering.
+
+match:
+  user_matches: "pr(é|e)vu|mon agenda|mes rendez-vous"
+
+turns:
+  - tools:
+      - name: get_upcoming_events
+        input: {days: 7}
+  - text: "Vous avez un déjeuner avec Alex et votre cours de piano cette semaine."

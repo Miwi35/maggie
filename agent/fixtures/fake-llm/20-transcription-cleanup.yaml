@@ -1,0 +1,15 @@
+# Transcript cleanup, the second half of the voice path: Whisper first, then the
+# model tidies what it heard.
+#
+# Whisper is WireMock here, and its stub returns one fixed sentence with an
+# "euh" in it (.docker/e2e/wiremock/mappings/openai.json). This returns that
+# sentence cleaned, so a voice journey can assert on both `raw` and `clean`.
+# Change the stub and change this.
+name: transcription-cleanup
+description: Return the fixed Whisper sentence without its hesitation.
+
+match:
+  user_contains: "assistant de transcription"
+
+turns:
+  - text: "Ajoute des tomates à la liste de courses, s'il te plaît."
