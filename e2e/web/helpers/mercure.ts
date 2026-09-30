@@ -48,7 +48,8 @@ export function userTopic(userId: string, iri: string): string {
 interface ProbeState {
   messages: Array<{ data: string }>
   open: boolean
-  failed: boolean
+  /** How many times the stream has dropped. A counter, not a flag — see `expectSilence`. */
+  drops: number
   close: () => void
 }
 
@@ -85,24 +86,21 @@ export async function openMercureProbe(page: Page, topics: string[]): Promise<Me
       const state: ProbeState = {
         messages: [],
         open: false,
-        failed: false,
+        drops: 0,
         close: () => source.close(),
       }
 
       source.onopen = () => {
         state.open = true
-        // Cleared, not just set once: EventSource reconnects on its own, and
-        // a flag that stayed true after a transient blip would make the
-        // isolation journeys red for a reason that is not the feature's.
-        // `failed` means "not connected right now", which is what
-        // `expectSilence` needs to know.
-        state.failed = false
       }
-      // An error is not fatal — the stream comes back — but it has to be
-      // visible. An isolation assertion reads silence as proof, and a dropped
-      // stream is silence for the wrong reason.
+      // Counted, not flagged. EventSource reconnects on its own, so a flag set
+      // once would make every later assertion red over a blip that had already
+      // healed — and a flag cleared on reconnect would hide a drop that healed
+      // *inside* the window, which is the one place the gap matters. A counter
+      // lets `expectSilence` ask the only useful question: did the stream drop
+      // while I was proving it received nothing?
       source.onerror = () => {
-        state.failed = true
+        state.drops += 1
       }
       source.onmessage = (event) => {
         state.messages.push({ data: event.data })
@@ -128,8 +126,8 @@ export async function openMercureProbe(page: Page, topics: string[]): Promise<Me
     return raw.map((message) => ({ data: message.data, parsed: safeParse(message.data) }))
   }
 
-  const dropped = async (): Promise<boolean> =>
-    page.evaluate((id) => window.__maggieMercureProbes?.[id]?.failed === true, id)
+  const dropCount = async (): Promise<number> =>
+    page.evaluate((id) => window.__maggieMercureProbes?.[id]?.drops ?? 0, id)
 
   return {
     messages: read,
@@ -161,18 +159,21 @@ export async function openMercureProbe(page: Page, topics: string[]): Promise<Me
     },
 
     async expectSilence(ms = 3_000) {
+      const dropsBefore = await dropCount()
+
       // The one place a fixed wait is the assertion: proving an absence needs
       // a window, and there is no event to wait on instead.
       // eslint-disable-next-line playwright/no-wait-for-timeout
       await page.waitForTimeout(ms)
 
-      // Checked first, and this is the whole point of tracking it: an empty
-      // message list proves isolation only if the connection was still open
-      // to receive something. A hub that dropped the stream is silent too.
+      // Checked first, and this is the whole point of counting: an empty
+      // message list proves isolation only if the connection was open
+      // throughout. A stream that dropped and came back is silent too, and
+      // nothing published in the gap would ever have arrived.
       expect(
-        await dropped(),
-        `the connection to ${topics.join(', ')} dropped — its silence proves nothing`,
-      ).toBe(false)
+        await dropCount(),
+        `the connection to ${topics.join(', ')} dropped while proving its silence — that proves nothing`,
+      ).toBe(dropsBefore)
 
       const seen = await read()
       expect(
