@@ -103,4 +103,20 @@ describe('the admin Mercure subscriptions', () => {
       'useMercure no longer prefixes its topics with the user scope; every subscription in the admin would go silent.',
     ).toContain('`/users/${userId}${topic}`')
   })
+
+  it('opens every EventSource with credentials', () => {
+    // Updates are private: the hub delivers them only to a request carrying
+    // the mercureAuthorization cookie, which the browser sends cross-origin
+    // only with withCredentials (MAG-139).
+    const withoutCredentials = sourceFiles(adminSrc).filter((file) =>
+      [...readFileSync(file, 'utf8').matchAll(/new EventSource\([^\n]*\)/g)].some(
+        (match) => !/withCredentials:\s*true/.test(match[0]),
+      ),
+    )
+
+    expect(
+      withoutCredentials.map((file) => file.slice(adminSrc.length + 1)),
+      'These files open an EventSource without withCredentials: a private update never reaches them.',
+    ).toEqual([])
+  })
 })

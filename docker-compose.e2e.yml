@@ -264,7 +264,6 @@ services:
       MERCURE_PUBLISHER_JWT_KEY: e2e-mercure-secret
       MERCURE_SUBSCRIBER_JWT_KEY: e2e-mercure-secret
       MERCURE_EXTRA_DIRECTIVES: |
-        anonymous
         cors_origins *
     labels:
       <<: *stack-label

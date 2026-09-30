@@ -154,11 +154,11 @@ export const AgentSettings = () => {
     const userId = userStr ? JSON.parse(userStr).id : null
     if (!userId) return
 
-    const url = new URL(MERCURE_URL)
+    const url = new URL(MERCURE_URL, window.location.origin)
     url.searchParams.append('topic', `/proactions/${userId}`)
     url.searchParams.append('topic', `/instructions/${userId}`)
     url.searchParams.append('topic', `/skills/${userId}`)
-    const eventSource = new EventSource(url.toString())
+    const eventSource = new EventSource(url.toString(), { withCredentials: true })
 
     eventSource.onmessage = (event) => {
       try {

@@ -562,4 +562,37 @@ class MercurePublishMiddlewareTest extends TestCase
         self::assertArrayNotHasKey('title', $data);
         self::assertArrayNotHasKey('priority', $data);
     }
+
+    // --- Privacy ---
+
+    /**
+     * A public update is delivered to any subscriber whose requested topic
+     * matches, whatever their token's mercure.subscribe claim says — so a
+     * user could listen to another user's /users/{id}/… topics (MAG-139).
+     */
+    public function testEveryPublishedUpdateIsPrivate(): void
+    {
+        $event = new Event();
+        $event->setSummary('Secret');
+        $event->setStartAt(new \DateTimeImmutable('2026-03-20T10:00:00+01:00'));
+        $event->setEndAt(new \DateTimeImmutable('2026-03-20T11:00:00+01:00'));
+
+        $this->createMiddleware()->handle(
+            $this->received(new CreateEventCommand('Secret', $event->getStartAt(), $event->getEndAt())),
+            $this->createPassthroughStack($event),
+        );
+        $this->createMiddleware()->handle(
+            $this->received(new UpdateEventCommand(eventId: (string) $event->getId())),
+            $this->createPassthroughStack($event),
+        );
+        $this->createMiddleware()->handle(
+            $this->received(new DeleteEventCommand(eventId: (string) $event->getId())),
+            $this->createPassthroughStack(),
+        );
+
+        self::assertCount(3, $this->publishedUpdates);
+        foreach ($this->publishedUpdates as $update) {
+            self::assertTrue($update->isPrivate(), 'Update on ' . implode(', ', $update->getTopics()) . ' is public.');
+        }
+    }
 }

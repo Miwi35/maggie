@@ -56,3 +56,5 @@ class TestMercurePublisher:
         assert "topic=%2Fagent%2Fchat%2Fuser1" in body
         # The data field should contain JSON-encoded dict
         assert "data=" in body
+        # Private: the hub delivers only to tokens whose subscribe claim names the topic
+        assert "private=on" in body

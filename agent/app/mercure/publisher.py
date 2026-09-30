@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class MercurePublisher:
-    """Publishes messages to Mercure hub for real-time delivery."""
+    """Publishes to the Mercure hub — privately: a public update ignores the subscriber's token claims."""
 
     def __init__(self):
         self.hub_url = settings.mercure_url
@@ -28,7 +28,7 @@ class MercurePublisher:
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 self.hub_url,
-                data={"topic": topic, "data": json.dumps(data)},
+                data={"topic": topic, "data": json.dumps(data), "private": "on"},
                 headers={"Authorization": f"Bearer {token}"},
             )
 

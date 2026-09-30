@@ -20,6 +20,13 @@ final class MercureSubscriberTokenFactory
 {
     private const TTL_SECONDS = 86400;
 
+    /**
+     * Topics the agent publishes, keyed by the user id rather than scoped
+     * under /users/{id}. Updates are private, so a token only receives what
+     * one of its selectors names.
+     */
+    private const AGENT_TOPICS = ['chat', 'contexts', 'proactions', 'instructions', 'skills'];
+
     public function __construct(
         private readonly string $mercureJwtSecret,
     ) {
@@ -29,7 +36,7 @@ final class MercureSubscriberTokenFactory
     {
         $header = $this->base64UrlEncode(json_encode(['typ' => 'JWT', 'alg' => 'HS256'], JSON_THROW_ON_ERROR));
         $payload = $this->base64UrlEncode(json_encode([
-            'mercure' => ['subscribe' => ['/users/'.$user->getId().'/{topic}']],
+            'mercure' => ['subscribe' => $this->subscribeSelectors($user)],
             'exp' => time() + self::TTL_SECONDS,
         ], JSON_THROW_ON_ERROR));
         $signature = $this->base64UrlEncode(
@@ -37,6 +44,23 @@ final class MercureSubscriberTokenFactory
         );
 
         return $header.'.'.$payload.'.'.$signature;
+    }
+
+    /**
+     * `{+topic}` (reserved expansion) crosses "/" where `{topic}` does not, so
+     * it covers /users/{id}/api/tasks/{id}; with private updates a selector
+     * that matches nothing silences every real-time surface.
+     *
+     * @return list<string>
+     */
+    private function subscribeSelectors(User $user): array
+    {
+        $id = (string) $user->getId();
+
+        return [
+            '/users/' . $id . '/{+topic}',
+            ...array_map(static fn (string $topic): string => '/' . $topic . '/' . $id, self::AGENT_TOPICS),
+        ];
     }
 
     /**

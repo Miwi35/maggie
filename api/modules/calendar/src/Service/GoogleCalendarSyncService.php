@@ -277,6 +277,7 @@ class GoogleCalendarSyncService
                 $this->hub->publish(new Update(
                     topics: [$scopedTopic],
                     data: json_encode(['@id' => $iri, 'deleted' => true], JSON_THROW_ON_ERROR),
+                    private: true,
                 ));
 
                 return;
@@ -285,6 +286,7 @@ class GoogleCalendarSyncService
             $this->hub->publish(new Update(
                 topics: [$scopedTopic],
                 data: json_encode(['@id' => $iri] + $event->toMercurePayload(), JSON_THROW_ON_ERROR),
+                private: true,
             ));
         } catch (\Throwable $e) {
             $this->logger->error('Failed to publish Mercure update: {error}', [
