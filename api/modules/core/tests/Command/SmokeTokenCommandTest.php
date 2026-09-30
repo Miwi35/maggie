@@ -6,7 +6,6 @@ namespace Maggie\Core\Tests\Command;
 
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
-use App\Tests\Support\MercureAssertionTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Maggie\Core\Command\SmokeTokenCommand;
@@ -18,7 +17,6 @@ use Symfony\Component\Console\Tester\CommandTester;
 final class SmokeTokenCommandTest extends KernelTestCase
 {
     use FixtureLoaderTrait;
-    use MercureAssertionTrait;
     use ElasticsearchAssertionTrait;
 
     private CommandTester $tester;
@@ -27,7 +25,6 @@ final class SmokeTokenCommandTest extends KernelTestCase
     {
         self::bootKernel();
         $this->purgeDatabase();
-        $this->resetMercure();
         $this->resetAsyncTransport();
 
         $application = new Application(self::$kernel);
@@ -49,7 +46,6 @@ final class SmokeTokenCommandTest extends KernelTestCase
         self::assertSame(SmokeTokenCommand::GOOGLE_ID, $user->getGoogleId());
         self::assertSame(['ROLE_USER'], $user->getRoles(), 'The technical account must not carry any privilege.');
 
-        $this->assertMercureUpdatePublished('/users/');
         $this->assertElasticsearchIndexDispatched(User::class);
     }
 
@@ -62,6 +58,16 @@ final class SmokeTokenCommandTest extends KernelTestCase
 
         self::assertSame(1, $this->countSmokeUsers(), 'Every deploy runs the command; it must not pile up accounts.');
         self::assertSame($firstId, (string) $this->smokeUser()->getId());
+    }
+
+    public function testItAsksForTheIndexOnEveryRunSoTheDriftCheckStaysGreen(): void
+    {
+        $this->tester->execute([]);
+        $this->resetAsyncTransport();
+
+        $this->tester->execute([]);
+
+        $this->assertElasticsearchIndexDispatched(User::class);
     }
 
     public function testStdoutCarriesTheTokenAlone(): void

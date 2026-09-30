@@ -109,7 +109,8 @@ docker/build-push-action:
 
 1. SSH to the VPS, `bin/console app:smoke:token` in the php pod prints a JWT (account created on first use; token masked in the public log).
 2. `infra/scripts/smoke-prod.sh` checks: public URLs (`/`, `/admin` with and without trailing slash, no `http://` redirect), API, agent and Mercure health (+ Mercure CORS), `/_mcp` `tools/list`, `app:elasticsearch:status --check`, and one question to Maggie that must call a tool.
-3. Every check is run even after a failure, so one red run lists everything that is broken.
+3. On success the smoke job deletes the rollback record, so a later deploy that never reaches the cluster cannot undo this healthy release.
+4. Every check is run even after a failure, so one red run lists everything that is broken.
 
 Its own chat history is the only thing it writes. Unit tests of the scripts: `infra/scripts/tests/*.test.sh` (CI job `infra-scripts`).
 

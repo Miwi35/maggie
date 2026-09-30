@@ -159,7 +159,12 @@ if [ -n "$mcp_session" ]; then
     -d '{"jsonrpc":"2.0","method":"notifications/initialized"}' "$BASE_URL/_mcp" 2>/dev/null || true
 
   tools="$(curl -sS --max-time 20 -X POST "${AUTH[@]}" "${mcp_headers[@]}" \
-    -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' "$BASE_URL/_mcp" 2>/dev/null | sed 's/^data: //')"
+    -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' "$BASE_URL/_mcp" 2>/dev/null)"
+  # The streamable transport may answer as server-sent events: keep the JSON
+  # of the last `data:` line, whatever `event:` or `id:` lines surround it.
+  if printf '%s' "$tools" | grep -q '^data:'; then
+    tools="$(printf '%s' "$tools" | grep '^data:' | tail -n 1 | sed 's/^data: *//')"
+  fi
   tool_count="$(printf '%s' "$tools" | jq -r '[.result.tools[]?.name] | length' 2>/dev/null || echo 0)"
   if [ "${tool_count:-0}" -gt 0 ]; then
     pass "tools/list returns $tool_count tools"
@@ -185,10 +190,21 @@ step "5. Elasticsearch is reachable and in sync with the database"
 # database only on an exception: a stale or unreachable index answers an empty
 # list without a word. `--check` exits non-zero on a missing index or a drift.
 if [ -n "${ES_CHECK_CMD:-}" ]; then
-  if es_output="$(bash -c "$ES_CHECK_CMD" 2>&1)"; then
+  # Indexing goes through the worker, so a document dispatched a moment ago
+  # (the technical account's own) may not be counted yet: retried like the rest.
+  es_ok=0
+  for ((attempt = 1; attempt <= ATTEMPTS; attempt++)); do
+    if es_output="$(bash -c "$ES_CHECK_CMD" 2>&1)"; then
+      es_ok=1
+      break
+    fi
+    [ "$attempt" -lt "$ATTEMPTS" ] && sleep "$DELAY"
+  done
+  if [ "$es_ok" -eq 1 ]; then
     pass "app:elasticsearch:status --check is green"
   else
-    fail "app:elasticsearch:status --check failed — $(excerpt "$es_output")"
+    # The verdict is at the end of the output, after the cluster table.
+    fail "app:elasticsearch:status --check failed — $(printf '%s' "$es_output" | tail -c 300 | tr '\n' ' ')"
   fi
 else
   printf '  - skipped: ES_CHECK_CMD is not set\n'

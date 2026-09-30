@@ -33,7 +33,7 @@ fi
 failed=0
 rolled_back=0
 
-while read -r deploy revision; do
+while read -r deploy revision <&3; do
   current=$($KUBECTL get "deployment/$deploy" -n "$NAMESPACE" \
     -o jsonpath='{.metadata.annotations.deployment\.kubernetes\.io/revision}' 2>/dev/null || true)
 
@@ -55,7 +55,7 @@ while read -r deploy revision; do
     warn "$deploy did not come back on revision $revision"
     failed=1
   fi
-done < "$REVISIONS_FILE"
+done 3< "$REVISIONS_FILE"
 
 # A run that restored everything consumes the record, so a second one cannot
 # undo twice. After a failure it stays, so the rollback can be run again.

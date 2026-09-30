@@ -94,7 +94,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             tools = [] if "mcp_empty" in BREAK else [m for m in MODULES if not ("mcp_missing_module" in BREAK and "grocery" in m)]
             body = json.dumps({"jsonrpc": "2.0", "id": 2, "result": {"tools": [{"name": t} for t in tools]}})
-            self.send(200, f"data: {body}\n\n".encode(), {"Content-Type": "text/event-stream"})
+            self.send(200, f"event: message\nid: 1\ndata: {body}\n\n".encode(), {"Content-Type": "text/event-stream"})
         else:
             self.send(202)
 

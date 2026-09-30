@@ -298,6 +298,12 @@ jobs:
           ES_CHECK_CMD: ssh vps 'sudo k3s kubectl exec deployment/php -n maggie -- bin/console app:elasticsearch:status --check --no-interaction'
         run: infra/scripts/smoke-prod.sh
 
+      # A green release needs no rollback record. Left behind, it would let a
+      # later deploy that dies before reaching the cluster (SSH down) undo this
+      # healthy one.
+      - name: Drop the rollback record
+        run: ssh vps 'rm -f /opt/maggie/state/pre-deploy-revisions' || echo "::warning::could not drop the rollback record"
+
   # ===========================================================================
   # Roll back, then alert, when the deploy or the smoke suite failed
   # ===========================================================================
@@ -333,11 +339,13 @@ jobs:
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           SHA: ${{ github.event.workflow_run.head_sha }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           DEPLOY_RESULT: ${{ needs.deploy.result }}
           SMOKE_RESULT: ${{ needs.smoke.result }}
           ROLLBACK_OUTCOME: ${{ steps.rollback.outcome }}
+          SCRIPT_STARTED: ${{ needs.deploy.outputs.script_started }}
         run: |
           gh label create incident --color B60205 --description "Production incident" 2>/dev/null || true
 
@@ -349,8 +357,8 @@ jobs:
 
           if [ "$ROLLBACK_OUTCOME" = "success" ]; then
             state="Production was rolled back to the previous release."
-          elif [ "$ROLLBACK_OUTCOME" = "skipped" ]; then
-            state="The deploy failed before reaching the cluster: nothing was changed, nothing to roll back."
+          elif [ "$ROLLBACK_OUTCOME" = "skipped" ] && [ "$SCRIPT_STARTED" != "true" ] && [ "$SMOKE_RESULT" != "failure" ]; then
+            state="The deploy failed before its script started: the cluster was not touched, nothing to roll back."
           else
             state="**The rollback itself failed: production may be running the broken release. Act now.**"
           fi
@@ -358,5 +366,5 @@ jobs:
           gh issue create \
             --title "Production: ${cause} for ${SHA:0:7}" \
             --label incident \
-            --body "$(printf '%s\n\n- Commit: %s\n- Run: %s\n- Deploy: %s, smoke: %s\n\nMigrations and Elasticsearch mappings are not reverted; the pre-deploy database dump is in /opt/maggie/backups on the VPS.\n' \
+            --body "$(printf '%s\n\n- Commit: %s\n- Run: %s\n- Deploy: %s, smoke: %s\n\nMigrations, Elasticsearch mappings, the ConfigMap and the Secret are not reverted by the rollback; the pre-deploy database dump is in /opt/maggie/backups on the VPS.\n' \
               "$state" "$SHA" "$RUN_URL" "$DEPLOY_RESULT" "$SMOKE_RESULT")"

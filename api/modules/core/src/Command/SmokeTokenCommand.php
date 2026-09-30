@@ -6,12 +6,14 @@ namespace Maggie\Core\Command;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
+use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Repository\UserRepository;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
  * Signs the technical account the post-deploy smoke suite acts as (MAG-106).
@@ -24,6 +26,11 @@ use Symfony\Component\Console\Output\OutputInterface;
  * The account is the suite's own so that the questions it asks Maggie never
  * land in the owner's conversation, and it is created on first use so a fresh
  * cluster needs no manual step. Nothing else is written.
+ *
+ * It is indexed like any other user: the suite runs `app:elasticsearch:status
+ * --check`, which compares row counts, and a `users` index one document short
+ * would fail it and roll back a healthy release. A direct flush does not reach
+ * the Messenger middleware that indexes, so the command dispatches it itself.
  *
  * stdout carries the token alone, for `$(…)` capture.
  */
@@ -41,6 +48,7 @@ final class SmokeTokenCommand extends Command
         private readonly UserRepository $userRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly JWTTokenManagerInterface $jwtManager,
+        private readonly MessageBusInterface $bus,
     ) {
         parent::__construct();
     }
@@ -58,6 +66,10 @@ final class SmokeTokenCommand extends Command
             $this->entityManager->persist($user);
             $this->entityManager->flush();
         }
+
+        // Idempotent, so it is sent on every run: an earlier message lost to a
+        // worker restart is repaired by the next deploy.
+        $this->bus->dispatch(new IndexDocumentCommand(User::class, (string) $user->getId()));
 
         $output->writeln($this->jwtManager->create($user));
 
