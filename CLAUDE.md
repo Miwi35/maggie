@@ -18,6 +18,16 @@ Project skills are in `.claude/skills/`, agent-os commands in `.claude/commands/
 - Delivering a spec also means updating the module's functional spec and the user guide (Linear Documents, entry point: team doc « Index de la documentation Maggie »).
 - Keep specs, prompts and comments short and actionable: acceptance criteria and e2e journeys, not prose.
 
+## Creating Linear tickets
+
+Tickets are created by agents through the Linear MCP and picked up unattended by the dispatcher, so each one must be workable without a conversation. Before creating, search Linear for a duplicate. Write in French.
+
+- **Description**, in this order: **Contexte** (why, with links) · **À faire** · **Critères d'acceptation** (verifiable, one per line) · **Parcours e2e** (Given/When/Then and the journey ticket MAG-99…103 it extends, or `N/A — raison`) · **Fichiers probables** · **Hors périmètre**. End with `Définition de « terminé » : agent-os/standards/global/testing.md` — link it, do not copy it.
+- **Team** Maggie, **project** of the feature (attached to an initiative), **priority** set (Urgent: fixes and test foundation · High: Maggie works · Medium: rest), **type label** Bug / Feature / Improvement.
+- **Dispatcher labels**: one `area:*` per component touched, `lock:migration` if it adds a schema migration, `needs-shaping` if a spec must be shaped first.
+- **Dependencies** as `blockedBy`, never only in prose: the dispatcher skips blocked tickets.
+- One ticket = one deliverable a single PR can close; split anything larger into a project with one ticket per plan task.
+
 ## Autonomy — decide by default, ask only when it matters
 
 Agents take tickets unattended, from shaping to PR. At any step, **decide and move on** when the ticket, the module's functional spec, the standards or the existing code give an answer.
