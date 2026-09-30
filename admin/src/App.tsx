@@ -11,13 +11,18 @@ import { groceryResources } from './modules/grocery'
 import { cookbookResources } from './modules/cookbook'
 import { financeResources } from './modules/finance'
 import { searchResources } from './modules/search'
-import { authProvider, handleAuthCallback } from './auth/authProvider'
+import {
+  authProvider,
+  handleAuthCallback,
+  routeVisitorWithoutSessionToLogin,
+} from './auth/authProvider'
 import { LoginPage } from './auth/LoginPage'
 import { LoadingPage } from './auth/LoadingPage'
 import type { HttpClientOptions } from '@api-platform/admin'
 
 // Handle OAuth callback params before React renders
 handleAuthCallback()
+routeVisitorWithoutSessionToLogin()
 
 const entrypoint = import.meta.env.VITE_API_URL || 'http://localhost/api'
 

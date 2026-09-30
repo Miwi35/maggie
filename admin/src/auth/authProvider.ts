@@ -9,6 +9,11 @@ function isTokenExpired(token: string): boolean {
   }
 }
 
+function clearSession() {
+  localStorage.removeItem('token')
+  localStorage.removeItem('user')
+}
+
 export const authProvider: AuthProvider = {
   login: async ({ token, user }: { token: string; user: string }) => {
     localStorage.setItem('token', token)
@@ -52,6 +57,30 @@ export const authProvider: AuthProvider = {
   },
 
   getPermissions: async () => [],
+}
+
+/**
+ * Start a visitor with no valid session on the login page.
+ *
+ * Left to `requireAuth`, react-admin mounts its auth gate on the first route,
+ * which logs out, clears the query cache, re-runs the failing auth check and
+ * logs out again. That loop starves the router for 7 to 35 s, during which the
+ * page stays blank. Call this before the router reads the location.
+ */
+export function routeVisitorWithoutSessionToLogin(): void {
+  const token = localStorage.getItem('token')
+  if (token && !isTokenExpired(token)) {
+    return
+  }
+  clearSession()
+  if (window.location.hash.startsWith('#/login')) {
+    return
+  }
+  window.history.replaceState(
+    {},
+    '',
+    `${window.location.pathname}${window.location.search}#/login`,
+  )
 }
 
 /**

@@ -40,6 +40,7 @@ vi.mock('./modules/search', () => ({
 vi.mock('./auth/authProvider', () => ({
   authProvider: {},
   handleAuthCallback: vi.fn(),
+  routeVisitorWithoutSessionToLogin: vi.fn(),
 }))
 
 vi.mock('./auth/LoginPage', () => ({
