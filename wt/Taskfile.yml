@@ -37,11 +37,15 @@ vars:
       slug=$(basename "{{.ROOT_DIR}}" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed 's/-*$//')
       hash=$(printf '%s' "{{.ROOT_DIR}}" | sha1sum | cut -c1-8)
       echo "maggie-wt-${slug}-${hash}"
-  # Per-worktree tag: a shared one lets two worktrees with different
-  # Dockerfiles overwrite each other between a build and the run that uses it.
-  PHP_IMAGE: 'maggie-wt-php:{{.WT_PROJECT}}'
+  # Tagged with the hash of what the image is built from, like CI's (MAG-135):
+  # two worktrees on the same Dockerfile share it, two on different ones get
+  # different tags, and nothing rebuilds until .docker/php/** changes.
+  PHP_IMAGE:
+    sh: '{{.ROOT_DIR}}/wt/image.sh tag'
   NODE_IMAGE: 'node:{{.NODE_VERSION | default "22"}}-alpine'
   GUARD: '{{.ROOT_DIR}}/wt/guard.sh'
+  STACK: '{{.ROOT_DIR}}/wt/stack.sh'
+  IMAGE_SH: '{{.ROOT_DIR}}/wt/image.sh'
   DEPS_CACHE: '{{.ROOT_DIR}}/wt/deps-cache.sh'
 
 # Thresholds live in wt/limits.env, loaded by the root Taskfile — Task refuses
@@ -57,28 +61,26 @@ tasks:
     # once: `task fix:all` chains a dozen wt tasks; one check per run is enough.
     run: once
     cmds:
-      - '{{.GUARD}}'
+      # WT_SELF_PROJECT: this worktree's own stack is not "another" one, and
+      # any wt task counts as activity that keeps it alive.
+      - WT_SELF_PROJECT='{{.WT_PROJECT}}' {{.GUARD}}
     silent: true
 
   # ===========================================================================
   # PHP: PHPStan and the API suite
   # ===========================================================================
   image:
-    desc: Build the PHP image the worktree tasks use
+    desc: Make sure the PHP image the worktree tasks use exists (built only when .docker/php/** changed)
     # The e2e target: production php.ini, no Xdebug.
     #
-    # No `status:` guard on purpose. The tag is global, so a branch touching
-    # .docker/php/Dockerfile — this one does — would otherwise keep analysing
-    # against the previous runtime on any machine that already built it: wrong
-    # extensions, wrong php.ini, no warning. Layer caching makes the
-    # no-change case cheap, which is the same call e2e:_up:rest makes with
-    # `--build`.
+    # The tag is the hash of the build inputs, so "already built" is exact: a
+    # branch touching .docker/php/Dockerfile gets a new tag and builds once, any
+    # other branch finds its image and runs `docker image inspect`, nothing else.
+    # CI's image for the same hash is pulled in preference to a build.
     run: once
     deps: [guard]
     cmds:
-      - docker build -f {{.ROOT_DIR}}/.docker/php/Dockerfile --target e2e
-        --build-arg UID=$(id -u) --build-arg GID=$(id -g)
-        -t {{.PHP_IMAGE}} {{.ROOT_DIR}}
+      - '{{.IMAGE_SH}} ensure'
 
   phpstan:
     desc: PHPStan on this worktree (task wt:phpstan -- modules/core/src/Foo.php)
@@ -156,10 +158,64 @@ tasks:
           -w /app \
           --entrypoint sh {{.PHP_IMAGE}} -c '{{.COMMAND}}'
 
+  up:
+    desc: Keep this worktree's Postgres up for a test loop (stop it with task wt:down)
+    # The 40 s of a `wt:test:api` run that are not tests — image check, Compose
+    # up, Postgres boot — happen once here. Then every `wt:test:*` reuses the
+    # stack and only recreates the schema. One per worktree, nothing published.
+    #
+    # Safety net: a stack with no wt:* launch for WT_IDLE_MINUTES is removed by
+    # the guard and by a detached reaper started below.
+    deps: [image]
+    cmds:
+      - task: :e2e:keys
+      - |
+        set -euo pipefail
+        COMPOSE_PROJECT_NAME='{{.WT_PROJECT}}'
+        export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:?the worktree project name must not be empty}"
+        export WT_VENDOR_DIR="$({{.DEPS_CACHE}} api {{.PHP_IMAGE}})"
+        export WT_PHP_IMAGE='{{.PHP_IMAGE}}'
+        export WT_MEMORY='{{.WT_MEMORY}}'
+        export WT_DB_MEMORY='{{.WT_DB_MEMORY}}'
+        export WT_CPUS='{{.WT_CPUS}}'
+        export UID_GID="$(id -u):$(id -g)"
+        compose() { docker compose -f '{{.ROOT_DIR}}/wt/docker-compose.wt.yml' "$@"; }
+        # A failed start must not leave a half-built stack for the reaper to
+        # find in a quarter of an hour.
+        trap 'rc=$?; [ $rc -eq 0 ] || {{.STACK}} down "$COMPOSE_PROJECT_NAME" >&2' EXIT
+        compose up -d --wait database
+        # Created here, once: the test runs then only drop and recreate the schema.
+        compose run --rm --entrypoint sh php -c \
+          'bin/console --env=test doctrine:database:create --no-interaction --if-not-exists -q'
+        {{.STACK}} touch "$COMPOSE_PROJECT_NAME"
+        {{.STACK}} start-reaper "$COMPOSE_PROJECT_NAME"
+        echo "wt stack $COMPOSE_PROJECT_NAME is up — reused by task wt:test:api, removed by task wt:down or after {{.WT_IDLE_MINUTES}} idle minutes."
+
+  down:
+    desc: Remove this worktree's kept stack — and only this one
+    # Not guarded, not depending on the image: stopping must always work, even
+    # on a busy machine. wt/stack.sh only touches containers labelled with this
+    # worktree's project name, never dev, e2e, or another worktree.
+    cmds:
+      - '{{.STACK}} down {{.WT_PROJECT}}'
+
+  ps:
+    desc: List the kept worktree stacks on this machine and how long each has been idle
+    cmds:
+      - '{{.STACK}} list'
+
+  prune:
+    desc: Remove the kept worktree stacks idle for more than WT_IDLE_MINUTES
+    cmds:
+      - '{{.STACK}} prune'
+
   test:api:
-    desc: PHPUnit on this worktree, on a throwaway Postgres
+    desc: PHPUnit on this worktree — on the kept stack if `wt:up` started one, else a throwaway Postgres
     # The one task here that needs Compose: the suite talks to a real database.
-    # Two services, no published port, and `down -v` runs even on failure.
+    #
+    # Two modes, picked by whether this worktree's stack is running:
+    #   kept     reuse it, recreate only the schema (drop, create): seconds.
+    #   one shot bring Postgres up, run, `down -v` through a trap, as before.
     deps: [image]
     cmds:
       # Lexik needs a key pair to sign with. Reusing the e2e generator rather
@@ -176,21 +232,36 @@ tasks:
         export WT_VENDOR_DIR="$({{.DEPS_CACHE}} api {{.PHP_IMAGE}})"
         export WT_PHP_IMAGE='{{.PHP_IMAGE}}'
         export WT_MEMORY='{{.WT_MEMORY}}'
+        export WT_DB_MEMORY='{{.WT_DB_MEMORY}}'
         export WT_CPUS='{{.WT_CPUS}}'
         export UID_GID="$(id -u):$(id -g)"
         compose() { docker compose -f '{{.ROOT_DIR}}/wt/docker-compose.wt.yml' "$@"; }
 
-        # Rule 2: the teardown is registered before anything starts, so it runs
-        # whatever happens next. EXIT alone — Task's shell does not accept
-        # signal names, and it fires EXIT on interrupt anyway.
-        trap 'compose down -v --remove-orphans >/dev/null || echo "WARNING: teardown failed — run: docker compose -p $COMPOSE_PROJECT_NAME -f {{.ROOT_DIR}}/wt/docker-compose.wt.yml down -v" >&2' EXIT
+        if {{.STACK}} running "$COMPOSE_PROJECT_NAME"; then
+          # The clock restarts when the run ends too, not only when it starts.
+          trap '{{.STACK}} touch "$COMPOSE_PROJECT_NAME"' EXIT
+          REUSE=1
+        else
+          REUSE=0
+          # Rule 2: the teardown is registered before anything starts, so it
+          # runs whatever happens next. EXIT alone — Task's shell does not
+          # accept signal names, and it fires EXIT on interrupt anyway.
+          trap 'compose down -v --remove-orphans >/dev/null || echo "WARNING: teardown failed — run: task wt:down" >&2' EXIT
+          compose up -d --wait database
+        fi
 
-        compose up -d --wait database
         # UPDATE_CONTRACT is forwarded so the contract files under
         # api/contract/ can be regenerated from here. It is read only by the
         # Contract suite, and unset it is a plain verification run.
-        compose run --rm -e "UPDATE_CONTRACT=${UPDATE_CONTRACT:-}" --entrypoint sh php -c '
-          bin/console --env=test doctrine:database:create --no-interaction --if-not-exists -q \
+        #
+        # Kept stack: the database exists (wt:up created it) and holds the
+        # previous run's schema, so it is emptied rather than created over.
+        compose run --rm -e "UPDATE_CONTRACT=${UPDATE_CONTRACT:-}" -e "WT_REUSE=$REUSE" --entrypoint sh php -c '
+          if [ "$WT_REUSE" = 1 ]; then
+            bin/console --env=test doctrine:schema:drop --no-interaction --force --full-database -q
+          else
+            bin/console --env=test doctrine:database:create --no-interaction --if-not-exists -q
+          fi \
           && bin/console --env=test doctrine:schema:create --no-interaction -q \
           && bin/phpunit {{.CLI_ARGS}}
         '
@@ -371,9 +442,10 @@ tasks:
   # Cache housekeeping
   # ===========================================================================
   cache:prune:
-    desc: Drop dependency cache entries unused for 14 days, keeping the 3 newest
+    desc: Drop dependency cache entries unused for 14 days, keeping the 3 newest, and the stale php images
     cmds:
       - '{{.DEPS_CACHE}} prune'
+      - '{{.IMAGE_SH}} prune'
 
   cache:path:
     desc: Print where the shared dependency caches live

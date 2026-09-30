@@ -91,8 +91,11 @@ Symfony console: `task api:console -- <args>`.
 
 **In a git worktree** (parallel agents): every `task api:*`, `task admin:*`, `task agent:*` and `task ciqual:*` command runs `docker compose exec` against the dev stack, which mounts the main checkout, not your worktree — tests and linters would check the wrong code, and **formatters would rewrite the owner's working copy: never run them from a worktree**. Use `task fix:all` and `task wt:*` instead: minimal one-shot containers, nothing published, `--rm` / `down -v` even on failure, and a load guard that waits then sends you to CI (exit 75 = the machine is busy, not your change). Details: `agent-os/standards/global/worktree-checks.md`.
 
+**Test loop in a worktree (MAG-137):** `task wt:up` once (keeps this worktree's Postgres, image ready), then as many `task wt:test:api -- …` as needed — each reuses the stack and only recreates the schema, seconds instead of ~40 s — then **`task wt:down` as soon as the verification is done, before the PR**. Without `wt:up` every `wt:test:*` stays a one-shot. Safety net: a stack with no `wt:*` launch for 15 min is removed (the load guard and a detached reaper), but never count on it. `wt:down` only ever touches this worktree's stack.
+
 | Worktree checks | |
 |---|---|
+| `task wt:up`, `task wt:down` | keep / remove this worktree's Postgres for a test loop (`task wt:ps` lists the kept stacks) |
 | `task fix:all` | every fixer, every linter, PHPStan on changed files |
 | `task wt:phpstan -- <files>` | PHPStan, one container, ~2 s warm |
 | `task wt:phpstan:changed` | PHPStan on the PHP files changed since `origin/main` (also `task api:phpstan:changed`) |
@@ -108,7 +111,7 @@ For a journey, or anything needing the whole system, bring up the e2e stack — 
 
 | E2E stack | |
 |---|---|
-| `task e2e:up` | start (build, install, migrate), prints the URL |
+| `task e2e:up` | start (build, install, migrate), prints the URL. Load guard first: ≥ 5 GB RAM available and load under 0.8 × cores, else wait, then CI (exit 75). Every service has a `mem_limit` (~2.6 GiB total) |
 | `task e2e:seed` | deterministic fixtures + Elasticsearch rebuild |
 | `task e2e:smoke` | the smoke journey (HTTP) |
 | `task e2e:web` | the Playwright journeys for the admin (MAG-97) |

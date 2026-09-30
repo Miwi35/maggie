@@ -13,6 +13,8 @@
 # falls back to `build:` and its own tag when no E2E_IMAGE_* variable is set.
 #
 #   e2e/images.sh env      print E2E_IMAGE_<SERVICE>=<ref> lines (>> $GITHUB_ENV)
+#   e2e/images.sh hash <svc>  the hash alone (wt/image.sh tags its php image with it)
+#   e2e/images.sh ref <svc>   the full registry reference for that hash
 #   e2e/images.sh ensure   pull or build+push each image, and pull the third-party
 #                          ones meanwhile; needs `docker login ghcr.io` to push
 #
@@ -51,7 +53,9 @@ inputs() {
 # it: they are baked into the image's `app` user, so a runner and a laptop must
 # not share a tag.
 build_of() {
-  docker compose -f "$COMPOSE_FILE" config --format json |
+  # UID and GID given explicitly: a caller that exports them empty (Task does,
+  # while it evaluates a `sh:` variable) would hash the 1000 fallback instead.
+  env UID="$(id -u)" GID="$(id -g)" docker compose -f "$COMPOSE_FILE" config --format json |
     jq -cS --arg svc "$1" '.services[$svc].build | del(.context)'
 }
 
@@ -124,5 +128,7 @@ ensure() {
 case "${1:-}" in
   env)    print_env ;;
   ensure) ensure ;;
-  *)      echo "usage: $0 env|ensure" >&2; exit 2 ;;
+  hash)   hash_of "${2:?service}" ;;
+  ref)    ref_of "${2:?service}" ;;
+  *)      echo "usage: $0 env|ensure|hash <svc>|ref <svc>" >&2; exit 2 ;;
 esac
