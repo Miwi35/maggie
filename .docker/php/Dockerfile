@@ -67,8 +67,24 @@ RUN addgroup -g ${GID} app \
 RUN mkdir -p var/cache var/log var/sessions \
     && chown -R app:app /var/www
 
-# Copy crontab for scheduled tasks (crond runs jobs as user app)
-COPY --link .docker/php/crontab /etc/crontabs/app
+# Scheduler for the cron pod (MAG-147). busybox crond ran the jobs as `app`
+# with `>> /proc/1/fd/1`, a descriptor owned by root: the redirection failed
+# and the command never started. supercronic runs as a plain user, logs each
+# job's output and exit status on its own stdout, and needs no redirection.
+ARG SUPERCRONIC_VERSION=v0.2.49
+ARG TARGETARCH
+RUN case "${TARGETARCH:-amd64}" in \
+        amd64) sha256=a53ae236602c7338aba3fbaff40bda6300eae3b9fedb8261eb06cfe3724430c1 ;; \
+        arm64) sha256=02aa0cb229ba09050cba6638059dadb9eedc2276632ea43d6a57a2f8c1629dd5 ;; \
+        *) echo "unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+    && curl -fsSL -o /usr/local/bin/supercronic \
+        "https://github.com/aptible/supercronic/releases/download/${SUPERCRONIC_VERSION}/supercronic-linux-${TARGETARCH:-amd64}" \
+    && echo "${sha256}  /usr/local/bin/supercronic" | sha256sum -c - \
+    && chmod 755 /usr/local/bin/supercronic
+
+# Crontab of the scheduled tasks, run by `supercronic /etc/maggie/crontab`
+COPY --link .docker/php/crontab /etc/maggie/crontab
 
 # Copy entrypoint script
 COPY --link --chmod=755 .docker/php/docker-entrypoint.sh /usr/local/bin/docker-entrypoint

@@ -122,6 +122,13 @@ reused by other projects on the VPS.
 | cron | `maggie-php` (scheduled commands) | — |
 | mercure | `dunglas/mercure` | 80 |
 
+The cron pod runs `supercronic /etc/maggie/crontab` (from `.docker/php/crontab`) as
+uid 1000, never as root and never with a redirection to `/proc/1/fd/1` (refused to a
+non-root user: the job would silently never start, MAG-147). Each job's output and exit
+status go to `kubectl logs deploy/cron`; `maggie:google-calendar:check-sync` runs every
+15 min there and fails when a Google agenda was not synced for more than an hour.
+Test of the scheduler: `infra/scripts/tests/cron-image.test.sh` (CI job `cron-image`).
+
 Postgres, Elasticsearch and RabbitMQ live in the `shared` namespace and are
 shared with the other projects on the VPS.
 

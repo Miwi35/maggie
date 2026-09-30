@@ -292,8 +292,7 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-    command: ["crond", "-f", "-l", "2"]
-    user: root
+    command: ["supercronic", "/etc/maggie/crontab"]
     restart: unless-stopped
     networks:
       - maggie

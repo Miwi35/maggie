@@ -86,6 +86,7 @@ class GoogleCalendarSyncCommand extends Command
         }
 
         $count = 0;
+        $failed = 0;
         foreach ($agendas as $agenda) {
             $io->info("Syncing agenda: {$agenda->getName()}");
 
@@ -97,8 +98,16 @@ class GoogleCalendarSyncCommand extends Command
                 $this->syncService->pullFromGoogle($agenda);
                 ++$count;
             } catch (\Throwable $e) {
+                ++$failed;
                 $io->warning("Failed to sync agenda {$agenda->getName()}: {$e->getMessage()}");
             }
+        }
+
+        // A non-zero exit is what the scheduler logs as a failed job.
+        if ($failed > 0) {
+            $io->error("Synced {$count} agenda(s), {$failed} failed.");
+
+            return Command::FAILURE;
         }
 
         $io->success("Synced {$count} agenda(s).");
@@ -124,6 +133,7 @@ class GoogleCalendarSyncCommand extends Command
         }
 
         $count = 0;
+        $failed = 0;
         foreach ($users as $user) {
             $io->info("Syncing tasks for user: {$user->getEmail()}");
 
@@ -131,8 +141,15 @@ class GoogleCalendarSyncCommand extends Command
                 $this->tasksSyncService->pullFromGoogle($user);
                 ++$count;
             } catch (\Throwable $e) {
+                ++$failed;
                 $io->warning("Failed to sync tasks for {$user->getEmail()}: {$e->getMessage()}");
             }
+        }
+
+        if ($failed > 0) {
+            $io->error("Synced tasks for {$count} user(s), {$failed} failed.");
+
+            return Command::FAILURE;
         }
 
         $io->success("Synced tasks for {$count} user(s).");
