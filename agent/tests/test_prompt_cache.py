@@ -169,3 +169,30 @@ class TestStreamingPrefix:
         assert kwargs["system"][0]["cache_control"] == EPHEMERAL
         assert kwargs["tools"][-1]["cache_control"] == EPHEMERAL
         assert usage.call_args.kwargs["cache_read_input_tokens"] == 700
+
+
+class TestStreamingSystemPrompt:
+    async def test_active_contexts_and_date_go_after_the_cached_prefix(self, tmp_path):
+        from app.db.context_model import ContextStatus
+        from app.llm.streaming import StreamingGateway
+
+        index = SkillIndex(tmp_path)
+        index.rebuild()
+        context = MagicMock(label="Courses", status=ContextStatus.ACTIVE)
+
+        with (
+            patch("app.llm.streaming.skill_index", index),
+            patch("app.llm.streaming.context_repo") as context_repo,
+            patch("app.llm.streaming.current_datetime_line", return_value="Nous sommes lundi, il est 9h."),
+        ):
+            context_repo.find_active = AsyncMock(return_value=[context])
+            gateway = StreamingGateway.__new__(StreamingGateway)
+            gateway.personality = MagicMock(get_system_prompt=AsyncMock(return_value="BASE"))
+            gateway.agent_memory = MagicMock(get_memory_context=AsyncMock(return_value="\n\nAllergie : noix"))
+
+            blocks = await gateway._build_system_prompt("user-1")
+
+        assert blocks[0] == {"type": "text", "text": "BASE", "cache_control": EPHEMERAL}
+        assert "Courses" in blocks[1]["text"]
+        assert "Allergie : noix" in blocks[1]["text"]
+        assert "Nous sommes lundi, il est 9h." in blocks[1]["text"]
