@@ -68,7 +68,7 @@ Once the ticket is implemented and its tests pass, the session orchestrates a re
 
 1. Send the branch to a fresh `code-reviewer` subagent with the ticket, the spec folder and the base branch.
 2. `CHANGES_REQUIRED` → hand the blocking findings to a `fullstack-developer` subagent to fix (tests first when a test is missing), then re-run lint and tests.
-3. Resubmit to a new `code-reviewer`, with the previous findings to verify. Repeat until `ACCEPT`.
+3. Resubmit to a new `code-reviewer` with the previous findings and the commit it reviewed: it checks **only the fixes** since then, not the whole branch again. Repeat until `ACCEPT`.
 4. Three rounds without `ACCEPT`: stop and ask (`needs-human`), listing what is left.
 
 The PR description ends with a **Review** section: number of rounds, blocking findings fixed, minor findings left as is.
