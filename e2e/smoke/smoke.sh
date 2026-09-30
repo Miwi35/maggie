@@ -218,7 +218,7 @@ assert_eq 0 "$unmatched" "every request the sync made had a stub"
 # journey asserting on a freshly written indexed entity has to wait like this;
 # reading once is how a passing feature gets reported as broken.
 imported=""
-for _ in $(seq 1 30); do
+for _ in $(seq 1 60); do
   transactions="$(curl -sS "${AUTH[@]}" -H 'Accept: application/ld+json' "$BASE_URL/api/transactions?itemsPerPage=100")"
   if printf '%s' "$transactions" | grep -qF 'LECLERC RENNES CB'; then
     imported=yes

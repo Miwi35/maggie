@@ -214,6 +214,17 @@ services:
         condition: service_healthy
     command: ["php", "bin/console", "messenger:consume", "async", "--time-limit=3600", "--memory-limit=128M"]
     restart: unless-stopped
+    healthcheck:
+      # A consumer has no endpoint, so this checks the only thing that matters:
+      # the process is actually running. Without it `up --wait` returns as soon
+      # as the container is "started", which is also true of one crash-looping
+      # on a missing vendor/ — and a journey then waits forever for an indexed
+      # entity that nobody is indexing.
+      test: ["CMD-SHELL", "pgrep -f 'messenger:consume' >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
     labels:
       <<: *stack-label
     networks:
