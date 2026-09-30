@@ -158,6 +158,7 @@ class MercurePublishMiddleware implements MiddlewareInterface
         $this->hub->publish(new Update(
             topics: [$scopedTopic],
             data: json_encode(['@id' => $iri] + $payload, JSON_THROW_ON_ERROR),
+            private: true,
         ));
     }
 
@@ -188,6 +189,7 @@ class MercurePublishMiddleware implements MiddlewareInterface
         $this->hub->publish(new Update(
             topics: [$scopedTopic],
             data: json_encode(['@id' => $iri, 'deleted' => true], JSON_THROW_ON_ERROR),
+            private: true,
         ));
     }
 

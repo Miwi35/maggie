@@ -24,7 +24,14 @@ All real-time updates use **Mercure** (SSE), not WebSockets.
 
 - Entity updates: `/api/{resource}/{id}` (auto from API Platform)
 - User-scoped: `/users/{userId}/api/{resource}/{id}` (middleware adds prefix)
-- Agent chat: `/agent/chat/{user_id}`
+- Agent (published by the agent service, not under `/users/`): `/chat/{userId}`, `/contexts/{userId}`, `/proactions/{userId}`, `/instructions/{userId}`, `/skills/{userId}`
+
+## Privacy — every update is private
+
+A public update is delivered to any subscriber whose requested topic matches, **whatever their token's `mercure.subscribe` claim says**. So:
+- PHP: `new Update(topics, data, private: true)`; agent: `private=on` in the publish form (`MercurePublisher` does it).
+- The subscriber token (`MercureSubscriberTokenFactory`) lists `/users/{id}/{+topic}` (`{+topic}` crosses `/`, `{topic}` does not) plus the agent topics above, keyed by the user's id. A new topic outside `/users/{id}/` needs a selector there or it goes silent.
+- Every `EventSource` passes `{ withCredentials: true }` (cookie `mercureAuthorization`); the hub runs without `anonymous`.
 
 ## API Entity Publication
 

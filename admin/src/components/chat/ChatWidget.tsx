@@ -431,10 +431,10 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     useEffect(() => {
       const userStr = localStorage.getItem('user')
       const userId = userStr ? JSON.parse(userStr).id : 'default'
-      const url = new URL(MERCURE_URL)
-      url.searchParams.append('topic', `/agent/chat/${userId}`)
+      const url = new URL(MERCURE_URL, window.location.origin)
+      url.searchParams.append('topic', `/chat/${userId}`)
 
-      const eventSource = new EventSource(url.toString())
+      const eventSource = new EventSource(url.toString(), { withCredentials: true })
       eventSource.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)
@@ -482,10 +482,10 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     useEffect(() => {
       const userStr = localStorage.getItem('user')
       const userId = userStr ? JSON.parse(userStr).id : 'default'
-      const url = new URL(MERCURE_URL)
+      const url = new URL(MERCURE_URL, window.location.origin)
       url.searchParams.append('topic', `/contexts/${userId}`)
 
-      const eventSource = new EventSource(url.toString())
+      const eventSource = new EventSource(url.toString(), { withCredentials: true })
       eventSource.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)

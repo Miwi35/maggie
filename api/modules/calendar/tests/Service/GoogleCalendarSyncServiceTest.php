@@ -150,6 +150,9 @@ class GoogleCalendarSyncServiceTest extends TestCase
         $service->pullFromGoogle($agenda);
 
         self::assertCount(2, $this->publishedUpdates);
+        foreach ($this->publishedUpdates as $update) {
+            self::assertTrue($update->isPrivate());
+        }
 
         $data1 = json_decode($this->publishedUpdates[0]->getData(), true);
         self::assertSame('/api/events/'.$event1->getId(), $data1['@id']);

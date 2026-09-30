@@ -169,7 +169,6 @@ services:
       MERCURE_PUBLISHER_JWT_KEY: ${MERCURE_JWT_SECRET}
       MERCURE_SUBSCRIBER_JWT_KEY: ${MERCURE_JWT_SECRET}
       MERCURE_EXTRA_DIRECTIVES: |
-        anonymous
         cors_origins *
     labels:
       - "maggie.stack=dev"

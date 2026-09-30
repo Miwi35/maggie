@@ -148,7 +148,13 @@ final class E2eLoginControllerTest extends KernelTestCase
             JSON_THROW_ON_ERROR,
         );
 
-        self::assertSame(['/users/'.$user->getId().'/{topic}'], $claims['mercure']['subscribe']);
+        self::assertSame(
+            ['/users/'.$user->getId().'/{+topic}'],
+            array_slice($claims['mercure']['subscribe'], 0, 1),
+        );
+        foreach ($claims['mercure']['subscribe'] as $selector) {
+            self::assertStringContainsString((string) $user->getId(), $selector);
+        }
     }
 
     public function testCookieIsNotSecureOverPlainHttp(): void

@@ -33,9 +33,15 @@ vi.mock('../../hooks/useAgUiStream', () => ({
 
 // Mock EventSource globally before any render
 class MockEventSource {
+  static instances: MockEventSource[] = []
   onmessage: ((event: MessageEvent) => void) | null = null
   close = vi.fn()
-  constructor(public url: string) {}
+  constructor(
+    public url: string,
+    public init?: EventSourceInit,
+  ) {
+    MockEventSource.instances.push(this)
+  }
 }
 vi.stubGlobal('EventSource', MockEventSource)
 
@@ -73,6 +79,7 @@ describe('ChatWidget', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     vi.stubGlobal('EventSource', MockEventSource)
+    MockEventSource.instances = []
     mockSend.mockReset()
     defaultProps.onTabChange = vi.fn()
     defaultProps.onClose = vi.fn()
@@ -90,6 +97,25 @@ describe('ChatWidget', () => {
     expect(screen.getByRole('tab', { name: /Chat/i })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /Mind/i })).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Demande à Maggie...')).toBeInTheDocument()
+  })
+
+  test('subscribes to the agent topics of the current user, with credentials', () => {
+    vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
+    localStorage.setItem('user', JSON.stringify({ id: 'user-1' }))
+
+    try {
+      render(<ChatWidget {...defaultProps} />)
+    } finally {
+      localStorage.removeItem('user')
+    }
+
+    // Private updates reach only requests carrying the mercureAuthorization
+    // cookie, and the agent publishes /chat/{id} and /contexts/{id} (MAG-139).
+    const topics = MockEventSource.instances.map((es) => new URL(es.url, 'http://localhost').searchParams.get('topic'))
+    expect(topics).toEqual(expect.arrayContaining(['/chat/user-1', '/contexts/user-1']))
+    for (const es of MockEventSource.instances) {
+      expect(es.init?.withCredentials).toBe(true)
+    }
   })
 
   test('loads history on open', async () => {

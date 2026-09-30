@@ -7,6 +7,7 @@ use Google\Service\Exception as GoogleServiceException;
 use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Repository\TaskRepository;
 use Maggie\Core\Entity\User;
+use Maggie\Core\Mercure\MercureTopic;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Mercure\HubInterface;
 use Symfony\Component\Mercure\Update;
@@ -130,7 +131,7 @@ class GoogleTasksSyncService
 
         // Publish Mercure updates
         foreach ($changedTaskIds as $taskId) {
-            $this->publishMercureUpdate($taskId);
+            $this->publishMercureUpdate($taskId, (string) $user->getId());
         }
     }
 
@@ -224,25 +225,28 @@ class GoogleTasksSyncService
         }
     }
 
-    private function publishMercureUpdate(string $taskId): void
+    private function publishMercureUpdate(string $taskId, string $userId): void
     {
         try {
             $task = $this->taskRepository->find($taskId);
+            $iri = MercureTopic::item('/api/tasks', $taskId);
+            $scopedTopic = MercureTopic::scoped($userId, $iri);
+
             if (null === $task) {
                 // Task was deleted
-                $iri = '/api/tasks/'.$taskId;
                 $this->hub->publish(new Update(
-                    topics: [$iri],
+                    topics: [$scopedTopic],
                     data: json_encode(['@id' => $iri, 'deleted' => true], JSON_THROW_ON_ERROR),
+                    private: true,
                 ));
 
                 return;
             }
 
-            $iri = '/api/tasks/'.$task->getId();
             $this->hub->publish(new Update(
-                topics: [$iri],
+                topics: [$scopedTopic],
                 data: json_encode(['@id' => $iri] + $task->toMercurePayload(), JSON_THROW_ON_ERROR),
+                private: true,
             ));
         } catch (\Throwable $e) {
             $this->logger->error('Failed to publish Mercure update: {error}', [
