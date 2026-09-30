@@ -989,9 +989,15 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                     fullWidth
                     slotProps={{ htmlInput: { sx: { fontSize: 14 } } }}
                   />
-                  <Tooltip title={recorder.state === 'recording' ? 'Arrêter' : 'Dicter'}>
+                  <Tooltip title={recorder.state === 'recording' ? 'Arrêter la dictée' : 'Dicter'}>
                     <span>
+                      {/* A tooltip is not an accessible name: MUI renders it in
+                          a portal and points at it with aria-describedby, so
+                          these two buttons had none at all — unreachable to a
+                          screen reader, and to the chat journey's dictation
+                          step (MAG-99). */}
                       <IconButton
+                        aria-label={recorder.state === 'recording' ? 'Arrêter la dictée' : 'Dicter'}
                         onClick={handleMicClick}
                         disabled={isTranscribing || isLoading}
                         color={recorder.state === 'recording' ? 'error' : 'default'}
@@ -1006,7 +1012,12 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                       </IconButton>
                     </span>
                   </Tooltip>
-                  <IconButton color="primary" onClick={sendMessage} disabled={isLoading || !input.trim()}>
+                  <IconButton
+                    aria-label="Envoyer"
+                    color="primary"
+                    onClick={sendMessage}
+                    disabled={isLoading || !input.trim()}
+                  >
                     <SendIcon />
                   </IconButton>
                 </Box>

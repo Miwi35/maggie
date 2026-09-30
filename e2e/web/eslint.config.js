@@ -47,6 +47,8 @@ export default tseslint.config(
             'expectRealtimeSync',
             'expectShown',
             'expectSilence',
+            'openEvent',
+            'openMind',
             'waitFor',
             'waitForIndexed',
           ],

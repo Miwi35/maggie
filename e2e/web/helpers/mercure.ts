@@ -202,10 +202,22 @@ export async function openMercureProbe(page: Page, topics: string[]): Promise<Me
  *
  * Acting before the observer is subscribed is the single most common way a
  * real-time journey goes flaky, so no two-tab test should skip this.
+ *
+ * @param topic wait for the subscription carrying this topic rather than for
+ *              the first one to come back. A screen opens several — the
+ *              dashboard's entity topics, the chat panel's `/chat/{id}` and
+ *              `/contexts/{id}` — and they are registered in whatever order
+ *              their effects run, so "the first one" is not the one a journey
+ *              is about to publish on.
  */
-export async function openSubscribed(page: Page, open: () => Promise<void>): Promise<void> {
+export async function openSubscribed(page: Page, open: () => Promise<void>, topic?: string): Promise<void> {
   const subscribed = page.waitForResponse(
-    (response) => response.url().includes(MERCURE_PATH) && response.status() === 200,
+    (response) =>
+      response.url().includes(MERCURE_PATH) &&
+      response.status() === 200 &&
+      // Parsed rather than matched on the raw URL: `URLSearchParams` percent-
+      // encodes every slash, so `/chat/01J…` never appears as itself.
+      (topic === undefined || new URL(response.url()).searchParams.getAll('topic').includes(topic)),
     { timeout: 30_000 },
   )
 

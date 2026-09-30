@@ -77,6 +77,36 @@ suite whose slowest steps have nothing to do with layout. Tag a test when its
    `ChatPanel.send()` returns the AG-UI events of the whole run — which tool
    ran, how many deltas, whether the run finished.
 
+## The chat journey
+
+`tests/chat.spec.ts` is the one journey that is serial, because the
+conversation is stateful: the context router opens a context on the first
+message and every later one joins it, until a message deliberately changes the
+subject. It covers streaming, a tool call seen in the Mind panel and verified
+in the database and on the calendar, the change of subject, a thread resumed
+after a reload, and a proaction arriving over Mercure (MAG-99).
+
+It is also the one file that turns retries off. A serial group replays whole
+and nothing reseeds between the attempts, so the second one starts on the
+conversation the first one wrote — and every count below would fail as a
+duplicate on a run where nothing was wrong.
+
+Most of its assertions are counts, and that is deliberate. MAG-93 found ten
+past regressions in this module and none was about what Maggie said; three of
+them are `176c40c`, which fixed the same symptom — one message shown twice — in
+three independent places. So the journey asserts one message id per run, one
+bubble per message, and the same again after a reload.
+
+**The microphone is out of reach.** `navigator.mediaDevices` only exists in a
+trustworthy origin and the stack answers on plain `http://traefik`, so
+`useVoiceRecorder` reports "Accès au microphone refusé" and nothing in
+Playwright works around it — not the permission, not Chromium's fake capture
+device, not `--unsafely-treat-insecure-origin-as-secure`, which this build
+ignores even with a persistent profile. Dictation is asserted over HTTP in
+`e2e/smoke/smoke.sh` (step 9) until MAG-145 gives the stack an origin the
+browser trusts. TTS has no surface in the admin at all: the web never speaks,
+so it lives in the smoke journey and in the Maestro flows (MAG-98).
+
 ## Two windows, not two tabs
 
 `twoWindows` gives the same user two live views. It is two browser *contexts*
@@ -90,6 +120,13 @@ unchanged, and real-time looks dead when it is not.
 ## What the harness found on its first run
 
 Worth knowing, because each was invisible to every test that existed before:
+
+- **The global search's results lead nowhere.** API Platform Admin takes the
+  IRI as a record id; `/api/search` returns the bare Elasticsearch one, and
+  `getResultPath` passes it straight through. `getOne` then resolves it against
+  the origin, requests `/<ulid>`, gets a 404, and the screen says "introuvable"
+  — for every index, from both the search bar and the results page. Found by
+  the chat journey following the calendar's `?eventId=` deep link (MAG-144).
 
 - **The Mercure image was unpinned, everywhere.** CI pulls fresh, got a build
   that had renamed the subscribe parameter from `topic` to

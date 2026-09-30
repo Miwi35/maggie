@@ -99,6 +99,17 @@ describe('ChatWidget', () => {
     expect(screen.getByPlaceholderText('Demande à Maggie...')).toBeInTheDocument()
   })
 
+  // Both carry an icon and a tooltip, and a tooltip is not an accessible name —
+  // MUI renders it in a portal. Without these labels neither button is
+  // reachable by a screen reader or by the chat journey (MAG-99).
+  test('names the dictation and send buttons', () => {
+    vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
+    render(<ChatWidget {...defaultProps} />)
+
+    expect(screen.getByRole('button', { name: 'Dicter' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Envoyer' })).toBeInTheDocument()
+  })
+
   test('subscribes to the agent topics of the current user, with credentials', () => {
     vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
     localStorage.setItem('user', JSON.stringify({ id: 'user-1' }))

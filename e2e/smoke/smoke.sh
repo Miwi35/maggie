@@ -406,6 +406,50 @@ dictated_answer="$(chat "$cleaned")"
 assert_eq add_grocery_item "$(printf '%s' "$dictated_answer" | jq -r '.tool_calls[0].name // empty')" \
   "what she heard reaches the grocery list"
 
+# The other half of the voice path, and the only half with no screen behind it:
+# the admin does not speak, so `TTS_PROVIDER=fake` is checked here rather than
+# in a browser journey. Mobile is what reads it back — four of MAG-93's
+# regressions are that overlay revocalising an old answer — and the flows that
+# cover those wait on MAG-98.
+#
+# `TTS_PROVIDER=fake` streams a valid silent MP3 frame instead of opening a
+# WebSocket to Microsoft, so this asserts that audio arrives and that the
+# provider is the stand-in: real Edge TTS for one sentence is several kilobytes
+# and several hundred milliseconds, neither of which belongs in CI.
+voices="$(curl -sS "${AUTH[@]}" "$BASE_URL/agent/tts/voices")"
+assert_contains "$voices" 'fr-FR-DeniseNeural' "the curated voice list comes back"
+
+# Its own text, 150 characters of one letter, rather than the dictated sentence:
+# the fake emits one 104-byte frame per 50 characters of prepared text, so the
+# byte count below is exact and says what it means. Borrowing the dictation
+# fixture would tie this assertion to a sentence another journey is free to
+# reword, and shortening that sentence would fail here for no reason.
+spoken="$(mktemp)"
+trap 'rm -f "$dictation" "$spoken"' EXIT
+tts_text="$(printf 'a%.0s' $(seq 1 150))"
+tts_status="$(curl -sS -o "$spoken" -w '%{http_code}' -X POST "${AUTH[@]}" \
+  -H 'Content-Type: application/json' \
+  -d "$(jq -nc --arg t "$tts_text" '{text: $t}')" "$BASE_URL/agent/tts/synthesize")"
+assert_eq 200 "$tts_status" "synthesising a sentence answers"
+
+# An MP3 frame starts with the 11 sync bits — 0xFF then 0xFB here. Checked on
+# the bytes rather than on the Content-Type, which a proxy sets over an empty
+# body just as happily, and `od` rather than `xxd`, which is not everywhere.
+assert_eq fffb "$(head -c 2 "$spoken" | od -An -tx1 | tr -d ' \n')" \
+  "what came back is audio, not an error page"
+
+# Three whole frames, 104 bytes each: the stand-in answered, and its chunking
+# loop ran the number of times the text implies. It says nothing about the
+# response being streamed rather than buffered — `curl -o` writes the same
+# bytes either way — only that the whole body arrived and came from the fake
+# provider and not from Edge TTS, whose output for this text would be neither
+# silent nor a round multiple of a frame.
+assert_eq 312 "$(wc -c <"$spoken")" "the stand-in returned one 104-byte frame per 50 characters"
+
+assert_eq 400 "$(status_of -X POST "${AUTH[@]}" -H 'Content-Type: application/json' \
+  -d '{"text":"bonjour","voice":"fr-FR-Inexistante"}' "$BASE_URL/agent/tts/synthesize")" \
+  "an unknown voice is refused rather than substituted"
+
 # ---------------------------------------------------------------------------
 printf '\n\033[1mSmoke journey: %d passed, %d failed\033[0m\n' "$passed" "$failed"
 

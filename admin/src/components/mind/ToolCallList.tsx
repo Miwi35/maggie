@@ -9,20 +9,31 @@ interface ToolCallListProps {
   toolCalls: ToolCallState[]
 }
 
+/**
+ * What Maggie has been doing, in the Mind panel's "Activité" section.
+ *
+ * `mind-activity`, `mind-tool-call` and `data-status` are the handles the chat
+ * journey scopes to (MAG-99), like `page-content` and `chat-panel` before them:
+ * a tool's outcome is drawn as an icon with no accessible name, so without the
+ * attribute a journey could only assert that the tool was *mentioned*, never
+ * that it succeeded.
+ */
 export const ToolCallList = ({ toolCalls }: ToolCallListProps) => {
   if (toolCalls.length === 0) {
     return (
-      <Typography variant="caption" color="text.secondary" sx={{ px: 2, py: 1 }}>
+      <Typography data-testid="mind-activity" variant="caption" color="text.secondary" sx={{ px: 2, py: 1 }}>
         Aucune activité
       </Typography>
     )
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+    <Box data-testid="mind-activity" sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
       {toolCalls.map((tc) => (
         <Box
           key={tc.toolCallId}
+          data-testid="mind-tool-call"
+          data-status={tc.status}
           sx={{
             display: 'flex',
             alignItems: 'center',
