@@ -50,12 +50,15 @@ final class E2eDateProviderTest extends TestCase
 
     public function testWallClockOffsetsSurviveTheDaylightSavingChange(): void
     {
-        // Paris moves its clocks on 2026-03-29: the day is 23 hours long, and
-        // "12:00" must still be noon there.
-        $provider = $this->anchoredAt('2026-03-29T00:00:00+01:00');
+        // Paris moves its clocks on 2026-03-29: the day is 23 hours long. The
+        // anchor carries the named zone (not a fixed offset), so "12:00" is noon
+        // there, whatever PHP does with an elapsed-time offset.
+        $provider = new E2eDateProvider();
+        $provider->setAnchor(E2eDateProvider::anchorFor(new \DateTimeImmutable('2026-03-28T23:30:00+00:00')));
 
-        self::assertSame('2026-03-29 12:00', $provider->e2eDate('12:00')->format('Y-m-d H:i'));
-        self::assertSame('2026-03-30 09:00', $provider->e2eDate('+1 day 09:00')->format('Y-m-d H:i'));
+        self::assertSame('2026-03-29T00:00:00+01:00', $provider->getAnchor()->format(\DATE_ATOM));
+        self::assertSame('2026-03-29T12:00:00+02:00', $provider->e2eDate('12:00')->format(\DATE_ATOM));
+        self::assertSame('2026-03-30T09:00:00+02:00', $provider->e2eDate('+1 day 09:00')->format(\DATE_ATOM));
     }
 
     public function testOffsetsAreCountedFromTheAnchor(): void

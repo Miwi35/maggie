@@ -24,6 +24,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# Compose reads UID and GID from the environment for the build args.
+GID="$(id -g)"
+export UID GID
+
 REGISTRY="${E2E_IMAGE_REGISTRY:-ghcr.io/miwi35/maggie-e2e}"
 COMPOSE_FILE="$ROOT/docker-compose.e2e.yml"
 
@@ -41,22 +45,20 @@ inputs() {
   esac
 }
 
-build_args() {
-  # Same defaults as docker-compose.e2e.yml. UID/GID are baked into the image's
-  # `app` user, so a runner and a laptop must not share a tag.
-  local uid gid
-  uid="$(id -u)"; gid="$(id -g)"
-  case "$1" in
-    php)    echo "PHP_VERSION=${PHP_VERSION:-8.4} UID=$uid GID=$gid" ;;
-    nginx)  echo "" ;;
-    agent|ciqual) echo "PYTHON_VERSION=${PYTHON_VERSION:-3.12} UID=$uid GID=$gid" ;;
-  esac
+# The resolved `build:` stanza of the Compose file — context aside, which is an
+# absolute path — so a new build arg, another target or another Dockerfile path
+# changes the tag without anyone remembering to mirror it here. UID/GID are in
+# it: they are baked into the image's `app` user, so a runner and a laptop must
+# not share a tag.
+build_of() {
+  docker compose -f "$COMPOSE_FILE" config --format json |
+    jq -cS --arg svc "$1" '.services[$svc].build | del(.context)'
 }
 
 hash_of() {
   {
-    build_args "$1"
-    inputs "$1" | LC_ALL=C sort | xargs sha256sum
+    build_of "$1"
+    inputs "$1" | LC_ALL=C sort | xargs -r sha256sum
   } | sha256sum | cut -c1-12
 }
 
@@ -89,8 +91,6 @@ ensure_one() {
 }
 
 ensure() {
-  export UID GID
-  GID="$(id -g)"
   while IFS='=' read -r name value; do export "$name=$value"; done < <(print_env)
 
   local pids=() names=() i failed=0

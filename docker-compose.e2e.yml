@@ -31,6 +31,9 @@ x-php-image: &php-image
     context: .
     dockerfile: .docker/php/Dockerfile
     target: e2e
+    labels:
+      # Links the pushed image to this repository, so GHCR lets its workflows pull and push it.
+      org.opencontainers.image.source: https://github.com/Miwi35/maggie
     args:
       PHP_VERSION: ${PHP_VERSION:-8.4}
       UID: ${UID:-1000}
@@ -128,7 +131,8 @@ services:
       # Started, not healthy: Elasticsearch takes the longest to come up, and
       # composer, cache:clear and the migrations do not touch it. Waiting for it
       # here would serialise its boot in front of all of them. The final
-      # `up --wait` still waits for it, and so does the worker.
+      # `up --wait` still waits for it (the worker declares it healthy, but the
+      # final wait runs with --no-deps, so that wait is what enforces it).
       elasticsearch:
         condition: service_started
     labels:
@@ -145,6 +149,9 @@ services:
       context: .
       dockerfile: .docker/nginx/Dockerfile
       target: dev
+      labels:
+        # Links the pushed image to this repository, so GHCR lets its workflows pull and push it.
+        org.opencontainers.image.source: https://github.com/Miwi35/maggie
     volumes:
       - ./api/public:/var/www/api/public:ro
       - ./admin/dist:/var/www/admin:ro
@@ -351,6 +358,9 @@ services:
       context: .
       dockerfile: .docker/python/Dockerfile
       target: dev
+      labels:
+        # Links the pushed image to this repository, so GHCR lets its workflows pull and push it.
+        org.opencontainers.image.source: https://github.com/Miwi35/maggie
       args:
         PYTHON_VERSION: ${PYTHON_VERSION:-3.12}
         UID: ${UID:-1000}
@@ -434,6 +444,9 @@ services:
       context: .
       dockerfile: .docker/ciqual/Dockerfile
       target: dev
+      labels:
+        # Links the pushed image to this repository, so GHCR lets its workflows pull and push it.
+        org.opencontainers.image.source: https://github.com/Miwi35/maggie
       args:
         PYTHON_VERSION: ${PYTHON_VERSION:-3.12}
         UID: ${UID:-1000}
