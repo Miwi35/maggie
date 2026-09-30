@@ -52,6 +52,7 @@ class CreateMealHandler
             $agenda->setUser($user);
             $agenda->setName('Repas');
             $agenda->setColor('#FF6B35');
+            $this->em->persist($agenda);
         }
 
         $date = new \DateTimeImmutable($command->date, new \DateTimeZone('Europe/Paris'));
