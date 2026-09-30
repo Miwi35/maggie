@@ -151,11 +151,11 @@ final class E2eSeedCommandTest extends KernelTestCase
 
     public function testDatesFollowTheAnchor(): void
     {
-        $this->seed(['--now' => '2026-03-15T00:00:00+00:00']);
+        $this->seed(['--now' => '2026-03-15T12:00:00+01:00']);
 
         $lunch = $this->repository(Event::class)->findOneBy(['summary' => 'Déjeuner avec Alex']);
         self::assertNotNull($lunch);
-        self::assertSame('2026-03-15 12:00', $lunch->getStartAt()->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i'));
+        self::assertSame('2026-03-15 12:00', $lunch->getStartAt()->setTimezone(new \DateTimeZone('Europe/Paris'))->format('Y-m-d H:i'));
 
         // The envelope is keyed by the anchor's year and month, not the wall
         // clock — the case that breaks silently on the first of a month.
@@ -164,13 +164,40 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertSame(2026, $envelope->getYear());
     }
 
+    public function testTheDayOfTheSeedIsTheDayInParisNotInUtc(): void
+    {
+        // 23:30 UTC on 14 July is 01:30 on the 15th in Paris. The user of the
+        // test stack is in Paris, and the dashboard shows the lunch of the 15th:
+        // a seed anchored on UTC midnight put it on the 14th, and the dashboard
+        // was empty between midnight and 2 am.
+        $this->seed(['--now' => '2026-07-14T23:30:00+00:00']);
+
+        $lunch = $this->repository(Event::class)->findOneBy(['summary' => 'Déjeuner avec Alex']);
+        self::assertNotNull($lunch);
+        self::assertSame('2026-07-15 12:00', $lunch->getStartAt()->setTimezone(new \DateTimeZone('Europe/Paris'))->format('Y-m-d H:i'));
+        self::assertSame('2026-07-15 13:00', $lunch->getEndAt()->setTimezone(new \DateTimeZone('Europe/Paris'))->format('Y-m-d H:i'));
+
+        // Dates without a time of day follow the same day.
+        $firstOfMonth = $this->repository(Transaction::class)->findOneBy(['bookedAt' => new \DateTimeImmutable('2026-07-01')]);
+        self::assertNotNull($firstOfMonth);
+
+        self::assertSame('2026-07-15T00:00:00+02:00', $this->readManifest()['anchor']);
+    }
+
     public function testAnchorIsRecordedInTheManifest(): void
     {
-        $this->seed(['--now' => '2026-03-15T00:00:00+00:00']);
+        $this->seed(['--now' => '2026-03-15T12:00:00+01:00']);
 
         $manifest = $this->readManifest();
 
-        self::assertSame('2026-03-15T00:00:00+00:00', $manifest['anchor']);
+        self::assertSame('2026-03-15T00:00:00+01:00', $manifest['anchor']);
+    }
+
+    public function testAnOffsetlessNowIsReadInParis(): void
+    {
+        $this->seed(['--now' => '2026-07-15']);
+
+        self::assertSame('2026-07-15T00:00:00+02:00', $this->readManifest()['anchor']);
     }
 
     public function testManifestMapsEveryReferenceToAnId(): void

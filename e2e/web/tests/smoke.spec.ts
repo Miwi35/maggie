@@ -44,7 +44,7 @@ test.describe('Admin smoke @responsive', () => {
     await expect(dashboard.content.getByText('Cours de piano').first()).toBeVisible()
 
     // The seeded lunch sits *on* the anchor. Read from the manifest rather
-    // than from the wall clock: the two differ either side of midnight UTC,
+    // than from the wall clock: the two differ either side of midnight in Paris,
     // and for anyone who passed `--now` to the seed on purpose.
     const [year, month, day] = seedAnchorDate().split('-')
     await expect(

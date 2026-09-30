@@ -15,16 +15,30 @@ namespace Maggie\Core\E2e\Fixture;
  * the moment a run straddles midnight or a month boundary.
  *
  * Anchoring gives both. Every fixture date is an offset from one instant, and
- * the run chooses that instant: today at midnight UTC by default, whatever CI
- * pins with `--now` when a test needs a specific weekday or month.
+ * the run chooses that instant: today at midnight in the test user's time zone
+ * by default, whatever CI pins with `--now` when a test needs a specific weekday
+ * or month.
+ *
+ * The time zone is Europe/Paris, not UTC, because that is the day the dashboard,
+ * the reminders and the daily score reason in. Anchored on UTC midnight, the
+ * "today" of the seed is still yesterday for the user between 00:00 and 02:00
+ * in Paris, and the lunch of the day is not on the dashboard.
  */
 final class E2eDateProvider
 {
+    public const TIMEZONE = 'Europe/Paris';
+
     private \DateTimeImmutable $anchor;
 
     public function __construct()
     {
-        $this->anchor = new \DateTimeImmutable('today midnight', new \DateTimeZone('UTC'));
+        $this->anchor = self::anchorFor(new \DateTimeImmutable());
+    }
+
+    /** Midnight, in the test user's time zone, of the day that instant falls on there. */
+    public static function anchorFor(\DateTimeImmutable $instant): \DateTimeImmutable
+    {
+        return $instant->setTimezone(new \DateTimeZone(self::TIMEZONE))->setTime(0, 0);
     }
 
     public function setAnchor(\DateTimeImmutable $anchor): void
