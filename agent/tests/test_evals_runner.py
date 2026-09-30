@@ -228,6 +228,18 @@ class TestTheJudge:
         assert passed is False
         assert "could not be reached" in reason
 
+    async def test_an_unknown_judge_model_stops_the_suite(self):
+        # EVAL_JUDGE_MODEL being wrong applies to every scenario, so reporting it
+        # per step would read as a prompt regression.
+        error = anthropic.NotFoundError(
+            "model not found",
+            response=httpx.Response(404, request=httpx.Request("POST", "https://api.anthropic.com")),
+            body=None,
+        )
+
+        with pytest.raises(ModelUnreachable, match="does not exist"):
+            await self._judge(raises=error).verdict("x", Answer(text="y", tools=[]))
+
     async def test_an_unreachable_api_stops_the_suite(self):
         # Every remaining scenario would fail the same way, so a report full of
         # "judged failing" would say the prompt regressed when nothing did.

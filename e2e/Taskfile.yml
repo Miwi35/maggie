@@ -261,7 +261,13 @@ tasks:
       # re-runs it, `npm ci` fails on a tree it built once, and the agent never
       # gets recreated. Everything agent needs is already up.
       - defer: '{{.COMPOSE}} up -d --wait --no-deps --force-recreate agent'
+      # CLI_ARGS is global in Task: it reaches every task called with `- task:`,
+      # and `seed` passes it to app:e2e:seed. Left alone, `task e2e:eval --
+      # --report …` — what eval.yml always runs — dies on "The --report option
+      # does not exist", before the agent is ever flipped to the real model.
       - task: seed
+        vars:
+          CLI_ARGS: ''
       - 'E2E_LLM_PROVIDER=anthropic {{.COMPOSE}} up -d --wait --no-deps --force-recreate agent'
       - '{{.COMPOSE}} exec -T agent python -m evals.runner {{.CLI_ARGS}}'
 

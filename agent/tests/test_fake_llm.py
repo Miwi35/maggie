@@ -16,7 +16,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import anthropic
 import pytest
 import yaml
+from pydantic import ValidationError
 
+from app.config import Settings
 from app.db.context_model import ConversationContext
 from app.llm import fake as fake_module
 from app.llm.client import create_llm_client, llm_configured
@@ -518,14 +520,16 @@ class TestTheProviderSwitch:
         assert llm_configured() is True
         assert isinstance(create_llm_client(), anthropic.AsyncAnthropic)
 
-    def test_an_unknown_provider_is_refused(self, monkeypatch):
-        # Not treated as "not fake": `LLM_PROVIDER=Fake` would otherwise reach
-        # the real API with whatever key is around, and the only clue would be a
-        # journey that got slow and stopped being deterministic.
-        monkeypatch.setattr("app.llm.client.settings.llm_provider", "Fake")
+    def test_an_unknown_provider_is_refused_at_startup(self):
+        # Refused by Settings, not by the call site: with a key present
+        # `LLM_PROVIDER=Fake` would reach the real API, and without one the agent
+        # would answer "the AI service is not configured" to every journey step
+        # while naming nothing. Both have to fail the same way.
+        with pytest.raises(ValidationError, match="LLM_PROVIDER must be one of"):
+            Settings(llm_provider="Fake")
 
-        with pytest.raises(ValueError, match="is not one of"):
-            create_llm_client()
+        assert Settings(llm_provider="fake").llm_provider == "fake"
+        assert Settings(llm_provider="anthropic").llm_provider == "anthropic"
 
     def test_the_fixtures_dir_is_configurable(self, monkeypatch, fixtures_dir):
         monkeypatch.setattr("app.llm.client.settings.llm_provider", "fake")

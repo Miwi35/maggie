@@ -295,6 +295,11 @@ class Judge:
             # fail the same way, which is the report `ModelUnreachable` exists
             # to prevent.
             raise ModelUnreachable(f"the API could not be reached at all: {exc}") from exc
+        except anthropic.NotFoundError as exc:
+            # An unknown model id. Same category: it applies to every scenario,
+            # and "the judge could not be reached" six times reads like a prompt
+            # regression rather than like EVAL_JUDGE_MODEL being wrong.
+            raise ModelUnreachable(f"the judge model {self.model!r} does not exist: {exc}") from exc
         except anthropic.APIError as exc:
             # Rate limits, overloads, a malformed request: this one step could
             # not be verified. Never a pass by default.
@@ -472,7 +477,13 @@ async def main() -> int:
             try:
                 failures.extend(await run_scenario(scenario, stack, judge))
             except ModelUnreachable as exc:
-                print(f"\n{exc}\nThe eval suite could not run — this is not a prompt regression.")
+                message = f"{exc}\nThe eval suite could not run — this is not a prompt regression."
+                print(f"\n{message}")
+                if args.report:
+                    # The step summary is what gets read in the morning; leaving
+                    # it empty would make an unrunnable suite look like a suite
+                    # nobody ran.
+                    args.report.write_text(f"## Eval suite\n\n**Could not run.** {exc}\n")
                 return 2
 
     markdown = report(scenarios, failures, settings.anthropic_model)

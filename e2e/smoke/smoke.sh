@@ -361,6 +361,36 @@ assert_eq matched "$(context_action "$followup")" \
 assert_eq "$contexts_before" "$(curl -sS "${AUTH[@]}" "$BASE_URL/agent/contexts" | jq -r 'length')" \
   "the follow-up opened no second context for the same subject"
 
+# The voice path, which is the one place two stand-ins have to agree: WireMock
+# dictates a fixed sentence, and a scenario returns that sentence cleaned. Each
+# is plausible on its own, so only driving both at once catches one being edited
+# without the other.
+dictated="$(jq -r '.mappings[0].response.body' "$REPO_ROOT/.docker/e2e/wiremock/mappings/openai.json")"
+
+# Any non-empty bytes: the route refuses an empty upload, and WireMock answers
+# its fixed sentence whatever it receives.
+dictation="$(mktemp --suffix=.webm)"
+printf 'not really webm, and WireMock does not care' >"$dictation"
+transcript="$(curl -sS -X POST "${AUTH[@]}" -F "audio=@$dictation;type=audio/webm" \
+  "$BASE_URL/agent/transcribe")"
+rm -f "$dictation"
+
+assert_eq "$dictated" "$(printf '%s' "$transcript" | jq -r '.raw // empty')" \
+  "Whisper answered from WireMock, not from OpenAI"
+
+cleaned="$(printf '%s' "$transcript" | jq -r '.clean // empty')"
+if [ -n "$cleaned" ] && [ "$cleaned" != "$dictated" ]; then
+  pass "the scripted model cleaned the dictated sentence"
+else
+  fail "the cleanup returned '$cleaned' — is 20-transcription-cleanup.yaml still matching?"
+fi
+
+# And the cleaned sentence is itself scripted, so dictating ends on a real write
+# rather than on "[fake-llm] aucun scénario".
+dictated_answer="$(chat "$cleaned")"
+assert_eq add_grocery_item "$(printf '%s' "$dictated_answer" | jq -r '.tool_calls[0].name // empty')" \
+  "what she heard reaches the grocery list"
+
 # ---------------------------------------------------------------------------
 printf '\n\033[1mSmoke journey: %d passed, %d failed\033[0m\n' "$passed" "$failed"
 

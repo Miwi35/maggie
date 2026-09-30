@@ -1,5 +1,12 @@
-from pydantic import computed_field
+from pydantic import computed_field, field_validator
 from pydantic_settings import BaseSettings
+
+# Where a model comes from. Validated below rather than compared at the call
+# site, because an unrecognised value has to fail whether or not a key is set:
+# with one, `LLM_PROVIDER=Fake` reaches the real API; without one, the agent
+# answers "the AI service is not configured" to every journey step and names
+# nothing.
+LLM_PROVIDERS = ("anthropic", "fake")
 
 
 class Settings(BaseSettings):
@@ -46,6 +53,13 @@ class Settings(BaseSettings):
     agent_name: str = "Maggie"
     agent_base_url: str = "http://maggie.local/agent"
     max_conversation_history: int = 50
+
+    @field_validator("llm_provider")
+    @classmethod
+    def _known_provider(cls, value: str) -> str:
+        if value not in LLM_PROVIDERS:
+            raise ValueError(f"LLM_PROVIDER must be one of {LLM_PROVIDERS}, not {value!r}")
+        return value
 
     @computed_field
     @property

@@ -22,9 +22,13 @@ steps:
       Elle reste sur l'agenda et donne l'horaire du cours de piano, sans
       redemander de quel cours il s'agit.
 
-  - user_message: "Change de sujet : ajoute du basilic à ma liste de courses"
-    expected_tools: [add_grocery_item]
+  # A read and not a write: 20-courses-ajout.yaml already adds basil, and a
+  # second scenario writing the same item would leave the list depending on the
+  # order the suite ran in. `run_scenario` resets the agent's database between
+  # scenarios, never the API's.
+  - user_message: "Change de sujet : qu'est-ce qu'il y a sur ma liste de courses ?"
+    expected_tools: [get_grocery_list]
     expected_context: created
     expected_behavior: >
-      Elle ajoute le basilic et confirme — et le routeur a bien vu que les
-      courses ne sont pas l'agenda.
+      Elle lit la liste de courses et l'annonce — et le routeur a bien vu que
+      les courses ne sont pas l'agenda.
