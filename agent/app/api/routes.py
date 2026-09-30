@@ -291,9 +291,9 @@ async def create_instruction(data: InstructionCreate, user_id: str = Depends(get
 
 
 @router.delete("/instructions/{instruction_id}")
-async def delete_instruction(instruction_id: str, _user_id: str = Depends(get_current_user_id)):
-    """Delete an instruction."""
-    deleted = await instruction_repo.delete(instruction_id)
+async def delete_instruction(instruction_id: str, user_id: str = Depends(get_current_user_id)):
+    """Delete an instruction of the authenticated user."""
+    deleted = await instruction_repo.delete(user_id, instruction_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Instruction not found")
     return {"deleted": True}

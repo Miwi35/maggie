@@ -80,7 +80,7 @@ class TestInstructionTools:
         )
 
         assert "deleted" in result
-        mock_repo.delete.assert_awaited_once_with("inst123")
+        mock_repo.delete.assert_awaited_once_with("test-user", "inst123")
 
 
 class TestInstructionRoutes:
