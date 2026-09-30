@@ -8,7 +8,7 @@ use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_upcoming_events', description: 'Get upcoming events for the next N days (default 7). Returns events from all the user's agendas, including expanded recurring events.')]
+#[McpTool(name: 'get_upcoming_events', description: 'Get upcoming events for the next N days (default 7). Returns events from all of the user agendas, including expanded recurring events.')]
 class GetUpcomingEventsTool
 {
     public function __construct(
