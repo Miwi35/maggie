@@ -102,9 +102,9 @@ component pass before committing — see the [pre-commit](../../../.claude/skill
 skill for the commands.
 
 **In a git worktree** (parallel agents), `task api:test` runs against the dev stack, which
-mounts the main checkout — it would test the wrong code. Use `task e2e:test:api` instead:
-it runs PHPUnit inside the stack that mounts *this* worktree. See
-[global/e2e-environment](e2e-environment.md).
+mounts the main checkout — it would test the wrong code. Use `task wt:test:api` instead:
+a throwaway Postgres and this worktree's code. See
+[global/worktree-checks](worktree-checks.md).
 
 ### 5. Documentation up to date (ADR-006)
 

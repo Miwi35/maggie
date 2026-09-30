@@ -23,7 +23,7 @@ Done itself lives in [testing.md](testing.md).
 | `task e2e:admin:build` | **After changing admin code** — see below |
 | `task e2e:eval` | Replay the prompt-lab scenarios on the **real** model — see below |
 | `task e2e:eval:check` | Check those scenarios parse, without calling the model |
-| `task e2e:test:api` | PHPUnit **inside** this worktree's stack |
+| `task e2e:test:api` | PHPUnit **inside** this worktree's stack — for debugging against a running stack; CI does not run it (the `API Tests` job does) |
 | `task e2e:down` | Remove containers, network and volumes |
 | `task e2e:url` | Print the stack's URL |
 | `task e2e:cache:clear` | **After changing PHP code or config** — see below |
@@ -83,8 +83,11 @@ in the Compose file and a case in `e2e/images.sh`.
 
 `task api:test` runs `docker compose exec` against the **dev** stack, which
 mounts the main checkout — in a worktree it tests the wrong code. Use
-`task e2e:test:api`, which runs against the stack mounting *this* worktree. It
-creates the PHPUnit database first, since the e2e stack has never made one.
+`task wt:test:api` (see `worktree-checks.md`). `task e2e:test:api` runs the same
+suite against the stack mounting *this* worktree — useful to debug a test that
+needs the real services; it creates the PHPUnit database first, since the e2e
+stack has never made one. CI does not run it: the `API Tests (PHPUnit)` job
+already does.
 
 One difference worth knowing: PHPUnit forces `APP_ENV=test`, but Symfony's
 Dotenv never overwrites a variable the environment already defines — so the

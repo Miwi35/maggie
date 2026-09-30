@@ -367,13 +367,6 @@ jobs:
         # that has nothing to do with prompts.
         run: task e2e:eval:check
 
-      - name: API tests inside the stack
-        # Proof that the worktree-safe path agents are told to use actually
-        # works. It is close to the api-test job by design: `when@test` still
-        # forces `in-memory://` for the async transport, which no container
-        # variable can displace, so only ELASTICSEARCH_URL really differs.
-        run: task e2e:test:api
-
       - name: Playwright report
         if: failure()
         # The traces are the point: `npx playwright show-trace` replays the

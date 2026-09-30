@@ -96,9 +96,9 @@ ensure() {
   local pids=() names=() i failed=0
 
   # Third-party images download while the four above pull or build. The
-  # Playwright one is behind a profile, hence the flag: without it the first
-  # `web:run` downloads it in the middle of the journeys.
-  docker compose -f "$COMPOSE_FILE" --profile tools pull --ignore-buildable --quiet &
+  # Playwright one (~2 GB, behind a profile) is not among them: it is not needed
+  # before the journeys and would take the bandwidth the php image is waiting for.
+  docker compose -f "$COMPOSE_FILE" pull --ignore-buildable --quiet &
   pids+=("$!"); names+=("third-party images")
 
   for svc in "${SERVICES[@]}"; do
@@ -112,6 +112,12 @@ ensure() {
       failed=1
     fi
   done
+
+  # The Playwright image downloads while the stack starts, detached: the first
+  # `web:run` would otherwise pull it in the middle of the journeys.
+  if [ "$failed" -eq 0 ] && [ -n "${CI:-}" ]; then
+    setsid nohup docker compose -f "$COMPOSE_FILE" --profile tools pull --quiet playwright >/dev/null 2>&1 &
+  fi
   return "$failed"
 }
 
