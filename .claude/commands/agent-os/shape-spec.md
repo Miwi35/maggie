@@ -4,23 +4,95 @@ Gather context and structure planning for significant work. **Run this command w
 
 ## Important Guidelines
 
-- **Always use AskUserQuestion tool** when asking the user anything
+- **Interactive mode: always use AskUserQuestion** when asking the user anything
+- **Autonomous mode: never use AskUserQuestion** — source answers from the ticket, or escalate (see [Autonomous Mode](#autonomous-mode))
 - **Offer suggestions** — Present options the user can confirm, adjust, or correct
 - **Keep it lightweight** — This is shaping, not exhaustive documentation
 
+## Modes
+
+This command runs in one of two modes. **Detect which one before Step 1.**
+
+You are in **autonomous mode** if any of these hold:
+
+- There is no interactive user to answer — the session was started by an agent
+  runner (Cyrus) from a Linear ticket, rather than by someone typing
+- The session is running on a `cyrus/*` branch or inside a git worktree
+- The invocation passed a Linear issue key rather than a prose description
+
+Otherwise you are in **interactive mode**: follow the steps exactly as written,
+asking through AskUserQuestion.
+
 ## Prerequisites
 
-This command **must be run in plan mode**.
-
-**Before proceeding, check if you are currently in plan mode.**
-
-If NOT in plan mode, **stop immediately** and tell the user:
+**Interactive mode** must be run in plan mode. Before proceeding, check if you
+are currently in plan mode. If NOT in plan mode, **stop immediately** and tell
+the user:
 
 ```
 Shape-spec must be run in plan mode. Please enter plan mode first, then run /shape-spec again.
 ```
 
 Do not proceed with any steps below until confirmed to be in plan mode.
+
+**Autonomous mode** has no plan-mode requirement — there is no plan to approve
+interactively. Skip this check entirely.
+
+## Autonomous Mode
+
+Same nine steps, same output folder. The only difference is where answers come
+from: **the written record instead of the user.**
+
+### Where each answer comes from
+
+Read these before Step 1, in this order of authority:
+
+| Source | Use it for |
+| --- | --- |
+| The Linear ticket — title, description, comments (Linear MCP) | Scope, expected outcome, constraints, acceptance criteria |
+| The module's functional spec in `agent-os/product/` (e.g. `finance-functional-spec.md`) | Existing behaviour the feature extends, domain vocabulary |
+| `agent-os/product/mission.md`, `roadmap.md`, `tech-stack.md` | Product alignment (Step 4) |
+| Linked tickets, parent issue, attached images | Visuals (Step 2), related decisions |
+| The codebase itself | Reference implementations (Step 3) |
+| `agent-os/standards/index.yml` | Which standards apply (Step 5) |
+
+A decision already written in the ticket or the functional spec is **made** —
+do not re-litigate it and do not ask about it.
+
+Answer from these sources whenever a defensible answer exists. Steps 2, 3, 4
+and 5 are almost always answerable without the user: a ticket with no mockup
+simply means "no visuals", and standards selection follows from the paths the
+feature touches.
+
+### When a decision is genuinely missing
+
+Only when a **product or behaviour decision** is absent and the readings lead
+to materially different specs — not when a detail is merely unstated and you
+can pick a sane default, and not for Steps 2–5, which have defaults.
+
+Do not guess, and do not fall back to AskUserQuestion — there is nobody to
+answer it.
+
+1. Save what you already have. Write the spec folder with the sections you
+   could resolve, and mark each open decision inline as
+   `**OPEN DECISION:** …` in `shape.md` so the work is not lost.
+2. Post **one** comment on the Linear ticket containing:
+   - the questions, numbered, each with the options you see and what each would
+     imply for the build
+   - your recommendation per question, where you have one
+   - what you already shaped, and which tasks are blocked on which question
+3. Add the `needs-human` label to the ticket.
+4. Stop cleanly. Do not write the implementation tasks around a guess, and do
+   not hand off to `/implement-spec`.
+
+Ask everything you need in that single comment — a round trip costs the user a
+context switch, so do not drip-feed one question at a time.
+
+### Reporting
+
+Finishing autonomously means: state the spec folder path, the decisions you
+took and the source each came from, and anything you defaulted rather than
+resolved.
 
 ## Process
 
@@ -39,6 +111,12 @@ Based on their response, ask 1-2 clarifying questions if the scope is unclear. E
 - "What's the expected outcome when this is done?"
 - "Are there any constraints or requirements I should know about?"
 
+**Autonomous:** the ticket description is the answer. Read the title,
+description and every comment, plus the module's functional spec for the
+behaviour being extended. Treat acceptance criteria in the ticket as the
+expected outcome. If the ticket does not say what to build at all — as opposed
+to leaving a detail open — that is a missing decision: escalate.
+
 ### Step 2: Gather Visuals
 
 Use AskUserQuestion:
@@ -54,6 +132,9 @@ Do you have any visuals to reference?
 ```
 
 If visuals are provided, note them for inclusion in the spec folder.
+
+**Autonomous:** use the images attached to the ticket, if any. No attachment
+means "None" — record that and move on. Never escalate for missing visuals.
 
 ### Step 3: Identify Reference Implementations
 
@@ -72,6 +153,11 @@ Examples:
 
 If references are provided, read and analyze them to inform the plan.
 
+**Autonomous:** take the references the ticket names, then find the rest
+yourself — the sibling module that already solves the same shape of problem,
+the nearest existing entity, controller, MCP tool set, view or screen. Searching
+the codebase is your job here, not the user's.
+
 ### Step 4: Check Product Context
 
 Check if `agent-os/product/` exists and contains files.
@@ -88,6 +174,12 @@ Key points from your product docs:
 ```
 
 If no product folder exists, skip this step.
+
+**Autonomous:** read `agent-os/product/` and check the feature against it
+yourself — `mission.md`, the relevant `*-roadmap.md` and
+`*-functional-spec.md`. Record the alignment in `shape.md`. Escalate only if
+the ticket directly contradicts the product docs, which is a real decision the
+user must make.
 
 ### Step 5: Surface Relevant Standards
 
@@ -109,6 +201,16 @@ Should I include these in the spec? (yes / adjust: remove 3, add frontend/forms)
 ```
 
 Read the confirmed standards files to include their content in the plan context.
+
+**Autonomous:** select the standards yourself from `index.yml`, driven by the
+components the feature touches (`api/`, `admin/`, `agent/`, `mobile/`, plus
+`global/` for real-time and testing rules). Include your selection in
+`shape.md` under `Standards appliqués` with one line on why each applies. Never
+escalate for standards selection.
+
+When `/inject-standards` is called from here in autonomous mode, it must not
+ask how to include them either: use **References** (`@` file paths), which keeps
+the plan light and the standards in sync.
 
 ### Step 6: Shape the E2E Journey
 
@@ -143,6 +245,10 @@ Rules:
   ticket.
 - **No user-facing behavior** — standards, docs, prompts, infra, refactor with no behavior
   change: record `E2E: N/A — <reason>` instead. One line, in the plan.
+
+**Autonomous:** do not confirm the journey. Derive it from the ticket, the module's
+functional spec and its journey ticket, write it into the plan, and record the choice
+of journey ticket as a decision comment. `N/A` still needs its one-line reason.
 
 ### Step 7: Generate Spec Folder Name
 
@@ -201,6 +307,11 @@ Create `agent-os/specs/{folder-name}/` with:
 Does this plan structure look right? I'll fill in the implementation tasks next.
 ```
 
+**Autonomous:** do not pause for confirmation. Derive the tasks from the ticket
+and write them straight out, then continue to Step 9. Order them so each task
+is independently testable and committable, since `/implement-spec` commits one
+per task.
+
 ### Step 9: Complete the Plan
 
 After Task 1 is confirmed, continue building out the remaining implementation tasks based on:
@@ -223,6 +334,11 @@ Plan complete. When you approve and execute:
 
 Ready to start? (approve / adjust)
 ```
+
+**Autonomous:** there is no approval gate. Write the spec folder yourself —
+that is Task 1 — then report the folder path, the decisions you took with their
+sources, and anything you defaulted. Hand off to `/implement-spec` only if the
+ticket asked for implementation too; shaping alone is a complete result.
 
 ## Output Structure
 
@@ -357,3 +473,10 @@ The following standards apply to this work.
   one exception is the Definition of Done in `global/testing`: it applies to every ticket,
   and every exemption is written in the plan with its reason.
 - **Specs are discoverable** — Months later, someone can find this spec and understand what was built and why.
+- **Autonomously, escalate late but decisively** — Default the details, shape everything you can, and spend the one Linear comment on the decisions that actually change the build.
+
+## Integration
+
+First half of the agent-os protocol: `/shape-spec` produces the spec folder,
+`/implement-spec` executes it task by task. Calls `/inject-standards` during
+Step 5.
