@@ -1,0 +1,119 @@
+<?php
+
+namespace Maggie\Grocery\Tests\Mcp;
+
+use App\Tests\Support\FixtureLoaderTrait;
+use App\Tests\Support\SecurityTokenTrait;
+use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Core\Entity\User;
+use Maggie\Core\Mcp\MissingMcpUserException;
+use Maggie\Grocery\Entity\GroceryItem;
+use Maggie\Grocery\Entity\Product;
+use Maggie\Grocery\Mcp\Tool\AddGroceryItemTool;
+use Maggie\Grocery\Mcp\Tool\SearchProductsTool;
+use Maggie\Grocery\Message\EditGroceryItemCommand;
+use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Messenger\MessageBusInterface;
+
+/**
+ * Two users share the database: product lookups must never cross the user boundary.
+ */
+class UserIsolationToolsTest extends KernelTestCase
+{
+    use FixtureLoaderTrait;
+    use SecurityTokenTrait;
+
+    /** @var array<string, string> */
+    private array $ids = [];
+
+    protected function setUp(): void
+    {
+        self::bootKernel();
+    }
+
+    private function em(): EntityManagerInterface
+    {
+        return self::getContainer()->get('doctrine.orm.entity_manager');
+    }
+
+    private function load(): void
+    {
+        $this->loadFixtures('isolation.yaml');
+        foreach (['test_user', 'other_user', 'other_bananes', 'own_item_without_product'] as $ref) {
+            $this->ids[$ref] = (string) $this->getFixture($ref)->getId();
+        }
+        $this->em()->clear();
+    }
+
+    private function loadAndLogin(): void
+    {
+        $this->load();
+        $this->loginUser($this->em()->find(User::class, $this->ids['test_user']));
+    }
+
+    /** @return array<string, mixed> */
+    private function decode(string $json): array
+    {
+        return json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+    }
+
+    public function testSearchProductsOnlyReturnsTheCallersProducts(): void
+    {
+        $this->loadAndLogin();
+
+        $data = $this->decode((self::getContainer()->get(SearchProductsTool::class))('Banane'));
+
+        self::assertSame(['Bananes plantain'], array_column($data['products'], 'name'));
+    }
+
+    public function testSearchProductsWithoutUserIsRefused(): void
+    {
+        $this->load();
+
+        $data = $this->decode((self::getContainer()->get(SearchProductsTool::class))('Banane'));
+
+        self::assertSame(MissingMcpUserException::MESSAGE, $data['error']);
+        self::assertArrayNotHasKey('products', $data);
+    }
+
+    public function testAddGroceryItemNeverMatchesAnotherUsersProduct(): void
+    {
+        $this->loadAndLogin();
+
+        $data = $this->decode((self::getContainer()->get(AddGroceryItemTool::class))('Bananes', 6, 'piece'));
+
+        self::assertTrue($data['success']);
+
+        $this->em()->clear();
+        $added = array_values(array_filter(
+            $this->em()->getRepository(GroceryItem::class)->findAll(),
+            fn (GroceryItem $item) => $item->getProduct() !== null,
+        ));
+        self::assertCount(1, $added);
+        $product = $added[0]->getProduct();
+        self::assertNotSame($this->ids['other_bananes'], (string) $product->getId());
+        self::assertSame($this->ids['test_user'], (string) $product->getUser()->getId());
+
+        $other = $this->em()->find(Product::class, $this->ids['other_bananes']);
+        self::assertSame('dairy', $other->getCategory()->value, "The other user's product is left untouched");
+        self::assertSame('Magasin de l\'autre', $other->getPreferredStore()->getName());
+    }
+
+    public function testEditingALabelNeverLinksAnotherUsersProduct(): void
+    {
+        $this->loadAndLogin();
+
+        self::getContainer()->get(MessageBusInterface::class)->dispatch(new EditGroceryItemCommand(
+            groceryItemId: $this->ids['own_item_without_product'],
+            userId: $this->ids['test_user'],
+            label: 'Bananes',
+        ));
+
+        $this->em()->clear();
+        $item = $this->em()->find(GroceryItem::class, $this->ids['own_item_without_product']);
+        $product = $item->getProduct();
+        self::assertNotNull($product);
+        self::assertNotSame($this->ids['other_bananes'], (string) $product->getId());
+        self::assertSame($this->ids['test_user'], (string) $product->getUser()->getId());
+    }
+}

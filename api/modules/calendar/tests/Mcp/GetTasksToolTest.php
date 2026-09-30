@@ -5,7 +5,6 @@ namespace Maggie\Calendar\Tests\Mcp;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Calendar\Mcp\Tool\GetTasksTool;
-use Maggie\Calendar\Repository\TaskRepository;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 class GetTasksToolTest extends KernelTestCase
@@ -20,7 +19,7 @@ class GetTasksToolTest extends KernelTestCase
 
     private function getTool(): GetTasksTool
     {
-        return new GetTasksTool(self::getContainer()->get(TaskRepository::class));
+        return self::getContainer()->get(GetTasksTool::class);
     }
 
     public function testReturnsPendingTasksByDefault(): void

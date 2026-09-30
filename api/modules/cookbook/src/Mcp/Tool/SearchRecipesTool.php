@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Maggie\Cookbook\Mcp\Tool;
 
 use Maggie\Cookbook\Repository\RecipeRepository;
+use Maggie\Core\Mcp\McpUserContext;
+use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 
 #[McpTool(name: 'search_recipes', description: 'Search recipes by name or tag. Provide either query (name search) or tag (tag search).')]
@@ -12,6 +14,7 @@ class SearchRecipesTool
 {
     public function __construct(
         private readonly RecipeRepository $recipeRepository,
+        private readonly McpUserContext $userContext,
     ) {
     }
 
@@ -19,10 +22,16 @@ class SearchRecipesTool
         ?string $query = null,
         ?string $tag = null,
     ): string {
+        try {
+            $user = $this->userContext->requireUser();
+        } catch (MissingMcpUserException $e) {
+            return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
+        }
+
         if ($query !== null) {
-            $recipes = $this->recipeRepository->searchByName($query);
+            $recipes = $this->recipeRepository->searchByName($user, $query);
         } elseif ($tag !== null) {
-            $recipes = $this->recipeRepository->searchByTags($tag);
+            $recipes = $this->recipeRepository->searchByTags($user, $tag);
         } else {
             return json_encode(['error' => 'Provide either query or tag parameter'], JSON_THROW_ON_ERROR);
         }

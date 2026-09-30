@@ -26,7 +26,7 @@ class GroceryGenerationService
         $items = [];
 
         // 1. Aggregate from meals in date range
-        $meals = $this->mealRepository->findByDateRange($from, $to);
+        $meals = $this->mealRepository->findByDateRangeForUser($user, $from, $to);
         $aggregated = []; // key = productId:unit, value = [product, quantity, unit]
 
         foreach ($meals as $meal) {

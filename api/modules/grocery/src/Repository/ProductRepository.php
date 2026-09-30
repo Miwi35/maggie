@@ -32,10 +32,12 @@ class ProductRepository extends ServiceEntityRepository
     }
 
     /** @return Product[] */
-    public function searchByName(string $query): array
+    public function searchByName(User $user, string $query): array
     {
         return $this->createQueryBuilder('p')
-            ->where('LOWER(p.name) LIKE LOWER(:query)')
+            ->where('p.user = :user')
+            ->andWhere('LOWER(p.name) LIKE LOWER(:query)')
+            ->setParameter('user', $user->getId(), 'ulid')
             ->setParameter('query', '%' . $query . '%')
             ->orderBy('p.name', 'ASC')
             ->getQuery()

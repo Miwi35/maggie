@@ -5,8 +5,6 @@ namespace Maggie\Calendar\Tests\Mcp;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Calendar\Mcp\Tool\GetUpcomingEventsTool;
-use Maggie\Calendar\Repository\EventRepository;
-use Maggie\Calendar\Service\RecurrenceService;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 class GetUpcomingEventsToolTest extends KernelTestCase
@@ -21,10 +19,7 @@ class GetUpcomingEventsToolTest extends KernelTestCase
 
     private function getTool(): GetUpcomingEventsTool
     {
-        return new GetUpcomingEventsTool(
-            self::getContainer()->get(EventRepository::class),
-            self::getContainer()->get(RecurrenceService::class),
-        );
+        return self::getContainer()->get(GetUpcomingEventsTool::class);
     }
 
     public function testReturnsUpcomingEvents(): void

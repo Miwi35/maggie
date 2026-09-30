@@ -5,7 +5,10 @@ namespace Maggie\Calendar\Repository;
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Enum\EventStatus;
+use Maggie\Core\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\Types\Types;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -19,11 +22,59 @@ class EventRepository extends ServiceEntityRepository
     }
 
     /**
-     * Find non-cancelled events within a date range (non-recurring + recurring masters).
+     * Find a user's non-cancelled events within a date range (non-recurring + recurring masters).
      *
      * @return Event[]
      */
-    public function findByDateRange(\DateTimeImmutable $start, \DateTimeImmutable $end): array
+    public function findByDateRange(User $user, \DateTimeImmutable $start, \DateTimeImmutable $end): array
+    {
+        return $this->dateRangeQueryBuilder($start, $end)
+            ->join('e.agenda', 'a')
+            ->andWhere('a.user = :user')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Same as findByDateRange() for every user: only for system jobs that act on behalf of each owner.
+     *
+     * @return Event[]
+     */
+    public function findByDateRangeForAllUsers(\DateTimeImmutable $start, \DateTimeImmutable $end): array
+    {
+        return $this->dateRangeQueryBuilder($start, $end)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Find upcoming non-recurring, non-cancelled events of a user.
+     *
+     * @return Event[]
+     */
+    public function findUpcoming(User $user, int $days = 7): array
+    {
+        $now = new \DateTimeImmutable('now');
+        $end = $now->modify("+{$days} days");
+
+        return $this->findByDateRange($user, $now, $end);
+    }
+
+    /**
+     * Find a user's events on a specific date.
+     *
+     * @return Event[]
+     */
+    public function findByDate(User $user, \DateTimeImmutable $date): array
+    {
+        $start = $date->setTime(0, 0);
+        $end = $date->setTime(23, 59, 59);
+
+        return $this->findByDateRange($user, $start, $end);
+    }
+
+    private function dateRangeQueryBuilder(\DateTimeImmutable $start, \DateTimeImmutable $end): QueryBuilder
     {
         return $this->createQueryBuilder('e')
             ->where('e.status != :cancelled')
@@ -34,37 +85,9 @@ class EventRepository extends ServiceEntityRepository
                 .' OR (e.rrule IS NOT NULL)'
             )
             ->setParameter('cancelled', EventStatus::Cancelled)
-            ->setParameter('start', $start)
-            ->setParameter('end', $end)
-            ->orderBy('e.startAt', 'ASC')
-            ->getQuery()
-            ->getResult();
-    }
-
-    /**
-     * Find upcoming non-recurring, non-cancelled events.
-     *
-     * @return Event[]
-     */
-    public function findUpcoming(int $days = 7): array
-    {
-        $now = new \DateTimeImmutable('now');
-        $end = $now->modify("+{$days} days");
-
-        return $this->findByDateRange($now, $end);
-    }
-
-    /**
-     * Find events on a specific date.
-     *
-     * @return Event[]
-     */
-    public function findByDate(\DateTimeImmutable $date): array
-    {
-        $start = $date->setTime(0, 0);
-        $end = $date->setTime(23, 59, 59);
-
-        return $this->findByDateRange($start, $end);
+            ->setParameter('start', $start, Types::DATETIMETZ_IMMUTABLE)
+            ->setParameter('end', $end, Types::DATETIMETZ_IMMUTABLE)
+            ->orderBy('e.startAt', 'ASC');
     }
 
     /**

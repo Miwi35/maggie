@@ -2,6 +2,7 @@
 
 namespace Maggie\Calendar\MessageHandler;
 
+use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Enum\EventStatus;
 use Maggie\Calendar\Message\CreateEventCommand;
@@ -9,6 +10,7 @@ use Maggie\Calendar\Message\PushEventToGoogleCommand;
 use Maggie\Calendar\Repository\AgendaRepository;
 use Maggie\Calendar\Repository\EventRepository;
 use Maggie\Calendar\UseCase\CreateEvent;
+use Maggie\Core\Repository\UserRepository;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -21,6 +23,7 @@ class CreateEventHandler
         private readonly CreateEvent $createEvent,
         private readonly AgendaRepository $agendaRepository,
         private readonly EventRepository $eventRepository,
+        private readonly UserRepository $userRepository,
         private readonly MessageBusInterface $messageBus,
         private readonly LoggerInterface $logger,
     ) {
@@ -30,9 +33,9 @@ class CreateEventHandler
     {
         $agenda = $command->agendaId !== null
             ? $this->agendaRepository->find($command->agendaId)
-            : $this->agendaRepository->findDefault();
+            : $this->findDefaultAgenda($command->userId);
 
-        if ($agenda === null) {
+        if ($agenda === null || ($command->userId !== null && (string) $agenda->getUser()->getId() !== $command->userId)) {
             throw new \DomainException('No agenda found.');
         }
 
@@ -82,5 +85,12 @@ class CreateEventHandler
         }
 
         return $event;
+    }
+
+    private function findDefaultAgenda(?string $userId): ?Agenda
+    {
+        $user = $userId !== null ? $this->userRepository->find($userId) : null;
+
+        return $user !== null ? $this->agendaRepository->findDefault($user) : null;
     }
 }

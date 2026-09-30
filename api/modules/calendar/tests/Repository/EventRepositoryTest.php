@@ -5,6 +5,7 @@ namespace Maggie\Calendar\Tests\Repository;
 use App\Tests\Support\FixtureLoaderTrait;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Repository\EventRepository;
+use Maggie\Core\Entity\User;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 class EventRepositoryTest extends KernelTestCase
@@ -21,11 +22,17 @@ class EventRepositoryTest extends KernelTestCase
             ->getRepository(Event::class);
     }
 
+    private function user(): User
+    {
+        return $this->getFixture('test_user');
+    }
+
     public function testFindByDateRangeReturnsEventsInRange(): void
     {
         $this->loadFixtures('EventRepositoryTest.yaml');
 
         $results = $this->repository->findByDateRange(
+            $this->user(),
             new \DateTimeImmutable('2026-03-01 00:00'),
             new \DateTimeImmutable('2026-03-31 23:59'),
         );
@@ -40,6 +47,7 @@ class EventRepositoryTest extends KernelTestCase
         $this->loadFixtures('EventRepositoryTest.yaml');
 
         $results = $this->repository->findByDateRange(
+            $this->user(),
             new \DateTimeImmutable('2026-03-01 00:00'),
             new \DateTimeImmutable('2026-03-31 23:59'),
         );
@@ -57,6 +65,7 @@ class EventRepositoryTest extends KernelTestCase
         // returned. The "tomorrow" / "+60 days" fixtures shift with the clock,
         // so February — before today's date — stays empty regardless of when.
         $results = $this->repository->findByDateRange(
+            $this->user(),
             new \DateTimeImmutable('2026-02-01 00:00'),
             new \DateTimeImmutable('2026-02-28 23:59'),
         );
@@ -69,7 +78,7 @@ class EventRepositoryTest extends KernelTestCase
     {
         $this->loadFixtures('EventRepositoryTest.yaml');
 
-        $results = $this->repository->findUpcoming(7);
+        $results = $this->repository->findUpcoming($this->user(), 7);
 
         $summaries = array_map(fn(Event $e) => $e->getSummary(), $results);
         self::assertContains('Soon', $summaries);

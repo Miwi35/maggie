@@ -1,0 +1,69 @@
+Maggie\Core\Entity\User:
+  other_user:
+    email: other@example.com
+    googleId: google-other-id
+    name: Other User
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+
+Maggie\Calendar\Entity\Agenda:
+  other_agenda:
+    name: Other agenda
+    isDefault: true
+    user: '@other_user'
+  own_agenda:
+    name: Own agenda
+    isDefault: true
+    user: '@test_user'
+
+Maggie\Calendar\Entity\Event:
+  other_event:
+    summary: Other event
+    startAt: '<(new \DateTimeImmutable("tomorrow 10:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("tomorrow 11:00", new \DateTimeZone("Europe/Paris")))>'
+    agenda: '@other_agenda'
+  own_event:
+    summary: Own event
+    startAt: '<(new \DateTimeImmutable("tomorrow 15:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("tomorrow 16:00", new \DateTimeZone("Europe/Paris")))>'
+    agenda: '@own_agenda'
+
+Maggie\Calendar\Entity\Task:
+  other_task_pending:
+    title: Other pending task
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Medium)>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Low)>'
+    dueDate: '<(new \DateTimeImmutable("+2 days"))>'
+    user: '@other_user'
+  other_task_overdue:
+    title: Other overdue task
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Medium)>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Low)>'
+    dueDate: '<(new \DateTimeImmutable("-2 days"))>'
+    user: '@other_user'
+  other_task_done:
+    title: Other done task
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Medium)>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Low)>'
+    completedAt: '<(new \DateTimeImmutable())>'
+    user: '@other_user'
+  own_task_pending:
+    title: Own pending task
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Medium)>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Low)>'
+    dueDate: '<(new \DateTimeImmutable("+2 days"))>'
+    user: '@test_user'
+  own_task_overdue:
+    title: Own overdue task
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Medium)>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Low)>'
+    dueDate: '<(new \DateTimeImmutable("-2 days"))>'
+    user: '@test_user'
+  own_task_done:
+    title: Own done task
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Medium)>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Low)>'
+    completedAt: '<(new \DateTimeImmutable())>'
+    user: '@test_user'

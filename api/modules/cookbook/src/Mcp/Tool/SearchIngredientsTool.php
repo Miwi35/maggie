@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Maggie\Cookbook\Mcp\Tool;
 
 use Maggie\Cookbook\Repository\IngredientRepository;
+use Maggie\Core\Mcp\McpUserContext;
+use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 
 #[McpTool(name: 'search_ingredients', description: 'Search food ingredients by name. Returns matching ingredients with id, name, and category.')]
@@ -12,12 +14,19 @@ class SearchIngredientsTool
 {
     public function __construct(
         private readonly IngredientRepository $ingredientRepository,
+        private readonly McpUserContext $userContext,
     ) {
     }
 
     public function __invoke(string $query): string
     {
-        $ingredients = $this->ingredientRepository->searchByName($query);
+        try {
+            $user = $this->userContext->requireUser();
+        } catch (MissingMcpUserException $e) {
+            return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
+        }
+
+        $ingredients = $this->ingredientRepository->searchByName($user, $query);
 
         $results = array_map(fn ($i) => [
             'id' => (string) $i->getId(),

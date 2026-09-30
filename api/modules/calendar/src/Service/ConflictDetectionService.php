@@ -4,6 +4,7 @@ namespace Maggie\Calendar\Service;
 
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Repository\EventRepository;
+use Maggie\Core\Entity\User;
 
 class ConflictDetectionService
 {
@@ -14,18 +15,19 @@ class ConflictDetectionService
     }
 
     /**
-     * Check for conflicts with a proposed time slot.
+     * Check for conflicts with a proposed time slot among the user's events.
      * Returns all events that overlap with the given time range.
      *
      * @return Event[]
      */
     public function findConflicts(
+        User $user,
         \DateTimeImmutable $start,
         \DateTimeImmutable $end,
         ?Event $excludeEvent = null,
     ): array {
         // Fetch all events in the range (including recurring masters)
-        $events = $this->eventRepository->findByDateRange($start, $end);
+        $events = $this->eventRepository->findByDateRange($user, $start, $end);
 
         // Expand recurring events
         $expanded = $this->recurrenceService->expandAll($events, $start, $end);
@@ -56,10 +58,11 @@ class ConflictDetectionService
      * Check if a proposed time slot has any conflicts.
      */
     public function hasConflicts(
+        User $user,
         \DateTimeImmutable $start,
         \DateTimeImmutable $end,
         ?Event $excludeEvent = null,
     ): bool {
-        return count($this->findConflicts($start, $end, $excludeEvent)) > 0;
+        return count($this->findConflicts($user, $start, $end, $excludeEvent)) > 0;
     }
 }

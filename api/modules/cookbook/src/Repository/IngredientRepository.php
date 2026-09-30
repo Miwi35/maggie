@@ -29,10 +29,12 @@ class IngredientRepository extends ServiceEntityRepository
     }
 
     /** @return Ingredient[] */
-    public function searchByName(string $query): array
+    public function searchByName(User $user, string $query): array
     {
         return $this->createQueryBuilder('i')
-            ->where('LOWER(i.name) LIKE LOWER(:query)')
+            ->where('i.user = :user')
+            ->andWhere('LOWER(i.name) LIKE LOWER(:query)')
+            ->setParameter('user', $user->getId(), 'ulid')
             ->setParameter('query', '%' . $query . '%')
             ->orderBy('i.name', 'ASC')
             ->getQuery()

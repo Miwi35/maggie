@@ -14,6 +14,7 @@ final readonly class CreateMealCommand
         public string $slot,
         public array $recipeIds = [],
         public ?string $agendaId = null,
+        public ?string $userId = null,
     ) {
     }
 }

@@ -17,6 +17,7 @@ final readonly class CreateEventCommand
         public ?string $recurringEventId = null,
         public ?\DateTimeImmutable $originalStartAt = null,
         public ?string $status = null,
+        public ?string $userId = null,
     ) {
     }
 }
