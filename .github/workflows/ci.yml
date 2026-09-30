@@ -12,6 +12,10 @@ on:
       - 'mobile/**'
       - '**.md'
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   changes:
     name: Detect changes
@@ -29,12 +33,16 @@ jobs:
           filters: |
             api:
               - 'api/**'
+              - '.github/workflows/ci.yml'
             agent:
               - 'agent/**'
+              - '.github/workflows/ci.yml'
             ciqual:
               - 'ciqual/**'
+              - '.github/workflows/ci.yml'
             admin:
               - 'admin/**'
+              - '.github/workflows/ci.yml'
 
   api-lint:
     name: API Lint (PHPStan)
@@ -50,6 +58,11 @@ jobs:
         with:
           php-version: '8.4'
           tools: composer:v2
+      - uses: actions/cache@v4
+        with:
+          path: api/vendor
+          key: vendor-php8.4-${{ hashFiles('api/composer.lock') }}
+          restore-keys: vendor-php8.4-
       - run: composer install --no-interaction --prefer-dist
       - run: vendor/bin/phpstan analyse
 
@@ -63,12 +76,14 @@ jobs:
         working-directory: agent
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v6
         with:
           python-version: '3.12'
-      - run: pip install ruff
-      - run: ruff check app/
-      - run: ruff format --check app/
+          enable-cache: true
+          cache-dependency-glob: agent/uv.lock
+      - run: uv sync --frozen --extra dev
+      - run: uv run ruff check app/
+      - run: uv run ruff format --check app/
 
   ciqual-lint:
     name: Ciqual Lint (Ruff)
@@ -80,12 +95,14 @@ jobs:
         working-directory: ciqual
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v6
         with:
           python-version: '3.12'
-      - run: pip install ruff
-      - run: ruff check app/ tests/
-      - run: ruff format --check app/ tests/
+          enable-cache: true
+          cache-dependency-glob: ciqual/pyproject.toml
+      - run: uv venv && uv pip install -e ".[dev]"
+      - run: uv run ruff check app/ tests/
+      - run: uv run ruff format --check app/ tests/
 
   admin-lint:
     name: Admin Lint (ESLint + TypeScript)
@@ -102,13 +119,19 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: admin/package-lock.json
-      - run: npm ci
+      - uses: actions/cache@v4
+        id: node-modules
+        with:
+          path: admin/node_modules
+          key: node-modules-node22-${{ hashFiles('admin/package-lock.json') }}
+      - if: steps.node-modules.outputs.cache-hit != 'true'
+        run: npm ci
       - run: npm run lint
       - run: npm run typecheck
 
   api-test:
     name: API Tests (PHPUnit)
-    needs: [changes, api-lint]
+    needs: changes
     if: needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
     defaults:
@@ -140,6 +163,11 @@ jobs:
           php-version: '8.4'
           extensions: pdo_pgsql
           tools: composer:v2
+      - uses: actions/cache@v4
+        with:
+          path: api/vendor
+          key: vendor-php8.4-${{ hashFiles('api/composer.lock') }}
+          restore-keys: vendor-php8.4-
       - run: composer install --no-interaction --prefer-dist
       - name: Generate JWT keys
         run: |
@@ -156,7 +184,7 @@ jobs:
 
   agent-test:
     name: Agent Tests (pytest)
-    needs: [changes, agent-lint]
+    needs: changes
     if: needs.changes.outputs.agent == 'true'
     runs-on: ubuntu-latest
     defaults:
@@ -164,15 +192,17 @@ jobs:
         working-directory: agent
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v6
         with:
           python-version: '3.12'
-      - run: pip install -e ".[dev]"
-      - run: pytest
+          enable-cache: true
+          cache-dependency-glob: agent/uv.lock
+      - run: uv sync --frozen --extra dev
+      - run: uv run pytest
 
   ciqual-test:
     name: Ciqual Tests (pytest)
-    needs: [changes, ciqual-lint]
+    needs: changes
     if: needs.changes.outputs.ciqual == 'true'
     runs-on: ubuntu-latest
     defaults:
@@ -180,15 +210,17 @@ jobs:
         working-directory: ciqual
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v6
         with:
           python-version: '3.12'
-      - run: pip install "fastapi>=0.115" "uvicorn[standard]>=0.34" "pytest>=8.0" "httpx>=0.28"
-      - run: pytest
+          enable-cache: true
+          cache-dependency-glob: ciqual/pyproject.toml
+      - run: uv venv && uv pip install -e ".[dev]"
+      - run: uv run pytest
 
   admin-test:
     name: Admin Tests (Vitest)
-    needs: [changes, admin-lint]
+    needs: changes
     if: needs.changes.outputs.admin == 'true'
     runs-on: ubuntu-latest
     defaults:
@@ -201,5 +233,11 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: admin/package-lock.json
-      - run: npm ci
+      - uses: actions/cache@v4
+        id: node-modules
+        with:
+          path: admin/node_modules
+          key: node-modules-node22-${{ hashFiles('admin/package-lock.json') }}
+      - if: steps.node-modules.outputs.cache-hit != 'true'
+        run: npm ci
       - run: npm run test
