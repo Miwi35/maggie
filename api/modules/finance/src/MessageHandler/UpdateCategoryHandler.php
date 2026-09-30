@@ -33,9 +33,13 @@ class UpdateCategoryHandler
         }
         if ($command->color !== null) {
             $category->setColor($command->color);
+        } elseif ($command->clears('color')) {
+            $category->setColor(null);
         }
         if ($command->icon !== null) {
             $category->setIcon($command->icon);
+        } elseif ($command->clears('icon')) {
+            $category->setIcon(null);
         }
         if ($command->parentId !== null) {
             if ($command->parentId === '') {
@@ -54,6 +58,8 @@ class UpdateCategoryHandler
 
                 $category->setParent($parent);
             }
+        } elseif ($command->clears('parentId')) {
+            $category->setParent(null);
         }
 
         return $this->updateCategory->execute($category);

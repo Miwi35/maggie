@@ -21,11 +21,21 @@ class UpdateStoreProcessor implements ProcessorInterface
 
     public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): Store
     {
+        /** @var Store|null $previous */
+        $previous = $context['previous_data'] ?? null;
+
+        // A nullable field that was set and is now null is an explicit clear
+        $clearFields = [];
+        if ($previous !== null && $data->getDescription() === null && $previous->getDescription() !== null) {
+            $clearFields[] = 'description';
+        }
+
         $envelope = $this->bus->dispatch(new UpdateStoreCommand(
             storeId: (string) $data->getId(),
             name: $data->getName(),
             description: $data->getDescription(),
             visitOrder: $data->getVisitOrder(),
+            clearFields: $clearFields,
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();

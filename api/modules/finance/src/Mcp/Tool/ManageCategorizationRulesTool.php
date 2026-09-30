@@ -20,7 +20,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_categorization_rules', description: 'List, create, update or delete the rules that file transactions under a category automatically, apply them to the uncategorized history, or learn a new rule from a transaction. A rule matches a label (matchType: contains, starts_with, equals — case-insensitive) and may narrow by amount: minAmountCents/maxAmountCents are ABSOLUTE cents (a 15,99 € expense matches 1000..2000) and direction is any, debit (expense) or credit (income). The highest priority rule that matches wins. A category set by hand is never overwritten.')]
+#[McpTool(name: 'manage_categorization_rules', description: 'List, create, update or delete the rules that file transactions under a category automatically, apply them to the uncategorized history, or learn a new rule from a transaction. A rule matches a label (matchType: contains, starts_with, equals — case-insensitive) and may narrow by amount: minAmountCents/maxAmountCents are ABSOLUTE cents (a 15,99 € expense matches 1000..2000) and direction is any, debit (expense) or credit (income). The highest priority rule that matches wins. A category set by hand is never overwritten. On update, only provided fields change; to remove an amount bound, list minAmountCents or maxAmountCents in clear.')]
 class ManageCategorizationRulesTool
 {
     public function __construct(
@@ -32,6 +32,7 @@ class ManageCategorizationRulesTool
     ) {
     }
 
+    /** @param list<string>|null $clear */
     public function __invoke(
         string $action,
         ?string $categorizationRuleId = null,
@@ -44,12 +45,13 @@ class ManageCategorizationRulesTool
         ?int $priority = null,
         ?bool $isActive = null,
         ?string $transactionId = null,
+        ?array $clear = null,
     ): string {
         try {
             return match ($action) {
                 'list' => $this->list(),
                 'create' => $this->create($labelPattern, $categoryId, $matchType, $direction, $minAmountCents, $maxAmountCents, $priority, $isActive),
-                'update' => $this->update($categorizationRuleId, $labelPattern, $categoryId, $matchType, $direction, $minAmountCents, $maxAmountCents, $priority, $isActive),
+                'update' => $this->update($categorizationRuleId, $labelPattern, $categoryId, $matchType, $direction, $minAmountCents, $maxAmountCents, $priority, $isActive, $clear),
                 'delete' => $this->delete($categorizationRuleId),
                 'apply' => $this->apply(),
                 'learn' => $this->learn($transactionId, $categoryId, $labelPattern, $matchType, $priority),
@@ -107,7 +109,8 @@ class ManageCategorizationRulesTool
         ], JSON_THROW_ON_ERROR);
     }
 
-    private function update(?string $categorizationRuleId, ?string $labelPattern, ?string $categoryId, ?string $matchType, ?string $direction, ?int $minAmountCents, ?int $maxAmountCents, ?int $priority, ?bool $isActive): string
+    /** @param list<string>|null $clear */
+    private function update(?string $categorizationRuleId, ?string $labelPattern, ?string $categoryId, ?string $matchType, ?string $direction, ?int $minAmountCents, ?int $maxAmountCents, ?int $priority, ?bool $isActive, ?array $clear): string
     {
         if ($categorizationRuleId === null) {
             return json_encode(['error' => 'categorizationRuleId is required for update.'], JSON_THROW_ON_ERROR);
@@ -123,6 +126,7 @@ class ManageCategorizationRulesTool
             maxAmountCents: $maxAmountCents,
             priority: $priority,
             isActive: $isActive,
+            clearFields: array_values(array_intersect($clear ?? [], ['minAmountCents', 'maxAmountCents'])),
         ));
 
         /** @var CategorizationRule $rule */

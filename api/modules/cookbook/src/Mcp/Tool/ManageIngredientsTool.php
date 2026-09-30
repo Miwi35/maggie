@@ -15,15 +15,18 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_ingredients', description: 'Create, update, or delete food ingredients. Categories: produce, dairy, meat, fish, grain, spice, condiment, frozen, beverage, other. Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet. Call search_ciqual_foods first for nutrition data and pass the ciqualAlimCode; use search_ingredients to look one up.')]
+#[McpTool(name: 'manage_ingredients', description: 'Create, update, or delete food ingredients. Categories: produce, dairy, meat, fish, grain, spice, condiment, frozen, beverage, other. Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet. Call search_ciqual_foods first for nutrition data and pass the ciqualAlimCode; use search_ingredients to look one up. To empty an optional field on update, list its name in clear (defaultUnit, ciqualAlimCode, kcalPer100g, proteinPer100g, carbsPer100g, fatPer100g).')]
 class ManageIngredientsTool
 {
+    private const CLEARABLE_FIELDS = ['defaultUnit', 'ciqualAlimCode', 'kcalPer100g', 'proteinPer100g', 'carbsPer100g', 'fatPer100g'];
+
     public function __construct(
         private readonly MessageBusInterface $bus,
         private readonly McpUserContext $userContext,
     ) {
     }
 
+    /** @param list<string>|null $clear */
     public function __invoke(
         string $action,
         ?string $ingredientId = null,
@@ -35,11 +38,12 @@ class ManageIngredientsTool
         ?float $proteinPer100g = null,
         ?float $carbsPer100g = null,
         ?float $fatPer100g = null,
+        ?array $clear = null,
     ): string {
         try {
             return match ($action) {
                 'create' => $this->create($name, $category, $defaultUnit, $ciqualAlimCode, $kcalPer100g, $proteinPer100g, $carbsPer100g, $fatPer100g),
-                'update' => $this->update($ingredientId, $name, $category, $defaultUnit, $ciqualAlimCode, $kcalPer100g, $proteinPer100g, $carbsPer100g, $fatPer100g),
+                'update' => $this->update($ingredientId, $name, $category, $defaultUnit, $ciqualAlimCode, $kcalPer100g, $proteinPer100g, $carbsPer100g, $fatPer100g, $clear),
                 'delete' => $this->delete($ingredientId),
                 default => json_encode(['error' => "Unknown action: {$action}. Use create, update, or delete (search_ingredients lists them)."], JSON_THROW_ON_ERROR),
             };
@@ -86,6 +90,7 @@ class ManageIngredientsTool
         return json_encode(['success' => true, 'ingredient' => $this->serialize($ingredient)], JSON_THROW_ON_ERROR);
     }
 
+    /** @param list<string>|null $clear */
     private function update(
         ?string $ingredientId,
         ?string $name,
@@ -96,6 +101,7 @@ class ManageIngredientsTool
         ?float $proteinPer100g,
         ?float $carbsPer100g,
         ?float $fatPer100g,
+        ?array $clear,
     ): string {
         if ($ingredientId === null) {
             return json_encode(['error' => 'ingredientId is required for update.'], JSON_THROW_ON_ERROR);
@@ -111,6 +117,7 @@ class ManageIngredientsTool
             proteinPer100g: $proteinPer100g,
             carbsPer100g: $carbsPer100g,
             fatPer100g: $fatPer100g,
+            clearFields: array_values(array_intersect($clear ?? [], self::CLEARABLE_FIELDS)),
         ));
 
         /** @var Ingredient $ingredient */

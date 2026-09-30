@@ -35,9 +35,13 @@ class UpdateEventHandler
         }
         if ($command->description !== null) {
             $event->setDescription($command->description);
+        } elseif ($command->clears('description')) {
+            $event->setDescription(null);
         }
         if ($command->location !== null) {
             $event->setLocation($command->location);
+        } elseif ($command->clears('location')) {
+            $event->setLocation(null);
         }
         if ($command->startAt !== null) {
             $event->setStartAt($command->startAt);
@@ -50,6 +54,8 @@ class UpdateEventHandler
         }
         if ($command->rrule !== null) {
             $event->setRrule($command->rrule);
+        } elseif ($command->clears('rrule')) {
+            $event->setRrule(null);
         }
 
         // Track which fields were explicitly set in the command
@@ -57,10 +63,10 @@ class UpdateEventHandler
         if ($command->summary !== null) {
             $changedFields[] = 'summary';
         }
-        if ($command->description !== null) {
+        if ($command->description !== null || $command->clears('description')) {
             $changedFields[] = 'description';
         }
-        if ($command->location !== null) {
+        if ($command->location !== null || $command->clears('location')) {
             $changedFields[] = 'location';
         }
         if ($command->startAt !== null) {
@@ -72,7 +78,7 @@ class UpdateEventHandler
         if ($command->allDay !== null) {
             $changedFields[] = 'allDay';
         }
-        if ($command->rrule !== null) {
+        if ($command->rrule !== null || $command->clears('rrule')) {
             $changedFields[] = 'rrule';
         }
 

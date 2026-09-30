@@ -156,4 +156,41 @@ class MealToolsTest extends KernelTestCase
         // Elasticsearch: DeleteDocumentCommand dispatched
         $this->assertElasticsearchDeleteDispatched('meals');
     }
+
+    public function testUpdateWithEmptyRecipeIdsEmptiesTheRecipes(): void
+    {
+        $this->loadFixtures('meal.yaml');
+        $this->loginFixtureUser();
+
+        $recipe = $this->getFixture('pasta');
+        $created = json_decode(($this->tool())('create', date: '2026-03-20', slot: 'lunch', recipeIds: (string) $recipe->getId()), true, 512, JSON_THROW_ON_ERROR);
+        self::assertCount(1, $created['meal']['recipes']);
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $data = json_decode(($this->tool())('update', mealId: $created['meal']['id'], recipeIds: ''), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
+        self::assertCount(0, $data['meal']['recipes']);
+        self::assertSame('lunch', $data['meal']['slot']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $stored = $em->find(Meal::class, $created['meal']['id']);
+        self::assertCount(0, $stored->getRecipes());
+        self::assertSame('2026-03-20', $stored->getStartAt()->setTimezone(new \DateTimeZone('Europe/Paris'))->format('Y-m-d'));
+
+        $this->assertMercureUpdatePublished('/meals/');
+        $this->assertElasticsearchIndexDispatched(Meal::class);
+    }
+
+    public function testUpdateUnknownMealReturnsAnError(): void
+    {
+        $this->loadFixtures('meal.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(($this->tool())('update', mealId: '01ARZ3NDEKTSV4RRFFQ69G5FAV', recipeIds: ''), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
+    }
 }

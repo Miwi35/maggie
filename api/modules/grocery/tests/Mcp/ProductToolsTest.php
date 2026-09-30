@@ -155,4 +155,54 @@ class ProductToolsTest extends KernelTestCase
         $refreshed = $em->find(Product::class, $tomato->getId());
         self::assertSame(7, $refreshed->getShelfLifeDays());
     }
+
+    public function testUpdateProductClearEmptiesTheDefaultUnit(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
+
+        $created = json_decode(($this->manageProducts())('create', name: 'Papier toilette', category: 'household', defaultUnit: 'pack'), true, 512, JSON_THROW_ON_ERROR);
+        $id = $created['product']['id'];
+        self::assertSame('pack', $created['product']['defaultUnit']);
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $data = json_decode(($this->manageProducts())('update', productId: $id, clear: ['defaultUnit', 'name', 'category']), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
+        self::assertNull($data['product']['defaultUnit']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $product = $em->getRepository(Product::class)->find($id);
+        self::assertNull($product->getDefaultUnit());
+        self::assertSame('Papier toilette', $product->getName(), 'Required fields cannot be cleared');
+        self::assertSame('household', $product->getCategory()->value);
+
+        $this->assertMercureUpdatePublished('/products/');
+        $this->assertElasticsearchIndexDispatched(Product::class);
+    }
+
+    public function testUpdateProductWithoutClearKeepsTheDefaultUnit(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
+
+        $created = json_decode(($this->manageProducts())('create', name: 'Papier toilette', category: 'household', defaultUnit: 'pack'), true, 512, JSON_THROW_ON_ERROR);
+
+        $data = json_decode(($this->manageProducts())('update', productId: $created['product']['id'], name: 'Essuie-tout'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame('Essuie-tout', $data['product']['name']);
+        self::assertSame('pack', $data['product']['defaultUnit']);
+    }
+
+    public function testUpdateUnknownProductReturnsAnError(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(($this->manageProducts())('update', productId: '01ARZ3NDEKTSV4RRFFQ69G5FAV', clear: ['defaultUnit']), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
+    }
 }

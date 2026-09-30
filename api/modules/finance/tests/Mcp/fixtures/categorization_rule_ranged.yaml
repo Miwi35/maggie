@@ -1,0 +1,23 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-test@example.com
+    googleId: google-finance-test
+    name: Finance Test User
+
+Maggie\Finance\Entity\Category:
+  food:
+    name: Alimentation
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+
+Maggie\Finance\Entity\CategorizationRule:
+  ranged_rule:
+    labelPattern: CARREFOUR
+    matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'
+    category: '@food'
+    direction: '<(Maggie\Finance\Enum\AmountDirection::Debit)>'
+    minAmountCents: 1000
+    maxAmountCents: 5000
+    priority: 10
+    isActive: true
+    user: '@test_user'

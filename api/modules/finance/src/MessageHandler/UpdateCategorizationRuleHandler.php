@@ -47,9 +47,13 @@ class UpdateCategorizationRuleHandler
         }
         if ($command->minAmountCents !== null) {
             $rule->setMinAmountCents($command->minAmountCents);
+        } elseif ($command->clears('minAmountCents')) {
+            $rule->setMinAmountCents(null);
         }
         if ($command->maxAmountCents !== null) {
             $rule->setMaxAmountCents($command->maxAmountCents);
+        } elseif ($command->clears('maxAmountCents')) {
+            $rule->setMaxAmountCents(null);
         }
         if ($command->priority !== null) {
             $rule->setPriority($command->priority);

@@ -58,6 +58,7 @@ class UpdateTransactionHandler
             $transaction->setRetrospect(RetrospectVerdict::from($command->retrospect));
         }
         if ($command->categoryId !== null) {
+            // '' is the historical way to empty the category; clearFields is the explicit one.
             if ($command->categoryId === '') {
                 $transaction->assignCategory(null, CategorySource::None);
             } else {
@@ -68,6 +69,8 @@ class UpdateTransactionHandler
                     CategorySource::from($command->categorySource ?? CategorySource::Manual->value),
                 );
             }
+        } elseif ($command->clears('categoryId')) {
+            $transaction->assignCategory(null, CategorySource::None);
         }
 
         return $this->updateTransaction->execute($transaction);

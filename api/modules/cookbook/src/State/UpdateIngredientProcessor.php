@@ -21,6 +21,26 @@ class UpdateIngredientProcessor implements ProcessorInterface
 
     public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): Ingredient
     {
+        /** @var Ingredient|null $previous */
+        $previous = $context['previous_data'] ?? null;
+
+        // A nullable field that was set and is now null is an explicit clear
+        $clearFields = [];
+        if ($previous !== null) {
+            foreach ([
+                'defaultUnit' => 'getDefaultUnit',
+                'ciqualAlimCode' => 'getCiqualAlimCode',
+                'kcalPer100g' => 'getKcalPer100g',
+                'proteinPer100g' => 'getProteinPer100g',
+                'carbsPer100g' => 'getCarbsPer100g',
+                'fatPer100g' => 'getFatPer100g',
+            ] as $field => $getter) {
+                if ($data->$getter() === null && $previous->$getter() !== null) {
+                    $clearFields[] = $field;
+                }
+            }
+        }
+
         $envelope = $this->bus->dispatch(new UpdateIngredientCommand(
             ingredientId: (string) $data->getId(),
             name: $data->getName(),
@@ -31,6 +51,7 @@ class UpdateIngredientProcessor implements ProcessorInterface
             proteinPer100g: $data->getProteinPer100g(),
             carbsPer100g: $data->getCarbsPer100g(),
             fatPer100g: $data->getFatPer100g(),
+            clearFields: $clearFields,
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();

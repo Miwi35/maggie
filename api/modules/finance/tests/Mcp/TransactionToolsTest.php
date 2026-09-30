@@ -112,6 +112,41 @@ class TransactionToolsTest extends KernelTestCase
         $this->assertElasticsearchIndexDispatched(Transaction::class);
     }
 
+    public function testClearRemovesTheCategory(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
+        $transaction = $this->getFixture('groceries');
+
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+        $result = $tool('update', transactionId: (string) $transaction->getId(), clear: ['categoryId', 'label']);
+
+        $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
+        self::assertTrue($data['success']);
+        self::assertNull($data['transaction']['categoryId']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $refreshed = $em->find(Transaction::class, $transaction->getId());
+        self::assertNull($refreshed->getCategory());
+        self::assertSame('Supermarché', $refreshed->getLabel(), 'Required fields cannot be cleared');
+        self::assertSame(-4599, $refreshed->getAmountCents());
+
+        $this->assertMercureUpdatePublished('/transactions/');
+        $this->assertElasticsearchIndexDispatched(Transaction::class);
+    }
+
+    public function testClearOnAnUnknownTransactionReturnsAnError(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
+
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+        $data = json_decode($tool('update', transactionId: '01ARZ3NDEKTSV4RRFFQ69G5FAV', clear: ['categoryId']), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
+    }
+
     public function testDeleteTransactionRemovesPublishesAndDeletes(): void
     {
         $this->loadFixtures('transaction.yaml');

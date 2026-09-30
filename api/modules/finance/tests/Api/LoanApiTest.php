@@ -112,6 +112,52 @@ class LoanApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(422);
     }
 
+    /** @param array<string, mixed> $body */
+    private function patch(string $id, array $body, bool $authenticated = true): void
+    {
+        $headers = [
+            'CONTENT_TYPE' => 'application/merge-patch+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ];
+
+        $this->client->request('PATCH', '/api/loans/' . $id, [], [], $authenticated
+            ? array_merge($headers, $this->authHeaders())
+            : $headers, json_encode($body, JSON_THROW_ON_ERROR));
+    }
+
+    public function testPatchLoanRequiresAuthentication(): void
+    {
+        $this->loadFixtures('loan.yaml');
+        $loan = $this->getFixture('car');
+
+        $this->patch((string) $loan->getId(), ['lender' => null], authenticated: false);
+
+        self::assertResponseStatusCodeSame(401);
+    }
+
+    public function testPatchWithNullLenderClearsIt(): void
+    {
+        $this->loadFixtures('loan.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+        $loan = $this->getFixture('car');
+
+        $this->patch((string) $loan->getId(), ['lender' => null]);
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $refreshed = $em->find(Loan::class, $loan->getId());
+        self::assertNull($refreshed->getLender());
+        self::assertSame(240000, $refreshed->getPrincipalRemainingCents());
+        self::assertSame(20000, $refreshed->getMonthlyPaymentCents());
+
+        $this->assertMercureUpdatePublished('/loans/');
+        $this->assertElasticsearchIndexDispatched(Loan::class);
+    }
+
     public function testDeleteLoanRemovesAndPublishes(): void
     {
         $this->loadFixtures('loan.yaml');

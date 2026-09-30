@@ -32,6 +32,8 @@ class UpdateTransactionProcessor implements ProcessorInterface
             isExceptional: $data->isExceptional(),
             categoryId: $data->getCategory() !== null ? (string) $data->getCategory()->getId() : null,
             retrospect: $data->getRetrospect()->value,
+            // A null category after the merge-patch is an explicit clear
+            clearFields: $data->getCategory() === null ? ['categoryId'] : [],
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();

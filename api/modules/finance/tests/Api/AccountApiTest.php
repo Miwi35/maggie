@@ -120,6 +120,69 @@ class AccountApiTest extends WebTestCase
         $this->assertElasticsearchIndexDispatched(Account::class);
     }
 
+    /** @param array<string, mixed> $body */
+    private function patch(string $id, array $body, bool $authenticated = true): void
+    {
+        $headers = [
+            'CONTENT_TYPE' => 'application/merge-patch+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ];
+
+        $this->client->request('PATCH', '/api/accounts/' . $id, [], [], $authenticated
+            ? array_merge($headers, $this->authHeaders())
+            : $headers, json_encode($body, JSON_THROW_ON_ERROR));
+    }
+
+    public function testPatchAccountRequiresAuthentication(): void
+    {
+        $this->loadFixtures('account.yaml');
+        $account = $this->getFixture('checking');
+
+        $this->patch((string) $account->getId(), ['bank' => null], authenticated: false);
+
+        self::assertResponseStatusCodeSame(401);
+    }
+
+    public function testPatchWithNullBankClearsIt(): void
+    {
+        $this->loadFixtures('account.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+        $account = $this->getFixture('checking');
+
+        $this->patch((string) $account->getId(), ['bank' => null]);
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $refreshed = $em->find(Account::class, $account->getId());
+        self::assertNull($refreshed->getBank());
+        self::assertSame('Compte courant', $refreshed->getName());
+        self::assertSame(125000, $refreshed->getBalanceCents());
+
+        $this->assertMercureUpdatePublished('/accounts/');
+        $this->assertElasticsearchIndexDispatched(Account::class);
+    }
+
+    public function testPatchWithoutBankLeavesItUntouched(): void
+    {
+        $this->loadFixtures('account.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+        $account = $this->getFixture('checking');
+
+        $this->patch((string) $account->getId(), ['name' => 'Compte principal']);
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertSame('Crédit Agricole', $em->find(Account::class, $account->getId())->getBank());
+    }
+
     public function testDeleteAccountRemovesAndPublishes(): void
     {
         $this->loadFixtures('account.yaml');

@@ -118,6 +118,67 @@ class CategorizationRuleToolsTest extends KernelTestCase
         $this->assertElasticsearchIndexDispatched(CategorizationRule::class);
     }
 
+    public function testClearRemovesAnAmountBound(): void
+    {
+        $this->loadFixtures('categorization_rule_ranged.yaml');
+        $this->loginFixtureUser();
+        $rule = $this->getFixture('ranged_rule');
+
+        $data = json_decode(
+            $this->tool()('update', categorizationRuleId: (string) $rule->getId(), clear: ['maxAmountCents', 'labelPattern']),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertTrue($data['success']);
+        self::assertNull($data['rule']['maxAmountCents']);
+        self::assertSame(1000, $data['rule']['minAmountCents']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $refreshed = $em->find(CategorizationRule::class, $rule->getId());
+        self::assertNull($refreshed->getMaxAmountCents());
+        self::assertSame(1000, $refreshed->getMinAmountCents());
+        self::assertSame('CARREFOUR', $refreshed->getLabelPattern(), 'Required fields cannot be cleared');
+
+        $this->assertMercureUpdatePublished('/categorization_rules/');
+        $this->assertElasticsearchIndexDispatched(CategorizationRule::class);
+    }
+
+    public function testClearBothBoundsOpensTheRange(): void
+    {
+        $this->loadFixtures('categorization_rule_ranged.yaml');
+        $this->loginFixtureUser();
+        $rule = $this->getFixture('ranged_rule');
+
+        $data = json_decode(
+            $this->tool()('update', categorizationRuleId: (string) $rule->getId(), clear: ['minAmountCents', 'maxAmountCents']),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertTrue($data['success']);
+        self::assertNull($data['rule']['minAmountCents']);
+        self::assertNull($data['rule']['maxAmountCents']);
+    }
+
+    public function testClearOnAnUnknownRuleReturnsAnError(): void
+    {
+        $this->loadFixtures('categorization_rule_ranged.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(
+            $this->tool()('update', categorizationRuleId: '01ARZ3NDEKTSV4RRFFQ69G5FAV', clear: ['minAmountCents']),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertArrayHasKey('error', $data);
+    }
+
     public function testDeleteRemovesPublishesAndDeletes(): void
     {
         $this->loadFixtures('categorization_rule.yaml');

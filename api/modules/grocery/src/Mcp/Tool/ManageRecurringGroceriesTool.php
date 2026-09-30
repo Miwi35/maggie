@@ -16,7 +16,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_recurring_groceries', description: 'List, create, update, or delete recurring grocery items — the staples automatically added to generated lists. Frequency: weekly, biweekly, monthly. Give either a productId or a customLabel.')]
+#[McpTool(name: 'manage_recurring_groceries', description: 'List, create, update, or delete recurring grocery items — the staples automatically added to generated lists. Frequency: weekly, biweekly, monthly. Give either a productId or a customLabel. To empty an optional field on update, list its name in clear (productId, customLabel, quantity, unit); an item must keep a productId or a customLabel.')]
 class ManageRecurringGroceriesTool
 {
     public function __construct(
@@ -26,6 +26,7 @@ class ManageRecurringGroceriesTool
     ) {
     }
 
+    /** @param list<string>|null $clear */
     public function __invoke(
         string $action,
         ?string $recurringItemId = null,
@@ -34,12 +35,13 @@ class ManageRecurringGroceriesTool
         ?string $customLabel = null,
         ?float $quantity = null,
         ?string $unit = null,
+        ?array $clear = null,
     ): string {
         try {
             return match ($action) {
                 'list' => $this->list(),
                 'create' => $this->create($frequency, $productId, $customLabel, $quantity, $unit),
-                'update' => $this->update($recurringItemId, $frequency, $productId, $customLabel, $quantity, $unit),
+                'update' => $this->update($recurringItemId, $frequency, $productId, $customLabel, $quantity, $unit, $clear),
                 'delete' => $this->delete($recurringItemId),
                 default => json_encode(['error' => "Unknown action: {$action}. Use list, create, update, or delete."], JSON_THROW_ON_ERROR),
             };
@@ -87,7 +89,8 @@ class ManageRecurringGroceriesTool
         return json_encode(['success' => true, 'recurringItem' => $this->serialize($item)], JSON_THROW_ON_ERROR);
     }
 
-    private function update(?string $recurringItemId, ?string $frequency, ?string $productId, ?string $customLabel, ?float $quantity, ?string $unit): string
+    /** @param list<string>|null $clear */
+    private function update(?string $recurringItemId, ?string $frequency, ?string $productId, ?string $customLabel, ?float $quantity, ?string $unit, ?array $clear): string
     {
         if ($recurringItemId === null) {
             return json_encode(['error' => 'recurringItemId is required for update.'], JSON_THROW_ON_ERROR);
@@ -100,6 +103,7 @@ class ManageRecurringGroceriesTool
             customLabel: $customLabel,
             quantity: $quantity,
             unit: $unit,
+            clearFields: array_values(array_intersect($clear ?? [], ['productId', 'customLabel', 'quantity', 'unit'])),
         ));
 
         /** @var RecurringGroceryItem $item */

@@ -34,6 +34,8 @@ class UpdateProductHandler
         }
         if ($command->defaultUnit !== null) {
             $product->setDefaultUnit(Unit::from($command->defaultUnit));
+        } elseif ($command->clears('defaultUnit')) {
+            $product->setDefaultUnit(null);
         }
 
         return $this->updateProduct->execute($product);

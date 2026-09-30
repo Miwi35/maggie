@@ -98,6 +98,41 @@ class AccountToolsTest extends KernelTestCase
         $this->assertElasticsearchIndexDispatched(Account::class);
     }
 
+    public function testClearEmptiesTheBank(): void
+    {
+        $this->loadFixtures('account.yaml');
+        $this->loginFixtureUser();
+        $account = $this->getFixture('checking');
+
+        $tool = self::getContainer()->get(ManageAccountsTool::class);
+        $result = $tool('update', accountId: (string) $account->getId(), clear: ['bank', 'name']);
+
+        $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
+        self::assertTrue($data['success']);
+        self::assertNull($data['account']['bank']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $refreshed = $em->find(Account::class, $account->getId());
+        self::assertNull($refreshed->getBank());
+        self::assertSame('Compte courant', $refreshed->getName(), 'Required fields cannot be cleared');
+        self::assertSame(125000, $refreshed->getBalanceCents());
+
+        $this->assertMercureUpdatePublished('/accounts/');
+        $this->assertElasticsearchIndexDispatched(Account::class);
+    }
+
+    public function testClearOnAnUnknownAccountReturnsAnError(): void
+    {
+        $this->loadFixtures('account.yaml');
+        $this->loginFixtureUser();
+
+        $tool = self::getContainer()->get(ManageAccountsTool::class);
+        $data = json_decode($tool('update', accountId: '01ARZ3NDEKTSV4RRFFQ69G5FAV', clear: ['bank']), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
+    }
+
     public function testDeleteAccountRemovesPublishesAndDeletes(): void
     {
         $this->loadFixtures('account.yaml');

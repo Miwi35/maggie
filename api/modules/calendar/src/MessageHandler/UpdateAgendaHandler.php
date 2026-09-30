@@ -29,12 +29,16 @@ class UpdateAgendaHandler
         }
         if ($command->description !== null) {
             $agenda->setDescription($command->description);
+        } elseif ($command->clears('description')) {
+            $agenda->setDescription(null);
         }
         if ($command->timeZone !== null) {
             $agenda->setTimeZone($command->timeZone);
         }
         if ($command->color !== null) {
             $agenda->setColor($command->color);
+        } elseif ($command->clears('color')) {
+            $agenda->setColor(null);
         }
         if ($command->isDefault !== null) {
             $agenda->setIsDefault($command->isDefault);

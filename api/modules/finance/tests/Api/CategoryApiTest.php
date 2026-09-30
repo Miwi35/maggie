@@ -110,6 +110,72 @@ class CategoryApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(422);
     }
 
+    /** @param array<string, mixed> $body */
+    private function patch(string $id, array $body, bool $authenticated = true): void
+    {
+        $headers = [
+            'CONTENT_TYPE' => 'application/merge-patch+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ];
+
+        $this->client->request('PATCH', '/api/categories/' . $id, [], [], $authenticated
+            ? array_merge($headers, $this->authHeaders())
+            : $headers, json_encode($body, JSON_THROW_ON_ERROR));
+    }
+
+    public function testPatchCategoryRequiresAuthentication(): void
+    {
+        $this->loadFixtures('category_with_parent.yaml');
+        $concerts = $this->getFixture('concerts');
+
+        $this->patch((string) $concerts->getId(), ['parent' => null], authenticated: false);
+
+        self::assertResponseStatusCodeSame(401);
+    }
+
+    public function testPatchWithNullParentMakesTheCategoryTopLevel(): void
+    {
+        $this->loadFixtures('category_with_parent.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+        $concerts = $this->getFixture('concerts');
+
+        $this->patch((string) $concerts->getId(), ['parent' => null]);
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $refreshed = $em->find(Category::class, $concerts->getId());
+        self::assertNull($refreshed->getParent());
+        self::assertSame('Concerts', $refreshed->getName());
+        self::assertSame('#9C27B0', $refreshed->getColor());
+
+        $this->assertMercureUpdatePublished('/categories/');
+        $this->assertElasticsearchIndexDispatched(Category::class);
+    }
+
+    public function testPatchWithNullColorAndIconClearsThemAndKeepsTheParent(): void
+    {
+        $this->loadFixtures('category_with_parent.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+        $concerts = $this->getFixture('concerts');
+
+        $this->patch((string) $concerts->getId(), ['color' => null, 'icon' => null]);
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $refreshed = $em->find(Category::class, $concerts->getId());
+        self::assertNull($refreshed->getColor());
+        self::assertNull($refreshed->getIcon());
+        self::assertSame('Loisirs', $refreshed->getParent()?->getName());
+    }
+
     public function testDeleteCategoryRemovesAndPublishes(): void
     {
         $this->loadFixtures('category.yaml');

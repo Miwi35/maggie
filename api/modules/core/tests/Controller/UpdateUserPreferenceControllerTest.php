@@ -133,4 +133,43 @@ class UpdateUserPreferenceControllerTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(400);
     }
+
+    /**
+     * Every preference column is NOT NULL: there is nothing to clear, so an
+     * explicit JSON null is rejected instead of silently ignored.
+     */
+    public function testAnExplicitNullOnARequiredPreferenceIsRejectedAndChangesNothing(): void
+    {
+        $this->loadFixtures('user_preference.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        foreach (['theme', 'locale', 'timezone', 'defaultCalendarView', 'notificationsEnabled'] as $field) {
+            $this->patch([$field => null]);
+
+            self::assertResponseStatusCodeSame(400, "null on {$field} must be rejected");
+        }
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $stored = $em->find(UserPreference::class, $this->getFixture('preference')->getId());
+        self::assertSame('system', $stored->getTheme());
+        self::assertSame('fr', $stored->getLocale());
+        self::assertSame('Europe/Paris', $stored->getTimezone());
+        self::assertSame('month', $stored->getDefaultCalendarView());
+        self::assertTrue($stored->isNotificationsEnabled());
+    }
+
+    public function testAnEmptyAgendaListCanBeSaved(): void
+    {
+        $this->loadFixtures('user_preference.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->patch(['enabledAgendaIds' => []]);
+
+        self::assertResponseIsSuccessful();
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $stored = $em->find(UserPreference::class, $this->getFixture('preference')->getId());
+        self::assertSame([], $stored->getEnabledAgendaIds());
+    }
 }

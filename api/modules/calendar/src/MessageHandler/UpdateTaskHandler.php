@@ -37,6 +37,8 @@ class UpdateTaskHandler
         }
         if ($command->description !== null) {
             $task->setDescription($command->description);
+        } elseif ($command->clears('description')) {
+            $task->setDescription(null);
         }
         if ($command->priority !== null) {
             $task->setPriority(TaskPriority::from($command->priority));
@@ -46,9 +48,13 @@ class UpdateTaskHandler
         }
         if ($command->dueDate !== null) {
             $task->setDueDate($command->dueDate);
+        } elseif ($command->clears('dueDate')) {
+            $task->setDueDate(null);
         }
         if ($command->completedAt !== null) {
             $task->setCompletedAt($command->completedAt);
+        } elseif ($command->clears('completedAt')) {
+            $task->setCompletedAt(null);
         }
 
         // Track which fields were explicitly set in the command
@@ -56,13 +62,13 @@ class UpdateTaskHandler
         if ($command->title !== null) {
             $changedFields[] = 'title';
         }
-        if ($command->description !== null) {
+        if ($command->description !== null || $command->clears('description')) {
             $changedFields[] = 'description';
         }
-        if ($command->dueDate !== null) {
+        if ($command->dueDate !== null || $command->clears('dueDate')) {
             $changedFields[] = 'dueDate';
         }
-        if ($command->completedAt !== null) {
+        if ($command->completedAt !== null || $command->clears('completedAt')) {
             $changedFields[] = 'completedAt';
         }
 

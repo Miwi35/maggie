@@ -29,6 +29,8 @@ class UpdateUserHandler
         }
         if ($command->avatar !== null) {
             $user->setAvatar($command->avatar);
+        } elseif ($command->clears('avatar')) {
+            $user->setAvatar(null);
         }
 
         $this->entityManager->flush();

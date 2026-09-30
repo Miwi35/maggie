@@ -21,6 +21,17 @@ class UpdateCategorizationRuleProcessor implements ProcessorInterface
 
     public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): CategorizationRule
     {
+        // A nullable field that is null after the merge-patch is an explicit clear
+        $clearFields = [];
+        foreach ([
+            'minAmountCents' => $data->getMinAmountCents(),
+            'maxAmountCents' => $data->getMaxAmountCents(),
+        ] as $field => $value) {
+            if ($value === null) {
+                $clearFields[] = $field;
+            }
+        }
+
         $stamped = $this->bus->dispatch(new UpdateCategorizationRuleCommand(
             categorizationRuleId: (string) $data->getId(),
             labelPattern: $data->getLabelPattern(),
@@ -31,6 +42,7 @@ class UpdateCategorizationRuleProcessor implements ProcessorInterface
             maxAmountCents: $data->getMaxAmountCents(),
             priority: $data->getPriority(),
             isActive: $data->isActive(),
+            clearFields: $clearFields,
         ));
 
         return $stamped->last(HandledStamp::class)->getResult();

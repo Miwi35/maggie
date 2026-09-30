@@ -16,7 +16,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_transactions', description: 'List, create, update, delete, or categorize transactions. Amounts are signed integer cents: negative = expense/debit, positive = income/credit. bookedAt is an ISO date (defaults to today). status is one of spent, committed, planned, to_arbitrate.')]
+#[McpTool(name: 'manage_transactions', description: 'List, create, update, delete, or categorize transactions. Amounts are signed integer cents: negative = expense/debit, positive = income/credit. bookedAt is an ISO date (defaults to today). status is one of spent, committed, planned, to_arbitrate. On update, only provided fields change; to remove the category, list categoryId in clear.')]
 class ManageTransactionsTool
 {
     public function __construct(
@@ -26,6 +26,7 @@ class ManageTransactionsTool
     ) {
     }
 
+    /** @param list<string>|null $clear */
     public function __invoke(
         string $action,
         ?string $transactionId = null,
@@ -37,12 +38,13 @@ class ManageTransactionsTool
         ?string $currency = null,
         ?bool $isExceptional = null,
         ?string $categoryId = null,
+        ?array $clear = null,
     ): string {
         try {
             return match ($action) {
                 'list' => $this->list(),
                 'create' => $this->create($accountId, $amountCents, $label, $bookedAt, $status, $currency, $isExceptional, $categoryId),
-                'update' => $this->update($transactionId, $accountId, $amountCents, $label, $bookedAt, $status, $currency, $isExceptional, $categoryId),
+                'update' => $this->update($transactionId, $accountId, $amountCents, $label, $bookedAt, $status, $currency, $isExceptional, $categoryId, $clear),
                 'categorize' => $this->categorize($transactionId, $categoryId),
                 'delete' => $this->delete($transactionId),
                 default => json_encode(['error' => "Unknown action: {$action}. Use list, create, update, categorize, or delete."], JSON_THROW_ON_ERROR),
@@ -96,7 +98,8 @@ class ManageTransactionsTool
         ], JSON_THROW_ON_ERROR);
     }
 
-    private function update(?string $transactionId, ?string $accountId, ?int $amountCents, ?string $label, ?string $bookedAt, ?string $status, ?string $currency, ?bool $isExceptional, ?string $categoryId): string
+    /** @param list<string>|null $clear */
+    private function update(?string $transactionId, ?string $accountId, ?int $amountCents, ?string $label, ?string $bookedAt, ?string $status, ?string $currency, ?bool $isExceptional, ?string $categoryId, ?array $clear): string
     {
         if ($transactionId === null) {
             return json_encode(['error' => 'transactionId is required for update.'], JSON_THROW_ON_ERROR);
@@ -112,6 +115,7 @@ class ManageTransactionsTool
             currency: $currency,
             isExceptional: $isExceptional,
             categoryId: $categoryId,
+            clearFields: array_values(array_intersect($clear ?? [], ['categoryId'])),
         ));
 
         /** @var Transaction $transaction */

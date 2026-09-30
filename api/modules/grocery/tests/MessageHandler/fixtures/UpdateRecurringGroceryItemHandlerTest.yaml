@@ -1,0 +1,25 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: grocery-handler-test@example.com
+    googleId: google-grocery-handler-test
+    name: Grocery Handler Test User
+
+Maggie\Grocery\Entity\Product:
+  product:
+    name: Bananes
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    user: '@test_user'
+
+Maggie\Grocery\Entity\RecurringGroceryItem:
+  item_full:
+    product: '@product'
+    customLabel: Bananes bio
+    quantity: 2.5
+    unit: '<(Maggie\Grocery\Enum\Unit::Kilogram)>'
+    frequency: '<(Maggie\Grocery\Enum\RecurringFrequency::Weekly)>'
+    user: '@test_user'
+  item_label_only:
+    customLabel: Pain de mie
+    quantity: 1
+    frequency: '<(Maggie\Grocery\Enum\RecurringFrequency::Monthly)>'
+    user: '@test_user'
