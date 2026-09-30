@@ -9,8 +9,25 @@
 # use CI rather than queueing indefinitely.
 #
 # Thresholds come from wt/limits.env; exported variables win over it.
+#
+#   guard.sh         for `task wt:*`: WT_MIN_AVAILABLE_MB, and at most
+#                    WT_MAX_STACKS live worktree stacks besides the caller's own
+#                    (WT_SELF_PROJECT)
+#   guard.sh e2e     for `task e2e:up`, eleven containers: E2E_MIN_AVAILABLE_MB.
+#                    Skipped on CI, where the runner is the machine.
+#
+# Every call first removes the worktree stacks idle for too long (MAG-137), so a
+# forgotten stack never counts against the next agent, and records activity on
+# the caller's own.
 
 set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+profile="${1:-wt}"
+
+if [ "$profile" = e2e ] && [ -n "${CI:-}" ]; then
+    exit 0
+fi
 
 available_mb() {
     awk '/^MemAvailable:/ { printf "%d", $2 / 1024 }' /proc/meminfo
@@ -24,7 +41,12 @@ cores() {
     nproc
 }
 
-min_mb="${WT_MIN_AVAILABLE_MB:-3072}"
+if [ "$profile" = e2e ]; then
+    min_mb="${E2E_MIN_AVAILABLE_MB:-5120}"
+else
+    min_mb="${WT_MIN_AVAILABLE_MB:-3072}"
+fi
+max_stacks="${WT_MAX_STACKS:-3}"
 max_ratio="${WT_MAX_LOAD_RATIO:-0.8}"
 retries="${WT_GUARD_RETRIES:-6}"
 wait_seconds="${WT_GUARD_WAIT_SECONDS:-20}"
@@ -33,15 +55,25 @@ max_load="$(awk -v c="$(cores)" -v r="$max_ratio" 'BEGIN { printf "%.2f", c * r 
 
 attempt=0
 while :; do
+    "$here/stack.sh" prune >&2 || true
+    stacks=0
+    if [ "$profile" != e2e ]; then
+        stacks="$("$here/stack.sh" count "${WT_SELF_PROJECT:-}" 2>/dev/null || echo 0)"
+    fi
     mem="$(available_mb)"
     load="$(load1)"
 
     mem_ok=$([ "$mem" -ge "$min_mb" ] && echo yes || echo no)
     load_ok="$(awk -v l="$load" -v m="$max_load" 'BEGIN { print (l <= m) ? "yes" : "no" }')"
 
-    if [ "$mem_ok" = yes ] && [ "$load_ok" = yes ]; then
-        printf 'Load guard: %s MB available, load %s (limits: %s MB, %s)\n' \
-            "$mem" "$load" "$min_mb" "$max_load"
+    stacks_ok=$([ "$stacks" -lt "$max_stacks" ] && echo yes || echo no)
+
+    if [ "$mem_ok" = yes ] && [ "$load_ok" = yes ] && [ "$stacks_ok" = yes ]; then
+        printf 'Load guard: %s MB available, load %s, %s other wt stack(s) (limits: %s MB, %s, %s)\n' \
+            "$mem" "$load" "$stacks" "$min_mb" "$max_load" "$max_stacks"
+        if [ -n "${WT_SELF_PROJECT:-}" ]; then
+            "$here/stack.sh" touch-if-running "$WT_SELF_PROJECT" || true
+        fi
         exit 0
     fi
 
@@ -49,6 +81,7 @@ while :; do
     reason=""
     [ "$mem_ok" = no ] && reason="memory ${mem} MB < ${min_mb} MB"
     [ "$load_ok" = no ] && reason="${reason:+$reason, }load ${load} > ${max_load}"
+    [ "$stacks_ok" = no ] && reason="${reason:+$reason, }${stacks} other worktree stacks up (max ${max_stacks})"
 
     if [ "$attempt" -gt "$retries" ]; then
         cat >&2 <<EOF

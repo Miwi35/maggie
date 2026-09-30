@@ -9,7 +9,9 @@ the dev stack and with other agents.
 | `task wt:phpstan -- <files>` | one PHP container, no database |
 | `task wt:phpstan:changed` | same, on the PHP files changed since `origin/main` |
 | `task wt:cs:fix` / `task wt:cs:check` | one PHP container, PHP-CS-Fixer write / dry run |
-| `task wt:test:api -- <args>` | PHP + a throwaway Postgres |
+| `task wt:up` / `task wt:down` | keep / remove this worktree's Postgres for a test loop |
+| `task wt:test:api -- <args>` | PHP + the kept Postgres if `wt:up` started it, else a throwaway one |
+| `task wt:ps` / `task wt:prune` | list the kept stacks with their idle time / remove the idle ones |
 | `task wt:fix:admin` / `task wt:lint:admin` / `task wt:test:admin` | one Node container |
 | `task wt:fix:agent` / `task wt:lint:agent` / `task wt:test:agent` | one uv container |
 | `task wt:fix:ciqual` / `task wt:lint:ciqual` / `task wt:test:ciqual` | one uv container |
@@ -19,6 +21,54 @@ the dev stack and with other agents.
 Measured on the reference machine (16 cores, 30 GB): `wt:phpstan` on a handful
 of files, 1.9 s warm. `wt:test:api`, whole suite, 30 s. Neither leaves a
 container, a volume or a network behind.
+
+## The test loop: keep the stack, then stop it (MAG-137)
+
+A `wt:test:api` from cold paid ~40 s before the first test (image build, Compose,
+Postgres boot). A loop of 41 runs made that 27 minutes. So:
+
+```
+task wt:up                                   # once: Postgres up, database created
+task wt:test:api -- --testsuite Contract     # as many times as needed: ~2 s before the tests
+task wt:down                                 # the moment verification is over, before the PR
+```
+
+- **Reuse**: with the stack running, `wt:test:api` drops and recreates the schema
+  (two console boots) and runs PHPUnit in a fresh one-off php container. Without
+  it, nothing changed: Postgres up, run, `down -v` from a trap.
+- **One per worktree.** The Compose project is `maggie-wt-<worktree>-<hash>`;
+  both services carry the label `maggie.wt.stack=<project>`. `wt:down` removes
+  containers with that exact label and that network — `wt/stack.sh` refuses any
+  project not starting with `maggie-wt-`, so dev, e2e and other worktrees are
+  out of reach.
+- **Safety net, `WT_IDLE_MINUTES` (15).** Activity is a stamp file under
+  `~/.cache/maggie/wt-stacks/`, touched by every `wt:*` launch (through the
+  guard) and at the end of each `wt:test:api`. An idle stack is removed by
+  `wt:guard` (it prunes before measuring, and every `wt:*` task except
+  `wt:down`/`wt:ps`/`wt:prune` goes through it), and by a detached reaper that `wt:up` starts (one per project, polls
+  every minute, exits when the stack is gone): worst case IDLE + 1 min.
+- **The guard counts stacks**: it waits, then exits 75, when `WT_MAX_STACKS` (3)
+  other worktrees have one up. Your own does not count against you.
+- **The php image is tagged by hash**, `maggie-wt-php:<hash>` — `e2e/images.sh
+  hash php`, the inputs CI hashes (`.docker/php/**`, the resolved build stanza,
+  host UID/GID). Built only when that tag is missing, and CI's image for the
+  same hash (`ghcr.io/miwi35/maggie-e2e-php:<hash>`) is pulled first. `task
+  wt:image` on an unchanged tree runs `docker image inspect` and nothing else.
+  `task wt:cache:prune` drops the old per-worktree tags.
+
+## Memory budget of the stacks
+
+The e2e stack (`docker-compose.e2e.yml`) gives every service a `mem_limit`, and a
+`memswap_limit` equal to it: about 3 GiB of limits in steady state (~2.3 GiB used at rest),
+Elasticsearch included (1 GiB, 384 MB heap, ML off — 1.3 GB unbounded before), plus two
+one-shots outside it, `admin-build` and the Playwright profile. An overflow is an
+OOM kill inside the faulty container, not on the workstation. The wt stack is
+2 GB for php (`WT_MEMORY`) and 512 MB for Postgres (`WT_DB_MEMORY`). Raise a
+limit in the file; do not remove it.
+
+`task e2e:up` runs the guard first (`wt/guard.sh e2e`): at least
+`E2E_MIN_AVAILABLE_MB` (5 GB, against 3 GB for `wt:*`) available and load under
+0.8 × cores, else it waits, then exits 75 — use CI. Skipped when `CI` is set.
 
 ## Which runner to use
 
@@ -48,8 +98,9 @@ just you.
    available RAM or above `WT_MAX_LOAD_RATIO × cores` of 1-minute load. It waits
    a few short rounds, then exits 75 and tells you to use CI. Thresholds live in
    `wt/limits.env`, not in the tasks.
-5. **Released immediately.** Resources come back when the command ends, not when
-   the session does.
+5. **Released.** Resources come back when the command ends, not when the session
+   does — except the stack you keep on purpose with `wt:up`, which you stop with
+   `wt:down` and which expires after 15 idle minutes.
 
 ## The dependency cache
 

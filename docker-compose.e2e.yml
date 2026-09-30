@@ -19,6 +19,21 @@
 #      Traefik would claim these containers and two e2e stacks would fight
 #      over the same router names.
 
+# Memory budget (MAG-137). Every service has a `mem_limit`, and `memswap_limit`
+# equal to it so nothing spills into swap: a service that outgrows its share is
+# OOM-killed inside its own container, never on the workstation (an unbounded
+# php-fpm from this stack once made the kernel kill the owner's browser).
+#
+# Steady state, in MiB: elasticsearch 1024, php 512, agent 320, wiremock 320,
+# database 256, rabbitmq 256, worker 160, ciqual 128, traefik 48, mercure 48,
+# nginx 32 = 3104 (~3.0 GiB of ceilings; ~2.3 GiB actually used at rest, and
+# Elasticsearch alone took 1.3 GiB before it was tuned). The ticket aimed at
+# 2.5 GiB; below these, measured services hit their limit (Elasticsearch at
+# 896 MB sat at 842 MB) or trip their own alarms (RabbitMQ's watermark).
+# Two one-shots sit outside the sum: admin-build (1280, gone once the bundle
+# exists) and playwright (1536, behind a profile). Raise a limit here, never
+# remove it. `task e2e:up` refuses to start below 5 GB available (wt/guard.sh).
+
 x-stack-label: &stack-label
   maggie.stack: ${COMPOSE_PROJECT_NAME:-maggie-e2e}
 
@@ -106,6 +121,8 @@ services:
       - "127.0.0.1::80"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    mem_limit: 48m
+    memswap_limit: 48m
     labels:
       <<: *stack-label
     networks:
@@ -135,6 +152,8 @@ services:
       # final wait runs with --no-deps, so that wait is what enforces it).
       elasticsearch:
         condition: service_started
+    mem_limit: 512m
+    memswap_limit: 512m
     labels:
       <<: *stack-label
     networks:
@@ -171,6 +190,8 @@ services:
       interval: 3s
       timeout: 5s
       retries: 20
+    mem_limit: 32m
+    memswap_limit: 32m
     labels:
       <<: *stack-label
       traefik.enable: "true"
@@ -202,6 +223,9 @@ services:
       HOME: /tmp
       npm_config_cache: /tmp/.npm-cache
       npm_config_update_notifier: "false"
+      # Vite's default heap ceiling is sized from the host, not the container:
+      # below it the build is OOM-killed instead of garbage-collected.
+      NODE_OPTIONS: --max-old-space-size=1024
     command:
       - sh
       - -c
@@ -211,6 +235,8 @@ services:
           npm ci
         fi
         npm run build
+    mem_limit: 1280m
+    memswap_limit: 1280m
     labels:
       <<: *stack-label
     networks:
@@ -231,7 +257,7 @@ services:
         condition: service_healthy
       elasticsearch:
         condition: service_healthy
-    command: ["php", "bin/console", "messenger:consume", "async", "--time-limit=3600", "--memory-limit=128M"]
+    command: ["php", "bin/console", "messenger:consume", "async", "--time-limit=3600", "--memory-limit=96M"]
     restart: unless-stopped
     healthcheck:
       # A consumer has no endpoint, so this checks the only thing that matters:
@@ -244,6 +270,8 @@ services:
       timeout: 5s
       retries: 12
       start_period: 10s
+    mem_limit: 160m
+    memswap_limit: 160m
     labels:
       <<: *stack-label
     networks:
@@ -268,6 +296,8 @@ services:
       interval: 3s
       timeout: 5s
       retries: 20
+    mem_limit: 256m
+    memswap_limit: 256m
     labels:
       <<: *stack-label
     networks:
@@ -294,6 +324,8 @@ services:
       MERCURE_SUBSCRIBER_JWT_KEY: e2e-mercure-secret-at-least-32-bytes-long
       MERCURE_EXTRA_DIRECTIVES: |
         cors_origins *
+    mem_limit: 48m
+    memswap_limit: 48m
     labels:
       <<: *stack-label
       traefik.enable: "true"
@@ -311,6 +343,10 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
+      # The default watermark is 0.4 of the container limit, ~100 MB here, and
+      # an idle node already holds about that: the memory alarm would block
+      # every publisher at boot. The container limit is the real ceiling.
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: -rabbit vm_memory_high_watermark 0.8
     tmpfs:
       - /var/lib/rabbitmq
     healthcheck:
@@ -318,6 +354,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+    mem_limit: 256m
+    memswap_limit: 256m
     labels:
       <<: *stack-label
     networks:
@@ -334,7 +372,11 @@ services:
       - discovery.type=single-node
       - xpack.security.enabled=false
       - xpack.security.enrollment.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      # Machine learning is unused here and its native processes were ~450 MB of
+      # the 1.3 GB this node took at rest with a 512 MB heap. Measured: heap
+      # 384 MB and no ML boot at ~840 MB, which the 1 GB limit leaves room above.
+      - xpack.ml.enabled=false
+      - "ES_JAVA_OPTS=-Xms384m -Xmx384m"
     tmpfs:
       - /usr/share/elasticsearch/data
     healthcheck:
@@ -344,6 +386,8 @@ services:
       interval: 2s
       timeout: 5s
       retries: 75
+    mem_limit: 1024m
+    memswap_limit: 1024m
     labels:
       <<: *stack-label
     networks:
@@ -426,6 +470,8 @@ services:
       timeout: 5s
       retries: 100
       start_period: 10s
+    mem_limit: 320m
+    memswap_limit: 320m
     labels:
       <<: *stack-label
       traefik.enable: "true"
@@ -453,6 +499,8 @@ services:
         GID: ${GID:-1000}
     volumes:
       - ./ciqual:/app:cached
+    mem_limit: 128m
+    memswap_limit: 128m
     labels:
       <<: *stack-label
       traefik.enable: "true"
@@ -469,6 +517,10 @@ services:
   wiremock:
     image: wiremock/wiremock:3.9.1
     command: ["--disable-banner", "--local-response-templating"]
+    environment:
+      # The JVM sizes its heap from the container limit; a quarter of 320 MB
+      # leaves too little for templating.
+      JAVA_OPTS: -XX:MaxRAMPercentage=50
     volumes:
       - ./.docker/e2e/wiremock/mappings:/home/wiremock/mappings:ro
     healthcheck:
@@ -476,6 +528,8 @@ services:
       interval: 3s
       timeout: 5s
       retries: 20
+    mem_limit: 320m
+    memswap_limit: 320m
     labels:
       <<: *stack-label
     networks:
@@ -515,6 +569,8 @@ services:
       HOME: /tmp
       npm_config_cache: /tmp/.npm-cache
       npm_config_update_notifier: "false"
+    mem_limit: 1536m
+    memswap_limit: 1536m
     labels:
       <<: *stack-label
     networks:

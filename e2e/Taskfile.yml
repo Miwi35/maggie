@@ -48,6 +48,12 @@ tasks:
   up:
     desc: Start the e2e stack for this worktree (ephemeral port, isolated volumes)
     cmds:
+      # Eleven containers, ~3 GiB of limits: refuse to start when the machine
+      # has less than E2E_MIN_AVAILABLE_MB (5 GB) available or is loaded, wait,
+      # then exit 75 — fall back to CI. Without it a stack started on a busy
+      # machine took the owner's browser down with the kernel's OOM killer
+      # (MAG-137). A no-op on CI.
+      - '{{.ROOT_DIR}}/wt/guard.sh e2e'
       - task: keys
       # Created here rather than left to Docker, which would make the bind
       # mount itself, owned by root: the agent's uv cache (MAG-135).

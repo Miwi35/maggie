@@ -1,9 +1,14 @@
 # The one place a worktree-local check needs Compose: the API suite talks to a
 # real database.
 #
-# Two services, nothing published, no named volume — `task wt:test:api` brings
-# it up and tears it down with `down -v` through a trap, so nothing outlives
-# the command. Everything else under `task wt:*` is a plain `docker run --rm`.
+# Two services, nothing published, no named volume. `task wt:test:api` alone
+# brings it up and tears it down through a trap; with `task wt:up` the database
+# is kept between runs until `task wt:down` (or the idle reaper, MAG-137).
+# Everything else under `task wt:*` is a plain `docker run --rm`.
+#
+# Both services carry `maggie.wt.stack`: wt/stack.sh only ever removes
+# containers with it, which is what keeps `wt:down` off other stacks.
+# mem_limit == memswap_limit: a runaway dies in its container, not on the host.
 #
 # Never invoke this by hand: the project name and the vendor mount come from
 # the Taskfile, and the first is what keeps worktrees apart.
@@ -24,7 +29,10 @@ services:
       interval: 2s
       timeout: 5s
       retries: 30
-    mem_limit: ${WT_MEMORY:-2g}
+    mem_limit: ${WT_DB_MEMORY:-512m}
+    memswap_limit: ${WT_DB_MEMORY:-512m}
+    labels:
+      maggie.wt.stack: ${COMPOSE_PROJECT_NAME:?the worktree project name must not be empty}
     networks:
       - wt
 
@@ -61,7 +69,10 @@ services:
       database:
         condition: service_healthy
     mem_limit: ${WT_MEMORY:-2g}
+    memswap_limit: ${WT_MEMORY:-2g}
     cpus: ${WT_CPUS:-4}
+    labels:
+      maggie.wt.stack: ${COMPOSE_PROJECT_NAME:?the worktree project name must not be empty}
     networks:
       - wt
 
