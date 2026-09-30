@@ -10,7 +10,7 @@ Run these commands to gather Maggie's live configuration:
 2. **Full context**: `scripts/prompt-lab/mcp-session.sh context [chat|proaction]`
 
 Two modes matching how the real agent works:
-- `context chat` (default) — base prompt + capabilities + skill index. This is what the LLM sees during normal conversation. Skills are listed as a compact index; full content is loaded dynamically based on message matching (top 3 by tag relevance).
+- `context chat` (default) — base prompt + capabilities + skill index. This is what the LLM sees during normal conversation. Skills are listed as a compact index (`- name: description`, sorted by name, no body); the agent loads a skill's content on demand with `get_skill`.
 - `context proaction` — everything above + user instructions + autonomous preamble. Instructions are ONLY injected during daily proaction planning, never in regular chat.
 
 3. Show the assembled prompt to the user for review
@@ -28,9 +28,9 @@ Use AskUserQuestion to ask:
 ### Interactive Mode — Chat
 The user provides a test message. You:
 1. Run `scripts/prompt-lab/mcp-session.sh context chat` to get the base system prompt
-2. Fetch the skill list via `scripts/prompt-lab/mcp-session.sh skills` and match relevant skills to the test message (by tag/keyword overlap — same logic as `SkillIndex.search()` in `agent/app/skills/index.py`). Append the top 3 matched skill bodies to the system prompt under "Compétences à appliquer pour cette tâche :"
+2. Fetch the skill list via `scripts/prompt-lab/mcp-session.sh skills` and append the index (`- name: description`, sorted by name, no body) to the system prompt, like `get_skills_index()` in `agent/app/skills/index.py`. Do not inject any skill body: the subagent loads one with `get_skill` when it needs it
 3. Spawn a subagent (model: sonnet by default) with:
-   - **System instructions**: The assembled system prompt (base + matched skills)
+   - **System instructions**: The assembled system prompt (base + skill index)
    - **Task**: "You are Maggie, responding to this user message. Respond exactly as Maggie would. When you would call a tool, use the Bash tool to execute: `scripts/prompt-lab/mcp-session.sh call <tool_name> '<json_args>'` and incorporate the real result into your response. Stay in character throughout."
    - **User message**: The test input
 
@@ -51,7 +51,7 @@ For daily planning tests with mock data, inject `mock_tool_results` from the sce
 
 Key differences from chat mode:
 - No conversation history (each proaction starts fresh)
-- No skill matching per-message (proaction uses the full context)
+- Same skill index as chat (no per-message matching; skills load on demand with `get_skill`)
 - Maggie must act autonomously — any "voulez-vous que..." is a FAIL
 - The "user message" is from the scheduler, not a real user
 
@@ -108,5 +108,5 @@ When iterating on prompts:
 - Subagent tokens come from Claude Code subscription, NOT the Anthropic API key
 - MCP tool calls hit the REAL API database — be aware of side effects with write operations
 - Native tools (memory, skills, instructions, proactions) are handled within the agent process — for testing, mock their results in scenarios or test via the agent REST API
-- `context chat` builds the base prompt (same as production minus conversation history). Skill matching must be done manually by the prompt lab when testing a specific message
+- `context chat` builds the base prompt (same as production minus conversation history). The skill index is appended by the prompt lab (no body; the agent calls `get_skill`)
 - `context proaction` includes instructions — use this when testing daily planning or autonomous tasks
