@@ -2,7 +2,6 @@ package com.maggie.app.data.auth
 
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
-import java.security.GeneralSecurityException
 import java.security.KeyStore
 import java.util.Base64
 import javax.crypto.Cipher
@@ -36,9 +35,7 @@ class KeystoreTokenCipher(private val alias: String = KEY_ALIAS) : TokenCipher {
             GCMParameterSpec(TAG_BITS, payload, 0, IV_BYTES),
         )
         String(cipher.doFinal(payload, IV_BYTES, payload.size - IV_BYTES), Charsets.UTF_8)
-    } catch (_: GeneralSecurityException) {
-        null
-    } catch (_: IllegalArgumentException) {
+    } catch (_: Exception) {
         null
     }
 

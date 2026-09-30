@@ -6,9 +6,11 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import java.security.GeneralSecurityException
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.sync.Mutex
@@ -35,11 +37,13 @@ class AuthRepository(
     private val secretKeys = listOf(Keys.TOKEN, Keys.REFRESH_TOKEN, Keys.MERCURE_TOKEN)
 
     private val migrationLock = Mutex()
+    @Volatile
     private var migrated = false
 
     val token: Flow<String?> = dataStore.data
         .onStart { migrateLegacyTokens() }
         .map { it.secret(Keys.TOKEN) }
+        .flowOn(Dispatchers.IO)
 
     val isAuthenticated: Flow<Boolean> = token.map { it != null }
 
@@ -105,7 +109,9 @@ class AuthRepository(
                     }
                 }
                 migrated = true
-            } catch (_: GeneralSecurityException) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
                 // Keystore unavailable: legacy values stay readable and the migration is retried on the next access.
             }
         }

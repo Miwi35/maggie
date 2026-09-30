@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import java.io.File
 import java.security.GeneralSecurityException
+import java.security.ProviderException
 import java.util.Base64
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -125,14 +126,23 @@ class AuthRepositoryTest {
     @Test
     fun `migration is retried when the keystore is unavailable`() = runBlocking {
         dataStore.edit { it[tokenKey] = "legacy-jwt" }
-        cipher.encryptFails = true
+        cipher.encryptError = GeneralSecurityException("keystore unavailable")
 
         assertEquals("legacy-jwt", repository.getToken())
         assertEquals("legacy-jwt", raw()[tokenKey])
 
-        cipher.encryptFails = false
+        cipher.encryptError = null
         assertEquals("legacy-jwt", repository.getToken())
         assertFalse(raw()[tokenKey]!!.contains("legacy"))
+    }
+
+    @Test
+    fun `a keystore runtime failure during migration does not crash the token flow`() = runBlocking {
+        dataStore.edit { it[tokenKey] = "legacy-jwt" }
+        cipher.encryptError = ProviderException("keystore daemon died")
+
+        assertEquals("legacy-jwt", repository.token.first())
+        assertEquals("legacy-jwt", raw()[tokenKey])
     }
 
     @Test
@@ -148,10 +158,10 @@ class AuthRepositoryTest {
 
     private class FakeCipher : TokenCipher {
         var keyLost = false
-        var encryptFails = false
+        var encryptError: Exception? = null
 
         override fun encrypt(plain: String): String {
-            if (encryptFails) throw GeneralSecurityException("keystore unavailable")
+            encryptError?.let { throw it }
             return Base64.getEncoder().encodeToString(plain.reversed().toByteArray())
         }
 
