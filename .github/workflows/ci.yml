@@ -426,10 +426,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # A builder that can export and import layer caches: `e2e/images.sh` builds
-      # from the last pushed image's layers when an image's hash changes.
-      - uses: docker/setup-buildx-action@v3
-
+      # No buildx setup here (7 to 12 s): the runner's own builder imports a
+      # registry cache and exports an inline one, which is all `e2e/images.sh`
+      # asks of it when an image's hash changes.
       - name: Pull or build the stack's images
         # An image is named after the hash of what its Dockerfile reads, so a pull
         # request that changes none of it builds nothing: four pulls, run beside
