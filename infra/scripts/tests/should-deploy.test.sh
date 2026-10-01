@@ -41,7 +41,7 @@ fresh_world() {
 run_gate() {
   : > "$work/output"
   OUTPUT="$(FAKE_GH_DIR="$work/gh" GH="$HERE/fake-gh.sh" GITHUB_REPOSITORY=Miwi35/maggie \
-    GITHUB_OUTPUT="$work/output" GITHUB_RUN_ID=4242 CANCEL_WAIT=0 CI_SHA="$1" "$SCRIPT" 2>&1)"
+    GITHUB_OUTPUT="$work/output" GITHUB_RUN_ID="${RUN_ID-}" CANCEL_WAIT=0 CI_SHA="$1" "$SCRIPT" 2>&1)"
   STATUS=$?
   PROCEED="$(sed -n 's/^proceed=//p' "$work/output")"
 }
@@ -91,6 +91,7 @@ printf '\n\033[1mA run that stops is cancelled, never left green\033[0m\n'
 # A green stopped run would count as "this commit was handled": the next gate would
 # call the head deployed, and the change detection would diff from a commit that
 # never shipped.
+RUN_ID=4242
 fresh_world "$HEAD_SHA"
 run_gate "$OLDER_SHA"
 grep -qx 'run cancel 4242' "$work/gh/calls" && ok "stale commit: cancels its own run" || bad "stale run left to end green — $(cat "$work/gh/calls")"
@@ -104,8 +105,13 @@ run_gate "$HEAD_SHA"
 fresh_world "$HEAD_SHA"
 touch "$work/gh/cancel-down"
 run_gate "$OLDER_SHA"
-[ "$STATUS" -eq 0 ] && [ "$PROCEED" = "false" ] && ok "cancel refused: still does not deploy" || bad "exit $STATUS, proceed='$PROCEED'"
-printf '%s' "$OUTPUT" | grep -qF 'could not cancel' && ok "says the run will end green" || bad "silent about the failed cancel — $OUTPUT"
+[ "$STATUS" -ne 0 ] && [ "$PROCEED" = "false" ] && ok "cancel refused: fails, so the run ends red, and does not deploy" || bad "exit $STATUS, proceed='$PROCEED'"
+printf '%s' "$OUTPUT" | grep -qF 'could not cancel' && ok "says why" || bad "silent about the failed cancel — $OUTPUT"
+fresh_world "$HEAD_SHA"
+touch "$work/gh/cancel-survives"
+run_gate "$OLDER_SHA"
+[ "$STATUS" -ne 0 ] && ok "cancel accepted but the run lives on: fails instead of ending green" || bad "exit 0 although the run was not cancelled"
+RUN_ID=
 
 printf '\n\033[1mThe API is down: fail closed\033[0m\n'
 fresh_world "$HEAD_SHA"

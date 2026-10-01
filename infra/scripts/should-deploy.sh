@@ -16,7 +16,8 @@ set -euo pipefail
 # Writes proceed=true|false to $GITHUB_OUTPUT. Exits 1, with proceed unset, when
 # it cannot tell: deploying blind is how the false incident happened.
 #
-# A run that stops is cancelled (when GITHUB_RUN_ID is set), never left green: a
+# A run that stops is cancelled (when GITHUB_RUN_ID is set), never left green; if
+# the cancellation does not happen, the script fails. A
 # successful CD run is the record "this commit was handled", read by this script
 # and by the change detection as the base of its diff. A run that stopped would
 # claim a commit that was never deployed, and the next run would skip its changes.
@@ -31,12 +32,13 @@ decide() {
   echo "proceed=$1" >> "${GITHUB_OUTPUT:-/dev/null}"
   echo "$2"
   if [ "$1" = false ] && [ -n "${GITHUB_RUN_ID:-}" ]; then
-    if $GH run cancel "$GITHUB_RUN_ID" >/dev/null; then
-      # The runner is torn down by the cancellation; do not report a success first.
-      sleep "${CANCEL_WAIT:-120}"
-    else
-      echo "WARNING: could not cancel run $GITHUB_RUN_ID: it will end green though nothing was deployed" >&2
-    fi
+    # Red, never green: a green run would be read as "this commit was handled".
+    $GH run cancel "$GITHUB_RUN_ID" >/dev/null \
+      || { echo "FATAL: could not cancel run $GITHUB_RUN_ID: failing it rather than ending green" >&2; exit 1; }
+    # The runner is torn down by the cancellation; reaching the end of the wait means it was not.
+    sleep "${CANCEL_WAIT:-120}"
+    echo "FATAL: run $GITHUB_RUN_ID was not cancelled in time: failing it rather than ending green" >&2
+    exit 1
   fi
   exit 0
 }

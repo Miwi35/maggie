@@ -10,6 +10,8 @@ echo "$*" >> "$dir/calls"
 [ ! -f "$dir/gh-down" ] || { echo "gh: HTTP 502" >&2; exit 1; }
 if [ "$1 $2" = "run cancel" ]; then
   [ ! -f "$dir/cancel-down" ] || { echo "gh: HTTP 403" >&2; exit 1; }
+  # The real cancellation tears the runner down, script included.
+  [ -f "$dir/cancel-survives" ] || kill -TERM "$PPID"
   exit 0
 fi
 [ "$1" = "api" ] || { echo "fake-gh: unexpected call: $*" >&2; exit 2; }
