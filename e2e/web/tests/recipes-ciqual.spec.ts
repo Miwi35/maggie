@@ -26,9 +26,6 @@ import { ROUTES } from '../pages/routes.js'
  * code to the root of the payload rather than to the row (MAG-173, fixed), and
  * the API's lookup of an ingredient already made from that code bound the user
  * without its `ulid` type, so every Ciqual recipe answered 500 (MAG-191, fixed).
- * What is left is MAG-182: the ingredient the resolver creates is neither
- * indexed nor published, so `GET /api/ingredients` — served from Elasticsearch —
- * never lists it. That half is written expected-to-fail below.
  *
  * Tag search is here too, because it is a recipe read and because MAG-114 § 2
  * is about it: a `LIKE` against a JSON column, which Postgres refuses outright,
@@ -90,10 +87,8 @@ test('the Ciqual service answers through the stack', async ({ api }) => {
 
 test('a recipe created with a Ciqual code is saved, and the same code twice is not a 500', async ({ api }) => {
   // The API half of the chain, driven through the API on purpose, so that it
-  // cannot be red for the form's reason. The ingredient itself (macros, reuse
-  // instead of a duplicate) is asserted against Postgres by
-  // `CreateRecipeHandlerTest`; reading it back through `/api/ingredients` is
-  // MAG-182's journey below.
+  // cannot be red for the form's reason. The ingredient itself is read back by
+  // the journey below and asserted against Postgres by `CreateRecipeHandlerTest`.
   const headers = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
   const name = perAttempt('Gratin MAG-101')
 
@@ -125,12 +120,9 @@ test('a recipe created with a Ciqual code is saved, and the same code twice is n
   expect(stored.tags).toEqual(['four'])
 })
 
-// Expected to fail — MAG-182: the ingredient made from the Ciqual code is persisted
-// by the resolver, outside any command, so nothing indexes it and the collection,
-// served from Elasticsearch, does not list it.
-test.fail('the ingredient made from a Ciqual code is listed, macros and all, and made once — MAG-182', async ({ api }) => {
+test('the ingredient made from a Ciqual code is listed, macros and all, and made once', async ({ api }) => {
   const headers = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
-  const name = perAttempt('Gratin MAG-182')
+  const name = perAttempt('Gratin MAG-191')
 
   for (const [suffix, quantity] of [['', 300], [' bis', 150]] as const) {
     const created = await api.post('/api/recipes', {
