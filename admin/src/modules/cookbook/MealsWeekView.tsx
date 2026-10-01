@@ -270,6 +270,7 @@ export const MealsWeekView = () => {
               return (
                 <Paper
                   key={`${slot}-${dayIndex}`}
+                  data-testid={`meal-cell-${slot}-${dayIndex}`}
                   variant="outlined"
                   sx={{
                     p: 1,

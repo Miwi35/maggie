@@ -42,8 +42,8 @@ test.describe('Recipes and meals', () => {
     const shell = new AdminShell(page)
     await shell.goto('/meals')
 
-    // The first empty cell of the grid: the seed plans a single dinner, so it is a lunch.
-    await shell.content.getByTestId('AddIcon').first().click()
+    // Monday lunch: the seed plans a single dinner, so a lunch cell is empty.
+    await shell.content.getByTestId('meal-cell-lunch-0').click()
     await page.getByRole('dialog').getByRole('button', { name: 'Créer' }).click()
 
     const stored = await waitForIndexed<MealRow>(api, '/api/meals', (m) => m.summary === 'Déjeuner', {

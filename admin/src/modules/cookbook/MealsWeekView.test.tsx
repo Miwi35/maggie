@@ -25,7 +25,7 @@ const createFirstEmptyMeal = async () => {
   render(<MealsWeekView />)
   await waitFor(() => expect(mockGetList).toHaveBeenCalledWith('meals', expect.any(Object)))
 
-  await user.click(screen.getAllByTestId('AddIcon')[0])
+  await user.click(screen.getByTestId('meal-cell-lunch-0'))
   await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Créer' }))
 }
 
