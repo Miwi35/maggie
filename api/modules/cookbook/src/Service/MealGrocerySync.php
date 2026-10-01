@@ -81,19 +81,25 @@ class MealGrocerySync
         // dropped. Done first, so the lines it still needs are never caught by
         // a contribution this same pass is about to re-create.
         foreach ($held as $key => $contribution) {
-            if (!isset($wanted[$key])) {
-                $gone = $this->takeBack($contribution);
-                unset($held[$key]);
-
-                if (null !== $gone) {
-                    // Dropped from the list: it must not be merged into below,
-                    // the repository still returns it until the flush.
-                    $items = array_values(array_filter(
-                        $items,
-                        static fn (GroceryItem $i) => (string) $i->getId() !== (string) $gone->getId(),
-                    ));
-                }
+            if (isset($wanted[$key])) {
+                continue;
             }
+
+            // Out of the running for the rest of this pass, whether the line
+            // survived or not. A line this meal has just let go must not be
+            // merged back into below: the contribution row is only scheduled
+            // for deletion, and Doctrine runs every insert before any delete,
+            // so a second contribution for the same pair would break the
+            // unique index. It happens when a line's unit is edited by hand
+            // and the recipe then asks for that new unit.
+            $released = $contribution->getGroceryItem();
+            $this->takeBack($contribution);
+            unset($held[$key]);
+
+            $items = array_values(array_filter(
+                $items,
+                static fn (GroceryItem $i) => (string) $i->getId() !== (string) $released->getId(),
+            ));
         }
 
         foreach ($wanted as $key => $line) {
@@ -226,15 +232,17 @@ class MealGrocerySync
             $item->setQuantity(max(0.0, ($item->getQuantity() ?? 0.0) + $delta));
         }
 
-        if ($this->isHeldByAnotherMeal($item, $contribution)) {
-            // Shared: the earliest date wins, so moving one meal later cannot
-            // hide a line another meal needs sooner.
-            $this->keepEarliestBuyAfter($item, $buyAfter);
+        // A line this meal owns outright follows it: moved three days later,
+        // a perishable is bought three days later. Anywhere else — shared
+        // with another meal, or a line the user wrote and perhaps deferred
+        // themselves — the date may only come earlier, never be overwritten.
+        if (GroceryItemSource::Recipe === $item->getSource() && !$this->isHeldByAnotherMeal($item, $contribution)) {
+            $item->setBuyAfter($buyAfter);
 
             return;
         }
 
-        $item->setBuyAfter($buyAfter);
+        $this->keepEarliestBuyAfter($item, $buyAfter);
     }
 
     /**
