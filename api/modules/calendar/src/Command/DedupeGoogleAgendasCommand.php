@@ -3,12 +3,15 @@
 namespace Maggie\Calendar\Command;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Elastic\Elasticsearch\Exception\ClientResponseException;
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Message\DeleteAgendaCommand;
 use Maggie\Calendar\Message\PullFromGoogleCommand;
 use Maggie\Calendar\Repository\AgendaRepository;
 use Maggie\Calendar\Repository\EventRepository;
+use Maggie\Core\Elasticsearch\IndexableEntityRegistry;
+use Maggie\Core\Elasticsearch\IndexManager;
 use Maggie\Core\Elasticsearch\IndexMetadataReader;
 use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
 use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
@@ -36,6 +39,13 @@ use Symfony\Component\Uid\Ulid;
  * Runs before the migration that adds the unique index, since that index cannot
  * be created while a duplicate is still there. Once the index exists this is a
  * no-op, and it is safe to run again at any time.
+ *
+ * It ends by taking out of the search index every document whose row is gone
+ * (MAG-185): the database removes rows on its own — an agenda takes its events
+ * with it — and a message per removed row cannot name one it never saw. A
+ * single stray document turns `app:elasticsearch:status --check` red and
+ * rolls the deploy back, so the index is made to agree with the table here
+ * instead of trusting that every deletion was announced.
  */
 #[AsCommand(
     name: 'app:calendar:dedupe-google-agendas',
@@ -48,6 +58,8 @@ final class DedupeGoogleAgendasCommand extends Command
         private readonly AgendaRepository $agendaRepository,
         private readonly EventRepository $eventRepository,
         private readonly IndexMetadataReader $metadataReader,
+        private readonly IndexManager $indexManager,
+        private readonly IndexableEntityRegistry $registry,
         private readonly MessageBusInterface $messageBus,
         private readonly HubInterface $hub,
     ) {
@@ -123,6 +135,15 @@ final class DedupeGoogleAgendasCommand extends Command
             ['Agendas left' => $this->countAgendas()],
             ['Events left' => $this->countEvents()],
         );
+
+        try {
+            $this->pruneOrphanDocuments($io);
+        } catch (\Throwable $e) {
+            $io->error('The merge is done, but the search index could not be checked: '.$e->getMessage());
+
+            return Command::FAILURE;
+        }
+
         $io->success('Merged.');
 
         return Command::SUCCESS;
@@ -247,6 +268,61 @@ final class DedupeGoogleAgendasCommand extends Command
         // A removed agenda goes back to being a new entity in the unit of work,
         // and the events that pointed at it would be flushed against it again.
         $this->entityManager->clear();
+    }
+
+    /**
+     * Deletes, from the indices of agendas and events, the documents with no row.
+     *
+     * The index is read before the table: a row created in between is not in
+     * the list that was read, so it can never be taken for an orphan. The
+     * other way round, a live event indexed meanwhile would be deleted.
+     */
+    private function pruneOrphanDocuments(SymfonyStyle $io): void
+    {
+        foreach ($this->registry->getAll() as $indexName => $entityClass) {
+            if (Agenda::class !== $entityClass && !is_a($entityClass, Event::class, true)) {
+                continue;
+            }
+
+            $documentIds = $this->indexManager->documentIds($indexName);
+
+            // For Event this also lists the meals, which have an index of their
+            // own: a superset can only spare a document, never delete a live one.
+            $rowIds = array_map(self::canonicalId(...), $this->entityManager->createQueryBuilder()
+                ->select('e.id')
+                ->from($entityClass, 'e')
+                ->getQuery()
+                ->getSingleColumnResult());
+
+            $rows = array_flip($rowIds);
+            // Deleted under the id the index holds it by, whatever its spelling.
+            $orphans = array_filter($documentIds, static fn (string $id): bool => !isset($rows[self::canonicalId($id)]));
+            foreach ($orphans as $orphanId) {
+                try {
+                    $this->indexManager->deleteDocument($indexName, $orphanId);
+                } catch (ClientResponseException $e) {
+                    if (404 !== $e->getCode()) {
+                        throw $e;
+                    }
+                }
+            }
+
+            $io->text(sprintf('Index %s: %d document(s) without a row removed.', $indexName, \count($orphans)));
+        }
+    }
+
+    /**
+     * A scalar query hands back the ULID as the database spells it (RFC 4122),
+     * the index is keyed on base32: compared as they come, every document
+     * would look like an orphan.
+     */
+    private static function canonicalId(mixed $id): string
+    {
+        try {
+            return Ulid::fromString((string) $id)->toBase32();
+        } catch (\InvalidArgumentException) {
+            return (string) $id;
+        }
     }
 
     /**
