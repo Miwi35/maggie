@@ -25,7 +25,8 @@ class TestRoutes:
         """POST /chat without ANTHROPIC_API_KEY returns a not-configured message."""
         mock_gateway.client = None
 
-        async def mock_chat(message, user_id):
+        async def mock_chat(message, user_id, *, exclude_message_id=None):
+            assert exclude_message_id == "test"
             return {"response": "AI service is not configured.", "tool_calls": []}
 
         mock_gateway.chat = mock_chat

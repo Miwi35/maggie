@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -17,10 +17,47 @@ DAYS_FR = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanch
 EDITABLE_FIELDS = ("name", "language", "backstory")
 
 
-def current_datetime_line() -> str:
-    """Current date and hour in Paris. Kept out of the system prompt prefix so it does not break the prompt cache."""
-    now = datetime.now(TZ_PARIS)
-    return f"Nous sommes le {DAYS_FR[now.weekday()]} {now.strftime('%Y-%m-%d')}, il est {now.strftime('%Hh')}."
+def current_datetime_line(now: datetime | None = None) -> str:
+    """Current date and time to the minute in Paris. Kept out of the cached prompt prefix: it changes every minute."""
+    now = (now or datetime.now(TZ_PARIS)).astimezone(TZ_PARIS)
+    return f"Nous sommes le {DAYS_FR[now.weekday()]} {now.strftime('%Y-%m-%d')}, il est {now.strftime('%Hh%M')}."
+
+
+def _elapsed(gap: timedelta) -> str:
+    seconds = max(gap.total_seconds(), 0)
+    if seconds < 60:
+        return "à l'instant"
+    minutes = int(seconds // 60)
+    if minutes < 60:
+        return f"il y a {minutes} min"
+    hours, minutes = divmod(minutes, 60)
+    if hours < 48:
+        return f"il y a {hours}h{minutes:02d}" if minutes else f"il y a {hours}h"
+    days = hours // 24
+    return f"il y a {days} jour{'s' if days > 1 else ''}"
+
+
+def last_exchange_line(last_at: datetime, topic: str | None = None, now: datetime | None = None) -> str:
+    """When the last message of the conversation was written, how long ago, and what it was about.
+
+    « Hier » and « avant-hier » count calendar days in Paris, not 24-hour spans: a message
+    written at 22h40 is « hier » at 08h the next morning, which is what a greeting needs.
+    """
+    now = (now or datetime.now(TZ_PARIS)).astimezone(TZ_PARIS)
+    last = last_at.astimezone(TZ_PARIS)
+    days = max((now.date() - last.date()).days, 0)
+    if days == 0:
+        when = "aujourd'hui"
+    elif days == 1:
+        when = "hier"
+    elif days == 2:
+        when = "avant-hier"
+    else:
+        when = f"{DAYS_FR[last.weekday()]} {last.strftime('%Y-%m-%d')}"
+
+    line = f"Dernière conversation : {when} à {last.strftime('%Hh%M')} ({_elapsed(now - last)})"
+    topic = " ".join((topic or "").split())
+    return f"{line}, sujet : {topic}." if topic else f"{line}."
 
 
 class PersonalityEngine:

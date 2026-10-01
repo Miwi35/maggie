@@ -77,7 +77,7 @@ async def chat(request: ChatRequest, user_id: str = Depends(get_current_user_id)
 
     user_msg = await message_repo.create(user_id=user_id, role="user", content=request.message)
 
-    result = await llm_gateway.chat(request.message, user_id)
+    result = await llm_gateway.chat(request.message, user_id, exclude_message_id=user_msg.id)
 
     assistant_msg = await message_repo.create(user_id=user_id, role="assistant", content=result["response"])
 

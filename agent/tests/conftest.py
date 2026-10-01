@@ -13,6 +13,20 @@ from app.api.routes import router
 from app.auth import get_current_user_id
 
 
+@pytest.fixture(autouse=True)
+def no_last_exchange_lookup():
+    """Keep the « last conversation » lookup (MAG-10) off the database in tests that only build a prompt.
+
+    The gateways import the function by name, so that is where it is replaced; the tests of the
+    lookup itself call `app.llm.last_exchange` directly and are not affected.
+    """
+    with (
+        patch("app.llm.streaming.last_exchange_section", AsyncMock(return_value="")),
+        patch("app.llm.gateway.last_exchange_section", AsyncMock(return_value="")),
+    ):
+        yield
+
+
 @pytest.fixture()
 def client():
     """FastAPI test client with lifespan disabled to avoid MCP connection attempts."""
