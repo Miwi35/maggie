@@ -125,7 +125,7 @@ test.describe('Recipes and meals', () => {
     // Driven through the API with an ingredient of its own, so the line is
     // this journey's and nobody else's on the shared list.
     const headers = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
-    const name = 'Boulgour MAG-167'
+    const name = `Boulgour MAG-167 ${Date.now()}`
 
     const ingredient = await api.post('/api/ingredients', { headers, data: { name, category: 'grain' } })
     expect(ingredient.status()).toBe(201)

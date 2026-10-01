@@ -75,11 +75,16 @@ class UpdateRecipeHandler
             // The meals already planned with this recipe bought the old
             // quantities: bring their share of the list up to date (MAG-167).
             // The handler returns the recipe, so the list is broadcast here.
-            $list = null;
+            $lists = [];
             foreach ($this->mealRepository->findUpcomingByRecipe($recipe) as $meal) {
-                $list = $this->mealGrocerySync->sync($meal) ?? $list;
+                $list = $this->mealGrocerySync->sync($meal);
+                if (null !== $list) {
+                    $lists[(string) $list->getId()] = $list;
+                }
             }
-            $this->groceryListBroadcaster->broadcast($list);
+            foreach ($lists as $list) {
+                $this->groceryListBroadcaster->broadcast($list);
+            }
         }
 
         return $recipe;

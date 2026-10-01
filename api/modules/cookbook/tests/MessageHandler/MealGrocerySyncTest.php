@@ -406,6 +406,41 @@ class MealGrocerySyncTest extends KernelTestCase
         self::assertNull($this->em()->getRepository(Recipe::class)->find($this->getFixture('pasta')->getId()));
     }
 
+    public function testEditingARecipeAlsoUpdatesTodaysMeal(): void
+    {
+        // Midnight in Paris is the day before in UTC: a meal planned for today
+        // is not a past meal, whatever the database's own time zone.
+        $this->planMealOn('pasta', 'today');
+
+        $this->editRecipe('pasta', [['pasta_product', 600, 'g'], ['tomato', 4, 'piece']]);
+
+        self::assertSame(['Pâtes' => 600.0, 'Tomate' => 4.0], $this->list());
+    }
+
+    public function testDeletingARecipeRewritesTheMealsItLeavesAndKeepsPastShoppingAlone(): void
+    {
+        $upcomingId = $this->planMeal('pasta');
+        $pastId = $this->planMealOn('pasta', '-3 days');
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $this->bus()->dispatch(new DeleteRecipeCommand(recipeId: (string) $this->getFixture('pasta')->getId()));
+
+        // The upcoming meal's 400 g / 4 tomatoes go; the past meal's stay —
+        // that shopping was done.
+        self::assertSame(['Pâtes' => 400.0, 'Tomate' => 4.0], $this->list());
+        self::assertSame(2, $this->contributionCount());
+
+        $upcoming = $this->em()->getRepository(Meal::class)->find($upcomingId);
+        self::assertCount(0, $upcoming->getRecipes());
+        self::assertSame('Dîner', $upcoming->getSummary());
+        self::assertCount(0, $this->em()->getRepository(Meal::class)->find($pastId)->getRecipes());
+
+        // Both meals changed on screen and in search, not only the list.
+        $this->assertMercureUpdatePublished('/api/meals/'.$upcomingId);
+        $this->assertElasticsearchIndexDispatched(Meal::class);
+    }
+
     /**
      * Rewrites a fixture recipe's ingredients.
      *
