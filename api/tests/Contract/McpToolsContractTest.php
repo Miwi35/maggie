@@ -78,6 +78,59 @@ final class McpToolsContractTest extends KernelTestCase
     }
 
     /**
+     * A description that sends the agent to a tool that does not exist makes
+     * it call the void, then apologise. A snake_case word that starts like a tool
+     * name (manage_, create_, get_…) must be a tool name or an argument name;
+     * other words (enum values such as no_budget) are left alone.
+     */
+    public function testNoDescriptionPointsToAMissingTool(): void
+    {
+        $tools = $this->tools();
+
+        foreach ($tools as $name => $tool) {
+            self::assertSame([], self::unknownReferences((string) $tool['description'], $tools), sprintf(
+                'The description of "%s" cites a name that looks like a tool but is neither a tool nor an argument. Fix the description (the tools are: %s).',
+                $name,
+                implode(', ', array_keys($tools)),
+            ));
+        }
+    }
+
+    public function testTheMissingToolDetectorCatchesAWrongName(): void
+    {
+        $tools = $this->tools();
+
+        self::assertSame(['list_agendas'], self::unknownReferences('Use agenda_id (from list_agendas) or manage_agendas.', $tools));
+        self::assertSame([], self::unknownReferences('Use agenda_id (from manage_agendas).', $tools));
+    }
+
+    public function testManageCategoriesDocumentsTheIncomeFlag(): void
+    {
+        self::assertStringContainsString('income', (string) $this->tools()['manage_categories']['description']);
+    }
+
+    /**
+     * @param array<string, array<string, mixed>> $tools
+     *
+     * @return list<string>
+     */
+    private static function unknownReferences(string $description, array $tools): array
+    {
+        $known = array_keys($tools);
+        // "list" prefixes no tool today, but it is the verb an agent invents first.
+        $verbs = array_unique([...array_map(static fn (string $name): string => explode('_', $name)[0], $known), 'list']);
+        foreach ($tools as $tool) {
+            array_push($known, ...array_keys($tool['inputSchema']['properties'] ?? []));
+        }
+
+        preg_match_all('/\b[a-z]+(?:_[a-z]+)+\b/', $description, $matches);
+
+        $candidates = array_filter($matches[0], static fn (string $word): bool => \in_array(explode('_', $word)[0], $verbs, true));
+
+        return array_values(array_unique(array_diff($candidates, $known)));
+    }
+
+    /**
      * @return array<string, array<string, mixed>> tool name => tools/list entry
      */
     private function tools(): array

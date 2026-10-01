@@ -173,7 +173,7 @@
                 "date"
             ]
         },
-        "description": "Create a new calendar event. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes (default 60). Use agenda_id to target a specific agenda (from list_agendas), or omit for the default agenda."
+        "description": "Create a new calendar event. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes (default 60). Use agenda_id to target a specific agenda (its id comes from manage_agendas with action list), or omit for the default agenda."
     },
     "create_recipe": {
         "name": "create_recipe",
@@ -638,7 +638,7 @@
                 "action"
             ]
         },
-        "description": "List, create, update, or delete budget categories. Categories form a two-level tree (a category may have a parentId, sub-categories cannot have children). Each category has an obligation flag: mandatory, optional, saving, or investment. On update, only provided fields change; to empty an optional field (make it a top-level category, drop its color or icon), list parentId, color or icon in clear."
+        "description": "List, create, update, or delete budget categories. Categories form a two-level tree (a category may have a parentId, sub-categories cannot have children). Each category has an obligation flag: mandatory, optional, saving, investment, or income (money coming in, such as a salary: use income for revenue categories, never mandatory). On update, only provided fields change; to empty an optional field (make it a top-level category, drop its color or icon), list parentId, color or icon in clear."
     },
     "manage_categorization_rules": {
         "name": "manage_categorization_rules",
@@ -1122,7 +1122,7 @@
                 "action"
             ]
         },
-        "description": "List, create, update, or delete non-food products (household, hygiene, cleaning, other). Create food items with create_ingredient instead — they are products too, so they show up in the list. To search by name use search_products. To empty an optional field on update, list its name in clear (defaultUnit)."
+        "description": "List, create, update, or delete non-food products (household, hygiene, cleaning, other). Create food items with manage_ingredients instead — they are products too, so they show up in the list. To search by name use search_products. To empty an optional field on update, list its name in clear (defaultUnit)."
     },
     "manage_recurring_groceries": {
         "name": "manage_recurring_groceries",

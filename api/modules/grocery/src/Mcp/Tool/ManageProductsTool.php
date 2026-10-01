@@ -16,7 +16,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_products', description: 'List, create, update, or delete non-food products (household, hygiene, cleaning, other). Create food items with create_ingredient instead — they are products too, so they show up in the list. To search by name use search_products. To empty an optional field on update, list its name in clear (defaultUnit).')]
+#[McpTool(name: 'manage_products', description: 'List, create, update, or delete non-food products (household, hygiene, cleaning, other). Create food items with manage_ingredients instead — they are products too, so they show up in the list. To search by name use search_products. To empty an optional field on update, list its name in clear (defaultUnit).')]
 class ManageProductsTool
 {
     public function __construct(
