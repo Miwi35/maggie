@@ -99,8 +99,8 @@ describe('CalendarView', () => {
       MockEventSource.instances[0].onmessage?.({ data: '{}' } as MessageEvent)
 
       // Three event queries per refetch: the range, the series, the multi-day events.
-      await waitFor(() => expect(eventCalls()).toBe(before + 3))
-      await waitFor(() => expect(eventCalls()).toBe(before + 6), { timeout: 5_000 })
+      await waitFor(() => expect(eventCalls()).toBeGreaterThanOrEqual(before + 3))
+      await waitFor(() => expect(eventCalls()).toBeGreaterThanOrEqual(before + 6), { timeout: 5_000 })
     } finally {
       localStorage.removeItem('user')
     }

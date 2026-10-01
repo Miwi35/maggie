@@ -79,7 +79,7 @@ interface GoogleCalendar {
 }
 
 const CALENDAR_TOPICS = ['/api/events/{id}', '/api/tasks/{id}']
-const MERCURE_REFETCH_DELAY_MS = 1500
+const MERCURE_REFETCH_DELAYS_MS = [1500, 5000]
 const SIDEBAR_WIDTH = 230
 const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 
@@ -1265,17 +1265,22 @@ export const CalendarView = () => {
 
   // --- Mercure live updates ---
   // The update is published before the worker has indexed the row, and the list is served
-  // from Elasticsearch: the first refetch can miss the change, so one more follows.
-  const mercureRefetchTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  // from Elasticsearch: the first refetch can miss the change, so two more follow.
+  const mercureRefetchTimers = useRef<ReturnType<typeof setTimeout>[]>([])
   const mercureCallback = useCallback(() => {
     const refetch = () => {
       if (dateRangeRef.current) fetchEvents(dateRangeRef.current.start, dateRangeRef.current.end)
     }
     refetch()
-    clearTimeout(mercureRefetchTimer.current)
-    mercureRefetchTimer.current = setTimeout(refetch, MERCURE_REFETCH_DELAY_MS)
+    mercureRefetchTimers.current.forEach(clearTimeout)
+    mercureRefetchTimers.current = MERCURE_REFETCH_DELAYS_MS.map((delay) => setTimeout(refetch, delay))
   }, [fetchEvents])
-  useEffect(() => () => clearTimeout(mercureRefetchTimer.current), [])
+  useEffect(
+    () => () => {
+      mercureRefetchTimers.current.forEach(clearTimeout)
+    },
+    [],
+  )
   useMercure(CALENDAR_TOPICS, mercureCallback)
 
   // --- Deep-link: open event from search (?eventId=...) ---
