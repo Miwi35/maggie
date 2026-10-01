@@ -10,7 +10,7 @@ Carry out one `Task` ticket: work nobody can accept through the UI — docs, ref
 
 ## Steps
 
-1. **Read the ticket** and its links. If it turns out to change what the user sees or does, it is a Feature: comment that, relabel it `Feature`, and follow `/shape-spec`.
+1. **Run `task guard:enabled`** (exit 20: the emergency stop is on, comment `needs-human` and stop), then **read the ticket** and its links. If it turns out to change what the user sees or does, it is a Feature: comment that, relabel it `Feature`, and follow `/shape-spec`.
 2. **Plan in the ticket, not in a spec folder.** Post a comment of a few lines: what changes, in which files, how it will be verified. A task too large for one PR → split it into tickets (`CLAUDE.md` › Creating Linear tickets) and stop.
 3. **Guard the behaviour before touching it**, according to the kind of task:
    - **Refactoring** — the existing tests must cover what moves; add characterization tests first where they do not. Behaviour must not change.

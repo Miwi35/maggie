@@ -1,0 +1,102 @@
+name: Agent guard
+
+# Guard rails of the autonomous agent (MAG-128). Nothing here is a required check:
+# a pull request that trips a rail is not blocked, it is handed to a human —
+# labelled `needs-human`, auto-merge switched off, the reason in a comment — and
+# the owner merges it, or does not.
+#
+#  - guard: the diff touches infra, the CD, secrets, auth, permissions, a
+#    destructive migration or policy.yaml; is bigger than the limit; disables a
+#    test or skips the hooks (scripts/agent-guard/check.sh). Also runs when
+#    auto-merge is switched on, so arming it after the fact does not get around it.
+#  - streak: two red CI runs in a row on an agent branch, the agent gives up.
+#  - AGENT_ENABLED=false (repo variable, `task guard:stop`) hands every agent
+#    pull request over, whatever it touches.
+#
+# Both triggers run the workflow file and the scripts of the default branch, and
+# never check out the pull request: a pull request cannot edit its own guard.
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review, auto_merge_enabled]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  GH_REPO: ${{ github.repository }}
+
+jobs:
+  guard:
+    name: Sensitive changes and limits
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: agent-guard-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    env:
+      PR: ${{ github.event.pull_request.number }}
+      BRANCH: ${{ github.event.pull_request.head.ref }}
+      AGENT_ENABLED: ${{ vars.AGENT_ENABLED }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the diff
+        run: |
+          status=0
+          if gh pr diff "$PR" > diff.patch; then
+            scripts/agent-guard/check.sh < diff.patch > findings.txt || status=$?
+          else
+            # GitHub renders no diff above 20 000 lines.
+            echo "oversize: the diff is too large for GitHub to render, split the ticket" > findings.txt
+            status=10
+          fi
+          if [ "$AGENT_ENABLED" = false ] && [[ "$BRANCH" == cyrus/* ]]; then
+            echo "agent-disabled: AGENT_ENABLED is false, the autonomous agent is stopped" >> findings.txt
+            status=10
+          fi
+          [ "$status" -eq 0 ] || [ "$status" -eq 10 ] || exit "$status"
+          grep -v '^info: ' findings.txt > reasons.txt || true
+          echo "status=$status" >> "$GITHUB_ENV"
+
+      - name: Hand over to a human
+        if: env.status == '10'
+        run: |
+          {
+            echo "A human has to merge this pull request: auto-merge is off and \`needs-human\` is set."
+            echo
+            sed 's/^/- /' reasons.txt
+          } | scripts/agent-guard/hand-over.sh "$PR" guard
+
+  streak:
+    name: Two red runs in a row
+    if: >-
+      github.event_name == 'workflow_run'
+      && github.event.workflow_run.event == 'pull_request'
+      && github.event.workflow_run.conclusion == 'failure'
+      && startsWith(github.event.workflow_run.head_branch, 'cyrus/')
+    runs-on: ubuntu-latest
+    env:
+      PR: ${{ github.event.workflow_run.pull_requests[0].number }}
+      BRANCH: ${{ github.event.workflow_run.head_branch }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Give up after the second red run
+        run: |
+          [ -n "$PR" ] || exit 0
+          [ "$(gh pr view "$PR" --json state -q .state)" = OPEN ] || exit 0
+          runs="$(gh run list --workflow CI --branch "$BRANCH" --event pull_request --limit 20 --json conclusion,headSha)"
+          status=0
+          shas="$(scripts/agent-guard/ci-streak.sh <<< "$runs")" || status=$?
+          [ "$status" -eq 10 ] || exit "$status"
+          {
+            echo "CI was red twice in a row (${shas//$'\n'/, }): the agent gives up, a human takes over."
+            echo "Failing job logs: \`gh run view --log-failed\`."
+          } | scripts/agent-guard/hand-over.sh "$PR" ci-streak

@@ -34,7 +34,7 @@ Writing costs as much time as coding: say things once, where they belong.
 - **Decisions**: 4 lines each (Dilemma · Options · Choice · Why), posted when taken.
 - **PR**: the detail — changes, verification, decisions, Review section.
 - **Push first, paperwork while CI runs.** As soon as the change is verified and reviewed, commit and push; follow-up tickets, decision comments, the Recette note and Linear docs are written while the checks run, never before the push.
-- **A session ends only on a green CI, with the PR set to merge itself.** Once the PR is open, move the ticket to **In Review** yourself (Linear MCP) — Linear does not do it for a PR nobody is asked to review — and turn on auto-merge: `gh pr merge <number> --squash --auto` — GitHub merges it the moment the required checks pass, and **merging deploys to production**. **Nothing reaches the owner's acceptance without a green e2e**: the e2e jobs are required checks, so a red journey blocks the merge — and every `Feature` or `Bug` is `blockedBy` the ticket that made them required (MAG-96). Then wait with **`task ci:watch -- <number>`** — the only way to wait for CI, **never a hand-written `until`/`sleep` loop**: it stops at once on a conflicting PR (GitHub runs no CI then: rebase, resolve, `git push --force-with-lease`, run it again), gives up if no CI run starts within 2 minutes, and only then watches the checks. Red → read the failing job's log (`gh run view --log-failed`), fix, push, watch again. Still red after two fixes → `gh pr merge <number> --disable-auto`, comment the failure, `needs-human`, stop. Never auto-merge a PR the review loop did not accept, or one touching `infra/k8s`, secrets or `.github/workflows` (MAG-128): leave those for the owner to merge.
+- **A session ends only on a green CI, with the PR set to merge itself.** Once the PR is open, move the ticket to **In Review** yourself (Linear MCP) — Linear does not do it for a PR nobody is asked to review — and turn on auto-merge — after `task guard:check -- <number>` exits 0 — with `gh pr merge <number> --squash --auto` — GitHub merges it the moment the required checks pass, and **merging deploys to production**. **Nothing reaches the owner's acceptance without a green e2e**: the e2e jobs are required checks, so a red journey blocks the merge — and every `Feature` or `Bug` is `blockedBy` the ticket that made them required (MAG-96). Then wait with **`task ci:watch -- <number>`** — the only way to wait for CI, **never a hand-written `until`/`sleep` loop**: it stops at once on a conflicting PR (GitHub runs no CI then: rebase, resolve, `git push --force-with-lease`, run it again), gives up if no CI run starts within 2 minutes, and only then watches the checks. Red → read the failing job's log (`gh run view --log-failed`), fix, push, watch again. Red twice in a row → `gh pr merge <number> --disable-auto`, comment the failure, `needs-human`, stop (the guard does it too). Never auto-merge a PR the review loop did not accept, or one `task guard:check` flags: leave those for the owner to merge (see *Guard rails*).
 - **Recette comment** (`Feature` and `Bug`, not `Task`): when the PR is open, post a separate ticket comment titled **Recette** — what the owner does **in production** to accept it: where (web, mobile, voice, asking Maggie), numbered steps from a logged-in user, the expected result of each, and what would mean it failed. Use real screen labels and a test value to type; no code, no dev setup. It is what the owner follows once the ticket reaches Recette.
 - **Never end a session with the ticket In Progress.** A PR moves it to In Review by itself. No PR (an analysis, Linear docs only): move it yourself — `Task` → Done, otherwise Recette. Waiting for an answer → `needs-human`.
 
@@ -60,9 +60,17 @@ Stop and ask only for:
 - conflicting requirements;
 - something destructive or irreversible (deleting data, prod, secrets, infra);
 - a missing access or credential;
-- the same failure twice (CI still red after a fix, a rebase conflict you cannot resolve).
+- the same failure twice (CI red twice in a row, a rebase conflict you cannot resolve).
 
 To ask: reply in the ticket's agent thread with short questions, each as options with your recommendation first; add the `needs-human` label; stop cleanly. When the answer arrives in the thread, remove `needs-human` and resume where you stopped.
+
+## Guard rails
+
+Full rules: `agent-os/standards/global/agent-guard-rails.md`.
+
+- **First step of every session: `task guard:enabled`.** Exit 20 = the owner stopped the agent (`AGENT_ENABLED=false`): comment on the ticket, `needs-human`, do nothing.
+- **A human merges, auto-merge stays off, `needs-human` is set** when the PR touches `infra/`, `.github/`, secrets, auth or permissions, a destructive migration or a `policy.yaml`; changes more than 800 lines outside tests (split the ticket instead); disables a test; or skips the hooks. `.github/workflows/agent-guard.yml` enforces it on every PR; `task guard:check -- <pr>` tells you before.
+- Never `--no-verify`, never a test disabled to get green.
 
 ## Review loop — before opening the PR
 
