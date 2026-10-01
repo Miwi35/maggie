@@ -35,12 +35,36 @@ Maggie\Core\Entity\User:
     # single account, and a second one invented at runtime would not be
     # deterministic.
     #
-    # It owns an agenda, an event and a task (20-calendar.yaml), and nothing
-    # else. MAG-114 found several agenda reads that forgot the user filter, so
-    # the isolation journey needs something of theirs that *would* show up in
+    # It owns an agenda, an event and a task (20-calendar.yaml), a recipe, an
+    # ingredient and a meal (30-grocery, 40-cookbook), and a grocery list of
+    # its own. MAG-114 found several agenda reads that forgot the user filter,
+    # so the isolation journey needs something of theirs that *would* show up in
     # the signed-in user's day if a query dropped its `WHERE user`. Everything
     # beyond that stays empty: data no journey reads would only be one more
     # count to keep.
+    #
+    # The second account also became **the shopper** (MAG-101), and that is a
+    # deliberate second job rather than drift. Two promises of the grocery
+    # journeys cannot be kept on a list anybody else writes to:
+    #
+    #   "this write published"  every writer publishes the *whole* list on one
+    #                           topic, so a payload showing the new state proves
+    #                           nothing about who published it — another
+    #                           worker's add would satisfy the assertion with
+    #                           the middleware mute, which is `afc1a70` all over
+    #                           again.
+    #   "the errand is over"    ending one deletes *every* ticked line on the
+    #                           list, so a file that ticks cannot share one.
+    #
+    # The same reasoning covers the chat: `GET /agent/messages` is scoped to the
+    # user and returns the last twenty, and `chat.spec.ts` says in so many words
+    # that six more exchanges would push its own question off the page. So the
+    # journeys that talk to Maggie about groceries talk to her as this account,
+    # and the owner's history stays exactly as that file expects.
+    #
+    # `cookbook-isolation.spec.ts` still reads this account as the neighbour,
+    # and that is unaffected: it asserts on rows *by name*, so extra rows of
+    # theirs change nothing.
     #
     # No Google credentials on purpose: nothing syncs for this user, and a
     # token here would give the Google journeys a second candidate to pick up.

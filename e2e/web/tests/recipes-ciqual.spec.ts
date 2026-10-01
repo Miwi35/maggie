@@ -201,26 +201,36 @@ test.fail('a recipe created from the form carries the Ciqual food picked — MAG
   )
 })
 
-test('asking Maggie for a tag searches the recipes instead of crashing', async ({ page, api }) => {
+test('asking Maggie for a tag searches the recipes instead of crashing', async ({ otherUser }) => {
   // MAG-114 § 2: `searchByTags` used to run a `LIKE` against a JSON column, and
   // Postgres refuses that outright — so the call *failed*, it did not merely
   // return nothing. The tool does not catch it either, so the tool loop reports
   // the round as an error, which is what the status below reads.
   //
-  // The seed tags "Pâtes à la tomate" with `végétarien`, so there is something
-  // to find; the control that nothing of the neighbour's comes back lives in
-  // `cookbook-isolation.spec.ts`.
+  // What this can assert and what it cannot, stated plainly: the fake does not
+  // read tool results and AG-UI only carries each round's *outcome*, so
+  // "the right recipes came back" is not observable from a browser journey.
+  // That half is `RecipeToolsTest::testSearchRecipesByTag` (the tag really
+  // matches) and `UserIsolationToolsTest::testSearchRecipesByTagOnlyReturnsTheCallersRecipes`
+  // (nobody else's), both on every pull request. What is left here, and worth
+  // having, is that the whole chain — browser, agent, tool loop, MCP, Postgres
+  // — survives the question.
+  //
+  // Asked as the second account, like every other journey that talks to Maggie
+  // (see `grocery-errand.spec.ts` for why), and that account's own recipe
+  // carries the tag.
+  const { api } = otherUser
   const tagged = await getCollection<StoredRecipe>(api, '/api/recipes?itemsPerPage=100')
   expect(
-    tagged.find((recipe) => recipe.name === 'Pâtes à la tomate')?.tags,
+    tagged.find((recipe) => recipe.name === 'Velouté du voisin')?.tags,
     'the seeded recipe lost its tag — the search below would prove nothing',
   ).toContain('végétarien')
 
-  const shell = new AdminShell(page)
+  const shell = new AdminShell(otherUser.page)
   await shell.goto(ROUTES.recipes)
   await shell.expectLoaded()
 
-  const chat = new ChatPanel(page)
+  const chat = new ChatPanel(otherUser.page)
   const events = await chat.send('Montre-moi mes recettes taguées végétarien')
 
   expect(calledTools(events)).toContain('search_recipes')

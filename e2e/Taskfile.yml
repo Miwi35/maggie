@@ -220,8 +220,16 @@ tasks:
     # nothing to gain from a cut-down fixture — and a `status` rather than a
     # one-shot, because the bytes are identical every time: a stack coming up
     # again on the same worktree skips it.
+    #
+    # The check counts rows rather than testing the file exists. An import
+    # killed halfway leaves a non-empty file, and `test -s` would then skip the
+    # rebuild for ever, with the indirect symptom the standard describes: an
+    # autocomplete that is simply always empty.
     status:
-      - test -s {{.ROOT_DIR}}/ciqual/db/ciqual.db
+      - >-
+        {{.COMPOSE}} exec -T ciqual python -c
+        "import sqlite3,sys; c=sqlite3.connect('db/ciqual.db');
+        sys.exit(0 if c.execute('select count(*) from food').fetchone()[0] > 3000 else 1)"
     cmds:
       - '{{.COMPOSE}} exec -T ciqual python -m app.import_ciqual'
 

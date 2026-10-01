@@ -29,9 +29,12 @@ import { RecipeCreate } from './RecipeCreate'
  * stubs nothing but the network.
  */
 
+// A real food, with its real code and name: the e2e journey picks this very
+// option out of the service's own answer, so a made-up code here would be a
+// third thing to keep in step with nothing.
 const TOMATO = {
-  alim_code: '20047',
-  alim_name_fr: 'Tomate, pulpe, appertisée',
+  alim_code: '20276',
+  alim_name_fr: 'Tomate ronde, crue',
   alim_group_name_fr: 'fruits, légumes, légumineuses et oléagineux',
   kcal_per100g: 23.5,
   protein_per100g: 1.1,

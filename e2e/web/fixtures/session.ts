@@ -19,10 +19,24 @@ import type { Cookie } from '@playwright/test'
 export const SEED_USER_EMAIL = 'e2e@maggie.local'
 
 /**
- * The second seeded account. It exists for one purpose: proving that a Mercure
- * update published for one user never reaches another (MAG-93 — b333376,
- * c2d3758). Journeys sign in as {@link SEED_USER_EMAIL}; this one is for
- * isolation assertions only, and carries almost no data of its own.
+ * The second seeded account, with two jobs.
+ *
+ * The first is isolation: proving that a Mercure update published for one user
+ * never reaches another (MAG-93 — b333376, c2d3758), and that no read leaks
+ * across (MAG-114). Journeys sign in as {@link SEED_USER_EMAIL}.
+ *
+ * The second is being **the shopper** (MAG-101). A journey that asserts "*this*
+ * write published" cannot run on a grocery list anybody else writes to: every
+ * writer publishes the whole list on one topic, so a payload showing the new
+ * state is satisfied by another worker's add even with the middleware mute —
+ * which is `afc1a70` all over again. Ending an errand is worse still: it
+ * deletes *every* ticked line. The same applies to the chat, because
+ * `GET /agent/messages` is scoped to the user and returns the last twenty, and
+ * `chat.spec.ts` depends on that window.
+ *
+ * So `grocery-errand.spec.ts` owns this account's grocery list outright, and
+ * the journeys that talk to Maggie about groceries talk to her as this account.
+ * See `api/fixtures/e2e/10-core.yaml`.
  */
 export const OTHER_USER_EMAIL = 'e2e-other@maggie.local'
 

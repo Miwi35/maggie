@@ -15,6 +15,21 @@ Maggie\Grocery\Entity\Store:
     visitOrder: 2
     user: '@e2e_user'
 
+  # The neighbour's two shops. They exist because that account is also the
+  # shopper of `grocery-errand.spec.ts` — the one journey that has to own a
+  # grocery list outright (see 10-core.yaml). Visit orders of their own, so the
+  # aisle order it reads is theirs and not a copy of the owner's.
+  e2e_other_store_market:
+    name: Halles du voisin
+    description: Magasin principal du voisin
+    visitOrder: 1
+    user: '@e2e_other_user'
+  e2e_other_store_corner:
+    name: Épicerie du coin
+    description: Magasin de repli du voisin
+    visitOrder: 2
+    user: '@e2e_other_user'
+
 Maggie\Cookbook\Entity\Ingredient:
   e2e_ingredient_tomato:
     name: Tomate
@@ -50,11 +65,16 @@ Maggie\Cookbook\Entity\Ingredient:
   # (MAG-114 § 3). Named so a leak is unmistakable in a failure message: an
   # assertion that finds "du voisin" in Camille's products, in her searches or
   # on her grocery list is reporting a missing user filter and nothing else.
+  # Preferred shop *and* a fallback: this is the line the closed-shop journey
+  # moves, and the only one of the neighbour's that can move — which is what
+  # makes its control (a line whose product has no fallback) worth asserting.
   e2e_other_ingredient_leek:
     name: Poireau du voisin
     category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
     defaultUnit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
     user: '@e2e_other_user'
+    preferredStore: '@e2e_other_store_market'
+    fallbackStore: '@e2e_other_store_corner'
 
 Maggie\Grocery\Entity\Product:
   e2e_product_milk:
@@ -70,9 +90,24 @@ Maggie\Grocery\Entity\Product:
     user: '@e2e_user'
     preferredStore: '@e2e_store_supermarket'
 
+  # What the neighbour's weekly recurring item puts on their list. No fallback
+  # shop, on purpose: the closed-shop journey needs a line that must *not* move.
+  e2e_other_product_rice:
+    name: Riz du voisin
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+    user: '@e2e_other_user'
+    preferredStore: '@e2e_other_store_market'
+
 Maggie\Grocery\Entity\GroceryList:
   e2e_grocery_list:
     user: '@e2e_user'
+
+  # The shopper's own, written by `grocery-errand.spec.ts` and by nothing else
+  # in the suite — which is the only way that file can prove a write published
+  # (10-core.yaml says why).
+  e2e_other_grocery_list:
+    user: '@e2e_other_user'
 
 Maggie\Grocery\Entity\GroceryItem:
   # Unchecked, in a known position: the "check an item in the shop" step.
@@ -129,6 +164,28 @@ Maggie\Grocery\Entity\GroceryItem:
     buyAfter: '<e2eDate("+5 days")>'
     position: 5
 
+  # The shopper's list: one line in a known aisle, and one in no aisle at all.
+  # The leek is the only line of theirs whose product has a fallback shop, so
+  # it is the one the closed-shop journey moves and the rice is its control.
+  e2e_other_item_leek:
+    groceryList: '@e2e_other_grocery_list'
+    product: '@e2e_other_ingredient_leek'
+    quantity: 3
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Recipe)>'
+    store: '@e2e_other_store_market'
+    position: 1
+
+  e2e_other_item_note:
+    groceryList: '@e2e_other_grocery_list'
+    customLabel: Sacs du voisin
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Pack)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 2
+
 Maggie\Grocery\Entity\RecurringGroceryItem:
   e2e_recurring_milk:
     product: '@e2e_product_milk'
@@ -143,3 +200,13 @@ Maggie\Grocery\Entity\RecurringGroceryItem:
     unit: '<(Maggie\Grocery\Enum\Unit::Bottle)>'
     frequency: '<(Maggie\Grocery\Enum\RecurringFrequency::Monthly)>'
     user: '@e2e_user'
+
+  # The shopper's, and it is not on their list: nothing but
+  # `generate_grocery_list` ever puts a recurring item there — no cron, no
+  # screen, no button — so its appearance is the whole assertion.
+  e2e_other_recurring_rice:
+    product: '@e2e_other_product_rice'
+    quantity: 500
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+    frequency: '<(Maggie\Grocery\Enum\RecurringFrequency::Weekly)>'
+    user: '@e2e_other_user'

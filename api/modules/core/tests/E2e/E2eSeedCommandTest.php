@@ -19,6 +19,9 @@ use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Envelope;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Grocery\Entity\GroceryItem;
+use Maggie\Grocery\Entity\GroceryList;
+use Maggie\Grocery\Entity\RecurringGroceryItem;
+use Maggie\Grocery\Entity\Store;
 use Maggie\Notification\Entity\Notification;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Application;
@@ -69,9 +72,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         $this->tester->assertCommandIsSuccessful();
 
         // Two users, and only two. Journeys sign in as e2e@maggie.local; the
-        // neighbour exists so the web harness can prove a Mercure update
-        // published for one user never reaches the other (MAG-97). A third
-        // would mean somebody added an account without saying why.
+        // second account exists so the web harness can prove a Mercure update
+        // published for one user never reaches the other (MAG-97), and is also
+        // the shopper of the grocery journeys, which need a list nobody else
+        // writes to (MAG-101 — see 10-core.yaml). A third would mean somebody
+        // added an account without saying why.
         self::assertSame(2, $this->rowsOf(User::class));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-other@maggie.local']));
@@ -85,7 +90,8 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertSame(2, $this->rowsOf(Meal::class));
         self::assertSame(4, $this->rowsOf(Task::class));
         self::assertSame(3, $this->rowsOf(Recipe::class));
-        self::assertSame(5, $this->rowsOf(GroceryItem::class));
+        // Five on the owner's list, two on the shopper's.
+        self::assertSame(7, $this->rowsOf(GroceryItem::class));
         self::assertSame(2, $this->rowsOf(Account::class));
         self::assertSame(12, $this->rowsOf(Transaction::class));
         self::assertSame(2, $this->rowsOf(Envelope::class));
@@ -137,9 +143,20 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertSame(2, $this->rowsOf(Event::class, ['agenda' => $agenda]));
         self::assertSame(1, $this->rowsOf(Meal::class, ['agenda' => $agenda]));
 
-        // The modules the isolation journey does not reach stay empty: the
-        // account is there to prove a boundary, not to be a second world, and
-        // data no journey reads would only make the counts above harder to keep.
+        // And a shop to do (MAG-101). This account has a second job — it is the
+        // shopper of `grocery-errand.spec.ts`, the one journey that has to own a
+        // grocery list outright, because ending an errand deletes every ticked
+        // line and because a payload published for somebody else's write would
+        // satisfy "this write published". 10-core.yaml spells the reasoning out.
+        self::assertSame(2, $this->rowsOf(Store::class, ['user' => $neighbour]));
+        self::assertSame(1, $this->rowsOf(RecurringGroceryItem::class, ['user' => $neighbour]));
+
+        $list = $this->repository(GroceryList::class)->findOneBy(['user' => $neighbour]);
+        self::assertNotNull($list, 'the shopper has no grocery list');
+        self::assertSame(2, $this->rowsOf(GroceryItem::class, ['groceryList' => $list]));
+
+        // The modules no journey reaches as this account stay empty: data
+        // nobody reads would only make the counts above harder to keep.
         foreach ([Account::class, Transaction::class, Notification::class] as $entity) {
             self::assertSame(0, $this->rowsOf($entity, ['user' => $neighbour]), $entity);
         }
@@ -240,6 +257,7 @@ final class E2eSeedCommandTest extends KernelTestCase
             // What the recipes, menus and groceries journeys address (MAG-101).
             'e2e_store_supermarket', 'e2e_store_greengrocer', 'e2e_ingredient_tomato', 'e2e_grocery_item_deferred',
             'e2e_recurring_milk', 'e2e_other_recipe_soup', 'e2e_other_ingredient_leek',
+            'e2e_other_grocery_list', 'e2e_other_store_market', 'e2e_other_store_corner', 'e2e_other_item_leek',
         ];
 
         foreach ($read as $reference) {

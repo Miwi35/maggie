@@ -6,9 +6,14 @@
 # which is exactly what a journey can assert on, without reading a result the
 # fake never looks at.
 #
-# The tag comes from the journey through the capture group, so the same scenario
-# serves the isolation journey: the neighbour's recipe carries the same tag, and
-# asking as each user in turn is how "no one else's recipes" is proved.
+# The tag comes from the journey through the capture group, so one scenario
+# serves whatever tag a journey asks about.
+#
+# What a journey can assert on this is the round's *outcome*, not its content:
+# the fake never reads a tool result, and AG-UI carries only `success` or
+# `error`. That the right recipes come back — and nobody else's — is
+# `RecipeToolsTest::testSearchRecipesByTag` and
+# `UserIsolationToolsTest::testSearchRecipesByTagOnlyReturnsTheCallersRecipes`.
 name: recipe-search-tag
 description: Search the caller's recipes by tag, through MCP.
 

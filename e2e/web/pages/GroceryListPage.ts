@@ -71,11 +71,6 @@ export class GroceryListPage extends AdminShell {
     )
   }
 
-  /** `checked/total`, the chip beside the heading. */
-  get counter(): Locator {
-    return this.content.getByText(/^\d+\/\d+$/).first()
-  }
-
   /**
    * Writes a line through the dialog, exactly as the owner does.
    *

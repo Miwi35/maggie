@@ -55,18 +55,25 @@ test("the recipes collection holds the caller's recipes and no one else's", asyn
   expect(theirs).not.toContain(MINE.recipe)
 })
 
-test('a tag two users share returns each of them only their own recipe', async ({ api, otherUser }) => {
-  // MAG-114 § 2 and § 3 at once: the tag is the one whose `LIKE` against a JSON
-  // column crashed Postgres, and both users carry it — so a filter that was
-  // dropped shows up as the neighbour's soup in the owner's results rather than
-  // as an empty list.
+test('the recipes each user can read carry the tag they were seeded with', async ({ api, otherUser }) => {
+  // The setup both tag searches rest on, asserted once: the two recipes carry
+  // the *same* tag, so a `searchByTags` that dropped its user filter returns
+  // the neighbour's soup rather than an empty list — which is the only way
+  // that failure is visible at all.
+  //
+  // The search itself is not driven from here: `searchByTags` is MCP-only and
+  // a browser journey cannot read a tool's results (see
+  // `recipes-ciqual.spec.ts`). It is covered tool-side by
+  // `UserIsolationToolsTest::testSearchRecipesByTagOnlyReturnsTheCallersRecipes`
+  // and `RecipeToolsTest::testSearchRecipesByTag`. What this adds is that the
+  // fixtures those tests' e2e twin depends on are really shaped that way.
   const mine = await getCollection<Named>(api, '/api/recipes?itemsPerPage=100')
   const theirs = await getCollection<Named>(otherUser.api, '/api/recipes?itemsPerPage=100')
 
   const taggedMine = mine.filter((recipe) => (recipe.tags ?? []).includes(SHARED_TAG)).map((r) => String(r.name))
   const taggedTheirs = theirs.filter((recipe) => (recipe.tags ?? []).includes(SHARED_TAG)).map((r) => String(r.name))
 
-  expect(taggedMine, 'the seeded tag is gone — this test would prove nothing').toContain(MINE.recipe)
+  expect(taggedMine, 'the seeded tag is gone — both tag searches would prove nothing').toContain(MINE.recipe)
   expect(taggedMine).not.toContain(THEIRS.recipe)
   expect(taggedTheirs).toContain(THEIRS.recipe)
   expect(taggedTheirs).not.toContain(MINE.recipe)
@@ -134,57 +141,115 @@ test("the global search answers out of the caller's own index", async ({ api, ot
  *
  * So an authenticated user can tick, reorder, or **permanently delete** a line
  * from somebody else's shopping. Expected to fail, and written as the fix's
- * reproduction.
+ * reproduction, with the control beside it.
+ *
+ * One thing the fix will trip over, and it is worth knowing before starting:
+ * `CheckGroceryItemController` catches `\DomainException` only, while its
+ * sibling `RemoveGroceryItemController` also catches `HandlerFailedException`.
+ * On the synchronous bus a handler-thrown `DomainException` arrives wrapped, so
+ * an owner check added in `CheckGroceryItemHandler` answers **500** rather than
+ * the 404 asserted here. MAG-175 says so.
  */
-test.fail("the owner cannot touch a line on the neighbour's list — MAG-175", async ({ api, otherUser }) => {
-  // Deliberately not a name any other test here looks for: adding a line also
-  // creates a product, and this one belongs to the neighbour.
-  const label = `Pâtisson MAG-175 ${test.info().retry}`
+interface Line {
+  '@id': string
+  id: string
+  label: string
+  checked: boolean
+}
 
-  // The neighbour writes a line of their own, through their own endpoint.
-  const added = await otherUser.api.post('/api/grocery/add-item', {
+interface StoredList {
+  items: Line[]
+}
+
+/** A label this attempt alone writes, on the owner's list and nowhere else. */
+function attackedLabel(): string {
+  const { retry } = test.info()
+
+  return 0 === retry ? 'Pâtisson MAG-175' : `Pâtisson MAG-175 essai ${retry}`
+}
+
+async function lineOn(client: APIRequestContext, label: string): Promise<Line | undefined> {
+  const [list] = await getCollection<StoredList>(client, '/api/grocery_lists')
+
+  return list?.items.find((item) => item.label === label)
+}
+
+/**
+ * Writes the line under attack, on the **owner's** list.
+ *
+ * The owner's and not the neighbour's, deliberately: `grocery-errand.spec.ts`
+ * owns the neighbour's list outright — it is the only way that file can prove a
+ * write published — and a second writer there would put a hole in it. Nothing
+ * makes a publication claim on the owner's list, so a line here costs nothing.
+ *
+ * The direction of the attack is therefore reversed from the obvious one: the
+ * neighbour is the attacker and the owner the victim. It proves the same thing.
+ */
+async function writeLineToAttack(api: APIRequestContext, label: string): Promise<Line> {
+  const added = await api.post('/api/grocery/add-item', {
     headers: { 'Content-Type': 'application/json' },
     data: { label, quantity: 1 },
   })
-  expect(added.status(), `the neighbour could not add a line: ${await added.text()}`).toBe(200)
-
-  interface Line {
-    '@id': string
-    id: string
-    label: string
-    checked: boolean
-  }
-  interface StoredList {
-    items: Line[]
-  }
-
-  const theirLine = async (): Promise<Line | undefined> => {
-    const [list] = await getCollection<StoredList>(otherUser.api, '/api/grocery_lists')
-
-    return list?.items.find((item) => item.label === label)
-  }
+  expect(added.status(), `the owner could not add a line: ${await added.text()}`).toBe(200)
 
   await expect
-    .poll(async () => undefined !== (await theirLine()), { message: "the neighbour's own line", timeout: 30_000 })
+    .poll(async () => undefined !== (await lineOn(api, label)), {
+      message: 'the line under attack never became findable',
+      timeout: 30_000,
+    })
     .toBe(true)
 
-  const line = await theirLine()
+  const line = await lineOn(api, label)
   expect(line).toBeDefined()
 
-  // The owner's token, the neighbour's id. 404 rather than 403: the API must
+  return line as Line
+}
+
+test.fail("the neighbour cannot touch a line on the owner's list — MAG-175", async ({ api, otherUser }) => {
+  const label = attackedLabel()
+  const line = await writeLineToAttack(api, label)
+
+  // The neighbour's token, the owner's id. 404 rather than 403: the API must
   // not confirm that the id exists.
-  const ticked = await api.patch(`/api/grocery_items/${line?.id}`, {
+  const ticked = await otherUser.api.patch(`/api/grocery_items/${line.id}`, {
     headers: { 'Content-Type': 'application/json' },
     data: { checked: true },
   })
   expect(ticked.status(), "ticking another user's grocery line was accepted").toBe(404)
 
-  const deleted = await api.delete(`/api/grocery_items/${line?.id}`)
+  const deleted = await otherUser.api.delete(`/api/grocery_items/${line.id}`)
   expect(deleted.status(), "deleting another user's grocery line was accepted").toBe(404)
 
   // And the line is exactly as its owner left it — the assertion that matters,
   // because a refusal that deleted the row anyway would still answer 404.
-  const after = await theirLine()
-  expect(after, "the neighbour's line was deleted").toBeDefined()
-  expect(after?.checked, "the neighbour's line was ticked by somebody else").toBe(false)
+  const after = await lineOn(api, label)
+  expect(after, "the owner's line was deleted by somebody else").toBeDefined()
+  expect(after?.checked, "the owner's line was ticked by somebody else").toBe(false)
+})
+
+test('the owner can still tick and drop a line of their own', async ({ api }) => {
+  // The control, and the pair the expectation above needs twice over. It drives
+  // the same setup unmarked, so a `POST /api/grocery/add-item` that stopped
+  // working could not hide behind the marker — and it is what stops the fix
+  // from being "answer 404 to everybody", which would satisfy MAG-175's
+  // assertions perfectly while breaking the feature.
+  const label = `${attackedLabel()} (le mien)`
+  const line = await writeLineToAttack(api, label)
+
+  const ticked = await api.patch(`/api/grocery_items/${line.id}`, {
+    headers: { 'Content-Type': 'application/json' },
+    data: { checked: true },
+  })
+  expect(ticked.ok(), `the owner could not tick their own line: ${await ticked.text()}`).toBe(true)
+
+  await expect
+    .poll(async () => (await lineOn(api, label))?.checked, { message: 'the ticked line', timeout: 30_000 })
+    .toBe(true)
+
+  const deleted = await api.delete(`/api/grocery_items/${line.id}`)
+  expect(deleted.ok(), `the owner could not delete their own line: ${await deleted.text()}`).toBe(true)
+
+  await expect
+    .poll(async () => undefined === (await lineOn(api, label)), { message: 'the deleted line', timeout: 30_000 })
+    .toBe(true)
 })
