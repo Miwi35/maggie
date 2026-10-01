@@ -156,7 +156,7 @@
       }
     },
     {
-      "name": "Register a push channel",
+      "name": "Register a push channel — one channel id per calendar",
       "request": {
         "method": "POST",
         "urlPathPattern": "/google/calendar/v3/calendars/[^/]+/events/watch"
@@ -168,10 +168,11 @@
         },
         "jsonBody": {
           "kind": "api#channel",
-          "id": "e2e-channel-id",
-          "resourceId": "e2e-resource-id",
+          "id": "e2e-channel-{{request.pathSegments.[4]}}",
+          "resourceId": "e2e-resource-{{request.pathSegments.[4]}}",
           "expiration": "4102444800000"
-        }
+        },
+        "transformers": ["response-template"]
       }
     },
     {

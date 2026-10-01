@@ -592,7 +592,14 @@ assert_eq "/api/events/$reminder_event_id" \
 
 # Twice in a row must not notify twice: the cron runs every few minutes, and
 # without the dedup on (event, minutes) the owner would be reminded on every tick.
+#
+# Read after a window rather than at once, and that is the whole difficulty of
+# proving an absence here: a duplicate written to Postgres is not yet in the index,
+# so an immediate read answers "one" whether the dedup held or not. Five seconds is
+# the same bargain `expectSilence` makes in the browser harness — there is no event
+# to wait on instead.
 "${COMPOSE[@]}" exec -T php bin/console --env=e2e maggie:notification:check-reminders >/dev/null
+sleep 5
 assert_eq 1 "$(reminders_of | jq -r 'length')" "a second run of the cron reminds nobody twice"
 
 # ---------------------------------------------------------------------------

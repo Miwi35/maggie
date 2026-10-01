@@ -19,6 +19,18 @@ since `544c9e5`, and its `updated` (09:00) is deliberately **newer** than the
 events list's (08:00): that is what lets a journey prove the next pull skips an
 event Google has not touched since, instead of overwriting the local change.
 
+Two stubs answer something derived from the request rather than a constant, and
+both are load-bearing:
+
+- **the watch channel id** is `e2e-channel-<calendarId>`. A constant would give two
+  connected agendas the same channel, and `findByGoogleWatchChannelId()` is a
+  `findOneBy` — so a webhook meant for one agenda could pull into the other, and
+  the "a local change survives the pull" assertion would pass without the pull
+  ever reaching the event it is about;
+- **an inserted event's id** is random. `(google_event_id, agenda_id)` is unique,
+  so a constant would make a second event in the same connected agenda a
+  constraint violation.
+
 Two things are **not** here:
 
 - **Edge TTS.** `edge_tts` opens its own WebSocket to Microsoft, so no base URL

@@ -94,6 +94,9 @@ test('an event created from the dialog names its agenda with one IRI, not two', 
  * rather than left out, because an exemption nobody wrote down is a missing test:
  * this records the gap, and it turns red the day MAG-168 lands — which is when the
  * marker has to go.
+ *
+ * The marker covers the whole test, setup included, so a broken `createEvent` would
+ * hide here. It cannot hide for long: the test above drives the same dialog unmarked.
  */
 test('the hour typed is the hour stored', async ({ page, api }) => {
   test.fail()

@@ -14,6 +14,12 @@ import { CalendarPage } from '../pages/CalendarPage.js'
  * and the journal is also how the effects below are asserted: a connected agenda's
  * only observable result today is the call it made (see the MAG-148 test).
  *
+ * The journal is global, so every counter here is scoped to the calendar it is about
+ * — and the stubs help: the watch channel id names its calendar, so two connected
+ * agendas cannot answer each other's webhook. Without that, exporting one agenda
+ * while another is being imported would let the webhook below pull into the wrong
+ * one, and the assertion it guards would pass having tested nothing.
+ *
  * The regression it exists for is `544c9e5`: the cron's pull used to overwrite a
  * local change that had not reached Google yet. The fix was twofold — push
  * synchronously, and skip an event whose `updated` on Google has not moved since the
@@ -31,11 +37,20 @@ import { CalendarPage } from '../pages/CalendarPage.js'
  */
 
 const GOOGLE_AGENDA = 'Agenda Google de test'
+/** The one calendar `mappings/google.json` offers, and the channel id it derives. */
+const GOOGLE_CALENDAR_ID = 'e2e@maggie.local'
 const PULLED_EVENT = 'Réunion importée de Google'
 const LOCAL_TITLE = 'Réunion importée (déplacée en salle 2)'
 
-const LIST_EVENTS = /\/google\/calendar\/v3\/calendars\/[^/]+\/events(\?|$)/
-const WATCH_EVENTS = /\/google\/calendar\/v3\/calendars\/[^/]+\/events\/watch(\?|$)/
+/**
+ * Scoped to the imported calendar, not to any calendar.
+ *
+ * The journal is global, so `…/calendars/[^/]+/events` would also count a sync of
+ * the agenda the export test connects — and "the pull has run" would then be true
+ * before this calendar had been pulled at all. The `@` is matched either way because
+ * whether the Google client percent-encodes a path segment is its business.
+ */
+const LIST_EVENTS = /\/google\/calendar\/v3\/calendars\/e2e(%40|@)maggie\.local\/events(\?|$)/
 const CREATE_CALENDAR = /\/google\/calendar\/v3\/calendars(\?|$)/
 
 interface StoredEvent {
@@ -101,18 +116,12 @@ test.describe('Importing the Google calendar', () => {
     const journal = await openWiremockJournal(playwright)
 
     await forgetImportedAgenda(api)
-    const watchesBefore = await journal.count('POST', WATCH_EVENTS)
 
     const calendar = new CalendarPage(page)
     await calendar.open()
     await calendar.importFromGoogle(GOOGLE_AGENDA)
 
     await expect(calendar.agendaRow(GOOGLE_AGENDA), 'the imported agenda is not in the sidebar').toBeVisible()
-
-    // The import really talked to Google: it registered a push channel, which is
-    // what gives the webhook below a channel id to arrive on. Asserted through the
-    // journal because the API cannot say so — see the MAG-148 test at the bottom.
-    await journal.waitForCount('POST', WATCH_EVENTS, watchesBefore + 1)
 
     // The initial pull is dispatched asynchronously, so the event arrives through
     // RabbitMQ, the worker and the index — polled, not read once.
@@ -140,11 +149,19 @@ test.describe('Importing the Google calendar', () => {
 
     const pullsBefore = await journal.count('GET', LIST_EVENTS)
 
-    // What Google's push channel does when something changes on its side. The import
-    // registered the watch, so this is the channel the stub handed over.
+    // What Google's push channel does when something changes on its side.
+    //
+    // The channel id names the calendar, which is the whole reason the stub derives
+    // it instead of answering a constant: `findByGoogleWatchChannelId()` is a
+    // `findOneBy`, so two agendas sharing a channel would let this webhook pull into
+    // the wrong one — and the assertion below would then pass because nothing had
+    // touched the event it is about.
+    //
+    // It is also what proves the watch was registered at all: an unknown channel
+    // answers 200 and dispatches nothing, so the wait that follows would time out.
     const notified = await api.post('/api/calendar/google/webhook', {
       headers: {
-        'X-Goog-Channel-ID': 'e2e-channel-id',
+        'X-Goog-Channel-ID': `e2e-channel-${GOOGLE_CALENDAR_ID}`,
         'X-Goog-Channel-Token': 'e2e-webhook-token',
         'X-Goog-Resource-State': 'exists',
       },
@@ -152,8 +169,9 @@ test.describe('Importing the Google calendar', () => {
     })
     expect(notified.ok(), `the webhook answered ${notified.status()}`).toBe(true)
 
-    // Asserted only once the pull has really run: before that, "the local title is
-    // still there" would pass on a sync that never happened.
+    // Asserted only once the pull has really run, and only for *this* calendar:
+    // before that, "the local title is still there" would pass on a sync that never
+    // happened, and a counter shared with another agenda's sync would say yes too.
     await journal.waitForCount('GET', LIST_EVENTS, pullsBefore + 1)
 
     await expect
@@ -179,6 +197,9 @@ test.describe('Importing the Google calendar', () => {
    * Marked expected-to-fail rather than left out: the sidebar's sync badge and the
    * dialog's filter both hang off this one field, and the marker turns red the day
    * it is indexed — which is when it has to go.
+   *
+   * The import it repeats is driven unmarked by the test before it, so a broken
+   * `importFromGoogle` fails there rather than disappearing into this marker.
    */
   test('an agenda connected to Google is marked as synced', async ({ page, api }) => {
     test.fail()
@@ -203,21 +224,46 @@ test.describe('Importing the Google calendar', () => {
 /**
  * Exporting a local agenda creates its Google counterpart.
  *
- * The other direction of the sidebar's ⋮ menu, on a different agenda from the import
- * on purpose: "Famille" is local in the seed, so this never contends for the row the
- * group above deletes and recreates.
+ * The other direction of the sidebar's ⋮ menu, and it exports an agenda of its own
+ * rather than a seeded one. Two reasons, and both are about running twice:
+ *
+ * - an agenda can only be exported once. `GoogleCalendarConnectController::export`
+ *   answers 409 on an agenda that already carries a `googleCalendarId`, and the ⋮
+ *   menu still offers the item because the API never reports that field (MAG-148) —
+ *   so a retry on a seeded agenda would make the call, get a 409, and fail on a
+ *   message about WireMock rather than about the export;
+ * - exporting also registers a watch, and the channel id names the calendar. A
+ *   throwaway agenda therefore cannot steal the webhook the import group sends.
  *
  * Asserted on the call rather than on the agenda, for the reason the MAG-148 test
  * above spells out: `googleCalendarId` is not in the indexed document, so the API
  * answers the same thing before and after.
  */
-test('exporting an agenda to Google creates a calendar for it', async ({ page, playwright }) => {
+test('exporting an agenda to Google creates a calendar for it', async ({ page, api, playwright }) => {
+  const { retry } = test.info()
+  const name = `Agenda à exporter ${retry}`
+
+  const created = await api.post('/api/agendas', {
+    headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },
+    data: { name, color: '#607d8b' },
+  })
+  expect(created.status(), `POST /api/agendas answered ${created.status()}`).toBe(201)
+
+  // The sidebar is served from Elasticsearch like every other collection, so the row
+  // exists before it is listable — and the view fills its sidebar once, on mount.
+  await waitForIndexed<StoredAgenda>(api, '/api/agendas', (agenda) => agenda.name === name, {
+    what: `The agenda "${name}"`,
+  })
+
   const journal = await openWiremockJournal(playwright)
   const before = await journal.count('POST', CREATE_CALENDAR)
 
+  // Opened after the agenda exists: the sidebar is filled once, when the view mounts.
   const calendar = new CalendarPage(page)
   await calendar.open()
-  await calendar.exportToGoogle('Famille')
+  await expect(calendar.agendaRow(name), 'the new agenda never reached the sidebar').toBeVisible()
+
+  await calendar.exportToGoogle(name)
 
   await journal.waitForCount('POST', CREATE_CALENDAR, before + 1)
 

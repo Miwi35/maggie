@@ -68,6 +68,13 @@ final class CheckRemindersCommandTest extends KernelTestCase
         );
         self::assertNull($notification->getReadAt());
         self::assertSame('fixture@example.com', $notification->getUser()->getEmail());
+
+        // The two things that carry it to the owner, and both are silent when they
+        // break: the bell lights up from a Mercure update, and the notification is
+        // only readable from `/api/notifications` once it is indexed. A reminder
+        // written to Postgres alone is a reminder nobody ever receives.
+        $this->assertMercureUpdatePublished('/api/notifications/');
+        $this->assertElasticsearchIndexDispatched(Notification::class);
     }
 
     public function testEachOwnerGetsOnlyTheirOwnReminder(): void

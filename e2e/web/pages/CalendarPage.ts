@@ -169,10 +169,6 @@ export class CalendarPage extends AdminShell {
     await expect(button).toHaveClass(/MuiButton-contained/)
   }
 
-  async goToToday(): Promise<void> {
-    await this.content.getByRole('button', { name: "Aujourd'hui" }).click()
-  }
-
   /** Forward one month, week or day, depending on the view. */
   async goForward(): Promise<void> {
     await this.step(/suivant/)
@@ -355,11 +351,6 @@ export class CalendarPage extends AdminShell {
   /** A row of "Mes agendas", by its name. */
   agendaRow(name: string): Locator {
     return this.content.getByTestId('agenda-row').filter({ hasText: exactly(name) })
-  }
-
-  /** The checkbox that shows or hides one agenda's events. */
-  agendaCheckbox(name: string): Locator {
-    return this.agendaRow(name).getByRole('checkbox')
   }
 
   /** Opens the ⋮ menu of one agenda. It only appears on hover, so hover first. */

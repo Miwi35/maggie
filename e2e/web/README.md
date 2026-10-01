@@ -102,6 +102,11 @@ Three rules hold across all of them, and each cost a debugging session elsewhere
 uses, and reaches a particular event through the `?eventId=` deep link — never by
 driving the toolbar to a computed date.
 
+An expected-to-fail test absorbs *everything* that goes wrong in it, setup included,
+so each one is written beside an unmarked test that drives the same setup: a broken
+`createEvent`, `goToEventDate` or `importFromGoogle` fails loudly there rather than
+hiding behind a marker. Keep that pairing if you add one.
+
 Writing them found three bugs, and each has an expected-to-fail test naming its
 ticket rather than a missing assertion, because an exemption nobody wrote down is a
 missing test:

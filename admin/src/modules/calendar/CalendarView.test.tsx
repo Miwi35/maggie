@@ -66,29 +66,9 @@ describe('CalendarView', () => {
     })
   })
 
-  /**
-   * The sidebar's agenda rows are addressable.
-   *
-   * Asserted here because the e2e agenda journeys (MAG-100) reach them by
-   * `agenda-row` and by the ⋮ button's accessible name, and both are the kind of
-   * handle a refactor drops without any test noticing — the journeys would then
-   * fail far from the change, on a stack that takes minutes to start.
-   */
-  test('each agenda is a named row with its own options button', async () => {
-    mockGetList.mockImplementation((resource: string) =>
-      Promise.resolve(
-        'agendas' === resource
-          ? { data: [{ id: 'ag1', name: 'Perso', color: '#1976d2', isDefault: true }], total: 1 }
-          : { data: [], total: 0 },
-      ),
-    )
-
-    render(<CalendarView />)
-
-    const row = await screen.findByTestId('agenda-row')
-    expect(within(row).getByText('Perso')).toBeInTheDocument()
-    expect(within(row).getByRole('button', { name: "Options de l'agenda Perso" })).toBeInTheDocument()
-  })
+  // The sidebar's rows, the toolbar and the dialogs are addressed by role and name in
+  // `CalendarView.handles.test.tsx`, which owns that contract with the agenda
+  // journeys. This file owns behaviour; the two do not overlap.
 
   // FullCalendar re-renders the whole grid on each interaction: slow on a busy CI runner
   describe('editing an event with the pencil', { timeout: 30_000 }, () => {

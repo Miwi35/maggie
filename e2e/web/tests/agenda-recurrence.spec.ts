@@ -36,10 +36,13 @@ interface StoredEvent {
 const MASTER = 'Cours de piano'
 const MASTER_RRULE = 'FREQ=WEEKLY;COUNT=8'
 
-/** `e2e_event_recurring` starts on the anchor + 2 days, weekly, eight times. */
+/**
+ * `e2e_event_recurring` starts on the anchor + 2 days, weekly, eight times — so its
+ * lessons fall on +2, +9, +16, +23, +30, +37, +44 and +51.
+ */
 const OCCURRENCES = {
+  /** The master's own date, where the override test writes. */
   first: seedDate(2),
-  second: seedDate(9),
   /** Overridden by `e2e_event_recurring_exception`, moved to 19:00. */
   moved: seedDate(16),
   /** Refused by `e2e_event_recurring_cancelled`. */
@@ -76,6 +79,23 @@ function parisDay(iso: string): string {
   return new Date(iso).toLocaleDateString('fr-CA', { timeZone: 'Europe/Paris' })
 }
 
+/**
+ * An occurrence of the series nothing else touches, one per attempt.
+ *
+ * The eight lessons fall on the anchor plus 2, 9, 16, 23, 30, 37, 44 and 51 days.
+ * Three are taken: +2 is where the override test writes, +16 carries the seeded
+ * moved occurrence and +23 the seeded cancelled one. That leaves +9 for the first
+ * attempt and +30 for the retry — three weeks apart, so neither can see the other's
+ * work however the grid rounds a week.
+ *
+ * @returns how many weeks forward from the master's own, and the day that lands on
+ */
+function freeOccurrence(): { week: number; day: string } {
+  const week = 1 + 3 * test.info().retry
+
+  return { week, day: seedDate(2 + 7 * week) }
+}
+
 test('the seeded series shows one occurrence a week', async ({ page }) => {
   const calendar = new CalendarPage(page)
 
@@ -92,7 +112,10 @@ test('the seeded series shows one occurrence a week', async ({ page }) => {
  * The two overrides the seed carries, read on the grid.
  *
  * Read-only and fed entirely from fixtures, which is what makes it the right place
- * for MAG-169's marker: no write of its own, so it fails for one reason only.
+ * for MAG-169's marker: no write of its own, so it fails for one reason only. The
+ * navigation it does share with the tests around it — `goToEventDate`, `chooseView` —
+ * is driven unmarked by the first test, so a broken page object cannot hide behind
+ * this marker.
  */
 test('an overridden occurrence replaces the original, and a refused one disappears', async ({ page }) => {
   test.fail()
@@ -167,20 +190,28 @@ test('changing one occurrence adds an exception and leaves the series as it was'
 test('deleting one occurrence cancels it and keeps the others', async ({ page, api }) => {
   const calendar = new CalendarPage(page)
 
+  // A different week on every attempt, and this is the one write `perAttempt()`
+  // cannot protect: a cancelled exception keeps its parent's exact summary, so the
+  // name carries nothing. Worse, MAG-169 draws it as an ordinary chip — so a retry
+  // on the same week would read two "Cours de piano" before touching anything and
+  // fail on the pre-assertion, blaming the seed. Each attempt therefore refuses an
+  // occurrence no other attempt has been near.
+  const { week, day } = freeOccurrence()
+
   await calendar.goToEventDate(seedId('e2e_event_recurring'), MASTER)
   await calendar.chooseView('Semaine')
-  // A week on from the master's own date, so this write cannot collide with the
-  // test above, and well clear of the two overrides the seed already holds.
-  await calendar.goForward()
-  await expect(calendar.chipsOnDay(OCCURRENCES.second, MASTER)).toHaveCount(1)
+  for (let step = 0; step < week; step++) {
+    await calendar.goForward()
+  }
+  await expect(calendar.chipsOnDay(day, MASTER)).toHaveCount(1)
 
   await calendar.openChip(MASTER)
   await calendar.deleteFromPopover()
   await calendar.chooseRecurrenceScope('Cet événement')
 
   // Pinned to this occurrence's own date, not merely to "a cancelled lesson
-  // exists": the seed already holds one cancelled override three weeks later, so
-  // that question answered yes before the test ran a line.
+  // exists": the seed already holds one cancelled override, so that question
+  // answered yes before the test ran a line.
   await expect
     .poll(
       async () =>
@@ -188,7 +219,7 @@ test('deleting one occurrence cancels it and keeps the others', async ({ page, a
           (event) =>
             event.summary === MASTER &&
             event.status === 'cancelled' &&
-            parisDay(String(event.startAt)) === OCCURRENCES.second,
+            parisDay(String(event.startAt)) === day,
         ),
       { timeout: 30_000, message: 'the refused occurrence should be stored as a cancelled exception on its own date' },
     )
