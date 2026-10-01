@@ -8,12 +8,13 @@ use Maggie\Calendar\Service\GoogleCalendarApiClient;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
     name: 'maggie:google-calendar:renew-watch',
-    description: 'Renew expiring Google Calendar push notification channels',
+    description: 'Renew expiring Google Calendar push notification channels (--all: every channel)',
 )]
 class GoogleCalendarRenewWatchCommand extends Command
 {
@@ -23,16 +24,37 @@ class GoogleCalendarRenewWatchCommand extends Command
         private readonly EntityManagerInterface $entityManager,
         private readonly string $googleWebhookUrl,
         private readonly string $googleWebhookToken,
+        private readonly string $kernelEnvironment,
     ) {
         parent::__construct();
+    }
+
+    protected function configure(): void
+    {
+        $this->addOption('all', null, InputOption::VALUE_NONE, 'Replace every channel, not only the expiring ones');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
 
-        // Find channels expiring within the next hour
-        $threshold = new \DateTimeImmutable('+1 hour');
+        // Checked before any channel is touched: with --all, a bad address
+        // would otherwise stop every working channel and then fail to create
+        // the replacements.
+        try {
+            GoogleCalendarApiClient::assertUsableWebhookUrl($this->googleWebhookUrl, $this->kernelEnvironment);
+        } catch (\InvalidArgumentException $e) {
+            $io->error($e->getMessage());
+
+            return Command::FAILURE;
+        }
+
+        // --all: the deploy replaces every channel so none keeps an address
+        // the configuration no longer holds (MAG-193). Channels only
+        // remember their expiry, not where they push, so it cannot tell which.
+        $threshold = $input->getOption('all')
+            ? new \DateTimeImmutable('+100 years')
+            : new \DateTimeImmutable('+1 hour');
         $agendas = $this->agendaRepository->findWithExpiringWatchChannels($threshold);
 
         if (empty($agendas)) {
@@ -86,6 +108,7 @@ class GoogleCalendarRenewWatchCommand extends Command
 
         $io->success("Renewed {$renewed} watch channel(s).");
 
-        return Command::SUCCESS;
+        // A failed renewal must reach the caller — the deploy warns on it.
+        return $renewed < \count($agendas) ? Command::FAILURE : Command::SUCCESS;
     }
 }

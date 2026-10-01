@@ -16,6 +16,9 @@ data:
   CORS_ALLOW_ORIGIN: '^https://maggieai\.fr$'
   GOOGLE_CLIENT_ID: "945014393623-rr1ja004uel8ml327e0gg0vsf51o2ajk.apps.googleusercontent.com"
   GOOGLE_REDIRECT_URI: https://maggieai.fr/api/auth/google/callback
+  # Where Google pushes calendar changes (MAG-193). Without it Symfony falls
+  # back to the example.com address of api/.env and nothing ever arrives.
+  GOOGLE_WEBHOOK_URL: https://maggieai.fr/api/calendar/google/webhook
   ADMIN_URL: https://maggieai.fr/admin
   JWT_SECRET_KEY: "%kernel.project_dir%/config/jwt/private.pem"
   JWT_PUBLIC_KEY: "%kernel.project_dir%/config/jwt/public.pem"
