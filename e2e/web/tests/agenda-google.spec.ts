@@ -278,16 +278,11 @@ test.describe.fixme('Importing the Google calendar', () => {
  * above spells out: `googleCalendarId` is not in the indexed document, so the API
  * answers the same thing before and after.
  *
- * Expected to fail, and the call never happens — MAG-171. `handleExportToGoogle`
- * posts `{agendaId: agendaMenuTarget.id}`, and react-admin's Hydra provider puts the
- * *IRI* in `id`; the controller then looks that up as a ULID and answers 500. So
- * exporting an agenda from the web has never worked. The menu, the agenda and the
- * sidebar it walks through are driven unmarked by the import test above.
+ * It found MAG-171: `handleExportToGoogle` posted the agenda's IRI where the controller
+ * looks up a ULID, and got a 500. It now posts the bare identifier.
  */
 // Quarantined: fails on main depending on the hour of the run (MAG-177).
 test.fixme('exporting an agenda to Google creates a calendar for it', async ({ page, api, playwright }) => {
-  test.fail()
-
   const name = `${EXPORTED_PREFIX} ${test.info().retry}`
 
   // A run of the suite against a stack nobody reseeded would otherwise leave the row

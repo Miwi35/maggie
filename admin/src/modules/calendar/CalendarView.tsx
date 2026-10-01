@@ -70,6 +70,10 @@ function authFetch(path: string, options: RequestInit = {}) {
   })
 }
 
+// react-admin's Hydra provider puts the IRI in `record.id` (`/api/events/01M3…`)
+const bareId = (id: string) => id.split('/').pop() ?? id
+const eventIri = (id: string) => (id.startsWith('/') ? id : `/api/events/${id}`)
+
 interface GoogleCalendar {
   id: string
   summary: string
@@ -502,7 +506,7 @@ export const CalendarView = () => {
     try {
       const res = await authFetch('/calendar/google/export', {
         method: 'POST',
-        body: JSON.stringify({ agendaId: agendaMenuTarget.id }),
+        body: JSON.stringify({ agendaId: bareId(agendaMenuTarget.id) }),
       })
       if (res.ok) {
         notify('Agenda exporté vers Google Calendar', { type: 'success' })
@@ -648,7 +652,7 @@ export const CalendarView = () => {
     setDeleteLoading(true)
     try {
       const qs = deleteGoogleCalendar ? '?deleteGoogleCalendar=true' : ''
-      const res = await authFetch(`/agendas/${deleteDialogAgenda.id}${qs}`, {
+      const res = await authFetch(`/agendas/${bareId(deleteDialogAgenda.id)}${qs}`, {
         method: 'DELETE',
       })
       if (res.ok || res.status === 204) {
@@ -692,14 +696,13 @@ export const CalendarView = () => {
 
       const calId = typeof e.agenda === 'string' ? e.agenda : ''
       const color = calendarColorMap.get(calId)
-      // Build the IRI for this event (used as key in exception map)
-      const eventIri = `/api/events/${e.id}`
+      const masterIri = eventIri(e.id)
 
       if (e.rrule && rangeStart && rangeEnd) {
         const dtstart = new Date(e.startAt)
         const duration = new Date(e.endAt).getTime() - dtstart.getTime()
         const occurrences = expandRrule(e.rrule, dtstart, rangeStart, rangeEnd)
-        const exceptions = exceptionMap.get(eventIri)
+        const exceptions = exceptionMap.get(masterIri)
 
         for (const occ of occurrences) {
           const occTime = occ.getTime()
@@ -1147,7 +1150,7 @@ export const CalendarView = () => {
               allDay,
               timeZone,
               agenda: calendarIri,
-              recurringEvent: `/api/events/${masterEventId}`,
+              recurringEvent: eventIri(masterEventId),
               originalStartAt: occurrenceStart,
               status: 'cancelled',
             },
@@ -1185,7 +1188,7 @@ export const CalendarView = () => {
               allDay: newAllDay ?? allDay,
               timeZone,
               agenda: calendarIri,
-              recurringEvent: `/api/events/${masterEventId}`,
+              recurringEvent: eventIri(masterEventId),
               originalStartAt: occurrenceStart,
               status: 'confirmed',
               ...editFields,
@@ -1242,10 +1245,9 @@ export const CalendarView = () => {
       }
 
       refreshEvents()
+      setRecurrenceConfirm(null)
     } catch (error) {
       notify(`Erreur: ${(error as Error).message}`, { type: 'error' })
-    } finally {
-      setRecurrenceConfirm(null)
     }
   }, [recurrenceConfirm, recurrenceAction, dataProvider, notify, refreshEvents, rawEvents])
 
