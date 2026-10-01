@@ -83,6 +83,7 @@ interface GoogleCalendar {
 }
 
 const CALENDAR_TOPICS = ['/api/events/{id}', '/api/tasks/{id}']
+const MERCURE_REFETCH_DELAYS_MS = [1500, 5000]
 const SIDEBAR_WIDTH = 230
 const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 
@@ -614,6 +615,13 @@ export const CalendarView = () => {
         filter: { 'exists[rrule]': true, 'startAt[strictly_before]': start },
       })
 
+      // A multi-day event that started before the range still covers its first days
+      const overlappingEvents = dataProvider.getList('events', {
+        pagination: { page: 1, perPage: 200 },
+        sort: { field: 'startAt', order: 'ASC' },
+        filter: { 'endAt[after]': start, 'startAt[strictly_before]': start },
+      })
+
       // Fetch tasks with due dates in visible range
       const rangeTasks = dataProvider.getList('tasks', {
         pagination: { page: 1, perPage: 200 },
@@ -628,11 +636,11 @@ export const CalendarView = () => {
         filter: { 'startAt[after]': start, 'startAt[before]': end },
       })
 
-      Promise.all([rangeEvents, recurringEvents, rangeTasks, rangeMeals])
-        .then(([rangeResult, recurringResult, tasksResult, mealsResult]) => {
+      Promise.all([rangeEvents, recurringEvents, overlappingEvents, rangeTasks, rangeMeals])
+        .then(([rangeResult, recurringResult, overlappingResult, tasksResult, mealsResult]) => {
           const seen = new Set<string>()
           const merged: CalendarEvent[] = []
-          for (const e of [...rangeResult.data, ...recurringResult.data] as unknown as CalendarEvent[]) {
+          for (const e of [...rangeResult.data, ...recurringResult.data, ...overlappingResult.data] as unknown as CalendarEvent[]) {
             if (!seen.has(e.id)) {
               seen.add(e.id)
               merged.push(e)
@@ -1258,9 +1266,23 @@ export const CalendarView = () => {
   }, [fetchEvents])
 
   // --- Mercure live updates ---
+  // The update is published before the worker has indexed the row, and the list is served
+  // from Elasticsearch: the first refetch can miss the change, so two more follow.
+  const mercureRefetchTimers = useRef<ReturnType<typeof setTimeout>[]>([])
   const mercureCallback = useCallback(() => {
-    if (dateRangeRef.current) fetchEvents(dateRangeRef.current.start, dateRangeRef.current.end)
+    const refetch = () => {
+      if (dateRangeRef.current) fetchEvents(dateRangeRef.current.start, dateRangeRef.current.end)
+    }
+    refetch()
+    mercureRefetchTimers.current.forEach(clearTimeout)
+    mercureRefetchTimers.current = MERCURE_REFETCH_DELAYS_MS.map((delay) => setTimeout(refetch, delay))
   }, [fetchEvents])
+  useEffect(
+    () => () => {
+      mercureRefetchTimers.current.forEach(clearTimeout)
+    },
+    [],
+  )
   useMercure(CALENDAR_TOPICS, mercureCallback)
 
   // --- Deep-link: open event from search (?eventId=...) ---

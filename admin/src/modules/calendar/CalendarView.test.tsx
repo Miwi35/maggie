@@ -5,9 +5,12 @@ import { CalendarView } from './CalendarView'
 
 // Mock EventSource
 class MockEventSource {
+  static instances: MockEventSource[] = []
   onmessage: ((event: MessageEvent) => void) | null = null
   close = vi.fn()
-  constructor(public url: string) {}
+  constructor(public url: string) {
+    MockEventSource.instances.push(this)
+  }
 }
 vi.stubGlobal('EventSource', MockEventSource)
 
@@ -38,6 +41,7 @@ const AGENDA = '/api/agendas/ag1'
 describe('CalendarView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    MockEventSource.instances = []
     vi.stubGlobal('EventSource', MockEventSource)
     mockGetList.mockResolvedValue({ data: [], total: 0 })
     mockDelete.mockResolvedValue({ data: {} })
@@ -68,6 +72,42 @@ describe('CalendarView', () => {
     await waitFor(() => {
       expect(mockGetList).toHaveBeenCalledWith('agendas', expect.any(Object))
     })
+  })
+
+  test('also asks for events that started before the range and end inside it', async () => {
+    render(<CalendarView />)
+
+    await waitFor(() => {
+      expect(mockGetList).toHaveBeenCalledWith(
+        'events',
+        expect.objectContaining({
+          filter: expect.objectContaining({
+            'endAt[after]': expect.any(String),
+            'startAt[strictly_before]': expect.any(String),
+          }),
+        }),
+      )
+    })
+  })
+
+  test('refetches again after a live update, once the worker has indexed the row', { timeout: 15_000 }, async () => {
+    localStorage.setItem('user', JSON.stringify({ id: 'u1' }))
+    try {
+      render(<CalendarView />)
+      const eventCalls = () => mockGetList.mock.calls.filter(([resource]) => resource === 'events').length
+
+      await waitFor(() => expect(MockEventSource.instances.length).toBeGreaterThan(0))
+      await waitFor(() => expect(eventCalls()).toBeGreaterThan(0))
+      const before = eventCalls()
+
+      MockEventSource.instances[0].onmessage?.({ data: '{}' } as MessageEvent)
+
+      // Three event queries per refetch: the range, the series, the multi-day events.
+      await waitFor(() => expect(eventCalls()).toBeGreaterThanOrEqual(before + 3))
+      await waitFor(() => expect(eventCalls()).toBeGreaterThanOrEqual(before + 6), { timeout: 5_000 })
+    } finally {
+      localStorage.removeItem('user')
+    }
   })
 
   // The sidebar's rows, the toolbar and the dialogs are addressed by role and name in
