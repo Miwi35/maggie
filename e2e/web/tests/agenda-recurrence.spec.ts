@@ -14,15 +14,28 @@ import { CalendarPage } from '../pages/CalendarPage.js'
  * the old time, once as the exception at the new one — and a cancelled one is drawn
  * as an ordinary event instead of being removed.
  *
- * The two assertions that depend on that are marked expected-to-fail with the
- * ticket's number rather than left out: an exemption nobody wrote down is a missing
- * test, and each marker turns red the day the fix lands, which is when it has to
- * go. Everything that does *not* depend on it — the write each dialog makes, the
- * master left alone — is asserted for real.
+ * Running them then found MAG-171, which is worse: the dialog posts
+ * `recurringEvent: "/api/events//api/events/01M3…"` — `masterEventId` is already the
+ * IRI react-admin puts in `id` — so the API answers `400 Invalid IRI` and **neither
+ * writing nor refusing a single occurrence from the web has ever stored anything.**
+ * The screen says "Occurrence modifiée" all the same.
  *
- * The three tests that write act on three different occurrences of the one seeded
- * series, so the file stays safe to run in parallel. A serial group would replay
- * whole on a retry, on data the first attempt had already moved.
+ * So three of the five tests here are marked expected-to-fail, each naming its
+ * ticket. That is deliberate rather than resignation: an exemption nobody wrote down
+ * is a missing test, and each marker turns red the day its fix lands. What is
+ * asserted for real is the series itself — one occurrence a week, the master's title
+ * and rule untouched.
+ *
+ * One consequence to know, because a marker swallows setup failures: `openChip` and
+ * `chooseRecurrenceScope` are now only driven by marked tests, so a break in either
+ * would hide here. `agenda-events.spec.ts` covers the rest of that path unmarked
+ * (`openEvent`, `editFromPopover`, `submitEventEdit`), and
+ * `CalendarView.handles.test.tsx` pins the two dialogs' own names — but the first
+ * thing to do once MAG-171 lands is to take these markers off.
+ *
+ * The two tests that write act on different occurrences of the one seeded series, so
+ * the file stays safe to run in parallel. A serial group would replay whole on a
+ * retry, on data the first attempt had already moved.
  */
 
 interface StoredEvent {
@@ -156,8 +169,20 @@ test('an overridden occurrence replaces the original, and a refused one disappea
  * "Cet événement et tous les suivants" is not here on purpose: it writes on the
  * master, which the two tests below read, and it is already covered field by field
  * in `admin/src/modules/calendar/CalendarView.test.tsx`.
+ *
+ * Expected to fail, and nothing is written at all — MAG-171. The dialog posts
+ * `recurringEvent: "/api/events//api/events/01M3…"`, because `masterEventId` is
+ * already the IRI react-admin's Hydra provider put in `id`, and the API answers
+ * `400 Invalid IRI`. The notification still says "Occurrence modifiée": the dialog
+ * closes in a `finally`, so the failure is invisible on screen.
+ *
+ * The unit test could not see it — `CalendarView.test.tsx` serves events whose `id`
+ * is `'ev2'`, a bare id, so its `recurringEvent: '/api/events/ev2'` assertion passes
+ * on the broken code. That is in the ticket.
  */
 test('changing one occurrence adds an exception and leaves the series as it was', async ({ page, api }) => {
+  test.fail()
+
   const renamed = perAttempt('Cours de piano (salle 2)')
   const calendar = new CalendarPage(page)
 
@@ -192,8 +217,14 @@ test('changing one occurrence adds an exception and leaves the series as it was'
  * without touching the rule. Whether the grid then stops drawing it is MAG-169,
  * asserted above on the seeded pair; here the point is that the bin writes the
  * right row and spares the series.
+ *
+ * Expected to fail for the same reason as the test above — MAG-171: the `cancelled`
+ * exception carries the same doubled `recurringEvent` IRI and the API answers 400,
+ * so refusing a single occurrence from the web has never written anything either.
  */
 test('deleting one occurrence cancels it and keeps the others', async ({ page, api }) => {
+  test.fail()
+
   const calendar = new CalendarPage(page)
 
   // A different week on every attempt, and this is the one write `perAttempt()`

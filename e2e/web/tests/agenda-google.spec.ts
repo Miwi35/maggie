@@ -136,6 +136,16 @@ test.describe('Importing the Google calendar', () => {
     await calendar.open()
     await calendar.importFromGoogle(GOOGLE_AGENDA)
 
+    // The import answers 201 and the sidebar refetches at once — but `/api/agendas`
+    // is served from Elasticsearch, so the new agenda exists before it is listable
+    // and that one refetch reads the old list. Nothing refetches again, so the row
+    // never appears on its own: the index is waited for, then the page is reloaded.
+    // Rule 4 of this harness's README, which this test had to learn twice.
+    await waitForIndexed<StoredAgenda>(api, '/api/agendas', (agenda) => agenda.name === GOOGLE_AGENDA, {
+      what: `The imported agenda "${GOOGLE_AGENDA}"`,
+    })
+    await calendar.open()
+
     await expect(calendar.agendaRow(GOOGLE_AGENDA), 'the imported agenda is not in the sidebar').toBeVisible()
 
     // The initial pull is dispatched asynchronously, so the event arrives through
@@ -225,6 +235,16 @@ test.describe('Importing the Google calendar', () => {
     await calendar.open()
     await calendar.importFromGoogle(GOOGLE_AGENDA)
 
+    // Same wait and reload as the test above: the sidebar reads an indexed
+    // collection, so the row it is about only appears on a view built after the
+    // index caught up. Without it this test would fail on the lag rather than on
+    // the field it is marked for, and would keep "failing as expected" the day
+    // MAG-148 is fixed.
+    await waitForIndexed<StoredAgenda>(api, '/api/agendas', (agenda) => agenda.name === GOOGLE_AGENDA, {
+      what: `The imported agenda "${GOOGLE_AGENDA}"`,
+    })
+    await calendar.open()
+
     await expect
       .poll(async () => (await agendas(api)).find((agenda) => agenda.name === GOOGLE_AGENDA)?.googleSynced, {
         timeout: 30_000,
@@ -253,8 +273,16 @@ test.describe('Importing the Google calendar', () => {
  * Asserted on the call rather than on the agenda, for the reason the MAG-148 test
  * above spells out: `googleCalendarId` is not in the indexed document, so the API
  * answers the same thing before and after.
+ *
+ * Expected to fail, and the call never happens — MAG-171. `handleExportToGoogle`
+ * posts `{agendaId: agendaMenuTarget.id}`, and react-admin's Hydra provider puts the
+ * *IRI* in `id`; the controller then looks that up as a ULID and answers 500. So
+ * exporting an agenda from the web has never worked. The menu, the agenda and the
+ * sidebar it walks through are driven unmarked by the import test above.
  */
 test('exporting an agenda to Google creates a calendar for it', async ({ page, api, playwright }) => {
+  test.fail()
+
   const name = `${EXPORTED_PREFIX} ${test.info().retry}`
 
   // A run of the suite against a stack nobody reseeded would otherwise leave the row
