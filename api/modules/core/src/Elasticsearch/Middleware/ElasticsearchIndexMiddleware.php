@@ -8,6 +8,7 @@ use Maggie\Core\Contract\IndexableInterface;
 use Maggie\Core\Elasticsearch\IndexMetadataReader;
 use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
 use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
+use Maggie\Core\Identifier\CanonicalId;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Component\Messenger\Envelope;
@@ -91,7 +92,7 @@ final class ElasticsearchIndexMiddleware implements MiddlewareInterface
 
         $this->bus->dispatch(new DeleteDocumentCommand(
             indexName: $indexName,
-            documentId: $message->$idProp,
+            documentId: CanonicalId::of($message->$idProp),
         ));
     }
 

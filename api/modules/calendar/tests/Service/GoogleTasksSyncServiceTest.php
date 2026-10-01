@@ -9,11 +9,14 @@ use Maggie\Calendar\Repository\TaskRepository;
 use Maggie\Calendar\Service\GoogleTaskMapper;
 use Maggie\Calendar\Service\GoogleTasksApiClient;
 use Maggie\Calendar\Service\GoogleTasksSyncService;
+use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
 use Maggie\Core\Entity\User;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\Mercure\HubInterface;
 use Symfony\Component\Mercure\Update;
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Uid\Ulid;
 
 class GoogleTasksSyncServiceTest extends TestCase
@@ -21,6 +24,9 @@ class GoogleTasksSyncServiceTest extends TestCase
     /** @var Update[] */
     private array $publishedUpdates = [];
     private HubInterface $hub;
+    private MessageBusInterface $bus;
+    /** @var object[] */
+    private array $dispatched = [];
     private GoogleTasksApiClient $apiClient;
     private GoogleTaskMapper $taskMapper;
     private TaskRepository $taskRepository;
@@ -29,6 +35,13 @@ class GoogleTasksSyncServiceTest extends TestCase
     protected function setUp(): void
     {
         $this->publishedUpdates = [];
+        $this->dispatched = [];
+        $this->bus = $this->createMock(MessageBusInterface::class);
+        $this->bus->method('dispatch')->willReturnCallback(function (object $message) {
+            $this->dispatched[] = $message;
+
+            return new Envelope($message);
+        });
         $this->hub = $this->createMock(HubInterface::class);
         $this->hub->method('publish')->willReturnCallback(function (Update $update) {
             $this->publishedUpdates[] = $update;
@@ -50,6 +63,7 @@ class GoogleTasksSyncServiceTest extends TestCase
             $this->taskRepository,
             $this->entityManager,
             $this->hub,
+            $this->bus,
             new NullLogger(),
         );
     }
@@ -179,5 +193,41 @@ class GoogleTasksSyncServiceTest extends TestCase
         $service->pushTaskToGoogle($task, ['completedAt']);
 
         self::assertSame('"new-etag"', $task->getGoogleTaskEtag());
+    }
+
+    public function testPullRemovesDeletedGoogleTasksFromTheIndex(): void
+    {
+        $user = $this->createGoogleUser();
+
+        $googleTask = new GoogleTask();
+        $googleTask->setId('g-task-1');
+        $googleTask->setDeleted(true);
+
+        $deletedOnGoogle = new Task();
+        $deletedOnGoogle->setUser($user);
+        $deletedOnGoogle->setTitle('Gone on Google');
+        $deletedOnGoogle->setGoogleTaskId('g-task-1');
+        $deletedOnGoogle->setGoogleTaskListId('task-list-1');
+
+        $missingFromGoogle = new Task();
+        $missingFromGoogle->setUser($user);
+        $missingFromGoogle->setTitle('Absent from Google');
+        $missingFromGoogle->setGoogleTaskId('g-task-2');
+        $missingFromGoogle->setGoogleTaskListId('task-list-1');
+
+        $this->apiClient->method('listTasks')->willReturn([$googleTask]);
+        $this->taskRepository->method('findBy')->willReturn([$deletedOnGoogle, $missingFromGoogle]);
+
+        $this->createService()->pullFromGoogle($user);
+
+        $deleted = [];
+        foreach ($this->dispatched as $message) {
+            self::assertInstanceOf(DeleteDocumentCommand::class, $message);
+            $deleted[] = [$message->indexName, $message->documentId];
+        }
+        self::assertEqualsCanonicalizing([
+            ['tasks', (string) $deletedOnGoogle->getId()],
+            ['tasks', (string) $missingFromGoogle->getId()],
+        ], $deleted);
     }
 }

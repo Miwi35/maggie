@@ -24,3 +24,10 @@ Maggie\Calendar\Entity\Agenda:
     name: Autre utilisateur
     isDefault: false
     user: '@other_user'
+
+Maggie\Calendar\Entity\Event:
+  concert_event:
+    summary: Concert
+    startAt: '<(new \DateTimeImmutable("2026-03-15 20:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-03-15 22:00"))>'
+    agenda: '@concerts_agenda'

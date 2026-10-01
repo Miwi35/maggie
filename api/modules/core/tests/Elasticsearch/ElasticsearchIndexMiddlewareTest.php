@@ -131,6 +131,17 @@ class ElasticsearchIndexMiddlewareTest extends TestCase
         self::assertSame($eventId, $this->dispatched[0]->documentId);
     }
 
+    public function testDeleteWithNonCanonicalIdTargetsTheCanonicalDocumentId(): void
+    {
+        $eventId = (string) new Ulid();
+
+        $envelope = $this->received(new DeleteEventCommand(eventId: strtolower($eventId)));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack());
+
+        self::assertCount(1, $this->dispatched);
+        self::assertSame($eventId, $this->dispatched[0]->documentId);
+    }
+
     public function testNonCrudCommandDoesNotDispatch(): void
     {
         $envelope = $this->received(new PullFromGoogleCommand(agendaId: (string) new Ulid()));

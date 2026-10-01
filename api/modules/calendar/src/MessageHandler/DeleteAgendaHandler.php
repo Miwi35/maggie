@@ -4,9 +4,12 @@ namespace Maggie\Calendar\MessageHandler;
 
 use Maggie\Calendar\Message\DeleteAgendaCommand;
 use Maggie\Calendar\Repository\AgendaRepository;
+use Maggie\Calendar\Repository\EventRepository;
 use Maggie\Calendar\Service\GoogleCalendarApiClient;
 use Maggie\Calendar\UseCase\DeleteAgenda;
+use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 #[AsMessageHandler]
 class DeleteAgendaHandler
@@ -14,7 +17,9 @@ class DeleteAgendaHandler
     public function __construct(
         private readonly DeleteAgenda $deleteAgenda,
         private readonly AgendaRepository $agendaRepository,
+        private readonly EventRepository $eventRepository,
         private readonly GoogleCalendarApiClient $googleApiClient,
+        private readonly MessageBusInterface $messageBus,
     ) {
     }
 
@@ -50,6 +55,16 @@ class DeleteAgendaHandler
             }
         }
 
+        // The database cascade removes the agenda's events without any command of their own.
+        $eventIds = array_map(
+            fn ($event) => (string) $event->getId(),
+            $this->eventRepository->findBy(['agenda' => $agenda]),
+        );
+
         $this->deleteAgenda->execute($agenda);
+
+        foreach ($eventIds as $eventId) {
+            $this->messageBus->dispatch(new DeleteDocumentCommand(indexName: 'events', documentId: $eventId));
+        }
     }
 }
