@@ -21,7 +21,7 @@ Python FastAPI service. Separate from Symfony — consumes the API via MCP like 
 
 ## Data ownership
 - Memories and instructions: every repository read or write is filtered by `user_id`; an id belonging to another user behaves like an unknown id (same "not found" error, no leak). New per-user data follows the same rule and ships a two-user isolation test.
-- Skills (`/app/data/skills`) are **global**, shared by all users: accepted while Maggie has a single user. Multi-user means moving them to a per-user directory or table first (MAG-108).
+- Skills live in the `skill` table of `maggie_agent` (MAG-187), saved with the rest of the agent's data; the in-memory index (`skill_index.rebuild()`) is reloaded from it at startup. They are **global**, shared by all users: accepted while Maggie has a single user. Multi-user means adding a `user_id` to that table first (MAG-108).
 
 ## Dependencies
 - `uv` (astral-sh) for package management, not pip/poetry

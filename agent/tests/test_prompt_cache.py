@@ -40,9 +40,8 @@ class TestCacheTools:
 
 class TestGatewayPrefix:
     @staticmethod
-    def _gateway(tmp_path, memory: str = "") -> LLMGateway:
-        index = SkillIndex(tmp_path)
-        index.rebuild()
+    def _gateway(memory: str = "") -> LLMGateway:
+        index = SkillIndex()
         gateway = LLMGateway.__new__(LLMGateway)
         gateway.personality = PersonalityEngine()
         gateway.agent_memory = MagicMock(get_memory_context=AsyncMock(return_value=memory))
@@ -58,20 +57,20 @@ class TestGatewayPrefix:
             repo.get = AsyncMock(return_value=None)
             return await gateway._build_system_prompt("user-1", tools=[{"name": "list_events"}], **kwargs)
 
-    async def test_prefix_is_identical_when_date_and_memory_change(self, tmp_path):
+    async def test_prefix_is_identical_when_date_and_memory_change(self):
         first = await self._build(
-            self._gateway(tmp_path, memory="\n\nAllergie : noix"), "Nous sommes lundi, il est 9h."
+            self._gateway(memory="\n\nAllergie : noix"), "Nous sommes lundi, il est 9h."
         )
-        second = await self._build(self._gateway(tmp_path, memory=""), "Nous sommes mardi, il est 10h.")
+        second = await self._build(self._gateway(memory=""), "Nous sommes mardi, il est 10h.")
 
         assert first[0] == second[0]
         assert first[0]["cache_control"] == EPHEMERAL
         assert "Nous sommes" not in first[0]["text"]
         assert "Allergie : noix" not in first[0]["text"]
 
-    async def test_date_memory_and_preamble_follow_the_prefix(self, tmp_path):
+    async def test_date_memory_and_preamble_follow_the_prefix(self):
         blocks = await self._build(
-            self._gateway(tmp_path, memory="\n\nAllergie : noix"),
+            self._gateway(memory="\n\nAllergie : noix"),
             "Nous sommes lundi, il est 9h.",
             preamble="\n\nMode proaction.",
         )
@@ -172,12 +171,11 @@ class TestStreamingPrefix:
 
 
 class TestStreamingSystemPrompt:
-    async def test_active_contexts_and_date_go_after_the_cached_prefix(self, tmp_path):
+    async def test_active_contexts_and_date_go_after_the_cached_prefix(self):
         from app.db.context_model import ContextStatus
         from app.llm.streaming import StreamingGateway
 
-        index = SkillIndex(tmp_path)
-        index.rebuild()
+        index = SkillIndex()
         context = MagicMock(label="Courses", status=ContextStatus.ACTIVE)
 
         with (

@@ -15,6 +15,7 @@ from app.db.memory_model import Memory  # noqa: F401 — register model with Age
 from app.db.models import Message  # noqa: F401 — register model with AgentBase before create_all
 from app.db.personality_model import PersonalityConfig  # noqa: F401 — register model with AgentBase before create_all
 from app.db.proaction_repository import proaction_repo
+from app.db.skill_model import Skill  # noqa: F401 — register model with AgentBase before create_all
 from app.db.user_setting_model import UserSetting  # noqa: F401 — register model with AgentBase before create_all
 from app.mcp.client import mcp_client
 from app.queue import connection as queue_connection
@@ -46,9 +47,16 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Could not run agent database migrations: {e}")
 
-    # Build skill index from files
+    # Move skill files left in the old container directory into the database, then build the index from it
     try:
-        skill_index.rebuild()
+        imported = await skill_index.import_legacy_files()
+        if imported:
+            logger.info(f"Imported {imported} legacy skill files into the agent database")
+    except Exception as e:
+        logger.warning(f"Could not import legacy skill files: {e}")
+
+    try:
+        await skill_index.rebuild()
         logger.info(f"Skill index built: {len(skill_index.entries)} skills")
     except Exception as e:
         logger.warning(f"Could not build skill index: {e}")
