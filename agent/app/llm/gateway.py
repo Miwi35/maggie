@@ -6,9 +6,10 @@ from app.config import settings
 from app.db.message_repository import message_repo
 from app.llm.capabilities import generate_capability_summary
 from app.llm.client import create_llm_client, llm_configured
+from app.llm.contexts import active_contexts_section, resolve_context
 from app.llm.directives import behavior_directives_section
 from app.llm.prompt_cache import build_system
-from app.llm.runner import run_tool_loop
+from app.llm.runner import ITERATION_LIMIT_MESSAGE, run_tool_loop
 from app.llm.tools import ToolRouter
 from app.memory.agent_memory import AgentMemory
 from app.personality.engine import PersonalityEngine, current_datetime_line
@@ -50,7 +51,12 @@ class LLMGateway:
         # preferences as a reply does — and in the volatile block, not the cached
         # prefix, so « tutoie-moi » applies to the very next message (MAG-22).
         directives = await behavior_directives_section(user_id)
-        volatile = f"{memory_context}{directives}\n\n{current_datetime_line()}{preamble}"
+        # And what the open threads are about. A proaction used to run with none of it:
+        # the reminder arrived in a conversation it knew nothing of, so Maggie could
+        # neither refer to what was already decided nor speak in the thread's terms
+        # (MAG-14).
+        context_section = await active_contexts_section(user_id)
+        volatile = f"{memory_context}{directives}{context_section}\n\n{current_datetime_line()}{preamble}"
         return build_system(base + skill_context, volatile)
 
     async def _load_conversation_history(self, user_id: str) -> list[dict]:
@@ -79,9 +85,14 @@ class LLMGateway:
             return []
 
     async def proaction(self, prompt: str, user_id: str, *, silent: bool = False) -> dict:
-        """Execute a proaction prompt without conversation memory.
+        """Execute a proaction prompt, knowing what the open threads are about.
 
         Native tools (schedule_proaction, list_proactions) are available here.
+
+        The result carries a `context_id` in execution mode: the thread the message is
+        to be stored in, so the user's reply to a reminder stays in the same one
+        (MAG-14). It is `None` when there is nothing to attach — a silent planning run,
+        an empty answer, a run that gave up, a routing call that failed.
 
         Args:
             silent: If True, planning mode — output is an internal log, not sent to user.
@@ -102,7 +113,7 @@ class LLMGateway:
         messages = [{"role": "user", "content": prompt}]
 
         try:
-            return await run_tool_loop(
+            result = await run_tool_loop(
                 system_prompt,
                 messages,
                 tools,
@@ -119,6 +130,28 @@ class LLMGateway:
         except anthropic.APIConnectionError as e:
             logger.error(f"Proaction connection error: {e}")
             return {"response": "Unable to reach the AI service.", "tool_calls": []}
+
+        if not silent:
+            result["context_id"] = await self._resolve_proaction_context(result.get("response", ""), user_id)
+        return result
+
+    async def _resolve_proaction_context(self, response: str, user_id: str) -> str | None:
+        """The thread the proaction's message belongs to — one already open, or a new one.
+
+        A proaction is Maggie speaking first, so there is no user message to route: what
+        the router reads is the message she is about to send. A planning run never gets
+        here — its output is an internal log, and routing it would open a thread the user
+        never sees.
+
+        The two answers that are not a message get no thread either: nothing was said,
+        and `run_tool_loop`'s giving-up sentence is an English apology that would open a
+        thread labelled from it.
+        """
+        if not response.strip() or response == ITERATION_LIMIT_MESSAGE:
+            return None
+
+        resolution = await resolve_context(self.client, response, user_id)
+        return resolution["id"] if resolution else None
 
     async def chat(self, message: str, user_id: str, *, source: str = "chat") -> dict:
         """Process a chat message through Claude with MCP tool support."""

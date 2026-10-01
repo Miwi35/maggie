@@ -11,25 +11,6 @@ from app.llm.fake import FakeMessage, FakeStream, FakeTextBlock, FakeUsage
 from app.llm.streaming import StreamingGateway
 
 
-@pytest.fixture()
-def gateway():
-    """Create a StreamingGateway with mocked dependencies."""
-    with (
-        patch("app.llm.streaming.settings") as mock_settings,
-        patch("app.llm.streaming.message_repo"),
-        patch("app.llm.streaming.context_repo"),
-    ):
-        mock_settings.anthropic_api_key = "test-key"
-        mock_settings.anthropic_model = "claude-test"
-        mock_settings.max_conversation_history = 10
-        gw = StreamingGateway()
-        gw.client = MagicMock()
-        gw.personality = MagicMock()
-        gw.tool_router = MagicMock()
-        gw.agent_memory = MagicMock()
-        yield gw
-
-
 class TestStreamingGateway:
     """Test StreamingGateway event emission."""
 
@@ -56,7 +37,7 @@ class TestStreamingGateway:
     async def test_resolve_context_creates_new(self):
         """When no contexts exist, creates a new one."""
         with (
-            patch("app.llm.streaming.context_repo") as mock_repo,
+            patch("app.llm.contexts.context_repo") as mock_repo,
             patch("app.llm.streaming.message_repo") as mock_msg_repo,
         ):
             mock_repo.find_active = AsyncMock(return_value=[])
@@ -88,7 +69,7 @@ class TestStreamingGateway:
     async def test_resolve_context_matches_existing(self):
         """When an existing context matches, returns it."""
         with (
-            patch("app.llm.streaming.context_repo") as mock_repo,
+            patch("app.llm.contexts.context_repo") as mock_repo,
             patch("app.llm.streaming.message_repo") as mock_msg_repo,
         ):
             existing = MagicMock()
@@ -118,7 +99,7 @@ class TestStreamingGateway:
     @pytest.mark.asyncio
     async def test_resolve_context_returns_none_on_error(self):
         """On LLM error, returns None gracefully."""
-        with patch("app.llm.streaming.context_repo") as mock_repo:
+        with patch("app.llm.contexts.context_repo") as mock_repo:
             mock_repo.find_active = AsyncMock(return_value=[])
 
             gw = StreamingGateway()
@@ -141,7 +122,7 @@ class TestStreamingGateway:
     async def test_resolve_context_carries_the_summary(self):
         """The Mind panel replaces the whole context on this event — a missing summary erases it (MAG-11)."""
         with (
-            patch("app.llm.streaming.context_repo") as mock_repo,
+            patch("app.llm.contexts.context_repo") as mock_repo,
             patch("app.llm.streaming.message_repo") as mock_msg_repo,
         ):
             existing = MagicMock()
@@ -167,7 +148,7 @@ class TestStreamingGateway:
     @pytest.mark.asyncio
     async def test_resolve_context_new_has_no_summary_yet(self):
         with (
-            patch("app.llm.streaming.context_repo") as mock_repo,
+            patch("app.llm.contexts.context_repo") as mock_repo,
             patch("app.llm.streaming.message_repo") as mock_msg_repo,
         ):
             mock_repo.find_active = AsyncMock(return_value=[])
@@ -200,7 +181,7 @@ def _context(label: str, summary: str | None = None, status: ContextStatus = Con
 async def _system_blocks(contexts: list) -> list[dict]:
     """The system blocks the gateway would send, with everything but the contexts emptied."""
     with (
-        patch("app.llm.streaming.context_repo") as repo,
+        patch("app.llm.contexts.context_repo") as repo,
         patch("app.llm.streaming.skill_index") as skills,
         patch("app.llm.streaming.behavior_directives_section", AsyncMock(return_value="")),
     ):
@@ -282,7 +263,7 @@ class TestSummaryTrigger:
             await release.wait()
 
         with (
-            patch("app.llm.streaming.context_repo") as contexts,
+            patch("app.llm.contexts.context_repo") as contexts,
             patch("app.llm.streaming.message_repo") as messages,
             patch("app.llm.streaming.skill_index") as skills,
             patch("app.llm.streaming.context_summarizer") as summarizer,
@@ -307,7 +288,7 @@ class TestSummaryTrigger:
 
     async def test_it_summarizes_the_thread_the_exchange_landed_in(self):
         with (
-            patch("app.llm.streaming.context_repo") as contexts,
+            patch("app.llm.contexts.context_repo") as contexts,
             patch("app.llm.streaming.message_repo") as messages,
             patch("app.llm.streaming.skill_index") as skills,
             patch("app.llm.streaming.context_summarizer") as summarizer,
@@ -327,7 +308,7 @@ class TestSummaryTrigger:
 
     async def test_a_run_with_no_context_summarizes_nothing(self):
         with (
-            patch("app.llm.streaming.context_repo") as contexts,
+            patch("app.llm.contexts.context_repo") as contexts,
             patch("app.llm.streaming.message_repo") as messages,
             patch("app.llm.streaming.skill_index") as skills,
             patch("app.llm.streaming.context_summarizer") as summarizer,

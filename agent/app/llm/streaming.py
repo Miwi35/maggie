@@ -11,12 +11,12 @@ from datetime import UTC, datetime
 import anthropic
 
 from app.config import settings
-from app.db.context_model import ContextStatus
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
 from app.llm.capabilities import generate_capability_summary
 from app.llm.client import create_llm_client, llm_configured
 from app.llm.context_summary import context_summarizer
+from app.llm.contexts import active_contexts_section, resolve_context
 from app.llm.directives import behavior_directives_section
 from app.llm.prompt_cache import build_system, cache_tools
 from app.llm.tools import ToolRouter
@@ -26,10 +26,6 @@ from app.personality.engine import PersonalityEngine, current_datetime_line
 from app.skills.index import skill_index
 
 logger = logging.getLogger(__name__)
-
-# How many open threads carry their summary into the system prompt. Beyond this the
-# label alone goes in: a summary is ~5 lines, and the owner can have a dozen threads open.
-MAX_SUMMARIZED_CONTEXTS = 5
 
 
 class StreamingGateway:
@@ -63,23 +59,8 @@ class StreamingGateway:
         directives = await behavior_directives_section(user_id)
 
         # Inject active contexts so Claude knows ongoing topics — with what each one is
-        # about, for the threads whose summary has been written (MAG-11). This is what a
-        # thread older than `max_conversation_history` leaves behind: without it, a
-        # context the conversation has moved on from is a label and nothing else.
-        active_contexts = await context_repo.find_active(user_id)
-        context_section = ""
-        if active_contexts:
-            lines = ["\n\nContextes de conversation en cours :"]
-            for rank, ctx in enumerate(active_contexts):
-                status_icon = "●" if ctx.status == ContextStatus.ACTIVE else "◐"
-                lines.append(f"- {status_icon} {ctx.label} ({ctx.status.value})")
-                # Every open thread keeps its label — the list is what tells Maggie a
-                # subject is still open. Only the most recently spoken-in ones carry
-                # their summary with them, because that is where the tokens are and
-                # `find_active` already orders by `updated_at`.
-                if ctx.summary and rank < MAX_SUMMARIZED_CONTEXTS:
-                    lines.append(f"  Résumé : {ctx.summary}")
-            context_section = "\n".join(lines)
+        # about, for the threads whose summary has been written (MAG-11).
+        context_section = await active_contexts_section(user_id)
 
         volatile = f"{memory_context}{directives}{context_section}\n\n{current_datetime_line()}"
         return build_system(base + skill_context, volatile)
@@ -334,97 +315,23 @@ class StreamingGateway:
         yield {"type": "RUN_FINISHED", "runId": run_id}
 
     async def _resolve_context(self, message: str, user_id: str, user_msg_id: str) -> dict | None:
-        """Fast LLM call to route a message to an existing or new context.
+        """Route the user's message to an existing or new context, and tag the message with it.
 
-        Returns a dict with context info for the frontend, or None on failure.
+        The routing itself is `app.llm.contexts.resolve_context`, shared with the
+        proaction path (MAG-14). What belongs to this path is the tagging: the user's
+        message is already stored when the stream opens, so the thread it lands in is
+        written on it afterwards.
         """
-        if self.client is None:
+        resolution = await resolve_context(self.client, message, user_id)
+        if resolution is None:
             return None
 
-        contexts = await context_repo.find_active(user_id)
-        now = datetime.now(UTC)
-        context_lines = []
-        for ctx in contexts:
-            idle = now - ctx.updated_at
-            if idle.total_seconds() < 60:
-                age = "à l'instant"
-            elif idle.total_seconds() < 3600:
-                age = f"il y a {int(idle.total_seconds() // 60)}min"
-            elif idle.total_seconds() < 86400:
-                age = f"il y a {int(idle.total_seconds() // 3600)}h"
-            else:
-                age = f"il y a {int(idle.days)}j"
-            context_lines.append(f'- id="{ctx.id}" label="{ctx.label}" dernière activité={age}')
-
-        context_list = "\n".join(context_lines) if context_lines else "(aucun)"
-
+        # A tag that could not be written costs the thread one message — the summary
+        # reads `context_id` — but the context itself is resolved, and the answer about
+        # to stream will carry it. Not a reason to run the rest of the turn without one.
         try:
-            t0 = time.monotonic()
-            response = await self.client.messages.create(
-                model=settings.anthropic_fast_model,
-                max_tokens=200,
-                system=(
-                    "Tu es un routeur de contexte. Analyse le message et les contextes existants.\n"
-                    "Réponds UNIQUEMENT avec un JSON valide, sans explication :\n"
-                    '- Si le message correspond à un contexte existant : {"context_id": "<id>"}\n'
-                    '- Si c\'est un nouveau sujet : {"context_id": null, "label": "<label court>"}\n'
-                    "Le label doit être court (3-5 mots max), en français.\n"
-                    "Préfère les contextes récents, mais un ancien contexte reste valide si le sujet correspond."
-                ),
-                messages=[
-                    {
-                        "role": "user",
-                        "content": (f"Contextes existants :\n{context_list}\n\nMessage : {message}"),
-                    }
-                ],
-            )
-            duration = time.monotonic() - t0
-            record_llm_usage(
-                model=settings.anthropic_fast_model,
-                call_type="context_resolve",
-                input_tokens=response.usage.input_tokens,
-                output_tokens=response.usage.output_tokens,
-                duration_seconds=duration,
-            )
-
-            # Parse response
-            text = response.content[0].text.strip()
-            # Handle markdown-wrapped JSON
-            if text.startswith("```"):
-                text = text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
-            result = json.loads(text)
-
-            context_id = result.get("context_id")
-            # The id comes from the model, not from us: only one of this user's own
-            # contexts may be written on the message. Anything else — a hallucinated id,
-            # one copied from another user's thread — is a new topic (MAG-203).
-            existing = next((c for c in contexts if str(c.id) == str(context_id)), None) if context_id else None
-            if context_id and existing is None:
-                logger.warning(f"Context router returned an id outside the user's contexts: {context_id!r}")
-                context_id = None
-            if context_id:
-                # Existing context — tag message and return
-                await message_repo.update_context(user_msg_id, str(existing.id))
-                label = existing.label
-                logger.info(f"Context resolved: existing '{label}' ({context_id})")
-                # The summary travels with the event: the Mind panel replaces the whole
-                # context when one arrives, so leaving it out would blank the line the
-                # panel is showing on the very next message (MAG-11).
-                return {
-                    "action": "matched",
-                    "id": str(existing.id),
-                    "label": label,
-                    "status": "active",
-                    "summary": existing.summary,
-                }
-            else:
-                # New context
-                label = result.get("label") or message[:60]
-                ctx = await context_repo.create(user_id, label)
-                await message_repo.update_context(user_msg_id, str(ctx.id))
-                logger.info(f"Context resolved: new '{label}' -> {ctx.id}")
-                return {"action": "created", "id": str(ctx.id), "label": label, "status": "active", "summary": None}
-
+            await message_repo.update_context(user_msg_id, resolution["id"])
         except Exception as e:
-            logger.warning(f"Context resolution failed, continuing without context: {e}")
-            return None
+            logger.warning(f"Could not tag message {user_msg_id} with its context: {e}")
+
+        return resolution

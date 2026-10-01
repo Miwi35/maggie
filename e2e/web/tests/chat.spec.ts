@@ -76,6 +76,12 @@ const RECALL = {
 /** 80-proaction-bin-night.yaml — what a scheduled proaction would say. */
 const PROACTION = { prompt: 'Rappelle-lui de sortir les poubelles', message: 'Petit rappel : les poubelles sortent ce soir.' }
 
+/** 81-proaction-thread-recall.yaml — only answerable once the thread summaries reach a proaction. */
+const PROACTION_RECALL = {
+  prompt: 'Fais le point sur sa semaine',
+  message: 'Tu organises ta semaine avec moi — je te relance là-dessus.',
+}
+
 /** 60-behavior-preference.yaml + 61-behavior-applied.yaml — a preference about how she answers. */
 const BEHAVIOR = {
   request: 'Tutoie-moi et évite les emojis',
@@ -242,11 +248,11 @@ test('a proaction reaches an open chat without anyone reloading', async ({ page,
   await openSubscribed(page, () => dashboard.open(), `/chat/${session.user.id}`)
   await chat.open()
 
-  // `POST /agent/proaction` is what the scheduler calls: no conversation
-  // history, no context routing, and the answer is persisted *and published*
-  // — unlike the streamed path, where the client already holds it. That
-  // publication is the only thing under test here, which is why the scenario
-  // calls no tool.
+  // `POST /agent/proaction` is what the scheduler calls: the answer is
+  // persisted *and published* — unlike the streamed path, where the client
+  // already holds it. That publication is the only thing under test here,
+  // which is why the scenario calls no tool. What the proaction knows of the
+  // conversation, and the thread it lands in, is the last test in this file.
   await expectRealtimeSync(
     page,
     async () => {
@@ -437,4 +443,50 @@ test('a preference about how Maggie answers is stored, then applied to the next 
   ).toBe(false)
   expect(answer).toContain(BEHAVIOR.answer)
   await expect(chat.bubbles(BEHAVIOR.answer)).toHaveCount(1)
+})
+
+interface AgentMessage {
+  content: string
+  contextId?: string | null
+}
+
+/**
+ * MAG-14, and last in the file for the same reason as the summary test: it needs
+ * a thread Maggie has already summarized, and everything above is that thread.
+ *
+ * A proaction used to run with no history and be stored with no thread. Two
+ * halves, and neither is observable from her wording alone:
+ *
+ *  - what she knows. The proaction's system prompt is not reachable from a
+ *    browser, so the proof is a scenario that *cannot match* unless the open
+ *    threads' summaries are in it (`system_contains`,
+ *    81-proaction-thread-recall.yaml).
+ *  - where it lands. The message comes back from the endpoint with the thread it
+ *    was stored in, and that thread has to be one of the user's open ones — a
+ *    reply to the reminder is then routed against the same conversation instead
+ *    of opening a context of its own.
+ */
+test('a proaction is written from the thread in progress, and stored in it', async ({ api }) => {
+  const fired = await api.post('/agent/proaction', { data: { message: PROACTION_RECALL.prompt } })
+  expect(fired.status(), `the proaction failed: ${await fired.text()}`).toBe(200)
+
+  const body = (await fired.json()) as { response: string; messages: AgentMessage[] }
+  expect(
+    isUnscripted(body.response),
+    `the thread summaries never reached the proaction — Maggie said: ${body.response}`,
+  ).toBe(false)
+  expect(body.response).toContain(PROACTION_RECALL.message)
+
+  // The thread it was stored in. `null` here is the bug: the message would be an
+  // orphan in the conversation, and the Mind panel would show a thread that never
+  // heard Maggie speak.
+  const [stored] = body.messages
+  expect(stored?.content).toContain(PROACTION_RECALL.message)
+  expect(stored?.contextId, 'the proaction was stored outside any thread').toBeTruthy()
+
+  // And it is one of the user's own open threads, not an id from nowhere.
+  const contexts = await api.get('/agent/contexts')
+  expect(contexts.status(), 'the contexts endpoint refused the journey').toBe(200)
+  const open = (await contexts.json()) as Array<{ id: string }>
+  expect(open.map((context) => context.id)).toContain(stored?.contextId)
 })

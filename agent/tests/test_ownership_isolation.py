@@ -166,9 +166,9 @@ class TestContextRouterIsolation:
         gateway, context_repo, message_repo = self._router('{"context_id": "ctx-neighbour"}')
 
         with (
-            patch("app.llm.streaming.context_repo", context_repo),
+            patch("app.llm.contexts.context_repo", context_repo),
             patch("app.llm.streaming.message_repo", message_repo),
-            caplog.at_level("WARNING", logger="app.llm.streaming"),
+            caplog.at_level("WARNING", logger="app.llm.contexts"),
         ):
             result = await gateway._resolve_context("Où en est mon budget ?", OWNER, "msg-1")
 
@@ -183,7 +183,7 @@ class TestContextRouterIsolation:
         gateway, context_repo, message_repo = self._router('{"context_id": "made-up", "label": "Budget"}')
 
         with (
-            patch("app.llm.streaming.context_repo", context_repo),
+            patch("app.llm.contexts.context_repo", context_repo),
             patch("app.llm.streaming.message_repo", message_repo),
         ):
             result = await gateway._resolve_context("Où en est mon budget ?", OWNER, "msg-1")
@@ -196,7 +196,7 @@ class TestContextRouterIsolation:
         gateway, context_repo, message_repo = self._router('{"context_id": "ctx-owner"}')
 
         with (
-            patch("app.llm.streaming.context_repo", context_repo),
+            patch("app.llm.contexts.context_repo", context_repo),
             patch("app.llm.streaming.message_repo", message_repo),
         ):
             result = await gateway._resolve_context("Et du beurre", OWNER, "msg-1")

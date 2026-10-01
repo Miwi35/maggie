@@ -70,7 +70,7 @@ because otherwise they would fall through to "no scenario":
 
 | Call | Matched on |
 |---|---|
-| Context routing, before every streamed message | `system_contains: routeur de contexte` |
+| Context routing, before every streamed message and after every proaction | `system_contains: routeur de contexte` |
 | Thread summary, once a thread has grown by `CONTEXT_SUMMARY_EVERY_MESSAGES` | `system_contains: tu résumes un fil de conversation` |
 | Transcript cleanup, after Whisper | `user_contains: assistant de transcription` |
 | A proaction (`POST /agent/proaction`) | the prompt it was scheduled with |
@@ -87,9 +87,14 @@ stored and injected the same way, and is proved the same way:
 `61-behavior-applied.yaml` declares that sentence as its `system_contains`, so
 it can only answer once the preference really is in front of the model.
 
-A proaction is the one entry point with no context routing and no conversation
-history: the prompt is the whole request. `80-proaction-bin-night.yaml` is the
-one the chat journey triggers.
+A proaction has no conversation history of its own — the prompt is the whole
+request — but it does read the open threads' summaries, and the message it
+produces is routed into a thread like any other (MAG-14). So it costs two calls:
+the proaction itself, then the router on what it wrote.
+`80-proaction-bin-night.yaml` is the one the chat journey triggers for delivery;
+`81-proaction-thread-recall.yaml` declares the thread summary's own text as its
+`system_contains`, and is therefore the proof that the summaries reach a
+proaction at all.
 
 The transcript cleanup pairs with the WireMock Whisper stub: that stub returns
 one fixed sentence, and `20-transcription-cleanup.yaml` returns it cleaned. Change

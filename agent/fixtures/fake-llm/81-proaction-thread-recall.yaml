@@ -1,0 +1,22 @@
+# Unreachable unless the open threads' summaries reach a proaction (MAG-14).
+#
+# Same trick as 71-context-summary-recall.yaml, on the other gateway: a proaction
+# used to run with no history at all, so Maggie spoke first without knowing what
+# the conversation she was interrupting was about. `system_contains` is matched
+# on the system prompt `LLMGateway._build_system_prompt` actually sends, so this
+# file can only answer once the thread summaries are in it — and the journey
+# fails on the `[fake-llm] aucun scénario…` sentence rather than on a plausible
+# reminder if they are not.
+#
+# Its own routing call is answered by 10-context-router-existing.yaml: the text
+# below is handed to the router, which places it in a thread already open. That
+# is what makes the reply to a reminder stay in the same conversation.
+name: proaction-thread-recall
+description: A proaction written from the summary of the thread in progress.
+
+match:
+  user_contains: "fais le point"
+  system_contains: "résumé e2e : l'utilisateur organise sa semaine"
+
+turns:
+  - text: "Tu organises ta semaine avec moi — je te relance là-dessus."
