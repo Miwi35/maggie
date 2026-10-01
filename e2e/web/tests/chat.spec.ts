@@ -490,3 +490,35 @@ test('a proaction is written from the thread in progress, and stored in it', asy
   const open = (await contexts.json()) as Array<{ id: string }>
   expect(open.map((context) => context.id)).toContain(stored?.contextId)
 })
+
+/** 62-last-exchange-known.yaml — only answerable once the last conversation is in the system prompt. */
+const LAST_EXCHANGE = {
+  question: "Combien de temps s'est écoulé depuis notre dernier échange ?",
+  answer: 'Rebonjour ! On a parlé il y a quelques instants, je te laisse reprendre le fil.',
+}
+
+/**
+ * MAG-10: the hour to the minute and the last conversation reach her system prompt.
+ *
+ * Not observable from her wording, so the proof is a scenario that cannot match
+ * unless the « Dernière conversation : … » line is in the system prompt
+ * (`system_contains`, 62-last-exchange-known.yaml). Last in the file: it needs
+ * earlier messages to exist, and everything above is what wrote them. And the
+ * message being answered must not be taken for the last conversation — with it,
+ * the line would exist on a first message too, which the unit tests pin.
+ */
+test('Maggie is told when the last conversation happened', async ({ page }) => {
+  const dashboard = new DashboardPage(page)
+  await dashboard.open()
+
+  const chat = new ChatPanel(page)
+  const events = await chat.send(LAST_EXCHANGE.question)
+
+  const answer = assistantText(events)
+  expect(
+    isUnscripted(answer),
+    `the last conversation never reached the system prompt — Maggie said: ${answer}`,
+  ).toBe(false)
+  expect(answer).toContain(LAST_EXCHANGE.answer)
+  await expect(chat.bubbles(LAST_EXCHANGE.answer)).toHaveCount(1)
+})

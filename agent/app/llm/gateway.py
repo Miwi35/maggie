@@ -8,6 +8,7 @@ from app.llm.capabilities import generate_capability_summary
 from app.llm.client import create_llm_client, llm_configured
 from app.llm.contexts import active_contexts_section, resolve_context
 from app.llm.directives import behavior_directives_section
+from app.llm.last_exchange import last_exchange_section
 from app.llm.prompt_cache import build_system
 from app.llm.runner import ITERATION_LIMIT_MESSAGE, run_tool_loop
 from app.llm.tools import ToolRouter
@@ -40,7 +41,12 @@ class LLMGateway:
         self.agent_memory = AgentMemory()
 
     async def _build_system_prompt(
-        self, user_id: str, tools: list[dict] | None = None, preamble: str = ""
+        self,
+        user_id: str,
+        tools: list[dict] | None = None,
+        preamble: str = "",
+        *,
+        exclude_message_id: str | None = None,
     ) -> list[dict]:
         """Build the system blocks: cached prefix (personality + skills), then memory, directives, date, preamble."""
         capabilities = generate_capability_summary(tools) if tools else ""
@@ -56,7 +62,10 @@ class LLMGateway:
         # neither refer to what was already decided nor speak in the thread's terms
         # (MAG-14).
         context_section = await active_contexts_section(user_id)
-        volatile = f"{memory_context}{directives}{context_section}\n\n{current_datetime_line()}{preamble}"
+        # How long since the chat last moved, so a proaction or an answer can greet by the gap (MAG-10).
+        last_exchange = await last_exchange_section(user_id, exclude_message_id=exclude_message_id)
+        now = current_datetime_line()
+        volatile = f"{memory_context}{directives}{context_section}\n\n{now}{last_exchange}{preamble}"
         return build_system(base + skill_context, volatile)
 
     async def _load_conversation_history(self, user_id: str) -> list[dict]:
@@ -153,8 +162,13 @@ class LLMGateway:
         resolution = await resolve_context(self.client, response, user_id)
         return resolution["id"] if resolution else None
 
-    async def chat(self, message: str, user_id: str, *, source: str = "chat") -> dict:
-        """Process a chat message through Claude with MCP tool support."""
+    async def chat(
+        self, message: str, user_id: str, *, source: str = "chat", exclude_message_id: str | None = None
+    ) -> dict:
+        """Process a chat message through Claude with MCP tool support.
+
+        `exclude_message_id` is the user's message when the caller has already stored it.
+        """
         if self.client is None:
             return {
                 "response": (
@@ -178,7 +192,7 @@ class LLMGateway:
         tools = await self.tool_router.get_tool_definitions(include_native=True, source=source)
 
         try:
-            system_prompt = await self._build_system_prompt(user_id, tools=tools)
+            system_prompt = await self._build_system_prompt(user_id, tools=tools, exclude_message_id=exclude_message_id)
             return await run_tool_loop(
                 system_prompt,
                 messages,

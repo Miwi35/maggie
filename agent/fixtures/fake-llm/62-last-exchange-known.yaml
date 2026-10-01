@@ -1,0 +1,20 @@
+# Unreachable unless the last conversation is in the system prompt (MAG-10).
+#
+# The only assertion a journey can make about the injection: `system_contains` is
+# matched on the system prompt Maggie is actually sent, so this scenario can only
+# answer once `_build_system_prompt` has put the « Dernière conversation : … » line
+# there. A line computed but never injected leaves this file unmatched, and the
+# journey fails on the `[fake-llm] aucun scénario…` sentence instead of on a
+# plausible answer.
+#
+# Numbered after the context router (10, 11) so the routing call — whose user
+# text quotes the message, this one included — is placed first.
+name: last-exchange-known
+description: Greet the user back, read from the last-conversation line of the system prompt.
+
+match:
+  user_contains: "depuis notre dernier échange"
+  system_contains: "dernière conversation : "
+
+turns:
+  - text: "Rebonjour ! On a parlé il y a quelques instants, je te laisse reprendre le fil."

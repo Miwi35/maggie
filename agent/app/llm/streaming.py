@@ -18,6 +18,7 @@ from app.llm.client import create_llm_client, llm_configured
 from app.llm.context_summary import context_summarizer
 from app.llm.contexts import active_contexts_section, resolve_context
 from app.llm.directives import behavior_directives_section
+from app.llm.last_exchange import last_exchange_section
 from app.llm.prompt_cache import build_system, cache_tools
 from app.llm.tools import ToolRouter
 from app.memory.agent_memory import AgentMemory
@@ -46,7 +47,9 @@ class StreamingGateway:
         self._background.add(task)
         task.add_done_callback(self._background.discard)
 
-    async def _build_system_prompt(self, user_id: str, tools: list[dict] | None = None) -> list[dict]:
+    async def _build_system_prompt(
+        self, user_id: str, tools: list[dict] | None = None, *, exclude_message_id: str | None = None
+    ) -> list[dict]:
         """Build the system blocks: cached prefix (personality + skills), then memory, directives, contexts, date."""
         capabilities = generate_capability_summary(tools) if tools else ""
         base = await self.personality.get_system_prompt(user_id, capabilities=capabilities)
@@ -62,7 +65,10 @@ class StreamingGateway:
         # about, for the threads whose summary has been written (MAG-11).
         context_section = await active_contexts_section(user_id)
 
-        volatile = f"{memory_context}{directives}{context_section}\n\n{current_datetime_line()}"
+        # The silence before this message, so she can greet by the gap (MAG-10).
+        last_exchange = await last_exchange_section(user_id, exclude_message_id=exclude_message_id)
+
+        volatile = f"{memory_context}{directives}{context_section}\n\n{current_datetime_line()}{last_exchange}"
         return build_system(base + skill_context, volatile)
 
     async def _load_conversation_history(self, user_id: str) -> list[dict]:
@@ -114,7 +120,7 @@ class StreamingGateway:
         # Get tools (contexts are managed by the gateway, not by Claude)
         tools = await self.tool_router.get_tool_definitions(include_native=True)
 
-        system_prompt = await self._build_system_prompt(user_id, tools=tools)
+        system_prompt = await self._build_system_prompt(user_id, tools=tools, exclude_message_id=user_msg_id)
         cached_tools = cache_tools(tools)
 
         accumulated_text = ""
