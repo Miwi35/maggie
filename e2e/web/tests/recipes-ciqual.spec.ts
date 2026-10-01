@@ -23,12 +23,9 @@ import { ROUTES } from '../pages/routes.js'
  *   the form      the admin has to send that code *in the ingredient row*.
  *
  * The service works and is asserted here. The form used to write the Ciqual
- * code to the root of the payload rather than to the row (MAG-173, fixed). The
- * API is what fails now: every Ciqual row first looks for an ingredient the
- * user already made from that code, that lookup binds the user without its
- * `ulid` type, Postgres refuses the query, and the recipe answers 500. That is MAG-191, and both
- * journeys below are written expected-to-fail rather than left out — they are
- * the fix's reproduction.
+ * code to the root of the payload rather than to the row (MAG-173, fixed), and
+ * the API's lookup of an ingredient already made from that code bound the user
+ * without its `ulid` type, so every Ciqual recipe answered 500 (MAG-191, fixed).
  *
  * Tag search is here too, because it is a recipe read and because MAG-114 § 2
  * is about it: a `LIKE` against a JSON column, which Postgres refuses outright,
@@ -88,12 +85,10 @@ test('the Ciqual service answers through the stack', async ({ api }) => {
   expect(found?.kcal_per100g, 'the food has no energy value — were compositions imported?').toBeGreaterThan(0)
 })
 
-// Expected to fail — MAG-191: `IngredientRepository::findOneByUserAndCiqualAlimCode`
-// binds the user without its `ulid` type, and the recipe answers 500.
-test.fail('a recipe created with a Ciqual code gets a real ingredient, macros and all — MAG-191', async ({ api }) => {
+test('a recipe created with a Ciqual code is saved, and the same code twice is not a 500', async ({ api }) => {
   // The API half of the chain, driven through the API on purpose, so that it
-  // cannot be red for the form's reason. The journey below covers the same
-  // chain from the browser.
+  // cannot be red for the form's reason. The ingredient itself is read back by
+  // the journey below and asserted against Postgres by `CreateRecipeHandlerTest`.
   const headers = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
   const name = perAttempt('Gratin MAG-101')
 
@@ -106,8 +101,36 @@ test.fail('a recipe created with a Ciqual code gets a real ingredient, macros an
       ingredients: [{ ciqualAlimCode: COURGETTE.code, quantity: 300, unit: 'g' }],
     },
   })
-
   expect(created.status(), `POST /api/recipes answered ${created.status()}: ${await created.text()}`).toBe(201)
+
+  // The second time the code is found already, which is the lookup MAG-191 broke.
+  const again = await api.post('/api/recipes', {
+    headers,
+    data: {
+      name: `${name} bis`,
+      servings: 2,
+      ingredients: [{ ciqualAlimCode: COURGETTE.code, quantity: 150, unit: 'g' }],
+    },
+  })
+  expect(again.status(), `the second POST answered ${again.status()}: ${await again.text()}`).toBe(201)
+
+  const stored = await waitForIndexed<StoredRecipe>(api, '/api/recipes?itemsPerPage=100', (recipe) => recipe.name === name, {
+    what: 'The new recipe',
+  })
+  expect(stored.tags).toEqual(['four'])
+})
+
+test('the ingredient made from a Ciqual code is listed, macros and all, and made once', async ({ api }) => {
+  const headers = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
+  const name = perAttempt('Gratin MAG-191')
+
+  for (const [suffix, quantity] of [['', 300], [' bis', 150]] as const) {
+    const created = await api.post('/api/recipes', {
+      headers,
+      data: { name: `${name}${suffix}`, servings: 2, ingredients: [{ ciqualAlimCode: COURGETTE.code, quantity, unit: 'g' }] },
+    })
+    expect(created.status(), `POST /api/recipes answered ${created.status()}: ${await created.text()}`).toBe(201)
+  }
 
   const ingredient = await waitForIndexed<StoredIngredient>(
     api,
@@ -123,19 +146,6 @@ test.fail('a recipe created with a Ciqual code gets a real ingredient, macros an
   // `fruits, légumes, …` contains "légume", which `mapCategory` reads as produce.
   expect(ingredient.category).toBe('produce')
 
-  // And asking for the same food twice reuses that ingredient instead of
-  // making a second one — `findOneByUserAndCiqualAlimCode` is what stops the
-  // cookbook filling up with duplicate courgettes.
-  const again = await api.post('/api/recipes', {
-    headers,
-    data: {
-      name: `${name} bis`,
-      servings: 2,
-      ingredients: [{ ciqualAlimCode: COURGETTE.code, quantity: 150, unit: 'g' }],
-    },
-  })
-  expect(again.status()).toBe(201)
-
   const all = await getCollection<StoredIngredient>(api, '/api/ingredients?itemsPerPage=100')
   expect(
     all.filter((candidate) => candidate.ciqualAlimCode === COURGETTE.code),
@@ -145,17 +155,16 @@ test.fail('a recipe created with a Ciqual code gets a real ingredient, macros an
 
 /**
  * The same thing from the browser, and the first bullet of MAG-101's own
- * description — expected to fail, naming MAG-191.
+ * description.
  *
- * The form half is fixed (MAG-173): the Ciqual autocomplete now writes the code
- * into its own row, and the payload reaches the API with it. The API then
- * answers 500 for the reason the test above names.
+ * The form half is fixed (MAG-173): the Ciqual autocomplete writes the code into
+ * its own row, and the API now accepts it (MAG-191).
  *
  * Asserted on the POST rather than on the screen: the admin answers a failed
  * create with a notification, and waiting for a recipe that is never written
  * would cost the journey thirty seconds to say the same thing.
  */
-test.fail('a recipe created from the form carries the Ciqual food picked — MAG-191', async ({ page, api }) => {
+test('a recipe created from the form carries the Ciqual food picked', async ({ page, api }) => {
   const name = perAttempt('Sauce tomate MAG-101')
   const shell = new AdminShell(page)
   await shell.goto(`${ROUTES.recipes}/create`)
@@ -193,13 +202,6 @@ test.fail('a recipe created from the form carries the Ciqual food picked — MAG
     what: 'The new recipe',
   })
   expect(stored.name).toBe(name)
-
-  await waitForIndexed<StoredIngredient>(
-    api,
-    '/api/ingredients?itemsPerPage=100',
-    (candidate) => candidate.ciqualAlimCode === TOMATO.code,
-    { what: 'The ingredient the form asked Ciqual for' },
-  )
 })
 
 test('asking Maggie for a tag searches the recipes instead of crashing', async ({ otherUser }) => {
