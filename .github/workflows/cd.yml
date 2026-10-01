@@ -285,7 +285,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: "infra/k8s/,infra/scripts/deploy-k3s.sh,infra/scripts/rollback-k3s.sh,infra/scripts/verify-digests.sh"
+          source: "infra/k8s/,infra/scripts/deploy-k3s.sh,infra/scripts/backup-k3s.sh,infra/scripts/rollback-k3s.sh,infra/scripts/verify-digests.sh"
           target: /opt/maggie/
 
       # Lets the rollback job tell "the deploy script ran and failed" from "it

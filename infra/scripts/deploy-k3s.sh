@@ -8,7 +8,7 @@ set -euo pipefail
 #
 # Philosophy mirrored from hilo/scripts/deploy-k3s.sh:
 #   1. Preflight   — shared services up
-#   2. Backup      — pg_dump before any change
+#   2. Backup      — pg_dump of both databases (API + agent) before any change
 #   3. Apply       — bump image tags in kustomization, kubectl apply -k
 #   4. Wait        — rollout status on every Maggie deployment
 #   5. Post-deploy — data repairs, migrations, ES mapping + reindex
@@ -23,7 +23,6 @@ TAG="${1:?Usage: deploy-k3s.sh <image-tag>}"
 NAMESPACE="maggie"
 SHARED_NS="shared"
 KUSTOMIZE_DIR="/opt/maggie/infra/k8s"
-BACKUP_DIR="${MAGGIE_BACKUP_DIR:-/opt/maggie/backups}"
 KUBECTL="${KUBECTL:-sudo k3s kubectl}"
 HEALTH_URL="https://maggieai.fr/api/docs"
 STATE_DIR="${MAGGIE_STATE_DIR:-/opt/maggie/state}"
@@ -64,28 +63,11 @@ done
 log "All shared services are ready."
 
 # === PHASE 2 : BACKUP ===
-log "Phase 2: Backing up database..."
+log "Phase 2: Backing up the API and agent databases..."
 
-mkdir -p "$BACKUP_DIR"
-DUMP_FILE="$BACKUP_DIR/maggie_predeploy_$(date +%Y%m%d_%H%M%S).sql.gz"
-
-DB_URL=$($KUBECTL get secret maggie-env -n "$NAMESPACE" -o jsonpath='{.data.DATABASE_URL}' | base64 -d)
-DB_USER=$(echo "$DB_URL" | sed -n 's|.*://\([^:]*\):.*|\1|p')
-DB_PASS=$(echo "$DB_URL" | sed -n 's|.*://[^:]*:\([^@]*\)@.*|\1|p')
-DB_NAME=$(echo "$DB_URL" | sed -n 's|.*/\([^?]*\).*|\1|p')
-
-PG_POD=$($KUBECTL get pod -n "$SHARED_NS" -l app=postgres -o jsonpath='{.items[0].metadata.name}')
-$KUBECTL exec -n "$SHARED_NS" "$PG_POD" -- sh -c "PGPASSWORD='$DB_PASS' pg_dump -U '$DB_USER' -d '$DB_NAME'" 2>/dev/null | gzip > "$DUMP_FILE"
-
-if [ ! -s "$DUMP_FILE" ]; then
-  rm -f "$DUMP_FILE"
-  fail "Database backup is empty or failed"
-fi
-
-log "Backup saved: $DUMP_FILE ($(du -h "$DUMP_FILE" | cut -f1))"
-
-# Rotation: keep last 10
-ls -1t "$BACKUP_DIR"/maggie_*.sql.gz 2>/dev/null | tail -n +11 | xargs -r rm --
+# Both databases (DATABASE_URL and AGENT_DATABASE_URL), one file each, an empty
+# dump aborting the deploy. Lives in its own script so it can be tested (MAG-188).
+bash "$(dirname "${BASH_SOURCE[0]}")/backup-k3s.sh" || fail "Database backup is empty or failed"
 
 # === PHASE 3 : APPLY MANIFESTS ===
 log "Phase 3: Updating image tags to $TAG (only when image exists on GHCR)..."

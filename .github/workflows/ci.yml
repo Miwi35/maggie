@@ -488,6 +488,7 @@ jobs:
         run: |
           bash infra/scripts/tests/smoke-prod.test.sh
           bash infra/scripts/tests/rollback-k3s.test.sh
+          bash infra/scripts/tests/backup-k3s.test.sh
           bash infra/scripts/tests/deploy-tickets.test.sh
           bash infra/scripts/tests/report-failed-deploy.test.sh
           bash infra/scripts/tests/release-emergency.test.sh
