@@ -46,9 +46,17 @@ final class ElasticsearchCollectionProvider implements ProviderInterface
         try {
             return $this->doProvide($meta, $entityClass, $operation, $context);
         } catch (\Throwable $e) {
-            $this->logger->warning('ES collection query failed, falling back to Doctrine: {error}', [
+            // An error, not a warning: Doctrine serializes the whole entity,
+            // Elasticsearch rebuilds it from the indexed document, so the same
+            // URL answers with different fields depending on which one served
+            // it. `event` is the stable key to search for.
+            $this->logger->error('ES collection query failed, falling back to Doctrine: {error}', [
+                'event' => 'es_collection_fallback',
                 'error' => $e->getMessage(),
+                'exception' => $e::class,
                 'entity' => $entityClass,
+                'index' => $meta['index'],
+                'filters' => $context['filters'] ?? [],
             ]);
 
             return $this->doctrineProvider->provide($operation, $uriVariables, $context);

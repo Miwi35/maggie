@@ -66,7 +66,7 @@ final class IndexManager
         $this->client->index([
             'index' => $indexName,
             'id' => $id,
-            'body' => $document,
+            'body' => self::withId($id, $document),
         ]);
     }
 
@@ -90,7 +90,7 @@ final class IndexManager
         $body = [];
         foreach ($operations as $op) {
             $body[] = ['index' => ['_index' => $op['index'], '_id' => $op['id']]];
-            $body[] = $op['document'];
+            $body[] = self::withId($op['id'], $op['document']);
         }
 
         $this->client->bulk(['body' => $body]);
@@ -129,12 +129,32 @@ final class IndexManager
         // Add userId field for scoping (always keyword)
         $properties['userId'] = ['type' => 'keyword'];
 
+        // The identifier as a field of its own, see withId()
+        $properties['id'] = ['type' => 'keyword'];
+
         // Add relation source fields as keyword
         foreach ($meta['relations'] as $rel) {
             $properties[$rel['sourceField']] = ['type' => 'keyword'];
         }
 
         return $properties;
+    }
+
+    /**
+     * The document's `_id` is not a field: Elasticsearch 8 refuses to sort on
+     * it ("No mapping found for [id] in order to sort on"), and react-admin's
+     * default list sort is `id`. Copying it into a keyword field gives that
+     * sort something to stand on. ULIDs sort by creation time.
+     *
+     * @param array<string, mixed> $document
+     *
+     * @return array<string, mixed>
+     */
+    private static function withId(string $id, array $document): array
+    {
+        $document['id'] = $id;
+
+        return $document;
     }
 
     /**

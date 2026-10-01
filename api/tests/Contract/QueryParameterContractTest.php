@@ -71,6 +71,7 @@ final class QueryParameterContractTest extends WebTestCase
             'endAt[before]' => 'mobile getEvents',
             'exists[rrule]' => 'admin recurring-event lookup, mobile getRecurringEvents',
             'order[startAt]' => 'admin CalendarView, Dashboard and MealsWeekView',
+            'order[id]' => 'admin raw-data list (react-admin sorts by id when a list names no sort)',
         ],
         '/api/tasks' => [
             'exists[completedAt]' => 'admin Dashboard, mobile getOpenTasks',
@@ -79,6 +80,7 @@ final class QueryParameterContractTest extends WebTestCase
             'dueDate[before]' => 'admin CalendarView and Dashboard, mobile getOpenTasks',
             'order[dueDate]' => 'admin CalendarView and Dashboard',
             'order[criticality]' => 'admin Dashboard',
+            'order[id]' => 'admin raw-data list (react-admin sorts by id when a list names no sort)',
         ],
         '/api/meals' => [
             'startAt[after]' => 'admin MealsWeekView and CalendarView, mobile getMeals',
@@ -98,6 +100,7 @@ final class QueryParameterContractTest extends WebTestCase
         ],
         '/api/agendas' => [
             'order[name]' => 'admin CalendarView, EventCreateDialog and UserPreferenceSettings',
+            'order[id]' => 'admin raw-data list (react-admin sorts by id when a list names no sort)',
         ],
         '/api/recipes' => [
             'order[name]' => 'admin MealsWeekView',
@@ -218,9 +221,11 @@ final class QueryParameterContractTest extends WebTestCase
             return;
         }
 
-        // What the index actually holds: the declared fields, plus the
-        // flattened relation keys IndexManager adds.
+        // What the index actually holds: the declared fields, the identifier
+        // IndexManager copies into every document (the `_id` cannot be sorted
+        // on), plus the flattened relation keys it adds.
         $indexed = $meta['fields'];
+        $indexed['id'] = ['type' => 'keyword'];
         foreach ($meta['relations'] as $relation) {
             $indexed[$relation['sourceField']] ??= ['type' => 'keyword'];
         }
@@ -435,6 +440,14 @@ final class QueryParameterContractTest extends WebTestCase
         yield 'transactions by booking date, descending' => [
             '/api/transactions', 'order[bookedAt]=desc', 'label',
             ['On account B', 'On account A'],
+        ];
+
+        // react-admin's default sort, and the one that used to throw
+        // "No mapping found for [id]" on Elasticsearch. The fixture persists
+        // the one-off event first, so a descending sort is not insertion order.
+        yield 'events by identifier, descending' => [
+            '/api/events', 'order[id]=desc', 'summary',
+            ['A recurring event, late', 'A one-off event, early'],
         ];
 
         yield 'agendas by name, ascending' => [

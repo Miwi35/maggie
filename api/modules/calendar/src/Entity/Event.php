@@ -41,7 +41,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\UniqueConstraint(name: 'uniq_google_event_agenda', columns: ['google_event_id', 'agenda_id'])]
 #[ApiFilter(DateFilter::class, properties: ['startAt', 'endAt'])]
 #[ApiFilter(ExistsFilter::class, properties: ['rrule'])]
-#[ApiFilter(OrderFilter::class, properties: ['startAt'])]
+#[ApiFilter(OrderFilter::class, properties: ['id', 'startAt'])]
 #[Indexed(index: 'events', module: 'calendar')]
 #[ApiResource(operations: [
     new GetCollection(provider: ElasticsearchCollectionProvider::class),

@@ -35,6 +35,21 @@ final class ElasticsearchFilterTranslatorTest extends TestCase
         self::assertSame([['name.keyword' => 'asc']], $translated['sort']);
     }
 
+    /**
+     * react-admin sorts every list that names no sort by `id`. The identifier
+     * is the document's `_id`, which Elasticsearch cannot sort on, so
+     * IndexManager copies it into a keyword field of the same name.
+     */
+    public function testASortOnTheIdentifierUsesTheIndexedIdField(): void
+    {
+        $translated = $this->translator->translate(
+            self::query('order[id]=ASC'),
+            ['id' => ['type' => 'keyword']],
+        );
+
+        self::assertSame([['id' => 'asc']], $translated['sort']);
+    }
+
     public function testASortOnADateFieldIsLeftAlone(): void
     {
         $translated = $this->translator->translate(

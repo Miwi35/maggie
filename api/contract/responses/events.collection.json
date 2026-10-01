@@ -80,7 +80,7 @@
     ],
     "search": {
         "@type": "IriTemplate",
-        "template": "/api/events{?startAt[before],startAt[strictly_before],startAt[after],startAt[strictly_after],endAt[before],endAt[strictly_before],endAt[after],endAt[strictly_after],exists[rrule],order[startAt]}",
+        "template": "/api/events{?startAt[before],startAt[strictly_before],startAt[after],startAt[strictly_after],endAt[before],endAt[strictly_before],endAt[after],endAt[strictly_after],exists[rrule],order[id],order[startAt]}",
         "variableRepresentation": "BasicRepresentation",
         "mapping": [
             {
@@ -135,6 +135,12 @@
                 "@type": "IriTemplateMapping",
                 "variable": "exists[rrule]",
                 "property": "rrule",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "order[id]",
+                "property": "id",
                 "required": false
             },
             {

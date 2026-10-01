@@ -38,7 +38,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 // event (MAG-148). NULLs count as distinct in Postgres, so the agendas with no
 // Google calendar are unaffected.
 #[ORM\UniqueConstraint(name: 'uniq_agenda_user_google_calendar', columns: ['user_id', 'google_calendar_id'])]
-#[ApiFilter(OrderFilter::class, properties: ['name'])]
+#[ApiFilter(OrderFilter::class, properties: ['id', 'name'])]
 #[Indexed(index: 'agendas', module: 'calendar')]
 #[ApiResource(operations: [
     new GetCollection(provider: ElasticsearchCollectionProvider::class),
