@@ -1,0 +1,5 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: type-test@example.com
+    googleId: google-type-test
+    name: Type Test User
