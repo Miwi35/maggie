@@ -4,11 +4,21 @@ import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { openWiremockJournal } from '../helpers/wiremock.js'
 import { CalendarPage } from '../pages/CalendarPage.js'
 
-// Quarantined: these journeys fail on main depending on the hour of the run (MAG-177).
-test.fixme(true, 'MAG-177: depends on the hour of the run')
-
 /**
  * Google Calendar, simulated (MAG-100).
+ *
+ * Out of MAG-177's quarantine (#44, #45), and on evidence rather than on a rerun:
+ * this file was skipped as hour-dependent, and it was not. Its import test never
+ * reloaded — the trace showed one `GET /admin/` for the whole test, so the sidebar
+ * was asserted against the list fetched before the import, and the hour never came
+ * into it (see `AdminShell.goto`). Its sync-badge test then failed on a locator
+ * that cannot work here at all: MUI writes `data-testid` on an icon only when
+ * `NODE_ENV !== 'production'`, and the stack serves a built bundle. Both are fixed,
+ * so the file asserts again — MAG-148's own journey lives in it, and a skipped
+ * journey is a journey that holds nothing.
+ *
+ * The export test keeps its own marker: MAG-171 is unfixed, and that is a product
+ * bug rather than a flake.
  *
  * Every Google call the stack makes goes to WireMock
  * (`GOOGLE_API_BASE_URL=http://wiremock:8080/google/`), so this journey drives the
@@ -131,8 +141,6 @@ async function forgetAgendasNamed(api: APIRequestContext, prefix: string): Promi
  * because {@link forgetImportedAgenda} makes both idempotent: a retry replays the
  * group onto a world the group puts back itself.
  */
-// Out of MAG-177's quarantine: this group's first test did not depend on the hour.
-// It never reloaded — see `AdminShell.goto`, and the commit that found it in a trace.
 test.describe('Importing the Google calendar', () => {
   test.describe.configure({ mode: 'serial' })
 

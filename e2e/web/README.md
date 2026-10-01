@@ -113,11 +113,17 @@ hiding behind a marker. Keep that pairing if you add one.
 Two markers, and they do not mean the same thing. `test.fail()` says *the product*
 is broken and names the ticket — the test runs, and turns red the day it starts
 passing. `test.fixme()` says *the journey* is unreliable and names what will make it
-sound again (MAG-177: three of these write a fixed hour on the anchor's day and read
-it back from the grid, so whether they pass depends on when the run happens). A
-`fixme` is skipped, so it asserts nothing and nothing tells you when it could come
-back — before adding one, find out why the test fails. The Google import group
-carried a `fixme` for an hour and it was never the hour: it never reloaded.
+sound again (MAG-177: the events and recurrence files write a fixed hour on the
+anchor's day and read it back from the grid, so whether they pass depends on when
+the run happens).
+
+A `fixme` is skipped, so it asserts nothing, and nothing tells you when it could
+come back: **find out why a test fails before quarantining it, and check that the
+suite you were adding to actually ran before calling a green check green.** The
+Google file was quarantined twice as hour-dependent and was never hour-dependent —
+once it never reloaded, once it looked an icon up by a `data-testid` MUI omits from
+a production build. Both were ordinary bugs, one in the harness and one in the page
+object, and a passing job with the file skipped is what hid them.
 
 Writing them — and then *running* them — found bugs, and each open one has an
 expected-to-fail test naming its ticket rather than a missing assertion, because an
