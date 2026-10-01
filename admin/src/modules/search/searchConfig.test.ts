@@ -48,6 +48,19 @@ describe('getResultPath', () => {
     expect(path).not.toContain('eventId')
   })
 
+  // The routes the admin registers: a ResourceGuesser gives `/<name>/<iri>/show`, the rest are pages.
+  test.each([
+    ['tasks', `/tasks/${encodeURIComponent('/api/tasks/01ABC')}/show`],
+    ['products', `/products/${encodeURIComponent('/api/products/01ABC')}/show`],
+    ['agendas', `/agendas/${encodeURIComponent('/api/agendas/01ABC')}/show`],
+    ['recurring_grocery_items', `/recurring_grocery_items/${encodeURIComponent('/api/recurring_grocery_items/01ABC')}/show`],
+    ['grocery_lists', '/grocery'],
+    ['notifications', '/'],
+    ['users', '/settings/preferences'],
+  ])('sends a %s hit to a route the admin has', (index, path) => {
+    expect(getResultPath(result(index, '01ABC'))).toBe(path)
+  })
+
   test('has no destination for an index it does not know', () => {
     expect(getResultPath(result('mystery', '01ABC'))).toBe('#')
   })

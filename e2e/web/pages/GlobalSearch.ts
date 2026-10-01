@@ -26,7 +26,7 @@ export class GlobalSearch extends AdminShell {
   result(group: string, label: string): Locator {
     const subheader = this.page.getByRole('listitem').filter({ hasText: new RegExp(`^${group}$`) })
 
-    return subheader.locator('xpath=following-sibling::*[@role="button"][1]').filter({ hasText: label })
+    return subheader.locator('xpath=following-sibling::*[@role="button"]').filter({ hasText: label })
   }
 
   /** Types `query`, waits for the group to list `label`, and clicks it. */

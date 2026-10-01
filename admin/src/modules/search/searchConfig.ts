@@ -23,12 +23,18 @@ export const SEARCH_INDEX_CONFIG: Record<string, SearchIndexConfig> = {
   recipes: { label: 'Recettes', icon: 'Restaurant', resource: 'recipes', basePath: '/recipes' },
   products: { label: 'Produits', icon: 'ShoppingCart', resource: 'products', basePath: '/products' },
   agendas: { label: 'Agendas', icon: 'CalendarMonth', resource: 'agendas', basePath: '/agendas' },
-  grocery_lists: { label: 'Courses', icon: 'ShoppingBag', resource: 'grocery_lists', basePath: '/grocery' },
+  grocery_lists: {
+    label: 'Courses',
+    icon: 'ShoppingBag',
+    resource: 'grocery_lists',
+    basePath: '/grocery',
+    getPath: () => '/grocery',
+  },
   meals: {
     label: 'Repas',
     icon: 'DinnerDining',
     resource: 'meals',
-    basePath: '/meals',
+    basePath: '/events',
     getPath: (iri) => `/calendar?mealId=${encodeURIComponent(iri)}`,
   },
   recurring_grocery_items: {
@@ -37,8 +43,21 @@ export const SEARCH_INDEX_CONFIG: Record<string, SearchIndexConfig> = {
     resource: 'recurring_grocery_items',
     basePath: '/recurring_grocery_items',
   },
-  notifications: { label: 'Notifications', icon: 'Notifications', resource: 'notifications', basePath: '/notifications' },
-  users: { label: 'Utilisateurs', icon: 'Person', resource: 'users', basePath: '/users' },
+  // No admin page lists or shows these two: the dashboard and the preferences are the closest.
+  notifications: {
+    label: 'Notifications',
+    icon: 'Notifications',
+    resource: 'notifications',
+    basePath: '/notifications',
+    getPath: () => '/',
+  },
+  users: {
+    label: 'Utilisateurs',
+    icon: 'Person',
+    resource: 'users',
+    basePath: '/users',
+    getPath: () => '/settings/preferences',
+  },
 }
 
 /**
