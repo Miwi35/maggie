@@ -56,9 +56,9 @@ ticket MAG-15 issue-15 Emergency Task area:infra-ci
 ticket MAG-17 issue-17 Emergency Feature
 TICKETS='MAG-12 MAG-15 MAG-17' run_release
 [ "$STATUS" -eq 0 ] && ok "exits 0" || bad "exit $STATUS — $OUTPUT"
-updates | grep -qx '{"id":"issue-12","input":{"stateId":"state-recette"}}' && ok "Bug → Recette" || bad "updates: $(updates)"
-updates | grep -qx '{"id":"issue-15","input":{"stateId":"state-done"}}' && ok "Task → Done" || bad "updates: $(updates)"
-updates | grep -qx '{"id":"issue-17","input":{"stateId":"state-recette"}}' && ok "Feature → Recette" || bad "updates: $(updates)"
+grep -qxF '{"id":"issue-12","input":{"stateId":"state-recette"}}' <<<"$(updates)" && ok "Bug → Recette" || bad "updates: $(updates)"
+grep -qxF '{"id":"issue-15","input":{"stateId":"state-done"}}' <<<"$(updates)" && ok "Task → Done" || bad "updates: $(updates)"
+grep -qxF '{"id":"issue-17","input":{"stateId":"state-recette"}}' <<<"$(updates)" && ok "Feature → Recette" || bad "updates: $(updates)"
 
 printf '\n\033[1mA ticket not in « Emergency » is left alone\033[0m\n'
 fresh_world
@@ -87,6 +87,9 @@ printf '%s' '{"errors":[{"message":"refused"}]}' > "$work/api/update-response"
 TICKETS='MAG-12' run_release
 [ "$STATUS" -eq 0 ] && ok "refused move: exits 0" || bad "exit $STATUS — $OUTPUT"
 echo "$OUTPUT" | grep -q 'WARNING: could not move MAG-12' && ok "warns about it" || bad "no warning: $OUTPUT"
+printf '%s' '{"data":{"issueUpdate":{"success":false}}}' > "$work/api/update-response"
+TICKETS='MAG-12' run_release
+echo "$OUTPUT" | grep -q 'WARNING: could not move MAG-12' && ok "success false is a refusal" || bad "counted as moved: $OUTPUT"
 
 fresh_world '{"data":{"workflowStates":{"nodes":[{"id":"state-recette","name":"Recette"}]}}}'
 ticket MAG-15 issue-15 Emergency Task

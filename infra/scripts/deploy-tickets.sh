@@ -23,6 +23,10 @@ MAX_COMMITS=50
 commits=""
 if [ -n "$base" ] && git merge-base --is-ancestor "$base" "$head" 2>/dev/null; then
   commits=$(git rev-list --max-count="$MAX_COMMITS" "$base..$head")
+  total=$(git rev-list --count "$base..$head")
+  if [ "$total" -gt "$MAX_COMMITS" ]; then
+    echo "WARNING: $total commits since the last deploy: only the newest $MAX_COMMITS are read" >&2
+  fi
 fi
 [ -n "$commits" ] || commits=$(git rev-parse --verify "$head^{commit}")
 

@@ -51,8 +51,7 @@ for key in "${keys[@]}"; do
     continue
   fi
 
-  if graphql 'mutation($id: String!, $input: IssueUpdateInput!) { issueUpdate(id: $id, input: $input) { success } }' \
-      "$(jq -n --arg id "$(jq -r .data.issue.id <<<"$found")" --arg state "$target_id" '{id: $id, input: {stateId: $state}}')" >/dev/null; then
+  if update_issue "$(jq -r .data.issue.id <<<"$found")" "$(jq -n --arg state "$target_id" '{stateId: $state}')"; then
     echo "Released $key: « $EMERGENCY_STATE » → $target"
   else
     warn "could not move $key out of « $EMERGENCY_STATE »"

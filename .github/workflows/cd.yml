@@ -372,7 +372,10 @@ jobs:
           # The same range as the `changes` job: since the last green CD run.
           base=$(gh api "repos/$GH_REPO/actions/workflows/cd.yml/runs?status=success&per_page=1" \
             --jq '.workflow_runs[0].head_sha' 2>/dev/null || true)
-          DEPLOY_TICKETS=$(bash infra/scripts/deploy-tickets.sh "$SHA" "$base") bash infra/scripts/release-emergency.sh
+          # Never turns a green release red: the run's success is what the next
+          # deploy counts its range from.
+          DEPLOY_TICKETS=$(bash infra/scripts/deploy-tickets.sh "$SHA" "$base") bash infra/scripts/release-emergency.sh \
+            || echo "::warning::could not take the shipped tickets out of « Emergency »: move them by hand"
 
   # ===========================================================================
   # Roll back, then report, when a build, the deploy or the smoke suite failed

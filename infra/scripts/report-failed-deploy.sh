@@ -43,7 +43,7 @@ while read -r key; do keys+=("$key"); done < <(ticket_keys <<<"${DEPLOY_TICKETS:
 lookup=$(graphql \
   'query($key: String!, $state: String!) {
      teams(filter: {key: {eq: $key}}) { nodes { id } }
-     issueLabels(filter: {name: {in: ["Bug", "incident", "Top"]}}) { nodes { id name } }
+     issueLabels(filter: {name: {in: ["Bug", "incident", "Top"]}}) { nodes { id name team { key } } }
      workflowStates(filter: {team: {key: {eq: $key}}, name: {eq: $state}}) { nodes { id } }
    }' \
   "$(jq -n --arg key "$TEAM_KEY" --arg state "$EMERGENCY_STATE" '{key: $key, state: $state}')") \
@@ -52,7 +52,12 @@ lookup=$(graphql \
 team_id=$(jq -r '.data.teams.nodes[0].id // empty' <<<"$lookup")
 [ -n "$team_id" ] || fail "Linear team $TEAM_KEY not found (is the API key from this workspace?)"
 
-label_id() { jq -r --arg name "$1" '[.data.issueLabels.nodes[] | select(.name == $name)][0].id // empty' <<<"$lookup"; }
+# label_id <name> — the team's label of that name, else the workspace's; never another team's.
+label_id() {
+  jq -r --arg name "$1" --arg team "$TEAM_KEY" \
+    '[.data.issueLabels.nodes[] | select(.name == $name and (.team == null or .team.key == $team))]
+     | sort_by(.team == null) | .[0].id // empty' <<<"$lookup"
+}
 top_id=$(label_id Top)
 [ -n "$top_id" ] || warn "Linear label 'Top' not found: nothing gets it"
 
@@ -126,18 +131,17 @@ for ticket in ${tickets[@]+"${tickets[@]}"}; do
   key=${ticket%% *}
   id=${ticket#* }
 
-  update=$(jq -n --arg state "$emergency_id" --arg top "$top_id" \
-    '{} + (if $state != "" then {stateId: $state} else {} end) + (if $top != "" then {addedLabelIds: [$top]} else {} end)')
-  if [ "$update" != "{}" ]; then
-    if graphql 'mutation($id: String!, $input: IssueUpdateInput!) { issueUpdate(id: $id, input: $input) { success } }' \
-        "$(jq -n --arg id "$id" --argjson input "$update" '{id: $id, input: $input}')" >/dev/null; then
-      if [ -n "$emergency_id" ]; then
-        moved=$((moved + 1))
-        echo "Moved $key to « $EMERGENCY_STATE »"
-      fi
+  # Two updates: a label Linear refuses must not keep the ticket out of « Emergency ».
+  if [ -n "$emergency_id" ]; then
+    if update_issue "$id" "$(jq -n --arg state "$emergency_id" '{stateId: $state}')"; then
+      moved=$((moved + 1))
+      echo "Moved $key to « $EMERGENCY_STATE »"
     else
       warn "could not move $key to « $EMERGENCY_STATE »"
     fi
+  fi
+  if [ -n "$top_id" ]; then
+    update_issue "$id" "$(jq -n --arg top "$top_id" '{addedLabelIds: [$top]}')" || warn "could not add Top to $key"
   fi
 
   if [ -n "$emergency_id" ]; then

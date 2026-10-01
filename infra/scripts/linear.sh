@@ -35,6 +35,14 @@ graphql() {
   printf '%s' "$response"
 }
 
+# update_issue <issue-id> <input-json> — succeeds only when Linear says the update did.
+update_issue() {
+  local response
+  response=$(graphql 'mutation($id: String!, $input: IssueUpdateInput!) { issueUpdate(id: $id, input: $input) { success } }' \
+    "$(jq -n --arg id "$1" --argjson input "$2" '{id: $id, input: $input}')") || return 1
+  jq -e '.data.issueUpdate.success == true' >/dev/null <<<"$response"
+}
+
 # ticket_keys < words — prints the words of stdin that are ticket keys, one per
 # line, and warns about the rest. Never globbed: the words are data.
 ticket_keys() {

@@ -70,8 +70,8 @@ fresh_world "$(lookup)"
 known_ticket MAG-12 issue-12
 TICKETS='MAG-12' run_report
 [ "$STATUS" -eq 0 ] && ok "exits 0" || bad "exit $STATUS — $OUTPUT"
-[ "$(updates)" = '{"id":"issue-12","input":{"stateId":"state-emergency","addedLabelIds":["label-top"]}}' ] \
-  && ok "moves it to « Emergency » with Top" || bad "wrong update: $(updates)"
+grep -qxF '{"id":"issue-12","input":{"stateId":"state-emergency"}}' <<<"$(updates)" && ok "moves it to « Emergency »" || bad "not moved: $(updates)"
+grep -qxF '{"id":"issue-12","input":{"addedLabelIds":["label-top"]}}' <<<"$(updates)" && ok "adds Top" || bad "no Top: $(updates)"
 ops workflowStates | jq -e '.variables.state == "Emergency"' >/dev/null && ok "looks the state up by its name" || bad "state lookup: $(ops workflowStates)"
 [ "$(comments | jq -r .issueId)" = "issue-12" ] && ok "comments it" || bad "no comment: $(comments)"
 comment="$(comments | jq -r .body)"
@@ -87,7 +87,7 @@ known_ticket MAG-12 issue-12
 known_ticket MAG-15 issue-15
 TICKETS=$'MAG-12\nMAG-15' run_report
 [ "$STATUS" -eq 0 ] && ok "exits 0" || bad "exit $STATUS — $OUTPUT"
-[ "$(updates | jq -r .id | sort | paste -sd,)" = "issue-12,issue-15" ] && ok "moves both" || bad "updates: $(updates)"
+[ "$(updates | jq -r 'select(.input.stateId) | .id' | sort | paste -sd,)" = "issue-12,issue-15" ] && ok "moves both" || bad "updates: $(updates)"
 [ "$(comments | jq -r .issueId | sort | paste -sd,)" = "issue-12,issue-15" ] && ok "comments both" || bad "comments: $(comments)"
 [ -z "$(create_input)" ] && ok "opens no incident" || bad "opened an incident: $(create_input)"
 
@@ -112,7 +112,7 @@ TICKETS='MAG-12' ROLLBACK_FAILED_IN=true run_report
 [ "$STATUS" -eq 0 ] && ok "exits 0" || bad "exit $STATUS — $OUTPUT"
 create_input | jq -r .description | grep -q 'the rollback itself failed' && ok "opens an incident that says why" || bad "no incident: $(create_input)"
 create_input | jq -r .description | grep -qx 'Tickets in this deploy: MAG-12' && ok "the incident names the ticket" || bad "not named: $(create_input)"
-[ "$(updates | jq -r .input.stateId)" = "state-emergency" ] && ok "moves the ticket" || bad "not moved: $(updates)"
+grep -qF '"stateId":"state-emergency"' <<<"$(updates)" && ok "moves the ticket" || bad "not moved: $(updates)"
 [[ "$(comments | jq -r .body)" == *'https://linear.app/meven/issue/MAG-999'* ]] && ok "the comment links the incident" || bad "no link: $(comments)"
 [ "$(relations)" = '{"issueId":"incident-1","relatedIssueId":"issue-12","type":"related"}' ] \
   && ok "relates the ticket to the incident" || bad "wrong relation: $(relations)"
@@ -148,7 +148,7 @@ TICKETS='MAG-404 MAG-15 not-a-key *' run_report
 echo "$OUTPUT" | grep -q 'WARNING: MAG-404 not found' && ok "warns about the unknown ticket" || bad "no warning: $OUTPUT"
 echo "$OUTPUT" | grep -q "WARNING: 'not-a-key' is not a ticket key" && ok "drops what is not a key" || bad "no warning: $OUTPUT"
 echo "$OUTPUT" | grep -q "WARNING: '\*' is not a ticket key" && ok "never globs the keys" || bad "globbed: $OUTPUT"
-[ "$(updates | jq -r .id)" = "issue-15" ] && ok "still moves the others" || bad "updates: $(updates)"
+[ "$(updates | jq -r .id | sort -u)" = "issue-15" ] && ok "still moves the others" || bad "updates: $(updates)"
 [ -z "$(create_input)" ] && ok "no incident: one ticket carries the freeze" || bad "opened an incident: $(create_input)"
 
 fresh_world "$(lookup)"
@@ -163,8 +163,23 @@ printf '%s' 'not json' > "$work/api/comment-response"
 TICKETS='MAG-12' run_report
 [ "$STATUS" -eq 0 ] && ok "move and comment refused: exits 0" || bad "exit $STATUS — $OUTPUT"
 echo "$OUTPUT" | grep -q 'WARNING: could not move MAG-12' && ok "warns about the move" || bad "no warning: $OUTPUT"
+echo "$OUTPUT" | grep -q 'WARNING: could not add Top to MAG-12' && ok "warns about Top" || bad "no warning: $OUTPUT"
 echo "$OUTPUT" | grep -q 'WARNING: could not comment MAG-12' && ok "warns about the comment" || bad "no warning: $OUTPUT"
 create_input | jq -r .description | grep -q 'could be moved' && ok "nothing carries the freeze: opens an incident" || bad "no incident: $(create_input)"
+
+fresh_world "$(lookup)"
+known_ticket MAG-12 issue-12
+printf '%s' '{"data":{"issueUpdate":{"success":false}}}' > "$work/api/update-response"
+TICKETS='MAG-12' run_report
+echo "$OUTPUT" | grep -q 'WARNING: could not move MAG-12' && ok "success false is a refusal" || bad "counted as moved: $OUTPUT"
+[ -n "$(create_input)" ] && ok "so an incident is opened" || bad "no incident"
+
+printf '\n\033[1mLabels: the team label, else the workspace one, never another team label\033[0m\n'
+fresh_world "$(lookup '[{"id":"other-top","name":"Top","team":{"key":"HIL"}},{"id":"ws-top","name":"Top","team":null},{"id":"mag-top","name":"Top","team":{"key":"MAG"}},{"id":"ws-bug","name":"Bug","team":null},{"id":"hil-incident","name":"incident","team":{"key":"HIL"}}]')"
+known_ticket MAG-12 issue-12
+TICKETS='MAG-12' ROLLBACK_FAILED_IN=true run_report
+grep -qxF '{"id":"issue-12","input":{"addedLabelIds":["mag-top"]}}' <<<"$(updates)" && ok "the team Top first" || bad "wrong Top: $(updates)"
+[ "$(create_input | jq -c '.labelIds | sort')" = '["mag-top","ws-bug"]' ] && ok "workspace Bug, no other team's incident" || bad "wrong labels: $(create_input)"
 
 printf '\n\033[1mThe title is data, never parsed\033[0m\n'
 fresh_world "$(lookup)"
