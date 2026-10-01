@@ -22,8 +22,8 @@ package com.maggie.app.data.mercure
 object MercureTopics {
 
     /**
-     * `{id}` stays literal: it is a URI-template placeholder in the topic
-     * selector, matching any resource of that collection. `userId` does not —
+     * `{id}` stays literal: MercureService subscribes it as the URL Pattern
+     * `:id`, matching any resource of that collection. `userId` does not —
      * it is the one part the client has to fill in.
      */
     fun userScoped(userId: String, collection: String): String =

@@ -23,6 +23,7 @@ import CircularProgress from '@mui/material/CircularProgress'
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder'
 import { useTranscription } from '../../hooks/useTranscription'
 import { AGENT_STREAMS, agentTopic, getStoredUserId } from '../../hooks/agentTopics'
+import { mercureUrl } from '../../hooks/mercureUrl'
 import { useAgUiStream } from '../../hooks/useAgUiStream'
 import { ActivityPulse } from '../mind/ActivityPulse'
 import { ContextList } from '../mind/ContextList'
@@ -38,10 +39,9 @@ interface ChatMessage {
 }
 
 const MESSAGES_URL = '/agent/messages'
-// May be relative in production ('/.well-known/mercure'), so every `new URL()`
-// below passes `window.location.origin` as its base — without it the
-// constructor throws and the subscription dies, which is how b16916d reached
-// production once already, in useMercure.
+// May be relative in production ('/.well-known/mercure'): mercureUrl() resolves
+// it against the current origin — a bare `new URL()` throws and the subscription
+// dies, which is how b16916d reached production once already.
 const MERCURE_URL = import.meta.env.VITE_MERCURE_PUBLIC_URL || 'http://maggie.local/.well-known/mercure'
 const SIDEBAR_WIDTH = 380
 const PAGE_SIZE = 20
@@ -443,8 +443,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     useEffect(() => {
       const userId = getStoredUserId()
       if (!userId) return
-      const url = new URL(MERCURE_URL, window.location.origin)
-      url.searchParams.append('topic', agentTopic(AGENT_STREAMS.chat, userId))
+      const url = mercureUrl(MERCURE_URL, [agentTopic(AGENT_STREAMS.chat, userId)])
 
       const eventSource = new EventSource(url.toString(), { withCredentials: true })
       eventSource.onmessage = (event) => {
@@ -494,8 +493,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     useEffect(() => {
       const userId = getStoredUserId()
       if (!userId) return
-      const url = new URL(MERCURE_URL, window.location.origin)
-      url.searchParams.append('topic', agentTopic(AGENT_STREAMS.contexts, userId))
+      const url = mercureUrl(MERCURE_URL, [agentTopic(AGENT_STREAMS.contexts, userId)])
 
       const eventSource = new EventSource(url.toString(), { withCredentials: true })
       eventSource.onmessage = (event) => {

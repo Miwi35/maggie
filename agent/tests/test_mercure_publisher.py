@@ -7,23 +7,37 @@ from app.mercure.publisher import MercurePublisher
 
 
 class TestMercurePublisher:
+    AUDIENCE = "https://maggie.test/.well-known/mercure"
+
     def _make_publisher(self, hub_url: str = "http://mercure/.well-known/mercure", secret: str = "test-secret") -> MercurePublisher:
         """Create a MercurePublisher with overridden settings."""
         publisher = MercurePublisher.__new__(MercurePublisher)
         publisher.hub_url = hub_url
         publisher.jwt_secret = secret
+        publisher.audience = self.AUDIENCE
         return publisher
 
-    def test_generate_jwt_contains_publish_claim(self):
-        """The JWT should contain the mercure.publish claim with the given topics."""
+    def _decode(self, token: str, secret: str) -> dict:
+        return jwt.decode(token, secret, algorithms=["HS256"], audience=self.AUDIENCE)
+
+    def test_generate_jwt_is_an_oauth_access_token_granting_publish_on_the_topics(self):
+        """A Mercure 1.0 hub wants typ at+jwt, a trusted iss, its own aud and authorization_details."""
         publisher = self._make_publisher(secret="my-test-secret")
 
         token = publisher._generate_jwt(["/chat/user1", "/chat/user2"])
-        decoded = jwt.decode(token, "my-test-secret", algorithms=["HS256"])
+        decoded = self._decode(token, "my-test-secret")
 
-        assert "mercure" in decoded
-        assert "publish" in decoded["mercure"]
-        assert decoded["mercure"]["publish"] == ["/chat/user1", "/chat/user2"]
+        assert jwt.get_unverified_header(token)["typ"] == "at+jwt"
+        assert decoded["iss"] == "maggie"
+        assert decoded["exp"] > decoded["iat"]
+        assert "mercure" not in decoded
+        assert decoded["authorization_details"] == [
+            {
+                "type": "https://mercure.rocks/authorization-detail",
+                "actions": ["publish"],
+                "topics": [{"match": "/chat/user1"}, {"match": "/chat/user2"}],
+            }
+        ]
 
     @respx.mock
     async def test_publish_sends_post_to_hub(self):
@@ -48,13 +62,13 @@ class TestMercurePublisher:
         token = auth_header.split(" ", 1)[1]
 
         # Decode and verify the JWT payload
-        decoded = jwt.decode(token, secret, algorithms=["HS256"])
-        assert decoded["mercure"]["publish"] == ["/agent/chat/user1"]
+        decoded = self._decode(token, secret)
+        assert decoded["authorization_details"][0]["topics"] == [{"match": "/agent/chat/user1"}]
 
         # Verify the POST body contains topic and data
         body = request.content.decode()
         assert "topic=%2Fagent%2Fchat%2Fuser1" in body
         # The data field should contain JSON-encoded dict
         assert "data=" in body
-        # Private: the hub delivers only to tokens whose subscribe claim names the topic
+        # Private: the hub delivers only to tokens whose subscribe grant names the topic
         assert "private=on" in body

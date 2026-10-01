@@ -15,8 +15,8 @@ import type { Page } from '@playwright/test'
  *
  * {@link openMercureProbe} deliberately builds its URL the way the admin's
  * `useMercure` does — a relative path resolved against the current origin, one
- * `topic` parameter per topic, `withCredentials` so the `mercureAuthorization`
- * cookie goes with it. A probe that took a shortcut would be green while the
+ * `match` (exact) or `match_urlpattern` (`{id}` → `:id`) parameter per topic,
+ * `withCredentials` so the `mercureAuthorization` cookie goes with it. A probe that took a shortcut would be green while the
  * app was broken.
  */
 
@@ -38,6 +38,20 @@ export interface MercureProbe {
   /** Asserts nothing arrives for `ms`. What "the other user must not receive this" looks like. */
   expectSilence(ms?: number): Promise<void>
   close(): Promise<void>
+}
+
+/**
+ * How a topic is subscribed on a Mercure 1.0 hub, the way `admin/src/hooks/mercureUrl.ts`
+ * spells it: `match` for an exact topic, `match_urlpattern` for a `{id}` pattern.
+ * The 0.x `topic` parameter gets a 400.
+ */
+export function subscribeParam(topic: string): [name: 'match' | 'match_urlpattern', value: string] {
+  return topic.includes('{') ? ['match_urlpattern', topic.replace(/\{(\w+)\}/g, ':$1')] : ['match', topic]
+}
+
+/** Every topic a subscribe URL asks for, whichever way it spells them. */
+export function subscribedTopics(url: URL): string[] {
+  return [...url.searchParams.getAll('match'), ...url.searchParams.getAll('match_urlpattern')]
 }
 
 /** The scoped topic the API publishes on: `/users/{userId}/api/tasks/{id}`. */
@@ -75,10 +89,10 @@ export async function openMercureProbe(page: Page, topics: string[]): Promise<Me
   const id = `probe-${++probeCounter}`
 
   await page.evaluate(
-    ({ id, path, topics }) => {
+    ({ id, path, params }) => {
       const url = new URL(path, window.location.origin)
-      for (const topic of topics) {
-        url.searchParams.append('topic', topic)
+      for (const [name, value] of params) {
+        url.searchParams.append(name, value)
       }
 
       const probes = (window.__maggieMercureProbes ??= {})
@@ -108,7 +122,7 @@ export async function openMercureProbe(page: Page, topics: string[]): Promise<Me
 
       probes[id] = state
     },
-    { id, path: MERCURE_PATH, topics },
+    { id, path: MERCURE_PATH, params: topics.map(subscribeParam) },
   )
 
   // Nothing published before the hub accepted the subscription is ever
@@ -217,7 +231,7 @@ export async function openSubscribed(page: Page, open: () => Promise<void>, topi
       response.status() === 200 &&
       // Parsed rather than matched on the raw URL: `URLSearchParams` percent-
       // encodes every slash, so `/chat/01J…` never appears as itself.
-      (topic === undefined || new URL(response.url()).searchParams.getAll('topic').includes(topic)),
+      (topic === undefined || subscribedTopics(new URL(response.url())).includes(subscribeParam(topic)[1])),
     { timeout: 30_000 },
   )
 
