@@ -323,11 +323,12 @@ tasks:
         # mode=1777 because a Docker tmpfs belongs to root and this container
         # runs as the host user.
         #
-        # api/contract is mounted too, read-only: useMercure.contract.test.ts
-        # compares the admin's Mercure subscriptions against what the API
-        # says it publishes. /app is admin/, so the contract sits at
-        # /api/contract — the same place relative to the sources as in the
-        # checkout, which is what the test walks up to find.
+        # api/contract and agent/contract are mounted too, read-only:
+        # useMercure.contract.test.ts compares the admin's Mercure
+        # subscriptions against what the API and the agent say they publish.
+        # /app is admin/, so they sit at /api/contract and /agent/contract —
+        # the same place relative to the sources as in the checkout, which is
+        # what the test walks up to find.
         docker run --rm \
           --memory {{.WT_MEMORY}} --cpus {{.WT_CPUS}} \
           -u $(id -u):$(id -g) \
@@ -336,6 +337,7 @@ tasks:
           -v "$MODULES":/app/node_modules:ro \
           -v "$NPM_CACHE":/tmp/npm-cache \
           -v "{{.ROOT_DIR}}/api/contract":/api/contract:ro \
+          -v "{{.ROOT_DIR}}/agent/contract":/agent/contract:ro \
           --tmpfs /app/node_modules/.vite-temp:mode=1777 \
           --tmpfs /app/node_modules/.vite:mode=1777 \
           -w /app {{.NODE_IMAGE}} \
@@ -438,6 +440,7 @@ tasks:
           --memory {{.WT_MEMORY}} --cpus {{.WT_CPUS}} \
           -u $(id -u):$(id -g) \
           -e HOME=/tmp -e UV_CACHE_DIR=/cache -e UV_LINK_MODE=copy \
+          -e "UPDATE_CONTRACT=${UPDATE_CONTRACT:-}" \
           -v "{{.ROOT_DIR}}/{{.DIR}}":/app \
           -v "$UV_CACHE":/cache \
           -w /app ghcr.io/astral-sh/uv:python3.12-alpine \

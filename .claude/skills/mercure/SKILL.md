@@ -24,7 +24,7 @@ All real-time updates use **Mercure** (SSE), not WebSockets.
 
 - Entity updates: `/api/{resource}/{id}` (auto from API Platform)
 - User-scoped: `/users/{userId}/api/{resource}/{id}` (middleware adds prefix)
-- Agent (published by the agent service, not under `/users/`): `/chat/{userId}`, `/contexts/{userId}`, `/proactions/{userId}`, `/instructions/{userId}`, `/skills/{userId}`
+- Agent (published by the agent service, not under `/users/`): `/chat/{userId}`, `/contexts/{userId}`, `/proactions/{userId}`, `/instructions/{userId}`, `/skills/{userId}`. `userId` is the API user's ULID, the `sub` of the JWT the agent authenticates — never the `user_id` field/param the mobile sends (`"default"`, ignored). Spelled only in `agent/app/mercure/topics.py`, published in `agent/contract/mercure-topics.json`; clients use `MercureTopics.agentScoped` (mobile) and `agentTopic()` (admin). `MercureService.subscribe` never substitutes: a `{userId}` in a topic is a dead subscription.
 
 ## Privacy — every update is private
 

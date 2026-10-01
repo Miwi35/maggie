@@ -5,6 +5,7 @@ from pathlib import Path
 
 import yaml
 
+from app.mercure import topics
 from app.mercure.publisher import MercurePublisher
 
 logger = logging.getLogger(__name__)
@@ -92,7 +93,7 @@ class SkillIndex:
 
         try:
             await self._publisher.publish(
-                f"/skills/{user_id}",
+                topics.for_user(topics.SKILLS, user_id),
                 {"name": name, "description": description, "tags": tags},
             )
         except Exception as e:
@@ -132,7 +133,7 @@ class SkillIndex:
 
         try:
             await self._publisher.publish(
-                f"/skills/{user_id}",
+                topics.for_user(topics.SKILLS, user_id),
                 {"name": name, "description": new_desc, "tags": new_tags},
             )
         except Exception as e:
@@ -155,7 +156,7 @@ class SkillIndex:
         self.entries.remove(entry)
 
         try:
-            await self._publisher.publish(f"/skills/{user_id}", {"name": name, "deleted": True})
+            await self._publisher.publish(topics.for_user(topics.SKILLS, user_id), {"name": name, "deleted": True})
         except Exception as e:
             logger.warning(f"Failed to publish skill deletion: {e}")
 

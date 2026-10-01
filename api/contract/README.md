@@ -13,6 +13,13 @@ clients' own test suites read them back.
 | `query-parameters.json` | `QueryParameterContractTest` | the same tests, which keep the list complete |
 | `responses/*.json` | `RecordedResponseContractTest` | mobile `DtoContractTest` |
 
+The agent publishes its own topics (`/chat/{userId}`, …) outside `/users/`, so
+they are not in `mercure-topics.json`. They have the same kind of file,
+`agent/contract/mercure-topics.json`, written by the agent's
+`tests/test_mercure_topics_contract.py` (`UPDATE_CONTRACT=1 task wt:test:agent
+-- tests/test_mercure_topics_contract.py`) and read by the same mobile and
+admin tests.
+
 ## Why files, and not assertions in each suite
 
 Because the failures these catch are silent. A Mercure topic the client

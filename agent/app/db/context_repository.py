@@ -5,6 +5,7 @@ from sqlalchemy import select, text
 
 from app.db.agent_engine import agent_engine, agent_session
 from app.db.context_model import ContextStatus, ConversationContext
+from app.mercure import topics
 from app.mercure.publisher import MercurePublisher
 
 logger = logging.getLogger(__name__)
@@ -29,7 +30,7 @@ class ContextRepository:
             await session.refresh(ctx)
 
         try:
-            await self.publisher.publish(f"/contexts/{user_id}", ctx.to_dict())
+            await self.publisher.publish(topics.for_user(topics.CONTEXTS, user_id), ctx.to_dict())
         except Exception as e:
             logger.warning(f"Failed to publish context to Mercure: {e}")
 
@@ -50,7 +51,7 @@ class ContextRepository:
             await session.refresh(ctx)
 
         try:
-            await self.publisher.publish(f"/contexts/{ctx.user_id}", ctx.to_dict())
+            await self.publisher.publish(topics.for_user(topics.CONTEXTS, ctx.user_id), ctx.to_dict())
         except Exception as e:
             logger.warning(f"Failed to publish context update to Mercure: {e}")
 
