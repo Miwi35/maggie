@@ -1650,7 +1650,7 @@ export const CalendarView = () => {
                     '&.Mui-checked': { color: cal.color || 'primary.main' },
                   }}
                 />
-                <Typography variant="body2" sx={{ ml: 0.5, flex: 1 }}>
+                <Typography variant="body2" data-testid="agenda-name" sx={{ ml: 0.5, flex: 1 }}>
                   {cal.name}
                 </Typography>
                 {cal.googleCalendarId && (

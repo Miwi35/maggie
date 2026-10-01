@@ -343,8 +343,19 @@ export class CalendarPage extends AdminShell {
   // ---------------------------------------------------------------------------
 
   /** A row of "Mes agendas", by its name. */
+  /**
+   * One agenda's row, matched on its name element rather than on the row's text.
+   *
+   * `hasText: /^name$/` over the whole row broke the moment the row gained the
+   * sync badge: an SVG `<title>`, which is what gives the badge an accessible
+   * name, counts as text content — so the row read "DéfautSynchronisé avec
+   * Google" and matched nothing. Anything the row grows later — a count, a
+   * second badge — would have cost the same debugging session.
+   */
   agendaRow(name: string): Locator {
-    return this.content.getByTestId('agenda-row').filter({ hasText: exactly(name) })
+    return this.content.getByTestId('agenda-row').filter({
+      has: this.page.getByTestId('agenda-name').filter({ hasText: exactly(name) }),
+    })
   }
 
   /** Opens the ⋮ menu of one agenda. It only appears on hover, so hover first. */

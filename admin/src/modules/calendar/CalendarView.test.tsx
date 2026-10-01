@@ -500,6 +500,13 @@ describe('CalendarView', () => {
       expect(within(google!).getByTestId('agenda-sync-badge')).toBeInTheDocument()
       expect(within(google!).getByTitle('Synchronisé avec Google')).toBeInTheDocument()
       expect(within(local!).queryByTestId('agenda-sync-badge')).not.toBeInTheDocument()
+
+      // The badge's accessible name is text inside the row, so the name has to
+      // live in an element of its own — the journey matches a row on it, and
+      // matching on the row's own text read "Mes concertsSynchronisé avec
+      // Google" instead.
+      expect(within(google!).getByTestId('agenda-name')).toHaveTextContent('Mes concerts')
+      expect(within(google!).getByTestId('agenda-name').textContent).toBe('Mes concerts')
     })
 
     test('reports a Google calendar list that cannot be read', async () => {
