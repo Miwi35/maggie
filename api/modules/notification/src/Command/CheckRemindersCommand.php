@@ -39,6 +39,11 @@ class CheckRemindersCommand extends Command
         $created = 0;
 
         foreach ($events as $event) {
+            // A reminder sent after the start is noise (an event in progress, a recurring master).
+            if ($event->getStartAt() <= $now) {
+                continue;
+            }
+
             $reminders = $event->getReminders();
             if (null === $reminders) {
                 continue;

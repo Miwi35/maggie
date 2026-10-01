@@ -102,3 +102,16 @@ Maggie\Calendar\Entity\Event:
       overrides:
         - { method: 'popup', minutes: 60 }
     agenda: '@other_agenda'
+
+  # Already under way: its trigger time is long gone but a reminder after the
+  # start is noise. Every minute the cron would otherwise send one for each
+  # event in progress (and each recurring master) on its first run.
+  started_event:
+    summary: Réunion en cours
+    startAt: '<(new \DateTimeImmutable("-30 minutes"))>'
+    endAt: '<(new \DateTimeImmutable("+30 minutes"))>'
+    reminders:
+      useDefault: false
+      overrides:
+        - { method: 'popup', minutes: 15 }
+    agenda: '@own_agenda'

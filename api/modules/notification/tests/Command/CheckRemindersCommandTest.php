@@ -106,7 +106,7 @@ final class CheckRemindersCommandTest extends KernelTestCase
             ['Appel avec la banque', 'Appel du voisin'],
             $this->allReminderTitles(),
             'only the two due reminders may fire — not the one still ahead, '
-            .'not the one beyond 24 hours, not the malformed list, not 0 minutes, not the one with none',
+            .'not the one beyond 24 hours, not the one already started, not the malformed list, not 0 minutes, not the one with none',
         );
     }
 
