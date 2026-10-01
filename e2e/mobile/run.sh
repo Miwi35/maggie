@@ -212,6 +212,8 @@ done
 # midnight would otherwise name a day the seed has not reached. A flow cannot
 # compute a date itself, and a date typed into it would rot by tomorrow.
 seed_day() { TZ="$SEED_TIMEZONE" date -d "$1" +%F; }
+# A failure inside $(…) never trips `set -e`: BSD date would hand the flows empty dates.
+seed_day today >/dev/null 2>&1 || { echo "run.sh needs GNU date (date -d)" >&2; exit 1; }
 flow_env=(
   -e "TODAY=$(seed_day today)"
   -e "TRAIN_START=$(seed_day '+5 days')"

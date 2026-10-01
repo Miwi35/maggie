@@ -17,9 +17,13 @@ import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.util.DateRanges
 import com.maggie.app.util.EventExpander
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -57,6 +61,7 @@ class FullCalendarViewModel(
 
     private var allEvents: List<Event> = emptyList()
     private var agendaMap: Map<String, Agenda> = emptyMap()
+    private var delayedRefreshes: Job? = null
 
     init {
         // Load once the auth token is available (and again on each login), rather
@@ -235,24 +240,43 @@ class FullCalendarViewModel(
         }
     }
 
+    // Subscribed once the user is known, and again on each login: the ViewModel is built before
+    // the login screen has run, so the user id is not there yet at init.
     private fun subscribeToMercure() {
         viewModelScope.launch {
-            val userId = authRepository.getUserId() ?: return@launch
-            launch {
-                mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.EVENTS))
-                    .catch { /* SSE reconnects automatically */ }
-                    .collect { refresh() }
-            }
-            launch {
-                mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.TASKS))
-                    .catch { /* SSE reconnects automatically */ }
-                    .collect { refresh() }
-            }
-            launch {
-                mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.AGENDAS))
-                    .catch { /* SSE reconnects automatically */ }
-                    .collect { refresh() }
+            authRepository.token
+                .map { it != null }
+                .distinctUntilChanged()
+                .collectLatest { authenticated ->
+                    if (!authenticated) return@collectLatest
+                    val userId = authRepository.getUserId() ?: return@collectLatest
+                    coroutineScope {
+                        listOf(MercureTopics.EVENTS, MercureTopics.TASKS, MercureTopics.AGENDAS).forEach { topic ->
+                            launch {
+                                mercureService.subscribe(MercureTopics.userScoped(userId, topic))
+                                    .catch { /* SSE reconnects automatically */ }
+                                    .collect { onMercureUpdate() }
+                            }
+                        }
+                    }
+                }
+        }
+    }
+
+    // The update is published before the worker has indexed the row, and the lists are served from
+    // Elasticsearch: the first refetch can miss the change, so two more follow (same as the admin).
+    private fun onMercureUpdate() {
+        refresh()
+        delayedRefreshes?.cancel()
+        delayedRefreshes = viewModelScope.launch {
+            MERCURE_REFETCH_DELAYS_MS.forEach { delayMs ->
+                delay(delayMs)
+                refresh()
             }
         }
+    }
+
+    private companion object {
+        val MERCURE_REFETCH_DELAYS_MS = listOf(1_500L, 5_000L)
     }
 }
