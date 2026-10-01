@@ -185,6 +185,87 @@ class GroceryToolsTest extends KernelTestCase
         self::assertSame(1, $data['groceryList']['checkedItems']);
     }
 
+    /**
+     * A line deferred by `buyAfter` is not today's shopping (MAG-101).
+     *
+     * The tool says so in its own description and the mobile client agrees, but
+     * nothing pinned it — and `buyAfter` is not something the owner sets by
+     * hand: `MealGrocerySync` puts it there from an ingredient's shelf life, so
+     * a meal planned ten days out defers its perishables on its own. A regression
+     * here reads as "the shopping list is full of things I cannot buy yet".
+     *
+     * The admin ignores `buyAfter` entirely, which is MAG-174.
+     */
+    public function testGetGroceryListHidesALineDeferredToTheFuture(): void
+    {
+        $this->loadFixtures('grocery-deferred.yaml');
+        $this->loginFixtureUser();
+        $this->em()->clear();
+
+        $tool = self::getContainer()->get(GetGroceryListTool::class);
+        $data = json_decode($tool(), true, 512, JSON_THROW_ON_ERROR);
+
+        $labels = $this->labelsOf($data);
+        self::assertContains('Pain', $labels, 'a line with no date is today’s shopping');
+        self::assertNotContains('Liquide vaisselle', $labels, 'a line deferred six days out is on today’s list');
+
+        // Two lines, not one: the bread with no date, and the one whose date has
+        // already passed. A deferral that never expired would be the same bug
+        // the other way round.
+        self::assertSame(2, $data['groceryList']['totalItems']);
+        // Hidden, not lost — the agent can still say there is something coming.
+        self::assertSame(1, $data['groceryList']['deferredCount']);
+    }
+
+    public function testGetGroceryListShowsADeferredLineWhenAskedFor(): void
+    {
+        $this->loadFixtures('grocery-deferred.yaml');
+        $this->loginFixtureUser();
+        $this->em()->clear();
+
+        $tool = self::getContainer()->get(GetGroceryListTool::class);
+        $data = json_decode($tool(true), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertContains('Liquide vaisselle', $this->labelsOf($data));
+        self::assertSame(3, $data['groceryList']['totalItems']);
+        self::assertSame(1, $data['groceryList']['deferredCount'], 'the count still says one is deferred');
+
+        // And it carries the date, so the answer can say when.
+        $deferred = null;
+        foreach ($data['groceryList']['storeGroups'] as $group) {
+            foreach ($group['items'] as $item) {
+                if ('Liquide vaisselle' === $item['label']) {
+                    $deferred = $item;
+                }
+            }
+        }
+        self::assertNotNull($deferred);
+        self::assertSame(
+            (new \DateTimeImmutable('+6 days'))->format('Y-m-d'),
+            $deferred['buyAfter'] ?? null,
+        );
+    }
+
+    /**
+     * Every label the tool returned, whatever shop it grouped them under.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return list<string>
+     */
+    private function labelsOf(array $data): array
+    {
+        $labels = [];
+
+        foreach ($data['groceryList']['storeGroups'] as $group) {
+            foreach ($group['items'] as $item) {
+                $labels[] = $item['label'];
+            }
+        }
+
+        return $labels;
+    }
+
     public function testCheckGroceryItemUpdatesAndPublishes(): void
     {
         $this->loadFixtures('grocery.yaml');

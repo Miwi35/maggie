@@ -1,0 +1,24 @@
+# "Plan this recipe for dinner on that day" — the write MAG-114 § 1 is about.
+#
+# A meal planned without naming an agenda makes `CreateMealHandler` find or
+# create the user's "Repas" agenda. The bug was that the agenda it created was
+# never persisted: the meal was saved against an agenda that did not exist, so
+# the next page load had lost both. The journey therefore asserts the agenda is
+# still there after a reload, not merely that the meal came back.
+#
+# The admin never takes this path — its week view always sends an agenda IRI it
+# picked itself — so asking Maggie is the only way a journey reaches it.
+#
+# Both the recipe's id and the day come from the journey through the capture
+# groups: one is a ULID the seed invented, the other is relative to the anchor.
+name: meal-plan
+description: Plan a recipe for a meal, leaving the agenda to the API.
+
+match:
+  user_matches: "planifie la recette ([0-9A-HJKMNP-TV-Z]{26}) pour le dîner du (\\d{4}-\\d{2}-\\d{2})"
+
+turns:
+  - tools:
+      - name: manage_meals
+        input: {action: 'create', slot: 'dinner', recipeIds: '\1', date: '\2'}
+  - text: "C'est planifié, et j'ai ajouté les ingrédients à votre liste de courses."

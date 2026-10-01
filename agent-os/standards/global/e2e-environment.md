@@ -223,6 +223,23 @@ Simulated by one WireMock container — see
 
 All five default to today's behaviour when unset, so dev and prod are untouched.
 
+### The Ciqual food base is ours, and has to be built (MAG-101)
+
+Ciqual is not a third party: it is a service of this repository, and the stack
+runs the `dev` image, which bakes **no** database — only `prod` does. The stack
+also mounts `./ciqual` over `/app`, so a baked one would be hidden anyway.
+
+`task e2e:up` therefore runs `task e2e:ciqual:db`, which builds
+`ciqual/db/ciqual.db` from the committed XML: three seconds, 13 MB, the real
+3 484 foods, identical bytes every time — so it is a `status` check and a stack
+coming up again on the same worktree skips it. The file is gitignored.
+
+Without it every `/ciqual/foods` call answers 500, and the symptom is indirect:
+the recipe form's "Aliment Ciqual" autocomplete is simply always empty, and the
+API's own `IngredientFromCiqualResolver` — which calls the same service — makes
+every recipe written with a food code fail. `recipes-ciqual.spec.ts` asserts
+the service answers before it asserts anything else, so the failure says so.
+
 ### What can still reach the internet
 
 One thing, and a journey author should know before writing a step that touches

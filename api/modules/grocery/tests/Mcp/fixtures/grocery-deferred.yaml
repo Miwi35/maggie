@@ -1,0 +1,74 @@
+# A list holding one line for today and one deferred to next week.
+#
+# Its own file rather than three lines added to grocery.yaml: the tests on that
+# fixture assert counts — `remainingCount`, `assertCount(1, $items)` — and a
+# third row would break them for a reason unrelated to what they check.
+#
+# Dates are literals here, unlike api/fixtures/e2e/*.yaml: this is a unit
+# fixture compared against the real clock, and `+6 days` from a long-past
+# constant would stop being "the future". `relative` keeps it true whenever the
+# suite runs.
+
+Maggie\Core\Entity\User:
+  test_user:
+    email: grocery-deferred@example.com
+    googleId: google-grocery-deferred
+    name: Grocery Deferred User
+
+Maggie\Grocery\Entity\Store:
+  supermarket:
+    name: Supermarché
+    visitOrder: 1
+    user: '@test_user'
+
+Maggie\Grocery\Entity\Product:
+  bread:
+    name: Pain
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    user: '@test_user'
+    preferredStore: '@supermarket'
+  soap:
+    name: Liquide vaisselle
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Cleaning)>'
+    user: '@test_user'
+    preferredStore: '@supermarket'
+
+Maggie\Grocery\Entity\GroceryList:
+  grocery_list:
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryItem:
+  # Today's shopping: no date at all.
+  item_today:
+    groceryList: '@grocery_list'
+    product: '@bread'
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@supermarket'
+    position: 1
+
+  # Not worth carrying home yet.
+  item_deferred:
+    groceryList: '@grocery_list'
+    product: '@soap'
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Bottle)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@supermarket'
+    buyAfter: '<(new \DateTimeImmutable("+6 days"))>'
+    position: 2
+
+  # A date already past is not a deferral: the line is today's shopping again.
+  item_was_deferred:
+    groceryList: '@grocery_list'
+    product: '@bread'
+    quantity: 2
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@supermarket'
+    buyAfter: '<(new \DateTimeImmutable("-2 days"))>'
+    position: 3

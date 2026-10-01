@@ -46,6 +46,16 @@ Maggie\Cookbook\Entity\Ingredient:
     user: '@e2e_user'
     preferredStore: '@e2e_store_greengrocer'
 
+  # The neighbour's, and the one thing of theirs the cookbook journeys read
+  # (MAG-114 § 3). Named so a leak is unmistakable in a failure message: an
+  # assertion that finds "du voisin" in Camille's products, in her searches or
+  # on her grocery list is reporting a missing user filter and nothing else.
+  e2e_other_ingredient_leek:
+    name: Poireau du voisin
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    user: '@e2e_other_user'
+
 Maggie\Grocery\Entity\Product:
   e2e_product_milk:
     name: Lait demi-écrémé

@@ -128,7 +128,18 @@ function SortableGroceryItem({
   const detail = item.quantity != null ? `${item.quantity}${item.unit ? ' ' + item.unit : ''}` : ''
 
   return (
-    <ListItem ref={setNodeRef} style={style} disablePadding sx={transitionSx(item.id, addedIds, removingIds)}>
+    // `data-testid` and `data-store`: MUI renders a store's ListSubheader as an
+    // `<li>` too, so `getByRole('listitem')` matches the headings as well as
+    // the lines. The e2e journeys (MAG-101) address a line by this id and read
+    // the order of the shop's own aisles from `data-store`.
+    <ListItem
+      ref={setNodeRef}
+      style={style}
+      disablePadding
+      data-testid="grocery-item"
+      data-store={item.store?.name ?? ''}
+      sx={transitionSx(item.id, addedIds, removingIds)}
+    >
       <IconButton
         size="small"
         sx={{ cursor: isDragDisabled ? 'default' : 'grab', ml: 0.5, mr: -0.5 }}
@@ -617,7 +628,7 @@ export const GroceryListView = () => {
               const groupTotal = realItems.length
 
               return (
-                <Box key={storeKey} sx={{ mb: 1 }}>
+                <Box key={storeKey} data-testid="grocery-store-group" data-store={group.storeName} sx={{ mb: 1 }}>
                   <List
                     dense
                     subheader={

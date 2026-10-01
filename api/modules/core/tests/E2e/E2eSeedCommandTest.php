@@ -80,11 +80,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         // belongs to a user through its agenda, so the neighbour needs one of
         // their own for the isolation journey to have anything to leak.
         self::assertSame(3, $this->rowsOf(Agenda::class));
-        // Events include the meal, which extends Event: 9 events + 1 meal.
-        self::assertSame(10, $this->rowsOf(Event::class));
-        self::assertSame(1, $this->rowsOf(Meal::class));
+        // Events include the meals, which extend Event: 9 events + 2 meals.
+        self::assertSame(11, $this->rowsOf(Event::class));
+        self::assertSame(2, $this->rowsOf(Meal::class));
         self::assertSame(4, $this->rowsOf(Task::class));
-        self::assertSame(2, $this->rowsOf(Recipe::class));
+        self::assertSame(3, $this->rowsOf(Recipe::class));
         self::assertSame(5, $this->rowsOf(GroceryItem::class));
         self::assertSame(2, $this->rowsOf(Account::class));
         self::assertSame(12, $this->rowsOf(Transaction::class));
@@ -125,14 +125,22 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertSame(1, $this->rowsOf(Agenda::class, ['user' => $neighbour]));
         self::assertSame(1, $this->rowsOf(Task::class, ['user' => $neighbour]));
 
+        // One recipe, and a meal in that same agenda planning it (MAG-101).
+        // The recipe shares a tag with one of Camille's, so a tag search
+        // missing its user filter returns both; the meal sits in the week her
+        // list is generated over, so a date-range read missing its own filter
+        // puts the neighbour's leek on her shopping (MAG-114 § 3).
+        self::assertSame(1, $this->rowsOf(Recipe::class, ['user' => $neighbour]));
+
         $agenda = $this->repository(Agenda::class)->findOneBy(['user' => $neighbour]);
         self::assertNotNull($agenda);
-        self::assertSame(1, $this->rowsOf(Event::class, ['agenda' => $agenda]));
+        self::assertSame(2, $this->rowsOf(Event::class, ['agenda' => $agenda]));
+        self::assertSame(1, $this->rowsOf(Meal::class, ['agenda' => $agenda]));
 
         // The modules the isolation journey does not reach stay empty: the
         // account is there to prove a boundary, not to be a second world, and
         // data no journey reads would only make the counts above harder to keep.
-        foreach ([Recipe::class, Account::class, Transaction::class, Notification::class] as $entity) {
+        foreach ([Account::class, Transaction::class, Notification::class] as $entity) {
             self::assertSame(0, $this->rowsOf($entity, ['user' => $neighbour]), $entity);
         }
     }
@@ -227,7 +235,14 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertSame(User::class, $manifest['references']['e2e_user']['class']);
         self::assertMatchesRegularExpression('/^[0-9A-HJKMNP-TV-Z]{26}$/', $manifest['references']['e2e_user']['id']);
 
-        foreach (['e2e_other_user', 'e2e_agenda_personal', 'e2e_recipe_pasta', 'e2e_account_checking', 'e2e_grocery_list'] as $reference) {
+        $read = [
+            'e2e_other_user', 'e2e_agenda_personal', 'e2e_recipe_pasta', 'e2e_account_checking', 'e2e_grocery_list',
+            // What the recipes, menus and groceries journeys address (MAG-101).
+            'e2e_store_supermarket', 'e2e_store_greengrocer', 'e2e_ingredient_tomato', 'e2e_grocery_item_deferred',
+            'e2e_recurring_milk', 'e2e_other_recipe_soup', 'e2e_other_ingredient_leek',
+        ];
+
+        foreach ($read as $reference) {
             self::assertArrayHasKey($reference, $manifest['references']);
         }
     }

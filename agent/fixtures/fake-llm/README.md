@@ -45,11 +45,20 @@ that happens to be wrong — the same reason `task e2e:smoke` fails on a WireMoc
 request without a stub.
 
 **Ids.** A scripted answer cannot hardcode one: they differ between runs. When
-a scenario declares `user_matches`, its text goes through Python's
-`Match.expand`, so `\1` inserts the first capture group. That is how
-`10-context-router-existing.yaml` answers with the id of a context the stack
-created seconds earlier. Check which kind of id you are matching — API entities
-carry ULIDs, the agent's own rows carry `uuid4().hex`.
+a scenario declares `user_matches`, its text **and every string in its tools'
+`input`** go through Python's `Match.expand`, so `\1` inserts the first capture
+group. That is how `10-context-router-existing.yaml` answers with the id of a
+context the stack created seconds earlier, and how `43-grocery-fallback.yaml`
+calls `move_to_fallback` on a shop the seed invented — the journey says the id,
+the scenario carries it into the real MCP call. Lists and nested mappings are
+walked; numbers and booleans are left alone, so a `quantity: 4` stays a number.
+Check which kind of id you are matching — API entities carry ULIDs, the agent's
+own rows carry `uuid4().hex`.
+
+A scenario needing an id it cannot capture has no way to get one: write the id
+into what the journey *says*. The sentence then reads oddly for a human, which
+is the honest trade — judging whether Maggie could have worked out which shop
+"le primeur" is belongs to `task e2e:eval` on the real model, not here.
 
 **Editing.** The files are re-read whenever one of them changes on disk, so a
 fixture fixed mid-session takes effect on the next message — no agent restart.

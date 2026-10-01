@@ -156,6 +156,28 @@ class Scenario:
             logger.error(f"[fake-llm] scenario {self.name!r}: cannot expand its text ({exc})")
             return text
 
+    def render_input(self, value: Any, user_text: str) -> Any:
+        r"""The same substitution, through a scripted tool's arguments.
+
+        A tool that takes an id was simply unreachable from a journey before
+        this: `move_to_fallback` wants the ULID of the shop that closed, and a
+        ULID differs on every seed, so no fixture could name one. Now the
+        journey puts it in what it says — `« le magasin 01J… est fermé »` — the
+        scenario captures it, and `storeId: '\1'` carries it into the real MCP
+        call (MAG-101).
+
+        Walks lists and nested mappings, so a scenario can script a tool whose
+        argument is an array of ids. Non-strings are left exactly as they are:
+        quantities and booleans must not be turned into text.
+        """
+        if isinstance(value, str):
+            return self.render(value, user_text)
+        if isinstance(value, dict):
+            return {key: self.render_input(item, user_text) for key, item in value.items()}
+        if isinstance(value, list):
+            return [self.render_input(item, user_text) for item in value]
+        return value
+
 
 def _as_tuple(value: Any) -> tuple[str, ...]:
     if value is None:
@@ -451,11 +473,12 @@ class FakeMessages:
                     f"[fake-llm] scenario {scenario_name!r} calls {tool.name!r}, which was not offered — "
                     "is its module still in discovery.scan_dirs?"
                 )
+            arguments = scenario.render_input(dict(tool.input), user_text) if scenario else dict(tool.input)
             content.append(
                 FakeToolUseBlock(
                     id=f"toolu_fake_{index}_{position}",
                     name=tool.name,
-                    input=dict(tool.input),
+                    input=arguments,
                 )
             )
 

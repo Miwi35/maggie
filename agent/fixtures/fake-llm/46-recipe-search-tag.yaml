@@ -1,0 +1,22 @@
+# "Which of my recipes are tagged X?" — the search that used to crash Postgres.
+#
+# MAG-114 § 2: `searchByTags` ran a `LIKE` against a JSON column, which Postgres
+# refuses outright, so the whole call failed rather than returning nothing. The
+# tool does not catch that, so the tool loop reports the round as an error —
+# which is exactly what a journey can assert on, without reading a result the
+# fake never looks at.
+#
+# The tag comes from the journey through the capture group, so the same scenario
+# serves the isolation journey: the neighbour's recipe carries the same tag, and
+# asking as each user in turn is how "no one else's recipes" is proved.
+name: recipe-search-tag
+description: Search the caller's recipes by tag, through MCP.
+
+match:
+  user_matches: "mes recettes taguées ([^\\s?]+)"
+
+turns:
+  - tools:
+      - name: search_recipes
+        input: {tag: '\1'}
+  - text: "Voici ce que j'ai trouvé dans vos recettes."

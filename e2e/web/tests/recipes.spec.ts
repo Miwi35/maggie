@@ -1,5 +1,5 @@
 import { test, expect, seedId } from '../fixtures/index.js'
-import { waitForIndexed } from '../helpers/api.js'
+import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { AdminShell } from '../pages/AdminShell.js'
 import { ROUTES } from '../pages/routes.js'
 
@@ -54,8 +54,15 @@ test.describe('Recipes and meals', () => {
       what: 'The new meal',
     })
 
-    // The user has no "Repas" agenda in the seed, so the default one is used.
-    expect(JSON.stringify(stored.agenda)).toContain(seedId('e2e_agenda_personal'))
+    // One of the caller's own agendas, read from the collection rather than
+    // named: the seed gives them none called "Repas", so today the week view
+    // falls back to the default one — but `MealsWeekView` prefers a "Repas"
+    // agenda when it can see one, and MAG-176 is about making the one the API
+    // creates visible. Pinning the personal agenda by name would turn this test
+    // red the day that lands, for a reason that has nothing to do with MAG-117.
+    const mine = (await getCollection<{ '@id': string }>(api, '/api/agendas')).map((agenda) => agenda['@id'])
+    expect(mine.length, 'the caller has no agenda at all — did the seed run?').toBeGreaterThan(0)
+    expect(mine.some((iri) => JSON.stringify(stored.agenda).includes(iri))).toBe(true)
   })
 
   test('cancelling a meal takes its ingredients back off the grocery list', async ({ page, api }) => {
