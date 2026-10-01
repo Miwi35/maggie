@@ -9,11 +9,14 @@ use Maggie\Cookbook\Entity\Recipe;
 use Maggie\Cookbook\Entity\RecipeIngredient;
 use Maggie\Cookbook\Message\UpdateRecipeCommand;
 use Maggie\Cookbook\Repository\IngredientRepository;
+use Maggie\Cookbook\Repository\MealRepository;
 use Maggie\Cookbook\Repository\RecipeRepository;
 use Maggie\Cookbook\Service\IngredientFromCiqualResolver;
+use Maggie\Cookbook\Service\MealGrocerySync;
 use Maggie\Cookbook\UseCase\UpdateRecipe;
 use Maggie\Core\Entity\User;
 use Maggie\Grocery\Enum\Unit;
+use Maggie\Grocery\Service\GroceryListBroadcaster;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -24,6 +27,9 @@ class UpdateRecipeHandler
         private readonly RecipeRepository $recipeRepository,
         private readonly IngredientRepository $ingredientRepository,
         private readonly IngredientFromCiqualResolver $ciqualResolver,
+        private readonly MealRepository $mealRepository,
+        private readonly MealGrocerySync $mealGrocerySync,
+        private readonly GroceryListBroadcaster $groceryListBroadcaster,
     ) {
     }
 
@@ -63,7 +69,20 @@ class UpdateRecipeHandler
 
         $recipe->setUpdatedAt(new \DateTimeImmutable());
 
-        return $this->updateRecipe->execute($recipe);
+        $recipe = $this->updateRecipe->execute($recipe);
+
+        if (null !== $command->ingredients) {
+            // The meals already planned with this recipe bought the old
+            // quantities: bring their share of the list up to date (MAG-167).
+            // The handler returns the recipe, so the list is broadcast here.
+            $list = null;
+            foreach ($this->mealRepository->findUpcomingByRecipe($recipe) as $meal) {
+                $list = $this->mealGrocerySync->sync($meal) ?? $list;
+            }
+            $this->groceryListBroadcaster->broadcast($list);
+        }
+
+        return $recipe;
     }
 
     /** @param array{quantity: float, unit: string, ingredientId?: string, ciqualAlimCode?: string} $item */
