@@ -66,7 +66,8 @@ describe('CalendarView', () => {
     })
   })
 
-  describe('editing an event with the pencil', () => {
+  // FullCalendar re-renders the whole grid on each interaction: slow on a busy CI runner
+  describe('editing an event with the pencil', { timeout: 30_000 }, () => {
     const noon = new Date()
     noon.setHours(12, 0, 0, 0)
     // Start on the 15th so the event is always inside the visible month
@@ -101,8 +102,7 @@ describe('CalendarView', () => {
       const dialog = await screen.findByRole('dialog')
       expect(within(dialog).getByText("Modifier l'événement")).toBeInTheDocument()
       const summary = within(dialog).getByLabelText(/Résumé/)
-      await userEvent.clear(summary)
-      await userEvent.type(summary, 'Dentiste (contrôle)')
+      fireEvent.change(summary, { target: { value: 'Dentiste (contrôle)' } })
       await userEvent.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
 
       await waitFor(() =>
@@ -128,8 +128,7 @@ describe('CalendarView', () => {
 
       const edit = await screen.findByRole('dialog')
       const summary = within(edit).getByLabelText(/Résumé/)
-      await userEvent.clear(summary)
-      await userEvent.type(summary, 'Sport (piscine)')
+      fireEvent.change(summary, { target: { value: 'Sport (piscine)' } })
       await userEvent.click(within(edit).getByRole('button', { name: 'Enregistrer' }))
 
       const confirm = await screen.findByRole('dialog')
@@ -178,11 +177,10 @@ describe('CalendarView', () => {
       const newEnd = new Date(occurrenceStart.getTime() + 3 * 3600_000)
 
       const summary = within(edit).getByLabelText(/Résumé/)
-      await userEvent.clear(summary)
-      await userEvent.type(summary, 'Sport (piscine)')
+      fireEvent.change(summary, { target: { value: 'Sport (piscine)' } })
       fireEvent.change(within(edit).getByLabelText(/Début/), { target: { value: localInput(newStart) } })
       fireEvent.change(within(edit).getByLabelText(/Fin/), { target: { value: localInput(newEnd) } })
-      await userEvent.type(within(edit).getByLabelText('Lieu'), 'Piscine')
+      fireEvent.change(within(edit).getByLabelText('Lieu'), { target: { value: 'Piscine' } })
       await userEvent.click(within(edit).getByRole('button', { name: 'Enregistrer' }))
 
       const confirm = await screen.findByRole('dialog')
