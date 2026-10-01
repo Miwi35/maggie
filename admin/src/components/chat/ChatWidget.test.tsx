@@ -122,7 +122,7 @@ describe('ChatWidget', () => {
 
     // Private updates reach only requests carrying the mercureAuthorization
     // cookie, and the agent publishes /chat/{id} and /contexts/{id} (MAG-139).
-    const topics = MockEventSource.instances.map((es) => new URL(es.url, 'http://localhost').searchParams.get('topic'))
+    const topics = MockEventSource.instances.map((es) => new URL(es.url, 'http://localhost').searchParams.get('match'))
     expect(topics).toEqual(expect.arrayContaining(['/chat/user-1', '/contexts/user-1']))
     for (const es of MockEventSource.instances) {
       expect(es.init?.withCredentials).toBe(true)
@@ -144,7 +144,7 @@ describe('ChatWidget', () => {
   describe('messages published on the chat topic', () => {
     function chatSource(): MockEventSource {
       const source = MockEventSource.instances.find(
-        (es) => new URL(es.url, 'http://localhost').searchParams.get('topic') === '/chat/user-1',
+        (es) => new URL(es.url, 'http://localhost').searchParams.get('match') === '/chat/user-1',
       )
       if (!source) throw new Error('the panel is not subscribed to /chat/user-1')
       return source
@@ -203,7 +203,7 @@ describe('ChatWidget', () => {
   describe('a thread summary', () => {
     function contextSource(): MockEventSource {
       const source = MockEventSource.instances.find(
-        (es) => new URL(es.url, 'http://localhost').searchParams.get('topic') === '/contexts/user-1',
+        (es) => new URL(es.url, 'http://localhost').searchParams.get('match') === '/contexts/user-1',
       )
       if (!source) throw new Error('the panel is not subscribed to /contexts/user-1')
       return source

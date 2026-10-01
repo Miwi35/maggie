@@ -5,43 +5,61 @@ declare(strict_types=1);
 namespace Maggie\Core\Tests\Mercure;
 
 use Maggie\Core\Entity\User;
+use Maggie\Core\Mercure\MercureAccessToken;
 use Maggie\Core\Mercure\MercureSubscriberTokenFactory;
 use PHPUnit\Framework\TestCase;
 
 final class MercureSubscriberTokenFactoryTest extends TestCase
 {
-    public function testClaimsCoverTheUsersMultiSegmentTopicsAndNobodyElses(): void
+    private const SECRET = 'a-mercure-secret-of-at-least-32-bytes';
+
+    public function testGrantsCoverTheUsersMultiSegmentTopicsAndNobodyElses(): void
     {
         $user = new User();
         $id = (string) $user->getId();
 
-        $token = (new MercureSubscriberTokenFactory('a-mercure-secret'))->createForUser($user);
-        $subscribe = $this->claims($token)['mercure']['subscribe'];
+        $claims = MercureAccessTokenTest::decode($this->factory()->createForUser($user))['claims'];
+        $topics = $claims['authorization_details'][0]['topics'];
 
-        // {topic} (simple expansion) stops at "/" and would match nothing
-        // under /users/<id>/api/tasks/<id>; {+topic} (reserved expansion)
-        // crosses segments. Private updates depend on it.
-        self::assertContains('/users/'.$id.'/{+topic}', $subscribe);
-        self::assertNotContains('/users/'.$id.'/{topic}', $subscribe);
+        // `*` in a URL Pattern crosses "/", so one grant covers
+        // /users/<id>/api/tasks/<id>. Private updates depend on it.
+        self::assertContains(
+            ['match' => '/users/'.$id.'/*', 'match_type' => 'urlpattern'],
+            $topics,
+        );
 
         // The agent publishes outside /users/…, on topics keyed by the user id.
         foreach (['chat', 'contexts', 'proactions', 'instructions', 'skills'] as $name) {
-            self::assertContains('/'.$name.'/'.$id, $subscribe);
+            self::assertContains(['match' => '/'.$name.'/'.$id], $topics);
         }
 
-        foreach ($subscribe as $selector) {
-            self::assertStringContainsString($id, $selector, 'Every selector must be scoped to the token owner.');
+        foreach ($topics as $topic) {
+            self::assertStringContainsString($id, $topic['match'], 'Every grant must be scoped to the token owner.');
         }
     }
 
-    /** @return array<string, mixed> */
-    private function claims(string $jwt): array
+    public function testTheTokenOnlyAllowsSubscribing(): void
     {
-        return json_decode(
-            (string) base64_decode(strtr(explode('.', $jwt)[1], '-_', '+/'), true),
-            true,
-            512,
-            JSON_THROW_ON_ERROR,
+        $claims = MercureAccessTokenTest::decode($this->factory()->createForUser(new User()))['claims'];
+
+        self::assertCount(1, $claims['authorization_details']);
+        self::assertSame(['subscribe'], $claims['authorization_details'][0]['actions']);
+    }
+
+    public function testTheCookieCarriesTheTokenOnTheHubPathOnly(): void
+    {
+        $cookie = $this->factory()->createCookieForUser(new User());
+
+        self::assertSame('mercureAuthorization', $cookie->getName());
+        self::assertSame('/.well-known/mercure', $cookie->getPath());
+        self::assertTrue($cookie->isHttpOnly());
+        self::assertTrue($cookie->isSecure());
+    }
+
+    private function factory(): MercureSubscriberTokenFactory
+    {
+        return new MercureSubscriberTokenFactory(
+            new MercureAccessToken(self::SECRET, 'https://maggie.test/.well-known/mercure'),
         );
     }
 }

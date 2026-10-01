@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { mercureUrl } from './mercureUrl'
 
 const MERCURE_URL = import.meta.env.VITE_MERCURE_PUBLIC_URL
 
@@ -30,12 +31,10 @@ export function useMercure(topics: string[], onMessage: (data?: string) => void)
     const userId = getUserId()
     if (!userId || topics.length === 0) return
 
-    // MERCURE_URL may be relative in prod (e.g. '/.well-known/mercure'); resolve
-    // it against the current origin so `new URL()` doesn't throw on a relative URL.
-    const url = new URL(MERCURE_URL, window.location.origin)
-    for (const topic of topics) {
-      url.searchParams.append('topic', `/users/${userId}${topic}`)
-    }
+    const url = mercureUrl(
+      MERCURE_URL,
+      topics.map((topic) => `/users/${userId}${topic}`),
+    )
 
     const es = new EventSource(url.toString(), { withCredentials: true })
     es.onmessage = (event) => onMessageRef.current(event.data)

@@ -2,32 +2,36 @@ package com.maggie.app.data.mercure
 
 import io.ktor.http.Url
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MercureServiceTest {
 
     @Test
-    fun `buildSubscriptionUrl encodes topic parameter`() {
+    fun `buildSubscriptionUrl subscribes a placeholder topic as a URL pattern`() {
         val url = MercureService.buildSubscriptionUrl(
             hubUrl = "http://maggie.local/.well-known/mercure",
-            topic = "/api/events/{id}"
+            topic = "/users/user-1/api/events/{id}"
         )
 
         assertTrue(url.startsWith("http://maggie.local/.well-known/mercure?"))
         val parsed = Url(url)
-        assertEquals("/api/events/{id}", parsed.parameters["topic"])
+        assertEquals("/users/user-1/api/events/:id", parsed.parameters["match_urlpattern"])
+        assertNull(parsed.parameters["match"])
     }
 
     @Test
-    fun `buildSubscriptionUrl handles simple topic`() {
+    fun `buildSubscriptionUrl subscribes an exact topic with match, never the 0x topic parameter`() {
         val url = MercureService.buildSubscriptionUrl(
             hubUrl = "http://localhost/.well-known/mercure",
             topic = "/agent/chat/default"
         )
 
         val parsed = Url(url)
-        assertEquals("/agent/chat/default", parsed.parameters["topic"])
+        assertEquals("/agent/chat/default", parsed.parameters["match"])
+        assertNull(parsed.parameters["match_urlpattern"])
+        assertNull(parsed.parameters["topic"])
     }
 
     @Test
