@@ -1,6 +1,9 @@
 package com.maggie.app.data.auth
 
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
+import android.content.Intent
 import com.maggie.app.BuildConfig
 import com.maggie.app.data.api.MaggieApiService
 import io.ktor.client.HttpClient
@@ -17,6 +20,7 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -91,6 +95,49 @@ class E2eSignInTest {
         assertEquals("refresh-e2e", response.refreshToken)
         assertEquals("mercure-e2e", response.mercureToken)
         assertEquals("e2e@maggie.local", response.user.email)
+    }
+
+    @Test
+    fun `a launch argument signs in as another seeded user`() = runBlocking {
+        val intent = mockk<Intent>()
+        every { intent.getStringExtra(E2E_EMAIL_EXTRA) } returns "e2e-other@maggie.local"
+        val activity = mockk<Activity>()
+        every { activity.intent } returns intent
+        // What `LocalContext.current` really is in a composable: a wrapper, not the activity.
+        val wrapper = mockk<ContextWrapper>()
+        every { wrapper.baseContext } returns activity
+
+        val (signIn, seen) = signInWith {
+            respond(
+                loginResponse(),
+                HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
+            )
+        }
+
+        signIn.authenticate(wrapper)
+
+        assertTrue(seen.single().bodyAsText().contains("e2e-other@maggie.local"))
+    }
+
+    @Test
+    fun `an activity launched without the argument keeps the flavor's default account`() = runBlocking {
+        val intent = mockk<Intent>()
+        every { intent.getStringExtra(E2E_EMAIL_EXTRA) } returns null
+        val activity = mockk<Activity>()
+        every { activity.intent } returns intent
+
+        val (signIn, seen) = signInWith {
+            respond(
+                loginResponse(),
+                HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
+            )
+        }
+
+        signIn.authenticate(activity)
+
+        assertTrue(seen.single().bodyAsText().contains(BuildConfig.E2E_LOGIN_EMAIL))
     }
 
     @Test

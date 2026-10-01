@@ -14,9 +14,12 @@ import com.maggie.app.data.model.Store
 import com.maggie.app.data.repository.GroceryListRepository
 import com.maggie.app.data.repository.ProductRepository
 import com.maggie.app.data.repository.StoreRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.boolean
@@ -54,16 +57,33 @@ class GroceryViewModel(
     private val _uiState = MutableStateFlow(GroceryUiState())
     val uiState: StateFlow<GroceryUiState> = _uiState
 
+    private var mercureJob: Job? = null
+
     init {
-        refresh()
-        loadProductsAndStores()
-        subscribeToGroceryUpdates()
+        // Loaded once the auth token is available, and again on every sign-in:
+        // this ViewModel is built with the nav graph, before the user has signed
+        // in on a fresh install, so a single load here left the list empty and
+        // the Mercure subscription never opened (no user id yet) until a pull.
+        viewModelScope.launch {
+            authRepository.token
+                .map { it != null }
+                .distinctUntilChanged()
+                .collect { authenticated ->
+                    mercureJob?.cancel()
+                    mercureJob = null
+                    if (authenticated) {
+                        refresh()
+                        loadProductsAndStores()
+                        mercureJob = subscribeToGroceryUpdates()
+                    }
+                }
+        }
     }
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    private fun subscribeToGroceryUpdates() {
-        viewModelScope.launch {
+    private fun subscribeToGroceryUpdates(): Job {
+        return viewModelScope.launch {
             val userId = authRepository.getUserId() ?: return@launch
             mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.GROCERY_LISTS))
                 .catch { /* SSE connection errors — MercureService handles auto-reconnect */ }
@@ -423,7 +443,9 @@ class GroceryViewModel(
             val buyAfter = item.buyAfter
             if (buyAfter == null) return@filter true
             try {
-                val date = LocalDate.parse(buyAfter)
+                // The REST API sends a date-time, the Mercure payload a plain date:
+                // the first ten characters ("yyyy-MM-dd") are the day in both.
+                val date = LocalDate.parse(buyAfter.take(10))
                 !date.isAfter(today)
             } catch (_: Exception) {
                 true

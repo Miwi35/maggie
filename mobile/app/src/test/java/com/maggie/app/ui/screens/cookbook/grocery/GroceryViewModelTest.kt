@@ -18,7 +18,9 @@ import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -64,6 +66,7 @@ class GroceryViewModelTest {
         authRepository = mockk()
 
         coEvery { authRepository.getUserId() } returns "user-1"
+        every { authRepository.token } returns flowOf("jwt")
         every { mercureService.subscribe(any()) } returns emptyFlow()
         coEvery { groceryListRepository.getGroceryList() } returns Result.success(sampleList)
         coEvery { productRepository.getProducts() } returns Result.success(emptyList())
@@ -109,6 +112,26 @@ class GroceryViewModelTest {
         val unassignedGroup = state.storeGroups.find { it.store == null }
         assertNotNull(unassignedGroup)
         assertEquals(1, unassignedGroup!!.items.size)
+    }
+
+    @Test
+    fun `items deferred to a later day are hidden whatever the date format`() = runTest {
+        val today = java.time.LocalDate.now()
+        val tomorrow = today.plusDays(1)
+        val items = listOf(
+            GroceryItem(id = "due-rest", customLabel = "Du", store = store, buyAfter = "${today.minusDays(1)}T00:00:00+00:00"),
+            GroceryItem(id = "today-rest", customLabel = "Aujourd'hui", store = store, buyAfter = "${today}T00:00:00+00:00"),
+            GroceryItem(id = "later-rest", customLabel = "Reporte REST", store = store, buyAfter = "${tomorrow}T00:00:00+00:00"),
+            GroceryItem(id = "later-plain", customLabel = "Reporte Mercure", store = store, buyAfter = tomorrow.toString()),
+            GroceryItem(id = "no-date", customLabel = "Sans date", store = store),
+        )
+        coEvery { groceryListRepository.getGroceryList() } returns Result.success(GroceryList(id = "list-1", items = items))
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val shown = viewModel.uiState.value.storeGroups.flatMap { it.items }.map { it.id }
+        assertEquals(listOf("due-rest", "today-rest", "no-date"), shown)
     }
 
     @Test
@@ -490,6 +513,34 @@ class GroceryViewModelTest {
         // it is a URI-template wildcard in the topic selector. The literal
         // "{userId}" that used to be here matched nothing the API publishes.
         verify { mercureService.subscribe("/users/user-1/api/grocery_lists/{id}") }
+    }
+
+    @Test
+    fun `nothing is loaded nor subscribed before the user signs in`() = runTest {
+        every { authRepository.token } returns MutableStateFlow<String?>(null)
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.groceryList)
+        coVerify(exactly = 0) { groceryListRepository.getGroceryList() }
+        verify(exactly = 0) { mercureService.subscribe(any()) }
+    }
+
+    @Test
+    fun `the list loads and the subscription opens once the user signs in`() = runTest {
+        val token = MutableStateFlow<String?>(null)
+        every { authRepository.token } returns token
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        assertNull(viewModel.uiState.value.groceryList)
+
+        token.value = "jwt"
+        advanceUntilIdle()
+
+        assertEquals(3, viewModel.uiState.value.groceryList!!.items.size)
+        verify(exactly = 1) { mercureService.subscribe("/users/user-1/api/grocery_lists/{id}") }
     }
 
     @Test
