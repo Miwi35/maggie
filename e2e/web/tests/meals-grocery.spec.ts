@@ -61,8 +61,9 @@ interface Planned {
  *
  * Six weeks out, so it sits in nobody else's week view, and ingredient-free so
  * it touches no grocery list. `what` keeps the two tests in this file apart:
- * they run in parallel, and a summary both of them match would make either
- * assert on the other's meal.
+ * they both plan one, and `plannedMeal` finds a meal by a substring of its
+ * summary — a name one of them is a prefix of would make either assert on the
+ * other's meal, serial or not.
  */
 async function aRecipeToPlan(api: APIRequestContext, what: string): Promise<Planned> {
   const { retry } = test.info()

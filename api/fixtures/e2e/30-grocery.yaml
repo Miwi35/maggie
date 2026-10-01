@@ -99,6 +99,20 @@ Maggie\Grocery\Entity\Product:
     user: '@e2e_other_user'
     preferredStore: '@e2e_other_store_market'
 
+  # The other half of the closed-shop control: a product that *does* have a
+  # fallback, sitting in the shop that stays open. `move_to_fallback` has two
+  # filters — the item's store and the product's fallback — and only a line
+  # that satisfies the second but not the first can tell them apart. Its
+  # fallback is deliberately the market, so a handler that dropped the store
+  # filter would move it to the very shop that just closed.
+  e2e_other_product_stamps:
+    name: Timbres du voisin
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Household)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    user: '@e2e_other_user'
+    preferredStore: '@e2e_other_store_corner'
+    fallbackStore: '@e2e_other_store_market'
+
 Maggie\Grocery\Entity\GroceryList:
   e2e_grocery_list:
     user: '@e2e_user'
@@ -179,11 +193,12 @@ Maggie\Grocery\Entity\GroceryItem:
 
   # The second shop needs a line of its own: the view builds a group only for a
   # shop a line sits in, so without this one the aisle order has nothing to be
-  # an order *of*. Free text, so no product and therefore no fallback — the
-  # closed-shop journey must leave it exactly where it is.
+  # an order *of*. Its product carries a fallback, which is what makes it the
+  # closed-shop journey's real control — it must stay put because it is not in
+  # the shop that closed, and not merely because it has nowhere to go.
   e2e_other_item_corner:
     groceryList: '@e2e_other_grocery_list'
-    customLabel: Timbres du voisin
+    product: '@e2e_other_product_stamps'
     quantity: 2
     unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
     checked: false

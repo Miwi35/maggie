@@ -59,11 +59,11 @@ import { GroceryListPage } from '../pages/GroceryListPage.js'
  *
  * A serial group replays whole and nothing reseeds between the attempts, so the
  * second one starts on the list the first one left: the leek has already moved
- * to its fallback shop and the weekly rice is already on the list. `perAttempt()`
- * suffixes the labels this file writes, but it cannot suffix a seeded row — so
- * the two tests that begin from one would fail on the retry for a reason that
- * has nothing to do with the code. A flake here has to read as a flake, which
- * is the same trade-off `chat.spec.ts` makes for the same reason.
+ * to its fallback shop and the weekly rice is already on the list. Suffixing
+ * the labels this file writes — what the rest of the suite does — would not
+ * help, because those two tests begin from a *seeded* row, which no suffix can
+ * reach. A flake here has to read as a flake, which is the same trade-off
+ * `chat.spec.ts` makes for the same reason.
  */
 
 test.describe.configure({ mode: 'serial', retries: 0 })
@@ -91,11 +91,22 @@ const SHOPS = {
 
 const GROCERY_TOPIC = '/api/grocery_lists/{id}'
 
-/** A label the current attempt alone will write — CI retries once without reseeding. */
-function perAttempt(base: string): string {
-  const { retry } = test.info()
-
-  return 0 === retry ? base : `${base} essai ${retry}`
+/**
+ * The labels this file writes. Plain constants, and `retries: 0` above is what
+ * makes that safe: elsewhere in the suite a label has to carry the attempt
+ * number, because CI retries once without reseeding. Nothing retries here.
+ *
+ * One per test, so no two of them read each other's line — the whole group
+ * runs over a single list.
+ */
+const WRITES = {
+  bought: 'Câpres MAG-101',
+  skipped: 'Cornichons MAG-101',
+  payload: 'Semoule MAG-101',
+  observed: 'Levure MAG-101',
+  posted: 'Pois chiches MAG-101',
+  errandBought: 'Anchois MAG-101',
+  errandKept: 'Olives MAG-101',
 }
 
 async function storedList(api: APIRequestContext): Promise<StoredList> {
@@ -207,8 +218,8 @@ test('the list is grouped by shop, in the order the shopper walks them', async (
 })
 
 test('a shopper ticks what is in the trolley, then ends the errand', async ({ otherUser }) => {
-  const bought = perAttempt('Câpres MAG-101')
-  const skipped = perAttempt('Cornichons MAG-101')
+  const bought = WRITES.bought
+  const skipped = WRITES.skipped
   const { api } = otherUser
 
   const grocery = new GroceryListPage(otherUser.page)
@@ -272,7 +283,7 @@ test('the update carries the whole list, so no client has to re-read a stale ind
   // their quantity, and the nested `store` and `product` objects the clients
   // group and label by. A payload holding only `@id` satisfies every
   // "something arrived" test ever written, and leaves every client refetching.
-  const label = perAttempt('Semoule MAG-101')
+  const label = WRITES.payload
 
   const grocery = new GroceryListPage(otherUser.page)
   await grocery.open()
@@ -307,7 +318,7 @@ test('the update carries the whole list, so no client has to re-read a stale ind
 })
 
 test('a line written in one window appears in the other without a reload', async ({ otherUser }) => {
-  const label = perAttempt('Levure MAG-101')
+  const label = WRITES.observed
   const observerPage = await otherUser.secondWindow()
 
   const acting = new GroceryListPage(otherUser.page)
@@ -347,7 +358,7 @@ test('adding a line goes through the endpoint the API really exposes', async ({ 
   // not exist — `GroceryItem` is not an ApiResource, and the only write path is
   // `POST /api/grocery/add-item`. The screen showed the dialog closing and
   // nothing else, and no test noticed because none watched the wire.
-  const label = perAttempt('Pois chiches MAG-101')
+  const label = WRITES.posted
   const posts: string[] = []
 
   otherUser.page.on('request', (request) => {
@@ -372,8 +383,8 @@ test('"I have finished the shopping" clears the trolley, and leaves the rest', a
   // `end_errand` is MCP-only: the admin's own button does the same thing one
   // `Remove` at a time, so this tool — and the `End` command `afc1a70` left
   // mute — is only ever reached by asking.
-  const bought = perAttempt('Anchois MAG-101')
-  const kept = perAttempt('Olives MAG-101')
+  const bought = WRITES.errandBought
+  const kept = WRITES.errandKept
   const { api } = otherUser
 
   const grocery = new GroceryListPage(otherUser.page)
@@ -422,11 +433,18 @@ test('a shop that turned out to be closed sends its items to their fallback', as
   const grocery = new GroceryListPage(otherUser.page)
   await grocery.open()
 
-  // The seeded leek is the one line of this shopper's whose product carries a
-  // fallback: the market by preference, the corner shop when it is shut. Two
-  // controls beside it, because a handler that moved *everything* — or nothing
-  // — would pass on the leek alone: a line in no shop at all, and a line in the
-  // shop that is still open.
+  // The seeded leek is in the shop that closes, and its product names the
+  // corner shop as its fallback. Two controls beside it, because a handler that
+  // moved *everything* — or nothing — would pass on the leek alone, and the two
+  // answer different questions:
+  //
+  //   Sacs du voisin     free text, so no product and no fallback: nowhere to
+  //                      go. Catches a handler that moves a line regardless.
+  //   Timbres du voisin  a product that *does* have a fallback — the market,
+  //                      the very shop that just closed — but the line sits in
+  //                      the corner shop. Only this one catches a handler that
+  //                      dropped the store filter and looked at the fallback
+  //                      alone.
   await expectLine(api, 'Poireau du voisin', (item) => item?.store?.name === SHOPS.market, 'the leek before the move')
   await expectLine(api, 'Sacs du voisin', (item) => null === item?.store, 'the control line, in no shop')
   await expectLine(
@@ -469,7 +487,7 @@ test('a shop that turned out to be closed sends its items to their fallback', as
       api,
       'Timbres du voisin',
       (item) => item?.store?.name === SHOPS.corner,
-      'a line in the shop that is still open was moved anyway',
+      'a line in the shop that is still open was sent to its fallback anyway',
     )
 
     // And the screen says so without being told twice: the aisle is read from
