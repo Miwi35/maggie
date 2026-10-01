@@ -368,9 +368,14 @@ async def _handle_delete_memory(arguments: dict, user_id: str) -> str:
 
 
 def _parse_instruction_kind(raw: object) -> InstructionKind | None:
-    """The `kind` argument as an enum, or None when it is absent or unreadable."""
+    """The `kind` argument as an enum, or None when it is absent or unreadable.
+
+    Case and surrounding space are forgiven — a model answering `"Behavior"` meant the
+    right thing, and refusing it would only buy a wasted tool round trip. A kind that is
+    not one of the two is still an error: see `_handle_add_instruction`.
+    """
     try:
-        return InstructionKind(str(raw))
+        return InstructionKind(str(raw).strip().lower())
     except ValueError:
         return None
 

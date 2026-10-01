@@ -22,6 +22,7 @@ from app.config import Settings
 from app.db.context_model import ConversationContext
 from app.llm import fake as fake_module
 from app.llm.client import create_llm_client, llm_configured
+from app.llm.directives import HEADER
 from app.llm.fake import (
     DEFAULT_FIXTURES_DIR,
     FakeAnthropicClient,
@@ -737,10 +738,11 @@ class TestTheShippedFixtures:
         without = await ask(client, "Dis-moi bonjour", system="Tu es Maggie.")
         assert "[fake-llm]" in text_of(without)
 
+        # The section as `directives.py` really renders it, header included: a needle
+        # matched against a system prompt this test invented would prove only itself.
         with_preference = await ask(
             client,
             "Dis-moi bonjour",
-            system="Tu es Maggie.\n\nPréférences de l'utilisateur sur ta façon de répondre :\n"
-            "- Tutoie-moi et évite les emojis",
+            system=f"Tu es Maggie.{HEADER}\n- Tutoie-moi et évite les emojis",
         )
         assert "[fake-llm]" not in text_of(with_preference)

@@ -72,10 +72,10 @@ const instructionKinds: Array<{ value: InstructionKind; label: string; placehold
   },
 ]
 
-const instructionKindLabels: Record<InstructionKind, string> = {
-  planning: 'Planification',
-  behavior: 'Comportement',
-}
+/** Derived, so the chip in the table and the option in the form cannot drift apart. */
+const instructionKindLabels = Object.fromEntries(
+  instructionKinds.map((kind) => [kind.value, kind.label]),
+) as Record<InstructionKind, string>
 
 interface SkillSummary {
   name: string

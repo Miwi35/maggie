@@ -30,8 +30,8 @@ class TestInstructionModel:
 
         assert d["kind"] == "behavior"
 
-    def test_a_row_written_before_the_column_existed_reads_as_planning(self):
-        """What the `ALTER … DEFAULT 'planning'` backfill means on the way out (MAG-22)."""
+    def test_to_dict_says_planning_when_no_kind_is_set(self):
+        """So a row the ORM has not filled in yet serialises like the backfill reads (MAG-22)."""
         d = Instruction(id="abc123", user_id="user-1", content="Rule").to_dict()
 
         assert d["kind"] == "planning"
@@ -105,6 +105,21 @@ class TestInstructionTools:
         await ToolRouter().call_tool(
             "add_instruction",
             {"content": "Tutoie-moi", "kind": "behavior"},
+            user_id="test-user",
+        )
+
+        mock_repo.store.assert_awaited_once_with("test-user", "Tutoie-moi", kind=InstructionKind.BEHAVIOR)
+
+    @patch("app.llm.tools.instruction_repo")
+    async def test_add_instruction_forgives_the_casing_of_the_kind(self, mock_repo):
+        """A model answering "Behavior" meant the right thing; a round trip to say so is waste."""
+        from app.llm.tools import ToolRouter
+
+        mock_repo.store = AsyncMock(return_value=MagicMock(to_dict=lambda: {"id": "inst9"}))
+
+        await ToolRouter().call_tool(
+            "add_instruction",
+            {"content": "Tutoie-moi", "kind": " Behavior "},
             user_id="test-user",
         )
 

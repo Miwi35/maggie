@@ -14,7 +14,10 @@ from app.db.instruction_repository import instruction_repo
 
 logger = logging.getLogger(__name__)
 
-HEADER = "\n\nPréférences de l'utilisateur sur ta façon de répondre — respecte-les dans chaque message :"
+HEADER = (
+    "\n\nPréférences de l'utilisateur sur ta façon de répondre — applique-les dans chaque message, "
+    "elles l'emportent sur le registre par défaut de ta personnalité :"
+)
 
 
 async def behavior_directives_section(user_id: str) -> str:
