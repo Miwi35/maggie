@@ -114,6 +114,13 @@ class GoogleCalendarApiClient
         return $service->events->patch($calendarId, $eventId, $event);
     }
 
+    public function moveEvent(User $user, string $fromCalendarId, string $eventId, string $toCalendarId): GoogleEvent
+    {
+        $service = $this->getCalendarService($user);
+
+        return $service->events->move($fromCalendarId, $eventId, $toCalendarId);
+    }
+
     public function deleteEvent(User $user, string $calendarId, string $eventId): void
     {
         $service = $this->getCalendarService($user);

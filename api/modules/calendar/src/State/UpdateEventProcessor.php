@@ -25,12 +25,14 @@ class UpdateEventProcessor implements ProcessorInterface
         // A nullable field that was set and is now null is an explicit clear
         $clearFields = [];
         if (null !== $previous) {
-            foreach (['description' => 'getDescription', 'location' => 'getLocation', 'rrule' => 'getRrule'] as $field => $getter) {
+            foreach (['description' => 'getDescription', 'location' => 'getLocation', 'rrule' => 'getRrule', 'reminders' => 'getReminders'] as $field => $getter) {
                 if (null === $data->$getter() && null !== $previous->$getter()) {
                     $clearFields[] = $field;
                 }
             }
         }
+
+        $agendaChanged = null === $previous || $data->getAgenda()->getId()->toString() !== $previous->getAgenda()->getId()->toString();
 
         // Only send fields that actually changed compared to previous state
         $envelope = $this->bus->dispatch(new UpdateEventCommand(
@@ -42,6 +44,10 @@ class UpdateEventProcessor implements ProcessorInterface
             location: null === $previous || $data->getLocation() !== $previous->getLocation() ? $data->getLocation() : null,
             allDay: null === $previous || $data->isAllDay() !== $previous->isAllDay() ? $data->isAllDay() : null,
             rrule: null === $previous || $data->getRrule() !== $previous->getRrule() ? $data->getRrule() : null,
+            status: null === $previous || $data->getStatus() !== $previous->getStatus() ? $data->getStatus()->value : null,
+            agendaId: $agendaChanged ? (string) $data->getAgenda()->getId() : null,
+            previousAgendaId: $agendaChanged && null !== $previous ? (string) $previous->getAgenda()->getId() : null,
+            reminders: null === $previous || $data->getReminders() != $previous->getReminders() ? $data->getReminders() : null,
             clearFields: $clearFields,
         ));
 

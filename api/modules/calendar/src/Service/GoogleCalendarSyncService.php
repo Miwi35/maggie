@@ -69,9 +69,10 @@ class GoogleCalendarSyncService
     }
 
     /**
-     * @param string[]|null $changedFields Fields that changed (null = full update)
+     * @param string[]|null $changedFields        Fields that changed (null = full update)
+     * @param string|null   $fromGoogleCalendarId With action "move", the Google calendar the event leaves
      */
-    public function pushEventToGoogle(Event $event, string $action, ?array $changedFields = null): void
+    public function pushEventToGoogle(Event $event, string $action, ?array $changedFields = null, ?string $fromGoogleCalendarId = null): void
     {
         $agenda = $event->getAgenda();
         if (!$agenda->isGoogleSynced()) {
@@ -92,6 +93,15 @@ class GoogleCalendarSyncService
                 $updatedAt = $result->getUpdated();
                 if ($updatedAt) {
                     $event->setGoogleUpdatedAt(new \DateTimeImmutable($updatedAt));
+                }
+            } elseif ('move' === $action && null !== $fromGoogleCalendarId) {
+                $result = $this->apiClient->moveEvent($user, $fromGoogleCalendarId, $googleEventId, $calendarId);
+                $this->trackGoogleResult($event, $result);
+
+                $otherFields = array_values(array_diff($changedFields ?? [], ['agenda']));
+                if ([] !== $otherFields) {
+                    $result = $this->apiClient->patchEvent($user, $calendarId, $googleEventId, $this->eventMapper->toGooglePatch($event, $otherFields));
+                    $this->trackGoogleResult($event, $result);
                 }
             } elseif (null !== $changedFields && [] !== $changedFields) {
                 $googleEvent = $this->eventMapper->toGooglePatch($event, $changedFields);
@@ -121,6 +131,16 @@ class GoogleCalendarSyncService
                 'action' => $action,
             ]);
             throw $e;
+        }
+    }
+
+    private function trackGoogleResult(Event $event, \Google\Service\Calendar\Event $result): void
+    {
+        $event->setGoogleEtag($result->getEtag());
+        /** @var ?string $updatedAt */
+        $updatedAt = $result->getUpdated();
+        if ($updatedAt) {
+            $event->setGoogleUpdatedAt(new \DateTimeImmutable($updatedAt));
         }
     }
 

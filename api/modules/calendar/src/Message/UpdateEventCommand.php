@@ -8,7 +8,10 @@ final readonly class UpdateEventCommand
 {
     use ClearsFieldsTrait;
 
-    /** @param list<'description'|'location'|'rrule'> $clearFields */
+    /**
+     * @param array<string, mixed>|null                          $reminders
+     * @param list<'description'|'location'|'rrule'|'reminders'> $clearFields
+     */
     public function __construct(
         public string $eventId,
         public ?string $summary = null,
@@ -18,6 +21,10 @@ final readonly class UpdateEventCommand
         public ?string $location = null,
         public ?bool $allDay = null,
         public ?string $rrule = null,
+        public ?string $status = null,
+        public ?string $agendaId = null,
+        public ?string $previousAgendaId = null,
+        public ?array $reminders = null,
         public array $clearFields = [],
     ) {
     }
