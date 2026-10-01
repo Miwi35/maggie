@@ -90,4 +90,24 @@ class AgendaApiTest extends WebTestCase
         self::assertSame('Agenda notes', $reloaded->getDescription());
         self::assertSame('#e91e63', $reloaded->getColor());
     }
+
+    public function testPatchingIsDefaultMovesTheDefaultAndSerialisesItAsDefault(): void
+    {
+        $this->load();
+        $second = $this->getFixture('second_agenda');
+
+        $this->patch($second, ['isDefault' => true]);
+
+        self::assertResponseIsSuccessful();
+        self::assertTrue($this->reload($second)->isDefault());
+        self::assertFalse($this->reload($this->getFixture('test_agenda'))->isDefault());
+        $this->assertMercureUpdatePublished('/agendas/');
+        $this->assertElasticsearchIndexDispatched(Agenda::class);
+
+        $this->client->request('GET', '/api/agendas/'.$second->getId(), [], [], array_merge([
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()));
+        $body = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertTrue($body['default']);
+    }
 }

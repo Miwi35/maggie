@@ -11,6 +11,11 @@ Maggie\Calendar\Entity\Agenda:
     color: '#e91e63'
     isDefault: true
     user: '@test_user'
+  second_agenda:
+    name: Second Agenda
+    color: '#009688'
+    isDefault: false
+    user: '@test_user'
 
 Maggie\Calendar\Entity\Event:
   event_full:
