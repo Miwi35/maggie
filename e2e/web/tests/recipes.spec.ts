@@ -164,13 +164,13 @@ test.describe('Recipes and meals', () => {
       label: string
       quantity: number | null
     }
-    const lineOf = (list: GroceryListRow): Line | undefined =>
-      (list.items as Line[]).find((item) => item.label === name)
+    const linesOf = (list: GroceryListRow): Line[] => (list.items as Line[]).filter((item) => item.label === name)
+    const lineOf = (list: GroceryListRow): Line | undefined => linesOf(list)[0]
 
     const planned = await waitForIndexed<GroceryListRow>(api, '/api/grocery_lists', (list) => lineOf(list)?.quantity === 400, {
       what: 'The meal’s 400 g of boulgour',
     })
-    const lineCount = planned.items.length
+    expect(linesOf(planned), 'the meal planned a single line').toHaveLength(1)
 
     const updated = await api.patch(recipeBody['@id'], {
       headers: { 'Content-Type': 'application/merge-patch+json', Accept: 'application/ld+json' },
@@ -182,7 +182,8 @@ test.describe('Recipes and meals', () => {
       what: 'The recipe’s new 600 g of boulgour',
     })
 
-    // Same line, not a second one beside it.
-    expect(after.items).toHaveLength(lineCount)
+    // Same line, not a second one beside it. Counted on this journey's own
+    // label: the list is shared with the other workers, so its total moves.
+    expect(linesOf(after), 'the recipe edit added a second line instead of updating the first').toHaveLength(1)
   })
 })
