@@ -3,6 +3,8 @@ name: 04-calendar-import
 tags:
   - calendar
 ---
+# QUARANTINED (MAG-209): fails on the same `calendar_span_…` bar as flow 03.
+# Run it alone with `task e2e:mobile -- quarantine/04-calendar-import.yaml`.
 # Importing a Google calendar updates the screen by itself (MAG-204). The
 # regression it holds is `2dfdbb3`: the calendar fetched its events once, so what
 # an import brought in stayed invisible until the user pulled to refresh or

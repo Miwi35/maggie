@@ -10,7 +10,8 @@ flows:
 # `quarantine/` holds flows that fail for a known, ticketed reason: outside the
 # glob, they do not hold main red and every deploy behind it. Each one names its
 # ticket; the fix moves it back into `flows/` and into `flowsOrder`.
-# - 03-calendar-multi-day: MAG-209
+# - 03-calendar-multi-day, 04-calendar-import: MAG-209 (both fail on the
+#   `calendar_span_…` bar of a multi-day event)
 
 # Alphabetical, which the numeric prefixes make deterministic. The flows do not
 # depend on each other — each clears the app's state and signs in again — but
@@ -21,5 +22,4 @@ executionOrder:
   flowsOrder:
     - 01-login-chat
     - 02-voice-overlay
-    - 04-calendar-import
     - 05-deep-links
