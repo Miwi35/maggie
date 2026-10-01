@@ -1576,6 +1576,7 @@ export const CalendarView = () => {
             {calendars.map((cal) => (
               <Box
                 key={cal.id}
+                data-testid="agenda-row"
                 onClick={() => toggleCalendar(cal.id)}
                 sx={{
                   display: 'flex',
@@ -1608,6 +1609,7 @@ export const CalendarView = () => {
                 <IconButton
                   className="agenda-menu-btn"
                   size="small"
+                  aria-label={`Options de l'agenda ${cal.name}`}
                   onClick={(e) => handleAgendaMenuOpen(e, cal)}
                   sx={{ opacity: 0, p: 0.25 }}
                 >

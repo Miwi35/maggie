@@ -76,11 +76,14 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-other@maggie.local']));
 
-        self::assertSame(2, $this->rowsOf(Agenda::class));
-        // Events include the meal, which extends Event: 5 events + 1 meal.
-        self::assertSame(6, $this->rowsOf(Event::class));
+        // Three: the signed-in user's two, and the neighbour's one. An event
+        // belongs to a user through its agenda, so the neighbour needs one of
+        // their own for the isolation journey to have anything to leak.
+        self::assertSame(3, $this->rowsOf(Agenda::class));
+        // Events include the meal, which extends Event: 9 events + 1 meal.
+        self::assertSame(10, $this->rowsOf(Event::class));
         self::assertSame(1, $this->rowsOf(Meal::class));
-        self::assertSame(2, $this->rowsOf(Task::class));
+        self::assertSame(4, $this->rowsOf(Task::class));
         self::assertSame(2, $this->rowsOf(Recipe::class));
         self::assertSame(5, $this->rowsOf(GroceryItem::class));
         self::assertSame(2, $this->rowsOf(Account::class));
@@ -100,24 +103,36 @@ final class E2eSeedCommandTest extends KernelTestCase
         // nobody would simply be invisible, and the journey would report an
         // empty list without saying why.
         self::assertSame(2, $this->rowsOf(Agenda::class, ['user' => $user]));
-        self::assertSame(2, $this->rowsOf(Task::class, ['user' => $user]));
+        self::assertSame(3, $this->rowsOf(Task::class, ['user' => $user]));
         self::assertSame(2, $this->rowsOf(Recipe::class, ['user' => $user]));
         self::assertSame(2, $this->rowsOf(Account::class, ['user' => $user]));
         self::assertSame(12, $this->rowsOf(Transaction::class, ['user' => $user]));
         self::assertSame(2, $this->rowsOf(Notification::class, ['user' => $user]));
     }
 
-    public function testTheNeighbourOwnsNothingButItsPreferences(): void
+    public function testTheNeighbourOwnsOnlyWhatTheIsolationJourneyNeeds(): void
     {
         $this->seed();
 
         $neighbour = $this->repository(User::class)->findOneBy(['email' => 'e2e-other@maggie.local']);
         self::assertNotNull($neighbour);
 
-        // The account exists to prove isolation, not to be a second world. Data
-        // attached to it would show up in no journey and quietly make the
-        // "nothing leaks" assertions weaker than they look.
-        foreach ([Agenda::class, Task::class, Recipe::class, Account::class, Transaction::class, Notification::class] as $entity) {
+        // One agenda, one event in it and one task: exactly what MAG-100's
+        // isolation journey asks the signed-in user's dashboard and agenda to
+        // come back *without*. Proving "nothing of theirs leaks" needs something
+        // of theirs to leak — an empty neighbour makes the assertion hold for
+        // the wrong reason.
+        self::assertSame(1, $this->rowsOf(Agenda::class, ['user' => $neighbour]));
+        self::assertSame(1, $this->rowsOf(Task::class, ['user' => $neighbour]));
+
+        $agenda = $this->repository(Agenda::class)->findOneBy(['user' => $neighbour]);
+        self::assertNotNull($agenda);
+        self::assertSame(1, $this->rowsOf(Event::class, ['agenda' => $agenda]));
+
+        // The modules the isolation journey does not reach stay empty: the
+        // account is there to prove a boundary, not to be a second world, and
+        // data no journey reads would only make the counts above harder to keep.
+        foreach ([Recipe::class, Account::class, Transaction::class, Notification::class] as $entity) {
             self::assertSame(0, $this->rowsOf($entity, ['user' => $neighbour]), $entity);
         }
     }

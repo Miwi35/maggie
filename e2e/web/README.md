@@ -77,6 +77,49 @@ suite whose slowest steps have nothing to do with layout. Tag a test when its
    `ChatPanel.send()` returns the AG-UI events of the whole run — which tool
    ran, how many deltas, whether the run finished.
 
+## The agenda journeys
+
+`tests/agenda-*.spec.ts` (MAG-100), the module MAG-93 found the most regressive in
+the repository. Five files, split so that nothing in one can move what another
+reads: `events` (create, rename, delete, a multi-day event, two windows),
+`recurrence` (one occurrence overridden, one refused), `tasks`, `google`, and
+`isolation`. `agenda-delete.spec.ts` stays on its own — it is MAG-164's index guard.
+
+Three rules hold across all of them, and each cost a debugging session elsewhere:
+
+- **Write under a title the current attempt alone uses.** CI retries once and
+  nothing reseeds in between, so a count of one reads two on the retry. The helper
+  suffixes `test.info().retry` rather than the file turning retries off.
+- **Act on the anchor's own day, and count in the day or week view.** The grid opens
+  on the current month, so a row a day later can land in the next one; and month
+  view folds a day holding more than three events behind "+N autres", which turns a
+  count into a count of what fitted.
+- **Pick different occurrences in the recurrence file.** Three tests write on one
+  seeded series; they stay parallel because they touch weeks 1, 2 and the two the
+  seed already overrides.
+
+`CalendarPage` reaches chips by their text, the same handle `CalendarView.test.tsx`
+uses, and reaches a particular event through the `?eventId=` deep link — never by
+driving the toolbar to a computed date.
+
+Writing them found three bugs, and each has an expected-to-fail test naming its
+ticket rather than a missing assertion, because an exemption nobody wrote down is a
+missing test:
+
+- **MAG-168** — the create dialog posts a local time with no offset, so an event
+  entered at 15:00 in Paris is stored at 15:00 UTC.
+- **MAG-169** — `Event::toSearchDocument()` omits `recurringEvent` and
+  `originalStartAt`, and the Elasticsearch providers rebuild the entity from the
+  indexed document alone. The admin's exception map is therefore always empty: an
+  overridden occurrence is drawn twice and a refused one is not removed.
+- **MAG-148** — the same shape on `Agenda`, whose `googleCalendarId` is not indexed
+  either. That is why importing the same Google calendar twice makes a second
+  agenda, and why the sidebar's sync badge never appears.
+
+What the browser cannot reach lives in `e2e/smoke/smoke.sh`: the Paris-time conflict
+check, driven through the real MCP transport (step 10), and the reminder cron, which
+has no UI at all and which only `docker compose exec` can run (step 11).
+
 ## The chat journey
 
 `tests/chat.spec.ts` is the one journey that is serial, because the

@@ -39,6 +39,8 @@ export default tseslint.config(
         'warn',
         {
           assertFunctionNames: [
+            'createEvent',
+            'createTask',
             'expect',
             'expectCalendarView',
             'expectItemEventually',
@@ -47,9 +49,12 @@ export default tseslint.config(
             'expectRealtimeSync',
             'expectShown',
             'expectSilence',
+            'goToEventDate',
+            'importFromGoogle',
             'openEvent',
             'openMind',
             'waitFor',
+            'waitForCount',
             'waitForIndexed',
           ],
         },

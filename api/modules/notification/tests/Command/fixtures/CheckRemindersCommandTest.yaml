@@ -1,0 +1,104 @@
+# Dates relative to the real clock, not to a literal: the command reads
+# `new DateTimeImmutable()` for both of its bounds — "the trigger time has
+# passed" and "the event starts within 24 hours" — so a fixed date would drift
+# out of the window the day after it was written.
+
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+  other_user:
+    email: other@example.com
+    googleId: google-other-id
+    name: Other User
+
+Maggie\Calendar\Entity\Agenda:
+  own_agenda:
+    name: Own agenda
+    isDefault: true
+    user: '@test_user'
+  other_agenda:
+    name: Other agenda
+    isDefault: true
+    user: '@other_user'
+
+Maggie\Calendar\Entity\Event:
+  # The one due reminder: 60 minutes before an event half an hour from now, so
+  # the trigger time is half an hour behind us and the event is well inside the
+  # 24-hour horizon.
+  due_event:
+    summary: Appel avec la banque
+    startAt: '<(new \DateTimeImmutable("+30 minutes"))>'
+    endAt: '<(new \DateTimeImmutable("+90 minutes"))>'
+    reminders:
+      useDefault: false
+      overrides:
+        - { method: 'popup', minutes: 60 }
+    agenda: '@own_agenda'
+
+  # In the horizon, trigger still ahead: 15 minutes before an event ten hours
+  # out. Nothing must fire yet.
+  not_yet_event:
+    summary: Dîner tardif
+    startAt: '<(new \DateTimeImmutable("+10 hours"))>'
+    endAt: '<(new \DateTimeImmutable("+11 hours"))>'
+    reminders:
+      useDefault: false
+      overrides:
+        - { method: 'popup', minutes: 15 }
+    agenda: '@own_agenda'
+
+  # Trigger long past, event three days out: outside the horizon, so the command
+  # never looks at it. Without this row the horizon would be untested, and a
+  # command that dropped it would fire every reminder in the database at once.
+  beyond_horizon_event:
+    summary: Contrôle technique
+    startAt: '<(new \DateTimeImmutable("+3 days"))>'
+    endAt: '<(new \DateTimeImmutable("+3 days 1 hour"))>'
+    reminders:
+      useDefault: false
+      overrides:
+        - { method: 'popup', minutes: 60 }
+    agenda: '@own_agenda'
+
+  # Reminders written as a bare list instead of Google's `{useDefault, overrides}`.
+  # The e2e seed shipped this shape for a while and the whole reminder chain was
+  # silently dead: `$reminders['overrides'] ?? []` is empty, so nothing fires and
+  # nothing complains. This row is what makes that loud.
+  malformed_reminders_event:
+    summary: Rendez-vous mal formé
+    startAt: '<(new \DateTimeImmutable("+30 minutes"))>'
+    endAt: '<(new \DateTimeImmutable("+90 minutes"))>'
+    reminders: [{ method: 'popup', minutes: 60 }]
+    agenda: '@own_agenda'
+
+  # A reminder of zero minutes means "no reminder", not "right now".
+  zero_minutes_event:
+    summary: Rendez-vous sans délai
+    startAt: '<(new \DateTimeImmutable("+30 minutes"))>'
+    endAt: '<(new \DateTimeImmutable("+90 minutes"))>'
+    reminders:
+      useDefault: false
+      overrides:
+        - { method: 'popup', minutes: 0 }
+    agenda: '@own_agenda'
+
+  # No reminders at all: the common case, and the one that must stay quiet.
+  no_reminders_event:
+    summary: Rendez-vous sans rappel
+    startAt: '<(new \DateTimeImmutable("+30 minutes"))>'
+    endAt: '<(new \DateTimeImmutable("+90 minutes"))>'
+    agenda: '@own_agenda'
+
+  # The neighbour's, due at the same moment. The command runs for every user, so
+  # it has to fire — but into *their* inbox, not the fixture user's.
+  other_due_event:
+    summary: Appel du voisin
+    startAt: '<(new \DateTimeImmutable("+30 minutes"))>'
+    endAt: '<(new \DateTimeImmutable("+90 minutes"))>'
+    reminders:
+      useDefault: false
+      overrides:
+        - { method: 'popup', minutes: 60 }
+    agenda: '@other_agenda'

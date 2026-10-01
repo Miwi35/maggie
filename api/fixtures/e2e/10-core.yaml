@@ -35,6 +35,13 @@ Maggie\Core\Entity\User:
     # single account, and a second one invented at runtime would not be
     # deterministic.
     #
+    # It owns an agenda, an event and a task (20-calendar.yaml), and nothing
+    # else. MAG-114 found several agenda reads that forgot the user filter, so
+    # the isolation journey needs something of theirs that *would* show up in
+    # the signed-in user's day if a query dropped its `WHERE user`. Everything
+    # beyond that stays empty: data no journey reads would only be one more
+    # count to keep.
+    #
     # No Google credentials on purpose: nothing syncs for this user, and a
     # token here would give the Google journeys a second candidate to pick up.
     e2e_other_user:

@@ -19,11 +19,35 @@
               "id": "e2e@maggie.local",
               "summary": "Agenda Google de test",
               "timeZone": "Europe/Paris",
+              "backgroundColor": "#3f51b5",
               "primary": true,
               "accessRole": "owner"
             }
           ]
         }
+      }
+    },
+    {
+      "name": "One calendar list entry — every pull reads the colour from it",
+      "request": {
+        "method": "GET",
+        "urlPathPattern": "/google/calendar/v3/users/me/calendarList/[^/]+"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "kind": "calendar#calendarListEntry",
+          "id": "{{request.pathSegments.[6]}}",
+          "summary": "Agenda Google de test",
+          "timeZone": "Europe/Paris",
+          "backgroundColor": "#3f51b5",
+          "primary": true,
+          "accessRole": "owner"
+        },
+        "transformers": ["response-template"]
       }
     },
     {
@@ -74,10 +98,11 @@
         },
         "jsonBody": {
           "kind": "calendar#event",
-          "id": "e2e-google-event-created",
+          "id": "e2e-google-event-{{randomValue length=12 type='ALPHANUMERIC' uppercase=false}}",
           "status": "confirmed",
           "updated": "2026-03-15T08:00:00.000Z"
-        }
+        },
+        "transformers": ["response-template"]
       }
     },
     {
@@ -97,6 +122,27 @@
           "status": "confirmed",
           "updated": "2026-03-15T09:00:00.000Z"
         }
+      }
+    },
+    {
+      "name": "Patch an event — the field-level push, and the pull guard's other half",
+      "request": {
+        "method": "PATCH",
+        "urlPathPattern": "/google/calendar/v3/calendars/[^/]+/events/[^/]+"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "kind": "calendar#event",
+          "id": "{{request.pathSegments.[6]}}",
+          "status": "confirmed",
+          "etag": "\"e2e-etag-patched\"",
+          "updated": "2026-03-15T09:00:00.000Z"
+        },
+        "transformers": ["response-template"]
       }
     },
     {
@@ -133,6 +179,36 @@
       "request": {
         "method": "POST",
         "urlPathPattern": "/google/calendar/v3/channels/stop"
+      },
+      "response": {
+        "status": 204
+      }
+    },
+    {
+      "name": "Create a calendar — what exporting a local agenda to Google does",
+      "request": {
+        "method": "POST",
+        "urlPathPattern": "/google/calendar/v3/calendars"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "kind": "calendar#calendar",
+          "id": "e2e-google-calendar-created",
+          "summary": "{{jsonPath request.body '$.summary'}}",
+          "timeZone": "Europe/Paris"
+        },
+        "transformers": ["response-template"]
+      }
+    },
+    {
+      "name": "Delete a calendar — \"delete on Google too\" when an agenda goes",
+      "request": {
+        "method": "DELETE",
+        "urlPathPattern": "/google/calendar/v3/calendars/[^/]+"
       },
       "response": {
         "status": 204
@@ -200,10 +276,32 @@
         },
         "jsonBody": {
           "kind": "tasks#task",
-          "id": "e2e-google-task-created",
+          "id": "e2e-google-task-{{randomValue length=12 type='ALPHANUMERIC' uppercase=false}}",
           "status": "needsAction",
           "updated": "2026-03-15T08:00:00.000Z"
-        }
+        },
+        "transformers": ["response-template"]
+      }
+    },
+    {
+      "name": "Patch a task — what ticking one off really sends",
+      "request": {
+        "method": "PATCH",
+        "urlPathPattern": "/google/tasks/v1/lists/[^/]+/tasks/[^/]+"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "kind": "tasks#task",
+          "id": "{{request.pathSegments.[6]}}",
+          "status": "completed",
+          "etag": "\"e2e-task-etag-patched\"",
+          "updated": "2026-03-15T09:00:00.000Z"
+        },
+        "transformers": ["response-template"]
       }
     },
     {
