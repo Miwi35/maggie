@@ -95,6 +95,8 @@ class AgendaApiTest extends WebTestCase
     {
         $this->load();
         $second = $this->getFixture('second_agenda');
+        // A request starts with an empty identity map: the promoted agenda is loaded before the demoted one.
+        self::getContainer()->get('doctrine.orm.entity_manager')->clear();
 
         $this->patch($second, ['isDefault' => true]);
 
