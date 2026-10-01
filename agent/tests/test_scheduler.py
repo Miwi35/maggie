@@ -3,8 +3,15 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from app.config import settings
 from app.db.instruction_repository import instruction_repo
 from app.queue.scheduler import next_planning_time, plan_all_users
+
+
+@pytest.fixture(autouse=True)
+def paris_at_five(monkeypatch):
+    monkeypatch.setattr(settings, "planning_timezone", "Europe/Paris")
+    monkeypatch.setattr(settings, "daily_planning_hour", 5)
 
 
 def utc(*args: int) -> datetime:
