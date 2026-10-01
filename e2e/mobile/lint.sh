@@ -6,7 +6,7 @@
 #
 # `task e2e:web:lint` exists because ESLint catches the mistakes that make a
 # Playwright suite lie. The equivalent mistakes here are different, and so are
-# the three checks below:
+# the four checks below:
 #
 #   1. `maestro check-syntax` — a command Maestro does not know, a malformed
 #      selector. Maestro fails on these at run time, ten minutes into a job that
@@ -29,8 +29,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 FLOW_DIR="$REPO_ROOT/e2e/mobile"
 TAGS_FILE="$REPO_ROOT/mobile/app/src/main/java/com/maggie/app/ui/UiTags.kt"
-# The whole app, not just ui/: MainActivity carries the activity's own tag root,
-# and a screen is free to open a dialog from anywhere.
+# The whole app, not just ui/: a screen is free to open a dialog from anywhere.
 SRC_DIR="$REPO_ROOT/mobile/app/src/main/java/com/maggie/app"
 APP_ID="com.maggie.app.e2e"
 
@@ -100,13 +99,49 @@ printf '\n\033[1m4. Every tagged window has its own tag root\033[0m\n'
 # grep below. Without that the check passes on a file whose only mention of
 # `uiTagRoot()` is the comment explaining why it is there, which is what the
 # first version of this check did.
+#
+# Written as one left-to-right scan rather than two `sub()` calls, because the
+# order matters and getting it wrong swallows a whole file in silence: a `//`
+# stripped first out of `/* see http://b/123 */` takes the closing `*/` with it,
+# the rest of the file counts as comment, and the file is then skipped — which
+# looks exactly like a file with no window in it. Code after a `*/` is kept, for
+# the same reason.
 code_of() {
   awk '
-    { line = $0 }
-    inblock { if (line ~ /\*\//) { inblock = 0 }; next }
-    { sub("//.*", "", line) }
-    line ~ /\/\*/ { if (line !~ /\*\//) inblock = 1; sub("/\\*.*", "", line) }
-    { print line }
+    {
+      line = $0
+      out = ""
+      while (line != "") {
+        if (inblock) {
+          i = index(line, "*/")
+          if (i == 0) { line = ""; break }
+          line = substr(line, i + 2)
+          inblock = 0
+          continue
+        }
+        b = index(line, "/*")
+        l = index(line, "//")
+        if (l > 0 && (b == 0 || l < b)) { out = out substr(line, 1, l - 1); line = ""; break }
+        if (b > 0) {
+          out = out substr(line, 1, b - 1)
+          line = substr(line, b + 2)
+          inblock = 1
+          continue
+        }
+        out = out line
+        line = ""
+      }
+      print out
+    }
+    # Valid Kotlin never ends inside a block comment, so this means the scan took
+    # a `/*` out of a string literal and treated the rest of the file as comment.
+    # Said out loud rather than swallowed: a file stripped to nothing counts zero
+    # windows, which is indistinguishable from a file that opens none.
+    END {
+      if (inblock) {
+        print "  ! " FILENAME ": unterminated block comment — a /* inside a string literal? check 4 may have skipped this file" > "/dev/stderr"
+      }
+    }
   ' "$1"
 }
 
@@ -118,15 +153,26 @@ code_of() {
 # A file with one tagged window and one untagged one is over-demanded by this.
 # That is deliberate: the extra root is free, and the alternative is parsing
 # Kotlin blocks in awk.
+# Every primitive that opens a platform window — each is a semantics owner of its
+# own, for the same reason a Dialog is. Anchored on a non-identifier character so
+# that a project composable *calling* one (`StorePickerDialog(`, `MealCreateDialog(`)
+# is not counted as a second window, and `fun` lines are dropped so a declaration
+# is not counted as a call. Without both, a screen with four dialog helpers would
+# demand four roots the day a journey tags it, and the cheap way out would be
+# decorative `uiTagRoot()` calls that devalue this check.
+WINDOW_RE='(^|[^A-Za-z0-9_.])(ModalBottomSheet|AlertDialog|BasicAlertDialog|Dialog|Popup|DropdownMenu|ExposedDropdownMenu)\('
+
 mapfile -t sources < <(find "$SRC_DIR" -name '*.kt' | sort)
 for file in "${sources[@]}"; do
   code="$(code_of "$file")"
-  # Popup and the dropdown menus are separate semantics owners too, for the same
-  # reason: each is a platform window of its own.
-  windows="$(printf '%s\n' "$code" | grep -cE '(ModalBottomSheet|Dialog|Popup|DropdownMenu)\(' || true)"
+  windows="$(printf '%s\n' "$code" | grep -vE '(^|[[:space:]])fun[[:space:]]' | grep -cE "$WINDOW_RE" || true)"
   [ "$windows" -gt 0 ] || continue
   # Only files that actually carry a tag: a dialog no flow addresses needs
-  # nothing, and demanding it everywhere would be noise nobody reads.
+  # nothing, and demanding it everywhere would be noise nobody reads. So the gate
+  # is precisely "opens a window *and* spells UiTags." — the roots in
+  # `MainActivity.kt` and `ContextListSheet.kt` are not guarded by it, because
+  # neither file declares a tag of its own. Tag something in one of them and it
+  # starts being guarded.
   printf '%s\n' "$code" | grep -q 'UiTags\.' || continue
 
   roots="$(printf '%s\n' "$code" | grep -c 'uiTagRoot()' || true)"

@@ -178,21 +178,30 @@ mkdir -p "$REPORT_DIR"
 # would be a slower full run, not the single flow it reads as. Paths are resolved
 # against this directory, because `run.sh` never sets the caller's cwd.
 #
-# The consequence, said out loud: an *option value* ending in `.yaml` — there is
-# one, `--config` — cannot be passed through this wrapper. Nothing here needs it
-# (Maestro finds `config.yaml` in the workspace on its own), and a `.yaml` that is
-# not a flow dies below rather than reaching Maestro as a path it cannot resolve.
+# One Maestro option takes a `.yaml` value — `--config` — so the value after it is
+# passed through rather than mistaken for a flow. It would otherwise resolve to
+# this directory's own `config.yaml`, which *exists*, so the existence check below
+# would not catch it: the file would silently become the only target and `--config`
+# would be left without a value. Nothing here needs it (Maestro reads the
+# workspace's config on its own), but reading as a flow would be worse than
+# refusing.
 targets=()
 maestro_args=()
+previous=''
 for arg in "$@"; do
   case "$arg" in
     *.yaml|*.yml)
-      resolved="$(cd "$FLOW_DIR" && realpath -m "$arg")"
-      [ -f "$resolved" ] || die "No flow at $resolved. Paths are relative to e2e/mobile/ — try flows/01-login-chat.yaml."
-      targets+=("$resolved")
+      if [ "$previous" = '--config' ]; then
+        maestro_args+=("$arg")
+      else
+        resolved="$(cd "$FLOW_DIR" && realpath -m "$arg")"
+        [ -f "$resolved" ] || die "No flow at $resolved. Paths are relative to e2e/mobile/ — try flows/01-login-chat.yaml."
+        targets+=("$resolved")
+      fi
       ;;
     *) maestro_args+=("$arg") ;;
   esac
+  previous="$arg"
 done
 [ "${#targets[@]}" -gt 0 ] || targets=("$FLOW_DIR")
 

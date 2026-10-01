@@ -56,9 +56,11 @@ harness's first CI run failed, with `chat_open` resolving and `chat_input`, one
 line later and inside the chat sheet's `Dialog`, having no resource id at all.
 
 `task e2e:mobile:lint` checks both halves — every `id:` a flow uses is a declared
-tag, and every composable that opens a window *and* carries a tag calls
-`uiTagRoot()`. The second check exists because the first one passed cleanly on
-exactly the ids the emulator could not find.
+tag, and every file that opens a window *and* spells `UiTags.` calls `uiTagRoot()`
+**once per window**. The second check exists because the first passed cleanly on
+exactly the ids the emulator could not find; it is counted per window because
+`ChatSheet.kt` opens two, and a file-wide "is it in here somewhere" passed with
+one of them missing.
 
 ## Layout
 
@@ -69,7 +71,7 @@ exactly the ids the emulator could not find.
 | `subflows/` | shared steps (`sign-in.yaml`), kept out of the `flows` glob on purpose |
 | `run.sh` | the whole run: device, bridge, time zone, install, flows |
 | `maestro.sh` | downloads the pinned CLI into `.e2e-cache/` |
-| `lint.sh` | syntax, testTags, applicationId — seconds, no device |
+| `lint.sh` | syntax, testTags, tag roots, applicationId — seconds, no device |
 | `report/` | JUnit report and the screenshots of a failed run (gitignored) |
 
 A file put in `flows/` is run as a journey. A shared sequence goes in
