@@ -1,0 +1,36 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-test@example.com
+    googleId: google-finance-test
+    name: Finance Test User
+
+Maggie\Finance\Entity\Category:
+  food:
+    name: Alimentation
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  restaurants:
+    name: Restaurants
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    parent: '@food'
+    user: '@test_user'
+
+Maggie\Finance\Entity\Envelope:
+  food_july:
+    category: '@food'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 40000
+    currency: EUR
+    year: 2026
+    month: 7
+    user: '@test_user'
+
+Maggie\Finance\Entity\CategorizationRule:
+  rule_restaurant:
+    labelPattern: RESTO
+    matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'
+    category: '@restaurants'
+    direction: '<(Maggie\Finance\Enum\AmountDirection::Debit)>'
+    priority: 10
+    isActive: true
+    user: '@test_user'

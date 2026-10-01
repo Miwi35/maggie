@@ -23,7 +23,7 @@ class DeleteEventToolTest extends KernelTestCase
         self::bootKernel();
         $this->resetMercure();
         $this->resetAsyncTransport();
-        $this->loadFixtures('UpdateEventToolTest.yaml');
+        $this->loadFixtures('DeleteEventToolTest.yaml');
         $this->loginFixtureUser();
     }
 
@@ -50,7 +50,7 @@ class DeleteEventToolTest extends KernelTestCase
                 $deleted[] = [$message->indexName, $message->documentId];
             }
         }
-        self::assertSame([['events', $id]], $deleted);
+        self::assertContains(['events', $id], $deleted);
     }
 
     public function testDeleteEventWithLowercaseIdTargetsTheIndexedDocumentId(): void
@@ -69,6 +69,25 @@ class DeleteEventToolTest extends KernelTestCase
                 $deleted[] = [$message->indexName, $message->documentId];
             }
         }
-        self::assertSame([['events', $id]], $deleted);
+        self::assertContains(['events', $id], $deleted);
+    }
+
+    public function testDeletingARecurringEventRemovesItsExceptionsFromTheIndex(): void
+    {
+        $id = (string) $this->getFixture('event_full')->getId();
+        $exceptionId = (string) $this->getFixture('event_exception')->getId();
+        $tool = self::getContainer()->get(DeleteEventTool::class);
+
+        $data = json_decode($tool($id), true, 512, JSON_THROW_ON_ERROR);
+        self::assertTrue($data['success']);
+
+        $deleted = [];
+        foreach ($this->getAsyncTransport()->getSent() as $envelope) {
+            $message = $envelope->getMessage();
+            if ($message instanceof DeleteDocumentCommand) {
+                $deleted[] = [$message->indexName, $message->documentId];
+            }
+        }
+        self::assertEqualsCanonicalizing([['events', $id], ['events', $exceptionId]], $deleted);
     }
 }

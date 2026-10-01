@@ -6,6 +6,7 @@ use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
+use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
 use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Mcp\Tool\ManageCategoriesTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -184,5 +185,40 @@ class CategoryToolsTest extends KernelTestCase
 
         $this->assertMercureUpdatePublished('/categories/');
         $this->assertElasticsearchDeleteDispatched('categories');
+    }
+
+    public function testDeleteCategoryRemovesWhatItCascadesToFromTheIndex(): void
+    {
+        $this->loadFixtures('category_cascade.yaml');
+        $this->loginFixtureUser();
+        $this->loginUser($this->getFixture('test_user'));
+
+        $tool = self::getContainer()->get(ManageCategoriesTool::class);
+        $data = json_decode(
+            $tool('delete', categoryId: (string) $this->getFixture('food')->getId()),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+        self::assertTrue($data['success']);
+
+        $deleted = $this->deletedDocuments();
+        self::assertContains(['categories', (string) $this->getFixture('restaurants')->getId()], $deleted);
+        self::assertContains(['envelopes', (string) $this->getFixture('food_july')->getId()], $deleted);
+        self::assertContains(['categorization_rules', (string) $this->getFixture('rule_restaurant')->getId()], $deleted);
+    }
+
+    /** @return array<int, array{string, string}> */
+    private function deletedDocuments(): array
+    {
+        $deleted = [];
+        foreach ($this->getAsyncTransport()->getSent() as $envelope) {
+            $message = $envelope->getMessage();
+            if ($message instanceof DeleteDocumentCommand) {
+                $deleted[] = [$message->indexName, $message->documentId];
+            }
+        }
+
+        return $deleted;
     }
 }
