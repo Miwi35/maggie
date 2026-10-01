@@ -1,10 +1,11 @@
 # Implement Spec
 
 Execute a shaped spec task by task: tests first, one commit per task, then the
-e2e journey, the Linear docs, and the PR.
+e2e journey, the review loop, the Linear docs, and the PR.
 
 `/shape-spec` decides **what** to build. This command only builds it. If the
-spec does not answer a question, that is a spec bug — stop and ask (Step 8).
+spec does not answer a question, that is a spec bug — stop and ask (see
+*Blocked on an Ambiguity*).
 Never guess.
 
 ## Usage
@@ -81,7 +82,7 @@ Before touching implementation code:
   behaviour, not a typo or an unloaded fixture.
 - **Bug task** — write the reproduction test first, and make it fail exactly
   the way the report describes. If you cannot reproduce it, you do not yet
-  understand the bug: stop (Step 8) rather than fix something adjacent.
+  understand the bug: stop (*Blocked on an Ambiguity*) rather than fix something adjacent.
 
 Honour the repo's non-negotiable test rules (CLAUDE.md, `api/testing`,
 `global/testing`). For every API endpoint or MCP tool that means: 401
@@ -131,7 +132,7 @@ pass. Do not start a second stack either; host ports collide. So:
 Lint of every touched component and the task's targeted tests (never the full suite: CI runs it) must pass before committing. A
 failure is yours to fix: do not commit red and do not move on. If the failure
 sits in code the task never touched and you cannot explain it, treat it as an
-ambiguity (Step 8).
+ambiguity (*Blocked on an Ambiguity*).
 
 ### Step 5: Commit
 
@@ -165,7 +166,29 @@ unit test mocks away.
 
 Run the module suite, then commit.
 
-### Step 7: Update the Linear Documents
+### Step 7: Review Loop — No PR Without `ACCEPT`
+
+Once lint and the targeted tests are green and every task and the journey are
+committed, run the **Review loop** defined in `CLAUDE.md` (section « Review
+loop ») — that section is the rule; do not restate it here. Concretely, with
+this spec:
+
+1. Call a fresh `code-reviewer` subagent with the ticket (goal and acceptance
+   criteria), the spec folder, `main` as base branch and, from round 2, the
+   previous findings and the commit it reviewed.
+2. `CHANGES_REQUIRED` → hand the **blocking** findings to a `fullstack-developer`
+   subagent (test first when one is missing), then re-run the lint and targeted
+   tests of what the fix touched (Step 4, same worktree limits), and commit.
+3. Resubmit to a **new** `code-reviewer`: it checks only the fixes since the
+   commit it reviewed. Repeat until `ACCEPT`.
+4. Three rounds without `ACCEPT` → stop as in *Blocked on an Ambiguity*, with
+   the findings still blocking as the question. No PR.
+
+Keep the tally as you go — rounds, blocking findings fixed, minor findings left
+as is — for the PR's **Review** section (Step 9). **The PR is opened only after
+an `ACCEPT` verdict.**
+
+### Step 8: Update the Linear Documents
 
 Via the Linear MCP tools, bring the written record in line with what shipped:
 
@@ -178,16 +201,20 @@ Via the Linear MCP tools, bring the written record in line with what shipped:
 
 Edit the existing documents. Do not create new ones to dodge an edit.
 
-### Step 8: Open the PR and Hand Over
+### Step 9: Open the PR and Hand Over
+
+Prerequisite: the last `code-reviewer` verdict is `ACCEPT` (Step 7).
 
 - Push the branch and open the PR against `main`. The body says what changed
   and why, **links the Linear ticket by URL**, and lists anything you noticed
   but deliberately left alone.
+- End the body with a **Review** section: number of rounds, blocking findings
+  fixed, minor findings left as is.
 - Move the ticket to **In Review**.
 
 Report back: the PR URL, one line per commit, which checks you ran and their
-result (naming anything CI must verify because you were in a worktree), and the
-document updates you made.
+result (naming anything CI must verify because you were in a worktree), the
+review rounds, and the document updates you made.
 
 ## Blocked on an Ambiguity
 
@@ -221,6 +248,7 @@ still reason through from `shape.md` is not blocked — keep going.
   `/inject-standards`.
 - **Trust `Hors périmètre`** — if `shape.md` excluded it, leave it out and
   mention it in the PR body.
+- **No PR before `ACCEPT`** — the review loop (Step 7) gates Step 9.
 - **Tests first, always** — for a bug, the reproduction test is the proof you
   understood it.
 
