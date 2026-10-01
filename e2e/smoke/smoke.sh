@@ -476,18 +476,42 @@ step "10. A conflict is read in the owner's day, not in UTC"
 # fail as "no conflict" the day it does.
 tool_text() { printf '%s' "$1" | jq -r '[.. | objects | select(has("text")) | .text] | first // empty'; }
 
-mcp_call() {
-  curl -sS -X POST "${AUTH[@]}" "${mcp_headers[@]}" \
-    -d "$(jq -nc --arg name "$1" --argjson args "$2" \
-      '{jsonrpc: "2.0", id: 10, method: "tools/call", params: {name: $name, arguments: $args}}')" \
-    "$BASE_URL/_mcp" | sed 's/^data: //'
+# One id per call, never a constant: JSON-RPC correlates a response to its request
+# by id, and a session that has already answered 10 does not answer it again — the
+# second call then comes back with nothing readable, and the assertion blames the
+# tool for a mistake the caller made. Ids 1 to 3 are taken by the steps above.
+mcp_request_id=10
+
+# Calls a tool and prints its answer. `tool_text` reads the first `text` field
+# anywhere in the response rather than a fixed path: the MCP transport is free to
+# move it, and a hard-coded `.result.content[0]` would read as "no conflict" the day
+# it does.
+#
+# An unreadable envelope goes to stderr, not through `fail`: this runs inside a
+# command substitution, so `fail`'s line would be captured into the caller's variable
+# instead of printed and its counter would be lost with the subshell. The empty
+# answer makes the caller's own assertion fail, with the envelope logged just above it.
+mcp_tool() {
+  mcp_request_id=$((mcp_request_id + 1))
+  local raw text
+  raw="$(curl -sS -X POST "${AUTH[@]}" "${mcp_headers[@]}" \
+    -d "$(jq -nc --arg name "$1" --argjson args "$2" --argjson id "$mcp_request_id" \
+      '{jsonrpc: "2.0", id: $id, method: "tools/call", params: {name: $name, arguments: $args}}')" \
+    "$BASE_URL/_mcp" | sed 's/^data: //')"
+  text="$(tool_text "$raw")"
+
+  if [ -z "$text" ]; then
+    printf '    (%s answered nothing readable: %s)\n' "$1" "$(printf '%s' "$raw" | head -c 400)" >&2
+  fi
+
+  printf '%s' "$text"
 }
 
 # The seed books "Réunion d'équipe" from 10:00 to 11:00 *in Paris* on the day after
 # the anchor; 10:30 for half an hour sits squarely inside it.
 conflict_day="$(date -u -d "$anchor_date + 1 day" +%F)"
-conflicts="$(tool_text "$(mcp_call check_conflicts "$(jq -nc --arg d "$conflict_day" \
-  '{date: $d, time: "10:30", duration: 30}')")")"
+conflicts="$(mcp_tool check_conflicts "$(jq -nc --arg d "$conflict_day" \
+  '{date: $d, time: "10:30", duration: 30}')")"
 
 assert_eq true "$(printf '%s' "$conflicts" | jq -r '.hasConflicts // empty')" \
   "10:30 inside a 10:00–11:00 meeting in Paris is a conflict"
@@ -505,8 +529,8 @@ assert_eq false "$([ "$offset" = '+00:00' ] && echo true || echo false)" \
 
 # An evening slot on the same day is free — the control. Without it, a tool that
 # answered "conflict" to everything would pass every assertion above.
-free="$(tool_text "$(mcp_call check_conflicts "$(jq -nc --arg d "$conflict_day" \
-  '{date: $d, time: "22:00", duration: 30}')")")"
+free="$(mcp_tool check_conflicts "$(jq -nc --arg d "$conflict_day" \
+  '{date: $d, time: "22:00", duration: 30}')")"
 assert_eq false "$(printf '%s' "$free" | jq -r '.hasConflicts // empty')" \
   "an evening nobody booked is still free"
 
