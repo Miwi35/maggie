@@ -8,16 +8,16 @@ from app.llm.gateway import LLMGateway
 
 logger = logging.getLogger(__name__)
 
-# Default user for A2A calls (agent-to-agent, no JWT context)
+# Fixed user for A2A calls: a peer carries the A2A bearer token, not a user JWT
 A2A_USER_ID = "a2a"
 
 
 class MaggieAgentExecutor(AgentExecutor):
     """Bridges A2A protocol to LLMGateway.chat().
 
-    A2A is strictly for agent-to-agent communication.
-    The executor does NOT provide native proaction tools —
-    it only gives Claude access to MCP tools.
+    The route is behind the A2A bearer token (see app.a2a.auth). Through source="a2a",
+    Claude only gets the read-only MCP tools of app.llm.tools.A2A_ALLOWED_TOOLS:
+    no native tool (memory, skills, instructions, proactions) and no write tool.
     """
 
     def __init__(self):
@@ -36,7 +36,6 @@ class MaggieAgentExecutor(AgentExecutor):
 
         logger.info(f"A2A request: {message[:100]}")
 
-        # Use chat() which only provides MCP tools (no native proaction tools)
         result = await self.gateway.chat(message, A2A_USER_ID, source="a2a")
 
         await event_queue.enqueue_event(new_agent_text_message(result["response"]))

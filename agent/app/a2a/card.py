@@ -1,4 +1,4 @@
-from a2a.types import AgentCapabilities, AgentCard, AgentSkill
+from a2a.types import AgentCapabilities, AgentCard, AgentSkill, HTTPAuthSecurityScheme, SecurityScheme
 
 from app.config import settings
 
@@ -37,5 +37,7 @@ def build_agent_card() -> AgentCard:
         default_input_modes=["text"],
         default_output_modes=["text"],
         capabilities=AgentCapabilities(streaming=False),
+        security_schemes={"bearer": SecurityScheme(root=HTTPAuthSecurityScheme(scheme="bearer"))},
+        security=[{"bearer": []}],
         skills=skills,
     )

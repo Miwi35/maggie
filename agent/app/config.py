@@ -47,6 +47,9 @@ class Settings(BaseSettings):
 
     # Auth
     service_token: str = ""
+    # Bearer token A2A peers must present. Empty keeps /a2a closed: the route is
+    # reachable from the internet through the ingress, so it never opens by default.
+    a2a_token: str = ""
     jwt_public_key_path: str = "/etc/jwt/public.pem"
 
     # Daily planning: runs at this local hour, early enough to schedule a 7:00 directive.
