@@ -717,8 +717,8 @@ export const GroceryListView = () => {
                       setSelectedStore(ps)
                       setStoreInputValue(ps.name)
                     } else if (typeof ps === 'string') {
-                      const id = ps.includes('/') ? ps.split('/').pop()! : ps
-                      const store = stores.find((s) => s.id === id)
+                      const id = bareId(ps)
+                      const store = stores.find((s) => bareId(s.id) === id)
                       if (store) {
                         setSelectedStore(store)
                         setStoreInputValue(store.name)
@@ -829,8 +829,8 @@ export const GroceryListView = () => {
                       setEditSelectedStore(ps)
                       setEditStoreInput(ps.name)
                     } else if (typeof ps === 'string') {
-                      const id = ps.includes('/') ? ps.split('/').pop()! : ps
-                      const store = stores.find((s) => s.id === id)
+                      const id = bareId(ps)
+                      const store = stores.find((s) => bareId(s.id) === id)
                       if (store) {
                         setEditSelectedStore(store)
                         setEditStoreInput(store.name)

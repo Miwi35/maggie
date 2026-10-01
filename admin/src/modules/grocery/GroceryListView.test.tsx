@@ -186,6 +186,37 @@ describe('GroceryListView', () => {
       expect(sentBody(mockFetch, '/grocery/edit-item/item-a').storeId).toBe(ULID)
     })
 
+    test('picking a product whose preferred store is an IRI prefills that store and sends its ULID', async () => {
+      const mockFetch = mockApi({ ok: true, status: 200 })
+      mockGetList.mockImplementation((resource: string) =>
+        Promise.resolve(
+          resource === 'stores'
+            ? { data: [halles], total: 1 }
+            : resource === 'products'
+              ? {
+                  data: [{ id: `/api/products/p1`, name: 'Câpres', category: 'condiment', preferredStore: `/api/stores/${ULID}` }],
+                  total: 1,
+                }
+              : { data: [sampleList], total: 1 },
+        ),
+      )
+      render(<GroceryListView />)
+      await waitFor(() => expect(screen.getByText('Tomates')).toBeInTheDocument())
+
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'Ajouter' }))
+      const dialog = await screen.findByRole('dialog')
+      await waitFor(() => expect(mockGetList).toHaveBeenCalledWith('products', expect.anything()))
+      await user.type(within(dialog).getByLabelText('Article'), 'Câp')
+      await user.click(await screen.findByRole('option', { name: /Câpres/ }))
+
+      await waitFor(() => expect(within(dialog).getByLabelText('Magasin')).toHaveValue('Halles du voisin'))
+      await user.click(within(dialog).getByRole('button', { name: 'Ajouter' }))
+
+      await waitFor(() => expect(sentBody(mockFetch, '/grocery/add-item')).toBeDefined())
+      expect(sentBody(mockFetch, '/grocery/add-item').storeId).toBe(ULID)
+    })
+
     test('an API refusal on add shows an error and keeps the dialog open', async () => {
       mockNotify.mockClear()
       mockApi({ ok: false, status: 500 })
