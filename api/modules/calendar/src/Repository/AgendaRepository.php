@@ -67,4 +67,21 @@ class AgendaRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * Google-linked agendas whose last successful pull is older than
+     * `$before`, or that were never pulled.
+     *
+     * @return Agenda[]
+     */
+    public function findGoogleSyncedNotSyncedSince(\DateTimeImmutable $before): array
+    {
+        return $this->createQueryBuilder('a')
+            ->where('a.googleCalendarId IS NOT NULL')
+            ->andWhere('a.lastGoogleSyncAt IS NULL OR a.lastGoogleSyncAt < :before')
+            ->setParameter('before', $before)
+            ->orderBy('a.name', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }

@@ -24,6 +24,7 @@ jobs:
       ciqual: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.ciqual == 'true' }}
       admin: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.admin == 'true' }}
       e2e: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.e2e == 'true' }}
+      cron: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.cron == 'true' }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -49,6 +50,11 @@ jobs:
               # or the one check that would catch it is the one that is
               # skipped.
               - 'api/contract/**'
+              - '.github/workflows/ci.yml'
+            cron:
+              - '.docker/php/**'
+              - 'infra/k8s/cron-deployment.yaml'
+              - 'infra/scripts/tests/cron-image.test.sh'
               - '.github/workflows/ci.yml'
             e2e:
               - 'api/**'
@@ -395,6 +401,36 @@ jobs:
       - name: Tear down
         if: always()
         run: task e2e:down
+
+  # The cron pod's scheduler (MAG-147): busybox crond ran the jobs as a
+  # non-root user with a redirection to /proc/1/fd/1 that user cannot open, so
+  # no job ever started. Starts the image as that user and checks a job runs,
+  # and that a failing one is logged.
+  cron-image:
+    name: Cron image (scheduler runs jobs as non-root)
+    needs: changes
+    if: needs.changes.outputs.cron == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build the php image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: .docker/php/Dockerfile
+          target: e2e
+          load: true
+          tags: maggie-php-cron-test:ci
+          cache-from: type=gha,scope=php-cron-test
+          cache-to: type=gha,mode=max,scope=php-cron-test
+
+      - name: Test the scheduler
+        env:
+          IMAGE: maggie-php-cron-test:ci
+        run: bash infra/scripts/tests/cron-image.test.sh
 
   # The scripts the CD workflow runs on the VPS (MAG-106). They only execute
   # after a merge, so a typo would otherwise surface as a failed deploy.

@@ -18,9 +18,10 @@ spec:
       containers:
         - name: cron
           image: ghcr.io/miwi35/maggie-php:latest
-          command: ["crond", "-f", "-l", "2"]
+          command: ["supercronic", "/etc/maggie/crontab"]
           securityContext:
-            runAsUser: 0
+            runAsUser: 1000
+            runAsNonRoot: true
           envFrom:
             - configMapRef:
                 name: maggie-config

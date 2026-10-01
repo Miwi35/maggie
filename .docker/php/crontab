@@ -1,7 +1,13 @@
-*/5 * * * * cd /var/www/api && php bin/console maggie:google-calendar:sync >> /proc/1/fd/1 2>&1
-*/5 * * * * cd /var/www/api && php bin/console maggie:google-calendar:sync --tasks >> /proc/1/fd/1 2>&1
-*/30 * * * * cd /var/www/api && php bin/console maggie:google-calendar:renew-watch >> /proc/1/fd/1 2>&1
+# Read by supercronic (dev: docker-compose.yml, prod: infra/k8s/cron-deployment.yaml).
+# No output redirection: supercronic logs each job's output and exit status on
+# the container's stdout, where `kubectl logs deploy/cron` reads them. A
+# redirection to /proc/1/fd/1 is refused to a non-root user, and the job then
+# never starts (MAG-147).
+*/5 * * * * cd /var/www/api && php bin/console maggie:google-calendar:sync
+*/5 * * * * cd /var/www/api && php bin/console maggie:google-calendar:sync --tasks
+*/30 * * * * cd /var/www/api && php bin/console maggie:google-calendar:renew-watch
+*/15 * * * * cd /var/www/api && php bin/console maggie:google-calendar:check-sync
 # Bank sync: twice a day. A run costs >= 2 provider calls per account (movements + balance): 4 calls/day/account, right at the ~4 ceiling. A multi-page first sync may be refused; the sync then stops cleanly and the next run resumes.
-0 6,18 * * * cd /var/www/api && php bin/console app:finance:sync --write >> /proc/1/fd/1 2>&1
+0 6,18 * * * cd /var/www/api && php bin/console app:finance:sync --write
 # Consent expiry warning: once a day (the command itself never warns twice for the same consent).
-30 8 * * * cd /var/www/api && php bin/console app:finance:check-consents >> /proc/1/fd/1 2>&1
+30 8 * * * cd /var/www/api && php bin/console app:finance:check-consents
