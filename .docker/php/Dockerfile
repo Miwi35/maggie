@@ -127,7 +127,6 @@ CMD ["php-fpm"]
 FROM base AS e2e
 
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
-RUN echo probe-1 > /tmp/probe
 
 USER app
 
