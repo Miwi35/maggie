@@ -14,9 +14,9 @@
 # Each `php bin/console` peaks at ~58 MiB of RSS (VmHWM measured in prod,
 # MAG-186). Five jobs starting in the same minute went past the pod's 128Mi
 # limit and the container was OOMKilled, taking the running jobs with it. So
-# no two jobs may start in the same minute, and the memory limit must hold one
-# more job than the most that can start together: a job still running when the
-# next one starts.
+# no two jobs may start in the same minute, and the memory limit must hold
+# three more commands than the most that start together: slow jobs still
+# running when the next ones start.
 #
 # Usage: IMAGE=<php image> infra/scripts/tests/cron-image.test.sh
 #   IMAGE  Image to test. Default: built from .docker/php/Dockerfile (target e2e).
@@ -74,6 +74,7 @@ expand_field() {
       *-*) from="${range%-*}"; to="${range#*-}" ;;
       *) from=$range; to=$range; [ "$step" != 1 ] && to=$max ;;
     esac
+    from=$((10#$from)); to=$((10#$to)); step=$((10#$step)) # `08` is not octal
     for ((v = from; v <= to; v += step)); do echo "$v"; done
   done
 }
@@ -98,10 +99,11 @@ case "$limit" in
   *Mi) limit_mib=${limit%Mi} ;;
   *) limit_mib=0 ;;
 esac
-needed=$(( (${max_together:-0} + 1) * PEAK_MIB ))
+held=$(( ${max_together:-0} + 3 ))
+needed=$(( held * PEAK_MIB ))
 [ "$limit_mib" -ge "$needed" ] \
-  && ok "the cron memory limit ($limit) holds $((${max_together:-0} + 1)) console commands of ${PEAK_MIB}Mi" \
-  || bad "the cron memory limit ($limit) is under ${needed}Mi: $((${max_together:-0} + 1)) console commands of ${PEAK_MIB}Mi"
+  && ok "the cron memory limit ($limit) holds $held console commands of ${PEAK_MIB}Mi" \
+  || bad "the cron memory limit ($limit) is under ${needed}Mi: $held console commands of ${PEAK_MIB}Mi"
 
 echo
 echo "3. Jobs run as the pod's non-root user and report on the container's output"
