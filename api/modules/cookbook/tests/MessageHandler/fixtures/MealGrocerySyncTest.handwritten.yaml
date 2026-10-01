@@ -1,0 +1,18 @@
+# A list the user already wrote on, loaded on top of MealGrocerySyncTest.yaml.
+#
+# Kept apart so the other tests start from an empty list: a line the user owns
+# changes what a meal is allowed to do to it, and that is the point here.
+
+Maggie\Grocery\Entity\GroceryList:
+  handwritten_list:
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryItem:
+  # No quantity, as a line written by hand often has: "des tomates".
+  handwritten_tomato:
+    groceryList: '@handwritten_list'
+    product: '@tomato'
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 1

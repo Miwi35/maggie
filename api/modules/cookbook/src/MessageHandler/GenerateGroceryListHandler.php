@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace Maggie\Cookbook\MessageHandler;
 
-use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Cookbook\Message\GenerateGroceryListCommand;
 use Maggie\Cookbook\Service\GroceryGenerationService;
 use Maggie\Core\Repository\UserRepository;
 use Maggie\Grocery\Entity\GroceryList;
-use Maggie\Grocery\Repository\GroceryListRepository;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -17,9 +15,7 @@ class GenerateGroceryListHandler
 {
     public function __construct(
         private readonly GroceryGenerationService $groceryGenerationService,
-        private readonly GroceryListRepository $groceryListRepository,
         private readonly UserRepository $userRepository,
-        private readonly EntityManagerInterface $em,
     ) {
     }
 
@@ -28,19 +24,28 @@ class GenerateGroceryListHandler
         $user = $this->userRepository->find($command->userId)
             ?? throw new \DomainException('User not found.');
 
-        $from = new \DateTimeImmutable($command->fromDate);
-        $to = new \DateTimeImmutable($command->toDate);
+        $timeZone = new \DateTimeZone('Europe/Paris');
+        $from = $this->day($command->fromDate, $timeZone)->setTime(0, 0);
+        // The whole of the last day: meals are stored at midnight in Paris, so
+        // a range ending at midnight keeps or drops the last day depending on
+        // the server's own time zone.
+        $to = $this->day($command->toDate, $timeZone)->setTime(23, 59, 59);
 
-        $list = $this->groceryListRepository->findOrCreateForUser($user);
+        // Returned on purpose: the Mercure and Elasticsearch middlewares read
+        // the handler's result, so this is what gets published and reindexed.
+        return $this->groceryGenerationService->generate($user, $from, $to);
+    }
 
-        $items = $this->groceryGenerationService->generate($user, $from, $to);
-        foreach ($items as $item) {
-            $list->addItem($item);
+    /**
+     * Accepts what the model actually sends: a bare day, but also a full
+     * timestamp. Appending a time to the string would throw on the latter.
+     */
+    private function day(string $date, \DateTimeZone $timeZone): \DateTimeImmutable
+    {
+        try {
+            return new \DateTimeImmutable($date, $timeZone);
+        } catch (\Exception $e) {
+            throw new \DomainException("Not a date: {$date}. Use YYYY-MM-DD.", 0, $e);
         }
-
-        $list->setUpdatedAt(new \DateTimeImmutable());
-        $this->em->flush();
-
-        return $list;
     }
 }

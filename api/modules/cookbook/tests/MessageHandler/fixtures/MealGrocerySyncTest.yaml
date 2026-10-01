@@ -1,0 +1,109 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: cookbook-test@example.com
+    googleId: google-cookbook-test
+    name: Cookbook Test User
+
+Maggie\Calendar\Entity\Agenda:
+  repas_agenda:
+    name: Repas
+    color: '#FF6B35'
+    user: '@test_user'
+
+Maggie\Grocery\Entity\Store:
+  supermarket:
+    name: Supermarché
+    visitOrder: 1
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\Ingredient:
+  tomato:
+    name: Tomate
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    user: '@test_user'
+    preferredStore: '@supermarket'
+  pasta_product:
+    name: Pâtes
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    user: '@test_user'
+  parmesan:
+    name: Parmesan
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Dairy)>'
+    user: '@test_user'
+  # Keeps two days: bought too early it spoils, so a meal far enough ahead
+  # hides its line until it is worth carrying home.
+  fish:
+    name: Cabillaud
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Fish)>'
+    user: '@test_user'
+    shelfLifeDays: 2
+
+Maggie\Cookbook\Entity\Recipe:
+  pasta:
+    name: Pâtes à la tomate
+    servings: 4
+    tags: ['pasta']
+    user: '@test_user'
+  # Shares its tomatoes with the pasta: two meals, one grocery line.
+  gratin:
+    name: Gratin de tomates
+    servings: 2
+    tags: ['four']
+    user: '@test_user'
+  fish_dish:
+    name: Cabillaud au four
+    servings: 2
+    tags: ['poisson']
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\RecipeIngredient:
+  ri_pasta_tomato:
+    recipe: '@pasta'
+    ingredient: '@tomato'
+    quantity: 4
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+  ri_pasta_pasta:
+    recipe: '@pasta'
+    ingredient: '@pasta_product'
+    quantity: 400
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+  ri_gratin_tomato:
+    recipe: '@gratin'
+    ingredient: '@tomato'
+    quantity: 2
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+  ri_gratin_parmesan:
+    recipe: '@gratin'
+    ingredient: '@parmesan'
+    quantity: 80
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+  ri_fish_fish:
+    recipe: '@fish_dish'
+    ingredient: '@fish'
+    quantity: 300
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+
+Maggie\Grocery\Entity\RecurringGroceryItem:
+  # Never added yet: due the first time generation runs.
+  recurring_milk:
+    customLabel: Lait
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Liter)>'
+    frequency: '<(Maggie\Grocery\Enum\RecurringFrequency::Weekly)>'
+    user: '@test_user'
+  # Bought ten days ago and wanted every fortnight: not due either.
+  recurring_coffee:
+    customLabel: Café
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Pack)>'
+    frequency: '<(Maggie\Grocery\Enum\RecurringFrequency::Biweekly)>'
+    lastAddedAt: '<(new \DateTimeImmutable(''-10 days''))>'
+    user: '@test_user'
+  # Bought three days ago and wanted once a month: not due.
+  recurring_bleach:
+    customLabel: Javel
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Bottle)>'
+    frequency: '<(Maggie\Grocery\Enum\RecurringFrequency::Monthly)>'
+    lastAddedAt: '<(new \DateTimeImmutable(''-3 days''))>'
+    user: '@test_user'

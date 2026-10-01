@@ -1,0 +1,30 @@
+# A second household, loaded on top of MealGrocerySyncTest.yaml.
+#
+# Everything here belongs to someone else: nothing the test user plans may
+# reach this list.
+
+Maggie\Core\Entity\User:
+  other_user:
+    email: cookbook-neighbour@example.com
+    googleId: google-cookbook-neighbour
+    name: Cookbook Neighbour
+
+Maggie\Cookbook\Entity\Ingredient:
+  other_tomato:
+    name: Tomate
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    user: '@other_user'
+
+Maggie\Grocery\Entity\GroceryList:
+  other_list:
+    user: '@other_user'
+
+Maggie\Grocery\Entity\GroceryItem:
+  other_tomato_item:
+    groceryList: '@other_list'
+    product: '@other_tomato'
+    quantity: 9
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 1
