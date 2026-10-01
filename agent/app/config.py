@@ -56,8 +56,8 @@ class Settings(BaseSettings):
     a2a_token: str = ""
     jwt_public_key_path: str = "/etc/jwt/public.pem"
 
-    # Daily planning: runs at this local hour, early enough to schedule a 7:00 directive.
-    # The timezone is the default one until user preferences reach the agent.
+    # Daily planning: runs at this local hour, early enough to schedule a 7:00 directive,
+    # in each user's own timezone (MAG-165). This one is the fallback when it is unknown or invalid.
     planning_timezone: str = "Europe/Paris"
     daily_planning_hour: int = 5
 

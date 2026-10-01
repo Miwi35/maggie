@@ -443,6 +443,14 @@
         },
         "description": "Get upcoming events for the next N days (default 7). Returns events from all of the user agendas, including expanded recurring events."
     },
+    "get_user_timezone": {
+        "name": "get_user_timezone",
+        "inputSchema": {
+            "type": "object",
+            "properties": []
+        },
+        "description": "Read the IANA timezone (e.g. Europe/Paris) the user chose in their preferences. Use it to reason about the user's local time."
+    },
     "manage_accounts": {
         "name": "manage_accounts",
         "inputSchema": {
