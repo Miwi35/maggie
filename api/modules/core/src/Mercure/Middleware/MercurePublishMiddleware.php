@@ -8,6 +8,7 @@ use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Contract\OwnedByUserInterface;
 use Maggie\Core\Contract\OwnedThroughInterface;
 use Maggie\Core\Entity\User;
+use Maggie\Core\Identifier\CanonicalId;
 use Maggie\Core\Mercure\ChangesetStore;
 use Maggie\Core\Mercure\MercureTopic;
 use Psr\Log\LoggerInterface;
@@ -53,8 +54,9 @@ class MercurePublishMiddleware implements MiddlewareInterface
                 $userId = $this->getCurrentUserId();
 
                 if (null !== $userId) {
-                    $this->publishDelete($parsed[1], $message->$idProp, $userId);
-                    $this->publishDeleteToParentTopics($message::class, $parsed[2], $message->$idProp, $userId);
+                    $id = CanonicalId::of($message->$idProp);
+                    $this->publishDelete($parsed[1], $id, $userId);
+                    $this->publishDeleteToParentTopics($message::class, $parsed[2], $id, $userId);
                 }
             } else {
                 // For CRUD commands, use the parsed topic; for non-CRUD commands

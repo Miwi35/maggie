@@ -6,6 +6,7 @@ use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
+use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Mcp\Tool\ManageAccountsTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -165,5 +166,41 @@ class AccountToolsTest extends KernelTestCase
 
         $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
         self::assertArrayHasKey('error', $data);
+    }
+
+    public function testDeleteAccountRemovesItsTransactionsFromTheIndex(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
+        $this->loginUser($this->getFixture('test_user'));
+
+        $account = $this->getFixture('checking');
+        $transactionIds = [
+            (string) $this->getFixture('groceries')->getId(),
+            (string) $this->getFixture('salary')->getId(),
+        ];
+
+        $tool = self::getContainer()->get(ManageAccountsTool::class);
+        $data = json_decode($tool('delete', accountId: (string) $account->getId()), true, 512, JSON_THROW_ON_ERROR);
+        self::assertTrue($data['success']);
+
+        $deleted = $this->deletedDocuments();
+        foreach ($transactionIds as $id) {
+            self::assertContains(['transactions', $id], $deleted);
+        }
+    }
+
+    /** @return array<int, array{string, string}> */
+    private function deletedDocuments(): array
+    {
+        $deleted = [];
+        foreach ($this->getAsyncTransport()->getSent() as $envelope) {
+            $message = $envelope->getMessage();
+            if ($message instanceof DeleteDocumentCommand) {
+                $deleted[] = [$message->indexName, $message->documentId];
+            }
+        }
+
+        return $deleted;
     }
 }

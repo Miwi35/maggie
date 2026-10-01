@@ -6,6 +6,7 @@ use Maggie\Calendar\Message\DeleteEventCommand;
 use Maggie\Calendar\Message\DeleteEventFromGoogleCommand;
 use Maggie\Calendar\Repository\EventRepository;
 use Maggie\Calendar\UseCase\DeleteEvent;
+use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -34,7 +35,17 @@ class DeleteEventHandler
         $agendaId = (string) $event->getAgenda()->getId();
         $wasGoogleSynced = $event->isGoogleSynced();
 
+        // The database cascade removes the exception instances without any command of their own.
+        $exceptionIds = array_map(
+            fn ($exception) => (string) $exception->getId(),
+            $this->eventRepository->findBy(['recurringEvent' => $event]),
+        );
+
         $this->deleteEvent->execute($event);
+
+        foreach ($exceptionIds as $exceptionId) {
+            $this->messageBus->dispatch(new DeleteDocumentCommand(indexName: 'events', documentId: $exceptionId));
+        }
 
         if ($wasGoogleSynced && null !== $googleEventId) {
             $deleteCommand = new DeleteEventFromGoogleCommand(

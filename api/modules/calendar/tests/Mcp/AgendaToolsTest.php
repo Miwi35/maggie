@@ -8,6 +8,7 @@ use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Mcp\Tool\ManageAgendasTool;
+use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 class AgendaToolsTest extends KernelTestCase
@@ -128,5 +129,27 @@ class AgendaToolsTest extends KernelTestCase
         self::assertNull($em->getRepository(Agenda::class)->find($agenda->getId()));
 
         $this->assertMercureUpdatePublished('/agendas/');
+    }
+
+    public function testDeleteRemovesTheEventsOfTheAgendaFromTheIndex(): void
+    {
+        $this->loadFixtures('AgendaToolsTest.yaml');
+        $this->loginFixtureUser();
+
+        $agenda = $this->getFixture('concerts_agenda');
+        $eventId = (string) $this->getFixture('concert_event')->getId();
+
+        $data = json_decode(($this->tool())('delete', agendaId: (string) $agenda->getId()), true, 512, JSON_THROW_ON_ERROR);
+        self::assertTrue($data['success']);
+
+        $deleted = [];
+        foreach ($this->getAsyncTransport()->getSent() as $envelope) {
+            $message = $envelope->getMessage();
+            if ($message instanceof DeleteDocumentCommand) {
+                $deleted[] = [$message->indexName, $message->documentId];
+            }
+        }
+        self::assertContains(['events', $eventId], $deleted);
+        self::assertContains(['agendas', (string) $agenda->getId()], $deleted);
     }
 }

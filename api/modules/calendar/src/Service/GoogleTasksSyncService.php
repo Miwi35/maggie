@@ -6,11 +6,13 @@ use Doctrine\ORM\EntityManagerInterface;
 use Google\Service\Exception as GoogleServiceException;
 use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Repository\TaskRepository;
+use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\MercureTopic;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Mercure\HubInterface;
 use Symfony\Component\Mercure\Update;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 class GoogleTasksSyncService
 {
@@ -20,6 +22,7 @@ class GoogleTasksSyncService
         private readonly TaskRepository $taskRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly HubInterface $hub,
+        private readonly MessageBusInterface $messageBus,
         private readonly LoggerInterface $logger,
     ) {
     }
@@ -77,6 +80,7 @@ class GoogleTasksSyncService
         // Track which Google IDs we've seen
         $seenGoogleIds = [];
         $changedTaskIds = [];
+        $removedTaskIds = [];
 
         foreach ($googleTasks as $googleTask) {
             $googleTaskId = $googleTask->getId();
@@ -89,6 +93,7 @@ class GoogleTasksSyncService
                 if (isset($existingByGoogleId[$googleTaskId])) {
                     $existing = $existingByGoogleId[$googleTaskId];
                     $changedTaskIds[] = (string) $existing->getId();
+                    $removedTaskIds[] = (string) $existing->getId();
                     $this->entityManager->remove($existing);
                 }
                 continue;
@@ -123,11 +128,16 @@ class GoogleTasksSyncService
         foreach ($existingByGoogleId as $googleTaskId => $task) {
             if (!isset($seenGoogleIds[$googleTaskId])) {
                 $changedTaskIds[] = (string) $task->getId();
+                $removedTaskIds[] = (string) $task->getId();
                 $this->entityManager->remove($task);
             }
         }
 
         $this->entityManager->flush();
+
+        foreach ($removedTaskIds as $taskId) {
+            $this->messageBus->dispatch(new DeleteDocumentCommand(indexName: 'tasks', documentId: $taskId));
+        }
 
         // Publish Mercure updates
         foreach ($changedTaskIds as $taskId) {
