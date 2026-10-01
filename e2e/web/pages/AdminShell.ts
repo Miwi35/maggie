@@ -38,8 +38,32 @@ export class AdminShell {
     this.sidebarToggle = this.appBar.getByRole('button', { name: /menu/i })
   }
 
+  /**
+   * Loads an admin route — and really loads it, even when already there.
+   *
+   * The admin routes with a hash router, so `page.goto('/admin/#/calendar')`
+   * from `/admin/#/calendar` is a same-document navigation: the document is
+   * not fetched, nothing remounts, and every `useEffect` that fills a view
+   * keeps the data it had. A journey that writes through the API and reopens
+   * the page to see the result would then assert against the list the view
+   * fetched *before* the write — and collections are served from
+   * Elasticsearch, so "before" is exactly the state a journey is reopening to
+   * get past. It cost MAG-100's Google journey a red check (see there).
+   *
+   * Reloading unconditionally would be the other half of the trap: the
+   * real-time journeys hold a window open on purpose, and `expectRealtimeSync`
+   * is built to fail if the observer navigates.
+   */
   async goto(route = '/'): Promise<void> {
-    await this.page.goto(adminUrl(route))
+    const url = adminUrl(route)
+
+    if (this.page.url().endsWith(url)) {
+      await this.page.reload()
+
+      return
+    }
+
+    await this.page.goto(url)
   }
 
   /** The shell is up: the app bar rendered, so the auth check passed and the resources loaded. */

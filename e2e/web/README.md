@@ -67,7 +67,10 @@ suite whose slowest steps have nothing to do with layout. Tag a test when its
    asynchronously and the collections are served from Elasticsearch, so a row
    exists before it is findable: `waitForIndexed`, or a page object that
    reloads while it waits. Reading once is how a working feature gets reported
-   as broken.
+   as broken. And a view fills itself on mount, so seeing the row afterwards
+   means remounting: `AdminShell.goto` reloads when it is already on the route,
+   because the admin's hash router makes a plain `page.goto` to the same URL a
+   no-op — that one cost the Google journey a red check.
 5. **Subscribe before you act.** `openSubscribed(page, () => page.open())` for
    a real-time assertion — an update published before the hub registered the
    subscriber is never delivered.

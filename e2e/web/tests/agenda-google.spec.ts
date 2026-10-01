@@ -152,7 +152,9 @@ test.describe.fixme('Importing the Google calendar', () => {
     // is served from Elasticsearch, so the new agenda exists before it is listable
     // and that one refetch reads the old list. Nothing refetches again, so the row
     // never appears on its own: the index is waited for, then the page is reloaded.
-    // Rule 4 of this harness's README, which this test had to learn twice.
+    // Rule 4 of this harness's README, which this test had to learn twice — and
+    // `open()` reloads rather than re-`goto`ing, which is the third time: under a
+    // hash router, navigating to the URL already shown remounts nothing.
     await waitForIndexed<StoredAgenda>(api, '/api/agendas', (agenda) => agenda.name === GOOGLE_AGENDA, {
       what: `The imported agenda "${GOOGLE_AGENDA}"`,
     })
