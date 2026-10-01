@@ -12,6 +12,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import com.maggie.app.ui.UiTags
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,7 +28,7 @@ fun MaggieTopBar(
     TopAppBar(
         title = { Text(title) },
         navigationIcon = {
-            IconButton(onClick = onMenuClick) {
+            IconButton(onClick = onMenuClick, modifier = Modifier.testTag(UiTags.NAV_MENU)) {
                 Icon(Icons.Default.Menu, contentDescription = "Menu")
             }
         },

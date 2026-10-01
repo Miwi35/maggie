@@ -24,8 +24,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.GoogleCalendar
+import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.uiTagRoot
 
 @Composable
 fun GoogleCalendarDialog(
@@ -35,6 +38,7 @@ fun GoogleCalendarDialog(
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
+        modifier = Modifier.uiTagRoot(),
         onDismissRequest = onDismiss,
         title = { Text("Importer un calendrier Google") },
         text = {
@@ -85,7 +89,10 @@ fun GoogleCalendarDialog(
                                     )
                                 }
                             }
-                            TextButton(onClick = { onImport(cal) }) {
+                            TextButton(
+                                onClick = { onImport(cal) },
+                                modifier = Modifier.testTag(UiTags.googleImport(cal.id)),
+                            ) {
                                 Text("Importer")
                             }
                         }

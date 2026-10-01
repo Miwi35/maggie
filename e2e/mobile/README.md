@@ -68,7 +68,7 @@ one of them missing.
 |---|---|
 | `config.yaml` | the workspace: which files are flows, and in which order |
 | `flows/` | the journeys, numbered — what `maestro test` runs |
-| `subflows/` | shared steps (`sign-in.yaml`), kept out of the `flows` glob on purpose |
+| `subflows/` | shared steps (`sign-in.yaml`, `open-calendar.yaml`), kept out of the `flows` glob on purpose |
 | `run.sh` | the whole run: device, bridge, time zone, install, flows |
 | `maestro.sh` | downloads the pinned CLI into `.e2e-cache/` |
 | `lint.sh` | syntax, testTags, tag roots, applicationId, unawaited assertions — seconds, no device |
@@ -103,9 +103,17 @@ against an app nobody launched.
    `launchApp` comes after all of `MaggieApp.onCreate`, and the first HTTP call
    pays for Ktor and OkHttp being class-loaded; the 20–60 s here are not
    generosity, they are a CI failure that already happened.
-6. **Assert on seeded data, never on counts.** `api/fixtures/e2e/` is shared with
+6. **Dates come from `run.sh`, as `-e` variables** — `TODAY`, `TRAIN_START`,
+   `TRAIN_END`, computed in the seed's time zone. A flow cannot compute a date and
+   one typed into it is wrong by tomorrow; a seed offset (`+5 days`) belongs in
+   `run.sh`, next to the others. Some ids are a prefix plus an ISO date
+   (`calendar_day_${TODAY}`, `calendar_span_<first>_<last>`, `calendar_event_<day>`):
+   declare the prefix as a `*_PREFIX` const in `UiTags.kt` and the lint accepts any
+   id that starts with it. Both ends of a calendar bar are read with a regex
+   (`calendar_span_${TRAIN_START}_.*`) — Maestro matches `id:` as one.
+7. **Assert on seeded data, never on counts.** `api/fixtures/e2e/` is shared with
    the browser suite, which writes to the same user at the same time.
-7. **A scenario before the step that needs it.** Maggie answers from
+8. **A scenario before the step that needs it.** Maggie answers from
    `agent/fixtures/fake-llm/`; nothing matching means « [fake-llm] aucun scénario
    ne correspond à : … », which is a plausible-looking bubble. Assert
    `assertNotVisible: ".*aucun scénario.*"` after an exchange.
@@ -155,6 +163,20 @@ that stopped deserialising is `DtoContractTest` against `api/contract/`
   an effect the broken build cannot produce: the text field still holds what was
   typed when a send does not happen, so « the sentence is on screen » proves
   nothing.
+- **The calendar journeys depend on the weekday.** « Train de nuit pour Vienne »
+  is seeded five days out, so its two days share a week from Monday to Wednesday
+  and straddle a Sunday the rest of the time. `03-calendar-multi-day.yaml` follows
+  the week with `calendar_next` only when a day is missing, and both cases are
+  the point: the straddling one is the `dfad086` regression. A flow that only ever
+  ran on a Tuesday would never see it.
+- **`04-calendar-import.yaml` consumes the seeded Google calendar.** The import
+  dialog lists only calendars not yet connected, so the flow needs a freshly
+  seeded stack — `task e2e:mobile` reseeds first. Running `maestro` by hand on a
+  used stack opens the dialog empty.
+- **A tagged node carries its text only if it is one semantics node.** The bar and
+  the block are `clickable`, which merges the `Text` into them, so
+  `id:` and `text:` together select one node. A tag on a non-clickable wrapper
+  would leave the text on a child and the pair would match nothing.
 - **`maestro check-syntax` never looks at `config.yaml`.** Maestro checks for a
   device before reading the workspace config, so a typo there only surfaces on
   the emulator. Keep that file small.

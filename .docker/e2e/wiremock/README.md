@@ -78,3 +78,11 @@ response templating is enabled on the container, so
 ```
 
 gives a date relative to the run, with no effect on the anchor.
+
+The events list does exactly that for one of its two events: « Escapade importée
+de Google » is an all-day event for today, so the mobile import journey
+(`e2e/mobile/flows/04-calendar-import.yaml`) has something it can see in the
+week view. `timezone='Europe/Paris'` is not decoration — `now` defaults to UTC,
+which is yesterday's date for the seed between 00:00 and 02:00 Paris time. The
+other event stays pinned to March 2026 on purpose: the web journeys look it up
+by title and do not care where it falls.

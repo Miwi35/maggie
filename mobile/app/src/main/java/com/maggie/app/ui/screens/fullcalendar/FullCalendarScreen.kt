@@ -49,8 +49,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.ExpandedEvent
+import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.uiTagRoot
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
@@ -183,6 +186,7 @@ fun FullCalendarScreen(
                     DropdownMenu(
                         expanded = fabExpanded,
                         onDismissRequest = { fabExpanded = false },
+                        modifier = Modifier.uiTagRoot(),
                     ) {
                         DropdownMenuItem(
                             text = { Text("Événement") },
@@ -230,12 +234,16 @@ fun FullCalendarScreen(
                             )
                         }
                         Box {
-                            IconButton(onClick = { moreMenuExpanded = true }) {
+                            IconButton(
+                                onClick = { moreMenuExpanded = true },
+                                modifier = Modifier.testTag(UiTags.CALENDAR_OPTIONS),
+                            ) {
                                 Icon(Icons.Default.MoreVert, contentDescription = "Options")
                             }
                             DropdownMenu(
                                 expanded = moreMenuExpanded,
                                 onDismissRequest = { moreMenuExpanded = false },
+                                modifier = Modifier.uiTagRoot(),
                             ) {
                                 DropdownMenuItem(
                                     text = { Text("Agendas") },
@@ -245,6 +253,7 @@ fun FullCalendarScreen(
                                     },
                                 )
                                 DropdownMenuItem(
+                                    modifier = Modifier.testTag(UiTags.CALENDAR_IMPORT_GOOGLE),
                                     text = { Text("Importer Google Calendar") },
                                     onClick = {
                                         moreMenuExpanded = false

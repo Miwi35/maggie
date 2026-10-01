@@ -51,7 +51,7 @@
       }
     },
     {
-      "name": "Events on the test calendar",
+      "name": "Events on the test calendar — one pinned to March 2026, one all-day today for the mobile import journey (MAG-204)",
       "request": {
         "method": "GET",
         "urlPathPattern": "/google/calendar/v3/calendars/[^/]+/events"
@@ -80,9 +80,23 @@
                 "timeZone": "Europe/Paris"
               },
               "updated": "2026-03-15T08:00:00.000Z"
+            },
+            {
+              "kind": "calendar#event",
+              "id": "e2e-google-event-today",
+              "status": "confirmed",
+              "summary": "Escapade importée de Google",
+              "start": {
+                "date": "{{now timezone='Europe/Paris' format='yyyy-MM-dd'}}"
+              },
+              "end": {
+                "date": "{{now offset='1 days' timezone='Europe/Paris' format='yyyy-MM-dd'}}"
+              },
+              "updated": "2026-03-15T08:00:00.000Z"
             }
           ]
-        }
+        },
+        "transformers": ["response-template"]
       }
     },
     {

@@ -26,11 +26,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.maggie.app.data.model.ExpandedEvent
+import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.screens.dashboard.parseColor
 import java.time.DayOfWeek
 import java.time.Instant
@@ -119,6 +121,7 @@ fun WeekTimelineView(
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .weight(1f)
+                        .testTag(UiTags.calendarDay(date))
                         .clickable { onDayClick(date) },
                 )
             }
@@ -147,6 +150,7 @@ fun WeekTimelineView(
                                 event = se.event,
                                 isStart = se.isStart,
                                 isEnd = se.isEnd,
+                                tag = UiTags.calendarSpan(days[se.startDayIndex], days[se.endDayIndex]),
                                 onClick = { onEventClick(se.event) },
                             )
                         }
@@ -284,6 +288,7 @@ private fun SpanningEventBar(
     event: ExpandedEvent,
     isStart: Boolean,
     isEnd: Boolean,
+    tag: String,
     onClick: () -> Unit,
 ) {
     val color = event.agendaColor?.let { parseColor(it) } ?: MaterialTheme.colorScheme.primary
@@ -306,6 +311,7 @@ private fun SpanningEventBar(
             )
             .height(SPANNING_ROW_HEIGHT - 2.dp)
             .background(color.copy(alpha = 0.85f), shape)
+            .testTag(tag)
             .clickable { onClick() }
             .padding(horizontal = 4.dp),
         contentAlignment = Alignment.CenterStart,

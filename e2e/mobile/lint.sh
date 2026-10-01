@@ -67,13 +67,24 @@ done
 # ---------------------------------------------------------------------------
 printf '\n\033[1m2. Every id is a declared testTag\033[0m\n'
 # ---------------------------------------------------------------------------
+# A `_PREFIX` const is the head of a family of ids built at run time (a calendar
+# day, an event on a day…): a flow may spell any id that starts with one.
 mapfile -t declared < <(sed -n 's/.*const val [A-Z_]* = "\([a-z0-9_]*\)".*/\1/p' "$TAGS_FILE" | sort -u)
 [ "${#declared[@]}" -gt 0 ] || { echo "No testTag read out of $TAGS_FILE — has it moved?" >&2; exit 1; }
+mapfile -t prefixes < <(sed -n 's/.*const val [A-Z_]*_PREFIX = "\([a-z0-9_]*\)".*/\1/p' "$TAGS_FILE" | sort -u)
 
 mapfile -t used < <(sed -n 's/.*\bid:[[:space:]]*"\([^"]*\)".*/\1/p' "${flows[@]}" | sort -u)
 for id in "${used[@]}"; do
   if printf '%s\n' "${declared[@]}" | grep -qxF "$id"; then
     pass "id \"$id\""
+    continue
+  fi
+  matched=0
+  for prefix in "${prefixes[@]}"; do
+    case "$id" in "$prefix"?*) matched=1 ;; esac
+  done
+  if [ "$matched" -eq 1 ]; then
+    pass "id \"$id\" (a declared prefix)"
   else
     fail "id \"$id\" is not a declared testTag — add it to ${TAGS_FILE#"$REPO_ROOT"/}, or fix the flow that renamed it"
   fi
@@ -82,7 +93,9 @@ done
 # The other direction is a warning, not a failure: a tag may be declared ahead
 # of the flow that will use it, and MAG-98 ships fewer flows than tags.
 for id in "${declared[@]}"; do
-  printf '%s\n' "${used[@]}" | grep -qxF "$id" || printf '  \033[33m·\033[0m id "%s" is declared but no flow uses it yet\n' "$id"
+  printf '%s\n' "${used[@]}" | grep -qxF "$id" && continue
+  case "$id" in *_) printf '%s\n' "${used[@]}" | grep -q "^$id" && continue ;; esac
+  printf '  \033[33m·\033[0m id "%s" is declared but no flow uses it yet\n' "$id"
 done
 
 # ---------------------------------------------------------------------------

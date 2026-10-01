@@ -1,7 +1,9 @@
 package com.maggie.app.ui.screens.calendar
 
 import com.maggie.app.data.auth.AuthRepository
+import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.Task
@@ -10,14 +12,20 @@ import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -108,5 +116,47 @@ class CalendarViewModelTest {
         viewModel.navigateToDate(target)
 
         assertEquals(target, viewModel.uiState.value.currentDate)
+    }
+
+    @Test
+    fun `subscribes to Mercure once the user has logged in`() = runTest {
+        stubRepositories()
+        val token = MutableStateFlow<String?>(null)
+        every { authRepository.token } returns token
+        coEvery { authRepository.getUserId() } returns null
+
+        FullCalendarViewModel(eventRepository, taskRepository, agendaRepository, mercureService, authRepository)
+        advanceUntilIdle()
+        verify(exactly = 0) { mercureService.subscribe(any()) }
+
+        coEvery { authRepository.getUserId() } returns "u1"
+        token.value = "jwt"
+        advanceUntilIdle()
+
+        listOf(MercureTopics.EVENTS, MercureTopics.TASKS, MercureTopics.AGENDAS).forEach { collection ->
+            verify(exactly = 1) { mercureService.subscribe(MercureTopics.userScoped("u1", collection)) }
+        }
+    }
+
+    @Test
+    fun `a Mercure update refetches again after the index has caught up`() = runTest {
+        stubRepositories()
+        coEvery { authRepository.getUserId() } returns "u1"
+        val updates = MutableSharedFlow<MercureEvent>()
+        every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.EVENTS)) } returns updates
+
+        FullCalendarViewModel(eventRepository, taskRepository, agendaRepository, mercureService, authRepository)
+        advanceUntilIdle()
+        coVerify(exactly = 1) { eventRepository.refreshEvents() }
+
+        updates.emit(MercureEvent())
+        runCurrent()
+        coVerify(exactly = 2) { eventRepository.refreshEvents() }
+
+        advanceTimeBy(1_600)
+        coVerify(exactly = 3) { eventRepository.refreshEvents() }
+
+        advanceTimeBy(5_000)
+        coVerify(exactly = 4) { eventRepository.refreshEvents() }
     }
 }

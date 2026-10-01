@@ -1,0 +1,35 @@
+appId: com.maggie.app.e2e
+name: open the calendar in week view
+---
+# From the dashboard to the week view, the way a person gets there: the burger
+# of the top bar, then « Calendrier » in the navigation drawer. Both are by id —
+# « Calendrier » is also the title of the screen once it is open, and « Menu » is
+# an icon's description rather than text anyone wrote for a flow to rely on.
+#
+# Expects the dashboard on screen, which is what `sign-in.yaml` leaves.
+- tapOn:
+    id: "nav_menu"
+
+- tapOn:
+    id: "drawer_calendar"
+
+# The week is pinned rather than assumed: it is a view type the screen is free to
+# default differently one day, and the day cells these journeys read only exist
+# there. Waiting on the switch first says « the calendar is not open » when it
+# is not, instead of failing a tap two lines later.
+- extendedWaitUntil:
+    visible:
+      id: "calendar_view_week"
+    timeout: 20000
+
+- tapOn:
+    id: "calendar_view_week"
+
+# Today's header is the proof the week is drawn. It is always in the current week,
+# so a flow can wait on it before asking whether another day is — a
+# `notVisible` evaluated one frame early would read « not there yet » as « not in
+# this week ».
+- extendedWaitUntil:
+    visible:
+      id: "calendar_day_${TODAY}"
+    timeout: 20000

@@ -25,7 +25,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.maggie.app.ui.UiTags
 
 data class DrawerDestination(val route: String, val label: String, val icon: ImageVector)
 
@@ -84,6 +86,8 @@ private fun DrawerItem(
             onNavigate(destination.route)
             onCloseDrawer()
         },
-        modifier = Modifier.padding(horizontal = 12.dp),
+        modifier = Modifier
+            .padding(horizontal = 12.dp)
+            .testTag(UiTags.drawerItem(destination.route)),
     )
 }

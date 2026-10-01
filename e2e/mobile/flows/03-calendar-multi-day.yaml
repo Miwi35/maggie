@@ -1,0 +1,97 @@
+appId: com.maggie.app.e2e
+name: 03-calendar-multi-day
+tags:
+  - calendar
+---
+# A multi-day event is drawn on every day it crosses, in the week view and in the
+# day view (MAG-204). Two regressions this holds:
+#
+# - `76017dd`: the day view filtered on the start date only, so an event ending
+#   the next morning was missing from the second day;
+# - `dfad086`: the week view drew it only in its start column, and the event
+#   expander dropped it from the week where it *ends* when it started in the one
+#   before.
+#
+# « Train de nuit pour Vienne » is the seeded witness (`20-calendar.yaml`):
+# today + 5 days 21:00 → + 6 days 08:00. It is timed on purpose — an all-day row
+# would not exercise the range check those fixes replaced. `run.sh` hands the two
+# days over as `TRAIN_START` / `TRAIN_END`, in Paris time, because the week they
+# fall in depends on the weekday the suite runs on: both may be in this week, or
+# the second may be in the next.
+#
+# **How « on this day » is read.** The week view draws a multi-day event as one
+# bar across its columns, tagged `calendar_span_<first>_<last>` with the days it
+# covers in the displayed week (`UiTags.kt`). A bar starting on `TRAIN_START`
+# proves the event is drawn from that day; a bar ending on `TRAIN_END` proves it
+# reaches that one. In the week that holds both, a single bar answers both
+# questions; when they straddle a Sunday, the bar is cut there and the next week
+# draws the rest — which is exactly the `dfad086` case, and why the flow follows
+# it rather than only looking at the current week.
+#
+# What is not asserted: the vertical position of the block in the day view. It is
+# drawn from the start hour to the end hour of *that day* regardless of the
+# event's own times, so a night event lands at 21:00 on its second day. That is a
+# known quirk and not what this journey is about.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow: ../subflows/open-calendar.yaml
+
+# The first day. Another week only when the train does not leave this one, and
+# `TRAIN_START` is at most five days ahead, so the next week always holds it.
+- runFlow:
+    when:
+      notVisible:
+        id: "calendar_day_${TRAIN_START}"
+    commands:
+      - tapOn:
+          id: "calendar_next"
+      - extendedWaitUntil:
+          visible:
+            id: "calendar_day_${TRAIN_START}"
+          timeout: 20000
+
+- extendedWaitUntil:
+    visible:
+      id: "calendar_span_${TRAIN_START}_.*"
+      text: "Train de nuit pour Vienne"
+    timeout: 20000
+
+# The second day, in whichever week it falls.
+- runFlow:
+    when:
+      notVisible:
+        id: "calendar_day_${TRAIN_END}"
+    commands:
+      - tapOn:
+          id: "calendar_next"
+      - extendedWaitUntil:
+          visible:
+            id: "calendar_day_${TRAIN_END}"
+          timeout: 20000
+
+- extendedWaitUntil:
+    visible:
+      id: "calendar_span_.*_${TRAIN_END}"
+      text: "Train de nuit pour Vienne"
+    timeout: 20000
+
+# The day view of the second day, opened the way a person does: tap the day's
+# header. The block sits below the fold of a phone's screen — the timeline is
+# 17 hours of 60 dp — so it is scrolled to, which on a tablet that shows the whole
+# timeline returns at once. Nothing is waited on before it: the Semaine / Jour
+# switches exist in both views, so they would not say which one is drawn.
+- tapOn:
+    id: "calendar_day_${TRAIN_END}"
+
+- scrollUntilVisible:
+    element:
+      id: "calendar_event_${TRAIN_END}"
+      text: "Train de nuit pour Vienne"
+    direction: DOWN
+    timeout: 20000
