@@ -1,7 +1,10 @@
 import asyncio
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
+from app.config import settings
+from app.db.instruction_repository import instruction_repo
 from app.db.proaction_repository import proaction_repo
 from app.llm.gateway import LLMGateway
 from app.queue.proaction_publisher import publish_proaction
@@ -9,7 +12,6 @@ from app.queue.proaction_publisher import publish_proaction
 logger = logging.getLogger(__name__)
 
 EXECUTION_INTERVAL = 60  # seconds
-DAILY_PLANNING_HOUR = 6  # 06:00 UTC
 
 DAILY_PLANNING_PROMPT = (
     "C'est le début de la journée. "
@@ -19,9 +21,6 @@ DAILY_PLANNING_PROMPT = (
     "les instructions de l'utilisateur, son calendrier et ses habitudes. "
     "Respecte les contraintes horaires indiquées dans les instructions."
 )
-
-# Default user for autonomous planning — the single user of this personal assistant
-PLANNING_USER_ID = "default"
 
 _tasks: list[asyncio.Task] = []
 
@@ -41,28 +40,44 @@ async def _execution_loop() -> None:
         await asyncio.sleep(EXECUTION_INTERVAL)
 
 
+def next_planning_time(now: datetime) -> datetime:
+    """Next daily planning moment (UTC): the configured hour on the wall clock of the planning timezone."""
+    tz = ZoneInfo(settings.planning_timezone)
+    local_now = now.astimezone(tz)
+    day = local_now.date()
+    target = datetime.combine(day, time(settings.daily_planning_hour), tzinfo=tz)
+    if target <= local_now:
+        target = datetime.combine(day + timedelta(days=1), time(settings.daily_planning_hour), tzinfo=tz)
+    return target.astimezone(UTC)
+
+
+async def plan_all_users(gateway: LLMGateway) -> None:
+    """Run the planning prompt once for every user who has stored instructions."""
+    for user_id in await instruction_repo.find_user_ids():
+        try:
+            logger.info(f"Running daily proaction planning for user {user_id}")
+            result = await gateway.proaction(DAILY_PLANNING_PROMPT, user_id, silent=True)
+            logger.info(f"Daily planning complete for user {user_id}: {result['response'][:200]}")
+        except Exception as e:
+            logger.error(f"Daily planning failed for user {user_id}: {e}")
+
+
 async def _daily_planning_loop() -> None:
-    """Once a day at 06:00 UTC, ask Maggie to plan/manage proactions."""
+    """Every day, early in the morning, ask Maggie to plan/manage proactions for each user."""
     gateway = LLMGateway()
 
     while True:
-        now = datetime.now(UTC)
-        # Calculate seconds until next 06:00 UTC
-        target = now.replace(hour=DAILY_PLANNING_HOUR, minute=0, second=0, microsecond=0)
-        if now >= target:
-            # Already past 06:00 today, schedule for tomorrow
-            target = target.replace(day=target.day + 1)
-        wait_seconds = (target - now).total_seconds()
-
-        logger.info(f"Daily planning scheduled in {wait_seconds:.0f}s (at {target.isoformat()})")
-        await asyncio.sleep(wait_seconds)
-
         try:
-            logger.info("Running daily proaction planning")
-            result = await gateway.proaction(DAILY_PLANNING_PROMPT, PLANNING_USER_ID, silent=True)
-            logger.info(f"Daily planning complete: {result['response'][:200]}")
+            now = datetime.now(UTC)
+            target = next_planning_time(now)
+            wait_seconds = (target - now).total_seconds()
+            logger.info(f"Daily planning scheduled in {wait_seconds:.0f}s (at {target.isoformat()})")
+            await asyncio.sleep(wait_seconds)
+
+            await plan_all_users(gateway)
         except Exception as e:
-            logger.error(f"Daily planning failed: {e}")
+            logger.error(f"Daily planning loop error: {e}")
+            await asyncio.sleep(EXECUTION_INTERVAL)
 
 
 async def start_scheduler() -> None:
