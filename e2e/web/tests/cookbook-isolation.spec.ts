@@ -23,8 +23,8 @@ import { getCollection } from '../helpers/api.js'
  * from here would also race the one in `meals-grocery.spec.ts` over the same
  * recurring line.
  *
- * The last test is the one that fails: three grocery **writes** take an item id
- * and never ask whose it is.
+ * The last two tests are about grocery **writes**: check, remove and reorder
+ * used to take an item id and never ask whose it was (MAG-175).
  */
 
 const MINE = { recipe: 'Pâtes à la tomate', ingredient: 'Tomate', meal: 'Pâtes à la tomate' }
@@ -111,7 +111,7 @@ test("the global search answers out of the caller's own index", async ({ api, ot
   // Its own code path: the collections filter in SQL or on an Elasticsearch
   // `userId` term, and global search is a third query over several indices at
   // once. A filter can be right in both of the others and missing here.
-  const hits = async (client: APIRequestContext): Promise<string> => {
+  const hits = async (client: APIRequestContext): Promise<string[]> => {
     // `limit=100`, not the endpoint's default of 10: the neighbour owns nine
     // rows with "voisin" in them now, and a flat cross-index top ten would
     // start dropping the recipe this looks for the moment one more is seeded —
@@ -122,7 +122,12 @@ test("the global search answers out of the caller's own index", async ({ api, ot
 
     expect(response.status(), `GET /api/search answered ${response.status()}`).toBe(200)
 
-    return response.text()
+    // Parsed, not matched as text: the body escapes every accent ("Velout\u00e9"),
+    // so a substring search for "Velouté" never matched — the owner's half passed
+    // whatever the filter did, and the control could not find what was there.
+    const body = (await response.json()) as { results: { data: Record<string, unknown> }[] }
+
+    return body.results.map(({ data }) => String(data.name ?? data.summary ?? data.title ?? ''))
   }
 
   expect(await hits(api), "the neighbour's soup is in the owner's search results").not.toContain(THEIRS.recipe)
@@ -134,27 +139,14 @@ test("the global search answers out of the caller's own index", async ({ api, ot
 })
 
 /**
- * Three grocery writes act on an id without asking whose it is — MAG-175.
+ * Grocery writes refuse an id that is not the caller's — MAG-175.
  *
- * `CheckGroceryItemHandler` and `RemoveGroceryItemHandler` both do
- * `em->find(GroceryItem, $id)` and then write, with no owner check at all;
- * `ReorderGroceryItemsHandler` loads the caller's own list and then moves
- * whatever id it is handed. `EditGroceryItemHandler`, in the same directory,
- * refuses with "Access denied." — so this is an omission, not a decision.
- *
- * The ids are not secret either: a grocery list's Mercure payload carries the
- * `id` of every line.
- *
- * So an authenticated user can tick, reorder, or **permanently delete** a line
- * from somebody else's shopping. Expected to fail, and written as the fix's
- * reproduction, with the control beside it.
- *
- * One thing the fix will trip over, and it is worth knowing before starting:
- * `CheckGroceryItemController` catches `\DomainException` only, while its
- * sibling `RemoveGroceryItemController` also catches `HandlerFailedException`.
- * On the synchronous bus a handler-thrown `DomainException` arrives wrapped, so
- * an owner check added in `CheckGroceryItemHandler` answers **500** rather than
- * the 404 asserted here. MAG-175 says so.
+ * `CheckGroceryItemHandler` and `RemoveGroceryItemHandler` used to do
+ * `em->find(GroceryItem, $id)` and then write, with no owner check at all, while
+ * a grocery list's Mercure payload hands out the `id` of every line. So an
+ * authenticated user could tick or **permanently delete** a line from somebody
+ * else's shopping. This is the fix's reproduction, kept as the regression test,
+ * with the control beside it.
  */
 interface Line {
   '@id': string
@@ -211,7 +203,7 @@ async function writeLineToAttack(api: APIRequestContext, label: string): Promise
   return line as Line
 }
 
-test.fail("the neighbour cannot touch a line on the owner's list — MAG-175", async ({ api, otherUser }) => {
+test("the neighbour cannot touch a line on the owner's list — MAG-175", async ({ api, otherUser }) => {
   const label = attackedLabel()
   const line = await writeLineToAttack(api, label)
 
@@ -234,11 +226,10 @@ test.fail("the neighbour cannot touch a line on the owner's list — MAG-175", a
 })
 
 test('the owner can still tick and drop a line of their own', async ({ api }) => {
-  // The control, and the pair the expectation above needs twice over. It drives
-  // the same setup unmarked, so a `POST /api/grocery/add-item` that stopped
-  // working could not hide behind the marker — and it is what stops the fix
-  // from being "answer 404 to everybody", which would satisfy MAG-175's
-  // assertions perfectly while breaking the feature.
+  // The control, and the pair the test above needs. It drives the same setup,
+  // so a `POST /api/grocery/add-item` that stopped working fails here too — and
+  // it is what stops a fix from being "answer 404 to everybody", which would
+  // satisfy MAG-175's assertions perfectly while breaking the feature.
   const label = `${attackedLabel()} (le mien)`
   const line = await writeLineToAttack(api, label)
 

@@ -71,9 +71,16 @@ export class CalendarPage extends AdminShell {
   readonly editTaskDialog: Locator
   readonly recurrenceDialog: Locator
   readonly importDialog: Locator
+  private readonly readyAgenda: string
 
-  constructor(page: Page) {
+  /**
+   * @param readyAgenda an agenda the signed-in user owns, which {@link expectReady}
+   *   waits for in the sidebar. "Perso" is the owner's; a journey signed in as the
+   *   second seeded account passes "Agenda du voisin", since it has no "Perso".
+   */
+  constructor(page: Page, readyAgenda = 'Perso') {
     super(page)
+    this.readyAgenda = readyAgenda
     this.grid = page.locator('.fc')
     // The toolbar's title is the page's only level-6 heading.
     this.title = this.content.getByRole('heading', { level: 6 }).first()
@@ -107,7 +114,7 @@ export class CalendarPage extends AdminShell {
   async expectReady(): Promise<void> {
     await this.expectLoaded()
     await expect(this.grid).toBeVisible()
-    await expect(this.agendaRow('Perso')).toBeVisible()
+    await expect(this.agendaRow(this.readyAgenda)).toBeVisible()
   }
 
   /**

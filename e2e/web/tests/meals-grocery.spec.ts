@@ -132,23 +132,18 @@ test('Maggie plans a meal, and the API gives it an agenda nobody named', async (
 })
 
 /**
- * The half that is still broken — expected to fail, naming MAG-176.
+ * The "Repas" agenda the first meal creates is indexed and published, so the
+ * owner sees it after a reload — MAG-176.
  *
- * The "Repas" agenda is persisted now, and
- * `UserIsolationToolsTest::testFirstMealCreatesTheRepasAgendaForTheCurrentUser`
- * keeps it that way. But `/api/agendas` is served from Elasticsearch, and the
- * index is fed by an `IndexDocumentCommand` the middleware dispatches from the
- * handler's *return value* — which is the meal. The agenda is a side effect: it
- * is neither published nor indexed, so the owner reloads and it is not in their
- * sidebar, and `MealsWeekView` goes on planning into the first agenda it finds
- * for ever.
- *
- * Exactly the shape `GroceryListBroadcaster` exists to fix on the grocery side.
+ * `/api/agendas` is served from Elasticsearch, and the index is fed from the
+ * handler's *return value* — which is the meal. The agenda used to be a side
+ * effect nobody indexed: the owner reloaded and it was not in their sidebar, and
+ * `MealsWeekView` went on planning into the first agenda it found for ever.
  *
  * The journey ends on a reload, because that is the owner's own wording in
  * MAG-114: "l'agenda Repas est créé, **existe toujours après un rechargement**".
  */
-test.fail('the Repas agenda is in the sidebar after a reload — MAG-176', async ({ otherUser }) => {
+test('the Repas agenda is in the sidebar after a reload — MAG-176', async ({ otherUser }) => {
   const { api } = otherUser
   const recipe = await aRecipeToPlan(api, 'MAG-176')
 
@@ -163,7 +158,8 @@ test.fail('the Repas agenda is in the sidebar after a reload — MAG-176', async
 
   // On the screen that shows them, after a fresh load — not through the API
   // again.
-  const calendar = new CalendarPage(otherUser.page)
+  // Signed in as the second account, whose own agenda is not called "Perso".
+  const calendar = new CalendarPage(otherUser.page, 'Agenda du voisin')
   await calendar.open()
   await expect(calendar.agendaRow('Repas')).toBeVisible()
 })

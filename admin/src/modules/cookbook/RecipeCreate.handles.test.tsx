@@ -129,27 +129,18 @@ describe('RecipeCreate — the handles the recipe journey uses', { timeout: 30_0
   })
 
   /**
-   * Expected to fail, and it names its ticket rather than asserting the bug.
+   * The code goes in the row, not at the root of the form — MAG-173.
    *
-   * `CiqualFoodAutocomplete` writes with `useFormContext().setValue(source)`,
-   * and `source` is the bare string `ciqualAlimCode`. Inside a
-   * `SimpleFormIterator`, react-admin 5 scopes a source through a
-   * `SourceContext` (`ingredients.0.ciqualAlimCode`) that its own inputs
-   * consult — a component calling `setValue` itself does not, so the code
-   * lands at the *root* of the form and the row keeps a null:
-   *
-   *   { name: 'Sauce', ingredients: [{ ciqualAlimCode: null, quantity: 400,
-   *     unit: null }], ciqualAlimCode: '20047' }
-   *
-   * `CreateRecipeHandler::resolveIngredient` then throws, so creating a recipe
-   * with a Ciqual ingredient fails outright — the first bullet of MAG-101's own
-   * description. Nobody saw it because `IngredientCreate` uses the same
+   * `CiqualFoodAutocomplete` used to write with `useFormContext().setValue(source)`
+   * and the bare source `ciqualAlimCode`. Inside a `SimpleFormIterator`,
+   * react-admin 5 scopes a source through a `SourceContext`
+   * (`ingredients.0.ciqualAlimCode`) that a hand-written `setValue` ignores, so
+   * the code landed at the root and `CreateRecipeHandler::resolveIngredient`
+   * refused the recipe. Nobody saw it because `IngredientCreate` uses the same
    * component *outside* an array, where it works, and `RecipeCreate.test.tsx`
-   * mocks it away to `() => null`.
-   *
-   * MAG-173 carries the fix; this is its reproduction, already written.
+   * mocks it away. This was the fix's reproduction; it stays as its guard.
    */
-  test.fails('picking a Ciqual food sends its code in the row — MAG-173', async () => {
+  test('picking a Ciqual food sends its code in the row — MAG-173', async () => {
     const user = userEvent.setup()
     const create = renderCreate()
 

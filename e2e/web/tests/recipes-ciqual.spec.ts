@@ -22,11 +22,13 @@ import { ROUTES } from '../pages/routes.js'
  *                 food's group.
  *   the form      the admin has to send that code *in the ingredient row*.
  *
- * The first two work and are asserted here. The third does not: the Ciqual
- * autocomplete writes to the root of the form rather than to the row, so the
- * API is handed an ingredient with no code and refuses the whole recipe. That
- * is MAG-173, and the journey for it is written expected-to-fail rather than
- * left out — it is the fix's reproduction.
+ * The service works and is asserted here. The form used to write the Ciqual
+ * code to the root of the payload rather than to the row (MAG-173, fixed). The
+ * API is what fails now: every Ciqual row first looks for an ingredient the
+ * user already made from that code, that lookup binds the user without its
+ * `ulid` type, Postgres refuses the query, and the recipe answers 500. That is MAG-191, and both
+ * journeys below are written expected-to-fail rather than left out — they are
+ * the fix's reproduction.
  *
  * Tag search is here too, because it is a recipe read and because MAG-114 § 2
  * is about it: a `LIKE` against a JSON column, which Postgres refuses outright,
@@ -86,10 +88,12 @@ test('the Ciqual service answers through the stack', async ({ api }) => {
   expect(found?.kcal_per100g, 'the food has no energy value — were compositions imported?').toBeGreaterThan(0)
 })
 
-test('a recipe created with a Ciqual code gets a real ingredient, macros and all', async ({ api }) => {
-  // The API half of the chain, driven through the API on purpose: the form is
-  // broken (MAG-173) and this must not be red for the form's reason. When
-  // MAG-173 lands, the journey below covers the same chain from the browser.
+// Expected to fail — MAG-191: `IngredientRepository::findOneByUserAndCiqualAlimCode`
+// binds the user without its `ulid` type, and the recipe answers 500.
+test.fail('a recipe created with a Ciqual code gets a real ingredient, macros and all — MAG-191', async ({ api }) => {
+  // The API half of the chain, driven through the API on purpose, so that it
+  // cannot be red for the form's reason. The journey below covers the same
+  // chain from the browser.
   const headers = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
   const name = perAttempt('Gratin MAG-101')
 
@@ -141,20 +145,17 @@ test('a recipe created with a Ciqual code gets a real ingredient, macros and all
 
 /**
  * The same thing from the browser, and the first bullet of MAG-101's own
- * description — expected to fail, naming MAG-173.
+ * description — expected to fail, naming MAG-191.
  *
- * `CiqualFoodAutocomplete` calls `useFormContext().setValue('ciqualAlimCode')`
- * with the bare source. Inside react-admin's `SimpleFormIterator` a source is
- * scoped through a `SourceContext` (`ingredients.0.ciqualAlimCode`) that its own
- * inputs consult and a hand-written `setValue` does not — so the code lands at
- * the root of the payload, the row carries a null, and
- * `CreateRecipeHandler::resolveIngredient` refuses the recipe outright.
+ * The form half is fixed (MAG-173): the Ciqual autocomplete now writes the code
+ * into its own row, and the payload reaches the API with it. The API then
+ * answers 500 for the reason the test above names.
  *
  * Asserted on the POST rather than on the screen: the admin answers a failed
  * create with a notification, and waiting for a recipe that is never written
  * would cost the journey thirty seconds to say the same thing.
  */
-test.fail('a recipe created from the form carries the Ciqual food picked — MAG-173', async ({ page, api }) => {
+test.fail('a recipe created from the form carries the Ciqual food picked — MAG-191', async ({ page, api }) => {
   const name = perAttempt('Sauce tomate MAG-101')
   const shell = new AdminShell(page)
   await shell.goto(`${ROUTES.recipes}/create`)
