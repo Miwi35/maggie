@@ -8,7 +8,7 @@ Agents take tickets unattended and merging deploys to production. These rails de
 
 | Code | Trips when the diff… |
 |---|---|
-| `sensitive-path` | touches a secret (`*.pem`, `.env*` but `*.example`, `secrets*`, `api/config/jwt/`), any `policy.yaml`, or the guard itself (`scripts/agent-guard/`, `agent-guard.yml`); or a workflow line reaches for `secrets.` |
+| `sensitive-path` | touches a secret (`*.pem`, `.env*` but `*.example`, `secrets*`, `*-secret.yaml`, `api/config/jwt/`), any `policy.yaml`, the guard itself (`scripts/agent-guard/`, `agent-guard.yml`) or the freeze (`incident-gate*`, `linear.sh`, the gate job); or a workflow line reaches for `secrets` |
 | `infra-path` | touches `infra/` or `.github/` (anything not above) |
 | `permissions` | changes a workflow's token rights (`permissions:`, `: write`), or touches the auth files (`security.yaml`, JWT config, Google OAuth controller, MCP access listener, `Voter`s, `admin/src/auth`, `agent/app/auth.py`, mobile `data/auth`), or adds/removes an access rule (`IsGranted`, `access_control`, `ROLE_`, `security:`) outside tests |
 | `destructive-migration` | has an `up()` that drops a table or column, truncates, or deletes rows (the `down()` of a new table drops it: ignored) |
@@ -16,7 +16,7 @@ Agents take tickets unattended and merging deploys to production. These rails de
 | `disabled-test` | adds a skipped, fixme'd, quarantined or xfail test |
 | `no-verify` | adds `--no-verify` or `--no-gpg-sign` outside Markdown |
 
-**Emergency (MAG-184):** when `infra-path` is the only finding and the branch's ticket (`cyrus/mag-n-…`) is in the Linear state « Emergency », the guard waives it and the fix merges itself (`scripts/agent-guard/emergency.sh`; no Linear answer = no waiver).
+**Emergency (MAG-184):** when `infra-path` is the only finding and the branch's ticket (`cyrus/mag-n-…`) is in the Linear state « Emergency », the guard waives it and the fix merges itself (`scripts/agent-guard/emergency.sh`, also run by `task guard:check`; no Linear answer = no waiver).
 
 Before turning on auto-merge: `task guard:check -- <pr>`. Anything but exit 0 → no `--auto`, add `needs-human`, say why on the ticket. Never skip the hooks, never disable a test to get green: fix it or ask.
 

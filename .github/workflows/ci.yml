@@ -448,9 +448,14 @@ jobs:
   # failed deploy, or an open `incident` ticket — only the PR that carries one
   # of those keys may merge. A required check; it fails closed when Linear does
   # not answer, and incident-gate-release.yml re-runs it once the freeze lifts.
+  #
+  # It runs last, after every other job: checked at the start, it could pass a
+  # PR whose slow jobs end after a deploy failed, and the armed auto-merge would
+  # merge it into a frozen production. Last, that window shrinks to seconds.
   incident-gate:
     name: Incident gate
-    if: github.event_name == 'pull_request'
+    needs: [changes, api-lint, agent-lint, ciqual-lint, admin-lint, api-test, agent-test, ciqual-test, admin-test, e2e-stack, cron-image, infra-scripts]
+    if: always() && github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

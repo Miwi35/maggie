@@ -64,6 +64,16 @@ waive meven35/mag-184-fix "$INFRA"
 waive cyrus/mag-184-fix-the-deploy $'info: 3 counted lines, limit 800'
 [ "$STATUS" -ne 0 ] && ok "nothing to waive: no waiver" || bad "exit $STATUS"
 
+printf '\n\033[1mEnd to end, from a diff\033[0m\n'
+CHECK="$HERE/../../../scripts/agent-guard/check.sh"
+diff_of() { printf 'diff --git a/%s b/%s\n--- a/%s\n+++ b/%s\n@@ -1 +1 @@\n+%s\n' "$1" "$1" "$1" "$1" "$2"; }
+waive cyrus/mag-184-fix-the-deploy "$(diff_of infra/k8s/php-deployment.yaml 'image: x' | "$CHECK")"
+[ "$STATUS" -eq 0 ] && ok "a k8s manifest fix is waived" || bad "exit $STATUS — $OUTPUT"
+waive cyrus/mag-184-fix-the-deploy "$( { diff_of .github/workflows/cd.yml '    secrets: inherit'; } | "$CHECK")"
+[ "$STATUS" -ne 0 ] && ok "a workflow reaching for secrets is not" || bad "waived: $OUTPUT"
+waive cyrus/mag-184-fix-the-deploy "$(diff_of infra/scripts/incident-gate.sh 'exit 0' | "$CHECK")"
+[ "$STATUS" -ne 0 ] && ok "loosening the freeze is not" || bad "waived: $OUTPUT"
+
 printf '\n\033[1mFails closed\033[0m\n'
 KEY='' waive cyrus/mag-184-fix-the-deploy "$INFRA"
 [ "$STATUS" -ne 0 ] && ok "no API key: no waiver" || bad "waived without a key"

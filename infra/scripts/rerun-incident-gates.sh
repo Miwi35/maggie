@@ -28,12 +28,15 @@ if [ -n "$frozen" ]; then
   exit 0
 fi
 
-prs=$(gh pr list --repo "$GH_REPO" --state open --limit 100 --json number,statusCheckRollup) \
+prs=$(gh pr list --repo "$GH_REPO" --state open --limit 100 --json number,isCrossRepository,statusCheckRollup) \
   || { echo "::warning::could not list the open PRs"; exit 0; }
 
+# A fork's PR never gets the Linear key: its gate stays red, and re-running it
+# every 10 minutes would change nothing. The owner merges those.
 red=$(jq -r --arg gate "$GATE" \
-  '.[] | .number as $pr | .statusCheckRollup[]? | select(.name == $gate and .conclusion == "FAILURE") | "\($pr) \(.detailsUrl)"' \
-  <<<"$prs")
+  '.[] | select(.isCrossRepository | not) | .number as $pr | .statusCheckRollup[]?
+   | select(.name == $gate and .conclusion == "FAILURE") | "\($pr) \(.detailsUrl)"' \
+  <<<"$prs") || { echo "::warning::GitHub listed the PRs in a form this script cannot read"; exit 0; }
 if [ -z "$red" ]; then
   echo "Production is not frozen and no gate is red: nothing to re-run."
   exit 0

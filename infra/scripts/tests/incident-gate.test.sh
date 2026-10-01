@@ -106,7 +106,8 @@ PRS='[
  {"number":70,"statusCheckRollup":[{"name":"Incident gate","conclusion":"FAILURE","detailsUrl":"https://github.com/o/r/actions/runs/1/job/111"},{"name":"API Tests (PHPUnit)","conclusion":"SUCCESS","detailsUrl":"https://github.com/o/r/actions/runs/1/job/112"}]},
  {"number":71,"statusCheckRollup":[{"name":"Incident gate","conclusion":"SUCCESS","detailsUrl":"https://github.com/o/r/actions/runs/2/job/221"},{"name":"API Tests (PHPUnit)","conclusion":"FAILURE","detailsUrl":"https://github.com/o/r/actions/runs/2/job/222"}]},
  {"number":72,"statusCheckRollup":[{"name":"Incident gate","conclusion":"FAILURE","detailsUrl":"https://github.com/o/r/actions/runs/3/job/331"}]},
- {"number":73,"statusCheckRollup":[]}
+ {"number":73,"statusCheckRollup":[]},
+ {"number":74,"isCrossRepository":true,"statusCheckRollup":[{"name":"Incident gate","conclusion":"FAILURE","detailsUrl":"https://github.com/o/r/actions/runs/4/job/441"}]}
 ]'
 
 printf '\n\033[1mThe freeze lifts: every red gate re-runs, nothing else\033[0m\n'
@@ -115,7 +116,13 @@ printf '%s' "$PRS" > "$work/api/prs"
 run_rerun
 [ "$STATUS" -eq 0 ] && ok "exits 0" || bad "exit $STATUS — $OUTPUT"
 [ "$(paste -sd' ' "$work/api/reruns")" = "repos/o/r/actions/jobs/111/rerun repos/o/r/actions/jobs/331/rerun" ] \
-  && ok "re-runs the red gates of #70 and #72 only" || bad "re-ran: $(cat "$work/api/reruns")"
+  && ok "re-runs the red gates of #70 and #72 only, not a fork's #74" || bad "re-ran: $(cat "$work/api/reruns")"
+
+printf '%s' 'not json' > "$work/api/prs"
+: > "$work/api/reruns"
+run_rerun
+[ "$STATUS" -eq 0 ] && ok "an unreadable PR list: exits 0" || bad "exit $STATUS — $OUTPUT"
+echo "$OUTPUT" | grep -q '::warning::' && ok "and warns" || bad "silent: $OUTPUT"
 
 printf '\n\033[1mStill frozen, or Linear silent: nothing re-runs\033[0m\n'
 frozen_by "MAG-184" ""

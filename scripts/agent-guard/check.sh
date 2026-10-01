@@ -9,8 +9,8 @@
 #   git diff origin/main...HEAD | scripts/agent-guard/check.sh
 #
 # Codes: sensitive-path, infra-path, permissions, destructive-migration,
-# oversize, disabled-test, no-verify. infra-path alone is the one finding an
-# « Emergency » ticket may merge past (emergency.sh, MAG-184). AGENT_MAX_DIFF_LINES (default 800) is the size limit,
+# oversize, disabled-test, no-verify. infra-path alone is the one finding
+# the fix of an « Emergency » ticket may merge past (emergency.sh, MAG-184). AGENT_MAX_DIFF_LINES (default 800) is the size limit,
 # tests, lockfiles, generated contracts and spec folders not counted.
 #
 # Patterns that name a forbidden string are written so the source line does not
@@ -30,11 +30,12 @@ function not_counted(f) {
   return is_test(f) || f ~ /(^|\/)(package-lock\.json|composer\.lock|symfony\.lock|uv\.lock)$/ \
     || f ~ /^api\/contract\// || f ~ /^agent-os\/specs\//
 }
-# Secrets, policy and the guard itself: always a human.
+# Secrets, policy, the guard and the freeze themselves: always a human.
 function sensitive(f) {
-  return f ~ /^scripts\/agent-guard\// || f ~ /^\.github\/workflows\/agent-guard\.ya?ml$/ \
+  return f ~ /^scripts\/agent-guard\// || f ~ /^\.github\/workflows\/(agent-guard|incident-gate-release)\.ya?ml$/ \
+    || f ~ /^infra\/scripts\/(incident-gate|rerun-incident-gates|linear)\.sh$/ \
     || f ~ /\.(pem|jks|keystore)$/ || f ~ /(^|\/)\.env(\.[^\/]*)?$/ && f !~ /\.example$/ \
-    || f ~ /(^|\/)secrets?([.\/]|$)/ || f ~ /^api\/config\/jwt\// \
+    || f ~ /(^|\/)secrets?([.\/]|$)/ || f ~ /(^|[\/_.-])secrets?([_.-][^\/]*)?\.ya?ml$/ || f ~ /^api\/config\/jwt\// \
     || f ~ /(^|\/)policy\.ya?ml$/
 }
 # Infra and CD: a human, unless the PR is the fix of a ticket in « Emergency ».
@@ -88,7 +89,9 @@ function destructive(l, rest) {
     # A workflow that changes the rights of its token or reaches for a secret is never waived.
     if (file ~ /^\.github\// && line ~ /^[[:space:]]*permissions:|:[[:space:]]*write([^[:alnum:]_-]|$)|write-all/)
       flag("permissions", file ": " line)
-    if (file ~ /^\.github\// && line ~ /secrets\./) flag("sensitive-path", file ": uses a secret")
+    if (file ~ /^\.github\// && line ~ /(^|[^[:alnum:]_])secrets([^[:alnum:]_-]|$)/) flag("sensitive-path", file ": uses a secret")
+    # The Incident gate job: the ambulance must not loosen the freeze it is held by.
+    if (file ~ /^\.github\/workflows\/ci\.ya?ml$/ && line ~ /[Ii]ncident.gate/) flag("sensitive-path", file ": the Incident gate")
   }
   if (c == "+") {
     if (file !~ /\.md$/ && line ~ /--no-verif[y]|--no-gpg-sig[n]/) flag("no-verify", file)
