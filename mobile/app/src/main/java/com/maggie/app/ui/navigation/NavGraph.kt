@@ -393,7 +393,7 @@ fun NavGraph() {
                         val event = id?.takeIf(DeepLinks::isValidId)?.let { eventRepository.findEvent(it) }
                         if (event != null) {
                             val master = event.recurringEvent?.let { eventRepository.findEvent(it.removePrefix("/api/events/")) }
-                            selectedEvent = EventExpander.single(event, master, agendas.associateBy { it.id })
+                            selectedEvent = EventExpander.single(event, master, calendarViewModel.uiState.value.agendas.associateBy { it.id })
                         } else {
                             Toast.makeText(context, LINK_NOT_FOUND, Toast.LENGTH_SHORT).show()
                         }

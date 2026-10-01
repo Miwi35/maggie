@@ -76,9 +76,13 @@ fun GroceryScreen(
     var detailItem by remember { mutableStateOf<GroceryItem?>(null) }
 
     // A deep link names an item: open its sheet once the list has it, or give up once the list is loaded without it.
-    LaunchedEffect(openItemId, uiState.groceryList, uiState.isLoading) {
+    LaunchedEffect(openItemId, uiState.groceryList, uiState.isLoading, uiState.error) {
+        if (openItemId == null) return@LaunchedEffect
         val list = uiState.groceryList
-        if (openItemId == null || list == null) return@LaunchedEffect
+        if (list == null) {
+            if (uiState.error != null) onOpenItemHandled()
+            return@LaunchedEffect
+        }
         val item = list.items.firstOrNull { it.id == openItemId }
         if (item != null) {
             detailItem = item

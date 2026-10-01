@@ -11,6 +11,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
+import kotlin.coroutines.cancellation.CancellationException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -75,5 +76,24 @@ class FindByIdTest {
         coEvery { api.getTask("gone") } throws RuntimeException("404")
 
         assertNull(tasks.findTask("gone"))
+    }
+
+    @Test
+    fun `a cancelled lookup is cancelled, not reported as not found`() = runTest {
+        coEvery { eventDao.getById("e1") } returns null
+        coEvery { api.getEvent("e1") } throws CancellationException("scope gone")
+        coEvery { taskDao.getById("t1") } returns null
+        coEvery { api.getTask("t1") } throws CancellationException("scope gone")
+
+        try {
+            events.findEvent("e1")
+            throw AssertionError("findEvent swallowed the cancellation")
+        } catch (_: CancellationException) {
+        }
+        try {
+            tasks.findTask("t1")
+            throw AssertionError("findTask swallowed the cancellation")
+        } catch (_: CancellationException) {
+        }
     }
 }

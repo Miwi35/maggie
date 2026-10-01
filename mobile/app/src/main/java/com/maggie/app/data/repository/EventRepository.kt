@@ -6,6 +6,7 @@ import com.maggie.app.data.local.dao.EventDao
 import com.maggie.app.data.local.entity.EventEntity
 import com.maggie.app.data.local.entity.SyncStatus
 import com.maggie.app.data.model.Event
+import com.maggie.app.util.rethrowCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.JsonObject
@@ -47,7 +48,7 @@ class EventRepository(
     /** The cached event, else the server's (a notification can name an event the cache has not synced yet). Null when neither has it. */
     suspend fun findEvent(id: String): Event? =
         eventDao.getById(id)?.toModel()
-            ?: runCatching { apiService.getEvent(id) }.getOrNull()?.also {
+            ?: runCatching { apiService.getEvent(id) }.rethrowCancellation().getOrNull()?.also {
                 eventDao.upsertAll(listOf(EventEntity.fromModel(it)))
             }
 

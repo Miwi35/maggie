@@ -6,6 +6,7 @@ import com.maggie.app.data.local.dao.TaskDao
 import com.maggie.app.data.local.entity.SyncStatus
 import com.maggie.app.data.local.entity.TaskEntity
 import com.maggie.app.data.model.Task
+import com.maggie.app.util.rethrowCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.JsonObject
@@ -44,7 +45,7 @@ class TaskRepository(
     /** The cached task, else the server's. Null when neither has it. */
     suspend fun findTask(id: String): Task? =
         taskDao.getById(id)?.toModel()
-            ?: runCatching { apiService.getTask(id) }.getOrNull()?.also {
+            ?: runCatching { apiService.getTask(id) }.rethrowCancellation().getOrNull()?.also {
                 taskDao.upsertAll(listOf(TaskEntity.fromModel(it)))
             }
 
