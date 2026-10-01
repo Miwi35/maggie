@@ -70,7 +70,24 @@ class CreateEventToolTest extends KernelTestCase
         $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
 
         self::assertArrayHasKey('error', $data);
-        self::assertSame('No agenda found.', $data['error']);
+        self::assertStringContainsString('No default agenda', $data['error']);
+        self::assertStringContainsString('agenda_id', $data['error']);
+    }
+
+    public function testCreateEventDoesNotPickAnAgendaWhenNoneIsDefault(): void
+    {
+        $this->loadFixtures('CreateEventToolTest.yaml');
+        $this->loginFixtureUser();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->getConnection()->executeStatement('UPDATE agenda SET is_default = false');
+        $em->clear();
+
+        $data = json_decode(($this->getTool())('Dentist', '2026-03-20'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayNotHasKey('success', $data);
+        self::assertStringContainsString('No default agenda', $data['error']);
+        self::assertSame(0, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM event'));
     }
 
     public function testCreateEventWithSpecificAgenda(): void

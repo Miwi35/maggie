@@ -83,10 +83,12 @@ suite whose slowest steps have nothing to do with layout. Tag a test when its
 ## The agenda journeys
 
 `tests/agenda-*.spec.ts` (MAG-100), the module MAG-93 found the most regressive in
-the repository. Five files, split so that nothing in one can move what another
+the repository. Six files, split so that nothing in one can move what another
 reads: `events` (create, rename, delete, a multi-day event, two windows),
-`recurrence` (one occurrence overridden, one refused), `tasks`, `google`, and
-`isolation`. `agenda-delete.spec.ts` stays on its own — it is MAG-164's index guard.
+`recurrence` (one occurrence overridden, one refused), `tasks`, `google`,
+`isolation`, and `default` (MAG-149: the default agenda — it runs as the neighbour,
+because changing the owner's default would move the target of every parallel journey
+that creates an event without choosing a calendar). `agenda-delete.spec.ts` stays on its own — it is MAG-164's index guard.
 
 Three rules hold across all of them, and each cost a debugging session elsewhere:
 

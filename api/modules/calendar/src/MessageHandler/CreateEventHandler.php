@@ -35,6 +35,10 @@ class CreateEventHandler
             ? $this->agendaRepository->find($command->agendaId)
             : $this->findDefaultAgenda($command->userId);
 
+        if (null === $agenda && null === $command->agendaId) {
+            throw new \DomainException('No default agenda is set: ask which agenda to use, or pass agenda_id (ids come from manage_agendas with action list).');
+        }
+
         if (null === $agenda || (null !== $command->userId && (string) $agenda->getUser()->getId() !== $command->userId)) {
             throw new \DomainException('No agenda found.');
         }

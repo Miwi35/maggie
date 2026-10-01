@@ -505,6 +505,29 @@ private fun CalendarSection(
 
                 if (uiState.agendas.isNotEmpty()) {
                     HorizontalDivider()
+                    Text("Agenda par défaut", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Les événements créés sans préciser d'agenda y sont rangés.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
+                    uiState.agendas.forEach { agenda ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.updateDefaultAgenda(agenda.id) },
+                        ) {
+                            RadioButton(
+                                selected = agenda.isDefault,
+                                onClick = { viewModel.updateDefaultAgenda(agenda.id) },
+                            )
+                            Text(agenda.name, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+
+                    HorizontalDivider()
                     Text("Agendas visibles", style = MaterialTheme.typography.titleMedium)
 
                     uiState.agendas.forEach { agenda ->

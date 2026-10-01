@@ -431,6 +431,96 @@ describe('CalendarView', () => {
     })
   })
 
+  // MAG-149: the default agenda is where Maggie files an appointment when
+  // nothing else says where, and only the owner can pick it.
+  describe('the default agenda', { timeout: 30_000 }, () => {
+    const PERSO = '/api/agendas/01PERSO'
+    const CONCERTS = '/api/agendas/01CONCERTS'
+
+    const serveAgendas = (agendas: unknown[]) => {
+      mockGetList.mockImplementation((resource: string) => {
+        if (resource === 'agendas') return Promise.resolve({ data: agendas, total: agendas.length })
+        return Promise.resolve({ data: [], total: 0 })
+      })
+    }
+
+    const agendaCalls = () => mockGetList.mock.calls.filter(([resource]) => resource === 'agendas').length
+
+    const chooseConcerts = async () => {
+      render(<CalendarView />)
+      await userEvent.click(await screen.findByRole('button', { name: "Options de l'agenda Concerts" }))
+      await userEvent.click(await screen.findByRole('menuitem', { name: 'Définir comme agenda par défaut' }))
+    }
+
+    beforeEach(() => {
+      serveAgendas([
+        { id: CONCERTS, name: 'Concerts', isDefault: false },
+        { id: PERSO, name: 'Perso', isDefault: true },
+      ])
+    })
+
+    test('badges the default agenda, and only that one', async () => {
+      render(<CalendarView />)
+
+      const rows = await screen.findAllByTestId('agenda-row')
+      const perso = rows.find((row) => row.textContent?.includes('Perso'))
+      const concerts = rows.find((row) => row.textContent?.includes('Concerts'))
+
+      expect(within(perso!).getByTestId('agenda-default-badge')).toBeInTheDocument()
+      expect(within(perso!).getByTitle('Agenda par défaut')).toBeInTheDocument()
+      expect(within(concerts!).queryByTestId('agenda-default-badge')).not.toBeInTheDocument()
+    })
+
+    test('marks the chosen agenda as the default and reloads the list', async () => {
+      await waitFor(() => undefined)
+      const before = agendaCalls()
+
+      await chooseConcerts()
+
+      await waitFor(() =>
+        expect(mockUpdate).toHaveBeenCalledWith('agendas', {
+          id: CONCERTS,
+          data: { isDefault: true },
+          previousData: { id: CONCERTS },
+        }),
+      )
+      await waitFor(() => expect(agendaCalls()).toBeGreaterThan(before))
+      expect(mockNotify).toHaveBeenCalledWith("« Concerts » est maintenant l'agenda par défaut", { type: 'success' })
+    })
+
+    test('says so when the choice is refused', async () => {
+      mockUpdate.mockRejectedValue(new Error('Forbidden'))
+
+      await chooseConcerts()
+
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith('Erreur: Forbidden', { type: 'error' }))
+    })
+
+    test('does not offer to make the default agenda the default again', async () => {
+      render(<CalendarView />)
+      await userEvent.click(await screen.findByRole('button', { name: "Options de l'agenda Perso" }))
+
+      expect(await screen.findByRole('menuitem', { name: 'Supprimer' })).toBeInTheDocument()
+      expect(screen.queryByRole('menuitem', { name: 'Définir comme agenda par défaut' })).not.toBeInTheDocument()
+    })
+
+    test('reloads the agendas when the default changes elsewhere', async () => {
+      localStorage.setItem('user', JSON.stringify({ id: 'u1' }))
+      try {
+        render(<CalendarView />)
+        await waitFor(() => expect(MockEventSource.instances.some((es) => es.url.includes('agendas'))).toBe(true))
+        await screen.findAllByTestId('agenda-row')
+        const before = agendaCalls()
+
+        MockEventSource.instances.find((es) => es.url.includes('agendas'))!.onmessage?.({ data: '{}' } as MessageEvent)
+
+        await waitFor(() => expect(agendaCalls()).toBeGreaterThan(before))
+      } finally {
+        localStorage.removeItem('user')
+      }
+    })
+  })
+
   // MAG-148: the owner connected the same Google calendar twice. The guard
   // against it lives here, and it reads `googleCalendarId` off the agenda — a
   // field the collection, served from Elasticsearch, did not carry.

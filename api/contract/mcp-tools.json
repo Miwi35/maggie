@@ -173,7 +173,7 @@
                 "date"
             ]
         },
-        "description": "Create a new calendar event. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes (default 60). Use agenda_id to target a specific agenda (its id comes from manage_agendas with action list), or omit for the default agenda."
+        "description": "Create a new calendar event. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes (default 60). Use agenda_id to target a specific agenda (its id comes from manage_agendas with action list), or omit for the default agenda — when the user has none the tool returns an error: ask which agenda to use rather than picking one."
     },
     "create_recipe": {
         "name": "create_recipe",

@@ -38,6 +38,9 @@ use Symfony\Component\Validator\Constraints as Assert;
 // event (MAG-148). NULLs count as distinct in Postgres, so the agendas with no
 // Google calendar are unaffected.
 #[ORM\UniqueConstraint(name: 'uniq_agenda_user_google_calendar', columns: ['user_id', 'google_calendar_id'])]
+// One default agenda per user, enforced where a race between two requests cannot
+// get past the handler that demotes the others (MAG-149).
+#[ORM\UniqueConstraint(name: 'uniq_agenda_user_default', columns: ['user_id'], options: ['where' => '(is_default = true)'])]
 #[ApiFilter(OrderFilter::class, properties: ['id', 'name'])]
 #[Indexed(index: 'agendas', module: 'calendar')]
 #[ApiResource(operations: [

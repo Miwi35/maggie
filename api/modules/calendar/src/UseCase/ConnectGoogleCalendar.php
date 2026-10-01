@@ -68,7 +68,7 @@ class ConnectGoogleCalendar
             // The Google primary calendar is where an appointment belongs when
             // nothing else says otherwise — but only until the user picks one
             // themselves, and their choice is never overwritten (MAG-149).
-            isDefault: true === $entry->getPrimary() && null === $this->agendaRepository->findExplicitDefault($user),
+            isDefault: true === $entry->getPrimary() && null === $this->agendaRepository->findDefault($user),
             googleCalendarId: (string) $entry->getId(),
         ));
 

@@ -7,6 +7,7 @@ use Maggie\Calendar\Message\UpdateAgendaCommand;
 use Maggie\Calendar\Repository\AgendaRepository;
 use Maggie\Calendar\UseCase\UpdateAgenda;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 #[AsMessageHandler]
 class UpdateAgendaHandler
@@ -14,6 +15,7 @@ class UpdateAgendaHandler
     public function __construct(
         private readonly UpdateAgenda $updateAgenda,
         private readonly AgendaRepository $agendaRepository,
+        private readonly MessageBusInterface $bus,
     ) {
     }
 
@@ -22,6 +24,14 @@ class UpdateAgendaHandler
         $agenda = $this->agendaRepository->find($command->agendaId);
         if (null === $agenda) {
             throw new \DomainException("Agenda not found: {$command->agendaId}");
+        }
+
+        if (true === $command->isDefault) {
+            // One default per user: the others lose it first, through the bus so
+            // their screens and the search index follow (MAG-149).
+            foreach ($this->agendaRepository->findDefaultsExcept($agenda->getUser(), $agenda) as $previous) {
+                $this->bus->dispatch(new UpdateAgendaCommand(agendaId: (string) $previous->getId(), isDefault: false));
+            }
         }
 
         if (null !== $command->name) {

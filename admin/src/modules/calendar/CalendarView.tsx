@@ -34,6 +34,8 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import EventIcon from '@mui/icons-material/Event'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import RestaurantIcon from '@mui/icons-material/Restaurant'
+import StarIcon from '@mui/icons-material/Star'
+import StarBorderIcon from '@mui/icons-material/StarBorder'
 import SyncIcon from '@mui/icons-material/Sync'
 import CircularProgress from '@mui/material/CircularProgress'
 import Menu from '@mui/material/Menu'
@@ -94,6 +96,7 @@ interface GoogleCalendar {
 }
 
 const CALENDAR_TOPICS = ['/api/events/{id}', '/api/tasks/{id}']
+const AGENDA_TOPICS = ['/api/agendas/{id}']
 const MERCURE_REFETCH_DELAYS_MS = [1500, 5000]
 const SIDEBAR_WIDTH = 230
 const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
@@ -533,6 +536,23 @@ export const CalendarView = () => {
       setExportLoading(false)
     }
   }, [agendaMenuTarget, handleAgendaMenuClose, notify, loadCalendars])
+
+  const handleSetDefaultAgenda = useCallback(async () => {
+    if (!agendaMenuTarget) return
+    const target = agendaMenuTarget
+    handleAgendaMenuClose()
+    try {
+      await dataProvider.update('agendas', {
+        id: target.id,
+        data: { isDefault: true },
+        previousData: { id: target.id },
+      })
+      notify(`« ${target.name} » est maintenant l'agenda par défaut`, { type: 'success' })
+      loadCalendars()
+    } catch (error) {
+      notify(`Erreur: ${(error as Error).message}`, { type: 'error' })
+    }
+  }, [agendaMenuTarget, handleAgendaMenuClose, dataProvider, notify, loadCalendars])
 
   const handleCreateAgenda = useCallback(async () => {
     if (!newAgendaName.trim()) return
@@ -1292,6 +1312,21 @@ export const CalendarView = () => {
   )
   useMercure(CALENDAR_TOPICS, mercureCallback)
 
+  // Another window or the mobile app can change which agenda is the default.
+  const agendaRefetchTimers = useRef<ReturnType<typeof setTimeout>[]>([])
+  const agendaMercureCallback = useCallback(() => {
+    loadCalendars()
+    agendaRefetchTimers.current.forEach(clearTimeout)
+    agendaRefetchTimers.current = MERCURE_REFETCH_DELAYS_MS.map((delay) => setTimeout(loadCalendars, delay))
+  }, [loadCalendars])
+  useEffect(
+    () => () => {
+      agendaRefetchTimers.current.forEach(clearTimeout)
+    },
+    [],
+  )
+  useMercure(AGENDA_TOPICS, agendaMercureCallback)
+
   // --- Deep-link: open an event or a meal from search (?eventId=… / ?mealId=…) ---
   const deepLinkEventId = searchParams.get('eventId')
   const deepLinkMealId = searchParams.get('mealId')
@@ -1653,6 +1688,20 @@ export const CalendarView = () => {
                 <Typography variant="body2" data-testid="agenda-name" sx={{ ml: 0.5, flex: 1 }}>
                   {cal.name}
                 </Typography>
+                {cal.isDefault && (
+                  // Named by attributes, not by an SVG <title>: that would put the words
+                  // into the row's text, which the agenda journeys match on.
+                  <Box
+                    component="span"
+                    role="img"
+                    aria-label="Agenda par défaut"
+                    title="Agenda par défaut"
+                    data-testid="agenda-default-badge"
+                    sx={{ display: 'inline-flex', mr: 0.25 }}
+                  >
+                    <StarIcon sx={{ fontSize: 14, color: 'warning.main' }} />
+                  </Box>
+                )}
                 {cal.googleCalendarId && (
                   <SyncIcon
                     // A bare icon says nothing to a screen reader, and MUI only
@@ -1683,6 +1732,12 @@ export const CalendarView = () => {
               anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
               transformOrigin={{ vertical: 'top', horizontal: 'right' }}
             >
+              {agendaMenuTarget && !agendaMenuTarget.isDefault && (
+                <MenuItem onClick={handleSetDefaultAgenda}>
+                  <ListItemIcon><StarBorderIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText>Définir comme agenda par défaut</ListItemText>
+                </MenuItem>
+              )}
               {agendaMenuTarget && !agendaMenuTarget.googleCalendarId && (
                 <MenuItem onClick={() => {
                   handleAgendaMenuClose()

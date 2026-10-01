@@ -9,6 +9,8 @@ import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.GoogleCalendar
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 class AgendaRepository(
     private val apiService: MaggieApiService,
@@ -38,6 +40,12 @@ class AgendaRepository(
         val agenda = apiService.createAgenda(request)
         agendaDao.upsertAll(listOf(AgendaEntity.fromModel(agenda)))
         agenda
+    }
+
+    /** The server demotes the previous default, so the whole list is reloaded rather than one row patched. */
+    suspend fun setDefaultAgenda(id: String): Result<List<Agenda>> = runCatching {
+        apiService.updateAgenda(id, buildJsonObject { put("isDefault", true) })
+        refreshAgendas().getOrThrow()
     }
 
     suspend fun deleteAgenda(id: String): Result<Unit> = runCatching {
