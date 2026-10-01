@@ -133,7 +133,7 @@ Its own chat history is the only thing it writes. Unit tests of the scripts: `in
 
 **Freeze (MAG-184):** while a ticket is in « Emergency » or an `incident` ticket is open, the required check `Incident gate` (`infra/scripts/incident-gate.sh`) fails every PR whose title or branch does not carry one of those keys; no Linear answer fails it too. `incident-gate-release.yml` (every 10 min and after each CD run) re-runs the red gates once the freeze lifts, so held PRs merge on their own. The dispatcher delegates the « Emergency » ticket first, over every slot and hold.
 
-**Not reverted:** database migrations and Elasticsearch mappings. The pre-deploy dump is in `/opt/maggie/backups`.
+**Not reverted:** database migrations and Elasticsearch mappings. The pre-deploy dumps (API and agent) are in `/opt/maggie/backups`.
 
 > Deployment targets k3s, not Docker Compose: manifests live in `infra/k8s/`
 > (Deployments, Services, Ingress, ConfigMap, Secret, Kustomization) and
