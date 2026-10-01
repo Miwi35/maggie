@@ -49,6 +49,11 @@ class Settings(BaseSettings):
     service_token: str = ""
     jwt_public_key_path: str = "/etc/jwt/public.pem"
 
+    # Daily planning: runs at this local hour, early enough to schedule a 7:00 directive.
+    # The timezone is the default one until user preferences reach the agent.
+    planning_timezone: str = "Europe/Paris"
+    daily_planning_hour: int = 5
+
     # Agent
     agent_name: str = "Maggie"
     agent_base_url: str = "http://maggie.local/agent"

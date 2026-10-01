@@ -38,6 +38,12 @@ class InstructionRepository:
             )
             return list(result.scalars().all())
 
+    async def find_user_ids(self) -> list[str]:
+        """Ids of every user who has at least one instruction."""
+        async with agent_session() as session:
+            result = await session.execute(select(Instruction.user_id).distinct().order_by(Instruction.user_id))
+            return list(result.scalars().all())
+
     async def update(self, user_id: str, instruction_id: str, content: str) -> Instruction | None:
         """Update an instruction owned by user_id; None if it does not exist or belongs to someone else."""
         async with agent_session() as session:
