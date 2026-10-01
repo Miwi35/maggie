@@ -21,5 +21,5 @@ Kotlin + Jetpack Compose + Material 3.
 - **Release keystore:** `mobile/release.keystore` (alias `maggie`, config in `keystore.properties`)
 - **Release SHA1:** `C5:AD:BF:94:9F:08:68:09:44:78:F1:F0:8B:A2:41:CA:B1:78:4C:DA` — registered in Google Cloud Console
 - Google OAuth credentials only work with the release signing key
-- **Always build `prodRelease`** for device testing: `JAVA_HOME=/opt/android-studio-for-platform/jbr ./gradlew installProdRelease`
+- **Always build `prodRelease`** for device testing: `task mobile:install` (checks a phone is connected, then an incremental `./gradlew installProdRelease` — never `clean`)
 - Do NOT use `devDebug` or `prodDebug` — the debug keystore SHA1 is not registered in GCP
