@@ -108,8 +108,15 @@ class StreamingGateway:
             yield {"type": "CUSTOM", "name": "context_update", "value": ctx_resolution}
 
         # The thread's messages plus a short global window. The user's message is already
-        # persisted and, by now, tagged with the thread, so the history holds it.
-        messages = await build_history(user_id, context_id=current_context_id)
+        # persisted and, by now, tagged with the thread, so the history holds it — and
+        # `fallback_message` is the floor under a history that would not load at all, since
+        # the API refuses a conversation with no message in it.
+        messages = await build_history(
+            user_id,
+            context_id=current_context_id,
+            fallback_message=message,
+            current_message_id=user_msg_id,
+        )
 
         # Get tools (contexts are managed by the gateway, not by Claude)
         tools = await self.tool_router.get_tool_definitions(include_native=True)

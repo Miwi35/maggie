@@ -328,13 +328,15 @@ class TestSummaryTrigger:
     async def test_the_thread_is_routed_before_the_history_is_loaded(self):
         """The whole point of MAG-13: a routing that happens afterwards decides nothing."""
         calls: list[str] = []
+        seen: dict = {}
 
         async def route(*_args, **_kwargs):
             calls.append("route")
             return {"action": "matched", "id": "ctx-1", "label": "Courses", "status": "active", "summary": None}
 
-        async def history(_user_id, *, context_id=None, pending_message=None):
+        async def history(_user_id, *, context_id=None, pending_message=None, **rest):
             calls.append(f"history:{context_id}")
+            seen.update(rest)
             return [{"role": "user", "content": "Il me faut de la farine"}]
 
         with (
@@ -351,6 +353,7 @@ class TestSummaryTrigger:
 
             gw = self._gateway()
             gw._resolve_context = route
+            gw._build_system_prompt = AsyncMock(return_value=[{"type": "text", "text": "Tu es Maggie."}])
             async for _ in gw.chat_stream("Il me faut de la farine", "user-1", "msg-1"):
                 pass
             await asyncio.gather(*gw._background)
@@ -358,11 +361,17 @@ class TestSummaryTrigger:
         # And the history was built for the thread the routing had just resolved, which is
         # the only reason the order matters.
         assert calls == ["route", "history:ctx-1"]
+        # The same thread reaches the system prompt, so the open-threads list can mark the
+        # one whose messages the history is made of.
+        assert gw._build_system_prompt.await_args.kwargs["current_context_id"] == "ctx-1"
+        # And the message being answered is named, so a tag that could not be written does
+        # not have Maggie reading the question as a neighbour thread's.
+        assert seen == {"fallback_message": "Il me faut de la farine", "current_message_id": "msg-1"}
 
     async def test_a_routing_failure_still_answers_from_the_global_window(self):
         seen: list[str | None] = []
 
-        async def history(_user_id, *, context_id=None, pending_message=None):
+        async def history(_user_id, *, context_id=None, pending_message=None, **_rest):
             seen.append(context_id)
             return [{"role": "user", "content": "Il me faut de la farine"}]
 

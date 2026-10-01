@@ -63,7 +63,7 @@ class TestTheHistoryFollowsTheThread:
     async def test_it_is_built_for_the_routed_thread(self):
         seen: dict = {}
 
-        async def history(user_id, *, context_id=None, pending_message=None):
+        async def history(user_id, *, context_id=None, pending_message=None, **_rest):
             seen.update(user_id=user_id, context_id=context_id, pending_message=pending_message)
             return [{"role": "user", "content": "Il me faut de la farine"}]
 
@@ -78,7 +78,7 @@ class TestTheHistoryFollowsTheThread:
         """The route persists the user's message, so the history holds it already."""
         run = _Run()
 
-        async def history(_user_id, *, context_id=None, pending_message=None):
+        async def history(_user_id, *, context_id=None, pending_message=None, **_rest):
             assert pending_message is None
             return [{"role": "user", "content": "Il me faut de la farine"}]
 
@@ -91,7 +91,7 @@ class TestTheHistoryFollowsTheThread:
         """The A2A bridge calls this with no stored message, so the text only exists here."""
         seen: dict = {}
 
-        async def history(_user_id, *, context_id=None, pending_message=None):
+        async def history(_user_id, *, context_id=None, pending_message=None, **_rest):
             seen["pending_message"] = pending_message
             return [{"role": "user", "content": pending_message}]
 
@@ -101,10 +101,51 @@ class TestTheHistoryFollowsTheThread:
 
         assert seen["pending_message"] == "Quel est mon agenda ?"
 
+    async def test_a_caller_that_stored_nothing_opens_no_thread(self):
+        """A thread is where a message and its answer live, and A2A stores neither.
+
+        Routing there would buy a fast-model call per peer request and a context row
+        nobody ever writes in, kept awake by its own `touch()`.
+        """
+        route = AsyncMock()
+
+        async def history(_user_id, *, context_id=None, pending_message=None, **_rest):
+            return [{"role": "user", "content": pending_message}]
+
+        run = _Run()
+        with (
+            patch("app.llm.gateway.run_tool_loop", run),
+            patch("app.llm.gateway.route_message", route),
+            patch("app.llm.gateway.build_history", history),
+            patch("app.llm.gateway.skill_index", MagicMock(get_skills_index=MagicMock(return_value=""))),
+            patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
+            patch("app.llm.contexts.context_repo", MagicMock(find_active=AsyncMock(return_value=[]))),
+        ):
+            result = await _gateway().chat("Quel est mon agenda ?", "a2a", source="a2a")
+
+        route.assert_not_called()
+        assert result["context_id"] is None
+
+    async def test_the_message_being_answered_is_handed_to_the_history(self):
+        """So a tag that could not be written does not make Maggie read the question as a neighbour's."""
+        seen: dict = {}
+
+        async def history(_user_id, *, context_id=None, pending_message=None, **rest):
+            seen.update(rest)
+            return [{"role": "user", "content": "Il me faut de la farine"}]
+
+        run = _Run()
+        with _stubs(run, history):
+            await _gateway().chat("Il me faut de la farine", "user-1", exclude_message_id="msg-1")
+
+        assert seen["current_message_id"] == "msg-1"
+        # And the floor under a history that would not load at all.
+        assert seen["fallback_message"] == "Il me faut de la farine"
+
     async def test_a_routing_failure_leaves_the_global_window(self):
         seen: dict = {}
 
-        async def history(_user_id, *, context_id=None, pending_message=None):
+        async def history(_user_id, *, context_id=None, pending_message=None, **_rest):
             seen["context_id"] = context_id
             return [{"role": "user", "content": "Bonjour"}]
 
@@ -124,7 +165,7 @@ class TestTheHistoryFollowsTheThread:
             systems.append(system)
             return {"response": "C'est noté.", "tool_calls": []}
 
-        async def history(_user_id, *, context_id=None, pending_message=None):
+        async def history(_user_id, *, context_id=None, pending_message=None, **_rest):
             return [{"role": "user", "content": "Il me faut de la farine"}]
 
         thread = MagicMock()
@@ -154,10 +195,10 @@ class TestWhenTheModelRefuses:
         response = httpx.Response(500, request=request, json={"error": {"message": "boom"}})
         return anthropic.APIStatusError("boom", response=response, body=None)
 
-    async def test_an_api_error_answers_without_a_thread(self):
-        """`context_id` is only promised on the path that got an answer, like `proaction()`."""
+    async def test_an_api_error_still_lands_in_the_thread(self):
+        """The user's message is already tagged, so an answer left out would be an orphan question."""
 
-        async def history(_user_id, *, context_id=None, pending_message=None):
+        async def history(_user_id, *, context_id=None, pending_message=None, **_rest):
             return [{"role": "user", "content": "Bonjour"}]
 
         with (
@@ -171,10 +212,12 @@ class TestWhenTheModelRefuses:
             result = await _gateway().chat("Bonjour", "user-1", exclude_message_id="msg-1")
 
         assert "AI service error" in result["response"]
-        assert "context_id" not in result
+        # The next summary would otherwise read half an exchange, and the error sentence is
+        # what the user was actually shown — the streamed path stores its own in the thread too.
+        assert result["context_id"] == "ctx-1"
 
     async def test_a_connection_error_says_so(self):
-        async def history(_user_id, *, context_id=None, pending_message=None):
+        async def history(_user_id, *, context_id=None, pending_message=None, **_rest):
             return [{"role": "user", "content": "Bonjour"}]
 
         request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
@@ -192,6 +235,7 @@ class TestWhenTheModelRefuses:
             result = await _gateway().chat("Bonjour", "user-1", exclude_message_id="msg-1")
 
         assert "Unable to reach" in result["response"]
+        assert result["context_id"] == "ctx-1"
 
     async def test_no_client_configured_routes_nothing(self):
         route = AsyncMock()

@@ -177,25 +177,29 @@ class TestSystemPrompts:
         gateway = _streaming_gateway()
         gateway.client = MagicMock()
         gateway._build_system_prompt = AsyncMock(side_effect=RuntimeError("stop here"))
-        gateway._load_conversation_history = AsyncMock(return_value=[])
+        gateway._resolve_context = AsyncMock(return_value=None)
         gateway.tool_router = MagicMock(get_tool_definitions=AsyncMock(return_value=[]))
 
-        try:
-            async for _ in gateway.chat_stream("Salut", "user-1", "msg-42"):
+        with patch("app.llm.streaming.build_history", AsyncMock(return_value=[])):
+            try:
+                async for _ in gateway.chat_stream("Salut", "user-1", "msg-42"):
+                    pass
+            except RuntimeError:
                 pass
-        except RuntimeError:
-            pass
 
         assert gateway._build_system_prompt.await_args.kwargs["exclude_message_id"] == "msg-42"
 
     async def test_the_sync_chat_excludes_the_message_it_is_answering(self):
         gateway = _llm_gateway()
         gateway.client = MagicMock()
-        gateway._load_conversation_history = AsyncMock(return_value=[])
         gateway.tool_router = MagicMock(get_tool_definitions=AsyncMock(return_value=[]))
         gateway._build_system_prompt = AsyncMock(return_value=[])
 
-        with patch("app.llm.gateway.run_tool_loop", AsyncMock(return_value={"response": "ok", "tool_calls": []})):
+        with (
+            patch("app.llm.gateway.run_tool_loop", AsyncMock(return_value={"response": "ok", "tool_calls": []})),
+            patch("app.llm.gateway.route_message", AsyncMock(return_value=None)),
+            patch("app.llm.gateway.build_history", AsyncMock(return_value=[{"role": "user", "content": "Salut"}])),
+        ):
             await gateway.chat("Salut", "user-1", exclude_message_id="msg-42")
 
         assert gateway._build_system_prompt.await_args.kwargs["exclude_message_id"] == "msg-42"

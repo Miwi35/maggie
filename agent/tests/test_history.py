@@ -132,6 +132,48 @@ class TestTheThreadIsTheConversation:
 
         assert turns[2]["content"] == "[autre fil] Un message jamais routé"
 
+    async def test_the_message_being_answered_is_never_marked(self, say, thread):
+        """`route_message` swallows a failed tag, which would make Maggie read the question as a neighbour's."""
+        budget = await thread("Budget")
+        await say("user", "Où en est mon budget ?", context=budget.id, minutes=1)
+        await say("assistant", "Il tient la route.", context=budget.id, minutes=2)
+        # Stored, then the `update_context` that would have tagged it failed.
+        answering = await say("user", "Et le mois prochain ?", context=None, minutes=3)
+
+        turns = await build_history(OWNER, context_id=budget.id, current_message_id=answering.id)
+
+        assert turns[2]["content"] == "Et le mois prochain ?"
+
+    async def test_the_thread_window_caps_what_is_loaded(self, say, thread):
+        """`context_history_messages` is the ceiling, and it keeps the newest."""
+        courses = await thread("Courses")
+        # Odd minutes are the user's, so a window of two opens on a user turn and the
+        # leading-assistant trim does not eat one of the messages under test.
+        for minute in range(1, 7):
+            await say("user" if minute % 2 else "assistant", f"message {minute}", context=courses.id, minutes=minute)
+
+        with patch("app.llm.history.settings") as settings:
+            settings.context_history_messages = 2
+            settings.recent_history_messages = 1
+            turns = await build_history(OWNER, context_id=courses.id)
+
+        joined = " ".join(turn["content"] for turn in turns)
+        assert "message 5" in joined
+        assert "message 6" in joined
+        assert "message 1" not in joined
+        assert "message 4" not in joined
+
+    async def test_an_answer_never_sorts_before_its_question(self, say, thread):
+        """Two messages of one exchange can share a timestamp at the database's resolution."""
+        courses = await thread("Courses")
+        await say("assistant", "C'est noté.", context=courses.id, minutes=1)
+        await say("user", "De la farine", context=courses.id, minutes=1)
+
+        turns = await build_history(OWNER, context_id=courses.id)
+
+        assert [turn["role"] for turn in turns] == ["user", "assistant"]
+        assert turns[0]["content"] == "De la farine"
+
     async def test_with_no_thread_nothing_is_marked(self, say, thread):
         """No model to route with, or a routing call that failed: the window is all there is."""
         courses = await thread("Courses")
@@ -257,7 +299,27 @@ class TestWhenTheDatabaseWillNotAnswer:
 
         assert turns == [{"role": "user", "content": "Et du beurre"}]
 
-    async def test_a_window_that_will_not_load_gives_an_empty_history(self):
+    async def test_a_caller_that_stored_its_message_still_sends_something(self):
+        """The API refuses an empty conversation: `[]` here would be a 400, not a degraded answer."""
+        with patch("app.llm.history.message_repo") as repo:
+            repo.find_by_context = AsyncMock(return_value=[])
+            repo.find_recent = AsyncMock(side_effect=RuntimeError("no database"))
+
+            turns = await build_history(OWNER, context_id="ctx-1", fallback_message="Et du beurre")
+
+        assert turns == [{"role": "user", "content": "Et du beurre"}]
+
+    async def test_the_fallback_is_only_used_when_there_is_nothing_else(self, say, thread):
+        """It is a floor, not a second copy of the message the history already holds."""
+        courses = await thread("Courses")
+        await say("user", "De la farine", context=courses.id, minutes=1)
+
+        turns = await build_history(OWNER, context_id=courses.id, fallback_message="De la farine")
+
+        assert turns == [{"role": "user", "content": "De la farine"}]
+
+    async def test_without_a_fallback_the_history_is_simply_empty(self):
+        """The caller then has nothing to answer either — a proaction's prompt is not a history."""
         with patch("app.llm.history.message_repo") as repo:
             repo.find_by_context = AsyncMock(return_value=[])
             repo.find_recent = AsyncMock(side_effect=RuntimeError("no database"))

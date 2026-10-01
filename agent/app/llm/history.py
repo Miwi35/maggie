@@ -45,7 +45,12 @@ def _prefix(label: str | None) -> str:
 
 
 async def build_history(
-    user_id: str, *, context_id: str | None = None, pending_message: str | None = None
+    user_id: str,
+    *,
+    context_id: str | None = None,
+    pending_message: str | None = None,
+    fallback_message: str | None = None,
+    current_message_id: str | None = None,
 ) -> list[dict]:
     """The `messages` list to send, for a message already routed into `context_id`.
 
@@ -56,6 +61,17 @@ async def build_history(
     `pending_message` is the user's message when the caller has *not* stored it (the A2A
     path). The chat routes store it before calling, so the history already holds it and
     passing it again is how it used to be sent twice.
+
+    `fallback_message` is that same message for a caller that *did* store it, used only if
+    the history comes back empty. The API refuses a conversation with no message at all, so
+    without it a database that would not answer turns into `AI service error: messages: at
+    least one message is required` — the promise above, broken on the one failure it was
+    written for.
+
+    `current_message_id` is the stored message being answered. A tag that could not be
+    written leaves it untagged, and it would then come in through the global window and be
+    announced as another thread's — Maggie reading the question she is answering as a
+    neighbour's.
     """
     try:
         rows = await _rows(user_id, context_id)
@@ -68,15 +84,17 @@ async def build_history(
     # Guarded on its own: labels are decoration on the messages of other threads, and
     # losing them must cost the prefix, not the conversation.
     labels: dict[str, str] = {}
-    if _has_foreign(rows, context_id):
+    if _has_foreign(rows, context_id, current_message_id):
         try:
             labels = await _labels(user_id)
         except Exception as exc:
             logger.warning(f"Could not name the threads the history borrows from: {exc}")
 
-    turns = _turns(rows, context_id, labels)
+    turns = _turns(rows, context_id, labels, current_message_id)
     if pending_message:
         _append_user(turns, pending_message)
+    if not turns and fallback_message:
+        _append_user(turns, fallback_message)
 
     logger.info(f"History: {len(turns)} turns from {len(rows)} messages (thread {context_id})")
     return turns
@@ -100,13 +118,28 @@ async def _rows(user_id: str, context_id: str | None) -> list[Message]:
     window = await message_repo.find_recent(user_id, limit=settings.recent_history_messages)
     found.update({row.id: row for row in window})
 
-    # The id breaks ties: two messages of the same exchange can share a timestamp at the
-    # database's resolution, and an answer sorted before its question is worse than none.
-    return sorted(found.values(), key=lambda row: (row.created_at, row.id))
+    # Two messages of the same exchange can share a timestamp at the database's
+    # resolution, and an answer sorted before its question is worse than none — so the
+    # role breaks the tie first, the user's side going in front. The id is only there to
+    # make the rest deterministic: it is a truncated `uuid4().hex`, not a sortable ULID,
+    # so it carries no order of its own.
+    return sorted(found.values(), key=lambda row: (row.created_at, row.role != "user", row.id))
 
 
-def _has_foreign(rows: list[Message], context_id: str | None) -> bool:
-    return bool(context_id) and any(row.context_id != context_id for row in rows)
+def _has_foreign(rows: list[Message], context_id: str | None, current_message_id: str | None = None) -> bool:
+    return bool(context_id) and any(_is_foreign(row, context_id, current_message_id) for row in rows)
+
+
+def _is_foreign(row: Message, context_id: str | None, current_message_id: str | None) -> bool:
+    """Whether this message was said somewhere other than the thread being answered in.
+
+    The message being answered never is, even when its tag could not be written: it is the
+    reason this turn exists, and announcing it as a neighbour's would be a worse lie than
+    leaving it unlabelled.
+    """
+    if not context_id or row.context_id == context_id:
+        return False
+    return current_message_id is None or str(row.id) != str(current_message_id)
 
 
 async def _labels(user_id: str) -> dict[str, str]:
@@ -114,7 +147,9 @@ async def _labels(user_id: str) -> dict[str, str]:
     return {str(ctx.id): ctx.label for ctx in await context_repo.find_active(user_id)}
 
 
-def _turns(rows: list[Message], context_id: str | None, labels: dict[str, str]) -> list[dict]:
+def _turns(
+    rows: list[Message], context_id: str | None, labels: dict[str, str], current_message_id: str | None = None
+) -> list[dict]:
     """The rows as Anthropic turns: labelled, merged, and starting on the user."""
     turns: list[dict] = []
     for row in rows:
@@ -122,7 +157,7 @@ def _turns(rows: list[Message], context_id: str | None, labels: dict[str, str]) 
             continue
 
         content = row.content
-        if context_id and row.context_id != context_id:
+        if _is_foreign(row, context_id, current_message_id):
             content = _prefix(labels.get(str(row.context_id))) + content
 
         # The API refuses two turns of the same role in a row, and a thread does get them:

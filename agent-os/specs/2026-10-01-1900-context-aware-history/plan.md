@@ -21,16 +21,21 @@ Shaping notes and decisions: [shape.md](shape.md) · Standards: [standards.md](s
    (where MAG-11 already puts them), never as raw messages. The current thread is marked
    `← fil en cours` in that list, and carries the last tool calls recorded in it, so what
    Maggie already did in the thread survives the turn.
-5. The conversation sent always starts with a `user` message, whatever the history holds —
-   a thread whose oldest loaded message is one of Maggie's own would otherwise be refused
-   by the API.
-6. `LLMGateway.chat` no longer sends the user's message twice: the caller that stored it
+5. The conversation sent always starts with a `user` message and is never empty, whatever
+   the history holds — a thread whose oldest loaded message is one of Maggie's own, or a
+   database that would not answer at all, would otherwise be refused by the API. A caller
+   that stored its message hands it over as the floor (`fallback_message`).
+6. The message being answered is never announced as another thread's, even when its tag
+   could not be written: `current_message_id` keeps the `[fil « … »]` prefix off it.
+7. `chat()` routes only for a caller that stored its message. The A2A bridge stores
+   neither question nor answer, so a thread there would hold nothing.
+8. `LLMGateway.chat` no longer sends the user's message twice: the caller that stored it
    (`exclude_message_id`) lets the history carry it, and only a caller that stored nothing
    (A2A) hands it over to be appended.
-7. `POST /agent/chat` stores its answer in the thread the question was routed into, and
+9. `POST /agent/chat` stores its answer in the thread the question was routed into, and
    re-summarizes it — the same two sinks as `POST /agent/proaction`.
-8. `app/memory/conversation.py` and its test are gone, and nothing imports them.
-9. `MAX_CONVERSATION_HISTORY` is replaced by `CONTEXT_HISTORY_MESSAGES` and
+10. `app/memory/conversation.py` and its test are gone, and nothing imports them.
+11. `MAX_CONVERSATION_HISTORY` is replaced by `CONTEXT_HISTORY_MESSAGES` and
    `RECENT_HISTORY_MESSAGES`; no code reads the old name.
 
 ## Task 1: Save spec documentation
@@ -57,25 +62,33 @@ not, on `chat_db` (real SQL).
 New module, one entry point shared by both gateways so a second copy cannot drift:
 
 ```python
-async def build_history(user_id, *, context_id=None, pending_message=None) -> list[dict]
+async def build_history(
+    user_id, *, context_id=None, pending_message=None, fallback_message=None, current_message_id=None
+) -> list[dict]
 ```
 
 - loads the thread's messages and the global window, merges them by id, orders by
-  `created_at`;
+  `created_at` with the user's side first on a tie — the id is a truncated `uuid4().hex`,
+  not a sortable ULID, so it only makes the rest deterministic;
 - labels the messages of another thread with that thread's own label (from
-  `context_repo.find_active`), `[autre fil] ` when the thread is gone;
+  `context_repo.find_active`), `[autre fil] ` when the thread is gone, never the message
+  being answered (`current_message_id`);
 - keeps only `user`/`assistant` rows with content, merges consecutive same-role turns,
   drops leading assistant turns;
-- appends `pending_message` when the caller stored nothing;
-- never raises: a database that will not answer costs the model the conversation, not the
-  user the answer.
+- appends `pending_message` when the caller stored nothing, and `fallback_message` when the
+  result would otherwise be empty;
+- never raises, and never returns an empty list to a caller that gave it a floor: a
+  database that will not answer costs the model the conversation, not the user the answer.
 
 Tests it owes: the thread's messages are in; a message of another thread is labelled; one
-of the current thread is not; the global window brings in what the thread does not hold;
-the same message loaded twice appears once; chronological order; consecutive same-role
-turns merged; a history starting on an assistant turn is trimmed; `pending_message`
-appended, and merged into a trailing user turn; `context_id=None` falls back to the
-window with no labelling; a repository that raises gives `[]` plus the pending message.
+of the current thread is not; the message being answered is not, even untagged; the global
+window brings in what the thread does not hold, and the thread window caps at
+`context_history_messages`; the same message loaded twice appears once; chronological
+order, and an answer never before its question on a tie; consecutive same-role turns
+merged; a history starting on an assistant turn is trimmed; `pending_message` appended, and
+merged into a trailing user turn; `fallback_message` used only when there is nothing else;
+`context_id=None` falls back to the window with no labelling; a repository that raises
+gives the floor, and `[]` only when there is none.
 
 ## Task 4: Route first, on both paths
 

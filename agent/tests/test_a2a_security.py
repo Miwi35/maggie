@@ -163,12 +163,12 @@ class TestA2AToolRestriction:
             gateway = LLMGateway()
         gateway.client = object()
         gateway.tool_router = ToolRouter()
-        gateway._load_conversation_history = AsyncMock(return_value=[])
         gateway._build_system_prompt = AsyncMock(return_value=[])
 
         with (
             patch.object(ToolRouter, "get_tool_definitions", AsyncMock(return_value=[])) as definitions,
             patch("app.llm.gateway.run_tool_loop", AsyncMock(return_value={"response": "ok", "tool_calls": []})),
+            patch("app.llm.gateway.build_history", AsyncMock(return_value=[{"role": "user", "content": "salut"}])),
         ):
             await gateway.chat("salut", "a2a", source="a2a")
             definitions.assert_awaited_once_with(include_native=True, source="a2a")

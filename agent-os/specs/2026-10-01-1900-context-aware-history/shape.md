@@ -89,7 +89,45 @@ other threads as the summaries MAG-11 already writes. Plus the dead
 - **Why:** « max » with a value of 8 reads as a bug. Nothing sets the old variable in any
   compose file, so removing it breaks no deployment.
 
-### 7. `history_contains` in the fake LLM
+### 7. A history that will not load must not cost the answer
+
+- **Dilemma:** `build_history` promises never to raise, but returning `[]` is just as fatal
+  one step later — the API refuses a conversation with no message in it, so a transient
+  database failure came out as `AI service error: messages: at least one message is
+  required`. The old code could not hit this: it appended the user's message
+  unconditionally, right after the `try/except`.
+- **Options:** let the caller re-append the message · give the builder the message as a
+  floor it only uses when it has nothing else.
+- **Choice:** `fallback_message`, applied only when the history is empty.
+- **Why:** the promise belongs to the one shared entry point. Two callers each remembering
+  to guard is exactly the duplication this module exists to remove, and the floor is the
+  message being answered, which both of them already hold. Found in review.
+
+### 8. Routing only for a caller that stored its message
+
+- **Dilemma:** `chat()` is also the A2A bridge's entry point, and that caller stores
+  neither the question nor the answer.
+- **Options:** route for everyone · route only when the caller stored its message.
+- **Choice:** route only when `exclude_message_id` is given.
+- **Why:** a thread is where a message and its answer live. For A2A there is nothing to put
+  in one, so routing buys a fast-model call per peer request and a `conversation_context`
+  row nobody ever writes in — kept permanently active by its own `touch()`. Found in
+  review.
+
+### 9. `POST /agent/chat` awaits the summary
+
+- **Dilemma:** the route awaits `maybe_summarize` after answering, so a human waits for it.
+- **Options:** await it, like `POST /agent/proaction` · spawn it with
+  `fastapi.BackgroundTasks`.
+- **Choice:** await it.
+- **Why:** the two sinks of an exchange must leave a thread in the same state, which is
+  what the comment above `/agent/proaction` already promises; splitting them is how one
+  path ends up with summaries the other does not have. The cost is bounded and rare —
+  `maybe_summarize` counts first, so in production (`CONTEXT_SUMMARY_EVERY_MESSAGES=10`)
+  roughly one reply in five pays one Haiku round-trip, and the streamed path the admin and
+  the web app use does not pay it at all. Revisit if the mobile app's p95 shows it.
+
+### 10. `history_contains` in the fake LLM
 
 - **Dilemma:** nothing a browser can see says what the history held.
 - **Options:** assert on Maggie's wording · add a match condition on the history.

@@ -164,14 +164,26 @@ class LLMGateway:
         # The thread first: the history is its messages and the system prompt names it, so
         # neither can be built before it is known (MAG-13). `None` here — no answer from the
         # router — leaves the short global window as the whole conversation.
-        resolution = await route_message(self.client, message, user_id, message_id=exclude_message_id)
+        #
+        # Only for a caller that stored its message, which is what `exclude_message_id`
+        # says. A thread is where a message and its answer live, and the A2A bridge stores
+        # neither: routing there would buy a fast-model call per peer request and a context
+        # row nobody ever writes in, kept awake by its own `touch()`.
+        resolution = (
+            await route_message(self.client, message, user_id, message_id=exclude_message_id)
+            if exclude_message_id
+            else None
+        )
         context_id = resolution["id"] if resolution else None
 
         messages = await build_history(
             user_id,
             context_id=context_id,
-            # An A2A call stores nothing, so its message only exists here.
+            # An A2A call stores nothing, so its message only exists here. The chat routes
+            # stored it, so for them it is the floor under a history that would not load.
             pending_message=None if exclude_message_id else message,
+            fallback_message=message if exclude_message_id else None,
+            current_message_id=exclude_message_id,
         )
 
         # Get all tools including proaction tools (so user can schedule reminders from chat);
@@ -198,16 +210,15 @@ class LLMGateway:
             )
         except anthropic.APIStatusError as e:
             logger.error(f"Anthropic API error: {e.message}")
-            return {
-                "response": f"AI service error: {e.message}",
-                "tool_calls": [],
-            }
+            result = {"response": f"AI service error: {e.message}", "tool_calls": []}
         except anthropic.APIConnectionError as e:
             logger.error(f"Anthropic connection error: {e}")
-            return {
-                "response": "Unable to reach the AI service. Please try again later.",
-                "tool_calls": [],
-            }
+            result = {"response": "Unable to reach the AI service. Please try again later.", "tool_calls": []}
 
+        # Carried on the error paths too: the user's message is already tagged with the
+        # thread, so leaving the answer out would keep an orphan question in it, and the
+        # next summary would read half an exchange. What the user was shown is part of the
+        # conversation whether or not the model produced it — the streamed path stores its
+        # own error sentence in the thread for the same reason.
         result["context_id"] = context_id
         return result
