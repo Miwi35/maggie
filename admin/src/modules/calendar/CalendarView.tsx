@@ -50,6 +50,8 @@ import { EventCreateDialog } from './EventCreateDialog'
 import { TaskCreateDialog } from './TaskCreateDialog'
 import { TaskEditDialog } from './TaskEditDialog'
 import { EventDetailPopover } from './EventDetailPopover'
+import { EventEditDialog } from './EventEditDialog'
+import type { EventEditValues } from './EventEditDialog'
 import type { PopoverEvent } from './EventDetailPopover'
 import { getCalendarThemeSx } from './calendarTheme'
 import { addUntilToRrule, expandRrule } from './recurrenceUtils'
@@ -144,6 +146,25 @@ interface RecurrenceConfirm {
   newStart?: string
   newEnd?: string
   newAllDay?: boolean
+  // Set when the change comes from the edit dialog (a drag changes times only)
+  edit?: { summary: string; description: string | null; location: string | null }
+}
+
+interface EditingEvent {
+  eventId: string
+  masterEventId: string
+  occurrenceStart: string
+  calendarIri: string
+  rrule: string
+  recurring: boolean
+  event: {
+    summary: string
+    start: string
+    end: string
+    allDay: boolean
+    description?: string
+    location?: string
+  }
 }
 
 interface CalendarData {
@@ -409,6 +430,7 @@ export const CalendarView = () => {
   const [dialogAllDay, setDialogAllDay] = useState(false)
   const [taskDialogOpen, setTaskDialogOpen] = useState(false)
   const [editingTask, setEditingTask] = useState<CalendarTask | null>(null)
+  const [editingEvent, setEditingEvent] = useState<EditingEvent | null>(null)
   const [createMenuOpen, setCreateMenuOpen] = useState(false)
   const createMenuAnchorRef = useRef<HTMLDivElement>(null)
 
@@ -975,6 +997,7 @@ export const CalendarView = () => {
 
   const handleEditEvent = useCallback(
     (eventId: string) => {
+      const current = popoverEvent
       setPopoverAnchorEl(null)
       setPopoverEvent(null)
 
@@ -985,9 +1008,75 @@ export const CalendarView = () => {
         if (task) {
           setEditingTask(task)
         }
+        return
       }
+
+      if (!current || eventId.startsWith('meal-')) return
+
+      const masterEventId = current.masterEventId || eventId.split('__')[0]
+      const master = rawEvents.find((e) => e.id === masterEventId)
+      setEditingEvent({
+        eventId,
+        masterEventId,
+        occurrenceStart: current.start,
+        calendarIri: current.calendarIri || master?.agenda || '',
+        rrule: current.rrule || master?.rrule || '',
+        // A modified occurrence is a real event of its own: edited like any other
+        recurring: eventId.includes('__'),
+        event: {
+          summary: current.title,
+          start: current.start,
+          end: current.end,
+          allDay: current.allDay,
+          description: current.description,
+          location: current.location,
+        },
+      })
     },
-    [rawTasks],
+    [popoverEvent, rawTasks, rawEvents],
+  )
+
+  const handleEventEditSubmit = useCallback(
+    (values: EventEditValues) => {
+      if (!editingEvent) return
+      const { eventId, masterEventId, occurrenceStart, calendarIri, rrule, recurring } = editingEvent
+      setEditingEvent(null)
+
+      if (recurring) {
+        setRecurrenceAction('this')
+        setRecurrenceConfirm({
+          type: 'update',
+          eventId,
+          masterEventId,
+          occurrenceStart,
+          calendarIri,
+          summary: values.summary,
+          rrule,
+          allDay: values.allDay,
+          timeZone: 'Europe/Paris',
+          newStart: values.startAt,
+          newEnd: values.endAt,
+          newAllDay: values.allDay,
+          edit: { summary: values.summary, description: values.description, location: values.location },
+        })
+        return
+      }
+
+      dataProvider
+        .update('events', {
+          id: eventId,
+          data: values,
+          previousData: { id: eventId },
+        })
+        .then(() => {
+          notify('Événement modifié', { type: 'success' })
+          refreshEvents()
+        })
+        .catch((error: Error) => {
+          notify(`Erreur: ${error.message}`, { type: 'error' })
+        })
+    },
+    [editingEvent, dataProvider, notify, refreshEvents],
   )
 
   const handleEventUpdate = useCallback(
@@ -1083,7 +1172,8 @@ export const CalendarView = () => {
         }
       } else {
         // type === 'update'
-        const { newStart, newEnd, newAllDay } = recurrenceConfirm
+        const { newStart, newEnd, newAllDay, edit } = recurrenceConfirm
+        const editFields = edit ? { description: edit.description, location: edit.location } : {}
 
         if (action === 'this') {
           // Create exception instance with new times
@@ -1098,6 +1188,7 @@ export const CalendarView = () => {
               recurringEvent: `/api/events/${masterEventId}`,
               originalStartAt: occurrenceStart,
               status: 'confirmed',
+              ...editFields,
             },
           })
           notify('Occurrence modifiée', { type: 'success' })
@@ -1119,14 +1210,31 @@ export const CalendarView = () => {
               timeZone,
               agenda: calendarIri,
               rrule,
+              ...editFields,
             },
           })
           notify('Série modifiée', { type: 'success' })
         } else {
-          // Update master event times (shifts all occurrences)
+          // Shift the master by the amount the occurrence moved, so every
+          // occurrence moves with it (not just land on the edited one's date)
+          const master = rawEvents.find((e) => e.id === masterEventId)
+          let startAt = newStart
+          let endAt = newEnd
+          if (master && newStart && newEnd && occurrenceStart) {
+            const shift = new Date(newStart).getTime() - new Date(occurrenceStart).getTime()
+            const duration = new Date(newEnd).getTime() - new Date(newStart).getTime()
+            const masterStart = new Date(master.startAt).getTime() + shift
+            startAt = new Date(masterStart).toISOString()
+            endAt = new Date(masterStart + duration).toISOString()
+          }
           await dataProvider.update('events', {
             id: masterEventId,
-            data: { startAt: newStart, endAt: newEnd, allDay: newAllDay ?? allDay },
+            data: {
+              startAt,
+              endAt,
+              allDay: newAllDay ?? allDay,
+              ...(edit ? { summary: edit.summary, ...editFields } : {}),
+            },
             previousData: { id: masterEventId },
           })
           notify('Événement récurrent modifié', { type: 'success' })
@@ -1139,7 +1247,7 @@ export const CalendarView = () => {
     } finally {
       setRecurrenceConfirm(null)
     }
-  }, [recurrenceConfirm, recurrenceAction, dataProvider, notify, refreshEvents])
+  }, [recurrenceConfirm, recurrenceAction, dataProvider, notify, refreshEvents, rawEvents])
 
   const handleCreated = useCallback(() => {
     if (dateRangeRef.current) {
@@ -1684,6 +1792,13 @@ export const CalendarView = () => {
         }}
         onEdit={handleEditEvent}
         onDelete={handleDeleteEvent}
+      />
+
+      <EventEditDialog
+        open={editingEvent !== null}
+        event={editingEvent?.event ?? null}
+        onClose={() => setEditingEvent(null)}
+        onSubmit={handleEventEditSubmit}
       />
 
       <TaskEditDialog

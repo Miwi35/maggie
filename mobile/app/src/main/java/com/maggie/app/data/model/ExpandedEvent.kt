@@ -16,6 +16,8 @@ data class ExpandedEvent(
     val isVirtualOccurrence: Boolean = false,
     val masterEventId: String? = null,
     val masterRrule: String? = null,
+    val masterStartAt: String? = null,
+    val masterEndAt: String? = null,
     val originalStartAt: String? = null,
     val agendaIri: String? = null,
     val agendaColor: String? = null,

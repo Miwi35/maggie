@@ -5,16 +5,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
-import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.CreditScore
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.FactCheck
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Savings
-import androidx.compose.material.icons.filled.CreditScore
-import androidx.compose.material.icons.filled.FactCheck
-import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -23,7 +24,27 @@ import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+
+data class DrawerDestination(val route: String, val label: String, val icon: ImageVector)
+
+val DRAWER_DESTINATIONS = listOf(
+    DrawerDestination("dashboard", "Tableau de bord", Icons.Default.Dashboard),
+    DrawerDestination("chat", "Chat", Icons.Default.Chat),
+    DrawerDestination("calendar", "Calendrier", Icons.Default.DateRange),
+    DrawerDestination("cookbook", "Cuisine", Icons.Default.Restaurant),
+    DrawerDestination("grocery", "Courses", Icons.Default.ShoppingCart),
+    DrawerDestination("finance_dashboard", "Finance", Icons.Default.Insights),
+    DrawerDestination("accounts", "Comptes", Icons.Default.AccountBalanceWallet),
+    DrawerDestination("categories", "Catégories", Icons.Default.Category),
+    DrawerDestination("budgets", "Budgets", Icons.Default.Savings),
+    DrawerDestination("cushion", "Matelas", Icons.Default.Shield),
+    DrawerDestination("loans", "Prêts", Icons.Default.CreditScore),
+    DrawerDestination("monthly_review", "Revue mensuelle", Icons.Default.FactCheck),
+)
+
+private val SETTINGS_DESTINATION = DrawerDestination("settings", "Paramètres", Icons.Default.Settings)
 
 @Composable
 fun AppDrawerContent(
@@ -38,140 +59,31 @@ fun AppDrawerContent(
             modifier = Modifier.padding(horizontal = 28.dp, vertical = 24.dp),
         )
 
-        NavigationDrawerItem(
-            icon = { Icon(Icons.Default.Dashboard, contentDescription = null) },
-            label = { Text("Tableau de bord") },
-            selected = currentRoute == "dashboard",
-            onClick = {
-                onNavigate("dashboard")
-                onCloseDrawer()
-            },
-            modifier = Modifier.padding(horizontal = 12.dp),
-        )
-
-        NavigationDrawerItem(
-            icon = { Icon(Icons.Default.DateRange, contentDescription = null) },
-            label = { Text("Calendrier") },
-            selected = currentRoute == "calendar",
-            onClick = {
-                onNavigate("calendar")
-                onCloseDrawer()
-            },
-            modifier = Modifier.padding(horizontal = 12.dp),
-        )
-
-        NavigationDrawerItem(
-            icon = { Icon(Icons.Default.Restaurant, contentDescription = null) },
-            label = { Text("Cuisine") },
-            selected = currentRoute == "cookbook",
-            onClick = {
-                onNavigate("cookbook")
-                onCloseDrawer()
-            },
-            modifier = Modifier.padding(horizontal = 12.dp),
-        )
-
-        NavigationDrawerItem(
-            icon = { Icon(Icons.Default.ShoppingCart, contentDescription = null) },
-            label = { Text("Courses") },
-            selected = currentRoute == "grocery",
-            onClick = {
-                onNavigate("grocery")
-                onCloseDrawer()
-            },
-            modifier = Modifier.padding(horizontal = 12.dp),
-        )
-
-        NavigationDrawerItem(
-            icon = { Icon(Icons.Default.Insights, contentDescription = null) },
-            label = { Text("Finance") },
-            selected = currentRoute == "finance_dashboard",
-            onClick = {
-                onNavigate("finance_dashboard")
-                onCloseDrawer()
-            },
-            modifier = Modifier.padding(horizontal = 12.dp),
-        )
-
-        NavigationDrawerItem(
-            icon = { Icon(Icons.Default.AccountBalanceWallet, contentDescription = null) },
-            label = { Text("Comptes") },
-            selected = currentRoute == "accounts",
-            onClick = {
-                onNavigate("accounts")
-                onCloseDrawer()
-            },
-            modifier = Modifier.padding(horizontal = 12.dp),
-        )
-
-        NavigationDrawerItem(
-            icon = { Icon(Icons.Default.Category, contentDescription = null) },
-            label = { Text("Catégories") },
-            selected = currentRoute == "categories",
-            onClick = {
-                onNavigate("categories")
-                onCloseDrawer()
-            },
-            modifier = Modifier.padding(horizontal = 12.dp),
-        )
-
-        NavigationDrawerItem(
-            icon = { Icon(Icons.Default.Savings, contentDescription = null) },
-            label = { Text("Budgets") },
-            selected = currentRoute == "budgets",
-            onClick = {
-                onNavigate("budgets")
-                onCloseDrawer()
-            },
-            modifier = Modifier.padding(horizontal = 12.dp),
-        )
-
-        NavigationDrawerItem(
-            icon = { Icon(Icons.Default.Shield, contentDescription = null) },
-            label = { Text("Matelas") },
-            selected = currentRoute == "cushion",
-            onClick = {
-                onNavigate("cushion")
-                onCloseDrawer()
-            },
-            modifier = Modifier.padding(horizontal = 12.dp),
-        )
-
-        NavigationDrawerItem(
-            icon = { Icon(Icons.Default.CreditScore, contentDescription = null) },
-            label = { Text("Prêts") },
-            selected = currentRoute == "loans",
-            onClick = {
-                onNavigate("loans")
-                onCloseDrawer()
-            },
-            modifier = Modifier.padding(horizontal = 12.dp),
-        )
-
-        NavigationDrawerItem(
-            icon = { Icon(Icons.Default.FactCheck, contentDescription = null) },
-            label = { Text("Revue mensuelle") },
-            selected = currentRoute == "monthly_review",
-            onClick = {
-                onNavigate("monthly_review")
-                onCloseDrawer()
-            },
-            modifier = Modifier.padding(horizontal = 12.dp),
-        )
+        DRAWER_DESTINATIONS.forEach { DrawerItem(it, currentRoute, onNavigate, onCloseDrawer) }
 
         Spacer(modifier = Modifier.weight(1f))
 
-        NavigationDrawerItem(
-            icon = { Icon(Icons.Default.Settings, contentDescription = null) },
-            label = { Text("Paramètres") },
-            selected = currentRoute == "settings",
-            onClick = {
-                onNavigate("settings")
-                onCloseDrawer()
-            },
-            modifier = Modifier.padding(horizontal = 12.dp),
-        )
+        DrawerItem(SETTINGS_DESTINATION, currentRoute, onNavigate, onCloseDrawer)
 
         Spacer(modifier = Modifier.height(12.dp))
     }
+}
+
+@Composable
+private fun DrawerItem(
+    destination: DrawerDestination,
+    currentRoute: String?,
+    onNavigate: (String) -> Unit,
+    onCloseDrawer: () -> Unit,
+) {
+    NavigationDrawerItem(
+        icon = { Icon(destination.icon, contentDescription = null) },
+        label = { Text(destination.label) },
+        selected = currentRoute == destination.route,
+        onClick = {
+            onNavigate(destination.route)
+            onCloseDrawer()
+        },
+        modifier = Modifier.padding(horizontal = 12.dp),
+    )
 }

@@ -17,6 +17,7 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useUserPreferences } from '../../hooks/useUserPreferences'
 import { useMercure } from '../../hooks/useMercure'
+import { useChatContext } from '../../components/layout/ChatContext'
 
 interface Agenda {
   id: string
@@ -34,6 +35,7 @@ export const UserPreferenceSettings = () => {
   const { preferences, updatePreference, loading, refresh } = useUserPreferences()
   const [agendas, setAgendas] = useState<Agenda[]>([])
   const [, setRaTheme] = useStore('RaStore.theme', 'light')
+  const { wakeWordEnabled, toggleWakeWord } = useChatContext()
 
   useEffect(() => {
     dataProvider
@@ -79,6 +81,11 @@ export const UserPreferenceSettings = () => {
   const handleNotificationsToggle = async (enabled: boolean) => {
     await updatePreference({ notificationsEnabled: enabled })
     notify(enabled ? 'Notifications activées' : 'Notifications désactivées', { type: 'success' })
+  }
+
+  const handleWakeWordToggle = (enabled: boolean) => {
+    toggleWakeWord(enabled)
+    notify(enabled ? "Mot d'activation activé" : "Mot d'activation désactivé", { type: 'success' })
   }
 
   if (loading || !preferences) {
@@ -178,6 +185,26 @@ export const UserPreferenceSettings = () => {
               </Box>
             )}
           </Stack>
+        </CardContent>
+      </Card>
+
+      {/* Voice */}
+      <Card sx={{ mb: 3 }}>
+        <CardHeader title="Voix" />
+        <CardContent>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={wakeWordEnabled}
+                onChange={(e) => handleWakeWordToggle(e.target.checked)}
+              />
+            }
+            label="Activer le mot d'activation « Maggie »"
+          />
+          <Typography variant="body2" color="text.secondary">
+            Maggie écoute le micro de ce navigateur et lance l'enregistrement quand vous dites « Maggie ».
+            Ce réglage est propre à cet appareil.
+          </Typography>
         </CardContent>
       </Card>
 

@@ -95,6 +95,7 @@ import com.maggie.app.ui.screens.shared.EventDetailSheet
 import com.maggie.app.ui.screens.shared.EventEditScreen
 import com.maggie.app.ui.screens.shared.RecurrenceAction
 import com.maggie.app.ui.screens.shared.RecurrenceConfirmDialog
+import com.maggie.app.ui.screens.shared.RecurringEventEditor
 import com.maggie.app.ui.screens.shared.TaskCreateScreen
 import com.maggie.app.ui.screens.shared.TaskDetailSheet
 import com.maggie.app.ui.screens.shared.TaskEditScreen
@@ -152,6 +153,9 @@ private val MAIN_SCREENS = setOf(
     Screen.Cookbook.route,
     Screen.Grocery.route,
 )
+
+// The full-screen chat has its own input: the bottom bar would duplicate it
+internal fun showsChatBottomBar(route: String?): Boolean = route in MAIN_SCREENS && route != Screen.Chat.route
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -216,6 +220,8 @@ fun NavGraph() {
 
     // Transient state for edit screens
     var editingEvent by remember { mutableStateOf<ExpandedEvent?>(null) }
+    var editingRecurrenceAction by remember { mutableStateOf<RecurrenceAction?>(null) }
+    val recurringEventEditor = remember(eventRepository) { RecurringEventEditor(eventRepository) }
     var editingTask by remember { mutableStateOf<Task?>(null) }
 
     // Cookbook transient state
@@ -300,7 +306,7 @@ fun NavGraph() {
                 }
             },
             bottomBar = {
-                if (isMainScreen) {
+                if (showsChatBottomBar(currentRoute)) {
                     ChatBottomBar(
                         onOpenChat = { showChatSheet = true },
                         onMicClick = {
@@ -385,15 +391,16 @@ fun NavGraph() {
                             agendas = agendas,
                             onConfirm = { data ->
                                 scope.launch {
-                                    val id = event.masterEventId ?: event.id
-                                    eventRepository.updateEvent(id, data)
+                                    recurringEventEditor.edit(event, editingRecurrenceAction, data)
                                     editingEvent = null
+                                    editingRecurrenceAction = null
                                     navController.popBackStack()
                                     refreshAll()
                                 }
                             },
                             onBack = {
                                 editingEvent = null
+                                editingRecurrenceAction = null
                                 navController.popBackStack()
                             },
                         )
@@ -688,6 +695,7 @@ fun NavGraph() {
                     recurrenceConfirm = event to false
                 } else {
                     editingEvent = event
+                    editingRecurrenceAction = null
                     navController.navigate(Screen.EventEdit.route)
                 }
             },
@@ -765,21 +773,10 @@ fun NavGraph() {
                         isDelete && action == RecurrenceAction.ALL -> {
                             eventRepository.deleteEvent(masterId)
                         }
-                        !isDelete && action == RecurrenceAction.THIS -> {
+                        !isDelete -> {
                             recurrenceConfirm = null
                             editingEvent = event
-                            navController.navigate(Screen.EventEdit.route)
-                            return@launch
-                        }
-                        !isDelete && action == RecurrenceAction.THIS_AND_FOLLOWING -> {
-                            recurrenceConfirm = null
-                            editingEvent = event
-                            navController.navigate(Screen.EventEdit.route)
-                            return@launch
-                        }
-                        !isDelete && action == RecurrenceAction.ALL -> {
-                            recurrenceConfirm = null
-                            editingEvent = event
+                            editingRecurrenceAction = action
                             navController.navigate(Screen.EventEdit.route)
                             return@launch
                         }

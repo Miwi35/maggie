@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.finance
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -40,10 +43,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.transactionStatusLabel
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
+import java.time.LocalDate
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -156,8 +161,9 @@ fun TransactionListScreen(
 
     if (showCreateDialog) {
         TransactionCreateDialog(
-            onConfirm = { amountCents, label ->
-                viewModel.createTransaction(amountCents, label)
+            categories = uiState.categories,
+            onConfirm = { amountCents, label, status, categoryId, bookedAt ->
+                viewModel.createTransaction(amountCents, label, status, categoryId, bookedAt)
                 showCreateDialog = false
             },
             onDismiss = { showCreateDialog = false },
@@ -165,23 +171,33 @@ fun TransactionListScreen(
     }
 }
 
+private val TRANSACTION_STATUSES = listOf("spent", "committed", "planned", "to_arbitrate")
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TransactionCreateDialog(
-    onConfirm: (amountCents: Int, label: String) -> Unit,
+    categories: List<Category>,
+    onConfirm: (amountCents: Int, label: String, status: String, categoryId: String?, bookedAt: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var label by remember { mutableStateOf("") }
     var amountText by remember { mutableStateOf("") }
     var isExpense by remember { mutableStateOf(true) }
+    var status by remember { mutableStateOf("spent") }
+    var categoryId by remember { mutableStateOf<String?>(null) }
+    var dateText by remember { mutableStateOf(LocalDate.now().toString()) }
 
-    val canSubmit = label.isNotBlank() && amountText.toDoubleOrNull() != null
+    val dateValid = runCatching { LocalDate.parse(dateText) }.isSuccess
+    val canSubmit = label.isNotBlank() && amountText.toDoubleOrNull() != null && dateValid
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Nouvelle opération") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 OutlinedTextField(
                     value = label,
                     onValueChange = { label = it },
@@ -209,6 +225,42 @@ private fun TransactionCreateDialog(
                         label = { Text("Revenu") },
                     )
                 }
+                OutlinedTextField(
+                    value = dateText,
+                    onValueChange = { dateText = it },
+                    label = { Text("Date (AAAA-MM-JJ)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    isError = !dateValid,
+                )
+                Text("Statut", style = MaterialTheme.typography.bodySmall)
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    TRANSACTION_STATUSES.forEach { code ->
+                        FilterChip(
+                            selected = status == code,
+                            onClick = { status = code },
+                            label = { Text(transactionStatusLabel(code)) },
+                        )
+                    }
+                }
+                if (categories.isNotEmpty()) {
+                    Text("Catégorie", style = MaterialTheme.typography.bodySmall)
+                    Row(
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        categories.forEach { category ->
+                            FilterChip(
+                                selected = categoryId == category.id,
+                                onClick = { categoryId = if (categoryId == category.id) null else category.id },
+                                label = { Text(category.name) },
+                            )
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
@@ -216,7 +268,7 @@ private fun TransactionCreateDialog(
                 onClick = {
                     val euros = amountText.toDoubleOrNull() ?: return@TextButton
                     val cents = (euros * 100).roundToInt().let { if (isExpense) -it else it }
-                    onConfirm(cents, label.trim())
+                    onConfirm(cents, label.trim(), status, categoryId, dateText)
                 },
                 enabled = canSubmit,
             ) {
