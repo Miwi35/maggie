@@ -113,4 +113,28 @@ final class IndexManagerTest extends TestCase
             $lines,
         );
     }
+
+    public function testItListsEveryDocumentIdByFollowingTheScroll(): void
+    {
+        $pages = [
+            ['_scroll_id' => 's1', 'hits' => ['hits' => [['_id' => 'A'], ['_id' => 'B']]]],
+            ['_scroll_id' => 's2', 'hits' => ['hits' => [['_id' => 'C']]]],
+            ['_scroll_id' => 's2', 'hits' => ['hits' => []]],
+        ];
+        $manager = $this->manager(static function (string $method, string $path) use (&$pages): array {
+            return 'POST' === $method && str_ends_with($path, '/_search') || 'POST' === $method && '/_search/scroll' === $path
+                ? [200, array_shift($pages)]
+                : [200, ['acknowledged' => true]];
+        });
+
+        self::assertSame(['A', 'B', 'C'], $manager->documentIds('events'));
+        self::assertSame('DELETE /_search/scroll', $this->requests[array_key_last($this->requests)]['method'].' '.$this->requests[array_key_last($this->requests)]['path']);
+    }
+
+    public function testAnIndexThatDoesNotExistHoldsNoDocument(): void
+    {
+        $manager = $this->manager(static fn (): array => [404, ['error' => ['type' => 'index_not_found_exception'], 'status' => 404]]);
+
+        self::assertSame([], $manager->documentIds('events'));
+    }
 }

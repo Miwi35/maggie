@@ -5,17 +5,27 @@ namespace Maggie\Calendar\Tests\Command;
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
+use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Event\PreRemoveEventArgs;
+use Doctrine\ORM\Events;
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Message\PullFromGoogleCommand;
 use Maggie\Calendar\Service\GoogleCalendarApiClient;
+use Maggie\Core\Elasticsearch\IndexableEntityRegistry;
+use Maggie\Core\Elasticsearch\IndexManager;
+use Maggie\Core\Elasticsearch\IndexMetadataReader;
 use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
+use Maggie\Core\Elasticsearch\MessageHandler\DeleteDocumentHandler;
 use Maggie\Core\Entity\User;
+use Maggie\Core\Tests\Elasticsearch\RecordingElasticsearchTrait;
+use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
+use Symfony\Component\Uid\Ulid;
 
 /**
  * Merging the agendas that share a Google calendar (MAG-148).
@@ -29,9 +39,13 @@ class DedupeGoogleAgendasCommandTest extends KernelTestCase
     use FixtureLoaderTrait;
     use MercureAssertionTrait;
     use ElasticsearchAssertionTrait;
+    use RecordingElasticsearchTrait;
 
     private const string INDEX = 'uniq_agenda_user_google_calendar';
 
+    /** @var array<string, array<string, true>> index name → ids of the documents it holds */
+    private array $searchIndex = [];
+    private bool $searchEngineDown = false;
     private CommandTester $tester;
     /** @var list<array{string, string}> */
     private array $stopWatchCalls = [];
@@ -61,6 +75,17 @@ class DedupeGoogleAgendasCommandTest extends KernelTestCase
         );
         self::getContainer()->set(GoogleCalendarApiClient::class, $apiClient);
 
+        $this->searchIndex = [];
+        $this->searchEngineDown = false;
+        $this->requests = [];
+        $reader = new IndexMetadataReader();
+        self::getContainer()->set(IndexManager::class, new IndexManager(
+            $this->recordingClient($this->searchEngine(...)),
+            $reader,
+            new IndexableEntityRegistry($this->em(), $reader),
+            new NullLogger(),
+        ));
+
         $application = new Application(self::$kernel);
         $this->tester = new CommandTester($application->find('app:calendar:dedupe-google-agendas'));
     }
@@ -73,6 +98,68 @@ class DedupeGoogleAgendasCommandTest extends KernelTestCase
         $this->createUniqueIndex();
 
         parent::tearDown();
+    }
+
+    /**
+     * Elasticsearch as far as the merge needs it: a document list per index
+     * that can be refreshed, scrolled and deleted from.
+     *
+     * @return array{int, array<string, mixed>}
+     */
+    private function searchEngine(string $method, string $path): array
+    {
+        if ($this->searchEngineDown) {
+            return [500, ['error' => 'down']];
+        }
+
+        if (1 === preg_match('#^/([^/_]+)/_search$#', $path, $match)) {
+            $hits = array_map(
+                static fn (string $id): array => ['_id' => $id],
+                array_keys($this->searchIndex[$match[1]] ?? []),
+            );
+
+            return [200, ['_scroll_id' => 'scroll', 'hits' => ['hits' => $hits]]];
+        }
+
+        if ('POST' === $method && '/_search/scroll' === $path) {
+            return [200, ['_scroll_id' => 'scroll', 'hits' => ['hits' => []]]];
+        }
+
+        if (1 === preg_match('#^/([^/]+)/_doc/([^/]+)$#', $path, $match) && 'DELETE' === $method) {
+            if (!isset($this->searchIndex[$match[1]][$match[2]])) {
+                return [404, ['result' => 'not_found']];
+            }
+            unset($this->searchIndex[$match[1]][$match[2]]);
+
+            return [200, ['result' => 'deleted']];
+        }
+
+        return [200, ['acknowledged' => true]];
+    }
+
+    /** The documents a healthy production holds before the merge: one per row. */
+    private function indexEveryRow(): void
+    {
+        $connection = $this->em()->getConnection();
+        $toBase32 = static fn (string $id): string => Ulid::fromString($id)->toBase32();
+
+        foreach (['events' => 'event', 'agendas' => 'agenda'] as $index => $table) {
+            foreach ($connection->fetchFirstColumn('SELECT id FROM '.$table) as $id) {
+                $this->searchIndex[$index][$toBase32($id)] = true;
+            }
+        }
+    }
+
+    /** What the workers do with the messages the merge left on the queue. */
+    private function handleDeletions(): void
+    {
+        $handler = new DeleteDocumentHandler(self::getContainer()->get(IndexManager::class), new NullLogger());
+        foreach ($this->getAsyncTransport()->getSent() as $envelope) {
+            $message = $envelope->getMessage();
+            if ($message instanceof DeleteDocumentCommand) {
+                $handler($message);
+            }
+        }
     }
 
     private function em(): EntityManagerInterface
@@ -267,6 +354,164 @@ class DedupeGoogleAgendasCommandTest extends KernelTestCase
             array_filter($deleted, fn (string $entry) => str_starts_with($entry, 'events/')),
             'The two copies of an event Google only has once',
         );
+    }
+
+    public function testTheSearchIndexHoldsExactlyTheRowsOnceTheMessagesAreHandled(): void
+    {
+        $this->loadDuplicates();
+        $this->indexEveryRow();
+
+        $this->tester->execute([]);
+        $this->tester->assertCommandIsSuccessful();
+        $this->handleDeletions();
+
+        $this->assertSearchIndexMatchesTheDatabase();
+    }
+
+    /**
+     * MAG-185: a deploy left one event in the index that the database no longer
+     * had, which turned `app:elasticsearch:status --check` red and rolled the
+     * production back. The table loses a row without a message whenever the
+     * database cascades — here an event a sync writes into the duplicate
+     * agenda while it is being deleted, after the list of its events was taken.
+     */
+    public function testAnEventTheDatabaseCascadesAwayDoesNotLeaveADocumentBehind(): void
+    {
+        [$kept, $duplicate] = $this->loadDuplicates();
+        $duplicateId = (string) $duplicate->getId();
+        $this->indexEveryRow();
+
+        $connection = $this->em()->getConnection();
+        $strayId = new Ulid();
+        $this->em()->getEventManager()->addEventListener(
+            Events::preRemove,
+            new class($connection, $strayId, $duplicateId, $this) {
+                public function __construct(
+                    private readonly Connection $connection,
+                    private readonly Ulid $strayId,
+                    private readonly string $duplicateId,
+                    private readonly DedupeGoogleAgendasCommandTest $test,
+                ) {
+                }
+
+                public function preRemove(PreRemoveEventArgs $args): void
+                {
+                    if (!$args->getObject() instanceof Agenda) {
+                        return;
+                    }
+
+                    $columns = array_keys($this->connection->fetchAssociative(
+                        'SELECT * FROM event WHERE google_event_id = :id',
+                        ['id' => 'g-only-in-duplicate'],
+                    ) ?: []);
+                    $copied = array_map(static fn (string $column): string => match ($column) {
+                        'id' => 'CAST(:id AS uuid)',
+                        'agenda_id' => 'CAST(:agenda AS uuid)',
+                        'google_event_id' => ':google',
+                        default => $column,
+                    }, $columns);
+                    $this->connection->executeStatement(
+                        sprintf(
+                            "INSERT INTO event (%s) SELECT %s FROM event WHERE google_event_id = 'g-only-in-duplicate'",
+                            implode(', ', $columns),
+                            implode(', ', $copied),
+                        ),
+                        [
+                            'id' => $this->strayId->toRfc4122(),
+                            'agenda' => Ulid::fromString($this->duplicateId)->toRfc4122(),
+                            'google' => 'g-written-meanwhile',
+                        ],
+                    );
+                    $this->test->indexDocument('events', (string) $this->strayId);
+                }
+            },
+        );
+
+        $this->tester->execute([]);
+        $this->tester->assertCommandIsSuccessful();
+        $this->handleDeletions();
+
+        self::assertFalse(
+            $this->em()->getConnection()->fetchOne('SELECT id FROM event WHERE google_event_id = ?', ['g-written-meanwhile']),
+            'The cascade did remove the row — the scenario holds',
+        );
+        $this->assertSearchIndexMatchesTheDatabase();
+    }
+
+    public function testAMergeFailsLoudlyWhenTheSearchIndexCannotBeChecked(): void
+    {
+        $this->loadDuplicates();
+        $this->searchEngineDown = true;
+        $tester = $this->tester;
+
+        $tester->execute([]);
+
+        self::assertSame(1, $tester->getStatusCode());
+        self::assertStringContainsString('could not be checked', $tester->getDisplay());
+    }
+
+    public function testSomethingIndexedForARowThatNeverExistedIsRemovedToo(): void
+    {
+        $this->loadDuplicates();
+        $this->indexEveryRow();
+        $this->indexDocument('agendas', (string) new Ulid());
+
+        $this->tester->execute([]);
+        $this->handleDeletions();
+
+        $this->assertSearchIndexMatchesTheDatabase();
+    }
+
+    /**
+     * A rollback reverts the pods, not the database: the merge of a failed
+     * deploy stays committed, and so does the stray document it left.
+     */
+    public function testADocumentLeftByAnEarlierMergeIsRemovedWhenThereIsNothingToMerge(): void
+    {
+        [, $duplicate] = $this->loadDuplicates();
+        $this->tester->execute([]);
+        self::assertNull($this->em()->getRepository(Agenda::class)->find((string) $duplicate->getId()));
+        $this->createUniqueIndex();
+        $this->searchIndex = [];
+        $this->indexEveryRow();
+        $this->indexDocument('events', (string) new Ulid());
+
+        $this->tester->execute([]);
+
+        $this->tester->assertCommandIsSuccessful();
+        self::assertStringContainsString('No Google calendar is connected twice', $this->tester->getDisplay());
+        $this->assertSearchIndexMatchesTheDatabase();
+    }
+
+    public function testADeployWithNothingToMergeIsNotHeldUpByASearchIndexThatCannotBeRead(): void
+    {
+        $this->purgeDatabase();
+        $this->searchEngineDown = true;
+
+        $this->tester->execute([]);
+
+        $this->tester->assertCommandIsSuccessful();
+        self::assertStringContainsString('could not be checked', $this->tester->getDisplay());
+    }
+
+    public function indexDocument(string $index, string $id): void
+    {
+        $this->searchIndex[$index][$id] = true;
+    }
+
+    private function assertSearchIndexMatchesTheDatabase(): void
+    {
+        $connection = $this->em()->getConnection();
+        $toBase32 = static fn (string $id): string => Ulid::fromString($id)->toBase32();
+
+        foreach (['events' => 'event', 'agendas' => 'agenda'] as $index => $table) {
+            $rows = array_map($toBase32, $connection->fetchFirstColumn('SELECT id FROM '.$table));
+            $documents = array_keys($this->searchIndex[$index] ?? []);
+            sort($rows);
+            sort($documents);
+
+            self::assertSame($rows, $documents, sprintf('The "%s" index and the table must list the same ids', $index));
+        }
     }
 
     public function testTellsTheOpenScreensTheDuplicateIsGone(): void

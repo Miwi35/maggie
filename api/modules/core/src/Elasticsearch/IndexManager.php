@@ -111,6 +111,52 @@ final class IndexManager
     }
 
     /**
+     * Every document id the index holds, including those written a moment ago:
+     * the index is refreshed first, since a search only sees refreshed documents.
+     * A missing index holds none.
+     *
+     * @return list<string>
+     */
+    public function documentIds(string $indexName): array
+    {
+        try {
+            $this->client->indices()->refresh(['index' => $indexName]);
+            $page = $this->client->search([
+                'index' => $indexName,
+                'scroll' => '1m',
+                'body' => ['size' => 1000, '_source' => false, 'query' => ['match_all' => new \stdClass()]],
+            ])->asArray();
+        } catch (ClientResponseException $e) {
+            if (404 === $e->getCode()) {
+                return [];
+            }
+
+            throw $e;
+        }
+
+        $ids = [];
+        $scrollId = $page['_scroll_id'] ?? null;
+        try {
+            while ([] !== $page['hits']['hits']) {
+                foreach ($page['hits']['hits'] as $hit) {
+                    $ids[] = (string) $hit['_id'];
+                }
+                if (null === $scrollId) {
+                    break;
+                }
+                $page = $this->client->scroll(['body' => ['scroll' => '1m', 'scroll_id' => $scrollId]])->asArray();
+                $scrollId = $page['_scroll_id'] ?? $scrollId;
+            }
+        } finally {
+            if (null !== $scrollId) {
+                $this->client->clearScroll(['body' => ['scroll_id' => $scrollId]]);
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
      * @param array<int, array{index: string, id: string, document: array<string, mixed>}> $operations
      */
     public function bulkIndex(array $operations): void
