@@ -41,6 +41,8 @@ const GOOGLE_AGENDA = 'Agenda Google de test'
 const GOOGLE_CALENDAR_ID = 'e2e@maggie.local'
 const PULLED_EVENT = 'Réunion importée de Google'
 const LOCAL_TITLE = 'Réunion importée (déplacée en salle 2)'
+/** The agenda the export test makes for itself — never a seeded one, see there. */
+const EXPORTED_PREFIX = 'Agenda à exporter'
 
 /**
  * Scoped to the imported calendar, not to any calendar.
@@ -83,15 +85,28 @@ async function events(api: APIRequestContext): Promise<StoredEvent[]> {
  * a branch.
  */
 async function forgetImportedAgenda(api: APIRequestContext): Promise<void> {
-  for (const agenda of (await agendas(api)).filter((candidate) => candidate.name === GOOGLE_AGENDA)) {
+  await forgetAgendasNamed(api, GOOGLE_AGENDA)
+}
+
+/**
+ * Deletes every agenda whose name starts with `prefix`, and waits for the index.
+ *
+ * Unconditional, and a loop over a list that is usually empty rather than a branch.
+ * Two different reasons need it: the import dialog hides a calendar that is already
+ * connected (once MAG-148 is fixed), and `agendaRow()` is a strict locator — a second
+ * `task e2e:web` against one seeded stack would otherwise leave two rows of the same
+ * name and fail on the match rather than on the export.
+ */
+async function forgetAgendasNamed(api: APIRequestContext, prefix: string): Promise<void> {
+  for (const agenda of (await agendas(api)).filter((candidate) => candidate.name?.startsWith(prefix))) {
     const response = await api.delete(`/api/agendas/${agenda.id}`)
     expect(response.status(), `DELETE /api/agendas/${agenda.id} answered ${response.status()}`).toBe(204)
   }
 
   await expect
-    .poll(async () => (await agendas(api)).some((agenda) => agenda.name === GOOGLE_AGENDA), {
+    .poll(async () => (await agendas(api)).some((agenda) => agenda.name?.startsWith(prefix)), {
       timeout: 30_000,
-      message: 'the previously imported agenda should be gone before importing again',
+      message: `no agenda named "${prefix}…" should be left before this test writes one`,
     })
     .toBe(false)
 }
@@ -240,8 +255,11 @@ test.describe('Importing the Google calendar', () => {
  * answers the same thing before and after.
  */
 test('exporting an agenda to Google creates a calendar for it', async ({ page, api, playwright }) => {
-  const { retry } = test.info()
-  const name = `Agenda à exporter ${retry}`
+  const name = `${EXPORTED_PREFIX} ${test.info().retry}`
+
+  // A run of the suite against a stack nobody reseeded would otherwise leave the row
+  // this one is about to create a second time, and `agendaRow()` is strict.
+  await forgetAgendasNamed(api, EXPORTED_PREFIX)
 
   const created = await api.post('/api/agendas', {
     headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },

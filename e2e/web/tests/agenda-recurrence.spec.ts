@@ -83,15 +83,21 @@ function parisDay(iso: string): string {
  * An occurrence of the series nothing else touches, one per attempt.
  *
  * The eight lessons fall on the anchor plus 2, 9, 16, 23, 30, 37, 44 and 51 days.
- * Three are taken: +2 is where the override test writes, +16 carries the seeded
- * moved occurrence and +23 the seeded cancelled one. That leaves +9 for the first
- * attempt and +30 for the retry — three weeks apart, so neither can see the other's
- * work however the grid rounds a week.
+ * Three are taken: +2 is where the override test writes, +16 carries the seeded moved
+ * occurrence and +23 the seeded cancelled one. Weeks 1, 4 and 7 — +9, +30 and +51 —
+ * are free and three weeks apart, so no attempt can see another's work however the
+ * grid rounds a week.
+ *
+ * Picked from a list rather than computed, so it stays inside the series: CI retries
+ * once and `1 + 3 * retry` would be enough, but anyone raising `--retries` to chase a
+ * flake would walk off the eighth lesson and get "expected 1, received 0" blaming the
+ * seed instead of the flake.
  *
  * @returns how many weeks forward from the master's own, and the day that lands on
  */
 function freeOccurrence(): { week: number; day: string } {
-  const week = 1 + 3 * test.info().retry
+  const weeks = [1, 4, 7]
+  const week = weeks[test.info().retry % weeks.length]
 
   return { week, day: seedDate(2 + 7 * week) }
 }
