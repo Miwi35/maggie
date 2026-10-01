@@ -46,6 +46,14 @@ Push to main → CI (lint + test) → CD (build → push → deploy)
 
 **Trigger:** Successful completion of CI workflow on `main`
 
+### Gate (MAG-189)
+
+Every CI that finishes on `main` starts a CD run, including the late CI of an older commit. For `workflow_run`, `github.sha` is the head of `main`, not the commit of that CI, so such a run used to build the head again (new digests, same tag), fail the digest assertion and roll back for nothing.
+
+- The `gate` job runs `infra/scripts/should-deploy.sh` (tested by `infra/scripts/tests/should-deploy.test.sh`): the run deploys only if `workflow_run.head_sha` is the head of `main` right now and no earlier successful CD run exists for that SHA. Otherwise every other job is skipped: no build, no deploy, no incident, no rollback. A stopped run is never left green, because a successful CD run is the record that a commit was handled (the "already deployed" check, the base of the change detection): a SHA that is not the head of `main` at trigger time skips the gate (run `skipped`), a later stop cancels its own run (`actions: write`). It fails closed (exit 1) when the GitHub API cannot be read.
+- Everything is built, tagged, copied and verified on `env.RELEASE_SHA` (= `workflow_run.head_sha`), never on `github.sha`.
+- A run whose SHA is not the head of `main` at trigger time gets its own concurrency group, so it cannot displace the head's pending run.
+
 ### Build Jobs (parallel)
 
 #### 1. build-php
@@ -55,7 +63,7 @@ docker/build-push-action:
   file: .docker/php/Dockerfile
   target: prod
   tags:
-    - ghcr.io/miwi35/maggie-php:${{ github.sha }}
+    - ghcr.io/miwi35/maggie-php:${{ env.RELEASE_SHA }}
     - ghcr.io/miwi35/maggie-php:latest
   cache-from: type=gha,scope=php
   cache-to: type=gha,mode=max,scope=php
@@ -68,7 +76,7 @@ docker/build-push-action:
   file: .docker/python/Dockerfile
   target: prod
   tags:
-    - ghcr.io/miwi35/maggie-agent:${{ github.sha }}
+    - ghcr.io/miwi35/maggie-agent:${{ env.RELEASE_SHA }}
     - ghcr.io/miwi35/maggie-agent:latest
   cache-from: type=gha,scope=agent
   cache-to: type=gha,mode=max,scope=agent
@@ -81,9 +89,9 @@ docker/build-push-action:
   file: .docker/nginx/Dockerfile
   target: prod
   build-args:
-    PHP_IMAGE: ghcr.io/miwi35/maggie-php:${{ github.sha }}
+    PHP_IMAGE: ghcr.io/miwi35/maggie-php:${{ env.RELEASE_SHA }}
   tags:
-    - ghcr.io/miwi35/maggie-nginx:${{ github.sha }}
+    - ghcr.io/miwi35/maggie-nginx:${{ env.RELEASE_SHA }}
     - ghcr.io/miwi35/maggie-nginx:latest
 ```
 > Nginx depends on PHP image to copy API public directory.
@@ -95,7 +103,7 @@ docker/build-push-action:
 
 **Steps (SSH to VPS):**
 1. `scp` `infra/k8s/`, `infra/scripts/deploy-k3s.sh`, `rollback-k3s.sh` and `verify-digests.sh` to `/opt/maggie/`
-2. Run `deploy-k3s.sh <github.sha>`, which does:
+2. Run `deploy-k3s.sh <RELEASE_SHA>`, which does:
    1. **Preflight** — kubectl reachable, shared `postgres`/`elasticsearch`/`rabbitmq` ready in the `shared` namespace
    2. **Backup** — `pg_dump | gzip` into `/opt/maggie/backups`, keeping the last 10 (a failed or empty dump aborts the deploy)
    3. **Apply** — record the current revision of every deployment (`/opt/maggie/state/pre-deploy-revisions`) and the digest every image runs (`pre-deploy-digests`), bump the image tags in `kustomization.yaml` (only for images actually published for that SHA), then `kubectl apply -k`
