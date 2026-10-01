@@ -377,23 +377,26 @@ jobs:
           key: e2e-vendor-php8.4-${{ hashFiles('api/composer.lock') }}
 
       - uses: actions/cache@v4
-        with:
-          path: admin/node_modules
-          key: e2e-admin-node-modules-node22-alpine-${{ hashFiles('admin/package-lock.json') }}
-
-      - uses: actions/cache@v4
         id: admin-dist
         with:
           # The built bundle (tsc + vite, ~55 s, the longest step of the stack's
-          # start-up). Keyed on its sources (bump v1 if the build env in the Compose
-          # file changes); a PR that does not
-          # touch the admin restores main's.
+          # start-up). Keyed on its sources, listed one by one: an `admin/**` glob
+          # walks node_modules, 5 s at restore and again at save. Bump v1 if the
+          # build env in the Compose file changes. A PR that does not touch the
+          # admin restores main's.
           path: admin/dist
-          key: e2e-admin-dist-v1-${{ hashFiles('admin/**', '!admin/node_modules/**', '!admin/dist/**') }}
+          key: e2e-admin-dist-v1-${{ hashFiles('admin/src/**', 'admin/public/**', 'admin/index.html', 'admin/package*.json', 'admin/tsconfig*.json', 'admin/vite.config.*') }}
 
       - name: Skip the admin build when its bundle was restored
         if: steps.admin-dist.outputs.cache-hit == 'true'
         run: echo "E2E_ADMIN_PREBUILT=1" >> "$GITHUB_ENV"
+
+      # Not needed when the bundle was restored: nothing installs then.
+      - uses: actions/cache@v4
+        if: steps.admin-dist.outputs.cache-hit != 'true'
+        with:
+          path: admin/node_modules
+          key: e2e-admin-node-modules-node22-alpine-${{ hashFiles('admin/package-lock.json') }}
 
       - uses: actions/cache@v4
         with:
@@ -632,11 +635,12 @@ jobs:
         id: admin-dist
         with:
           # The built bundle (tsc + vite, ~55 s, the longest step of the stack's
-          # start-up). Keyed on its sources (bump v1 if the build env in the Compose
+          # start-up). Keyed on its sources, listed one by one: a `admin/**` glob walks
+          # node_modules, 5 s, twice (bump v1 if the build env in the Compose
           # file changes); a PR that does not
           # touch the admin restores main's.
           path: admin/dist
-          key: e2e-admin-dist-v1-${{ hashFiles('admin/**', '!admin/node_modules/**', '!admin/dist/**') }}
+          key: e2e-admin-dist-v1-${{ hashFiles('admin/src/**', 'admin/public/**', 'admin/index.html', 'admin/package*.json', 'admin/tsconfig*.json', 'admin/vite.config.*') }}
 
       - name: Skip the admin build when its bundle was restored
         if: steps.admin-dist.outputs.cache-hit == 'true'
