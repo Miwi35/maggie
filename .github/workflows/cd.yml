@@ -30,16 +30,20 @@ env:
 jobs:
   # Only the CI of the head of main, not yet in production, deploys (MAG-189).
   # Any other run ends here: every other job is skipped, no incident, no rollback.
+  # A run is never left green by a stop, or "a successful CD run" (the base of the
+  # change detection, the "already deployed" check) would name a commit nobody
+  # deployed: a commit that is not the head of main when the run is triggered gets
+  # a skipped run (the condition below), one that stops later cancels itself.
   # Checked out from the default branch: the SHA of an old CI may predate the script.
   gate:
     name: Should this commit deploy
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_sha == github.sha }}
     outputs:
       proceed: ${{ steps.decide.outputs.proceed }}
     permissions:
       contents: read
-      actions: read
+      actions: write
     steps:
       - uses: actions/checkout@v4
         with:

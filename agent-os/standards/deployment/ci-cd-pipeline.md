@@ -50,7 +50,7 @@ Push to main → CI (lint + test) → CD (build → push → deploy)
 
 Every CI that finishes on `main` starts a CD run, including the late CI of an older commit. For `workflow_run`, `github.sha` is the head of `main`, not the commit of that CI, so such a run used to build the head again (new digests, same tag), fail the digest assertion and roll back for nothing.
 
-- The `gate` job runs `infra/scripts/should-deploy.sh` (tested by `infra/scripts/tests/should-deploy.test.sh`): the run deploys only if `workflow_run.head_sha` is the head of `main` right now and no earlier successful CD run exists for that SHA. Otherwise every other job is skipped: no build, no deploy, no incident, no rollback. It fails closed (exit 1) when the GitHub API cannot be read.
+- The `gate` job runs `infra/scripts/should-deploy.sh` (tested by `infra/scripts/tests/should-deploy.test.sh`): the run deploys only if `workflow_run.head_sha` is the head of `main` right now and no earlier successful CD run exists for that SHA. Otherwise every other job is skipped: no build, no deploy, no incident, no rollback. A stopped run is never left green, because a successful CD run is the record that a commit was handled (the "already deployed" check, the base of the change detection): a SHA that is not the head of `main` at trigger time skips the gate (run `skipped`), a later stop cancels its own run (`actions: write`). It fails closed (exit 1) when the GitHub API cannot be read.
 - Everything is built, tagged, copied and verified on `env.RELEASE_SHA` (= `workflow_run.head_sha`), never on `github.sha`.
 - A run whose SHA is not the head of `main` at trigger time gets its own concurrency group, so it cannot displace the head's pending run.
 
