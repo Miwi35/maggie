@@ -56,6 +56,13 @@ interface Recipe {
   name: string
 }
 
+interface Agenda {
+  id: string
+  '@id'?: string
+  name: string
+  default?: boolean
+}
+
 interface Meal {
   id: string
   '@id': string
@@ -133,8 +140,24 @@ export const MealsWeekView = () => {
     setDialogOpen(true)
   }
 
+  const findMealAgendaIri = async (): Promise<string | null> => {
+    const { data } = await dataProvider.getList('agendas', {
+      pagination: { page: 1, perPage: 50 },
+      sort: { field: 'name', order: 'ASC' },
+      filter: {},
+    })
+    const agendas = data as Agenda[]
+    const agenda = agendas.find((a) => a.name === 'Repas') ?? agendas.find((a) => a.default) ?? agendas[0]
+    return agenda ? agenda['@id'] || `/api/agendas/${agenda.id}` : null
+  }
+
   const handleCreate = async () => {
     try {
+      const agendaIri = await findMealAgendaIri()
+      if (!agendaIri) {
+        notify('Aucun agenda disponible pour accueillir le repas', { type: 'error' })
+        return
+      }
       const recipeIris = selectedRecipes.map((r) => r['@id'] || `/api/recipes/${r.id}`)
       await dataProvider.create('meals', {
         data: {
@@ -146,7 +169,7 @@ export const MealsWeekView = () => {
             (dialogSlot === 'lunch' ? 'Déjeuner' : 'Dîner') +
             (selectedRecipes.length > 0 ? ' : ' + selectedRecipes.map((r) => r.name).join(', ') : ''),
           recipes: recipeIris,
-          agenda: '/api/agendas', // Will be auto-assigned by handler
+          agenda: agendaIri,
         },
       })
       setDialogOpen(false)
