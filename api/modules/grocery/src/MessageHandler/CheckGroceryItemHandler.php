@@ -23,6 +23,10 @@ class CheckGroceryItemHandler
         $item = $this->em->find(GroceryItem::class, $command->groceryItemId)
             ?? throw new \DomainException("Grocery item not found: {$command->groceryItemId}");
 
+        if ((string) $item->getGroceryList()->getUser()->getId() !== $command->userId) {
+            throw new \DomainException("Grocery item not found: {$command->groceryItemId}");
+        }
+
         $item->setChecked($command->checked);
 
         $list = $item->getGroceryList();

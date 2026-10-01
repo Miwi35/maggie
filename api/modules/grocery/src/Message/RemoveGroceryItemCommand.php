@@ -10,6 +10,7 @@ final readonly class RemoveGroceryItemCommand implements MercureActionPayload
 {
     public function __construct(
         public string $groceryItemId,
+        public string $userId,
     ) {
     }
 
