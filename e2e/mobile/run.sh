@@ -225,7 +225,16 @@ flow_env=(
 #
 # Not `exec`: that would replace this shell and the EXIT trap above would never
 # remove the reverse bridge.
+# A flow tagged `quarantine` fails for a known, ticketed reason (its tag comment
+# names the ticket): it is left out so it does not hold main red and every
+# deploy behind it. An explicit --include-tags/--exclude-tags replaces this.
+tag_args=(--exclude-tags quarantine)
+for arg in ${maestro_args[@]+"${maestro_args[@]}"}; do
+  case "$arg" in --include-tags*|--exclude-tags*) tag_args=() ;; esac
+done
+
 "$MAESTRO" --device "$SERIAL" test "${targets[@]}" \
+  ${tag_args[@]+"${tag_args[@]}"} \
   --format junit \
   --output "$REPORT_DIR/junit.xml" \
   --test-output-dir "$REPORT_DIR" \

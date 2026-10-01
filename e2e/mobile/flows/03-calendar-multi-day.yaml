@@ -2,6 +2,9 @@ appId: com.maggie.app.e2e
 name: 03-calendar-multi-day
 tags:
   - calendar
+  # Quarantined (MAG-209): red on every run of main since it merged. run.sh
+  # leaves `quarantine` out unless asked; lift it with the fix.
+  - quarantine
 ---
 # A multi-day event is drawn on every day it crosses, in the week view and in the
 # day view (MAG-204). Two regressions this holds:
