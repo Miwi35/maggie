@@ -50,6 +50,10 @@ Steps (SSH to VPS):
 4. Health check
 5. Prune old images
 
+### Gate (MAG-189)
+
+CD's `gate` job (`infra/scripts/should-deploy.sh`) lets a run deploy only when its CI's commit is the head of `main` and not already deployed. Build, tag and deploy on `env.RELEASE_SHA` (`workflow_run.head_sha`), never `github.sha`.
+
 ### Smoke and rollback (MAG-106)
 
 After **deploy**, the **smoke** job runs `infra/scripts/smoke-prod.sh` on production as a technical account (read-only). If a build, the deploy script or the smoke fails, **rollback** runs `infra/scripts/rollback-k3s.sh` (`rollout undo` to the recorded revisions; not after a failed build), moves the shipped tickets to the Linear state « Emergency » (an `incident` ticket when none can carry it) and leaves the run red. Migrations are not reverted. Details in the standard below.

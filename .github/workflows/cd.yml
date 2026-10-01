@@ -8,11 +8,19 @@ on:
 
 # One deployment at a time: two runs 10 s apart once raced in the same pod.
 # Queued, never cancelled, so the last merge always ends up deployed.
+# GitHub keeps a single pending run per group and cancels the one it replaces: the
+# late CI of an older commit (its SHA is not the head of main, which is what
+# github.sha is for this trigger) gets a group of its own, or it would push the
+# head's run out of the queue and then stop at the gate, deploying nothing.
 concurrency:
-  group: cd-production
+  group: ${{ github.event.workflow_run.head_sha == github.sha && 'cd-production' || format('cd-stale-{0}', github.run_id) }}
   cancel-in-progress: false
 
 env:
+  # Everything is built, tagged, copied and verified on the commit of the CI that
+  # triggered this run. github.sha is the head of main when the run was
+  # triggered, which is another commit when a late CI finishes (MAG-189).
+  RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
   REGISTRY: ghcr.io
   PHP_IMAGE: ghcr.io/miwi35/maggie-php
   NGINX_IMAGE: ghcr.io/miwi35/maggie-nginx
@@ -20,10 +28,37 @@ env:
   CIQUAL_IMAGE: ghcr.io/miwi35/maggie-ciqual
 
 jobs:
+  # Only the CI of the head of main, not yet in production, deploys (MAG-189).
+  # Any other run ends here: every other job is skipped, no incident, no rollback.
+  # Checked out from the default branch: the SHA of an old CI may predate the script.
+  gate:
+    name: Should this commit deploy
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    outputs:
+      proceed: ${{ steps.decide.outputs.proceed }}
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: infra/scripts
+
+      - name: Decide
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_SHA: ${{ env.RELEASE_SHA }}
+        run: |
+          set -o pipefail
+          bash infra/scripts/should-deploy.sh | tee -a "$GITHUB_STEP_SUMMARY"
+
   changes:
     name: Detect changes
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    needs: gate
+    if: ${{ needs.gate.outputs.proceed == 'true' }}
     outputs:
       app: ${{ steps.filter.outputs.app }}
       agent: ${{ steps.filter.outputs.agent }}
@@ -32,7 +67,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ env.RELEASE_SHA }}
           fetch-depth: 0
 
       - name: Detect changed paths
@@ -71,6 +106,8 @@ jobs:
       digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SHA }}
 
       - uses: docker/login-action@v3
         with:
@@ -88,7 +125,7 @@ jobs:
           target: prod
           push: true
           tags: |
-            ${{ env.PHP_IMAGE }}:${{ github.sha }}
+            ${{ env.PHP_IMAGE }}:${{ env.RELEASE_SHA }}
             ${{ env.PHP_IMAGE }}:latest
           cache-from: type=gha,scope=php
           cache-to: type=gha,mode=max,scope=php
@@ -108,6 +145,8 @@ jobs:
       digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SHA }}
 
       - uses: docker/login-action@v3
         with:
@@ -125,7 +164,7 @@ jobs:
           target: prod
           push: true
           tags: |
-            ${{ env.AGENT_IMAGE }}:${{ github.sha }}
+            ${{ env.AGENT_IMAGE }}:${{ env.RELEASE_SHA }}
             ${{ env.AGENT_IMAGE }}:latest
           cache-from: type=gha,scope=agent
           cache-to: type=gha,mode=max,scope=agent
@@ -146,6 +185,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ env.RELEASE_SHA }}
           lfs: true
 
       - uses: docker/login-action@v3
@@ -164,7 +204,7 @@ jobs:
           target: prod
           push: true
           tags: |
-            ${{ env.CIQUAL_IMAGE }}:${{ github.sha }}
+            ${{ env.CIQUAL_IMAGE }}:${{ env.RELEASE_SHA }}
             ${{ env.CIQUAL_IMAGE }}:latest
           cache-from: type=gha,scope=ciqual
           cache-to: type=gha,mode=max,scope=ciqual
@@ -184,6 +224,8 @@ jobs:
       digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SHA }}
 
       - uses: docker/login-action@v3
         with:
@@ -200,11 +242,11 @@ jobs:
           file: .docker/nginx/Dockerfile
           target: prod
           build-args: |
-            PHP_IMAGE=${{ env.PHP_IMAGE }}:${{ github.sha }}
+            PHP_IMAGE=${{ env.PHP_IMAGE }}:${{ env.RELEASE_SHA }}
             MERCURE_PUBLIC_URL=https://maggieai.fr/.well-known/mercure
           push: true
           tags: |
-            ${{ env.NGINX_IMAGE }}:${{ github.sha }}
+            ${{ env.NGINX_IMAGE }}:${{ env.RELEASE_SHA }}
             ${{ env.NGINX_IMAGE }}:latest
           cache-from: type=gha,scope=nginx
           cache-to: type=gha,mode=max,scope=nginx
@@ -230,6 +272,8 @@ jobs:
       packages: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SHA }}
 
       - name: Copy k8s manifests and deploy script to VPS
         uses: appleboy/scp-action@v0.1.7
@@ -250,7 +294,7 @@ jobs:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
         env:
-          IMAGE_TAG: ${{ github.sha }}
+          IMAGE_TAG: ${{ env.RELEASE_SHA }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
@@ -280,6 +324,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SHA }}
 
       - name: Configure SSH to the VPS
         env:
@@ -360,6 +406,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ env.RELEASE_SHA }}
           fetch-depth: 0
 
       - name: Take the shipped tickets out of « Emergency »
@@ -367,7 +414,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
-          SHA: ${{ github.event.workflow_run.head_sha }}
+          SHA: ${{ env.RELEASE_SHA }}
         run: |
           # The same range as the `changes` job: since the last green CD run.
           base=$(gh api "repos/$GH_REPO/actions/workflows/cd.yml/runs?status=success&per_page=1" \
@@ -402,6 +449,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ env.RELEASE_SHA }}
           fetch-depth: 0
 
       - name: Configure SSH to the VPS
@@ -438,7 +486,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
-          SHA: ${{ github.event.workflow_run.head_sha }}
+          SHA: ${{ env.RELEASE_SHA }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           RUN_ID: ${{ github.run_id }}
           BUILD_PHP_RESULT: ${{ needs.build-php.result }}
