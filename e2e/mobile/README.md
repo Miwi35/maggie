@@ -71,7 +71,7 @@ one of them missing.
 | `subflows/` | shared steps (`sign-in.yaml`), kept out of the `flows` glob on purpose |
 | `run.sh` | the whole run: device, bridge, time zone, install, flows |
 | `maestro.sh` | downloads the pinned CLI into `.e2e-cache/` |
-| `lint.sh` | syntax, testTags, tag roots, applicationId — seconds, no device |
+| `lint.sh` | syntax, testTags, tag roots, applicationId, unawaited assertions — seconds, no device |
 | `report/` | JUnit report and the screenshots of a failed run (gitignored) |
 
 A file put in `flows/` is run as a journey. A shared sequence goes in
@@ -97,8 +97,12 @@ against an app nobody launched.
    `?` as "the space before me is optional" and matches nothing at all. Wrapped,
    a selector behaves the same whichever way Maestro is matching.
 5. **Wait with `extendedWaitUntil`**, never with a bare `assertVisible` after an
-   action. The first HTTP call of a cold app pays for Ktor and OkHttp being
-   class-loaded; 20–60 s timeouts here are not generosity.
+   action — `task e2e:mobile:lint` fails on that. `assertVisible` *does* wait, on
+   Maestro's own default, and that is the problem: the timeout is invisible in the
+   flow and a cold emulator is exactly where it runs out. The first frame after
+   `launchApp` comes after all of `MaggieApp.onCreate`, and the first HTTP call
+   pays for Ktor and OkHttp being class-loaded; the 20–60 s here are not
+   generosity, they are a CI failure that already happened.
 6. **Assert on seeded data, never on counts.** `api/fixtures/e2e/` is shared with
    the browser suite, which writes to the same user at the same time.
 7. **A scenario before the step that needs it.** Maggie answers from

@@ -17,6 +17,11 @@
 #   3. every flow targets the `e2e` flavor's applicationId. A flow pointing at
 #      `com.maggie.app` would drive the owner's production build, pass, and
 #      prove nothing.
+#   5. no bare `assertVisible` directly after an action. Maestro's own default
+#      timeout is what then decides whether the run is green, which is how
+#      `01-login-chat` failed in CI on a run where nothing was wrong. This is the
+#      local equivalent of eslint-plugin-playwright's "an `expect` nobody
+#      awaited".
 #   4. every composable that opens a window *and* carries a tag declares one
 #      `uiTagRoot()` per window. A `Dialog` or a `ModalBottomSheet` is a separate
 #      semantics owner, so the activity's flag does not reach it and its tags have
@@ -180,6 +185,30 @@ for file in "${sources[@]}"; do
     pass "${file#"$REPO_ROOT"/} ($windows window(s), $roots tag root(s))"
   else
     fail "${file#"$REPO_ROOT"/} opens $windows window(s) and carries a testTag but calls uiTagRoot() $roots time(s) — a window without one gives its tags no resource id, so Maestro cannot see them"
+  fi
+done
+
+# ---------------------------------------------------------------------------
+printf '\n\033[1m5. Nothing asserted without waiting for it\033[0m\n'
+# ---------------------------------------------------------------------------
+# A command that changes the screen — launching, tapping, typing, running a
+# subflow — is followed by something that *waits*. `assertVisible` does wait, on
+# Maestro's default; the point is that the timeout is then invisible in the flow,
+# and a cold emulator is exactly where it runs out. `extendedWaitUntil` says the
+# number out loud.
+#
+# `assertNotVisible` is deliberately not flagged: an absence has nothing to wait
+# for, and `02-voice-overlay.yaml` explains at length what its one use proves.
+for flow in "${flows[@]}"; do
+  offenders="$(awk '
+    /^- (launchApp|tapOn|inputText|runFlow|stopApp|pressKey|swipe|scroll)/ { acted = 1; line = NR; next }
+    /^- assertVisible/ { if (acted) print line ": " $0; acted = 0; next }
+    /^- / { acted = 0 }
+  ' "$flow")"
+  if [ -z "$offenders" ]; then
+    pass "${flow#"$REPO_ROOT"/}"
+  else
+    fail "${flow#"$REPO_ROOT"/}: assertVisible straight after an action, on Maestro's invisible default timeout — use extendedWaitUntil with a timeout. After line $offenders"
   fi
 done
 

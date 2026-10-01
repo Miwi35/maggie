@@ -45,8 +45,13 @@ tags:
 - tapOn:
     id: "chat_open"
 
-- assertVisible:
-    id: "chat_input"
+# Waited for rather than asserted: the sheet is a window being created, and the
+# `tapOn` below would wait on its own — but then a failure would read as "the tap
+# missed" instead of "the sheet never opened".
+- extendedWaitUntil:
+    visible:
+      id: "chat_input"
+    timeout: 20000
 
 - tapOn:
     id: "chat_input"

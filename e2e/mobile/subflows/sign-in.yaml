@@ -5,8 +5,17 @@ name: sign in as the seeded user
 # logo. Only the door behind it differs — `src/e2e/E2eSignIn.kt` posts to
 # `/api/auth/e2e/login` instead of opening Google Credential Manager, which is a
 # system dialog Maestro cannot reach.
-- assertVisible:
-    id: "login_sign_in"
+#
+# Waited for, not asserted: this is the first frame after a cold `launchApp`, and
+# everything in `MaggieApp.onCreate` — Koin, Room, Ktor, the voice manager, the
+# notification channels — happens before it. `NavGraph` then starts on `Loading`
+# and only routes to `Login` once the DataStore has answered that there is no
+# token. A bare `assertVisible` here timed out on its default in CI, on a run
+# where nothing was wrong.
+- extendedWaitUntil:
+    visible:
+      id: "login_sign_in"
+    timeout: 60000
 
 - tapOn:
     id: "login_sign_in"

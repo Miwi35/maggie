@@ -487,12 +487,12 @@ tasks:
       - 'E2E_BASE_URL={{.BASE_URL}} {{.ROOT_DIR}}/e2e/mobile/run.sh {{.CLI_ARGS}}'
 
   mobile:lint:
-    desc: Check the Maestro flows — syntax, testTags, tag roots, applicationId — part of `task lint:all`
-    # No stack, no emulator, seconds. It catches the three mistakes that would
-    # otherwise cost a whole emulator job: a command Maestro does not know, an
-    # `id:` that no longer matches a testTag in ui/UiTags.kt, and a window that
-    # carries a tag without its own `uiTagRoot()` — the last one is what made this
-    # harness's first CI run red.
+    desc: Check the Maestro flows — syntax, testTags, tag roots, applicationId, unawaited assertions — part of `task lint:all`
+    # No stack, no emulator, seconds. Every check here is a failure that has
+    # already cost an emulator job: a command Maestro does not know, an `id:` that
+    # no longer matches a testTag in ui/UiTags.kt, a window carrying a tag without
+    # its own `uiTagRoot()`, and an `assertVisible` left on Maestro's invisible
+    # default timeout straight after an action.
     cmds:
       - '{{.ROOT_DIR}}/e2e/mobile/lint.sh'
 

@@ -75,10 +75,11 @@ composables the flows drive, and the three windows that host them.
   publishes, installed under `.e2e-cache/`.
 - `run.sh` — one device, `adb reverse` onto the stack's ephemeral port, the device
   on `Europe/Paris`, `installE2eDebug`, then the flows with a JUnit report.
-- `lint.sh` — `maestro check-syntax`, every `id:` against `UiTags.kt`, every
-  `appId:` against the flavor's applicationId, and every window that carries a tag
-  against `uiTagRoot()`. The last check exists because the first three passed
-  cleanly on the ids the emulator could not find.
+- `lint.sh` — five checks, each one a failure an emulator job already paid for:
+  `maestro check-syntax`; every `id:` against `UiTags.kt`; every `appId:` against
+  the flavor's applicationId; one `uiTagRoot()` per window in any file that opens
+  one and carries a tag; and no `assertVisible` left on Maestro's invisible default
+  timeout straight after an action.
 - `config.yaml`, `flows/01-login-chat.yaml`, `flows/02-voice-overlay.yaml`,
   `subflows/sign-in.yaml`, `README.md`.
 
