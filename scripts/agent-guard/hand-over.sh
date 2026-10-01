@@ -15,7 +15,7 @@ MARKER="<!-- agent-guard:${2:?usage: hand-over.sh <pr> <marker>} -->"
 BODY="$MARKER"$'\n'"$(cat)"
 
 gh label create needs-human --color D93F0B --description "A human must look at this before it merges" 2>/dev/null || true
-gh pr edit "$PR" --add-label needs-human
+gh api -X POST "repos/$GH_REPO/issues/$PR/labels" -f "labels[]=needs-human" > /dev/null
 gh pr merge "$PR" --disable-auto 2>/dev/null || true
 
 ids="$(gh api "repos/$GH_REPO/issues/$PR/comments" --paginate \
