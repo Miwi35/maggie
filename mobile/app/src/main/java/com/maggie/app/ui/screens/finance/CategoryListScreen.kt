@@ -44,7 +44,7 @@ import com.maggie.app.data.model.obligationLabel
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
 
-private val OBLIGATIONS = listOf("mandatory", "optional", "saving", "investment")
+private val OBLIGATIONS = listOf("mandatory", "optional", "saving", "investment", "debt")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

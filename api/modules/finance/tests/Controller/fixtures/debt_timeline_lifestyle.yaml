@@ -1,0 +1,77 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-controller-test@example.com
+    googleId: google-finance-controller-test
+    name: Finance Controller Test User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 200000
+    isCushion: false
+    user: '@test_user'
+
+Maggie\Finance\Entity\SafetyCushion:
+  cushion:
+    targetMonths: 3
+    monthlyNetIncomeCents: 350000
+    rechargeCapCents: 15000
+    rechargeTargetMonths: 6
+    completedAt: null
+    user: '@test_user'
+
+Maggie\Finance\Entity\Loan:
+  car:
+    name: Crédit auto
+    principalRemainingCents: 240000
+    monthlyPaymentCents: 20000
+    annualRateBasisPoints: 0
+    priority: 10
+    currency: EUR
+    user: '@test_user'
+
+Maggie\Finance\Entity\Category:
+  food:
+    name: Alimentation
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  loan_repayment:
+    name: Prêts
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Debt)>'
+    user: '@test_user'
+
+# Last month, inside the three-month sample: 300 € of everyday spending, plus
+# a 900 € one-off and a 200 € loan payment that must not count as lifestyle.
+Maggie\Finance\Entity\Transaction:
+  groceries:
+    account: '@checking'
+    category: '@food'
+    amountCents: -30000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("first day of last month"))>'
+    label: Supermarché
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  one_off:
+    account: '@checking'
+    category: '@food'
+    amountCents: -90000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("first day of last month"))>'
+    label: Frigo neuf
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: true
+    user: '@test_user'
+  car_payment:
+    account: '@checking'
+    category: '@loan_repayment'
+    amountCents: -20000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("first day of last month"))>'
+    label: Mensualité crédit auto
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Committed)>'
+    isExceptional: false
+    user: '@test_user'

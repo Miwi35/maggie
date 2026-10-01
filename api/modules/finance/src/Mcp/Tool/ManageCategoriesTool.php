@@ -16,7 +16,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_categories', description: 'List, create, update, or delete budget categories. Categories form a two-level tree (a category may have a parentId, sub-categories cannot have children). Each category has an obligation flag: mandatory, optional, saving, investment, or income (money coming in, such as a salary: use income for revenue categories, never mandatory). On update, only provided fields change; to empty an optional field (make it a top-level category, drop its color or icon), list parentId, color or icon in clear.')]
+#[McpTool(name: 'manage_categories', description: 'List, create, update, or delete budget categories. Categories form a two-level tree (a category may have a parentId, sub-categories cannot have children). Each category has an obligation flag: mandatory, optional, saving, investment, debt (loan repayments, left out of the measured lifestyle), or income (money coming in, such as a salary: use income for revenue categories, never mandatory). On update, only provided fields change; to empty an optional field (make it a top-level category, drop its color or icon), list parentId, color or icon in clear.')]
 class ManageCategoriesTool
 {
     public function __construct(

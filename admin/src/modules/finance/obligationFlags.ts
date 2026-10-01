@@ -3,6 +3,7 @@ export const OBLIGATION_CHOICES = [
   { id: 'optional', name: 'Non-obligatoire' },
   { id: 'saving', name: 'Épargne' },
   { id: 'investment', name: 'Investissement' },
+  { id: 'debt', name: 'Remboursement de prêt' },
   { id: 'income', name: 'Recette' },
 ]
 

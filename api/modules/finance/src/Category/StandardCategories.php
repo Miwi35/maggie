@@ -75,6 +75,12 @@ final class StandardCategories
                 'icon' => 'local-gas-station',
             ],
             [
+                'name' => 'Prêts',
+                'obligation' => ObligationFlag::Debt,
+                'color' => '#78909C',
+                'icon' => 'account-balance',
+            ],
+            [
                 'name' => 'Imprévus',
                 'obligation' => ObligationFlag::Mandatory,
                 'color' => '#EF5350',
