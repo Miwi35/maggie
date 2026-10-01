@@ -136,13 +136,17 @@ tasks:
     env:
       E2E_BASE_URL: '{{.BASE_URL}}'
     cmds:
-      # nginx needs the bundle `_up:admin` started building at the very
-      # beginning, and the agent wants nginx up before it connects to the MCP
-      # server. `--no-deps`: php and the databases are already healthy, and
-      # Compose would re-run the finished admin-build.
+      # The agent, ciqual and mercure first: they need nothing nginx serves, and
+      # the agent's dependency install (~15 s) used to wait behind the admin
+      # bundle for nothing. Its MCP connection is best-effort at start and
+      # re-made on the first call, so nginx coming up after it is harmless.
+      # `--no-deps`: php and the databases are already healthy, and Compose
+      # would re-run the finished admin-build.
       #
-      # Not --wait: the agent's dependency install and Elasticsearch finish
-      # during `_up:prepare`, and `_up:wait` collects them.
+      # Not --wait: the install and Elasticsearch finish during `_up:prepare`,
+      # and `_up:wait` collects them.
+      - '{{.COMPOSE}} up -d --no-deps {{if .E2E_PREBUILT}}--no-build{{else}}--build{{end}} agent ciqual mercure'
+      # nginx needs the bundle `_up:admin` started building at the very beginning.
       - |
         code=$(docker wait "$({{.COMPOSE}} ps -aq admin-build)")
         if [ "$code" != 0 ]; then
@@ -151,7 +155,6 @@ tasks:
           exit 1
         fi
       - '{{.COMPOSE}} up -d --no-deps {{if .E2E_PREBUILT}}--no-build{{else}}--build{{end}} nginx'
-      - '{{.COMPOSE}} up -d --no-deps {{if .E2E_PREBUILT}}--no-build{{else}}--build{{end}} agent ciqual mercure'
 
   _up:prepare:
     internal: true
@@ -179,7 +182,7 @@ tasks:
     cmds:
       # -v even though the data directories are tmpfs: anonymous volumes an
       # image declares would otherwise pile up, one set per run.
-      - '{{.COMPOSE}} down -v --remove-orphans'
+      - '{{.COMPOSE}} down -v --remove-orphans {{.CLI_ARGS}}'
 
   restart:
     desc: Restart the e2e stack

@@ -228,11 +228,19 @@ services:
       # Vite's default heap ceiling is sized from the host, not the container:
       # below it the build is OOM-killed instead of garbage-collected.
       NODE_OPTIONS: --max-old-space-size=1024
+      E2E_ADMIN_PREBUILT: ${E2E_ADMIN_PREBUILT:-}
     command:
       - sh
       - -c
       - |
         set -e
+        # CI restores a bundle built from this exact source (MAG-180): the
+        # build is the longest step of the start-up and nothing else waits on
+        # less than it.
+        if [ -n "$$E2E_ADMIN_PREBUILT" ] && [ -f dist/index.html ]; then
+          echo "admin bundle restored from cache, build skipped"
+          exit 0
+        fi
         if [ ! -d node_modules ] || [ package-lock.json -nt node_modules ]; then
           npm ci
         fi
