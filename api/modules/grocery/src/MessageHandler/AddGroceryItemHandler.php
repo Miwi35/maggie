@@ -88,7 +88,7 @@ class AddGroceryItemHandler
         $newStore = null;
         if (null !== $command->storeId) {
             $store = $this->storeRepository->find($command->storeId);
-            if (null !== $store) {
+            if (null !== $store && (string) $store->getUser()->getId() === $command->userId) {
                 $item->setStore($store);
             }
         } elseif (null !== $command->storeName && '' !== $command->storeName) {

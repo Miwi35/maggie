@@ -180,6 +180,22 @@ class UserIsolationToolsTest extends KernelTestCase
         self::assertArrayHasKey('error', $data);
     }
 
+    public function testAddingAnItemNeverAttachesAnotherUsersStore(): void
+    {
+        $this->loadAndLogin();
+
+        $data = $this->decode((self::getContainer()->get(AddGroceryItemTool::class))('Pommes', 2, 'piece', storeId: $this->ids['other_store']));
+
+        self::assertTrue($data['success']);
+        $this->em()->clear();
+        $added = array_values(array_filter(
+            $this->em()->getRepository(GroceryItem::class)->findAll(),
+            fn (GroceryItem $item) => 'Pommes' === $item->getProduct()?->getName(),
+        ));
+        self::assertCount(1, $added);
+        self::assertNull($added[0]->getStore());
+    }
+
     public function testOwnerKeepsCheckingAndRemovingTheirItem(): void
     {
         $this->loadAndLogin();
