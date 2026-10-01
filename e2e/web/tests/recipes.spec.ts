@@ -82,15 +82,31 @@ test.describe('Recipes and meals', () => {
       (list) => JSON.stringify(list.items).includes(parmesan),
       { what: 'The gratin’s parmesan' },
     )
-    expect(withParmesan.items.length).toBeGreaterThan(0)
+    // The lines that were there before, so the cancellation below can be shown
+    // to take back the meal's share and nothing else.
+    const before = withParmesan.items.length
 
-    await cell.getByRole('button').first().click()
+    // The week view fetches when it mounts and once on its own write, both
+    // within a blink of the POST and so inside Elasticsearch's refresh — the
+    // cell can still look empty, and nothing refetches on its own afterwards.
+    // Wait for the meal to be findable, then reload, or the delete button is
+    // one that never appears.
+    await waitForIndexed<MealRow>(api, '/api/meals', (m) => String(m.summary).includes('Gratin'), {
+      what: 'The planned gratin',
+    })
+    await page.reload()
 
-    await waitForIndexed<GroceryListRow>(
+    const planned = shell.content.getByTestId('meal-cell-lunch-3')
+    await expect(planned.getByText('Gratin de courgettes')).toBeVisible()
+    await planned.getByRole('button').first().click()
+
+    const after = await waitForIndexed<GroceryListRow>(
       api,
       '/api/grocery_lists',
       (list) => !JSON.stringify(list.items).includes(parmesan),
       { what: 'A grocery list without the cancelled meal’s parmesan' },
     )
+    // Only the meal's own line goes: the seeded shopping is still to be done.
+    expect(after.items).toHaveLength(before - 1)
   })
 })

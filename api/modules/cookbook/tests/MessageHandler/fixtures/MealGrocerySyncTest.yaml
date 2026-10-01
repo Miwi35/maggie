@@ -30,6 +30,13 @@ Maggie\Cookbook\Entity\Ingredient:
     name: Parmesan
     category: '<(Maggie\Grocery\Enum\ProductCategory::Dairy)>'
     user: '@test_user'
+  # Keeps two days: bought too early it spoils, so a meal far enough ahead
+  # hides its line until it is worth carrying home.
+  fish:
+    name: Cabillaud
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Fish)>'
+    user: '@test_user'
+    shelfLifeDays: 2
 
 Maggie\Cookbook\Entity\Recipe:
   pasta:
@@ -42,6 +49,11 @@ Maggie\Cookbook\Entity\Recipe:
     name: Gratin de tomates
     servings: 2
     tags: ['four']
+    user: '@test_user'
+  fish_dish:
+    name: Cabillaud au four
+    servings: 2
+    tags: ['poisson']
     user: '@test_user'
 
 Maggie\Cookbook\Entity\RecipeIngredient:
@@ -65,6 +77,11 @@ Maggie\Cookbook\Entity\RecipeIngredient:
     ingredient: '@parmesan'
     quantity: 80
     unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+  ri_fish_fish:
+    recipe: '@fish_dish'
+    ingredient: '@fish'
+    quantity: 300
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
 
 Maggie\Grocery\Entity\RecurringGroceryItem:
   # Never added yet: due the first time generation runs.
@@ -73,6 +90,14 @@ Maggie\Grocery\Entity\RecurringGroceryItem:
     quantity: 1
     unit: '<(Maggie\Grocery\Enum\Unit::Liter)>'
     frequency: '<(Maggie\Grocery\Enum\RecurringFrequency::Weekly)>'
+    user: '@test_user'
+  # Bought ten days ago and wanted every fortnight: not due either.
+  recurring_coffee:
+    customLabel: Café
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Pack)>'
+    frequency: '<(Maggie\Grocery\Enum\RecurringFrequency::Biweekly)>'
+    lastAddedAt: '<(new \DateTimeImmutable(''-10 days''))>'
     user: '@test_user'
   # Bought three days ago and wanted once a month: not due.
   recurring_bleach:

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Maggie\Cookbook\MessageHandler;
 
-use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Enum\MealSlot;
 use Maggie\Cookbook\Message\UpdateMealCommand;
@@ -24,7 +23,6 @@ class UpdateMealHandler
         private readonly RecipeRepository $recipeRepository,
         private readonly MealGrocerySync $mealGrocerySync,
         private readonly GroceryListBroadcaster $groceryListBroadcaster,
-        private readonly EntityManagerInterface $em,
     ) {
     }
 
@@ -67,10 +65,7 @@ class UpdateMealHandler
 
         // Swapping a recipe or moving the meal changes what has to be bought,
         // and when: the old ingredients come off the list, the new ones go on.
-        $list = $this->mealGrocerySync->sync($meal);
-        $this->em->flush();
-
-        $this->groceryListBroadcaster->broadcast($list);
+        $this->groceryListBroadcaster->broadcast($this->mealGrocerySync->sync($meal));
 
         return $meal;
     }

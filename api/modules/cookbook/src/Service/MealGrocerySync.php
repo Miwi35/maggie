@@ -21,14 +21,22 @@ use Maggie\Grocery\Repository\GroceryListRepository;
  * them off again, so moving a meal or cancelling it left the shopping to be
  * done anyway, and generating the list a second time added everything twice.
  *
- * Every line a meal touches is recorded as a {@see MealGroceryContribution}:
- * `apply()` adds and records, `revoke()` subtracts what was recorded, `sync()`
- * does both and is therefore idempotent — which is what makes re-generating a
- * list safe.
+ * Every line a meal touches is recorded as a {@see MealGroceryContribution}.
+ * `sync()` makes the list say what the meal needs *now* — adding, adjusting in
+ * place and taking back — and `revoke()` takes back everything. Both are
+ * idempotent, which is what makes re-generating a list safe.
  *
- * Callers flush. The grocery list must also be broadcast afterwards
- * (`GroceryListBroadcaster`): a meal handler returns the meal, so the
- * Messenger middleware never sees the list it changed.
+ * Flushing: `sync()` flushes, `revoke()` does not. The asymmetry is deliberate.
+ * `sync()` must, because it asks the database which other meals hold a line and
+ * the generation loop syncs one meal after another — an unflushed contribution
+ * would make the next meal believe a line is free to delete. `revoke()` must
+ * not, so that deleting a meal takes its ingredients off the list and removes
+ * the meal in a single transaction: a delete that fails must not leave the
+ * shopping already gone.
+ *
+ * The grocery list must also be broadcast afterwards
+ * ({@see \Maggie\Grocery\Service\GroceryListBroadcaster}): a meal handler
+ * returns the meal, so the Messenger middleware never sees the list it changed.
  */
 class MealGrocerySync
 {
@@ -42,98 +50,105 @@ class MealGrocerySync
     ) {
     }
 
-    /** Re-applies a meal from scratch: safe to call any number of times. */
+    /**
+     * Makes the list hold exactly what this meal needs, no more and no less.
+     *
+     * Returns the list it touched, or null when the meal neither needs nor
+     * ever needed anything — a slot planned with no recipe changes no
+     * shopping, and must not conjure an empty list.
+     */
     public function sync(Meal $meal): ?GroceryList
     {
-        $revoked = $this->revoke($meal);
+        $wanted = $this->wantedLines($meal);
+        $held = [];
+        foreach ($this->contributionRepository->findByMeal($meal) as $contribution) {
+            $held[$this->keyOfContribution($contribution)] = $contribution;
+        }
 
-        // The one flush this class does. A meal that keeps an ingredient gets
-        // a fresh contribution for a line it already had one for, and Doctrine
-        // runs every insert before any delete — the unique (meal, item) index
-        // would fire on a change that is really a replacement.
-        $this->em->flush();
-
-        return $this->apply($meal) ?? $revoked;
-    }
-
-    /**
-     * Adds the meal's ingredients to its owner's list, merging and recording.
-     *
-     * Returns null when the meal brings no ingredient — a slot planned with no
-     * recipe changes no shopping, and must not conjure an empty list.
-     */
-    public function apply(Meal $meal): ?GroceryList
-    {
-        if (!$this->hasIngredients($meal)) {
+        if ([] === $wanted && [] === $held) {
             return null;
         }
 
         $list = $this->groceryListRepository->findOrCreateForUser($meal->getAgenda()->getUser());
-        $date = $meal->getStartAt()->setTimezone(new \DateTimeZone('Europe/Paris'));
+        $mealDate = $meal->getStartAt()->setTimezone(new \DateTimeZone('Europe/Paris'));
 
-        /** @var array<string, MealGroceryContribution> $contributions keyed by product id and unit */
-        $contributions = [];
+        // Read once: nothing below is flushed, so a second read would return
+        // the same rows at the cost of another query.
+        $items = $this->itemsOf($list);
+        $position = $this->highestPosition($items);
 
-        foreach ($meal->getRecipes() as $recipe) {
-            foreach ($recipe->getIngredients() as $ri) {
-                $ingredient = $ri->getIngredient();
-                $unit = $ri->getUnit();
-                $quantity = $ri->getQuantity();
-                $buyAfter = $this->buyAfter($date, $ingredient->getShelfLifeDays());
+        // What the meal no longer needs — a recipe swapped out, an ingredient
+        // dropped. Done first, so the lines it still needs are never caught by
+        // a contribution this same pass is about to re-create.
+        foreach ($held as $key => $contribution) {
+            if (!isset($wanted[$key])) {
+                $gone = $this->takeBack($contribution);
+                unset($held[$key]);
 
-                $key = (string) $ingredient->getId().':'.$unit->value;
-
-                if (isset($contributions[$key])) {
-                    // A second recipe in the same meal needing the same thing:
-                    // the line already exists, only the amount grows.
-                    $contribution = $contributions[$key];
-                    $item = $contribution->getGroceryItem();
-                    $item->setQuantity(($item->getQuantity() ?? 0.0) + $quantity);
-                    $contribution->addQuantity($quantity);
-                    $this->keepEarliestBuyAfter($item, $buyAfter);
-
-                    continue;
+                if (null !== $gone) {
+                    // Dropped from the list: it must not be merged into below,
+                    // the repository still returns it until the flush.
+                    $items = array_values(array_filter(
+                        $items,
+                        static fn (GroceryItem $i) => (string) $i->getId() !== (string) $gone->getId(),
+                    ));
                 }
-
-                $item = $this->findMergeable($list, (string) $ingredient->getId(), $unit);
-
-                if (null !== $item) {
-                    $item->setQuantity(($item->getQuantity() ?? 0.0) + $quantity);
-                    $this->keepEarliestBuyAfter($item, $buyAfter);
-                } else {
-                    $item = new GroceryItem();
-                    $item->setProduct($ingredient);
-                    $item->setQuantity($quantity);
-                    $item->setUnit($unit);
-                    $item->setSource(GroceryItemSource::Recipe);
-                    $item->setStore($ingredient->getPreferredStore());
-                    $item->setBuyAfter($buyAfter);
-                    $item->setPosition($this->nextPosition($list));
-                    $list->addItem($item);
-                    $this->em->persist($item);
-                }
-
-                $contribution = new MealGroceryContribution();
-                $contribution->setMeal($meal);
-                $contribution->setGroceryItem($item);
-                $contribution->setQuantity($quantity);
-                $contribution->setUnit($unit);
-                $this->em->persist($contribution);
-
-                $contributions[$key] = $contribution;
             }
         }
 
+        foreach ($wanted as $key => $line) {
+            $buyAfter = $this->buyAfter($mealDate, $line['ingredient']->getShelfLifeDays());
+            $contribution = $held[$key] ?? null;
+
+            if (null !== $contribution) {
+                // The meal already holds this line: move it by the difference
+                // rather than deleting and re-adding. A line keeps its id and
+                // its place in the shopper's order through a meal being moved
+                // from lunch to dinner.
+                $this->adjust($contribution, $line['quantity'], $buyAfter);
+
+                continue;
+            }
+
+            $item = $this->findMergeable($items, (string) $line['ingredient']->getId(), $line['unit']);
+
+            if (null !== $item) {
+                $item->setQuantity(($item->getQuantity() ?? 0.0) + $line['quantity']);
+                $this->keepEarliestBuyAfter($item, $buyAfter);
+            } else {
+                $item = new GroceryItem();
+                $item->setProduct($line['ingredient']);
+                $item->setQuantity($line['quantity']);
+                $item->setUnit($line['unit']);
+                $item->setSource(GroceryItemSource::Recipe);
+                $item->setStore($line['ingredient']->getPreferredStore());
+                $item->setBuyAfter($buyAfter);
+                $item->setPosition(++$position);
+                $list->addItem($item);
+                $this->em->persist($item);
+                $items[] = $item;
+            }
+
+            $contribution = new MealGroceryContribution();
+            $contribution->setMeal($meal);
+            $contribution->setGroceryItem($item);
+            $contribution->setQuantity($line['quantity']);
+            $contribution->setUnit($line['unit']);
+            $this->em->persist($contribution);
+        }
+
         $list->setUpdatedAt(new \DateTimeImmutable());
+        $this->em->flush();
 
         return $list;
     }
 
     /**
-     * Takes back what the meal put on the list.
+     * Takes back everything the meal put on the list.
      *
      * Returns the list it touched, or null when the meal never contributed —
-     * there is then nothing to broadcast.
+     * there is then nothing to broadcast. Does not flush: the caller commits,
+     * so that removing the meal and its shopping is one transaction.
      */
     public function revoke(Meal $meal): ?GroceryList
     {
@@ -146,36 +161,8 @@ class MealGrocerySync
         $list = null;
 
         foreach ($contributions as $contribution) {
-            $item = $contribution->getGroceryItem();
-            $list ??= $item->getGroceryList();
-
-            $this->em->remove($contribution);
-
-            // Already bought: the shopper carried it home, so the line stays
-            // as it is — only the link to the meal goes.
-            if ($item->isChecked()) {
-                continue;
-            }
-
-            $remaining = ($item->getQuantity() ?? 0.0) - $contribution->getQuantity();
-            $heldByAnotherMeal = $this->isHeldByAnotherMeal($item, $contribution);
-
-            if ($remaining > self::EPSILON) {
-                $item->setQuantity($remaining);
-
-                continue;
-            }
-
-            if (!$heldByAnotherMeal && GroceryItemSource::Recipe === $item->getSource()) {
-                $item->getGroceryList()->removeItem($item);
-                $this->em->remove($item);
-
-                continue;
-            }
-
-            // A line the user added by hand, or one another meal still needs:
-            // it survives, emptied of this meal's share.
-            $item->setQuantity($heldByAnotherMeal ? 0.0 : null);
+            $list ??= $contribution->getGroceryItem()->getGroceryList();
+            $this->takeBack($contribution);
         }
 
         $list?->setUpdatedAt(new \DateTimeImmutable());
@@ -183,15 +170,114 @@ class MealGrocerySync
         return $list;
     }
 
-    private function hasIngredients(Meal $meal): bool
+    /**
+     * Drops one contribution and subtracts its share from the line it held.
+     *
+     * Returns the line if it left the list entirely, null if it survived.
+     */
+    private function takeBack(MealGroceryContribution $contribution): ?GroceryItem
     {
+        $item = $contribution->getGroceryItem();
+        $this->em->remove($contribution);
+
+        // Already bought: the shopper carried it home, so the line stays as it
+        // is — only the link to the meal goes.
+        if ($item->isChecked()) {
+            return null;
+        }
+
+        $remaining = ($item->getQuantity() ?? 0.0) - $contribution->getQuantity();
+        $heldByAnotherMeal = $this->isHeldByAnotherMeal($item, $contribution);
+
+        if ($remaining > self::EPSILON) {
+            $item->setQuantity($remaining);
+
+            return null;
+        }
+
+        if (!$heldByAnotherMeal && GroceryItemSource::Recipe === $item->getSource()) {
+            $item->getGroceryList()->removeItem($item);
+            $this->em->remove($item);
+
+            return $item;
+        }
+
+        // A line the user added by hand, or one another meal still needs: it
+        // survives, emptied of this meal's share.
+        $item->setQuantity($heldByAnotherMeal ? 0.0 : null);
+
+        return null;
+    }
+
+    /** Moves a line the meal still needs by the difference, in place. */
+    private function adjust(MealGroceryContribution $contribution, float $quantity, ?\DateTimeImmutable $buyAfter): void
+    {
+        $item = $contribution->getGroceryItem();
+        $delta = $quantity - $contribution->getQuantity();
+        $contribution->setQuantity($quantity);
+
+        // Already in the basket: neither the amount nor the date means
+        // anything to the shopper any more.
+        if ($item->isChecked()) {
+            return;
+        }
+
+        if (abs($delta) > self::EPSILON) {
+            $item->setQuantity(max(0.0, ($item->getQuantity() ?? 0.0) + $delta));
+        }
+
+        if ($this->isHeldByAnotherMeal($item, $contribution)) {
+            // Shared: the earliest date wins, so moving one meal later cannot
+            // hide a line another meal needs sooner.
+            $this->keepEarliestBuyAfter($item, $buyAfter);
+
+            return;
+        }
+
+        $item->setBuyAfter($buyAfter);
+    }
+
+    /**
+     * What the meal needs, keyed by product and unit, the quantities of its
+     * recipes already added up.
+     *
+     * @return array<string, array{ingredient: \Maggie\Cookbook\Entity\Ingredient, unit: Unit, quantity: float}>
+     */
+    private function wantedLines(Meal $meal): array
+    {
+        $lines = [];
+
         foreach ($meal->getRecipes() as $recipe) {
-            if ($recipe->getIngredients()->count() > 0) {
-                return true;
+            foreach ($recipe->getIngredients() as $ri) {
+                $key = $this->key((string) $ri->getIngredient()->getId(), $ri->getUnit());
+
+                if (isset($lines[$key])) {
+                    $lines[$key]['quantity'] += $ri->getQuantity();
+
+                    continue;
+                }
+
+                $lines[$key] = [
+                    'ingredient' => $ri->getIngredient(),
+                    'unit' => $ri->getUnit(),
+                    'quantity' => $ri->getQuantity(),
+                ];
             }
         }
 
-        return false;
+        return $lines;
+    }
+
+    private function key(string $productId, ?Unit $unit): string
+    {
+        return $productId.':'.($unit?->value ?? '');
+    }
+
+    private function keyOfContribution(MealGroceryContribution $contribution): string
+    {
+        $product = $contribution->getGroceryItem()->getProduct();
+
+        return $this->key(null !== $product ? (string) $product->getId() : '', $contribution->getUnit());
     }
 
     /**
@@ -199,10 +285,12 @@ class MealGrocerySync
      *
      * Checked lines are skipped: adding to something already in the basket
      * would hide the new need.
+     *
+     * @param GroceryItem[] $items
      */
-    private function findMergeable(GroceryList $list, string $productId, Unit $unit): ?GroceryItem
+    private function findMergeable(array $items, string $productId, Unit $unit): ?GroceryItem
     {
-        foreach ($list->getItems() as $existing) {
+        foreach ($items as $existing) {
             if ($existing->isChecked()) {
                 continue;
             }
@@ -217,10 +305,10 @@ class MealGrocerySync
         return null;
     }
 
-    private function isHeldByAnotherMeal(GroceryItem $item, MealGroceryContribution $revoked): bool
+    private function isHeldByAnotherMeal(GroceryItem $item, MealGroceryContribution $own): bool
     {
         foreach ($this->contributionRepository->findByGroceryItem($item) as $other) {
-            if ((string) $other->getId() !== (string) $revoked->getId()) {
+            if ((string) $other->getId() !== (string) $own->getId()) {
                 return true;
             }
         }
@@ -256,14 +344,29 @@ class MealGrocerySync
         }
     }
 
-    private function nextPosition(GroceryList $list): int
+    /** @param GroceryItem[] $items */
+    private function highestPosition(array $items): int
     {
         $max = 0;
 
-        foreach ($list->getItems() as $existing) {
+        foreach ($items as $existing) {
             $max = max($max, $existing->getPosition());
         }
 
-        return $max + 1;
+        return $max;
+    }
+
+    /**
+     * The list's lines, read through the repository rather than through
+     * `$list->getItems()`: a lazy ghost proxy can leave the PersistentCollection
+     * uninitialized and report no elements when the database has rows
+     * (EndErrandHandler documents the same trap). Here that would turn every
+     * merge into an append — the bug this class exists to fix.
+     *
+     * @return GroceryItem[]
+     */
+    private function itemsOf(GroceryList $list): array
+    {
+        return $this->em->getRepository(GroceryItem::class)->findBy(['groceryList' => $list]);
     }
 }

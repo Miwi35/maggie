@@ -83,11 +83,8 @@ class CreateMealHandler
 
         $meal = $this->createMeal->execute($meal);
 
-        $list = $this->mealGrocerySync->apply($meal);
-        $this->em->flush();
-
         // The handler returns the meal, so nothing else pushes the list.
-        $this->groceryListBroadcaster->broadcast($list);
+        $this->groceryListBroadcaster->broadcast($this->mealGrocerySync->sync($meal));
 
         return $meal;
     }

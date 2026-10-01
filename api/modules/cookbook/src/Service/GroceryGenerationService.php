@@ -49,12 +49,18 @@ class GroceryGenerationService
 
         $today = new \DateTimeImmutable('today', new \DateTimeZone('Europe/Paris'));
 
+        // Read once, after the meals are in: a line a meal just added must
+        // count as already waiting.
+        $items = $this->itemsOf($list);
+        $position = $this->highestPosition($items);
+        $added = [];
+
         foreach ($this->recurringGroceryItemRepository->findByUser($user) as $recurring) {
             if (!$recurring->isDueOn($today)) {
                 continue;
             }
 
-            if (!$this->alreadyOnTheList($list, $recurring)) {
+            if (!$this->alreadyOnTheList($items, $recurring)) {
                 $item = new GroceryItem();
                 $item->setProduct($recurring->getProduct());
                 $item->setCustomLabel($recurring->getCustomLabel());
@@ -62,31 +68,45 @@ class GroceryGenerationService
                 $item->setUnit($recurring->getUnit());
                 $item->setSource(GroceryItemSource::Recurring);
                 $item->setStore($recurring->getProduct()?->getPreferredStore());
-                $item->setPosition($this->nextPosition($list));
+                $item->setPosition(++$position);
                 $list->addItem($item);
                 $this->em->persist($item);
+                $items[] = $item;
             }
 
             // Set even when the line was already there: the need is covered,
             // and the clock restarts from the day it was.
             $recurring->setLastAddedAt($today);
+            $added[] = $recurring;
+        }
+
+        $list->setUpdatedAt(new \DateTimeImmutable());
+        $this->em->flush();
+
+        // After the commit, never before: the indexing command is handled
+        // asynchronously, and a worker reading the row ahead of the
+        // transaction would index the previous date for ever — the collection
+        // is served from Elasticsearch, so the drift would be silent.
+        foreach ($added as $recurring) {
             $this->bus->dispatch(new IndexDocumentCommand(
                 entityClass: RecurringGroceryItem::class,
                 entityId: (string) $recurring->getId(),
             ));
         }
 
-        $list->setUpdatedAt(new \DateTimeImmutable());
-
         return $list;
     }
 
-    /** An unchecked line for the same product — or the same words — already waiting. */
-    private function alreadyOnTheList(GroceryList $list, RecurringGroceryItem $recurring): bool
+    /**
+     * An unchecked line for the same product — or the same words — already waiting.
+     *
+     * @param GroceryItem[] $items
+     */
+    private function alreadyOnTheList(array $items, RecurringGroceryItem $recurring): bool
     {
         $productId = null !== $recurring->getProduct() ? (string) $recurring->getProduct()->getId() : null;
 
-        foreach ($list->getItems() as $existing) {
+        foreach ($items as $existing) {
             if ($existing->isChecked()) {
                 continue;
             }
@@ -109,14 +129,29 @@ class GroceryGenerationService
         return false;
     }
 
-    private function nextPosition(GroceryList $list): int
+    /** @param GroceryItem[] $items */
+    private function highestPosition(array $items): int
     {
         $max = 0;
 
-        foreach ($list->getItems() as $existing) {
+        foreach ($items as $existing) {
             $max = max($max, $existing->getPosition());
         }
 
-        return $max + 1;
+        return $max;
+    }
+
+    /**
+     * The list's lines, read through the repository rather than through
+     * `$list->getItems()`: a lazy ghost proxy can leave the PersistentCollection
+     * uninitialized and report no elements when the database has rows
+     * (EndErrandHandler documents the same trap). Here that would add every
+     * recurring item again, list after list.
+     *
+     * @return GroceryItem[]
+     */
+    private function itemsOf(GroceryList $list): array
+    {
+        return $this->em->getRepository(GroceryItem::class)->findBy(['groceryList' => $list]);
     }
 }

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Maggie\Cookbook\MessageHandler;
 
-use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Cookbook\Message\DeleteMealCommand;
 use Maggie\Cookbook\Repository\MealRepository;
 use Maggie\Cookbook\Service\MealGrocerySync;
@@ -20,7 +19,6 @@ class DeleteMealHandler
         private readonly MealRepository $mealRepository,
         private readonly MealGrocerySync $mealGrocerySync,
         private readonly GroceryListBroadcaster $groceryListBroadcaster,
-        private readonly EntityManagerInterface $em,
     ) {
     }
 
@@ -29,9 +27,11 @@ class DeleteMealHandler
         $meal = $this->mealRepository->find($command->mealId)
             ?? throw new \DomainException("Meal not found: {$command->mealId}");
 
-        // Before the meal goes: a cancelled dinner is shopping nobody has to do.
+        // A cancelled dinner is shopping nobody has to do. Not flushed here:
+        // `DeleteMeal` commits, so the ingredients leave the list and the meal
+        // leaves the agenda in one transaction — a delete that fails must not
+        // leave the shopping already gone.
         $list = $this->mealGrocerySync->revoke($meal);
-        $this->em->flush();
 
         $this->deleteMeal->execute($meal);
 

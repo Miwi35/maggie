@@ -15,8 +15,10 @@ use Maggie\Cookbook\Message\DeleteMealCommand;
 use Maggie\Cookbook\Message\GenerateGroceryListCommand;
 use Maggie\Cookbook\Message\UpdateMealCommand;
 use Maggie\Core\Entity\User;
+use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\RecurringGroceryItem;
+use Maggie\Grocery\Enum\GroceryItemSource;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
@@ -37,19 +39,28 @@ class MealGrocerySyncTest extends KernelTestCase
     use SecurityTokenTrait;
 
     private const TOMORROW = '+1 day';
+    private const GROCERY_TOPIC = '/api/grocery_lists/';
 
     protected function setUp(): void
     {
         self::bootKernel();
+        $this->given();
+    }
+
+    /**
+     * The world, optionally with more of it than the base fixture describes.
+     *
+     * Alice builds each recipe's ingredient collection from the other side, so
+     * in memory a recipe looks ingredient-less. Detaching everything makes the
+     * handlers read what the database really holds — which is what they get in
+     * production.
+     */
+    private function given(string ...$extraFixtures): void
+    {
         $this->resetMercure();
         $this->resetAsyncTransport();
-        $this->loadFixtures('MealGrocerySyncTest.yaml');
+        $this->loadFixtures('MealGrocerySyncTest.yaml', ...$extraFixtures);
         $this->loginFixtureUser();
-
-        // Alice builds each recipe's ingredient collection from the other
-        // side, so in memory a recipe looks ingredient-less. Detach
-        // everything and the handlers read what the database really holds —
-        // which is what they get in production.
         $this->em()->clear();
     }
 
@@ -59,8 +70,18 @@ class MealGrocerySyncTest extends KernelTestCase
 
         self::assertSame(['Pâtes' => 400.0, 'Tomate' => 4.0], $this->list());
 
-        $this->assertMercureUpdatePublished('/api/grocery_lists/');
+        $this->assertMercureUpdatePublished(self::GROCERY_TOPIC);
         $this->assertElasticsearchIndexDispatched(GroceryList::class);
+    }
+
+    public function testTheListIsPublishedOnceAndOnlyOnce(): void
+    {
+        // The broadcaster exists because the middlewares only see the
+        // handler's return value; calling both would publish twice, and the
+        // admin would rerender the whole list for nothing.
+        $this->planMeal('pasta');
+
+        self::assertSame(1, $this->groceryUpdateCount(), 'the grocery list must be published exactly once');
     }
 
     public function testSwappingARecipeTakesTheOldIngredientsOffTheList(): void
@@ -68,16 +89,29 @@ class MealGrocerySyncTest extends KernelTestCase
         $mealId = $this->planMeal('pasta');
         $this->resetMercure();
 
-        $this->bus()->dispatch(new UpdateMealCommand(
-            mealId: $mealId,
-            date: null,
-            slot: null,
-            recipeIds: [(string) $this->getFixture('gratin')->getId()],
-        ));
+        $this->replaceRecipes($mealId, 'gratin');
 
         // The pasta is gone, the tomatoes are down to what the gratin needs.
         self::assertSame(['Parmesan' => 80.0, 'Tomate' => 2.0], $this->list());
-        $this->assertMercureUpdatePublished('/api/grocery_lists/');
+        $this->assertMercureUpdatePublished(self::GROCERY_TOPIC);
+    }
+
+    public function testMovingAMealKeepsTheLineWhereTheShopperPutIt(): void
+    {
+        $mealId = $this->planMeal('pasta');
+        $before = $this->lines();
+
+        // Nothing about the shopping changes — only the day.
+        $this->bus()->dispatch(new UpdateMealCommand(
+            mealId: $mealId,
+            date: (new \DateTimeImmutable('+3 days', new \DateTimeZone('Europe/Paris')))->format('Y-m-d'),
+            slot: 'lunch',
+            recipeIds: null,
+        ));
+
+        // Same rows, same ids, same places: a line deleted and re-created
+        // would lose the order the shopper gave it, and flicker on screen.
+        self::assertSame($before, $this->lines());
     }
 
     public function testEmptyingAMealOfItsRecipesEmptiesItsShareOfTheList(): void
@@ -99,7 +133,7 @@ class MealGrocerySyncTest extends KernelTestCase
 
         self::assertSame([], $this->list());
         self::assertSame(0, $this->contributionCount());
-        $this->assertMercureUpdatePublished('/api/grocery_lists/');
+        $this->assertMercureUpdatePublished(self::GROCERY_TOPIC);
     }
 
     public function testTwoMealsShareOneLineAndEachOnlyTakesBackItsOwnShare(): void
@@ -127,6 +161,58 @@ class MealGrocerySyncTest extends KernelTestCase
         self::assertSame(['Tomate' => 4.0], $this->list());
     }
 
+    public function testALineTheUserWroteSurvivesTheMealThatJoinedIt(): void
+    {
+        $this->given('MealGrocerySyncTest.handwritten.yaml');
+
+        $mealId = $this->planMeal('pasta');
+
+        // Merged into the line the user already wrote, not added beside it.
+        self::assertSame(['Pâtes' => 400.0, 'Tomate' => 4.0], $this->list());
+        self::assertSame(GroceryItemSource::Manual, $this->item('Tomate')->getSource());
+
+        $this->bus()->dispatch(new DeleteMealCommand(mealId: $mealId));
+
+        // The user's own line stays, emptied of the meal's share.
+        self::assertSame(['Tomate' => null], $this->list());
+        self::assertSame(GroceryItemSource::Manual, $this->item('Tomate')->getSource());
+    }
+
+    public function testAPerishableIsNotToBeBoughtBeforeItKeeps(): void
+    {
+        $this->planMealOn('fish_dish', '+10 days');
+
+        $expected = (new \DateTimeImmutable('+8 days', new \DateTimeZone('Europe/Paris')))->format('Y-m-d');
+        self::assertSame($expected, $this->item('Cabillaud')->getBuyAfter()?->format('Y-m-d'));
+    }
+
+    public function testBringingAPerishableMealForwardMakesItBuyableNow(): void
+    {
+        $mealId = $this->planMealOn('fish_dish', '+10 days');
+        self::assertNotNull($this->item('Cabillaud')->getBuyAfter());
+
+        $this->bus()->dispatch(new UpdateMealCommand(
+            mealId: $mealId,
+            date: (new \DateTimeImmutable(self::TOMORROW, new \DateTimeZone('Europe/Paris')))->format('Y-m-d'),
+            slot: null,
+            recipeIds: null,
+        ));
+
+        // Two days' keeping and the meal is tomorrow: buy it whenever.
+        self::assertNull($this->item('Cabillaud')->getBuyAfter());
+    }
+
+    public function testTheNeighboursListIsNeverTouched(): void
+    {
+        $this->given('MealGrocerySyncTest.neighbour.yaml');
+
+        $this->planMeal('pasta');
+        $this->generate();
+
+        $other = $this->getFixture('other_user');
+        self::assertSame(['Tomate' => 9.0], $this->list($other->getId()));
+    }
+
     public function testGeneratingTwiceDoesNotBuyTheSameMealTwice(): void
     {
         $this->planMeal('pasta');
@@ -141,13 +227,25 @@ class MealGrocerySyncTest extends KernelTestCase
     {
         $this->generate();
 
-        // The bleach is monthly and was added three days ago.
+        // The coffee is fortnightly and ten days old, the bleach monthly and
+        // three days old. Only the milk, never added, is wanted.
         self::assertSame(['Lait' => 1.0], $this->list());
 
         $today = new \DateTimeImmutable('today', new \DateTimeZone('Europe/Paris'));
         self::assertSame($today->format('Y-m-d'), $this->recurring('Lait')->getLastAddedAt()?->format('Y-m-d'));
+        self::assertNotSame($today->format('Y-m-d'), $this->recurring('Café')->getLastAddedAt()?->format('Y-m-d'));
         self::assertNotSame($today->format('Y-m-d'), $this->recurring('Javel')->getLastAddedAt()?->format('Y-m-d'));
         $this->assertElasticsearchIndexDispatched(RecurringGroceryItem::class);
+    }
+
+    public function testAFortnightlyItemComesBackAfterItsFortnight(): void
+    {
+        $this->recurring('Café')->setLastAddedAt(new \DateTimeImmutable('-15 days'));
+        $this->em()->flush();
+
+        $this->generate();
+
+        self::assertSame(['Café' => 1.0, 'Lait' => 1.0], $this->list());
     }
 
     public function testARecurringItemDueAgainIsAddedOnTheNextGeneration(): void
@@ -169,14 +267,29 @@ class MealGrocerySyncTest extends KernelTestCase
     /** Plans tomorrow's dinner from one fixture recipe and returns its id. */
     private function planMeal(string $recipeRef): string
     {
+        return $this->planMealOn($recipeRef, self::TOMORROW);
+    }
+
+    private function planMealOn(string $recipeRef, string $when): string
+    {
         $envelope = $this->bus()->dispatch(new CreateMealCommand(
-            date: (new \DateTimeImmutable(self::TOMORROW, new \DateTimeZone('Europe/Paris')))->format('Y-m-d'),
+            date: (new \DateTimeImmutable($when, new \DateTimeZone('Europe/Paris')))->format('Y-m-d'),
             slot: 'dinner',
             recipeIds: [(string) $this->getFixture($recipeRef)->getId()],
             userId: (string) $this->user()->getId(),
         ));
 
         return (string) $envelope->last(HandledStamp::class)->getResult()->getId();
+    }
+
+    private function replaceRecipes(string $mealId, string ...$recipeRefs): void
+    {
+        $this->bus()->dispatch(new UpdateMealCommand(
+            mealId: $mealId,
+            date: null,
+            slot: null,
+            recipeIds: array_map(fn (string $ref) => (string) $this->getFixture($ref)->getId(), $recipeRefs),
+        ));
     }
 
     private function generate(): void
@@ -207,12 +320,12 @@ class MealGrocerySyncTest extends KernelTestCase
      *
      * @return array<string, float|null>
      */
-    private function list(): array
+    private function list(?object $userId = null): array
     {
         $this->em()->clear();
 
         $items = [];
-        foreach ($this->groceryList()->getItems() as $item) {
+        foreach ($this->groceryList($userId)->getItems() as $item) {
             $items[$item->getLabel()] = $item->getQuantity();
         }
         ksort($items);
@@ -243,10 +356,60 @@ class MealGrocerySyncTest extends KernelTestCase
         return $items;
     }
 
-    private function groceryList(): GroceryList
+    /**
+     * Identity and place of each line — what a delete-and-recreate destroys.
+     *
+     * @return array<string, array{id: string, position: int}>
+     */
+    private function lines(): array
     {
-        return $this->em()->getRepository(GroceryList::class)->findOneBy([])
+        $this->em()->clear();
+
+        $lines = [];
+        foreach ($this->groceryList()->getItems() as $item) {
+            $lines[$item->getLabel()] = ['id' => (string) $item->getId(), 'position' => $item->getPosition()];
+        }
+        ksort($lines);
+
+        return $lines;
+    }
+
+    private function item(string $label): GroceryItem
+    {
+        $this->em()->clear();
+
+        foreach ($this->groceryList()->getItems() as $item) {
+            if ($item->getLabel() === $label) {
+                return $item;
+            }
+        }
+
+        throw new \LogicException("No grocery line labelled {$label}.");
+    }
+
+    private function groceryList(?object $userId = null): GroceryList
+    {
+        $criteria = null !== $userId ? ['user' => $userId] : [];
+
+        return $this->em()->getRepository(GroceryList::class)->findOneBy($criteria)
             ?? throw new \LogicException('No grocery list was created.');
+    }
+
+    /** How many Mercure updates went out on the grocery list's own topic. */
+    private function groceryUpdateCount(): int
+    {
+        $count = 0;
+
+        foreach ($this->getMercureHub()->getUpdates() as $update) {
+            foreach ($update->getTopics() as $topic) {
+                if (str_contains($topic, self::GROCERY_TOPIC)) {
+                    ++$count;
+                    break;
+                }
+            }
+        }
+
+        return $count;
     }
 
     private function recurring(string $label): RecurringGroceryItem
@@ -262,7 +425,7 @@ class MealGrocerySyncTest extends KernelTestCase
 
     private function user(): User
     {
-        return $this->em()->getRepository(User::class)->findOneBy([])
+        return $this->em()->getRepository(User::class)->findOneBy(['email' => 'cookbook-test@example.com'])
             ?? throw new \LogicException('No user.');
     }
 
