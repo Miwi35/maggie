@@ -9,6 +9,7 @@ import {
   required,
 } from 'react-admin'
 import { CiqualFoodAutocomplete } from './CiqualFoodAutocomplete'
+import { TagsInput } from './TagsInput'
 
 const unitChoices = [
   { id: 'g', name: 'g' },
@@ -29,7 +30,7 @@ export const RecipeCreate = () => (
     <SimpleForm>
       <TextInput source="name" label="Nom" validate={required()} fullWidth />
       <NumberInput source="servings" label="Portions" defaultValue={4} />
-      <TextInput source="tags" label="Tags (séparés par des virgules)" fullWidth />
+      <TagsInput source="tags" label="Tags (séparés par des virgules)" />
       <TextInput source="notes" label="Notes" multiline rows={3} fullWidth />
       <ArrayInput source="ingredients" label="Ingrédients">
         <SimpleFormIterator inline>
