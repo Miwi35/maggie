@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from app.config import settings
+from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
 from app.queue.scheduler import next_planning_time, plan_all_users
 
@@ -83,6 +84,26 @@ class TestPlanAllUsers:
         await plan_all_users(gateway)
 
         gateway.proaction.assert_not_awaited()
+
+    async def test_a_behaviour_preference_is_not_a_reason_to_plan(self, agent_db):
+        """« Tutoie-moi » says nothing about when to act, so it must not wake the planner (MAG-22)."""
+        await instruction_repo.store("talker", "Tutoie-moi", kind=InstructionKind.BEHAVIOR)
+        gateway = AsyncMock()
+
+        await plan_all_users(gateway)
+
+        gateway.proaction.assert_not_awaited()
+
+    async def test_a_user_with_both_is_still_planned_once(self, agent_db):
+        await instruction_repo.store("user-42", "Digest du matin à 7h", kind=InstructionKind.PLANNING)
+        await instruction_repo.store("user-42", "Tutoie-moi", kind=InstructionKind.BEHAVIOR)
+        gateway = AsyncMock()
+        gateway.proaction.return_value = {"response": "ok"}
+
+        await plan_all_users(gateway)
+
+        gateway.proaction.assert_awaited_once()
+        assert gateway.proaction.await_args.args[1] == "user-42"
 
     async def test_one_failing_user_does_not_stop_the_others(self, agent_db):
         await instruction_repo.store("user-a", "Rule 1")

@@ -76,6 +76,14 @@ const RECALL = {
 /** 80-proaction-bin-night.yaml — what a scheduled proaction would say. */
 const PROACTION = { prompt: 'Rappelle-lui de sortir les poubelles', message: 'Petit rappel : les poubelles sortent ce soir.' }
 
+/** 60-behavior-preference.yaml + 61-behavior-applied.yaml — a preference about how she answers. */
+const BEHAVIOR = {
+  request: 'Tutoie-moi et évite les emojis',
+  directive: 'Tutoie-moi et évite les emojis',
+  question: 'Dis-moi bonjour',
+  answer: "Bonjour ! Je te réponds sans emoji, comme tu me l'as demandé.",
+}
+
 test('a scripted question runs its tool and streams the answer back', async ({ page }) => {
   const dashboard = new DashboardPage(page)
   await dashboard.open()
@@ -371,4 +379,62 @@ test('a long thread is summarized, and the summary reaches Maggie and the Mind p
     `the summary never reached the system prompt — Maggie said: ${answer}`,
   ).toBe(false)
   expect(answer).toContain(RECALL.answer)
+})
+
+interface AgentInstruction {
+  content: string
+  kind: string
+}
+
+/**
+ * MAG-22, and the same shape as the summary test above it, for the same reason:
+ * a preference stored and never injected is worth nothing, and a system prompt
+ * is not observable from a browser.
+ *
+ * Three steps. The owner asks to be spoken to differently; the directive has to
+ * land as a `behavior` one, because a `planning` one is only ever read by the
+ * daily proaction planning — which is exactly the bug this ticket fixed, and a
+ * bug no assertion on her wording could see. Then the proof: the second
+ * message's scenario declares the preference's own text as `system_contains`,
+ * so it is unreachable unless `_build_system_prompt` put it in front of the
+ * model.
+ *
+ * Last in the file, after the thread summary: it adds two exchanges, and the
+ * tests above count the messages their own assertions depend on.
+ */
+test('a preference about how Maggie answers is stored, then applied to the next message', async ({
+  page,
+  api,
+}) => {
+  const dashboard = new DashboardPage(page)
+  await dashboard.open()
+
+  const chat = new ChatPanel(page)
+  const asked = await chat.send(BEHAVIOR.request)
+
+  const confirmation = assistantText(asked)
+  expect(isUnscripted(confirmation), `no scenario matched — Maggie said: ${confirmation}`).toBe(
+    false,
+  )
+  expect(calledTools(asked)).toContain('add_instruction')
+
+  // The row, not her wording: the fake does not read tool results, so a scripted
+  // "c'est noté" proves nothing landed. And `?kind=behavior` is the assertion
+  // that matters — filed as a planning rule, the directive would be stored,
+  // listed in the admin, and still never reach a single answer.
+  const response = await api.get('/agent/instructions?kind=behavior')
+  expect(response.status(), 'the instructions endpoint refused the journey').toBe(200)
+  const directives = (await response.json()) as AgentInstruction[]
+  expect(directives.map((directive) => directive.content)).toContain(BEHAVIOR.directive)
+  expect(new Set(directives.map((directive) => directive.kind))).toEqual(new Set(['behavior']))
+
+  // And the step that proves the injection.
+  const applied = await chat.send(BEHAVIOR.question)
+  const answer = assistantText(applied)
+  expect(
+    isUnscripted(answer),
+    `the preference never reached the system prompt — Maggie said: ${answer}`,
+  ).toBe(false)
+  expect(answer).toContain(BEHAVIOR.answer)
+  await expect(chat.bubbles(BEHAVIOR.answer)).toHaveCount(1)
 })

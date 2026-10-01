@@ -20,7 +20,7 @@ _CATEGORY_MAP: dict[str, tuple[str, str]] = {
     "store": ("Cuisine", "gérer les magasins"),
     "stores": ("Cuisine", "gérer les magasins"),
     "memory": ("Mémoire", "retenir et retrouver des informations sur l'utilisateur"),
-    "instruction": ("Directives", "enregistrer des règles de planification autonome"),
+    "instruction": ("Directives", "enregistrer des règles de planification et des préférences de ton"),
     "skill": ("Compétences", "apprendre de nouvelles procédures"),
     "proaction": ("Proactions", "programmer des rappels et tâches autonomes"),
     "search": ("Recherche", "recherche plein texte dans toutes les données"),

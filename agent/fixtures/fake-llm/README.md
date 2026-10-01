@@ -81,6 +81,12 @@ turns into a journey failing several steps further on. `12-context-summary.yaml`
 covers the call and `71-context-summary-recall.yaml` proves the injection, by
 matching on the summary's own text in the system prompt.
 
+A behaviour preference (`add_instruction` with `kind: behavior`, MAG-22) is
+stored and injected the same way, and is proved the same way:
+`60-behavior-preference.yaml` stores « Tutoie-moi et évite les emojis » and
+`61-behavior-applied.yaml` declares that sentence as its `system_contains`, so
+it can only answer once the preference really is in front of the model.
+
 A proaction is the one entry point with no context routing and no conversation
 history: the prompt is the whole request. `80-proaction-bin-night.yaml` is the
 one the chat journey triggers.

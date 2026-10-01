@@ -13,6 +13,7 @@ import DialogActions from '@mui/material/DialogActions'
 import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
 import IconButton from '@mui/material/IconButton'
+import MenuItem from '@mui/material/MenuItem'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
 import Stack from '@mui/material/Stack'
@@ -47,12 +48,34 @@ interface Proaction {
   createdAt: string | null
 }
 
+type InstructionKind = 'planning' | 'behavior'
+
 interface Instruction {
   id: string
   content: string
+  kind: InstructionKind
   createdAt: string | null
   updatedAt: string | null
 }
+
+/** What each kind is for, in the words of the tab (MAG-22). */
+const instructionKinds: Array<{ value: InstructionKind; label: string; placeholder: string }> = [
+  {
+    value: 'planning',
+    label: 'Planification',
+    placeholder: 'Ex: Envoie-moi un résumé de ma journée chaque matin à 9h',
+  },
+  {
+    value: 'behavior',
+    label: 'Comportement',
+    placeholder: 'Ex: Tutoie-moi et évite les emojis',
+  },
+]
+
+/** Derived, so the chip in the table and the option in the form cannot drift apart. */
+const instructionKindLabels = Object.fromEntries(
+  instructionKinds.map((kind) => [kind.value, kind.label]),
+) as Record<InstructionKind, string>
 
 interface SkillSummary {
   name: string
@@ -113,6 +136,7 @@ export const AgentSettings = () => {
   // Instructions state
   const [instructions, setInstructions] = useState<Instruction[]>([])
   const [newInstructionContent, setNewInstructionContent] = useState('')
+  const [newInstructionKind, setNewInstructionKind] = useState<InstructionKind>('planning')
   const [addingInstruction, setAddingInstruction] = useState(false)
 
   // Skills state
@@ -245,7 +269,7 @@ export const AgentSettings = () => {
     try {
       const res = await agentFetch('/instructions', {
         method: 'POST',
-        body: JSON.stringify({ content: newInstructionContent.trim() }),
+        body: JSON.stringify({ content: newInstructionContent.trim(), kind: newInstructionKind }),
       })
       if (res.ok) {
         const instruction = await res.json()
@@ -471,7 +495,8 @@ export const AgentSettings = () => {
         {tab === 1 && (
           <CardContent>
             <Typography variant="body2" color="text.secondary" mb={2}>
-              Directives qui guident Maggie lors de la planification automatique (quand agir).
+              Directives de planification (quand Maggie agit d&apos;elle-même) et préférences de
+              comportement (comment elle te répond, appliquées à chaque message).
             </Typography>
 
             {instructions.length > 0 && (
@@ -480,6 +505,7 @@ export const AgentSettings = () => {
                   <TableHead>
                     <TableRow>
                       <TableCell>Contenu</TableCell>
+                      <TableCell>Type</TableCell>
                       <TableCell>Créée le</TableCell>
                       <TableCell width={60} />
                     </TableRow>
@@ -489,6 +515,13 @@ export const AgentSettings = () => {
                       <TableRow key={i.id}>
                         <TableCell>
                           <Typography variant="body2">{i.content}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            size="small"
+                            label={instructionKindLabels[i.kind] ?? i.kind}
+                            color={i.kind === 'behavior' ? 'secondary' : 'default'}
+                          />
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2">{formatDateTime(i.createdAt)}</Typography>
@@ -507,6 +540,20 @@ export const AgentSettings = () => {
 
             <Stack direction="row" spacing={2} alignItems="flex-start">
               <TextField
+                select
+                label="Type"
+                value={newInstructionKind}
+                onChange={(e) => setNewInstructionKind(e.target.value as InstructionKind)}
+                size="small"
+                sx={{ minWidth: 160, mt: '4px !important' }}
+              >
+                {instructionKinds.map((kind) => (
+                  <MenuItem key={kind.value} value={kind.value}>
+                    {kind.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
                 label="Nouvelle instruction"
                 value={newInstructionContent}
                 onChange={(e) => setNewInstructionContent(e.target.value)}
@@ -515,7 +562,9 @@ export const AgentSettings = () => {
                 maxRows={4}
                 fullWidth
                 size="small"
-                placeholder="Ex: Envoie-moi un résumé de ma journée chaque matin à 9h"
+                placeholder={
+                  instructionKinds.find((kind) => kind.value === newInstructionKind)?.placeholder
+                }
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault()

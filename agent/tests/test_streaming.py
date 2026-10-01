@@ -202,6 +202,7 @@ async def _system_blocks(contexts: list) -> list[dict]:
     with (
         patch("app.llm.streaming.context_repo") as repo,
         patch("app.llm.streaming.skill_index") as skills,
+        patch("app.llm.streaming.behavior_directives_section", AsyncMock(return_value="")),
     ):
         repo.find_active = AsyncMock(return_value=contexts)
         skills.get_skills_index.return_value = ""

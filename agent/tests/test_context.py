@@ -130,7 +130,7 @@ class TestContextRepositorySummary:
         assert updated is not None
         assert (await context_repo.get(str(ctx.id))).summary == "Un résumé."
 
-    async def test_run_migrations_adds_both_columns(self):
+    async def test_run_migrations_adds_every_column_it_carries(self):
         """The agent database has no migration tool: a column only in the model never ships."""
         executed = []
         conn = AsyncMock()
@@ -148,6 +148,11 @@ class TestContextRepositorySummary:
         assert "conversation_context ADD COLUMN IF NOT EXISTS summary_updated_at TIMESTAMPTZ" in statements
         # The column the method already carried, which this one must not displace.
         assert "agent_message ADD COLUMN IF NOT EXISTS context_id" in statements
+        # MAG-22. Dropped here and the suite stays green, while the next deploy
+        # boots against a production database without the column: every read of
+        # `instruction` — the admin's list, `list_instructions`, the daily
+        # planner's `find_user_ids` — raises UndefinedColumn.
+        assert "instruction ADD COLUMN IF NOT EXISTS kind VARCHAR(20) NOT NULL DEFAULT 'planning'" in statements
 
 
 class TestContextRouteAuth:

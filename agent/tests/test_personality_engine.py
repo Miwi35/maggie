@@ -129,6 +129,30 @@ class TestPersonalityEngine:
         assert "Nous sommes le" not in prompt
         assert "Cap summary" in prompt
 
+    @pytest.mark.asyncio
+    async def test_the_shipped_prompt_tells_her_to_file_a_tone_preference(self):
+        """The half of MAG-22 that lives in the prompt, not in the code.
+
+        Injecting behaviour preferences is worth nothing if nothing ever tells the real
+        model to store one: the rule used to say directives guide the daily planning and
+        gave only recurring-schedule examples, so « tutoie-moi » matched nothing and was
+        never written. No scripted journey can see that — the fake LLM calls whatever
+        its fixture says — so the rule is pinned here.
+        """
+        engine = PersonalityEngine()
+
+        with patch("app.personality.engine.personality_repo") as mock_repo:
+            mock_repo.get = AsyncMock(return_value=None)
+            prompt = await engine.get_system_prompt("user-1")
+
+        assert 'kind="behavior"' in prompt
+        assert 'kind="planning"' in prompt
+        assert "tutoie-moi" in prompt.lower()
+        # And that the stored preference outranks the personality's own register: two
+        # rules below claim the register is the personality's to decide, and « tutoie-moi »
+        # is exactly the kind of preference that contradicts a vouvoyant backstory.
+        assert "suis ses préférences" in prompt.lower()
+
     def test_fallback_config_on_missing_yaml(self, tmp_path: Path):
         """When YAML file does not exist, hardcoded defaults are used."""
         engine = PersonalityEngine(config_path=tmp_path / "nonexistent.yaml")

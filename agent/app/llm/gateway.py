@@ -6,6 +6,7 @@ from app.config import settings
 from app.db.message_repository import message_repo
 from app.llm.capabilities import generate_capability_summary
 from app.llm.client import create_llm_client, llm_configured
+from app.llm.directives import behavior_directives_section
 from app.llm.prompt_cache import build_system
 from app.llm.runner import run_tool_loop
 from app.llm.tools import ToolRouter
@@ -40,12 +41,16 @@ class LLMGateway:
     async def _build_system_prompt(
         self, user_id: str, tools: list[dict] | None = None, preamble: str = ""
     ) -> list[dict]:
-        """Build the system blocks: cached prefix (personality + skill index), then memory, date and preamble."""
+        """Build the system blocks: cached prefix (personality + skills), then memory, directives, date, preamble."""
         capabilities = generate_capability_summary(tools) if tools else ""
         base = await self.personality.get_system_prompt(user_id, capabilities=capabilities)
         skill_context = skill_index.get_skills_index()
         memory_context = await self.agent_memory.get_memory_context(user_id)
-        volatile = f"{memory_context}\n\n{current_datetime_line()}{preamble}"
+        # A proaction is a message the user reads in the chat, so it owes the same
+        # preferences as a reply does — and in the volatile block, not the cached
+        # prefix, so « tutoie-moi » applies to the very next message (MAG-22).
+        directives = await behavior_directives_section(user_id)
+        volatile = f"{memory_context}{directives}\n\n{current_datetime_line()}{preamble}"
         return build_system(base + skill_context, volatile)
 
     async def _load_conversation_history(self, user_id: str) -> list[dict]:

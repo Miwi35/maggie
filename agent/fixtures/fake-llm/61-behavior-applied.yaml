@@ -1,0 +1,21 @@
+# Unreachable unless a behaviour preference is in the system prompt (MAG-22).
+#
+# The pair of 60-behavior-preference.yaml, and the only assertion a journey can
+# make about the injection: `system_contains` is matched on the system prompt
+# Maggie is actually sent, so this scenario can only answer once
+# `_build_system_prompt` has put the stored preference there. A preference
+# written to the database but never injected leaves this file unmatched, and the
+# journey fails on the `[fake-llm] aucun scénario…` sentence instead of on a
+# plausible answer.
+#
+# Numbered after the context router (10, 11) so the routing call — whose user
+# text quotes the message, this one included — is placed first.
+name: behavior-applied
+description: Answer in the voice the user asked for, read from the system prompt.
+
+match:
+  user_contains: "dis-moi bonjour"
+  system_contains: "tutoie-moi et évite les emojis"
+
+turns:
+  - text: "Bonjour ! Je te réponds sans emoji, comme tu me l'as demandé."
