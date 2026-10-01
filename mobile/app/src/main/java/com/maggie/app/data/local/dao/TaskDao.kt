@@ -35,6 +35,9 @@ interface TaskDao {
     @Query("DELETE FROM tasks WHERE id IN (:ids) AND syncStatus = :status")
     suspend fun deleteSyncedByIds(ids: List<String>, status: SyncStatus = SyncStatus.SYNCED)
 
+    @Query("SELECT * FROM tasks WHERE id = :taskId")
+    suspend fun getById(taskId: String): TaskEntity?
+
     @Query("DELETE FROM tasks WHERE id = :taskId")
     suspend fun deleteById(taskId: String)
 }

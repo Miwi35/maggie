@@ -378,6 +378,12 @@ class MaggieApiService(
         }.body<ApiCollection<Event>>().member
     }
 
+    suspend fun getEvent(id: String): Event {
+        return client.get("$baseUrl/api/events/$id") {
+            accept(ContentType("application", "ld+json"))
+        }.body()
+    }
+
     suspend fun getRecurringEventsBefore(before: String): List<Event> {
         return client.get("$baseUrl/api/events") {
             accept(ContentType("application", "ld+json"))
@@ -410,6 +416,12 @@ class MaggieApiService(
         return client.get("$baseUrl/api/tasks") {
             accept(ContentType("application", "ld+json"))
         }.body<ApiCollection<Task>>().member
+    }
+
+    suspend fun getTask(id: String): Task {
+        return client.get("$baseUrl/api/tasks/$id") {
+            accept(ContentType("application", "ld+json"))
+        }.body()
     }
 
     suspend fun getUndoneTasks(dueDateBefore: String? = null): List<Task> {

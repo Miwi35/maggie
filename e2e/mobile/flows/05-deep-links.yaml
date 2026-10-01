@@ -1,0 +1,62 @@
+appId: com.maggie.app.e2e
+name: 05-deep-links
+tags:
+  - navigation
+---
+# `maggie://` links open the running app on the right screen (MAG-28) — the way a
+# notification, a widget or a shortcut will. `openLink` fires the same VIEW intent
+# they do, at an app that is already open: MainActivity is `singleTop`, so the
+# link arrives in `onNewIntent` and `NavGraph` hands it to the NavController. A
+# regression there leaves the app where it was and no screen changes.
+#
+# The e2e flavor answers to `maggie-e2e://`, not `maggie://`: dev, prod and e2e
+# can be installed on one phone, and a shared scheme would open Android's app
+# chooser on every link (`DeepLinks.SCHEME`).
+#
+# What is not here: opening a seeded event, task, item or recipe. Their ids are
+# generated at each seed and a flow cannot know them. The entity links are
+# exercised through an id that exists nowhere — which still walks the whole
+# resolution path (route → lookup → fallback screen). That an id that does exist
+# opens its sheet is covered by the unit tests of the lookups.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+
+- runFlow: ../subflows/sign-in.yaml
+
+# A screen that stands alone, from the dashboard.
+- openLink: "maggie-e2e://finance"
+
+- extendedWaitUntil:
+    visible: "Finance"
+    timeout: 20000
+
+# The chat takes the message as a draft and does not send it: any app can fire a
+# link, and Maggie acts on what she is sent. « Envoyer » is enabled only while the
+# field holds text and nothing is being sent — a message that went out would
+# have emptied the field and disabled it.
+- openLink: "maggie-e2e://chat?message=Ajoute%20du%20lait"
+
+- extendedWaitUntil:
+    visible: ".*Ajoute du lait.*"
+    timeout: 20000
+
+- extendedWaitUntil:
+    visible:
+      text: "Envoyer"
+      enabled: true
+    timeout: 20000
+
+- assertNotVisible: ".*aucun scénario.*"
+
+# An event that does not exist: the link resolves, finds nothing, says so, and
+# lands on the calendar instead of leaving a spinner. The toast is not asserted —
+# it lives two seconds and a slow emulator would turn that into a flaky step.
+- openLink: "maggie-e2e://event/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+
+- extendedWaitUntil:
+    visible:
+      id: "calendar_view_week"
+    timeout: 30000

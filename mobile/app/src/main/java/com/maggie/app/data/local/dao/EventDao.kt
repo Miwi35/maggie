@@ -35,6 +35,9 @@ interface EventDao {
     @Query("SELECT * FROM events WHERE syncStatus != 'SYNCED'")
     suspend fun getPending(): List<EventEntity>
 
+    @Query("SELECT * FROM events WHERE id = :eventId")
+    suspend fun getById(eventId: String): EventEntity?
+
     @Query("DELETE FROM events WHERE id = :eventId")
     suspend fun deleteById(eventId: String)
 }

@@ -44,6 +44,13 @@ class EventRepository(
         eventDao.getAll().map { it.toModel() }
     }
 
+    /** The cached event, else the server's (a notification can name an event the cache has not synced yet). Null when neither has it. */
+    suspend fun findEvent(id: String): Event? =
+        eventDao.getById(id)?.toModel()
+            ?: runCatching { apiService.getEvent(id) }.getOrNull()?.also {
+                eventDao.upsertAll(listOf(EventEntity.fromModel(it)))
+            }
+
     suspend fun getRecurringBefore(before: String): List<Event> {
         return apiService.getRecurringEventsBefore(before)
     }

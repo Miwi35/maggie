@@ -41,6 +41,13 @@ class TaskRepository(
         serverTasks
     }
 
+    /** The cached task, else the server's. Null when neither has it. */
+    suspend fun findTask(id: String): Task? =
+        taskDao.getById(id)?.toModel()
+            ?: runCatching { apiService.getTask(id) }.getOrNull()?.also {
+                taskDao.upsertAll(listOf(TaskEntity.fromModel(it)))
+            }
+
     suspend fun getUndoneTasks(dueDateBefore: String? = null): List<Task> {
         return apiService.getUndoneTasks(dueDateBefore)
     }

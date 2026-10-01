@@ -1,7 +1,12 @@
 package com.maggie.app.ui.navigation
 
 import android.Manifest
+import android.content.Context as AndroidContext
+import android.content.ContextWrapper
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.widget.Toast
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.fadeIn
@@ -15,6 +20,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -26,10 +32,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import androidx.core.util.Consumer
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.maggie.app.data.api.EventCreateRequest
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.auth.BiometricLockManager
@@ -103,6 +114,7 @@ import com.maggie.app.ui.screens.login.LoginScreen
 import com.maggie.app.ui.screens.login.LoginViewModel
 import com.maggie.app.ui.screens.loading.LoadingScreen
 import com.maggie.app.ui.screens.settings.SettingsScreen
+import com.maggie.app.util.EventExpander
 import com.maggie.app.util.RruleUtils
 import com.maggie.app.voice.VoiceManager
 import kotlinx.coroutines.launch
@@ -146,6 +158,9 @@ sealed class Screen(val route: String, val label: String) {
     data object MealCreate : Screen("meal/create", "Nouveau repas")
 }
 
+private const val LINK_NOT_FOUND = "Cet élément n'existe plus."
+private const val DEFAULT_ACCOUNT_NAME = "Compte"
+
 private val MAIN_SCREENS = setOf(
     Screen.Dashboard.route,
     Screen.Calendar.route,
@@ -156,6 +171,21 @@ private val MAIN_SCREENS = setOf(
 
 // The full-screen chat has its own input: the bottom bar would duplicate it
 internal fun showsChatBottomBar(route: String?): Boolean = route in MAIN_SCREENS && route != Screen.Chat.route
+
+private tailrec fun AndroidContext.findComponentActivity(): ComponentActivity? = when (this) {
+    is ComponentActivity -> this
+    is ContextWrapper -> baseContext.findComponentActivity()
+    else -> null
+}
+
+// Swaps a `link/…` entry for the screen it resolved to. Nothing happens if the user already went back.
+private fun NavController.replaceLink(entry: NavBackStackEntry, route: String, singleTop: Boolean = false) {
+    if (currentBackStackEntry?.id != entry.id) return
+    navigate(route) {
+        popUpTo(entry.destination.id) { inclusive = true }
+        launchSingleTop = singleTop
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -227,6 +257,7 @@ fun NavGraph() {
     // Cookbook transient state
     var selectedAccount by remember { mutableStateOf<Pair<String, String>?>(null) }
     var detailRecipeId by remember { mutableStateOf<String?>(null) }
+    var groceryItemToOpen by remember { mutableStateOf<String?>(null) }
     var editRecipeId by remember { mutableStateOf<String?>(null) }
     var mealCreateState by remember { mutableStateOf<Pair<String, String>?>(null) }
 
@@ -245,9 +276,11 @@ fun NavGraph() {
 
     // Auth redirect — wait until lock screen is dismissed so we don't
     // overwrite the restored navigation state with a fresh Dashboard route.
-    LaunchedEffect(isAuthenticated, isLocked) {
+    // Keyed on the route too: a deep link opened from a cold start sits on top of Loading,
+    // and going back to it must land on the dashboard, not on a spinner.
+    LaunchedEffect(isAuthenticated, isLocked, currentRoute) {
         when (isAuthenticated) {
-            false -> navController.navigate(Screen.Login.route) {
+            false -> if (currentRoute != Screen.Login.route) navController.navigate(Screen.Login.route) {
                 popUpTo(0) { inclusive = true }
             }
             true -> if (!isLocked && (currentRoute == null || currentRoute == Screen.Login.route || currentRoute == Screen.Loading.route)) {
@@ -258,6 +291,17 @@ fun NavGraph() {
             null -> {} // Still loading
         }
     }
+
+    // MainActivity is singleTop: a link opened while the app runs arrives here, not in a new activity.
+    val activity = remember(context) { context.findComponentActivity() }
+    DisposableEffect(activity, navController) {
+        val listener = Consumer<Intent> { navController.handleDeepLink(it) }
+        activity?.addOnNewIntentListener(listener)
+        onDispose { activity?.removeOnNewIntentListener(listener) }
+    }
+
+    // A link names an entity only once the user is signed in and unlocked.
+    val linkReady = isAuthenticated == true && !isLocked
 
     val isMainScreen = currentRoute in MAIN_SCREENS
 
@@ -341,14 +385,104 @@ fun NavGraph() {
                 composable(Screen.Login.route) {
                     LoginScreen(viewModel = loginViewModel)
                 }
+                composable(DeepLinks.EVENT_ROUTE, deepLinks = DeepLinks.forRoute(DeepLinks.EVENT_ROUTE)) { entry ->
+                    val id = entry.arguments?.getString(DeepLinks.ARG_ID)
+                    LoadingScreen()
+                    LaunchedEffect(id, linkReady) {
+                        if (!linkReady) return@LaunchedEffect
+                        val event = id?.takeIf(DeepLinks::isValidId)?.let { eventRepository.findEvent(it) }
+                        if (event != null) {
+                            val master = event.recurringEvent?.let { eventRepository.findEvent(it.removePrefix("/api/events/")) }
+                            selectedEvent = EventExpander.single(event, master, agendas.associateBy { it.id })
+                        } else {
+                            Toast.makeText(context, LINK_NOT_FOUND, Toast.LENGTH_SHORT).show()
+                        }
+                        navController.replaceLink(entry, Screen.Calendar.route, singleTop = true)
+                    }
+                }
+                composable(DeepLinks.TASK_ROUTE, deepLinks = DeepLinks.forRoute(DeepLinks.TASK_ROUTE)) { entry ->
+                    val id = entry.arguments?.getString(DeepLinks.ARG_ID)
+                    LoadingScreen()
+                    LaunchedEffect(id, linkReady) {
+                        if (!linkReady) return@LaunchedEffect
+                        val task = id?.takeIf(DeepLinks::isValidId)?.let { taskRepository.findTask(it) }
+                        if (task != null) {
+                            selectedTask = task
+                        } else {
+                            Toast.makeText(context, LINK_NOT_FOUND, Toast.LENGTH_SHORT).show()
+                        }
+                        navController.replaceLink(entry, Screen.Calendar.route, singleTop = true)
+                    }
+                }
+                composable(DeepLinks.GROCERY_ROUTE, deepLinks = DeepLinks.forRoute(DeepLinks.GROCERY_ROUTE)) { entry ->
+                    val id = entry.arguments?.getString(DeepLinks.ARG_ID)
+                    LoadingScreen()
+                    LaunchedEffect(id, linkReady) {
+                        if (!linkReady) return@LaunchedEffect
+                        groceryItemToOpen = id?.takeIf(DeepLinks::isValidId)
+                        navController.replaceLink(entry, Screen.Grocery.route, singleTop = true)
+                    }
+                }
+                composable(DeepLinks.RECIPE_ROUTE, deepLinks = DeepLinks.forRoute(DeepLinks.RECIPE_ROUTE)) { entry ->
+                    val id = entry.arguments?.getString(DeepLinks.ARG_ID)
+                    LoadingScreen()
+                    LaunchedEffect(id, linkReady) {
+                        if (!linkReady) return@LaunchedEffect
+                        if (DeepLinks.isValidId(id)) {
+                            detailRecipeId = id
+                            navController.replaceLink(entry, Screen.RecipeDetail.route)
+                        } else {
+                            Toast.makeText(context, LINK_NOT_FOUND, Toast.LENGTH_SHORT).show()
+                            navController.replaceLink(entry, Screen.Cookbook.route, singleTop = true)
+                        }
+                    }
+                }
+                composable(
+                    DeepLinks.ACCOUNT_ROUTE,
+                    arguments = listOf(
+                        navArgument(DeepLinks.ARG_NAME) {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = null
+                        },
+                    ),
+                    deepLinks = DeepLinks.forRoute(DeepLinks.ACCOUNT_ROUTE),
+                ) { entry ->
+                    val id = entry.arguments?.getString(DeepLinks.ARG_ID)
+                    val name = entry.arguments?.getString(DeepLinks.ARG_NAME)
+                    LoadingScreen()
+                    LaunchedEffect(id, name, linkReady) {
+                        if (!linkReady) return@LaunchedEffect
+                        if (DeepLinks.isValidId(id)) {
+                            selectedAccount = id!! to (name?.takeIf { it.isNotBlank() } ?: DEFAULT_ACCOUNT_NAME)
+                            navController.replaceLink(entry, Screen.AccountTransactions.route)
+                        } else {
+                            Toast.makeText(context, LINK_NOT_FOUND, Toast.LENGTH_SHORT).show()
+                            navController.replaceLink(entry, Screen.AccountList.route, singleTop = true)
+                        }
+                    }
+                }
                 composable(Screen.Dashboard.route) {
                     DashboardScreen(
                         viewModel = dashboardViewModel,
                         onEventClick = { selectedEvent = it },
                     )
                 }
-                composable(Screen.Chat.route) {
-                    ChatScreen(viewModel = chatViewModel)
+                composable(
+                    Screen.Chat.route,
+                    arguments = listOf(
+                        navArgument(DeepLinks.ARG_MESSAGE) {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = null
+                        },
+                    ),
+                    deepLinks = DeepLinks.forRoute(Screen.Chat.route),
+                ) { entry ->
+                    ChatScreen(
+                        viewModel = chatViewModel,
+                        draft = DeepLinks.chatDraft(entry.arguments?.getString(DeepLinks.ARG_MESSAGE)),
+                    )
                 }
                 composable(Screen.Calendar.route) {
                     FullCalendarScreen(
@@ -482,6 +616,8 @@ fun NavGraph() {
                 composable(Screen.Grocery.route) {
                     GroceryScreen(
                         viewModel = groceryViewModel,
+                        openItemId = groceryItemToOpen,
+                        onOpenItemHandled = { groceryItemToOpen = null },
                         onNavigateToProducts = {
                             navController.navigate(Screen.ProductList.route) { launchSingleTop = true }
                         },
@@ -504,7 +640,7 @@ fun NavGraph() {
                         onBack = { navController.popBackStack() },
                     )
                 }
-                composable(Screen.AccountList.route) {
+                composable(Screen.AccountList.route, deepLinks = DeepLinks.forRoute(Screen.AccountList.route)) {
                     val accountViewModel: AccountViewModel = koinViewModel()
                     AccountListScreen(
                         viewModel = accountViewModel,
@@ -515,7 +651,7 @@ fun NavGraph() {
                         },
                     )
                 }
-                composable(Screen.CategoryList.route) {
+                composable(Screen.CategoryList.route, deepLinks = DeepLinks.forRoute(Screen.CategoryList.route)) {
                     val categoryViewModel: CategoryViewModel = koinViewModel()
                     CategoryListScreen(
                         viewModel = categoryViewModel,
@@ -527,42 +663,42 @@ fun NavGraph() {
                         },
                     )
                 }
-                composable(Screen.BudgetList.route) {
+                composable(Screen.BudgetList.route, deepLinks = DeepLinks.forRoute(Screen.BudgetList.route)) {
                     val budgetViewModel: BudgetViewModel = koinViewModel()
                     BudgetScreen(
                         viewModel = budgetViewModel,
                         onBack = { navController.popBackStack() },
                     )
                 }
-                composable(Screen.CategorizationRuleList.route) {
+                composable(Screen.CategorizationRuleList.route, deepLinks = DeepLinks.forRoute(Screen.CategorizationRuleList.route)) {
                     val ruleViewModel: CategorizationRuleViewModel = koinViewModel()
                     CategorizationRuleListScreen(
                         viewModel = ruleViewModel,
                         onBack = { navController.popBackStack() },
                     )
                 }
-                composable(Screen.Cushion.route) {
+                composable(Screen.Cushion.route, deepLinks = DeepLinks.forRoute(Screen.Cushion.route)) {
                     val cushionViewModel: CushionViewModel = koinViewModel()
                     CushionScreen(
                         viewModel = cushionViewModel,
                         onBack = { navController.popBackStack() },
                     )
                 }
-                composable(Screen.LoanList.route) {
+                composable(Screen.LoanList.route, deepLinks = DeepLinks.forRoute(Screen.LoanList.route)) {
                     val loanViewModel: LoanViewModel = koinViewModel()
                     LoanListScreen(
                         viewModel = loanViewModel,
                         onBack = { navController.popBackStack() },
                     )
                 }
-                composable(Screen.MonthlyReview.route) {
+                composable(Screen.MonthlyReview.route, deepLinks = DeepLinks.forRoute(Screen.MonthlyReview.route)) {
                     val reviewViewModel: MonthlyReviewViewModel = koinViewModel()
                     MonthlyReviewScreen(
                         viewModel = reviewViewModel,
                         onBack = { navController.popBackStack() },
                     )
                 }
-                composable(Screen.FinanceDashboard.route) {
+                composable(Screen.FinanceDashboard.route, deepLinks = DeepLinks.forRoute(Screen.FinanceDashboard.route)) {
                     val dashboardViewModel: FinanceDashboardViewModel = koinViewModel()
                     FinanceDashboardScreen(
                         viewModel = dashboardViewModel,
