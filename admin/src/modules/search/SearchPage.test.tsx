@@ -105,7 +105,7 @@ describe('SearchPage', () => {
     })
 
     await userEvent.click(screen.getByText('Pâtes carbonara'))
-    expect(mockNavigate).toHaveBeenCalledWith('/recipes/r1/show')
+    expect(mockNavigate).toHaveBeenCalledWith(`/recipes/${encodeURIComponent('/api/recipes/r1')}/show`)
   })
 
   test('shows pagination when multiple pages', async () => {

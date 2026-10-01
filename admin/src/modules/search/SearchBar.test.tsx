@@ -81,7 +81,7 @@ describe('SearchBar', () => {
     })
 
     await userEvent.click(screen.getByText('Pâtes carbonara'))
-    expect(mockNavigate).toHaveBeenCalledWith('/recipes/abc123/show')
+    expect(mockNavigate).toHaveBeenCalledWith(`/recipes/${encodeURIComponent('/api/recipes/abc123')}/show`)
   })
 
   test('clicking an event result navigates to calendar', async () => {
@@ -105,7 +105,7 @@ describe('SearchBar', () => {
     })
 
     await userEvent.click(screen.getByText('Réunion hebdo'))
-    expect(mockNavigate).toHaveBeenCalledWith('/calendar?eventId=evt123')
+    expect(mockNavigate).toHaveBeenCalledWith(`/calendar?eventId=${encodeURIComponent('/api/events/evt123')}`)
   })
 
   test('Escape closes dropdown', async () => {

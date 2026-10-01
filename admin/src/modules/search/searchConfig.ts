@@ -3,30 +3,63 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 export interface SearchIndexConfig {
   label: string
   icon: string
+  /** API Platform collection segment — `/api/<resource>/<id>` is the record's IRI. */
+  resource: string
+  /** Admin route of the resource, whose `/:id/show` page is the default destination. */
   basePath: string
-  /** Override default navigation path for a result. */
-  getPath?: (id: string) => string
+  /** Override default navigation path for a result, from its IRI. */
+  getPath?: (iri: string) => string
 }
 
 export const SEARCH_INDEX_CONFIG: Record<string, SearchIndexConfig> = {
-  events: { label: 'Événements', icon: 'Event', basePath: '/events', getPath: (id) => `/calendar?eventId=${id}` },
-  tasks: { label: 'Tâches', icon: 'CheckCircle', basePath: '/tasks' },
-  recipes: { label: 'Recettes', icon: 'Restaurant', basePath: '/recipes' },
-  products: { label: 'Produits', icon: 'ShoppingCart', basePath: '/products' },
-  agendas: { label: 'Agendas', icon: 'CalendarMonth', basePath: '/agendas' },
-  grocery_lists: { label: 'Courses', icon: 'ShoppingBag', basePath: '/grocery' },
-  meals: { label: 'Repas', icon: 'DinnerDining', basePath: '/events', getPath: (id) => `/calendar?eventId=${id}` },
-  recurring_grocery_items: { label: 'Articles récurrents', icon: 'Repeat', basePath: '/recurring_grocery_items' },
-  notifications: { label: 'Notifications', icon: 'Notifications', basePath: '/notifications' },
-  users: { label: 'Utilisateurs', icon: 'Person', basePath: '/users' },
+  events: {
+    label: 'Événements',
+    icon: 'Event',
+    resource: 'events',
+    basePath: '/events',
+    getPath: (iri) => `/calendar?eventId=${encodeURIComponent(iri)}`,
+  },
+  tasks: { label: 'Tâches', icon: 'CheckCircle', resource: 'tasks', basePath: '/tasks' },
+  recipes: { label: 'Recettes', icon: 'Restaurant', resource: 'recipes', basePath: '/recipes' },
+  products: { label: 'Produits', icon: 'ShoppingCart', resource: 'products', basePath: '/products' },
+  agendas: { label: 'Agendas', icon: 'CalendarMonth', resource: 'agendas', basePath: '/agendas' },
+  grocery_lists: { label: 'Courses', icon: 'ShoppingBag', resource: 'grocery_lists', basePath: '/grocery' },
+  meals: {
+    label: 'Repas',
+    icon: 'DinnerDining',
+    resource: 'meals',
+    basePath: '/meals',
+    getPath: (iri) => `/calendar?mealId=${encodeURIComponent(iri)}`,
+  },
+  recurring_grocery_items: {
+    label: 'Articles récurrents',
+    icon: 'Repeat',
+    resource: 'recurring_grocery_items',
+    basePath: '/recurring_grocery_items',
+  },
+  notifications: { label: 'Notifications', icon: 'Notifications', resource: 'notifications', basePath: '/notifications' },
+  users: { label: 'Utilisateurs', icon: 'Person', resource: 'users', basePath: '/users' },
+}
+
+/**
+ * The id react-admin knows a hit by.
+ *
+ * The Hydra data provider uses the IRI as the record id and `getOne` fetches it
+ * as a URL, whereas `/api/search` returns the bare Elasticsearch identifier.
+ */
+export function getResultRecordId(result: SearchResult): string {
+  if (result.id.startsWith('/')) return result.id
+  const config = SEARCH_INDEX_CONFIG[result.index]
+  return `/api/${config?.resource ?? result.index}/${result.id}`
 }
 
 /** Get the navigation path for a search result. */
 export function getResultPath(result: SearchResult): string {
   const config = SEARCH_INDEX_CONFIG[result.index]
   if (!config) return '#'
-  if (config.getPath) return config.getPath(result.id)
-  return `${config.basePath}/${encodeURIComponent(result.id)}/show`
+  const iri = getResultRecordId(result)
+  if (config.getPath) return config.getPath(iri)
+  return `${config.basePath}/${encodeURIComponent(iri)}/show`
 }
 
 export interface SearchResult {
