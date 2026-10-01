@@ -401,8 +401,12 @@ jobs:
   lift-freeze:
     name: Lift the freeze
     runs-on: ubuntu-latest
-    needs: smoke
-    if: needs.smoke.result == 'success'
+    # `always()` because without a status function GitHub adds an implicit
+    # success() over every ancestor job: a build skipped (image unchanged) would
+    # skip this job on a green release, and the ticket would stay in « Emergency »
+    # (MAG-199). The deploy and smoke results are the whole condition.
+    needs: [deploy, smoke]
+    if: always() && needs.deploy.result == 'success' && needs.smoke.result == 'success'
     permissions:
       contents: read
       actions: read
