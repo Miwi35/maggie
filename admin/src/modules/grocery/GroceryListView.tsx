@@ -98,6 +98,9 @@ const categoryChoices = [
 const GROCERY_LIST_TOPICS = ['/api/grocery_lists/{id}']
 const entrypoint = import.meta.env.VITE_API_URL || 'http://localhost/api'
 
+// A line's own `@id` is an anonymous node (`GroceryItem` is no ApiResource): only its id routes.
+const itemUrl = (item: GroceryItem) => `${entrypoint}/grocery_items/${item.id}`
+
 function SortableGroceryItem({
   item,
   addedIds,
@@ -353,7 +356,7 @@ export const GroceryListView = () => {
   const handleCheck = async (item: GroceryItem) => {
     try {
       const token = localStorage.getItem('token')
-      await fetch(`${entrypoint.replace('/api', '')}${item['@id']}`, {
+      const response = await fetch(itemUrl(item), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/merge-patch+json',
@@ -361,6 +364,10 @@ export const GroceryListView = () => {
         },
         body: JSON.stringify({ checked: !item.checked }),
       })
+      if (!response.ok) {
+        notify("Erreur : l'article n'a pas été coché", { type: 'error' })
+        return
+      }
       if (groceryList) {
         const { data } = await dataProvider.getOne('grocery_lists', { id: groceryList.id })
         setGroceryList(data as GroceryListData)
@@ -459,10 +466,14 @@ export const GroceryListView = () => {
       // Remove checked items
       const checkedItems = groceryList.items.filter((i) => i.checked)
       for (const item of checkedItems) {
-        await fetch(`${entrypoint.replace('/api', '')}${item['@id']}`, {
+        const response = await fetch(itemUrl(item), {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${token}` },
         })
+        if (!response.ok) {
+          notify("Erreur : les courses n'ont pas pu être terminées", { type: 'error' })
+          return
+        }
       }
       const remaining = groceryList.items.filter((i) => !i.checked)
       setUncheckedItems(remaining)
@@ -477,10 +488,14 @@ export const GroceryListView = () => {
   const handleRemoveItem = async (item: GroceryItem) => {
     try {
       const token = localStorage.getItem('token')
-      await fetch(`${entrypoint.replace('/api', '')}${item['@id']}`, {
+      const response = await fetch(itemUrl(item), {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       })
+      if (!response.ok) {
+        notify("Erreur : l'article n'a pas été retiré", { type: 'error' })
+        return
+      }
       setUncheckedItems((prev) => prev.filter((i) => i.id !== item.id))
       if (groceryList) {
         const { data } = await dataProvider.getOne('grocery_lists', { id: groceryList.id })

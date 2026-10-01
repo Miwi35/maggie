@@ -120,6 +120,101 @@ describe('GroceryListView', () => {
     expect(handles.length).toBeGreaterThan(0)
   })
 
+  describe('writes on a line go to the route the API exposes (MAG-197)', () => {
+    // `GroceryItem` is not an ApiResource: the API serialises each line with an
+    // anonymous `@id` (`/.well-known/genid/…`), which nothing routes — nginx
+    // answers 403. The only routes are `/api/grocery_items/{id}`.
+    const anonymous = (item: (typeof sampleList.items)[number]) => ({
+      ...item,
+      '@id': `/.well-known/genid/${item.id}-blank-node`,
+    })
+    const listAsTheApiSendsIt = {
+      ...sampleList,
+      items: [
+        anonymous(sampleList.items[0]),
+        anonymous(sampleList.items[1]),
+        { ...anonymous(sampleList.items[2]), checked: true },
+      ],
+    }
+
+    const mockApi = (response: { ok: boolean; status: number } = { ok: true, status: 200 }) => {
+      const mockFetch = vi.fn().mockResolvedValue({ ...response, json: () => Promise.resolve({}) })
+      vi.stubGlobal('fetch', mockFetch)
+      mockGetList.mockResolvedValue({ data: [listAsTheApiSendsIt], total: 1 })
+      mockGetOne.mockResolvedValue({ data: listAsTheApiSendsIt })
+      return mockFetch
+    }
+
+    const callsTo = (mockFetch: ReturnType<typeof vi.fn>, method: string) =>
+      mockFetch.mock.calls
+        .filter(([, init]) => init?.method === method)
+        .map(([url, init]) => ({ url: String(url), body: init.body as string | undefined }))
+
+    test('ticking a line patches /api/grocery_items/{id}, not its anonymous @id', async () => {
+      const mockFetch = mockApi()
+      render(<GroceryListView />)
+      await waitFor(() => expect(screen.getByText('Tomates')).toBeInTheDocument())
+
+      const user = userEvent.setup()
+      await user.click(within(screen.getByText('Tomates').closest('[data-testid="grocery-item"]') as HTMLElement).getByRole('checkbox'))
+
+      await waitFor(() => expect(callsTo(mockFetch, 'PATCH')).toHaveLength(1))
+      const [patch] = callsTo(mockFetch, 'PATCH')
+      expect(patch.url).toMatch(/\/api\/grocery_items\/item-a$/)
+      expect(JSON.parse(patch.body as string)).toEqual({ checked: true })
+    })
+
+    test('ending the errand deletes each ticked line at /api/grocery_items/{id}', async () => {
+      const mockFetch = mockApi()
+      render(<GroceryListView />)
+      await waitFor(() => expect(screen.getByText('Pommes')).toBeInTheDocument())
+
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Terminer les courses' }))
+
+      await waitFor(() => expect(callsTo(mockFetch, 'DELETE')).toHaveLength(1))
+      expect(callsTo(mockFetch, 'DELETE')[0].url).toMatch(/\/api\/grocery_items\/item-c$/)
+    })
+
+    test('dropping a line left over deletes it at /api/grocery_items/{id}', async () => {
+      const mockFetch = mockApi()
+      render(<GroceryListView />)
+      await waitFor(() => expect(screen.getByText('Pommes')).toBeInTheDocument())
+
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'Terminer les courses' }))
+      const dialog = await screen.findByRole('dialog')
+      await waitFor(() => expect(callsTo(mockFetch, 'DELETE')).toHaveLength(1))
+      await user.click(within(within(dialog).getByText('Lait').closest('li') as HTMLElement).getByRole('button', { name: 'Retirer' }))
+
+      await waitFor(() => expect(callsTo(mockFetch, 'DELETE')).toHaveLength(2))
+      expect(callsTo(mockFetch, 'DELETE')[1].url).toMatch(/\/api\/grocery_items\/item-b$/)
+    })
+
+    test('an API refusal on ticking shows an error instead of passing silently', async () => {
+      mockNotify.mockClear()
+      mockApi({ ok: false, status: 403 })
+      render(<GroceryListView />)
+      await waitFor(() => expect(screen.getByText('Tomates')).toBeInTheDocument())
+
+      const user = userEvent.setup()
+      await user.click(within(screen.getByText('Tomates').closest('[data-testid="grocery-item"]') as HTMLElement).getByRole('checkbox'))
+
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith(expect.any(String), { type: 'error' }))
+    })
+
+    test('an API refusal on ending the errand shows an error and does not offer the leftovers', async () => {
+      mockNotify.mockClear()
+      mockApi({ ok: false, status: 403 })
+      render(<GroceryListView />)
+      await waitFor(() => expect(screen.getByText('Pommes')).toBeInTheDocument())
+
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Terminer les courses' }))
+
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith(expect.any(String), { type: 'error' }))
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+  })
+
   describe('store identifier sent to the API', () => {
     // The Hydra data provider gives the IRI as `id`; the API expects the bare ULID.
     const ULID = '01M3VA6TKHF1CB6GMPSRV8WE7P'

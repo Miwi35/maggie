@@ -27,8 +27,9 @@ import { GroceryListPage } from '../pages/GroceryListPage.js'
  * ## Why this file runs as the second account, and serially
  *
  * Both of those are assertions about *publication*, and publication cannot be
- * asserted on a shared list. Every writer publishes the **whole** list on one
- * topic, `/users/{id}/api/grocery_lists/{listId}`, so "a payload arrived
+ * asserted on a shared list. Every writer publishes on one topic,
+ * `/users/{id}/api/grocery_lists/{listId}` — the **whole** list, except `Check`
+ * and `Remove`, which publish one line's change — so "a payload arrived
  * showing the new state" is satisfied by another worker's add even with the
  * middleware mute — the hole that would let `afc1a70` back in through a test
  * written to catch it. `since()` therefore demands that the payload be the
@@ -77,6 +78,13 @@ interface Line {
   /** Left out of the line, rather than sent as null, when it has no shop. */
   store?: { id: string; name: string; visitOrder: number } | null
   product: { id: string; name: string; category: string } | null
+}
+
+/** What `Check` and `Remove` publish (MercureActionPayload): one line's change, not the list. */
+interface ActionPayload {
+  action?: string
+  itemId?: string
+  checked?: boolean
 }
 
 interface StoredList {
@@ -144,20 +152,21 @@ async function expectLine(
  *
  * "The next one", not "any later one", and that is the whole point. A matcher
  * over every message since the snapshot is satisfied by somebody else's write —
- * every payload carries the whole list — so a mute middleware would still pass.
+ * every payload names the same list — so a mute middleware would still pass.
  * Demanding the first message makes the assertion exact; it is sound here
  * because this file owns the list it reads (see the header).
  *
  * The payload is read directly and never followed by a fetch: that a Mercure
- * update carries the whole list is the promise `6ba9859` broke.
+ * update of a whole-list write carries its items is the promise `6ba9859` broke.
  */
-async function since(
-  probe: MercureProbe,
-): Promise<(match: (items: Line[]) => boolean, what: string) => Promise<Line[]>> {
+async function since(probe: MercureProbe): Promise<{
+  (match: (items: Line[]) => boolean, what: string): Promise<Line[]>
+  action: (match: (payload: ActionPayload) => boolean, what: string) => Promise<void>
+}> {
   const alreadySeen = (await probe.messages()).length
 
-  return async (match, what) => {
-    let next: Line[] | null = null
+  const next = async (what: string): Promise<Record<string, unknown> | null> => {
+    let parsed: Record<string, unknown> | null = null
 
     await expect
       .poll(
@@ -168,7 +177,7 @@ async function since(
             return false
           }
 
-          next = (fresh[0].parsed?.items ?? null) as Line[] | null
+          parsed = (fresh[0].parsed ?? null) as Record<string, unknown> | null
 
           return true
         },
@@ -176,12 +185,24 @@ async function since(
       )
       .toBe(true)
 
-    const items = next as Line[] | null
+    return parsed
+  }
+
+  const wholeList = async (match: (items: Line[]) => boolean, what: string): Promise<Line[]> => {
+    const items = ((await next(what))?.items ?? null) as Line[] | null
     expect(items, `${what} — the update carried no items (6ba9859)`).not.toBeNull()
     expect(match(items as Line[]), what).toBe(true)
 
     return items as Line[]
   }
+
+  wholeList.action = async (match: (payload: ActionPayload) => boolean, what: string): Promise<void> => {
+    const payload = (await next(what)) as ActionPayload | null
+    expect(payload, `${what} — the update was not JSON`).not.toBeNull()
+    expect(match(payload as ActionPayload), `${what} — got ${JSON.stringify(payload)}`).toBe(true)
+  }
+
+  return wholeList
 }
 
 /**
@@ -191,8 +212,30 @@ async function since(
  */
 const inNoShop = (item: Line | undefined): boolean => undefined !== item && null === (item.store ?? null)
 
+const checkedLine = (itemId: string) => (payload: ActionPayload) =>
+  'check' === payload.action && itemId === payload.itemId && true === payload.checked
+const removedLine = (itemId: string) => (payload: ActionPayload) =>
+  'remove' === payload.action && itemId === payload.itemId
+
+/** The id of a line the dialog just wrote, once the collection shows it. */
+async function idOf(api: APIRequestContext, label: string): Promise<string> {
+  let id = ''
+
+  await expectLine(
+    api,
+    label,
+    (line) => {
+      id = line?.id ?? ''
+
+      return '' !== id
+    },
+    `the line ${label} on the list`,
+  )
+
+  return id
+}
+
 const labelled = (label: string) => (items: Line[]) => items.some((item) => item.label === label)
-const ticked = (label: string) => (items: Line[]) => items.some((item) => item.label === label && item.checked)
 const absent = (label: string) => (items: Line[]) => !items.some((item) => item.label === label)
 
 /** The probe every test here opens on its own list, before its first write. */
@@ -225,9 +268,7 @@ test('the list is grouped by shop, in the order the shopper walks them', async (
   await expect(grocery.line('Sacs du voisin')).toHaveAttribute('data-store', '')
 })
 
-// Expected to fail — MAG-197: still red after MAG-190's fix, for a cause not yet
-// diagnosed (ticking, then ending the errand).
-test.fail('a shopper ticks what is in the trolley, then ends the errand — MAG-197', async ({ otherUser }) => {
+test('a shopper ticks what is in the trolley, then ends the errand', async ({ otherUser }) => {
   const bought = WRITES.bought
   const skipped = WRITES.skipped
   const { api } = otherUser
@@ -254,10 +295,14 @@ test.fail('a shopper ticks what is in the trolley, then ends the errand — MAG-
     await expect(grocery.line(skipped)).toBeVisible()
 
     // --- In the shop: one goes in the trolley -------------------------------
+    // Ticking and removing publish one line's change (`MercureActionPayload`),
+    // not the whole list: the admin and the phone apply it as a diff.
+    const boughtId = await idOf(api, bought)
+    const skippedId = await idOf(api, skipped)
     const afterTick = await since(probe)
     await grocery.tickBox(bought).click()
 
-    await afterTick(ticked(bought), 'ticking a line published nothing — afc1a70')
+    await afterTick.action(checkedLine(boughtId), 'ticking a line published nothing — afc1a70')
     await expect(grocery.tickBox(bought)).toBeChecked()
     await expectLine(api, bought, (item) => true === item?.checked, 'the ticked line in the database')
 
@@ -273,7 +318,7 @@ test.fail('a shopper ticks what is in the trolley, then ends the errand — MAG-
     await expect(grocery.remainingLine(skipped)).toBeVisible()
     await expect(grocery.remainingLine(bought), 'a line already in the trolley is offered again').toHaveCount(0)
 
-    await afterErrand(absent(bought), 'clearing the trolley published nothing — afc1a70')
+    await afterErrand.action(removedLine(boughtId), 'clearing the trolley published nothing — afc1a70')
     await expectLine(api, bought, (item) => undefined === item, 'the bought line gone from the database')
 
     // --- "Retirer": the owner gives up on the rest --------------------------
@@ -281,7 +326,7 @@ test.fail('a shopper ticks what is in the trolley, then ends the errand — MAG-
     await grocery.remainingLine(skipped).getByRole('button', { name: 'Retirer' }).click()
 
     await expect(grocery.remainingLine(skipped)).toHaveCount(0)
-    await afterDrop(absent(skipped), 'dropping a line published nothing — afc1a70')
+    await afterDrop.action(removedLine(skippedId), 'dropping a line published nothing — afc1a70')
     await expectLine(api, skipped, (item) => undefined === item, 'the dropped line gone from the database')
   } finally {
     await probe.close()
@@ -389,9 +434,7 @@ test('adding a line goes through the endpoint the API really exposes', async ({ 
   )
 })
 
-// Expected to fail — MAG-197: the line ticked in the trolley never reads as
-// ticked, the same step that fails in the journey above.
-test.fail('"I have finished the shopping" clears the trolley, and leaves the rest — MAG-197', async ({ otherUser }) => {
+test('"I have finished the shopping" clears the trolley, and leaves the rest', async ({ otherUser }) => {
   // `end_errand` is MCP-only: the admin's own button does the same thing one
   // `Remove` at a time, so this tool — and the `End` command `afc1a70` left
   // mute — is only ever reached by asking.
