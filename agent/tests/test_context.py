@@ -1,5 +1,6 @@
 """Tests for ConversationContext model, repository, and routes."""
 
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -9,6 +10,7 @@ from fastapi.testclient import TestClient
 from app.api.routes import router
 from app.auth import get_current_user_id
 from app.db.context_model import ContextStatus, ConversationContext
+from app.db.context_repository import context_repo
 
 
 class TestContextModel:
@@ -44,6 +46,98 @@ class TestContextModel:
         )
         d = ctx.to_dict()
         assert d["status"] == "closed"
+
+    def test_to_dict_carries_the_summary(self):
+        """What the admin reads off `GET /contexts` and off the Mercure payload (MAG-11)."""
+        written_at = datetime(2026, 10, 1, 9, 30, tzinfo=UTC)
+        ctx = ConversationContext(
+            id="abc123",
+            user_id="user-1",
+            label="Courses de la semaine",
+            status=ContextStatus.ACTIVE,
+            tool_calls_log=[],
+            summary="L'utilisateur prépare ses courses.",
+            summary_updated_at=written_at,
+        )
+        d = ctx.to_dict()
+        assert d["summary"] == "L'utilisateur prépare ses courses."
+        assert d["summaryUpdatedAt"] == written_at.isoformat()
+
+    def test_to_dict_without_a_summary(self):
+        ctx = ConversationContext(id="abc123", user_id="user-1", label="Neuf", status=ContextStatus.ACTIVE)
+        d = ctx.to_dict()
+        assert d["summary"] is None
+        assert d["summaryUpdatedAt"] is None
+
+
+class TestContextRepositorySummary:
+    """`set_summary` — the only writer of the two columns (MAG-11)."""
+
+    async def test_stores_the_summary_and_stamps_it(self, chat_db):
+        ctx = await context_repo.create("user-1", "Courses de la semaine")
+
+        updated = await context_repo.set_summary(str(ctx.id), "L'utilisateur prépare ses courses.")
+
+        assert updated is not None
+        stored = await context_repo.get(str(ctx.id))
+        assert stored.summary == "L'utilisateur prépare ses courses."
+        # The stamp is what the next pass reads messages from, so an unset one would
+        # make every re-summary read the whole thread again.
+        assert stored.summary_updated_at is not None
+
+    async def test_publishes_the_context_so_an_open_panel_sees_it(self, chat_db):
+        ctx = await context_repo.create("user-1", "Courses de la semaine")
+        chat_db.published.reset_mock()
+
+        await context_repo.set_summary(str(ctx.id), "Deux kilos de farine à acheter.")
+
+        # The summary is written after the stream closed: Mercure is the only way it
+        # reaches a Mind panel that is already open.
+        chat_db.published.assert_awaited_once()
+        topic, payload = chat_db.published.await_args.args
+        assert topic.endswith("user-1")
+        assert payload["summary"] == "Deux kilos de farine à acheter."
+
+    async def test_leaves_updated_at_alone(self, chat_db):
+        """A summary is written *about* a thread, not *in* it — the router ranks on `updated_at`."""
+        ctx = await context_repo.create("user-1", "Courses de la semaine")
+        spoken_at = (await context_repo.get(str(ctx.id))).updated_at
+
+        await context_repo.set_summary(str(ctx.id), "Un résumé.")
+
+        assert (await context_repo.get(str(ctx.id))).updated_at == spoken_at
+
+    async def test_unknown_context_writes_nothing(self, chat_db):
+        assert await context_repo.set_summary("does-not-exist", "Un résumé.") is None
+        chat_db.published.assert_not_awaited()
+
+    async def test_a_mercure_failure_keeps_the_summary(self, chat_db):
+        ctx = await context_repo.create("user-1", "Courses de la semaine")
+        chat_db.published.side_effect = RuntimeError("hub down")
+
+        updated = await context_repo.set_summary(str(ctx.id), "Un résumé.")
+
+        assert updated is not None
+        assert (await context_repo.get(str(ctx.id))).summary == "Un résumé."
+
+    async def test_run_migrations_adds_both_columns(self):
+        """The agent database has no migration tool: a column only in the model never ships."""
+        executed = []
+        conn = AsyncMock()
+        conn.execute.side_effect = lambda stmt: executed.append(str(stmt))
+        begin = MagicMock()
+        begin.__aenter__ = AsyncMock(return_value=conn)
+        begin.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("app.db.context_repository.agent_engine") as engine:
+            engine.begin.return_value = begin
+            await context_repo.run_migrations()
+
+        statements = " ".join(executed)
+        assert "conversation_context ADD COLUMN IF NOT EXISTS summary TEXT" in statements
+        assert "conversation_context ADD COLUMN IF NOT EXISTS summary_updated_at TIMESTAMPTZ" in statements
+        # The column the method already carried, which this one must not displace.
+        assert "agent_message ADD COLUMN IF NOT EXISTS context_id" in statements
 
 
 class TestContextRouteAuth:

@@ -1,0 +1,24 @@
+# What Maggie writes when she summarizes a conversation thread (MAG-11).
+#
+# `ContextSummarizer` calls the model on its own, after the stream the owner was
+# watching has closed, as soon as a thread has grown by
+# `CONTEXT_SUMMARY_EVERY_MESSAGES` messages — 4 in the e2e stack, so a couple of
+# exchanges is enough. Without this file that call falls through to "no
+# scenario", and the `[fake-llm] aucun scénario…` sentence would be *stored as
+# the summary* and then injected into every system prompt for the rest of the
+# run: a journey would fail several steps later, on something unrelated.
+#
+# Matched on the summarizer's own system prompt, which no other caller sends, so
+# one file covers every thread the stack summarizes. The text is deliberately
+# unmistakable: `chat.spec.ts` asserts it on the Mind panel, and
+# 71-context-summary-recall.yaml matches on it *in the system prompt* — which is
+# the only way a journey can prove the summary was injected rather than merely
+# stored.
+name: context-summary
+description: The summary Maggie writes for a thread that has grown past the threshold.
+
+match:
+  system_contains: "tu résumes un fil de conversation"
+
+turns:
+  - text: "Résumé e2e : l'utilisateur organise sa semaine avec Maggie."

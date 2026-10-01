@@ -143,6 +143,16 @@ export class ChatPanel {
     return this.contextItems.filter({ hasText: label })
   }
 
+  /**
+   * What a summarized thread is about, under its label (MAG-11).
+   *
+   * Only the threads Maggie has already summarized have one, so this is also how
+   * a journey tells "the summary was written" from "the panel rendered".
+   */
+  get contextSummaries(): Locator {
+    return this.panel.getByTestId('mind-context-summary')
+  }
+
   /** A tool call in the Mind panel, by name. `data-status` carries its outcome. */
   toolCall(name: string): Locator {
     return this.panel.getByTestId('mind-tool-call').filter({ hasText: name })

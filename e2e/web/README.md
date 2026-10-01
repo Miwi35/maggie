@@ -148,7 +148,16 @@ conversation is stateful: the context router opens a context on the first
 message and every later one joins it, until a message deliberately changes the
 subject. It covers streaming, a tool call seen in the Mind panel and verified
 in the database and on the calendar, the change of subject, a thread resumed
-after a reload, and a proaction arriving over Mercure (MAG-99).
+after a reload, a proaction arriving over Mercure (MAG-99), and — last, because
+it needs everything above it to have happened — a thread long enough to be
+summarized (MAG-11).
+
+That last one is the only test here that asserts on the *model's input*. A
+summary stored and never injected is worth nothing, and a system prompt is not
+observable from a browser, so the proof is a scenario that cannot match unless
+the summary is in it: `71-context-summary-recall.yaml` declares the summary's own
+text as `system_contains`. If it ever fails on the `[fake-llm]` sentence, the
+injection is what broke, not the wording.
 
 It is also the one file that turns retries off. A serial group replays whole
 and nothing reseeds between the attempts, so the second one starts on the

@@ -1,10 +1,11 @@
 """AG-UI streaming gateway for token-by-token chat responses."""
 
+import asyncio
 import json
 import logging
 import time
 import uuid
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Coroutine
 from datetime import UTC, datetime
 
 import anthropic
@@ -15,6 +16,7 @@ from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
 from app.llm.capabilities import generate_capability_summary
 from app.llm.client import create_llm_client, llm_configured
+from app.llm.context_summary import context_summarizer
 from app.llm.prompt_cache import build_system, cache_tools
 from app.llm.tools import ToolRouter
 from app.memory.agent_memory import AgentMemory
@@ -23,6 +25,10 @@ from app.personality.engine import PersonalityEngine, current_datetime_line
 from app.skills.index import skill_index
 
 logger = logging.getLogger(__name__)
+
+# How many open threads carry their summary into the system prompt. Beyond this the
+# label alone goes in: a summary is ~5 lines, and the owner can have a dozen threads open.
+MAX_SUMMARIZED_CONTEXTS = 5
 
 
 class StreamingGateway:
@@ -33,6 +39,15 @@ class StreamingGateway:
         self.personality = PersonalityEngine()
         self.tool_router = ToolRouter()
         self.agent_memory = AgentMemory()
+        # Background work the answer does not wait for. Held in a set because the event
+        # loop keeps only a weak reference to a running task: one nobody holds can be
+        # collected mid-await, and the summary would go missing on a busy process.
+        self._background: set[asyncio.Task] = set()
+
+    def _in_background(self, work: Coroutine) -> None:
+        task = asyncio.create_task(work)
+        self._background.add(task)
+        task.add_done_callback(self._background.discard)
 
     async def _build_system_prompt(self, user_id: str, tools: list[dict] | None = None) -> list[dict]:
         """Build the system blocks: cached prefix (personality + skill index), then memory, contexts and date."""
@@ -41,14 +56,23 @@ class StreamingGateway:
         skill_context = skill_index.get_skills_index()
         memory_context = await self.agent_memory.get_memory_context(user_id)
 
-        # Inject active contexts so Claude knows ongoing topics
+        # Inject active contexts so Claude knows ongoing topics — with what each one is
+        # about, for the threads whose summary has been written (MAG-11). This is what a
+        # thread older than `max_conversation_history` leaves behind: without it, a
+        # context the conversation has moved on from is a label and nothing else.
         active_contexts = await context_repo.find_active(user_id)
         context_section = ""
         if active_contexts:
             lines = ["\n\nContextes de conversation en cours :"]
-            for ctx in active_contexts:
+            for rank, ctx in enumerate(active_contexts):
                 status_icon = "●" if ctx.status == ContextStatus.ACTIVE else "◐"
                 lines.append(f"- {status_icon} {ctx.label} ({ctx.status.value})")
+                # Every open thread keeps its label — the list is what tells Maggie a
+                # subject is still open. Only the most recently spoken-in ones carry
+                # their summary with them, because that is where the tokens are and
+                # `find_active` already orders by `updated_at`.
+                if ctx.summary and rank < MAX_SUMMARIZED_CONTEXTS:
+                    lines.append(f"  Résumé : {ctx.summary}")
             context_section = "\n".join(lines)
 
         volatile = f"{memory_context}{context_section}\n\n{current_datetime_line()}"
@@ -294,6 +318,13 @@ class StreamingGateway:
                 publish=False,
             )
 
+            # Both sides of the exchange are now in the database, so this is the one
+            # moment the thread's message count is right. Not awaited: nobody is waiting
+            # for a summary, and the run has to finish at the speed of the answer
+            # (MAG-11). The Mind panel gets it over Mercure when it lands.
+            if current_context_id:
+                self._in_background(context_summarizer.maybe_summarize(current_context_id))
+
         yield {"type": "RUN_FINISHED", "runId": run_id}
 
     async def _resolve_context(self, message: str, user_id: str, user_msg_id: str) -> dict | None:
@@ -324,7 +355,7 @@ class StreamingGateway:
         try:
             t0 = time.monotonic()
             response = await self.client.messages.create(
-                model="claude-haiku-4-5-20251001",
+                model=settings.anthropic_fast_model,
                 max_tokens=200,
                 system=(
                     "Tu es un routeur de contexte. Analyse le message et les contextes existants.\n"
@@ -343,7 +374,7 @@ class StreamingGateway:
             )
             duration = time.monotonic() - t0
             record_llm_usage(
-                model="claude-haiku-4-5-20251001",
+                model=settings.anthropic_fast_model,
                 call_type="context_resolve",
                 input_tokens=response.usage.input_tokens,
                 output_tokens=response.usage.output_tokens,
@@ -365,14 +396,23 @@ class StreamingGateway:
                 existing = next((c for c in contexts if str(c.id) == context_id), None)
                 label = existing.label if existing else "?"
                 logger.info(f"Context resolved: existing '{label}' ({context_id})")
-                return {"action": "matched", "id": context_id, "label": label, "status": "active"}
+                # The summary travels with the event: the Mind panel replaces the whole
+                # context when one arrives, so leaving it out would blank the line the
+                # panel is showing on the very next message (MAG-11).
+                return {
+                    "action": "matched",
+                    "id": context_id,
+                    "label": label,
+                    "status": "active",
+                    "summary": existing.summary if existing else None,
+                }
             else:
                 # New context
                 label = result.get("label", message[:60])
                 ctx = await context_repo.create(user_id, label)
                 await message_repo.update_context(user_msg_id, str(ctx.id))
                 logger.info(f"Context resolved: new '{label}' -> {ctx.id}")
-                return {"action": "created", "id": str(ctx.id), "label": label, "status": "active"}
+                return {"action": "created", "id": str(ctx.id), "label": label, "status": "active", "summary": None}
 
         except Exception as e:
             logger.warning(f"Context resolution failed, continuing without context: {e}")

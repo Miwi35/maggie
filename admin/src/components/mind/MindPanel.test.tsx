@@ -20,6 +20,27 @@ describe('ContextList', () => {
     expect(screen.getByText('Agenda semaine')).toBeInTheDocument()
   })
 
+  // What Maggie remembers of a thread that has scrolled past the history she is
+  // sent. It is the same text she carries into her system prompt (MAG-11), so this
+  // line is the owner's only way to see it.
+  test('shows what a summarized thread is about', () => {
+    const contexts: ContextState[] = [
+      { id: '1', label: 'Courses de la semaine', status: 'active', summary: 'Deux kilos de farine à acheter.' },
+      { id: '2', label: 'Budget', status: 'dormant' },
+    ]
+    render(<ContextList contexts={contexts} />)
+
+    expect(screen.getByText('Deux kilos de farine à acheter.')).toBeInTheDocument()
+    // A thread too short to have been summarized shows its label and nothing else.
+    expect(screen.getAllByTestId('mind-context-summary')).toHaveLength(1)
+  })
+
+  test('shows no summary line for a thread that has none', () => {
+    render(<ContextList contexts={[{ id: '1', label: 'Budget', status: 'active' }]} />)
+
+    expect(screen.queryByTestId('mind-context-summary')).not.toBeInTheDocument()
+  })
+
   // The chat journey counts these to tell a change of subject from a follow-up
   // (MAG-99), and the section has to be addressable even while it is empty —
   // otherwise "no context yet" and "the panel never rendered" look alike.

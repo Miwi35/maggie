@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     # LLM
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-5-5"
+    # The cheap model for the calls nobody reads: routing a message to a context,
+    # summarizing a thread. Named here rather than written at each call site because
+    # `metrics.PRICING` is keyed on it — a rename has to move in one place.
+    anthropic_fast_model: str = "claude-haiku-4-5-20251001"
     # "anthropic" talks to the real model. "fake" answers from the scenario
     # files in agent/fixtures/fake-llm/ instead, through the same tool loop and
     # the same streaming gateway — what the e2e stack runs, so a journey that
@@ -61,6 +65,10 @@ class Settings(BaseSettings):
     agent_name: str = "Maggie"
     agent_base_url: str = "http://maggie.local/agent"
     max_conversation_history: int = 50
+    # How many messages a conversation context has to gain before its summary is
+    # rewritten (MAG-11). Low enough that a thread is summarized within a sitting,
+    # high enough that a Haiku call is not made on every other message.
+    context_summary_every_messages: int = 10
 
     @field_validator("llm_provider")
     @classmethod

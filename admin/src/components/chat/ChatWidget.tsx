@@ -231,6 +231,10 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
           id: value.id as string,
           label: value.label as string,
           status: value.status as ContextState['status'],
+          // Carried by the event rather than kept from what is on screen: the whole
+          // context is replaced below, so a missing summary here erases the line the
+          // panel is showing (MAG-11).
+          summary: (value.summary as string | null) ?? null,
         }
         const exists = contextsRef.current.some((c) => c.id === ctx.id)
         if (exists) {
@@ -263,11 +267,14 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
           const res = await fetch('/agent/contexts', { headers: getAuthHeaders() })
           if (res.ok) {
             const data = await res.json()
-            const mapped: ContextState[] = data.map((c: { id: string; label: string; status: string }) => ({
-              id: c.id,
-              label: c.label,
-              status: c.status as ContextState['status'],
-            }))
+            const mapped: ContextState[] = data.map(
+              (c: { id: string; label: string; status: string; summary?: string | null }) => ({
+                id: c.id,
+                label: c.label,
+                status: c.status as ContextState['status'],
+                summary: c.summary ?? null,
+              }),
+            )
             contextsRef.current = mapped
             onContextsChange(mapped)
           }
@@ -499,6 +506,9 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
               id: data.id,
               label: data.label,
               status: data.status as ContextState['status'],
+              // A summary is written in the background, after the stream closed — so
+              // this is the only path that ever brings one to an open panel (MAG-11).
+              summary: data.summary ?? null,
             }
             const exists = contextsRef.current.some((c) => c.id === ctx.id)
             if (exists) {

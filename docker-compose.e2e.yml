@@ -451,6 +451,9 @@ services:
       AGENT_DATABASE_URL: "postgresql://maggie:maggie@database:5432/maggie_agent"
       RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
       AGENT_BASE_URL: ${E2E_BASE_URL:-http://localhost}/agent
+      # Four instead of the default ten, so two exchanges are enough to summarize a
+      # thread and a journey can assert on the summary without sending five (MAG-11).
+      CONTEXT_SUMMARY_EVERY_MESSAGES: "4"
     depends_on:
       database:
         condition: service_healthy
