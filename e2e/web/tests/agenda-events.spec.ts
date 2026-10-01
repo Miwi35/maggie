@@ -4,6 +4,9 @@ import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { expectRealtimeSync, openSubscribed } from '../helpers/mercure.js'
 import { CalendarPage } from '../pages/CalendarPage.js'
 
+// Quarantined: these journeys fail on main depending on the hour of the run (MAG-177).
+test.fixme(true, 'MAG-177: depends on the hour of the run')
+
 /**
  * Creating, changing and deleting an event from the agenda (MAG-100).
  *

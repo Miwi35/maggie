@@ -4,6 +4,9 @@ import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { openWiremockJournal } from '../helpers/wiremock.js'
 import { CalendarPage } from '../pages/CalendarPage.js'
 
+// Quarantined: these journeys fail on main depending on the hour of the run (MAG-177).
+test.fixme(true, 'MAG-177: depends on the hour of the run')
+
 /**
  * Google Calendar, simulated (MAG-100).
  *

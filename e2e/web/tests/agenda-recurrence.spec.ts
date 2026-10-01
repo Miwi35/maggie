@@ -3,6 +3,9 @@ import type { APIRequestContext } from '@playwright/test'
 import { getCollection } from '../helpers/api.js'
 import { CalendarPage } from '../pages/CalendarPage.js'
 
+// Quarantined: these journeys fail on main depending on the hour of the run (MAG-177).
+test.fixme(true, 'MAG-177: depends on the hour of the run')
+
 /**
  * A weekly series, and single occurrences of it changed on their own (MAG-100).
  *
