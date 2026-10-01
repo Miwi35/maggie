@@ -56,3 +56,20 @@ ticket_keys() {
     fi
   done
 }
+
+# frozen_tickets — prints the keys that freeze production, one per line: the
+# tickets in « Emergency » and the open `incident` tickets. Returns 1 when
+# Linear cannot say. Two aliased queries, not one `or` filter: Linear ignored
+# the label in an `or` branch and returned every open ticket.
+frozen_tickets() {
+  local response
+  response=$(graphql 'query($key: String!, $state: String!) {
+     emergency: issues(first: 100, filter: {team: {key: {eq: $key}}, state: {name: {eq: $state}}}) { nodes { identifier } }
+     incidents: issues(first: 100, filter: {team: {key: {eq: $key}}, labels: {some: {name: {eq: "incident"}}}, state: {type: {nin: ["completed", "canceled"]}}}) { nodes { identifier } }
+   }' "$(jq -n --arg key "$TEAM_KEY" --arg state "$EMERGENCY_STATE" '{key: $key, state: $state}')") || return 1
+  if ! jq -e '(.data.emergency.nodes | type) == "array" and (.data.incidents.nodes | type) == "array"' >/dev/null <<<"$response"; then
+    echo "Linear answered without the frozen tickets: $response" >&2
+    return 1
+  fi
+  jq -r '[.data.emergency.nodes[], .data.incidents.nodes[]] | map(.identifier) | unique | .[]' <<<"$response"
+}

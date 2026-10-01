@@ -123,6 +123,8 @@ Its own chat history is the only thing it writes. Unit tests of the scripts: `in
 2. `report-failed-deploy.sh` moves every ticket shipped since the last green CD run (`deploy-tickets.sh`: key in the commit subject, else in the PR branch) to the Linear state « Emergency », adds `Top` and comments the cause, the production state and the run (MAG-184). « Emergency » freezes production until the fix deploys green; the `lift-freeze` job then moves the ticket to Recette, or Done for a Task. A separate incident ticket (`Bug`, Urgent, labels `incident` and `Top`) is opened only when no ticket can carry the freeze or the rollback itself failed. GitHub issues are disabled on this repository, so nothing goes there. Needs the `LINEAR_API_KEY` Actions secret; the run summary carries the same text if the calls fail.
 3. The run ends red.
 
+**Freeze (MAG-184):** while a ticket is in « Emergency » or an `incident` ticket is open, the required check `Incident gate` (`infra/scripts/incident-gate.sh`) fails every PR whose title or branch does not carry one of those keys; no Linear answer fails it too. `incident-gate-release.yml` (every 10 min and after each CD run) re-runs the red gates once the freeze lifts, so held PRs merge on their own. The dispatcher delegates the « Emergency » ticket first, over every slot and hold.
+
 **Not reverted:** database migrations and Elasticsearch mappings. The pre-deploy dump is in `/opt/maggie/backups`.
 
 > Deployment targets k3s, not Docker Compose: manifests live in `infra/k8s/`

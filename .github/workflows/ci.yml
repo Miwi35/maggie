@@ -444,6 +444,29 @@ jobs:
           IMAGE: maggie-php-cron-test:ci
         run: bash infra/scripts/tests/cron-image.test.sh
 
+  # While production is frozen (MAG-184) — a ticket in « Emergency » after a
+  # failed deploy, or an open `incident` ticket — only the PR that carries one
+  # of those keys may merge. A required check; it fails closed when Linear does
+  # not answer, and incident-gate-release.yml re-runs it once the freeze lifts.
+  #
+  # It runs last, after every other job: checked at the start, it could pass a
+  # PR whose slow jobs end after a deploy failed, and the armed auto-merge would
+  # merge it into a frozen production. Last, that window shrinks to seconds.
+  incident-gate:
+    name: Incident gate
+    needs: [changes, api-lint, agent-lint, ciqual-lint, admin-lint, api-test, agent-test, ciqual-test, admin-test, e2e-stack, cron-image, infra-scripts]
+    if: always() && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Hold the PR while production is frozen, unless it is the fix
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BRANCH: ${{ github.head_ref }}
+        run: bash infra/scripts/incident-gate.sh
+
   # The scripts the CD workflow runs on the VPS (MAG-106). They only execute
   # after a merge, so a typo would otherwise surface as a failed deploy. The agent
   # guard rails (MAG-128) are checked here for the same reason.
@@ -455,18 +478,21 @@ jobs:
       - name: Lint workflows
         run: |
           docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:latest -color -ignore 'SC2129' .github/workflows/cd.yml .github/workflows/ci.yml \
-            .github/workflows/mobile.yml .github/workflows/nightly.yml .github/workflows/agent-guard.yml
+            .github/workflows/mobile.yml .github/workflows/nightly.yml .github/workflows/agent-guard.yml \
+            .github/workflows/incident-gate-release.yml
       - name: Lint shell scripts
         run: |
           docker run --rm -v "$PWD":/mnt -w /mnt koalaman/shellcheck:stable -x --severity=warning \
             infra/scripts/*.sh infra/scripts/tests/*.sh scripts/agent-guard/*.sh
-      - name: Test the smoke suite, the rollback, the failed-deploy report and the agent guard rails
+      - name: Test the smoke suite, the rollback, the failed-deploy report, the incident gate and the agent guard rails
         run: |
           bash infra/scripts/tests/smoke-prod.test.sh
           bash infra/scripts/tests/rollback-k3s.test.sh
           bash infra/scripts/tests/deploy-tickets.test.sh
           bash infra/scripts/tests/report-failed-deploy.test.sh
           bash infra/scripts/tests/release-emergency.test.sh
+          bash infra/scripts/tests/incident-gate.test.sh
           bash infra/scripts/tests/verify-digests.test.sh
           bash infra/scripts/tests/agent-guard.test.sh
           bash infra/scripts/tests/agent-guard-streak.test.sh
+          bash infra/scripts/tests/agent-guard-emergency.test.sh

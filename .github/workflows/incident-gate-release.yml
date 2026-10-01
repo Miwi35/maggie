@@ -1,0 +1,38 @@
+name: Incident gate release
+
+# Once production is no longer frozen (MAG-184), re-runs the red `Incident gate`
+# of every open PR, so their auto-merge fires on its own. A freeze lifts when the
+# fix merges or deploys (CD), or when someone closes an incident ticket by hand:
+# the schedule catches that last case, the CD trigger makes the usual one quick.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_run:
+    workflows: [CD]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+  pull-requests: read
+  checks: read
+
+concurrency:
+  group: incident-gate-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Re-run the held gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Re-run the red Incident gates if the freeze lifted
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+        run: bash infra/scripts/rerun-incident-gates.sh

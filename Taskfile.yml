@@ -69,7 +69,17 @@ tasks:
         set -eu
         PR='{{.CLI_ARGS}}'
         [ -n "$PR" ] || { echo "usage: task guard:check -- <pr number>" >&2; exit 64; }
-        gh pr diff "$PR" | scripts/agent-guard/check.sh
+        status=0
+        gh pr diff "$PR" > "${TMPDIR:-/tmp}/guard-$PR.diff"
+        scripts/agent-guard/check.sh < "${TMPDIR:-/tmp}/guard-$PR.diff" > "${TMPDIR:-/tmp}/guard-$PR.txt" || status=$?
+        # The fix of an « Emergency » ticket may merge its infra change alone (MAG-184), as the workflow does.
+        if [ "$status" -eq 10 ] && scripts/agent-guard/emergency.sh "$(gh pr view "$PR" --json headRefName -q .headRefName)" \
+            < "${TMPDIR:-/tmp}/guard-$PR.txt" > "${TMPDIR:-/tmp}/guard-$PR.waived"; then
+          mv "${TMPDIR:-/tmp}/guard-$PR.waived" "${TMPDIR:-/tmp}/guard-$PR.txt"
+          status=0
+        fi
+        cat "${TMPDIR:-/tmp}/guard-$PR.txt"
+        exit "$status"
 
   guard:enabled:
     desc: Exit 20 when the emergency stop is on (repo variable AGENT_ENABLED=false) — first step of every agent session
