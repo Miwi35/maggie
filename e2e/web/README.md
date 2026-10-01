@@ -107,16 +107,9 @@ so each one is written beside an unmarked test that drives the same setup: a bro
 `createEvent`, `goToEventDate` or `importFromGoogle` fails loudly there rather than
 hiding behind a marker. Keep that pairing if you add one.
 
-Writing them — and then *running* them — found four bugs, and each has an
+Writing them — and then *running* them — found bugs, and each open one has an
 expected-to-fail test naming its ticket rather than a missing assertion, because an
 exemption nobody wrote down is a missing test:
-
-- **MAG-171** — react-admin's Hydra provider puts the **IRI** in `record.id`, and five
-  places in `CalendarView` treat it as a bare id. So modifying or refusing a single
-  occurrence posts `recurringEvent: "/api/events//api/events/01M3…"` and gets
-  `400 Invalid IRI`, and exporting an agenda posts an IRI where the controller looks
-  up a ULID and gets a 500. Neither has ever worked. `c359b43` fixed this once in
-  `EventCreateDialog`; the pattern survived everywhere else.
 
 - **MAG-168** — the create dialog posts a local time with no offset, so an event
   entered at 15:00 in Paris is stored at 15:00 UTC.

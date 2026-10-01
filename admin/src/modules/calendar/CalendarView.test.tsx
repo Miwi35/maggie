@@ -1,4 +1,4 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CalendarView } from './CalendarView'
@@ -21,6 +21,7 @@ const mockGetList = vi.fn()
 const mockDelete = vi.fn()
 const mockUpdate = vi.fn()
 const mockCreate = vi.fn()
+const mockNotify = vi.fn()
 vi.mock('react-admin', () => ({
   useDataProvider: () => ({
     getList: mockGetList,
@@ -28,8 +29,11 @@ vi.mock('react-admin', () => ({
     update: mockUpdate,
     create: mockCreate,
   }),
-  useNotify: () => vi.fn(),
+  useNotify: () => mockNotify,
 }))
+
+// react-admin's Hydra provider puts the IRI in `record.id`, never a bare identifier
+const AGENDA = '/api/agendas/ag1'
 
 describe('CalendarView', () => {
   beforeEach(() => {
@@ -83,7 +87,7 @@ describe('CalendarView', () => {
       mockGetList.mockImplementation((resource: string) => {
         if (resource === 'agendas') {
           return Promise.resolve({
-            data: [{ id: 'ag1', name: 'Perso', color: '#1976d2', isDefault: true }],
+            data: [{ id: AGENDA, name: 'Perso', color: '#1976d2', isDefault: true }],
             total: 1,
           })
         }
@@ -98,7 +102,7 @@ describe('CalendarView', () => {
     }
 
     test('opens the edit dialog and saves a one-off event', async () => {
-      serveEvents([{ id: 'ev1', summary: 'Dentiste', startAt, endAt, allDay: false, agenda: 'ag1' }])
+      serveEvents([{ id: '/api/events/ev1', summary: 'Dentiste', startAt, endAt, allDay: false, agenda: AGENDA }])
       render(<CalendarView />)
 
       await openPencil('Dentiste')
@@ -113,7 +117,7 @@ describe('CalendarView', () => {
         expect(mockUpdate).toHaveBeenCalledWith(
           'events',
           expect.objectContaining({
-            id: 'ev1',
+            id: '/api/events/ev1',
             data: expect.objectContaining({ summary: 'Dentiste (contrôle)', startAt, endAt, allDay: false }),
           }),
         ),
@@ -122,7 +126,7 @@ describe('CalendarView', () => {
 
     test('asks which occurrences to change before editing a recurring series', async () => {
       serveEvents([
-        { id: 'ev2', summary: 'Sport', startAt, endAt, allDay: false, agenda: 'ag1', rrule: 'FREQ=WEEKLY' },
+        { id: '/api/events/ev2', summary: 'Sport', startAt, endAt, allDay: false, agenda: AGENDA, rrule: 'FREQ=WEEKLY' },
       ])
       render(<CalendarView />)
 
@@ -167,7 +171,7 @@ describe('CalendarView', () => {
     // hours later, renamed, located. Returns what the user edited, read from the form.
     const editSecondOccurrence = async (scope: string) => {
       serveEvents([
-        { id: 'ev3', summary: 'Sport', startAt, endAt, allDay: false, agenda: 'ag1', rrule: 'FREQ=WEEKLY' },
+        { id: '/api/events/ev3', summary: 'Sport', startAt, endAt, allDay: false, agenda: AGENDA, rrule: 'FREQ=WEEKLY' },
       ])
       render(<CalendarView />)
 
@@ -203,7 +207,7 @@ describe('CalendarView', () => {
         expect(mockUpdate).toHaveBeenCalledWith(
           'events',
           expect.objectContaining({
-            id: 'ev3',
+            id: '/api/events/ev3',
             data: expect.objectContaining({
               summary: 'Sport (piscine)',
               location: 'Piscine',
@@ -226,7 +230,7 @@ describe('CalendarView', () => {
         expect(mockUpdate).toHaveBeenCalledWith(
           'events',
           expect.objectContaining({
-            id: 'ev3',
+            id: '/api/events/ev3',
             data: { rrule: `FREQ=WEEKLY;UNTIL=${until}T235959Z` },
           }),
         ),
@@ -244,6 +248,146 @@ describe('CalendarView', () => {
           }),
         ),
       )
+    })
+  })
+  // Every write below goes out with what the API accepts: the master's IRI where an
+  // IRI is expected, the bare identifier where a controller `find()`s a ULID column.
+  describe('with the IRIs react-admin hands over', { timeout: 30_000 }, () => {
+    const noon = new Date()
+    noon.setHours(12, 0, 0, 0)
+    noon.setDate(15)
+    const startAt = noon.toISOString()
+    const endAt = new Date(noon.getTime() + 3600_000).toISOString()
+    const MASTER = '/api/events/01SPORT'
+    const series = {
+      id: MASTER,
+      summary: 'Sport',
+      startAt,
+      endAt,
+      allDay: false,
+      agenda: AGENDA,
+      rrule: 'FREQ=WEEKLY',
+    }
+
+    const serve = (events: unknown[], agendas: unknown[] = [{ id: AGENDA, name: 'Perso', isDefault: true }]) => {
+      mockGetList.mockImplementation((resource: string) => {
+        if (resource === 'agendas') return Promise.resolve({ data: agendas, total: agendas.length })
+        if (resource === 'events') return Promise.resolve({ data: events, total: events.length })
+        return Promise.resolve({ data: [], total: 0 })
+      })
+    }
+
+    const answerOccurrence = async (action: 'Modifier' | 'Supprimer') => {
+      const chips = await screen.findAllByText('Sport')
+      await userEvent.click(chips[0])
+      await userEvent.click(await screen.findByRole('button', { name: action }))
+      if (action === 'Modifier') {
+        const edit = await screen.findByRole('dialog')
+        fireEvent.change(within(edit).getByLabelText(/Résumé/), { target: { value: 'Sport (piscine)' } })
+        await userEvent.click(within(edit).getByRole('button', { name: 'Enregistrer' }))
+      }
+      const confirm = await screen.findByRole('dialog', { name: /l'événement récurrent$/ })
+      await userEvent.click(within(confirm).getByLabelText('Cet événement'))
+      await userEvent.click(within(confirm).getByRole('button', { name: 'OK' }))
+    }
+
+    test('deleting one occurrence cancels it against the master IRI, not a doubled one', async () => {
+      serve([series])
+      render(<CalendarView />)
+
+      await answerOccurrence('Supprimer')
+
+      await waitFor(() =>
+        expect(mockCreate).toHaveBeenCalledWith(
+          'events',
+          expect.objectContaining({
+            data: expect.objectContaining({ recurringEvent: MASTER, status: 'cancelled', agenda: AGENDA }),
+          }),
+        ),
+      )
+      expect(mockNotify).toHaveBeenCalledWith('Occurrence supprimée', { type: 'success' })
+    })
+
+    test('a refused write shows the error, announces no success and keeps the dialog open', async () => {
+      serve([series])
+      mockCreate.mockRejectedValue(new Error('Invalid IRI'))
+      render(<CalendarView />)
+
+      await answerOccurrence('Modifier')
+
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith('Erreur: Invalid IRI', { type: 'error' }))
+      expect(mockNotify).not.toHaveBeenCalledWith('Occurrence modifiée', { type: 'success' })
+      // longer than MUI's exit transition, so a dialog that is closing has left the DOM
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      expect(screen.getByRole('dialog', { name: "Modifier l'événement récurrent" })).toBeInTheDocument()
+    })
+
+    test('an exception is matched to its master and replaces the occurrence it moved', async () => {
+      serve([
+        series,
+        {
+          id: '/api/events/01EXC',
+          summary: 'Sport déplacé',
+          startAt: new Date(noon.getTime() + 2 * 3600_000).toISOString(),
+          endAt: new Date(noon.getTime() + 3 * 3600_000).toISOString(),
+          allDay: false,
+          agenda: AGENDA,
+          recurringEvent: MASTER,
+          originalStartAt: startAt,
+          status: 'confirmed',
+        },
+      ])
+      render(<CalendarView />)
+
+      expect(await screen.findByText('Sport déplacé')).toBeInTheDocument()
+      const pad = (n: number) => String(n).padStart(2, '0')
+      const day = `${noon.getFullYear()}-${pad(noon.getMonth() + 1)}-${pad(noon.getDate())}`
+      const cell = document.querySelector(`td[data-date="${day}"]`) as HTMLElement
+      expect(within(cell).queryByText('Sport')).toBeNull()
+    })
+
+    describe('the agenda options menu', () => {
+      const FAMILLE = '/api/agendas/01FAMILLE'
+      const fetchMock = vi.fn()
+
+      beforeEach(() => {
+        fetchMock.mockReset()
+        fetchMock.mockResolvedValue({ ok: true, status: 204, json: () => Promise.resolve({}) })
+        vi.stubGlobal('fetch', fetchMock)
+        serve([], [{ id: FAMILLE, name: 'Famille', isDefault: false }])
+      })
+
+      afterEach(() => {
+        vi.unstubAllGlobals()
+        vi.stubGlobal('EventSource', MockEventSource)
+      })
+
+      const openMenu = async (item: string) => {
+        render(<CalendarView />)
+        await userEvent.click(await screen.findByRole('button', { name: "Options de l'agenda Famille" }))
+        await userEvent.click(await screen.findByRole('menuitem', { name: item }))
+      }
+
+      test('exports the agenda by its bare identifier', async () => {
+        await openMenu('Exporter vers Google')
+
+        await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+        const [url, init] = fetchMock.mock.calls[0]
+        expect(String(url)).toMatch(/\/calendar\/google\/export$/)
+        expect(JSON.parse(init.body)).toEqual({ agendaId: '01FAMILLE' })
+      })
+
+      test('deletes the agenda at its own path, not a doubled one', async () => {
+        await openMenu('Supprimer')
+
+        const dialog = await screen.findByRole('dialog', { name: "Supprimer l'agenda" })
+        await userEvent.click(within(dialog).getByRole('button', { name: 'Supprimer' }))
+
+        await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+        const [url, init] = fetchMock.mock.calls[0]
+        expect(String(url)).toBe('http://localhost/api/agendas/01FAMILLE')
+        expect(init.method).toBe('DELETE')
+      })
     })
   })
 })
