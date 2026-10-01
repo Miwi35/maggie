@@ -343,6 +343,18 @@ class TestContextLifecycle:
         summarizer.assert_awaited_once_with(quiet)
         assert counts == {"dormant": 0, "closed": 1}
 
+    async def test_the_close_threshold_counts_from_the_last_message_not_from_going_dormant(self, chat_db, summarizer):
+        quiet = await context_at(chat_db, "user-1", "Courses", hours=30)
+
+        await scheduler.run_context_lifecycle(NOW)
+        assert await self.status_of(quiet) == ContextStatus.DORMANT
+
+        # 13 days after the dormant step the thread has been quiet 14 days and 6 hours.
+        await scheduler.run_context_lifecycle(NOW + timedelta(days=12))
+        assert await self.status_of(quiet) == ContextStatus.DORMANT
+        await scheduler.run_context_lifecycle(NOW + timedelta(days=13))
+        assert await self.status_of(quiet) == ContextStatus.CLOSED
+
     async def test_a_closed_context_is_not_touched_again(self, chat_db, summarizer):
         closed = await context_at(chat_db, "user-1", "Vieux", ContextStatus.CLOSED, days=40)
         chat_db.published.reset_mock()

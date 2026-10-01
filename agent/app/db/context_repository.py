@@ -64,12 +64,15 @@ class ContextRepository:
             query = select(ConversationContext).where(ConversationContext.id == context_id)
             if idle_before is not None:
                 query = query.where(ConversationContext.updated_at < idle_before)
-            ctx = (await session.execute(query)).scalar_one_or_none()
+            # Locked, so a `touch` committing meanwhile is waited for and then fails the
+            # `idle_before` check instead of being overwritten (a no-op on SQLite).
+            ctx = (await session.execute(query.with_for_update())).scalar_one_or_none()
             if ctx is None:
                 return None
 
+            # `updated_at` stays: it is when the thread was last spoken in, and the close
+            # threshold, the router's ranking and the panel all read it as that.
             ctx.status = status
-            ctx.updated_at = datetime.now(UTC)
             if status == ContextStatus.CLOSED:
                 ctx.closed_at = datetime.now(UTC)
             await session.commit()

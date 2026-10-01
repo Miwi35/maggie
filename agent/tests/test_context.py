@@ -204,6 +204,16 @@ class TestContextRepositoryLifecycle:
         chat_db.published.assert_awaited_once()
         assert chat_db.published.await_args.args[1]["status"] == "closed"
 
+    async def test_update_status_leaves_updated_at_alone(self, chat_db):
+        """A status change is not a message: the idle clock, the router's ranking and the panel read `updated_at`."""
+        ctx = await context_repo.create("user-1", "Courses")
+        _back_date(chat_db, str(ctx.id), hours=30)
+        spoken_at = (await context_repo.get(str(ctx.id))).updated_at
+
+        await context_repo.update_status(str(ctx.id), ContextStatus.DORMANT)
+
+        assert (await context_repo.get(str(ctx.id))).updated_at == spoken_at
+
     async def test_update_status_refuses_a_context_spoken_in_since(self, chat_db):
         """The summary takes seconds: a message that lands meanwhile must not be put to sleep."""
         ctx = await context_repo.create("user-1", "Courses")
