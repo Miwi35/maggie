@@ -1,210 +1,220 @@
-from pathlib import Path
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from app.llm.gateway import LLMGateway
-from app.skills.index import SkillIndex
+from app.db.skill_model import Skill
+from app.skills.index import SkillEntry, SkillIndex
+
+
+def _index() -> SkillIndex:
+    index = SkillIndex()
+    index._publisher.publish = AsyncMock()
+    return index
+
+
+class TestSkillPersistence:
+    async def test_skill_survives_a_restart(self, agent_db):
+        """MAG-187: a skill created before a deploy is in the rebuilt index and loadable afterwards."""
+        before = _index()
+        await before.create("concert-link", "Lier un concert", ["concert"], "Cherche le lien", user_id="u")
+
+        after_restart = _index()
+        assert after_restart.entries == []
+        await after_restart.rebuild()
+
+        assert [e.name for e in after_restart.entries] == ["concert-link"]
+        assert "- concert-link: Lier un concert" in after_restart.get_skills_index()
+        assert "Cherche le lien" in (await after_restart.get("concert-link") or "")
+
+    async def test_index_rebuilt_empty_after_restart_fails_the_build(self, agent_db):
+        """The guard of MAG-187: stored skills must never come back as an empty index."""
+        await _index().create("a-skill", "d", [], "body", user_id="u")
+
+        restarted = _index()
+        await restarted.rebuild()
+
+        assert restarted.entries, "index rebuilt empty although a skill is stored"
+        assert restarted.get_skills_index() != ""
+
+    async def test_rebuild_empty_store(self, agent_db):
+        index = _index()
+        await index.rebuild()
+        assert index.entries == []
+        assert index.get_skills_index() == ""
+
+    async def test_rebuild_propagates_a_store_failure(self):
+        """An unreadable database must not be mistaken for 'no skill taught yet'."""
+        index = _index()
+        index.repo = MagicMock(list_all=AsyncMock(side_effect=RuntimeError("db down")))
+        with pytest.raises(RuntimeError):
+            await index.rebuild()
+
+    async def test_rebuild_drops_skills_deleted_elsewhere(self, agent_db):
+        index = _index()
+        await index.create("gone", "d", [], "body", user_id="u")
+        await index.repo.delete("gone")
+
+        await index.rebuild()
+
+        assert index.entries == []
 
 
 class TestSkillIndex:
-    def test_rebuild_empty_directory(self, tmp_path):
-        """Rebuild with no skill files should produce empty entries."""
-        index = SkillIndex(tmp_path)
-        index.rebuild()
-        assert index.entries == []
+    async def test_get_returns_markdown_with_frontmatter(self, agent_db):
+        index = _index()
+        await index.create("test-skill", "Test", ["test"], "Full content here", user_id="u")
 
-    def test_rebuild_creates_directory_if_missing(self, tmp_path):
-        """Rebuild should create the directory if it doesn't exist."""
-        skill_dir = tmp_path / "skills"
-        index = SkillIndex(skill_dir)
-        index.rebuild()
-        assert skill_dir.exists()
-        assert index.entries == []
+        result = await index.get("test-skill")
 
-    def test_rebuild_parses_skill_files(self, tmp_path):
-        """Rebuild should parse valid skill files with YAML frontmatter."""
-        skill_file = tmp_path / "concert.md"
-        skill_file.write_text(
-            "---\nname: concert-link\ndescription: Add concert links\ntags: [concert, lien]\n---\n\nContent here\n"
-        )
-
-        index = SkillIndex(tmp_path)
-        index.rebuild()
-
-        assert len(index.entries) == 1
-        assert index.entries[0].name == "concert-link"
-        assert index.entries[0].description == "Add concert links"
-        assert index.entries[0].tags == ["concert", "lien"]
-
-    def test_get_existing_skill(self, tmp_path):
-        """Get should return full file content for a known skill."""
-        skill_file = tmp_path / "test.md"
-        content = "---\nname: test-skill\ndescription: Test\ntags: [test]\n---\n\nFull content here\n"
-        skill_file.write_text(content)
-
-        index = SkillIndex(tmp_path)
-        index.rebuild()
-
-        result = index.get("test-skill")
         assert result is not None
+        assert result.startswith("---\n")
+        assert "name: test-skill" in result
         assert "Full content here" in result
 
-    def test_get_unknown_skill(self, tmp_path):
-        """Get should return None for an unknown skill."""
-        index = SkillIndex(tmp_path)
-        index.rebuild()
+    async def test_get_unknown_skill(self, agent_db):
+        assert await _index().get("nonexistent") is None
 
-        result = index.get("nonexistent")
-        assert result is None
+    async def test_list_all(self, agent_db):
+        index = _index()
+        await index.create("skill-a", "A", ["a"], "Content", user_id="u")
+        await index.create("skill-b", "B", ["b"], "Content", user_id="u")
 
-    def test_list_all(self, tmp_path):
-        """list_all should return all entries."""
-        for name in ["a", "b"]:
-            (tmp_path / f"{name}.md").write_text(
-                f"---\nname: skill-{name}\ndescription: Skill {name}\ntags: [{name}]\n---\n\nContent\n"
-            )
+        assert {e.name for e in index.list_all()} == {"skill-a", "skill-b"}
 
-        index = SkillIndex(tmp_path)
-        index.rebuild()
+    async def test_create_stores_a_row_and_publishes(self, agent_db):
+        index = _index()
 
-        entries = index.list_all()
-        assert len(entries) == 2
-
-    async def test_create_skill(self, tmp_path):
-        """Create should write a new file and add to index."""
-        index = SkillIndex(tmp_path)
-        index._publisher.publish = AsyncMock()
-        index.rebuild()
-
-        entry = await index.create(
-            name="new-skill",
-            description="A new skill",
-            tags=["tag1", "tag2"],
-            content="Procedure content",
-            user_id="test-user",
-        )
+        entry = await index.create("new-skill", "A new skill", ["tag1", "tag2"], "Procedure content", user_id="u")
 
         assert entry.name == "new-skill"
-        assert len(index.entries) == 1
-        assert (tmp_path / "new-skill.md").exists()
-        file_content = (tmp_path / "new-skill.md").read_text()
-        assert "Procedure content" in file_content
+        with agent_db() as session:
+            row = session.query(Skill).one()
+            assert (row.name, row.description, row.tags, row.content) == (
+                "new-skill",
+                "A new skill",
+                ["tag1", "tag2"],
+                "Procedure content",
+            )
+        index._publisher.publish.assert_awaited_once()
 
-    async def test_create_overwriting_a_file_replaces_the_entry(self, tmp_path):
-        """Creating a skill whose file already exists replaces its entry instead of duplicating it."""
-        index = SkillIndex(tmp_path)
-        index._publisher.publish = AsyncMock()
-        index.rebuild()
-
-        await index.create(name="my-skill", description="Old", tags=["old"], content="Old body", user_id="u")
-        entry = await index.create(name="my-skill", description="New", tags=["new"], content="New body", user_id="u")
+    async def test_create_same_name_replaces_the_skill(self, agent_db):
+        index = _index()
+        await index.create("my-skill", "Old", ["old"], "Old body", user_id="u")
+        entry = await index.create("my-skill", "New", ["new"], "New body", user_id="u")
 
         assert index.list_all() == [entry]
         assert index.entries[0].description == "New"
-        assert "New body" in (index.get("my-skill") or "")
+        assert "New body" in (await index.get("my-skill") or "")
+        with agent_db() as session:
+            assert session.query(Skill).count() == 1
 
-    async def test_create_with_other_name_on_same_file_replaces_the_entry(self, tmp_path):
-        """Two names that map to the same filename share one file, so they share one entry."""
-        index = SkillIndex(tmp_path)
-        index._publisher.publish = AsyncMock()
-        index.rebuild()
+    async def test_update_changes_only_the_given_fields(self, agent_db):
+        index = _index()
+        await index.create("my-skill", "Desc", ["t"], "Body", user_id="u")
 
-        await index.create(name="My Skill", description="Old", tags=[], content="Old body", user_id="u")
-        await index.create(name="my-skill", description="New", tags=[], content="New body", user_id="u")
+        entry = await index.update("my-skill", content="New body", user_id="u")
 
-        assert [e.name for e in index.entries] == ["my-skill"]
-        assert index.get("My Skill") is None
+        assert entry is not None
+        assert (entry.description, entry.tags) == ("Desc", ["t"])
+        assert "New body" in (await index.get("my-skill") or "")
 
-    async def test_delete_skill(self, tmp_path):
-        """Delete should remove file and entry from index."""
-        index = SkillIndex(tmp_path)
-        index._publisher.publish = AsyncMock()
-        skill_file = tmp_path / "test.md"
-        skill_file.write_text("---\nname: test-skill\ndescription: Test\ntags: [test]\n---\n\nContent\n")
+    async def test_update_unknown_skill(self, agent_db):
+        assert await _index().update("nope", description="x", user_id="u") is None
 
-        index.rebuild()
-        assert len(index.entries) == 1
+    async def test_delete_skill(self, agent_db):
+        index = _index()
+        await index.create("test-skill", "Test", ["test"], "Content", user_id="u")
 
-        deleted = await index.delete("test-skill", user_id="test-user")
-        assert deleted is True
-        assert len(index.entries) == 0
-        assert not skill_file.exists()
+        assert await index.delete("test-skill", user_id="u") is True
 
-    def test_skills_index_lists_name_and_description(self, tmp_path):
+        assert index.entries == []
+        with agent_db() as session:
+            assert session.query(Skill).count() == 0
+        assert await index.delete("test-skill", user_id="u") is False
+
+    async def test_publish_failure_does_not_fail_the_write(self, agent_db):
+        index = _index()
+        index._publisher.publish = AsyncMock(side_effect=RuntimeError("mercure down"))
+
+        await index.create("s", "d", [], "body", user_id="u")
+
+        assert [e.name for e in index.entries] == ["s"]
+
+    def test_skills_index_lists_name_and_description(self):
         """The index lists every skill as '- name: description'."""
-        (tmp_path / "concert.md").write_text(
-            "---\nname: concert-link\ndescription: Concert links\ntags: [concert]\n---\n\nContent\n"
-        )
-        (tmp_path / "recipe.md").write_text(
-            "---\nname: recipe-grocery-link\ndescription: Lier recette et courses\ntags: [recette]\n---\n\nBody\n"
-        )
-
-        index = SkillIndex(tmp_path)
-        index.rebuild()
+        index = SkillIndex()
+        index.entries = [
+            SkillEntry("concert-link", "Concert links", ["concert"]),
+            SkillEntry("recipe-grocery-link", "Lier recette et courses", ["recette"]),
+        ]
 
         context = index.get_skills_index()
         assert "Compétences disponibles" in context
         assert "- concert-link: Concert links" in context
         assert "- recipe-grocery-link: Lier recette et courses" in context
 
-    def test_skills_index_injects_no_body(self, tmp_path):
+    async def test_skills_index_injects_no_body(self, agent_db):
         """Skill bodies and tags never appear in the index."""
-        (tmp_path / "concert.md").write_text(
-            "---\nname: concert-link\ndescription: Concert links\ntags: [concert, musique]\n---\n\nCherche le lien\n"
-        )
-
-        index = SkillIndex(tmp_path)
-        index.rebuild()
+        index = _index()
+        await index.create("concert-link", "Concert links", ["concert", "musique"], "Cherche le lien", user_id="u")
 
         context = index.get_skills_index()
         assert "Cherche le lien" not in context
         assert "musique" not in context
 
-    def test_skills_index_order_is_stable(self, tmp_path):
+    def test_skills_index_order_is_stable(self):
         """The index is sorted by name whatever the insertion order, so it can be cached."""
-        for name in ("zebra", "alpha", "mid"):
-            (tmp_path / f"{name}.md").write_text(f"---\nname: {name}\ndescription: d\ntags: []\n---\n\nB\n")
-
-        first = SkillIndex(tmp_path)
-        first.rebuild()
-        second = SkillIndex(tmp_path)
-        second.rebuild()
-        second.entries.reverse()
+        entries = [SkillEntry(n, "d", []) for n in ("zebra", "alpha", "mid")]
+        first, second = SkillIndex(), SkillIndex()
+        first.entries = list(entries)
+        second.entries = list(reversed(entries))
 
         assert first.get_skills_index() == second.get_skills_index()
         lines = first.get_skills_index().splitlines()
         assert [line.split(":")[0] for line in lines if line.startswith("- ")] == ["- alpha", "- mid", "- zebra"]
 
-    def test_skills_index_empty(self, tmp_path):
+    def test_skills_index_empty(self):
         """No skills means no section at all."""
-        index = SkillIndex(tmp_path)
-        index.rebuild()
+        assert SkillIndex().get_skills_index() == ""
 
-        assert index.get_skills_index() == ""
 
-    def test_skip_invalid_files(self, tmp_path):
-        """Rebuild should skip files without valid frontmatter."""
-        (tmp_path / "valid.md").write_text("---\nname: valid\ndescription: ok\ntags: []\n---\n\nContent\n")
+class TestLegacyImport:
+    async def test_files_left_in_the_old_directory_move_to_the_database(self, agent_db, tmp_path):
+        (tmp_path / "concert.md").write_text(
+            "---\nname: concert-link\ndescription: Concert links\ntags: [concert]\n---\n\nCherche le lien\n"
+        )
         (tmp_path / "invalid.md").write_text("no frontmatter here")
         (tmp_path / "broken.md").write_text("---\nnot: valid: yaml: [[\n---\n\nContent\n")
+        index = _index()
 
-        index = SkillIndex(tmp_path)
-        index.rebuild()
+        imported = await index.import_legacy_files(tmp_path)
+        await index.rebuild()
 
-        assert len(index.entries) == 1
-        assert index.entries[0].name == "valid"
+        assert imported == 1
+        assert [(e.name, e.description, e.tags) for e in index.entries] == [("concert-link", "Concert links", ["concert"])]
+        assert "Cherche le lien" in (await index.get("concert-link") or "")
+
+    async def test_import_never_overwrites_a_stored_skill(self, agent_db, tmp_path):
+        (tmp_path / "s.md").write_text("---\nname: s\ndescription: old file\ntags: []\n---\n\nOld body\n")
+        index = _index()
+        await index.create("s", "kept", [], "Kept body", user_id="u")
+
+        assert await index.import_legacy_files(tmp_path) == 0
+
+        assert "Kept body" in (await index.get("s") or "")
+
+    async def test_missing_directory_is_a_no_op(self, agent_db, tmp_path):
+        assert await _index().import_legacy_files(tmp_path / "absent") == 0
 
 
 class TestSystemPromptSkills:
     @pytest.mark.asyncio
-    async def test_system_prompt_carries_index_without_body(self, tmp_path):
+    async def test_system_prompt_carries_index_without_body(self, agent_db):
         """The system prompt (used by chat and proactions) has the skill index but no skill body."""
-        (tmp_path / "recipe.md").write_text(
-            "---\nname: recipe-grocery-link\ndescription: Lier recette et courses\ntags: []\n---\n\nCorps secret\n"
-        )
-        index = SkillIndex(tmp_path)
-        index.rebuild()
+        index = _index()
+        await index.create("recipe-grocery-link", "Lier recette et courses", [], "Corps secret", user_id="u")
 
         gateway = LLMGateway.__new__(LLMGateway)
         gateway.personality = MagicMock(get_system_prompt=AsyncMock(return_value="BASE"))
@@ -227,10 +237,8 @@ class TestSkillRoutes:
     @patch("app.api.routes.skill_index")
     def test_list_skills_with_auth(self, mock_index, authed_client):
         """GET /skills with valid auth returns skills list."""
-        from app.skills.index import SkillEntry
-
         mock_index.list_all.return_value = [
-            SkillEntry(name="s1", description="Skill 1", tags=["a"], file_path=Path("/tmp/s1.md")),
+            SkillEntry(name="s1", description="Skill 1", tags=["a"]),
         ]
 
         response = authed_client.get("/skills")
@@ -239,3 +247,34 @@ class TestSkillRoutes:
         data = response.json()
         assert len(data) == 1
         assert data[0]["name"] == "s1"
+
+
+class TestSkillToolsAfterRestart:
+    async def test_get_skill_tool_finds_a_skill_created_before_the_restart(self, agent_db):
+        """MAG-187 journey, at the tool level: create_skill, restart, get_skill finds it and the prompt lists it."""
+        from app.llm.tools import ToolRouter
+
+        before = _index()
+        with patch("app.llm.tools.skill_index", before):
+            created = await ToolRouter().call_tool(
+                "create_skill",
+                {"name": "concert-link", "description": "Lier un concert", "tags": ["concert"], "content": "Étapes"},
+                user_id="u",
+            )
+        assert "error" not in created
+
+        restarted = _index()
+        await restarted.rebuild()
+        with patch("app.llm.tools.skill_index", restarted):
+            found = await ToolRouter().call_tool("get_skill", {"name": "concert-link"}, user_id="u")
+
+        assert "Étapes" in json.loads(found)["content"]
+        assert "- concert-link: Lier un concert" in restarted.get_skills_index()
+
+
+def test_skill_table_is_registered_for_create_all():
+    """A model missing from app.main's imports is never created in maggie_agent, and every skill write then fails."""
+    import app.main  # noqa: F401
+    from app.db.proaction_model import AgentBase
+
+    assert "skill" in AgentBase.metadata.tables

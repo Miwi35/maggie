@@ -389,7 +389,7 @@ async def _handle_get_skill(arguments: dict, user_id: str) -> str:
     name = arguments.get("name", "")
     if not name:
         return json.dumps({"error": "'name' is required"})
-    content = skill_index.get(name)
+    content = await skill_index.get(name)
     if content is None:
         return json.dumps({"error": f"Skill '{name}' not found"})
     return json.dumps({"name": name, "content": content})

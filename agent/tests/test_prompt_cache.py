@@ -41,8 +41,7 @@ class TestCacheTools:
 class TestGatewayPrefix:
     @staticmethod
     def _gateway(tmp_path, memory: str = "") -> LLMGateway:
-        index = SkillIndex(tmp_path)
-        index.rebuild()
+        index = SkillIndex()
         gateway = LLMGateway.__new__(LLMGateway)
         gateway.personality = PersonalityEngine()
         gateway.agent_memory = MagicMock(get_memory_context=AsyncMock(return_value=memory))
@@ -176,8 +175,7 @@ class TestStreamingSystemPrompt:
         from app.db.context_model import ContextStatus
         from app.llm.streaming import StreamingGateway
 
-        index = SkillIndex(tmp_path)
-        index.rebuild()
+        index = SkillIndex()
         context = MagicMock(label="Courses", status=ContextStatus.ACTIVE)
 
         with (

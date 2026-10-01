@@ -312,7 +312,7 @@ async def get_skills(_user_id: str = Depends(get_current_user_id)):
 @router.get("/skills/{name}")
 async def get_skill_detail(name: str, _user_id: str = Depends(get_current_user_id)):
     """Get full skill content by name."""
-    content = skill_index.get(name)
+    content = await skill_index.get(name)
     if content is None:
         raise HTTPException(status_code=404, detail="Skill not found")
     entry = next((e for e in skill_index.entries if e.name == name), None)

@@ -1,14 +1,16 @@
 import logging
-import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
 
+from app.db.skill_repository import SkillRepository, skill_repo
 from app.mercure import topics
 from app.mercure.publisher import MercurePublisher
 
 logger = logging.getLogger(__name__)
+
+LEGACY_SKILLS_DIR = Path("/app/data/skills")
 
 
 @dataclass
@@ -16,89 +18,89 @@ class SkillEntry:
     name: str
     description: str
     tags: list[str]
-    file_path: Path
+
+
+def render_markdown(name: str, description: str, tags: list[str], content: str) -> str:
+    """A skill as a Markdown file with YAML frontmatter — what get_skill returns and the Markdown mirror carries."""
+    frontmatter = yaml.dump(
+        {"name": name, "description": description, "tags": tags}, allow_unicode=True, default_flow_style=False
+    )
+    return f"---\n{frontmatter}---\n\n{content}\n"
+
+
+def parse_markdown(path: Path) -> tuple[SkillEntry, str] | None:
+    """Parse a legacy skill file (YAML frontmatter + body); None if it has no valid frontmatter."""
+    text = path.read_text(encoding="utf-8")
+    parts = text.split("---", 2)
+    if not text.startswith("---") or len(parts) < 3:
+        return None
+    frontmatter = yaml.safe_load(parts[1])
+    if not isinstance(frontmatter, dict):
+        return None
+    entry = SkillEntry(
+        name=str(frontmatter.get("name", path.stem)),
+        description=frontmatter.get("description") or "",
+        tags=frontmatter.get("tags") or [],
+    )
+    return entry, parts[2].strip()
 
 
 @dataclass
 class SkillIndex:
-    """In-memory index of skill files with YAML frontmatter."""
+    """In-memory index (name, description, tags) of the skills stored in `maggie_agent`; bodies stay in the database."""
 
-    directory: Path
+    repo: SkillRepository = field(default_factory=lambda: skill_repo)
     entries: list[SkillEntry] = field(default_factory=list)
     _publisher: MercurePublisher = field(default_factory=MercurePublisher)
 
-    def rebuild(self) -> None:
-        """Scan skill directory, parse YAML frontmatter, build index."""
-        self.entries.clear()
-        if not self.directory.exists():
-            self.directory.mkdir(parents=True, exist_ok=True)
-            return
+    async def rebuild(self) -> None:
+        """Reload the index from the database. Errors propagate: an unreadable store must not look like no skills."""
+        skills = await self.repo.list_all()
+        self.entries = [SkillEntry(name=s.name, description=s.description, tags=list(s.tags or [])) for s in skills]
 
-        for path in sorted(self.directory.glob("*.md")):
+    async def import_legacy_files(self, directory: Path = LEGACY_SKILLS_DIR) -> int:
+        """Move skill files left in the old container directory into the database, never overwriting a stored skill."""
+        if not directory.is_dir():
+            return 0
+        imported = 0
+        for path in sorted(directory.glob("*.md")):
             try:
-                entry = self._parse_file(path)
-                if entry:
-                    self.entries.append(entry)
+                parsed = parse_markdown(path)
+                if parsed is None:
+                    continue
+                entry, body = parsed
+                if await self.repo.get(entry.name) is None:
+                    await self.repo.upsert(entry.name, entry.description, entry.tags, body)
+                    imported += 1
             except Exception as e:
-                logger.warning(f"Failed to parse skill file {path}: {e}")
+                logger.warning(f"Failed to import legacy skill file {path}: {e}")
+        return imported
 
-    def _parse_file(self, path: Path) -> SkillEntry | None:
-        """Parse a skill markdown file with YAML frontmatter."""
-        text = path.read_text(encoding="utf-8")
-        if not text.startswith("---"):
+    async def get(self, name: str) -> str | None:
+        """Full skill as Markdown (frontmatter + body), or None if unknown."""
+        skill = await self.repo.get(name)
+        if skill is None:
             return None
-
-        parts = text.split("---", 2)
-        if len(parts) < 3:
-            return None
-
-        frontmatter = yaml.safe_load(parts[1])
-        if not isinstance(frontmatter, dict):
-            return None
-
-        return SkillEntry(
-            name=frontmatter.get("name", path.stem),
-            description=frontmatter.get("description", ""),
-            tags=frontmatter.get("tags", []),
-            file_path=path,
-        )
-
-    def get(self, name: str) -> str | None:
-        """Load full skill file content by name."""
-        for entry in self.entries:
-            if entry.name == name:
-                try:
-                    return entry.file_path.read_text(encoding="utf-8")
-                except Exception:
-                    return None
-        return None
+        return render_markdown(skill.name, skill.description, list(skill.tags or []), skill.content)
 
     def list_all(self) -> list[SkillEntry]:
-        """Return all skill entries."""
         return list(self.entries)
 
-    async def create(self, name: str, description: str, tags: list[str], content: str, user_id: str) -> SkillEntry:
-        """Write a new skill .md file, update index, publish to Mercure."""
-        filename = re.sub(r"[^a-z0-9-]", "-", name.lower().strip())
-        filename = re.sub(r"-+", "-", filename).strip("-")
-        file_path = self.directory / f"{filename}.md"
+    def _remember(self, entry: SkillEntry) -> None:
+        self.entries = [e for e in self.entries if e.name != entry.name] + [entry]
 
-        frontmatter = {"name": name, "description": description, "tags": tags}
-        file_content = f"---\n{yaml.dump(frontmatter, allow_unicode=True, default_flow_style=False)}---\n\n{content}\n"
-        file_path.write_text(file_content, encoding="utf-8")
-
-        entry = SkillEntry(name=name, description=description, tags=tags, file_path=file_path)
-        self.entries = [e for e in self.entries if e.file_path != file_path]
-        self.entries.append(entry)
-
+    async def _publish(self, user_id: str, payload: dict) -> None:
         try:
-            await self._publisher.publish(
-                topics.for_user(topics.SKILLS, user_id),
-                {"name": name, "description": description, "tags": tags},
-            )
+            await self._publisher.publish(topics.for_user(topics.SKILLS, user_id), payload)
         except Exception as e:
-            logger.warning(f"Failed to publish skill creation: {e}")
+            logger.warning(f"Failed to publish skill event: {e}")
 
+    async def create(self, name: str, description: str, tags: list[str], content: str, user_id: str) -> SkillEntry:
+        """Store a skill (replacing one of the same name), update the index, publish to Mercure."""
+        skill = await self.repo.upsert(name, description, tags, content)
+        entry = SkillEntry(name=skill.name, description=skill.description, tags=list(skill.tags or []))
+        self._remember(entry)
+        await self._publish(user_id, {"name": entry.name, "description": entry.description, "tags": entry.tags})
         return entry
 
     async def update(
@@ -109,57 +111,19 @@ class SkillIndex:
         content: str | None = None,
         user_id: str = "default",
     ) -> SkillEntry | None:
-        """Update an existing skill file, rebuild entry, publish to Mercure."""
-        entry = next((e for e in self.entries if e.name == name), None)
-        if not entry:
+        skill = await self.repo.update(name, description=description, tags=tags, content=content)
+        if skill is None:
             return None
-
-        # Read existing content
-        text = entry.file_path.read_text(encoding="utf-8")
-        parts = text.split("---", 2)
-        existing_body = parts[2].strip() if len(parts) >= 3 else ""
-        existing_fm = yaml.safe_load(parts[1]) if len(parts) >= 3 else {}
-
-        new_desc = description if description is not None else existing_fm.get("description", entry.description)
-        new_tags = tags if tags is not None else existing_fm.get("tags", entry.tags)
-        new_body = content if content is not None else existing_body
-
-        frontmatter = {"name": name, "description": new_desc, "tags": new_tags}
-        file_content = f"---\n{yaml.dump(frontmatter, allow_unicode=True, default_flow_style=False)}---\n\n{new_body}\n"
-        entry.file_path.write_text(file_content, encoding="utf-8")
-
-        entry.description = new_desc
-        entry.tags = new_tags
-
-        try:
-            await self._publisher.publish(
-                topics.for_user(topics.SKILLS, user_id),
-                {"name": name, "description": new_desc, "tags": new_tags},
-            )
-        except Exception as e:
-            logger.warning(f"Failed to publish skill update: {e}")
-
+        entry = SkillEntry(name=skill.name, description=skill.description, tags=list(skill.tags or []))
+        self._remember(entry)
+        await self._publish(user_id, {"name": entry.name, "description": entry.description, "tags": entry.tags})
         return entry
 
     async def delete(self, name: str, user_id: str = "default") -> bool:
-        """Delete skill file, remove from index, publish deletion to Mercure."""
-        entry = next((e for e in self.entries if e.name == name), None)
-        if not entry:
+        if not await self.repo.delete(name):
             return False
-
-        try:
-            entry.file_path.unlink(missing_ok=True)
-        except Exception as e:
-            logger.warning(f"Failed to delete skill file: {e}")
-            return False
-
-        self.entries.remove(entry)
-
-        try:
-            await self._publisher.publish(topics.for_user(topics.SKILLS, user_id), {"name": name, "deleted": True})
-        except Exception as e:
-            logger.warning(f"Failed to publish skill deletion: {e}")
-
+        self.entries = [e for e in self.entries if e.name != name]
+        await self._publish(user_id, {"name": name, "deleted": True})
         return True
 
     def get_skills_index(self) -> str:
@@ -172,4 +136,4 @@ class SkillIndex:
         return "\n".join(lines)
 
 
-skill_index = SkillIndex(Path("/app/data/skills"))
+skill_index = SkillIndex()
