@@ -288,7 +288,18 @@ jobs:
       COMPOSE_PROJECT_NAME: maggie-e2e-ci-${{ github.run_id }}-${{ github.run_attempt }}
       E2E_LOGIN_TOKEN: ci-e2e-login-token
     steps:
+      # `lfs: true`, like `build-ciqual` in cd.yml and for the same reason:
+      # `ciqual/data/ciqual/compo.xml` is 69 MB and stored in Git LFS, and a
+      # plain checkout leaves a pointer file in its place. `task e2e:up` builds
+      # the food base out of it (MAG-101), and a pointer makes that die on
+      # `ParseError: syntax error: line 1, column 0`.
+      #
+      # It did not matter until this branch: the ciqual image is reused by the
+      # hash of its build inputs (MAG-135) and had not been rebuilt in CI since
+      # the LFS pointer existed, so nothing ever read the file here.
       - uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - uses: arduino/setup-task@v2
         with:

@@ -219,6 +219,65 @@ class TestMatching:
 
         assert json.loads(text_of(answer)) == {"context_id": "01JBQF3KQXW8Z7P4M5R6T9VNCE"}
 
+    async def test_capture_groups_go_into_a_scripted_tool_call(self, fixtures_dir):
+        # Same problem one layer down, and it made a whole tool unreachable:
+        # `move_to_fallback` takes the ULID of the shop that closed, and a ULID
+        # differs on every seed — so no fixture could name one and no journey
+        # could exercise the tool (MAG-101). The journey says the id, the
+        # scenario captures it, the real MCP call receives it.
+        write_scenario(
+            fixtures_dir,
+            "10-fallback.yaml",
+            {
+                "match": {"user_matches": "magasin ([0-9A-HJKMNP-TV-Z]{26}) est fermé"},
+                "turns": [
+                    {
+                        "tools": [
+                            {
+                                "name": "move_to_fallback",
+                                # A nested list and a non-string beside it: both
+                                # have to survive, the first expanded and the
+                                # second untouched.
+                                "input": {"storeId": "\\1", "also": ["\\1"], "retries": 2, "dryRun": False},
+                            }
+                        ]
+                    }
+                ],
+            },
+        )
+        client = build_client(fixtures_dir)
+
+        answer = await ask(
+            client,
+            "Le magasin 01JBQF3KQXW8Z7P4M5R6T9VNCE est fermé, déplace ce qu'il me faut ailleurs",
+            tools=[{"name": "move_to_fallback"}],
+        )
+
+        tool_block = answer.content[0]
+        assert tool_block.input == {
+            "storeId": "01JBQF3KQXW8Z7P4M5R6T9VNCE",
+            "also": ["01JBQF3KQXW8Z7P4M5R6T9VNCE"],
+            "retries": 2,
+            "dryRun": False,
+        }
+
+    async def test_a_tool_input_without_a_capture_group_is_left_alone(self, fixtures_dir):
+        # The common case, and the one that must not become collateral damage:
+        # a label is a label, whatever the scenario matched on.
+        write_scenario(
+            fixtures_dir,
+            "10-basil.yaml",
+            {
+                "match": {"user_matches": "ajoute (.+)"},
+                "turns": [{"tools": [{"name": "add_grocery_item", "input": {"label": "Basilic", "quantity": 1}}]}],
+            },
+        )
+        client = build_client(fixtures_dir)
+
+        answer = await ask(client, "ajoute du basilic", tools=[{"name": "add_grocery_item"}])
+
+        assert answer.content[0].input == {"label": "Basilic", "quantity": 1}
+
 
 class TestTurns:
     async def test_a_tool_turn_asks_for_its_tools(self, fixtures_dir):

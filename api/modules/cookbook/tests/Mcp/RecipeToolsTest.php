@@ -84,6 +84,54 @@ class RecipeToolsTest extends KernelTestCase
         self::assertSame('Pâtes à la tomate', $data['recipes'][0]['name']);
     }
 
+    /**
+     * MAG-114 § 2, which had no test of its own: `searchByTags` ran a `LIKE`
+     * against a JSON column, which Postgres refuses outright — so asking for a
+     * tag did not come back empty, it *failed*. Only the by-name search was
+     * covered, and the two take different code paths.
+     *
+     * A browser journey cannot assert this: the fake model never reads a tool
+     * result, so all AG-UI carries is whether the round succeeded
+     * (`recipes-ciqual.spec.ts` asserts that, and nothing more). Whether the
+     * right recipes come back has to be asserted here.
+     */
+    public function testSearchRecipesByTag(): void
+    {
+        $this->loadFixtures('recipe.yaml');
+        $this->loginFixtureUser();
+
+        $tool = self::getContainer()->get(SearchRecipesTool::class);
+        $data = json_decode($tool(tag: 'italian'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertCount(1, $data['recipes']);
+        self::assertSame('Pâtes à la tomate', $data['recipes'][0]['name']);
+        self::assertSame(['pasta', 'italian'], $data['recipes'][0]['tags']);
+    }
+
+    public function testSearchRecipesByATagNobodyUsedComesBackEmpty(): void
+    {
+        // The control: without it, a tag search returning *everything* would
+        // pass the test above.
+        $this->loadFixtures('recipe.yaml');
+        $this->loginFixtureUser();
+
+        $tool = self::getContainer()->get(SearchRecipesTool::class);
+        $data = json_decode($tool(tag: 'végétarien'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertCount(0, $data['recipes']);
+    }
+
+    public function testSearchRecipesWithNeitherQueryNorTagSaysSo(): void
+    {
+        $this->loadFixtures('recipe.yaml');
+        $this->loginFixtureUser();
+
+        $tool = self::getContainer()->get(SearchRecipesTool::class);
+        $data = json_decode($tool(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
+    }
+
     public function testSearchRecipesReturnsEmptyForNoMatch(): void
     {
         $this->loadFixtures('recipe.yaml');

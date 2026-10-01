@@ -79,6 +79,9 @@ tasks:
       # every service with a healthcheck is healthy — Elasticsearch and the
       # agent included, which the steps above deliberately did not wait for.
       - task: _up:wait
+      # After _up:wait, because it needs the container running — and it is not
+      # part of _up:prepare, which runs while ciqual is still being created.
+      - task: ciqual:db
       - task: url
 
   _up:api:
@@ -201,6 +204,37 @@ tasks:
       - '{{.ROOT_DIR}}/api/vendor/autoload.php'
     cmds:
       - '{{.COMPOSE}} exec -T php composer install --no-interaction --no-progress'
+
+  ciqual:db:
+    desc: Build the Ciqual food database the recipe journeys read
+    # The ciqual service is built from the `dev` target, which bakes no
+    # database — only `prod` does — and the stack mounts ./ciqual over /app, so
+    # a baked one would be hidden anyway. Left alone, `db/ciqual.db` is the
+    # empty directory the repository ships, every /ciqual/foods call answers
+    # 500, and a recipe created with a Ciqual ingredient fails on an
+    # autocomplete that returns nothing rather than on anything the journey is
+    # about. The API's own IngredientFromCiqualResolver calls the same service,
+    # so the write fails too.
+    #
+    # Three seconds from the committed XML for the real 3484 foods, so there is
+    # nothing to gain from a cut-down fixture — and a `status` rather than a
+    # one-shot, because the bytes are identical every time: a stack coming up
+    # again on the same worktree skips it.
+    #
+    # The check counts rows rather than testing the file exists. An import
+    # killed halfway leaves a non-empty file, and `test -s` would then skip the
+    # rebuild for ever, with the indirect symptom the standard describes: an
+    # autocomplete that is simply always empty.
+    # Opened read-only, so the probe cannot create the very file it is checking
+    # for: a plain `sqlite3.connect` would leave a zero-byte database behind on
+    # the first run.
+    status:
+      - >-
+        {{.COMPOSE}} exec -T ciqual python -c
+        "import sqlite3,sys; c=sqlite3.connect('file:db/ciqual.db?mode=ro', uri=True);
+        sys.exit(0 if c.execute('select count(*) from food').fetchone()[0] > 3000 else 1)"
+    cmds:
+      - '{{.COMPOSE}} exec -T ciqual python -m app.import_ciqual'
 
   cache:clear:
     desc: Rebuild the e2e container cache after changing PHP code or config

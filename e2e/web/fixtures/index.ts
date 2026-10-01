@@ -36,6 +36,21 @@ export interface OtherUser {
   context: BrowserContext
   page: Page
   api: APIRequestContext
+  /**
+   * A second window of the same account — the "two tabs" check, for this user.
+   *
+   * Opened lazily: most tests never need it, and a second context per test is
+   * a browser window and a page load nobody asked for. Call it once; the same
+   * page comes back. Not re-entrant — two calls awaited concurrently would
+   * open two windows; no caller does that, and a test wanting a third window
+   * should say so here rather than race for it.
+   *
+   * Two *windows*, not two tabs, for the reason {@link MaggieFixtures.twoWindows}
+   * gives: headless Chromium freezes a hidden tab, so a second page in one
+   * context stops rendering the moment the first is acted on, both sit
+   * unchanged, and real-time looks dead.
+   */
+  secondWindow: () => Promise<Page>
 }
 
 export interface MaggieFixtures {
@@ -131,14 +146,20 @@ export const test = base.extend<MaggieFixtures>({
     const url = requireBaseURL(baseURL)
     const session = await sessionFor(url, OTHER_USER_EMAIL)
 
-    // `contextOptions` carries the project's own settings — viewport, device,
-    // locale, timezone. A bare `browser.newContext()` would silently give this
-    // user a 1280x720 desktop on the `phone` project.
-    const context = await browser.newContext({
-      ...contextOptions,
-      storageState: storageStateOf(url, session),
-    })
-    await isolateFromInternet(context, url)
+    const signedIn = async (): Promise<BrowserContext> => {
+      // `contextOptions` carries the project's own settings — viewport, device,
+      // locale, timezone. A bare `browser.newContext()` would silently give
+      // this user a 1280x720 desktop on the `phone` project.
+      const context = await browser.newContext({
+        ...contextOptions,
+        storageState: storageStateOf(url, session),
+      })
+      await isolateFromInternet(context, url)
+
+      return context
+    }
+
+    const context = await signedIn()
     const page = await context.newPage()
     const api = await playwright.request.newContext({
       baseURL,
@@ -148,9 +169,25 @@ export const test = base.extend<MaggieFixtures>({
       },
     })
 
-    await use({ session, context, page, api })
+    // An array rather than a nullable, like `pageWithToken` below: TypeScript
+    // does not track an assignment made inside the closure, so a `let … | null`
+    // narrows to `never` at the teardown and will not compile.
+    const extra: BrowserContext[] = []
+    const windows: Page[] = []
+    const secondWindow = async (): Promise<Page> => {
+      if (0 === windows.length) {
+        const second = await signedIn()
+        extra.push(second)
+        windows.push(await second.newPage())
+      }
+
+      return windows[0]
+    }
+
+    await use({ session, context, page, api, secondWindow })
 
     await api.dispose()
+    await Promise.all(extra.map((spare) => spare.close()))
     await context.close()
   },
 

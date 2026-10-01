@@ -1,0 +1,23 @@
+# "That shop is closed" — the fallback store, which has no UI anywhere.
+#
+# `move_to_fallback` takes the ULID of the shop that closed, and a ULID differs
+# on every seed. Until MAG-101 that made the tool unreachable from any journey:
+# a scenario could not name an id, and `\1` only ever reached a turn's *text*.
+# It now reaches the tool's arguments too, so the journey says the id it read
+# from the seed manifest and the capture group carries it into the real MCP
+# call. See `Scenario.render_input` and the README's note on ids.
+#
+# The sentence is deliberately the one a person would say with the id in it —
+# a journey cannot ask Maggie to work out which shop "le primeur" is without
+# asking the real model, and judgement is what `task e2e:eval` is for.
+name: grocery-fallback
+description: Move a closed shop's items to their fallback store, through MCP.
+
+match:
+  user_matches: "le magasin ([0-9A-HJKMNP-TV-Z]{26}) est fermé"
+
+turns:
+  - tools:
+      - name: move_to_fallback
+        input: {storeId: '\1'}
+  - text: "C'est fait : ce qui pouvait s'acheter ailleurs a changé de magasin."

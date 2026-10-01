@@ -17,6 +17,16 @@ Maggie\Cookbook\Entity\Recipe:
     tags: ['four']
     user: '@e2e_user'
 
+  # The neighbour's, tagged like one of Camille's on purpose: a tag search that
+  # forgot its user filter returns both, and only a shared tag can show that.
+  # `végétarien` is also the tag whose `LIKE` on a JSON column used to crash
+  # Postgres (MAG-114 § 2), so the two are asserted in the same journey.
+  e2e_other_recipe_soup:
+    name: Velouté du voisin
+    servings: 2
+    tags: ['végétarien']
+    user: '@e2e_other_user'
+
 Maggie\Cookbook\Entity\RecipeIngredient:
   e2e_recipe_ingredient_tomato:
     recipe: '@e2e_recipe_pasta'
@@ -44,6 +54,12 @@ Maggie\Cookbook\Entity\RecipeIngredient:
     quantity: 80
     unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
 
+  e2e_other_recipe_ingredient_leek:
+    recipe: '@e2e_other_recipe_soup'
+    ingredient: '@e2e_other_ingredient_leek'
+    quantity: 3
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+
 Maggie\Cookbook\Entity\Meal:
   e2e_meal_dinner_tomorrow:
     summary: Pâtes à la tomate
@@ -54,3 +70,16 @@ Maggie\Cookbook\Entity\Meal:
     status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
     agenda: '@e2e_agenda_shared'
     recipes: ['@e2e_recipe_pasta']
+
+  # The neighbour's, in the same week as Camille's: generating her list reads
+  # the meals of a date range, and a range query that forgot its user would
+  # pull this one in and put the leek on her shopping (MAG-114 § 3).
+  e2e_other_meal_dinner:
+    summary: Velouté du voisin
+    slot: '<(Maggie\Cookbook\Enum\MealSlot::Dinner)>'
+    startAt: '<e2eDate("+2 days 19:30")>'
+    endAt: '<e2eDate("+2 days 20:30")>'
+    timeZone: 'Europe/Paris'
+    status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
+    agenda: '@e2e_other_agenda'
+    recipes: ['@e2e_other_recipe_soup']

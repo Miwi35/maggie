@@ -1,0 +1,26 @@
+# "Prepare the shopping for this week" — the recurring items, and nothing else
+# puts them on the list.
+#
+# `generate_grocery_list` is the only path a `RecurringGroceryItem` ever takes
+# to the list: there is no cron and no screen, so an e2e journey either asks
+# Maggie or does not cover them at all (MAG-101). It is also the second half of
+# `afc1a70`: a `Generate` command published nothing, so a list topped up on the
+# phone never reached the tab already open.
+#
+# Numbered below 45-grocery-list.yaml, which matches "la liste de courses" and
+# would otherwise claim this message and merely read the list.
+#
+# The dates come from the journey, through the capture groups: the window has to
+# straddle the seeded meal, whose day is the anchor's and therefore unknowable
+# from a fixture.
+name: grocery-generate
+description: Top the grocery list up from a week's meals and the recurring items.
+
+match:
+  user_matches: "prépare les courses du (\\d{4}-\\d{2}-\\d{2}) au (\\d{4}-\\d{2}-\\d{2})"
+
+turns:
+  - tools:
+      - name: generate_grocery_list
+        input: {fromDate: '\1', toDate: '\2'}
+  - text: "J'ai complété la liste avec les repas de la semaine et ce qui revient régulièrement."
