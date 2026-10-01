@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Maggie\Core\Elasticsearch;
 
 use Elastic\Elasticsearch\Client;
+use Elastic\Elasticsearch\Exception\ClientResponseException;
+use Psr\Log\LoggerInterface;
 
 final class IndexManager
 {
@@ -12,6 +14,7 @@ final class IndexManager
         private readonly Client $client,
         private readonly IndexMetadataReader $metadataReader,
         private readonly IndexableEntityRegistry $registry,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -26,23 +29,52 @@ final class IndexManager
         $exists = $this->client->indices()->exists(['index' => $indexName])->asBool();
 
         if (!$exists) {
-            $this->client->indices()->create([
-                'index' => $indexName,
-                'body' => [
-                    'settings' => $this->getDefaultSettings(),
-                    'mappings' => [
-                        'properties' => $this->buildProperties($meta),
-                    ],
-                ],
-            ]);
-        } else {
+            $this->createIndex($indexName, $meta);
+
+            return;
+        }
+
+        try {
             $this->client->indices()->putMapping([
                 'index' => $indexName,
                 'body' => [
                     'properties' => $this->buildProperties($meta),
                 ],
             ]);
+        } catch (ClientResponseException $e) {
+            // A field a document carried before the mapping declared it was
+            // mapped dynamically (an `id` written by a new pod before the
+            // deploy's mapping update ran becomes `text`), and Elasticsearch
+            // never changes the type of a mapped field. The index is derived
+            // from the database: rebuild it, the reindex that follows refills it.
+            if (!str_contains($e->getMessage(), 'cannot be changed from type')) {
+                throw $e;
+            }
+
+            $this->logger->warning('ES mapping of {index} conflicts with its dynamic mapping, recreating the index: reindex it ({error})', [
+                'index' => $indexName,
+                'error' => $e->getMessage(),
+            ]);
+
+            $this->deleteIndex($indexName);
+            $this->createIndex($indexName, $meta);
         }
+    }
+
+    /**
+     * @param array{index: string, module: ?string, fields: array<string, array<string, mixed>>, relations: array<string, array{targetEntity: string, sourceField: string}>} $meta
+     */
+    private function createIndex(string $indexName, array $meta): void
+    {
+        $this->client->indices()->create([
+            'index' => $indexName,
+            'body' => [
+                'settings' => $this->getDefaultSettings(),
+                'mappings' => [
+                    'properties' => $this->buildProperties($meta),
+                ],
+            ],
+        ]);
     }
 
     public function deleteIndex(string $indexName): void

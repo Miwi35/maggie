@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Maggie\Core\Tests\Elasticsearch;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Elastic\Elasticsearch\Exception\ClientResponseException;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Core\Elasticsearch\IndexableEntityRegistry;
 use Maggie\Core\Elasticsearch\IndexManager;
 use Maggie\Core\Elasticsearch\IndexMetadataReader;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 
 /**
  * A document's `_id` is not a field, and Elasticsearch 8 cannot sort on it.
@@ -28,6 +30,7 @@ final class IndexManagerTest extends TestCase
             $this->recordingClient($respond),
             $reader,
             new IndexableEntityRegistry($this->createStub(EntityManagerInterface::class), $reader),
+            $this->createStub(LoggerInterface::class),
         );
     }
 
@@ -39,6 +42,42 @@ final class IndexManagerTest extends TestCase
         $manager->createOrUpdateIndex(Event::class);
 
         self::assertSame(['type' => 'keyword'], $this->lastRequestBody()['mappings']['properties']['id']);
+    }
+
+    /**
+     * A new pod can write a document with an `id` before the deploy's mapping
+     * update runs; Elasticsearch then maps it as `text` and refuses to make it
+     * a keyword. The index is derived data, so it is rebuilt.
+     */
+    public function testAnIndexWhoseIdWasMappedDynamicallyIsRecreated(): void
+    {
+        $manager = $this->manager(static fn (string $method, string $path): array => match (true) {
+            'HEAD' === $method => [200, []],
+            'PUT' === $method && '/events/_mapping' === $path => [400, ['error' => [
+                'type' => 'illegal_argument_exception',
+                'reason' => 'mapper [id] cannot be changed from type [text] to [keyword]',
+            ], 'status' => 400]],
+            default => [200, ['acknowledged' => true]],
+        });
+
+        $manager->createOrUpdateIndex(Event::class);
+
+        self::assertSame(
+            ['HEAD /events', 'PUT /events/_mapping', 'HEAD /events', 'DELETE /events', 'PUT /events'],
+            array_map(static fn (array $r): string => $r['method'].' '.$r['path'], $this->requests),
+        );
+        self::assertSame(['type' => 'keyword'], $this->lastRequestBody()['mappings']['properties']['id']);
+    }
+
+    public function testAnotherMappingFailureIsNotSwallowed(): void
+    {
+        $manager = $this->manager(static fn (string $method): array => 'HEAD' === $method
+            ? [200, []]
+            : [400, ['error' => ['type' => 'mapper_parsing_exception', 'reason' => 'bad mapping'], 'status' => 400]]);
+
+        $this->expectException(ClientResponseException::class);
+
+        $manager->createOrUpdateIndex(Event::class);
     }
 
     public function testASingleDocumentCarriesItsIdentifier(): void

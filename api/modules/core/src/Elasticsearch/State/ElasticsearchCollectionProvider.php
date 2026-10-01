@@ -53,7 +53,7 @@ final class ElasticsearchCollectionProvider implements ProviderInterface
             $this->logger->error('ES collection query failed, falling back to Doctrine: {error}', [
                 'event' => 'es_collection_fallback',
                 'error' => $e->getMessage(),
-                'exception' => $e::class,
+                'exception' => $e,
                 'entity' => $entityClass,
                 'index' => $meta['index'],
                 'filters' => $context['filters'] ?? [],

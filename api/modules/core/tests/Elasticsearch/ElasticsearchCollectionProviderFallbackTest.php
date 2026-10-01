@@ -70,7 +70,7 @@ final class ElasticsearchCollectionProviderFallbackTest extends TestCase
                     && Event::class === $context['entity']
                     && 'events' === $context['index']
                     && str_contains($context['error'], 'No mapping found for [id]')
-                    && ClientResponseException::class === $context['exception']
+                    && $context['exception'] instanceof ClientResponseException
                     && ['order' => ['id' => 'asc']] === $context['filters'];
             }),
         );
