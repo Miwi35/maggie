@@ -160,38 +160,43 @@ describe('CalendarView', () => {
       return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
     }
 
-    // Edits the first occurrence of a weekly series: moved two hours later, renamed, located
-    const editFirstOccurrence = async (scope: string) => {
+    // Edits the second occurrence of a weekly series (a week after the master): moved two
+    // hours later, renamed, located. Returns what the user edited, read from the form.
+    const editSecondOccurrence = async (scope: string) => {
       serveEvents([
         { id: 'ev3', summary: 'Sport', startAt, endAt, allDay: false, agenda: 'ag1', rrule: 'FREQ=WEEKLY' },
       ])
       render(<CalendarView />)
 
       const occurrences = await screen.findAllByText('Sport')
-      await userEvent.click(occurrences[0])
+      await userEvent.click(occurrences[1])
       await userEvent.click(await screen.findByRole('button', { name: 'Modifier' }))
 
       const edit = await screen.findByRole('dialog')
+      const occurrenceStart = new Date((within(edit).getByLabelText(/Début/) as HTMLInputElement).value)
+      const newStart = new Date(occurrenceStart.getTime() + 2 * 3600_000)
+      const newEnd = new Date(occurrenceStart.getTime() + 3 * 3600_000)
+
       const summary = within(edit).getByLabelText(/Résumé/)
       await userEvent.clear(summary)
       await userEvent.type(summary, 'Sport (piscine)')
-      fireEvent.change(within(edit).getByLabelText(/Début/), {
-        target: { value: localInput(new Date(noon.getTime() + 2 * 3600_000)) },
-      })
-      fireEvent.change(within(edit).getByLabelText(/Fin/), {
-        target: { value: localInput(new Date(noon.getTime() + 3 * 3600_000)) },
-      })
+      fireEvent.change(within(edit).getByLabelText(/Début/), { target: { value: localInput(newStart) } })
+      fireEvent.change(within(edit).getByLabelText(/Fin/), { target: { value: localInput(newEnd) } })
       await userEvent.type(within(edit).getByLabelText('Lieu'), 'Piscine')
       await userEvent.click(within(edit).getByRole('button', { name: 'Enregistrer' }))
 
       const confirm = await screen.findByRole('dialog')
       await userEvent.click(within(confirm).getByLabelText(scope))
       await userEvent.click(within(confirm).getByRole('button', { name: 'OK' }))
+
+      return { occurrenceStart, newStart, newEnd }
     }
 
-    test('"all occurrences" shifts the master by the edited delta and sends the new fields', async () => {
-      await editFirstOccurrence('Tous les événements')
+    test('"all occurrences" shifts the master by the edited delta, not onto the edited date', async () => {
+      const { occurrenceStart, newStart, newEnd } = await editSecondOccurrence('Tous les événements')
 
+      // Only the 2h delta applies to the master (the 15th at noon); the week gap does not
+      const delta = newStart.getTime() - occurrenceStart.getTime()
       await waitFor(() =>
         expect(mockUpdate).toHaveBeenCalledWith(
           'events',
@@ -200,8 +205,8 @@ describe('CalendarView', () => {
             data: expect.objectContaining({
               summary: 'Sport (piscine)',
               location: 'Piscine',
-              startAt: new Date(noon.getTime() + 2 * 3600_000).toISOString(),
-              endAt: new Date(noon.getTime() + 3 * 3600_000).toISOString(),
+              startAt: new Date(noon.getTime() + delta).toISOString(),
+              endAt: new Date(noon.getTime() + delta + (newEnd.getTime() - newStart.getTime())).toISOString(),
             }),
           }),
         ),
@@ -209,15 +214,18 @@ describe('CalendarView', () => {
       expect(mockCreate).not.toHaveBeenCalled()
     })
 
-    test('"this and following" ends the series and starts a new one with the new fields', async () => {
-      await editFirstOccurrence('Cet événement et tous les suivants')
+    test('"this and following" ends the series the day before and starts a new one', async () => {
+      const { occurrenceStart, newStart } = await editSecondOccurrence('Cet événement et tous les suivants')
 
+      const dayBefore = new Date(occurrenceStart)
+      dayBefore.setUTCDate(dayBefore.getUTCDate() - 1)
+      const until = dayBefore.toISOString().slice(0, 10).replace(/-/g, '')
       await waitFor(() =>
         expect(mockUpdate).toHaveBeenCalledWith(
           'events',
           expect.objectContaining({
             id: 'ev3',
-            data: { rrule: expect.stringContaining('UNTIL=') },
+            data: { rrule: `FREQ=WEEKLY;UNTIL=${until}T235959Z` },
           }),
         ),
       )
@@ -229,7 +237,7 @@ describe('CalendarView', () => {
               summary: 'Sport (piscine)',
               location: 'Piscine',
               rrule: 'FREQ=WEEKLY',
-              startAt: new Date(noon.getTime() + 2 * 3600_000).toISOString(),
+              startAt: newStart.toISOString(),
             }),
           }),
         ),
