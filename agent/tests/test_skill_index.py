@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.llm.gateway import LLMGateway
 from app.db.skill_model import Skill
+from app.llm.gateway import LLMGateway
 from app.skills.index import SkillEntry, SkillIndex
 
 
@@ -193,7 +193,9 @@ class TestLegacyImport:
         await index.rebuild()
 
         assert imported == 1
-        assert [(e.name, e.description, e.tags) for e in index.entries] == [("concert-link", "Concert links", ["concert"])]
+        assert [(e.name, e.description, e.tags) for e in index.entries] == [
+            ("concert-link", "Concert links", ["concert"])
+        ]
         assert "Cherche le lien" in (await index.get("concert-link") or "")
 
     async def test_import_never_overwrites_a_stored_skill(self, agent_db, tmp_path):
@@ -278,3 +280,80 @@ def test_skill_table_is_registered_for_create_all():
     from app.db.proaction_model import AgentBase
 
     assert "skill" in AgentBase.metadata.tables
+
+
+class TestSkillRoutesOnDatabase:
+    """The REST endpoints against a real (SQLite) store, so a missed `await` or a wrong field fails here."""
+
+    def test_create_then_read_back(self, agent_db, authed_client):
+        index = _index()
+        with patch("app.api.routes.skill_index", index):
+            created = authed_client.post(
+                "/skills", json={"name": "concert-link", "description": "Lier", "tags": ["c"], "content": "Étapes"}
+            )
+            detail = authed_client.get("/skills/concert-link")
+            listing = authed_client.get("/skills")
+
+        assert created.status_code == 201
+        assert detail.status_code == 200
+        body = detail.json()
+        assert (body["name"], body["description"], body["tags"]) == ("concert-link", "Lier", ["c"])
+        assert "Étapes" in body["content"]
+        assert [s["name"] for s in listing.json()] == ["concert-link"]
+
+    def test_detail_unknown_is_404(self, agent_db, authed_client):
+        with patch("app.api.routes.skill_index", _index()):
+            assert authed_client.get("/skills/nope").status_code == 404
+
+    def test_create_rejects_a_too_long_name(self, agent_db, authed_client):
+        with patch("app.api.routes.skill_index", _index()):
+            response = authed_client.post(
+                "/skills", json={"name": "x" * 201, "description": "d", "tags": [], "content": "c"}
+            )
+        assert response.status_code == 422
+
+    def test_update_and_delete(self, agent_db, authed_client):
+        index = _index()
+        with patch("app.api.routes.skill_index", index):
+            authed_client.post("/skills", json={"name": "s", "description": "d", "tags": [], "content": "old"})
+            updated = authed_client.put("/skills/s", json={"content": "new"})
+            deleted = authed_client.delete("/skills/s")
+            gone = authed_client.get("/skills/s")
+
+        assert updated.status_code == 200
+        assert deleted.status_code == 200
+        assert gone.status_code == 404
+
+    def test_update_unknown_is_404(self, agent_db, authed_client):
+        with patch("app.api.routes.skill_index", _index()):
+            assert authed_client.put("/skills/missing", json={"content": "x"}).status_code == 404
+            assert authed_client.delete("/skills/missing").status_code == 404
+
+    def test_endpoints_require_auth(self, client):
+        assert client.get("/skills/any").status_code in (401, 403)
+        body = {"name": "s", "description": "d", "tags": [], "content": "c"}
+        assert client.post("/skills", json=body).status_code in (401, 403)
+        assert client.put("/skills/s", json={"content": "x"}).status_code in (401, 403)
+        assert client.delete("/skills/s").status_code in (401, 403)
+
+
+class TestCreateSkillToolValidation:
+    @pytest.mark.parametrize(
+        "arguments",
+        [
+            {"name": "x" * 201, "content": "c"},
+            {"name": "s", "content": "c", "tags": "not-a-list"},
+            {"name": "", "content": "c"},
+            {"name": "s", "content": ""},
+        ],
+    )
+    async def test_bad_input_is_refused_without_storing(self, agent_db, arguments):
+        from app.llm.tools import ToolRouter
+
+        index = _index()
+        with patch("app.llm.tools.skill_index", index):
+            result = await ToolRouter().call_tool("create_skill", arguments, user_id="u")
+
+        assert "error" in json.loads(result)
+        with agent_db() as session:
+            assert session.query(Skill).count() == 0

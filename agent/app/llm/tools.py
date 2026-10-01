@@ -376,6 +376,10 @@ async def _handle_create_skill(arguments: dict, user_id: str) -> str:
     content = arguments.get("content", "")
     if not name or not content:
         return json.dumps({"error": "'name' and 'content' are required"})
+    if len(name) > 200:
+        return json.dumps({"error": "'name' must be 200 characters or fewer"})
+    if not isinstance(tags, list):
+        return json.dumps({"error": "'tags' must be a list of strings"})
     entry = await skill_index.create(name, description, tags, content, user_id)
     return json.dumps({"name": entry.name, "description": entry.description, "tags": entry.tags})
 

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import yaml
 
+from app.db.skill_model import Skill
 from app.db.skill_repository import SkillRepository, skill_repo
 from app.mercure import topics
 from app.mercure.publisher import MercurePublisher
@@ -75,6 +76,9 @@ class SkillIndex:
             except Exception as e:
                 logger.warning(f"Failed to import legacy skill file {path}: {e}")
         return imported
+
+    async def get_skill(self, name: str) -> Skill | None:
+        return await self.repo.get(name)
 
     async def get(self, name: str) -> str | None:
         """Full skill as Markdown (frontmatter + body), or None if unknown."""

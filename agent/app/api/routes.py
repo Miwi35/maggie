@@ -16,7 +16,7 @@ from app.db.user_setting_repository import user_setting_repo
 from app.llm.gateway import LLMGateway
 from app.llm.streaming import StreamingGateway
 from app.llm.transcription import transcribe_audio
-from app.skills.index import skill_index
+from app.skills.index import render_markdown, skill_index
 from app.tts.synthesis import DEFAULT_VOICE, VOICE_IDS, get_voices, synthesize_speech
 
 logger = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ class InstructionCreate(BaseModel):
 
 
 class SkillCreate(BaseModel):
-    name: str
+    name: str = Field(max_length=200)
     description: str
     tags: list[str]
     content: str
@@ -312,15 +312,14 @@ async def get_skills(_user_id: str = Depends(get_current_user_id)):
 @router.get("/skills/{name}")
 async def get_skill_detail(name: str, _user_id: str = Depends(get_current_user_id)):
     """Get full skill content by name."""
-    content = await skill_index.get(name)
-    if content is None:
+    skill = await skill_index.get_skill(name)
+    if skill is None:
         raise HTTPException(status_code=404, detail="Skill not found")
-    entry = next((e for e in skill_index.entries if e.name == name), None)
     return {
-        "name": name,
-        "description": entry.description if entry else "",
-        "tags": entry.tags if entry else [],
-        "content": content,
+        "name": skill.name,
+        "description": skill.description,
+        "tags": list(skill.tags or []),
+        "content": render_markdown(skill.name, skill.description, list(skill.tags or []), skill.content),
     }
 
 
