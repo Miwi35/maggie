@@ -135,8 +135,9 @@ class LLMGateway:
         else:
             messages.append({"role": "user", "content": message})
 
-        # Get all tools including proaction tools (so user can schedule reminders from chat)
-        tools = await self.tool_router.get_tool_definitions(include_native=True)
+        # Get all tools including proaction tools (so user can schedule reminders from chat);
+        # an A2A call only gets the read-only ones
+        tools = await self.tool_router.get_tool_definitions(include_native=True, source=source)
 
         try:
             system_prompt = await self._build_system_prompt(user_id, tools=tools)

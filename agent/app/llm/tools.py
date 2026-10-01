@@ -439,6 +439,31 @@ _NATIVE_HANDLERS = {
 }
 
 
+A2A_SOURCE = "a2a"
+
+# What an A2A peer may use: MCP tools that only read. No native tool (they write
+# memory, skills, instructions and proactions) and no `manage_*` tool (one tool,
+# read and write actions). A tool missing from this list is refused, so a new MCP
+# tool stays out of A2A until someone decides it is read-only.
+A2A_ALLOWED_TOOLS = frozenset(
+    {
+        "check_conflicts",
+        "get_daily_score",
+        "get_events_by_date",
+        "get_finance_dashboard",
+        "get_grocery_list",
+        "get_recipe",
+        "get_tasks",
+        "get_upcoming_events",
+        "search",
+        "search_ciqual_foods",
+        "search_ingredients",
+        "search_products",
+        "search_recipes",
+    }
+)
+
+
 class ToolRouter:
     """Routes tool calls to native handlers or MCP server.
 
@@ -448,22 +473,28 @@ class ToolRouter:
     - Skill tools — always available (chat + proaction)
     - Proaction tools — always available (chat + proaction)
     - MCP tools — fetched from the Symfony MCP server
+
+    Calls from the `a2a` source are narrowed to A2A_ALLOWED_TOOLS.
     """
 
-    async def get_tool_definitions(self, include_native: bool = True) -> list[dict]:
+    async def get_tool_definitions(self, include_native: bool = True, source: str | None = None) -> list[dict]:
         """Get available tools in Anthropic tool format.
 
         Args:
             include_native: If True, include proaction tools (schedule/list proactions).
                             Defaults to True — proaction tools are available in all modes.
+            source: Who the tools are for. `a2a` gets the read-only MCP tools and nothing else.
         """
-        tools = list(MEMORY_TOOLS) + list(INSTRUCTION_TOOLS) + list(SKILL_TOOLS)
+        a2a = source == A2A_SOURCE
+        tools = [] if a2a else list(MEMORY_TOOLS) + list(INSTRUCTION_TOOLS) + list(SKILL_TOOLS)
 
-        if include_native:
+        if include_native and not a2a:
             tools.extend(PROACTION_TOOLS)
 
         mcp_tools = await mcp_client.list_tools()
         for tool in mcp_tools:
+            if a2a and tool["name"] not in A2A_ALLOWED_TOOLS:
+                continue
             tools.append(
                 {
                     "name": tool["name"],
@@ -479,6 +510,10 @@ class ToolRouter:
 
         `source` says who triggered the call: chat, chat_stream, proaction, subagent:<name>, a2a or approval.
         """
+        if source == A2A_SOURCE and name not in A2A_ALLOWED_TOOLS:
+            logger.warning(f"A2A call to a tool outside the read-only list refused: {name}")
+            return json.dumps({"error": f"Tool '{name}' is not available over A2A"})
+
         if name in _NATIVE_HANDLERS:
             if user_id is None:
                 return json.dumps({"error": "user_id required for native tools"})
