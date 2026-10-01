@@ -20,6 +20,7 @@ Python FastAPI service. Separate from Symfony — consumes the API via MCP like 
 - Will move to database for user-customizable personalities
 
 ## Data ownership
+- Long-term memory has its own standard: `agent/memory` (ADR-010).
 - Memories and instructions: every repository read or write is filtered by `user_id`; an id belonging to another user behaves like an unknown id (same "not found" error, no leak). New per-user data follows the same rule and ships a two-user isolation test.
 - Skills (`/app/data/skills`) are **global**, shared by all users: accepted while Maggie has a single user. Multi-user means moving them to a per-user directory or table first (MAG-108).
 
