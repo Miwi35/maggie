@@ -73,6 +73,15 @@ function authFetch(path: string, options: RequestInit = {}) {
 // react-admin's Hydra provider puts the IRI in `record.id` (`/api/events/01M3…`)
 const bareId = (id: string) => id.split('/').pop() ?? id
 const eventIri = (id: string) => (id.startsWith('/') ? id : `/api/events/${id}`)
+const mealIri = (id: string) => (id.startsWith('/') ? id : `/api/meals/${id}`)
+
+const MEAL_COLOR = '#FF6B35'
+const MEAL_SLOT_LABELS: Record<string, string> = { lunch: 'Déj', dinner: 'Dîner' }
+const mealTitle = (m: CalendarMeal) => {
+  const label = MEAL_SLOT_LABELS[m.slot] || m.slot
+  const recipeName = m.recipes?.length ? m.recipes.map((r) => r.name).join(', ') : m.summary
+  return `${label}: ${recipeName}`
+}
 
 interface GoogleCalendar {
   id: string
@@ -821,15 +830,11 @@ export const CalendarView = () => {
   }, [rawTasks])
 
   // --- Map meals → FullCalendar all-day events ---
-  const MEAL_COLOR = '#FF6B35'
-  const SLOT_LABELS: Record<string, string> = { lunch: 'Déj', dinner: 'Dîner' }
   const mealEvents: (EventInput & { calendarId: string })[] = useMemo(() => {
     return rawMeals.map((m) => {
-      const label = SLOT_LABELS[m.slot] || m.slot
-      const recipeName = m.recipes?.length ? m.recipes.map((r) => r.name).join(', ') : m.summary
       return {
         id: `meal-${m.id}`,
-        title: `${label}: ${recipeName}`,
+        title: mealTitle(m),
         start: m.startAt,
         allDay: true,
         calendarId: '__meals__',
@@ -1285,53 +1290,72 @@ export const CalendarView = () => {
   )
   useMercure(CALENDAR_TOPICS, mercureCallback)
 
-  // --- Deep-link: open event from search (?eventId=...) ---
+  // --- Deep-link: open an event or a meal from search (?eventId=… / ?mealId=…) ---
   const deepLinkEventId = searchParams.get('eventId')
+  const deepLinkMealId = searchParams.get('mealId')
   useEffect(() => {
-    if (!deepLinkEventId) return
+    if (!deepLinkEventId && !deepLinkMealId) return
 
-    // Clear the URL param so it doesn't re-trigger
+    // Clear the URL params so they don't re-trigger
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev)
       next.delete('eventId')
+      next.delete('mealId')
       return next
     }, { replace: true })
 
-    // Fetch the event and navigate the calendar to its date
-    dataProvider
-      .getOne('events', { id: deepLinkEventId })
+    // Fetch the record and navigate the calendar to its date
+    const request = deepLinkEventId
+      ? dataProvider.getOne('events', { id: eventIri(deepLinkEventId) })
+      : dataProvider.getOne('meals', { id: mealIri(deepLinkMealId as string) })
+
+    request
       .then(({ data }) => {
-        const event = data as unknown as CalendarEvent
         const api = calendarRef.current?.getApi()
-        if (api && event.startAt) {
-          api.gotoDate(event.startAt)
+        const startAt = (data as { startAt?: string }).startAt
+        if (api && startAt) {
+          api.gotoDate(startAt)
         }
 
         // Open the popover after a short delay to let the calendar render
         setTimeout(() => {
-          const calId = typeof event.agenda === 'string' ? event.agenda : ''
-          const color = calendarColorMap.get(calId) || theme.palette.primary.main
-          setPopoverEvent({
-            id: event.id,
-            title: event.summary,
-            start: event.startAt,
-            end: event.endAt,
-            allDay: event.allDay,
-            color,
-            calendarName: calendarNameMap.get(calId) || '',
-            description: event.description,
-            location: event.location,
-            rrule: event.rrule,
-            calendarIri: event.agenda,
-          })
+          if (deepLinkEventId) {
+            const event = data as unknown as CalendarEvent
+            const calId = typeof event.agenda === 'string' ? event.agenda : ''
+            const color = calendarColorMap.get(calId) || theme.palette.primary.main
+            setPopoverEvent({
+              id: event.id,
+              title: event.summary,
+              start: event.startAt,
+              end: event.endAt,
+              allDay: event.allDay,
+              color,
+              calendarName: calendarNameMap.get(calId) || '',
+              description: event.description,
+              location: event.location,
+              rrule: event.rrule,
+              calendarIri: event.agenda,
+            })
+          } else {
+            const meal = data as unknown as CalendarMeal
+            setPopoverEvent({
+              id: `meal-${meal.id}`,
+              title: mealTitle(meal),
+              start: meal.startAt,
+              end: meal.startAt,
+              allDay: true,
+              color: MEAL_COLOR,
+              calendarName: '',
+            })
+          }
           // Anchor to the calendar container
           setPopoverAnchorEl(calendarBoxRef.current)
         }, 300)
       })
       .catch(() => {
-        notify('Événement introuvable', { type: 'warning' })
+        notify(deepLinkEventId ? 'Événement introuvable' : 'Repas introuvable', { type: 'warning' })
       })
-  }, [deepLinkEventId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [deepLinkEventId, deepLinkMealId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // --- Wheel navigation (scroll up → prev, scroll down → next) ---
   useEffect(() => {

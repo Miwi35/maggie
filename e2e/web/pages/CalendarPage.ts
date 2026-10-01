@@ -113,16 +113,10 @@ export class CalendarPage extends AdminShell {
   /**
    * Opens an event by its ULID and waits for its detail card to carry `title`.
    *
-   * The `eventId` parameter is fed straight to react-admin's `getOne`, which
-   * takes the IRI as the record id — so the ULID is expanded here. The admin's
-   * own search does *not*: `getResultPath` hands over the bare id
-   * Elasticsearch returned, `getOne` resolves it against the origin, and the
-   * request goes to `/<ulid>`, answers 404, and the screen says "Événement
-   * introuvable". That is the whole of the global search's navigation, not
-   * just the calendar's, so it is a bug of its own (MAG-144) rather than
-   * something this journey should paper over — and this journey exercises the
-   * deep link the way it is meant to be called, which is what keeps it
-   * meaningful once the bug is fixed.
+   * The `eventId` parameter takes the IRI react-admin knows the record by, so
+   * the ULID is expanded here. The global search builds the same IRI from the
+   * identifier Elasticsearch returns (MAG-144) — `search.spec.ts` follows that
+   * route end to end.
    *
    * The card is drawn 300 ms after the event comes back, to let the grid
    * finish moving; `toBeVisible` covers that without anyone sleeping.
