@@ -66,6 +66,10 @@ describe('CalendarView', () => {
     })
   })
 
+  // The sidebar's rows, the toolbar and the dialogs are addressed by role and name in
+  // `CalendarView.handles.test.tsx`, which owns that contract with the agenda
+  // journeys. This file owns behaviour; the two do not overlap.
+
   // FullCalendar re-renders the whole grid on each interaction: slow on a busy CI runner
   describe('editing an event with the pencil', { timeout: 30_000 }, () => {
     const noon = new Date()

@@ -6,7 +6,7 @@ import type { Session } from './session.js'
 export { expect }
 export { SEED_USER_EMAIL, OTHER_USER_EMAIL } from './session.js'
 export type { Session, SeededUser } from './session.js'
-export { seedId, seedAnchorDate, seedManifest } from './manifest.js'
+export { seedId, seedAnchorDate, seedDate, seedManifest } from './manifest.js'
 
 /**
  * One login per account per worker.

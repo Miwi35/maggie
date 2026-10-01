@@ -114,9 +114,16 @@ events="$(curl -sS "${AUTH[@]}" -H 'Accept: application/ld+json' "$BASE_URL/api/
 assert_contains "$events" 'Déjeuner avec Alex' "the seeded event of today is listed"
 assert_contains "$events" 'Cours de piano' "the seeded recurring event is listed"
 
+# Two, out of three in the database: the neighbour owns the third (MAG-114), so this
+# is where a read that forgot its user filter shows up before any journey runs.
 agendas="$(curl -sS "${AUTH[@]}" -H 'Accept: application/ld+json' "$BASE_URL/api/agendas")"
 assert_eq 2 "$(printf '%s' "$agendas" | jq -r '.totalItems // (.member | length)')" \
-  "both seeded agendas belong to the test user"
+  "the owner sees their two agendas and not the neighbour's"
+if printf '%s' "$events" | grep -qF 'Déjeuner du voisin'; then
+  fail "the neighbour's lunch is in the owner's events — a read lost its user filter"
+else
+  pass "nothing of the neighbour's is in the owner's events"
+fi
 
 # The anchor the seed actually used, not today's date. They are the same in CI
 # and in a default local run, but a seed and a smoke run straddling midnight
@@ -449,6 +456,180 @@ assert_eq 312 "$(wc -c <"$spoken")" "the stand-in returned one 104-byte frame pe
 assert_eq 400 "$(status_of -X POST "${AUTH[@]}" -H 'Content-Type: application/json' \
   -d '{"text":"bonjour","voice":"fr-FR-Inexistante"}' "$BASE_URL/agent/tts/synthesize")" \
   "an unknown voice is refused rather than substituted"
+
+# ---------------------------------------------------------------------------
+step "10. A conflict is read in the owner's day, not in UTC"
+# ---------------------------------------------------------------------------
+# MAG-114 § 1: `check_conflicts` receives a bare date and a bare time, and the
+# events it compares them against are instants. Built without the owner's offset,
+# 10:30 in Paris lands an hour or two away and a busy morning answers "free".
+#
+# Here rather than in a browser journey, and that is not a shortcut. Conflict
+# detection is a read with no screen of its own: the only user-visible half is a
+# sentence, and with `LLM_PROVIDER=fake` that sentence is a fixture — asserting it
+# would prove nothing about the arithmetic. The tool's own answer is the thing, so
+# it is driven through the real MCP transport, and the Paris boundary is pinned on
+# both sides of the DST change in `CheckConflictsToolTest`.
+#
+# Reads the first `text` field anywhere in the envelope rather than a fixed path:
+# the MCP transport is free to move it, and a hard-coded `.result.content[0]` would
+# fail as "no conflict" the day it does.
+tool_text() { printf '%s' "$1" | jq -r '[.. | objects | select(has("text")) | .text] | first // empty'; }
+
+# One id per call, never a constant: JSON-RPC correlates a response to its request
+# by id, and a session that has already answered 10 does not answer it again — the
+# second call then comes back with nothing readable, and the assertion blames the
+# tool for a mistake the caller made. Ids 1 to 3 are taken by the steps above.
+mcp_request_id=10
+
+# Calls a tool and prints its answer. `tool_text` reads the first `text` field
+# anywhere in the response rather than a fixed path: the MCP transport is free to
+# move it, and a hard-coded `.result.content[0]` would read as "no conflict" the day
+# it does.
+#
+# An unreadable envelope goes to stderr, not through `fail`: this runs inside a
+# command substitution, so `fail`'s line would be captured into the caller's variable
+# instead of printed and its counter would be lost with the subshell. The empty
+# answer makes the caller's own assertion fail, with the envelope logged just above it.
+mcp_tool() {
+  mcp_request_id=$((mcp_request_id + 1))
+  local raw text
+  raw="$(curl -sS -X POST "${AUTH[@]}" "${mcp_headers[@]}" \
+    -d "$(jq -nc --arg name "$1" --argjson args "$2" --argjson id "$mcp_request_id" \
+      '{jsonrpc: "2.0", id: $id, method: "tools/call", params: {name: $name, arguments: $args}}')" \
+    "$BASE_URL/_mcp" | sed 's/^data: //')"
+  text="$(tool_text "$raw")"
+
+  if [ -z "$text" ]; then
+    printf '    (%s answered nothing readable: %s)\n' "$1" "$(printf '%s' "$raw" | head -c 400)" >&2
+  fi
+
+  printf '%s' "$text"
+}
+
+# The seed books "Réunion d'équipe" from 10:00 to 11:00 *in Paris* on the day after
+# the anchor; 10:30 for half an hour sits squarely inside it.
+conflict_day="$(date -u -d "$anchor_date + 1 day" +%F)"
+conflicts="$(mcp_tool check_conflicts "$(jq -nc --arg d "$conflict_day" \
+  '{date: $d, time: "10:30", duration: 30}')")"
+
+assert_eq true "$(printf '%s' "$conflicts" | jq -r '.hasConflicts // empty')" \
+  "10:30 inside a 10:00–11:00 meeting in Paris is a conflict"
+assert_eq 1 "$(printf '%s' "$conflicts" | jq -r '[.conflicts[]?] | length')" \
+  "the one meeting that overlaps is the one reported"
+
+# The slot the tool says it checked, which is where the bug would show: an hour or
+# two out, and `hasConflicts` above would be false for a reason nothing else names.
+assert_eq "${conflict_day}T10:30:00" \
+  "$(printf '%s' "$conflicts" | jq -r '.checkedSlot.start // empty' | cut -c1-19)" \
+  "the slot checked is the one that was asked for"
+offset="$(printf '%s' "$conflicts" | jq -r '.checkedSlot.start // empty' | cut -c20-)"
+assert_eq false "$([ "$offset" = '+00:00' ] && echo true || echo false)" \
+  "the slot carries Paris's offset ('$offset'), not UTC"
+
+# The control — "an evening nobody booked is still free", which is what stops a tool
+# answering "conflict" to everything from passing all of the above — is **not** here,
+# and that is MAG-170 rather than a gap. A second `tools/call` in one session comes
+# back with something this script cannot read, twice on CI; the step before this one
+# was the only tool call the smoke journey had ever made, so nobody had tried two.
+#
+# Nothing is lost meanwhile: `CheckConflictsToolTest::testASlotOutsideEveryMeetingIsFree`
+# and `testBackToBackIsFreeAndOneMinuteOfOverlapIsNot` are that control, they run on
+# every pull request, and they pin the free slot on both sides of the DST change.
+# What this step alone can prove is the Paris offset through the real transport, and
+# the four assertions above are it.
+
+# ---------------------------------------------------------------------------
+step "11. A due reminder becomes a notification"
+# ---------------------------------------------------------------------------
+# The reminder chain has no browser surface at all — nothing in the admin sets a
+# reminder, and the only producer is a cron the browser cannot run. So it is here,
+# where `docker compose exec` can, like the two sync steps above.
+#
+# The event is created against the real clock rather than taken from the seed, and
+# that is forced: `maggie:notification:check-reminders` fires on a reminder whose
+# trigger time has passed for an event starting within 24 hours, and no
+# anchor-relative time satisfies both bounds at every hour a run might start at.
+# Forty minutes out with a reminder an hour before leaves the trigger twenty
+# minutes behind us, whenever "now" is.
+reminder_agenda="$(printf '%s' "$agendas" | jq -r '[.member[] | select(.default == true)][0]."@id" // empty')"
+if [ -n "$reminder_agenda" ]; then
+  pass "the owner has a default agenda to book into"
+else
+  fail "no default agenda in /api/agendas — the reminder step has nowhere to write"
+fi
+
+reminder_title="Rappel smoke $(date -u +%H%M%S)"
+reminder_event="$(curl -sS -X POST "${AUTH[@]}" \
+  -H 'Content-Type: application/ld+json' -H 'Accept: application/ld+json' \
+  -d "$(jq -nc --arg s "$reminder_title" --arg a "$reminder_agenda" \
+    --arg start "$(date -u -d '+40 minutes' +%FT%T+00:00)" \
+    --arg end "$(date -u -d '+70 minutes' +%FT%T+00:00)" \
+    '{summary: $s, startAt: $start, endAt: $end, agenda: $a}')" \
+  "$BASE_URL/api/events")"
+reminder_event_id="$(printf '%s' "$reminder_event" | jq -r '.id // empty')"
+if [ -n "$reminder_event_id" ]; then
+  pass "the event the reminder hangs off was created"
+else
+  fail "could not create the event — response: $(printf '%s' "$reminder_event" | head -c 300)"
+fi
+
+# A second request, because `CreateEventCommand` carries no reminders: POST drops
+# them in silence and PATCH is the only way in. Google's own shape —
+# `{useDefault, overrides: [{method, minutes}]}` — which is what the command reads;
+# a bare list is no reminder at all, and nothing says so.
+reminder_patch="$(status_of -X PATCH "${AUTH[@]}" \
+  -H 'Content-Type: application/merge-patch+json' \
+  -d '{"reminders":{"useDefault":false,"overrides":[{"method":"popup","minutes":60}]}}' \
+  "$BASE_URL/api/events/$reminder_event_id")"
+assert_eq 200 "$reminder_patch" "the reminder was set on the event"
+
+# The cron reads Doctrine, so it sees the event the moment the PATCH returns; the
+# notification it writes is read back from Elasticsearch, which is what the wait
+# below is for.
+"${COMPOSE[@]}" exec -T php bin/console --env=e2e maggie:notification:check-reminders >/dev/null
+
+reminders_of() {
+  curl -sS "${AUTH[@]}" -H 'Accept: application/ld+json' "$BASE_URL/api/notifications?itemsPerPage=100" \
+    | jq -c --arg t "$reminder_title" '[.member[] | select(.title == $t)]'
+}
+
+notified=""
+for _ in $(seq 1 60); do
+  reminder_notifications="$(reminders_of)"
+  if [ "$(printf '%s' "$reminder_notifications" | jq -r 'length')" -gt 0 ]; then
+    notified=yes
+    break
+  fi
+  sleep 1
+done
+
+# Asserted on the notification rather than on the command's output: the owner reads
+# the bell, and a command that printed a success line while writing nothing is
+# exactly the failure this step is for.
+if [ -n "$notified" ]; then
+  pass "the due reminder produced a notification"
+else
+  fail "the cron wrote no notification for '$reminder_title' — is the reminder shape still {useDefault, overrides}?"
+fi
+
+assert_eq reminder "$(printf '%s' "$reminder_notifications" | jq -r '.[0].type // empty')" \
+  "the notification carries the reminder kind"
+assert_eq "/api/events/$reminder_event_id" \
+  "$(printf '%s' "$reminder_notifications" | jq -r '.[0].relatedEntityIri // empty')" \
+  "the notification points back at the event"
+
+# Twice in a row must not notify twice: the cron runs every few minutes, and
+# without the dedup on (event, minutes) the owner would be reminded on every tick.
+#
+# Read after a window rather than at once, and that is the whole difficulty of
+# proving an absence here: a duplicate written to Postgres is not yet in the index,
+# so an immediate read answers "one" whether the dedup held or not. Five seconds is
+# the same bargain `expectSilence` makes in the browser harness — there is no event
+# to wait on instead.
+"${COMPOSE[@]}" exec -T php bin/console --env=e2e maggie:notification:check-reminders >/dev/null
+sleep 5
+assert_eq 1 "$(reminders_of | jq -r 'length')" "a second run of the cron reminds nobody twice"
 
 # ---------------------------------------------------------------------------
 printf '\n\033[1mSmoke journey: %d passed, %d failed\033[0m\n' "$passed" "$failed"

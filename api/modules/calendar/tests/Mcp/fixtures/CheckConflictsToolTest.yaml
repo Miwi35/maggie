@@ -1,0 +1,46 @@
+# Every date here is a literal in Europe/Paris, and both sides of the year are
+# represented on purpose: 10 November is UTC+1, 14 July is UTC+2. The bug MAG-114
+# § 1 describes only shows when the offset is not zero, and a fixture written
+# with `tomorrow` would sit on whichever side of the DST change the suite happens
+# to run on — half the year it would prove nothing.
+
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+
+Maggie\Calendar\Entity\Agenda:
+  own_agenda:
+    name: Own agenda
+    isDefault: true
+    timeZone: 'Europe/Paris'
+    user: '@test_user'
+
+Maggie\Calendar\Entity\Event:
+  # Winter: 10:00–11:00 in Paris is 09:00–10:00 UTC.
+  winter_meeting:
+    summary: Réunion d'hiver
+    startAt: '<(new \DateTimeImmutable("2026-11-10 10:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("2026-11-10 11:00", new \DateTimeZone("Europe/Paris")))>'
+    timeZone: 'Europe/Paris'
+    agenda: '@own_agenda'
+
+  # Summer: 10:00–11:00 in Paris is 08:00–09:00 UTC.
+  summer_meeting:
+    summary: Réunion d'été
+    startAt: '<(new \DateTimeImmutable("2026-07-14 10:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("2026-07-14 11:00", new \DateTimeZone("Europe/Paris")))>'
+    timeZone: 'Europe/Paris'
+    agenda: '@own_agenda'
+
+  # All day on the winter date. An all-day row must not make a slot busy, and it
+  # is the one kind of event that covers every hour — so without it a "the slot
+  # is free" assertion would hold whether or not the rule is applied.
+  winter_birthday:
+    summary: Anniversaire
+    allDay: true
+    startAt: '<(new \DateTimeImmutable("2026-11-10 00:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("2026-11-11 00:00", new \DateTimeZone("Europe/Paris")))>'
+    timeZone: 'Europe/Paris'
+    agenda: '@own_agenda'

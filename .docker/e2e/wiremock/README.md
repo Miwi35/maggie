@@ -11,6 +11,26 @@ the one thing this stack exists to guarantee.
 | `mappings/google.json` | Google Calendar and Google Tasks | `GOOGLE_API_BASE_URL` |
 | `mappings/openai.json` | Whisper speech-to-text | `OPENAI_BASE_URL` (agent) |
 
+`google.json` covers every call the agenda can make from the browser: list the
+calendars, import one (watch + pull), export a local agenda (create a calendar),
+push an event (insert, **patch**, update, delete), and delete the calendar when
+an agenda goes "on Google too". `patch` is the one the field-level push uses
+since `544c9e5`, and its `updated` (09:00) is deliberately **newer** than the
+events list's (08:00): that is what lets a journey prove the next pull skips an
+event Google has not touched since, instead of overwriting the local change.
+
+Two stubs answer something derived from the request rather than a constant, and
+both are load-bearing:
+
+- **the watch channel id** is `e2e-channel-<calendarId>`. A constant would give two
+  connected agendas the same channel, and `findByGoogleWatchChannelId()` is a
+  `findOneBy` — so a webhook meant for one agenda could pull into the other, and
+  the "a local change survives the pull" assertion would pass without the pull
+  ever reaching the event it is about;
+- **an inserted event's id** is random. `(google_event_id, agenda_id)` is unique,
+  so a constant would make a second event in the same connected agenda a
+  constraint violation.
+
 Two things are **not** here:
 
 - **Edge TTS.** `edge_tts` opens its own WebSocket to Microsoft, so no base URL

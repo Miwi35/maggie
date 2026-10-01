@@ -1,5 +1,7 @@
-# Agenda data for the MAG-100 journey: a plain event, a weekly recurrence with
-# one overridden occurrence, an event carrying a reminder, and two tasks.
+# Agenda data for the MAG-100 journeys: a plain event, a weekly recurrence with
+# one overridden occurrence, an event carrying a reminder, an event spanning two
+# days, a conflict slot, tasks — and the neighbour's own agenda, which exists
+# only so a journey can prove nothing of theirs ever reaches the signed-in user.
 #
 # Every date is an offset from the seed anchor, so "this week" is always this
 # week and the values are still the same on every run.
@@ -19,6 +21,17 @@ Maggie\Calendar\Entity\Agenda:
     color: '#e91e63'
     timeZone: 'Europe/Paris'
     user: '@e2e_user'
+
+  # The neighbour's. Events belong to a user through their agenda, so proving
+  # isolation on `/api/events` needs one of these — a second user with no agenda
+  # could own no event at all, and the assertion would hold for the wrong reason.
+  e2e_other_agenda:
+    name: Agenda du voisin
+    description: Agenda de l'utilisateur témoin
+    isDefault: true
+    color: '#009688'
+    timeZone: 'Europe/Paris'
+    user: '@e2e_other_user'
 
 Maggie\Calendar\Entity\Event:
   # Today, so a "what's on today" assertion always has something to find.
@@ -54,15 +67,47 @@ Maggie\Calendar\Entity\Event:
     status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
     agenda: '@e2e_agenda_personal'
 
+  # The other way to override one date: a `cancelled` exception, which is how
+  # Google's model says no to a single occurrence without touching the rule. The
+  # fourth lesson, so it sits clear of the moved one above and of the occurrences
+  # the recurrence journey writes on.
+  #
+  # Keeps its parent's summary on purpose: that is what the admin creates
+  # (`handleRecurrenceConfirm` passes the occurrence's own title), so a journey
+  # asserting "this lesson is no longer on the grid" is asserting the real shape.
+  e2e_event_recurring_cancelled:
+    summary: Cours de piano
+    startAt: '<e2eDate("+23 days 18:00")>'
+    endAt: '<e2eDate("+23 days 18:00")>'
+    originalStartAt: '<e2eDate("+23 days 18:00")>'
+    recurringEvent: '@e2e_event_recurring'
+    timeZone: 'Europe/Paris'
+    status: '<(Maggie\Calendar\Enum\EventStatus::Cancelled)>'
+    agenda: '@e2e_agenda_personal'
+
+  # Google's own reminder shape: `{useDefault, overrides: [{method, minutes}]}`.
+  # Not a flat list — `maggie:notification:check-reminders` reads
+  # `$reminders['overrides']`, so a list here is silently no reminder at all, and
+  # the whole chain would be green while nothing ever fired (MAG-100).
   e2e_event_with_reminder:
     summary: Rendez-vous dentiste
     startAt: '<e2eDate("+4 days 09:30")>'
     endAt: '<e2eDate("+4 days 10:00")>'
     timeZone: 'Europe/Paris'
-    reminders: [{ method: 'popup', minutes: 30 }]
+    reminders:
+      useDefault: false
+      overrides:
+        - { method: 'popup', minutes: 30 }
     status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
     agenda: '@e2e_agenda_personal'
 
+  # Nothing here is a *due* reminder, and that is deliberate rather than a gap.
+  # `maggie:notification:check-reminders` fires on a reminder whose trigger time
+  # has passed for an event starting within 24 hours, and no anchor-relative
+  # time satisfies both bounds at every hour a suite might run at: four days out
+  # is outside the horizon, this morning is already behind. The smoke journey
+  # therefore creates its own event against the real clock (step 10) — the same
+  # bargain the bank sync step makes.
   e2e_event_all_day:
     summary: Anniversaire de Sacha
     allDay: true
@@ -71,6 +116,40 @@ Maggie\Calendar\Entity\Event:
     timeZone: 'Europe/Paris'
     status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
     agenda: '@e2e_agenda_shared'
+
+  # A timed event that crosses midnight, so "an event shows on every day it
+  # spans" has something to assert in the week and day views. Not all-day: the
+  # mobile regressions behind 76017dd and dfad086 were about a *range* check
+  # replacing a start-date check, and an all-day row would not exercise it.
+  e2e_event_multi_day:
+    summary: Train de nuit pour Vienne
+    startAt: '<e2eDate("+5 days 21:00")>'
+    endAt: '<e2eDate("+6 days 08:00")>'
+    timeZone: 'Europe/Paris'
+    status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
+    agenda: '@e2e_agenda_personal'
+
+  # The conflict slot of MAG-114 § 1: tomorrow 10:00–11:00 *in Paris*, which is
+  # 09:00–10:00 UTC in winter and 08:00–09:00 in summer. A check at 10:30 Paris
+  # has to land inside it; comparing the bounds in UTC without the offset was
+  # the bug, and it only shows with a fixture written in the user's time zone.
+  e2e_event_conflict_slot:
+    summary: Réunion d'équipe
+    startAt: '<e2eDate("+1 day 10:00")>'
+    endAt: '<e2eDate("+1 day 11:00")>'
+    timeZone: 'Europe/Paris'
+    status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
+    agenda: '@e2e_agenda_personal'
+
+  # The neighbour's, at the same hour as the signed-in user's lunch: a journey
+  # asking "what do I have today?" has to come back without it.
+  e2e_other_event_today:
+    summary: Déjeuner du voisin
+    startAt: '<e2eDate("12:00")>'
+    endAt: '<e2eDate("13:00")>'
+    timeZone: 'Europe/Paris'
+    status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
+    agenda: '@e2e_other_agenda'
 
 Maggie\Calendar\Entity\Task:
   e2e_task_open:
@@ -89,3 +168,23 @@ Maggie\Calendar\Entity\Task:
     dueDate: '<e2eDate("-1 day 20:00")>'
     completedAt: '<e2eDate("-1 day 20:15")>'
     user: '@e2e_user'
+
+  # No due date, and that is the point: the dashboard reads the undated tasks
+  # with `exists[dueDate]=false`, and 33f0506 was an ExistsFilter that did not
+  # declare `dueDate` — so the parameter was ignored and every undone task came
+  # back, dated ones included. One undated row and one dated row (above) are
+  # what makes the filter's answer provable either way.
+  e2e_task_undated:
+    title: Trier les photos de vacances
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Low)>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Low)>'
+    user: '@e2e_user'
+
+  # The neighbour's, due today, so the isolation journey has something that
+  # would land in the signed-in user's "today" if a read forgot to filter.
+  e2e_other_task_today:
+    title: Tâche du voisin
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::High)>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::High)>'
+    dueDate: '<e2eDate("17:00")>'
+    user: '@e2e_other_user'

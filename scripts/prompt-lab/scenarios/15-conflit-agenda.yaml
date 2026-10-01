@@ -1,0 +1,36 @@
+# Does she look before booking, and does she say so when the slot is taken?
+#
+# MAG-114 § 1 asks for "quand l'utilisateur crée un événement demain à 10 h 30 via
+# Maggie, alors Maggie signale le conflit". The arithmetic behind that — reading
+# 10:30 in the owner's day and not in UTC — is pinned where it belongs, in
+# `CheckConflictsToolTest` and in step 10 of `e2e/smoke/smoke.sh`. What is left is
+# judgement, and judgement is this suite's half: with `LLM_PROVIDER=fake` the
+# sentence announcing a conflict is a fixture, so a journey asserting it would be
+# asserting its own fixture.
+#
+# Two things are expected and the second matters more than the first: she calls
+# `check_conflicts`, and she does **not** call `create_event` — booking over the
+# meeting and mentioning it afterwards is the failure worth catching. "Demain" is
+# deliberate too: the seed books "Réunion d'équipe" from 10:00 to 11:00 Paris on the
+# anchor plus one day, and a model resolving "demain" against the wrong day would
+# find a free morning and say so with complete confidence.
+name: conflit-agenda
+description: Check the agenda before booking over a meeting, and report the clash.
+channel: chat
+
+steps:
+  - user_message: "Note-moi un point avec Camille demain à 10 h 30, une demi-heure."
+    expected_tools: [check_conflicts]
+    forbidden_tools: [create_event]
+    expected_absent: ["c'est noté", "j'ai ajouté", "je ne peux pas accéder"]
+    expected_behavior: >
+      Elle annonce que le créneau est déjà pris par la réunion d'équipe de 10 h à
+      11 h, en une ou deux phrases naturelles en français, et elle n'a rien
+      enregistré : soit elle propose un autre horaire, soit elle demande quoi faire.
+
+  - user_message: "Alors mets-le à 15 h, même durée."
+    expected_tools: [create_event]
+    expected_behavior: >
+      Elle comprend qu'il s'agit du même rendez-vous avec Camille, le note à 15 h
+      pour une demi-heure le lendemain, et confirme sans redemander de quoi il
+      s'agit ni quel jour.

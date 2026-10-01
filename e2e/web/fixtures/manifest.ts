@@ -65,3 +65,18 @@ export function seedId(reference: string): string {
 export function seedAnchorDate(): string {
   return seedManifest().anchor.slice(0, 10)
 }
+
+/**
+ * A day relative to the anchor, as `YYYY-MM-DD` — what `<e2eDate("+2 days")>`
+ * produces on the fixture side.
+ *
+ * The arithmetic is done in UTC on a calendar date on purpose. `new Date(y, m, d)`
+ * would build the day in the *browser's* zone and then shift it across the DST
+ * change in Paris, so a journey run in the last week of October would write its
+ * event one day away from the fixture it is supposed to sit beside.
+ */
+export function seedDate(offsetDays = 0): string {
+  const [year, month, day] = seedAnchorDate().split('-').map(Number)
+
+  return new Date(Date.UTC(year, month - 1, day + offsetDays)).toISOString().slice(0, 10)
+}
