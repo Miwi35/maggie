@@ -205,6 +205,19 @@ for arg in "$@"; do
 done
 [ "${#targets[@]}" -gt 0 ] || targets=("$FLOW_DIR")
 
+# The dates the calendar journeys look for, handed to them as `-e` variables.
+# They are the seed's own days — « today » and the two days « Train de nuit pour
+# Vienne » crosses (`20-calendar.yaml`: +5 days 21:00 → +6 days 08:00) — computed
+# in the seed's time zone, not the host's: a runner on UTC between 22:00 and
+# midnight would otherwise name a day the seed has not reached. A flow cannot
+# compute a date itself, and a date typed into it would rot by tomorrow.
+seed_day() { TZ="$SEED_TIMEZONE" date -d "$1" +%F; }
+flow_env=(
+  -e "TODAY=$(seed_day today)"
+  -e "TRAIN_START=$(seed_day '+5 days')"
+  -e "TRAIN_END=$(seed_day '+6 days')"
+)
+
 # --flatten-debug-output so the screenshots of a failed run land in one
 # predictable place for CI to upload, instead of a timestamped folder per run.
 #
@@ -216,4 +229,5 @@ done
   --test-output-dir "$REPORT_DIR" \
   --flatten-debug-output \
   --no-ansi \
+  "${flow_env[@]}" \
   ${maestro_args[@]+"${maestro_args[@]}"}

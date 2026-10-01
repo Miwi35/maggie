@@ -19,7 +19,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.maggie.app.ui.UiTags
 
 @Composable
 fun CalendarToolbar(
@@ -46,7 +48,7 @@ fun CalendarToolbar(
             IconButton(onClick = onNavigateBackward) {
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Précédent")
             }
-            IconButton(onClick = onNavigateForward) {
+            IconButton(onClick = onNavigateForward, modifier = Modifier.testTag(UiTags.CALENDAR_NEXT)) {
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Suivant")
             }
 
@@ -69,6 +71,7 @@ fun CalendarToolbar(
             )
             options.forEachIndexed { index, (type, label) ->
                 SegmentedButton(
+                    modifier = if (type == CalendarViewType.WEEK) Modifier.testTag(UiTags.CALENDAR_VIEW_WEEK) else Modifier,
                     selected = viewType == type,
                     onClick = { onViewTypeChange(type) },
                     shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),

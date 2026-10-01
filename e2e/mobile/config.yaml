@@ -16,3 +16,5 @@ executionOrder:
   flowsOrder:
     - 01-login-chat
     - 02-voice-overlay
+    - 03-calendar-multi-day
+    - 04-calendar-import

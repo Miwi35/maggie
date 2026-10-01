@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -79,6 +80,7 @@ fun EventBlock(
     topOffset: Dp,
     height: Dp,
     modifier: Modifier = Modifier,
+    tag: String? = null,
     onClick: () -> Unit = {},
 ) {
     val bgColor = event.agendaColor?.let { parseColor(it) }
@@ -92,6 +94,7 @@ fun EventBlock(
             .padding(horizontal = 1.dp, vertical = 1.dp)
             .clip(RoundedCornerShape(4.dp))
             .background(bgColor.copy(alpha = 0.85f))
+            .then(if (tag != null) Modifier.testTag(tag) else Modifier)
             .clickable(onClick = onClick)
             .padding(4.dp),
     ) {

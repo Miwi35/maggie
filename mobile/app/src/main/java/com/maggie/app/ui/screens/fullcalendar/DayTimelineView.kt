@@ -17,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import com.maggie.app.data.model.ExpandedEvent
+import com.maggie.app.ui.UiTags
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.math.abs
@@ -88,6 +89,7 @@ fun DayTimelineView(
                         event = event,
                         topOffset = topOffset,
                         height = height,
+                        tag = UiTags.calendarEvent(currentDate),
                         onClick = { onEventClick(event) },
                     )
                 }
