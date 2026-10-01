@@ -36,7 +36,14 @@ export const RecipeEdit = () => (
         <SimpleFormIterator inline>
           <CiqualFoodAutocomplete source="ciqualAlimCode" />
           <NumberInput source="quantity" label="Quantité" sx={{ maxWidth: 120 }} />
-          <SelectInput source="unit" label="Unité" choices={unitChoices} sx={{ minWidth: 120 }} />
+          <SelectInput
+            source="unit"
+            label="Unité"
+            choices={unitChoices}
+            defaultValue="g"
+            validate={required()}
+            sx={{ minWidth: 120 }}
+          />
         </SimpleFormIterator>
       </ArrayInput>
     </SimpleForm>

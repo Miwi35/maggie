@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Autocomplete from '@mui/material/Autocomplete'
 import TextField from '@mui/material/TextField'
 import { useFormContext } from 'react-hook-form'
+import { useSourceContext } from 'react-admin'
 
 interface CiqualFood {
   alim_code: string
@@ -17,7 +18,9 @@ const CIQUAL_BASE_URL = '/ciqual'
 
 export const CiqualFoodAutocomplete = ({ source = 'ciqualAlimCode' }: { source?: string }) => {
   const { setValue, watch } = useFormContext()
-  const currentValue = watch(source) as string | null | undefined
+  const { getSource } = useSourceContext()
+  const scopedSource = getSource(source)
+  const currentValue = watch(scopedSource) as string | null | undefined
   const [options, setOptions] = useState<CiqualFood[]>([])
   const [inputValue, setInputValue] = useState('')
   const [loading, setLoading] = useState(false)
@@ -74,7 +77,7 @@ export const CiqualFoodAutocomplete = ({ source = 'ciqualAlimCode' }: { source?:
       onInputChange={(_e, value) => setInputValue(value)}
       onChange={(_e, food) => {
         setSelected(food)
-        setValue(source, food?.alim_code ?? null, { shouldDirty: true })
+        setValue(scopedSource, food?.alim_code ?? null, { shouldDirty: true })
       }}
       renderInput={(params) => <TextField {...params} label="Aliment Ciqual" />}
       renderOption={({ key, ...props }, option) => (
@@ -95,7 +98,8 @@ export const CiqualFoodAutocomplete = ({ source = 'ciqualAlimCode' }: { source?:
 
 export const CiqualAutoFill = () => {
   const { watch, setValue } = useFormContext()
-  const ciqualAlimCode = watch('ciqualAlimCode') as string | null | undefined
+  const { getSource } = useSourceContext()
+  const ciqualAlimCode = watch(getSource('ciqualAlimCode')) as string | null | undefined
   const [foodData, setFoodData] = useState<CiqualFood | null>(null)
 
   useEffect(() => {
@@ -110,11 +114,11 @@ export const CiqualAutoFill = () => {
 
   const handleAutoFill = useCallback(() => {
     if (!foodData) return
-    if (foodData.kcal_per100g != null) setValue('kcalPer100g', foodData.kcal_per100g, { shouldDirty: true })
-    if (foodData.protein_per100g != null) setValue('proteinPer100g', foodData.protein_per100g, { shouldDirty: true })
-    if (foodData.carbs_per100g != null) setValue('carbsPer100g', foodData.carbs_per100g, { shouldDirty: true })
-    if (foodData.fat_per100g != null) setValue('fatPer100g', foodData.fat_per100g, { shouldDirty: true })
-  }, [foodData, setValue])
+    if (foodData.kcal_per100g != null) setValue(getSource('kcalPer100g'), foodData.kcal_per100g, { shouldDirty: true })
+    if (foodData.protein_per100g != null) setValue(getSource('proteinPer100g'), foodData.protein_per100g, { shouldDirty: true })
+    if (foodData.carbs_per100g != null) setValue(getSource('carbsPer100g'), foodData.carbs_per100g, { shouldDirty: true })
+    if (foodData.fat_per100g != null) setValue(getSource('fatPer100g'), foodData.fat_per100g, { shouldDirty: true })
+  }, [foodData, setValue, getSource])
 
   if (!ciqualAlimCode || !foodData) return null
 
