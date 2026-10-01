@@ -24,7 +24,18 @@ jobs:
       ciqual: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.ciqual == 'true' }}
       admin: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.admin == 'true' }}
       e2e: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.e2e == 'true' }}
+      mobile: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.mobile == 'true' }}
       cron: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.cron == 'true' }}
+      # The emulators the Maestro journeys run on (MAG-98). One phone on a pull
+      # request — an emulator costs minutes and the layout formats are not what a
+      # feature branch usually breaks — and the three formats MAG-35 and MAG-91
+      # care about on the nightly run, which is the only consumer of the
+      # `workflow_call` trigger. `github.event_name` is the caller's event in a
+      # called workflow, so `schedule` here means nightly.
+      mobile_devices: >-
+        ${{ (github.event_name != 'pull_request' && github.event_name != 'push')
+            && '[{"name":"phone","profile":"pixel_6"},{"name":"foldable","profile":"7.6in Foldable"},{"name":"tablet","profile":"10.1in WXGA (Tablet)"}]'
+            || '[{"name":"phone","profile":"pixel_6"}]' }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -70,6 +81,19 @@ jobs:
               # protection, and a typo'd expectation merges green — to surface
               # as a red nightly at 03:17 that looks like a prompt regression.
               - 'scripts/prompt-lab/**'
+              - 'docker-compose.e2e.yml'
+              - '.github/workflows/ci.yml'
+            # The emulator journeys (MAG-98). The app and the flows, obviously —
+            # and the stack too, because what these catch is the app against a
+            # *running* API: MAG-93 counted seven past regressions reachable
+            # from nowhere else. Narrower than the `e2e` filter in one way (the
+            # admin cannot break the app) and wider in another (`mobile/**`).
+            mobile:
+              - 'mobile/**'
+              - 'e2e/mobile/**'
+              - 'api/**'
+              - 'agent/**'
+              - '.docker/**'
               - 'docker-compose.e2e.yml'
               - '.github/workflows/ci.yml'
 
@@ -414,6 +438,168 @@ jobs:
         if: always()
         run: task e2e:down
 
+  # The Android app, driven on a headless emulator against the e2e stack
+  # (MAG-98). MAG-93 counted seven past regressions no other suite can reach:
+  # the voice overlay re-speaking an old answer, a sheet laid out under the
+  # keyboard, multi-day events missing from the days they cross. They are all
+  # about what a real app does on a real screen.
+  #
+  # Its own job rather than a step of `e2e-stack`, for two reasons: an emulator
+  # is the flakiest thing in this pipeline and a flake here must not block a
+  # pull request that only touched the API, and the nightly matrix below needs
+  # three of them in parallel. The cost is a second stack; the stacks are
+  # isolated by `COMPOSE_PROJECT_NAME`, so they do not collide.
+  e2e-mobile:
+    name: E2E Mobile (${{ matrix.device.name }})
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      # The three formats are independent: a failure on the foldable says
+      # nothing about the phone, and cancelling it would hide whether the
+      # regression is layout-specific.
+      fail-fast: false
+      matrix:
+        device: ${{ fromJSON(needs.changes.outputs.mobile_devices) }}
+    permissions:
+      contents: read
+      # Same as `e2e-stack`: the stack's images are pulled by hash, and pushed
+      # when a build input moved (MAG-135).
+      packages: write
+    env:
+      COMPOSE_PROJECT_NAME: maggie-e2e-mobile-${{ matrix.device.name }}-${{ github.run_id }}-${{ github.run_attempt }}
+      E2E_LOGIN_TOKEN: ci-e2e-login-token
+    steps:
+      # lfs: true for the same reason as `e2e-stack`: `task e2e:up` builds the
+      # Ciqual food base from a 69 MB file stored in Git LFS, and a pointer makes
+      # that die on a parse error.
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: api/vendor
+          key: e2e-vendor-php8.4-${{ hashFiles('api/composer.lock') }}
+
+      - uses: actions/cache@v4
+        with:
+          path: admin/node_modules
+          key: e2e-admin-node-modules-node22-alpine-${{ hashFiles('admin/package-lock.json') }}
+
+      - uses: actions/cache@v4
+        with:
+          path: .e2e-cache/uv
+          key: e2e-uv-${{ hashFiles('agent/pyproject.toml', 'agent/uv.lock') }}
+          restore-keys: e2e-uv-
+
+      - uses: actions/cache@v4
+        with:
+          # ~300 MB of CLI, pinned by version and checksum in maestro.sh — so
+          # the key is that file's hash and a bump is what invalidates it.
+          path: .e2e-cache/maestro
+          key: maestro-${{ hashFiles('e2e/mobile/maestro.sh') }}
+
+      - name: Mark the restored node_modules as current
+        run: |
+          if [ -d admin/node_modules ]; then touch admin/node_modules; fi
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull or build the stack's images
+        run: |
+          e2e/images.sh env >> "$GITHUB_ENV"
+          echo "E2E_PREBUILT=1" >> "$GITHUB_ENV"
+          e2e/images.sh ensure
+
+      - name: The flows lint
+        # Seconds, and before the stack and the emulator: a renamed testTag or a
+        # command Maestro does not know fails here rather than forty minutes in.
+        run: task e2e:mobile:lint
+
+      - name: Start the stack
+        run: task e2e:up
+
+      - name: Seed
+        # `task e2e:mobile` reseeds on its own; this is here so that a broken
+        # fixture fails as a seed and not as an emulator step.
+        run: task e2e:seed
+
+      # The runner's /dev/kvm is owned by root, and without this the emulator
+      # falls back to software emulation — minutes per boot instead of seconds,
+      # and often a timeout.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Unit tests of the e2e flavor
+        # `mobile.yml` runs the prod variant, where `src/e2e/` does not exist —
+        # so `E2eSignInTest` only ever runs here. Cheap, and it is the test that
+        # says the login posts its token before an emulator says "the dashboard
+        # never came".
+        run: ./gradlew :app:testE2eDebugUnitTest -Dorg.gradle.java.home="$JAVA_HOME"
+        working-directory: mobile
+
+      - name: Journeys (Maestro)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: ${{ matrix.device.profile }}
+          # -timezone: the seed anchors on midnight in Paris and a runner boots
+          # on UTC, so between 22:00 and midnight UTC the device's "today" is
+          # the seed's yesterday and the dashboard assertion fails for an hour a
+          # day. -noaudio stays: there is no sound card, so recording fails and
+          # the voice overlay lands in its ERROR state — 02-voice-overlay.yaml is
+          # written around that and never asserts listening succeeded.
+          #
+          # disable-animations also zeroes the animation scale, which is why that
+          # flow cannot use waitForAnimationToEnd as a timer; see its header and
+          # MAG-205.
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none -timezone Europe/Paris
+          disable-animations: true
+          script: task e2e:mobile
+
+      - name: Maestro report
+        if: failure()
+        # The screenshots are the point: Maestro writes one per failed command,
+        # which is the only way to see what the screen looked like on a headless
+        # emulator nobody can attach to.
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-report-${{ matrix.device.name }}-${{ github.run_id }}
+          path: e2e/mobile/report
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Stack logs
+        if: failure()
+        run: task e2e:logs:dump || true
+
+      - name: Tear down
+        if: always()
+        run: task e2e:down
+
   # The cron pod's scheduler (MAG-147): busybox crond ran the jobs as a
   # non-root user with a redirection to /proc/1/fd/1 that user cannot open, so
   # no job ever started. Starts the image as that user and checks a job runs,
@@ -454,7 +640,7 @@ jobs:
   # merge it into a frozen production. Last, that window shrinks to seconds.
   incident-gate:
     name: Incident gate
-    needs: [changes, api-lint, agent-lint, ciqual-lint, admin-lint, api-test, agent-test, ciqual-test, admin-test, e2e-stack, cron-image, infra-scripts]
+    needs: [changes, api-lint, agent-lint, ciqual-lint, admin-lint, api-test, agent-test, ciqual-test, admin-test, e2e-stack, e2e-mobile, cron-image, infra-scripts]
     if: always() && github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -483,7 +669,7 @@ jobs:
       - name: Lint shell scripts
         run: |
           docker run --rm -v "$PWD":/mnt -w /mnt koalaman/shellcheck:stable -x --severity=warning \
-            infra/scripts/*.sh infra/scripts/tests/*.sh scripts/agent-guard/*.sh
+            infra/scripts/*.sh infra/scripts/tests/*.sh scripts/agent-guard/*.sh e2e/mobile/*.sh
       - name: Test the smoke suite, the rollback, the failed-deploy report, the incident gate, the deploy gate, the freeze lift and the agent guard rails
         run: |
           bash infra/scripts/tests/smoke-prod.test.sh

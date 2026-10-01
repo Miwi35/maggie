@@ -1,0 +1,77 @@
+appId: com.maggie.app.e2e
+name: 01-login-chat
+tags:
+  - socle
+---
+# The first journey of the emulator harness (MAG-98): sign in, read the seeded
+# dashboard, open the chat and get an answer out of Maggie.
+#
+# Deliberately the widest shallow path rather than a deep one. Everything under
+# it has to work for these few commands to pass — the Gradle flavor, `adb
+# reverse` onto the stack's ephemeral port, the test login, the JWT in the
+# DataStore, the Ktor bearer plugin, Traefik routing to both the API and the
+# agent, the AG-UI stream and the real MCP tool loop. So a red `01` means the
+# socle, not the feature.
+#
+# **Every text selector here is a regex Maestro matches against the node's whole
+# text**, which is why they are all wrapped in `.*`: a bare
+# « …aujourd'hui ? » would read the `?` as "the space before me is optional" and
+# match nothing at all. Wrapped, they behave the same whether Maestro is
+# matching the whole string or a substring. Ids (`ui/UiTags.kt`) are exact and
+# are preferred wherever one exists.
+
+- launchApp:
+    # The app keeps its session in a DataStore, so without this a second run
+    # starts signed in and never sees the login screen the flow is about.
+    clearState: true
+    # RECORD_AUDIO and POST_NOTIFICATIONS, granted up front. A runtime
+    # permission dialog belongs to the system UI, and a step that trips over one
+    # fails as "the button is not there".
+    permissions:
+      all: allow
+
+- runFlow: ../subflows/sign-in.yaml
+
+# The dashboard really read the API, and read it as this user. « Déjeuner avec
+# Alex » is seeded for the anchor day at 12:00 Paris and the « Aujourd'hui » tab
+# lists the whole day, so this holds at any hour — `run.sh` puts the emulator on
+# Europe/Paris, which is what makes the device's "today" the seed's today.
+- extendedWaitUntil:
+    visible: ".*Déjeuner avec Alex.*"
+    timeout: 20000
+
+# The chat, from the bar every main screen carries. By id and not by its
+# placeholder: « Demander à Maggie... » is on screen twice once the sheet opens.
+- tapOn:
+    id: "chat_open"
+
+# Waited for rather than asserted: the sheet is a window being created, and the
+# `tapOn` below would wait on its own — but then a failure would read as "the tap
+# missed" instead of "the sheet never opened".
+- extendedWaitUntil:
+    visible:
+      id: "chat_input"
+    timeout: 20000
+
+- tapOn:
+    id: "chat_input"
+
+- inputText: "Qu'est-ce que j'ai de prévu aujourd'hui ?"
+
+- tapOn:
+    id: "chat_send"
+
+# `agent/fixtures/fake-llm/30-upcoming-events.yaml` scripts the model's side and
+# nothing else: the `get_upcoming_events` call it asks for really runs, against
+# the real MCP server and the seeded agenda, before this sentence streams back.
+# 60 s covers the agent's first round trip on a cold emulator.
+- extendedWaitUntil:
+    visible: ".*déjeuner avec Alex et votre cours de piano.*"
+    timeout: 60000
+
+# Nothing matched → the fake answers « [fake-llm] aucun scénario ne correspond
+# à : … », which is a plausible-looking bubble. Asserted explicitly because the
+# wait above would be satisfied by a later message just as well: if the scenario
+# file is renamed, this is the step that names the cause instead of leaving a
+# timeout to be read as a broken chat.
+- assertNotVisible: ".*aucun scénario.*"

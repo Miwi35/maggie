@@ -126,6 +126,8 @@ For a journey, or anything needing the whole system, bring up the e2e stack — 
 | `task e2e:seed` | deterministic fixtures + Elasticsearch rebuild |
 | `task e2e:smoke` | the smoke journey (HTTP) |
 | `task e2e:web` | the Playwright journeys for the admin (MAG-97) |
+| `task e2e:mobile` | the Maestro journeys for the Android app (MAG-98) — needs one connected emulator or phone |
+| `task e2e:mobile:lint` | check the flows without a device or a stack — in `task lint:all` |
 | `task e2e:web:lint`, `task e2e:web:typecheck` | check them without a stack — in `task lint:all` |
 | `task e2e:admin:build` | rebuild the admin bundle after editing `admin/src` |
 | `task e2e:test:api` | PHPUnit inside the stack |

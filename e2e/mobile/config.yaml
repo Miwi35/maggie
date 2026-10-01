@@ -1,0 +1,18 @@
+# The Maestro workspace for the Android journeys (MAG-98).
+#
+# `flows` is what makes `subflows/` reusable: a Maestro workspace runs every
+# YAML file it finds, so a shared sign-in left inside `flows/` would also be run
+# on its own — against an app nobody launched, failing on a login screen that is
+# not there. Keeping the glob narrow is the whole mechanism.
+flows:
+  - flows/*.yaml
+
+# Alphabetical, which the numeric prefixes make deterministic. The flows do not
+# depend on each other — each clears the app's state and signs in again — but
+# they share one seeded server, so the cheapest one runs first and a failure in
+# `01` says the socle is broken rather than the voice overlay.
+executionOrder:
+  continueOnFailure: false
+  flowsOrder:
+    - 01-login-chat
+    - 02-voice-overlay

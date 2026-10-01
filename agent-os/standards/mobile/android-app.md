@@ -23,3 +23,30 @@ Kotlin + Jetpack Compose + Material 3.
 - Google OAuth credentials only work with the release signing key
 - **Always build `prodRelease`** for device testing: `task mobile:install` (checks a phone is connected, then an incremental `./gradlew installProdRelease` — never `clean`)
 - Do NOT use `devDebug` or `prodDebug` — the debug keystore SHA1 is not registered in GCP
+
+## The `e2e` flavor (MAG-98)
+
+A third flavor, for the Maestro journeys only. `e2eDebug` is the one debug
+variant that is fine to build: it never talks to Google, so the keystore SHA1
+above is irrelevant to it.
+
+- Signs in through `POST /api/auth/e2e/login` instead of Credential Manager,
+  which no emulator can drive. The implementation is in `app/src/e2e/` and is
+  therefore **not compiled into `dev` or `prod`**; those two link the Google one
+  from `app/src/google/`, a source set they share. `src/main/` knows neither —
+  it only declares the `SignInStrategy` seam and `AuthManager`, which persists
+  whatever payload came back.
+- Anything else that must only exist on the emulator goes in `app/src/e2e/`, with
+  its unit tests in `app/src/testE2e/`. `mobile.yml` runs the prod variant; the
+  `E2E Mobile` CI job runs `testE2eDebugUnitTest`.
+- `API_BASE_URL` is `http://localhost:8099`, bridged onto the stack's ephemeral
+  port by `adb reverse` — never a hard-coded host port. Override with
+  `-PE2E_API_BASE_URL`.
+- UI the flows drive carries a `testTag` from `ui/UiTags.kt`, published to
+  UiAutomator by `Modifier.uiTagRoot()` — **once per window, not once per app**.
+  A `Dialog` or a `ModalBottomSheet` is a separate semantics owner, so the one on
+  `MainActivity` does not reach it and its tags have no resource id at all.
+  `task e2e:mobile:lint` fails on both halves: an id a flow uses that is not
+  declared, and a tagged window with no `uiTagRoot()`.
+
+Full guide: [e2e/mobile/README.md](../../../e2e/mobile/README.md).

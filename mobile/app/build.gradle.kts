@@ -46,6 +46,14 @@ android {
 
     flavorDimensions += "environment"
 
+    // The e2e stack publishes one ephemeral host port and nothing may hard-code
+    // it, so the APK is built against a fixed port on the device's own loopback
+    // and `e2e/mobile/run.sh` bridges it with `adb reverse`. That keeps the
+    // build independent of the stack: the port changes between runs, the APK
+    // does not, and CI can compile it while the eleven containers come up.
+    // Override with -PE2E_API_BASE_URL for a stack reached some other way.
+    val e2eBaseUrl = project.findProperty("E2E_API_BASE_URL") ?: "http://localhost:8099"
+
     productFlavors {
         create("dev") {
             dimension = "environment"
@@ -60,6 +68,29 @@ android {
             buildConfigField("String", "MERCURE_URL", "\"https://maggieai.fr/.well-known/mercure\"")
             buildConfigField("String", "GOOGLE_CLIENT_ID", "\"${project.findProperty("GOOGLE_CLIENT_ID") ?: ""}\"")
         }
+        // The Maestro journeys' flavor (MAG-98). Its own applicationId, so it
+        // installs beside the dev build on the owner's phone, and no
+        // GOOGLE_CLIENT_ID: this flavor cannot reach Google at all.
+        create("e2e") {
+            dimension = "environment"
+            applicationIdSuffix = ".e2e"
+            buildConfigField("String", "API_BASE_URL", "\"$e2eBaseUrl\"")
+            buildConfigField("String", "MERCURE_URL", "\"$e2eBaseUrl/.well-known/mercure\"")
+            buildConfigField("String", "GOOGLE_CLIENT_ID", "\"\"")
+            // Read by src/e2e/E2eSignIn.kt only, so neither constant exists in
+            // the dev or prod BuildConfig — referencing one there is a compile
+            // error rather than a door nobody noticed.
+            buildConfigField("String", "E2E_LOGIN_TOKEN", "\"${project.findProperty("E2E_LOGIN_TOKEN") ?: "e2e-login-token"}\"")
+            buildConfigField("String", "E2E_LOGIN_EMAIL", "\"${project.findProperty("E2E_LOGIN_EMAIL") ?: "e2e@maggie.local"}\"")
+        }
+    }
+
+    sourceSets {
+        // dev and prod sign in with Google; e2e has its own door in src/e2e/.
+        // A shared source set rather than the same one-line binding copied into
+        // two flavor folders — see SignInStrategy in src/main/.
+        getByName("dev") { java.srcDir("src/google/java") }
+        getByName("prod") { java.srcDir("src/google/java") }
     }
 
     buildTypes {

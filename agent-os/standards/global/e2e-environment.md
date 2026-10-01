@@ -3,8 +3,8 @@
 An isolated stack, deterministic data, a login that does not go through Google,
 and stand-ins for every external service — the model included. One per git
 worktree, so parallel agents never collide. Built by MAG-94, with the fake LLM
-and the eval suite from MAG-95 and the browser harness from MAG-97; the
-emulator harness that sits on top is MAG-98.
+and the eval suite from MAG-95, the browser harness from MAG-97 and the emulator
+harness from MAG-98.
 
 Read this before writing anything that runs against the stack. The Definition of
 Done itself lives in [testing.md](testing.md).
@@ -17,6 +17,8 @@ Done itself lives in [testing.md](testing.md).
 | `task e2e:seed` | Reset the database to the fixture set, empty the agent's own tables, rebuild and refresh the search indices |
 | `task e2e:smoke` | Run the smoke journey (HTTP) against the running stack |
 | `task e2e:web` | Reseed, then run the Playwright journeys for the admin |
+| `task e2e:mobile` | Reseed, install the `e2e` flavor, run the Maestro journeys — needs a device |
+| `task e2e:mobile:lint` | Check the flows without a device — also part of `task lint:all` |
 | `task e2e:web:lint` | ESLint on the journeys — also part of `task lint:all` |
 | `task e2e:web:typecheck` | Type-check the journeys without running them |
 | `task e2e:web:shell` | A shell in the Playwright container |
@@ -346,6 +348,35 @@ here because they are properties of the *stack*, not of Playwright:
   failure, and the stack then has no real-time at all while looking perfectly
   healthy. That is how it shipped until the first browser journey asserted on
   a live update.
+
+## The emulator harness
+
+`e2e/mobile/`, driven by `task e2e:mobile` — Maestro on an emulator, against the
+same stack. Its [README](../../../e2e/mobile/README.md) is the full guide; four
+things belong here because they are properties of the *stack* and of the app's
+relationship to it, not of Maestro:
+
+- **The app has an `e2e` Gradle flavor**, and that is the whole reason the harness
+  is possible: Google Credential Manager is a system dialog Maestro cannot tap,
+  so `mobile/app/src/e2e/` signs in through the test login instead. A flavor
+  source set and not a build flag — `src/main/` knows neither door, and the APK
+  that ships does not contain the test login at all. **Anything else that must
+  only exist on the emulator goes in that source set**, which is the mobile
+  counterpart of `modules/<module>/src/E2e/` on the API side.
+- **The host port is bridged, not baked in.** The APK is built against a fixed
+  port on the device's own loopback and `adb reverse` maps it onto whatever
+  Docker chose. So the APK is independent of the stack and nothing hard-codes an
+  ephemeral port, same rule as everywhere else here.
+- **The device's time zone is part of the fixture.** The seed anchors on midnight
+  in Paris; an emulator boots on UTC, and between 22:00 and midnight UTC the two
+  are a day apart — every "today" assertion then fails for an hour a day. CI
+  boots the emulator with `-timezone Europe/Paris`.
+- **No microphone, for a different reason than the browser.** The browser has none
+  because `http://traefik` is not a secure context; the emulator has none because
+  a CI runner has no sound card and runs with `-noaudio`. Recording therefore
+  fails and the voice overlay lands in its `ERROR` state. A flow about the voice
+  path has to assert on what the overlay must *not* do — which is exactly what
+  MAG-93's four voice regressions were.
 
 ## What a new journey owes
 
