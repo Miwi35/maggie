@@ -444,8 +444,7 @@ jobs:
       - name: Lint workflows
         run: |
           docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:latest -color -ignore 'SC2129' .github/workflows/cd.yml .github/workflows/ci.yml \
-            .github/workflows/mobile.yml .github/workflows/nightly.yml .github/workflows/agent-guard.yml \
-            .github/workflows/agent-report.yml
+            .github/workflows/mobile.yml .github/workflows/nightly.yml .github/workflows/agent-guard.yml
       - name: Lint shell scripts
         run: |
           docker run --rm -v "$PWD":/mnt -w /mnt koalaman/shellcheck:stable -x --severity=warning \

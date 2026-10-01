@@ -30,10 +30,6 @@ Repo variable `AGENT_ENABLED`. Missing or anything but `false` = on.
 - While `false`, the guard hands every `cyrus/*` PR to a human, whatever it touches.
 - The dispatcher that picks tickets lives outside this repository and has to read the same variable.
 
-## Daily report
-
-`agent-report.yml` runs at 06:07 UTC (`scripts/agent-guard/daily-report.sh`, also `task guard:report`): PRs opened, merged, waiting for a human, still open, abandoned, with their ticket. It lands in the run summary, and on Linear as a comment when the secret `LINEAR_API_KEY` and the variable `AGENT_REPORT_ISSUE_ID` (the UUID of the issue collecting reports) exist. The cost is not in it: GitHub does not know it. Tickets taken but never coded are only visible in Linear.
-
 ## Tests
 
 `infra/scripts/tests/agent-guard.test.sh` and `agent-guard-streak.test.sh`, run by the `Infra scripts and workflows` job. A new rule comes with a case that trips it and a case that must not.

@@ -109,12 +109,6 @@ tasks:
     cmds:
       - gh variable set AGENT_ENABLED --body true
 
-  guard:report:
-    desc: The agent's day as Markdown — PRs opened, merged, handed to a human, still open (task guard:report -- [hours])
-    silent: true
-    cmds:
-      - scripts/agent-guard/daily-report.sh {{.CLI_ARGS}}
-
   # ===========================================================================
   # Docker Compose Commands
   # ===========================================================================
