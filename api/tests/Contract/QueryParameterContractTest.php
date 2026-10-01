@@ -67,6 +67,7 @@ final class QueryParameterContractTest extends WebTestCase
             'startAt[after]' => 'admin CalendarView and Dashboard, mobile getEvents',
             'startAt[before]' => 'admin CalendarView and Dashboard',
             'startAt[strictly_before]' => 'admin recurring-event lookup, mobile getRecurringEvents',
+            'endAt[after]' => 'admin CalendarView, multi-day events that started before the visible range',
             'endAt[before]' => 'mobile getEvents',
             'exists[rrule]' => 'admin recurring-event lookup, mobile getRecurringEvents',
             'order[startAt]' => 'admin CalendarView, Dashboard and MealsWeekView',
@@ -392,6 +393,12 @@ final class QueryParameterContractTest extends WebTestCase
 
         yield 'events starting after a date' => [
             '/api/events', 'startAt[after]=2026-04-01T00:00:00%2B00:00', 'summary',
+            ['A recurring event, late'],
+            ['A one-off event, early'],
+        ];
+
+        yield 'events ending after a date' => [
+            '/api/events', 'endAt[after]=2026-04-01T00:00:00%2B00:00', 'summary',
             ['A recurring event, late'],
             ['A one-off event, early'],
         ];
