@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\Command;
 
+use Maggie\Core\Entity\User;
 use Maggie\Core\Repository\UserRepository;
+use Maggie\Finance\Repository\BankConnectionRepository;
 use Maggie\Finance\UseCase\SyncBankAccounts;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -23,6 +25,7 @@ class SyncBanksCommand extends Command
     public function __construct(
         private readonly SyncBankAccounts $syncBankAccounts,
         private readonly UserRepository $userRepository,
+        private readonly BankConnectionRepository $connectionRepository,
     ) {
         parent::__construct();
     }
@@ -30,7 +33,7 @@ class SyncBanksCommand extends Command
     protected function configure(): void
     {
         $this
-            ->addArgument('email', InputArgument::REQUIRED, 'Email of the account owner')
+            ->addArgument('email', InputArgument::OPTIONAL, 'Email of the account owner — omit to sync every owner with a live connection')
             ->addOption('write', 'w', InputOption::VALUE_NONE, 'Actually write: without it the sync only reports')
             ->setHelp(<<<'HELP'
                 Fetches what the connected banks have, and files it on the
@@ -43,22 +46,57 @@ class SyncBanksCommand extends Command
 
                   <info>%command.full_name% moi@example.com</info>
                   <info>%command.full_name% moi@example.com --write</info>
+
+                Without an email it walks every owner with a live connection:
+                that is what the cron runs, twice a day with --write. A sync
+                costs at least two calls per account (movements, balance), so
+                twice a day stays under the four-a-day ceiling.
+
+                  <info>%command.full_name% --write</info>
                 HELP);
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
+        $email = $input->getArgument('email');
 
-        $user = $this->userRepository->findOneBy(['email' => $input->getArgument('email')]);
-        if (null === $user) {
-            $io->error(sprintf('No user with email "%s".', $input->getArgument('email')));
+        if (null === $email) {
+            $users = $this->connectionRepository->findOwnersOfActiveConnections();
+            if ([] === $users) {
+                $io->info('No live bank connection to sync.');
 
-            return Command::FAILURE;
+                return Command::SUCCESS;
+            }
+        } else {
+            $user = $this->userRepository->findOneBy(['email' => $email]);
+            if (null === $user) {
+                $io->error(sprintf('No user with email "%s".', $email));
+
+                return Command::FAILURE;
+            }
+            $users = [$user];
         }
 
         $dryRun = !$input->getOption('write');
+        $status = Command::SUCCESS;
 
+        foreach ($users as $user) {
+            if (null === $email) {
+                $io->section($user->getEmail());
+            }
+
+            // One owner's failure must not starve the others of their sync.
+            if (Command::SUCCESS !== $this->syncOwner($io, $user, $dryRun)) {
+                $status = Command::FAILURE;
+            }
+        }
+
+        return $status;
+    }
+
+    private function syncOwner(SymfonyStyle $io, User $user, bool $dryRun): int
+    {
         try {
             $result = $this->syncBankAccounts->execute($user, $dryRun);
         } catch (\RuntimeException $e) {

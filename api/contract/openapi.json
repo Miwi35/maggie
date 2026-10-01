@@ -11867,7 +11867,8 @@
                     "type": {
                         "type": "string",
                         "enum": [
-                            "reminder"
+                            "reminder",
+                            "consent_expiring"
                         ]
                     },
                     "title": {
@@ -11915,7 +11916,8 @@
                     "type": {
                         "type": "string",
                         "enum": [
-                            "reminder"
+                            "reminder",
+                            "consent_expiring"
                         ]
                     },
                     "title": {
@@ -11963,7 +11965,8 @@
                     "type": {
                         "type": "string",
                         "enum": [
-                            "reminder"
+                            "reminder",
+                            "consent_expiring"
                         ]
                     },
                     "title": {
@@ -12016,7 +12019,8 @@
                             "type": {
                                 "type": "string",
                                 "enum": [
-                                    "reminder"
+                                    "reminder",
+                                    "consent_expiring"
                                 ]
                             },
                             "title": {

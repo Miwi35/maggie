@@ -8,6 +8,7 @@ use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Core\Entity\User;
 use Maggie\Notification\Entity\Notification;
+use Maggie\Notification\Enum\NotificationType;
 
 /**
  * @extends ServiceEntityRepository<Notification>
@@ -59,7 +60,24 @@ class NotificationRepository extends ServiceEntityRepository
             ->andWhere('n.type = :type')
             ->setParameter('iri', $eventIri)
             ->setParameter('body', (string) $minutes)
-            ->setParameter('type', \Maggie\Notification\Enum\NotificationType::Reminder)
+            ->setParameter('type', NotificationType::Reminder)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return (int) $result > 0;
+    }
+
+    /** Whether this user was already told about this entity since the given moment. */
+    public function existsSince(NotificationType $type, string $relatedEntityIri, \DateTimeImmutable $since): bool
+    {
+        $result = $this->createQueryBuilder('n')
+            ->select('COUNT(n.id)')
+            ->where('n.type = :type')
+            ->andWhere('n.relatedEntityIri = :iri')
+            ->andWhere('n.createdAt >= :since')
+            ->setParameter('type', $type)
+            ->setParameter('iri', $relatedEntityIri)
+            ->setParameter('since', $since)
             ->getQuery()
             ->getSingleScalarResult();
 
