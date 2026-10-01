@@ -394,7 +394,13 @@ services:
       # the 1.3 GB this node took at rest with a 512 MB heap. Measured: heap
       # 384 MB and no ML boot at ~840 MB, which the 1 GB limit leaves room above.
       - xpack.ml.enabled=false
-      - "ES_JAVA_OPTS=-Xms384m -Xmx384m"
+      # Start-up only (MAG-180): the node is the last thing `up --wait` waits
+      # for. No GeoIP database download, no Watcher, no disk-watermark checks on
+      # a runner disk, and a JIT that compiles less before the node is ready.
+      - xpack.watcher.enabled=false
+      - ingest.geoip.downloader.enabled=false
+      - cluster.routing.allocation.disk.threshold_enabled=false
+      - "ES_JAVA_OPTS=-Xms384m -Xmx384m -XX:TieredStopAtLevel=1"
     tmpfs:
       - /usr/share/elasticsearch/data
     healthcheck:
