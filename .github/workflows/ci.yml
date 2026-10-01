@@ -438,9 +438,14 @@ jobs:
         # after. The four shards race to do it when the hash changed; they all
         # produce the same image, so the last push wins harmlessly.
         run: |
+          # Elasticsearch is the slowest service to become healthy (~30 s) and
+          # needs none of the four images: it boots while they download.
+          # `task e2e:up` starts it again, which then does nothing.
+          docker compose -f docker-compose.e2e.yml up -d --no-deps elasticsearch >/tmp/es-early.log 2>&1 &
           e2e/images.sh env >> "$GITHUB_ENV"
           echo "E2E_PREBUILT=1" >> "$GITHUB_ENV"
           e2e/images.sh ensure
+          wait
 
       - name: Start the stack
         run: task e2e:up
