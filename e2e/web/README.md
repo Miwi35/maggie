@@ -133,8 +133,9 @@ exemption nobody wrote down is a missing test:
   entered at 15:00 in Paris is stored at 15:00 UTC.
 - **MAG-174** — the grocery list shows a line deferred with `buyAfter` to a later
   day (`grocery-list.spec.ts`).
-- **MAG-190** — the grocery add dialog sends the chosen shop's IRI as `storeId`,
-  so adding a line with a shop answers 500 (four tests in `grocery-errand.spec.ts`).
+- **MAG-197** — ticking what is in the trolley, then ending the errand, still fails
+  after MAG-190's fix: the ticked line never reads as ticked (two tests in
+  `grocery-errand.spec.ts`).
 - **MAG-191** — a recipe written from a Ciqual code answers 500: the ingredient
   lookup binds the user without its `ulid` type (`recipes-ciqual.spec.ts`).
 

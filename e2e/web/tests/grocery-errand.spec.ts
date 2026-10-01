@@ -225,9 +225,9 @@ test('the list is grouped by shop, in the order the shopper walks them', async (
   await expect(grocery.line('Sacs du voisin')).toHaveAttribute('data-store', '')
 })
 
-// Expected to fail — MAG-190: the add dialog sends the shop's IRI as `storeId`,
-// so `POST /api/grocery/add-item` answers 500 and the line is never written.
-test.fail('a shopper ticks what is in the trolley, then ends the errand — MAG-190', async ({ otherUser }) => {
+// Expected to fail — MAG-197: still red after MAG-190's fix, for a cause not yet
+// diagnosed (ticking, then ending the errand).
+test.fail('a shopper ticks what is in the trolley, then ends the errand — MAG-197', async ({ otherUser }) => {
   const bought = WRITES.bought
   const skipped = WRITES.skipped
   const { api } = otherUser
@@ -288,9 +288,7 @@ test.fail('a shopper ticks what is in the trolley, then ends the errand — MAG-
   }
 })
 
-// Expected to fail — MAG-190: the add dialog sends the shop's IRI as `storeId`,
-// so `POST /api/grocery/add-item` answers 500 and the line is never written.
-test.fail('the update carries the whole list, so no client has to re-read a stale index — MAG-190', async ({ otherUser }) => {
+test('the update carries the whole list, so no client has to re-read a stale index', async ({ otherUser }) => {
   // 6ba9859, stated as an assertion on the payload: the items, their labels,
   // their quantity, and the nested `store` and `product` objects the clients
   // group and label by. A payload holding only `@id` satisfies every
@@ -329,9 +327,7 @@ test.fail('the update carries the whole list, so no client has to re-read a stal
   }
 })
 
-// Expected to fail — MAG-190: the add dialog sends the shop's IRI as `storeId`,
-// so `POST /api/grocery/add-item` answers 500 and the line is never written.
-test.fail('a line written in one window appears in the other without a reload — MAG-190', async ({ otherUser }) => {
+test('a line written in one window appears in the other without a reload', async ({ otherUser }) => {
   const label = WRITES.observed
   const observerPage = await otherUser.secondWindow()
 
@@ -393,9 +389,9 @@ test('adding a line goes through the endpoint the API really exposes', async ({ 
   )
 })
 
-// Expected to fail — MAG-190: the add dialog sends the shop's IRI as `storeId`,
-// so `POST /api/grocery/add-item` answers 500 and the line is never written.
-test.fail('"I have finished the shopping" clears the trolley, and leaves the rest — MAG-190', async ({ otherUser }) => {
+// Expected to fail — MAG-197: the line ticked in the trolley never reads as
+// ticked, the same step that fails in the journey above.
+test.fail('"I have finished the shopping" clears the trolley, and leaves the rest — MAG-197', async ({ otherUser }) => {
   // `end_errand` is MCP-only: the admin's own button does the same thing one
   // `Remove` at a time, so this tool — and the `End` command `afc1a70` left
   // mute — is only ever reached by asking.
