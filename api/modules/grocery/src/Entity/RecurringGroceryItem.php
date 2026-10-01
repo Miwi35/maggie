@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Maggie\Grocery\Entity;
 
+use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Maggie\Core\Contract\IndexableInterface;
 use Maggie\Core\Contract\MercurePublishable;
@@ -66,6 +68,19 @@ class RecurringGroceryItem implements OwnedByUserInterface, IndexableInterface, 
     #[ORM\Column(length: 20, enumType: RecurringFrequency::class)]
     #[IndexedField(type: 'keyword')]
     private RecurringFrequency $frequency;
+
+    /**
+     * The day this item was last put on the grocery list.
+     *
+     * Generation used to add every recurring item every time, whatever its
+     * frequency, so a monthly bottle of bleach came back with each weekly
+     * list (MAG-116). Read-only from the API: it is set by generation, never
+     * by the user.
+     */
+    #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
+    #[IndexedField(type: 'date')]
+    #[ApiProperty(writable: false)]
+    private ?\DateTimeImmutable $lastAddedAt = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
@@ -147,6 +162,28 @@ class RecurringGroceryItem implements OwnedByUserInterface, IndexableInterface, 
         return $this;
     }
 
+    public function getLastAddedAt(): ?\DateTimeImmutable
+    {
+        return $this->lastAddedAt;
+    }
+
+    public function setLastAddedAt(?\DateTimeImmutable $lastAddedAt): static
+    {
+        $this->lastAddedAt = $lastAddedAt;
+
+        return $this;
+    }
+
+    /** True when the frequency has run out since the last time it was added. */
+    public function isDueOn(\DateTimeImmutable $day): bool
+    {
+        if (null === $this->lastAddedAt) {
+            return true;
+        }
+
+        return $this->lastAddedAt->add($this->frequency->interval()) <= $day;
+    }
+
     public function getUser(): User
     {
         return $this->user;
@@ -169,6 +206,7 @@ class RecurringGroceryItem implements OwnedByUserInterface, IndexableInterface, 
             'unit' => $this->unit?->value,
             'userId' => (string) $this->user->getId(),
             'productId' => null !== $this->product ? (string) $this->product->getId() : null,
+            'lastAddedAt' => $this->lastAddedAt?->format('Y-m-d'),
         ];
     }
 
@@ -182,6 +220,7 @@ class RecurringGroceryItem implements OwnedByUserInterface, IndexableInterface, 
             'unit' => $this->unit?->value,
             'frequency' => $this->frequency->value,
             'productId' => null !== $this->product ? (string) $this->product->getId() : null,
+            'lastAddedAt' => $this->lastAddedAt?->format('Y-m-d'),
         ], $changedProperties);
     }
 }

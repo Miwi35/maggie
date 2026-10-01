@@ -9,7 +9,6 @@ use Maggie\Cookbook\Message\GenerateGroceryListCommand;
 use Maggie\Cookbook\Service\GroceryGenerationService;
 use Maggie\Core\Repository\UserRepository;
 use Maggie\Grocery\Entity\GroceryList;
-use Maggie\Grocery\Repository\GroceryListRepository;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -17,7 +16,6 @@ class GenerateGroceryListHandler
 {
     public function __construct(
         private readonly GroceryGenerationService $groceryGenerationService,
-        private readonly GroceryListRepository $groceryListRepository,
         private readonly UserRepository $userRepository,
         private readonly EntityManagerInterface $em,
     ) {
@@ -28,17 +26,14 @@ class GenerateGroceryListHandler
         $user = $this->userRepository->find($command->userId)
             ?? throw new \DomainException('User not found.');
 
-        $from = new \DateTimeImmutable($command->fromDate);
-        $to = new \DateTimeImmutable($command->toDate);
+        $timeZone = new \DateTimeZone('Europe/Paris');
+        $from = new \DateTimeImmutable($command->fromDate, $timeZone);
+        $to = new \DateTimeImmutable($command->toDate.' 23:59:59', $timeZone);
 
-        $list = $this->groceryListRepository->findOrCreateForUser($user);
+        // Returned on purpose: the Mercure and Elasticsearch middlewares read
+        // the handler's result, so this is what gets published and reindexed.
+        $list = $this->groceryGenerationService->generate($user, $from, $to);
 
-        $items = $this->groceryGenerationService->generate($user, $from, $to);
-        foreach ($items as $item) {
-            $list->addItem($item);
-        }
-
-        $list->setUpdatedAt(new \DateTimeImmutable());
         $this->em->flush();
 
         return $list;

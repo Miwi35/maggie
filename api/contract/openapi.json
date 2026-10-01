@@ -12920,6 +12920,15 @@
                             "monthly"
                         ]
                     },
+                    "lastAddedAt": {
+                        "readOnly": true,
+                        "description": "The day this item was last put on the grocery list.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
@@ -12987,6 +12996,15 @@
                             "monthly"
                         ]
                     },
+                    "lastAddedAt": {
+                        "readOnly": true,
+                        "description": "The day this item was last put on the grocery list.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
@@ -13053,6 +13071,15 @@
                             "biweekly",
                             "monthly"
                         ]
+                    },
+                    "lastAddedAt": {
+                        "readOnly": true,
+                        "description": "The day this item was last put on the grocery list.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
                     },
                     "user": {
                         "type": "string",
@@ -13125,6 +13152,15 @@
                                     "biweekly",
                                     "monthly"
                                 ]
+                            },
+                            "lastAddedAt": {
+                                "readOnly": true,
+                                "description": "The day this item was last put on the grocery list.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date-time"
                             },
                             "user": {
                                 "type": "string",

@@ -13,7 +13,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'generate_grocery_list', description: 'Generate grocery items from planned meals in a date range plus recurring items. Items are added to the existing grocery list. Date format: YYYY-MM-DD.')]
+#[McpTool(name: 'generate_grocery_list', description: 'Top up the grocery list from the meals planned in a date range plus the recurring items that are due again. Quantities merge with what is already on the list, so running it twice changes nothing. Date format: YYYY-MM-DD.')]
 class GenerateGroceryListTool
 {
     public function __construct(

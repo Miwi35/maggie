@@ -319,7 +319,7 @@
                 "toDate"
             ]
         },
-        "description": "Generate grocery items from planned meals in a date range plus recurring items. Items are added to the existing grocery list. Date format: YYYY-MM-DD."
+        "description": "Top up the grocery list from the meals planned in a date range plus the recurring items that are due again. Quantities merge with what is already on the list, so running it twice changes nothing. Date format: YYYY-MM-DD."
     },
     "get_daily_score": {
         "name": "get_daily_score",

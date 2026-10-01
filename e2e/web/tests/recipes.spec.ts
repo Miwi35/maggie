@@ -22,6 +22,10 @@ interface MealRow {
   agenda: unknown
 }
 
+interface GroceryListRow {
+  items: unknown[]
+}
+
 test.describe('Recipes and meals', () => {
   test('a recipe created with comma-separated tags stores them as a list', async ({ page, api }) => {
     const shell = new AdminShell(page)
@@ -52,5 +56,41 @@ test.describe('Recipes and meals', () => {
 
     // The user has no "Repas" agenda in the seed, so the default one is used.
     expect(JSON.stringify(stored.agenda)).toContain(seedId('e2e_agenda_personal'))
+  })
+
+  test('cancelling a meal takes its ingredients back off the grocery list', async ({ page, api }) => {
+    // MAG-116: planning a meal put its ingredients on the list and nothing
+    // ever took them off again, so a dinner cancelled on Tuesday was still
+    // shopping to do on Saturday.
+    const parmesan = seedId('e2e_ingredient_parmesan')
+    const shell = new AdminShell(page)
+    await shell.goto('/meals')
+
+    // Thursday lunch: the seed plans one dinner and the other journey in this
+    // file uses Monday, so this cell is free whatever order they run in.
+    const cell = shell.content.getByTestId('meal-cell-lunch-3')
+    await cell.click()
+
+    const dialog = page.getByRole('dialog')
+    await dialog.getByLabel('Recettes').fill('Gratin')
+    await page.getByRole('option', { name: 'Gratin de courgettes' }).click()
+    await dialog.getByRole('button', { name: 'Créer' }).click()
+
+    const withParmesan = await waitForIndexed<GroceryListRow>(
+      api,
+      '/api/grocery_lists',
+      (list) => JSON.stringify(list.items).includes(parmesan),
+      { what: 'The gratin’s parmesan' },
+    )
+    expect(withParmesan.items.length).toBeGreaterThan(0)
+
+    await cell.getByRole('button').first().click()
+
+    await waitForIndexed<GroceryListRow>(
+      api,
+      '/api/grocery_lists',
+      (list) => !JSON.stringify(list.items).includes(parmesan),
+      { what: 'A grocery list without the cancelled meal’s parmesan' },
+    )
   })
 })
