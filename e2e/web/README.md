@@ -110,6 +110,15 @@ so each one is written beside an unmarked test that drives the same setup: a bro
 `createEvent`, `goToEventDate` or `importFromGoogle` fails loudly there rather than
 hiding behind a marker. Keep that pairing if you add one.
 
+Two markers, and they do not mean the same thing. `test.fail()` says *the product*
+is broken and names the ticket — the test runs, and turns red the day it starts
+passing. `test.fixme()` says *the journey* is unreliable and names what will make it
+sound again (MAG-177: three of these write a fixed hour on the anchor's day and read
+it back from the grid, so whether they pass depends on when the run happens). A
+`fixme` is skipped, so it asserts nothing and nothing tells you when it could come
+back — before adding one, find out why the test fails. The Google import group
+carried a `fixme` for an hour and it was never the hour: it never reloaded.
+
 Writing them — and then *running* them — found bugs, and each open one has an
 expected-to-fail test naming its ticket rather than a missing assertion, because an
 exemption nobody wrote down is a missing test:

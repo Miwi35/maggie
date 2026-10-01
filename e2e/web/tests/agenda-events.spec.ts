@@ -185,7 +185,11 @@ test('a night-train event is on the day it starts and on the day it ends', async
  * The observing window must not navigate — `expectRealtimeSync` fails if it does,
  * because a reload would satisfy the assertion while real-time was dead (b16916d).
  */
-test('an event created in one window appears in the other without a reload', async ({
+// Quarantined: fails on main depending on the hour of the run (MAG-177). Same
+// cause as the two above — it writes `slot()`, a 15:00 on the anchor's day, and
+// counts the chip in the day view. #44 missed it because it happened to pass in
+// the two runs that sweep looked at; it has failed on every `main` run since.
+test.fixme('an event created in one window appears in the other without a reload', async ({
   twoWindows,
   api,
 }) => {

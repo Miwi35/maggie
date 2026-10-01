@@ -131,8 +131,9 @@ async function forgetAgendasNamed(api: APIRequestContext, prefix: string): Promi
  * because {@link forgetImportedAgenda} makes both idempotent: a retry replays the
  * group onto a world the group puts back itself.
  */
-// Quarantined as a whole: the group is serial and its first test fails on main depending on the hour of the run (MAG-177).
-test.describe.fixme('Importing the Google calendar', () => {
+// Out of MAG-177's quarantine: this group's first test did not depend on the hour.
+// It never reloaded — see `AdminShell.goto`, and the commit that found it in a trace.
+test.describe('Importing the Google calendar', () => {
   test.describe.configure({ mode: 'serial' })
 
   test('an imported calendar arrives, and a local change survives the next pull', async ({
