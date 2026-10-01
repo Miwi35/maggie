@@ -119,3 +119,90 @@ class TestInstructionIsolation:
 
             await _call("delete_instruction", {"instruction_id": instruction_id}, OWNER)
             publish.assert_awaited_once_with(f"/instructions/{OWNER}", {"id": instruction_id, "deleted": True})
+
+
+class TestContextRouterIsolation:
+    """The context id comes from the fast model: it is untrusted input like any client id (MAG-203)."""
+
+    @staticmethod
+    def _router(model_answer: str):
+        from datetime import UTC, datetime
+        from unittest.mock import MagicMock
+
+        from app.llm.streaming import StreamingGateway
+
+        def context(context_id: str, label: str, summary: str) -> MagicMock:
+            ctx = MagicMock()
+            ctx.id = context_id
+            ctx.label = label
+            ctx.summary = summary
+            ctx.updated_at = datetime.now(UTC)
+            return ctx
+
+        contexts = {
+            OWNER: [context("ctx-owner", "Courses", "Résumé du propriétaire")],
+            OTHER: [context("ctx-neighbour", "Budget", "Résumé du voisin")],
+        }
+
+        created = MagicMock()
+        created.id = "ctx-created"
+        context_repo = MagicMock()
+        context_repo.find_active = AsyncMock(side_effect=lambda user_id: contexts[user_id])
+        context_repo.create = AsyncMock(return_value=created)
+        context_repo.set_summary = AsyncMock()
+        message_repo = MagicMock()
+        message_repo.update_context = AsyncMock()
+
+        response = MagicMock()
+        response.content = [MagicMock(text=model_answer)]
+        response.usage.input_tokens = 50
+        response.usage.output_tokens = 10
+        gateway = StreamingGateway()
+        gateway.client = MagicMock()
+        gateway.client.messages.create = AsyncMock(return_value=response)
+        return gateway, context_repo, message_repo
+
+    async def test_context_of_another_user_is_never_written_on_the_message(self, caplog):
+        gateway, context_repo, message_repo = self._router('{"context_id": "ctx-neighbour"}')
+
+        with (
+            patch("app.llm.streaming.context_repo", context_repo),
+            patch("app.llm.streaming.message_repo", message_repo),
+            caplog.at_level("WARNING", logger="app.llm.streaming"),
+        ):
+            result = await gateway._resolve_context("Où en est mon budget ?", OWNER, "msg-1")
+
+        assert result["action"] == "created"
+        assert result["id"] == "ctx-created"
+        message_repo.update_context.assert_awaited_once_with("msg-1", "ctx-created")
+        context_repo.create.assert_awaited_once_with(OWNER, "Où en est mon budget ?")
+        context_repo.set_summary.assert_not_called()
+        assert "ctx-neighbour" in caplog.text
+
+    async def test_unknown_context_id_opens_a_new_context_with_the_label_of_the_model(self):
+        gateway, context_repo, message_repo = self._router('{"context_id": "made-up", "label": "Budget"}')
+
+        with (
+            patch("app.llm.streaming.context_repo", context_repo),
+            patch("app.llm.streaming.message_repo", message_repo),
+        ):
+            result = await gateway._resolve_context("Où en est mon budget ?", OWNER, "msg-1")
+
+        assert result["action"] == "created"
+        context_repo.create.assert_awaited_once_with(OWNER, "Budget")
+        message_repo.update_context.assert_awaited_once_with("msg-1", "ctx-created")
+
+    async def test_own_context_is_still_matched(self):
+        gateway, context_repo, message_repo = self._router('{"context_id": "ctx-owner"}')
+
+        with (
+            patch("app.llm.streaming.context_repo", context_repo),
+            patch("app.llm.streaming.message_repo", message_repo),
+        ):
+            result = await gateway._resolve_context("Et du beurre", OWNER, "msg-1")
+
+        assert result["action"] == "matched"
+        assert result["id"] == "ctx-owner"
+        assert result["summary"] == "Résumé du propriétaire"
+        message_repo.update_context.assert_awaited_once_with("msg-1", "ctx-owner")
+        context_repo.create.assert_not_called()

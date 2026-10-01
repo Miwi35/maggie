@@ -389,26 +389,31 @@ class StreamingGateway:
             result = json.loads(text)
 
             context_id = result.get("context_id")
+            # The id comes from the model, not from us: only one of this user's own
+            # contexts may be written on the message. Anything else — a hallucinated id,
+            # one copied from another user's thread — is a new topic (MAG-203).
+            existing = next((c for c in contexts if str(c.id) == str(context_id)), None) if context_id else None
+            if context_id and existing is None:
+                logger.warning(f"Context router returned an id outside the user's contexts: {context_id!r}")
+                context_id = None
             if context_id:
                 # Existing context — tag message and return
-                await message_repo.update_context(user_msg_id, context_id)
-                # Find the context to get its label
-                existing = next((c for c in contexts if str(c.id) == context_id), None)
-                label = existing.label if existing else "?"
+                await message_repo.update_context(user_msg_id, str(existing.id))
+                label = existing.label
                 logger.info(f"Context resolved: existing '{label}' ({context_id})")
                 # The summary travels with the event: the Mind panel replaces the whole
                 # context when one arrives, so leaving it out would blank the line the
                 # panel is showing on the very next message (MAG-11).
                 return {
                     "action": "matched",
-                    "id": context_id,
+                    "id": str(existing.id),
                     "label": label,
                     "status": "active",
-                    "summary": existing.summary if existing else None,
+                    "summary": existing.summary,
                 }
             else:
                 # New context
-                label = result.get("label", message[:60])
+                label = result.get("label") or message[:60]
                 ctx = await context_repo.create(user_id, label)
                 await message_repo.update_context(user_msg_id, str(ctx.id))
                 logger.info(f"Context resolved: new '{label}' -> {ctx.id}")
