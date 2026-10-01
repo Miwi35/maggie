@@ -20,6 +20,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -153,5 +154,27 @@ class TransactionViewModelTest {
         assertEquals("spent", request.captured.status)
         assertNull(request.captured.category)
         assertNull(request.captured.bookedAt)
+    }
+
+    @Test
+    fun `only the choices made reach the wire, the API defaults do the rest`() {
+        val json = kotlinx.serialization.json.Json
+        val defaults = json.encodeToString(
+            TransactionCreateRequest.serializer(),
+            TransactionCreateRequest(account = "/api/accounts/a", amountCents = -150, label = "Pain"),
+        )
+        val chosen = json.encodeToString(
+            TransactionCreateRequest.serializer(),
+            TransactionCreateRequest(
+                account = "/api/accounts/a",
+                amountCents = -150,
+                label = "Pain",
+                status = "planned",
+                bookedAt = "2026-11-03",
+            ),
+        )
+
+        assertFalse(defaults.contains("status") || defaults.contains("bookedAt"))
+        assertTrue(chosen.contains("\"status\":\"planned\"") && chosen.contains("\"bookedAt\":\"2026-11-03\""))
     }
 }

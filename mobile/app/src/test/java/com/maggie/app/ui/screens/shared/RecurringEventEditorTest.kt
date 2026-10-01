@@ -35,7 +35,6 @@ class RecurringEventEditorTest {
         masterEventId = "master1",
         masterRrule = "FREQ=WEEKLY;BYDAY=MO",
         masterStartAt = "2026-10-05T10:00:00Z",
-        masterEndAt = "2026-10-05T11:00:00Z",
         originalStartAt = "2026-10-12T10:00:00Z",
         agendaIri = "/api/agendas/a1",
     )
