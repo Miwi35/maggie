@@ -499,3 +499,4 @@ jobs:
           bash infra/scripts/tests/agent-guard.test.sh
           bash infra/scripts/tests/agent-guard-streak.test.sh
           bash infra/scripts/tests/agent-guard-emergency.test.sh
+          bash infra/scripts/tests/merge-ready.test.sh

@@ -61,6 +61,30 @@ tasks:
         echo "CI run $RUN started for $SHA — watching."
         # 3. Only now, wait for the checks.
         gh pr checks "$PR" --watch --fail-fast
+        # 4. Safety net (MAG-200): GitHub merges an armed PR by itself within seconds
+        #    of the last required check. Still open after 2 minutes with every
+        #    required check green: merge it here and say so.
+        for _ in $(seq 1 12); do
+          [ "$(gh pr view "$PR" --json state -q .state)" = MERGED ] && { echo "PR #$PR merged by auto-merge."; exit 0; }
+          sleep 10
+        done
+        REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+        BASE=$(gh pr view "$PR" --json baseRefName -q .baseRefName)
+        REQUIRED=$(gh api "repos/$REPO/branches/$BASE" --jq '[.protection.required_status_checks.contexts[]?]')
+        STATUS=0
+        VERDICT=$(gh pr view "$PR" --json state,autoMergeRequest,labels,statusCheckRollup \
+          | jq --argjson required "$REQUIRED" '. + {required: $required}' | infra/scripts/merge-ready.sh) || STATUS=$?
+        if [ "$STATUS" -ne 0 ]; then
+          echo "PR #$PR is still open and not mergeable by the safety net: $VERDICT" >&2
+          exit 4
+        fi
+        echo "PR #$PR: auto-merge armed, every required check green, still open after 2 minutes — merging it here." >&2
+        if ! gh pr merge "$PR" --squash; then
+          # GitHub may have merged in the instant since the verdict.
+          [ "$(gh pr view "$PR" --json state -q .state)" = MERGED ] && { echo "PR #$PR merged by auto-merge."; exit 0; }
+          exit 1
+        fi
+        gh pr comment "$PR" --body "Auto-merge did not fire although every required check was green for more than 2 minutes: merged by \`task ci:watch\` (MAG-200 safety net)."
   # ===========================================================================
   # Guard rails of the autonomous agent (MAG-128)
   # ===========================================================================
