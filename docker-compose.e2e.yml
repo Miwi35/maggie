@@ -355,7 +355,10 @@ services:
     tmpfs:
       - /var/lib/rabbitmq
     healthcheck:
-      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
+      # The probe runs as root: if it fires before the server has written its
+      # cookie, it creates `.erlang.cookie` itself (root, 0400) and the server,
+      # running as `rabbitmq`, dies with eacces. Hence the file test first.
+      test: ["CMD-SHELL", "test -f /var/lib/rabbitmq/.erlang.cookie && rabbitmq-diagnostics -q ping"]
       interval: 2s
       timeout: 5s
       retries: 40
