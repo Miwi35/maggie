@@ -34,6 +34,9 @@ class CreateAgendaHandler
         if (null !== $command->color) {
             $agenda->setColor($command->color);
         }
+        if (null !== $command->googleCalendarId) {
+            $agenda->setGoogleCalendarId($command->googleCalendarId);
+        }
 
         return $this->createAgenda->execute($agenda);
     }

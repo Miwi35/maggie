@@ -4,10 +4,14 @@ namespace Maggie\Calendar\Trait;
 
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Maggie\Core\Elasticsearch\Attribute\IndexedField;
 
 trait HasGoogleCalendarSyncTrait
 {
     #[ORM\Column(length: 500, nullable: true)]
+    // keyword: an identifier is matched whole, never analysed — and the clients
+    // read it to tell a connected calendar from one still to connect.
+    #[IndexedField(type: 'keyword')]
     private ?string $googleCalendarId = null;
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]

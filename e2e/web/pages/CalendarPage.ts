@@ -343,8 +343,19 @@ export class CalendarPage extends AdminShell {
   // ---------------------------------------------------------------------------
 
   /** A row of "Mes agendas", by its name. */
+  /**
+   * One agenda's row, matched on its name element rather than on the row's text.
+   *
+   * `hasText: /^name$/` over the whole row broke the moment the row gained the
+   * sync badge: an SVG `<title>`, which is what gives the badge an accessible
+   * name, counts as text content — so the row read "DéfautSynchronisé avec
+   * Google" and matched nothing. Anything the row grows later — a count, a
+   * second badge — would have cost the same debugging session.
+   */
   agendaRow(name: string): Locator {
-    return this.content.getByTestId('agenda-row').filter({ hasText: exactly(name) })
+    return this.content.getByTestId('agenda-row').filter({
+      has: this.page.getByTestId('agenda-name').filter({ hasText: exactly(name) }),
+    })
   }
 
   /** Opens the ⋮ menu of one agenda. It only appears on hover, so hover first. */
@@ -354,16 +365,23 @@ export class CalendarPage extends AdminShell {
     await row.getByRole('button', { name: `Options de l'agenda ${name}` }).click()
   }
 
-  /** "Ajouter → Importer depuis Google", then imports the calendar named `summary`. */
-  async importFromGoogle(summary: string): Promise<void> {
+  /** "Ajouter → Importer depuis Google", then imports the calendar named `name`. */
+  async importFromGoogle(name: string): Promise<void> {
+    const dialog = await this.openImportDialog()
+    await expect(dialog.getByText(name), 'Google offered no calendar to import').toBeVisible()
+    await dialog.getByRole('button', { name: 'Importer' }).click()
+    await expect(dialog, 'the import dialog stayed open — the import was refused').toBeHidden()
+  }
+
+  /** "Ajouter → Importer depuis Google", left open on the list of calendars. */
+  async openImportDialog(): Promise<Locator> {
     await this.content.getByRole('button', { name: 'Ajouter' }).click()
     await this.page.getByRole('menuitem', { name: 'Importer depuis Google' }).click()
 
     const dialog = this.importDialog
     await expect(dialog).toBeVisible()
-    await expect(dialog.getByText(summary), 'Google offered no calendar to import').toBeVisible()
-    await dialog.getByRole('button', { name: 'Importer' }).click()
-    await expect(dialog, 'the import dialog stayed open — the import was refused').toBeHidden()
+
+    return dialog
   }
 
   /** "⋮ → Exporter vers Google" on one agenda. */
@@ -374,7 +392,11 @@ export class CalendarPage extends AdminShell {
 
   /** The sync icon the sidebar shows beside a Google-backed agenda. */
   syncBadge(name: string): Locator {
-    return this.agendaRow(name).locator('[data-testid="SyncIcon"]')
+    // Our own handle, not MUI's: it sets `data-testid` on an icon only when
+    // `NODE_ENV !== 'production'`, and the stack serves a built bundle — so
+    // `[data-testid="SyncIcon"]` matched nothing here, and nothing noticed
+    // because the only test using it was expected to fail (MAG-148).
+    return this.agendaRow(name).getByTestId('agenda-sync-badge')
   }
 
   /**

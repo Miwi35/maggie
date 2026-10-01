@@ -85,6 +85,8 @@ const mealTitle = (m: CalendarMeal) => {
 
 interface GoogleCalendar {
   id: string
+  /** The name the agenda will carry — "Défaut" for the primary calendar (MAG-148). */
+  name: string
   summary: string
   description?: string
   primary: boolean
@@ -1648,11 +1650,19 @@ export const CalendarView = () => {
                     '&.Mui-checked': { color: cal.color || 'primary.main' },
                   }}
                 />
-                <Typography variant="body2" sx={{ ml: 0.5, flex: 1 }}>
+                <Typography variant="body2" data-testid="agenda-name" sx={{ ml: 0.5, flex: 1 }}>
                   {cal.name}
                 </Typography>
                 {cal.googleCalendarId && (
-                  <SyncIcon sx={{ fontSize: 14, color: 'text.secondary', mr: 0.25 }} />
+                  <SyncIcon
+                    // A bare icon says nothing to a screen reader, and MUI only
+                    // puts a `data-testid` on its icons outside production — so
+                    // a journey running against the built bundle needs a handle
+                    // of our own (MAG-148).
+                    titleAccess="Synchronisé avec Google"
+                    data-testid="agenda-sync-badge"
+                    sx={{ fontSize: 14, color: 'text.secondary', mr: 0.25 }}
+                  />
                 )}
                 <IconButton
                   className="agenda-menu-btn"
@@ -2029,7 +2039,7 @@ export const CalendarView = () => {
                     />
                   )}
                   <Typography variant="body2" sx={{ flex: 1 }}>
-                    {gc.summary}
+                    {gc.name}
                     {gc.primary && ' (principal)'}
                   </Typography>
                   <Button

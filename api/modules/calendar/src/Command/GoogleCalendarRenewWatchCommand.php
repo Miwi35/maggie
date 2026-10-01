@@ -46,16 +46,23 @@ class GoogleCalendarRenewWatchCommand extends Command
             $user = $agenda->getUser();
             $io->info("Renewing watch for agenda: {$agenda->getName()}");
 
-            try {
-                // Stop old channel
-                if ($agenda->getGoogleWatchChannelId() && $agenda->getGoogleWatchResourceId()) {
+            // Stopping the old channel has its own catch: an id Google no
+            // longer knows — the channel expired, or a connection already
+            // closed it — would otherwise throw before the new channel is
+            // asked for, and the agenda would never get one again.
+            if ($agenda->getGoogleWatchChannelId() && $agenda->getGoogleWatchResourceId()) {
+                try {
                     $this->apiClient->stopWatch(
                         $user,
                         $agenda->getGoogleWatchChannelId(),
                         $agenda->getGoogleWatchResourceId(),
                     );
+                } catch (\Throwable $e) {
+                    $io->warning("Could not stop the previous channel: {$e->getMessage()}");
                 }
+            }
 
+            try {
                 // Create new channel
                 $result = $this->apiClient->watchEvents(
                     $user,

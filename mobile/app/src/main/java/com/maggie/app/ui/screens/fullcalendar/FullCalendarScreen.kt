@@ -308,7 +308,7 @@ fun FullCalendarScreen(
             calendars = uiState.googleCalendars,
             isLoading = uiState.isLoadingGoogle,
             onImport = { cal ->
-                viewModel.importGoogleCalendar(cal.id, cal.summary, cal.backgroundColor)
+                viewModel.importGoogleCalendar(cal.id)
                 showGoogleImport = false
             },
             onDismiss = { showGoogleImport = false },

@@ -1,0 +1,8 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+    googleAccessToken: 'access-token'
+    googleRefreshToken: 'refresh-token'
+    googleTokenExpiresAt: '<(new \DateTimeImmutable("2099-01-01T00:00:00+00:00"))>'

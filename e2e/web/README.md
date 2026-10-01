@@ -67,7 +67,10 @@ suite whose slowest steps have nothing to do with layout. Tag a test when its
    asynchronously and the collections are served from Elasticsearch, so a row
    exists before it is findable: `waitForIndexed`, or a page object that
    reloads while it waits. Reading once is how a working feature gets reported
-   as broken.
+   as broken. And a view fills itself on mount, so seeing the row afterwards
+   means remounting: `AdminShell.goto` reloads when it is already on the route,
+   because the admin's hash router makes a plain `page.goto` to the same URL a
+   no-op — that one cost the Google journey a red check.
 5. **Subscribe before you act.** `openSubscribed(page, () => page.open())` for
    a real-time assertion — an update published before the hub registered the
    subscriber is never delivered.
@@ -107,15 +110,27 @@ so each one is written beside an unmarked test that drives the same setup: a bro
 `createEvent`, `goToEventDate` or `importFromGoogle` fails loudly there rather than
 hiding behind a marker. Keep that pairing if you add one.
 
+Two markers, and they do not mean the same thing. `test.fail()` says *the product*
+is broken and names the ticket — the test runs, and turns red the day it starts
+passing. `test.fixme()` says *the journey* is unreliable and names what will make it
+sound again (MAG-177: the events and recurrence files write a fixed hour on the
+anchor's day and read it back from the grid, so whether they pass depends on when
+the run happens).
+
+A `fixme` is skipped, so it asserts nothing, and nothing tells you when it could
+come back: **find out why a test fails before quarantining it, and check that the
+suite you were adding to actually ran before calling a green check green.** The
+Google file was quarantined twice as hour-dependent and was never hour-dependent —
+once it never reloaded, once it looked an icon up by a `data-testid` MUI omits from
+a production build. Both were ordinary bugs, one in the harness and one in the page
+object, and a passing job with the file skipped is what hid them.
+
 Writing them — and then *running* them — found bugs, and each open one has an
 expected-to-fail test naming its ticket rather than a missing assertion, because an
 exemption nobody wrote down is a missing test:
 
 - **MAG-168** — the create dialog posts a local time with no offset, so an event
   entered at 15:00 in Paris is stored at 15:00 UTC.
-- **MAG-148** — the same shape on `Agenda`, whose `googleCalendarId` is not indexed
-  either. That is why importing the same Google calendar twice makes a second
-  agenda, and why the sidebar's sync badge never appears.
 
 What the browser cannot reach lives in `e2e/smoke/smoke.sh`: the Paris-time conflict
 check, driven through the real MCP transport (step 10), and the reminder cron, which

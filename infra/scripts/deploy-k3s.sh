@@ -11,7 +11,7 @@ set -euo pipefail
 #   2. Backup      — pg_dump before any change
 #   3. Apply       — bump image tags in kustomization, kubectl apply -k
 #   4. Wait        — rollout status on every Maggie deployment
-#   5. Post-deploy — migrations, ES mapping + reindex
+#   5. Post-deploy — data repairs, migrations, ES mapping + reindex
 #   6. Verify      — pod list + healthcheck
 #
 # The revisions the deployments had before phase 3 are recorded for
@@ -217,18 +217,30 @@ fi
 log "All rollouts complete."
 
 # === PHASE 5 : POST-DEPLOY TASKS ===
-log "Phase 5a: Running migrations..."
+# Must run before the migrations: the unique index on (user_id,
+# google_calendar_id) cannot be created while a user still holds two agendas
+# for the same Google calendar (MAG-148). A no-op once that index exists, and
+# safe to run again, so it stays here rather than being a one-off by hand.
+#
+# Running before the migrations means it sees the previous schema. It is built
+# for that — with nothing to merge it answers from plain SQL and never loads an
+# entity — and that is what keeps it safe to leave here. A repair step added
+# later that does touch entities belongs after the migrations instead.
+log "Phase 5a: Merging agendas that share a Google calendar..."
+$KUBECTL exec "deployment/php" -n "$NAMESPACE" -- bin/console app:calendar:dedupe-google-agendas --no-interaction
+
+log "Phase 5b: Running migrations..."
 $KUBECTL exec "deployment/php" -n "$NAMESPACE" -- bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
 
 # No cache:clear here (MAG-146): the image ships a warmed cache, and deleting
 # var/cache/prod under a pod that is serving requests fails at random.
 
-log "Phase 5b: Updating Elasticsearch mappings..."
+log "Phase 5c: Updating Elasticsearch mappings..."
 if ! $KUBECTL exec "deployment/php" -n "$NAMESPACE" -- bin/console app:elasticsearch:mapping:update --all --no-interaction; then
   warn "ES mapping update failed (non-blocking). Run manually: kubectl exec deployment/php -n $NAMESPACE -- bin/console app:elasticsearch:mapping:update --all"
 fi
 
-log "Phase 5c: Reindexing Elasticsearch..."
+log "Phase 5d: Reindexing Elasticsearch..."
 if ! $KUBECTL exec "deployment/php" -n "$NAMESPACE" -- bin/console app:elasticsearch:reindex --all --no-interaction; then
   warn "ES reindex failed (non-blocking). Run manually: kubectl exec deployment/php -n $NAMESPACE -- bin/console app:elasticsearch:reindex --all"
 fi
