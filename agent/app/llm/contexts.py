@@ -141,6 +141,12 @@ async def resolve_context(client, text: str, user_id: str) -> dict | None:
 
         if context_id:
             logger.info(f"Context resolved: existing '{existing.label}' ({context_id})")
+            # What keeps a thread from going dormant, and what wakes one that has (MAG-12).
+            # Best-effort like the rest: the thread is resolved either way.
+            try:
+                await context_repo.touch(str(existing.id))
+            except Exception as e:
+                logger.warning(f"Could not mark context {context_id} as spoken in: {e}")
             # The summary travels with the event: the Mind panel replaces the whole
             # context when one arrives, so leaving it out would blank the line the panel
             # is showing on the very next message (MAG-11).

@@ -69,6 +69,11 @@ class Settings(BaseSettings):
     # rewritten (MAG-11). Low enough that a thread is summarized within a sitting,
     # high enough that a Haiku call is not made on every other message.
     context_summary_every_messages: int = 10
+    # Life of a conversation context (MAG-12): quiet this many hours and it goes dormant,
+    # quiet this many days and it is closed. Both count from the last message routed into it.
+    context_dormant_after_hours: int = 24
+    context_close_after_days: int = 14
+    context_lifecycle_interval_seconds: int = 600
 
     @field_validator("llm_provider")
     @classmethod

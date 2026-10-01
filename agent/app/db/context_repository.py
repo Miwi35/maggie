@@ -50,10 +50,21 @@ class ContextRepository:
 
         return ctx
 
-    async def update_status(self, context_id: str, status: ContextStatus) -> ConversationContext | None:
+    async def update_status(
+        self, context_id: str, status: ContextStatus, idle_before: datetime | None = None
+    ) -> ConversationContext | None:
+        """Move a context to `status`, and tell the Mind panel.
+
+        `idle_before` is for the lifecycle (MAG-12): the context only moves if nobody has
+        spoken in it since that instant. The final summary is a model call that takes
+        seconds, and a message routed into the thread meanwhile must not be put to sleep.
+        Returns `None` when the context is gone or has been spoken in since.
+        """
         async with agent_session() as session:
-            result = await session.execute(select(ConversationContext).where(ConversationContext.id == context_id))
-            ctx = result.scalar_one_or_none()
+            query = select(ConversationContext).where(ConversationContext.id == context_id)
+            if idle_before is not None:
+                query = query.where(ConversationContext.updated_at < idle_before)
+            ctx = (await session.execute(query)).scalar_one_or_none()
             if ctx is None:
                 return None
 
@@ -70,6 +81,47 @@ class ContextRepository:
             logger.warning(f"Failed to publish context update to Mercure: {e}")
 
         return ctx
+
+    async def touch(self, context_id: str) -> ConversationContext | None:
+        """A message was routed into this context: it was just spoken in, and it is awake (MAG-12).
+
+        Resets the idle clock the lifecycle reads, and brings a dormant context back to
+        active. A closed one is reopened too: the scheduler can close a thread between the
+        router listing it and this call, and the message is already on its way in.
+
+        Only a change of status is published — the stream that routed the message already
+        told the panel about the thread, and a publication per message would be noise.
+        """
+        async with agent_session() as session:
+            result = await session.execute(select(ConversationContext).where(ConversationContext.id == context_id))
+            ctx = result.scalar_one_or_none()
+            if ctx is None:
+                return None
+
+            woke = ctx.status != ContextStatus.ACTIVE
+            ctx.status = ContextStatus.ACTIVE
+            ctx.closed_at = None
+            ctx.updated_at = datetime.now(UTC)
+            await session.commit()
+            await session.refresh(ctx)
+
+        if woke:
+            try:
+                await self.publisher.publish(topics.for_user(topics.CONTEXTS, ctx.user_id), ctx.to_dict())
+            except Exception as e:
+                logger.warning(f"Failed to publish context wake-up to Mercure: {e}")
+
+        return ctx
+
+    async def find_idle(self, statuses: list[ContextStatus], before: datetime) -> list[ConversationContext]:
+        """The contexts of every user, in one of `statuses`, nobody has spoken in since `before` (MAG-12)."""
+        async with agent_session() as session:
+            result = await session.execute(
+                select(ConversationContext)
+                .where(ConversationContext.status.in_(statuses), ConversationContext.updated_at < before)
+                .order_by(ConversationContext.updated_at.asc())
+            )
+            return list(result.scalars().all())
 
     async def set_summary(
         self, context_id: str, summary: str, covers_up_to: datetime | None = None

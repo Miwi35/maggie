@@ -8,6 +8,7 @@ answer, it does not raise through it. Both are read on paths where raising means
 stream that dies mid-sentence, or a reminder the user never receives.
 """
 
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.db.context_model import ContextStatus
@@ -78,3 +79,70 @@ class TestResolveContext:
 
             assert await resolve_context(client, "Et du beurre", "user-1") is None
             repo.create.assert_not_awaited()
+
+
+class TestResolveContextKeepsThreadsAlive:
+    """A message that lands in a thread is what keeps it from going dormant (MAG-12)."""
+
+    @staticmethod
+    def _client(context_id: str | None) -> MagicMock:
+        client = MagicMock()
+        response = MagicMock()
+        answer = f'{{"context_id": "{context_id}"}}' if context_id else '{"context_id": null, "label": "Neuf"}'
+        response.content = [MagicMock(text=answer)]
+        response.usage.input_tokens = 10
+        response.usage.output_tokens = 5
+        client.messages.create = AsyncMock(return_value=response)
+        return client
+
+    @staticmethod
+    def _existing(status: ContextStatus) -> MagicMock:
+        ctx = MagicMock()
+        ctx.id = "ctx-1"
+        ctx.label = "Budget"
+        ctx.summary = "Le budget de septembre."
+        ctx.status = status
+        ctx.updated_at = datetime.now(UTC) - timedelta(days=3)
+        return ctx
+
+    async def test_a_message_on_a_dormant_thread_wakes_it(self):
+        with patch("app.llm.contexts.context_repo") as repo:
+            repo.find_active = AsyncMock(return_value=[self._existing(ContextStatus.DORMANT)])
+            repo.touch = AsyncMock()
+
+            result = await resolve_context(self._client("ctx-1"), "Où en est mon budget ?", "user-1")
+
+        repo.touch.assert_awaited_once_with("ctx-1")
+        assert result["action"] == "matched"
+        assert result["status"] == "active"
+        assert result["summary"] == "Le budget de septembre."
+
+    async def test_a_message_on_an_active_thread_counts_as_activity(self):
+        with patch("app.llm.contexts.context_repo") as repo:
+            repo.find_active = AsyncMock(return_value=[self._existing(ContextStatus.ACTIVE)])
+            repo.touch = AsyncMock()
+
+            await resolve_context(self._client("ctx-1"), "Et en octobre ?", "user-1")
+
+        repo.touch.assert_awaited_once_with("ctx-1")
+
+    async def test_a_new_thread_is_not_touched(self):
+        with patch("app.llm.contexts.context_repo") as repo:
+            repo.find_active = AsyncMock(return_value=[])
+            repo.create = AsyncMock(return_value=MagicMock(id="ctx-2"))
+            repo.touch = AsyncMock()
+
+            await resolve_context(self._client(None), "Un nouveau sujet", "user-1")
+
+        repo.touch.assert_not_awaited()
+
+    async def test_a_touch_that_fails_keeps_the_routing(self):
+        """The thread is resolved either way: a failed write costs the idle clock, not the answer."""
+        with patch("app.llm.contexts.context_repo") as repo:
+            repo.find_active = AsyncMock(return_value=[self._existing(ContextStatus.DORMANT)])
+            repo.touch = AsyncMock(side_effect=RuntimeError("db down"))
+
+            result = await resolve_context(self._client("ctx-1"), "Où en est mon budget ?", "user-1")
+
+        assert result["action"] == "matched"
+        assert result["id"] == "ctx-1"

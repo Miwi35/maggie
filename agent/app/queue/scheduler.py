@@ -5,9 +5,12 @@ from datetime import UTC, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from app.config import settings
+from app.db.context_model import ContextStatus, ConversationContext
+from app.db.context_repository import context_repo
 from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
 from app.db.proaction_repository import proaction_repo
+from app.llm.context_summary import context_summarizer
 from app.llm.gateway import LLMGateway
 from app.mcp.client import mcp_client
 from app.queue.proaction_publisher import publish_proaction
@@ -138,8 +141,55 @@ async def _daily_planning_loop() -> None:
             await asyncio.sleep(EXECUTION_INTERVAL)
 
 
+async def _retire_context(ctx: ConversationContext, status: ContextStatus, idle_before: datetime) -> bool:
+    """Write the thread's last summary, then move it to `status`. False if it was spoken in meanwhile."""
+    context_id = str(ctx.id)
+    try:
+        # Never raises, and does nothing when no message came in since the last summary.
+        await context_summarizer.summarize(context_id)
+        return await context_repo.update_status(context_id, status, idle_before=idle_before) is not None
+    except Exception as e:
+        logger.error(f"Could not move context {context_id} to {status.value}: {e}")
+        return False
+
+
+async def run_context_lifecycle(now: datetime | None = None) -> dict[str, int]:
+    """Active → dormant after N quiet hours, → closed after M quiet days, a summary before each (MAG-12).
+
+    Closing goes first and takes dormant contexts as well as active ones: a thread quiet
+    for weeks (the agent was down) is closed in one step, with one summary.
+    """
+    now = now or _utcnow()
+    close_before = now - timedelta(days=settings.context_close_after_days)
+    dormant_before = now - timedelta(hours=settings.context_dormant_after_hours)
+
+    closed = 0
+    for ctx in await context_repo.find_idle([ContextStatus.ACTIVE, ContextStatus.DORMANT], close_before):
+        closed += await _retire_context(ctx, ContextStatus.CLOSED, close_before)
+
+    dormant = 0
+    for ctx in await context_repo.find_idle([ContextStatus.ACTIVE], dormant_before):
+        dormant += await _retire_context(ctx, ContextStatus.DORMANT, dormant_before)
+
+    if closed or dormant:
+        logger.info(f"Context lifecycle: {dormant} went dormant, {closed} closed")
+    return {"dormant": dormant, "closed": closed}
+
+
+async def _context_lifecycle_loop() -> None:
+    """Every few minutes, put quiet conversation contexts to sleep and close the long-forgotten ones."""
+    while True:
+        try:
+            await run_context_lifecycle()
+        except Exception as e:
+            logger.error(f"Context lifecycle loop error: {e}")
+
+        await asyncio.sleep(settings.context_lifecycle_interval_seconds)
+
+
 async def start_scheduler() -> None:
-    """Start both scheduler loops as background tasks."""
+    """Start the scheduler loops as background tasks."""
     _tasks.append(asyncio.create_task(_execution_loop()))
     _tasks.append(asyncio.create_task(_daily_planning_loop()))
+    _tasks.append(asyncio.create_task(_context_lifecycle_loop()))
     logger.info("Proaction scheduler started")

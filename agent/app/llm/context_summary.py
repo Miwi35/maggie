@@ -15,9 +15,10 @@ Two entry points, and the difference matters:
 
   - `maybe_summarize()` is the one the streaming gateway calls on every message. It
     counts first and usually does nothing.
-  - `summarize()` always calls the model. It is what MAG-12's scheduler will call when a
-    thread goes dormant or is closed, where "a few messages short of the threshold" is
-    not a reason to leave a thread without a summary forever.
+  - `summarize()` always calls the model when there is something new to read. It is what
+    the scheduler calls when a thread goes dormant or is closed (MAG-12), where "a few
+    messages short of the threshold" is not a reason to leave a thread without a summary
+    forever.
 """
 
 import logging

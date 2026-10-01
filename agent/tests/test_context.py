@@ -1,6 +1,6 @@
 """Tests for ConversationContext model, repository, and routes."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -153,6 +153,115 @@ class TestContextRepositorySummary:
         # `instruction` — the admin's list, `list_instructions`, the daily
         # planner's `find_user_ids` — raises UndefinedColumn.
         assert "instruction ADD COLUMN IF NOT EXISTS kind VARCHAR(20) NOT NULL DEFAULT 'planning'" in statements
+
+
+def _back_date(chat_db, context_id: str, **ago) -> None:
+    """Make a context look idle for `ago` (a timedelta's keywords) — the only way to age a row in a test."""
+    session = chat_db.session()
+    ctx = session._session.get(ConversationContext, context_id)
+    ctx.updated_at = datetime.now(UTC) - timedelta(**ago)
+    session._session.commit()
+    session._session.close()
+
+
+class TestContextRepositoryLifecycle:
+    """`find_idle`, `update_status` and `touch` — what MAG-12's lifecycle is made of."""
+
+    async def test_find_idle_returns_the_quiet_contexts_of_every_user(self, chat_db):
+        mine = await context_repo.create("user-1", "Courses")
+        theirs = await context_repo.create("user-2", "Budget")
+        fresh = await context_repo.create("user-1", "Récent")
+        _back_date(chat_db, str(mine.id), hours=30)
+        _back_date(chat_db, str(theirs.id), hours=48)
+
+        idle = await context_repo.find_idle([ContextStatus.ACTIVE], datetime.now(UTC) - timedelta(hours=24))
+
+        assert {str(c.id) for c in idle} == {str(mine.id), str(theirs.id)}
+        assert str(fresh.id) not in {str(c.id) for c in idle}
+
+    async def test_find_idle_only_returns_the_asked_statuses(self, chat_db):
+        dormant = await context_repo.create("user-1", "Dormant")
+        closed = await context_repo.create("user-1", "Clos")
+        for ctx in (dormant, closed):
+            _back_date(chat_db, str(ctx.id), days=20)
+        await context_repo.update_status(str(dormant.id), ContextStatus.DORMANT)
+        await context_repo.update_status(str(closed.id), ContextStatus.CLOSED)
+        _back_date(chat_db, str(dormant.id), days=20)
+        _back_date(chat_db, str(closed.id), days=20)
+
+        idle = await context_repo.find_idle([ContextStatus.ACTIVE], datetime.now(UTC) - timedelta(hours=24))
+
+        assert idle == []
+
+    async def test_update_status_closing_stamps_closed_at_and_publishes(self, chat_db):
+        ctx = await context_repo.create("user-1", "Courses")
+        chat_db.published.reset_mock()
+
+        updated = await context_repo.update_status(str(ctx.id), ContextStatus.CLOSED)
+
+        assert updated.status == ContextStatus.CLOSED
+        assert updated.closed_at is not None
+        chat_db.published.assert_awaited_once()
+        assert chat_db.published.await_args.args[1]["status"] == "closed"
+
+    async def test_update_status_refuses_a_context_spoken_in_since(self, chat_db):
+        """The summary takes seconds: a message that lands meanwhile must not be put to sleep."""
+        ctx = await context_repo.create("user-1", "Courses")
+        chat_db.published.reset_mock()
+        cutoff = datetime.now(UTC) - timedelta(hours=24)  # the context was spoken in after it
+
+        assert await context_repo.update_status(str(ctx.id), ContextStatus.DORMANT, idle_before=cutoff) is None
+
+        assert (await context_repo.get(str(ctx.id))).status == ContextStatus.ACTIVE
+        chat_db.published.assert_not_awaited()
+
+    async def test_update_status_accepts_a_context_still_idle(self, chat_db):
+        ctx = await context_repo.create("user-1", "Courses")
+        _back_date(chat_db, str(ctx.id), hours=30)
+
+        updated = await context_repo.update_status(
+            str(ctx.id), ContextStatus.DORMANT, idle_before=datetime.now(UTC) - timedelta(hours=24)
+        )
+
+        assert updated.status == ContextStatus.DORMANT
+
+    async def test_touch_moves_updated_at_without_publishing_an_active_context(self, chat_db):
+        ctx = await context_repo.create("user-1", "Courses")
+        _back_date(chat_db, str(ctx.id), hours=5)
+        before = (await context_repo.get(str(ctx.id))).updated_at
+        chat_db.published.reset_mock()
+
+        touched = await context_repo.touch(str(ctx.id))
+
+        assert touched.status == ContextStatus.ACTIVE
+        assert touched.updated_at > before
+        # Nothing changed for the panel, which already got the `context_update` of the stream.
+        chat_db.published.assert_not_awaited()
+
+    async def test_touch_wakes_a_dormant_context_and_publishes_it(self, chat_db):
+        ctx = await context_repo.create("user-1", "Courses")
+        await context_repo.update_status(str(ctx.id), ContextStatus.DORMANT)
+        chat_db.published.reset_mock()
+
+        touched = await context_repo.touch(str(ctx.id))
+
+        assert touched.status == ContextStatus.ACTIVE
+        assert (await context_repo.get(str(ctx.id))).status == ContextStatus.ACTIVE
+        chat_db.published.assert_awaited_once()
+        assert chat_db.published.await_args.args[1]["status"] == "active"
+
+    async def test_touch_reopens_a_context_closed_in_the_meantime(self, chat_db):
+        ctx = await context_repo.create("user-1", "Courses")
+        await context_repo.update_status(str(ctx.id), ContextStatus.CLOSED)
+
+        touched = await context_repo.touch(str(ctx.id))
+
+        assert touched.status == ContextStatus.ACTIVE
+        assert touched.closed_at is None
+
+    async def test_touch_unknown_context_does_nothing(self, chat_db):
+        assert await context_repo.touch("does-not-exist") is None
+        chat_db.published.assert_not_awaited()
 
 
 class TestContextRouteAuth:
