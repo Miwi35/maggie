@@ -96,7 +96,11 @@ class ContextRepository:
         told the panel about the thread, and a publication per message would be noise.
         """
         async with agent_session() as session:
-            result = await session.execute(select(ConversationContext).where(ConversationContext.id == context_id))
+            # Locked like the lifecycle's transition, so the status read here is the one that
+            # will be overwritten: a stale "active" would leave a sleeping thread asleep.
+            result = await session.execute(
+                select(ConversationContext).where(ConversationContext.id == context_id).with_for_update()
+            )
             ctx = result.scalar_one_or_none()
             if ctx is None:
                 return None
