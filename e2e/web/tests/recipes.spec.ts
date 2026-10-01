@@ -76,13 +76,12 @@ test.describe('Recipes and meals', () => {
     await page.getByRole('option', { name: 'Gratin de courgettes' }).click()
     await dialog.getByRole('button', { name: 'Créer' }).click()
 
-    const withParmesan = await waitForIndexed<GroceryListRow>(
+    await waitForIndexed<GroceryListRow>(
       api,
       '/api/grocery_lists',
       (list) => JSON.stringify(list.items).includes(parmesan),
       { what: 'The gratin’s parmesan' },
     )
-    expect(JSON.stringify(withParmesan.items)).toContain(parmesan)
 
     // The week view fetches when it mounts and once on its own write, both
     // within a blink of the POST and so inside Elasticsearch's refresh — the

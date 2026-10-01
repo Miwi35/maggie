@@ -176,12 +176,8 @@ class MealGrocerySync
         return $list;
     }
 
-    /**
-     * Drops one contribution and subtracts its share from the line it held.
-     *
-     * Returns the line if it left the list entirely, null if it survived.
-     */
-    private function takeBack(MealGroceryContribution $contribution): ?GroceryItem
+    /** Drops one contribution and subtracts its share from the line it held. */
+    private function takeBack(MealGroceryContribution $contribution): void
     {
         $item = $contribution->getGroceryItem();
         $this->em->remove($contribution);
@@ -189,7 +185,7 @@ class MealGrocerySync
         // Already bought: the shopper carried it home, so the line stays as it
         // is — only the link to the meal goes.
         if ($item->isChecked()) {
-            return null;
+            return;
         }
 
         $remaining = ($item->getQuantity() ?? 0.0) - $contribution->getQuantity();
@@ -198,21 +194,19 @@ class MealGrocerySync
         if ($remaining > self::EPSILON) {
             $item->setQuantity($remaining);
 
-            return null;
+            return;
         }
 
         if (!$heldByAnotherMeal && GroceryItemSource::Recipe === $item->getSource()) {
             $item->getGroceryList()->removeItem($item);
             $this->em->remove($item);
 
-            return $item;
+            return;
         }
 
         // A line the user added by hand, or one another meal still needs: it
         // survives, emptied of this meal's share.
         $item->setQuantity($heldByAnotherMeal ? 0.0 : null);
-
-        return null;
     }
 
     /** Moves a line the meal still needs by the difference, in place. */

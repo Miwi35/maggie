@@ -10,6 +10,7 @@ use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Cookbook\Entity\MealGroceryContribution;
+use Maggie\Cookbook\Entity\Recipe;
 use Maggie\Cookbook\Message\CreateMealCommand;
 use Maggie\Cookbook\Message\DeleteMealCommand;
 use Maggie\Cookbook\Message\GenerateGroceryListCommand;
@@ -19,6 +20,7 @@ use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\RecurringGroceryItem;
 use Maggie\Grocery\Enum\GroceryItemSource;
+use Maggie\Grocery\Enum\Unit;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
@@ -176,6 +178,59 @@ class MealGrocerySyncTest extends KernelTestCase
         // The user's own line stays, emptied of the meal's share.
         self::assertSame(['Tomate' => null], $this->list());
         self::assertSame(GroceryItemSource::Manual, $this->item('Tomate')->getSource());
+    }
+
+    public function testALineWhoseUnitTheUserCorrectedIsLetGoRatherThanJoinedTwice(): void
+    {
+        // Two meals on one tomato line, so taking the first one's share back
+        // leaves the line standing — which is what made this go wrong.
+        $pastaId = $this->planMeal('pasta');
+        $this->planMeal('gratin');
+        self::assertSame(6.0, $this->item('Tomate')->getQuantity());
+
+        // The shopper buys tomatoes by weight, not by the piece, and fixes
+        // both the line and the recipe.
+        $this->item('Tomate')->setUnit(Unit::Kilogram);
+        foreach ($this->recipe('pasta')->getIngredients() as $ri) {
+            if ('Tomate' === $ri->getIngredient()->getName()) {
+                $ri->setUnit(Unit::Kilogram);
+            }
+        }
+        $this->em()->flush();
+
+        // The meal holds that line under the old unit and wants it under the
+        // new one. Re-joining the line it had just let go used to insert a
+        // second contribution for the same pair while the first one's delete
+        // was still pending — straight into the unique index, 500.
+        $this->bus()->dispatch(new UpdateMealCommand(mealId: $pastaId, date: null, slot: null, recipeIds: null));
+
+        // Pâtes, Parmesan, the gratin's two tomatoes left on the old line,
+        // and the pasta's four on a new one.
+        self::assertCount(4, $this->groceryList()->getItems());
+        self::assertSame([2.0, 4.0], $this->quantitiesOf('Tomate'));
+        self::assertSame(4, $this->contributionCount());
+    }
+
+    public function testADateTheUserSetOnTheirOwnLineIsNotOverwritten(): void
+    {
+        $this->given('MealGrocerySyncTest.handwritten.yaml');
+        $mealId = $this->planMeal('pasta');
+
+        // Their line, their call: not before next week.
+        $deferred = new \DateTimeImmutable('+5 days', new \DateTimeZone('Europe/Paris'));
+        $this->item('Tomate')->setBuyAfter($deferred);
+        $this->em()->flush();
+
+        $this->bus()->dispatch(new UpdateMealCommand(
+            mealId: $mealId,
+            date: (new \DateTimeImmutable('+3 days', new \DateTimeZone('Europe/Paris')))->format('Y-m-d'),
+            slot: null,
+            recipeIds: null,
+        ));
+
+        // Moving a meal that happens to share the line must not drag the
+        // line back into today's shopping.
+        self::assertSame($deferred->format('Y-m-d'), $this->item('Tomate')->getBuyAfter()?->format('Y-m-d'));
     }
 
     public function testAPerishableIsNotToBeBoughtBeforeItKeeps(): void
@@ -374,6 +429,27 @@ class MealGrocerySyncTest extends KernelTestCase
         return $lines;
     }
 
+    /**
+     * Every quantity carried under one label, sorted — the way to speak about
+     * a product that sits on more than one line.
+     *
+     * @return float[]
+     */
+    private function quantitiesOf(string $label): array
+    {
+        $this->em()->clear();
+
+        $quantities = [];
+        foreach ($this->groceryList()->getItems() as $item) {
+            if ($item->getLabel() === $label) {
+                $quantities[] = $item->getQuantity();
+            }
+        }
+        sort($quantities);
+
+        return $quantities;
+    }
+
     private function item(string $label): GroceryItem
     {
         $this->em()->clear();
@@ -410,6 +486,12 @@ class MealGrocerySyncTest extends KernelTestCase
         }
 
         return $count;
+    }
+
+    private function recipe(string $ref): Recipe
+    {
+        return $this->em()->getRepository(Recipe::class)->find($this->getFixture($ref)->getId())
+            ?? throw new \LogicException("No recipe {$ref}.");
     }
 
     private function recurring(string $label): RecurringGroceryItem
