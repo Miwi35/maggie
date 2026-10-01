@@ -28,6 +28,7 @@ DAILY_PLANNING_PROMPT = (
 )
 
 _tasks: list[asyncio.Task] = []
+_known_timezones: dict[str, ZoneInfo] = {}
 
 
 async def _execution_loop() -> None:
@@ -64,13 +65,26 @@ def next_planning_time(now: datetime, tz: ZoneInfo | None = None) -> datetime:
 
 
 async def resolve_user_timezone(user_id: str) -> ZoneInfo:
-    """The timezone stored in the user's preferences, the default one when it cannot be read or is invalid."""
+    """The timezone stored in the user's preferences.
+
+    A stored name that is not a timezone means Europe/Paris. A preference that cannot be read right now
+    (API restarting) keeps the last timezone read for the user: falling back to Paris for one cycle would
+    skip a New York user's planning moment for the whole day.
+    """
     try:
         raw = await mcp_client.call_tool(USER_TIMEZONE_TOOL, {}, user_id=user_id)
-        return ZoneInfo(json.loads(raw)["timezone"])
+        name = json.loads(raw)["timezone"]
     except Exception as e:
-        logger.warning(f"No usable timezone for user {user_id}, planning on {settings.planning_timezone}: {e!r}")
-        return ZoneInfo(settings.planning_timezone)
+        known = _known_timezones.get(user_id) or ZoneInfo(settings.planning_timezone)
+        logger.warning(f"Timezone of user {user_id} unreadable, keeping {known.key}: {e!r}")
+        return known
+
+    try:
+        _known_timezones[user_id] = ZoneInfo(name)
+    except Exception as e:
+        logger.warning(f"Invalid timezone {name!r} for user {user_id}, planning on {settings.planning_timezone}: {e!r}")
+        _known_timezones[user_id] = ZoneInfo(settings.planning_timezone)
+    return _known_timezones[user_id]
 
 
 async def plan_user(gateway: LLMGateway, user_id: str) -> None:
@@ -82,19 +96,13 @@ async def plan_user(gateway: LLMGateway, user_id: str) -> None:
         logger.error(f"Daily planning failed for user {user_id}: {e}")
 
 
-async def plan_all_users(gateway: LLMGateway) -> None:
-    """Run the planning prompt once for every user who has stored a planning directive.
+async def planning_schedule(since: datetime) -> dict[str, datetime]:
+    """When each user with a planning directive is next planned after `since`, on their own wall clock.
 
     Behaviour preferences are deliberately not a reason to plan: « tutoie-moi » says
     nothing about when to act, and planning on it alone would wake the model up for a
     user who never asked for a single proaction (MAG-22).
     """
-    for user_id in await instruction_repo.find_user_ids(kind=InstructionKind.PLANNING):
-        await plan_user(gateway, user_id)
-
-
-async def planning_schedule(since: datetime) -> dict[str, datetime]:
-    """When each user with a planning directive is next planned after `since`, on their own wall clock."""
     user_ids = await instruction_repo.find_user_ids(kind=InstructionKind.PLANNING)
     return {user_id: next_planning_time(since, await resolve_user_timezone(user_id)) for user_id in user_ids}
 

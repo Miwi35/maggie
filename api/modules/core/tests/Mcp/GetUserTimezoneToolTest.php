@@ -45,8 +45,8 @@ class GetUserTimezoneToolTest extends KernelTestCase
     public function testReturnsTheTimezoneOfTheUserPreferences(): void
     {
         $this->loadFixtures(__DIR__.'/../Controller/fixtures/user_preference.yaml');
-        $this->loginFixtureUser();
-        $preference = $this->em()->getRepository(UserPreference::class)->findAll()[0];
+        $user = $this->loginFixtureUser();
+        $preference = $this->em()->getRepository(UserPreference::class)->findOneBy(['user' => $user]);
         $preference->setTimezone('America/New_York');
         $this->em()->flush();
 

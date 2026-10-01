@@ -1,4 +1,5 @@
 import json
+from collections import defaultdict
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 from zoneinfo import ZoneInfo
@@ -9,11 +10,12 @@ from app.config import settings
 from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
 from app.queue import scheduler
-from app.queue.scheduler import next_planning_time, plan_all_users, planning_schedule, resolve_user_timezone
+from app.queue.scheduler import next_planning_time, plan_user, planning_schedule, resolve_user_timezone
 
 
 @pytest.fixture(autouse=True)
 def paris_at_five(monkeypatch):
+    scheduler._known_timezones.clear()
     monkeypatch.setattr(settings, "planning_timezone", "Europe/Paris")
     monkeypatch.setattr(settings, "daily_planning_hour", 5)
 
@@ -55,68 +57,6 @@ class TestNextPlanningTime:
     def test_local_date_decides_not_utc_date(self):
         # 23:30Z on 30 Sept is already 01:30 on 1 Oct in Paris: 05:00 that day is still ahead.
         assert next_planning_time(utc(2026, 9, 30, 23, 30)) == utc(2026, 10, 1, 3, 0)
-
-
-class TestPlanAllUsers:
-    async def test_plans_with_the_real_user_id_of_stored_instructions(self, agent_db):
-        await instruction_repo.store("user-42", "Digest du matin à 7h")
-        gateway = AsyncMock()
-        gateway.proaction.return_value = {"response": "ok"}
-
-        await plan_all_users(gateway)
-
-        gateway.proaction.assert_awaited_once()
-        assert gateway.proaction.await_args.args[1] == "user-42"
-        assert gateway.proaction.await_args.kwargs == {"silent": True}
-
-    async def test_plans_every_user_once_and_skips_users_without_instructions(self, agent_db):
-        await instruction_repo.store("user-a", "Rule 1")
-        await instruction_repo.store("user-a", "Rule 2")
-        await instruction_repo.store("user-b", "Rule 3")
-        gateway = AsyncMock()
-        gateway.proaction.return_value = {"response": "ok"}
-
-        await plan_all_users(gateway)
-
-        planned = sorted(call.args[1] for call in gateway.proaction.await_args_list)
-        assert planned == ["user-a", "user-b"]
-
-    async def test_no_instructions_means_no_planning(self, agent_db):
-        gateway = AsyncMock()
-
-        await plan_all_users(gateway)
-
-        gateway.proaction.assert_not_awaited()
-
-    async def test_a_behaviour_preference_is_not_a_reason_to_plan(self, agent_db):
-        """« Tutoie-moi » says nothing about when to act, so it must not wake the planner (MAG-22)."""
-        await instruction_repo.store("talker", "Tutoie-moi", kind=InstructionKind.BEHAVIOR)
-        gateway = AsyncMock()
-
-        await plan_all_users(gateway)
-
-        gateway.proaction.assert_not_awaited()
-
-    async def test_a_user_with_both_is_still_planned_once(self, agent_db):
-        await instruction_repo.store("user-42", "Digest du matin à 7h", kind=InstructionKind.PLANNING)
-        await instruction_repo.store("user-42", "Tutoie-moi", kind=InstructionKind.BEHAVIOR)
-        gateway = AsyncMock()
-        gateway.proaction.return_value = {"response": "ok"}
-
-        await plan_all_users(gateway)
-
-        gateway.proaction.assert_awaited_once()
-        assert gateway.proaction.await_args.args[1] == "user-42"
-
-    async def test_one_failing_user_does_not_stop_the_others(self, agent_db):
-        await instruction_repo.store("user-a", "Rule 1")
-        await instruction_repo.store("user-b", "Rule 2")
-        gateway = AsyncMock()
-        gateway.proaction.side_effect = [RuntimeError("boom"), {"response": "ok"}]
-
-        await plan_all_users(gateway)
-
-        assert gateway.proaction.await_count == 2
 
 
 NEW_YORK = ZoneInfo("America/New_York")
@@ -169,6 +109,22 @@ class TestPlanningInTheUsersTimezone:
 
         assert await resolve_user_timezone("user-x") == ZoneInfo("Europe/Paris")
 
+    async def test_an_unreadable_preference_keeps_the_last_timezone_read(self, monkeypatch):
+        timezones(monkeypatch, {"user-ny": "America/New_York"})
+        assert await resolve_user_timezone("user-ny") == NEW_YORK
+
+        for outage in (RuntimeError("API restarting"), '{"error": "No user is bound to this MCP call."}'):
+            timezones(monkeypatch, {"user-ny": outage})
+            assert await resolve_user_timezone("user-ny") == NEW_YORK
+
+    async def test_an_invalid_timezone_replaces_the_last_one_read(self, monkeypatch):
+        timezones(monkeypatch, {"user-x": "America/New_York"})
+        await resolve_user_timezone("user-x")
+
+        timezones(monkeypatch, {"user-x": "Nowhere/Land"})
+
+        assert await resolve_user_timezone("user-x") == ZoneInfo("Europe/Paris")
+
     async def test_each_user_is_scheduled_on_their_own_wall_clock(self, agent_db, monkeypatch):
         await instruction_repo.store("user-ny", "Digest du matin à 7h")
         await instruction_repo.store("user-paris", "Digest du matin à 7h")
@@ -186,6 +142,58 @@ class TestPlanningInTheUsersTimezone:
         schedule = await planning_schedule(utc(2026, 10, 1, 1, 0))
 
         assert schedule == {"user-bad": utc(2026, 10, 1, 3, 0), "user-ny": utc(2026, 10, 1, 9, 0)}
+
+
+class TestWhoIsPlanned:
+    """The users scheduled are those with a planning directive, once each, whatever else they stored."""
+
+    @pytest.fixture(autouse=True)
+    def everyone_in_paris(self, monkeypatch):
+        timezones(monkeypatch, defaultdict(lambda: "Europe/Paris"))
+
+    async def test_every_user_with_a_planning_directive_once(self, agent_db):
+        await instruction_repo.store("user-a", "Rule 1")
+        await instruction_repo.store("user-a", "Rule 2")
+        await instruction_repo.store("user-b", "Rule 3")
+
+        assert sorted(await planning_schedule(utc(2026, 10, 1, 1, 0))) == ["user-a", "user-b"]
+
+    async def test_no_instructions_means_no_planning(self, agent_db):
+        assert await planning_schedule(utc(2026, 10, 1, 1, 0)) == {}
+
+    async def test_a_behaviour_preference_is_not_a_reason_to_plan(self, agent_db):
+        """« Tutoie-moi » says nothing about when to act, so it must not wake the planner (MAG-22)."""
+        await instruction_repo.store("talker", "Tutoie-moi", kind=InstructionKind.BEHAVIOR)
+
+        assert await planning_schedule(utc(2026, 10, 1, 1, 0)) == {}
+
+    async def test_a_user_with_both_is_still_planned_once(self, agent_db):
+        await instruction_repo.store("user-42", "Digest du matin à 7h", kind=InstructionKind.PLANNING)
+        await instruction_repo.store("user-42", "Tutoie-moi", kind=InstructionKind.BEHAVIOR)
+
+        assert list(await planning_schedule(utc(2026, 10, 1, 1, 0))) == ["user-42"]
+
+    async def test_plans_with_the_real_user_id(self):
+        gateway = AsyncMock()
+        gateway.proaction.return_value = {"response": "ok"}
+
+        await plan_user(gateway, "user-42")
+
+        gateway.proaction.assert_awaited_once()
+        assert gateway.proaction.await_args.args[1] == "user-42"
+        assert gateway.proaction.await_args.kwargs == {"silent": True}
+
+    async def test_one_failing_user_does_not_stop_the_others(self, agent_db, monkeypatch):
+        await instruction_repo.store("user-a", "Rule 1")
+        await instruction_repo.store("user-b", "Rule 2")
+        gateway = AsyncMock()
+        gateway.proaction.side_effect = [RuntimeError("boom"), {"response": "ok"}]
+        monkeypatch.setattr(scheduler, "_utcnow", iter([utc(2026, 10, 1, 1, 0), utc(2026, 10, 1, 3, 0)]).__next__)
+        monkeypatch.setattr(scheduler.asyncio, "sleep", AsyncMock())
+
+        await scheduler.run_planning_cycle(gateway, utc(2026, 10, 1, 1, 0))
+
+        assert gateway.proaction.await_count == 2
 
 
 class TestPlanningCycle:
