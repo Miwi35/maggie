@@ -41,7 +41,11 @@ class CreateRecipeProcessor implements ProcessorInterface
         return $envelope->last(HandledStamp::class)->getResult();
     }
 
-    /** @return array<array{quantity: float, unit: string, ingredientId?: string, ciqualAlimCode?: string}>|null */
+    /**
+     * @param array<string, mixed> $context
+     *
+     * @return array<array{quantity: float, unit: string, ingredientId?: string, ciqualAlimCode?: string}>|null
+     */
     private function extractIngredients(array $context): ?array
     {
         $request = $context['request'] ?? null;
@@ -62,6 +66,7 @@ class CreateRecipeProcessor implements ProcessorInterface
         ], $body['ingredients']);
     }
 
+    /** @param array<string, mixed> $item */
     private function extractId(array $item, string $key): ?string
     {
         if (!isset($item[$key]) || !\is_string($item[$key])) {

@@ -141,7 +141,7 @@ class AddGroceryItemHandler
                 entityClass: Product::class,
                 entityId: (string) $newProduct->getId(),
             ));
-        } elseif ($productUpdated && null !== $matched) {
+        } elseif ($productUpdated) {
             $this->bus->dispatch(new IndexDocumentCommand(
                 entityClass: Product::class,
                 entityId: (string) $matched->getId(),

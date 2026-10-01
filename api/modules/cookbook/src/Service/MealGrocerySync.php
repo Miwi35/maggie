@@ -171,7 +171,7 @@ class MealGrocerySync
             $this->takeBack($contribution);
         }
 
-        $list?->setUpdatedAt(new \DateTimeImmutable());
+        $list->setUpdatedAt(new \DateTimeImmutable());
 
         return $list;
     }
@@ -272,7 +272,7 @@ class MealGrocerySync
 
     private function key(string $productId, ?Unit $unit): string
     {
-        return $productId.':'.($unit?->value ?? '');
+        return $productId.':'.($unit->value ?? '');
     }
 
     private function keyOfContribution(MealGroceryContribution $contribution): string

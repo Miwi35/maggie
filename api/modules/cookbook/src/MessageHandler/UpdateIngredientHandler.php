@@ -63,6 +63,8 @@ class UpdateIngredientHandler
             $ingredient->setFatPer100g(null);
         }
 
-        return $this->updateProduct->execute($ingredient);
+        $this->updateProduct->execute($ingredient);
+
+        return $ingredient;
     }
 }

@@ -322,7 +322,7 @@ Auto-reload on file changes via uvicorn `--reload`.
 
 ### PHPStan (`api/phpstan.neon`)
 - Level: **6** (strict)
-- Paths: `src/`, `modules/calendar/src/`, `modules/core/src/`
+- Paths: `src/` and every `modules/*/src/` (globbed in `api/phpstan-modules.php`, so a new module is covered by default)
 - Extensions: Doctrine, Symfony
 - Excludes: `src/Kernel.php`
 

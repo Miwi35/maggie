@@ -40,7 +40,7 @@ final class ReorderGroceryItemsController
         foreach ($items as $entry) {
             if (!\is_array($entry)
                 || !\is_string($entry['id'] ?? null)
-                || ($entry['id'] ?? '') === ''
+                || '' === $entry['id']
                 || !\is_int($entry['position'] ?? null)
             ) {
                 return new JsonResponse(['error' => 'Each item must have a string "id" and an int "position"'], Response::HTTP_BAD_REQUEST);

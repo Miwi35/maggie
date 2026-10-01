@@ -223,7 +223,7 @@ class Recipe implements MercurePublishable, OwnedByUserInterface, IndexableInter
             'ingredients' => $this->ingredients->map(fn (RecipeIngredient $ri) => [
                 'ingredientId' => (string) $ri->getIngredient()->getId(),
                 'quantity' => $ri->getQuantity(),
-                'unit' => $ri->getUnit()?->value,
+                'unit' => $ri->getUnit()->value,
             ])->toArray(),
         ];
     }

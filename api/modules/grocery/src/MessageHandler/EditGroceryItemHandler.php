@@ -6,7 +6,6 @@ namespace Maggie\Grocery\MessageHandler;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
-use Maggie\Core\Repository\UserRepository;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\Product;
@@ -28,7 +27,6 @@ class EditGroceryItemHandler
         private readonly MessageBusInterface $bus,
         private readonly ProductRepository $productRepository,
         private readonly StoreRepository $storeRepository,
-        private readonly UserRepository $userRepository,
     ) {
     }
 

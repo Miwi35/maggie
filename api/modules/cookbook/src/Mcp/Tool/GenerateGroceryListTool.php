@@ -73,7 +73,7 @@ class GenerateGroceryListTool
                 'success' => true,
                 'groceryList' => [
                     'id' => (string) $list->getId(),
-                    'storeGroups' => array_values($storeGroups),
+                    'storeGroups' => $storeGroups,
                     'totalItems' => $list->getItems()->count(),
                 ],
             ], JSON_THROW_ON_ERROR);

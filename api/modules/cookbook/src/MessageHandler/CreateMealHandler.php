@@ -48,15 +48,16 @@ class CreateMealHandler
                 ?? throw new \DomainException('No user found.');
 
             $agenda = $this->agendaRepository->findOneBy(['name' => 'Repas', 'user' => $user]);
-        }
-        if (null === $agenda) {
-            // Auto-create the Repas agenda
-            $agenda = new Agenda();
-            $agenda->setUser($user);
-            $agenda->setName('Repas');
-            $agenda->setColor('#FF6B35');
-            $this->em->persist($agenda);
-            $agendaCreated = true;
+
+            if (null === $agenda) {
+                // Auto-create the Repas agenda
+                $agenda = new Agenda();
+                $agenda->setUser($user);
+                $agenda->setName('Repas');
+                $agenda->setColor('#FF6B35');
+                $this->em->persist($agenda);
+                $agendaCreated = true;
+            }
         }
 
         $date = new \DateTimeImmutable($command->date, new \DateTimeZone('Europe/Paris'));
