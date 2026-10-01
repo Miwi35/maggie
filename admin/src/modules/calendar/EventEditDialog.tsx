@@ -88,8 +88,8 @@ export const EventEditDialog = ({ open, event, onClose, onSubmit }: EventEditDia
     }
     onSubmit({
       summary: summary.trim(),
-      startAt: allDay ? `${startAt}T00:00:00` : new Date(startAt).toISOString(),
-      endAt: allDay ? `${endAt}T23:59:59` : new Date(endAt).toISOString(),
+      startAt: allDay ? `${startAt}T00:00:00Z` : new Date(startAt).toISOString(),
+      endAt: allDay ? `${endAt}T23:59:59Z` : new Date(endAt).toISOString(),
       allDay,
       description: description.trim() || null,
       location: location.trim() || null,

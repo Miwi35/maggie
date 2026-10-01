@@ -83,6 +83,24 @@ describe('EventEditDialog', () => {
     expect(screen.getByLabelText(/Fin/)).toHaveValue('2026-10-06')
   })
 
+  test('submits an all-day event as whole days in UTC (MAG-168)', async () => {
+    const onSubmit = vi.fn()
+    render(
+      <EventEditDialog
+        open
+        event={{ ...event, allDay: true, start: new Date(2026, 9, 5).toISOString(), end: new Date(2026, 9, 7).toISOString() }}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ allDay: true, startAt: '2026-10-05T00:00:00Z', endAt: '2026-10-06T23:59:59Z' }),
+    )
+  })
+
   test('cancel closes without submitting', async () => {
     const onClose = vi.fn()
     const onSubmit = vi.fn()
