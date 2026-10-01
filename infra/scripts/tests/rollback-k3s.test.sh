@@ -79,9 +79,21 @@ printf '\n\033[1mIt says what it cannot undo\033[0m\n'
 fresh_world "php 3"
 echo 4 > "$work/kube/rev-php"
 touch "$work/backups/maggie_predeploy_20260930_120000.sql.gz"
+touch "$work/backups/maggie_agent_predeploy_20260930_120000.sql.gz"
 run_rollback
 printf '%s' "$OUTPUT" | grep -qF 'NOT reverted' && ok "migrations are flagged as not reverted" || bad "no warning about migrations"
-printf '%s' "$OUTPUT" | grep -qF 'maggie_predeploy_20260930_120000.sql.gz' && ok "the pre-deploy dump is named" || bad "the dump is not named"
+printf '%s' "$OUTPUT" | grep -qF 'maggie_predeploy_20260930_120000.sql.gz' && ok "the API dump is named" || bad "the API dump is not named"
+printf '%s' "$OUTPUT" | grep -qF 'maggie_agent_predeploy_20260930_120000.sql.gz' && ok "the agent dump is named" || bad "the agent dump is not named"
+
+printf '\n\033[1mThe newest dump of each database is the one named\033[0m\n'
+fresh_world "php 3"
+echo 4 > "$work/kube/rev-php"
+touch -d '2026-09-29 12:00' "$work/backups/maggie_predeploy_20260929_120000.sql.gz" "$work/backups/maggie_agent_predeploy_20260929_120000.sql.gz"
+touch -d '2026-09-30 12:00' "$work/backups/maggie_predeploy_20260930_120000.sql.gz" "$work/backups/maggie_agent_predeploy_20260930_120000.sql.gz"
+run_rollback
+printf '%s' "$OUTPUT" | grep -qF 'maggie_predeploy_20260930_120000.sql.gz' && ok "latest API dump" || bad "not the latest API dump"
+printf '%s' "$OUTPUT" | grep -qF 'maggie_agent_predeploy_20260930_120000.sql.gz' && ok "latest agent dump" || bad "not the latest agent dump"
+printf '%s' "$OUTPUT" | grep -qF '20260929' && bad "an older dump is named" || ok "no older dump is named"
 
 printf '\n'
 if [ "$failures" -gt 0 ]; then

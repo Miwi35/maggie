@@ -26,6 +26,23 @@ case "$1 $2" in
     done
     exit 0
     ;;
+  "get secret")
+    # `get secret maggie-env -o jsonpath={.data.<KEY>}`: the base64 of `secret-<KEY>`.
+    for arg in "$@"; do
+      case "$arg" in
+        jsonpath=*) key="${arg#*.data.}"; key="${key%\}}" ;;
+      esac
+    done
+    [ -f "$dir/secret-$key" ] && base64 -w0 "$dir/secret-$key"
+    exit 0
+    ;;
+  "exec -n")
+    # `exec -n shared <pod> -- sh -c "… pg_dump … -d '<db>'"`: the content of
+    # `dump-<db>`, nothing when absent.
+    db="$(printf '%s' "${*: -1}" | sed -n "s|.*-d '\([^']*\)'.*|\1|p")"
+    [ -f "$dir/dump-$db" ] && cat "$dir/dump-$db"
+    exit 0
+    ;;
   "rollout undo")
     name="$(deploy_of "$3")"
     if [ -f "$dir/fail-undo-$name" ]; then

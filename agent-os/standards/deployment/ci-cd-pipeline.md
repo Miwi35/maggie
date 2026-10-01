@@ -102,10 +102,10 @@ docker/build-push-action:
 **Environment:** `production` (requires GitHub approval)
 
 **Steps (SSH to VPS):**
-1. `scp` `infra/k8s/`, `infra/scripts/deploy-k3s.sh`, `rollback-k3s.sh` and `verify-digests.sh` to `/opt/maggie/`
+1. `scp` `infra/k8s/`, `infra/scripts/deploy-k3s.sh`, `backup-k3s.sh`, `rollback-k3s.sh` and `verify-digests.sh` to `/opt/maggie/`
 2. Run `deploy-k3s.sh <RELEASE_SHA>`, which does:
    1. **Preflight** — kubectl reachable, shared `postgres`/`elasticsearch`/`rabbitmq` ready in the `shared` namespace
-   2. **Backup** — `pg_dump | gzip` into `/opt/maggie/backups`, keeping the last 10 (a failed or empty dump aborts the deploy)
+   2. **Backup** (`backup-k3s.sh`, MAG-188) — `pg_dump | gzip` of **both** databases into `/opt/maggie/backups`: `maggie_predeploy_<ts>.sql.gz` (`DATABASE_URL`) and `maggie_agent_predeploy_<ts>.sql.gz` (`AGENT_DATABASE_URL`: memory, messages, contexts, directives, proactions, personality). Last 10 of each kept; a failed or empty dump, either one, aborts the deploy
    3. **Apply** — record the current revision of every deployment (`/opt/maggie/state/pre-deploy-revisions`) and the digest every image runs (`pre-deploy-digests`), bump the image tags in `kustomization.yaml` (only for images actually published for that SHA), then `kubectl apply -k`
    4. **Wait** — `rollout status` on php, nginx, worker, cron, agent, ciqual, mercure
    5. **Post-deploy** — migrations (no `cache:clear`: the image ships a warmed cache), Elasticsearch mapping update and reindex
