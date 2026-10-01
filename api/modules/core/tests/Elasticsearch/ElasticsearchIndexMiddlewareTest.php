@@ -142,6 +142,22 @@ class ElasticsearchIndexMiddlewareTest extends TestCase
         self::assertSame($eventId, $this->dispatched[0]->documentId);
     }
 
+    public function testHandlingADeleteDocumentCommandDoesNotDispatchAnotherOne(): void
+    {
+        $envelope = $this->received(new DeleteDocumentCommand(indexName: 'events', documentId: (string) new Ulid()));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack());
+
+        self::assertCount(0, $this->dispatched, 'A worker-side delete must not re-dispatch a delete to a "documents" index.');
+    }
+
+    public function testHandlingAnIndexDocumentCommandDoesNotDispatchAnotherOne(): void
+    {
+        $envelope = $this->received(new IndexDocumentCommand(entityClass: Event::class, entityId: (string) new Ulid()));
+        $this->createMiddleware()->handle($envelope, $this->createPassthroughStack(new Event()));
+
+        self::assertCount(0, $this->dispatched);
+    }
+
     public function testNonCrudCommandDoesNotDispatch(): void
     {
         $envelope = $this->received(new PullFromGoogleCommand(agendaId: (string) new Ulid()));

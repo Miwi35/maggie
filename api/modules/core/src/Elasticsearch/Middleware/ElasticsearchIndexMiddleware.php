@@ -40,6 +40,13 @@ final class ElasticsearchIndexMiddleware implements MiddlewareInterface
         $envelope = $stack->next()->handle($envelope, $stack);
 
         $message = $envelope->getMessage();
+
+        // DeleteDocumentCommand looks like a "Delete<Entity>Command" with a documentId: handled here
+        // it would re-dispatch itself against a non-existent "documents" index, forever.
+        if ($message instanceof DeleteDocumentCommand || $message instanceof IndexDocumentCommand) {
+            return $envelope;
+        }
+
         $parsed = self::parseCommandClass($message::class);
 
         try {
