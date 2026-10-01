@@ -357,6 +357,10 @@ test('a long thread is summarized, and the summary reaches Maggie and the Mind p
   await chat.openMind()
   await expect(chat.contextSummaries.first()).toHaveText(THREAD_SUMMARY)
 
+  // Back to the conversation first: the Mind tab has no input, and `send()` would
+  // reach for the AppBar button, which closes the panel rather than switching tab.
+  await chat.openChat()
+
   // And the step that proves the injection. This scenario declares the summary's
   // own text as `system_contains`, so it is unreachable unless
   // `_build_system_prompt` really put it in front of the model.
