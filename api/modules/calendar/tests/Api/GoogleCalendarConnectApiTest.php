@@ -55,9 +55,13 @@ class GoogleCalendarConnectApiTest extends WebTestCase
 
     /**
      * @param array<int, array{id: string, summary?: string, summaryOverride?: string, primary?: bool, backgroundColor?: string}> $calendars
-     * @param bool                                                                                                                $watchFails whether Google refuses to register a push channel
+     * @param int|null                                                                                                            $watchFailsFromCall the call from which Google refuses to register a push channel
+     *
+     * Set once per test: the container refuses to replace a service it has
+     * already built, so a test that needs Google to start refusing halfway
+     * says so up front
      */
-    private function stubGoogle(array $calendars, bool $watchFails = false): void
+    private function stubGoogle(array $calendars, ?int $watchFailsFromCall = null): void
     {
         $entries = [];
         foreach ($calendars as $calendar) {
@@ -78,9 +82,9 @@ class GoogleCalendarConnectApiTest extends WebTestCase
         );
         $this->watchCalls = 0;
         $apiClient->method('watchEvents')->willReturnCallback(
-            function () use ($watchFails): array {
+            function () use ($watchFailsFromCall): array {
                 ++$this->watchCalls;
-                if ($watchFails) {
+                if (null !== $watchFailsFromCall && $this->watchCalls >= $watchFailsFromCall) {
                     throw new \RuntimeException('Google refused the channel');
                 }
 
@@ -234,10 +238,55 @@ class GoogleCalendarConnectApiTest extends WebTestCase
         self::assertSame([], $this->stoppedChannels);
     }
 
+    /** Brings the agenda's push channel to the edge of expiry, as the cron would find it. */
+    private function expireWatchChannel(Agenda $agenda): void
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->getRepository(Agenda::class)
+            ->find($agenda->getId())
+            ->setGoogleWatchExpiresAt(new \DateTimeImmutable('+10 minutes'));
+        $em->flush();
+    }
+
+    public function testReconnectingReplacesAPushChannelAboutToExpire(): void
+    {
+        $user = $this->load();
+        $this->stubGoogle([['id' => 'cal-concerts', 'summary' => 'Concerts']]);
+
+        $this->import(['googleCalendarId' => 'cal-concerts']);
+        $this->expireWatchChannel($this->agendasOf($user)[0]);
+
+        $this->import(['googleCalendarId' => 'cal-concerts']);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame(['channel-1'], $this->stoppedChannels, 'The channel being replaced is closed first');
+        self::assertSame('channel-2', $this->agendasOf($user)[0]->getGoogleWatchChannelId());
+    }
+
+    public function testAReplacementChannelGoogleRefusesLeavesTheAgendaUpForRenewal(): void
+    {
+        $user = $this->load();
+        $this->stubGoogle([['id' => 'cal-concerts', 'summary' => 'Concerts']], watchFailsFromCall: 2);
+
+        $this->import(['googleCalendarId' => 'cal-concerts']);
+        $this->expireWatchChannel($this->agendasOf($user)[0]);
+        $this->import(['googleCalendarId' => 'cal-concerts']);
+
+        self::assertResponseStatusCodeSame(200);
+
+        // The dead channel's id is kept on purpose: it is what puts the agenda
+        // in findWithExpiringWatchChannels, so maggie:google-calendar:renew-watch
+        // tries again half an hour later. Clearing it would drop the agenda out
+        // of the renewal set for good.
+        $agenda = $this->agendasOf($user)[0];
+        self::assertSame('channel-1', $agenda->getGoogleWatchChannelId());
+        self::assertLessThan(new \DateTimeImmutable('+1 hour'), $agenda->getGoogleWatchExpiresAt());
+    }
+
     public function testConnectingSucceedsEvenWhenGoogleRefusesThePushChannel(): void
     {
         $user = $this->load();
-        $this->stubGoogle([['id' => 'cal-concerts', 'summary' => 'Concerts']], watchFails: true);
+        $this->stubGoogle([['id' => 'cal-concerts', 'summary' => 'Concerts']], watchFailsFromCall: 1);
 
         $this->import(['googleCalendarId' => 'cal-concerts']);
 

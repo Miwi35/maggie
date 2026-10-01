@@ -189,13 +189,20 @@ final class DedupeGoogleAgendasCommand extends Command
 
         // A duplicate agenda marked as the default would take the flag with it,
         // and Maggie would have nowhere to file an appointment (MAG-149).
-        if ($duplicate->isDefault() && !$keep->isDefault()) {
+        $defaultMoved = $duplicate->isDefault() && !$keep->isDefault();
+        if ($defaultMoved) {
             $keep->setIsDefault(true);
-            $this->publish(MercureTopic::collection($keep), $keepId, $userId, $keep->toMercurePayload());
-            $this->messageBus->dispatch(new IndexDocumentCommand(entityClass: Agenda::class, entityId: $keepId));
         }
 
         $this->entityManager->flush();
+
+        // Announced only once the write is committed: the indexing command
+        // leaves on RabbitMQ, and a worker reading the row before the commit
+        // would index the state we just changed.
+        if ($defaultMoved) {
+            $this->publish(MercureTopic::collection($keep), $keepId, $userId, $keep->toMercurePayload());
+            $this->messageBus->dispatch(new IndexDocumentCommand(entityClass: Agenda::class, entityId: $keepId));
+        }
 
         foreach ([...$toMove, ...$refreshed] as $event) {
             $this->announce($event, $userId);
