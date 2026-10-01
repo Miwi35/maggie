@@ -40,8 +40,8 @@ use Symfony\Component\Uid\Ulid;
  * be created while a duplicate is still there. Once the index exists this is a
  * no-op, and it is safe to run again at any time.
  *
- * It ends by taking out of the search index every document whose row is gone
- * (MAG-185): the database removes rows on its own — an agenda takes its events
+ * It ends — merge or not — by taking out of the search index every document
+ * whose row is gone (MAG-185): the database removes rows on its own — an agenda takes its events
  * with it — and a message per removed row cannot name one it never saw. A
  * single stray document turns `app:elasticsearch:status --check` red and
  * rolls the deploy back, so the index is made to agree with the table here
@@ -85,6 +85,19 @@ final class DedupeGoogleAgendasCommand extends Command
         );
 
         if ([] === $groups) {
+            // A merge that already committed is not undone by a rollback of the
+            // pods: the stray document it left stays, and no later deploy has
+            // a group to merge. The index is checked on every run for that
+            // reason — but an index that cannot be read must not hold up a
+            // deploy that has nothing to merge.
+            if (!$dryRun) {
+                try {
+                    $this->pruneOrphanDocuments($io);
+                } catch (\Throwable $e) {
+                    $io->warning('The search index could not be checked: '.$e->getMessage());
+                }
+            }
+
             $io->success('No Google calendar is connected twice.');
 
             return Command::SUCCESS;

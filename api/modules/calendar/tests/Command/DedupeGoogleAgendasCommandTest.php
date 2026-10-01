@@ -462,6 +462,38 @@ class DedupeGoogleAgendasCommandTest extends KernelTestCase
         $this->assertSearchIndexMatchesTheDatabase();
     }
 
+    /**
+     * A rollback reverts the pods, not the database: the merge of a failed
+     * deploy stays committed, and so does the stray document it left.
+     */
+    public function testADocumentLeftByAnEarlierMergeIsRemovedWhenThereIsNothingToMerge(): void
+    {
+        [, $duplicate] = $this->loadDuplicates();
+        $this->tester->execute([]);
+        self::assertNull($this->em()->getRepository(Agenda::class)->find((string) $duplicate->getId()));
+        $this->createUniqueIndex();
+        $this->searchIndex = [];
+        $this->indexEveryRow();
+        $this->indexDocument('events', (string) new Ulid());
+
+        $this->tester->execute([]);
+
+        $this->tester->assertCommandIsSuccessful();
+        self::assertStringContainsString('No Google calendar is connected twice', $this->tester->getDisplay());
+        $this->assertSearchIndexMatchesTheDatabase();
+    }
+
+    public function testADeployWithNothingToMergeIsNotHeldUpByASearchIndexThatCannotBeRead(): void
+    {
+        $this->purgeDatabase();
+        $this->searchEngineDown = true;
+
+        $this->tester->execute([]);
+
+        $this->tester->assertCommandIsSuccessful();
+        self::assertStringContainsString('could not be checked', $this->tester->getDisplay());
+    }
+
     public function indexDocument(string $index, string $id): void
     {
         $this->searchIndex[$index][$id] = true;
