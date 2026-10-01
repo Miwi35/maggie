@@ -14,8 +14,8 @@ test.fixme(true, 'MAG-177: depends on the hour of the run')
  * (`GOOGLE_API_BASE_URL=http://wiremock:8080/google/`), so this journey drives the
  * real client, the real sync service and the real webhook — only the far side is a
  * fixture. A request leaving the network would be a bug rather than a dependency,
- * and the journal is also how the effects below are asserted: a connected agenda's
- * only observable result today is the call it made (see the MAG-148 test).
+ * and the journal is also how an effect with no other trace is asserted — the
+ * export below has none.
  *
  * The journal is global, so every counter here is scoped to the calendar it is about
  * — and the stubs help: the watch channel id names its calendar, so two connected
@@ -39,7 +39,16 @@ test.fixme(true, 'MAG-177: depends on the hour of the run')
  * carries.
  */
 
-const GOOGLE_AGENDA = 'Agenda Google de test'
+/**
+ * The name the imported agenda carries, in Maggie and in the import dialog alike.
+ *
+ * Not the stub's `summary`: the one calendar it offers is the account's primary
+ * one, and Maggie calls that "Défaut" rather than whatever label Google hangs on
+ * the account — an address, or the account holder's name, which is what MAG-148
+ * reported seeing. The mapping itself is unit-tested (`GoogleCalendarNameMapper`);
+ * what this journey holds is that both ends agree on the name.
+ */
+const GOOGLE_AGENDA = 'Défaut'
 /** The one calendar `mappings/google.json` offers, and the channel id it derives. */
 const GOOGLE_CALENDAR_ID = 'e2e@maggie.local'
 const PULLED_EVENT = 'Réunion importée de Google'
@@ -81,11 +90,10 @@ async function events(api: APIRequestContext): Promise<StoredEvent[]> {
 /**
  * Removes any agenda already connected to the test Google calendar.
  *
- * Unconditional, and not housekeeping for its own sake: once MAG-148 is fixed the
- * import dialog will hide a calendar that is already connected, and a retry would
- * then open it on "Tous les calendriers Google sont déjà importés" with nothing to
- * click. A loop over a list that is usually empty keeps the test idempotent without
- * a branch.
+ * Unconditional, and not housekeeping for its own sake: the import dialog hides a
+ * calendar that is already connected, so a retry would open it on "Tous les
+ * calendriers Google sont déjà importés" with nothing to click. A loop over a list
+ * that is usually empty keeps the test idempotent without a branch.
  */
 async function forgetImportedAgenda(api: APIRequestContext): Promise<void> {
   await forgetAgendasNamed(api, GOOGLE_AGENDA)
@@ -96,9 +104,9 @@ async function forgetImportedAgenda(api: APIRequestContext): Promise<void> {
  *
  * Unconditional, and a loop over a list that is usually empty rather than a branch.
  * Two different reasons need it: the import dialog hides a calendar that is already
- * connected (once MAG-148 is fixed), and `agendaRow()` is a strict locator — a second
- * `task e2e:web` against one seeded stack would otherwise leave two rows of the same
- * name and fail on the match rather than on the export.
+ * connected, and `agendaRow()` is a strict locator — a second `task e2e:web` against
+ * one seeded stack would otherwise leave two rows of the same name and fail on the
+ * match rather than on the export.
  */
 async function forgetAgendasNamed(api: APIRequestContext, prefix: string): Promise<void> {
   for (const agenda of (await agendas(api)).filter((candidate) => candidate.name?.startsWith(prefix))) {
@@ -214,25 +222,23 @@ test.describe.fixme('Importing the Google calendar', () => {
   })
 
   /**
-   * A connected agenda says it is connected — MAG-148.
+   * A connected agenda says it is connected — the root cause of MAG-148.
    *
-   * It does not: `Agenda::toSearchDocument()` leaves `googleCalendarId` out, and the
-   * Elasticsearch providers rebuild the entity from the indexed document alone, so
-   * `googleSynced` is `false` on every agenda however it was created. That is the
-   * root cause of MAG-148 — the import dialog hides calendars it believes are
-   * already connected, that list is always empty, and importing the same calendar
-   * twice makes a second agenda. Same shape as MAG-169 on `Event`.
+   * It used not to: `Agenda::toSearchDocument()` left `googleCalendarId` out, and
+   * the Elasticsearch providers rebuild the entity from the indexed document alone,
+   * so `googleSynced` came back `false` on every agenda however it was created. The
+   * import dialog hides calendars it believes are already connected, that list was
+   * therefore always empty, and importing the same calendar twice made a second
+   * agenda — which is how production ended up with two "Concerts" syncing against
+   * each other. Same shape as MAG-169 on `Event`.
    *
-   * Marked expected-to-fail rather than left out: the sidebar's sync badge and the
-   * dialog's filter both hang off this one field, and the marker turns red the day
-   * it is indexed — which is when it has to go.
+   * The field is indexed now, and both things that hang off it are asserted here:
+   * the API's own answer, and the sidebar's sync badge.
    *
-   * The import it repeats is driven unmarked by the test before it, so a broken
-   * `importFromGoogle` fails there rather than disappearing into this marker.
+   * The import it repeats is driven by the test before it, so a broken
+   * `importFromGoogle` fails there first.
    */
   test('an agenda connected to Google is marked as synced', async ({ page, api }) => {
-    test.fail()
-
     await forgetImportedAgenda(api)
 
     const calendar = new CalendarPage(page)
@@ -242,8 +248,7 @@ test.describe.fixme('Importing the Google calendar', () => {
     // Same wait and reload as the test above: the sidebar reads an indexed
     // collection, so the row it is about only appears on a view built after the
     // index caught up. Without it this test would fail on the lag rather than on
-    // the field it is marked for, and would keep "failing as expected" the day
-    // MAG-148 is fixed.
+    // the field it is about.
     await waitForIndexed<StoredAgenda>(api, '/api/agendas', (agenda) => agenda.name === GOOGLE_AGENDA, {
       what: `The imported agenda "${GOOGLE_AGENDA}"`,
     })
@@ -258,6 +263,61 @@ test.describe.fixme('Importing the Google calendar', () => {
 
     await expect(calendar.syncBadge(GOOGLE_AGENDA)).toBeVisible()
   })
+
+  /**
+   * Connecting the same calendar twice leaves one agenda — MAG-148.
+   *
+   * Production held two "Concerts" agendas on one Google calendar, each syncing on
+   * its own and duplicating every event. Two guards now, and both are asserted:
+   * the dialog no longer offers a calendar it already holds, and the endpoint
+   * behind it answers the first agenda instead of making a second one — the dialog
+   * is a convenience, the endpoint is the guarantee (and the one the mobile app
+   * and Maggie herself go through).
+   *
+   * The second connection goes through the API because the UI is, by then,
+   * refusing to make it at all.
+   */
+  test('connecting the same Google calendar twice leaves a single agenda', async ({ page, api }) => {
+    await forgetImportedAgenda(api)
+
+    const calendar = new CalendarPage(page)
+    await calendar.open()
+    await calendar.importFromGoogle(GOOGLE_AGENDA)
+
+    const imported = await waitForIndexed<StoredAgenda>(
+      api,
+      '/api/agendas',
+      (agenda) => agenda.googleCalendarId === GOOGLE_CALENDAR_ID,
+      { what: `The imported agenda "${GOOGLE_AGENDA}"` },
+    )
+
+    // What the owner sees on a second try: nothing left to import.
+    await calendar.open()
+    const dialog = await calendar.openImportDialog()
+    await expect(
+      dialog.getByText('Tous les calendriers Google sont déjà importés'),
+      'the dialog still offered a calendar that is already connected',
+    ).toBeVisible()
+    await dialog.getByRole('button', { name: 'Fermer' }).click()
+
+    // And the endpoint the dialog would have called, asked directly.
+    const again = await api.post('/api/calendar/google/import', {
+      headers: { 'Content-Type': 'application/json' },
+      data: { googleCalendarId: GOOGLE_CALENDAR_ID },
+    })
+    expect(again.status(), 'reconnecting is a success, not a conflict').toBe(200)
+    expect(
+      ((await again.json()) as { id: string }).id,
+      'the second connection should answer the agenda the first one made',
+    ).toBe(imported.id)
+
+    await expect
+      .poll(async () => (await agendas(api)).filter((agenda) => agenda.googleCalendarId === GOOGLE_CALENDAR_ID).length, {
+        timeout: 30_000,
+        message: 'the agenda list should show the Google calendar once',
+      })
+      .toBe(1)
+  })
 })
 
 /**
@@ -268,15 +328,13 @@ test.describe.fixme('Importing the Google calendar', () => {
  *
  * - an agenda can only be exported once. `GoogleCalendarConnectController::export`
  *   answers 409 on an agenda that already carries a `googleCalendarId`, and the ⋮
- *   menu still offers the item because the API never reports that field (MAG-148) —
- *   so a retry on a seeded agenda would make the call, get a 409, and fail on a
- *   message about WireMock rather than about the export;
+ *   menu hides the item for such an agenda — so a retry on a seeded agenda would
+ *   fail on a missing menu item rather than on the export;
  * - exporting also registers a watch, and the channel id names the calendar. A
  *   throwaway agenda therefore cannot steal the webhook the import group sends.
  *
- * Asserted on the call rather than on the agenda, for the reason the MAG-148 test
- * above spells out: `googleCalendarId` is not in the indexed document, so the API
- * answers the same thing before and after.
+ * Asserted on the call rather than on the agenda: what the export owes Google is
+ * the calendar it creates there, and the stub is the only witness to it.
  *
  * It found MAG-171: `handleExportToGoogle` posted the agenda's IRI where the controller
  * looks up a ULID, and got a 500. It now posts the bare identifier.
