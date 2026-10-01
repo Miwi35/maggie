@@ -43,6 +43,8 @@ class CreateIngredientHandler
         $ingredient->setCarbsPer100g($command->carbsPer100g);
         $ingredient->setFatPer100g($command->fatPer100g);
 
-        return $this->createProduct->execute($ingredient);
+        $this->createProduct->execute($ingredient);
+
+        return $ingredient;
     }
 }

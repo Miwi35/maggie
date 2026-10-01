@@ -2,7 +2,7 @@
 #
 # The PHP files PHPStan should look at for this branch: everything changed since
 # it left origin/main — committed, staged, unstaged and untracked — restricted
-# to what api/phpstan.neon analyses. Paths are relative to api/, one per line.
+# to what api/phpstan.neon (and its api/phpstan-modules.php include) analyses. Paths are relative to api/, one per line.
 #
 # The restriction matters: PHPStan analyses a file passed by name even when
 # phpstan.neon leaves it out (tests, a module that is not configured), which
@@ -30,6 +30,10 @@ neon_list() {
 
 paths=()
 while IFS= read -r entry; do paths+=("$entry"); done < <(neon_list paths)
+# The modules come from api/phpstan-modules.php, which globs modules/*/src.
+for dir in api/modules/*/src; do
+    [ -d "$dir" ] && paths+=("${dir#api/}/")
+done
 excluded=()
 while IFS= read -r entry; do excluded+=("$entry"); done < <(neon_list excludePaths)
 

@@ -59,13 +59,14 @@ class IngredientFromCiqualResolver
         $ingredient->setCategory($this->mapCategory($foodData['alim_group_name_fr'] ?? null));
 
         // Extract macros from nutrients
+        /** @var array<int|string, float|null> $nutrientMap */
         $nutrientMap = [];
-        foreach ($foodData['nutrients'] ?? [] as $n) {
+        foreach ($foodData['nutrients'] as $n) {
             $nutrientMap[$n['const_code']] = $n['value'];
         }
 
         foreach (self::NUTRIENT_CODES as $code => $field) {
-            if (isset($nutrientMap[$code]) && null !== $nutrientMap[$code]) {
+            if (isset($nutrientMap[$code])) {
                 $setter = 'set'.ucfirst($field);
                 $ingredient->$setter((float) $nutrientMap[$code]);
             }

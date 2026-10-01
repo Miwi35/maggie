@@ -178,7 +178,8 @@ machine is busy — push and let CI run it.
   mount the main checkout: from a worktree they would rewrite the owner's files.
 - **"Changed" is computed by `wt/changed-php.sh`**: merge-base with `origin/main`,
   committed, staged, unstaged and untracked files, restricted to the `paths` of
-  `api/phpstan.neon` (minus `excludePaths`). PHPStan analyses a file passed by name
+  `api/phpstan.neon` plus every `modules/*/src/` (globbed by `api/phpstan-modules.php`),
+  minus `excludePaths`. PHPStan analyses a file passed by name
   even when its config leaves it out, which would report violations CI never sees.
   Run `git fetch origin main` first if `origin/main` is stale or missing.
 - Do not add a second way to run a container from a worktree: new tasks go through

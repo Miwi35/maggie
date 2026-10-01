@@ -99,7 +99,7 @@ class GetGroceryListTool
         return json_encode([
             'groceryList' => [
                 'id' => (string) $list->getId(),
-                'storeGroups' => array_values($storeGroups),
+                'storeGroups' => $storeGroups,
                 'totalItems' => $totalItems,
                 'checkedItems' => $checkedItems,
                 'deferredCount' => $deferredCount,
