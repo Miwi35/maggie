@@ -16,8 +16,8 @@ package com.maggie.app.data.mercure
  * `"/api/recipes/{id}"`, with no user scope at all. Both had been dead for as
  * long as they had existed.
  *
- * MercureTopicsContractTest checks what this builds against the API's
- * published contract, and checks that no ViewModel bypasses it.
+ * MercureTopicsContractTest checks what this builds against the API's and the
+ * agent's published contracts, and checks that no ViewModel bypasses it.
  */
 object MercureTopics {
 
@@ -28,6 +28,18 @@ object MercureTopics {
      */
     fun userScoped(userId: String, collection: String): String =
         "/users/$userId/api/$collection/{id}"
+
+    /**
+     * The agent's topics sit outside `/users/`: `/{stream}/{userId}`, where
+     * `userId` is the API user's ULID — the `sub` of the JWT the agent
+     * authenticates (`agent/contract/mercure-topics.json`). The `user_id` the
+     * app sends to the agent (`"default"`) is ignored by it, so it is never
+     * what to subscribe with.
+     */
+    fun agentScoped(userId: String, stream: String): String = "/$stream/$userId"
+
+    const val CHAT = "chat"
+    const val CONTEXTS = "contexts"
 
     const val AGENDAS = "agendas"
     const val EVENTS = "events"
@@ -52,4 +64,7 @@ object MercureTopics {
         TASKS,
         USER_PREFERENCES,
     )
+
+    /** The agent streams the app subscribes to, checked against `agent/contract/mercure-topics.json`. */
+    val SUBSCRIBED_AGENT: Set<String> = setOf(CHAT, CONTEXTS)
 }

@@ -7,17 +7,20 @@ on:
     branches: [main]
     paths:
       - 'mobile/**'
-      # The DTO and Mercure-topic contract tests read api/contract/, which the
-      # API suite generates. A change there is a change to what the app
-      # receives, so it has to run these tests — filtered on mobile/** alone,
-      # the one job that would have caught it is the one that does not run.
+      # The DTO and Mercure-topic contract tests read api/contract/ and
+      # agent/contract/, which the API and agent suites generate. A change
+      # there is a change to what the app receives, so it has to run these
+      # tests — filtered on mobile/** alone, the one job that would have caught
+      # it is the one that does not run.
       - 'api/contract/**'
+      - 'agent/contract/**'
       - '.github/workflows/mobile.yml'
   pull_request:
     branches: [main]
     paths:
       - 'mobile/**'
       - 'api/contract/**'
+      - 'agent/contract/**'
       - '.github/workflows/mobile.yml'
   # The nightly run (MAG-96) calls this workflow, paths or not.
   workflow_call:

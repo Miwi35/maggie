@@ -2,6 +2,7 @@ package com.maggie.app.ui.screens.chat
 
 import android.util.Log
 import app.cash.turbine.test
+import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.AgUiEvent
 import com.maggie.app.data.model.ChatMessage
@@ -12,6 +13,7 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.emptyFlow
@@ -38,6 +40,7 @@ class ChatViewModelTest {
     private lateinit var repository: ChatRepository
     private lateinit var mercureService: MercureService
     private lateinit var chatPrefsRepository: ChatPreferencesRepository
+    private lateinit var authRepository: AuthRepository
     private lateinit var viewModel: ChatViewModel
 
     private val sampleMessages = listOf(
@@ -54,6 +57,8 @@ class ChatViewModelTest {
         repository = mockk()
         mercureService = mockk()
         chatPrefsRepository = mockk()
+        authRepository = mockk()
+        coEvery { authRepository.getUserId() } returns "user-1"
         every { mercureService.subscribe(any()) } returns emptyFlow()
         coEvery { repository.loadRecentMessages(any()) } returns sampleMessages
         coEvery { chatPrefsRepository.getLastReadMessageId() } returns null
@@ -61,12 +66,30 @@ class ChatViewModelTest {
     }
 
     private fun createViewModel(): ChatViewModel {
-        return ChatViewModel(repository, mercureService, chatPrefsRepository)
+        return ChatViewModel(repository, mercureService, chatPrefsRepository, authRepository)
     }
 
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+    }
+
+    @Test
+    fun `subscribes to the chat topic of the signed-in user, not a placeholder`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        verify { mercureService.subscribe("/chat/user-1") }
+    }
+
+    @Test
+    fun `does not subscribe to the chat topic when nobody is signed in`() = runTest {
+        coEvery { authRepository.getUserId() } returns null
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        verify(exactly = 0) { mercureService.subscribe(any()) }
     }
 
     @Test

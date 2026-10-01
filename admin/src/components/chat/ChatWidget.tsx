@@ -22,6 +22,7 @@ import PsychologyIcon from '@mui/icons-material/Psychology'
 import CircularProgress from '@mui/material/CircularProgress'
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder'
 import { useTranscription } from '../../hooks/useTranscription'
+import { AGENT_STREAMS, agentTopic, getStoredUserId } from '../../hooks/agentTopics'
 import { useAgUiStream } from '../../hooks/useAgUiStream'
 import { ActivityPulse } from '../mind/ActivityPulse'
 import { ContextList } from '../mind/ContextList'
@@ -433,10 +434,10 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     // --- Mercure SSE subscription (with dedup) ---
 
     useEffect(() => {
-      const userStr = localStorage.getItem('user')
-      const userId = userStr ? JSON.parse(userStr).id : 'default'
+      const userId = getStoredUserId()
+      if (!userId) return
       const url = new URL(MERCURE_URL, window.location.origin)
-      url.searchParams.append('topic', `/chat/${userId}`)
+      url.searchParams.append('topic', agentTopic(AGENT_STREAMS.chat, userId))
 
       const eventSource = new EventSource(url.toString(), { withCredentials: true })
       eventSource.onmessage = (event) => {
@@ -484,10 +485,10 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     // --- Mercure SSE subscription for context updates ---
 
     useEffect(() => {
-      const userStr = localStorage.getItem('user')
-      const userId = userStr ? JSON.parse(userStr).id : 'default'
+      const userId = getStoredUserId()
+      if (!userId) return
       const url = new URL(MERCURE_URL, window.location.origin)
-      url.searchParams.append('topic', `/contexts/${userId}`)
+      url.searchParams.append('topic', agentTopic(AGENT_STREAMS.contexts, userId))
 
       const eventSource = new EventSource(url.toString(), { withCredentials: true })
       eventSource.onmessage = (event) => {

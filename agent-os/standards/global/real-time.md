@@ -13,7 +13,8 @@ All real-time updates use **Mercure** (SSE), not WebSockets.
 ## Topic conventions
 - Entity updates: `/api/{resource}/{id}` (auto from API Platform)
 - User-scoped: `/users/{userId}/api/{resource}/{id}`
-- Agent: `/chat/{userId}`, `/contexts/{userId}`, `/proactions/{userId}`, `/instructions/{userId}`, `/skills/{userId}`
+- Agent: `/chat/{userId}`, `/contexts/{userId}`, `/proactions/{userId}`, `/instructions/{userId}`, `/skills/{userId}` — `userId` is the API user's ULID (the `sub` claim of the JWT the agent authenticates; the `user_id` the mobile sends is ignored). Spelled once in `agent/app/mercure/topics.py`, published in `agent/contract/mercure-topics.json`, read by the mobile and admin contract tests.
+- A client topic never carries a literal `{userId}`: `MercureService.subscribe` passes it through unsubstituted, so the subscription connects and receives nothing.
 
 ## Every update is private
 A public update ignores the subscriber's token claims. Publish with `private: true` (PHP) or `private=on` (agent); list any new topic outside `/users/{id}/` in `MercureSubscriberTokenFactory`; open every `EventSource` with `{ withCredentials: true }`.

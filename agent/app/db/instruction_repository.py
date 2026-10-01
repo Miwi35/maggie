@@ -5,6 +5,7 @@ from sqlalchemy import select
 
 from app.db.agent_engine import agent_session
 from app.db.instruction_model import Instruction
+from app.mercure import topics
 from app.mercure.publisher import MercurePublisher
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ class InstructionRepository:
             await session.refresh(instruction)
 
         try:
-            await self.publisher.publish(f"/instructions/{user_id}", instruction.to_dict())
+            await self.publisher.publish(topics.for_user(topics.INSTRUCTIONS, user_id), instruction.to_dict())
         except Exception as e:
             logger.warning(f"Failed to publish instruction to Mercure: {e}")
 
@@ -59,7 +60,9 @@ class InstructionRepository:
 
         if instruction:
             try:
-                await self.publisher.publish(f"/instructions/{instruction.user_id}", instruction.to_dict())
+                await self.publisher.publish(
+                    topics.for_user(topics.INSTRUCTIONS, instruction.user_id), instruction.to_dict()
+                )
             except Exception as e:
                 logger.warning(f"Failed to publish instruction update: {e}")
 
@@ -79,7 +82,9 @@ class InstructionRepository:
             await session.commit()
 
         try:
-            await self.publisher.publish(f"/instructions/{user_id}", {"id": inst_id, "deleted": True})
+            await self.publisher.publish(
+                topics.for_user(topics.INSTRUCTIONS, user_id), {"id": inst_id, "deleted": True}
+            )
         except Exception as e:
             logger.warning(f"Failed to publish instruction deletion: {e}")
 

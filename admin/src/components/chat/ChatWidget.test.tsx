@@ -129,6 +129,15 @@ describe('ChatWidget', () => {
     }
   })
 
+  test('opens no subscription when nobody is signed in, instead of one on "default"', () => {
+    vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
+    localStorage.removeItem('user')
+
+    render(<ChatWidget {...defaultProps} />)
+
+    expect(MockEventSource.instances).toEqual([])
+  })
+
   // A proaction is persisted and published by the agent on /chat/{id}; the
   // panel holds no temp message for it, so the Mercure echo is the only way
   // it reaches the screen (MAG-109).

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.Context
 import com.maggie.app.data.repository.ContextRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -68,7 +69,7 @@ class ContextViewModel(
     private fun subscribeToMercure() {
         viewModelScope.launch {
             val userId = authRepository.getUserId() ?: return@launch
-            mercureService.subscribe("/contexts/$userId")
+            mercureService.subscribe(MercureTopics.agentScoped(userId, MercureTopics.CONTEXTS))
                 .catch { /* SSE reconnects automatically */ }
                 .collect { refresh() }
         }

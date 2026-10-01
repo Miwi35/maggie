@@ -5,6 +5,7 @@ from sqlalchemy import select
 
 from app.db.agent_engine import agent_engine, agent_session
 from app.db.proaction_model import AgentBase, Proaction, ProactionStatus
+from app.mercure import topics
 from app.mercure.publisher import MercurePublisher
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,7 @@ class ProactionRepository:
             await session.refresh(proaction)
 
         try:
-            await self.publisher.publish(f"/proactions/{user_id}", proaction.to_dict())
+            await self.publisher.publish(topics.for_user(topics.PROACTIONS, user_id), proaction.to_dict())
         except Exception as e:
             logger.warning(f"Failed to publish proaction to Mercure: {e}")
 
@@ -85,7 +86,7 @@ class ProactionRepository:
 
         if proaction:
             try:
-                await self.publisher.publish(f"/proactions/{proaction.user_id}", proaction.to_dict())
+                await self.publisher.publish(topics.for_user(topics.PROACTIONS, proaction.user_id), proaction.to_dict())
             except Exception as e:
                 logger.warning(f"Failed to publish proaction update: {e}")
 
@@ -102,7 +103,7 @@ class ProactionRepository:
 
         if proaction:
             try:
-                await self.publisher.publish(f"/proactions/{proaction.user_id}", proaction.to_dict())
+                await self.publisher.publish(topics.for_user(topics.PROACTIONS, proaction.user_id), proaction.to_dict())
             except Exception as e:
                 logger.warning(f"Failed to publish proaction update: {e}")
 

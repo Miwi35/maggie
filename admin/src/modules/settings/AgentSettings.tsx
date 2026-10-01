@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNotify } from 'react-admin'
+import { AGENT_STREAMS, agentTopic, getStoredUserId } from '../../hooks/agentTopics'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
@@ -150,14 +151,13 @@ export const AgentSettings = () => {
 
   // Mercure subscriptions for live updates
   useEffect(() => {
-    const userStr = localStorage.getItem('user')
-    const userId = userStr ? JSON.parse(userStr).id : null
+    const userId = getStoredUserId()
     if (!userId) return
 
     const url = new URL(MERCURE_URL, window.location.origin)
-    url.searchParams.append('topic', `/proactions/${userId}`)
-    url.searchParams.append('topic', `/instructions/${userId}`)
-    url.searchParams.append('topic', `/skills/${userId}`)
+    url.searchParams.append('topic', agentTopic(AGENT_STREAMS.proactions, userId))
+    url.searchParams.append('topic', agentTopic(AGENT_STREAMS.instructions, userId))
+    url.searchParams.append('topic', agentTopic(AGENT_STREAMS.skills, userId))
     const eventSource = new EventSource(url.toString(), { withCredentials: true })
 
     eventSource.onmessage = (event) => {

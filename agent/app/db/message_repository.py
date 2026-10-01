@@ -5,6 +5,7 @@ from sqlalchemy import select, text
 from app.db.agent_engine import agent_engine, agent_session
 from app.db.models import Message
 from app.db.proaction_model import AgentBase
+from app.mercure import topics
 from app.mercure.publisher import MercurePublisher
 
 logger = logging.getLogger(__name__)
@@ -14,7 +15,7 @@ class MessageRepository:
     """Async message persistence using SQLAlchemy + asyncpg.
 
     Every created message is automatically published to Mercure
-    on topic /chat/{user_id} for real-time multi-device sync.
+    on the user's chat topic (app.mercure.topics) for real-time multi-device sync.
     """
 
     def __init__(self):
@@ -37,7 +38,7 @@ class MessageRepository:
         # Auto-publish to Mercure (skip for streaming flow where client already has the message)
         if publish:
             try:
-                await self.publisher.publish(f"/chat/{user_id}", msg.to_dict())
+                await self.publisher.publish(topics.for_user(topics.CHAT, user_id), msg.to_dict())
             except Exception as e:
                 logger.warning(f"Failed to publish message to Mercure: {e}")
 

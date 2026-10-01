@@ -3,7 +3,9 @@ package com.maggie.app.ui.screens.chat
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.AgUiEvent
 import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.data.repository.ChatPreferencesRepository
@@ -47,6 +49,7 @@ class ChatViewModel(
     private val repository: ChatRepository,
     private val mercureService: MercureService,
     private val chatPrefsRepository: ChatPreferencesRepository,
+    private val authRepository: AuthRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState
@@ -436,13 +439,8 @@ class ChatViewModel(
 
     private fun subscribeToChatUpdates() {
         viewModelScope.launch {
-            // MAG-138: "{userId}" is never substituted — MercureService
-            // passes the topic through — so this subscription has never
-            // delivered anything. Left as it is on purpose: the agent
-            // publishes /chat/{user_id} and the admin subscribes
-            // /agent/chat/${userId}, three spellings over two services, and
-            // the agent's notion of a user is not the API's.
-            mercureService.subscribe("/chat/{userId}")
+            val userId = authRepository.getUserId() ?: return@launch
+            mercureService.subscribe(MercureTopics.agentScoped(userId, MercureTopics.CHAT))
                 .catch { /* SSE connection errors — silently retry on next app resume */ }
                 .collect { event ->
                     try {
