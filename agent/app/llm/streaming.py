@@ -16,8 +16,9 @@ from app.db.message_repository import message_repo
 from app.llm.capabilities import generate_capability_summary
 from app.llm.client import create_llm_client, llm_configured
 from app.llm.context_summary import context_summarizer
-from app.llm.contexts import active_contexts_section, resolve_context
+from app.llm.contexts import active_contexts_section, route_message
 from app.llm.directives import behavior_directives_section
+from app.llm.history import build_history
 from app.llm.last_exchange import last_exchange_section
 from app.llm.prompt_cache import build_system, cache_tools
 from app.llm.tools import ToolRouter
@@ -48,7 +49,12 @@ class StreamingGateway:
         task.add_done_callback(self._background.discard)
 
     async def _build_system_prompt(
-        self, user_id: str, tools: list[dict] | None = None, *, exclude_message_id: str | None = None
+        self,
+        user_id: str,
+        tools: list[dict] | None = None,
+        *,
+        exclude_message_id: str | None = None,
+        current_context_id: str | None = None,
     ) -> list[dict]:
         """Build the system blocks: cached prefix (personality + skills), then memory, directives, contexts, date."""
         capabilities = generate_capability_summary(tools) if tools else ""
@@ -62,36 +68,15 @@ class StreamingGateway:
         directives = await behavior_directives_section(user_id)
 
         # Inject active contexts so Claude knows ongoing topics — with what each one is
-        # about, for the threads whose summary has been written (MAG-11).
-        context_section = await active_contexts_section(user_id)
+        # about, for the threads whose summary has been written (MAG-11), and with the
+        # current thread marked, since the history is made of its messages (MAG-13).
+        context_section = await active_contexts_section(user_id, current_context_id)
 
         # The silence before this message, so she can greet by the gap (MAG-10).
         last_exchange = await last_exchange_section(user_id, exclude_message_id=exclude_message_id)
 
         volatile = f"{memory_context}{directives}{context_section}\n\n{current_datetime_line()}{last_exchange}"
         return build_system(base + skill_context, volatile)
-
-    async def _load_conversation_history(self, user_id: str) -> list[dict]:
-        """Load conversation history from the database."""
-        try:
-            messages = await message_repo.find_recent(user_id, limit=settings.max_conversation_history)
-            anthropic_messages = []
-            for msg in messages:
-                if msg.role in ("user", "assistant") and msg.content:
-                    anthropic_messages.append({"role": msg.role, "content": msg.content})
-
-            # Merge consecutive same-role messages
-            merged = []
-            for msg in anthropic_messages:
-                if merged and merged[-1]["role"] == msg["role"]:
-                    merged[-1]["content"] += "\n" + msg["content"]
-                else:
-                    merged.append(msg)
-
-            return merged
-        except Exception as e:
-            logger.warning(f"Failed to load conversation history: {e}")
-            return []
 
     async def chat_stream(self, message: str, user_id: str, user_msg_id: str) -> AsyncGenerator[dict, None]:
         """Stream AG-UI events for a chat message.
@@ -114,23 +99,28 @@ class StreamingGateway:
             yield {"type": "RUN_FINISHED", "runId": run_id}
             return
 
-        # Load history (already includes the just-persisted user message)
-        messages = await self._load_conversation_history(user_id)
-
-        # Get tools (contexts are managed by the gateway, not by Claude)
-        tools = await self.tool_router.get_tool_definitions(include_native=True)
-
-        system_prompt = await self._build_system_prompt(user_id, tools=tools, exclude_message_id=user_msg_id)
-        cached_tools = cache_tools(tools)
-
-        accumulated_text = ""
-        max_iterations = 5
-
-        # Route message to existing or new context via fast classifier
+        # The thread first. Everything below is built around it — the history is its
+        # messages, and the system prompt names it — so routing afterwards, as this used to,
+        # meant the routing decided nothing at all (MAG-13).
         ctx_resolution = await self._resolve_context(message, user_id, user_msg_id)
         current_context_id = ctx_resolution.get("id") if ctx_resolution else None
         if ctx_resolution:
             yield {"type": "CUSTOM", "name": "context_update", "value": ctx_resolution}
+
+        # The thread's messages plus a short global window. The user's message is already
+        # persisted and, by now, tagged with the thread, so the history holds it.
+        messages = await build_history(user_id, context_id=current_context_id)
+
+        # Get tools (contexts are managed by the gateway, not by Claude)
+        tools = await self.tool_router.get_tool_definitions(include_native=True)
+
+        system_prompt = await self._build_system_prompt(
+            user_id, tools=tools, exclude_message_id=user_msg_id, current_context_id=current_context_id
+        )
+        cached_tools = cache_tools(tools)
+
+        accumulated_text = ""
+        max_iterations = 5
 
         # Single message ID across all iterations so the frontend sees one message bubble
         msg_id = uuid.uuid4().hex[:16]
@@ -323,21 +313,7 @@ class StreamingGateway:
     async def _resolve_context(self, message: str, user_id: str, user_msg_id: str) -> dict | None:
         """Route the user's message to an existing or new context, and tag the message with it.
 
-        The routing itself is `app.llm.contexts.resolve_context`, shared with the
-        proaction path (MAG-14). What belongs to this path is the tagging: the user's
-        message is already stored when the stream opens, so the thread it lands in is
-        written on it afterwards.
+        Both the routing and the tagging are `app.llm.contexts.route_message`, shared with
+        the plain chat path (MAG-13) and with the proactions (MAG-14).
         """
-        resolution = await resolve_context(self.client, message, user_id)
-        if resolution is None:
-            return None
-
-        # A tag that could not be written costs the thread one message — the summary
-        # reads `context_id` — but the context itself is resolved, and the answer about
-        # to stream will carry it. Not a reason to run the rest of the turn without one.
-        try:
-            await message_repo.update_context(user_msg_id, resolution["id"])
-        except Exception as e:
-            logger.warning(f"Could not tag message {user_msg_id} with its context: {e}")
-
-        return resolution
+        return await route_message(self.client, message, user_id, message_id=user_msg_id)

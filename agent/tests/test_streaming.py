@@ -170,15 +170,22 @@ class TestStreamingGateway:
             assert result["summary"] is None
 
 
-def _context(label: str, summary: str | None = None, status: ContextStatus = ContextStatus.ACTIVE) -> MagicMock:
+def _context(
+    label: str,
+    summary: str | None = None,
+    status: ContextStatus = ContextStatus.ACTIVE,
+    context_id: str = "ctx-1",
+) -> MagicMock:
     ctx = MagicMock()
+    ctx.id = context_id
     ctx.label = label
     ctx.summary = summary
     ctx.status = status
+    ctx.tool_calls_log = []
     return ctx
 
 
-async def _system_blocks(contexts: list) -> list[dict]:
+async def _system_blocks(contexts: list, current_context_id: str | None = None) -> list[dict]:
     """The system blocks the gateway would send, with everything but the contexts emptied."""
     with (
         patch("app.llm.contexts.context_repo") as repo,
@@ -192,7 +199,7 @@ async def _system_blocks(contexts: list) -> list[dict]:
         gw.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
         gw.agent_memory = MagicMock()
         gw.agent_memory.get_memory_context = AsyncMock(return_value="")
-        return await gw._build_system_prompt("user-1")
+        return await gw._build_system_prompt("user-1", current_context_id=current_context_id)
 
 
 class TestSystemPromptSummaries:
@@ -227,6 +234,18 @@ class TestSystemPromptSummaries:
         assert "Fil 6" in volatile  # the label of the oldest open thread is still there
         assert "Résumé du fil 4." in volatile
         assert "Résumé du fil 5." not in volatile
+
+    async def test_the_thread_the_history_came_from_is_named(self):
+        """The history is one thread's messages, so the prompt has to say which one (MAG-13)."""
+        contexts = [
+            _context("Courses", "Deux kilos de farine.", context_id="ctx-courses"),
+            _context("Budget", "Le mois tient.", context_id="ctx-budget"),
+        ]
+
+        volatile = (await _system_blocks(contexts, "ctx-budget"))[1]["text"]
+
+        assert "Budget (active) ← fil en cours" in volatile
+        assert "Courses (active) ←" not in volatile
 
 
 class TestSummaryTrigger:
@@ -265,12 +284,12 @@ class TestSummaryTrigger:
         with (
             patch("app.llm.contexts.context_repo") as contexts,
             patch("app.llm.streaming.message_repo") as messages,
+            patch("app.llm.streaming.build_history", AsyncMock(return_value=[{"role": "user", "content": "Il me faut de la farine"}])),
             patch("app.llm.streaming.skill_index") as skills,
             patch("app.llm.streaming.context_summarizer") as summarizer,
         ):
             contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""
-            messages.find_recent = AsyncMock(return_value=[])
             messages.create = AsyncMock()
             summarizer.maybe_summarize = never_finishes
 
@@ -290,12 +309,12 @@ class TestSummaryTrigger:
         with (
             patch("app.llm.contexts.context_repo") as contexts,
             patch("app.llm.streaming.message_repo") as messages,
+            patch("app.llm.streaming.build_history", AsyncMock(return_value=[{"role": "user", "content": "Il me faut de la farine"}])),
             patch("app.llm.streaming.skill_index") as skills,
             patch("app.llm.streaming.context_summarizer") as summarizer,
         ):
             contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""
-            messages.find_recent = AsyncMock(return_value=[])
             messages.create = AsyncMock()
             summarizer.maybe_summarize = AsyncMock(return_value=None)
 
@@ -306,16 +325,76 @@ class TestSummaryTrigger:
 
             summarizer.maybe_summarize.assert_awaited_once_with("ctx-1")
 
-    async def test_a_run_with_no_context_summarizes_nothing(self):
+    async def test_the_thread_is_routed_before_the_history_is_loaded(self):
+        """The whole point of MAG-13: a routing that happens afterwards decides nothing."""
+        calls: list[str] = []
+
+        async def route(*_args, **_kwargs):
+            calls.append("route")
+            return {"action": "matched", "id": "ctx-1", "label": "Courses", "status": "active", "summary": None}
+
+        async def history(_user_id, *, context_id=None, pending_message=None):
+            calls.append(f"history:{context_id}")
+            return [{"role": "user", "content": "Il me faut de la farine"}]
+
         with (
             patch("app.llm.contexts.context_repo") as contexts,
             patch("app.llm.streaming.message_repo") as messages,
+            patch("app.llm.streaming.build_history", history),
             patch("app.llm.streaming.skill_index") as skills,
             patch("app.llm.streaming.context_summarizer") as summarizer,
         ):
             contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""
-            messages.find_recent = AsyncMock(return_value=[])
+            messages.create = AsyncMock()
+            summarizer.maybe_summarize = AsyncMock(return_value=None)
+
+            gw = self._gateway()
+            gw._resolve_context = route
+            async for _ in gw.chat_stream("Il me faut de la farine", "user-1", "msg-1"):
+                pass
+            await asyncio.gather(*gw._background)
+
+        # And the history was built for the thread the routing had just resolved, which is
+        # the only reason the order matters.
+        assert calls == ["route", "history:ctx-1"]
+
+    async def test_a_routing_failure_still_answers_from_the_global_window(self):
+        seen: list[str | None] = []
+
+        async def history(_user_id, *, context_id=None, pending_message=None):
+            seen.append(context_id)
+            return [{"role": "user", "content": "Il me faut de la farine"}]
+
+        with (
+            patch("app.llm.contexts.context_repo") as contexts,
+            patch("app.llm.streaming.message_repo") as messages,
+            patch("app.llm.streaming.build_history", history),
+            patch("app.llm.streaming.skill_index") as skills,
+            patch("app.llm.streaming.context_summarizer") as summarizer,
+        ):
+            contexts.find_active = AsyncMock(return_value=[])
+            skills.get_skills_index.return_value = ""
+            messages.create = AsyncMock()
+            summarizer.maybe_summarize = AsyncMock(return_value=None)
+
+            gw = self._gateway()
+            gw._resolve_context = AsyncMock(return_value=None)
+            events = [event async for event in gw.chat_stream("Il me faut de la farine", "user-1", "msg-1")]
+
+        assert seen == [None]
+        assert events[-1]["type"] == "RUN_FINISHED"
+
+    async def test_a_run_with_no_context_summarizes_nothing(self):
+        with (
+            patch("app.llm.contexts.context_repo") as contexts,
+            patch("app.llm.streaming.message_repo") as messages,
+            patch("app.llm.streaming.build_history", AsyncMock(return_value=[{"role": "user", "content": "Il me faut de la farine"}])),
+            patch("app.llm.streaming.skill_index") as skills,
+            patch("app.llm.streaming.context_summarizer") as summarizer,
+        ):
+            contexts.find_active = AsyncMock(return_value=[])
+            skills.get_skills_index.return_value = ""
             messages.create = AsyncMock()
             summarizer.maybe_summarize = AsyncMock(return_value=None)
 

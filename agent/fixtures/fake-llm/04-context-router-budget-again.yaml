@@ -1,0 +1,25 @@
+# The context router, when a message goes back to a thread that is *not* the most recent
+# one (MAG-13).
+#
+# 10-context-router-existing.yaml answers with the first id it is shown, which is the
+# thread last spoken in — so every message joins the conversation in progress and no
+# journey can come back to an older thread. This file does: it captures the id of the
+# « Budget e2e » thread out of the list the router is handed, whatever its position in it.
+#
+# Numbered 04, below 05-context-router-new-topic.yaml: that one matches any router call
+# whose message mentions « finances » and would otherwise open a third context. The
+# message here deliberately avoids the word for the same reason on the chat side, where
+# 70-budget-question.yaml claims it.
+#
+# Its pair is 72-thread-history-recall.yaml, which answers the same message once the
+# router has placed it — and can only answer if the thread's own messages were loaded.
+name: context-router-budget-again
+description: Route a message back into the « Budget e2e » thread, whatever its rank.
+
+match:
+  system_contains: "routeur de contexte"
+  user_contains: "reprends le fil de mon budget"
+  user_matches: 'id="([0-9a-f]{32})" label="Budget e2e"'
+
+turns:
+  - text: '{"context_id": "\1"}'

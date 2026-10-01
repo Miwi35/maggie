@@ -117,21 +117,25 @@ class Scenario:
     user_contains: tuple[str, ...] = ()
     user_matches: str | None = None
     system_contains: tuple[str, ...] = ()
+    history_contains: tuple[str, ...] = ()
     is_default: bool = False
     source: str = ""
 
-    def matches(self, user_text: str, system_text: str) -> bool:
+    def matches(self, user_text: str, system_text: str, history: str = "") -> bool:
         """Every declared condition has to hold. A scenario declaring none matches nothing."""
         if self.is_default:
             return True
-        conditions = bool(self.user_contains or self.user_matches or self.system_contains)
+        conditions = bool(self.user_contains or self.user_matches or self.system_contains or self.history_contains)
         if not conditions:
             return False
         lowered_user = user_text.lower()
         lowered_system = system_text.lower()
+        lowered_history = history.lower()
         if any(needle.lower() not in lowered_user for needle in self.user_contains):
             return False
         if self.user_matches and not re.search(self.user_matches, user_text, re.IGNORECASE):
+            return False
+        if any(needle.lower() not in lowered_history for needle in self.history_contains):
             return False
         return all(needle.lower() in lowered_system for needle in self.system_contains)
 
@@ -230,6 +234,7 @@ def parse_scenario(raw: Any, source: str) -> Scenario:
         user_contains=_as_tuple(match.get("user_contains")),
         user_matches=str(user_matches) if user_matches is not None else None,
         system_contains=_as_tuple(match.get("system_contains")),
+        history_contains=_as_tuple(match.get("history_contains")),
         is_default=bool(raw.get("default")),
         source=source,
     )
@@ -295,10 +300,10 @@ class ScenarioLibrary:
         if contents != self._contents:
             self._load_from(contents)
 
-    def resolve(self, user_text: str, system_text: str) -> Scenario | None:
+    def resolve(self, user_text: str, system_text: str, history: str = "") -> Scenario | None:
         self.ensure_loaded()
         for scenario in self.scenarios:
-            if scenario.matches(user_text, system_text):
+            if scenario.matches(user_text, system_text, history):
                 return scenario
         return None
 
@@ -332,6 +337,25 @@ def last_user_text(messages: list[dict] | None) -> str:
         if isinstance(content, str):
             return content
     return ""
+
+
+def history_text(messages: list[dict] | None) -> str:
+    """The conversation sent, *minus* the message being answered, as one string.
+
+    What a journey cannot see from a browser is what the history held — exactly like the
+    system prompt, which is why `system_contains` exists. This is the same handle for the
+    messages array (MAG-13): a scenario declaring `history_contains` is unreachable unless
+    the thread's own messages really were loaded.
+
+    The last entry is left out on purpose. It is the message being answered, which
+    `user_contains` already covers, and including it would let a scenario "prove" that the
+    history carried a sentence the user had just typed.
+    """
+    parts = []
+    for message in (messages or [])[:-1]:
+        content = message.get("content")
+        parts.append(content if isinstance(content, str) else str(content))
+    return "\n".join(parts)
 
 
 def turn_index(messages: list[dict] | None) -> int:
@@ -447,7 +471,7 @@ class FakeMessages:
         prompt = system_text(system)
         index = turn_index(messages)
 
-        scenario = self._library.resolve(user_text, prompt)
+        scenario = self._library.resolve(user_text, prompt, history_text(messages))
         if scenario is None:
             logger.error(f"[fake-llm] no scenario for {user_text!r} — add one under {self._library.directory}")
             turn = Turn(text=no_scenario_message(user_text))

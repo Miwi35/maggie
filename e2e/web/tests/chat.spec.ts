@@ -497,6 +497,12 @@ const LAST_EXCHANGE = {
   answer: 'Rebonjour ! On a parlé il y a quelques instants, je te laisse reprendre le fil.',
 }
 
+/** 04 + 72-thread-history-recall.yaml — picking an older thread back up. */
+const THREAD_RECALL = {
+  question: 'Reprends le fil de mon budget, s\'il te plaît',
+  answer: "On parlait de ton budget du mois — je reprends le fil là où on s'était arrêtés.",
+}
+
 /**
  * MAG-10: the hour to the minute and the last conversation reach her system prompt.
  *
@@ -521,4 +527,46 @@ test('Maggie is told when the last conversation happened', async ({ page }) => {
   ).toBe(false)
   expect(answer).toContain(LAST_EXCHANGE.answer)
   await expect(chat.bubbles(LAST_EXCHANGE.answer)).toHaveCount(1)
+})
+
+/**
+ * MAG-13: the history is the routed thread's own messages, not the last messages of
+ * everything.
+ *
+ * Last in the file, and it needs every test above it. « Budget e2e » was opened five tests
+ * ago by the change of subject and has not been spoken in since; every message after it
+ * joined « Conversation e2e ». So the Budget thread is *old*, and the stack runs with
+ * `RECENT_HISTORY_MESSAGES=2` — the global window holds the previous exchange and nothing
+ * else.
+ *
+ * The proof is a scenario that cannot match otherwise: 72-thread-history-recall.yaml
+ * declares « où en est mon budget » — a sentence said only in the Budget thread — as its
+ * `history_contains`. Verified load-bearing: with `CONTEXT_HISTORY_MESSAGES=0`, so that
+ * only the global window is sent, this is the one test in the file that goes red, and it
+ * goes red on `[fake-llm] aucun scénario…`, which names its own cause. Raise
+ * `RECENT_HISTORY_MESSAGES` past that exchange and it would pass for the wrong reason.
+ */
+test('picking an older thread back up sends that thread, not the last messages of everything', async ({
+  page,
+}) => {
+  const dashboard = new DashboardPage(page)
+  await dashboard.open()
+
+  const chat = new ChatPanel(page)
+  const events = await chat.send(THREAD_RECALL.question)
+
+  const answer = assistantText(events)
+  expect(
+    isUnscripted(answer),
+    `the thread's own messages never reached the history — Maggie said: ${answer}`,
+  ).toBe(false)
+  expect(answer).toContain(THREAD_RECALL.answer)
+
+  // And it went back into the Budget thread rather than opening a third one. `matched` on
+  // its label is the half that says the routing ran first: the history above could only be
+  // built from a thread that was already resolved.
+  expect(contextAction(events)).toBe('matched')
+  expect(contextLabel(events)).toBe('Budget e2e')
+
+  await expect(chat.bubbles(THREAD_RECALL.answer)).toHaveCount(1)
 })

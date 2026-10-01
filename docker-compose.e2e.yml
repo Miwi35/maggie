@@ -454,6 +454,12 @@ services:
       # Four instead of the default ten, so two exchanges are enough to summarize a
       # thread and a journey can assert on the summary without sending five (MAG-11).
       CONTEXT_SUMMARY_EVERY_MESSAGES: "4"
+      # Two instead of the default eight, so the global window of the history holds the
+      # previous exchange and nothing more (MAG-13). That is what makes
+      # 72-thread-history-recall.yaml a proof: a sentence from an older thread can only be
+      # in the history because that thread's own messages were loaded. Raise it and the
+      # journey still passes for the wrong reason.
+      RECENT_HISTORY_MESSAGES: "2"
     depends_on:
       database:
         condition: service_healthy

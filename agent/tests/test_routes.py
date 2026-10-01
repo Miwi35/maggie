@@ -45,6 +45,48 @@ class TestRoutes:
         assert "not configured" in data["response"].lower()
         assert data["tool_calls"] == []
 
+    @patch("app.api.routes.context_summarizer")
+    @patch("app.api.routes.message_repo")
+    @patch("app.api.routes.llm_gateway")
+    def test_chat_stores_the_answer_in_the_routed_thread(
+        self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client
+    ):
+        """Before MAG-13 both halves of this exchange lived outside every thread."""
+        mock_gateway.chat = AsyncMock(
+            return_value={"response": "C'est noté.", "tool_calls": [], "context_id": "ctx-1"}
+        )
+        stored = Message(id="msg-1", user_id="test-user", role="user", content="Hello")
+        mock_msg_repo.create = AsyncMock(return_value=stored)
+        mock_summarizer.maybe_summarize = AsyncMock(return_value=None)
+
+        response = authed_client.post("/chat", json={"message": "Il me faut de la farine"})
+
+        assert response.status_code == 200
+        mock_msg_repo.create.assert_awaited_with(
+            user_id="test-user", role="assistant", content="C'est noté.", context_id="ctx-1"
+        )
+        # And the thread is re-summarized, so the reply to it is routed against a summary
+        # that knows about this exchange — what `POST /agent/proaction` already does.
+        mock_summarizer.maybe_summarize.assert_awaited_once_with("ctx-1")
+
+    @patch("app.api.routes.context_summarizer")
+    @patch("app.api.routes.message_repo")
+    @patch("app.api.routes.llm_gateway")
+    def test_chat_without_a_thread_summarizes_nothing(
+        self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client
+    ):
+        mock_gateway.chat = AsyncMock(return_value={"response": "C'est noté.", "tool_calls": []})
+        stored = Message(id="msg-1", user_id="test-user", role="user", content="Hello")
+        mock_msg_repo.create = AsyncMock(return_value=stored)
+        mock_summarizer.maybe_summarize = AsyncMock()
+
+        assert authed_client.post("/chat", json={"message": "Bonjour"}).status_code == 200
+
+        mock_msg_repo.create.assert_awaited_with(
+            user_id="test-user", role="assistant", content="C'est noté.", context_id=None
+        )
+        mock_summarizer.maybe_summarize.assert_not_awaited()
+
     def test_proactions_endpoint_requires_auth(self, client):
         """GET /proactions without auth returns 401."""
         response = client.get("/proactions")

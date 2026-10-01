@@ -64,7 +64,13 @@ class Settings(BaseSettings):
     # Agent
     agent_name: str = "Maggie"
     agent_base_url: str = "http://maggie.local/agent"
-    max_conversation_history: int = 50
+    # What the model is sent of the conversation (MAG-13). Two windows, because they
+    # answer two different needs: the thread the current message was routed into is the
+    # conversation itself, and the short global window is there so a reference to what was
+    # just said in a neighbouring thread is not lost. The other open threads reach the
+    # model as their summary, in the system prompt, never as raw messages.
+    context_history_messages: int = 40
+    recent_history_messages: int = 8
     # How many messages a conversation context has to gain before its summary is
     # rewritten (MAG-11). Low enough that a thread is summarized within a sitting,
     # high enough that a Haiku call is not made on every other message.

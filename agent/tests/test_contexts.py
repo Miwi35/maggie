@@ -12,14 +12,22 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.db.context_model import ContextStatus
-from app.llm.contexts import active_contexts_section, resolve_context
+from app.llm.contexts import active_contexts_section, resolve_context, route_message
 
 
-def _context(label: str, summary: str | None = None, status: ContextStatus = ContextStatus.ACTIVE) -> MagicMock:
+def _context(
+    label: str,
+    summary: str | None = None,
+    status: ContextStatus = ContextStatus.ACTIVE,
+    context_id: str = "ctx-1",
+    tool_calls_log: list | None = None,
+) -> MagicMock:
     ctx = MagicMock()
+    ctx.id = context_id
     ctx.label = label
     ctx.summary = summary
     ctx.status = status
+    ctx.tool_calls_log = tool_calls_log
     return ctx
 
 
@@ -50,6 +58,172 @@ class TestActiveContextsSection:
             repo.find_active = AsyncMock(side_effect=RuntimeError("boom"))
 
             assert await active_contexts_section("user-1") == ""
+
+
+class TestTheCurrentThreadIsNamed:
+    """The history is made of one thread's messages, so the prompt has to say which (MAG-13)."""
+
+    async def test_it_is_marked_among_the_others(self):
+        threads = [_context("Courses", context_id="ctx-courses"), _context("Budget", context_id="ctx-budget")]
+        with patch("app.llm.contexts.context_repo") as repo:
+            repo.find_active = AsyncMock(return_value=threads)
+
+            section = await active_contexts_section("user-1", "ctx-budget")
+
+        assert "Budget (active) ← fil en cours" in section
+        assert "Courses (active)\n" in section or section.endswith("Courses (active)")
+
+    async def test_no_current_thread_marks_nothing(self):
+        with patch("app.llm.contexts.context_repo") as repo:
+            repo.find_active = AsyncMock(return_value=[_context("Courses")])
+
+            assert "fil en cours" not in await active_contexts_section("user-1")
+
+    async def test_the_current_thread_carries_its_summary_whatever_its_rank(self):
+        """Its summary covers the part of the thread the history window no longer reaches."""
+        threads = [_context(f"Fil {rank}", f"Résumé {rank}.", context_id=f"ctx-{rank}") for rank in range(7)]
+        with patch("app.llm.contexts.context_repo") as repo:
+            repo.find_active = AsyncMock(return_value=threads)
+
+            section = await active_contexts_section("user-1", "ctx-6")
+
+        assert "Résumé 6." in section
+        # And the cap still holds for the others: only the first five carry one.
+        assert "Résumé 5." not in section
+
+    async def test_the_tool_calls_of_the_current_thread_are_recalled(self):
+        """The one trace of what Maggie already did in the thread that survives a turn."""
+        log = [
+            {"name": "get_grocery_list", "status": "success", "timestamp": "2026-10-01T09:00:00+00:00"},
+            {"name": "add_grocery_item", "status": "error", "timestamp": "2026-10-01T09:01:00+00:00"},
+        ]
+        with patch("app.llm.contexts.context_repo") as repo:
+            repo.find_active = AsyncMock(return_value=[_context("Courses", tool_calls_log=log)])
+
+            section = await active_contexts_section("user-1", "ctx-1")
+
+        assert "Outils déjà appelés dans ce fil : get_grocery_list (success), add_grocery_item (error)" in section
+
+    async def test_only_the_last_five_are_recalled(self):
+        log = [{"name": f"tool_{rank}", "status": "success"} for rank in range(8)]
+        with patch("app.llm.contexts.context_repo") as repo:
+            repo.find_active = AsyncMock(return_value=[_context("Courses", tool_calls_log=log)])
+
+            section = await active_contexts_section("user-1", "ctx-1")
+
+        assert "tool_7 (success)" in section
+        assert "tool_2 (success)" not in section
+
+    async def test_a_thread_that_called_nothing_says_nothing(self):
+        with patch("app.llm.contexts.context_repo") as repo:
+            repo.find_active = AsyncMock(return_value=[_context("Courses", tool_calls_log=[])])
+
+            assert "Outils déjà appelés" not in await active_contexts_section("user-1", "ctx-1")
+
+    async def test_a_malformed_log_entry_is_skipped(self):
+        """The log is JSONB written by past versions of the code: it is not trusted to be well shaped."""
+        log = ["pas un objet", {"status": "success"}, {"name": "get_grocery_list"}]
+        with patch("app.llm.contexts.context_repo") as repo:
+            repo.find_active = AsyncMock(return_value=[_context("Courses", tool_calls_log=log)])
+
+            section = await active_contexts_section("user-1", "ctx-1")
+
+        assert "Outils déjà appelés dans ce fil : get_grocery_list (inconnu)" in section
+
+    async def test_the_other_threads_keep_their_tool_calls_to_themselves(self):
+        log = [{"name": "get_budget", "status": "success"}]
+        threads = [_context("Budget", context_id="ctx-budget", tool_calls_log=log)]
+        with patch("app.llm.contexts.context_repo") as repo:
+            repo.find_active = AsyncMock(return_value=threads)
+
+            assert "get_budget" not in await active_contexts_section("user-1", "ctx-courses")
+
+
+class TestRouteMessage:
+    """Routing plus the tagging of the message it came from, shared by both chat paths (MAG-13)."""
+
+    @staticmethod
+    def _client(answer: str) -> MagicMock:
+        response = MagicMock()
+        response.content = [MagicMock(text=answer)]
+        response.usage.input_tokens = 30
+        response.usage.output_tokens = 10
+        client = MagicMock()
+        client.messages.create = AsyncMock(return_value=response)
+        return client
+
+    async def test_it_writes_the_resolved_thread_on_the_message(self):
+        created = MagicMock()
+        created.id = "ctx-new"
+        with (
+            patch("app.llm.contexts.context_repo") as contexts,
+            patch("app.llm.contexts.message_repo") as messages,
+        ):
+            contexts.find_active = AsyncMock(return_value=[])
+            contexts.create = AsyncMock(return_value=created)
+            messages.update_context = AsyncMock()
+
+            resolution = await route_message(
+                self._client('{"context_id": null, "label": "Budget"}'),
+                "Où en est mon budget ?",
+                "user-1",
+                message_id="msg-1",
+            )
+
+        assert resolution["id"] == "ctx-new"
+        messages.update_context.assert_awaited_once_with("msg-1", "ctx-new")
+
+    async def test_a_tag_that_could_not_be_written_still_gives_the_thread(self):
+        """The turn about to run carries the thread; losing the tag costs the summary one message."""
+        created = MagicMock()
+        created.id = "ctx-new"
+        with (
+            patch("app.llm.contexts.context_repo") as contexts,
+            patch("app.llm.contexts.message_repo") as messages,
+        ):
+            contexts.find_active = AsyncMock(return_value=[])
+            contexts.create = AsyncMock(return_value=created)
+            messages.update_context = AsyncMock(side_effect=RuntimeError("no database"))
+
+            resolution = await route_message(
+                self._client('{"context_id": null, "label": "Budget"}'),
+                "Où en est mon budget ?",
+                "user-1",
+                message_id="msg-1",
+            )
+
+        assert resolution["id"] == "ctx-new"
+
+    async def test_nothing_is_tagged_when_the_routing_failed(self):
+        with (
+            patch("app.llm.contexts.context_repo") as contexts,
+            patch("app.llm.contexts.message_repo") as messages,
+        ):
+            contexts.find_active = AsyncMock(side_effect=RuntimeError("no database"))
+            messages.update_context = AsyncMock()
+
+            assert await route_message(self._client("{}"), "Bonjour", "user-1", message_id="msg-1") is None
+
+        messages.update_context.assert_not_called()
+
+    async def test_a_caller_with_no_stored_message_just_routes(self):
+        """The A2A path stores nothing, and a proaction routes what Maggie is about to send (MAG-14)."""
+        created = MagicMock()
+        created.id = "ctx-new"
+        with (
+            patch("app.llm.contexts.context_repo") as contexts,
+            patch("app.llm.contexts.message_repo") as messages,
+        ):
+            contexts.find_active = AsyncMock(return_value=[])
+            contexts.create = AsyncMock(return_value=created)
+            messages.update_context = AsyncMock()
+
+            resolution = await route_message(
+                self._client('{"context_id": null, "label": "Budget"}'), "Où en est mon budget ?", "user-1"
+            )
+
+        assert resolution["id"] == "ctx-new"
+        messages.update_context.assert_not_called()
 
 
 class TestResolveContext:

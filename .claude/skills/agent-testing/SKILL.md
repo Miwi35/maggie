@@ -32,7 +32,7 @@ gateway or `create_llm_client()` means checking those fixtures still drive them:
 ```
 agent/tests/
   conftest.py          # shared fixtures
-  test_conversation_memory.py
+  test_history.py
   test_mcp_client.py
   test_routes.py
 ```

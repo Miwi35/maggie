@@ -2,9 +2,8 @@
 
 A context used to hold a label and a log of tool calls, so the only memory of a thread
 was its raw messages — and the model never sees more than the last
-`max_conversation_history` of them, every thread mixed together. Past that line a
-conversation simply stopped existing, and a thread Maggie was not currently in
-contributed nothing at all.
+`context_history_messages` of them. Past that line a conversation simply stopped existing,
+and a thread Maggie is not currently in contributes nothing but this summary (MAG-13).
 
 This module writes the summary that survives both. It is deliberately all best-effort:
 it runs *after* the answer the user was waiting for has been sent, so there is nobody to

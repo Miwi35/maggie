@@ -79,7 +79,16 @@ async def chat(request: ChatRequest, user_id: str = Depends(get_current_user_id)
 
     result = await llm_gateway.chat(request.message, user_id, exclude_message_id=user_msg.id)
 
-    assistant_msg = await message_repo.create(user_id=user_id, role="assistant", content=result["response"])
+    # Both halves in the thread the question was routed into (MAG-13), and the thread
+    # re-summarized — the same two sinks as `POST /agent/proaction` below. Before this,
+    # nothing on this path was ever tagged: the exchange existed outside every thread, so
+    # the Mind panel never saw it and no summary could be written from it.
+    context_id = result.get("context_id")
+    assistant_msg = await message_repo.create(
+        user_id=user_id, role="assistant", content=result["response"], context_id=context_id
+    )
+    if context_id:
+        await context_summarizer.maybe_summarize(context_id)
 
     return ChatResponse(
         response=result["response"],
