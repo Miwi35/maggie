@@ -460,11 +460,13 @@ jobs:
         run: |
           docker run --rm -v "$PWD":/mnt -w /mnt koalaman/shellcheck:stable -x --severity=warning \
             infra/scripts/*.sh infra/scripts/tests/*.sh scripts/agent-guard/*.sh
-      - name: Test the smoke suite, the rollback, the incident ticket and the agent guard rails
+      - name: Test the smoke suite, the rollback, the failed-deploy report and the agent guard rails
         run: |
           bash infra/scripts/tests/smoke-prod.test.sh
           bash infra/scripts/tests/rollback-k3s.test.sh
-          bash infra/scripts/tests/open-incident.test.sh
+          bash infra/scripts/tests/deploy-tickets.test.sh
+          bash infra/scripts/tests/report-failed-deploy.test.sh
+          bash infra/scripts/tests/release-emergency.test.sh
           bash infra/scripts/tests/verify-digests.test.sh
           bash infra/scripts/tests/agent-guard.test.sh
           bash infra/scripts/tests/agent-guard-streak.test.sh

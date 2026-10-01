@@ -341,18 +341,68 @@ jobs:
         run: ssh vps 'rm -f /opt/maggie/state/pre-deploy-revisions' || echo "::warning::could not drop the rollback record"
 
   # ===========================================================================
-  # Roll back, then alert, when the deploy or the smoke suite failed
+  # A green release lifts the freeze (MAG-184)
+  #
+  # A ticket of the range still in « Emergency » has had its fix deployed green:
+  # it goes to Recette, or Done for a Task. The GitHub integration usually did
+  # it on merge already; this is the net, since a ticket left in « Emergency »
+  # holds every PR.
   # ===========================================================================
-  rollback:
-    name: Roll back production
+  lift-freeze:
+    name: Lift the freeze
     runs-on: ubuntu-latest
-    needs: [deploy, smoke]
-    if: always() && (needs.deploy.result == 'failure' || needs.smoke.result == 'failure')
+    needs: smoke
+    if: needs.smoke.result == 'success'
     permissions:
       contents: read
       actions: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Take the shipped tickets out of « Emergency »
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          # The same range as the `changes` job: since the last green CD run.
+          base=$(gh api "repos/$GH_REPO/actions/workflows/cd.yml/runs?status=success&per_page=1" \
+            --jq '.workflow_runs[0].head_sha' 2>/dev/null || true)
+          # Never turns a green release red: the run's success is what the next
+          # deploy counts its range from.
+          DEPLOY_TICKETS=$(bash infra/scripts/deploy-tickets.sh "$SHA" "$base") bash infra/scripts/release-emergency.sh \
+            || echo "::warning::could not take the shipped tickets out of « Emergency »: move them by hand"
+
+  # ===========================================================================
+  # Roll back, then report, when a build, the deploy or the smoke suite failed
+  #
+  # A failed build never reached the cluster: nothing is rolled back, but the
+  # release is broken all the same, so it is reported like the others (MAG-184).
+  # ===========================================================================
+  rollback:
+    name: Roll back and report
+    runs-on: ubuntu-latest
+    needs: [build-php, build-nginx, build-agent, build-ciqual, deploy, smoke]
+    if: >-
+      always() &&
+      (needs.build-php.result == 'failure' ||
+       needs.build-nginx.result == 'failure' ||
+       needs.build-agent.result == 'failure' ||
+       needs.build-ciqual.result == 'failure' ||
+       needs.deploy.result == 'failure' ||
+       needs.smoke.result == 'failure')
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Configure SSH to the VPS
         env:
@@ -368,6 +418,8 @@ jobs:
 
       # Restores only the deployments this deploy moved, to the revision
       # deploy-k3s.sh recorded. Nothing recorded means nothing was applied.
+      # A failed build skips the deploy: no script started, no smoke, so this
+      # step is skipped too and the cluster is left alone.
       - name: Roll back with kubectl rollout undo
         id: rollback
         if: needs.deploy.outputs.script_started == 'true' || needs.smoke.result == 'failure'
@@ -375,10 +427,12 @@ jobs:
           set -o pipefail
           ssh vps bash /opt/maggie/infra/scripts/rollback-k3s.sh 2>&1 | tee "$RUNNER_TEMP/rollback.log"
 
-      # GitHub issues are disabled on this repository: the incident lives in
-      # Linear (MAG-146). The summary below is the trace that survives even when
-      # the Linear call fails.
-      - name: Open an incident ticket in Linear
+      # GitHub issues are disabled on this repository: Linear carries it
+      # (MAG-146). The shipped tickets move to « Emergency », which freezes
+      # production; an incident ticket is opened when they cannot carry it or the
+      # rollback failed (MAG-184). The summary below is the trace that survives
+      # even when the Linear calls fail.
+      - name: Report the failed deploy in Linear
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
@@ -387,23 +441,46 @@ jobs:
           SHA: ${{ github.event.workflow_run.head_sha }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           RUN_ID: ${{ github.run_id }}
+          BUILD_PHP_RESULT: ${{ needs.build-php.result }}
+          BUILD_NGINX_RESULT: ${{ needs.build-nginx.result }}
+          BUILD_AGENT_RESULT: ${{ needs.build-agent.result }}
+          BUILD_CIQUAL_RESULT: ${{ needs.build-ciqual.result }}
           DEPLOY_RESULT: ${{ needs.deploy.result }}
           SMOKE_RESULT: ${{ needs.smoke.result }}
           ROLLBACK_OUTCOME: ${{ steps.rollback.outcome }}
           SCRIPT_STARTED: ${{ needs.deploy.outputs.script_started }}
         run: |
-          if [ "$DEPLOY_RESULT" = "failure" ]; then
-            cause="the deploy itself failed"
-          else
-            cause="the post-deploy smoke suite failed"
-          fi
+          build_failed=false
+          for result in "$BUILD_PHP_RESULT" "$BUILD_NGINX_RESULT" "$BUILD_AGENT_RESULT" "$BUILD_CIQUAL_RESULT"; do
+            if [ "$result" = "failure" ]; then build_failed=true; fi
+          done
 
-          if [ "$ROLLBACK_OUTCOME" = "success" ]; then
-            state="Production was rolled back to the previous release."
-          elif [ "$ROLLBACK_OUTCOME" = "skipped" ] && [ "$SCRIPT_STARTED" != "true" ] && [ "$SMOKE_RESULT" != "failure" ]; then
-            state="The deploy failed before its script started: the cluster was not touched, nothing to roll back."
+          rollback_failed=false
+          if [ "$build_failed" = "true" ]; then
+            cause="the image build failed"
+            cause_fr="le build d'une image a échoué"
+            state="The image build failed before the deploy: the cluster was not touched, nothing to roll back."
+            state_fr="Le build a échoué avant le déploiement : le cluster n'a pas été touché, rien à remettre en arrière."
           else
-            state="**The rollback itself failed: production may be running the broken release. Act now.**"
+            if [ "$DEPLOY_RESULT" = "failure" ]; then
+              cause="the deploy itself failed"
+              cause_fr="le déploiement lui-même a échoué"
+            else
+              cause="the post-deploy smoke suite failed"
+              cause_fr="la suite de smoke après déploiement a échoué"
+            fi
+
+            if [ "$ROLLBACK_OUTCOME" = "success" ]; then
+              state="Production was rolled back to the previous release."
+              state_fr="La prod a été remise sur la version précédente."
+            elif [ "$ROLLBACK_OUTCOME" = "skipped" ] && [ "$SCRIPT_STARTED" != "true" ] && [ "$SMOKE_RESULT" != "failure" ]; then
+              state="The deploy failed before its script started: the cluster was not touched, nothing to roll back."
+              state_fr="Le déploiement a échoué avant son script : le cluster n'a pas été touché, rien à remettre en arrière."
+            else
+              rollback_failed=true
+              state="**The rollback itself failed: production may be running the broken release. Act now.**"
+              state_fr="**Le rollback lui-même a échoué : la prod tourne peut-être sur la version cassée.**"
+            fi
           fi
 
           # shellcheck disable=SC2016 # `$job` is a jq variable, not a shell one
@@ -411,10 +488,19 @@ jobs:
             --jq '[.jobs[] | .name as $job | .steps[] | select(.conclusion == "failure") | "\($job) › \(.name)"] | join(", ")' 2>/dev/null || true)
           restored=$(grep -E ': revision [0-9]+ → back to [0-9]+' "$RUNNER_TEMP/rollback.log" 2>/dev/null | sed 's/^==> /- /' || true)
 
-          body=$(printf '%s\n\n- Commit: %s\n- Run: %s\n- Failed step: %s\n- Deploy: %s, smoke: %s\n- Revisions restored:\n%s\n\nMigrations, Elasticsearch mappings, the ConfigMap and the Secret are not reverted by the rollback; the pre-deploy database dump is in /opt/maggie/backups on the VPS.\n' \
-            "$state" "$SHA" "$RUN_URL" "${failed_step:-unknown}" "$DEPLOY_RESULT" "$SMOKE_RESULT" "${restored:-none}")
+          # The tickets shipped since the last green CD run, as the `changes` job counts them.
+          base=$(gh api "repos/$GH_REPO/actions/workflows/cd.yml/runs?status=success&per_page=1" \
+            --jq '.workflow_runs[0].head_sha' 2>/dev/null || true)
+          tickets=$(bash infra/scripts/deploy-tickets.sh "$SHA" "$base" || true)
 
-          printf '## Production incident: %s for %s\n\n%s\n' "$cause" "${SHA:0:7}" "$body" >> "$GITHUB_STEP_SUMMARY"
+          body=$(printf '%s\n\n- Commit: %s\n- Run: %s\n- Failed step: %s\n- Builds: php %s, nginx %s, agent %s, ciqual %s\n- Deploy: %s, smoke: %s\n- Revisions restored:\n%s\n\nMigrations, Elasticsearch mappings, the ConfigMap and the Secret are not reverted by the rollback; the pre-deploy database dump is in /opt/maggie/backups on the VPS.\n' \
+            "$state" "$SHA" "$RUN_URL" "${failed_step:-unknown}" \
+            "$BUILD_PHP_RESULT" "$BUILD_NGINX_RESULT" "$BUILD_AGENT_RESULT" "$BUILD_CIQUAL_RESULT" \
+            "$DEPLOY_RESULT" "$SMOKE_RESULT" "${restored:-none}")
+
+          printf '## Production incident: %s for %s\n\n%s\n\nTickets: %s\n' "$cause" "${SHA:0:7}" "$body" "$(printf '%s' "${tickets:-none}" | paste -sd' ')" >> "$GITHUB_STEP_SUMMARY"
 
           INCIDENT_TITLE="Production: ${cause} for ${SHA:0:7}" INCIDENT_BODY="$body" \
-            bash infra/scripts/open-incident.sh
+          FAILURE_CAUSE="${cause_fr} (commit ${SHA:0:7})" PROD_STATE="$state_fr" \
+          DEPLOY_TICKETS="$tickets" ROLLBACK_FAILED="$rollback_failed" \
+            bash infra/scripts/report-failed-deploy.sh
