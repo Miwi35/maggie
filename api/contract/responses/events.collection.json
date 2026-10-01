@@ -2,7 +2,7 @@
     "@context": "/api/contexts/Event",
     "@id": "/api/events",
     "@type": "Collection",
-    "totalItems": 3,
+    "totalItems": 4,
     "member": [
         {
             "@id": "/api/events/01ARZ3NDEKTSV4RRFFQ69G5FAV",
@@ -37,6 +37,24 @@
             "ownerRelation": "agenda",
             "recurring": true,
             "exception": false,
+            "googleSynced": false
+        },
+        {
+            "@id": "/api/events/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Event",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "summary": "Recorded recurring event",
+            "allDay": false,
+            "startAt": "2026-03-09T09:00:00+00:00",
+            "endAt": "2026-03-09T09:30:00+00:00",
+            "timeZone": "Europe/Paris",
+            "recurringEvent": "/api/events/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "originalStartAt": "2026-03-09T08:00:00+00:00",
+            "status": "confirmed",
+            "agenda": "/api/agendas/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "ownerRelation": "agenda",
+            "recurring": false,
+            "exception": true,
             "googleSynced": false
         },
         {

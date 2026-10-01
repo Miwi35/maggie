@@ -102,10 +102,12 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
     /** For exception instances: links to the parent recurring event */
     #[ORM\ManyToOne(targetEntity: self::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
+    #[IndexedRelation(targetEntity: self::class, sourceField: 'recurringEventId')]
     private ?self $recurringEvent = null;
 
     /** Which occurrence this exception replaces */
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
+    #[IndexedField(type: 'date')]
     private ?\DateTimeImmutable $originalStartAt = null;
 
     #[ORM\Column(length: 20, enumType: EventStatus::class, options: ['default' => 'confirmed'])]
@@ -316,6 +318,8 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
             'endAt' => $this->endAt->format('c'),
             'timeZone' => $this->timeZone,
             'rrule' => $this->rrule,
+            'recurringEventId' => null !== $this->recurringEvent ? (string) $this->recurringEvent->getId() : null,
+            'originalStartAt' => $this->originalStartAt?->format('c'),
             'status' => $this->status->value,
             'reminders' => $this->reminders,
             'agendaId' => (string) $this->agenda->getId(),

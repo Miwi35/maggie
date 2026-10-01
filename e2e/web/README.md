@@ -120,10 +120,6 @@ exemption nobody wrote down is a missing test:
 
 - **MAG-168** — the create dialog posts a local time with no offset, so an event
   entered at 15:00 in Paris is stored at 15:00 UTC.
-- **MAG-169** — `Event::toSearchDocument()` omits `recurringEvent` and
-  `originalStartAt`, and the Elasticsearch providers rebuild the entity from the
-  indexed document alone. The admin's exception map is therefore always empty: an
-  overridden occurrence is drawn twice and a refused one is not removed.
 - **MAG-148** — the same shape on `Agenda`, whose `googleCalendarId` is not indexed
   either. That is why importing the same Google calendar twice makes a second
   agenda, and why the sidebar's sync badge never appears.
