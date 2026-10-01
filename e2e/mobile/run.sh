@@ -81,11 +81,13 @@ for _ in $(seq 1 60); do
   sleep 2
 done
 
-eval "$("$REPO_ROOT/e2e/mobile/maestro.sh")"
-note "maestro $("$MAESTRO" -v 2>/dev/null | tail -1)"
-# Nothing about a private repository's test run goes to mobile.dev.
+# Exported before the first invocation, which is the one that would otherwise
+# print the opt-in notice: nothing about a private repository's test run goes to
+# mobile.dev.
 export MAESTRO_CLI_NO_ANALYTICS=1
 export MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED=true
+eval "$("$REPO_ROOT/e2e/mobile/maestro.sh")"
+note "maestro $("$MAESTRO" -v 2>/dev/null | tail -1)"
 
 # ---------------------------------------------------------------------------
 step "2. The stack, bridged onto the device"

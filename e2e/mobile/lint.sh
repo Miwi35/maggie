@@ -35,9 +35,9 @@ mapfile -t flows < <(find "$FLOW_DIR/flows" "$FLOW_DIR/subflows" -name '*.yaml' 
 # ---------------------------------------------------------------------------
 printf '\n\033[1m1. Syntax\033[0m\n'
 # ---------------------------------------------------------------------------
-eval "$("$REPO_ROOT/e2e/mobile/maestro.sh")"
 export MAESTRO_CLI_NO_ANALYTICS=1
 export MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED=true
+eval "$("$REPO_ROOT/e2e/mobile/maestro.sh")"
 
 for flow in "${flows[@]}"; do
   if output="$("$MAESTRO" check-syntax "$flow" 2>&1)"; then
