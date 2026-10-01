@@ -447,8 +447,9 @@ jobs:
         run: |
           docker run --rm -v "$PWD":/mnt -w /mnt koalaman/shellcheck:stable -x --severity=warning \
             infra/scripts/*.sh infra/scripts/tests/*.sh
-      - name: Test the smoke suite and the rollback
+      - name: Test the smoke suite, the rollback and the incident ticket
         run: |
           bash infra/scripts/tests/smoke-prod.test.sh
           bash infra/scripts/tests/rollback-k3s.test.sh
+          bash infra/scripts/tests/open-incident.test.sh
           bash infra/scripts/tests/verify-digests.test.sh

@@ -11,7 +11,7 @@ set -euo pipefail
 #   2. Backup      — pg_dump before any change
 #   3. Apply       — bump image tags in kustomization, kubectl apply -k
 #   4. Wait        — rollout status on every Maggie deployment
-#   5. Post-deploy — migrations, cache:clear, ES mapping + reindex
+#   5. Post-deploy — migrations, ES mapping + reindex
 #   6. Verify      — pod list + healthcheck
 #
 # The revisions the deployments had before phase 3 are recorded for
@@ -220,15 +220,15 @@ log "All rollouts complete."
 log "Phase 5a: Running migrations..."
 $KUBECTL exec "deployment/php" -n "$NAMESPACE" -- bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
 
-log "Phase 5b: Clearing cache..."
-$KUBECTL exec "deployment/php" -n "$NAMESPACE" -- bin/console cache:clear
+# No cache:clear here (MAG-146): the image ships a warmed cache, and deleting
+# var/cache/prod under a pod that is serving requests fails at random.
 
-log "Phase 5c: Updating Elasticsearch mappings..."
+log "Phase 5b: Updating Elasticsearch mappings..."
 if ! $KUBECTL exec "deployment/php" -n "$NAMESPACE" -- bin/console app:elasticsearch:mapping:update --all --no-interaction; then
   warn "ES mapping update failed (non-blocking). Run manually: kubectl exec deployment/php -n $NAMESPACE -- bin/console app:elasticsearch:mapping:update --all"
 fi
 
-log "Phase 5d: Reindexing Elasticsearch..."
+log "Phase 5c: Reindexing Elasticsearch..."
 if ! $KUBECTL exec "deployment/php" -n "$NAMESPACE" -- bin/console app:elasticsearch:reindex --all --no-interaction; then
   warn "ES reindex failed (non-blocking). Run manually: kubectl exec deployment/php -n $NAMESPACE -- bin/console app:elasticsearch:reindex --all"
 fi

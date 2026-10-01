@@ -17,6 +17,13 @@ set -uo pipefail
 #     deploy-k3s.sh recorded in pre-deploy-digests. A service that drifts
 #     although nothing rebuilt it is the same failure.
 #
+# A digest names an index, not an image: when the image content did not change
+# between two commits, the build still pushes a new index (the provenance
+# attestation differs) that points at the very same image. containerd then
+# attaches the second digest to the image already on the node, and the pod keeps
+# reporting the first one. So a pod whose digest differs is still accepted when
+# the node says the image it runs also carries the expected digest (MAG-146).
+#
 # Exits 1 when any running pod differs, so the CD workflow rolls back.
 # =============================================================================
 
@@ -24,6 +31,7 @@ NAMESPACE="maggie"
 STATE_DIR="${MAGGIE_STATE_DIR:-/opt/maggie/state}"
 DIGESTS_FILE="$STATE_DIR/pre-deploy-digests"
 KUBECTL="${KUBECTL:-sudo k3s kubectl}"
+CRICTL="${CRICTL:-sudo k3s crictl}"
 REGISTRY="ghcr.io/miwi35/maggie-"
 EXPECTED_DIGESTS="${EXPECTED_DIGESTS:-}"
 
@@ -57,6 +65,19 @@ expected_digest() {
   fi
 }
 
+# image_has_digest <image> <imageID> <digest> — does the image the pod runs
+# carry <digest> among its repoDigests on this node? Only repository-qualified
+# digests are matched, so a layer or config digest can never pass for an index.
+image_has_digest() {
+  local image="$1" image_id="$2" digest="$3" inspected
+  [ -n "$image_id" ] || return 1
+  if ! inspected="$($CRICTL inspecti -o json "$image_id" 2>/dev/null)"; then
+    warn "crictl could not inspect $image_id: comparing the pod's own digest only"
+    return 1
+  fi
+  printf '%s' "$inspected" | grep -qF "$REGISTRY$image@$digest"
+}
+
 for pair in $EXPECTED_DIGESTS; do
   digest="${pair#*=}"
   if [ -n "$digest" ] && ! valid_digest "$digest"; then
@@ -88,6 +109,8 @@ for workload in "${WORKLOADS[@]}"; do
     running="${image_id#*@}"
     if [ "$running" = "$expected" ]; then
       ok "$deploy ($name) runs maggie-$image@${expected:0:19}…"
+    elif image_has_digest "$image" "$image_id" "$expected"; then
+      ok "$deploy ($name) runs maggie-$image, same image as ${expected:0:19}… (pod reports ${running:0:19}…)"
     else
       bad "$deploy ($name) runs ${running:-an unknown image} but maggie-$image should be ${expected}"
     fi

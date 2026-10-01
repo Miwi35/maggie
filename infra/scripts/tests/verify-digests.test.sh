@@ -52,7 +52,7 @@ fresh_world() {
 }
 
 run_verify() {
-  OUTPUT="$(FAKE_KUBECTL_DIR="$work/kube" KUBECTL="$HERE/fake-kubectl.sh" \
+  OUTPUT="$(FAKE_KUBECTL_DIR="$work/kube" KUBECTL="$HERE/fake-kubectl.sh" CRICTL="$HERE/fake-crictl.sh" \
     MAGGIE_STATE_DIR="$work/state" EXPECTED_DIGESTS="$1" "$VERIFY" 2>&1)"
   STATUS=$?
 }
@@ -119,6 +119,39 @@ fresh_world
 rm -f "$work/state/pre-deploy-digests"
 run_verify "php=$NEW"
 printf '%s' "$OUTPUT" | grep -qF 'not checked' && ok "warns about the unchecked services" || bad "silent about a service it did not check"
+
+printf '\n\033[1mTwo indexes, one image (MAG-146)\033[0m\n'
+ALIAS="sha256:$(h d)"
+# The node pulled the image under $OLD; a later build pushed another index
+# ($ALIAS) for the same content. The pod keeps reporting $OLD.
+fresh_world
+echo "$OLD $ALIAS" >> "$work/kube/aliases"
+run_verify "php=$ALIAS nginx= agent= ciqual="
+[ "$STATUS" -eq 0 ] && ok "passes: the expected digest is another name of the running image" || bad "exit $STATUS — $OUTPUT"
+printf '%s' "$OUTPUT" | grep -qF 'same image as' && ok "says it matched through the node's repoDigests" || bad "silent about the alias match — $OUTPUT"
+
+fresh_world
+echo "$OLD $ALIAS" >> "$work/kube/aliases"
+run_verify "php=$STALE"
+[ "$STATUS" -ne 0 ] && ok "a digest the image does not carry still fails" || bad "passed on a digest unrelated to the running image"
+
+fresh_world
+echo "$OLD $ALIAS" >> "$work/kube/aliases"
+set_digest agent "$STALE"
+run_verify "php=$ALIAS agent=$NEW"
+[ "$STATUS" -ne 0 ] && ok "a genuinely stale service still fails next to an aliased one" || bad "the alias match hid a stale agent"
+
+fresh_world
+echo "$OLD $(h 1 | sed 's/^/sha256:/')" >> "$work/kube/aliases"
+run_verify "php=sha256:$(printf '%064d' 2)"
+[ "$STATUS" -ne 0 ] && ok "a layer digest is not taken for an index" || bad "matched a non-repository digest"
+
+fresh_world
+echo "$OLD $ALIAS" >> "$work/kube/aliases"
+touch "$work/kube/crictl-down"
+run_verify "php=$ALIAS"
+[ "$STATUS" -ne 0 ] && ok "crictl unavailable: falls back to the strict comparison" || bad "passed without being able to inspect the image"
+printf '%s' "$OUTPUT" | grep -qF 'crictl could not inspect' && ok "says why" || bad "silent about crictl failing — $OUTPUT"
 
 printf '\n\033[1mA malformed digest is refused\033[0m\n'
 fresh_world

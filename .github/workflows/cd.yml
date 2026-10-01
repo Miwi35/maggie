@@ -6,7 +6,7 @@ on:
     types: [completed]
     branches: [main]
 
-# One deployment at a time: two runs 10 s apart once raced on cache:clear in the same pod.
+# One deployment at a time: two runs 10 s apart once raced in the same pod.
 # Queued, never cancelled, so the last merge always ends up deployed.
 concurrency:
   group: cd-production
@@ -350,8 +350,10 @@ jobs:
     if: always() && (needs.deploy.result == 'failure' || needs.smoke.result == 'failure')
     permissions:
       contents: read
-      issues: write
+      actions: read
     steps:
+      - uses: actions/checkout@v4
+
       - name: Configure SSH to the VPS
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -369,22 +371,27 @@ jobs:
       - name: Roll back with kubectl rollout undo
         id: rollback
         if: needs.deploy.outputs.script_started == 'true' || needs.smoke.result == 'failure'
-        run: ssh vps bash /opt/maggie/infra/scripts/rollback-k3s.sh
+        run: |
+          set -o pipefail
+          ssh vps bash /opt/maggie/infra/scripts/rollback-k3s.sh 2>&1 | tee "$RUNNER_TEMP/rollback.log"
 
-      - name: Open an incident issue
+      # GitHub issues are disabled on this repository: the incident lives in
+      # Linear (MAG-146). The summary below is the trace that survives even when
+      # the Linear call fails.
+      - name: Open an incident ticket in Linear
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
           SHA: ${{ github.event.workflow_run.head_sha }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_ID: ${{ github.run_id }}
           DEPLOY_RESULT: ${{ needs.deploy.result }}
           SMOKE_RESULT: ${{ needs.smoke.result }}
           ROLLBACK_OUTCOME: ${{ steps.rollback.outcome }}
           SCRIPT_STARTED: ${{ needs.deploy.outputs.script_started }}
         run: |
-          gh label create incident --color B60205 --description "Production incident" 2>/dev/null || true
-
           if [ "$DEPLOY_RESULT" = "failure" ]; then
             cause="the deploy itself failed"
           else
@@ -399,8 +406,15 @@ jobs:
             state="**The rollback itself failed: production may be running the broken release. Act now.**"
           fi
 
-          gh issue create \
-            --title "Production: ${cause} for ${SHA:0:7}" \
-            --label incident \
-            --body "$(printf '%s\n\n- Commit: %s\n- Run: %s\n- Deploy: %s, smoke: %s\n\nMigrations, Elasticsearch mappings, the ConfigMap and the Secret are not reverted by the rollback; the pre-deploy database dump is in /opt/maggie/backups on the VPS.\n' \
-              "$state" "$SHA" "$RUN_URL" "$DEPLOY_RESULT" "$SMOKE_RESULT")"
+          # shellcheck disable=SC2016 # `$job` is a jq variable, not a shell one
+          failed_step=$(gh api "repos/$GH_REPO/actions/runs/$RUN_ID/jobs" \
+            --jq '[.jobs[] | .name as $job | .steps[] | select(.conclusion == "failure") | "\($job) › \(.name)"] | join(", ")' 2>/dev/null || true)
+          restored=$(grep -E ': revision [0-9]+ → back to [0-9]+' "$RUNNER_TEMP/rollback.log" 2>/dev/null | sed 's/^==> /- /' || true)
+
+          body=$(printf '%s\n\n- Commit: %s\n- Run: %s\n- Failed step: %s\n- Deploy: %s, smoke: %s\n- Revisions restored:\n%s\n\nMigrations, Elasticsearch mappings, the ConfigMap and the Secret are not reverted by the rollback; the pre-deploy database dump is in /opt/maggie/backups on the VPS.\n' \
+            "$state" "$SHA" "$RUN_URL" "${failed_step:-unknown}" "$DEPLOY_RESULT" "$SMOKE_RESULT" "${restored:-none}")
+
+          printf '## Production incident: %s for %s\n\n%s\n' "$cause" "${SHA:0:7}" "$body" >> "$GITHUB_STEP_SUMMARY"
+
+          INCIDENT_TITLE="Production: ${cause} for ${SHA:0:7}" INCIDENT_BODY="$body" \
+            bash infra/scripts/open-incident.sh
