@@ -50,8 +50,11 @@ export default defineConfig({
   // Override with PLAYWRIGHT_WORKERS on a machine with room to spare.
   workers: process.env.PLAYWRIGHT_WORKERS ? Number(process.env.PLAYWRIGHT_WORKERS) : 2,
 
+  // In CI the journeys run in shards (MAG-180), each with a half-report of its
+  // own: `blob` is what `playwright merge-reports` turns back into the one HTML
+  // report, traces and videos included.
   reporter: process.env.CI
-    ? [['github'], ['list'], ['html', { outputFolder: './playwright-report', open: 'never' }]]
+    ? [['github'], ['list'], ['blob', { outputDir: './blob-report' }]]
     : [['list'], ['html', { outputFolder: './playwright-report', open: 'never' }]],
 
   // The chat journey waits on a full AG-UI round trip through the agent, MCP

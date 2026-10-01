@@ -62,11 +62,17 @@ tasks:
       # service's public URLs are built from, and Docker only assigns it once
       # the container exists.
       - '{{.COMPOSE}} up -d traefik'
-      # The API and what it needs, then the two halves that do not depend on
-      # each other, side by side: the slow services boot (admin bundle, agent
-      # install, Elasticsearch) while the API is prepared. Sequentially these
-      # were the stack's whole start-up time (MAG-135).
-      - task: _up:api
+      # Elasticsearch is the last service to be ready, and it needs neither the
+      # port nor anything else: it boots from here on, beside everything below.
+      - '{{.COMPOSE}} up -d --no-deps elasticsearch'
+      # The API and what it needs, with the admin bundle building beside it: the
+      # build needs nothing the API starts (MAG-180), and it was the longest
+      # step still waiting behind `up php`.
+      - task: _up:first
+      # Then the two halves that do not depend on each other, side by side: the
+      # slow services boot (agent install, Elasticsearch) while the API is
+      # prepared. Sequentially these were the stack's whole start-up time
+      # (MAG-135).
       - task: _up:parallel
       # The worker comes last, once vendor/ and the schema exist. Started with
       # the rest it dies on "Dependencies are missing", and `restart:
@@ -105,6 +111,20 @@ tasks:
       # vendor/ and the migrated schema, which do not exist yet.
       - '{{.COMPOSE}} up -d {{if .E2E_PREBUILT}}--no-build{{else}}--build{{end}} php'
 
+  _up:first:
+    internal: true
+    deps:
+      - _up:api
+      - _up:admin
+
+  # Started alone and detached: `--no-deps` keeps Compose from converging the
+  # services nginx depends on, and `_up:edge` waits for the one-shot itself.
+  # Not `up nginx`, which would run it a second time once it has exited.
+  _up:admin:
+    internal: true
+    cmds:
+      - '{{.COMPOSE}} up -d --no-deps admin-build'
+
   _up:parallel:
     internal: true
     deps:
@@ -119,10 +139,25 @@ tasks:
     env:
       E2E_BASE_URL: '{{.BASE_URL}}'
     cmds:
-      # nginx waits for admin-build to complete and the agent waits for nginx,
-      # so this is the long pole. Not --wait: the agent's dependency install and
-      # Elasticsearch finish during `_up:prepare`, and `_up:wait` collects them.
-      - '{{.COMPOSE}} up -d {{if .E2E_PREBUILT}}--no-build{{else}}--build{{end}} nginx agent ciqual mercure'
+      # The agent, ciqual and mercure first: they need nothing nginx serves, and
+      # the agent's dependency install (~15 s) used to wait behind the admin
+      # bundle for nothing. Its MCP connection is best-effort at start and
+      # re-made on the first call, so nginx coming up after it is harmless.
+      # `--no-deps`: php and the databases are already healthy, and Compose
+      # would re-run the finished admin-build.
+      #
+      # Not --wait: the install and Elasticsearch finish during `_up:prepare`,
+      # and `_up:wait` collects them.
+      - '{{.COMPOSE}} up -d --no-deps {{if .E2E_PREBUILT}}--no-build{{else}}--build{{end}} agent ciqual mercure'
+      # nginx needs the bundle `_up:admin` started building at the very beginning.
+      - |
+        code=$(docker wait "$({{.COMPOSE}} ps -aq admin-build)")
+        if [ "$code" != 0 ]; then
+          echo "admin-build exited with status $code" >&2
+          {{.COMPOSE}} logs --no-log-prefix --tail=100 admin-build >&2
+          exit 1
+        fi
+      - '{{.COMPOSE}} up -d --no-deps {{if .E2E_PREBUILT}}--no-build{{else}}--build{{end}} nginx'
 
   _up:prepare:
     internal: true
@@ -150,7 +185,7 @@ tasks:
     cmds:
       # -v even though the data directories are tmpfs: anonymous volumes an
       # image declares would otherwise pile up, one set per run.
-      - '{{.COMPOSE}} down -v --remove-orphans'
+      - '{{.COMPOSE}} down -v --remove-orphans {{.CLI_ARGS}}'
 
   restart:
     desc: Restart the e2e stack

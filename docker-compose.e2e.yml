@@ -187,9 +187,11 @@ services:
       # nginx itself rather than the whole chain behind it. 127.0.0.1, not
       # localhost: that resolves to ::1 here and nginx only listens on IPv4.
       test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1/favicon.ico || exit 1"]
-      interval: 3s
+      interval: 2s
       timeout: 5s
-      retries: 20
+      retries: 30
+      start_period: 5s
+      start_interval: 1s
     mem_limit: 32m
     memswap_limit: 32m
     labels:
@@ -226,11 +228,19 @@ services:
       # Vite's default heap ceiling is sized from the host, not the container:
       # below it the build is OOM-killed instead of garbage-collected.
       NODE_OPTIONS: --max-old-space-size=1024
+      E2E_ADMIN_PREBUILT: ${E2E_ADMIN_PREBUILT:-}
     command:
       - sh
       - -c
       - |
         set -e
+        # CI restores a bundle built from this exact source (MAG-180): the
+        # build is the longest step of the start-up and nothing else waits on
+        # less than it.
+        if [ -n "$$E2E_ADMIN_PREBUILT" ] && [ -f dist/index.html ]; then
+          echo "admin bundle restored from cache, build skipped"
+          exit 0
+        fi
         if [ ! -d node_modules ] || [ package-lock.json -nt node_modules ]; then
           npm ci
         fi
@@ -266,10 +276,11 @@ services:
       # on a missing vendor/ — and a journey then waits forever for an indexed
       # entity that nobody is indexing.
       test: ["CMD-SHELL", "pgrep -f 'messenger:consume' >/dev/null || exit 1"]
-      interval: 5s
+      interval: 2s
       timeout: 5s
-      retries: 12
+      retries: 30
       start_period: 10s
+      start_interval: 1s
     mem_limit: 160m
     memswap_limit: 160m
     labels:
@@ -293,9 +304,11 @@ services:
       - /var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U maggie -d maggie_e2e"]
-      interval: 3s
+      interval: 2s
       timeout: 5s
-      retries: 20
+      retries: 30
+      start_period: 10s
+      start_interval: 1s
     mem_limit: 256m
     memswap_limit: 256m
     labels:
@@ -350,10 +363,15 @@ services:
     tmpfs:
       - /var/lib/rabbitmq
     healthcheck:
-      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
-      interval: 5s
+      # The probe runs as root: if it fires before the server has written its
+      # cookie, it creates `.erlang.cookie` itself (root, 0400) and the server,
+      # running as `rabbitmq`, dies with eacces. Hence the file test first.
+      test: ["CMD-SHELL", "test -f /var/lib/rabbitmq/.erlang.cookie && rabbitmq-diagnostics -q ping"]
+      interval: 2s
       timeout: 5s
-      retries: 20
+      retries: 40
+      start_period: 20s
+      start_interval: 1s
     mem_limit: 256m
     memswap_limit: 256m
     labels:
@@ -376,7 +394,13 @@ services:
       # the 1.3 GB this node took at rest with a 512 MB heap. Measured: heap
       # 384 MB and no ML boot at ~840 MB, which the 1 GB limit leaves room above.
       - xpack.ml.enabled=false
-      - "ES_JAVA_OPTS=-Xms384m -Xmx384m"
+      # Start-up only (MAG-180): the node is the last thing `up --wait` waits
+      # for. No GeoIP database download, no Watcher, no disk-watermark checks on
+      # a runner disk, and a JIT that compiles less before the node is ready.
+      - xpack.watcher.enabled=false
+      - ingest.geoip.downloader.enabled=false
+      - cluster.routing.allocation.disk.threshold_enabled=false
+      - "ES_JAVA_OPTS=-Xms384m -Xmx384m -XX:TieredStopAtLevel=1"
     tmpfs:
       - /usr/share/elasticsearch/data
     healthcheck:
@@ -386,6 +410,8 @@ services:
       interval: 2s
       timeout: 5s
       retries: 75
+      start_period: 15s
+      start_interval: 1s
     mem_limit: 1024m
     memswap_limit: 1024m
     labels:
@@ -479,6 +505,7 @@ services:
       timeout: 5s
       retries: 100
       start_period: 10s
+      start_interval: 1s
     mem_limit: 320m
     memswap_limit: 320m
     labels:
@@ -534,9 +561,11 @@ services:
       - ./.docker/e2e/wiremock/mappings:/home/wiremock/mappings:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -fs http://localhost:8080/__admin/health || exit 1"]
-      interval: 3s
+      interval: 2s
       timeout: 5s
-      retries: 20
+      retries: 30
+      start_period: 15s
+      start_interval: 1s
     mem_limit: 320m
     memswap_limit: 320m
     labels:

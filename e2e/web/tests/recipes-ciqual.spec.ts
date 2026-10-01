@@ -36,6 +36,11 @@ import { ROUTES } from '../pages/routes.js'
 const COURGETTE = { code: '20020', name: 'Courgette, chair et peau, crue' }
 const TOMATO = { code: '20276', name: 'Tomate ronde, crue' }
 
+// Every test here makes an ingredient for the same account and the same Ciqual
+// code. In two workers at once both find none and each creates one, and the
+// lookup then answers 500 for good (two rows, one expected). One worker, in order.
+test.describe.configure({ mode: 'serial' })
+
 interface StoredIngredient {
   '@id': string
   name: string
