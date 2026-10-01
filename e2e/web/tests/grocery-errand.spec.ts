@@ -152,12 +152,12 @@ async function expectLine(
  *
  * "The next one", not "any later one", and that is the whole point. A matcher
  * over every message since the snapshot is satisfied by somebody else's write —
- * every payload carries the whole list — so a mute middleware would still pass.
+ * every payload names the same list — so a mute middleware would still pass.
  * Demanding the first message makes the assertion exact; it is sound here
  * because this file owns the list it reads (see the header).
  *
  * The payload is read directly and never followed by a fetch: that a Mercure
- * update carries the whole list is the promise `6ba9859` broke.
+ * update of a whole-list write carries its items is the promise `6ba9859` broke.
  */
 async function since(probe: MercureProbe): Promise<{
   (match: (items: Line[]) => boolean, what: string): Promise<Line[]>
