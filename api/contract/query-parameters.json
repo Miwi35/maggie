@@ -6,7 +6,8 @@
         "endAt[after]": "admin CalendarView, multi-day events that started before the visible range",
         "endAt[before]": "mobile getEvents",
         "exists[rrule]": "admin recurring-event lookup, mobile getRecurringEvents",
-        "order[startAt]": "admin CalendarView, Dashboard and MealsWeekView"
+        "order[startAt]": "admin CalendarView, Dashboard and MealsWeekView",
+        "order[id]": "admin raw-data list (react-admin sorts by id when a list names no sort)"
     },
     "/api/tasks": {
         "exists[completedAt]": "admin Dashboard, mobile getOpenTasks",
@@ -14,7 +15,8 @@
         "dueDate[after]": "admin CalendarView",
         "dueDate[before]": "admin CalendarView and Dashboard, mobile getOpenTasks",
         "order[dueDate]": "admin CalendarView and Dashboard",
-        "order[criticality]": "admin Dashboard"
+        "order[criticality]": "admin Dashboard",
+        "order[id]": "admin raw-data list (react-admin sorts by id when a list names no sort)"
     },
     "/api/meals": {
         "startAt[after]": "admin MealsWeekView and CalendarView, mobile getMeals",
@@ -33,7 +35,8 @@
         "order[createdAt]": "admin GroceryListView"
     },
     "/api/agendas": {
-        "order[name]": "admin CalendarView, EventCreateDialog and UserPreferenceSettings"
+        "order[name]": "admin CalendarView, EventCreateDialog and UserPreferenceSettings",
+        "order[id]": "admin raw-data list (react-admin sorts by id when a list names no sort)"
     },
     "/api/recipes": {
         "order[name]": "admin MealsWeekView"

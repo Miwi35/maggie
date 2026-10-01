@@ -26,9 +26,15 @@
     ],
     "search": {
         "@type": "IriTemplate",
-        "template": "/api/agendas{?order[name]}",
+        "template": "/api/agendas{?order[id],order[name]}",
         "variableRepresentation": "BasicRepresentation",
         "mapping": [
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "order[id]",
+                "property": "id",
+                "required": false
+            },
             {
                 "@type": "IriTemplateMapping",
                 "variable": "order[name]",

@@ -509,6 +509,23 @@
                         "explode": false
                     },
                     {
+                        "name": "order[id]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "asc",
+                            "enum": [
+                                "asc",
+                                "desc"
+                            ]
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
                         "name": "order[name]",
                         "in": "query",
                         "description": "",
@@ -2302,6 +2319,23 @@
                         "explode": false
                     },
                     {
+                        "name": "order[id]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "asc",
+                            "enum": [
+                                "asc",
+                                "desc"
+                            ]
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
                         "name": "order[startAt]",
                         "in": "query",
                         "description": "",
@@ -3879,6 +3913,23 @@
                         "deprecated": false,
                         "schema": {
                             "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "order[id]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "asc",
+                            "enum": [
+                                "asc",
+                                "desc"
+                            ]
                         },
                         "style": "form",
                         "explode": false
@@ -6549,6 +6600,23 @@
                         },
                         "style": "form",
                         "explode": true
+                    },
+                    {
+                        "name": "order[id]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "asc",
+                            "enum": [
+                                "asc",
+                                "desc"
+                            ]
+                        },
+                        "style": "form",
+                        "explode": false
                     },
                     {
                         "name": "order[dueDate]",

@@ -41,7 +41,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ApiFilter(DateFilter::class, properties: ['dueDate'])]
 #[ApiFilter(ExistsFilter::class, properties: ['completedAt', 'dueDate'])]
 #[ApiFilter(SearchFilter::class, properties: ['priority' => 'exact', 'criticality' => 'exact'])]
-#[ApiFilter(OrderFilter::class, properties: ['dueDate', 'criticality'])]
+#[ApiFilter(OrderFilter::class, properties: ['id', 'dueDate', 'criticality'])]
 #[Indexed(index: 'tasks', module: 'calendar')]
 #[ApiResource(operations: [
     new GetCollection(provider: ElasticsearchCollectionProvider::class),

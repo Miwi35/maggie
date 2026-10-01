@@ -32,7 +32,7 @@
     ],
     "search": {
         "@type": "IriTemplate",
-        "template": "/api/tasks{?dueDate[before],dueDate[strictly_before],dueDate[after],dueDate[strictly_after],exists[completedAt],exists[dueDate],priority,priority[],criticality,criticality[],order[dueDate],order[criticality]}",
+        "template": "/api/tasks{?dueDate[before],dueDate[strictly_before],dueDate[after],dueDate[strictly_after],exists[completedAt],exists[dueDate],priority,priority[],criticality,criticality[],order[id],order[dueDate],order[criticality]}",
         "variableRepresentation": "BasicRepresentation",
         "mapping": [
             {
@@ -93,6 +93,12 @@
                 "@type": "IriTemplateMapping",
                 "variable": "criticality[]",
                 "property": "criticality",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "order[id]",
+                "property": "id",
                 "required": false
             },
             {
