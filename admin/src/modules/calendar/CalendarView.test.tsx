@@ -127,7 +127,7 @@ describe('CalendarView', () => {
       mockGetList.mockImplementation((resource: string) => {
         if (resource === 'agendas') {
           return Promise.resolve({
-            data: [{ id: AGENDA, name: 'Perso', color: '#1976d2', isDefault: true }],
+            data: [{ id: AGENDA, name: 'Perso', color: '#1976d2', default: true }],
             total: 1,
           })
         }
@@ -309,7 +309,7 @@ describe('CalendarView', () => {
       rrule: 'FREQ=WEEKLY',
     }
 
-    const serve = (events: unknown[], agendas: unknown[] = [{ id: AGENDA, name: 'Perso', isDefault: true }]) => {
+    const serve = (events: unknown[], agendas: unknown[] = [{ id: AGENDA, name: 'Perso', default: true }]) => {
       mockGetList.mockImplementation((resource: string) => {
         if (resource === 'agendas') return Promise.resolve({ data: agendas, total: agendas.length })
         if (resource === 'events') return Promise.resolve({ data: events, total: events.length })
@@ -394,7 +394,7 @@ describe('CalendarView', () => {
         fetchMock.mockReset()
         fetchMock.mockResolvedValue({ ok: true, status: 204, json: () => Promise.resolve({}) })
         vi.stubGlobal('fetch', fetchMock)
-        serve([], [{ id: FAMILLE, name: 'Famille', isDefault: false }])
+        serve([], [{ id: FAMILLE, name: 'Famille', default: false }])
       })
 
       afterEach(() => {
@@ -454,8 +454,8 @@ describe('CalendarView', () => {
 
     beforeEach(() => {
       serveAgendas([
-        { id: CONCERTS, name: 'Concerts', isDefault: false },
-        { id: PERSO, name: 'Perso', isDefault: true },
+        { id: CONCERTS, name: 'Concerts', default: false },
+        { id: PERSO, name: 'Perso', default: true },
       ])
     })
 

@@ -37,7 +37,7 @@ describe('CalendarView deep link from the global search', () => {
     vi.stubGlobal('EventSource', MockEventSource)
     mockGetList.mockImplementation((resource: string) =>
       Promise.resolve({
-        data: resource === 'agendas' ? [{ id: AGENDA, name: 'Perso', color: '#3f51b5', isDefault: true }] : [],
+        data: resource === 'agendas' ? [{ id: AGENDA, name: 'Perso', color: '#3f51b5', default: true }] : [],
         total: 0,
       }),
     )

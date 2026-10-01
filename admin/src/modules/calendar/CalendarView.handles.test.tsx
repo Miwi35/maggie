@@ -45,8 +45,8 @@ vi.mock('react-admin', () => ({
 }))
 
 const AGENDAS = [
-  { id: '/api/agendas/01PERSO', name: 'Perso', color: '#3f51b5', isDefault: true },
-  { id: '/api/agendas/01FAMILLE', name: 'Famille', color: '#e91e63', isDefault: false },
+  { id: '/api/agendas/01PERSO', name: 'Perso', color: '#3f51b5', default: true },
+  { id: '/api/agendas/01FAMILLE', name: 'Famille', color: '#e91e63', default: false },
 ]
 
 /** Noon on the 15th, so the event always sits inside the month the grid opens on. */

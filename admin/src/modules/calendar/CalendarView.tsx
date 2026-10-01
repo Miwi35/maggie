@@ -190,7 +190,7 @@ interface CalendarData {
   id: string
   name: string
   color: string | null
-  isDefault: boolean
+  default: boolean
   googleCalendarId?: string
 }
 
@@ -1688,7 +1688,7 @@ export const CalendarView = () => {
                 <Typography variant="body2" data-testid="agenda-name" sx={{ ml: 0.5, flex: 1 }}>
                   {cal.name}
                 </Typography>
-                {cal.isDefault && (
+                {cal.default && (
                   // Named by attributes, not by an SVG <title>: that would put the words
                   // into the row's text, which the agenda journeys match on.
                   <Box
@@ -1732,7 +1732,7 @@ export const CalendarView = () => {
               anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
               transformOrigin={{ vertical: 'top', horizontal: 'right' }}
             >
-              {agendaMenuTarget && !agendaMenuTarget.isDefault && (
+              {agendaMenuTarget && !agendaMenuTarget.default && (
                 <MenuItem onClick={handleSetDefaultAgenda}>
                   <ListItemIcon><StarBorderIcon fontSize="small" /></ListItemIcon>
                   <ListItemText>Définir comme agenda par défaut</ListItemText>
