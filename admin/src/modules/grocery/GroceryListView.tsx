@@ -173,6 +173,9 @@ function SortableGroceryItem({
   )
 }
 
+// The Hydra data provider puts the IRI (`/api/stores/01M3…`) in `record.id`; the API wants the bare ULID.
+const bareId = (id: string) => id.split('/').pop() ?? id
+
 export const GroceryListView = () => {
   const dataProvider = useDataProvider()
   const notify = useNotify()
@@ -369,11 +372,11 @@ export const GroceryListView = () => {
         payload.category = editCategory
       }
       if (editSelectedStore) {
-        payload.storeId = editSelectedStore.id
+        payload.storeId = bareId(editSelectedStore.id)
       } else if (editStoreInput.trim()) {
         payload.storeName = editStoreInput.trim()
       }
-      await fetch(`${entrypoint}/grocery/edit-item/${detailItem.id}`, {
+      const response = await fetch(`${entrypoint}/grocery/edit-item/${detailItem.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -381,6 +384,10 @@ export const GroceryListView = () => {
         },
         body: JSON.stringify(payload),
       })
+      if (!response.ok) {
+        notify("Erreur : l'article n'a pas été modifié", { type: 'error' })
+        return
+      }
       setDetailItem(null)
       const { data } = await dataProvider.getOne('grocery_lists', { id: groceryList.id })
       setGroceryList(data as GroceryListData)
@@ -403,11 +410,11 @@ export const GroceryListView = () => {
         payload.category = newItemCategory
       }
       if (selectedStore) {
-        payload.storeId = selectedStore.id
+        payload.storeId = bareId(selectedStore.id)
       } else if (storeInputValue.trim()) {
         payload.storeName = storeInputValue.trim()
       }
-      await fetch(`${entrypoint}/grocery/add-item`, {
+      const response = await fetch(`${entrypoint}/grocery/add-item`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -415,6 +422,10 @@ export const GroceryListView = () => {
         },
         body: JSON.stringify(payload),
       })
+      if (!response.ok) {
+        notify("Erreur : l'article n'a pas été ajouté", { type: 'error' })
+        return
+      }
       setAddDialogOpen(false)
       setNewItemLabel('')
       setNewItemQuantity('')
