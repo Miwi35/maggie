@@ -62,6 +62,9 @@ tasks:
       # service's public URLs are built from, and Docker only assigns it once
       # the container exists.
       - '{{.COMPOSE}} up -d traefik'
+      # Elasticsearch is the last service to be ready, and it needs neither the
+      # port nor anything else: it boots from here on, beside everything below.
+      - '{{.COMPOSE}} up -d --no-deps elasticsearch'
       # The API and what it needs, with the admin bundle building beside it: the
       # build needs nothing the API starts (MAG-180), and it was the longest
       # step still waiting behind `up php`.
