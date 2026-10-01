@@ -198,11 +198,39 @@ def import_compositions(conn: sqlite3.Connection) -> int:
     return count
 
 
+LFS_POINTER_PREFIX = b"version https://git-lfs.github.com/spec/v1"
+
+
+def is_lfs_pointer(path: Path) -> bool:
+    """True when the file is a Git LFS stand-in rather than the data itself.
+
+    `compo.xml` is 69 MB and tracked in LFS (`.gitattributes`). A checkout that
+    did not fetch LFS leaves a 130-byte text pointer in its place, and
+    `ElementTree` reports that as `syntax error: line 1, column 0` — a message
+    that sends you looking for malformed XML instead of at the checkout. It cost
+    a CI run to work out once (MAG-101); it should cost nobody a second one.
+    """
+    try:
+        with path.open("rb") as handle:
+            return handle.read(len(LFS_POINTER_PREFIX)) == LFS_POINTER_PREFIX
+    except OSError:
+        return False
+
+
 def main():
-    # Verify data files exist
+    # Verify data files exist, and are the data rather than a pointer to it
     for name in ("const.xml", "alim.xml", "alim_grp.xml", "compo.xml"):
-        if not (DATA_DIR / name).exists():
-            print(f"Error: {DATA_DIR / name} not found", file=sys.stderr)
+        path = DATA_DIR / name
+        if not path.exists():
+            print(f"Error: {path} not found", file=sys.stderr)
+            sys.exit(1)
+        if is_lfs_pointer(path):
+            print(
+                f"Error: {path} is a Git LFS pointer, not the data.\n"
+                "       Fetch it with `git lfs pull`, or check out with `lfs: true`\n"
+                "       (see the E2E job in .github/workflows/ci.yml).",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
