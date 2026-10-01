@@ -162,9 +162,11 @@ Its own chat history is the only thing it writes. Unit tests of the scripts: `in
 
 ## Branch protection on `main`
 
-Required checks are the job names of `ci.yml`: Detect changes, API Lint (PHPStan), API Tests (PHPUnit), Agent Lint (Ruff), Agent Tests (pytest), Ciqual Lint (Ruff), Ciqual Tests (pytest), Admin Lint (ESLint + TypeScript), Admin Tests (Vitest), E2E Stack (smoke journey), Infra scripts and workflows. The Playwright journeys run inside `E2E Stack (smoke journey)`, traces and videos kept as the `playwright-report-<run>` artifact on failure.
+Required checks are the job names of `ci.yml`: Detect changes, API Lint (PHPStan), API Tests (PHPUnit), Agent Lint (Ruff), Agent Tests (pytest), Ciqual Lint (Ruff), Ciqual Tests (pytest), Admin Lint (ESLint + TypeScript), Admin Tests (Vitest), E2E Stack (smoke journey), Infra scripts and workflows, Incident gate. Read the live list with `gh api repos/<owner>/<repo>/branches/main --jq .protection.required_status_checks.contexts` (works without admin). The Playwright journeys run inside `E2E Stack (smoke journey)`, traces and videos kept as the `playwright-report-<run>` artifact on failure.
 
 **Rule:** a new job in `ci.yml` is added to the required checks in the same delivery (Settings → Branches → `main`), or auto-merge does not wait for it. Settings need repo admin: an agent token cannot change them.
+
+**Safety net (MAG-200):** GitHub merges an armed PR within seconds of its last required check (measured on 14 agent PRs on 2026-10-01: 6–60 s, one at 185 s). `task ci:watch` waits 2 minutes after the checks end; if the PR is still open, armed, not `needs-human` and every required check is green (`infra/scripts/merge-ready.sh`), it runs `gh pr merge --squash` and comments the PR. A job skipped by `Detect changes` counts as green, as for GitHub.
 
 ## GitHub Actions Secrets
 
