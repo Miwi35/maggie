@@ -22,7 +22,7 @@ class IngredientRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('i')
             ->where('i.user = :user')
             ->andWhere('i.ciqualAlimCode = :alimCode')
-            ->setParameter('user', $user)
+            ->setParameter('user', $user->getId(), 'ulid')
             ->setParameter('alimCode', $alimCode)
             ->getQuery()
             ->getOneOrNullResult();
