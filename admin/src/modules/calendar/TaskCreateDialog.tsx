@@ -58,7 +58,7 @@ export const TaskCreateDialog = ({ open, onClose, onCreated, defaultDueDate }: T
           ...(description.trim() ? { description: description.trim() } : {}),
           priority,
           criticality,
-          ...(dueDate ? { dueDate: `${dueDate}T00:00:00` } : {}),
+          ...(dueDate ? { dueDate: `${dueDate}T00:00:00Z` } : {}),
         },
       })
       .then(() => {

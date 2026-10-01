@@ -119,8 +119,10 @@ export const EventCreateDialog = ({ open, onClose, onCreated, defaultStart, defa
 
     setSubmitting(true)
 
-    const startDate = allDay ? `${startAt}T00:00:00` : `${startAt}:00`
-    const endDate = allDay ? `${endAt}T23:59:59` : `${endAt}:00`
+    // A timed event is an instant: the browser's wall-clock time, made explicit.
+    // An all-day event is a calendar day, stored as that day in UTC (as Google sync does).
+    const startDate = allDay ? `${startAt}T00:00:00Z` : new Date(startAt).toISOString()
+    const endDate = allDay ? `${endAt}T23:59:59Z` : new Date(endAt).toISOString()
 
     dataProvider
       .create('events', {

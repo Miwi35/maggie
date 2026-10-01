@@ -74,7 +74,7 @@ export const TaskEditDialog = ({ open, task, onClose, onUpdated }: TaskEditDialo
           description: description.trim() || null,
           priority,
           criticality,
-          ...(dueDate ? { dueDate: `${dueDate}T00:00:00` } : { dueDate: null }),
+          ...(dueDate ? { dueDate: `${dueDate}T00:00:00Z` } : { dueDate: null }),
           completedAt: isDone && !task.completedAt ? new Date().toISOString() : isDone ? task.completedAt : null,
         },
         previousData: task,

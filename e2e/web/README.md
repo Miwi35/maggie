@@ -129,8 +129,6 @@ Writing them — and then *running* them — found bugs, and each open one has a
 expected-to-fail test naming its ticket rather than a missing assertion, because an
 exemption nobody wrote down is a missing test:
 
-- **MAG-168** — the create dialog posts a local time with no offset, so an event
-  entered at 15:00 in Paris is stored at 15:00 UTC.
 - **MAG-174** — the grocery list shows a line deferred with `buyAfter` to a later
   day (`grocery-list.spec.ts`).
 - **MAG-197** — ticking what is in the trolley, then ending the errand, still fails

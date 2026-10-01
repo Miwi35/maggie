@@ -86,21 +86,8 @@ test('an event created from the dialog names its agenda with one IRI, not two', 
   await calendar.openEvent(String(stored.id), created.summary)
 })
 
-/**
- * The hour the owner typed is the hour that is stored — MAG-168.
- *
- * It is not, today: the dialog sends `…T15:00:00` with no offset, PHP runs on UTC,
- * and an event entered at 15:00 in Paris lands at 17:00. Marked expected-to-fail
- * rather than left out, because an exemption nobody wrote down is a missing test:
- * this records the gap, and it turns red the day MAG-168 lands — which is when the
- * marker has to go.
- *
- * The marker covers the whole test, setup included, so a broken `createEvent` would
- * hide here. It cannot hide for long: the test above drives the same dialog unmarked.
- */
+/** The hour the owner typed is the hour that is stored (MAG-168). */
 test('the hour typed is the hour stored', async ({ page, api }) => {
-  test.fail()
-
   const created = slot('Apéro chez Sam')
   const calendar = new CalendarPage(page)
   await calendar.open()
