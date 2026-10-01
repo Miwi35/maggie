@@ -1,8 +1,13 @@
 # Agent Memory
 
 The design is ADR-010 (Linear, *Registre des décisions*), background in *Étude — la mémoire
-d'un assistant*. This file is the operational contract: what the code must hold true. Change
-the ADR first, then this file.
+d'un assistant*. This file is the operational contract: what the code must hold true.
+
+**ADR-010 is still *Proposée*.** Nothing here is implemented until the owner accepts it and
+the ADR's status line says *Acceptée* — MAG-163 carries that validation. The rules below
+describe the target; the current `memory` table, its `MemoryType` enum and its four tools
+(`store_memory`, `search_memory`, `update_memory`, `delete_memory`) are what MAG-17 replaces.
+Change the ADR first, then this file.
 
 ## One unit, one place
 
@@ -11,15 +16,16 @@ writes, titles, tags, links, rewrites and archives herself. Episodic recall (the
 journal) is a note tagged `journal` with its date in the title, not a second mechanism.
 
 **No business schema.** No `Person`, `Place` or `Routine` entity, no category enum, no closed
-tag list. Tags, links and sources are JSONB on the note. A `grep` over `agent/app/` must find
-no enumeration of memory categories — that check belongs in the review of any memory PR.
+tag list. Tags, links and sources are JSONB on the note. From MAG-17 on, a `grep` over
+`agent/app/` must find no enumeration of memory categories — that check belongs in the review
+of any memory PR.
 
 The five memories and where they already live:
 
 | Memory | Lives in | Owner-visible at |
 |---|---|---|
 | Working | conversation window, `conversation_context` | the chat thread and its context chips |
-| Episodic | `message`, `conversation_context`, `journal` notes | the inspector, the conversation history |
+| Episodic | `agent_message`, `conversation_context`, `journal` notes | the inspector, the conversation history |
 | Semantic | **notes** (`memory_note`) | the inspector (MAG-20) |
 | Procedural | skills (Markdown files), `instruction` directives | agent settings, Skills and Directives tabs |
 | Prospective | `proaction` | the proaction log (MAG-155) and settings |
@@ -37,9 +43,15 @@ Postgres (`maggie_agent`) is the **store**; Markdown is the **format**. Two tabl
   `consolidation` | `owner`), `action`, `reason` (one line), `previous_body`, `source`.
   Version history *is* the events that carry a `previous_body`.
 
+**The agent has no migration tool.** Its schema comes from `AgentBase.metadata.create_all`,
+which creates missing tables and never alters an existing one or installs an extension.
+MAG-17 settles that before adding a column anywhere: either it brings a migration tool in, or
+it writes down how the schema evolves. Do not assume `agent/migrations/` exists.
+
 Every read and write is filtered by `user_id`, with the two-user isolation test every agent
-repository ships (MAG-108). No filesystem store: the agent pod has no persistent volume, and
-files give no transaction between a chat turn and the nightly consolidation.
+repository ships (MAG-108). No filesystem store: the agent pod mounts no persistent volume
+(`infra/k8s/agent-deployment.yaml`), and files give no transaction between a chat turn and
+the nightly consolidation.
 
 ## One write door
 
@@ -48,25 +60,35 @@ in the inspector — goes through the same service. It is the only place that st
 source, appends the `memory_event`, and publishes on Mercure. A repository write that
 bypasses it is a bug, not a shortcut.
 
+Publishing means a new `memory` stream in `agent/app/mercure/topics.py` (`STREAMS`), the
+regenerated `agent/contract/mercure-topics.json`, and the selector listed in the API's
+`MercureSubscriberTokenFactory` — the contract test goes red otherwise, on purpose.
+
 ## Tools
 
 Five, no more:
 
 - `read_notes(ids)` — open full notes; touches `last_used_at` and `use_count`
-- `search_memory(query)` — full text, accent- and typo-tolerant (`tsvector` french,
-  `unaccent`, `pg_trgm`); active notes only unless asked otherwise
+- `search_memory(query)` — full text; active notes only unless asked otherwise
 - `write_note(...)` — create or rewrite; the skill requires a search first, so a rewrite
   replaces instead of piling up. Merging and splitting are `write_note` + `archive_note`
   with a reason, not extra tools
 - `archive_note(id, reason)` — leaves the index and the default search, stays visible
 - `forget_note(id)` — real deletion, history included; only on the owner's explicit word
 
+Search starts on `to_tsvector('french', …)`, the one precedent in the repo. Accent and typo
+tolerance wants `unaccent` and `pg_trgm`, which nothing here installs and which the agent
+role may not be allowed to create on the shared production Postgres (ADR-007): MAG-16 checks
+that first and says in the ticket which of the two it got, rather than assuming.
+
 ## Recall
 
 - **Always present**: the index — one line per active note (title, tags, one-line summary,
-  importance, last used). It gets **its own cache breakpoint**, after the stable prefix
-  (personality, skills, tools), so a memory change rewrites that block alone. Below the
-  provider's minimum cacheable block size it just stays volatile.
+  importance, last used). It is a system block of its own, sitting between the cached stable
+  block (personality, skills) and the volatile one, with its own cache breakpoint, so a
+  memory change rewrites that block alone — see `build_system` and `cache_tools` in
+  `agent/app/llm/prompt_cache.py`. Below the provider's minimum cacheable block size it just
+  stays volatile.
 - **Opened on demand**: `read_notes`, then `search_memory` as a fallback.
 - The index is **bounded**. Past the configured token budget, keep the highest
   importance × recency and append the count that was left out — and log it. A silently
@@ -83,6 +105,14 @@ Five, no more:
   debounced after silence and always on context close — not once per turn.
 - The background encoder proposes; it writes through the same door, with the source message
   on every change, and every change shows in the inspector. Nothing lands untraceable.
+
+## The memory skill is not durable yet
+
+The two rules that carry recall — search before writing, consult before acting — live in a
+skill so they can change without a deploy. But skills are files under `/app/data/skills`
+(`agent/app/skills/index.py`) and the agent pod mounts no volume there: they vanish on every
+deploy. **MAG-187 fixes that, and MAG-17 is blocked by it** — otherwise the behaviour this
+file describes silently disappears at the first redeploy after it ships.
 
 ## Consolidation and forgetting
 
@@ -113,8 +143,11 @@ that decides on its own. No hard-coded rule about what is worth keeping.
 
 ## Ruled out, and why
 
-No embeddings or pgvector (absent from the shared production Postgres, and a vector is not
-something the owner can read or correct), no third-party memory framework (Mem0, Letta,
-LangMem), no dedicated memory service, no knowledge graph, no invisible summary. Any PR that
-reintroduces one argues it against the simpler option it replaces — that is an ADR, not a
-commit.
+No embeddings or pgvector (a vector is not something the owner can read or correct, and
+pgvector has to be confirmed present on the shared Postgres before it is even an option), no
+third-party memory framework (Mem0, Letta, LangMem), no dedicated memory service, no
+knowledge graph, no invisible summary — and not Anthropic's own `memory_20250818` tool
+either: it imposes a file semantics, leaves the storage to us anyway, and carries neither
+sources nor a write journal. Keeping our own tools on the Messages API is ADR-001. Any PR
+that reintroduces one of these argues it against the simpler option it replaces — that is an
+ADR, not a commit.
