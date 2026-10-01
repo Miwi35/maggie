@@ -187,9 +187,11 @@ services:
       # nginx itself rather than the whole chain behind it. 127.0.0.1, not
       # localhost: that resolves to ::1 here and nginx only listens on IPv4.
       test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1/favicon.ico || exit 1"]
-      interval: 3s
+      interval: 2s
       timeout: 5s
-      retries: 20
+      retries: 30
+      start_period: 5s
+      start_interval: 1s
     mem_limit: 32m
     memswap_limit: 32m
     labels:
@@ -266,10 +268,11 @@ services:
       # on a missing vendor/ — and a journey then waits forever for an indexed
       # entity that nobody is indexing.
       test: ["CMD-SHELL", "pgrep -f 'messenger:consume' >/dev/null || exit 1"]
-      interval: 5s
+      interval: 2s
       timeout: 5s
-      retries: 12
+      retries: 30
       start_period: 10s
+      start_interval: 1s
     mem_limit: 160m
     memswap_limit: 160m
     labels:
@@ -293,9 +296,11 @@ services:
       - /var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U maggie -d maggie_e2e"]
-      interval: 3s
+      interval: 2s
       timeout: 5s
-      retries: 20
+      retries: 30
+      start_period: 10s
+      start_interval: 1s
     mem_limit: 256m
     memswap_limit: 256m
     labels:
@@ -351,9 +356,11 @@ services:
       - /var/lib/rabbitmq
     healthcheck:
       test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
-      interval: 5s
+      interval: 2s
       timeout: 5s
-      retries: 20
+      retries: 40
+      start_period: 20s
+      start_interval: 1s
     mem_limit: 256m
     memswap_limit: 256m
     labels:
@@ -386,6 +393,8 @@ services:
       interval: 2s
       timeout: 5s
       retries: 75
+      start_period: 15s
+      start_interval: 1s
     mem_limit: 1024m
     memswap_limit: 1024m
     labels:
@@ -479,6 +488,7 @@ services:
       timeout: 5s
       retries: 100
       start_period: 10s
+      start_interval: 1s
     mem_limit: 320m
     memswap_limit: 320m
     labels:
@@ -534,9 +544,11 @@ services:
       - ./.docker/e2e/wiremock/mappings:/home/wiremock/mappings:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -fs http://localhost:8080/__admin/health || exit 1"]
-      interval: 3s
+      interval: 2s
       timeout: 5s
-      retries: 20
+      retries: 30
+      start_period: 15s
+      start_interval: 1s
     mem_limit: 320m
     memswap_limit: 320m
     labels:

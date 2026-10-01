@@ -23,8 +23,8 @@ jobs:
       agent: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.agent == 'true' }}
       ciqual: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.ciqual == 'true' }}
       admin: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.admin == 'true' }}
-      e2e: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.e2e == 'true' }}
-      mobile: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.mobile == 'true' }}
+      e2e: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.code.outputs.e2e == 'true' }}
+      mobile: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.code.outputs.mobile == 'true' }}
       cron: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.cron == 'true' }}
       # The emulators the Maestro journeys run on (MAG-98). One phone on a pull
       # request — an emulator costs minutes and the layout formats are not what a
@@ -44,6 +44,8 @@ jobs:
         # everything (the outputs above).
         if: github.event_name == 'pull_request' || github.event_name == 'push'
         with:
+          # The files behind the `e2e` and `mobile` matches, for the step below.
+          list-files: json
           filters: |
             api:
               - 'api/**'
@@ -96,6 +98,28 @@ jobs:
               - '.docker/**'
               - 'docker-compose.e2e.yml'
               - '.github/workflows/ci.yml'
+
+      # A pull request whose only files under `api/`, `admin/`, `e2e/`… are
+      # Markdown (a README, a module's notes) matches the filters above but
+      # changes nothing a stack could run: it must not start eleven containers
+      # (MAG-180). `e2e-stack` below still reports, green, whatever this says —
+      # a skipped job satisfies branch protection, and the aggregator tells a
+      # skip from a failure.
+      - name: Ignore changes that are only documentation
+        id: code
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        env:
+          E2E_FILES: ${{ steps.filter.outputs.e2e_files }}
+          MOBILE_FILES: ${{ steps.filter.outputs.mobile_files }}
+        run: |
+          for name in e2e mobile; do
+            var="${name^^}_FILES"
+            if [ "$(jq 'map(select(test("\\.md$") | not)) | length' <<<"${!var:-[]}")" -gt 0 ]; then
+              echo "$name=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "$name=false" >> "$GITHUB_OUTPUT"
+            fi
+          done
 
   api-lint:
     name: API Lint (PHPStan)
@@ -297,11 +321,24 @@ jobs:
         run: npm ci
       - run: npm run test
 
-  e2e-stack:
-    name: E2E Stack (smoke journey)
+  # The Playwright journeys in four shards (MAG-180), each on a stack of its own
+  # — a stack is ~1 min to start and the journeys 2.5 min to run, so four of
+  # them in parallel beat one. Two workers per shard, not more: a 4-vCPU runner
+  # already hosts the whole stack, and at four workers pages time out (see
+  # e2e/web/playwright.config.ts).
+  #
+  # Not a required check, on purpose: the shards are named after their index.
+  # `e2e-stack` below carries the required name and waits for all four.
+  e2e-shard:
+    name: E2E shard ${{ matrix.shard }}/4
     needs: changes
     if: needs.changes.outputs.e2e == 'true'
     runs-on: ubuntu-latest
+    strategy:
+      # A red shard must not hide what the other three found.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     permissions:
       contents: read
       # The stack's images are pushed once per set of build inputs (MAG-135).
@@ -372,11 +409,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # A builder that can export and import layer caches: `e2e/images.sh` builds
+      # from the last pushed image's layers when an image's hash changes.
+      - uses: docker/setup-buildx-action@v3
+
       - name: Pull or build the stack's images
         # An image is named after the hash of what its Dockerfile reads, so a pull
         # request that changes none of it builds nothing: four pulls, run beside
         # the third-party ones. Only a changed .docker/ file or build arg builds
-        # — once, and pushes it for every run after.
+        # — from the layers of the previous image, and pushes it for every run
+        # after. The four shards race to do it when the hash changed; they all
+        # produce the same image, so the last push wins harmlessly.
         run: |
           e2e/images.sh env >> "$GITHUB_ENV"
           echo "E2E_PREBUILT=1" >> "$GITHUB_ENV"
@@ -385,7 +428,10 @@ jobs:
       - name: Start the stack
         run: task e2e:up
 
+      # What follows up to the journeys runs in one shard only: none of it
+      # depends on how the Playwright tests are split.
       - name: Seed
+        if: matrix.shard == 1
         # No --now. Pinning the anchor to a past date would move the whole
         # seeded world into that month while the containers' clock stays real,
         # so every endpoint that derives its period from `new DateTimeImmutable`
@@ -395,9 +441,11 @@ jobs:
         run: task e2e:seed
 
       - name: Smoke journey
+        if: matrix.shard == 1
         run: task e2e:smoke
 
       - name: The web journeys lint and type-check
+        if: matrix.shard == 1
         # Seconds, in the container the journeys themselves run in, and it
         # catches a renamed page object or an `expect` nobody awaited before
         # eleven services have been driven through a browser to find out.
@@ -405,29 +453,26 @@ jobs:
 
       - name: Web journeys (Playwright)
         # Reseeds on its own — the smoke journey above writes, and these
-        # assert on the seeded world. Stays in this job rather than becoming
-        # its own: the stack takes minutes to build and there is only one.
-        run: task e2e:web
+        # assert on the seeded world. This shard's share of the tests only.
+        run: task e2e:web -- --shard=${{ matrix.shard }}/4
 
       - name: The eval scenarios parse
+        if: matrix.shard == 1
         # Cheap — no key, no model call — and the only place a scenario file
         # that went missing or grew a typo'd expectation fails loudly. Without
         # it the first symptom is the nightly going red at 03:17 for a reason
         # that has nothing to do with prompts.
         run: task e2e:eval:check
 
-      - name: Playwright report
+      - name: Playwright blob report
         if: failure()
-        # The traces are the point: `npx playwright show-trace` replays the
-        # failing journey step by step, which beats reading a stack trace out
-        # of a log for a browser failure nobody can reproduce locally.
+        # This shard's half of the report, traces and videos included. The
+        # `e2e-report` job merges the four into the one artifact people open.
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-${{ github.run_id }}
-          path: |
-            e2e/web/playwright-report
-            e2e/web/test-results
-          retention-days: 7
+          name: blob-report-${{ matrix.shard }}
+          path: e2e/web/blob-report
+          retention-days: 1
           if-no-files-found: ignore
 
       - name: Stack logs
@@ -437,6 +482,75 @@ jobs:
       - name: Tear down
         if: always()
         run: task e2e:down
+
+  # The required check. It keeps the name branch protection already lists, so
+  # that sharding the journeys needs no change there (MAG-180), and it is the
+  # only place that knows what "the e2e passed" means: every shard green, or the
+  # job skipped because nothing a stack runs has changed. `if: always()` so it
+  # runs — and fails — when a shard is red, instead of being skipped with them,
+  # which a branch protection would read as a pass.
+  e2e-stack:
+    name: E2E Stack (smoke journey)
+    needs: [changes, e2e-shard]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every shard passed, or none was needed
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          SHARDS: ${{ needs.e2e-shard.result }}
+          WANTED: ${{ needs.changes.outputs.e2e }}
+        run: |
+          echo "changes=$CHANGES shards=$SHARDS e2e wanted=$WANTED"
+          [ "$CHANGES" = success ] || { echo "::error::Detect changes did not succeed"; exit 1; }
+          if [ "$WANTED" = true ]; then
+            [ "$SHARDS" = success ] || { echo "::error::an e2e shard did not succeed ($SHARDS)"; exit 1; }
+          fi
+
+  # One report from four halves, only when a shard failed. The traces are the
+  # point: `npx playwright show-trace` replays the failing journey step by
+  # step, which beats reading a stack trace out of a log for a browser failure
+  # nobody can reproduce locally.
+  e2e-report:
+    name: E2E merged report
+    needs: e2e-shard
+    if: always() && needs.e2e-shard.result == 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: e2e/web
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: e2e/web/package-lock.json
+
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: blob-report-*
+          merge-multiple: true
+          path: e2e/web/all-blob-reports
+
+      - name: Merge the shards' reports
+        id: merge
+        continue-on-error: true
+        working-directory: e2e/web
+        env:
+          PLAYWRIGHT_HTML_OPEN: never
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright merge-reports --reporter html ./all-blob-reports
+
+      - name: Playwright report
+        if: steps.merge.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: e2e/web/playwright-report
+          retention-days: 7
 
   # The Android app, driven on a headless emulator against the e2e stack
   # (MAG-98). MAG-93 counted seven past regressions no other suite can reach:
@@ -522,6 +636,8 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
 
       - name: Pull or build the stack's images
         run: |
