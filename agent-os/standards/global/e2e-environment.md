@@ -363,3 +363,33 @@ here because they are properties of the *stack*, not of Playwright:
    how a working feature gets reported as broken. (The seed is exempt: it
    reindexes synchronously and refreshes, so data is findable the moment
    `task e2e:seed` returns.)
+6. **It addresses rows by a label of its own, and asserts no counts.** The suite
+   runs `fullyParallel`, so another file is writing to the same user's data at
+   the same time. CI retries once *without* reseeding, so the label carries the
+   attempt number (`perAttempt()` in several files).
+
+### A journey asserting a *publication* needs data it owns (MAG-101)
+
+The two rules above are not enough for "*this* write reached the hub". A
+`GroceryList`, a `GroceryItem` collection, a conversation — anything published
+whole on one topic — makes "a payload arrived showing the new state" true as
+soon as *anyone* writes to it. A middleware that published nothing for the
+command under test would still pass, which is exactly the regression such a test
+exists to catch (`afc1a70`).
+
+So a journey of that kind needs three things, and `grocery-errand.spec.ts` is
+the worked example:
+
+- **data nobody else writes.** It signs in as the second seeded account, whose
+  grocery list the seed gives it and which no other file touches. Giving that
+  account a second job is cheaper than a third one; say why in
+  `api/fixtures/e2e/10-core.yaml` when you do it.
+- **the *next* message, not any later one.** Snapshot how many the probe has
+  received, act, then assert on the first message after the snapshot.
+- **`mode: 'serial', retries: 0`.** A serial group replays whole with nothing
+  reseeded, so a test starting from a seeded row fails on the retry for a reason
+  that has nothing to do with the code. A flake has to read as a flake.
+
+The same reasoning covers the chat: `GET /agent/messages` is scoped to the user
+and returns the last twenty, and `chat.spec.ts` depends on that window. A journey
+adding exchanges as the signed-in user eats into it — use the second account.
