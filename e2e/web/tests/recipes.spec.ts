@@ -118,4 +118,64 @@ test.describe('Recipes and meals', () => {
     expect(remaining).toContain(seedId('e2e_ingredient_pasta'))
     expect(remaining).toContain('Pile LR03')
   })
+
+  test('editing a recipe updates the grocery line of the meals already planned with it', async ({ api }) => {
+    // MAG-167: the list followed the meals (MAG-116) but not the recipes
+    // behind them — 400 g became 600 g in the recipe and the list kept 400.
+    // Driven through the API with an ingredient of its own, so the line is
+    // this journey's and nobody else's on the shared list.
+    const headers = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
+    const name = `Boulgour MAG-167 ${Date.now()}`
+
+    const ingredient = await api.post('/api/ingredients', { headers, data: { name, category: 'grain' } })
+    expect(ingredient.status()).toBe(201)
+    const ingredientIri = ((await ingredient.json()) as { '@id': string })['@id']
+
+    const recipe = await api.post('/api/recipes', {
+      headers,
+      data: { name: 'Taboulé MAG-167', servings: 2, ingredients: [{ ingredient: ingredientIri, quantity: 400, unit: 'g' }] },
+    })
+    expect(recipe.status()).toBe(201)
+    const recipeBody = (await recipe.json()) as { '@id': string; id: string }
+
+    const tomorrow = new Date(Date.now() + 24 * 3600 * 1000).toISOString().slice(0, 10)
+    const meal = await api.post('/api/meals', {
+      headers,
+      data: {
+        summary: 'Dîner',
+        startAt: `${tomorrow}T00:00:00+02:00`,
+        endAt: `${tomorrow}T23:59:59+02:00`,
+        slot: 'dinner',
+        allDay: true,
+        agenda: `/api/agendas/${seedId('e2e_agenda_personal')}`,
+        recipes: [recipeBody['@id']],
+      },
+    })
+    expect(meal.status()).toBe(201)
+
+    interface Line {
+      label: string
+      quantity: number | null
+    }
+    const lineOf = (list: GroceryListRow): Line | undefined =>
+      (list.items as Line[]).find((item) => item.label === name)
+
+    const planned = await waitForIndexed<GroceryListRow>(api, '/api/grocery_lists', (list) => lineOf(list)?.quantity === 400, {
+      what: 'The meal’s 400 g of boulgour',
+    })
+    const lineCount = planned.items.length
+
+    const updated = await api.patch(recipeBody['@id'], {
+      headers: { 'Content-Type': 'application/merge-patch+json', Accept: 'application/ld+json' },
+      data: { ingredients: [{ ingredient: ingredientIri, quantity: 600, unit: 'g' }] },
+    })
+    expect(updated.ok()).toBeTruthy()
+
+    const after = await waitForIndexed<GroceryListRow>(api, '/api/grocery_lists', (list) => lineOf(list)?.quantity === 600, {
+      what: 'The recipe’s new 600 g of boulgour',
+    })
+
+    // Same line, not a second one beside it.
+    expect(after.items).toHaveLength(lineCount)
+  })
 })

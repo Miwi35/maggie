@@ -9,12 +9,15 @@ use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
 use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Entity\MealGroceryContribution;
 use Maggie\Cookbook\Entity\Recipe;
 use Maggie\Cookbook\Message\CreateMealCommand;
 use Maggie\Cookbook\Message\DeleteMealCommand;
+use Maggie\Cookbook\Message\DeleteRecipeCommand;
 use Maggie\Cookbook\Message\GenerateGroceryListCommand;
 use Maggie\Cookbook\Message\UpdateMealCommand;
+use Maggie\Cookbook\Message\UpdateRecipeCommand;
 use Maggie\Core\Entity\User;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
@@ -317,6 +320,142 @@ class MealGrocerySyncTest extends KernelTestCase
         $this->generate();
 
         self::assertSame(['Lait' => 1.0, 'Lait ' => 1.0], $this->labelledList());
+    }
+
+    public function testChangingAnIngredientQuantityUpdatesTheLineOfUpcomingMeals(): void
+    {
+        $this->planMeal('pasta');
+        $before = $this->lines();
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $this->editRecipe('pasta', [['pasta_product', 600, 'g'], ['tomato', 4, 'piece']]);
+
+        // Same line, same place, new quantity.
+        self::assertSame(['Pâtes' => 600.0, 'Tomate' => 4.0], $this->list());
+        self::assertSame($before, $this->lines());
+        self::assertSame(1, $this->groceryUpdateCount());
+        $this->assertElasticsearchIndexDispatched(GroceryList::class);
+    }
+
+    public function testDroppingAnIngredientFromARecipeTakesItsLineOffTheList(): void
+    {
+        $this->planMeal('pasta');
+
+        $this->editRecipe('pasta', [['tomato', 4, 'piece']]);
+
+        self::assertSame(['Tomate' => 4.0], $this->list());
+    }
+
+    public function testDroppingAnIngredientAnotherMealStillNeedsKeepsItsShare(): void
+    {
+        $this->planMeal('pasta');
+        $this->planMeal('gratin');
+
+        $this->editRecipe('pasta', [['pasta_product', 400, 'g']]);
+
+        self::assertSame(['Parmesan' => 80.0, 'Pâtes' => 400.0, 'Tomate' => 2.0], $this->list());
+    }
+
+    public function testEditingARecipeLeavesPastMealsAlone(): void
+    {
+        $this->planMealOn('pasta', '-3 days');
+
+        $this->editRecipe('pasta', [['pasta_product', 600, 'g'], ['tomato', 4, 'piece']]);
+
+        self::assertSame(['Pâtes' => 400.0, 'Tomate' => 4.0], $this->list());
+    }
+
+    public function testEditingARecipeLeavesALineAlreadyInTheBasketAlone(): void
+    {
+        $this->planMeal('pasta');
+        $this->check('Pâtes');
+
+        $this->editRecipe('pasta', [['pasta_product', 600, 'g'], ['tomato', 4, 'piece']]);
+
+        self::assertSame(['Pâtes' => 400.0, 'Tomate' => 4.0], $this->list());
+    }
+
+    public function testRenamingARecipeDoesNotTouchTheList(): void
+    {
+        $this->planMeal('pasta');
+        $this->resetMercure();
+
+        $this->bus()->dispatch(new UpdateRecipeCommand(
+            recipeId: (string) $this->getFixture('pasta')->getId(),
+            name: 'Pâtes sauce tomate',
+        ));
+
+        self::assertSame(['Pâtes' => 400.0, 'Tomate' => 4.0], $this->list());
+        self::assertSame(0, $this->groceryUpdateCount());
+    }
+
+    public function testDeletingARecipeTakesItsShareOffTheListOfUpcomingMeals(): void
+    {
+        $this->planMeal('pasta');
+        $gratinMealId = $this->planMeal('gratin');
+        $this->resetMercure();
+
+        $this->bus()->dispatch(new DeleteRecipeCommand(recipeId: (string) $this->getFixture('pasta')->getId()));
+
+        // The meal stays, without the recipe; the gratin keeps its own share.
+        self::assertSame(['Parmesan' => 80.0, 'Tomate' => 2.0], $this->list());
+        self::assertSame(2, $this->contributionCount());
+        self::assertSame(1, $this->groceryUpdateCount());
+        self::assertNotNull($this->em()->getRepository(Meal::class)->find($gratinMealId));
+        self::assertNull($this->em()->getRepository(Recipe::class)->find($this->getFixture('pasta')->getId()));
+    }
+
+    public function testEditingARecipeAlsoUpdatesTodaysMeal(): void
+    {
+        // Midnight in Paris is the day before in UTC: a meal planned for today
+        // is not a past meal, whatever the database's own time zone.
+        $this->planMealOn('pasta', 'today');
+
+        $this->editRecipe('pasta', [['pasta_product', 600, 'g'], ['tomato', 4, 'piece']]);
+
+        self::assertSame(['Pâtes' => 600.0, 'Tomate' => 4.0], $this->list());
+    }
+
+    public function testDeletingARecipeRewritesTheMealsItLeavesAndKeepsPastShoppingAlone(): void
+    {
+        $upcomingId = $this->planMeal('pasta');
+        $pastId = $this->planMealOn('pasta', '-3 days');
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $this->bus()->dispatch(new DeleteRecipeCommand(recipeId: (string) $this->getFixture('pasta')->getId()));
+
+        // The upcoming meal's 400 g / 4 tomatoes go; the past meal's stay —
+        // that shopping was done.
+        self::assertSame(['Pâtes' => 400.0, 'Tomate' => 4.0], $this->list());
+        self::assertSame(2, $this->contributionCount());
+
+        $upcoming = $this->em()->getRepository(Meal::class)->find($upcomingId);
+        self::assertCount(0, $upcoming->getRecipes());
+        self::assertSame('Dîner', $upcoming->getSummary());
+        self::assertCount(0, $this->em()->getRepository(Meal::class)->find($pastId)->getRecipes());
+
+        // Both meals changed on screen and in search, not only the list.
+        $this->assertMercureUpdatePublished('/api/meals/'.$upcomingId);
+        $this->assertElasticsearchIndexDispatched(Meal::class);
+    }
+
+    /**
+     * Rewrites a fixture recipe's ingredients.
+     *
+     * @param list<array{0: string, 1: float|int, 2: string}> $lines fixture ref, quantity, unit
+     */
+    private function editRecipe(string $recipeRef, array $lines): void
+    {
+        $this->bus()->dispatch(new UpdateRecipeCommand(
+            recipeId: (string) $this->getFixture($recipeRef)->getId(),
+            ingredients: array_map(fn (array $line) => [
+                'ingredientId' => (string) $this->getFixture($line[0])->getId(),
+                'quantity' => (float) $line[1],
+                'unit' => $line[2],
+            ], $lines),
+        ));
     }
 
     /** Plans tomorrow's dinner from one fixture recipe and returns its id. */
