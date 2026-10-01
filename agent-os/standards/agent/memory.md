@@ -27,7 +27,7 @@ The five memories and where they already live:
 | Working | conversation window, `conversation_context` | the chat thread and its context chips |
 | Episodic | `agent_message`, `conversation_context`, `journal` notes | the inspector, the conversation history |
 | Semantic | **notes** (`memory_note`) | the inspector (MAG-20) |
-| Procedural | skills (Markdown files), `instruction` directives | agent settings, Skills and Directives tabs |
+| Procedural | skills and `instruction` directives, in the database like notes (MAG-187) | agent settings, Skills and Directives tabs, and the mirror |
 | Prospective | `proaction` | the proaction log (MAG-155) and settings |
 
 ## Storage
@@ -49,9 +49,32 @@ MAG-17 settles that before adding a column anywhere: either it brings a migratio
 it writes down how the schema evolves. Do not assume `agent/migrations/` exists.
 
 Every read and write is filtered by `user_id`, with the two-user isolation test every agent
-repository ships (MAG-108). No filesystem store: the agent pod mounts no persistent volume
-(`infra/k8s/agent-deployment.yaml`), and files give no transaction between a chat turn and
-the nightly consolidation.
+repository ships (MAG-108).
+
+**Why not a folder of `.md` files on object storage.** Durability is not the reason — an
+S3 bucket solves that, and its versioning would give history for free. The reason is that
+this memory is not a pile of documents but a pile of documents with **living metadata**:
+importance, last used, use count, forget-after, read and written constantly to build the
+index and to pick what the nightly consolidation rereads. Object storage offers no index and
+no query — `ListObjectsV2` returns keys and dates, not metadata — and the freshness "touch"
+on every read means one PUT, hence one bucket version, per consultation: the real edit
+history drowns in it. Second reason: an unreachable bucket would leave Maggie amnesiac,
+where an unreachable mirror only leaves the mirror stale.
+
+## The mirror
+
+The memory is **also** written out as a folder of `.md` files on an S3-compatible bucket:
+one file per note (metadata and sources in YAML frontmatter), a `SOMMAIRE.md`, archived
+notes under `archive/`, skills under `competences/`, one prefix per user. That is the
+readable, greppable, versioned copy the owner asked for — outside the cluster and outside
+the app.
+
+It is **one-way and off the response path**: written after the nightly consolidation and on
+demand from the inspector, never read back, and a bucket failure is logged and shown but
+blocks nothing. Only notes changed since the last pass are rewritten, so the bucket does not
+collect a version per note per night. MAG-195 carries it, including the bucket, keys and
+region the owner provisions himself; it stays disabled (`MEMORY_MIRROR_ENABLED=false`) in dev
+and e2e, so no MinIO joins the fourteen services already in that stack.
 
 ## One write door
 
@@ -124,6 +147,12 @@ skill so they can change without a deploy. But skills are files under `/app/data
 deploy. **MAG-187 fixes that, and MAG-17 is blocked by it** — otherwise the behaviour this
 file describes silently disappears at the first redeploy after it ships.
 
+Skills move to the **same store as the notes**, and appear in the mirror alongside them.
+They would have suited the bucket well — they have no living metadata, so the argument above
+does not apply to them — but one store means one backup, one isolation rule, one inspector
+and no new dependency, and a bucket unreachable at boot would strip Maggie of everything
+procedural.
+
 ## Consolidation and forgetting
 
 A silent nightly proaction — Maggie's sleep. It rereads the notes touched since the last run
@@ -161,3 +190,7 @@ either: it imposes a file semantics, leaves the storage to us anyway, and carrie
 sources nor a write journal. Keeping our own tools on the Messages API is ADR-001. Any PR
 that reintroduces one of these argues it against the simpler option it replaces — that is an
 ADR, not a commit.
+
+Object storage is **not** on that list — it is the mirror. And if the owner ends up reading
+the mirror more than the inspector, a folder of `.md` files becomes the right primary store
+after all, and that is a new ADR, not a drift.
