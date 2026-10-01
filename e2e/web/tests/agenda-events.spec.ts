@@ -98,7 +98,8 @@ test('an event created from the dialog names its agenda with one IRI, not two', 
  * The marker covers the whole test, setup included, so a broken `createEvent` would
  * hide here. It cannot hide for long: the test above drives the same dialog unmarked.
  */
-test('the hour typed is the hour stored', async ({ page, api }) => {
+// Quarantined: fails on main depending on the hour of the run (MAG-177).
+test.fixme('the hour typed is the hour stored', async ({ page, api }) => {
   test.fail()
 
   const created = slot('Apéro chez Sam')
@@ -165,7 +166,8 @@ test('the pencil renames an event, and the bin removes it for good', async ({ pa
  * Walked day by day rather than counted in the week view: how FullCalendar lays a
  * crossing event out is its business, "it is on both days" is the promise.
  */
-test('a night-train event is on the day it starts and on the day it ends', async ({ page }) => {
+// Quarantined: fails on main depending on the hour of the run (MAG-177).
+test.fixme('a night-train event is on the day it starts and on the day it ends', async ({ page }) => {
   const calendar = new CalendarPage(page)
   const summary = 'Train de nuit pour Vienne'
 

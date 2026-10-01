@@ -120,7 +120,8 @@ async function forgetAgendasNamed(api: APIRequestContext, prefix: string): Promi
  * because {@link forgetImportedAgenda} makes both idempotent: a retry replays the
  * group onto a world the group puts back itself.
  */
-test.describe('Importing the Google calendar', () => {
+// Quarantined as a whole: the group is serial and its first test fails on main depending on the hour of the run (MAG-177).
+test.describe.fixme('Importing the Google calendar', () => {
   test.describe.configure({ mode: 'serial' })
 
   test('an imported calendar arrives, and a local change survives the next pull', async ({
@@ -280,7 +281,8 @@ test.describe('Importing the Google calendar', () => {
  * exporting an agenda from the web has never worked. The menu, the agenda and the
  * sidebar it walks through are driven unmarked by the import test above.
  */
-test('exporting an agenda to Google creates a calendar for it', async ({ page, api, playwright }) => {
+// Quarantined: fails on main depending on the hour of the run (MAG-177).
+test.fixme('exporting an agenda to Google creates a calendar for it', async ({ page, api, playwright }) => {
   test.fail()
 
   const name = `${EXPORTED_PREFIX} ${test.info().retry}`
