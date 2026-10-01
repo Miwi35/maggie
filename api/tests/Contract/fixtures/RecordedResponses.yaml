@@ -46,6 +46,14 @@ Maggie\Calendar\Entity\Event:
     rrule: 'FREQ=WEEKLY;BYDAY=MO'
     agenda: '@recorded_agenda'
 
+  recorded_exception_event:
+    summary: Recorded recurring event
+    startAt: '<(new \DateTimeImmutable("2026-03-09 09:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-03-09 09:30"))>'
+    recurringEvent: '@recorded_recurring_event'
+    originalStartAt: '<(new \DateTimeImmutable("2026-03-09 08:00"))>'
+    agenda: '@recorded_agenda'
+
 Maggie\Calendar\Entity\Task:
   recorded_open_task:
     title: Recorded open task

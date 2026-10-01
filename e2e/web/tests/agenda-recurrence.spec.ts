@@ -9,13 +9,8 @@ test.fixme(true, 'MAG-177: depends on the hour of the run')
 /**
  * A weekly series, and single occurrences of it changed on their own (MAG-100).
  *
- * This is the case the ticket exists for, and writing it found MAG-169: the API
- * never returns `recurringEvent` or `originalStartAt`, because `toSearchDocument()`
- * does not write them and the Elasticsearch providers rebuild the entity from the
- * indexed document alone. The admin's exception map is therefore always empty, so
- * an overridden occurrence is drawn *twice* — once as the master's occurrence at
- * the old time, once as the exception at the new one — and a cancelled one is drawn
- * as an ordinary event instead of being removed.
+ * This is the case the ticket exists for. It once found MAG-169: the API did not return
+ * `recurringEvent` or `originalStartAt`, so an overridden occurrence was drawn twice.
  *
  * Running them then found MAG-171, which is worse: the dialog posts
  * `recurringEvent: "/api/events//api/events/01M3…"` — `masterEventId` is already the
@@ -133,15 +128,10 @@ test('the seeded series shows one occurrence a week', async ({ page }) => {
 /**
  * The two overrides the seed carries, read on the grid.
  *
- * Read-only and fed entirely from fixtures, which is what makes it the right place
- * for MAG-169's marker: no write of its own, so it fails for one reason only. The
- * navigation it does share with the tests around it — `goToEventDate`, `chooseView` —
- * is driven unmarked by the first test, so a broken page object cannot hide behind
- * this marker.
+ * Read-only and fed entirely from fixtures: no write of its own, so it can only
+ * fail on what the API serves and what the grid draws (MAG-169).
  */
 test('an overridden occurrence replaces the original, and a refused one disappears', async ({ page }) => {
-  test.fail()
-
   const calendar = new CalendarPage(page)
 
   await calendar.goToEventDate(seedId('e2e_event_recurring_exception'), MOVED_SUMMARY)
@@ -217,8 +207,8 @@ test('changing one occurrence adds an exception and leaves the series as it was'
  *
  * "Cet événement" on a deletion does not delete anything: it writes a `cancelled`
  * exception for that date, which is how Google's model refuses one occurrence
- * without touching the rule. Whether the grid then stops drawing it is MAG-169,
- * asserted above on the seeded pair; here the point is that the bin writes the
+ * without touching the rule. Whether the grid then stops drawing it is asserted
+ * above on the seeded pair (MAG-169); here the point is that the bin writes the
  * right row and spares the series.
  *
  * Expected to fail for the same reason as the test above — MAG-171: the `cancelled`
@@ -232,10 +222,9 @@ test('deleting one occurrence cancels it and keeps the others', async ({ page, a
 
   // A different week on every attempt, and this is the one write `perAttempt()`
   // cannot protect: a cancelled exception keeps its parent's exact summary, so the
-  // name carries nothing. Worse, MAG-169 draws it as an ordinary chip — so a retry
-  // on the same week would read two "Cours de piano" before touching anything and
-  // fail on the pre-assertion, blaming the seed. Each attempt therefore refuses an
-  // occurrence no other attempt has been near.
+  // name carries nothing. A retry on the same week would find that
+  // occurrence already refused and fail on the pre-assertion, blaming the seed.
+  // Each attempt therefore refuses an occurrence no other attempt has been near.
   const { week, day } = freeOccurrence()
 
   await calendar.goToEventDate(seedId('e2e_event_recurring'), MASTER)
