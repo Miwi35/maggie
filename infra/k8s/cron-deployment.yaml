@@ -31,12 +31,15 @@ spec:
             - name: jwt-keys
               mountPath: /var/www/api/config/jwt
               readOnly: true
+          # One console command peaks at ~58 MiB. Jobs start one per minute
+          # (.docker/php/crontab), but a slow one can still run when the next
+          # starts: 256Mi holds four, 128Mi got the pod OOMKilled (MAG-186).
           resources:
             requests:
-              memory: 16Mi
+              memory: 64Mi
               cpu: 10m
             limits:
-              memory: 128Mi
+              memory: 256Mi
               cpu: 300m
       volumes:
         - name: jwt-keys

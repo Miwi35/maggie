@@ -11,6 +11,13 @@
 # trace on the container's output, and that the shipped crontab is valid and
 # free of that redirection.
 #
+# Each `php bin/console` peaks at ~58 MiB of RSS (VmHWM measured in prod,
+# MAG-186). Five jobs starting in the same minute went past the pod's 128Mi
+# limit and the container was OOMKilled, taking the running jobs with it. So
+# no two jobs may start in the same minute, and the memory limit must hold one
+# more job than the most that can start together: a job still running when the
+# next one starts.
+#
 # Usage: IMAGE=<php image> infra/scripts/tests/cron-image.test.sh
 #   IMAGE  Image to test. Default: built from .docker/php/Dockerfile (target e2e).
 #   RUN_SECONDS  How long the scheduler runs. Default 6.
@@ -52,7 +59,52 @@ else
 fi
 
 echo
-echo "2. Jobs run as the pod's non-root user and report on the container's output"
+echo "2. Jobs start one per minute and the pod's memory holds them (MAG-186)"
+PEAK_MIB=64 # one console command, rounded up from the ~58 MiB measured
+
+# Prints every minute of a cron field, e.g. `*/15` in 0..59 -> 0 15 30 45.
+expand_field() {
+  local field="$1" min="$2" max="$3" part range step from to v
+  IFS=',' read -ra parts <<<"$field"
+  for part in "${parts[@]}"; do
+    range="${part%%/*}"; step=1
+    [ "$range" != "$part" ] && step="${part#*/}"
+    case "$range" in
+      '*') from=$min; to=$max ;;
+      *-*) from="${range%-*}"; to="${range#*-}" ;;
+      *) from=$range; to=$range; [ "$step" != 1 ] && to=$max ;;
+    esac
+    for ((v = from; v <= to; v += step)); do echo "$v"; done
+  done
+}
+
+# Every (hour, minute) a job starts, one line per start. The day, month and
+# weekday fields are ignored: two jobs on the same minute may meet some day.
+starts="$work/starts"
+: >"$starts"
+while read -r minute hour _; do
+  for h in $(expand_field "$hour" 0 23); do
+    for m in $(expand_field "$minute" 0 59); do printf '%02d:%02d\n' "$h" "$m" >>"$starts"; done
+  done
+done < <(grep -vE '^[[:space:]]*(#|$)' "$crontab_file")
+max_together="$(sort "$starts" | uniq -c | sort -rn | head -1 | awk '{print $1}')"
+crowded="$(sort "$starts" | uniq -c | awk '$1 > 1 {print $2 " (" $1 " jobs)"}' | head -5 | tr '\n' ' ')"
+[ "$(wc -l <"$starts")" -gt 0 ] && ok "the crontab has $(wc -l <"$starts") starts a day" || bad "no job start found in the crontab"
+[ "${max_together:-0}" -le 1 ] && ok "no two jobs start in the same minute" || bad "jobs start together at: $crowded"
+
+limit="$(awk '/limits:/ {f = 1} f && /memory:/ {print $2; exit}' "$ROOT/infra/k8s/cron-deployment.yaml")"
+case "$limit" in
+  *Gi) limit_mib=$(( ${limit%Gi} * 1024 )) ;;
+  *Mi) limit_mib=${limit%Mi} ;;
+  *) limit_mib=0 ;;
+esac
+needed=$(( (${max_together:-0} + 1) * PEAK_MIB ))
+[ "$limit_mib" -ge "$needed" ] \
+  && ok "the cron memory limit ($limit) holds $((${max_together:-0} + 1)) console commands of ${PEAK_MIB}Mi" \
+  || bad "the cron memory limit ($limit) is under ${needed}Mi: $((${max_together:-0} + 1)) console commands of ${PEAK_MIB}Mi"
+
+echo
+echo "3. Jobs run as the pod's non-root user and report on the container's output"
 cat >"$work/crontab" <<'CRON'
 * * * * * * * cd /var/www/api && echo "uid=$(id -u)" && php -r 'echo "php-ran-", 6 * 7, "\n";'
 * * * * * * * echo "job-stderr-line" >&2; exit 3
