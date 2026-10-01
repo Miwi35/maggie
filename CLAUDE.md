@@ -94,7 +94,7 @@ Never run `php`, `composer`, `bin/console`, `npm`, `pytest` or `uv` on the host:
 | API | `task api:lint` (PHP-CS-Fixer check + PHPStan) | `task api:test` (`-- --testsuite <Module>` to narrow) |
 | Agent | `task agent:lint` + `task agent:format:check` | `task agent:test` |
 | Admin | `task admin:lint` + `task admin:typecheck` | `task admin:test` |
-| Mobile | CI (local `lintProdRelease` crashes on a known AGP/K2 bug) | `cd mobile && ./gradlew testProdReleaseUnitTest` (Java 21 via `org.gradle.java.home`) |
+| Mobile | CI (local `lintProdRelease` crashes on a known AGP/K2 bug) | `cd mobile && ./gradlew testProdReleaseUnitTest` (Java 21 via `org.gradle.java.home`) · install on the connected phone: `task mobile:install` |
 
 Symfony console: `task api:console -- <args>`.
 

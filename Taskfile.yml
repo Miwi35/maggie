@@ -18,6 +18,9 @@ includes:
   ciqual:
     taskfile: ./ciqual/Taskfile.yml
     dir: ./ciqual
+  mobile:
+    taskfile: ./mobile/Taskfile.yml
+    dir: ./mobile
   e2e:
     taskfile: ./e2e/Taskfile.yml
   wt:
