@@ -8,8 +8,9 @@
 #   gh pr diff 42 | scripts/agent-guard/check.sh
 #   git diff origin/main...HEAD | scripts/agent-guard/check.sh
 #
-# Codes: sensitive-path, permissions, destructive-migration, oversize,
-# disabled-test, no-verify. AGENT_MAX_DIFF_LINES (default 800) is the size limit,
+# Codes: sensitive-path, infra-path, permissions, destructive-migration,
+# oversize, disabled-test, no-verify. infra-path alone is the one finding an
+# « Emergency » ticket may merge past (emergency.sh, MAG-184). AGENT_MAX_DIFF_LINES (default 800) is the size limit,
 # tests, lockfiles, generated contracts and spec folders not counted.
 #
 # Patterns that name a forbidden string are written so the source line does not
@@ -29,11 +30,16 @@ function not_counted(f) {
   return is_test(f) || f ~ /(^|\/)(package-lock\.json|composer\.lock|symfony\.lock|uv\.lock)$/ \
     || f ~ /^api\/contract\// || f ~ /^agent-os\/specs\//
 }
+# Secrets, policy and the guard itself: always a human.
 function sensitive(f) {
-  return f ~ /^infra\// || f ~ /^\.github\// || f ~ /^scripts\/agent-guard\// \
+  return f ~ /^scripts\/agent-guard\// || f ~ /^\.github\/workflows\/agent-guard\.ya?ml$/ \
     || f ~ /\.(pem|jks|keystore)$/ || f ~ /(^|\/)\.env(\.[^\/]*)?$/ && f !~ /\.example$/ \
     || f ~ /(^|\/)secrets?([.\/]|$)/ || f ~ /^api\/config\/jwt\// \
     || f ~ /(^|\/)policy\.ya?ml$/
+}
+# Infra and CD: a human, unless the PR is the fix of a ticket in « Emergency ».
+function infra(f) {
+  return f ~ /^infra\// || f ~ /^\.github\//
 }
 function auth_file(f) {
   return f ~ /^api\/config\/packages\/(security|lexik_jwt_authentication|gesdinet_jwt_refresh_token)\.yaml$/ \
@@ -60,6 +66,7 @@ function destructive(l, rest) {
   old = $3; sub(/^a\//, "", old)
   in_down = 0
   if (sensitive(file) || sensitive(old)) flag("sensitive-path", file)
+  else if (infra(file) || infra(old)) flag("infra-path", file)
   if (!is_test(file) && auth_file(file)) flag("permissions", file)
   next
 }
@@ -78,6 +85,10 @@ function destructive(l, rest) {
     if (!not_counted(file)) size++
     if (!is_test(file) && file ~ /\.(php|ya?ml|tsx?|py|kt)$/ && line ~ perm_re)
       flag("permissions", file ": " line)
+    # A workflow that changes the rights of its token or reaches for a secret is never waived.
+    if (file ~ /^\.github\// && line ~ /^[[:space:]]*permissions:|:[[:space:]]*write([^[:alnum:]_-]|$)|write-all/)
+      flag("permissions", file ": " line)
+    if (file ~ /^\.github\// && line ~ /secrets\./) flag("sensitive-path", file ": uses a secret")
   }
   if (c == "+") {
     if (file !~ /\.md$/ && line ~ /--no-verif[y]|--no-gpg-sig[n]/) flag("no-verify", file)

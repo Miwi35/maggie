@@ -12,6 +12,9 @@ name: Agent guard
 #  - streak: two red CI runs in a row on an agent branch, the agent gives up.
 #  - AGENT_ENABLED=false (repo variable, `task guard:stop`) hands every agent
 #    pull request over, whatever it touches.
+#  - Emergency (MAG-184): when infra or CD files are the only reason, and the
+#    branch's ticket is in the Linear state « Emergency », the PR may merge
+#    itself: the ambulance ships its fix (scripts/agent-guard/emergency.sh).
 #
 # Both triggers run the workflow file and the scripts of the default branch, and
 # never check out the pull request: a pull request cannot edit its own guard.
@@ -22,6 +25,9 @@ on:
   workflow_run:
     workflows: [CI]
     types: [completed]
+    # The head branch of the CI run: only agent branches have a streak to count,
+    # the others would only make skipped runs.
+    branches: ['cyrus/**']
 
 permissions:
   contents: read
@@ -48,6 +54,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Check the diff
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
         run: |
           status=0
           if gh pr diff "$PR" > diff.patch; then
@@ -62,6 +70,12 @@ jobs:
             status=10
           fi
           [ "$status" -eq 0 ] || [ "$status" -eq 10 ] || exit "$status"
+          # The fix of an « Emergency » ticket merges its infra change alone; any
+          # other finding, or any doubt, still goes to a human.
+          if [ "$status" -eq 10 ] && scripts/agent-guard/emergency.sh "$BRANCH" < findings.txt > waived.txt; then
+            mv waived.txt findings.txt
+            status=0
+          fi
           grep -v '^info: ' findings.txt > reasons.txt || true
           echo "status=$status" >> "$GITHUB_ENV"
 
