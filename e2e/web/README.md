@@ -113,9 +113,6 @@ exemption nobody wrote down is a missing test:
 
 - **MAG-168** — the create dialog posts a local time with no offset, so an event
   entered at 15:00 in Paris is stored at 15:00 UTC.
-- **MAG-148** — the same shape on `Agenda`, whose `googleCalendarId` is not indexed
-  either. That is why importing the same Google calendar twice makes a second
-  agenda, and why the sidebar's sync badge never appears.
 
 What the browser cannot reach lives in `e2e/smoke/smoke.sh`: the Paris-time conflict
 check, driven through the real MCP transport (step 10), and the reminder cron, which
