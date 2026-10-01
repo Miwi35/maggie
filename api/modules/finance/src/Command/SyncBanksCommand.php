@@ -50,7 +50,10 @@ class SyncBanksCommand extends Command
                 Without an email it walks every owner with a live connection:
                 that is what the cron runs, twice a day with --write. A sync
                 costs at least two calls per account (movements, balance), so
-                twice a day stays under the four-a-day ceiling.
+                twice a day spends exactly the four-a-day ceiling when each
+                account fits in one page. A first sync reaching back 90 days
+                may take more pages: the provider then refuses, the sync stops
+                cleanly and the next run picks up.
 
                   <info>%command.full_name% --write</info>
                 HELP);
@@ -99,7 +102,9 @@ class SyncBanksCommand extends Command
     {
         try {
             $result = $this->syncBankAccounts->execute($user, $dryRun);
-        } catch (\RuntimeException $e) {
+        } catch (\Throwable $e) {
+            // Not only the provider's RuntimeExceptions: a database error in
+            // one owner's flush must not leave the following owners unsynced.
             $io->error($e->getMessage());
 
             return Command::FAILURE;
@@ -135,12 +140,18 @@ class SyncBanksCommand extends Command
             ['Appels au fournisseur' => $result['providerCalls']],
         );
 
+        // A refusal or a failure is not a green run: cron logs show the exit code.
+        $unhealthy = array_filter(
+            $result['accounts'],
+            static fn (array $row) => \in_array($row['status'], ['failed', 'rate_limited'], true),
+        );
+
         if ($dryRun) {
             $io->note('Rehearsal only — nothing was written. Pass --write to sync for real.');
         } else {
             $io->success('Synchronisation terminée.');
         }
 
-        return Command::SUCCESS;
+        return [] === $unhealthy ? Command::SUCCESS : Command::FAILURE;
     }
 }
