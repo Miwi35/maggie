@@ -1,0 +1,19 @@
+# An agenda whose Google push channel is about to expire, which is the only
+# state `maggie:google-calendar:renew-watch` acts on.
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+    googleAccessToken: 'access-token'
+    googleRefreshToken: 'refresh-token'
+    googleTokenExpiresAt: '<(new \DateTimeImmutable("2099-01-01T00:00:00+00:00"))>'
+
+Maggie\Calendar\Entity\Agenda:
+  agenda_expiring:
+    name: Concerts
+    googleCalendarId: 'concerts@group.calendar.google.com'
+    googleWatchChannelId: 'channel-old'
+    googleWatchResourceId: 'resource-old'
+    googleWatchExpiresAt: '<(new \DateTimeImmutable("+10 minutes"))>'
+    user: '@test_user'

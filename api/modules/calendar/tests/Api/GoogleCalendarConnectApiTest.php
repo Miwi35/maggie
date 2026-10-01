@@ -274,13 +274,19 @@ class GoogleCalendarConnectApiTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(200);
 
-        // The dead channel's id is kept on purpose: it is what puts the agenda
-        // in findWithExpiringWatchChannels, so maggie:google-calendar:renew-watch
-        // tries again half an hour later. Clearing it would drop the agenda out
-        // of the renewal set for good.
+        // The dead channel's id is kept on purpose: it is what keeps the agenda
+        // in the renewal set, so maggie:google-calendar:renew-watch tries again
+        // half an hour later. Clearing it would drop the agenda out for good.
         $agenda = $this->agendasOf($user)[0];
         self::assertSame('channel-1', $agenda->getGoogleWatchChannelId());
-        self::assertLessThan(new \DateTimeImmutable('+1 hour'), $agenda->getGoogleWatchExpiresAt());
+
+        $upForRenewal = self::getContainer()->get('doctrine.orm.entity_manager')
+            ->getRepository(Agenda::class)
+            ->findWithExpiringWatchChannels(new \DateTimeImmutable('+1 hour'));
+        self::assertSame(
+            [(string) $agenda->getId()],
+            array_map(fn (Agenda $candidate) => (string) $candidate->getId(), $upForRenewal),
+        );
     }
 
     public function testConnectingSucceedsEvenWhenGoogleRefusesThePushChannel(): void
