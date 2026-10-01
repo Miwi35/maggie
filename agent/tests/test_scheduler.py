@@ -1,12 +1,15 @@
+import asyncio
 import json
 from collections import defaultdict
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 from zoneinfo import ZoneInfo
 
 import pytest
 
 from app.config import settings
+from app.db.context_model import ContextStatus, ConversationContext
+from app.db.context_repository import context_repo
 from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
 from app.queue import scheduler
@@ -252,3 +255,183 @@ class TestPlanningCycle:
         assert sleeps == [0.0]
         gateway.proaction.assert_awaited_once()
         assert gateway.proaction.await_args.args[1] == "user-ny"
+
+
+NOW = utc(2026, 10, 1, 12, 0)
+
+
+def age(chat_db, context_id: str, **ago) -> None:
+    """Make a context look quiet for `ago` as of NOW."""
+    session = chat_db.session()
+    session._session.get(ConversationContext, context_id).updated_at = NOW - timedelta(**ago)
+    session._session.commit()
+    session._session.close()
+
+
+async def context_at(chat_db, user_id: str, label: str, status: ContextStatus = ContextStatus.ACTIVE, **ago):
+    ctx = await context_repo.create(user_id, label)
+    if status != ContextStatus.ACTIVE:
+        await context_repo.update_status(str(ctx.id), status)
+    age(chat_db, str(ctx.id), **ago)
+    return str(ctx.id)
+
+
+class TestContextLifecycle:
+    """Active → dormant after N hours, → closed after M days, a summary before each (MAG-12)."""
+
+    @pytest.fixture(autouse=True)
+    def thresholds(self, monkeypatch):
+        monkeypatch.setattr(settings, "context_dormant_after_hours", 24)
+        monkeypatch.setattr(settings, "context_close_after_days", 14)
+
+    @pytest.fixture()
+    def summarizer(self, monkeypatch):
+        summarize = AsyncMock(return_value="Un résumé.")
+        monkeypatch.setattr(scheduler.context_summarizer, "summarize", summarize)
+        return summarize
+
+    async def status_of(self, context_id: str) -> ContextStatus:
+        return (await context_repo.get(context_id)).status
+
+    async def test_a_quiet_active_context_goes_dormant_with_a_summary(self, chat_db, summarizer):
+        quiet = await context_at(chat_db, "user-1", "Courses", hours=25)
+        chat_db.published.reset_mock()
+
+        counts = await scheduler.run_context_lifecycle(NOW)
+
+        assert await self.status_of(quiet) == ContextStatus.DORMANT
+        summarizer.assert_awaited_once_with(quiet)
+        assert counts == {"dormant": 1, "closed": 0}
+        assert chat_db.published.await_args.args[1]["status"] == "dormant"
+
+    async def test_a_recent_context_is_left_alone(self, chat_db, summarizer):
+        recent = await context_at(chat_db, "user-1", "Courses", hours=23)
+
+        counts = await scheduler.run_context_lifecycle(NOW)
+
+        assert await self.status_of(recent) == ContextStatus.ACTIVE
+        summarizer.assert_not_awaited()
+        assert counts == {"dormant": 0, "closed": 0}
+
+    async def test_a_dormant_context_stays_dormant_until_the_close_threshold(self, chat_db, summarizer):
+        dormant = await context_at(chat_db, "user-1", "Budget", ContextStatus.DORMANT, days=13)
+
+        counts = await scheduler.run_context_lifecycle(NOW)
+
+        assert await self.status_of(dormant) == ContextStatus.DORMANT
+        summarizer.assert_not_awaited()
+        assert counts == {"dormant": 0, "closed": 0}
+
+    async def test_a_long_quiet_dormant_context_is_closed_with_a_final_summary(self, chat_db, summarizer):
+        dormant = await context_at(chat_db, "user-1", "Budget", ContextStatus.DORMANT, days=15)
+
+        counts = await scheduler.run_context_lifecycle(NOW)
+
+        ctx = await context_repo.get(dormant)
+        assert ctx.status == ContextStatus.CLOSED
+        assert ctx.closed_at is not None
+        summarizer.assert_awaited_once_with(dormant)
+        assert counts == {"dormant": 0, "closed": 1}
+
+    async def test_an_active_context_quiet_past_the_close_threshold_closes_directly(self, chat_db, summarizer):
+        """An agent that was down for weeks: one summary, one transition, no stop at dormant."""
+        quiet = await context_at(chat_db, "user-1", "Courses", days=20)
+
+        counts = await scheduler.run_context_lifecycle(NOW)
+
+        assert await self.status_of(quiet) == ContextStatus.CLOSED
+        summarizer.assert_awaited_once_with(quiet)
+        assert counts == {"dormant": 0, "closed": 1}
+
+    async def test_the_close_threshold_counts_from_the_last_message_not_from_going_dormant(self, chat_db, summarizer):
+        quiet = await context_at(chat_db, "user-1", "Courses", hours=30)
+
+        await scheduler.run_context_lifecycle(NOW)
+        assert await self.status_of(quiet) == ContextStatus.DORMANT
+
+        # 13 days after the dormant step the thread has been quiet 14 days and 6 hours.
+        await scheduler.run_context_lifecycle(NOW + timedelta(days=12))
+        assert await self.status_of(quiet) == ContextStatus.DORMANT
+        await scheduler.run_context_lifecycle(NOW + timedelta(days=13))
+        assert await self.status_of(quiet) == ContextStatus.CLOSED
+
+    async def test_a_closed_context_is_not_touched_again(self, chat_db, summarizer):
+        closed = await context_at(chat_db, "user-1", "Vieux", ContextStatus.CLOSED, days=40)
+        chat_db.published.reset_mock()
+
+        await scheduler.run_context_lifecycle(NOW)
+
+        assert await self.status_of(closed) == ContextStatus.CLOSED
+        summarizer.assert_not_awaited()
+        chat_db.published.assert_not_awaited()
+
+    async def test_every_user_s_contexts_are_handled(self, chat_db, summarizer):
+        first = await context_at(chat_db, "user-1", "Courses", hours=30)
+        second = await context_at(chat_db, "user-2", "Budget", hours=30)
+
+        await scheduler.run_context_lifecycle(NOW)
+
+        assert await self.status_of(first) == ContextStatus.DORMANT
+        assert await self.status_of(second) == ContextStatus.DORMANT
+
+    async def test_a_message_that_lands_during_the_summary_keeps_the_context_active(self, chat_db, summarizer):
+        quiet = await context_at(chat_db, "user-1", "Courses", hours=30)
+
+        async def user_comes_back(context_id):
+            await context_repo.touch(context_id)
+
+        summarizer.side_effect = user_comes_back
+
+        counts = await scheduler.run_context_lifecycle(NOW)
+
+        # `touch` stamps the real clock, which is later than the cycle's cutoff.
+        assert await self.status_of(quiet) == ContextStatus.ACTIVE
+        assert counts == {"dormant": 0, "closed": 0}
+
+    async def test_one_failing_context_does_not_stop_the_others(self, chat_db, summarizer, monkeypatch):
+        broken = await context_at(chat_db, "user-1", "Cassé", hours=30)
+        healthy = await context_at(chat_db, "user-1", "Sain", hours=29)
+        real_update = context_repo.update_status
+
+        async def fail_for_broken(context_id, status, **kwargs):
+            if context_id == broken:
+                raise RuntimeError("db hiccup")
+            return await real_update(context_id, status, **kwargs)
+
+        monkeypatch.setattr(scheduler.context_repo, "update_status", fail_for_broken)
+
+        counts = await scheduler.run_context_lifecycle(NOW)
+
+        assert await self.status_of(broken) == ContextStatus.ACTIVE
+        assert await self.status_of(healthy) == ContextStatus.DORMANT
+        assert counts == {"dormant": 1, "closed": 0}
+
+    async def test_the_loop_survives_a_failed_cycle(self, monkeypatch):
+        cycles = AsyncMock(side_effect=[RuntimeError("db down"), {"dormant": 0, "closed": 0}])
+        monkeypatch.setattr(scheduler, "run_context_lifecycle", cycles)
+        sleeps = []
+
+        async def sleep(seconds):
+            sleeps.append(seconds)
+            if len(sleeps) == 2:
+                raise asyncio.CancelledError
+
+        monkeypatch.setattr(scheduler.asyncio, "sleep", sleep)
+
+        with pytest.raises(asyncio.CancelledError):
+            await scheduler._context_lifecycle_loop()
+
+        assert cycles.await_count == 2
+        assert sleeps == [settings.context_lifecycle_interval_seconds] * 2
+
+    async def test_the_scheduler_starts_the_lifecycle_loop(self, monkeypatch):
+        monkeypatch.setattr(scheduler, "_tasks", [])
+        started = []
+        monkeypatch.setattr(scheduler, "_context_lifecycle_loop", lambda: started.append("lifecycle") or asyncio.sleep(0))
+        monkeypatch.setattr(scheduler, "_execution_loop", lambda: asyncio.sleep(0))
+        monkeypatch.setattr(scheduler, "_daily_planning_loop", lambda: asyncio.sleep(0))
+
+        await scheduler.start_scheduler()
+
+        assert started == ["lifecycle"]
+        assert len(scheduler._tasks) == 3
