@@ -47,6 +47,7 @@ Tickets are created by agents through the Linear MCP and picked up unattended by
 - **Dispatcher labels**: one `area:*` per component touched, `lock:migration` if it adds a schema migration, `needs-shaping` if a spec must be shaped first.
 - **Dependencies** as `blockedBy`, never only in prose: the dispatcher skips blocked tickets.
 - One ticket = one deliverable a single PR can close; split anything larger into a project with one ticket per plan task.
+- **No benchmark or evaluation tickets**, and no quality score as an acceptance criterion: the owner judges quality by using Maggie, and what goes wrong in use becomes a `Bug`. Examples the owner gives are test cases, not features to code.
 
 ## Autonomy — decide by default, ask only when it matters
 
