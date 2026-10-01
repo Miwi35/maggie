@@ -8,6 +8,35 @@ import java.time.Instant
 object EventExpander {
 
     /**
+     * The event as stored, not one of its occurrences: a master keeps its own start, an exception
+     * instance carries its master's rule. An instance whose master is unknown is shown as a
+     * standalone event, so the recurrence dialogs never get a rule they cannot edit.
+     */
+    fun single(event: Event, master: Event?, agendaMap: Map<String, Agenda>): ExpandedEvent {
+        val agendaIri = event.agenda ?: master?.agenda
+        val agenda = agendaIri?.let { agendaMap[it.removePrefix("/api/agendas/")] }
+        val isException = event.recurringEvent != null && master != null
+        return ExpandedEvent(
+            id = event.id,
+            summary = event.summary,
+            description = event.description,
+            location = event.location,
+            allDay = event.allDay,
+            startAt = event.startAt,
+            endAt = event.endAt,
+            timeZone = event.timeZone,
+            status = event.status,
+            masterEventId = if (isException) master?.id else event.id.takeIf { event.rrule != null },
+            masterRrule = if (isException) master?.rrule else event.rrule,
+            masterStartAt = if (isException) master?.startAt else event.startAt.takeIf { event.rrule != null },
+            originalStartAt = if (isException) event.originalStartAt else null,
+            agendaIri = agendaIri,
+            agendaColor = agenda?.color,
+            agendaName = agenda?.name,
+        )
+    }
+
+    /**
      * Expand events (including RRULE recurring) for a given range.
      * Applies exception instances (cancelled = skip, modified = replace).
      * Returns sorted list (all-day first, then by startAt).

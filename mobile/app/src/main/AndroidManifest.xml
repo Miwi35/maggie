@@ -21,10 +21,17 @@
         android:theme="@style/Theme.Maggie">
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Deep links (MAG-28). Not BROWSABLE: a web page has no business opening the app. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="${deepLinkScheme}" />
             </intent-filter>
         </activity>
 

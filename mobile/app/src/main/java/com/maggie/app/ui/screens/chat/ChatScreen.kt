@@ -36,9 +36,13 @@ import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.ui.components.ChatMessageList
 
 @Composable
-fun ChatScreen(viewModel: ChatViewModel) {
+fun ChatScreen(viewModel: ChatViewModel, draft: String = "") {
     val uiState by viewModel.uiState.collectAsState()
     var input by remember { mutableStateOf("") }
+
+    LaunchedEffect(draft) {
+        if (draft.isNotEmpty()) input = draft
+    }
     val listState = rememberLazyListState()
 
     // Handle scroll commands from ViewModel

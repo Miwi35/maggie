@@ -45,6 +45,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -65,12 +66,31 @@ fun GroceryScreen(
     viewModel: GroceryViewModel,
     onNavigateToProducts: () -> Unit = {},
     onNavigateToStores: () -> Unit = {},
+    openItemId: String? = null,
+    onOpenItemHandled: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var menuExpanded by remember { mutableStateOf(false) }
     var itemPendingDelete by remember { mutableStateOf<GroceryItem?>(null) }
     var showDeleteSelectedDialog by remember { mutableStateOf(false) }
     var detailItem by remember { mutableStateOf<GroceryItem?>(null) }
+
+    // A deep link names an item: open its sheet once the list has it, or give up once the list is loaded without it.
+    LaunchedEffect(openItemId, uiState.groceryList, uiState.isLoading, uiState.error) {
+        if (openItemId == null) return@LaunchedEffect
+        val list = uiState.groceryList
+        if (list == null) {
+            if (uiState.error != null) onOpenItemHandled()
+            return@LaunchedEffect
+        }
+        val item = list.items.firstOrNull { it.id == openItemId }
+        if (item != null) {
+            detailItem = item
+            onOpenItemHandled()
+        } else if (!uiState.isLoading) {
+            onOpenItemHandled()
+        }
+    }
 
     Scaffold(
         floatingActionButton = {

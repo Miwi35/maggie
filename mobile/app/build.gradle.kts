@@ -58,12 +58,18 @@ android {
         create("dev") {
             dimension = "environment"
             applicationIdSuffix = ".dev"
+            // One scheme per build: dev, prod and e2e sit side by side on a phone,
+            // and a shared one would open Android's app chooser on every link.
+            buildConfigField("String", "DEEP_LINK_SCHEME", "\"maggie-dev\"")
+            manifestPlaceholders["deepLinkScheme"] = "maggie-dev"
             buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2\"")
             buildConfigField("String", "MERCURE_URL", "\"http://10.0.2.2/.well-known/mercure\"")
             buildConfigField("String", "GOOGLE_CLIENT_ID", "\"${project.findProperty("GOOGLE_CLIENT_ID") ?: ""}\"")
         }
         create("prod") {
             dimension = "environment"
+            buildConfigField("String", "DEEP_LINK_SCHEME", "\"maggie\"")
+            manifestPlaceholders["deepLinkScheme"] = "maggie"
             buildConfigField("String", "API_BASE_URL", "\"https://maggieai.fr\"")
             buildConfigField("String", "MERCURE_URL", "\"https://maggieai.fr/.well-known/mercure\"")
             buildConfigField("String", "GOOGLE_CLIENT_ID", "\"${project.findProperty("GOOGLE_CLIENT_ID") ?: ""}\"")
@@ -74,6 +80,8 @@ android {
         create("e2e") {
             dimension = "environment"
             applicationIdSuffix = ".e2e"
+            buildConfigField("String", "DEEP_LINK_SCHEME", "\"maggie-e2e\"")
+            manifestPlaceholders["deepLinkScheme"] = "maggie-e2e"
             buildConfigField("String", "API_BASE_URL", "\"$e2eBaseUrl\"")
             buildConfigField("String", "MERCURE_URL", "\"$e2eBaseUrl/.well-known/mercure\"")
             buildConfigField("String", "GOOGLE_CLIENT_ID", "\"\"")
