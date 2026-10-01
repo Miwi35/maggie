@@ -10,6 +10,7 @@ would pass every unit test and break every journey.
 import json
 import re
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -30,6 +31,7 @@ from app.llm.fake import (
     FakeTextBlock,
     FakeToolUseBlock,
     ScenarioLibrary,
+    history_text,
     last_user_text,
     no_scenario_message,
     no_turn_message,
@@ -58,12 +60,19 @@ def build_client(directory: Path) -> FakeAnthropicClient:
     return FakeAnthropicClient(fixtures_dir=directory)
 
 
-async def ask(client: FakeAnthropicClient, message: str, *, system: str = "Tu es Maggie.", tools=None):
+async def ask(
+    client: FakeAnthropicClient,
+    message: str,
+    *,
+    system: str = "Tu es Maggie.",
+    tools=None,
+    history: list[dict] | None = None,
+):
     return await client.messages.create(
         model="fake",
         max_tokens=1024,
         system=system,
-        messages=[{"role": "user", "content": message}],
+        messages=[*(history or []), {"role": "user", "content": message}],
         tools=tools,
     )
 
@@ -93,6 +102,28 @@ class TestReadingTheRequest:
         assert system_text(blocks) == "stable\nvolatile"
         assert system_text("plain") == "plain"
         assert system_text(None) == ""
+
+    def test_history_text_leaves_out_the_message_being_answered(self):
+        """Counting it would let a scenario "prove" the history carried what the user just typed."""
+        messages = [
+            {"role": "user", "content": "Où en est mon budget ?"},
+            {"role": "assistant", "content": "Il tient la route."},
+            {"role": "user", "content": "Reprends le fil"},
+        ]
+
+        assert history_text(messages) == "Où en est mon budget ?\nIl tient la route."
+
+    def test_history_text_of_a_single_message_is_empty(self):
+        assert history_text([{"role": "user", "content": "salut"}]) == ""
+        assert history_text(None) == ""
+
+    def test_history_text_stringifies_tool_result_batches(self):
+        messages = [
+            {"role": "assistant", "content": [{"type": "tool_use", "name": "get_budget"}]},
+            {"role": "user", "content": "et après ?"},
+        ]
+
+        assert "get_budget" in history_text(messages)
 
     def test_turn_index_counts_tool_rounds(self):
         # History is plain strings, so only the current run's tool result
@@ -169,6 +200,57 @@ class TestMatching:
         routed = await ask(client, "Message : salut", system="Tu es un routeur de contexte.")
         assert text_of(routed) == '{"context_id": null}'
         assert text_of(await ask(client, "salut")) == "hello"
+
+    async def test_history_contains_matches_on_what_the_conversation_held(self, fixtures_dir):
+        """The only handle a journey has on the history it was sent (MAG-13)."""
+        write_scenario(
+            fixtures_dir,
+            "10-recall.yaml",
+            {
+                "match": {"user_contains": "reprends le fil", "history_contains": "où en est mon budget"},
+                "turns": [{"text": "On parlait de ton budget."}],
+            },
+        )
+        client = build_client(fixtures_dir)
+
+        recalled = await ask(
+            client,
+            "Reprends le fil",
+            history=[
+                {"role": "user", "content": "Où en est mon budget ?"},
+                {"role": "assistant", "content": "Il tient la route."},
+            ],
+        )
+        assert text_of(recalled) == "On parlait de ton budget."
+
+    async def test_history_contains_fails_when_the_thread_was_not_sent(self, fixtures_dir):
+        """A history built from the wrong thread leaves the `[fake-llm]` sentence, which names its cause."""
+        write_scenario(
+            fixtures_dir,
+            "10-recall.yaml",
+            {
+                "match": {"user_contains": "reprends le fil", "history_contains": "où en est mon budget"},
+                "turns": [{"text": "On parlait de ton budget."}],
+            },
+        )
+        client = build_client(fixtures_dir)
+
+        answered = await ask(
+            client,
+            "Reprends le fil",
+            history=[{"role": "user", "content": "Il me faut de la farine"}],
+        )
+        assert "[fake-llm]" in text_of(answered)
+
+    async def test_history_contains_ignores_the_message_being_answered(self, fixtures_dir):
+        write_scenario(
+            fixtures_dir,
+            "10-recall.yaml",
+            {"match": {"history_contains": "mon budget"}, "turns": [{"text": "vu"}]},
+        )
+        client = build_client(fixtures_dir)
+
+        assert "[fake-llm]" in text_of(await ask(client, "Où en est mon budget ?"))
 
     async def test_file_name_order_decides_the_winner(self, fixtures_dir):
         write_scenario(fixtures_dir, "20-second.yaml", {"match": {"user_contains": "liste"}, "turns": [{"text": "b"}]})
@@ -466,22 +548,29 @@ class TestTheRealStreamingGateway:
         with (
             patch("app.llm.streaming.settings") as settings,
             patch("app.llm.streaming.message_repo") as message_repo,
+            patch("app.llm.history.message_repo") as history_repo,
+            patch("app.llm.history.context_repo") as history_contexts,
+            patch("app.llm.contexts.message_repo") as routing_repo,
             patch("app.llm.contexts.context_repo") as context_repo,
             patch("app.llm.streaming.record_llm_usage"),
         ):
             settings.anthropic_api_key = ""
             settings.llm_provider = "fake"
             settings.anthropic_model = "fake"
-            settings.max_conversation_history = 10
             # The route persists the user message before streaming, so history
             # is where `chat_stream` finds it — returning an empty history here
             # would have the fake answering an empty question.
             persisted = MagicMock()
+            persisted.id = "msg-1"
             persisted.role = "user"
             persisted.content = "mon agenda ?"
-            message_repo.find_recent = AsyncMock(return_value=[persisted])
+            persisted.context_id = "ctx-1"
+            persisted.created_at = datetime(2026, 10, 1, 12, tzinfo=UTC)
+            history_repo.find_by_context = AsyncMock(return_value=[persisted])
+            history_repo.find_recent = AsyncMock(return_value=[persisted])
+            history_contexts.find_active = AsyncMock(return_value=[])
             message_repo.create = AsyncMock()
-            message_repo.update_context = AsyncMock()
+            routing_repo.update_context = AsyncMock()
             context_repo.find_active = AsyncMock(return_value=[])
             context_repo.append_tool_call = AsyncMock()
             created = MagicMock()
@@ -669,6 +758,43 @@ class TestTheShippedFixtures:
         # And the chat side answers that same message, so the switch does not
         # end on "[fake-llm] aucun scénario".
         assert "[fake-llm]" not in text_of(await ask(client, "Parlons de mes finances, où en est mon budget ?"))
+
+    async def test_an_older_thread_can_be_picked_back_up(self):
+        """04 + 72, the pair the MAG-13 journey rests on.
+
+        The router has to answer with the id of « Budget e2e » even though it is not the
+        first thread in the list — 10-context-router-existing.yaml would answer with the
+        first one, and the journey would then assert the history of the wrong thread. And
+        the chat side must be unreachable without that thread's own messages, which is what
+        makes the journey a proof rather than a wording check.
+        """
+        client = build_client(DEFAULT_FIXTURES_DIR)
+        router_system = "Tu es un routeur de contexte. Analyse le message et les contextes existants."
+        current, budget = uuid.uuid4().hex, uuid.uuid4().hex
+
+        routed = await ask(
+            client,
+            f'Contextes existants :\n- id="{current}" label="Conversation e2e"\n'
+            f'- id="{budget}" label="Budget e2e"\n\n'
+            "Message : Reprends le fil de mon budget, s'il te plaît",
+            system=router_system,
+        )
+        assert json.loads(text_of(routed)) == {"context_id": budget}
+
+        # Without the thread's messages: no scenario, and a failure that names its cause.
+        unaware = await ask(client, "Reprends le fil de mon budget, s'il te plaît")
+        assert "[fake-llm]" in text_of(unaware)
+
+        # With them: the scripted answer the journey asserts.
+        aware = await ask(
+            client,
+            "Reprends le fil de mon budget, s'il te plaît",
+            history=[
+                {"role": "user", "content": "[fil « Budget e2e »] Parlons de mes finances, où en est mon budget ?"},
+                {"role": "assistant", "content": "Votre budget tient la route ce mois-ci."},
+            ],
+        )
+        assert "je reprends le fil" in text_of(aware)
 
     async def test_the_voice_path_cleans_the_stubbed_whisper_sentence(self):
         client = build_client(DEFAULT_FIXTURES_DIR)

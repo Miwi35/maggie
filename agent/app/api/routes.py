@@ -30,7 +30,10 @@ streaming_gateway = StreamingGateway()
 
 
 class ChatRequest(BaseModel):
-    message: str
+    # Non-empty: an empty message has nothing to route, nothing to answer, and the model
+    # refuses a conversation whose only turn is an empty string — a 422 naming the field
+    # beats « Désolé, une erreur est survenue » (MAG-13).
+    message: str = Field(min_length=1)
 
 
 class ChatResponse(BaseModel):
@@ -79,7 +82,19 @@ async def chat(request: ChatRequest, user_id: str = Depends(get_current_user_id)
 
     result = await llm_gateway.chat(request.message, user_id, exclude_message_id=user_msg.id)
 
-    assistant_msg = await message_repo.create(user_id=user_id, role="assistant", content=result["response"])
+    # Both halves in the thread the question was routed into (MAG-13), and the thread
+    # re-summarized — the same two sinks as `POST /agent/proaction` below. Before this,
+    # nothing on this path was ever tagged: the exchange existed outside every thread, so
+    # the Mind panel never saw it and no summary could be written from it.
+    context_id = result.get("context_id")
+    assistant_msg = await message_repo.create(
+        user_id=user_id, role="assistant", content=result["response"], context_id=context_id
+    )
+    # Not on a turn the model never answered: the summary would be a second call, as
+    # doomed as the first, with the user still waiting on this request — and it would read
+    # an apology as if it were the conversation.
+    if context_id and not result.get("error"):
+        await context_summarizer.maybe_summarize(context_id)
 
     return ChatResponse(
         response=result["response"],

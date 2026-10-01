@@ -3,11 +3,11 @@ import logging
 import anthropic
 
 from app.config import settings
-from app.db.message_repository import message_repo
 from app.llm.capabilities import generate_capability_summary
 from app.llm.client import create_llm_client, llm_configured
-from app.llm.contexts import active_contexts_section, resolve_context
+from app.llm.contexts import active_contexts_section, resolve_context, route_message
 from app.llm.directives import behavior_directives_section
+from app.llm.history import build_history
 from app.llm.last_exchange import last_exchange_section
 from app.llm.prompt_cache import build_system
 from app.llm.runner import ITERATION_LIMIT_MESSAGE, run_tool_loop
@@ -17,6 +17,12 @@ from app.personality.engine import PersonalityEngine, current_datetime_line
 from app.skills.index import skill_index
 
 logger = logging.getLogger(__name__)
+
+# What the user reads when the model could not be reached. French, and free of the API's
+# own wording: since MAG-13 the answer is stored in the thread, so it is read back as part
+# of the conversation — the same sentence the streamed path has always stored.
+API_ERROR_MESSAGE = "Désolé, une erreur est survenue. Réessaie."
+UNREACHABLE_MESSAGE = "Je n'arrive pas à joindre le service d'IA pour l'instant. Réessaie dans un moment."
 
 PLANNING_PREAMBLE = (
     "\n\nTu es en mode planification autonome. "
@@ -47,6 +53,7 @@ class LLMGateway:
         preamble: str = "",
         *,
         exclude_message_id: str | None = None,
+        current_context_id: str | None = None,
     ) -> list[dict]:
         """Build the system blocks: cached prefix (personality + skills), then memory, directives, date, preamble."""
         capabilities = generate_capability_summary(tools) if tools else ""
@@ -60,38 +67,14 @@ class LLMGateway:
         # And what the open threads are about. A proaction used to run with none of it:
         # the reminder arrived in a conversation it knew nothing of, so Maggie could
         # neither refer to what was already decided nor speak in the thread's terms
-        # (MAG-14).
-        context_section = await active_contexts_section(user_id)
+        # (MAG-14). On the chat path the current thread is marked too, since the history is
+        # made of its messages (MAG-13); a proaction has no thread yet and passes none.
+        context_section = await active_contexts_section(user_id, current_context_id)
         # How long since the chat last moved, so a proaction or an answer can greet by the gap (MAG-10).
         last_exchange = await last_exchange_section(user_id, exclude_message_id=exclude_message_id)
         now = current_datetime_line()
         volatile = f"{memory_context}{directives}{context_section}\n\n{now}{last_exchange}{preamble}"
         return build_system(base + skill_context, volatile)
-
-    async def _load_conversation_history(self, user_id: str) -> list[dict]:
-        """Load conversation history from the database."""
-        try:
-            messages = await message_repo.find_recent(user_id, limit=settings.max_conversation_history)
-
-            # Convert to Anthropic message format, keeping only user/assistant roles
-            anthropic_messages = []
-            for msg in messages:
-                if msg.role in ("user", "assistant") and msg.content:
-                    anthropic_messages.append({"role": msg.role, "content": msg.content})
-
-            # Merge consecutive messages with the same role (Anthropic requires alternating)
-            merged = []
-            for msg in anthropic_messages:
-                if merged and merged[-1]["role"] == msg["role"]:
-                    merged[-1]["content"] += "\n" + msg["content"]
-                else:
-                    merged.append(msg)
-
-            logger.info(f"Loaded {len(merged)} messages from conversation history")
-            return merged
-        except Exception as e:
-            logger.warning(f"Failed to load conversation history: {e}")
-            return []
 
     async def proaction(self, prompt: str, user_id: str, *, silent: bool = False) -> dict:
         """Execute a proaction prompt, knowing what the open threads are about.
@@ -168,6 +151,12 @@ class LLMGateway:
         """Process a chat message through Claude with MCP tool support.
 
         `exclude_message_id` is the user's message when the caller has already stored it.
+        It decides two things at once: that the « last conversation » line must skip it
+        (MAG-10), and that the history already holds it — so it is not appended a second
+        time, which is how this path used to send the user's own message twice.
+
+        The result carries a `context_id`, like `proaction()` does: the thread the message
+        was routed into, so the caller stores the answer in the same one.
         """
         if self.client is None:
             return {
@@ -178,22 +167,43 @@ class LLMGateway:
                 "tool_calls": [],
             }
 
-        # Load conversation history from database
-        messages = await self._load_conversation_history(user_id)
+        # The thread first: the history is its messages and the system prompt names it, so
+        # neither can be built before it is known (MAG-13). `None` here — no answer from the
+        # router — leaves the short global window as the whole conversation.
+        #
+        # Only for a caller that stored its message, which is what `exclude_message_id`
+        # says. A thread is where a message and its answer live, and the A2A bridge stores
+        # neither: routing there would buy a fast-model call per peer request and a context
+        # row nobody ever writes in, kept awake by its own `touch()`.
+        resolution = (
+            await route_message(self.client, message, user_id, message_id=exclude_message_id)
+            if exclude_message_id
+            else None
+        )
+        context_id = resolution["id"] if resolution else None
 
-        # Append current user message
-        if messages and messages[-1]["role"] == "user":
-            messages[-1]["content"] += "\n" + message
-        else:
-            messages.append({"role": "user", "content": message})
+        messages = await build_history(
+            user_id,
+            context_id=context_id,
+            # An A2A call stores nothing, so its message only exists here. The chat routes
+            # stored it, so for them it is the floor under a history that would not load.
+            pending_message=None if exclude_message_id else message,
+            fallback_message=message if exclude_message_id else None,
+            current_message_id=exclude_message_id,
+        )
 
         # Get all tools including proaction tools (so user can schedule reminders from chat);
         # an A2A call only gets the read-only ones
         tools = await self.tool_router.get_tool_definitions(include_native=True, source=source)
 
         try:
-            system_prompt = await self._build_system_prompt(user_id, tools=tools, exclude_message_id=exclude_message_id)
-            return await run_tool_loop(
+            system_prompt = await self._build_system_prompt(
+                user_id,
+                tools=tools,
+                exclude_message_id=exclude_message_id,
+                current_context_id=context_id,
+            )
+            result = await run_tool_loop(
                 system_prompt,
                 messages,
                 tools,
@@ -205,14 +215,21 @@ class LLMGateway:
                 source=source,
             )
         except anthropic.APIStatusError as e:
+            # The API's own wording stays in the log. It used to be the answer, and since
+            # that answer is now stored in the thread it would be read back verbatim by
+            # the next forty messages and by the summarizer — an English stack-trace-ish
+            # sentence in the middle of a French conversation.
             logger.error(f"Anthropic API error: {e.message}")
-            return {
-                "response": f"AI service error: {e.message}",
-                "tool_calls": [],
-            }
+            result = {"response": API_ERROR_MESSAGE, "tool_calls": [], "error": True}
         except anthropic.APIConnectionError as e:
             logger.error(f"Anthropic connection error: {e}")
-            return {
-                "response": "Unable to reach the AI service. Please try again later.",
-                "tool_calls": [],
-            }
+            result = {"response": UNREACHABLE_MESSAGE, "tool_calls": [], "error": True}
+
+        # Carried on the error paths too: the user's message is already tagged with the
+        # thread, so leaving the answer out would keep an orphan question in it, and the
+        # next summary would read half an exchange. What the user was shown is part of the
+        # conversation whether or not the model produced it — the streamed path stores its
+        # own error sentence in the thread for the same reason. `error` is what stops the
+        # caller from spending a second model call summarizing a turn that failed.
+        result["context_id"] = context_id
+        return result

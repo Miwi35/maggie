@@ -1,4 +1,4 @@
-"""The per-context reads a summary is written from (MAG-11)."""
+"""The per-context reads a summary is written from (MAG-11) and a history is built from (MAG-13)."""
 
 from datetime import UTC, datetime, timedelta
 
@@ -6,12 +6,14 @@ from app.db.message_repository import message_repo
 from app.db.models import Message
 
 
-async def _write(session_factory, context_id: str | None, role: str, content: str, minutes_ago: int) -> None:
+async def _write(
+    session_factory, context_id: str | None, role: str, content: str, minutes_ago: int, user_id: str = "user-1"
+) -> None:
     """A message at a known instant — `created_at` is what `since` filters on."""
     async with session_factory() as session:
         session.add(
             Message(
-                user_id="user-1",
+                user_id=user_id,
                 role=role,
                 content=content,
                 context_id=context_id,
@@ -49,6 +51,19 @@ class TestFindByContext:
 
     async def test_a_thread_with_no_message_is_empty(self, chat_db):
         assert await message_repo.find_by_context("ctx-unknown") == []
+
+    async def test_the_owner_gets_the_thread(self, chat_db):
+        """`user_id` is the belt to the router's ownership check (MAG-203), for a history (MAG-13)."""
+        await _write(chat_db.session, "ctx-1", "user", "Il me faut de la farine", 30)
+
+        messages = await message_repo.find_by_context("ctx-1", user_id="user-1")
+
+        assert [m.content for m in messages] == ["Il me faut de la farine"]
+
+    async def test_another_user_gets_nothing_from_it(self, chat_db):
+        await _write(chat_db.session, "ctx-1", "user", "Mon salaire est de 3000", 30)
+
+        assert await message_repo.find_by_context("ctx-1", user_id="user-2") == []
 
 
 class TestCountByContext:

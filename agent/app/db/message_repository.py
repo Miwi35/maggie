@@ -129,16 +129,25 @@ class MessageRepository:
 
             return {"messages": messages, "targetIndex": target_index}
 
-    async def find_by_context(self, context_id: str, since: datetime | None = None, limit: int = 100) -> list[Message]:
-        """The messages of one thread, oldest first — what a summary is written from (MAG-11).
+    async def find_by_context(
+        self, context_id: str, since: datetime | None = None, limit: int = 100, user_id: str | None = None
+    ) -> list[Message]:
+        """The messages of one thread, oldest first — a summary (MAG-11) and a history (MAG-13) read this.
 
         `since` is the instant the last summary covers up to, so a re-summary only reads
         what is new. The limit is a floor under the cost of a thread nobody ever closed:
         it keeps the newest messages, which is why the query orders descending and the
         list is reversed afterwards.
+
+        `user_id` narrows the thread to its owner. The context id a history is built around
+        comes from a model's answer, and the router only hands back one of the user's own
+        contexts (MAG-203) — this is the belt to that braces, and it costs nothing: the
+        thread is loaded with the owner checked in the query rather than trusted.
         """
         async with agent_session() as session:
             query = select(Message).where(Message.context_id == context_id)
+            if user_id is not None:
+                query = query.where(Message.user_id == user_id)
             if since is not None:
                 query = query.where(Message.created_at > since)
             result = await session.execute(query.order_by(Message.created_at.desc()).limit(limit))

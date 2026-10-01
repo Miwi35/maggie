@@ -1,0 +1,23 @@
+# Unreachable unless the history sent is the routed thread's own messages (MAG-13).
+#
+# The pair of 04-context-router-budget-again.yaml, and the only assertion a journey can
+# make about the history: `history_contains` is matched on the conversation Maggie is
+# actually sent, minus the message being answered. So this scenario can only answer once
+# `build_history` has loaded the « Budget e2e » thread — whose single exchange holds « où
+# en est mon budget » — rather than the last messages of every thread at once.
+#
+# The e2e stack runs with `RECENT_HISTORY_MESSAGES=2`, which is what makes that proof
+# tight: by the time the journey sends this, the global window holds the previous exchange
+# and nothing else, so the sentence below cannot have come in that way.
+#
+# Numbered after the router scenarios, like 71: the routing call for this message quotes it
+# too, and 04 has to be tried first.
+name: thread-history-recall
+description: Pick a thread back up, from the thread's own messages in the history.
+
+match:
+  user_contains: "reprends le fil de mon budget"
+  history_contains: "où en est mon budget"
+
+turns:
+  - text: "On parlait de ton budget du mois — je reprends le fil là où on s'était arrêtés."

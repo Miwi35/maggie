@@ -317,14 +317,21 @@ grocery="$(curl -sS -X POST "${AUTH[@]}" "${mcp_headers[@]}" \
   "$BASE_URL/_mcp" | sed 's/^data: //')"
 assert_contains "$grocery" 'Basilic' "the item Maggie added is on the list"
 
-# The streamed path: same fake, same loop, but the AG-UI events a client reads.
+# Since MAG-13 the non-streamed path routes a thread too, so the three messages
+# above have already opened one — and exactly one, because every message after the
+# first joins it (10-context-router-existing.yaml). That count is the assertion:
+# before MAG-13 this path tagged nothing, so both halves of those exchanges lived
+# outside every thread, the Mind panel never saw them and no summary could be
+# written from them. One, not "at least one": a router opening a context per
+# message would be three, and that is the failure this number catches.
 #
-# Contexts only exist here, and everything below needs the conversation to start
-# from nothing — which `task e2e:seed` guarantees, since it now empties the
-# agent's own database too. Asserted rather than assumed: without it, a second
-# smoke run on a stack nobody reseeded fails on "created" with no hint as to why.
-assert_eq 0 "$(curl -sS "${AUTH[@]}" "$BASE_URL/agent/contexts" | jq -r 'length')" \
-  "the seed left no conversation context behind — run 'task e2e:seed' if this fails"
+# It doubles as the reseed check the old `0` was: `task e2e:seed` empties the
+# agent's own database, and a second smoke run on a stack nobody reseeded fails
+# here with a hint instead of several steps further on.
+assert_eq 1 "$(curl -sS "${AUTH[@]}" "$BASE_URL/agent/contexts" | jq -r 'length')" \
+  "the plain chat opened exactly one thread — run 'task e2e:seed' if this fails"
+assert_eq 'Conversation e2e' "$(curl -sS "${AUTH[@]}" "$BASE_URL/agent/contexts" | jq -r '.[0].label')" \
+  "the thread it opened carries the scripted label"
 
 stream="$(curl -sS -N -X POST "${AUTH[@]}" -H 'Content-Type: application/json' \
   -H 'Accept: text/event-stream' \
@@ -347,10 +354,14 @@ fi
 # separators carry spaces and a compact needle never matches.
 context_action() { printf '%s' "$1" | sed -n 's/^data: //p' | jq -r 'select(.name == "context_update") | .value.action'; }
 
-assert_eq created "$(context_action "$stream")" \
-  "the context router opened a context"
+# `matched`, into the thread the plain chat above opened — the two paths share one
+# conversation, which is what makes "resume a thread" true whichever client the
+# owner reached for. (The streamed path opening a thread from nothing is asserted
+# in `e2e/web/tests/chat.spec.ts`, where nothing has spoken to her first.)
+assert_eq matched "$(context_action "$stream")" \
+  "the streamed message joined the thread the plain chat opened"
 assert_contains "$stream" 'Conversation e2e' \
-  "the context it opened carries the scripted label"
+  "the context_update event carries the thread's label"
 
 # A second streamed message has to land in that same context. This is the one
 # step that checks the router's answer *fits* — it hands back an id it read from

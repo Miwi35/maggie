@@ -10,7 +10,7 @@ deterministic fake LLM.
 ```
 agent/tests/
   conftest.py          # shared fixtures
-  test_conversation_memory.py
+  test_history.py
   test_mcp_client.py
   test_routes.py
 ```

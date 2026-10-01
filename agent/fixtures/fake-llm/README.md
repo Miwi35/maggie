@@ -20,6 +20,7 @@ match:                       # every condition declared has to hold
   user_contains: "prévu"     # a string, or a list of strings — case-insensitive
   user_matches: 'demain|ce soir'   # a regex on the last user message
   system_contains: "routeur de contexte"   # matched on the system prompt
+  history_contains: "mon budget"   # matched on the conversation sent, minus the last message
 
 turns:                       # one entry per model turn, in order
   - text: "Je regarde."      # optional: what she says this turn
@@ -80,6 +81,17 @@ The summary is the one whose absence does not show up where it happened: it is
 turns into a journey failing several steps further on. `12-context-summary.yaml`
 covers the call and `71-context-summary-recall.yaml` proves the injection, by
 matching on the summary's own text in the system prompt.
+
+**What the history held** is proved the same way, with `history_contains` instead
+(MAG-13). The messages array is no more observable from a browser than the system
+prompt, and since MAG-13 it is built around the thread the message was routed into
+rather than from the last fifty messages of everything. The e2e stack runs with
+`RECENT_HISTORY_MESSAGES=2`, so a sentence from an older thread can only be there
+because that thread's own messages were loaded —
+`72-thread-history-recall.yaml` declares one and is unreachable otherwise. The
+condition deliberately ignores the message being answered: `user_contains` already
+covers that one, and counting it would let a scenario "prove" the history carried a
+sentence the user had just typed.
 
 A behaviour preference (`add_instruction` with `kind: behavior`, MAG-22) is
 stored and injected the same way, and is proved the same way:
