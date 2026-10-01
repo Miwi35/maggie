@@ -91,6 +91,31 @@ class TestSkillIndex:
         file_content = (tmp_path / "new-skill.md").read_text()
         assert "Procedure content" in file_content
 
+    async def test_create_overwriting_a_file_replaces_the_entry(self, tmp_path):
+        """Creating a skill whose file already exists replaces its entry instead of duplicating it."""
+        index = SkillIndex(tmp_path)
+        index._publisher.publish = AsyncMock()
+        index.rebuild()
+
+        await index.create(name="my-skill", description="Old", tags=["old"], content="Old body", user_id="u")
+        entry = await index.create(name="my-skill", description="New", tags=["new"], content="New body", user_id="u")
+
+        assert index.list_all() == [entry]
+        assert index.entries[0].description == "New"
+        assert "New body" in (index.get("my-skill") or "")
+
+    async def test_create_with_other_name_on_same_file_replaces_the_entry(self, tmp_path):
+        """Two names that map to the same filename share one file, so they share one entry."""
+        index = SkillIndex(tmp_path)
+        index._publisher.publish = AsyncMock()
+        index.rebuild()
+
+        await index.create(name="My Skill", description="Old", tags=[], content="Old body", user_id="u")
+        await index.create(name="my-skill", description="New", tags=[], content="New body", user_id="u")
+
+        assert [e.name for e in index.entries] == ["my-skill"]
+        assert index.get("My Skill") is None
+
     async def test_delete_skill(self, tmp_path):
         """Delete should remove file and entry from index."""
         index = SkillIndex(tmp_path)
