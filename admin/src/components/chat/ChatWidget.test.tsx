@@ -200,6 +200,79 @@ describe('ChatWidget', () => {
     })
   })
 
+  describe('a thread summary', () => {
+    function contextSource(): MockEventSource {
+      const source = MockEventSource.instances.find(
+        (es) => new URL(es.url, 'http://localhost').searchParams.get('topic') === '/contexts/user-1',
+      )
+      if (!source) throw new Error('the panel is not subscribed to /contexts/user-1')
+      return source
+    }
+
+    beforeEach(() => {
+      localStorage.setItem('user', JSON.stringify({ id: 'user-1' }))
+    })
+
+    afterEach(() => {
+      localStorage.removeItem('user')
+    })
+
+    test('comes with the contexts loaded on mount', async () => {
+      vi.stubGlobal(
+        'fetch',
+        mockFetch({
+          '/agent/messages': [],
+          '/agent/contexts': [
+            {
+              id: 'ctx-1',
+              label: 'Courses de la semaine',
+              status: 'active',
+              summary: 'Deux kilos de farine à acheter.',
+            },
+          ],
+        }),
+      )
+
+      render(<ChatWidget {...defaultProps} />)
+
+      await waitFor(() => {
+        expect(defaultProps.onContextsChange).toHaveBeenCalledWith([
+          {
+            id: 'ctx-1',
+            label: 'Courses de la semaine',
+            status: 'active',
+            summary: 'Deux kilos de farine à acheter.',
+          },
+        ])
+      })
+    })
+
+    // A summary is written in the background, after the stream the owner was
+    // watching has closed — so this is the only path that ever brings one to a panel
+    // that is already open (MAG-11).
+    test('reaches an open panel over Mercure', async () => {
+      vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [], '/agent/contexts': [] }))
+      render(<ChatWidget {...defaultProps} />)
+
+      act(() => {
+        contextSource().onmessage?.({
+          data: JSON.stringify({
+            id: 'ctx-1',
+            label: 'Courses de la semaine',
+            status: 'active',
+            summary: 'Deux kilos de farine à acheter.',
+          }),
+        } as MessageEvent)
+      })
+
+      await waitFor(() => {
+        expect(defaultProps.onContextsChange).toHaveBeenCalledWith([
+          expect.objectContaining({ summary: 'Deux kilos de farine à acheter.' }),
+        ])
+      })
+    })
+  })
+
   test('loads history on open', async () => {
     const historyMessages = [
       { id: 'msg-1', role: 'user', content: 'Hello', createdAt: '2026-01-01T10:00:00Z' },

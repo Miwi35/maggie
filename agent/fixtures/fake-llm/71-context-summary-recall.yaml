@@ -1,0 +1,21 @@
+# Unreachable unless a thread's summary is in the system prompt (MAG-11).
+#
+# The pair of 12-context-summary.yaml, and the only assertion a journey can make
+# about the injection: `system_contains` is matched on the system prompt Maggie
+# is actually sent, so this scenario can only answer once
+# `_build_system_prompt` has put the stored summary there. A summary written to
+# the database but never injected leaves this file unmatched, and the journey
+# fails on the `[fake-llm] aucun scénario…` sentence instead of on a plausible
+# answer.
+#
+# Numbered after the context router (10, 11) so the routing call — whose user
+# text quotes the message, this one included — is placed first.
+name: context-summary-recall
+description: Answer a question about the thread, from the summary in the system prompt.
+
+match:
+  user_contains: "de quoi parlions-nous"
+  system_contains: "résumé e2e : l'utilisateur organise sa semaine"
+
+turns:
+  - text: "Nous parlions de l'organisation de ta semaine."

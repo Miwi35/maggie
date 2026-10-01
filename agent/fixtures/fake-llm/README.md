@@ -65,14 +65,21 @@ fixture fixed mid-session takes effect on the next message — no agent restart.
 
 ## Beyond chat
 
-Three calls in the agent are not a conversation, and each has its scenario here
+Four calls in the agent are not a conversation, and each has its scenario here
 because otherwise they would fall through to "no scenario":
 
 | Call | Matched on |
 |---|---|
 | Context routing, before every streamed message | `system_contains: routeur de contexte` |
+| Thread summary, once a thread has grown by `CONTEXT_SUMMARY_EVERY_MESSAGES` | `system_contains: tu résumes un fil de conversation` |
 | Transcript cleanup, after Whisper | `user_contains: assistant de transcription` |
 | A proaction (`POST /agent/proaction`) | the prompt it was scheduled with |
+
+The summary is the one whose absence does not show up where it happened: it is
+*stored*, then injected into every later system prompt, so a missing scenario
+turns into a journey failing several steps further on. `12-context-summary.yaml`
+covers the call and `71-context-summary-recall.yaml` proves the injection, by
+matching on the summary's own text in the system prompt.
 
 A proaction is the one entry point with no context routing and no conversation
 history: the prompt is the whole request. `80-proaction-bin-night.yaml` is the

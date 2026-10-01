@@ -39,7 +39,9 @@ import { GroceryListPage } from '../pages/GroceryListPage.js'
  *
  * Serial, because the conversation is stateful: the context router opens a
  * context on the first message and every later one joins it, until a message
- * deliberately changes the subject.
+ * deliberately changes the subject. The last test leans on that on purpose — a
+ * thread has to be long before Maggie summarizes it (MAG-11), and the tests
+ * above are what makes it long.
  *
  * And `retries: 0`, which the rest of the suite does not do. A serial group
  * replays whole, and nothing reseeds between the attempts — so the second one
@@ -61,6 +63,15 @@ const APPOINTMENTS_URL = '/api/events?startAt%5Bafter%5D=2099-01-01'
 
 /** 05-context-router-new-topic.yaml + 70-budget-question.yaml — the change of subject. */
 const OTHER_SUBJECT = 'Parlons de mes finances, où en est mon budget ?'
+
+/** 12-context-summary.yaml — what the fake writes whenever Maggie summarizes a thread. */
+const THREAD_SUMMARY = "Résumé e2e : l'utilisateur organise sa semaine avec Maggie."
+
+/** 71-context-summary-recall.yaml — only answerable once that summary is in the system prompt. */
+const RECALL = {
+  question: 'De quoi parlions-nous au juste ?',
+  answer: "Nous parlions de l'organisation de ta semaine.",
+}
 
 /** 80-proaction-bin-night.yaml — what a scheduled proaction would say. */
 const PROACTION = { prompt: 'Rappelle-lui de sortir les poubelles', message: 'Petit rappel : les poubelles sortent ce soir.' }
@@ -293,4 +304,71 @@ test('asking for an item writes it to the grocery list', async ({ page, api }) =
 
   // And it reaches the screen the owner actually looks at.
   await grocery.expectItemEventually('Basilic')
+})
+
+interface AgentContext {
+  label: string
+  summary?: string | null
+}
+
+/**
+ * MAG-11, and the reason it is last in this file: everything above it is the
+ * long conversation this test needs. The stack runs with
+ * `CONTEXT_SUMMARY_EVERY_MESSAGES=4`, so by now Maggie has summarized the thread
+ * the first message opened — several times over, each pass reading only what
+ * came in since the one before.
+ *
+ * Three steps, and only the third proves the feature. A summary stored and never
+ * injected is worth nothing: the model's system prompt is not observable from a
+ * browser, so the proof is a scenario that *cannot match* unless the summary is
+ * in it (`system_contains`, 71-context-summary-recall.yaml). The first two steps
+ * are there so a failure says which half broke.
+ */
+test('a long thread is summarized, and the summary reaches Maggie and the Mind panel', async ({
+  page,
+  api,
+}) => {
+  // Written in the background, after the stream that triggered it closed — so it
+  // is polled, not read once. Reading once here is how a working feature gets
+  // reported as broken.
+  await expect
+    .poll(
+      async () => {
+        const response = await api.get('/agent/contexts')
+        expect(response.status(), 'the contexts endpoint refused the journey').toBe(200)
+        const contexts = (await response.json()) as AgentContext[]
+        return contexts.find((context) => context.summary)?.summary ?? null
+      },
+      {
+        message: 'no thread was ever summarized — did the summarizer scenario match?',
+        timeout: 30_000,
+      },
+    )
+    // Exactly the scripted summary: `[fake-llm] aucun scénario…` stored as a
+    // summary would satisfy "non-empty" and then poison every later system prompt.
+    .toBe(THREAD_SUMMARY)
+
+  // A fresh tab: what the panel shows now came from `GET /agent/contexts`, which
+  // is the path an owner opening the app takes.
+  const dashboard = new DashboardPage(page)
+  await dashboard.open()
+
+  const chat = new ChatPanel(page)
+  await chat.openMind()
+  await expect(chat.contextSummaries.first()).toHaveText(THREAD_SUMMARY)
+
+  // Back to the conversation first: the Mind tab has no input, and `send()` would
+  // reach for the AppBar button, which closes the panel rather than switching tab.
+  await chat.openChat()
+
+  // And the step that proves the injection. This scenario declares the summary's
+  // own text as `system_contains`, so it is unreachable unless
+  // `_build_system_prompt` really put it in front of the model.
+  const events = await chat.send(RECALL.question)
+  const answer = assistantText(events)
+  expect(
+    isUnscripted(answer),
+    `the summary never reached the system prompt — Maggie said: ${answer}`,
+  ).toBe(false)
+  expect(answer).toContain(RECALL.answer)
 })

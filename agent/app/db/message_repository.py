@@ -1,6 +1,7 @@
 import logging
+from datetime import datetime
 
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 
 from app.db.agent_engine import agent_engine, agent_session
 from app.db.models import Message
@@ -118,6 +119,32 @@ class MessageRepository:
             target_index = len(before)
 
             return {"messages": messages, "targetIndex": target_index}
+
+    async def find_by_context(self, context_id: str, since: datetime | None = None, limit: int = 100) -> list[Message]:
+        """The messages of one thread, oldest first — what a summary is written from (MAG-11).
+
+        `since` is the instant the last summary covers up to, so a re-summary only reads
+        what is new. The limit is a floor under the cost of a thread nobody ever closed:
+        it keeps the newest messages, which is why the query orders descending and the
+        list is reversed afterwards.
+        """
+        async with agent_session() as session:
+            query = select(Message).where(Message.context_id == context_id)
+            if since is not None:
+                query = query.where(Message.created_at > since)
+            result = await session.execute(query.order_by(Message.created_at.desc()).limit(limit))
+            messages = list(result.scalars().all())
+            messages.reverse()  # chronological order
+            return messages
+
+    async def count_by_context(self, context_id: str, since: datetime | None = None) -> int:
+        """How many messages a thread has gained since `since` — the summary threshold."""
+        async with agent_session() as session:
+            query = select(func.count()).select_from(Message).where(Message.context_id == context_id)
+            if since is not None:
+                query = query.where(Message.created_at > since)
+            result = await session.execute(query)
+            return int(result.scalar_one() or 0)
 
     async def update_context(self, message_id: str, context_id: str) -> None:
         """Retroactively tag a message with a context ID."""

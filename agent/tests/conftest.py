@@ -1,8 +1,13 @@
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.compiler import compiles
 
 from app.api.routes import router
 from app.auth import get_current_user_id
@@ -55,6 +60,58 @@ class _SyncSessionAsAsync:
 
     async def __aexit__(self, *exc):
         self._session.close()
+
+
+@dataclass
+class ChatDb:
+    """What a chat_db test needs: a session factory, and the Mercure publication to assert."""
+
+    session: Callable[[], Any]
+    published: AsyncMock
+
+
+@compiles(JSONB, "sqlite")
+def _jsonb_as_json(type_, compiler, **kw):  # pragma: no cover — DDL only
+    """Render a Postgres `JSONB` column as `JSON` when the dialect is SQLite.
+
+    `tool_calls_log` is `JSONB` and SQLite has no such type, so the DDL compiler refuses
+    to render it and `CREATE TABLE` raises. This is purely about the DDL: `JSONB` derives
+    from SQLAlchemy's own `JSON`, so values are serialised through the dialect either
+    way, and the repositories under test run exactly the queries they run in production.
+
+    Registered at module scope on purpose — it is process-global state, and a fixture
+    body would hide that while never undoing it.
+    """
+    return "JSON"
+
+
+@pytest.fixture()
+def chat_db():
+    """In-memory database behind the context and message repositories (real queries, no mocks)."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+
+    from app.db.context_model import ConversationContext
+    from app.db.models import Message
+
+    engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
+    ConversationContext.__table__.create(engine)
+    Message.__table__.create(engine)
+    factory = sessionmaker(engine, expire_on_commit=False)
+
+    def open_session():
+        return _SyncSessionAsAsync(factory())
+
+    published = AsyncMock()
+    with (
+        patch("app.db.context_repository.agent_session", open_session),
+        patch("app.db.message_repository.agent_session", open_session),
+        patch("app.db.context_repository.context_repo.publisher.publish", new=published),
+        patch("app.db.message_repository.message_repo.publisher.publish", new=AsyncMock()),
+    ):
+        yield ChatDb(session=open_session, published=published)
+    engine.dispose()
 
 
 @pytest.fixture()

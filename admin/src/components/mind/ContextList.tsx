@@ -16,6 +16,11 @@ const statusConfig = {
  * The conversation threads Maggie is holding, in the Mind panel's "Contextes"
  * section. `mind-contexts` and `mind-context` are what the chat journey counts
  * to tell a change of subject from a follow-up (MAG-99).
+ *
+ * A thread long enough to have been summarized shows what it is about under its
+ * label (MAG-11). That summary is also what Maggie carries into her system
+ * prompt, so this line is the owner's only way to see what she remembers of a
+ * conversation that scrolled past the history she is sent.
  */
 export const ContextList = ({ contexts }: ContextListProps) => {
   if (contexts.length === 0) {
@@ -37,7 +42,7 @@ export const ContextList = ({ contexts }: ContextListProps) => {
             data-status={ctx.status}
             sx={{
               display: 'flex',
-              alignItems: 'center',
+              alignItems: 'flex-start',
               gap: 1,
               px: 2,
               py: 0.5,
@@ -45,12 +50,31 @@ export const ContextList = ({ contexts }: ContextListProps) => {
               borderRadius: 1,
             }}
           >
-            <Typography sx={{ color: config.color, fontSize: 12, lineHeight: 1 }}>
+            <Typography sx={{ color: config.color, fontSize: 12, lineHeight: '20px' }}>
               {config.icon}
             </Typography>
-            <Typography variant="body2" noWrap sx={{ flex: 1 }}>
-              {ctx.label}
-            </Typography>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography variant="body2" noWrap>
+                {ctx.label}
+              </Typography>
+              {ctx.summary ? (
+                // Two lines at most: the panel is a sidebar, and a five-line summary
+                // per thread would push the activity section off the screen.
+                <Typography
+                  data-testid="mind-context-summary"
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{
+                    display: '-webkit-box',
+                    WebkitBoxOrient: 'vertical',
+                    WebkitLineClamp: 2,
+                    overflow: 'hidden',
+                  }}
+                >
+                  {ctx.summary}
+                </Typography>
+              ) : null}
+            </Box>
           </Box>
         )
       })}

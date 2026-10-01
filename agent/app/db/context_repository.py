@@ -18,9 +18,18 @@ class ContextRepository:
         self.publisher = MercurePublisher()
 
     async def run_migrations(self) -> None:
-        """Add context_id column to agent_message if missing."""
+        """Add the columns `create_all` cannot add, since it only ever creates whole tables.
+
+        Every one of these is `IF NOT EXISTS` and runs on every boot: the agent database
+        has no migration tool, so this function *is* the migration history.
+        """
         async with agent_engine.begin() as conn:
             await conn.execute(text("ALTER TABLE agent_message ADD COLUMN IF NOT EXISTS context_id VARCHAR(32)"))
+            # MAG-11 — the thread's summary, and where it stops.
+            await conn.execute(text("ALTER TABLE conversation_context ADD COLUMN IF NOT EXISTS summary TEXT"))
+            await conn.execute(
+                text("ALTER TABLE conversation_context ADD COLUMN IF NOT EXISTS summary_updated_at TIMESTAMPTZ")
+            )
 
     async def create(self, user_id: str, label: str) -> ConversationContext:
         async with agent_session() as session:
@@ -54,6 +63,43 @@ class ContextRepository:
             await self.publisher.publish(topics.for_user(topics.CONTEXTS, ctx.user_id), ctx.to_dict())
         except Exception as e:
             logger.warning(f"Failed to publish context update to Mercure: {e}")
+
+        return ctx
+
+    async def set_summary(
+        self, context_id: str, summary: str, covers_up_to: datetime | None = None
+    ) -> ConversationContext | None:
+        """Store a thread's summary and the instant it covers up to (MAG-11).
+
+        `covers_up_to` is the last message the summary was written from, not the moment
+        it was written: the model call takes a second, and the summary fires exactly when
+        the user is likely to be typing again. Stamping "now" would mark a message that
+        arrived mid-call as covered, and every later pass would skip it. `None` means now,
+        for a caller with no message to point at.
+
+        `updated_at` is deliberately left alone: a summary is written *about* the
+        conversation, not *in* it, and the context router ranks contexts by how recently
+        they were spoken in. Stamping it here would make a summarized thread look like
+        the freshest one.
+        """
+        async with agent_session() as session:
+            result = await session.execute(select(ConversationContext).where(ConversationContext.id == context_id))
+            ctx = result.scalar_one_or_none()
+            if ctx is None:
+                return None
+
+            ctx.summary = summary
+            ctx.summary_updated_at = covers_up_to or datetime.now(UTC)
+            await session.commit()
+            await session.refresh(ctx)
+
+        # The summary is written in the background, after the stream the user was
+        # watching has closed — so this publication is the only thing that puts it on an
+        # open Mind panel.
+        try:
+            await self.publisher.publish(topics.for_user(topics.CONTEXTS, ctx.user_id), ctx.to_dict())
+        except Exception as e:
+            logger.warning(f"Failed to publish context summary to Mercure: {e}")
 
         return ctx
 
