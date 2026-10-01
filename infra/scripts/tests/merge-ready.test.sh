@@ -54,6 +54,9 @@ check "auto-merge not armed" 1 "not armed" \
 check "handed to a human" 1 needs-human \
   "{\"state\":\"OPEN\",\"autoMergeRequest\":$ARMED,\"labels\":[{\"name\":\"needs-human\"}],\"required\":[\"A\"],
     \"statusCheckRollup\":[{\"name\":\"A\",\"conclusion\":\"SUCCESS\"}]}"
+check "no required check read (API error or unreadable protection)" 1 "no required check known" \
+  "{\"state\":\"OPEN\",\"autoMergeRequest\":$ARMED,\"labels\":[],\"required\":[],
+    \"statusCheckRollup\":[{\"name\":\"A\",\"conclusion\":\"FAILURE\"}]}"
 check "already merged" 1 "not open" \
   "{\"state\":\"MERGED\",\"autoMergeRequest\":$ARMED,\"labels\":[],\"required\":[\"A\"],
     \"statusCheckRollup\":[{\"name\":\"A\",\"conclusion\":\"SUCCESS\"}]}"

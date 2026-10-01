@@ -17,6 +17,7 @@ jq -r '
   | if $pr.state != "OPEN" then "not open (\($pr.state))"
     elif $pr.autoMergeRequest == null then "auto-merge is not armed"
     elif ($pr.labels // [] | map(.name) | index("needs-human")) != null then "labelled needs-human"
+    elif ($pr.required // [] | length) == 0 then "no required check known: refusing to merge blind"
     else
       [ $pr.required[] as $ctx
         | ([ $pr.statusCheckRollup[]? | select((.name // .context) == $ctx) ] | last) as $check
