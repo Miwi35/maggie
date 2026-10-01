@@ -150,7 +150,7 @@ class TestStreamingPrefix:
             async def get_final_message(self):
                 return final
 
-        with patch("app.llm.streaming.message_repo") as message_repo, patch("app.llm.streaming.context_repo"):
+        with patch("app.llm.streaming.message_repo") as message_repo:
             message_repo.find_recent = AsyncMock(return_value=[])
             message_repo.create = AsyncMock()
             gateway = StreamingGateway()
@@ -180,7 +180,7 @@ class TestStreamingSystemPrompt:
 
         with (
             patch("app.llm.streaming.skill_index", index),
-            patch("app.llm.streaming.context_repo") as context_repo,
+            patch("app.llm.contexts.context_repo") as context_repo,
             patch("app.llm.streaming.current_datetime_line", return_value="Nous sommes lundi, il est 9h."),
         ):
             context_repo.find_active = AsyncMock(return_value=[context])

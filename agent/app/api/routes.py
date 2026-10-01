@@ -14,6 +14,7 @@ from app.db.instruction_repository import instruction_repo
 from app.db.message_repository import message_repo
 from app.db.proaction_repository import proaction_repo
 from app.db.user_setting_repository import user_setting_repo
+from app.llm.context_summary import context_summarizer
 from app.llm.gateway import LLMGateway
 from app.llm.streaming import StreamingGateway
 from app.llm.transcription import transcribe_audio
@@ -114,12 +115,27 @@ async def get_contexts(user_id: str = Depends(get_current_user_id)):
 
 @router.post("/proaction", response_model=ChatResponse)
 async def proaction(request: ChatRequest, user_id: str = Depends(get_current_user_id)):
-    """Execute a proaction prompt autonomously (no conversation memory)."""
+    """Execute a proaction prompt autonomously, reading the open threads but no message history."""
     logger.info(f"Proaction request for user {user_id}: {request.message[:100]}")
 
     result = await llm_gateway.proaction(request.message, user_id)
 
-    assistant_msg = await message_repo.create(user_id=user_id, role="assistant", content=result["response"])
+    # Stored in the thread the gateway routed it to, so a reply to it stays in the same
+    # one — and that thread is re-summarized, since the reply will be routed against its
+    # summary. Both are what `proaction_consumer` does with a scheduled proaction
+    # (MAG-14): a proaction has two sinks, and they must leave a thread in the same
+    # state. Where they still differ is the empty answer, which the consumer drops and
+    # this route stores, because `ChatResponse` owes its caller a message either way.
+    # Awaited, not spawned: nothing is streaming, and `maybe_summarize` never raises.
+    context_id = result.get("context_id")
+    assistant_msg = await message_repo.create(
+        user_id=user_id,
+        role="assistant",
+        content=result["response"],
+        context_id=context_id,
+    )
+    if context_id:
+        await context_summarizer.maybe_summarize(context_id)
 
     return ChatResponse(
         response=result["response"],

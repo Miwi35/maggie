@@ -1,12 +1,14 @@
 # A proaction: Maggie speaking first, without anyone having written to her.
 #
-# `POST /agent/proaction` runs the tool loop with no conversation memory and
-# persists what comes out as an assistant message — published on Mercure,
+# `POST /agent/proaction` runs the tool loop with no message history of its own
+# and persists what comes out as an assistant message — published on Mercure,
 # unlike the streamed path, because no client is holding the answer already.
 # That publication is the whole point of the journey that uses this: an open
 # chat panel has to show the message without being reloaded.
 #
 # No tool, so the only thing that can make that journey red is the delivery.
+# What the proaction knows of the conversation, and the thread it is stored in,
+# is 81-proaction-thread-recall.yaml's journey instead.
 name: proaction-bin-night
 description: The reminder a scheduled proaction would send.
 

@@ -75,7 +75,7 @@ class TestChatSystemPrompt:
         await instruction_repo.store("user-1", TUTOIE, kind=InstructionKind.BEHAVIOR)
 
         with (
-            patch("app.llm.streaming.context_repo") as contexts,
+            patch("app.llm.contexts.context_repo") as contexts,
             patch("app.llm.streaming.skill_index") as skills,
         ):
             contexts.find_active = AsyncMock(return_value=[])
@@ -88,7 +88,7 @@ class TestChatSystemPrompt:
         await instruction_repo.store("user-1", PLANNING_RULE, kind=InstructionKind.PLANNING)
 
         with (
-            patch("app.llm.streaming.context_repo") as contexts,
+            patch("app.llm.contexts.context_repo") as contexts,
             patch("app.llm.streaming.skill_index") as skills,
         ):
             contexts.find_active = AsyncMock(return_value=[])
@@ -102,7 +102,7 @@ class TestChatSystemPrompt:
         await instruction_repo.store("user-1", TUTOIE, kind=InstructionKind.BEHAVIOR)
 
         with (
-            patch("app.llm.streaming.context_repo") as contexts,
+            patch("app.llm.contexts.context_repo") as contexts,
             patch("app.llm.streaming.skill_index") as skills,
         ):
             contexts.find_active = AsyncMock(return_value=[])
@@ -119,7 +119,11 @@ class TestProactionSystemPrompt:
     async def test_the_preference_reaches_an_executed_proaction(self, agent_db):
         await instruction_repo.store("user-1", TUTOIE, kind=InstructionKind.BEHAVIOR)
 
-        with patch("app.llm.gateway.skill_index") as skills:
+        with (
+            patch("app.llm.contexts.context_repo") as contexts,
+            patch("app.llm.gateway.skill_index") as skills,
+        ):
+            contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""
             blocks = await _llm_gateway()._build_system_prompt("user-1", preamble="\n\nTu es en mode proaction.")
 
@@ -127,7 +131,11 @@ class TestProactionSystemPrompt:
         assert "Tu es en mode proaction." in blocks[1]["text"]
 
     async def test_nothing_stored_leaves_the_prompt_as_it_was(self, agent_db):
-        with patch("app.llm.gateway.skill_index") as skills:
+        with (
+            patch("app.llm.contexts.context_repo") as contexts,
+            patch("app.llm.gateway.skill_index") as skills,
+        ):
+            contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""
             blocks = await _llm_gateway()._build_system_prompt("user-1")
 

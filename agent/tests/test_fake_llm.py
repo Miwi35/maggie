@@ -19,9 +19,10 @@ import yaml
 from pydantic import ValidationError
 
 from app.config import Settings
-from app.db.context_model import ConversationContext
+from app.db.context_model import ContextStatus, ConversationContext
 from app.llm import fake as fake_module
 from app.llm.client import create_llm_client, llm_configured
+from app.llm.contexts import active_contexts_section
 from app.llm.directives import HEADER
 from app.llm.fake import (
     DEFAULT_FIXTURES_DIR,
@@ -465,7 +466,7 @@ class TestTheRealStreamingGateway:
         with (
             patch("app.llm.streaming.settings") as settings,
             patch("app.llm.streaming.message_repo") as message_repo,
-            patch("app.llm.streaming.context_repo") as context_repo,
+            patch("app.llm.contexts.context_repo") as context_repo,
             patch("app.llm.streaming.record_llm_usage"),
         ):
             settings.anthropic_api_key = ""
@@ -709,14 +710,34 @@ class TestTheShippedFixtures:
         assert booked.input["date"].startswith("2099-")
 
     async def test_a_proaction_prompt_has_something_to_say(self):
-        # `POST /agent/proaction` runs the tool loop without the context router,
-        # so nothing else in this directory covers that entry point.
+        # `POST /agent/proaction` runs the tool loop with no conversation history
+        # of its own, so nothing else in this directory covers that entry point.
         client = build_client(DEFAULT_FIXTURES_DIR)
 
         answer = await ask(client, "Rappelle-lui de sortir les poubelles")
 
         assert answer.stop_reason == "end_turn"
         assert "[fake-llm]" not in text_of(answer)
+
+    async def test_a_proaction_needs_the_thread_summaries_in_its_prompt(self):
+        """The chat journey's proof that a proaction knows the conversation (MAG-14)."""
+        client = build_client(DEFAULT_FIXTURES_DIR)
+
+        without = await ask(client, "Fais le point sur sa semaine")
+        assert "[fake-llm]" in text_of(without)
+
+        # The section as `contexts.py` really renders it: a needle matched against a
+        # system prompt this test invented would prove only itself.
+        thread = MagicMock()
+        thread.label = "Conversation e2e"
+        thread.summary = "Résumé e2e : l'utilisateur organise sa semaine avec Maggie."
+        thread.status = ContextStatus.ACTIVE
+        with patch("app.llm.contexts.context_repo") as repo:
+            repo.find_active = AsyncMock(return_value=[thread])
+            section = await active_contexts_section("user-1")
+
+        with_summary = await ask(client, "Fais le point sur sa semaine", system=f"Tu es Maggie.{section}")
+        assert "[fake-llm]" not in text_of(with_summary)
 
     async def test_a_behaviour_preference_is_filed_as_one(self):
         """The kind decides who ever reads the directive again, so the journey asserts it (MAG-22)."""
