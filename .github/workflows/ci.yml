@@ -382,6 +382,19 @@ jobs:
           key: e2e-admin-node-modules-node22-alpine-${{ hashFiles('admin/package-lock.json') }}
 
       - uses: actions/cache@v4
+        id: admin-dist
+        with:
+          # The built bundle (tsc + vite, ~55 s, the longest step of the stack's
+          # start-up). Keyed on everything it is built from; a PR that does not
+          # touch the admin restores main's.
+          path: admin/dist
+          key: e2e-admin-dist-${{ hashFiles('admin/**', '!admin/node_modules/**', '!admin/dist/**', 'docker-compose.e2e.yml') }}
+
+      - name: Skip the admin build when its bundle was restored
+        if: steps.admin-dist.outputs.cache-hit == 'true'
+        run: echo "E2E_ADMIN_PREBUILT=1" >> "$GITHUB_ENV"
+
+      - uses: actions/cache@v4
         with:
           path: e2e/web/node_modules
           key: e2e-web-node-modules-${{ hashFiles('e2e/web/package-lock.json') }}
@@ -481,7 +494,7 @@ jobs:
 
       - name: Tear down
         if: always()
-        run: task e2e:down
+        run: task e2e:down -- --timeout 1
 
   # The required check. It keeps the name branch protection already lists, so
   # that sharding the journeys needs no change there (MAG-180), and it is the
@@ -615,6 +628,19 @@ jobs:
           key: e2e-admin-node-modules-node22-alpine-${{ hashFiles('admin/package-lock.json') }}
 
       - uses: actions/cache@v4
+        id: admin-dist
+        with:
+          # The built bundle (tsc + vite, ~55 s, the longest step of the stack's
+          # start-up). Keyed on everything it is built from; a PR that does not
+          # touch the admin restores main's.
+          path: admin/dist
+          key: e2e-admin-dist-${{ hashFiles('admin/**', '!admin/node_modules/**', '!admin/dist/**', 'docker-compose.e2e.yml') }}
+
+      - name: Skip the admin build when its bundle was restored
+        if: steps.admin-dist.outputs.cache-hit == 'true'
+        run: echo "E2E_ADMIN_PREBUILT=1" >> "$GITHUB_ENV"
+
+      - uses: actions/cache@v4
         with:
           path: .e2e-cache/uv
           key: e2e-uv-${{ hashFiles('agent/pyproject.toml', 'agent/uv.lock') }}
@@ -714,7 +740,7 @@ jobs:
 
       - name: Tear down
         if: always()
-        run: task e2e:down
+        run: task e2e:down -- --timeout 1
 
   # The cron pod's scheduler (MAG-147): busybox crond ran the jobs as a
   # non-root user with a redirection to /proc/1/fd/1 that user cannot open, so
