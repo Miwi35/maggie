@@ -87,6 +87,7 @@ class SkillIndex:
         file_path.write_text(file_content, encoding="utf-8")
 
         entry = SkillEntry(name=name, description=description, tags=tags, file_path=file_path)
+        self.entries = [e for e in self.entries if e.file_path != file_path]
         self.entries.append(entry)
 
         try:
