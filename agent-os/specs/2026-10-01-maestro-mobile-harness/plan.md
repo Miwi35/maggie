@@ -58,8 +58,8 @@ This folder: `plan.md`, `shape.md`.
 
 ## Task 3: testTags Maestro can see
 
-`mobile/app/src/main/java/com/maggie/app/{MainActivity.kt,ui/UiTags.kt}` and the
-five composables the flows drive.
+`mobile/app/src/main/java/com/maggie/app/{MainActivity.kt,ui/UiTags.kt}`, the
+composables the flows drive, and the three windows that host them.
 
 - `Modifier.uiTagRoot()` on the root of **every window's** content, not once on
   the activity. `testTagsAsResourceId` resolves within one semantics owner, and a
@@ -117,8 +117,10 @@ Two of MAG-93's targets are **not** delivered here, each as its own ticket,
   assertion that survives a revert of all three fixes would be worse than
   shipping none, so what is here is the sound setup plus an `assertNotVisible`
   labelled as catching only a stuck `SPEAKING`. The second half of `fc168b5` —
-  the context sheet's height — goes with it: the first row is visible at `0.5f`
-  as at `0.85f`, so no assertion discriminates.
+  the context sheet's height — is named in MAG-205's *Hors périmètre*: the first
+  row is visible at `0.5f` as at `0.85f`, so no assertion discriminates, and
+  making one would depend on the screen size. It is written down as dropped
+  unless a clean idea turns up, rather than left unsaid.
 
 The two DTO-contract regressions (`0a281a7`, `b576cc6`) are MAG-104's, as the
 ticket says.

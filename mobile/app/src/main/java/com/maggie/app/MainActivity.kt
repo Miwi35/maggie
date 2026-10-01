@@ -12,8 +12,8 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.fragment.app.FragmentActivity
 import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.ui.navigation.NavGraph
-import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.ui.theme.MaggieTheme
+import com.maggie.app.ui.uiTagRoot
 import org.koin.android.ext.android.inject
 
 class MainActivity : FragmentActivity() {

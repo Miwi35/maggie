@@ -569,9 +569,13 @@ jobs:
           # -timezone: the seed anchors on midnight in Paris and a runner boots
           # on UTC, so between 22:00 and midnight UTC the device's "today" is
           # the seed's yesterday and the dashboard assertion fails for an hour a
-          # day. -noaudio stays: there is no sound card, the voice overlay ends
-          # in its ERROR state, and 02-voice-overlay.yaml asserts on what it
-          # must *not* say rather than on listening succeeding.
+          # day. -noaudio stays: there is no sound card, so recording fails and
+          # the voice overlay lands in its ERROR state — 02-voice-overlay.yaml is
+          # written around that and never asserts listening succeeded.
+          #
+          # disable-animations also zeroes the animation scale, which is why that
+          # flow cannot use waitForAnimationToEnd as a timer; see its header and
+          # MAG-205.
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none -timezone Europe/Paris
           disable-animations: true
           script: task e2e:mobile

@@ -127,8 +127,9 @@ that stopped deserialising is `DtoContractTest` against `api/contract/`
   it root, and is on Paris time anyway).
 - **No sound card in CI.** The emulator runs with `-noaudio`, so
   `VoiceManager.startListening()` fails and the overlay lands in its `ERROR`
-  state. `02-voice-overlay.yaml` is written around that: it asserts on what the
-  overlay must *not* say, never on listening succeeding.
+  state. `02-voice-overlay.yaml` is written around that: it waits for the voice
+  bar to exist and for the old answer to be in the sheet, and never asserts that
+  listening succeeded.
 - **Proving an absence is harder than it looks, and « no TTS started » cannot be
   done from a flow today** (MAG-205). `VoiceManager.speak()` sets `SPEAKING` then
   posts to the TTS endpoint, which under `TTS_PROVIDER=fake` answers two silent

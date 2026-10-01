@@ -17,18 +17,21 @@
 #   3. every flow targets the `e2e` flavor's applicationId. A flow pointing at
 #      `com.maggie.app` would drive the owner's production build, pass, and
 #      prove nothing.
-#   4. every composable that opens a window *and* carries a tag declares its own
-#      `uiTagRoot()`. A `Dialog` or a `ModalBottomSheet` is a separate semantics
-#      owner, so the activity's flag does not reach it and its tags have no
-#      resource id. Check 2 cannot see this — the ids are declared and used, they
-#      are simply unreachable — and it is what broke this harness's first CI run.
+#   4. every composable that opens a window *and* carries a tag declares one
+#      `uiTagRoot()` per window. A `Dialog` or a `ModalBottomSheet` is a separate
+#      semantics owner, so the activity's flag does not reach it and its tags have
+#      no resource id. Check 2 cannot see this — the ids are declared and used,
+#      they are simply unreachable — and it is what broke this harness's first CI
+#      run.
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 FLOW_DIR="$REPO_ROOT/e2e/mobile"
 TAGS_FILE="$REPO_ROOT/mobile/app/src/main/java/com/maggie/app/ui/UiTags.kt"
-UI_DIR="$REPO_ROOT/mobile/app/src/main/java/com/maggie/app/ui"
+# The whole app, not just ui/: MainActivity carries the activity's own tag root,
+# and a screen is free to open a dialog from anywhere.
+SRC_DIR="$REPO_ROOT/mobile/app/src/main/java/com/maggie/app"
 APP_ID="com.maggie.app.e2e"
 
 failed=0
@@ -43,7 +46,11 @@ printf '\n\033[1m1. Syntax\033[0m\n'
 # ---------------------------------------------------------------------------
 export MAESTRO_CLI_NO_ANALYTICS=1
 export MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED=true
-eval "$("$REPO_ROOT/e2e/mobile/maestro.sh")"
+# Captured before `eval`: `eval "$(false)"` has status 0, so a failed download
+# would surface as `MAESTRO: unbound variable` rather than as maestro.sh's own
+# message. Same reason as in run.sh.
+maestro_env="$("$REPO_ROOT/e2e/mobile/maestro.sh")"
+eval "$maestro_env"
 
 for flow in "${flows[@]}"; do
   if output="$("$MAESTRO" check-syntax "$flow" 2>&1)"; then
@@ -89,22 +96,44 @@ done
 # ---------------------------------------------------------------------------
 printf '\n\033[1m4. Every tagged window has its own tag root\033[0m\n'
 # ---------------------------------------------------------------------------
-# Comments stripped before every grep below. Without it the check passes on a
-# file whose only mention of `uiTagRoot()` is the comment explaining why it is
-# there — which is exactly what the first version of this check did.
-code_of() { sed 's|//.*||' "$1"; }
+# Comments — both `//` and `/* */`, KDoc included — are stripped before every
+# grep below. Without that the check passes on a file whose only mention of
+# `uiTagRoot()` is the comment explaining why it is there, which is what the
+# first version of this check did.
+code_of() {
+  awk '
+    { line = $0 }
+    inblock { if (line ~ /\*\//) { inblock = 0 }; next }
+    { sub("//.*", "", line) }
+    line ~ /\/\*/ { if (line !~ /\*\//) inblock = 1; sub("/\\*.*", "", line) }
+    { print line }
+  ' "$1"
+}
 
-mapfile -t windows < <(grep -rl --include='*.kt' . "$UI_DIR" | sort)
-for file in "${windows[@]}"; do
+# Counted, not merely present: `ChatSheet.kt` opens two windows and needs two
+# roots, and a file-wide "is `uiTagRoot()` in here somewhere" passes with one of
+# them missing — which is exactly the failure that broke this harness's first CI
+# run, so the guard has to be able to fail on it.
+#
+# A file with one tagged window and one untagged one is over-demanded by this.
+# That is deliberate: the extra root is free, and the alternative is parsing
+# Kotlin blocks in awk.
+mapfile -t sources < <(find "$SRC_DIR" -name '*.kt' | sort)
+for file in "${sources[@]}"; do
   code="$(code_of "$file")"
-  printf '%s' "$code" | grep -qE '(ModalBottomSheet|Dialog)\(' || continue
-  # Only the ones that actually carry a tag: a dialog no flow addresses needs
+  # Popup and the dropdown menus are separate semantics owners too, for the same
+  # reason: each is a platform window of its own.
+  windows="$(printf '%s\n' "$code" | grep -cE '(ModalBottomSheet|Dialog|Popup|DropdownMenu)\(' || true)"
+  [ "$windows" -gt 0 ] || continue
+  # Only files that actually carry a tag: a dialog no flow addresses needs
   # nothing, and demanding it everywhere would be noise nobody reads.
-  printf '%s' "$code" | grep -q 'UiTags\.' || continue
-  if printf '%s' "$code" | grep -q 'uiTagRoot()'; then
-    pass "${file#"$REPO_ROOT"/}"
+  printf '%s\n' "$code" | grep -q 'UiTags\.' || continue
+
+  roots="$(printf '%s\n' "$code" | grep -c 'uiTagRoot()' || true)"
+  if [ "$roots" -ge "$windows" ]; then
+    pass "${file#"$REPO_ROOT"/} ($windows window(s), $roots tag root(s))"
   else
-    fail "${file#"$REPO_ROOT"/} opens a window and carries a testTag but never calls uiTagRoot() — its tags have no resource id, so Maestro cannot see them"
+    fail "${file#"$REPO_ROOT"/} opens $windows window(s) and carries a testTag but calls uiTagRoot() $roots time(s) — a window without one gives its tags no resource id, so Maestro cannot see them"
   fi
 done
 

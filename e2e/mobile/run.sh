@@ -177,11 +177,20 @@ mkdir -p "$REPORT_DIR"
 # whole workspace *and* that file again — `task e2e:mobile -- flows/01-…yaml`
 # would be a slower full run, not the single flow it reads as. Paths are resolved
 # against this directory, because `run.sh` never sets the caller's cwd.
+#
+# The consequence, said out loud: an *option value* ending in `.yaml` — there is
+# one, `--config` — cannot be passed through this wrapper. Nothing here needs it
+# (Maestro finds `config.yaml` in the workspace on its own), and a `.yaml` that is
+# not a flow dies below rather than reaching Maestro as a path it cannot resolve.
 targets=()
 maestro_args=()
 for arg in "$@"; do
   case "$arg" in
-    *.yaml|*.yml) targets+=("$(cd "$FLOW_DIR" && realpath -m "$arg")") ;;
+    *.yaml|*.yml)
+      resolved="$(cd "$FLOW_DIR" && realpath -m "$arg")"
+      [ -f "$resolved" ] || die "No flow at $resolved. Paths are relative to e2e/mobile/ — try flows/01-login-chat.yaml."
+      targets+=("$resolved")
+      ;;
     *) maestro_args+=("$arg") ;;
   esac
 done
