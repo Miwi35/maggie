@@ -56,6 +56,7 @@ class StandardCategoriesControllerTest extends WebTestCase
         self::assertContains('Placements', $data['names']);
         self::assertContains('Essence', $data['names']);
         self::assertContains('Imprévus', $data['names']);
+        self::assertContains('Prêts', $data['names']);
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $housing = $em->getRepository(Category::class)->findOneBy(['name' => 'Logement']);

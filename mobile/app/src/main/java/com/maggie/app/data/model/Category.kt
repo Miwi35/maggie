@@ -21,5 +21,6 @@ fun obligationLabel(obligation: String): String = when (obligation) {
     "optional" -> "Non-obligatoire"
     "saving" -> "Épargne"
     "investment" -> "Investissement"
+    "debt" -> "Remboursement de prêt"
     else -> obligation
 }

@@ -8862,6 +8862,7 @@
                             "optional",
                             "saving",
                             "investment",
+                            "debt",
                             "income"
                         ]
                     },
@@ -8915,6 +8916,7 @@
                             "optional",
                             "saving",
                             "investment",
+                            "debt",
                             "income"
                         ]
                     },
@@ -8968,6 +8970,7 @@
                             "optional",
                             "saving",
                             "investment",
+                            "debt",
                             "income"
                         ]
                     },
@@ -9022,6 +9025,7 @@
                                     "optional",
                                     "saving",
                                     "investment",
+                                    "debt",
                                     "income"
                                 ]
                             },

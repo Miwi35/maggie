@@ -101,20 +101,25 @@ class TransactionRepository extends ServiceEntityRepository
     }
 
     /**
-     * Everything that went out over a half-open period, as positive cents:
-     * spent and committed debits, every category together.
+     * Everyday consumption over a half-open period, as positive cents: spent
+     * and committed debits, without the exceptional ones and the loan
+     * payments (counted on their own by the debt timeline).
      */
     public function sumConsumedBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until): int
     {
         $total = $this->createQueryBuilder('t')
             ->select('SUM(t.amountCents)')
+            ->leftJoin('t.category', 'c')
             ->andWhere('t.user = :user')
             ->andWhere('t.amountCents < 0')
             ->andWhere('t.status IN (:consumed)')
+            ->andWhere('t.isExceptional = false')
+            ->andWhere('c.id IS NULL OR c.obligation != :debt')
             ->andWhere('t.bookedAt >= :from')
             ->andWhere('t.bookedAt < :until')
             ->setParameter('user', $user->getId(), 'ulid')
             ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
+            ->setParameter('debt', ObligationFlag::Debt->value)
             ->setParameter('from', $from)
             ->setParameter('until', $until)
             ->getQuery()

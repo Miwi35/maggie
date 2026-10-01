@@ -14,6 +14,7 @@ describe('obligationFlags', () => {
       'optional',
       'saving',
       'investment',
+      'debt',
       'income',
     ])
   })
