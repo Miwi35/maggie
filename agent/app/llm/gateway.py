@@ -18,6 +18,12 @@ from app.skills.index import skill_index
 
 logger = logging.getLogger(__name__)
 
+# What the user reads when the model could not be reached. French, and free of the API's
+# own wording: since MAG-13 the answer is stored in the thread, so it is read back as part
+# of the conversation — the same sentence the streamed path has always stored.
+API_ERROR_MESSAGE = "Désolé, une erreur est survenue. Réessaie."
+UNREACHABLE_MESSAGE = "Je n'arrive pas à joindre le service d'IA pour l'instant. Réessaie dans un moment."
+
 PLANNING_PREAMBLE = (
     "\n\nTu es en mode planification autonome. "
     "Planifie les proactions de la journée. "
@@ -209,16 +215,21 @@ class LLMGateway:
                 source=source,
             )
         except anthropic.APIStatusError as e:
+            # The API's own wording stays in the log. It used to be the answer, and since
+            # that answer is now stored in the thread it would be read back verbatim by
+            # the next forty messages and by the summarizer — an English stack-trace-ish
+            # sentence in the middle of a French conversation.
             logger.error(f"Anthropic API error: {e.message}")
-            result = {"response": f"AI service error: {e.message}", "tool_calls": []}
+            result = {"response": API_ERROR_MESSAGE, "tool_calls": [], "error": True}
         except anthropic.APIConnectionError as e:
             logger.error(f"Anthropic connection error: {e}")
-            result = {"response": "Unable to reach the AI service. Please try again later.", "tool_calls": []}
+            result = {"response": UNREACHABLE_MESSAGE, "tool_calls": [], "error": True}
 
         # Carried on the error paths too: the user's message is already tagged with the
         # thread, so leaving the answer out would keep an orphan question in it, and the
         # next summary would read half an exchange. What the user was shown is part of the
         # conversation whether or not the model produced it — the streamed path stores its
-        # own error sentence in the thread for the same reason.
+        # own error sentence in the thread for the same reason. `error` is what stops the
+        # caller from spending a second model call summarizing a turn that failed.
         result["context_id"] = context_id
         return result

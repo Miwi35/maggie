@@ -63,9 +63,9 @@ async def build_history(
     passing it again is how it used to be sent twice.
 
     `fallback_message` is that same message for a caller that *did* store it, used only if
-    the history comes back empty. The API refuses a conversation with no message at all, so
-    without it a database that would not answer turns into `AI service error: messages: at
-    least one message is required` — the promise above, broken on the one failure it was
+    the history comes back empty. The API refuses a conversation with no message in it, so
+    without this a database that would not answer turns into an API error the caller shows
+    as « une erreur est survenue » — the promise above, broken on the one failure it was
     written for.
 
     `current_message_id` is the stored message being answered. A tag that could not be
@@ -109,14 +109,24 @@ async def _rows(user_id: str, context_id: str | None) -> list[Message]:
     """
     found: dict[str, Message] = {}
 
+    # Guarded one by one rather than together: they answer different needs, and a window
+    # that will not load must not throw away a thread that just did.
     if context_id:
-        thread = await message_repo.find_by_context(
-            context_id, limit=settings.context_history_messages, user_id=user_id
-        )
-        found.update({row.id: row for row in thread})
+        try:
+            thread = await message_repo.find_by_context(
+                context_id, limit=settings.context_history_messages, user_id=user_id
+            )
+        except Exception as exc:
+            logger.warning(f"Could not load the messages of thread {context_id}: {exc}")
+        else:
+            found.update({row.id: row for row in thread})
 
-    window = await message_repo.find_recent(user_id, limit=settings.recent_history_messages)
-    found.update({row.id: row for row in window})
+    try:
+        window = await message_repo.find_recent(user_id, limit=settings.recent_history_messages)
+    except Exception as exc:
+        logger.warning(f"Could not load the recent messages: {exc}")
+    else:
+        found.update({row.id: row for row in window})
 
     # Two messages of the same exchange can share a timestamp at the database's
     # resolution, and an answer sorted before its question is worse than none — so the
@@ -126,7 +136,7 @@ async def _rows(user_id: str, context_id: str | None) -> list[Message]:
     return sorted(found.values(), key=lambda row: (row.created_at, row.role != "user", row.id))
 
 
-def _has_foreign(rows: list[Message], context_id: str | None, current_message_id: str | None = None) -> bool:
+def _has_foreign(rows: list[Message], context_id: str | None, current_message_id: str | None) -> bool:
     return bool(context_id) and any(_is_foreign(row, context_id, current_message_id) for row in rows)
 
 
@@ -148,7 +158,7 @@ async def _labels(user_id: str) -> dict[str, str]:
 
 
 def _turns(
-    rows: list[Message], context_id: str | None, labels: dict[str, str], current_message_id: str | None = None
+    rows: list[Message], context_id: str | None, labels: dict[str, str], current_message_id: str | None
 ) -> list[dict]:
     """The rows as Anthropic turns: labelled, merged, and starting on the user."""
     turns: list[dict] = []

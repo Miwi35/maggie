@@ -14,7 +14,7 @@ import anthropic
 import httpx
 
 from app.db.context_model import ContextStatus
-from app.llm.gateway import LLMGateway
+from app.llm.gateway import API_ERROR_MESSAGE, UNREACHABLE_MESSAGE, LLMGateway
 
 ROUTED = {"action": "matched", "id": "ctx-1", "label": "Courses", "status": "active", "summary": None}
 
@@ -211,7 +211,10 @@ class TestWhenTheModelRefuses:
         ):
             result = await _gateway().chat("Bonjour", "user-1", exclude_message_id="msg-1")
 
-        assert "AI service error" in result["response"]
+        # French, and free of the API's own wording: since this answer is stored in the
+        # thread, an English API sentence would be read back as part of the conversation.
+        assert result["response"] == API_ERROR_MESSAGE
+        assert result["error"] is True
         # The next summary would otherwise read half an exchange, and the error sentence is
         # what the user was actually shown — the streamed path stores its own in the thread too.
         assert result["context_id"] == "ctx-1"
@@ -234,7 +237,8 @@ class TestWhenTheModelRefuses:
         ):
             result = await _gateway().chat("Bonjour", "user-1", exclude_message_id="msg-1")
 
-        assert "Unable to reach" in result["response"]
+        assert result["response"] == UNREACHABLE_MESSAGE
+        assert result["error"] is True
         assert result["context_id"] == "ctx-1"
 
     async def test_no_client_configured_routes_nothing(self):

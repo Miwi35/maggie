@@ -25,7 +25,15 @@ BASE = datetime(2026, 10, 1, 9, 0, tzinfo=UTC)
 def say(chat_db):
     """Store a message at `BASE + minutes`, through the repository the code under test uses."""
 
-    async def _store(role: str, content: str, *, context: str | None = None, minutes: int = 0, user: str = OWNER):
+    async def _store(
+        role: str,
+        content: str,
+        *,
+        context: str | None = None,
+        minutes: int = 0,
+        user: str = OWNER,
+        message_id: str | None = None,
+    ):
         message = await message_repo.create(user_id=user, role=role, content=content, context_id=context)
         # `created_at` defaults to "now", and every message of a test would then share a
         # timestamp at SQLite's resolution — which is exactly the tie the ordering has to
@@ -37,8 +45,13 @@ def say(chat_db):
 
             stored = (await session.execute(select(Message).where(Message.id == message.id))).scalar_one()
             stored.created_at = BASE + timedelta(minutes=minutes)
+            # The id is settable too, because it is the *second* sort key: a tie on
+            # `created_at` has to be decided by the role, and a random id cannot prove that.
+            if message_id is not None:
+                stored.id = message_id
             await session.commit()
-        return message
+            await session.refresh(stored)
+        return stored
 
     return _store
 
@@ -164,15 +177,22 @@ class TestTheThreadIsTheConversation:
         assert "message 4" not in joined
 
     async def test_an_answer_never_sorts_before_its_question(self, say, thread):
-        """Two messages of one exchange can share a timestamp at the database's resolution."""
+        """Two messages of one exchange can share a timestamp at the database's resolution.
+
+        The ids are set so that sorting on them would put every answer first: that is what
+        the old key did, and what makes this test fail if the role stops breaking the tie.
+        """
         courses = await thread("Courses")
-        await say("assistant", "C'est noté.", context=courses.id, minutes=1)
-        await say("user", "De la farine", context=courses.id, minutes=1)
+        await say("assistant", "C'est noté.", context=courses.id, minutes=1, message_id="aaa1")
+        await say("user", "De la farine", context=courses.id, minutes=1, message_id="bbb1")
+        await say("assistant", "Ajouté.", context=courses.id, minutes=2, message_id="aaa2")
+        await say("user", "Et du beurre", context=courses.id, minutes=2, message_id="bbb2")
 
         turns = await build_history(OWNER, context_id=courses.id)
 
-        assert [turn["role"] for turn in turns] == ["user", "assistant"]
+        assert [turn["role"] for turn in turns] == ["user", "assistant", "user", "assistant"]
         assert turns[0]["content"] == "De la farine"
+        assert turns[2]["content"] == "Et du beurre"
 
     async def test_with_no_thread_nothing_is_marked(self, say, thread):
         """No model to route with, or a routing call that failed: the window is all there is."""

@@ -87,6 +87,47 @@ class TestRoutes:
         )
         mock_summarizer.maybe_summarize.assert_not_awaited()
 
+    @patch("app.api.routes.context_summarizer")
+    @patch("app.api.routes.message_repo")
+    @patch("app.api.routes.llm_gateway")
+    def test_a_turn_the_model_never_answered_is_not_summarized(
+        self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client
+    ):
+        """The summary would be a second doomed call, with the user still waiting on this one."""
+        mock_gateway.chat = AsyncMock(
+            return_value={
+                "response": "Désolé, une erreur est survenue. Réessaie.",
+                "tool_calls": [],
+                "context_id": "ctx-1",
+                "error": True,
+            }
+        )
+        stored = Message(id="msg-1", user_id="test-user", role="user", content="Hello")
+        mock_msg_repo.create = AsyncMock(return_value=stored)
+        mock_summarizer.maybe_summarize = AsyncMock()
+
+        assert authed_client.post("/chat", json={"message": "Bonjour"}).status_code == 200
+
+        # Still stored in the thread — the question is already tagged, and an answer left
+        # out would be an orphan the next summary reads as half an exchange.
+        mock_msg_repo.create.assert_awaited_with(
+            user_id="test-user",
+            role="assistant",
+            content="Désolé, une erreur est survenue. Réessaie.",
+            context_id="ctx-1",
+        )
+        mock_summarizer.maybe_summarize.assert_not_awaited()
+
+    def test_an_empty_message_is_refused(self, authed_client):
+        """A 422 naming the field beats « Désolé, une erreur est survenue » (MAG-13).
+
+        An empty message has nothing to route and nothing to answer, and the model refuses
+        a conversation whose only turn is an empty string — so neither chat route should
+        reach it.
+        """
+        assert authed_client.post("/chat", json={"message": ""}).status_code == 422
+        assert authed_client.post("/chat/stream", json={"message": ""}).status_code == 422
+
     def test_proactions_endpoint_requires_auth(self, client):
         """GET /proactions without auth returns 401."""
         response = client.get("/proactions")
