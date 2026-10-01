@@ -76,19 +76,45 @@ print_env() {
   done
 }
 
+# Builds one image, seeding the layer cache from the last image pushed under the
+# service's moving `:cache` tag (MAG-180). The cache travels inside the image
+# (`type=inline`), so it needs no second package on the registry: a Dockerfile
+# edit rebuilds the layers from that line down and pulls the ones above it.
+# Every stage the e2e images ship is a chain from `base`, so the final image
+# holds every layer worth caching.
+build_one() {
+  local svc="$1" cache="$2" log
+  log="$(mktemp)"
+  if docker buildx bake -f "$COMPOSE_FILE" --load --progress=plain \
+      --set "$svc.cache-from=type=registry,ref=$cache" \
+      --set "$svc.cache-to=type=inline" "$svc" >"$log" 2>&1; then
+    echo "[$svc] $(grep -c ' CACHED$' "$log" || true) steps from cache"
+    rm -f "$log"
+  else
+    cat "$log" >&2
+    rm -f "$log"
+    return 1
+  fi
+}
+
 ensure_one() {
-  local svc="$1" ref
+  local svc="$1" ref cache start="$SECONDS"
   ref="$(ref_of "$svc")"
+  cache="$REGISTRY-$svc:cache"
   if docker pull --quiet "$ref" >/dev/null 2>&1; then
-    echo "[$svc] pulled $ref"
+    echo "[$svc] pulled $ref in $((SECONDS - start))s"
     return 0
   fi
   echo "[$svc] $ref not found, building it"
-  docker compose -f "$COMPOSE_FILE" build --quiet "$svc"
+  build_one "$svc" "$cache"
+  echo "[$svc] built in $((SECONDS - start))s"
   # A failed push (a fork's read-only token, a registry blip) must not fail the
   # run: the image is on this machine and the stack can start from it.
   if docker push --quiet "$ref" >/dev/null; then
     echo "[$svc] pushed $ref"
+    # The next build, on any branch, starts from this one's layers.
+    docker tag "$ref" "$cache" && docker push --quiet "$cache" >/dev/null ||
+      echo "::warning::could not push $cache — the next build starts from the previous cache"
   else
     echo "::warning::could not push $ref — the next run will rebuild it"
   fi

@@ -130,6 +130,7 @@ api/var/e2e/
 # traces, videos and screenshots of failures. CI uploads them as an artifact.
 e2e/web/node_modules/
 e2e/web/playwright-report/
+e2e/web/blob-report/
 e2e/web/test-results/
 # The Maestro harness (MAG-98): the JUnit report and the screenshots of a failed
 # flow. CI uploads them too; the CLI itself lives under .e2e-cache/ below.
