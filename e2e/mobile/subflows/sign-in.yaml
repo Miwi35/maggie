@@ -1,0 +1,25 @@
+appId: com.maggie.app.e2e
+name: sign in as the seeded user
+---
+# The login screen of the `e2e` flavor is the production one: same button, same
+# logo. Only the door behind it differs — `src/e2e/E2eSignIn.kt` posts to
+# `/api/auth/e2e/login` instead of opening Google Credential Manager, which is a
+# system dialog Maestro cannot reach.
+- assertVisible:
+    id: "login_sign_in"
+
+- tapOn:
+    id: "login_sign_in"
+
+# The dashboard is the whole assertion: `NavGraph` only redirects there once the
+# JWT is in the DataStore, so seeing it means the login round trip succeeded.
+#
+# 40 s because this is the app's first HTTP call: OkHttp, Ktor and the JSON
+# serializer are all being class-loaded, on an emulator with no JIT warm-up. A
+# failure here is almost always one of two things — `adb reverse` not bridging
+# the stack's port, or `task e2e:seed` never having created the user, which the
+# login answers 404 to.
+- extendedWaitUntil:
+    visible:
+      id: "dashboard"
+    timeout: 40000

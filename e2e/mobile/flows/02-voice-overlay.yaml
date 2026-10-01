@@ -1,0 +1,126 @@
+appId: com.maggie.app.e2e
+name: 02-voice-overlay
+tags:
+  - voice
+---
+# Opening the voice overlay must not re-speak the last answer (MAG-93).
+#
+# Three past regressions, one symptom: `24b64ba`, `9e24327` and `54e35bd` all
+# fixed Maggie reading an old reply aloud the moment the overlay opened. It is
+# unreachable from a browser — the admin does not speak — and unreachable from a
+# unit test, because the cause is the *order* in which the sheet composes and
+# the history arrives over HTTP. Only a journey on a real app can see it.
+#
+# What makes the assertion possible: `VoiceManager.speak()` sets
+# `VoiceState.SPEAKING` on its very first line, before any MediaPlayer work, and
+# `VoiceControlBar` renders that state as « Maggie parle... ». So the bug shows
+# up as text, whether or not the emulator can play audio at all.
+#
+# And what makes it non-vacuous: the answer has to be *on screen* in the overlay
+# before absence of speech means anything. A history that never loaded would
+# satisfy "it did not speak" while proving nothing, which is the trap this flow
+# would otherwise fall into.
+#
+# Regex selectors wrapped in `.*` for the reason given in `01-login-chat.yaml`.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+
+- runFlow: ../subflows/sign-in.yaml
+
+# ---------------------------------------------------------------------------
+# A conversation with an answer in it — what the overlay used to re-speak.
+# ---------------------------------------------------------------------------
+- tapOn:
+    id: "chat_open"
+- tapOn:
+    id: "chat_input"
+- inputText: "Qu'est-ce que j'ai de prévu aujourd'hui ?"
+- tapOn:
+    id: "chat_send"
+- extendedWaitUntil:
+    visible: ".*déjeuner avec Alex et votre cours de piano.*"
+    timeout: 60000
+- tapOn:
+    id: "chat_close"
+
+# ---------------------------------------------------------------------------
+# Restart the app, *without* clearing its state: still signed in, but the
+# conversation now comes back from `GET /agent/messages` after composition —
+# the asynchronous arrival the three fixes were about. Sending and reopening
+# within one session would leave the history already in memory and the
+# regression out of reach.
+# ---------------------------------------------------------------------------
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "dashboard"
+    timeout: 40000
+
+# The microphone opens the sheet in voice mode. It starts listening by itself —
+# on a headless emulator that may end in LISTENING or in ERROR, and neither
+# matters here. What matters is that it does not speak.
+- tapOn:
+    id: "chat_mic"
+
+- extendedWaitUntil:
+    visible:
+      id: "voice_state"
+    timeout: 20000
+
+# The guard against a vacuous pass: the old answer is in the overlay, so there
+# was something to re-speak.
+- extendedWaitUntil:
+    visible: ".*déjeuner avec Alex et votre cours de piano.*"
+    timeout: 30000
+
+- assertNotVisible: ".*Maggie parle.*"
+
+# Checked twice, with the window the regression used to fire in between: the
+# history lands a moment after the sheet composes, and the `LaunchedEffect` that
+# spoke it ran on that arrival rather than on the open. An immediate assertion
+# alone would pass on the broken build.
+#
+# `waitForAnimationToEnd` as a bounded wait, which is the Maestro idiom for one:
+# it returns when nothing animates or when the timeout expires, and never fails.
+# Here it always spends the five seconds, because the listening microphone
+# pulses on an infinite transition.
+- waitForAnimationToEnd:
+    timeout: 5000
+
+- assertNotVisible: ".*Maggie parle.*"
+
+# ---------------------------------------------------------------------------
+# The two halves of `fc168b5`, the fourth regression of MAG-93's voice family.
+# Both are layout, so Maestro is the only thing that can see them: it reports a
+# node as visible only when the device lays it out inside the window.
+# ---------------------------------------------------------------------------
+- tapOn:
+    id: "chat_close"
+
+# Half one: the chat input sits above the keyboard, not under it (the
+# `imePadding` the fix added). Tapping the field raises the keyboard; the input
+# and the send button have to survive that.
+- tapOn:
+    id: "chat_open"
+- tapOn:
+    id: "chat_input"
+- assertVisible:
+    id: "chat_input"
+- assertVisible:
+    id: "chat_send"
+- tapOn:
+    id: "chat_close"
+
+# Half two: the context sheet is full height, so what it lists is on screen.
+# `agent/fixtures/fake-llm/11-context-router-new.yaml` labels the conversation's
+# context « Conversation e2e », and the exchange above opened it — so the sheet
+# has a row to show and an empty one would fail here.
+- tapOn:
+    id: "chat_contexts"
+- extendedWaitUntil:
+    visible: ".*Conversation e2e.*"
+    timeout: 20000

@@ -330,6 +330,10 @@ tasks:
       # container and needs no stack.
       - task: e2e:web:lint
       - task: e2e:web:typecheck
+      # And the Maestro flows (MAG-98): `maestro check-syntax`, plus the check
+      # that every `id:` a flow uses is still a declared testTag. No emulator,
+      # no stack — the only cheap place a renamed tag fails as a rename.
+      - task: e2e:mobile:lint
 
   fix:all:
     desc: Fixers in write mode, then linters, on this checkout's own code — run before every push

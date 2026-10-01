@@ -21,7 +21,7 @@ class LoginViewModel(private val authManager: AuthManager) : ViewModel() {
     fun signIn(context: Context) {
         viewModelScope.launch {
             _uiState.value = LoginUiState(isLoading = true)
-            authManager.signInWithGoogle(context)
+            authManager.signIn(context)
                 .onSuccess {
                     _uiState.value = LoginUiState()
                 }

@@ -27,7 +27,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.maggie.app.ui.UiTags
 import com.maggie.app.voice.VoiceManager
 import com.maggie.app.voice.VoiceState
 
@@ -118,6 +120,7 @@ fun VoiceControlBar(
 
         Text(
             text = stateLabel,
+            modifier = Modifier.testTag(UiTags.VOICE_STATE),
             style = MaterialTheme.typography.bodyMedium,
             color = if (voiceState == VoiceState.ERROR) {
                 MaterialTheme.colorScheme.error

@@ -415,9 +415,10 @@ assert_eq add_grocery_item "$(printf '%s' "$dictated_answer" | jq -r '.tool_call
 
 # The other half of the voice path, and the only half with no screen behind it:
 # the admin does not speak, so `TTS_PROVIDER=fake` is checked here rather than
-# in a browser journey. Mobile is what reads it back — four of MAG-93's
-# regressions are that overlay revocalising an old answer — and the flows that
-# cover those wait on MAG-98.
+# in a browser journey. Mobile is what reads it back, and the overlay
+# revocalising an old answer is four of MAG-93's regressions — covered since
+# MAG-98 by `e2e/mobile/flows/02-voice-overlay.yaml`, which asserts on the app's
+# side of the same path.
 #
 # `TTS_PROVIDER=fake` streams a valid silent MP3 frame instead of opening a
 # WebSocket to Microsoft, so this asserts that audio arrives and that the

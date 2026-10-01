@@ -71,19 +71,23 @@ writing one; the traps it lists (index lag, subscribing after acting, locators
 that match Maggie's answer as well as the page) are all ones that have already
 cost a debugging session.
 
-**The emulator harness does not exist yet** (MAG-98 Maestro). Until it lands, a
-mobile ticket satisfies this rule by:
+**The emulator harness exists** (MAG-98): `e2e/mobile/`, `task e2e:mobile`, run by
+CI on every pull request that touches the app or the stack, and on a phone, a
+foldable and a tablet in the nightly run. A mobile-facing ticket writes its
+journey as a Maestro flow — the `e2e` Gradle flavor signs in through the test
+login, and the app is addressed by the `testTag`s declared in
+`mobile/app/src/main/java/com/maggie/app/ui/UiTags.kt`. Read
+[e2e/mobile/README.md](../../../e2e/mobile/README.md) before writing one.
 
-- a `## E2E journey` section in its `plan.md`, written as Given / When / Then steps
-  precise enough to be transcribed into a Maestro flow without deciding anything
-  again — selectors by role and text, the real-time updates to wait for, the DB
-  state to check;
-- naming the journey ticket that will carry it, so no journey gets lost: MAG-99 chat,
-  MAG-100 agenda, MAG-101 recipes/meals/groceries, MAG-102 finance, MAG-103
-  settings/search/notifications.
+What the emulator is *for* is what no other suite can see: layout under the
+keyboard, a sheet that re-speaks on open, a view that does not refresh. A
+ViewModel assertion that holds on the JVM belongs in a unit test
+([mobile/testing](../mobile/testing.md)), which costs seconds rather than an
+emulator boot.
 
-A journey written today should already name the fixtures it needs in
-`api/fixtures/e2e/`, since the stack that will run it is there.
+The journey tickets that carry the rest are MAG-99 chat, MAG-100 agenda, MAG-101
+recipes/meals/groceries, MAG-102 finance, MAG-103 settings/search/notifications.
+A flow names the fixtures it needs in `api/fixtures/e2e/`.
 
 **No user-facing behavior** — standards, docs, prompts, infra, refactor with no
 behavior change: write `E2E: N/A — <reason>` in `plan.md`. Anything the user can see
@@ -119,7 +123,7 @@ Entry point: the team document « Index de la documentation Maggie ».
 | Unit | Pure logic, mocked deps | Always |
 | Integration | Real DB, real DI container | With service containers |
 | API/HTTP | Full request cycle | With service containers |
-| E2E | Playwright (web, `task e2e:web`) and Maestro (mobile, MAG-98), fake LLM | Blocking (MAG-96) |
+| E2E | Playwright (web, `task e2e:web`) and Maestro (mobile, `task e2e:mobile`), fake LLM | Blocking (MAG-96) |
 | Eval | Real model, prompt-lab scenarios | Nightly, non-blocking (ADR-005) |
 
 ## Per-Component Quick Reference
@@ -131,6 +135,7 @@ Entry point: the team document « Index de la documentation Maggie ».
 | Admin | Vitest 3 | `task admin:test` | `admin/vite.config.ts` |
 | Mobile | JUnit 4 + MockK | `cd mobile && ./gradlew testProdReleaseUnitTest` | `build.gradle.kts` |
 | Web journeys | Playwright | `task e2e:web` (needs `task e2e:up`) | `e2e/web/playwright.config.ts` |
+| Mobile journeys | Maestro | `task e2e:mobile` (needs `task e2e:up` and a device) | `e2e/mobile/config.yaml` |
 
 ## Rules
 

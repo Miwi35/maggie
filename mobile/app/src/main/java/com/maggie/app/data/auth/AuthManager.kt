@@ -1,21 +1,7 @@
 package com.maggie.app.data.auth
 
 import android.content.Context
-import androidx.credentials.CredentialManager
-import androidx.credentials.GetCredentialRequest
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
-import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
-import com.maggie.app.BuildConfig
-import com.maggie.app.data.api.MaggieApiService
-import io.ktor.client.call.body
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.http.ContentType
-import io.ktor.http.contentType
 import kotlinx.serialization.Serializable
-
-@Serializable
-data class GoogleAuthRequest(val idToken: String)
 
 @Serializable
 data class AuthResponse(val token: String, val refreshToken: String? = null, val mercureToken: String? = null, val user: AuthUser)
@@ -23,30 +9,36 @@ data class AuthResponse(val token: String, val refreshToken: String? = null, val
 @Serializable
 data class AuthUser(val id: String, val email: String, val name: String, val avatar: String? = null)
 
+/**
+ * The door the app signs in through — one implementation per flavor.
+ *
+ * Google Credential Manager is a system dialog outside the app's view
+ * hierarchy, so no emulator journey can tap it: Maestro sees the login screen
+ * and then nothing (MAG-98). The `e2e` flavor therefore brings its own door, in
+ * `src/e2e/`, and `dev` and `prod` share the Google one in `src/google/`.
+ *
+ * A seam and not a build flag, deliberately: the strategy linked into the APK
+ * that ships is the Google one, and the test login is not compiled into it at
+ * all. `src/main/` knows neither.
+ */
+fun interface SignInStrategy {
+    /** The server's auth payload, however this flavor obtained it. */
+    suspend fun authenticate(context: Context): AuthResponse
+}
+
+/**
+ * Turns an authenticated payload into a signed-in app.
+ *
+ * Everything after the credential — which tokens are kept, under which keys —
+ * lives here rather than in a [SignInStrategy], so the two doors cannot drift
+ * apart in what they persist.
+ */
 class AuthManager(
     private val authRepository: AuthRepository,
-    private val apiService: MaggieApiService,
+    private val signInStrategy: SignInStrategy,
 ) {
-    suspend fun signInWithGoogle(context: Context): Result<AuthUser> = runCatching {
-        val credentialManager = CredentialManager.create(context)
-
-        val googleIdOption = GetGoogleIdOption.Builder()
-            .setFilterByAuthorizedAccounts(false)
-            .setServerClientId(BuildConfig.GOOGLE_CLIENT_ID)
-            .build()
-
-        val request = GetCredentialRequest.Builder()
-            .addCredentialOption(googleIdOption)
-            .build()
-
-        val result = credentialManager.getCredential(context, request)
-        val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(result.credential.data)
-        val idToken = googleIdTokenCredential.idToken
-
-        val response: AuthResponse = apiService.client.post("${BuildConfig.API_BASE_URL}/api/auth/google") {
-            contentType(ContentType.Application.Json)
-            setBody(GoogleAuthRequest(idToken))
-        }.body()
+    suspend fun signIn(context: Context): Result<AuthUser> = runCatching {
+        val response = signInStrategy.authenticate(context)
 
         authRepository.saveAuth(
             token = response.token,

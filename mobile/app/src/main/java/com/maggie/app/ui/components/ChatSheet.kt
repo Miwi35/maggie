@@ -46,9 +46,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.screens.chat.ScrollBehavior
 import com.maggie.app.voice.VoiceManager
@@ -220,6 +222,7 @@ fun ChatSheet(
                                 onValueChange = { input = it },
                                 modifier = Modifier
                                     .weight(1f)
+                                    .testTag(UiTags.CHAT_INPUT)
                                     .focusRequester(focusRequester),
                                 placeholder = { Text("Demander à Maggie...") },
                                 singleLine = true,
@@ -230,6 +233,7 @@ fun ChatSheet(
                                     viewModel.sendMessage(input)
                                     input = ""
                                 },
+                                modifier = Modifier.testTag(UiTags.CHAT_SEND),
                                 enabled = input.isNotBlank() && !uiState.isLoading,
                             ) {
                                 Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Envoyer")
@@ -258,7 +262,7 @@ private fun SheetHeader(onClose: () -> Unit, onSearch: () -> Unit) {
             IconButton(onClick = onSearch) {
                 Icon(Icons.Default.Search, contentDescription = "Rechercher")
             }
-            IconButton(onClick = onClose) {
+            IconButton(onClick = onClose, modifier = Modifier.testTag(UiTags.CHAT_CLOSE)) {
                 Icon(Icons.Default.Close, contentDescription = "Fermer")
             }
         }

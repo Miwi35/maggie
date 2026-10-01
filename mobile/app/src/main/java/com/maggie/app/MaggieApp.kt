@@ -6,6 +6,7 @@ import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.auth.AuthManager
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.auth.BiometricLockManager
+import com.maggie.app.data.auth.signInStrategy
 import com.maggie.app.data.fcm.MaggieFcmService
 import com.maggie.app.data.local.MaggieDatabase
 import com.maggie.app.data.mercure.MercureService
@@ -113,7 +114,9 @@ class MaggieApp : Application() {
         val appModule = module {
             // Auth
             single { AuthRepository(androidContext()) }
-            single { AuthManager(get(), get()) }
+            // `signInStrategy` is resolved by the flavor: Google in dev and
+            // prod (src/google/), the seeded test login in e2e (src/e2e/).
+            single { AuthManager(get(), signInStrategy(get())) }
             single { BiometricLockManager() }
 
             // Database

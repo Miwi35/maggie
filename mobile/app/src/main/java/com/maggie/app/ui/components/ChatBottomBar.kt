@@ -20,7 +20,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.maggie.app.ui.UiTags
 
 @Composable
 fun ChatBottomBar(
@@ -36,7 +38,7 @@ fun ChatBottomBar(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onBrainClick) {
+            IconButton(onClick = onBrainClick, modifier = Modifier.testTag(UiTags.CHAT_CONTEXTS)) {
                 if (activeContextCount > 0) {
                     BadgedBox(
                         badge = {
@@ -50,7 +52,7 @@ fun ChatBottomBar(
                 }
             }
 
-            IconButton(onClick = onMicClick) {
+            IconButton(onClick = onMicClick, modifier = Modifier.testTag(UiTags.CHAT_MIC)) {
                 Icon(Icons.Default.Mic, contentDescription = "Micro")
             }
 
@@ -59,6 +61,7 @@ fun ChatBottomBar(
             Surface(
                 modifier = Modifier
                     .weight(1f)
+                    .testTag(UiTags.CHAT_OPEN)
                     .clickable(onClick = onOpenChat),
                 shape = MaterialTheme.shapes.small,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
