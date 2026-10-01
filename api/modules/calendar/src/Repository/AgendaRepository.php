@@ -49,6 +49,35 @@ class AgendaRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * The agenda already connected to a Google calendar, if any (MAG-148).
+     *
+     * A unique index keeps a user from holding two of them, but this query is
+     * also what runs against a database the cleanup migration has not reached
+     * yet, so it answers with the oldest — ULIDs sort by creation time, and
+     * the oldest is the one the migration keeps.
+     */
+    public function findOneByGoogleCalendarId(User $user, string $googleCalendarId): ?Agenda
+    {
+        return $this->createQueryBuilder('a')
+            ->where('a.user = :user')
+            ->andWhere('a.googleCalendarId = :googleCalendarId')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('googleCalendarId', $googleCalendarId)
+            ->orderBy('a.id', 'ASC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
+     * The agenda the user marked as default, with no alphabetical fallback.
+     */
+    public function findExplicitDefault(User $user): ?Agenda
+    {
+        return $this->findOneBy(['user' => $user, 'isDefault' => true]);
+    }
+
     public function findByGoogleWatchChannelId(string $channelId): ?Agenda
     {
         return $this->findOneBy(['googleWatchChannelId' => $channelId]);

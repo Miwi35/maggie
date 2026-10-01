@@ -6,6 +6,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Google\Service\Exception as GoogleServiceException;
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Event;
+use Maggie\Calendar\Message\UpdateAgendaCommand;
 use Maggie\Calendar\Repository\AgendaRepository;
 use Maggie\Calendar\Repository\EventRepository;
 use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
@@ -21,6 +22,7 @@ class GoogleCalendarSyncService
     public function __construct(
         private readonly GoogleCalendarApiClient $apiClient,
         private readonly GoogleEventMapper $eventMapper,
+        private readonly GoogleCalendarNameMapper $nameMapper,
         private readonly EventRepository $eventRepository,
         private readonly AgendaRepository $agendaRepository,
         private readonly EntityManagerInterface $entityManager,
@@ -40,7 +42,7 @@ class GoogleCalendarSyncService
         $calendarId = $agenda->getGoogleCalendarId();
         $syncToken = $agenda->getGoogleSyncToken();
 
-        $this->syncAgendaColor($user, $agenda, $calendarId);
+        $this->syncAgendaFromGoogle($user, $agenda, $calendarId);
 
         try {
             $this->doPull($user, $agenda, $calendarId, $syncToken);
@@ -174,17 +176,37 @@ class GoogleCalendarSyncService
         }
     }
 
-    private function syncAgendaColor(User $user, Agenda $agenda, string $calendarId): void
+    /**
+     * Google owns the name and the colour of a connected agenda (MAG-148).
+     *
+     * Both applications are then showing the calendar the way Google does.
+     * It goes through the bus rather than a bare flush, so a rename reaches
+     * the open admin and mobile screens and the search index — the agenda
+     * collection is served from Elasticsearch, and a direct flush left it
+     * answering with the old name.
+     */
+    private function syncAgendaFromGoogle(User $user, Agenda $agenda, string $calendarId): void
     {
         try {
             $calendarEntry = $this->apiClient->getCalendarListEntry($user, $calendarId);
+            $googleName = $this->nameMapper->nameFor($calendarEntry);
+            /** @var ?string $googleColor a shared calendar may carry no colour */
             $googleColor = $calendarEntry->getBackgroundColor();
-            if ($googleColor !== $agenda->getColor()) {
-                $agenda->setColor($googleColor);
-                $this->entityManager->flush();
+
+            $name = $googleName === $agenda->getName() ? null : $googleName;
+            $color = (null === $googleColor || $googleColor === $agenda->getColor()) ? null : $googleColor;
+
+            if (null === $name && null === $color) {
+                return;
             }
+
+            $this->messageBus->dispatch(new UpdateAgendaCommand(
+                agendaId: (string) $agenda->getId(),
+                name: $name,
+                color: $color,
+            ));
         } catch (\Throwable $e) {
-            $this->logger->warning('Failed to sync agenda color from Google: {error}', [
+            $this->logger->warning('Failed to sync the agenda from Google: {error}', [
                 'error' => $e->getMessage(),
                 'agenda' => (string) $agenda->getId(),
             ]);

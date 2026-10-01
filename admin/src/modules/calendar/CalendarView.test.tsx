@@ -430,4 +430,67 @@ describe('CalendarView', () => {
       })
     })
   })
+
+  // MAG-148: the owner connected the same Google calendar twice. The guard
+  // against it lives here, and it reads `googleCalendarId` off the agenda — a
+  // field the collection, served from Elasticsearch, did not carry.
+  describe('importing a Google calendar', { timeout: 30_000 }, () => {
+    const GOOGLE_CALENDARS = [
+      { id: 'primary@maggie.local', name: 'Défaut', summary: 'Fixture User', primary: true },
+      { id: 'concerts@group.calendar.google.com', name: 'Mes concerts', summary: 'Concerts', primary: false },
+    ]
+
+    const serveAgendas = (agendas: unknown[]) => {
+      mockGetList.mockImplementation((resource: string) => {
+        if (resource === 'agendas') return Promise.resolve({ data: agendas, total: agendas.length })
+        return Promise.resolve({ data: [], total: 0 })
+      })
+    }
+
+    const openImportDialog = async () => {
+      render(<CalendarView />)
+      await userEvent.click(await screen.findByRole('button', { name: /Ajouter/ }))
+      await userEvent.click(await screen.findByText('Importer depuis Google'))
+
+      return screen.findByRole('dialog')
+    }
+
+    test('offers each calendar under the name it will carry, not Google’s raw summary', async () => {
+      serveAgendas([])
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => GOOGLE_CALENDARS }))
+
+      const dialog = await openImportDialog()
+
+      expect(await within(dialog).findByText(/Défaut/)).toBeInTheDocument()
+      expect(within(dialog).getByText('Mes concerts')).toBeInTheDocument()
+      // The primary calendar's Google summary is the account holder's name.
+      expect(within(dialog).queryByText('Fixture User')).not.toBeInTheDocument()
+    })
+
+    test('does not offer a calendar that is already connected', async () => {
+      serveAgendas([
+        { id: 'ag1', name: 'Mes concerts', googleCalendarId: 'concerts@group.calendar.google.com' },
+      ])
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => GOOGLE_CALENDARS }))
+
+      const dialog = await openImportDialog()
+
+      expect(await within(dialog).findByText(/Défaut/)).toBeInTheDocument()
+      expect(within(dialog).queryByText('Mes concerts')).not.toBeInTheDocument()
+    })
+
+    test('reports a Google calendar list that cannot be read', async () => {
+      serveAgendas([])
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, json: async () => ({}) }))
+
+      await openImportDialog()
+
+      await waitFor(() =>
+        expect(mockNotify).toHaveBeenCalledWith(
+          'Impossible de charger les calendriers Google',
+          { type: 'error' },
+        ),
+      )
+    })
+  })
 })

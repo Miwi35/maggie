@@ -3,18 +3,17 @@
 namespace Maggie\Calendar\Controller;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Maggie\Calendar\Message\CreateAgendaCommand;
-use Maggie\Calendar\Message\PullFromGoogleCommand;
 use Maggie\Calendar\Message\PushEventToGoogleCommand;
 use Maggie\Calendar\Repository\AgendaRepository;
 use Maggie\Calendar\Service\GoogleCalendarApiClient;
+use Maggie\Calendar\Service\GoogleCalendarNameMapper;
+use Maggie\Calendar\UseCase\ConnectGoogleCalendar;
 use Maggie\Core\Entity\User;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\MessageBusInterface;
-use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Symfony\Component\Routing\Attribute\Route;
 
 final class GoogleCalendarConnectController
@@ -22,6 +21,8 @@ final class GoogleCalendarConnectController
     public function __construct(
         private readonly GoogleCalendarApiClient $apiClient,
         private readonly AgendaRepository $agendaRepository,
+        private readonly ConnectGoogleCalendar $connectGoogleCalendar,
+        private readonly GoogleCalendarNameMapper $nameMapper,
         private readonly EntityManagerInterface $entityManager,
         private readonly MessageBusInterface $messageBus,
         private readonly Security $security,
@@ -46,6 +47,10 @@ final class GoogleCalendarConnectController
         $calendars = $this->apiClient->listCalendars($user);
         $result = array_map(fn ($cal) => [
             'id' => $cal->getId(),
+            // The name the agenda will carry, so the dialog offering a calendar
+            // and the agenda it creates agree (MAG-148). `summary` is kept: it
+            // is the raw Google field, and clients still read it.
+            'name' => $this->nameMapper->nameFor($cal),
             'summary' => $cal->getSummary(),
             'description' => $cal->getDescription(),
             'primary' => $cal->getPrimary() ?: false,
@@ -69,9 +74,9 @@ final class GoogleCalendarConnectController
         }
 
         $data = json_decode($request->getContent(), true);
-        $googleCalendarId = $data['googleCalendarId'] ?? null;
+        $googleCalendarId = \is_array($data) ? ($data['googleCalendarId'] ?? null) : null;
 
-        if (!$googleCalendarId) {
+        if (!\is_string($googleCalendarId) || '' === $googleCalendarId) {
             return new JsonResponse(
                 ['error' => 'googleCalendarId is required.'],
                 Response::HTTP_BAD_REQUEST,
@@ -95,57 +100,18 @@ final class GoogleCalendarConnectController
             );
         }
 
-        $name = $data['name'] ?? $googleCal->getSummary();
-        $color = $data['color'] ?? $googleCal->getBackgroundColor();
-
-        // Create agenda via CQRS (MercurePublishMiddleware will publish automatically)
-        $envelope = $this->messageBus->dispatch(new CreateAgendaCommand(
-            userId: (string) $user->getId(),
-            name: $name,
-            color: $color,
-        ));
-
-        $agenda = $envelope->last(HandledStamp::class)?->getResult();
-        if (null === $agenda) {
-            return new JsonResponse(
-                ['error' => 'Failed to create agenda.'],
-                Response::HTTP_INTERNAL_SERVER_ERROR,
-            );
-        }
-
-        // Link to Google Calendar
-        $agenda->setGoogleCalendarId($googleCalendarId);
-        $this->entityManager->flush();
-
-        // Set up webhook
-        if ($this->googleWebhookUrl) {
-            try {
-                $watchResult = $this->apiClient->watchEvents(
-                    $user,
-                    $googleCalendarId,
-                    $this->googleWebhookUrl,
-                    $this->googleWebhookToken,
-                );
-                $agenda->setGoogleWatchChannelId($watchResult['channelId']);
-                $agenda->setGoogleWatchResourceId($watchResult['resourceId']);
-                $agenda->setGoogleWatchExpiresAt(
-                    (new \DateTimeImmutable())->setTimestamp((int) ($watchResult['expiration'] / 1000))
-                );
-                $this->entityManager->flush();
-            } catch (\Throwable) {
-                // Webhook setup is non-critical
-            }
-        }
-
-        // Dispatch initial sync
-        $this->messageBus->dispatch(new PullFromGoogleCommand(agendaId: (string) $agenda->getId()));
+        // The name and the colour are Google's to give: the client used to send
+        // them, and for the primary calendar it sent the account holder's name
+        // instead of what Google displays (MAG-148).
+        $result = $this->connectGoogleCalendar->execute($user, $googleCal);
+        $agenda = $result['agenda'];
 
         return new JsonResponse([
             'id' => (string) $agenda->getId(),
             'name' => $agenda->getName(),
             'color' => $agenda->getColor(),
             'googleCalendarId' => $agenda->getGoogleCalendarId(),
-        ], Response::HTTP_CREATED);
+        ], $result['created'] ? Response::HTTP_CREATED : Response::HTTP_OK);
     }
 
     #[Route('/api/calendar/google/export', name: 'google_calendar_export', methods: ['POST'])]

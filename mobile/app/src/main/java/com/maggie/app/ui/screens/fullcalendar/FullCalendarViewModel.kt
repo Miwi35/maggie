@@ -219,9 +219,9 @@ class FullCalendarViewModel(
         }
     }
 
-    fun importGoogleCalendar(googleCalendarId: String, name: String?, color: String?) {
+    fun importGoogleCalendar(googleCalendarId: String) {
         viewModelScope.launch {
-            agendaRepository.importGoogleCalendar(GoogleCalendarImportRequest(googleCalendarId, name, color))
+            agendaRepository.importGoogleCalendar(GoogleCalendarImportRequest(googleCalendarId))
                 .onSuccess { refresh() }
                 .onFailure { _uiState.value = _uiState.value.copy(error = it.message) }
         }

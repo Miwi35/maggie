@@ -3,13 +3,16 @@
 namespace Maggie\Calendar\Tests\Service;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Google\Service\Calendar\CalendarListEntry;
 use Google\Service\Calendar\Event as GoogleEvent;
 use Google\Service\Calendar\EventDateTime;
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Event;
+use Maggie\Calendar\Message\UpdateAgendaCommand;
 use Maggie\Calendar\Repository\AgendaRepository;
 use Maggie\Calendar\Repository\EventRepository;
 use Maggie\Calendar\Service\GoogleCalendarApiClient;
+use Maggie\Calendar\Service\GoogleCalendarNameMapper;
 use Maggie\Calendar\Service\GoogleCalendarSyncService;
 use Maggie\Calendar\Service\GoogleEventMapper;
 use Maggie\Core\Entity\User;
@@ -65,6 +68,7 @@ class GoogleCalendarSyncServiceTest extends TestCase
         return new GoogleCalendarSyncService(
             $this->apiClient,
             $this->eventMapper,
+            new GoogleCalendarNameMapper(),
             $this->eventRepository,
             $this->agendaRepository,
             $this->entityManager,
@@ -161,6 +165,56 @@ class GoogleCalendarSyncServiceTest extends TestCase
         $data2 = json_decode($this->publishedUpdates[1]->getData(), true);
         self::assertSame('/api/events/'.$event2->getId(), $data2['@id']);
         self::assertSame('Lunch', $data2['summary']);
+    }
+
+    public function testPullRenamesTheAgendaAfterTheNameGoogleDisplays(): void
+    {
+        $agenda = $this->createSyncedAgenda();
+
+        $entry = new CalendarListEntry();
+        $entry->setId('google-cal-id');
+        $entry->setSummary('Agenda partagé');
+        $entry->setSummaryOverride('Concerts');
+        $entry->setBackgroundColor('#e91e63');
+
+        $this->apiClient->method('getCalendarListEntry')->willReturn($entry);
+        $this->apiClient->method('listEvents')->willReturn([
+            'events' => [],
+            'nextPageToken' => null,
+            'nextSyncToken' => 'new-sync-token',
+        ]);
+
+        $this->createService()->pullFromGoogle($agenda);
+
+        $updates = array_filter($this->dispatchedMessages, fn ($m) => $m instanceof UpdateAgendaCommand);
+        self::assertCount(1, $updates, 'The rename goes through the bus so Mercure and Elasticsearch follow');
+
+        $update = array_values($updates)[0];
+        self::assertSame((string) $agenda->getId(), $update->agendaId);
+        self::assertSame('Concerts', $update->name);
+        self::assertSame('#e91e63', $update->color);
+    }
+
+    public function testPullLeavesTheAgendaAloneWhenGoogleAgreesWithIt(): void
+    {
+        $agenda = $this->createSyncedAgenda();
+        $agenda->setColor('#3f51b5');
+
+        $entry = new CalendarListEntry();
+        $entry->setId('google-cal-id');
+        $entry->setSummary('Test Agenda');
+        $entry->setBackgroundColor('#3f51b5');
+
+        $this->apiClient->method('getCalendarListEntry')->willReturn($entry);
+        $this->apiClient->method('listEvents')->willReturn([
+            'events' => [],
+            'nextPageToken' => null,
+            'nextSyncToken' => 'new-sync-token',
+        ]);
+
+        $this->createService()->pullFromGoogle($agenda);
+
+        self::assertSame([], array_filter($this->dispatchedMessages, fn ($m) => $m instanceof UpdateAgendaCommand));
     }
 
     public function testPullSkipsEventWhenGoogleTimestampNotNewer(): void

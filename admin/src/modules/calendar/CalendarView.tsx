@@ -85,6 +85,8 @@ const mealTitle = (m: CalendarMeal) => {
 
 interface GoogleCalendar {
   id: string
+  /** The name the agenda will carry — "Défaut" for the primary calendar (MAG-148). */
+  name: string
   summary: string
   description?: string
   primary: boolean
@@ -2029,7 +2031,7 @@ export const CalendarView = () => {
                     />
                   )}
                   <Typography variant="body2" sx={{ flex: 1 }}>
-                    {gc.summary}
+                    {gc.name}
                     {gc.primary && ' (principal)'}
                   </Typography>
                   <Button

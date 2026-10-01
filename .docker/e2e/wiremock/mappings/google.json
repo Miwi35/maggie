@@ -28,7 +28,7 @@
       }
     },
     {
-      "name": "One calendar list entry — every pull reads the colour from it",
+      "name": "One calendar list entry — where a pull reads the name and the colour (MAG-148)",
       "request": {
         "method": "GET",
         "urlPathPattern": "/google/calendar/v3/users/me/calendarList/[^/]+"

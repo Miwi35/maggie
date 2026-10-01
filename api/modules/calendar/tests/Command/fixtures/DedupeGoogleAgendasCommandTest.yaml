@@ -1,0 +1,84 @@
+# Two agendas on the same Google calendar, the way production ended up after
+# the owner connected "Concerts" twice (MAG-148).
+#
+# `agenda_kept` is declared first, so its ULID is the older of the two and it
+# is the one the command keeps — the test checks that rather than assuming it.
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+    googleAccessToken: 'access-token'
+    googleRefreshToken: 'refresh-token'
+    googleTokenExpiresAt: '<(new \DateTimeImmutable("2099-01-01T00:00:00+00:00"))>'
+
+Maggie\Calendar\Entity\Agenda:
+  agenda_kept:
+    name: Concerts
+    color: '#e91e63'
+    googleCalendarId: 'concerts@group.calendar.google.com'
+    googleWatchChannelId: 'channel-kept'
+    googleWatchResourceId: 'resource-kept'
+    googleSyncToken: 'stale-sync-token'
+    user: '@test_user'
+  agenda_duplicate:
+    name: Concerts
+    color: '#e91e63'
+    googleCalendarId: 'concerts@group.calendar.google.com'
+    googleWatchChannelId: 'channel-duplicate'
+    googleWatchResourceId: 'resource-duplicate'
+    user: '@test_user'
+  agenda_untouched:
+    name: Perso
+    isDefault: true
+    user: '@test_user'
+
+Maggie\Calendar\Entity\Event:
+  # Google knows this event once; both agendas hold a copy of it.
+  event_kept_shared:
+    summary: Concert de Camille
+    startAt: '<(new \DateTimeImmutable("2026-04-10 20:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-04-10 22:00"))>'
+    googleEventId: 'g-shared'
+    googleUpdatedAt: '<(new \DateTimeImmutable("2026-02-14 10:00"))>'
+    agenda: '@agenda_kept'
+  event_duplicate_shared:
+    summary: Concert de Camille (renommé dans Google)
+    startAt: '<(new \DateTimeImmutable("2026-04-10 20:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-04-10 22:00"))>'
+    googleEventId: 'g-shared'
+    googleUpdatedAt: '<(new \DateTimeImmutable("2026-03-30 10:00"))>'
+    agenda: '@agenda_duplicate'
+
+  # Only the duplicate ever synced this one: it has to survive the merge.
+  event_duplicate_only:
+    summary: Concert de Jeanne
+    startAt: '<(new \DateTimeImmutable("2026-05-02 20:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-05-02 22:00"))>'
+    googleEventId: 'g-only-in-duplicate'
+    agenda: '@agenda_duplicate'
+
+  # An occurrence overriding a recurrence whose parent exists in both agendas:
+  # dropping the parent must not take the occurrence with it.
+  event_kept_recurring:
+    summary: Répétition
+    rrule: FREQ=WEEKLY
+    startAt: '<(new \DateTimeImmutable("2026-04-01 18:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-04-01 19:00"))>'
+    googleEventId: 'g-recurring'
+    agenda: '@agenda_kept'
+  event_duplicate_recurring:
+    summary: Répétition
+    rrule: FREQ=WEEKLY
+    startAt: '<(new \DateTimeImmutable("2026-04-01 18:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-04-01 19:00"))>'
+    googleEventId: 'g-recurring'
+    agenda: '@agenda_duplicate'
+  event_duplicate_exception:
+    summary: Répétition déplacée
+    startAt: '<(new \DateTimeImmutable("2026-04-15 20:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-04-15 21:00"))>'
+    originalStartAt: '<(new \DateTimeImmutable("2026-04-15 18:00"))>'
+    googleEventId: 'g-recurring_20260415T160000Z'
+    recurringEvent: '@event_duplicate_recurring'
+    agenda: '@agenda_duplicate'

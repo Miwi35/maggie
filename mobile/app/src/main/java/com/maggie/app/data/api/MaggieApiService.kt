@@ -99,10 +99,11 @@ data class AgendaCreateRequest(
 )
 
 @Serializable
+// The name and the colour are Google's to give: the API reads them from the
+// calendar list entry, so sending them here would only disagree with it
+// (MAG-148).
 data class GoogleCalendarImportRequest(
     val googleCalendarId: String,
-    val name: String? = null,
-    val color: String? = null,
 )
 
 @Serializable

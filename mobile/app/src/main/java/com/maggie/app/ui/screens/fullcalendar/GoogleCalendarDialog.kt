@@ -74,7 +74,7 @@ fun GoogleCalendarDialog(
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = cal.summary,
+                                    text = cal.name,
                                     style = MaterialTheme.typography.bodyMedium,
                                 )
                                 if (cal.primary) {
