@@ -112,7 +112,13 @@ test("the global search answers out of the caller's own index", async ({ api, ot
   // `userId` term, and global search is a third query over several indices at
   // once. A filter can be right in both of the others and missing here.
   const hits = async (client: APIRequestContext): Promise<string> => {
-    const response = await client.get('/api/search?q=voisin', { headers: { Accept: 'application/json' } })
+    // `limit=100`, not the endpoint's default of 10: the neighbour owns nine
+    // rows with "voisin" in them now, and a flat cross-index top ten would
+    // start dropping the recipe this looks for the moment one more is seeded —
+    // reading as isolation when it is truncation.
+    const response = await client.get('/api/search?q=voisin&limit=100', {
+      headers: { Accept: 'application/json' },
+    })
 
     expect(response.status(), `GET /api/search answered ${response.status()}`).toBe(200)
 

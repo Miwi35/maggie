@@ -54,9 +54,19 @@ import { GroceryListPage } from '../pages/GroceryListPage.js'
  * The mobile half of real-time — its topics and its DTOs, the two contract
  * regressions the ticket lists (`305ff70`, `0a281a7`) — is pinned by the
  * contract suite (MAG-104) until MAG-98 brings Maestro.
+ *
+ * ## And `retries: 0`, which the rest of the suite does not do
+ *
+ * A serial group replays whole and nothing reseeds between the attempts, so the
+ * second one starts on the list the first one left: the leek has already moved
+ * to its fallback shop and the weekly rice is already on the list. `perAttempt()`
+ * suffixes the labels this file writes, but it cannot suffix a seeded row — so
+ * the two tests that begin from one would fail on the retry for a reason that
+ * has nothing to do with the code. A flake here has to read as a flake, which
+ * is the same trade-off `chat.spec.ts` makes for the same reason.
  */
 
-test.describe.configure({ mode: 'serial' })
+test.describe.configure({ mode: 'serial', retries: 0 })
 
 interface Line {
   id: string
@@ -181,6 +191,10 @@ test('the list is grouped by shop, in the order the shopper walks them', async (
   // gave a shop last — the view sorts that one on PHP_INT_MAX rather than on
   // its name. Asserted as an exact list, which this file can do and a journey
   // on the shared list could not.
+  //
+  // The seed puts a line in each of the three on purpose: the view builds a
+  // group only for a shop a line sits in, so a shop with nothing in it is
+  // simply absent and there would be no order to assert.
   expect(order).toEqual([SHOPS.market, SHOPS.corner, SHOPS.unassigned])
 
   // What makes the grouping worth anything: a line sits where its product's
@@ -188,6 +202,7 @@ test('the list is grouped by shop, in the order the shopper walks them', async (
   // is empty on the latter — the group it is drawn under is the view's own
   // label for "nowhere", not a shop the API knows.
   await expect(grocery.line('Poireau du voisin')).toHaveAttribute('data-store', SHOPS.market)
+  await expect(grocery.line('Timbres du voisin')).toHaveAttribute('data-store', SHOPS.corner)
   await expect(grocery.line('Sacs du voisin')).toHaveAttribute('data-store', '')
 })
 
@@ -284,7 +299,7 @@ test('the update carries the whole list, so no client has to re-read a stale ind
     // And the rest of the list with it: an update carrying only the line that
     // changed would still force a refetch to draw the others.
     expect(items.map((item) => item.label)).toEqual(
-      expect.arrayContaining(['Poireau du voisin', 'Sacs du voisin']),
+      expect.arrayContaining(['Poireau du voisin', 'Timbres du voisin', 'Sacs du voisin']),
     )
   } finally {
     await probe.close()
@@ -408,11 +423,18 @@ test('a shop that turned out to be closed sends its items to their fallback', as
   await grocery.open()
 
   // The seeded leek is the one line of this shopper's whose product carries a
-  // fallback: the market by preference, the corner shop when it is shut. The
-  // control is written below rather than assumed — a handler that moved
-  // *everything*, or nothing, would pass on the leek alone.
+  // fallback: the market by preference, the corner shop when it is shut. Two
+  // controls beside it, because a handler that moved *everything* — or nothing
+  // — would pass on the leek alone: a line in no shop at all, and a line in the
+  // shop that is still open.
   await expectLine(api, 'Poireau du voisin', (item) => item?.store?.name === SHOPS.market, 'the leek before the move')
   await expectLine(api, 'Sacs du voisin', (item) => null === item?.store, 'the control line, in no shop')
+  await expectLine(
+    api,
+    'Timbres du voisin',
+    (item) => item?.store?.name === SHOPS.corner,
+    'the control line, in the shop that stays open',
+  )
 
   const probe = await probeOn(otherUser.page, otherUser.session.user.id)
 
@@ -442,6 +464,12 @@ test('a shop that turned out to be closed sends its items to their fallback', as
       'Sacs du voisin',
       (item) => null === item?.store,
       'a line with no fallback was moved anyway',
+    )
+    await expectLine(
+      api,
+      'Timbres du voisin',
+      (item) => item?.store?.name === SHOPS.corner,
+      'a line in the shop that is still open was moved anyway',
     )
 
     // And the screen says so without being told twice: the aisle is read from

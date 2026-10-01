@@ -29,7 +29,15 @@ import { ROUTES } from '../pages/routes.js'
  * `chat.spec.ts` depends on that window. The recipes it plans carry **no
  * ingredient**, so `MealGrocerySync` returns null and nothing is written to any
  * grocery list — which keeps this file out of the way of the one that owns one.
+ *
+ * Serial, because both tests ask the API to find-or-create the *same* "Repas"
+ * agenda: run side by side, both could find none and make one, and two agendas
+ * of the same name is a state neither test is about. Retries stay on — each
+ * attempt plans a recipe of its own, and an agenda already there is exactly
+ * what the second test wants.
  */
+
+test.describe.configure({ mode: 'serial' })
 
 interface StoredAgenda {
   '@id': string

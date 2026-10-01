@@ -177,6 +177,20 @@ Maggie\Grocery\Entity\GroceryItem:
     store: '@e2e_other_store_market'
     position: 1
 
+  # The second shop needs a line of its own: the view builds a group only for a
+  # shop a line sits in, so without this one the aisle order has nothing to be
+  # an order *of*. Free text, so no product and therefore no fallback — the
+  # closed-shop journey must leave it exactly where it is.
+  e2e_other_item_corner:
+    groceryList: '@e2e_other_grocery_list'
+    customLabel: Timbres du voisin
+    quantity: 2
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@e2e_other_store_corner'
+    position: 2
+
   e2e_other_item_note:
     groceryList: '@e2e_other_grocery_list'
     customLabel: Sacs du voisin
@@ -184,7 +198,7 @@ Maggie\Grocery\Entity\GroceryItem:
     unit: '<(Maggie\Grocery\Enum\Unit::Pack)>'
     checked: false
     source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
-    position: 2
+    position: 3
 
 Maggie\Grocery\Entity\RecurringGroceryItem:
   e2e_recurring_milk:

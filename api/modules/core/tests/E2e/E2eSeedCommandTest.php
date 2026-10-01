@@ -90,8 +90,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertSame(2, $this->rowsOf(Meal::class));
         self::assertSame(4, $this->rowsOf(Task::class));
         self::assertSame(3, $this->rowsOf(Recipe::class));
-        // Five on the owner's list, two on the shopper's.
-        self::assertSame(7, $this->rowsOf(GroceryItem::class));
+        // Five on the owner's list, three on the shopper's.
+        self::assertSame(8, $this->rowsOf(GroceryItem::class));
+        // One list each, and pinned here rather than only per user: a third
+        // appearing in the fixtures would otherwise go unnoticed.
+        self::assertSame(2, $this->rowsOf(GroceryList::class));
         self::assertSame(2, $this->rowsOf(Account::class));
         self::assertSame(12, $this->rowsOf(Transaction::class));
         self::assertSame(2, $this->rowsOf(Envelope::class));
@@ -153,7 +156,7 @@ final class E2eSeedCommandTest extends KernelTestCase
 
         $list = $this->repository(GroceryList::class)->findOneBy(['user' => $neighbour]);
         self::assertNotNull($list, 'the shopper has no grocery list');
-        self::assertSame(2, $this->rowsOf(GroceryItem::class, ['groceryList' => $list]));
+        self::assertSame(3, $this->rowsOf(GroceryItem::class, ['groceryList' => $list]));
 
         // The modules no journey reaches as this account stay empty: data
         // nobody reads would only make the counts above harder to keep.

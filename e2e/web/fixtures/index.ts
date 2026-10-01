@@ -41,7 +41,9 @@ export interface OtherUser {
    *
    * Opened lazily: most tests never need it, and a second context per test is
    * a browser window and a page load nobody asked for. Call it once; the same
-   * page comes back.
+   * page comes back. Not re-entrant — two calls awaited concurrently would
+   * open two windows; no caller does that, and a test wanting a third window
+   * should say so here rather than race for it.
    *
    * Two *windows*, not two tabs, for the reason {@link MaggieFixtures.twoWindows}
    * gives: headless Chromium freezes a hidden tab, so a second page in one

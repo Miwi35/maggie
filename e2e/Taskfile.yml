@@ -225,10 +225,13 @@ tasks:
     # killed halfway leaves a non-empty file, and `test -s` would then skip the
     # rebuild for ever, with the indirect symptom the standard describes: an
     # autocomplete that is simply always empty.
+    # Opened read-only, so the probe cannot create the very file it is checking
+    # for: a plain `sqlite3.connect` would leave a zero-byte database behind on
+    # the first run.
     status:
       - >-
         {{.COMPOSE}} exec -T ciqual python -c
-        "import sqlite3,sys; c=sqlite3.connect('db/ciqual.db');
+        "import sqlite3,sys; c=sqlite3.connect('file:db/ciqual.db?mode=ro', uri=True);
         sys.exit(0 if c.execute('select count(*) from food').fetchone()[0] > 3000 else 1)"
     cmds:
       - '{{.COMPOSE}} exec -T ciqual python -m app.import_ciqual'
