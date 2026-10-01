@@ -1654,7 +1654,15 @@ export const CalendarView = () => {
                   {cal.name}
                 </Typography>
                 {cal.googleCalendarId && (
-                  <SyncIcon sx={{ fontSize: 14, color: 'text.secondary', mr: 0.25 }} />
+                  <SyncIcon
+                    // A bare icon says nothing to a screen reader, and MUI only
+                    // puts a `data-testid` on its icons outside production — so
+                    // a journey running against the built bundle needs a handle
+                    // of our own (MAG-148).
+                    titleAccess="Synchronisé avec Google"
+                    data-testid="agenda-sync-badge"
+                    sx={{ fontSize: 14, color: 'text.secondary', mr: 0.25 }}
+                  />
                 )}
                 <IconButton
                   className="agenda-menu-btn"

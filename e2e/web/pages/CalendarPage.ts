@@ -381,7 +381,11 @@ export class CalendarPage extends AdminShell {
 
   /** The sync icon the sidebar shows beside a Google-backed agenda. */
   syncBadge(name: string): Locator {
-    return this.agendaRow(name).locator('[data-testid="SyncIcon"]')
+    // Our own handle, not MUI's: it sets `data-testid` on an icon only when
+    // `NODE_ENV !== 'production'`, and the stack serves a built bundle — so
+    // `[data-testid="SyncIcon"]` matched nothing here, and nothing noticed
+    // because the only test using it was expected to fail (MAG-148).
+    return this.agendaRow(name).getByTestId('agenda-sync-badge')
   }
 
   /**

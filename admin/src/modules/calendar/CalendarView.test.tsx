@@ -479,6 +479,29 @@ describe('CalendarView', () => {
       expect(within(dialog).queryByText('Mes concerts')).not.toBeInTheDocument()
     })
 
+    // The sidebar's only sign that an agenda is backed by Google. Asserted on
+    // the handle the e2e journey uses, because MUI's own `data-testid` on an
+    // icon is dev-only and the journey runs against the built bundle.
+    test('badges the agendas Google backs, and only those', async () => {
+      serveAgendas([
+        { id: 'ag1', name: 'Mes concerts', googleCalendarId: 'concerts@group.calendar.google.com' },
+        { id: 'ag2', name: 'Perso' },
+      ])
+
+      render(<CalendarView />)
+
+      const google = (await screen.findAllByTestId('agenda-row')).find((row) =>
+        row.textContent?.includes('Mes concerts'),
+      )
+      const local = (await screen.findAllByTestId('agenda-row')).find((row) =>
+        row.textContent?.includes('Perso'),
+      )
+
+      expect(within(google!).getByTestId('agenda-sync-badge')).toBeInTheDocument()
+      expect(within(google!).getByTitle('Synchronisé avec Google')).toBeInTheDocument()
+      expect(within(local!).queryByTestId('agenda-sync-badge')).not.toBeInTheDocument()
+    })
+
     test('reports a Google calendar list that cannot be read', async () => {
       serveAgendas([])
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, json: async () => ({}) }))
