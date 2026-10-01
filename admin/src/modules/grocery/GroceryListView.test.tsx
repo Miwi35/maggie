@@ -166,7 +166,7 @@ describe('GroceryListView', () => {
 
       await waitFor(() => expect(sentBody(mockFetch, '/grocery/add-item')).toBeDefined())
       expect(sentBody(mockFetch, '/grocery/add-item').storeId).toBe(ULID)
-    })
+    }, 15_000) // typing, a dropdown pick and two dialogs: 2-3 s alone, over 5 s on a busy CI runner
 
     test('editing an item sends the store ULID, not its IRI', async () => {
       const mockFetch = mockApi({ ok: true, status: 200 })

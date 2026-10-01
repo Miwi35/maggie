@@ -288,9 +288,7 @@ test.fail('a shopper ticks what is in the trolley, then ends the errand — MAG-
   }
 })
 
-// Expected to fail — MAG-190: the add dialog sends the shop's IRI as `storeId`,
-// so `POST /api/grocery/add-item` answers 500 and the line is never written.
-test.fail('the update carries the whole list, so no client has to re-read a stale index — MAG-190', async ({ otherUser }) => {
+test('the update carries the whole list, so no client has to re-read a stale index', async ({ otherUser }) => {
   // 6ba9859, stated as an assertion on the payload: the items, their labels,
   // their quantity, and the nested `store` and `product` objects the clients
   // group and label by. A payload holding only `@id` satisfies every
