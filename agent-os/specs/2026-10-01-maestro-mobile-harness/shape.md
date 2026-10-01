@@ -1,6 +1,6 @@
 # Maestro Harness — Decisions
 
-Four decisions were taken without asking, each because the ticket, the existing
+Five decisions were taken without asking, each because the ticket, the existing
 code or a standard settled it. They are repeated in the pull request description.
 
 ## 1. How the app signs in on an emulator
@@ -48,17 +48,41 @@ code or a standard settled it. They are repeated in the pull request description
   **Consequence for the owner:** `E2E Mobile (phone)` is a new check and is not
   required by branch protection until it is added there.
 
-## 4. The calendar family of MAG-93 is a follow-up
+## 4. Three of MAG-93's seven targets are follow-ups
 
-- **Dilemma** The ticket names seven regressions to aim for; three of them are
-  calendar ones and need work the socle does not.
+- **Dilemma** The ticket names seven regressions to aim for. Three are calendar
+  ones needing work the socle does not contain; and the voice one the ticket
+  assumed "one flow covers" turns out not to be assertable from a flow at all.
 - **Options** (a) all seven in this pull request; (b) the socle, the first flow
-  and the four voice ones, with the calendar family split out.
-- **Choice** (b).
-- **Why** The calendar three need `testTag`s through the week and day views,
-  seeded multi-day data addressed per view, and a stubbed agenda import — a
-  deliverable of its own, and `CLAUDE.md` says one ticket is what a single pull
-  request can close. The voice four are in, because the ticket says one flow
-  covers them and that turned out to be true: `VoiceManager.speak()` sets
-  `SPEAKING` on its first line, so « Maggie parle... » is assertable text even on
-  an emulator with no audio.
+  and what of the voice family is genuinely provable, splitting out the rest;
+  (c) ship the voice assertion anyway, since it would be green.
+- **Choice** (b) — [MAG-204](https://linear.app/meven/issue/MAG-204) for the
+  calendar family, [MAG-205](https://linear.app/meven/issue/MAG-205) for the TTS
+  proof.
+- **Why** (c) is the one to reject hardest: « Maggie parle... » must not appear is
+  green on a build with all three fixes reverted, because the fake TTS answers in
+  milliseconds, `assertNotVisible` waits for disappearance rather than catching a
+  blip, and `disable-animations: true` collapses the only timer available. A
+  green assertion that proves nothing is worse than a missing one — it stops
+  anybody from writing the real one. So the flow ships the sound half (the
+  overlay really opens on a history that arrived over HTTP, with the old answer
+  asserted on screen) and says in its header exactly what it does not prove. The
+  calendar three are a separate deliverable, and `CLAUDE.md` says one ticket is
+  what a single pull request can close.
+
+## 5. The tag root goes on every window, not on the activity
+
+- **Dilemma** The first attempt set `testTagsAsResourceId` once, at the root of
+  `MainActivity`'s content. CI then failed on `assertVisible: id: chat_input`
+  after resolving `chat_open` one line earlier.
+- **Options** (a) address the sheets by text instead of by id; (b) a wrapping
+  composable per window; (c) a `Modifier.uiTagRoot()` applied to a node each
+  window already has.
+- **Choice** (c), plus a fourth check in `lint.sh`.
+- **Why** `testTagsAsResourceId` is resolved within one semantics owner, and a
+  `Dialog` or a `ModalBottomSheet` is a separate platform window with its own —
+  so the activity's flag cannot reach them. (a) gives up the robustness the tags
+  exist for; (b) adds a layout node per sheet. (c) adds nothing. The lint check
+  matters more than the fix: nothing else can see this failure — the ids are
+  declared *and* used, simply unreachable, so checks 1–3 passed cleanly on the
+  very ids the emulator could not find.

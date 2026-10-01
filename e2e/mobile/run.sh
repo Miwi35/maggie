@@ -18,7 +18,8 @@ set -euo pipefail
 
 BASE_URL="${E2E_BASE_URL:?E2E_BASE_URL is required — run through 'task e2e:mobile'}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-REPORT_DIR="$REPO_ROOT/e2e/mobile/report"
+FLOW_DIR="$REPO_ROOT/e2e/mobile"
+REPORT_DIR="$FLOW_DIR/report"
 
 # The port the APK is built against, on the *device's* loopback. Fixed on
 # purpose: `adb reverse` then absorbs the stack's ephemeral port, so the same
@@ -86,7 +87,11 @@ done
 # mobile.dev.
 export MAESTRO_CLI_NO_ANALYTICS=1
 export MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED=true
-eval "$("$REPO_ROOT/e2e/mobile/maestro.sh")"
+# Captured before `eval`, not piped into it: `eval "$(false)"` has status 0, so a
+# failed download would surface two lines later as `MAESTRO: unbound variable`
+# instead of as maestro.sh's own message about what went wrong.
+maestro_env="$("$REPO_ROOT/e2e/mobile/maestro.sh")"
+eval "$maestro_env"
 note "maestro $("$MAESTRO" -v 2>/dev/null | tail -1)"
 
 # ---------------------------------------------------------------------------
@@ -102,27 +107,23 @@ esac
 # emulator.
 if [ "$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
       -H 'Content-Type: application/json' -H "X-E2E-Token: $LOGIN_TOKEN" \
-      -d "{\"email\":\"$SEED_EMAIL\"}" "$BASE_URL/api/auth/e2e/login" || echo 000)" != "200" ]; then
+      -d "{\"email\":\"$SEED_EMAIL\"}" "$BASE_URL/api/auth/e2e/login")" != "200" ]; then
   die "The test login does not answer 200 on $BASE_URL. Is the stack up (\`task e2e:up\`) and seeded (\`task e2e:seed\`)?"
 fi
 note "the stack answers on $BASE_URL"
 
-"$ADB" -s "$SERIAL" reverse --remove "tcp:$DEVICE_PORT" >/dev/null 2>&1 || true
-"$ADB" -s "$SERIAL" reverse "tcp:$DEVICE_PORT" "tcp:$HOST_PORT" >/dev/null
-# Removed on the way out: a stale reverse pointing at a torn-down stack is how
-# the next run fails on a connection refused that names nothing.
-trap '"$ADB" -s "$SERIAL" reverse --remove "tcp:'"$DEVICE_PORT"'" >/dev/null 2>&1 || true' EXIT
-note "device $APP_BASE_URL → host $BASE_URL"
-
-# The seed anchors on midnight in Paris (the test user's zone) while a CI
-# emulator boots on UTC. Between 22:00 and midnight UTC the two are on different
-# days, and « Déjeuner avec Alex » then sits on the device's tomorrow — the
-# dashboard assertion fails for an hour a day and for no other reason.
+# The time zone *before* the bridge, and that order matters. The seed anchors on
+# midnight in Paris (the test user's zone) while a CI emulator boots on UTC;
+# between 22:00 and midnight UTC the two are on different days, « Déjeuner avec
+# Alex » sits on the device's tomorrow, and the dashboard assertion fails for an
+# hour a day for no other reason.
 #
 # `-timezone Europe/Paris` in the emulator options is the real fix and CI passes
-# it; this is the fallback for an emulator somebody else started, and it needs
-# root, which a physical phone will not give. A warning rather than a failure:
-# the owner's own phone is on Paris time already.
+# it; this is the fallback for an emulator somebody else started. It needs root,
+# and `adb root` *restarts adbd* — which lives where the reverse rules live, so
+# establishing the bridge first would silently lose it and every flow would fail
+# on a connection refused. A warning rather than a failure: a physical phone will
+# not give root, and the owner's is on Paris time already.
 current_tz="$("$ADB" -s "$SERIAL" shell getprop persist.sys.timezone 2>/dev/null | tr -d '\r')"
 if [ "$current_tz" != "$SEED_TIMEZONE" ]; then
   "$ADB" -s "$SERIAL" root >/dev/null 2>&1 || true
@@ -135,6 +136,13 @@ if [ "$current_tz" = "$SEED_TIMEZONE" ]; then
 else
   warn "the device is on '$current_tz', the seed anchors on $SEED_TIMEZONE: a run between 22:00 and 00:00 UTC will read the dashboard a day off."
 fi
+
+"$ADB" -s "$SERIAL" reverse --remove "tcp:$DEVICE_PORT" >/dev/null 2>&1 || true
+"$ADB" -s "$SERIAL" reverse "tcp:$DEVICE_PORT" "tcp:$HOST_PORT" >/dev/null
+# Removed on the way out: a stale reverse pointing at a torn-down stack is how
+# the next run fails on a connection refused that names nothing.
+trap '"$ADB" -s "$SERIAL" reverse --remove "tcp:'"$DEVICE_PORT"'" >/dev/null 2>&1 || true' EXIT
+note "device $APP_BASE_URL → host $BASE_URL"
 
 # ---------------------------------------------------------------------------
 step "3. Build and install the e2e flavor"
@@ -161,18 +169,33 @@ step "4. The journeys"
 rm -rf "$REPORT_DIR"
 mkdir -p "$REPORT_DIR"
 
-# The workspace directory, not a file list: Maestro reads `config.yaml` from it,
-# which is what keeps `subflows/` out of the run.
+# By default the workspace directory, not a file list: Maestro reads
+# `config.yaml` from it, which is what keeps `subflows/` out of the run.
 #
+# A `.yaml` argument replaces it rather than being added to it. Maestro takes
+# `<flowFiles>...` as a repeatable positional, so passing both would run the
+# whole workspace *and* that file again — `task e2e:mobile -- flows/01-…yaml`
+# would be a slower full run, not the single flow it reads as. Paths are resolved
+# against this directory, because `run.sh` never sets the caller's cwd.
+targets=()
+maestro_args=()
+for arg in "$@"; do
+  case "$arg" in
+    *.yaml|*.yml) targets+=("$(cd "$FLOW_DIR" && realpath -m "$arg")") ;;
+    *) maestro_args+=("$arg") ;;
+  esac
+done
+[ "${#targets[@]}" -gt 0 ] || targets=("$FLOW_DIR")
+
 # --flatten-debug-output so the screenshots of a failed run land in one
 # predictable place for CI to upload, instead of a timestamped folder per run.
 #
 # Not `exec`: that would replace this shell and the EXIT trap above would never
 # remove the reverse bridge.
-"$MAESTRO" --device "$SERIAL" test "$REPO_ROOT/e2e/mobile" \
+"$MAESTRO" --device "$SERIAL" test "${targets[@]}" \
   --format junit \
   --output "$REPORT_DIR/junit.xml" \
   --test-output-dir "$REPORT_DIR" \
   --flatten-debug-output \
   --no-ansi \
-  "$@"
+  ${maestro_args[@]+"${maestro_args[@]}"}

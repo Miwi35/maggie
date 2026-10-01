@@ -53,6 +53,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.screens.chat.ScrollBehavior
+import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.voice.VoiceManager
 import com.maggie.app.voice.VoiceState
 
@@ -131,7 +132,10 @@ fun ChatSheet(
             contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
             modifier = Modifier.fillMaxHeight(0.85f),
         ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
+            // A sheet is a window of its own, with its own semantics root, so
+            // `uiTagRoot()` goes here too (MAG-98): without it `voice_state` and
+            // `chat_close` are invisible to Maestro.
+            Column(modifier = Modifier.fillMaxWidth().uiTagRoot()) {
                 SheetHeader(onClose = onDismiss, onSearch = viewModel::openSearch)
 
                 ChatMessageList(
@@ -172,9 +176,13 @@ fun ChatSheet(
         ) {
             val scrimColor = BottomSheetDefaults.ScrimColor
 
+            // Its own window, so its own tag root (MAG-98): `chat_input` and
+            // `chat_send` are below here, and the activity's root cannot reach
+            // them — which is what the first CI run of this harness found out.
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .uiTagRoot()
                     .background(scrimColor)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },

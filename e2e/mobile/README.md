@@ -3,13 +3,21 @@
 Maestro driving the Android app on an emulator, against the e2e stack (MAG-98).
 
 ```sh
-task e2e:up                               # the stack, once
-task e2e:mobile                           # reseed, install the e2e flavor, run every flow
-task e2e:mobile -- --include-tags voice    # one family
-task e2e:mobile -- flows/01-login-chat.yaml
-task e2e:mobile:lint                      # no device, no stack; also in `task lint:all`
-task e2e:mobile:maestro                   # just download the pinned CLI
+task e2e:up                                 # the stack, once
+task e2e:mobile                             # reseed, install the e2e flavor, run every flow
+task e2e:mobile -- --include-tags voice     # one family
+task e2e:mobile -- flows/01-login-chat.yaml # one flow — paths are relative to e2e/mobile/
+task e2e:mobile:lint                        # no device, no stack; also in `task lint:all`
+task e2e:mobile:maestro                     # just download the pinned CLI
 ```
+
+A `.yaml` argument *replaces* the workspace rather than adding to it: Maestro
+takes flow files as a repeatable positional, so passing both would run everything
+and then that file again. `run.sh` sorts the arguments for you.
+
+`task e2e:mobile:lint` is the only one of these in `task lint:all`, and it needs a
+host JDK plus a ~300 MB first download of the pinned CLI (cached afterwards under
+`.e2e-cache/`). `task fix:all` does not call it.
 
 `task e2e:mobile` needs **one** connected device or emulator — start one from
 Android Studio, or `$ANDROID_HOME/emulator/emulator -avd <name>`. With more than
@@ -39,10 +47,18 @@ APK works against any stack, and CI compiles it while eleven containers come up.
 permits cleartext for that host name.
 
 **Compose nodes have no resource id.** Maestro reads the hierarchy through
-UiAutomator, which only sees a `testTag` when the root opts in — `MainActivity`
-does, with `testTagsAsResourceId`. The tags themselves are declared in
-`mobile/app/src/main/java/com/maggie/app/ui/UiTags.kt`, and `task
-e2e:mobile:lint` fails when a flow uses an `id:` that is not one of them.
+UiAutomator, which only sees a `testTag` when the semantics root opts in. The
+tags are declared in `mobile/app/src/main/java/com/maggie/app/ui/UiTags.kt` and
+the opt-in is `Modifier.uiTagRoot()` — **once per window, not once per app**. A
+`Dialog` or a `ModalBottomSheet` is a separate platform window with its own
+semantics root, so a flag set on the activity does not reach it: that is how this
+harness's first CI run failed, with `chat_open` resolving and `chat_input`, one
+line later and inside the chat sheet's `Dialog`, having no resource id at all.
+
+`task e2e:mobile:lint` checks both halves — every `id:` a flow uses is a declared
+tag, and every composable that opens a window *and* carries a tag calls
+`uiTagRoot()`. The second check exists because the first one passed cleanly on
+exactly the ids the emulator could not find.
 
 ## Layout
 
@@ -71,7 +87,9 @@ against an app nobody launched.
    that meets one fails as "the button is not there".
 3. **Address the app by `id:`** wherever a tag exists, and add one to
    `UiTags.kt` when it does not. A text anchor breaks on a reworded string and
-   the failure reads as a broken feature.
+   the failure reads as a broken feature. If the tag is inside a sheet or a
+   dialog, that composable needs `Modifier.uiTagRoot()` on the root of its
+   content.
 4. **Every `text:` selector is a regular expression Maestro matches against the
    node's whole text.** Wrap them in `.*`: a bare « …aujourd'hui ? » reads the
    `?` as "the space before me is optional" and matches nothing at all. Wrapped,
@@ -111,14 +129,25 @@ that stopped deserialising is `DtoContractTest` against `api/contract/`
   `VoiceManager.startListening()` fails and the overlay lands in its `ERROR`
   state. `02-voice-overlay.yaml` is written around that: it asserts on what the
   overlay must *not* say, never on listening succeeding.
-- **An absence needs a window.** The TTS regression fired a second or two after
-  the history arrived, so asserting « Maggie parle... » absent once would pass on
-  the broken build. The flow asserts, waits with `waitForAnimationToEnd`, and
-  asserts again — the Maestro idiom for a bounded wait, since it returns on the
-  timeout and never fails.
+- **Proving an absence is harder than it looks, and « no TTS started » cannot be
+  done from a flow today** (MAG-205). `VoiceManager.speak()` sets `SPEAKING` then
+  posts to the TTS endpoint, which under `TTS_PROVIDER=fake` answers two silent
+  26 ms frames instantly — so on a regressed build the label is on screen for a
+  few hundred milliseconds. Worse, Maestro's `assertNotVisible` *waits for* a node
+  to disappear, so it passes as soon as the state flips. And
+  `waitForAnimationToEnd` cannot be borrowed as a timer either: CI sets
+  `disable-animations: true`, Compose honours it, and the call returns at once.
+  `02-voice-overlay.yaml` says in its header exactly what it does and does not
+  prove; read that before adding an assertion to it.
 - **An absence also needs something to have been there.** "It did not re-speak"
   proves nothing if the history never loaded. Assert the old answer is on screen
   first; a vacuous pass is worse than a failure.
+- **The keyboard does not clip node bounds.** The IME is a separate window, so a
+  control sitting underneath it still reports on-screen bounds and `assertVisible`
+  passes. Assert by *using* the control — tap it and check the effect — and check
+  an effect the broken build cannot produce: the text field still holds what was
+  typed when a send does not happen, so « the sentence is on screen » proves
+  nothing.
 - **`maestro check-syntax` never looks at `config.yaml`.** Maestro checks for a
   device before reading the workspace config, so a typo there only surfaces on
   the emulator. Keep that file small.

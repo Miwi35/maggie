@@ -24,9 +24,14 @@ to cover besides them.
    touching the app, the flows or the stack.
 6. The nightly run widens the emulator matrix to a phone, a foldable and a tablet
    (MAG-35, MAG-91).
-7. The voice family of MAG-93 is covered: a flow opens the voice overlay on a
-   conversation that already has an answer in it and asserts no TTS starts
-   (`24b64ba`, `9e24327`, `54e35bd`), plus the two halves of `fc168b5`.
+7. A flow opens the voice overlay on a conversation that already has an answer in
+   it, after a restart, and asserts the old answer is on screen — the setup the
+   voice family of MAG-93 needs (`24b64ba`, `9e24327`, `54e35bd`). It also asserts
+   the chat input survives the keyboard (`fc168b5`), by *using* the send button
+   rather than looking at it.
+
+   **Not met, and split out:** proving « no TTS started » (MAG-205). See
+   *Out of scope*.
 
 ## Task 1: Save spec documentation
 
@@ -56,9 +61,11 @@ This folder: `plan.md`, `shape.md`.
 `mobile/app/src/main/java/com/maggie/app/{MainActivity.kt,ui/UiTags.kt}` and the
 five composables the flows drive.
 
-- `testTagsAsResourceId = true` once at the root of `MainActivity`'s content: the
-  flag is inherited, so a tag added anywhere below is addressable without
-  touching that file again.
+- `Modifier.uiTagRoot()` on the root of **every window's** content, not once on
+  the activity. `testTagsAsResourceId` resolves within one semantics owner, and a
+  `Dialog` or a `ModalBottomSheet` is a separate one — the first CI run of this
+  harness failed on exactly that, with `chat_open` resolving and `chat_input`,
+  inside the chat sheet's `Dialog`, having no resource id.
 - `UiTags` holds every id, which is what makes a cross-check possible between the
   flows and the code.
 
@@ -69,7 +76,9 @@ five composables the flows drive.
 - `run.sh` — one device, `adb reverse` onto the stack's ephemeral port, the device
   on `Europe/Paris`, `installE2eDebug`, then the flows with a JUnit report.
 - `lint.sh` — `maestro check-syntax`, every `id:` against `UiTags.kt`, every
-  `appId:` against the flavor's applicationId.
+  `appId:` against the flavor's applicationId, and every window that carries a tag
+  against `uiTagRoot()`. The last check exists because the first three passed
+  cleanly on the ids the emulator could not find.
 - `config.yaml`, `flows/01-login-chat.yaml`, `flows/02-voice-overlay.yaml`,
   `subflows/sign-in.yaml`, `README.md`.
 
@@ -92,12 +101,24 @@ an emulator and what does not), `mobile/android-app.md` (the flavor),
 
 ## Out of scope
 
-The **calendar family of MAG-93** — multi-day events missing from the days they
-cross in the week and day views (`76017dd`, `dfad086`), and the screen not
-refreshing after an agenda import (`2dfdbb3`). It needs `testTag`s through the
-calendar views, seeded multi-day data addressed per view, and a stubbed import;
-that is a ticket of its own, not a seventh commit on this one. Created as a
-follow-up, `blockedBy` this ticket.
+Two of MAG-93's targets are **not** delivered here, each as its own ticket,
+`blockedBy` this one:
+
+- **[MAG-204](https://linear.app/meven/issue/MAG-204)** — the calendar family:
+  multi-day events missing from the days they cross in the week and day views
+  (`76017dd`, `dfad086`), and the screen not refreshing after an agenda import
+  (`2dfdbb3`). It needs `testTag`s through the calendar views, seeded multi-day
+  data addressed per view, and a stubbed import.
+- **[MAG-205](https://linear.app/meven/issue/MAG-205)** — proving « no TTS
+  started ». The ticket assumed one flow could assert it; it cannot, for three
+  independent reasons the flow's own header spells out (the fake TTS answers
+  instantly, Maestro's `assertNotVisible` waits for disappearance, and
+  `disable-animations` collapses the only available timer). Shipping a green
+  assertion that survives a revert of all three fixes would be worse than
+  shipping none, so what is here is the sound setup plus an `assertNotVisible`
+  labelled as catching only a stuck `SPEAKING`. The second half of `fc168b5` —
+  the context sheet's height — goes with it: the first row is visible at `0.5f`
+  as at `0.85f`, so no assertion discriminates.
 
 The two DTO-contract regressions (`0a281a7`, `b576cc6`) are MAG-104's, as the
 ticket says.

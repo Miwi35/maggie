@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.maggie.app.ui.uiTagRoot
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Context
@@ -46,7 +47,8 @@ fun ContextListSheet(
         contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
         modifier = Modifier.fillMaxHeight(0.85f),
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
+        // Its own window, so its own tag root (MAG-98) — see ui/UiTagRoot.kt.
+        Column(modifier = Modifier.fillMaxWidth().uiTagRoot()) {
             // Header
             Box(
                 modifier = Modifier

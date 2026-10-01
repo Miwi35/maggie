@@ -3,23 +3,34 @@ name: 02-voice-overlay
 tags:
   - voice
 ---
-# Opening the voice overlay must not re-speak the last answer (MAG-93).
+# The voice overlay opened on a conversation that already has an answer in it
+# (MAG-93's voice family), and the chat input with the keyboard up.
 #
-# Three past regressions, one symptom: `24b64ba`, `9e24327` and `54e35bd` all
-# fixed Maggie reading an old reply aloud the moment the overlay opened. It is
-# unreachable from a browser — the admin does not speak — and unreachable from a
-# unit test, because the cause is the *order* in which the sheet composes and
-# the history arrives over HTTP. Only a journey on a real app can see it.
+# **Read this before adding an assertion here.** Three of MAG-93's regressions
+# (`24b64ba`, `9e24327`, `54e35bd`) are Maggie reading an old reply aloud the
+# moment the overlay opens, and the obvious assertion — « Maggie parle... » must
+# not appear — **cannot be made sound from a flow today**. Three reasons, each
+# enough on its own:
 #
-# What makes the assertion possible: `VoiceManager.speak()` sets
-# `VoiceState.SPEAKING` on its very first line, before any MediaPlayer work, and
-# `VoiceControlBar` renders that state as « Maggie parle... ». So the bug shows
-# up as text, whether or not the emulator can play audio at all.
+#   1. `VoiceManager.speak()` sets `SPEAKING`, then posts to `/agent/tts/
+#      synthesize`. Under `TTS_PROVIDER=fake` that answers two silent 26 ms
+#      frames instantly, so on a build carrying the regression the label is on
+#      screen for a few hundred milliseconds.
+#   2. Maestro's `assertNotVisible` *waits for* a node to disappear. It passes as
+#      soon as the state flips, so it would not fail even if it caught the blip.
+#   3. `ci.yml` sets `disable-animations: true`, which zeroes
+#      `animator_duration_scale`; Compose honours that, so `waitForAnimationToEnd`
+#      returns at once and cannot be used as a timer either.
 #
-# And what makes it non-vacuous: the answer has to be *on screen* in the overlay
-# before absence of speech means anything. A history that never loaded would
-# satisfy "it did not speak" while proving nothing, which is the trap this flow
-# would otherwise fall into.
+# Proving the absence needs a durable record of "no synthesis was requested" —
+# MAG-205. Until then this flow asserts what it really can, and the one
+# `assertNotVisible` below is kept for what it does catch: a `SPEAKING` that
+# sticks, which is how the regression showed up when the TTS call itself hung.
+#
+# What *is* sound here is the setup, and it is not nothing: the overlay opens on
+# a history that arrived over HTTP after composition — the asynchronous arrival
+# all three fixes were about — and the old answer is asserted on screen, so a
+# future assertion has something to have been re-spoken.
 #
 # Regex selectors wrapped in `.*` for the reason given in `01-login-chat.yaml`.
 
@@ -43,15 +54,44 @@ tags:
 - extendedWaitUntil:
     visible: ".*déjeuner avec Alex et votre cours de piano.*"
     timeout: 60000
+
+# ---------------------------------------------------------------------------
+# The chat input survives the keyboard — the behaviour `fc168b5` protected,
+# which today lives in the text-mode sheet's `windowInsetsPadding(ime ∪
+# navigationBars)`.
+#
+# Asserted by *using* the control, not by looking at it: the IME is a separate
+# window and does not clip the app window's node bounds, so a send button sitting
+# under the keyboard still reports on-screen bounds and `assertVisible` would
+# pass. A tap lands on whatever is actually on top — so if the button were behind
+# the keyboard, nothing would be sent.
+#
+# And asserted on the *answer*, not on the message typed: the text field still
+# holds what was typed when a send does not happen, so « the sentence is on
+# screen » would pass on the broken build. A second scripted scenario
+# (`70-budget-question.yaml`, picked because its answer differs from the first
+# one's) gives a signal only a real send can produce.
+#
+# The keyboard is up: the sheet focuses its field on open, and the exchange above
+# typed into it.
+# ---------------------------------------------------------------------------
+- tapOn:
+    id: "chat_input"
+- inputText: "Parlons de mes finances, où en est mon budget ?"
+- tapOn:
+    id: "chat_send"
+- extendedWaitUntil:
+    visible: ".*budget tient la route ce mois-ci.*"
+    timeout: 60000
+
 - tapOn:
     id: "chat_close"
 
 # ---------------------------------------------------------------------------
 # Restart the app, *without* clearing its state: still signed in, but the
-# conversation now comes back from `GET /agent/messages` after composition —
-# the asynchronous arrival the three fixes were about. Sending and reopening
-# within one session would leave the history already in memory and the
-# regression out of reach.
+# conversation now comes back from `GET /agent/messages` after composition. The
+# three fixes were all about that arrival; sending and reopening within one
+# session leaves the history in memory and the regression out of reach.
 # ---------------------------------------------------------------------------
 - stopApp
 - launchApp
@@ -61,8 +101,8 @@ tags:
     timeout: 40000
 
 # The microphone opens the sheet in voice mode. It starts listening by itself —
-# on a headless emulator that may end in LISTENING or in ERROR, and neither
-# matters here. What matters is that it does not speak.
+# on a headless emulator with `-noaudio` that ends in `ERROR`, and neither state
+# matters here.
 - tapOn:
     id: "chat_mic"
 
@@ -71,56 +111,12 @@ tags:
       id: "voice_state"
     timeout: 20000
 
-# The guard against a vacuous pass: the old answer is in the overlay, so there
-# was something to re-speak.
+# The reason the flow is worth running: the old answer is in the overlay, so the
+# history really did load and there *was* something to re-speak.
 - extendedWaitUntil:
     visible: ".*déjeuner avec Alex et votre cours de piano.*"
     timeout: 30000
 
+# Catches a `SPEAKING` that sticks, and nothing finer — see the header, and
+# MAG-205 for the assertion that will.
 - assertNotVisible: ".*Maggie parle.*"
-
-# Checked twice, with the window the regression used to fire in between: the
-# history lands a moment after the sheet composes, and the `LaunchedEffect` that
-# spoke it ran on that arrival rather than on the open. An immediate assertion
-# alone would pass on the broken build.
-#
-# `waitForAnimationToEnd` as a bounded wait, which is the Maestro idiom for one:
-# it returns when nothing animates or when the timeout expires, and never fails.
-# Here it always spends the five seconds, because the listening microphone
-# pulses on an infinite transition.
-- waitForAnimationToEnd:
-    timeout: 5000
-
-- assertNotVisible: ".*Maggie parle.*"
-
-# ---------------------------------------------------------------------------
-# The two halves of `fc168b5`, the fourth regression of MAG-93's voice family.
-# Both are layout, so Maestro is the only thing that can see them: it reports a
-# node as visible only when the device lays it out inside the window.
-# ---------------------------------------------------------------------------
-- tapOn:
-    id: "chat_close"
-
-# Half one: the chat input sits above the keyboard, not under it (the
-# `imePadding` the fix added). Tapping the field raises the keyboard; the input
-# and the send button have to survive that.
-- tapOn:
-    id: "chat_open"
-- tapOn:
-    id: "chat_input"
-- assertVisible:
-    id: "chat_input"
-- assertVisible:
-    id: "chat_send"
-- tapOn:
-    id: "chat_close"
-
-# Half two: the context sheet is full height, so what it lists is on screen.
-# `agent/fixtures/fake-llm/11-context-router-new.yaml` labels the conversation's
-# context « Conversation e2e », and the exchange above opened it — so the sheet
-# has a row to show and an empty one would fail here.
-- tapOn:
-    id: "chat_contexts"
-- extendedWaitUntil:
-    visible: ".*Conversation e2e.*"
-    timeout: 20000

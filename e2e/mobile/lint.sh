@@ -17,12 +17,18 @@
 #   3. every flow targets the `e2e` flavor's applicationId. A flow pointing at
 #      `com.maggie.app` would drive the owner's production build, pass, and
 #      prove nothing.
+#   4. every composable that opens a window *and* carries a tag declares its own
+#      `uiTagRoot()`. A `Dialog` or a `ModalBottomSheet` is a separate semantics
+#      owner, so the activity's flag does not reach it and its tags have no
+#      resource id. Check 2 cannot see this — the ids are declared and used, they
+#      are simply unreachable — and it is what broke this harness's first CI run.
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 FLOW_DIR="$REPO_ROOT/e2e/mobile"
 TAGS_FILE="$REPO_ROOT/mobile/app/src/main/java/com/maggie/app/ui/UiTags.kt"
+UI_DIR="$REPO_ROOT/mobile/app/src/main/java/com/maggie/app/ui"
 APP_ID="com.maggie.app.e2e"
 
 failed=0
@@ -77,6 +83,28 @@ for flow in "${flows[@]}"; do
     pass "${flow#"$REPO_ROOT"/}"
   else
     fail "${flow#"$REPO_ROOT"/} targets '${declared_app:-nothing}', expected $APP_ID"
+  fi
+done
+
+# ---------------------------------------------------------------------------
+printf '\n\033[1m4. Every tagged window has its own tag root\033[0m\n'
+# ---------------------------------------------------------------------------
+# Comments stripped before every grep below. Without it the check passes on a
+# file whose only mention of `uiTagRoot()` is the comment explaining why it is
+# there — which is exactly what the first version of this check did.
+code_of() { sed 's|//.*||' "$1"; }
+
+mapfile -t windows < <(grep -rl --include='*.kt' . "$UI_DIR" | sort)
+for file in "${windows[@]}"; do
+  code="$(code_of "$file")"
+  printf '%s' "$code" | grep -qE '(ModalBottomSheet|Dialog)\(' || continue
+  # Only the ones that actually carry a tag: a dialog no flow addresses needs
+  # nothing, and demanding it everywhere would be noise nobody reads.
+  printf '%s' "$code" | grep -q 'UiTags\.' || continue
+  if printf '%s' "$code" | grep -q 'uiTagRoot()'; then
+    pass "${file#"$REPO_ROOT"/}"
+  else
+    fail "${file#"$REPO_ROOT"/} opens a window and carries a testTag but never calls uiTagRoot() — its tags have no resource id, so Maestro cannot see them"
   fi
 done
 

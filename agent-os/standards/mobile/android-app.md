@@ -43,7 +43,10 @@ above is irrelevant to it.
   port by `adb reverse` — never a hard-coded host port. Override with
   `-PE2E_API_BASE_URL`.
 - UI the flows drive carries a `testTag` from `ui/UiTags.kt`, published to
-  UiAutomator by `testTagsAsResourceId` in `MainActivity`. `task e2e:mobile:lint`
-  fails when a flow uses an id that is not declared there.
+  UiAutomator by `Modifier.uiTagRoot()` — **once per window, not once per app**.
+  A `Dialog` or a `ModalBottomSheet` is a separate semantics owner, so the one on
+  `MainActivity` does not reach it and its tags have no resource id at all.
+  `task e2e:mobile:lint` fails on both halves: an id a flow uses that is not
+  declared, and a tagged window with no `uiTagRoot()`.
 
 Full guide: [e2e/mobile/README.md](../../../e2e/mobile/README.md).
