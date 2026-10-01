@@ -434,7 +434,8 @@ jobs:
         run: bash infra/scripts/tests/cron-image.test.sh
 
   # The scripts the CD workflow runs on the VPS (MAG-106). They only execute
-  # after a merge, so a typo would otherwise surface as a failed deploy.
+  # after a merge, so a typo would otherwise surface as a failed deploy. The agent
+  # guard rails (MAG-128) are checked here for the same reason.
   infra-scripts:
     name: Infra scripts and workflows
     runs-on: ubuntu-latest
@@ -443,14 +444,17 @@ jobs:
       - name: Lint workflows
         run: |
           docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:latest -color -ignore 'SC2129' .github/workflows/cd.yml .github/workflows/ci.yml \
-            .github/workflows/mobile.yml .github/workflows/nightly.yml
+            .github/workflows/mobile.yml .github/workflows/nightly.yml .github/workflows/agent-guard.yml \
+            .github/workflows/agent-report.yml
       - name: Lint shell scripts
         run: |
           docker run --rm -v "$PWD":/mnt -w /mnt koalaman/shellcheck:stable -x --severity=warning \
-            infra/scripts/*.sh infra/scripts/tests/*.sh
-      - name: Test the smoke suite, the rollback and the incident ticket
+            infra/scripts/*.sh infra/scripts/tests/*.sh scripts/agent-guard/*.sh
+      - name: Test the smoke suite, the rollback, the incident ticket and the agent guard rails
         run: |
           bash infra/scripts/tests/smoke-prod.test.sh
           bash infra/scripts/tests/rollback-k3s.test.sh
           bash infra/scripts/tests/open-incident.test.sh
           bash infra/scripts/tests/verify-digests.test.sh
+          bash infra/scripts/tests/agent-guard.test.sh
+          bash infra/scripts/tests/agent-guard-streak.test.sh

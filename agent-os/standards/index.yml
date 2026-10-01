@@ -35,6 +35,8 @@ docker:
     description: Traefik edge router with Docker label-based path routing
 
 global:
+  agent-guard-rails:
+    description: What an agent may merge alone — needs-human triggers, diff size limit, two red CIs, AGENT_ENABLED emergency stop, daily report, task guard:*
   e2e-environment:
     description: The e2e stack — task e2e:*, per-worktree isolation, APP_ENV=e2e, test login, app:e2e:seed and anchored fixtures, simulated external services
   real-time:

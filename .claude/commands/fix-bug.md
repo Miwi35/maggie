@@ -12,7 +12,7 @@ For tickets labelled `Bug`. Features go through `/shape-spec` then `/implement-s
 
 ## Steps
 
-1. **Read the ticket** (description, comments, linked tickets). Its *Piste* is a lead, not a diagnosis.
+1. **Run `task guard:enabled`** (exit 20: the emergency stop is on, comment `needs-human` and stop), then **read the ticket** (description, comments, linked tickets). Its *Piste* is a lead, not a diagnosis.
 2. **Reproduce with a test, red first.** Write the smallest test at the lowest level that shows the bug: unit or API test first, the e2e journey only when the bug lives in the interaction. Run it and **see it fail for the reported reason**. Cannot reproduce after a real attempt → comment what you tried, add `needs-human`, stop.
 3. **Find the cause**, not the symptom: why does the code do this? If the same cause affects other places, fix them in the same PR and list them.
 4. **Fix minimally.** Follow the surrounding code; no unrelated cleanup, no new pattern. A fix that needs a schema change, a new endpoint or a design decision is no longer a bug fix: comment, `needs-human`, stop.

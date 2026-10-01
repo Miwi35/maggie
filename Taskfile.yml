@@ -59,6 +59,63 @@ tasks:
         # 3. Only now, wait for the checks.
         gh pr checks "$PR" --watch --fail-fast
   # ===========================================================================
+  # Guard rails of the autonomous agent (MAG-128)
+  # ===========================================================================
+  guard:check:
+    desc: Would this PR have to be merged by a human? Exit 10 = yes (task guard:check -- <pr>)
+    silent: true
+    cmds:
+      - |
+        set -eu
+        PR='{{.CLI_ARGS}}'
+        [ -n "$PR" ] || { echo "usage: task guard:check -- <pr number>" >&2; exit 64; }
+        gh pr diff "$PR" | scripts/agent-guard/check.sh
+
+  guard:enabled:
+    desc: Exit 20 when the emergency stop is on (repo variable AGENT_ENABLED=false) — first step of every agent session
+    silent: true
+    cmds:
+      - |
+        V=""
+        if OUT=$(gh variable get AGENT_ENABLED 2>&1); then
+          V="$OUT"
+        else
+          case "$OUT" in
+            *"not found"* | *"Not Found"* | *"Could not find"* | *404*) ;;
+            *) echo "warning: cannot read AGENT_ENABLED, assuming it is on: $OUT" >&2 ;;
+          esac
+        fi
+        if [ "$V" = false ]; then
+          echo "AGENT_ENABLED=false: the emergency stop is on. Do nothing: comment on the ticket, add needs-human, stop." >&2
+          exit 20
+        fi
+        echo "AGENT_ENABLED is not false: go on."
+
+  guard:stop:
+    desc: Emergency stop — AGENT_ENABLED=false and every armed auto-merge switched off
+    silent: true
+    cmds:
+      - |
+        set -eu
+        gh variable set AGENT_ENABLED --body false
+        for PR in $(gh pr list --state open --limit 100 --json number,autoMergeRequest -q '.[] | select(.autoMergeRequest != null) | .number'); do
+          gh pr merge "$PR" --disable-auto && echo "auto-merge off on #$PR"
+        done
+        echo "Stopped. Sessions already running finish their step; no new PR merges itself. Resume: task guard:resume"
+
+  guard:resume:
+    desc: Lift the emergency stop (AGENT_ENABLED=true)
+    silent: true
+    cmds:
+      - gh variable set AGENT_ENABLED --body true
+
+  guard:report:
+    desc: The agent's day as Markdown — PRs opened, merged, handed to a human, still open (task guard:report -- [hours])
+    silent: true
+    cmds:
+      - scripts/agent-guard/daily-report.sh {{.CLI_ARGS}}
+
+  # ===========================================================================
   # Docker Compose Commands
   # ===========================================================================
   up:
