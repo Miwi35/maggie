@@ -10,7 +10,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'create_event', description: 'Create a new calendar event. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes (default 60). Use agenda_id to target a specific agenda (from list_agendas), or omit for the default agenda.')]
+#[McpTool(name: 'create_event', description: 'Create a new calendar event. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes (default 60). Use agenda_id to target a specific agenda (its id comes from manage_agendas with action list), or omit for the default agenda.')]
 class CreateEventTool
 {
     public function __construct(
