@@ -2,7 +2,9 @@
 
 namespace Maggie\Cookbook\Tests\Mcp;
 
+use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
+use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\Agenda;
@@ -22,6 +24,8 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 class UserIsolationToolsTest extends KernelTestCase
 {
     use FixtureLoaderTrait;
+    use MercureAssertionTrait;
+    use ElasticsearchAssertionTrait;
     use SecurityTokenTrait;
 
     /** @var array<string, string> */
@@ -30,6 +34,8 @@ class UserIsolationToolsTest extends KernelTestCase
     protected function setUp(): void
     {
         self::bootKernel();
+        $this->resetMercure();
+        $this->resetAsyncTransport();
     }
 
     private function em(): EntityManagerInterface
@@ -185,6 +191,41 @@ class UserIsolationToolsTest extends KernelTestCase
 
         $repasAgendas = $this->em()->getRepository(Agenda::class)->findBy(['name' => 'Repas']);
         self::assertCount(2, $repasAgendas, 'Each user gets their own "Repas" agenda');
+    }
+
+    public function testAutoCreatedRepasAgendaIsIndexedAndPublished(): void
+    {
+        $user = $this->loadAndLogin();
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $data = $this->decode((self::getContainer()->get(ManageMealsTool::class))('create', date: '2030-02-01', slot: 'lunch'));
+        self::assertTrue($data['success'] ?? false, json_encode($data, JSON_THROW_ON_ERROR));
+
+        $agenda = $this->em()->getRepository(Agenda::class)->findOneBy(['name' => 'Repas', 'user' => $user]);
+        self::assertNotNull($agenda);
+
+        $this->assertElasticsearchIndexDispatched(Agenda::class);
+        $this->assertMercureUpdatePublished('/users/'.$user->getId().'/api/agendas/'.$agenda->getId());
+    }
+
+    public function testExistingRepasAgendaIsNotBroadcastAgain(): void
+    {
+        $this->loadAndLogin();
+        $tool = self::getContainer()->get(ManageMealsTool::class);
+        $tool('create', date: '2030-02-01', slot: 'lunch');
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $tool('create', date: '2030-02-02', slot: 'lunch');
+
+        foreach ($this->getAsyncTransport()->getSent() as $envelope) {
+            $message = $envelope->getMessage();
+            self::assertFalse(
+                $message instanceof \Maggie\Core\Elasticsearch\Message\IndexDocumentCommand && Agenda::class === $message->entityClass,
+                'The agenda already exists: it must not be reindexed.',
+            );
+        }
     }
 
     public function testMealCannotUseAnotherUsersRecipe(): void

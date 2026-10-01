@@ -13,6 +13,7 @@ use Maggie\Cookbook\Message\CreateMealCommand;
 use Maggie\Cookbook\Repository\RecipeRepository;
 use Maggie\Cookbook\Service\MealGrocerySync;
 use Maggie\Cookbook\UseCase\CreateMeal;
+use Maggie\Core\Mercure\EntityBroadcaster;
 use Maggie\Core\Repository\UserRepository;
 use Maggie\Grocery\Service\GroceryListBroadcaster;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -27,6 +28,7 @@ class CreateMealHandler
         private readonly UserRepository $userRepository,
         private readonly MealGrocerySync $mealGrocerySync,
         private readonly GroceryListBroadcaster $groceryListBroadcaster,
+        private readonly EntityBroadcaster $entityBroadcaster,
         private readonly EntityManagerInterface $em,
     ) {
     }
@@ -37,6 +39,7 @@ class CreateMealHandler
 
         // Find or create the current user's "Repas" agenda
         $agenda = null;
+        $agendaCreated = false;
         if (null !== $command->agendaId) {
             $agenda = $this->agendaRepository->find($command->agendaId);
         }
@@ -53,6 +56,7 @@ class CreateMealHandler
             $agenda->setName('Repas');
             $agenda->setColor('#FF6B35');
             $this->em->persist($agenda);
+            $agendaCreated = true;
         }
 
         $date = new \DateTimeImmutable($command->date, new \DateTimeZone('Europe/Paris'));
@@ -83,7 +87,11 @@ class CreateMealHandler
 
         $meal = $this->createMeal->execute($meal);
 
-        // The handler returns the meal, so nothing else pushes the list.
+        // The handler returns the meal, so nothing else pushes the agenda
+        // created on the way or the list.
+        if ($agendaCreated) {
+            $this->entityBroadcaster->broadcast($agenda);
+        }
         $this->groceryListBroadcaster->broadcast($this->mealGrocerySync->sync($meal));
 
         return $meal;
