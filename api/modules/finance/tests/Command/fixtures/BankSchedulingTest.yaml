@@ -1,0 +1,21 @@
+Maggie\Core\Entity\User:
+  live_owner:
+    email: sync-live@example.com
+    googleId: google-sync-live
+    name: Sync Live
+  pending_owner:
+    email: sync-pending@example.com
+    googleId: google-sync-pending
+    name: Sync Pending
+
+Maggie\Finance\Entity\BankConnection:
+  # Active on paper, consent already over: the sync reports it, makes no call.
+  live:
+    bankName: Banque Active
+    status: '<(Maggie\Finance\Enum\BankConnectionStatus::Active)>'
+    consentExpiresAt: '<(new \DateTimeImmutable("-1 day"))>'
+    user: '@live_owner'
+  pending:
+    bankName: Banque En Attente
+    status: '<(Maggie\Finance\Enum\BankConnectionStatus::Pending)>'
+    user: '@pending_owner'

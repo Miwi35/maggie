@@ -1,0 +1,47 @@
+# Dates relative to the real clock: the command reads `new DateTimeImmutable()`
+# for the warning window, so a literal date would drift out of it.
+
+Maggie\Core\Entity\User:
+  owner:
+    email: consent-owner@example.com
+    googleId: google-consent-owner
+    name: Consent Owner
+  other_owner:
+    email: consent-other@example.com
+    googleId: google-consent-other
+    name: Consent Other
+
+Maggie\Finance\Entity\BankConnection:
+  expiring_soon:
+    bankName: Banque Proche
+    status: '<(Maggie\Finance\Enum\BankConnectionStatus::Active)>'
+    consentExpiresAt: '<(new \DateTimeImmutable("+3 days 6 hours"))>'
+    user: '@owner'
+  already_expired:
+    bankName: Banque Échue
+    status: '<(Maggie\Finance\Enum\BankConnectionStatus::Active)>'
+    consentExpiresAt: '<(new \DateTimeImmutable("-2 days"))>'
+    user: '@owner'
+  far_away:
+    bankName: Banque Lointaine
+    status: '<(Maggie\Finance\Enum\BankConnectionStatus::Active)>'
+    consentExpiresAt: '<(new \DateTimeImmutable("+60 days"))>'
+    user: '@owner'
+  never_expires:
+    bankName: Banque Sans Date
+    status: '<(Maggie\Finance\Enum\BankConnectionStatus::Active)>'
+    user: '@owner'
+  revoked:
+    bankName: Banque Révoquée
+    status: '<(Maggie\Finance\Enum\BankConnectionStatus::Revoked)>'
+    consentExpiresAt: '<(new \DateTimeImmutable("+2 days"))>'
+    user: '@owner'
+  pending:
+    bankName: Banque En Attente
+    status: '<(Maggie\Finance\Enum\BankConnectionStatus::Pending)>'
+    user: '@owner'
+  neighbour_expiring:
+    bankName: Banque Du Voisin
+    status: '<(Maggie\Finance\Enum\BankConnectionStatus::Active)>'
+    consentExpiresAt: '<(new \DateTimeImmutable("+5 days 6 hours"))>'
+    user: '@other_owner'
