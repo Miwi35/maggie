@@ -3,7 +3,9 @@ package com.maggie.app.ui.screens.finance
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.api.TransactionCreateRequest
+import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.Transaction
+import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.TransactionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -11,6 +13,7 @@ import kotlinx.coroutines.launch
 
 data class TransactionUiState(
     val transactions: List<Transaction> = emptyList(),
+    val categories: List<Category> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
 )
@@ -21,6 +24,7 @@ data class TransactionUiState(
  */
 class TransactionViewModel(
     private val transactionRepository: TransactionRepository,
+    private val categoryRepository: CategoryRepository,
     private val accountId: String,
 ) : ViewModel() {
 
@@ -29,6 +33,16 @@ class TransactionViewModel(
 
     init {
         refresh()
+        loadCategories()
+    }
+
+    // Categories only feed the optional picker: the list works without them
+    private fun loadCategories() {
+        viewModelScope.launch {
+            categoryRepository.getCategories().onSuccess { categories ->
+                _uiState.value = _uiState.value.copy(categories = categories)
+            }
+        }
     }
 
     fun refresh() {
@@ -43,8 +57,17 @@ class TransactionViewModel(
         }
     }
 
-    /** Create a transaction on this account. amountCents is signed (negative = expense). */
-    fun createTransaction(amountCents: Int, label: String) {
+    /**
+     * Create a transaction on this account. amountCents is signed (negative = expense).
+     * Without a [bookedAt] (yyyy-MM-dd) the API books it today; the default status is "spent".
+     */
+    fun createTransaction(
+        amountCents: Int,
+        label: String,
+        status: String = "spent",
+        categoryId: String? = null,
+        bookedAt: String? = null,
+    ) {
         viewModelScope.launch {
             try {
                 transactionRepository.createTransaction(
@@ -52,6 +75,9 @@ class TransactionViewModel(
                         account = "/api/accounts/$accountId",
                         amountCents = amountCents,
                         label = label,
+                        category = categoryId?.let { "/api/categories/$it" },
+                        status = status,
+                        bookedAt = bookedAt,
                     ),
                 ).getOrThrow()
                 refresh()

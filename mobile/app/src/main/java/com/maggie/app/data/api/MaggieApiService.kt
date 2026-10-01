@@ -235,6 +235,9 @@ data class TransactionCreateRequest(
     val label: String,
     val category: String? = null,
     val currency: String = "EUR",
+    val status: String = "spent",
+    // yyyy-MM-dd; left out, the API books it today
+    val bookedAt: String? = null,
 )
 
 @Serializable
