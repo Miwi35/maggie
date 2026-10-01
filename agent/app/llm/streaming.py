@@ -17,6 +17,7 @@ from app.db.message_repository import message_repo
 from app.llm.capabilities import generate_capability_summary
 from app.llm.client import create_llm_client, llm_configured
 from app.llm.context_summary import context_summarizer
+from app.llm.directives import behavior_directives_section
 from app.llm.prompt_cache import build_system, cache_tools
 from app.llm.tools import ToolRouter
 from app.memory.agent_memory import AgentMemory
@@ -50,11 +51,16 @@ class StreamingGateway:
         task.add_done_callback(self._background.discard)
 
     async def _build_system_prompt(self, user_id: str, tools: list[dict] | None = None) -> list[dict]:
-        """Build the system blocks: cached prefix (personality + skill index), then memory, contexts and date."""
+        """Build the system blocks: cached prefix (personality + skills), then memory, directives, contexts, date."""
         capabilities = generate_capability_summary(tools) if tools else ""
         base = await self.personality.get_system_prompt(user_id, capabilities=capabilities)
         skill_context = skill_index.get_skills_index()
         memory_context = await self.agent_memory.get_memory_context(user_id)
+
+        # How the user asked to be spoken to. In the volatile block rather than the
+        # cached prefix: a preference stated in this very conversation has to hold on
+        # the next message, and the prefix would serve the copy cached before it (MAG-22).
+        directives = await behavior_directives_section(user_id)
 
         # Inject active contexts so Claude knows ongoing topics — with what each one is
         # about, for the threads whose summary has been written (MAG-11). This is what a
@@ -75,7 +81,7 @@ class StreamingGateway:
                     lines.append(f"  Résumé : {ctx.summary}")
             context_section = "\n".join(lines)
 
-        volatile = f"{memory_context}{context_section}\n\n{current_datetime_line()}"
+        volatile = f"{memory_context}{directives}{context_section}\n\n{current_datetime_line()}"
         return build_system(base + skill_context, volatile)
 
     async def _load_conversation_history(self, user_id: str) -> list[dict]:

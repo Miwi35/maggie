@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 
 from app.db.agent_engine import agent_session
-from app.db.instruction_model import Instruction
+from app.db.instruction_model import Instruction, InstructionKind
 from app.mercure import topics
 from app.mercure.publisher import MercurePublisher
 
@@ -17,9 +17,9 @@ class InstructionRepository:
     def __init__(self):
         self.publisher = MercurePublisher()
 
-    async def store(self, user_id: str, content: str) -> Instruction:
+    async def store(self, user_id: str, content: str, kind: InstructionKind = InstructionKind.PLANNING) -> Instruction:
         async with agent_session() as session:
-            instruction = Instruction(user_id=user_id, content=content)
+            instruction = Instruction(user_id=user_id, content=content, kind=kind)
             session.add(instruction)
             await session.commit()
             await session.refresh(instruction)
@@ -31,18 +31,22 @@ class InstructionRepository:
 
         return instruction
 
-    async def find_by_user(self, user_id: str) -> list[Instruction]:
-        """Get all instructions for a user, most recent first."""
+    async def find_by_user(self, user_id: str, kind: InstructionKind | None = None) -> list[Instruction]:
+        """Get a user's instructions, most recent first — of one kind, or all of them."""
         async with agent_session() as session:
-            result = await session.execute(
-                select(Instruction).where(Instruction.user_id == user_id).order_by(Instruction.created_at.desc())
-            )
+            query = select(Instruction).where(Instruction.user_id == user_id)
+            if kind is not None:
+                query = query.where(Instruction.kind == kind)
+            result = await session.execute(query.order_by(Instruction.created_at.desc()))
             return list(result.scalars().all())
 
-    async def find_user_ids(self) -> list[str]:
-        """Ids of every user who has at least one instruction."""
+    async def find_user_ids(self, kind: InstructionKind | None = None) -> list[str]:
+        """Ids of every user who has at least one instruction of that kind (or of any kind)."""
         async with agent_session() as session:
-            result = await session.execute(select(Instruction.user_id).distinct().order_by(Instruction.user_id))
+            query = select(Instruction.user_id).distinct()
+            if kind is not None:
+                query = query.where(Instruction.kind == kind)
+            result = await session.execute(query.order_by(Instruction.user_id))
             return list(result.scalars().all())
 
     async def update(self, user_id: str, instruction_id: str, content: str) -> Instruction | None:

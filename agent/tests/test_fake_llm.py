@@ -716,3 +716,31 @@ class TestTheShippedFixtures:
 
         assert answer.stop_reason == "end_turn"
         assert "[fake-llm]" not in text_of(answer)
+
+    async def test_a_behaviour_preference_is_filed_as_one(self):
+        """The kind decides who ever reads the directive again, so the journey asserts it (MAG-22)."""
+        client = build_client(DEFAULT_FIXTURES_DIR)
+
+        answer = await ask(client, "Tutoie-moi et évite les emojis")
+
+        assert answer.stop_reason == "tool_use"
+        stored = next(block for block in answer.content if isinstance(block, FakeToolUseBlock))
+        assert stored.name == "add_instruction"
+        # `planning` here would store the sentence where only the daily planning
+        # reads it — the exact bug MAG-22 fixed, and invisible from the answer.
+        assert stored.input == {"content": "Tutoie-moi et évite les emojis", "kind": "behavior"}
+
+    async def test_the_voice_she_was_asked_for_needs_the_preference_in_the_prompt(self):
+        """The chat journey's proof of the injection, and why it is a proof."""
+        client = build_client(DEFAULT_FIXTURES_DIR)
+
+        without = await ask(client, "Dis-moi bonjour", system="Tu es Maggie.")
+        assert "[fake-llm]" in text_of(without)
+
+        with_preference = await ask(
+            client,
+            "Dis-moi bonjour",
+            system="Tu es Maggie.\n\nPréférences de l'utilisateur sur ta façon de répondre :\n"
+            "- Tutoie-moi et évite les emojis",
+        )
+        assert "[fake-llm]" not in text_of(with_preference)

@@ -30,6 +30,11 @@ class ContextRepository:
             await conn.execute(
                 text("ALTER TABLE conversation_context ADD COLUMN IF NOT EXISTS summary_updated_at TIMESTAMPTZ")
             )
+            # MAG-22 — what a directive is for. Everything stored before this column
+            # existed was written as a planning rule, which is what the default says.
+            await conn.execute(
+                text("ALTER TABLE instruction ADD COLUMN IF NOT EXISTS kind VARCHAR(20) NOT NULL DEFAULT 'planning'")
+            )
 
     async def create(self, user_id: str, label: str) -> ConversationContext:
         async with agent_session() as session:

@@ -1,0 +1,23 @@
+# Storing a preference about *how* Maggie answers (MAG-22).
+#
+# `add_instruction` is a native tool, and its `kind` is what decides who ever
+# reads the directive again: `planning` goes to the daily proaction planning,
+# `behavior` goes into the system prompt of every answer. A scenario filing this
+# one as `planning` would store the sentence and change nothing — which is the
+# bug MAG-22 fixed, so the kind here is the point of the fixture.
+#
+# Its pair is 61-behavior-applied.yaml, which can only answer once this
+# directive is in the system prompt.
+name: behavior-preference
+description: Store a behaviour preference through the agent's own instruction tool.
+
+match:
+  user_contains: "tutoie-moi"
+
+turns:
+  - tools:
+      - name: add_instruction
+        input:
+          content: "Tutoie-moi et évite les emojis"
+          kind: behavior
+  - text: "C'est noté, je te tutoie et je laisse les emojis de côté."

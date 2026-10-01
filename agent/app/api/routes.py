@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from app.auth import get_current_user_id
 from app.db.context_repository import context_repo
+from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
 from app.db.message_repository import message_repo
 from app.db.proaction_repository import proaction_repo
@@ -45,6 +46,9 @@ class PersonalityUpdate(BaseModel):
 
 class InstructionCreate(BaseModel):
     content: str
+    # Defaulted rather than required: every directive stored before MAG-22 was a
+    # planning rule, and so is everything the admin's form sent until now.
+    kind: InstructionKind = InstructionKind.PLANNING
 
 
 class SkillCreate(BaseModel):
@@ -277,16 +281,19 @@ async def set_tts_voice(request: dict, user_id: str = Depends(get_current_user_i
 
 
 @router.get("/instructions")
-async def get_instructions(user_id: str = Depends(get_current_user_id)):
-    """List all instructions for the authenticated user."""
-    instructions = await instruction_repo.find_by_user(user_id)
+async def get_instructions(
+    kind: InstructionKind | None = None,
+    user_id: str = Depends(get_current_user_id),
+):
+    """List the authenticated user's instructions, of one kind or of all kinds."""
+    instructions = await instruction_repo.find_by_user(user_id, kind=kind)
     return [i.to_dict() for i in instructions]
 
 
 @router.post("/instructions", status_code=201)
 async def create_instruction(data: InstructionCreate, user_id: str = Depends(get_current_user_id)):
     """Create a new instruction."""
-    instruction = await instruction_repo.store(user_id, data.content)
+    instruction = await instruction_repo.store(user_id, data.content, kind=data.kind)
     return instruction.to_dict()
 
 

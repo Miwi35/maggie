@@ -4,6 +4,7 @@ from datetime import UTC, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from app.config import settings
+from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
 from app.db.proaction_repository import proaction_repo
 from app.llm.gateway import LLMGateway
@@ -15,7 +16,7 @@ EXECUTION_INTERVAL = 60  # seconds
 
 DAILY_PLANNING_PROMPT = (
     "C'est le début de la journée. "
-    "1. Appelle list_instructions pour lire les directives de l'utilisateur. "
+    '1. Appelle list_instructions avec kind="planning" pour lire les directives de planification. '
     "2. Appelle list_proactions pour voir les proactions déjà planifiées. "
     "3. Planifie de nouvelles proactions avec schedule_proaction en te basant sur "
     "les instructions de l'utilisateur, son calendrier et ses habitudes. "
@@ -52,8 +53,13 @@ def next_planning_time(now: datetime) -> datetime:
 
 
 async def plan_all_users(gateway: LLMGateway) -> None:
-    """Run the planning prompt once for every user who has stored instructions."""
-    for user_id in await instruction_repo.find_user_ids():
+    """Run the planning prompt once for every user who has stored a planning directive.
+
+    Behaviour preferences are deliberately not a reason to plan: « tutoie-moi » says
+    nothing about when to act, and planning on it alone would wake the model up for a
+    user who never asked for a single proaction (MAG-22).
+    """
+    for user_id in await instruction_repo.find_user_ids(kind=InstructionKind.PLANNING):
         try:
             logger.info(f"Running daily proaction planning for user {user_id}")
             result = await gateway.proaction(DAILY_PLANNING_PROMPT, user_id, silent=True)
