@@ -1,0 +1,195 @@
+appId: com.maggie.app.e2e
+name: 06-grocery-errand
+tags:
+  - grocery
+---
+# The errand in the shop, on the phone (MAG-178): open the list, read it by shop
+# in visiting order, tick a line, end the errand at one shop, remove what is left.
+#
+# Signed in as the **neighbour** (`e2e-other@maggie.local`), the seed's second
+# account: two shops with visit orders of their own, a leek whose product has a
+# fallback shop, and a list nobody else's journey writes to. That is what lets a
+# flow tick and delete without touching the owner's list, which `01` and `05`
+# read. `e2e_email` is read by `src/e2e/.../E2eSignIn.kt` — the one place the
+# flavor's sign-in is told who to be.
+#
+# Every step that changes something is checked **twice**: on the screen, and in
+# the database through `scripts/grocery-api.js`. A screen that updates
+# optimistically proves nothing about the server, which is how a tick that was
+# never saved would pass.
+#
+# The list is left as it was found — the lines this flow adds are gone by the
+# end — so `04` starts from the same seed whatever happens here.
+#
+# Selectors are the node's whole text, matched as a regex: « Terminé » and
+# « Garder » are exact on purpose, so they never match a longer sentence.
+
+# ---------------------------------------------------------------------------
+# Two lines in the first shop, set up through the API before the app opens, so
+# the first load already has them. « Câpres » is bought; « Cornichons » is not:
+# ending the errand then has something bought to carry home and something left
+# to ask about. The leek is already there, unbought, so the sheet lists both.
+# ---------------------------------------------------------------------------
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: add
+      LABEL: Câpres MAG-178
+      STORE: Halles du voisin
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: add
+      LABEL: Cornichons MAG-178
+      STORE: Halles du voisin
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_email: e2e-other@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+# ---------------------------------------------------------------------------
+# Open the list from the drawer.
+# ---------------------------------------------------------------------------
+- tapOn:
+    id: "nav_menu"
+- tapOn:
+    id: "drawer_grocery"
+- extendedWaitUntil:
+    visible:
+      id: "grocery"
+    timeout: 20000
+
+# ---------------------------------------------------------------------------
+# Grouped by shop, in the order the shopper walks: Halles first, the corner shop
+# after, what belongs to no shop last. Each `below` is the claim — a screen that
+# listed the right lines in the wrong order would pass a bare `assertVisible`.
+# ---------------------------------------------------------------------------
+- extendedWaitUntil:
+    visible: "Halles du voisin"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      text: ".*Poireau du voisin.*"
+      below: "Halles du voisin"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: ".*Câpres MAG-178.*"
+      below: "Halles du voisin"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: "Épicerie du coin"
+      below: ".*Câpres MAG-178.*"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: ".*Timbres du voisin.*"
+      below: "Épicerie du coin"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: "Non assigné"
+      below: ".*Timbres du voisin.*"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: ".*Sacs du voisin.*"
+      below: "Non assigné"
+    timeout: 20000
+
+# ---------------------------------------------------------------------------
+# Tick « Câpres ». A long press selects the line (a plain tap opens its detail
+# sheet), and the bar that appears has the tick.
+# ---------------------------------------------------------------------------
+- longPressOn: ".*Câpres MAG-178.*"
+- tapOn: "Cocher les articles"
+
+# « Terminé » is only offered on a shop that has a ticked line — so it showing
+# is the screen's proof that the tick registered, with no marker to read.
+- extendedWaitUntil:
+    visible: "Terminé"
+    timeout: 20000
+
+# And the database's: the tick reached the server, not just the phone.
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: expect
+      LABEL: Câpres MAG-178
+      STATE: checked
+
+# ---------------------------------------------------------------------------
+# End the errand at this shop. What was ticked is carried home; what was not is
+# offered back, with the choice of moving it or keeping it.
+# ---------------------------------------------------------------------------
+- tapOn: "Terminé"
+- extendedWaitUntil:
+    visible: "Articles non achetés à Halles du voisin"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Garder"
+    timeout: 10000
+
+# Both unbought lines are offered: the seeded leek and the pickles.
+- assertVisible: "Transférer"
+
+# « Garder » once per line. Each one leaves the sheet; the last one closes it.
+- tapOn: "Garder"
+- tapOn: "Garder"
+- extendedWaitUntil:
+    notVisible: "Articles non achetés.*"
+    timeout: 20000
+
+# The bought line is gone from the screen *and* from the database; the unbought
+# ones are still there, unticked.
+- extendedWaitUntil:
+    notVisible: ".*Câpres MAG-178.*"
+    timeout: 30000
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: expect
+      LABEL: Câpres MAG-178
+      STATE: absent
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: expect
+      LABEL: Cornichons MAG-178
+      STATE: unchecked
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: expect
+      LABEL: Poireau du voisin
+      STATE: unchecked
+- assertVisible: ".*Cornichons MAG-178.*"
+- assertVisible: ".*Poireau du voisin.*"
+
+# ---------------------------------------------------------------------------
+# Remove what remains of the pickles. The app has no « Retirer » button: a line
+# leaves the list by being selected and deleted, behind a confirmation.
+# The leek stays — it is the seed's.
+# ---------------------------------------------------------------------------
+- longPressOn: ".*Cornichons MAG-178.*"
+- tapOn: "Supprimer les articles"
+- extendedWaitUntil:
+    visible: "Cette action est irréversible."
+    timeout: 10000
+- tapOn: "Supprimer"
+- extendedWaitUntil:
+    notVisible: ".*Cornichons MAG-178.*"
+    timeout: 20000
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: expect
+      LABEL: Cornichons MAG-178
+      STATE: absent
+- assertVisible: ".*Poireau du voisin.*"

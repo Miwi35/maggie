@@ -99,4 +99,16 @@ object UiTags {
     fun calendarSpan(first: LocalDate, last: LocalDate) = "$CALENDAR_SPAN_PREFIX${first}_$last"
 
     fun calendarEvent(date: LocalDate) = CALENDAR_EVENT_PREFIX + date
+
+    /**
+     * The drawer entry the grocery journeys open. Covered by [DRAWER_ITEM_PREFIX]
+     * already; kept as the constant the flows and [UiTagsTest] name.
+     */
+    const val DRAWER_GROCERY = "drawer_grocery"
+
+    /** The grocery screen — the root, so a journey can wait for the screen itself. */
+    const val GROCERY = "grocery"
+
+    /** The search field of the product picker, a window of its own. */
+    const val PRODUCT_SEARCH = "product_search"
 }

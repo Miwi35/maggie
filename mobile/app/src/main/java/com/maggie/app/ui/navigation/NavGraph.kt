@@ -11,7 +11,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,6 +33,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.core.content.ContextCompat
 import androidx.core.util.Consumer
 import androidx.navigation.NavBackStackEntry
@@ -53,6 +56,7 @@ import com.maggie.app.data.repository.RecipeRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.repository.AgendaRepository
+import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.AppDrawerContent
 import com.maggie.app.data.model.Context
 import com.maggie.app.ui.components.ChatBottomBar
@@ -623,17 +627,19 @@ fun NavGraph() {
                     )
                 }
                 composable(Screen.Grocery.route) {
-                    GroceryScreen(
-                        viewModel = groceryViewModel,
-                        openItemId = groceryItemToOpen,
-                        onOpenItemHandled = { groceryItemToOpen = null },
-                        onNavigateToProducts = {
-                            navController.navigate(Screen.ProductList.route) { launchSingleTop = true }
-                        },
-                        onNavigateToStores = {
-                            navController.navigate(Screen.StoreList.route) { launchSingleTop = true }
-                        },
-                    )
+                    Box(Modifier.fillMaxSize().testTag(UiTags.GROCERY)) {
+                        GroceryScreen(
+                            viewModel = groceryViewModel,
+                            openItemId = groceryItemToOpen,
+                            onOpenItemHandled = { groceryItemToOpen = null },
+                            onNavigateToProducts = {
+                                navController.navigate(Screen.ProductList.route) { launchSingleTop = true }
+                            },
+                            onNavigateToStores = {
+                                navController.navigate(Screen.StoreList.route) { launchSingleTop = true }
+                            },
+                        )
+                    }
                 }
                 composable(Screen.ProductList.route) {
                     val productViewModel: ProductViewModel = koinViewModel()

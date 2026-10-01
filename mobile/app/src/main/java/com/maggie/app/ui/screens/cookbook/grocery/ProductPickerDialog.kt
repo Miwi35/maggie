@@ -30,10 +30,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.maggie.app.data.model.Product
+import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.uiTagRoot
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,6 +63,7 @@ fun ProductPickerDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Scaffold(
+            modifier = Modifier.uiTagRoot(),
             topBar = {
                 TopAppBar(
                     title = { Text("Rechercher un produit") },
@@ -83,7 +87,8 @@ fun ProductPickerDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .focusRequester(focusRequester),
+                        .focusRequester(focusRequester)
+                        .testTag(UiTags.PRODUCT_SEARCH),
                     singleLine = true,
                 )
 
