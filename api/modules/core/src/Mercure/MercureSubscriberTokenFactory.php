@@ -23,44 +23,30 @@ final class MercureSubscriberTokenFactory
     /**
      * Topics the agent publishes, keyed by the user id rather than scoped
      * under /users/{id}. Updates are private, so a token only receives what
-     * one of its selectors names.
+     * one of its grants names.
      */
     private const AGENT_TOPICS = ['chat', 'contexts', 'proactions', 'instructions', 'skills'];
 
     public function __construct(
-        private readonly string $mercureJwtSecret,
+        private readonly MercureAccessToken $accessToken,
     ) {
     }
 
-    public function createForUser(User $user): string
-    {
-        $header = $this->base64UrlEncode(json_encode(['typ' => 'JWT', 'alg' => 'HS256'], JSON_THROW_ON_ERROR));
-        $payload = $this->base64UrlEncode(json_encode([
-            'mercure' => ['subscribe' => $this->subscribeSelectors($user)],
-            'exp' => time() + self::TTL_SECONDS,
-        ], JSON_THROW_ON_ERROR));
-        $signature = $this->base64UrlEncode(
-            hash_hmac('sha256', $header.'.'.$payload, $this->mercureJwtSecret, true)
-        );
-
-        return $header.'.'.$payload.'.'.$signature;
-    }
-
     /**
-     * `{+topic}` (reserved expansion) crosses "/" where `{topic}` does not, so
-     * it covers /users/{id}/api/tasks/{id}; with private updates a selector
-     * that matches nothing silences every real-time surface.
-     *
-     * @return list<string>
+     * Grants `/users/<id>/*` as a URL Pattern: `*` crosses "/", so it covers
+     * /users/<id>/api/tasks/<id>; with private updates a grant that matches
+     * nothing silences every real-time surface. The agent's topics are exact.
      */
-    private function subscribeSelectors(User $user): array
+    public function createForUser(User $user): string
     {
         $id = (string) $user->getId();
 
-        return [
-            '/users/'.$id.'/{+topic}',
-            ...array_map(static fn (string $topic): string => '/'.$topic.'/'.$id, self::AGENT_TOPICS),
-        ];
+        return $this->accessToken->forSubscriber(
+            $id,
+            array_map(static fn (string $topic): string => '/'.$topic.'/'.$id, self::AGENT_TOPICS),
+            ['/users/'.$id.'/*'],
+            self::TTL_SECONDS,
+        );
     }
 
     /**
@@ -76,10 +62,5 @@ final class MercureSubscriberTokenFactory
             ->withSecure($secure)
             ->withHttpOnly(true)
             ->withSameSite('lax');
-    }
-
-    private function base64UrlEncode(string $data): string
-    {
-        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
     }
 }

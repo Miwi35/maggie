@@ -99,8 +99,12 @@ describe('ChatWidget with a relative Mercure URL', () => {
 
     await waitFor(() => expect(subscriptions.length).toBeGreaterThanOrEqual(2))
 
-    const topics = subscriptions.flatMap((url) => new URL(url).searchParams.getAll('topic'))
-    expect(topics).toContain('/chat/user-1')
-    expect(topics).toContain('/contexts/user-1')
+    // Mercure 1.0: an exact topic is `match`; the 0.x `topic` is refused with a 400.
+    const exact = subscriptions.flatMap((url) => new URL(url).searchParams.getAll('match'))
+    expect(exact).toContain('/chat/user-1')
+    expect(exact).toContain('/contexts/user-1')
+    for (const url of subscriptions) {
+      expect(new URL(url).searchParams.has('topic')).toBe(false)
+    }
   })
 })

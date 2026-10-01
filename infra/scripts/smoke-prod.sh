@@ -115,7 +115,7 @@ preflight=""
 for ((attempt = 1; attempt <= ATTEMPTS; attempt++)); do
   preflight="$(curl -sS -D - -o /dev/null --max-time 15 -X OPTIONS \
     -H "Origin: $ORIGIN" -H 'Access-Control-Request-Method: GET' \
-    "$mercure_url?topic=smoke" 2>/dev/null | tr -d '\r' || true)"
+    "$mercure_url?match=smoke" 2>/dev/null | tr -d '\r' || true)"
   printf '%s' "$preflight" | grep -qiE '^HTTP/[0-9.]+ (2|3)[0-9][0-9]' && break
   [ "$attempt" -lt "$ATTEMPTS" ] && sleep "$DELAY"
 done

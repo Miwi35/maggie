@@ -48,7 +48,7 @@ task open          # opens http://maggie.local
 | nginx | `.docker/nginx/Dockerfile` target: dev | 80 (internal) | default | — |
 | node | `.docker/node/Dockerfile` | 5173 (internal) | **dev** | — |
 | database | `postgres:17-alpine` | 5432 | default | `pg_isready` |
-| mercure | `dunglas/mercure` | 80 (internal) | default | — |
+| mercure | `dunglas/mercure:v1.0.2` (pinned by digest) | 80 (internal) | default | — |
 | rabbitmq | `rabbitmq:3-management-alpine` | 5672, 15672 (mgmt UI) | default | `rabbitmq-diagnostics ping` |
 | agent | `.docker/python/Dockerfile` target: dev | 8001 (internal) | default | — |
 

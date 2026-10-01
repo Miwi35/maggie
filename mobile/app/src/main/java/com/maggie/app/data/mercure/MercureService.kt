@@ -30,9 +30,7 @@ class MercureService(
     private val client: HttpClient = defaultClient(),
 ) {
     fun subscribe(topic: String): Flow<MercureEvent> = callbackFlow {
-        val url = URLBuilder(hubUrl).apply {
-            parameters.append("topic", topic)
-        }.buildString()
+        val url = buildSubscriptionUrl(hubUrl, topic)
 
         Log.i(TAG, "Subscribing to Mercure: $url")
 
@@ -86,9 +84,20 @@ class MercureService(
             }
         }
 
+        private val PLACEHOLDER = Regex("\\{(\\w+)\\}")
+
+        /**
+         * Mercure 1.0 refuses the 0.x `topic` parameter with a 400. An exact
+         * topic is subscribed with `match`; one carrying a `{id}` placeholder
+         * with `match_urlpattern`, where URL Patterns spell it `:id`.
+         */
         fun buildSubscriptionUrl(hubUrl: String, topic: String): String {
             return URLBuilder(hubUrl).apply {
-                parameters.append("topic", topic)
+                if (PLACEHOLDER.containsMatchIn(topic)) {
+                    parameters.append("match_urlpattern", PLACEHOLDER.replace(topic, ":$1"))
+                } else {
+                    parameters.append("match", topic)
+                }
             }.buildString()
         }
     }
