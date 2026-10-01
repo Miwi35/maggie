@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Maggie\Grocery\Mcp\Tool;
 
+use Maggie\Core\Mcp\McpUserContext;
+use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Grocery\Message\CheckGroceryItemCommand;
 use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
@@ -14,6 +16,7 @@ class CheckGroceryItemTool
 {
     public function __construct(
         private readonly MessageBusInterface $bus,
+        private readonly McpUserContext $userContext,
     ) {
     }
 
@@ -22,12 +25,17 @@ class CheckGroceryItemTool
         bool $checked = true,
     ): string {
         try {
+            $user = $this->userContext->requireUser();
+
             $this->bus->dispatch(new CheckGroceryItemCommand(
                 groceryItemId: $groceryItemId,
+                userId: (string) $user->getId(),
                 checked: $checked,
             ));
 
             return json_encode(['success' => true, 'checked' => $checked], JSON_THROW_ON_ERROR);
+        } catch (MissingMcpUserException $e) {
+            return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
 

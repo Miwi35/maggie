@@ -23,6 +23,10 @@ class RemoveGroceryItemHandler
         $item = $this->em->find(GroceryItem::class, $command->groceryItemId)
             ?? throw new \DomainException("Grocery item not found: {$command->groceryItemId}");
 
+        if ((string) $item->getGroceryList()->getUser()->getId() !== $command->userId) {
+            throw new \DomainException("Grocery item not found: {$command->groceryItemId}");
+        }
+
         $list = $item->getGroceryList();
         $list->removeItem($item);
         $this->em->remove($item);

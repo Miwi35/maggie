@@ -32,6 +32,7 @@ final class RemoveGroceryItemController
         try {
             $this->messageBus->dispatch(new RemoveGroceryItemCommand(
                 groceryItemId: $id,
+                userId: (string) $user->getId(),
             ));
 
             return new JsonResponse(['success' => true]);

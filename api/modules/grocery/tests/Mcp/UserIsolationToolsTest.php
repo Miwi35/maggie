@@ -10,6 +10,10 @@ use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Mcp\Tool\AddGroceryItemTool;
+use Maggie\Grocery\Mcp\Tool\CheckGroceryItemTool;
+use Maggie\Grocery\Mcp\Tool\MoveToFallbackTool;
+use Maggie\Grocery\Mcp\Tool\RemoveGroceryItemTool;
+use Maggie\Grocery\Mcp\Tool\ReorderGroceryItemsTool;
 use Maggie\Grocery\Mcp\Tool\SearchProductsTool;
 use Maggie\Grocery\Message\EditGroceryItemCommand;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -39,7 +43,7 @@ class UserIsolationToolsTest extends KernelTestCase
     private function load(): void
     {
         $this->loadFixtures('isolation.yaml');
-        foreach (['test_user', 'other_user', 'other_bananes', 'own_item_without_product'] as $ref) {
+        foreach (['test_user', 'other_user', 'other_bananes', 'own_item_without_product', 'other_item', 'other_store'] as $ref) {
             $this->ids[$ref] = (string) $this->getFixture($ref)->getId();
         }
         $this->em()->clear();
@@ -115,5 +119,96 @@ class UserIsolationToolsTest extends KernelTestCase
         self::assertNotNull($product);
         self::assertNotSame($this->ids['other_bananes'], (string) $product->getId());
         self::assertSame($this->ids['test_user'], (string) $product->getUser()->getId());
+    }
+
+    public function testCheckingAnotherUsersItemIsRefusedAndChangesNothing(): void
+    {
+        $this->loadAndLogin();
+
+        $data = $this->decode((self::getContainer()->get(CheckGroceryItemTool::class))($this->ids['other_item'], true));
+
+        self::assertArrayHasKey('error', $data);
+        $this->em()->clear();
+        self::assertFalse($this->em()->find(GroceryItem::class, $this->ids['other_item'])->isChecked());
+    }
+
+    public function testRemovingAnotherUsersItemIsRefusedAndKeepsIt(): void
+    {
+        $this->loadAndLogin();
+
+        $data = $this->decode((self::getContainer()->get(RemoveGroceryItemTool::class))($this->ids['other_item']));
+
+        self::assertArrayHasKey('error', $data);
+        $this->em()->clear();
+        self::assertNotNull($this->em()->find(GroceryItem::class, $this->ids['other_item']));
+    }
+
+    public function testReorderingAnotherUsersItemIsRefusedAndMovesNothing(): void
+    {
+        $this->loadAndLogin();
+
+        $data = $this->decode((self::getContainer()->get(ReorderGroceryItemsTool::class))([
+            ['id' => $this->ids['own_item_without_product'], 'position' => 9],
+            ['id' => $this->ids['other_item'], 'position' => 0],
+        ]));
+
+        self::assertArrayHasKey('error', $data);
+        $this->em()->clear();
+        self::assertSame(7, $this->em()->find(GroceryItem::class, $this->ids['other_item'])->getPosition());
+        self::assertSame(1, $this->em()->find(GroceryItem::class, $this->ids['own_item_without_product'])->getPosition());
+    }
+
+    public function testCheckAndRemoveWithoutUserAreRefused(): void
+    {
+        $this->load();
+
+        $check = $this->decode((self::getContainer()->get(CheckGroceryItemTool::class))($this->ids['other_item'], true));
+        $remove = $this->decode((self::getContainer()->get(RemoveGroceryItemTool::class))($this->ids['other_item']));
+
+        self::assertSame(MissingMcpUserException::MESSAGE, $check['error']);
+        self::assertSame(MissingMcpUserException::MESSAGE, $remove['error']);
+        $this->em()->clear();
+        self::assertNotNull($this->em()->find(GroceryItem::class, $this->ids['other_item']));
+    }
+
+    public function testMoveToFallbackRefusesAnotherUsersStore(): void
+    {
+        $this->loadAndLogin();
+
+        $data = $this->decode((self::getContainer()->get(MoveToFallbackTool::class))($this->ids['other_store']));
+
+        self::assertArrayHasKey('error', $data);
+    }
+
+    public function testAddingAnItemNeverAttachesAnotherUsersStore(): void
+    {
+        $this->loadAndLogin();
+
+        $data = $this->decode((self::getContainer()->get(AddGroceryItemTool::class))('Pommes', 2, 'piece', storeId: $this->ids['other_store']));
+
+        self::assertTrue($data['success']);
+        $this->em()->clear();
+        $added = array_values(array_filter(
+            $this->em()->getRepository(GroceryItem::class)->findAll(),
+            fn (GroceryItem $item) => 'Pommes' === $item->getProduct()?->getName(),
+        ));
+        self::assertCount(1, $added);
+        self::assertNull($added[0]->getStore());
+    }
+
+    public function testOwnerKeepsCheckingAndRemovingTheirItem(): void
+    {
+        $this->loadAndLogin();
+        $id = $this->ids['own_item_without_product'];
+
+        $checked = $this->decode((self::getContainer()->get(CheckGroceryItemTool::class))($id, true));
+        self::assertTrue($checked['success']);
+        $this->em()->clear();
+        self::assertTrue($this->em()->find(GroceryItem::class, $id)->isChecked());
+
+        $removed = $this->decode((self::getContainer()->get(RemoveGroceryItemTool::class))($id));
+        self::assertTrue($removed['success']);
+        $this->em()->clear();
+        self::assertNull($this->em()->find(GroceryItem::class, $id));
     }
 }

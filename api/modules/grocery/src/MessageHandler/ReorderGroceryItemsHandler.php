@@ -29,10 +29,17 @@ class ReorderGroceryItemsHandler
 
         $list = $this->groceryListRepository->findOrCreateForUser($user);
 
+        $items = [];
         foreach ($command->items as $entry) {
-            $item = $this->em->find(GroceryItem::class, $entry['id'])
-                ?? throw new \DomainException("Grocery item not found: {$entry['id']}");
-            $item->setPosition($entry['position']);
+            $item = $this->em->find(GroceryItem::class, $entry['id']);
+            if (null === $item || (string) $item->getGroceryList()->getUser()->getId() !== $command->userId) {
+                throw new \DomainException("Grocery item not found: {$entry['id']}");
+            }
+            $items[] = [$item, $entry['position']];
+        }
+
+        foreach ($items as [$item, $position]) {
+            $item->setPosition($position);
         }
 
         $list->setUpdatedAt(new \DateTimeImmutable());

@@ -28,8 +28,10 @@ class MoveToFallbackHandler
         $user = $this->userRepository->find($command->userId)
             ?? throw new \DomainException('User not found.');
 
-        $store = $this->storeRepository->find($command->storeId)
-            ?? throw new \DomainException("Store not found: {$command->storeId}");
+        $store = $this->storeRepository->find($command->storeId);
+        if (null === $store || (string) $store->getUser()->getId() !== $command->userId) {
+            throw new \DomainException("Store not found: {$command->storeId}");
+        }
 
         $list = $this->groceryListRepository->findOrCreateForUser($user);
 
