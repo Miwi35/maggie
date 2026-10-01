@@ -221,6 +221,11 @@ log "All rollouts complete."
 # google_calendar_id) cannot be created while a user still holds two agendas
 # for the same Google calendar (MAG-148). A no-op once that index exists, and
 # safe to run again, so it stays here rather than being a one-off by hand.
+#
+# Running before the migrations means it sees the previous schema. It is built
+# for that — with nothing to merge it answers from plain SQL and never loads an
+# entity — and that is what keeps it safe to leave here. A repair step added
+# later that does touch entities belongs after the migrations instead.
 log "Phase 5a: Merging agendas that share a Google calendar..."
 $KUBECTL exec "deployment/php" -n "$NAMESPACE" -- bin/console app:calendar:dedupe-google-agendas --no-interaction
 

@@ -21,16 +21,18 @@ Maggie\Calendar\Entity\Agenda:
     googleWatchResourceId: 'resource-kept'
     googleSyncToken: 'stale-sync-token'
     user: '@test_user'
+  # The duplicate is the one holding the default flag: deleting it must not
+  # leave the user without a default agenda.
   agenda_duplicate:
     name: Concerts
     color: '#e91e63'
+    isDefault: true
     googleCalendarId: 'concerts@group.calendar.google.com'
     googleWatchChannelId: 'channel-duplicate'
     googleWatchResourceId: 'resource-duplicate'
     user: '@test_user'
   agenda_untouched:
     name: Perso
-    isDefault: true
     user: '@test_user'
 
 Maggie\Calendar\Entity\Event:

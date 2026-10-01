@@ -28,6 +28,9 @@ class GoogleCalendarConnectApiTest extends WebTestCase
     use ElasticsearchAssertionTrait;
 
     private KernelBrowser $client;
+    private int $watchCalls = 0;
+    /** @var list<string> */
+    private array $stoppedChannels = [];
 
     protected function setUp(): void
     {
@@ -52,8 +55,9 @@ class GoogleCalendarConnectApiTest extends WebTestCase
 
     /**
      * @param array<int, array{id: string, summary?: string, summaryOverride?: string, primary?: bool, backgroundColor?: string}> $calendars
+     * @param bool                                                                                                                $watchFails whether Google refuses to register a push channel
      */
-    private function stubGoogle(array $calendars): void
+    private function stubGoogle(array $calendars, bool $watchFails = false): void
     {
         $entries = [];
         foreach ($calendars as $calendar) {
@@ -72,11 +76,27 @@ class GoogleCalendarConnectApiTest extends WebTestCase
             fn (User $user, string $calendarId) => $entries[$calendarId]
                 ?? throw new \RuntimeException("Unknown calendar {$calendarId}"),
         );
-        $apiClient->method('watchEvents')->willReturn([
-            'channelId' => 'channel-1',
-            'resourceId' => 'resource-1',
-            'expiration' => 1_900_000_000_000,
-        ]);
+        $this->watchCalls = 0;
+        $apiClient->method('watchEvents')->willReturnCallback(
+            function () use ($watchFails): array {
+                ++$this->watchCalls;
+                if ($watchFails) {
+                    throw new \RuntimeException('Google refused the channel');
+                }
+
+                return [
+                    'channelId' => 'channel-'.$this->watchCalls,
+                    'resourceId' => 'resource-'.$this->watchCalls,
+                    'expiration' => 1_900_000_000_000,
+                ];
+            },
+        );
+        $this->stoppedChannels = [];
+        $apiClient->method('stopWatch')->willReturnCallback(
+            function (User $user, string $channelId): void {
+                $this->stoppedChannels[] = $channelId;
+            },
+        );
         $apiClient->method('listEvents')->willReturn([
             'events' => [],
             'nextSyncToken' => 'sync-token',
@@ -199,6 +219,34 @@ class GoogleCalendarConnectApiTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(201);
         self::assertSame('Défaut', $this->agendasOf($user)[0]->getName());
+    }
+
+    public function testReconnectingKeepsThePushChannelItAlreadyHas(): void
+    {
+        $this->load();
+        $this->stubGoogle([['id' => 'cal-concerts', 'summary' => 'Concerts']]);
+
+        $this->import(['googleCalendarId' => 'cal-concerts']);
+        $this->import(['googleCalendarId' => 'cal-concerts']);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame(1, $this->watchCalls, 'A second channel on the same calendar would push everything twice');
+        self::assertSame([], $this->stoppedChannels);
+    }
+
+    public function testConnectingSucceedsEvenWhenGoogleRefusesThePushChannel(): void
+    {
+        $user = $this->load();
+        $this->stubGoogle([['id' => 'cal-concerts', 'summary' => 'Concerts']], watchFails: true);
+
+        $this->import(['googleCalendarId' => 'cal-concerts']);
+
+        // Without a channel the agenda still syncs every five minutes through
+        // the cron, so the connection is not worth failing.
+        self::assertResponseStatusCodeSame(201);
+        $agendas = $this->agendasOf($user);
+        self::assertCount(1, $agendas);
+        self::assertNull($agendas[0]->getGoogleWatchChannelId());
     }
 
     public function testImportRejectsACalendarTheUserCannotSee(): void

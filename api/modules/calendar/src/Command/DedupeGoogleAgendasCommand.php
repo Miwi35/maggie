@@ -9,6 +9,7 @@ use Maggie\Calendar\Message\DeleteAgendaCommand;
 use Maggie\Calendar\Message\PullFromGoogleCommand;
 use Maggie\Calendar\Repository\AgendaRepository;
 use Maggie\Calendar\Repository\EventRepository;
+use Maggie\Core\Elasticsearch\IndexMetadataReader;
 use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
 use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
 use Maggie\Core\Mercure\MercureTopic;
@@ -46,6 +47,7 @@ final class DedupeGoogleAgendasCommand extends Command
         private readonly EntityManagerInterface $entityManager,
         private readonly AgendaRepository $agendaRepository,
         private readonly EventRepository $eventRepository,
+        private readonly IndexMetadataReader $metadataReader,
         private readonly MessageBusInterface $messageBus,
         private readonly HubInterface $hub,
     ) {
@@ -147,6 +149,8 @@ final class DedupeGoogleAgendasCommand extends Command
 
         $toMove = [];
         $toDrop = [];
+        /** @var list<Event> $refreshed the kept copies a fresher duplicate updated */
+        $refreshed = [];
         foreach ($this->eventRepository->findBy(['agenda' => $duplicate]) as $event) {
             $googleEventId = $event->getGoogleEventId();
             if (null !== $googleEventId && isset($keptByGoogleId[$googleEventId])) {
@@ -156,46 +160,62 @@ final class DedupeGoogleAgendasCommand extends Command
             }
         }
 
+        // Of two copies of the same Google event, the one Google updated last
+        // is the one that is right. The row that stays is the kept agenda's —
+        // its id is what the clients and the index already point at — so the
+        // fresher copy hands over its content instead of replacing it.
+        foreach ($toDrop as $event) {
+            $survivor = $keptByGoogleId[(string) $event->getGoogleEventId()];
+            if ($this->isFresher($event, $survivor)) {
+                $this->copyGoogleOwnedFields($event, $survivor);
+                $refreshed[] = $survivor;
+            }
+        }
+
         // An occurrence that overrides a recurrence points at its parent, and
         // the database cascades a parent's deletion onto it. Moving it while
         // its parent is dropped would delete it too, so it is tied to the copy
-        // that stays — or to nothing, and the sync below puts it back.
+        // that stays.
         foreach ($toMove as $event) {
             $parent = $event->getRecurringEvent();
-            if (null === $parent || !\in_array($parent, $toDrop, true)) {
-                continue;
+            if (null !== $parent && \in_array($parent, $toDrop, true)) {
+                $event->setRecurringEvent($keptByGoogleId[(string) $parent->getGoogleEventId()]);
             }
-
-            $parentGoogleId = $parent->getGoogleEventId();
-            $event->setRecurringEvent(null === $parentGoogleId ? null : ($keptByGoogleId[$parentGoogleId] ?? null));
         }
 
         foreach ($toMove as $event) {
             $event->setAgenda($keep);
         }
+
+        // A duplicate agenda marked as the default would take the flag with it,
+        // and Maggie would have nowhere to file an appointment (MAG-149).
+        if ($duplicate->isDefault() && !$keep->isDefault()) {
+            $keep->setIsDefault(true);
+            $this->publish(MercureTopic::collection($keep), $keepId, $userId, $keep->toMercurePayload());
+            $this->messageBus->dispatch(new IndexDocumentCommand(entityClass: Agenda::class, entityId: $keepId));
+        }
+
         $this->entityManager->flush();
 
-        foreach ($toMove as $event) {
-            $this->messageBus->dispatch(new IndexDocumentCommand(
-                entityClass: Event::class,
-                entityId: (string) $event->getId(),
-            ));
-            $this->publish(MercureTopic::collectionFromShortName('Event'), (string) $event->getId(), $userId, $event->toMercurePayload());
+        foreach ([...$toMove, ...$refreshed] as $event) {
+            $this->announce($event, $userId);
         }
 
         // Dropped one by one rather than left to the agenda's cascade: the
         // duplicate agenda is then empty when it goes, so nothing else can be
         // carried away with it.
-        $droppedIds = [];
+        $dropped = [];
         foreach ($toDrop as $event) {
-            $droppedIds[] = (string) $event->getId();
+            // A Meal is an Event with its own index and its own topic, and the
+            // agenda holds both.
+            $dropped[] = [(string) $event->getId(), $this->indexNameOf($event), MercureTopic::collection($event)];
             $this->entityManager->remove($event);
         }
         $this->entityManager->flush();
 
-        foreach ($droppedIds as $eventId) {
-            $this->messageBus->dispatch(new DeleteDocumentCommand(indexName: 'events', documentId: $eventId));
-            $this->publishDelete(MercureTopic::collectionFromShortName('Event'), $eventId, $userId);
+        foreach ($dropped as [$eventId, $indexName, $topic]) {
+            $this->messageBus->dispatch(new DeleteDocumentCommand(indexName: $indexName, documentId: $eventId));
+            $this->publishDelete($topic, $eventId, $userId);
         }
 
         // Goes through the bus so the duplicate's Google watch channel is
@@ -209,16 +229,70 @@ final class DedupeGoogleAgendasCommand extends Command
         $this->publishDelete(MercureTopic::collectionFromShortName('Agenda'), $duplicateId, $userId);
 
         $io->text(sprintf(
-            'Agenda %s: %d event(s) moved in, %d duplicate event(s) dropped, agenda %s removed.',
+            'Agenda %s: %d event(s) moved in, %d refreshed from a newer copy, %d duplicate(s) dropped, agenda %s removed.',
             $keepId,
             \count($toMove),
-            \count($droppedIds),
+            \count($refreshed),
+            \count($dropped),
             $duplicateId,
         ));
 
         // A removed agenda goes back to being a new entity in the unit of work,
         // and the events that pointed at it would be flushed against it again.
         $this->entityManager->clear();
+    }
+
+    /**
+     * Google's own timestamp, not ours: a copy whose sync stopped carries the
+     * timestamp of its last successful one. A copy Google never dated loses to
+     * one it did, and ties keep the row that stays.
+     */
+    private function isFresher(Event $candidate, Event $survivor): bool
+    {
+        $candidateAt = $candidate->getGoogleUpdatedAt();
+        if (null === $candidateAt) {
+            return false;
+        }
+
+        $survivorAt = $survivor->getGoogleUpdatedAt();
+
+        return null === $survivorAt || $candidateAt > $survivorAt;
+    }
+
+    /**
+     * Everything the Google sync writes on an event, and nothing else: the
+     * agenda and the recurrence parent belong to the row that stays.
+     */
+    private function copyGoogleOwnedFields(Event $from, Event $to): void
+    {
+        $to->setSummary($from->getSummary());
+        $to->setDescription($from->getDescription());
+        $to->setLocation($from->getLocation());
+        $to->setAllDay($from->isAllDay());
+        $to->setStartAt($from->getStartAt());
+        $to->setEndAt($from->getEndAt());
+        $to->setTimeZone($from->getTimeZone());
+        $to->setRrule($from->getRrule());
+        $to->setOriginalStartAt($from->getOriginalStartAt());
+        $to->setStatus($from->getStatus());
+        $to->setReminders($from->getReminders());
+        $to->setGoogleEtag($from->getGoogleEtag());
+        $to->setGoogleUpdatedAt($from->getGoogleUpdatedAt());
+    }
+
+    private function announce(Event $event, string $userId): void
+    {
+        $this->messageBus->dispatch(new IndexDocumentCommand(
+            entityClass: $event::class,
+            entityId: (string) $event->getId(),
+        ));
+        $this->publish(MercureTopic::collection($event), (string) $event->getId(), $userId, $event->toMercurePayload());
+    }
+
+    private function indexNameOf(Event $event): string
+    {
+        return $this->metadataReader->read($event::class)['index']
+            ?? throw new \RuntimeException($event::class.' is not indexed, so its document cannot be removed.');
     }
 
     /**

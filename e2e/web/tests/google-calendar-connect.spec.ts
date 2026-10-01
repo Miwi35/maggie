@@ -32,15 +32,38 @@ async function connect(
   return { status: response.status(), id: body.id, name: body.name }
 }
 
-// The seed knows nothing about Google, so the first connection is what creates
-// the agenda — unless a retry or a local rerun already did. Starting from a
-// clean slate keeps the 201 below meaningful.
-test.beforeEach(async ({ api }) => {
+async function connectedAgendas(
+  api: import('@playwright/test').APIRequestContext,
+): Promise<AgendaMember[]> {
   const agendas = await getCollection<AgendaMember>(api, '/api/agendas')
 
-  for (const agenda of agendas.filter((candidate) => candidate.googleCalendarId === GOOGLE_CALENDAR_ID)) {
+  return agendas.filter((agenda) => agenda.googleCalendarId === GOOGLE_CALENDAR_ID)
+}
+
+/**
+ * The seed knows nothing about Google, so the first connection is what creates
+ * the agenda — unless a retry or a local rerun already did. Both hooks poll:
+ * the collection is served from Elasticsearch and a delete reaches it through
+ * RabbitMQ, so reading once would leave the next run starting from a state it
+ * cannot see.
+ */
+async function removeConnectedAgendas(api: import('@playwright/test').APIRequestContext): Promise<void> {
+  for (const agenda of await connectedAgendas(api)) {
     await api.delete(`/api/agendas/${agenda.id}`)
   }
+
+  await expect.poll(async () => (await connectedAgendas(api)).length, {
+    timeout: 30_000,
+    message: 'The Google calendar should be connected to nothing',
+  }).toBe(0)
+}
+
+test.beforeEach(async ({ api }) => {
+  await removeConnectedAgendas(api)
+})
+
+test.afterEach(async ({ api }) => {
+  await removeConnectedAgendas(api)
 })
 
 test('connecting the same Google calendar twice leaves a single agenda', async ({ api }) => {
@@ -60,11 +83,8 @@ test('connecting the same Google calendar twice leaves a single agenda', async (
   expect(second.status, 'Reconnecting is a success, not a conflict').toBe(200)
   expect(second.id, 'The second connection reuses the first agenda').toBe(first.id)
 
-  const agendas = await getCollection<AgendaMember>(api, '/api/agendas')
-  const connected = agendas.filter((agenda) => agenda.googleCalendarId === GOOGLE_CALENDAR_ID)
-
-  expect(
-    connected.map((agenda) => agenda.id),
-    'The agenda list shows the Google calendar once',
-  ).toEqual([first.id])
+  await expect.poll(async () => (await connectedAgendas(api)).map((agenda) => agenda.id), {
+    timeout: 30_000,
+    message: 'The agenda list should show the Google calendar once',
+  }).toEqual([first.id])
 })

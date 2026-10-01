@@ -169,6 +169,43 @@ class DedupeGoogleAgendasCommandTest extends KernelTestCase
         self::assertCount(4, $this->em()->getRepository(Event::class)->findAll());
     }
 
+    public function testTheCopyGoogleUpdatedLastIsTheOneThatSurvives(): void
+    {
+        $this->loadDuplicates();
+
+        $this->tester->execute([]);
+        $this->tester->assertCommandIsSuccessful();
+
+        $this->em()->clear();
+        $event = $this->em()->getRepository(Event::class)->findOneBy(['googleEventId' => 'g-shared']);
+
+        self::assertNotNull($event);
+        self::assertSame(
+            'Concert de Camille (renommé dans Google)',
+            $event->getSummary(),
+            'The kept agenda had stopped syncing, so its copy was the stale one',
+        );
+        self::assertEquals(new \DateTimeImmutable('2026-03-30 10:00'), $event->getGoogleUpdatedAt());
+    }
+
+    public function testTheDefaultAgendaDoesNotDisappearWithTheDuplicate(): void
+    {
+        [$kept] = $this->loadDuplicates();
+        $keptId = (string) $kept->getId();
+
+        $this->tester->execute([]);
+        $this->tester->assertCommandIsSuccessful();
+
+        $this->em()->clear();
+        $defaults = $this->em()->getRepository(Agenda::class)->findBy(['isDefault' => true]);
+
+        self::assertSame(
+            [$keptId],
+            array_map(fn (Agenda $agenda) => (string) $agenda->getId(), $defaults),
+            'The flag moves to the agenda that is kept, so Maggie still knows where to file an appointment',
+        );
+    }
+
     public function testTheOccurrenceOfARecurrenceSurvivesItsParentBeingDropped(): void
     {
         [$kept] = $this->loadDuplicates();

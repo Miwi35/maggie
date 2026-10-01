@@ -114,11 +114,25 @@ class ConnectGoogleCalendar
         }
 
         $expiresAt = $agenda->getGoogleWatchExpiresAt();
-        if (null !== $agenda->getGoogleWatchChannelId()
-            && null !== $expiresAt
-            && $expiresAt > new \DateTimeImmutable('+1 hour')
-        ) {
+        $channelId = $agenda->getGoogleWatchChannelId();
+        $resourceId = $agenda->getGoogleWatchResourceId();
+
+        if (null !== $channelId && null !== $expiresAt && $expiresAt > new \DateTimeImmutable('+1 hour')) {
             return;
+        }
+
+        // The channel being replaced is closed first. Google would otherwise
+        // keep pushing on it until it expired, and those pushes would arrive
+        // with a channel id no agenda answers to any more.
+        if (null !== $channelId && null !== $resourceId) {
+            try {
+                $this->apiClient->stopWatch($user, $channelId, $resourceId);
+            } catch (\Throwable $e) {
+                $this->logger->warning('Failed to stop the previous Google watch channel: {error}', [
+                    'error' => $e->getMessage(),
+                    'agenda' => (string) $agenda->getId(),
+                ]);
+            }
         }
 
         try {
