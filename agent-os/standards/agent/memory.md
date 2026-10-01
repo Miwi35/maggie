@@ -60,9 +60,12 @@ in the inspector — goes through the same service. It is the only place that st
 source, appends the `memory_event`, and publishes on Mercure. A repository write that
 bypasses it is a bug, not a shortcut.
 
-Publishing means a new `memory` stream in `agent/app/mercure/topics.py` (`STREAMS`), the
-regenerated `agent/contract/mercure-topics.json`, and the selector listed in the API's
-`MercureSubscriberTokenFactory` — the contract test goes red otherwise, on purpose.
+Publishing means a new `memory` stream in `agent/app/mercure/topics.py` (`STREAMS`) and the
+regenerated `agent/contract/mercure-topics.json` — the admin contract test goes red until
+both land, on purpose. The third step is covered by nothing: `AGENT_TOPICS` in the API's
+`MercureSubscriberTokenFactory` is a hardcoded list, and forgetting `memory` there publishes
+updates no token can ever receive. MAG-17 adds it and extends
+`MercureSubscriberTokenFactoryTest`.
 
 ## Tools
 
@@ -76,10 +79,17 @@ Five, no more:
 - `archive_note(id, reason)` — leaves the index and the default search, stays visible
 - `forget_note(id)` — real deletion, history included; only on the owner's explicit word
 
-Search starts on `to_tsvector('french', …)`, the one precedent in the repo. Accent and typo
-tolerance wants `unaccent` and `pg_trgm`, which nothing here installs and which the agent
-role may not be allowed to create on the shared production Postgres (ADR-007): MAG-16 checks
-that first and says in the ticket which of the two it got, rather than assuming.
+`search_memory` keeps its name with new semantics, and the others replace tools the system
+prompt still names: `agent/app/personality/default.yaml` tells Maggie to call `store_memory`,
+so MAG-17 rewrites that paragraph too, or the prompt advertises a tool that no longer exists.
+
+Search starts on `to_tsvector('french', …)`. The only precedent is a dead one — the GIN index
+in `api/migrations/Version20260215161926.php`, dropped by `Version20260219140000.php` when
+memory moved to the agent — so there is no working example on `maggie_agent` to copy. Accent
+and typo tolerance wants `unaccent` and `pg_trgm`, which nothing here installs; `maggie_agent`
+is owned by the role the agent connects as, and both are trusted extensions, so this should
+work — MAG-16 confirms it on the shared production Postgres and says so in the ticket rather
+than assuming either way.
 
 ## Recall
 
