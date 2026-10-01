@@ -100,6 +100,24 @@ class GoogleCalendarRenewWatchCommandTest extends KernelTestCase
         );
     }
 
+    public function testAllOptionRecreatesChannelsThatStillHaveTimeLeft(): void
+    {
+        // MAG-193: channels created for the wrong address look healthy — they
+        // expire in a week — so the deploy asks for every channel to be replaced.
+        $this->em()->getRepository(Agenda::class)
+            ->findOneBy(['name' => 'Concerts'])
+            ->setGoogleWatchExpiresAt(new \DateTimeImmutable('+6 days'));
+        $this->em()->flush();
+
+        $this->stubGoogle();
+        $this->tester->execute(['--all' => true]);
+
+        $this->tester->assertCommandIsSuccessful();
+        self::assertSame([['channel-old', 'resource-old']], $this->stopWatchCalls);
+        self::assertStringContainsString('Renewed 1 watch channel', $this->tester->getDisplay());
+        self::assertSame('channel-new', $this->reloadAgenda()->getGoogleWatchChannelId());
+    }
+
     public function testLeavesAgendasWhoseChannelHasTimeLeftAlone(): void
     {
         $this->em()->getRepository(Agenda::class)

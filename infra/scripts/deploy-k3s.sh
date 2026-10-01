@@ -245,6 +245,15 @@ if ! $KUBECTL exec "deployment/php" -n "$NAMESPACE" -- bin/console app:elasticse
   warn "ES reindex failed (non-blocking). Run manually: kubectl exec deployment/php -n $NAMESPACE -- bin/console app:elasticsearch:reindex --all"
 fi
 
+# Google keeps pushing to the address a channel was created with (MAG-193), and
+# only the expiry is stored, so every deploy replaces the channels with ones
+# for the address this release is configured with. Safe to repeat; the 5-minute
+# cron covers the instant between the old channel and the new one.
+log "Phase 5e: Recreating the Google push channels..."
+if ! $KUBECTL exec "deployment/php" -n "$NAMESPACE" -- bin/console maggie:google-calendar:renew-watch --all --no-interaction; then
+  warn "Google watch channels not recreated (non-blocking). Run manually: kubectl exec deployment/php -n $NAMESPACE -- bin/console maggie:google-calendar:renew-watch --all"
+fi
+
 # === PHASE 6 : VERIFICATION ===
 log "Phase 6: Final verification..."
 

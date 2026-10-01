@@ -8,6 +8,7 @@ use Maggie\Calendar\Service\GoogleCalendarApiClient;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
@@ -27,12 +28,21 @@ class GoogleCalendarRenewWatchCommand extends Command
         parent::__construct();
     }
 
+    protected function configure(): void
+    {
+        $this->addOption('all', null, InputOption::VALUE_NONE, 'Replace every channel, not only the expiring ones');
+    }
+
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
 
-        // Find channels expiring within the next hour
-        $threshold = new \DateTimeImmutable('+1 hour');
+        // --all: the deploy replaces every channel so none keeps an address
+        // the configuration no longer holds (MAG-193). Channels only
+        // remember their expiry, not where they push, so it cannot tell which.
+        $threshold = $input->getOption('all')
+            ? new \DateTimeImmutable('+100 years')
+            : new \DateTimeImmutable('+1 hour');
         $agendas = $this->agendaRepository->findWithExpiringWatchChannels($threshold);
 
         if (empty($agendas)) {

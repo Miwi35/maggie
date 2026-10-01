@@ -23,7 +23,28 @@ class GoogleCalendarApiClient
          * Empty means the library's own root — dev and prod are unchanged.
          */
         private readonly string $googleApiBaseUrl = '',
+        private readonly string $kernelEnvironment = '',
     ) {
+    }
+
+    /**
+     * Google pushes to whatever address it is given and never complains, so a
+     * placeholder left in the configuration (MAG-193) silently turns push
+     * notifications into a five-minute cron. In prod the address must be a
+     * real https one.
+     */
+    public static function assertUsableWebhookUrl(string $webhookUrl, string $environment): void
+    {
+        if ('prod' !== $environment) {
+            return;
+        }
+
+        $scheme = parse_url($webhookUrl, \PHP_URL_SCHEME);
+        $host = parse_url($webhookUrl, \PHP_URL_HOST);
+
+        if ('https' !== $scheme || !\is_string($host) || preg_match('/(^|\.)example\.(com|org|net)$/i', $host)) {
+            throw new \InvalidArgumentException(\sprintf('GOOGLE_WEBHOOK_URL "%s" cannot receive Google push notifications in prod: it must be a real https address, not an example.com placeholder.', $webhookUrl));
+        }
     }
 
     public function getCalendarService(User $user): GoogleCalendarService
@@ -132,6 +153,8 @@ class GoogleCalendarApiClient
      */
     public function watchEvents(User $user, string $calendarId, string $webhookUrl, string $token): array
     {
+        self::assertUsableWebhookUrl($webhookUrl, $this->kernelEnvironment);
+
         $service = $this->getCalendarService($user);
 
         $channel = new Channel();
