@@ -85,6 +85,16 @@ class TestContextRepositorySummary:
         # make every re-summary read the whole thread again.
         assert stored.summary_updated_at is not None
 
+    async def test_stamps_the_last_message_the_summary_covers(self, chat_db):
+        """Not "now": a message that arrives during the model call has not been summarized."""
+        ctx = await context_repo.create("user-1", "Courses de la semaine")
+        last_message_at = datetime(2026, 10, 1, 9, 30, tzinfo=UTC)
+
+        await context_repo.set_summary(str(ctx.id), "Un résumé.", covers_up_to=last_message_at)
+
+        stored = await context_repo.get(str(ctx.id))
+        assert stored.summary_updated_at.replace(tzinfo=UTC) == last_message_at
+
     async def test_publishes_the_context_so_an_open_panel_sees_it(self, chat_db):
         ctx = await context_repo.create("user-1", "Courses de la semaine")
         chat_db.published.reset_mock()

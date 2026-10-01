@@ -6,6 +6,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.compiler import compiles
 
 from app.api.routes import router
 from app.auth import get_current_user_id
@@ -68,28 +70,30 @@ class ChatDb:
     published: AsyncMock
 
 
+@compiles(JSONB, "sqlite")
+def _jsonb_as_json(type_, compiler, **kw):  # pragma: no cover — DDL only
+    """Render a Postgres `JSONB` column as `JSON` when the dialect is SQLite.
+
+    `tool_calls_log` is `JSONB` and SQLite has no such type, so the DDL compiler refuses
+    to render it and `CREATE TABLE` raises. This is purely about the DDL: `JSONB` derives
+    from SQLAlchemy's own `JSON`, so values are serialised through the dialect either
+    way, and the repositories under test run exactly the queries they run in production.
+
+    Registered at module scope on purpose — it is process-global state, and a fixture
+    body would hide that while never undoing it.
+    """
+    return "JSON"
+
+
 @pytest.fixture()
 def chat_db():
-    """In-memory database behind the context and message repositories (real queries, no mocks).
-
-    `tool_calls_log` is a Postgres `JSONB` column and SQLite has no such type, so the
-    DDL compiler refuses to render it. Rendering it as `JSON` here is purely about the
-    `CREATE TABLE`: `JSONB` derives from SQLAlchemy's own `JSON`, so the values are
-    serialised through the dialect either way, and the repositories under test run
-    exactly the queries they run in production.
-    """
+    """In-memory database behind the context and message repositories (real queries, no mocks)."""
     from sqlalchemy import create_engine
-    from sqlalchemy.dialects.postgresql import JSONB
-    from sqlalchemy.ext.compiler import compiles
     from sqlalchemy.orm import sessionmaker
     from sqlalchemy.pool import StaticPool
 
     from app.db.context_model import ConversationContext
     from app.db.models import Message
-
-    @compiles(JSONB, "sqlite")
-    def _jsonb_as_json(type_, compiler, **kw):  # pragma: no cover — DDL only
-        return "JSON"
 
     engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
     ConversationContext.__table__.create(engine)

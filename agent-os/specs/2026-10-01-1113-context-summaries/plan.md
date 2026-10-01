@@ -17,7 +17,10 @@ Shaping notes and decisions: [shape.md](shape.md) · Standards: [standards.md](s
    wait for it, and a summarizer that fails leaves the conversation untouched.
 5. The system prompt of every streamed message lists each open context's summary under its
    label, in the volatile block — never in the cached prefix.
-6. The Mind panel shows a thread's summary under its label, live, without a reload.
+6. The Mind panel shows a thread's summary under its label, live, without a reload. The
+   journey asserts it from a fresh tab (`GET /agent/contexts`, the path an owner opening
+   the app takes); the live half is asserted in `ChatWidget.test.tsx`, where a Mercure
+   message can be published on demand.
 7. `ContextSummarizer.summarize(context_id)` is public and standalone, so MAG-12's
    scheduler can call it on the dormant and closed transitions.
 
@@ -31,9 +34,13 @@ This folder: `plan.md`, `shape.md`, `standards.md`.
   (`DateTime(timezone=True)`, nullable); `to_dict()` gains `summary` and
   `summaryUpdatedAt`.
 - `agent/app/db/context_repository.py` — `run_migrations()` adds both columns with
-  `ADD COLUMN IF NOT EXISTS`; `set_summary(context_id, summary)` stores them, stamps
-  `updated_at` and publishes the context on the user's `contexts` topic, with the same
-  best-effort `try/except` as the other writes.
+  `ADD COLUMN IF NOT EXISTS`; `set_summary(context_id, summary, covers_up_to)` stores
+  them and publishes the context on the user's `contexts` topic, with the same
+  best-effort `try/except` as the other writes. `covers_up_to` is the last message the
+  summary was written from, not the moment it was written: the model call takes a second
+  and the summary fires exactly when the user is likely to be typing again, so "now"
+  would mark a message that arrived mid-call as covered and every later pass would skip
+  it. `updated_at` is left alone — the context router ranks on it.
 - `agent/app/db/message_repository.py` — `find_by_context(context_id, since=None,
   limit=…)` in chronological order and `count_by_context(context_id, since=None)`.
   `since` is what makes the summary incremental.
@@ -93,10 +100,10 @@ This folder: `plan.md`, `shape.md`, `standards.md`.
 | Unit touched | Tests |
 |---|---|
 | `ConversationContext` | `to_dict()` carries `summary` and `summaryUpdatedAt`, and `None` when unset |
-| `ContextRepository.set_summary` | happy path on a real SQLite session asserting the row, the stamp and the Mercure publication; unknown id returns `None`; a Mercure failure still commits |
+| `ContextRepository.set_summary` | happy path on a real SQLite session asserting the row, the stamp and the Mercure publication; the stamp is the last message covered, not `now()`; `updated_at` untouched; unknown id returns `None`; a Mercure failure still commits |
 | `ContextRepository.run_migrations` | both `ALTER TABLE` statements are issued |
 | `MessageRepository.find_by_context` / `count_by_context` | chronological order, `since` filter, another context's messages excluded |
-| `ContextSummarizer.summarize` | happy path (stored, returned, usage recorded); no context; no message; empty answer; API error — each returns `None` and writes nothing |
+| `ContextSummarizer.summarize` | happy path (stored with the last message's instant, returned, usage recorded); a very long message is cut; no context; no message; empty answer; API error — each returns `None` and writes nothing |
 | `ContextSummarizer.maybe_summarize` | below the threshold does nothing, at the threshold summarizes, counts from `summary_updated_at` |
 | `StreamingGateway._build_system_prompt` | a context with a summary puts it in the volatile block, one without does not, the cached prefix is untouched, the cap holds |
 | `StreamingGateway.chat_stream` | the summary is spawned after the assistant message and `RUN_FINISHED` does not wait for it |

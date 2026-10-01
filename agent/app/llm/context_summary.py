@@ -39,6 +39,10 @@ MAX_SUMMARY_TOKENS = 400
 # summary yet — afterwards each pass reads what came in since the last one.
 MAX_MESSAGES_PER_PASS = 100
 
+# And how much of each. The count above bounds how many messages go in, not how big
+# they are, and a dictated paragraph or a pasted list is one message.
+MAX_MESSAGE_CHARS = 600
+
 SYSTEM_PROMPT = (
     "Tu résumes un fil de conversation entre un utilisateur et son assistante personnelle.\n"
     "Écris en français, à la troisième personne, 5 lignes au maximum.\n"
@@ -50,11 +54,20 @@ SYSTEM_PROMPT = (
 
 
 def _transcript(messages: list) -> str:
-    """The thread as the model reads it. The role prefix is what tells a request from an answer."""
+    """The thread as the model reads it. The role prefix is what tells a request from an answer.
+
+    Each message is cut to `MAX_MESSAGE_CHARS`: the message count is bounded above but
+    its size is not, and one pasted document would otherwise make the call far larger
+    than the thread it is meant to compress. What a summary needs from a long message is
+    its subject, which is at the top.
+    """
     lines = []
     for message in messages:
         speaker = "Utilisateur" if message.role == "user" else "Maggie"
-        lines.append(f"{speaker} : {message.content}")
+        content = message.content or ""
+        if len(content) > MAX_MESSAGE_CHARS:
+            content = content[:MAX_MESSAGE_CHARS] + " […]"
+        lines.append(f"{speaker} : {content}")
     return "\n".join(lines)
 
 
@@ -108,7 +121,9 @@ class ContextSummarizer:
             if not summary:
                 return None
 
-            await context_repo.set_summary(context_id, summary)
+            # Stamped with the last message read, not with "now": the call above took a
+            # second, and anything the user sent during it has not been summarized.
+            await context_repo.set_summary(context_id, summary, covers_up_to=messages[-1].created_at)
             logger.info(f"Summarized context {context_id} from {len(messages)} new messages")
             return summary
 

@@ -66,8 +66,16 @@ class ContextRepository:
 
         return ctx
 
-    async def set_summary(self, context_id: str, summary: str) -> ConversationContext | None:
+    async def set_summary(
+        self, context_id: str, summary: str, covers_up_to: datetime | None = None
+    ) -> ConversationContext | None:
         """Store a thread's summary and the instant it covers up to (MAG-11).
+
+        `covers_up_to` is the last message the summary was written from, not the moment
+        it was written: the model call takes a second, and the summary fires exactly when
+        the user is likely to be typing again. Stamping "now" would mark a message that
+        arrived mid-call as covered, and every later pass would skip it. `None` means now,
+        for a caller with no message to point at.
 
         `updated_at` is deliberately left alone: a summary is written *about* the
         conversation, not *in* it, and the context router ranks contexts by how recently
@@ -81,7 +89,7 @@ class ContextRepository:
                 return None
 
             ctx.summary = summary
-            ctx.summary_updated_at = datetime.now(UTC)
+            ctx.summary_updated_at = covers_up_to or datetime.now(UTC)
             await session.commit()
             await session.refresh(ctx)
 

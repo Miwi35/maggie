@@ -6,7 +6,7 @@ below are mostly about *that* — each error branch has to leave the stored summ
 untouched and return `None`, rather than raise into a background task nobody awaits.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -31,8 +31,15 @@ def _context(summary: str | None = None, summary_updated_at: datetime | None = N
     return ctx
 
 
+FIRST_MESSAGE_AT = datetime(2026, 10, 1, 9, 0, tzinfo=UTC)
+
+
 def _messages(*pairs: tuple[str, str]) -> list[SimpleNamespace]:
-    return [SimpleNamespace(role=role, content=content) for role, content in pairs]
+    """A thread, one minute between messages — the instants the summary is stamped from."""
+    return [
+        SimpleNamespace(role=role, content=content, created_at=FIRST_MESSAGE_AT + timedelta(minutes=rank))
+        for rank, (role, content) in enumerate(pairs)
+    ]
 
 
 @pytest.fixture()
@@ -59,7 +66,14 @@ class TestSummarize:
         result = await summarizer.it.summarize("ctx-1")
 
         assert result == "L'utilisateur prépare ses courses."
-        summarizer.contexts.set_summary.assert_awaited_once_with("ctx-1", "L'utilisateur prépare ses courses.")
+        summarizer.contexts.set_summary.assert_awaited_once_with(
+            "ctx-1",
+            "L'utilisateur prépare ses courses.",
+            # The last message read, not "now": the call above takes a second, and the
+            # summary fires exactly when the user is likely to be typing again. Stamping
+            # "now" would mark that message as covered and every later pass would skip it.
+            covers_up_to=FIRST_MESSAGE_AT + timedelta(minutes=1),
+        )
 
     async def test_sends_the_thread_with_who_said_what(self, summarizer):
         summarizer.contexts.get = AsyncMock(return_value=_context())
@@ -91,6 +105,19 @@ class TestSummarize:
         # The previous summary goes back in, which is what keeps a pass incremental
         # instead of re-reading a thread from its first message.
         assert "Déjà dit." in summarizer.it.client.messages.create.await_args.kwargs["messages"][0]["content"]
+
+    async def test_a_very_long_message_is_cut(self, summarizer):
+        """The message count is bounded, its size is not — one pasted list would blow the call up."""
+        summarizer.contexts.get = AsyncMock(return_value=_context())
+        summarizer.contexts.set_summary = AsyncMock()
+        summarizer.messages.find_by_context = AsyncMock(return_value=_messages(("user", "a" * 5_000)))
+
+        await summarizer.it.summarize("ctx-1")
+
+        prompt = summarizer.it.client.messages.create.await_args.kwargs["messages"][0]["content"]
+        assert "a" * 600 in prompt
+        assert "a" * 601 not in prompt
+        assert "[…]" in prompt
 
     async def test_records_what_the_call_cost(self, summarizer):
         summarizer.contexts.get = AsyncMock(return_value=_context())
