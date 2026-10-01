@@ -403,6 +403,8 @@ async def _handle_update_skill(arguments: dict, user_id: str) -> str:
     name = arguments.get("name", "")
     if not name:
         return json.dumps({"error": "'name' is required"})
+    if arguments.get("tags") is not None and not isinstance(arguments["tags"], list):
+        return json.dumps({"error": "'tags' must be a list of strings"})
     entry = await skill_index.update(
         name,
         description=arguments.get("description"),

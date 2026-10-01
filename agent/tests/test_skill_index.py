@@ -357,3 +357,15 @@ class TestCreateSkillToolValidation:
         assert "error" in json.loads(result)
         with agent_db() as session:
             assert session.query(Skill).count() == 0
+
+
+    async def test_update_refuses_non_list_tags(self, agent_db):
+        from app.llm.tools import ToolRouter
+
+        index = _index()
+        await index.create("s", "d", ["t"], "body", user_id="u")
+        with patch("app.llm.tools.skill_index", index):
+            result = await ToolRouter().call_tool("update_skill", {"name": "s", "tags": "oops"}, user_id="u")
+
+        assert "error" in json.loads(result)
+        assert index.entries[0].tags == ["t"]
