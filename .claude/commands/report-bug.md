@@ -21,5 +21,5 @@ Turn what the user saw — usually while using Maggie in production — into a L
    - **Test de reproduction attendu** — the test that must fail before the fix and pass after (unit, API or e2e, and which journey ticket MAG-99…103 it extends).
    - **Hors périmètre** — what the fix must not touch.
 
-   Labels: `Bug`, every `area:*` touched, `from-recette` when found while using the product, `lock:migration` only if the fix needs a schema change. Priority: **Urgent** if data is lost or wrong, a main journey is blocked, or security is involved; **High** if a feature is unusable with a workaround; **Medium** otherwise. Project: the module's project, else « Correctifs de l'inventaire fonctionnel ».
+   Labels: `Bug`, `agent-ready`, every `area:*` touched, `from-recette` when found while using the product, `lock:migration` only if the fix needs a schema change. Priority: **Urgent** if data is lost or wrong, a main journey is blocked, or security is involved; **High** if a feature is unusable with a workaround; **Medium** otherwise. Project: the module's project, else « Correctifs de l'inventaire fonctionnel ».
 5. **Answer in one line**: the ticket link and its priority. The dispatcher hands it to Cyrus, who runs `/fix-bug`.
