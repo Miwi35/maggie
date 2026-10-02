@@ -1,0 +1,57 @@
+appId: com.maggie.app.e2e
+name: 08-grocery-deferred
+tags:
+  - grocery
+---
+# A line bought « after » a date is not on today's list (MAG-178): the seed gives
+# the owner a « Liquide vaisselle » deferred five days, and the phone must show
+# the rest of the list without it.
+#
+# **Both sides are asserted, or the absence proves nothing.** A screen that
+# failed to load at all would also not show the dish soap. So the database is
+# asked for it first (`present`: the row exists), the phone is waited on until it
+# shows a line that is due (« Tomate »), and only then is the deferred one
+# required to be missing.
+#
+# The owner's account, with the flavor's default sign-in, and read-only: nothing
+# is written, so this flow can run in any order.
+
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: expect
+      LABEL: Liquide vaisselle
+      STATE: present
+      EMAIL: e2e@maggie.local
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+
+- runFlow: ../subflows/sign-in.yaml
+
+- tapOn:
+    id: "nav_menu"
+- tapOn:
+    id: "drawer_grocery"
+- extendedWaitUntil:
+    visible:
+      id: "grocery"
+    timeout: 20000
+
+# What is due today is there, in its shop.
+- extendedWaitUntil:
+    visible:
+      text: ".*Tomate.*"
+      below: "Primeur du marché"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      text: ".*Pâtes complètes.*"
+      below: "Supermarché Leclerc"
+    timeout: 20000
+
+# What is deferred is not. `Supermarché Leclerc` is where it would be listed, so
+# the shop is on screen with its due line and not with this one.
+- assertNotVisible: ".*Liquide vaisselle.*"

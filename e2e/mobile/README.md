@@ -69,6 +69,7 @@ one of them missing.
 | `config.yaml` | the workspace: which files are flows, and in which order |
 | `flows/` | the journeys, numbered — what `maestro test` runs |
 | `subflows/` | shared steps (`sign-in.yaml`, `open-calendar.yaml`), kept out of the `flows` glob on purpose |
+| `scripts/` | `runScript` helpers: `grocery-api.js` plays the browser and reads the database back |
 | `run.sh` | the whole run: device, bridge, time zone, install, flows |
 | `maestro.sh` | downloads the pinned CLI into `.e2e-cache/` |
 | `lint.sh` | syntax, testTags, tag roots, applicationId, unawaited assertions — seconds, no device |
@@ -112,11 +113,43 @@ against an app nobody launched.
    id that starts with it. Both ends of a calendar bar are read with a regex
    (`calendar_span_${TRAIN_START}_.*`) — Maestro matches `id:` as one.
 7. **Assert on seeded data, never on counts.** `api/fixtures/e2e/` is shared with
-   the browser suite, which writes to the same user at the same time.
+   the browser suite, which writes to the same user at the same time. A flow that
+   writes labels its lines with its ticket (`… MAG-178`) and removes them.
 8. **A scenario before the step that needs it.** Maggie answers from
    `agent/fixtures/fake-llm/`; nothing matching means « [fake-llm] aucun scénario
    ne correspond à : … », which is a plausible-looking bubble. Assert
    `assertNotVisible: ".*aucun scénario.*"` after an exchange.
+
+## The grocery journeys (MAG-178)
+
+| | |
+|---|---|
+| `06-grocery-errand` | the errand: the list by shop in visit order, a tick, « Terminé » on a shop, what is left offered back, a removal |
+| `07-grocery-realtime` | web → phone and phone → web, with the app never relaunched or refreshed |
+| `08-grocery-deferred` | a line with a `buyAfter` in the future is in the database and not on the screen |
+
+Three things they rely on, none of them obvious:
+
+- **Another account.** `03` and `04` sign in as the seed's second user
+  (`e2e-other@maggie.local`: two shops with visit orders, a leek with a fallback
+  shop). `launchApp: arguments: { e2e_email: … }` becomes an intent extra that
+  `E2eSignIn.kt` reads; without it the flavor signs in as the build's default
+  account. They leave the list as they found it, so each run starts from the seed.
+- **The « browser » is a script.** Maestro drives one device and cannot open a
+  tab. `scripts/grocery-api.js` sends the requests the admin sends, as the same
+  user, so the server publishes to Mercure exactly as it does for a tab. It proves
+  the phone applies what the web publishes; the admin's own rendering of a change
+  made on the phone stays with `e2e/web/tests/grocery-errand.spec.ts`. The script
+  gets the stack's URL and login token from `run.sh` (`-e E2E_BASE_URL=…`).
+- **A stack of its own.** `03` reads the neighbour's seeded order (the leek in
+  Halles), which `task e2e:web` moves on the same stack: run `task e2e:seed`
+  (done by `task e2e:mobile`) between the two. CI gives each its own stack.
+- **Row selectors are wrapped in `.*`.** A list row is one merged node (text plus
+  quantity), so its label alone is not the node's whole text. Headers, buttons and
+  dialog texts are plain nodes and stay bare.
+- **The database is asserted, not only the screen.** `expect` in the same script
+  polls `GET /api/grocery_lists` — never reads it once: the collection is served
+  from Elasticsearch, which trails a write.
 
 ## What belongs here, and what does not
 

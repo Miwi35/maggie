@@ -225,7 +225,13 @@ flow_env=(
 #
 # Not `exec`: that would replace this shell and the EXIT trap above would never
 # remove the reverse bridge.
+#
+# `-e`: the flows' scripts (`scripts/grocery-api.js`) call the stack from the
+# host, where Maestro runs — so they need the real URL, not the device's bridged
+# one — and sign in with the same token as the app.
 "$MAESTRO" --device "$SERIAL" test "${targets[@]}" \
+  -e "E2E_BASE_URL=$BASE_URL" \
+  -e "E2E_LOGIN_TOKEN=$LOGIN_TOKEN" \
   --format junit \
   --output "$REPORT_DIR/junit.xml" \
   --test-output-dir "$REPORT_DIR" \
