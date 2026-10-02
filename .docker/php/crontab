@@ -7,6 +7,10 @@
 # them started together got the pod OOMKilled (MAG-186). Minutes used:
 # sync 0,5,… · sync --tasks 1,6,… · check-sync 3,18,33,48 · renew-watch 7,37 ·
 # finance jobs on minute 4 or 34. cron-image.test.sh checks no two collide.
+# The one exception is check-reminders: a reminder is minute-precise, so it runs
+# every minute and shares a minute with at most one other job (MAG-27); the
+# test counts it apart and the pod's memory limit holds it.
+* * * * * cd /var/www/api && php bin/console maggie:notification:check-reminders
 */5 * * * * cd /var/www/api && php bin/console maggie:google-calendar:sync
 1-59/5 * * * * cd /var/www/api && php bin/console maggie:google-calendar:sync --tasks
 7,37 * * * * cd /var/www/api && php bin/console maggie:google-calendar:renew-watch

@@ -16,7 +16,9 @@
 # limit and the container was OOMKilled, taking the running jobs with it. So
 # no two jobs may start in the same minute, and the memory limit must hold
 # three more commands than the most that start together: slow jobs still
-# running when the next ones start.
+# running when the next ones start. The one exception is check-reminders
+# (MAG-27), which runs every minute because a reminder is minute-precise: it is
+# counted apart, as one more command on top of whatever else starts then.
 #
 # Usage: IMAGE=<php image> infra/scripts/tests/cron-image.test.sh
 #   IMAGE  Image to test. Default: built from .docker/php/Dockerfile (target e2e).
@@ -49,7 +51,7 @@ if grep -v '^#' "$crontab_file" | grep -q '/proc/1/'; then
 else
   ok "no redirection to /proc/1/fd/*"
 fi
-for job in maggie:google-calendar:sync 'maggie:google-calendar:sync --tasks' maggie:google-calendar:renew-watch maggie:google-calendar:check-sync 'app:finance:sync --write' app:finance:check-consents; do
+for job in maggie:google-calendar:sync 'maggie:google-calendar:sync --tasks' maggie:google-calendar:renew-watch maggie:google-calendar:check-sync 'app:finance:sync --write' app:finance:check-consents maggie:notification:check-reminders; do
   grep -v '^#' "$crontab_file" | grep -qF "console $job" && ok "schedules $job" || bad "does not schedule $job"
 done
 if docker run --rm --entrypoint supercronic "$IMAGE" -test /etc/maggie/crontab >"$work/test.out" 2>&1; then
@@ -87,7 +89,7 @@ while read -r minute hour _; do
   for h in $(expand_field "$hour" 0 23); do
     for m in $(expand_field "$minute" 0 59); do printf '%02d:%02d\n' "$h" "$m" >>"$starts"; done
   done
-done < <(grep -vE '^[[:space:]]*(#|$)' "$crontab_file")
+done < <(grep -vE '^[[:space:]]*(#|$)' "$crontab_file" | grep -v 'maggie:notification:check-reminders')
 max_together="$(sort "$starts" | uniq -c | sort -rn | head -1 | awk '{print $1}')"
 crowded="$(sort "$starts" | uniq -c | awk '$1 > 1 {print $2 " (" $1 " jobs)"}' | head -5 | tr '\n' ' ')"
 [ "$(wc -l <"$starts")" -gt 0 ] && ok "the crontab has $(wc -l <"$starts") starts a day" || bad "no job start found in the crontab"
@@ -99,7 +101,7 @@ case "$limit" in
   *Mi) limit_mib=${limit%Mi} ;;
   *) limit_mib=0 ;;
 esac
-held=$(( ${max_together:-0} + 3 ))
+held=$(( ${max_together:-0} + 1 + 3 )) # + the every-minute check-reminders
 needed=$(( held * PEAK_MIB ))
 [ "$limit_mib" -ge "$needed" ] \
   && ok "the cron memory limit ($limit) holds $held console commands of ${PEAK_MIB}Mi" \

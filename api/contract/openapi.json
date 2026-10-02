@@ -11936,7 +11936,12 @@
                         "type": "string",
                         "enum": [
                             "reminder",
-                            "consent_expiring"
+                            "consent_expiring",
+                            "proaction",
+                            "task_due",
+                            "grocery",
+                            "approval",
+                            "finance"
                         ]
                     },
                     "title": {
@@ -11985,7 +11990,12 @@
                         "type": "string",
                         "enum": [
                             "reminder",
-                            "consent_expiring"
+                            "consent_expiring",
+                            "proaction",
+                            "task_due",
+                            "grocery",
+                            "approval",
+                            "finance"
                         ]
                     },
                     "title": {
@@ -12034,7 +12044,12 @@
                         "type": "string",
                         "enum": [
                             "reminder",
-                            "consent_expiring"
+                            "consent_expiring",
+                            "proaction",
+                            "task_due",
+                            "grocery",
+                            "approval",
+                            "finance"
                         ]
                     },
                     "title": {
@@ -12088,7 +12103,12 @@
                                 "type": "string",
                                 "enum": [
                                     "reminder",
-                                    "consent_expiring"
+                                    "consent_expiring",
+                                    "proaction",
+                                    "task_due",
+                                    "grocery",
+                                    "approval",
+                                    "finance"
                                 ]
                             },
                             "title": {

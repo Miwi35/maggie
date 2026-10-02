@@ -127,6 +127,8 @@ uid 1000, never as root and never with a redirection to `/proc/1/fd/1` (refused 
 non-root user: the job would silently never start, MAG-147). Each job's output and exit
 status go to `kubectl logs deploy/cron`; `maggie:google-calendar:check-sync` runs every
 15 min there and fails when a Google agenda was not synced for more than an hour.
+`maggie:notification:check-reminders` runs every minute (a reminder is minute-precise): it is
+the one job allowed to share a start minute with another, and the 384Mi limit counts it.
 Test of the scheduler: `infra/scripts/tests/cron-image.test.sh` (CI job `cron-image`).
 
 Postgres, Elasticsearch and RabbitMQ live in the `shared` namespace and are

@@ -33,13 +33,14 @@ spec:
               readOnly: true
           # One console command peaks at ~58 MiB. Jobs start one per minute
           # (.docker/php/crontab), but a slow one can still run when the next
-          # starts: 256Mi holds four, 128Mi got the pod OOMKilled (MAG-186).
+          # starts, and check-reminders runs every minute (MAG-27): 384Mi holds
+          # five; 128Mi got the pod OOMKilled (MAG-186).
           resources:
             requests:
               memory: 64Mi
               cpu: 10m
             limits:
-              memory: 256Mi
+              memory: 384Mi
               cpu: 300m
       volumes:
         - name: jwt-keys

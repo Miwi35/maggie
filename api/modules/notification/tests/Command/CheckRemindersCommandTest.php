@@ -106,7 +106,7 @@ final class CheckRemindersCommandTest extends KernelTestCase
             ['Appel avec la banque', 'Appel du voisin'],
             $this->allReminderTitles(),
             'only the two due reminders may fire — not the one still ahead, '
-            .'not the one beyond 24 hours, not the malformed list, not 0 minutes, not the one with none',
+            .'not the one beyond 24 hours, not the one already started, not the malformed list, not 0 minutes, not the one with none',
         );
     }
 
@@ -123,6 +123,17 @@ final class CheckRemindersCommandTest extends KernelTestCase
             ['Appel avec la banque', 'Appel du voisin'],
             $this->allReminderTitles(),
         );
+    }
+
+    public function testTheCommandIsRegisteredUnderTheNameTheCrontabRuns(): void
+    {
+        // Nothing runs it but the crontab baked into the image (.docker/php/crontab,
+        // every minute): a rename without the crontab line is silent. The crontab
+        // sits outside the api/ tree the test container mounts, so this guards the
+        // name; cron-image.test.sh checks the line.
+        $application = new \Symfony\Bundle\FrameworkBundle\Console\Application(self::$kernel);
+
+        self::assertTrue($application->has('maggie:notification:check-reminders'));
     }
 
     public function testItSaysSoWhenNothingIsDue(): void
