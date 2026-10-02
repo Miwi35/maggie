@@ -11,8 +11,8 @@ vi.mock('react-admin', () => ({
 }))
 
 const AGENDAS = [
-  { id: '/api/agendas/01PERSO', name: 'Perso', isDefault: true },
-  { id: '/api/agendas/01FAMILLE', name: 'Famille', isDefault: false },
+  { id: '/api/agendas/01PERSO', name: 'Perso', default: true },
+  { id: '/api/agendas/01FAMILLE', name: 'Famille', default: false },
 ]
 
 /**
@@ -63,6 +63,27 @@ describe('EventCreateDialog', () => {
         expect.objectContaining({
           data: expect.objectContaining({ summary: 'Café avec Léa', agenda: '/api/agendas/01PERSO' }),
         }),
+      ),
+    )
+  })
+
+  test('preselects the agenda flagged as default, not the first one listed (MAG-149)', async () => {
+    mockGetList.mockResolvedValue({
+      data: [
+        { id: '/api/agendas/01CONCERTS', name: 'Concerts', default: false },
+        { id: '/api/agendas/01PERSO', name: 'Perso', default: true },
+      ],
+      total: 2,
+    })
+    await open()
+
+    fireEvent.change(screen.getByLabelText(/Résumé/), { target: { value: 'Concert' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
+
+    await waitFor(() =>
+      expect(mockCreate).toHaveBeenCalledWith(
+        'events',
+        expect.objectContaining({ data: expect.objectContaining({ agenda: '/api/agendas/01PERSO' }) }),
       ),
     )
   })

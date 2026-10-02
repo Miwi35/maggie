@@ -4,6 +4,7 @@ namespace Maggie\Calendar\State;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
+use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Message\UpdateAgendaCommand;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -14,6 +15,7 @@ class UpdateAgendaProcessor implements ProcessorInterface
 {
     public function __construct(
         private readonly MessageBusInterface $bus,
+        private readonly EntityManagerInterface $em,
     ) {
     }
 
@@ -28,7 +30,7 @@ class UpdateAgendaProcessor implements ProcessorInterface
             $clearFields[] = 'color';
         }
 
-        $envelope = $this->bus->dispatch(new UpdateAgendaCommand(
+        $command = new UpdateAgendaCommand(
             agendaId: (string) $data->getId(),
             name: $data->getName(),
             description: $data->getDescription(),
@@ -36,7 +38,14 @@ class UpdateAgendaProcessor implements ProcessorInterface
             color: $data->getColor(),
             isDefault: $data->isDefault(),
             clearFields: $clearFields,
-        ));
+        );
+
+        // The deserializer already applied the patch to the managed entity: any flush the handler
+        // triggers (demoting the previous default) would write the promotion first and trip the
+        // unique index. The command carries every field, so start from the stored state.
+        $this->em->refresh($data);
+
+        $envelope = $this->bus->dispatch($command);
 
         return $envelope->last(HandledStamp::class)->getResult();
     }

@@ -225,6 +225,11 @@ final class DedupeGoogleAgendasCommand extends Command
         // and Maggie would have nowhere to file an appointment (MAG-149).
         $defaultMoved = $duplicate->isDefault() && !$keep->isDefault();
         if ($defaultMoved) {
+            // Handed over, not copied: the unique index allows one default per
+            // user, so the duplicate lets go in a flush of its own — Doctrine
+            // would otherwise write the two updates in no particular order.
+            $duplicate->setIsDefault(false);
+            $this->entityManager->flush();
             $keep->setIsDefault(true);
         }
 

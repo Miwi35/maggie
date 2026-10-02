@@ -100,6 +100,14 @@ class SettingsViewModel(
         }
     }
 
+    fun updateDefaultAgenda(agendaId: String) {
+        viewModelScope.launch {
+            agendaRepository.setDefaultAgenda(agendaId)
+                .onSuccess { _uiState.value = _uiState.value.copy(agendas = it) }
+                .onFailure { _uiState.value = _uiState.value.copy(error = it.message) }
+        }
+    }
+
     fun toggleAgenda(agendaId: String) {
         val current = _uiState.value.preferences?.enabledAgendaIds ?: return
         val next = if (agendaId in current) current - agendaId else current + agendaId
@@ -176,12 +184,22 @@ class SettingsViewModel(
     private fun subscribeToMercure() {
         viewModelScope.launch {
             val userId = authRepository.getUserId() ?: return@launch
-            mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.USER_PREFERENCES))
-                .catch { /* SSE reconnects automatically */ }
-                .collect {
-                    userPreferenceRepository.refresh()
-                    _uiState.value = _uiState.value.copy(preferences = userPreferenceRepository.preference.value)
-                }
+            launch {
+                mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.USER_PREFERENCES))
+                    .catch { /* SSE reconnects automatically */ }
+                    .collect {
+                        userPreferenceRepository.refresh()
+                        _uiState.value = _uiState.value.copy(preferences = userPreferenceRepository.preference.value)
+                    }
+            }
+            launch {
+                mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.AGENDAS))
+                    .catch { /* SSE reconnects automatically */ }
+                    .collect {
+                        agendaRepository.refreshAgendas()
+                            .onSuccess { _uiState.value = _uiState.value.copy(agendas = it) }
+                    }
+            }
         }
     }
 }

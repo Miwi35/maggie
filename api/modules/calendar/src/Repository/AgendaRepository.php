@@ -17,10 +17,34 @@ class AgendaRepository extends ServiceEntityRepository
         parent::__construct($registry, Agenda::class);
     }
 
+    /**
+     * The agenda the user marked as default, or null — never a guess. The
+     * alphabetical fallback this used to have filed Maggie's appointments in
+     * whichever agenda sorted first (MAG-149).
+     */
     public function findDefault(User $user): ?Agenda
     {
-        return $this->findOneBy(['user' => $user, 'isDefault' => true])
-            ?? $this->findOneBy(['user' => $user], ['name' => 'ASC']);
+        return $this->findOneBy(['user' => $user, 'isDefault' => true]);
+    }
+
+    /**
+     * @return Agenda[] the user's default agendas other than `$keep`
+     */
+    public function findDefaultsExcept(User $user, Agenda $keep): array
+    {
+        return $this->createQueryBuilder('a')
+            ->where('a.user = :user')
+            ->andWhere('a.isDefault = true')
+            ->andWhere('a.id != :keep')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('keep', $keep->getId(), 'ulid')
+            ->getQuery()
+            ->getResult();
+    }
+
+    public function userHasAgenda(User $user): bool
+    {
+        return null !== $this->findOneBy(['user' => $user]);
     }
 
     /**
@@ -68,14 +92,6 @@ class AgendaRepository extends ServiceEntityRepository
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
-    }
-
-    /**
-     * The agenda the user marked as default, with no alphabetical fallback.
-     */
-    public function findExplicitDefault(User $user): ?Agenda
-    {
-        return $this->findOneBy(['user' => $user, 'isDefault' => true]);
     }
 
     public function findByGoogleWatchChannelId(string $channelId): ?Agenda

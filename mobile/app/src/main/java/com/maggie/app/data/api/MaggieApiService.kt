@@ -474,6 +474,14 @@ class MaggieApiService(
         }.body()
     }
 
+    suspend fun updateAgenda(id: String, data: JsonObject): Agenda {
+        return client.patch("$baseUrl/api/agendas/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(data)
+        }.body()
+    }
+
     suspend fun deleteAgenda(id: String) {
         client.delete("$baseUrl/api/agendas/$id")
     }

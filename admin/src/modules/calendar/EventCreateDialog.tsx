@@ -15,7 +15,7 @@ import { RecurrencePicker } from './RecurrencePicker'
 interface Calendar {
   id: string
   name: string
-  isDefault: boolean
+  default: boolean
 }
 
 interface EventCreateDialogProps {
@@ -63,7 +63,7 @@ export const EventCreateDialog = ({ open, onClose, onCreated, defaultStart, defa
       .then(({ data }) => {
         const cals = data as unknown as Calendar[]
         setCalendars(cals)
-        const defaultCal = cals.find((c) => c.isDefault) ?? cals[0]
+        const defaultCal = cals.find((c) => c.default) ?? cals[0]
         if (defaultCal && !calendarId) {
           setCalendarId(defaultCal.id)
         }

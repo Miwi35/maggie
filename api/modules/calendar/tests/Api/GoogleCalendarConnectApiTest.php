@@ -212,6 +212,42 @@ class GoogleCalendarConnectApiTest extends WebTestCase
         self::assertTrue($agendas[0]->isDefault(), 'The primary calendar becomes the default agenda when the user has none');
     }
 
+    public function testImportNeverTakesTheDefaultFromAnAgendaTheUserAlreadyChose(): void
+    {
+        $user = $this->load();
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $chosen = new Agenda();
+        $chosen->setName('Perso');
+        $chosen->setUser($em->getRepository(User::class)->find($user->getId()));
+        $chosen->setIsDefault(true);
+        $em->persist($chosen);
+        $em->flush();
+        $this->stubGoogle([['id' => 'cal-primary', 'summary' => 'fixture@example.com', 'primary' => true]]);
+
+        $this->import(['googleCalendarId' => 'cal-primary']);
+        self::assertResponseStatusCodeSame(201);
+
+        $defaults = array_values(array_filter($this->agendasOf($user), fn (Agenda $a) => $a->isDefault()));
+        self::assertCount(1, $defaults);
+        self::assertSame('Perso', $defaults[0]->getName());
+    }
+
+    public function testImportingASecondaryCalendarFirstLeavesTheDefaultToThePrimaryOne(): void
+    {
+        $user = $this->load();
+        $this->stubGoogle([
+            ['id' => 'cal-concerts', 'summary' => 'Concerts'],
+            ['id' => 'cal-primary', 'summary' => 'fixture@example.com', 'primary' => true],
+        ]);
+
+        $this->import(['googleCalendarId' => 'cal-concerts']);
+        $this->import(['googleCalendarId' => 'cal-primary']);
+
+        $defaults = array_values(array_filter($this->agendasOf($user), fn (Agenda $a) => $a->isDefault()));
+        self::assertCount(1, $defaults);
+        self::assertSame('Défaut', $defaults[0]->getName());
+    }
+
     public function testImportIgnoresANameSentByTheClient(): void
     {
         $user = $this->load();

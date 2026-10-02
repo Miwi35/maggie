@@ -211,7 +211,7 @@ class UserIsolationToolsTest extends KernelTestCase
 
         $data = $this->decode((self::getContainer()->get(CreateEventTool::class))('Dentist', '2030-01-15', '09:00'));
 
-        self::assertSame('No agenda found.', $data['error']);
+        self::assertStringContainsString('No default agenda', $data['error']);
         self::assertNull($em->getRepository(Event::class)->findOneBy(['summary' => 'Dentist']));
     }
 
