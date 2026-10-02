@@ -6,31 +6,37 @@ tags:
 # The voice overlay opened on a conversation that already has an answer in it
 # (MAG-93's voice family), and the chat input with the keyboard up.
 #
-# **Read this before adding an assertion here.** Three of MAG-93's regressions
-# (`24b64ba`, `9e24327`, `54e35bd`) are Maggie reading an old reply aloud the
-# moment the overlay opens, and the obvious assertion — « Maggie parle... » must
-# not appear — **cannot be made sound from a flow today**. Three reasons, each
-# enough on its own:
+# **What this proves, and how** (MAG-205). Three of MAG-93's regressions (`24b64ba`,
+# `9e24327`, `54e35bd`) are Maggie reading an old reply aloud the moment the overlay
+# opens. The flow proves it does not by asking the *server*, not the screen: the
+# agent's fake TTS provider counts the syntheses it is asked for, and
+# `GET /agent/e2e/tts/syntheses` (agent/app/e2e.py, mounted only under
+# `TTS_PROVIDER=fake`, behind `E2E_LOGIN_TOKEN`) reports that number. The counter is
+# zeroed just before the overlay opens, and read after a fixed quiet window with the
+# old answer on screen — so a build that re-speaks it, however briefly, leaves a
+# count of 1 and the flow fails.
+#
+# Why not look for « Maggie parle... » on screen, which is what this flow tried first.
+# Three reasons, each enough on its own:
 #
 #   1. `VoiceManager.speak()` sets `SPEAKING`, then posts to `/agent/tts/
 #      synthesize`. Under `TTS_PROVIDER=fake` that answers two silent 26 ms
-#      frames instantly, so on a build carrying the regression the label is on
-#      screen for a few hundred milliseconds.
+#      frames instantly, so on a regressed build the label is on screen for a few
+#      hundred milliseconds.
 #   2. Maestro's `assertNotVisible` *waits for* a node to disappear. It passes as
 #      soon as the state flips, so it would not fail even if it caught the blip.
 #   3. `ci.yml` sets `disable-animations: true`, which zeroes
 #      `animator_duration_scale`; Compose honours that, so `waitForAnimationToEnd`
 #      returns at once and cannot be used as a timer either.
 #
-# Proving the absence needs a durable record of "no synthesis was requested" —
-# MAG-205. Until then this flow asserts what it really can, and the one
-# `assertNotVisible` below is kept for what it does catch: a `SPEAKING` that
-# sticks, which is how the regression showed up when the TTS call itself hung.
+# The quiet window is an `extendedWaitUntil` on a text that never appears, `optional`
+# so that running out its timeout is the intent: it is the one real timer a flow has.
 #
-# What *is* sound here is the setup, and it is not nothing: the overlay opens on
-# a history that arrived over HTTP after composition — the asynchronous arrival
-# all three fixes were about — and the old answer is asserted on screen, so a
-# future assertion has something to have been re-spoken.
+# The setup is part of the proof: the overlay opens on a history that arrived over
+# HTTP after composition — the asynchronous arrival all three fixes were about — and
+# the old answer is asserted on screen, so there really was something to re-speak.
+#
+# Needs `E2E_BASE_URL` and `E2E_LOGIN_TOKEN`, which `run.sh` passes with `-e`.
 #
 # Regex selectors wrapped in `.*` for the reason given in `01-login-chat.yaml`.
 
@@ -100,6 +106,14 @@ tags:
       id: "dashboard"
     timeout: 40000
 
+# From here on, any synthesis is the overlay's doing. Zeroed *now* rather than at
+# the top of the flow: the text-mode exchanges above may legitimately have been read
+# aloud, and the app was just relaunched. The reset's own answer is asserted, so a
+# stack whose agent does not serve the counter fails here rather than passing a
+# comparison against `undefined` later.
+- evalScript: "${output.reset = json(http.delete(E2E_BASE_URL + '/agent/e2e/tts/syntheses', {headers: {'X-E2E-Token': E2E_LOGIN_TOKEN}}).body).count}"
+- assertTrue: "${output.reset == 0}"
+
 # The microphone opens the sheet in voice mode. It starts listening by itself —
 # on a headless emulator with `-noaudio` that ends in `ERROR`, and neither state
 # matters here.
@@ -117,6 +131,17 @@ tags:
     visible: ".*déjeuner avec Alex et votre cours de piano.*"
     timeout: 30000
 
-# Catches a `SPEAKING` that sticks, and nothing finer — see the header, and
-# MAG-205 for the assertion that will.
+# The quiet window. The regression speaks as soon as the history lands, which is
+# what the wait above just saw, and the request it makes takes milliseconds; five
+# seconds is generous for a slow emulator and cheap for a flow that runs a minute.
+- extendedWaitUntil:
+    visible: ".*ce texte n'apparaît jamais, il sert de minuterie.*"
+    timeout: 5000
+    optional: true
+
+# The proof: no synthesis was requested since the overlay opened.
+- evalScript: "${output.syntheses = json(http.get(E2E_BASE_URL + '/agent/e2e/tts/syntheses', {headers: {'X-E2E-Token': E2E_LOGIN_TOKEN}}).body).count}"
+- assertTrue: "${output.syntheses == 0}"
+
+# Kept for what it also catches: a `SPEAKING` that sticks.
 - assertNotVisible: ".*Maggie parle.*"

@@ -13,6 +13,22 @@ from app.config import settings
 # dependency on a service that can be down.
 SILENT_MP3_FRAME = bytes.fromhex("fffb90c4" + "00" * 100)
 
+# How many syntheses the fake provider was asked for since the last reset. The e2e
+# journeys read it to prove an absence (« opening the voice overlay speaks nothing »,
+# MAG-205) — a durable server-side record, where a screen label lives a few hundred
+# milliseconds. Only ever moved under the fake provider, so it stays 0 in dev and prod.
+_fake_synthesis_requests = 0
+
+
+def fake_synthesis_requests() -> int:
+    return _fake_synthesis_requests
+
+
+def reset_fake_synthesis_requests() -> None:
+    global _fake_synthesis_requests
+    _fake_synthesis_requests = 0
+
+
 # Curated French voices (fr-FR, fr-BE, fr-CA)
 VOICES = [
     {"id": "fr-FR-DeniseNeural", "name": "Denise", "gender": "female", "locale": "fr-FR"},
@@ -144,6 +160,8 @@ async def synthesize_speech(text: str, voice: str = DEFAULT_VOICE) -> AsyncGener
     text = prepare_text_for_tts(text)
 
     if settings.tts_provider == "fake":
+        global _fake_synthesis_requests
+        _fake_synthesis_requests += 1
         async for chunk in _synthesize_fake(text):
             yield chunk
         return
