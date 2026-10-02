@@ -41,7 +41,12 @@ class TestAbsenceOutsideE2e:
             assert client.get(URL, headers={"X-E2E-Token": TOKEN}).status_code == 404
             assert client.delete(URL, headers={"X-E2E-Token": TOKEN}).status_code == 404
 
-    def test_the_real_application_does_not_serve_it_by_default(self):
+    def test_the_real_application_does_not_serve_it_by_default(self, monkeypatch):
+        monkeypatch.delenv("TTS_PROVIDER", raising=False)
+        from app.config import Settings
+
+        if Settings().tts_provider == "fake":
+            pytest.skip("the process itself runs the e2e provider")
         from app.main import app
 
         assert [route.path for route in app.routes if route.path.startswith("/e2e")] == []
