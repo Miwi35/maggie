@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     # provider instead, to one that returns a fixed silent clip.
     tts_provider: str = "edge"
 
+    # Token of the e2e-only surface (`app/e2e.py`), the same `E2E_LOGIN_TOKEN` the API's
+    # test login takes. Empty keeps it closed even under TTS_PROVIDER=fake.
+    e2e_login_token: str = ""
+
     # MCP Server
     mcp_server_url: str = "http://nginx/_mcp"
 

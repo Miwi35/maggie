@@ -144,16 +144,23 @@ that stopped deserialising is `DtoContractTest` against `api/contract/`
   state. `02-voice-overlay.yaml` is written around that: it waits for the voice
   bar to exist and for the old answer to be in the sheet, and never asserts that
   listening succeeded.
-- **Proving an absence is harder than it looks, and « no TTS started » cannot be
-  done from a flow today** (MAG-205). `VoiceManager.speak()` sets `SPEAKING` then
-  posts to the TTS endpoint, which under `TTS_PROVIDER=fake` answers two silent
-  26 ms frames instantly — so on a regressed build the label is on screen for a
-  few hundred milliseconds. Worse, Maestro's `assertNotVisible` *waits for* a node
-  to disappear, so it passes as soon as the state flips. And
-  `waitForAnimationToEnd` cannot be borrowed as a timer either: CI sets
-  `disable-animations: true`, Compose honours it, and the call returns at once.
-  `02-voice-overlay.yaml` says in its header exactly what it does and does not
-  prove; read that before adding an assertion to it.
+- **Proving an absence is harder than it looks — ask the server, not the screen**
+  (MAG-205). « No TTS started when the overlay opens » cannot be asserted on screen:
+  `VoiceManager.speak()` sets `SPEAKING` then posts to the TTS endpoint, which under
+  `TTS_PROVIDER=fake` answers two silent 26 ms frames instantly, so on a regressed
+  build the label is up for a few hundred milliseconds; Maestro's `assertNotVisible`
+  *waits for* a node to disappear, so it passes as soon as the state flips; and
+  `waitForAnimationToEnd` is no timer, since CI sets `disable-animations: true`.
+  So `02-voice-overlay.yaml` reads a durable record instead: the agent's fake
+  provider counts the syntheses it is asked for, and `GET /agent/e2e/tts/syntheses`
+  (`agent/app/e2e.py`, `X-E2E-Token`, `DELETE` to zero it) reports the number. The
+  flow zeroes it, opens the overlay, waits for the old answer and a 5 s quiet
+  window (`extendedWaitUntil` on a text that never shows, `optional`), then fails if
+  the count is not 0. The route is mounted only under `TTS_PROVIDER=fake`
+  (`agent/tests/test_e2e_surface.py` says so). `run.sh` hands the flow
+  `E2E_BASE_URL` and `E2E_LOGIN_TOKEN` with `-e`; a flow that needs another
+  server-side record follows the same pattern. Re-introduce the regression locally
+  (drop the `sawLoadingSinceOpen` guard in `ChatSheet.kt`) to see the flow go red.
 - **An absence also needs something to have been there.** "It did not re-speak"
   proves nothing if the history never loaded. Assert the old answer is on screen
   first; a vacuous pass is worse than a failure.
