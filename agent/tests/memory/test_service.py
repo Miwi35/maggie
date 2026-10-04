@@ -97,8 +97,15 @@ class TestBuildBucket:
     def test_nothing_configured_means_no_bucket(self):
         assert build_bucket(settings.model_copy(update={"memory_bucket": ""})) is None
 
-    def test_fake_is_the_in_memory_bucket(self):
-        assert isinstance(build_bucket(settings.model_copy(update={"memory_bucket": "fake"})), FakeBucket)
+    def test_fake_is_the_in_memory_bucket_on_the_e2e_stack(self):
+        config = settings.model_copy(update={"memory_bucket": "fake", "tts_provider": "fake"})
+        assert isinstance(build_bucket(config), FakeBucket)
+
+    def test_fake_is_refused_outside_the_e2e_stack(self, caplog):
+        config = settings.model_copy(update={"memory_bucket": "fake", "tts_provider": "edge"})
+        with caplog.at_level("ERROR"):
+            assert build_bucket(config) is None
+        assert any("fake" in r.getMessage() for r in caplog.records)
 
     def test_anything_else_is_s3_and_builds_without_touching_the_network(self):
         config = settings.model_copy(
@@ -133,6 +140,7 @@ class TestConfigure:
         config = settings.model_copy(
             update={
                 "memory_bucket": "fake",
+                "tts_provider": "fake",
                 "memory_sync_interval_seconds": 7,
                 "memory_turn_sync_max_age_seconds": 11,
                 "memory_turn_sync_timeout_seconds": 1.5,

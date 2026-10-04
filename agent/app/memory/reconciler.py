@@ -9,6 +9,10 @@ Races it is built around:
 - the index is loaded *before* the listing, and every decision is re-checked against the fresh row
   under the path lock, so a write Maggie made meanwhile is never undone;
 - a file whose fetched ETag equals the row's is the write door's own work: skipped;
+- a row whose ETag is neither the one the pass loaded nor the one it fetched changed during the
+  pass (the write door got there first): left for the next pass, never reverted;
+- one file that cannot be applied is logged and counted, makes the pass incomplete (no deletion)
+  and never stops the others;
 - a row with `pending_sync` (newest version still in the outbox) is never deleted;
 - losing more than half of a user's notes at once (and at least five) is treated as a broken
   listing, not as the owner deleting everything: nothing is deleted and it is logged as critical.
@@ -38,6 +42,7 @@ from app.memory.ulid import new_ulid
 logger = logging.getLogger(__name__)
 
 MASS_DELETION_MIN = 5
+MAX_PATH_LENGTH = 600  # the `path` column
 
 
 @dataclass
@@ -49,9 +54,14 @@ class PassReport:
     unreadable: int = 0
     stamped: int = 0
     duplicates: int = 0
+    errors: int = 0
     incomplete: bool = False
     blocked_deletions: dict[str, int] = field(default_factory=dict)
     changed_users: set[str] = field(default_factory=set)
+
+    def to_counts(self) -> dict:
+        """Totals only: a pass covers every user, so nothing here may be keyed by or name one."""
+        return {**self.to_dict(), "blockedDeletions": sum(self.blocked_deletions.values())}
 
     def to_dict(self) -> dict:
         return {
@@ -62,6 +72,7 @@ class PassReport:
             "unreadable": self.unreadable,
             "stamped": self.stamped,
             "duplicates": self.duplicates,
+            "errors": self.errors,
             "incomplete": self.incomplete,
             "blockedDeletions": dict(self.blocked_deletions),
         }
@@ -75,6 +86,14 @@ class _RowView:
     etag: str
     pending_sync: bool
     unreadable: bool
+
+
+@dataclass(frozen=True)
+class _Snapshot:
+    """The live rows as loaded before the listing: what the pass believes it is replacing."""
+
+    by_path: dict[tuple[str, str], _RowView]
+    by_id: dict[str, _RowView]
 
 
 @dataclass
@@ -104,7 +123,9 @@ class Reconciler:
         async with self.repo.session() as session:
             before = await self.repo.all_notes(session)
         live = [row for row in before if row.deleted_at is None]
-        live_by_path = {(r.user_id, r.path): self._view(r) for r in live}
+        views = [self._view(r) for r in live]
+        live_by_path = {(v.user_id, v.path): v for v in views}
+        snapshot = _Snapshot(live_by_path, {v.id: v for v in views})
 
         infos = await self.bucket.list_objects("")
         report.listed = len(infos)
@@ -112,8 +133,13 @@ class Reconciler:
         owned: dict[str, tuple[OwnedKey, ObjectInfo]] = {}
         for info in infos:
             classified = classify_key(info.key)
-            if classified is not None:
-                owned[info.key] = (classified, info)
+            if classified is None:
+                continue
+            if len(info.key) > MAX_PATH_LENGTH:
+                logger.warning(f"Memory reconcile: {info.key[:80]}… exceeds {MAX_PATH_LENGTH} characters, skipped")
+                report.unreadable += 1
+                continue
+            owned[info.key] = (classified, info)
 
         fetched: dict[str, _Fetched] = {}
         for key in sorted(owned):
@@ -139,11 +165,16 @@ class Reconciler:
                 occupancy.setdefault(row.id, []).append(key)
 
         for key in sorted(fetched):
-            changes = await self._apply(fetched[key], occupancy, listed_keys, report, quiet)
-            await self._announce(changes, report, quiet)
+            try:
+                changes = await self._apply(fetched[key], occupancy, listed_keys, snapshot, report, quiet)
+                await self._announce(changes, report, quiet)
+            except Exception:
+                logger.exception(f"Memory reconcile: could not apply {key}, skipped")
+                report.errors += 1
+                report.incomplete = True
 
         if report.incomplete:
-            logger.warning("Memory reconcile: a file vanished mid-pass, deletions skipped until the next one")
+            logger.warning("Memory reconcile: the pass was incomplete, deletions skipped until the next one")
         else:
             await self._delete_missing(live, listed_keys, report, quiet)
         return report
@@ -163,6 +194,8 @@ class Reconciler:
     def _parse(owned: OwnedKey, data: ObjectData) -> _Fetched:
         try:
             text = data.body.decode("utf-8")
+            if "\x00" in text:
+                return _Fetched(owned, data, error="file contains a NUL byte")
             return _Fetched(owned, data, doc=parse_note(text, stem(owned.key)))
         except UnicodeDecodeError:
             return _Fetched(owned, data, error="file is not valid UTF-8")
@@ -180,6 +213,7 @@ class Reconciler:
         item: _Fetched,
         occupancy: dict[str, list[str]],
         listed_keys: set[str],
+        snapshot: _Snapshot,
         report: PassReport,
         quiet: bool,
     ) -> list[Change]:
@@ -189,12 +223,21 @@ class Reconciler:
             here = await self.repo.live_note_at(session, user_id, key)
             if here is not None and here.etag == item.data.etag and not here.unreadable:
                 return []  # the write door recorded exactly this version while we were fetching
+            if here is not None and self._moved_on(here, snapshot.by_path.get((user_id, key)), item.data.etag):
+                return []
 
             if item.error is not None or item.doc is None:
                 return await self._record_unreadable(session, item, here, report, quiet)
 
             doc, data = item.doc, item.data
             note_id, reason = await self._resolve_id(session, owned, doc, here, occupancy)
+            existing = await self.repo.note_by_id(session, user_id, note_id)
+            if (
+                existing is not None
+                and existing.deleted_at is None
+                and self._moved_on(existing, snapshot.by_id.get(str(existing.id)), data.etag)
+            ):
+                return []
             if reason is not None:
                 data = await self._stamp(owned, data, doc, note_id)
                 if data is None:
@@ -204,7 +247,6 @@ class Reconciler:
                 if not quiet:
                     await self.repo.add_event(session, user_id, reason, note_id, key, {"etag": data.etag})
 
-            existing = await self.repo.note_by_id(session, user_id, note_id)
             if existing is not None and existing.pending_sync and existing.path != key:
                 return []  # a move still in the outbox: the old file is expected to be there until it is flushed
             changes: list[Change] = []
@@ -236,6 +278,11 @@ class Reconciler:
             report.indexed += 1
             await session.commit()
             return changes
+
+    @staticmethod
+    def _moved_on(row: MemoryNote, seen: _RowView | None, fetched_etag: str) -> bool:
+        """The row's ETag is neither the one this pass loaded nor the one it fetched: someone wrote it meanwhile."""
+        return row.etag != fetched_etag and (seen is None or row.etag != seen.etag)
 
     async def _resolve_id(
         self,

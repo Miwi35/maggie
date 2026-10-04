@@ -122,13 +122,18 @@ class MemoryNoteRepository:
             stmt = stmt.where(MemoryNote.user_id == user_id)
         return {row.id: (as_utc(row.last_used_at), row.use_count) for row in (await session.execute(stmt)).all()}
 
-    async def restore_usage(self, session: Any, snapshot: dict[str, tuple[datetime | None, int]]) -> None:
+    async def restore_usage(self, session: Any, snapshot: dict[str, tuple[datetime | None, int]]) -> set[str]:
+        """Put the usage back on the rows that exist; the ids it found a row for."""
+        restored: set[str] = set()
         for note_id, (last_used_at, use_count) in snapshot.items():
-            await session.execute(
+            result = await session.execute(
                 update(MemoryNote)
                 .where(MemoryNote.id == note_id)
                 .values(last_used_at=last_used_at, use_count=use_count)
             )
+            if result.rowcount:
+                restored.add(note_id)
+        return restored
 
     async def drop_index(self, session: Any, user_id: str | None) -> None:
         stmt = delete(MemoryNote)

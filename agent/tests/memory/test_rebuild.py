@@ -173,3 +173,57 @@ def test_the_cli_entry_point_reports_a_missing_bucket(monkeypatch, capsys):
     assert asyncio.run(rebuild_cli.run(None)) == 2
     assert "MEMORY_BUCKET is not set" in capsys.readouterr().err
 
+
+
+class TestRebuildFailure:
+    async def test_usage_survives_a_reconcile_that_fails_after_the_drop(self, world, monkeypatch):
+        populate(world)
+        await world.sync.run_pass("loop")
+        a = world.row_at(f"{world.user}/a.md")
+        await world.repo.mark_used(world.user, [a.id])
+        await world.repo.mark_used(world.user, [a.id])
+        used_at = world.row(a.id).last_used_at
+
+        async def broken(quiet: bool = False):
+            raise BucketUnavailable("died after the drop")
+
+        real = world.reconciler.reconcile
+        monkeypatch.setattr(world.reconciler, "reconcile", broken)
+        with pytest.raises(BucketUnavailable):
+            await world.sync.rebuild()
+        assert world.rows() == []
+
+        monkeypatch.setattr(world.reconciler, "reconcile", real)
+        outcome = await world.sync.run_pass("loop")
+
+        assert outcome.ok
+        after = world.row(a.id)
+        assert (after.use_count, after.last_used_at) == (2, used_at)
+
+    async def test_pending_usage_is_dropped_once_a_complete_pass_has_nothing_left_to_give_it_to(self, world):
+        world.sync._pending_usage = {"gone": (None, 3)}
+
+        await world.sync.run_pass("loop")
+
+        assert world.sync._pending_usage == {}
+
+
+def test_the_cli_refuses_to_run_without_offline(capsys, monkeypatch):
+    from app.memory import rebuild as rebuild_cli
+
+    called = []
+
+    async def run(user_id):
+        called.append(user_id)
+        return 0
+
+    monkeypatch.setattr(rebuild_cli, "run", run)
+
+    assert rebuild_cli.main([]) == 2
+    assert rebuild_cli.main(["01ABC"]) == 2
+    assert "--offline" in capsys.readouterr().err and "stopped" in rebuild_cli.__doc__
+    assert called == []
+
+    assert rebuild_cli.main(["--offline", "01ABC"]) == 0
+    assert rebuild_cli.main(["--offline"]) == 0
+    assert called == ["01ABC", None]

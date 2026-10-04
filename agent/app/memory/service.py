@@ -36,6 +36,9 @@ def build_bucket(config: Settings) -> Bucket | None:
     if not config.memory_bucket:
         return None
     if config.memory_bucket == FAKE_BUCKET:
+        if config.tts_provider != "fake":  # the e2e stack's marker (app/e2e.py): never a real deployment
+            logger.error("MEMORY_BUCKET=fake is only for the e2e stack: refusing it, the memory bucket stays off")
+            return None
         return FakeBucket()
     return S3Bucket(
         bucket=config.memory_bucket,

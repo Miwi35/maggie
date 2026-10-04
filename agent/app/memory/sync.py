@@ -24,7 +24,7 @@ from datetime import UTC, datetime, timedelta
 
 from app import metrics
 from app.db.memory_note_repository import MemoryNoteRepository, memory_note_repo
-from app.memory.bucket import BucketError
+from app.memory.bucket import BucketUnavailable
 from app.memory.reconciler import PassReport, Reconciler
 from app.memory.store import FlushReport, NoteStore
 from app.memory.summary import SummaryWriter
@@ -90,6 +90,8 @@ class MemorySync:
         self.last_outcome: PassOutcome | None = None
         self.degraded = False
         self.failures = 0
+        # Usage saved by a rebuild whose notes are not all back in the index yet.
+        self._pending_usage: dict[str, tuple[datetime | None, int]] = {}
         self._pass_lock = asyncio.Lock()
         self._inflight: asyncio.Task[PassOutcome] | None = None
         self._loop_task: asyncio.Task[None] | None = None
@@ -109,9 +111,10 @@ class MemorySync:
             try:
                 flush = await self.store.flush_outbox()
                 report = await self.reconciler.reconcile()
+                await self._restore_pending_usage(final=not report.incomplete)
                 for user_id in report.changed_users:
                     await self.summary.refresh(user_id)
-            except BucketError as e:
+            except BucketUnavailable as e:
                 return await self._failed(trigger, f"bucket unavailable: {e}", critical=True)
             except Exception as e:
                 logger.exception("Memory sync pass failed")
@@ -194,12 +197,16 @@ class MemorySync:
                 raise RebuildBlocked(f"{flush.remaining} queued writes must reach the bucket first")
             await self.reconciler.bucket.list_objects("")
             async with self.repo.session() as session:
-                usage = await self.repo.usage_snapshot(session, user_id)
+                self._pending_usage.update(await self.repo.usage_snapshot(session, user_id))
                 await self.repo.drop_index(session, user_id)
                 await session.commit()
-            report = await self.reconciler.reconcile(quiet=True)
+            try:
+                report = await self.reconciler.reconcile(quiet=True)
+            except BaseException:
+                await self._restore_pending_usage()  # what is not back yet is restored by a later pass
+                raise
+            await self._restore_pending_usage(final=not report.incomplete)
             async with self.repo.session() as session:
-                await self.repo.restore_usage(session, usage)
                 for owner in sorted(report.changed_users):
                     await self.repo.add_event(session, owner, "rebuild", None, None, {"indexed": report.indexed})
                 await session.commit()
@@ -210,6 +217,18 @@ class MemorySync:
             self.failures = 0
             return report
 
+    async def _restore_pending_usage(self, final: bool = False) -> None:
+        """Put saved usage back on the rows that exist; `final` (a complete pass) forgets what has no note any more."""
+        if not self._pending_usage:
+            return
+        async with self.repo.session() as session:
+            restored = await self.repo.restore_usage(session, self._pending_usage)
+            await session.commit()
+        for note_id in restored:
+            self._pending_usage.pop(note_id, None)
+        if final:
+            self._pending_usage.clear()
+
     # -------------------------------------------------------------------- loop
 
     def retry_delay(self) -> float:
@@ -219,6 +238,7 @@ class MemorySync:
 
     async def loop(self) -> None:
         """Reconcile forever. Nothing a pass raises may end it."""
+        await self._check_versioning()
         while True:
             try:
                 await self.run_pass("loop")
@@ -227,6 +247,16 @@ class MemorySync:
             except Exception:
                 logger.exception("Memory sync loop iteration failed")
             await asyncio.sleep(self.retry_delay())
+
+    async def _check_versioning(self) -> None:
+        """Without versioning an overwrite or a delete in the bucket is final: say so, never refuse to boot over it."""
+        try:
+            status = await self.reconciler.bucket.versioning_status()
+        except Exception as e:
+            logger.info(f"Memory bucket versioning could not be checked: {e}")
+            return
+        if status != "Enabled":
+            logger.warning(f"Memory bucket versioning is {status}: an overwritten or deleted note cannot be recovered")
 
     def start(self) -> None:
         if self._loop_task is None or self._loop_task.done():

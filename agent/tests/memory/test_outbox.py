@@ -1,6 +1,6 @@
 import pytest
 
-from app.memory.bucket import BucketUnavailable
+from app.memory.bucket import BucketUnavailable, FakeBucket, ObjectNotFound, PreconditionFailed
 from app.memory.frontmatter import NoteDoc, parse_note
 from tests.memory.conftest import RacyBucket
 
@@ -243,3 +243,52 @@ async def test_a_pending_note_is_never_lost_whichever_runs_first(world, op):
 
     row = world.row(queued.note_id)
     assert row.deleted_at is None and row.body == "offline" and world.bucket.objects[queued.path]
+
+
+class VanishingBucket(FakeBucket):
+    """The owner deletes the file between our HEAD and our GET."""
+
+    async def get(self, key: str):
+        self.objects.pop(key, None)
+        raise ObjectNotFound(key)
+
+
+class TestFlushRaces:
+    async def test_a_file_deleted_between_head_and_get_is_recreated_and_is_not_an_outage(self, make_world):
+        bucket = VanishingBucket()
+        world = make_world(bucket)
+        created = await world.store.save(world.user, NoteDoc(title="A", body="v1"))
+        bucket.down = True
+        await world.store.save(world.user, NoteDoc(id=created.note_id, title="A", body="v2"))
+        bucket.down = False
+        bucket.seed(created.path, "# A\n\nthe owner's edit, deleted a moment later")
+
+        outcome = await world.sync.run_pass("loop")
+
+        assert outcome.ok and world.sync.degraded is False
+        assert outcome.flush.pushed == 1 and outcome.flush.remaining == 0
+        assert stored(world, created.path).body == "v2" and world.outbox() == []
+
+    async def test_an_unexpected_412_on_one_item_keeps_the_note_aside_and_the_flush_going(self, make_world, monkeypatch):
+        world = make_world(FakeBucket())
+        first = await world.store.save(world.user, NoteDoc(title="A", body="v1"))
+        second = await world.store.save(world.user, NoteDoc(title="B", body="v1"))
+        world.bucket.down = True
+        await world.store.save(world.user, NoteDoc(id=first.note_id, title="A", body="a2"))
+        await world.store.save(world.user, NoteDoc(id=second.note_id, title="B", body="b2"))
+        world.bucket.down = False
+        real = world.store._flush_put
+
+        async def flaky(user_id, path, *args, **kwargs):
+            if path == first.path:
+                raise PreconditionFailed("surprise")
+            return await real(user_id, path, *args, **kwargs)
+
+        monkeypatch.setattr(world.store, "_flush_put", flaky)
+
+        report = await world.store.flush_outbox()
+
+        assert (report.conflicts, report.pushed, report.remaining) == (1, 1, 0)
+        assert stored(world, second.path).body == "b2"
+        assert [k for k in world.bucket.objects if "/conflits/" in k]
+        assert world.events(kind="conflict")

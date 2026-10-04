@@ -29,9 +29,9 @@ tasks:
       - docker compose -f {{.COMPOSE_FILE}} exec agent pytest {{.CLI_ARGS}}
 
   memory:rebuild:
-    desc: Drop the note index and rebuild it from the bucket (optionally for one user id)
+    desc: "Drop the note index and rebuild it from the bucket, agent STOPPED first: task agent:memory:rebuild -- --offline [user id]"
     cmds:
-      - docker compose -f {{.COMPOSE_FILE}} exec agent python -m app.memory.rebuild {{.CLI_ARGS}}
+      - docker compose -f {{.COMPOSE_FILE}} run --rm agent python -m app.memory.rebuild {{.CLI_ARGS}}
 
   # ===========================================================================
   # Code Quality

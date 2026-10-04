@@ -39,8 +39,12 @@ async def memory_status(_user_id: str = Depends(get_current_user_id)) -> dict[st
 @router.post("/sync")
 async def memory_sync(_user_id: str = Depends(get_current_user_id)) -> dict[str, Any]:
     """Manual trigger: one reconciliation pass now, outbox flushed first."""
-    outcome = await _service().sync.run_pass("manual")
-    return {**outcome.to_dict(), "degraded": _service().sync.degraded}
+    sync = _service().sync
+    outcome = await sync.run_pass("manual")
+    body = outcome.to_dict()
+    if outcome.report is not None:
+        body["report"] = outcome.report.to_counts()  # the pass covers every user: aggregates only
+    return {**body, "degraded": sync.degraded}
 
 
 @router.post("/rebuild")
@@ -52,7 +56,7 @@ async def memory_rebuild(user_id: str = Depends(get_current_user_id)) -> dict[st
         raise HTTPException(status_code=409, detail=str(error)) from error
     except Exception as error:
         raise HTTPException(status_code=503, detail=f"Rebuild failed, index untouched or partial: {error}") from error
-    return {"report": report.to_dict()}
+    return {"report": report.to_counts()}
 
 
 @router.get("/events")

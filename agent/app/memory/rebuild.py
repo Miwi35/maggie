@@ -1,4 +1,9 @@
-"""`python -m app.memory.rebuild [USER_ID]` — drop the note index and read it back from the bucket."""
+"""`python -m app.memory.rebuild --offline [USER_ID]` — drop the note index and read it back from the bucket.
+
+This runs its own sync engine, so the agent must be stopped first: a second engine next to a live
+one would race it on every note. It refuses to start without `--offline`. With the agent running,
+use `POST /agent/memory/rebuild` instead (it rebuilds the caller's own notes).
+"""
 
 import asyncio
 import json
@@ -20,5 +25,13 @@ async def run(user_id: str | None) -> int:
     return 0
 
 
+def main(argv: list[str]) -> int:
+    if "--offline" not in argv:
+        print("Refusing to run: the agent must be stopped first. Pass --offline to confirm it is.", file=sys.stderr)
+        return 2
+    users = [arg for arg in argv if arg != "--offline"]
+    return asyncio.run(run(users[0] if users else None))
+
+
 if __name__ == "__main__":
-    sys.exit(asyncio.run(run(sys.argv[1] if len(sys.argv) > 1 else None)))
+    sys.exit(main(sys.argv[1:]))

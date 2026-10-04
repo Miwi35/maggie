@@ -141,6 +141,19 @@ class TestManualSync:
         assert body["report"] is None
 
 
+    async def test_the_report_is_aggregate_and_names_no_user(self, world, api):
+        world.seed_many(world.other_user, 10)
+        await world.sync.run_pass("loop")
+        for item in world.rows(world.other_user)[:6]:
+            world.bucket.remove(item.path)
+
+        async with api as client:
+            body = (await client.post("/memory/sync")).json()
+
+        assert body["report"]["blockedDeletions"] == 6
+        assert world.other_user not in str(body) and world.user not in str(body)
+
+
 class TestRebuild:
     async def test_rebuilds_only_the_callers_notes(self, world, api):
         mine = world.seed(f"{world.user}/a.md", title="A")

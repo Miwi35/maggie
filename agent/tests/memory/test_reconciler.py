@@ -520,3 +520,99 @@ class TestOwnWrites:
         assert len(world.rows()) == 1 and world.events() == [] and world.publisher.published == []
         assert report.changed_users == {world.user}
 
+
+
+class TestChangedDuringThePass:
+    async def test_a_write_recorded_between_the_fetch_and_the_apply_is_not_reverted(self, make_world):
+        bucket = RacyBucket()
+        world = make_world(bucket)
+        key = f"{world.user}/a.md"
+        seeded = world.seed(key, title="A", body="v0")
+        await world.reconciler.reconcile()
+        bucket.seed(key, render_note(NoteDoc(id=seeded.id, title="A", body="the owner's edit")))
+
+        def maggie_writes(_key: str) -> None:
+            etag = bucket.seed(key, render_note(NoteDoc(id=seeded.id, title="A", body="Maggie's version")))
+            world.update_row(seeded.id, etag=etag, body="Maggie's version")
+
+        bucket.after_get = maggie_writes
+        await world.reconciler.reconcile()
+        bucket.after_get = None
+
+        row = world.row(seeded.id)
+        assert row.body == "Maggie's version" and row.etag == bucket.objects[key].etag
+
+        result = await world.store.save(world.user, NoteDoc(id=seeded.id, title="A", body="next"))
+
+        assert result.status == "written"
+        assert not [k for k in bucket.objects if "/conflits/" in k]
+
+    async def test_a_row_that_moved_on_by_id_is_left_alone_too(self, make_world):
+        bucket = RacyBucket()
+        world = make_world(bucket)
+        old, new = f"{world.user}/old.md", f"{world.user}/new.md"
+        seeded = world.seed(old, title="A", body="v0")
+        await world.reconciler.reconcile()
+        bucket.remove(old)
+        bucket.seed(new, render_note(NoteDoc(id=seeded.id, title="A", body="moved by the owner")))
+
+        def maggie_writes(_key: str) -> None:
+            etag = bucket.seed(old, render_note(NoteDoc(id=seeded.id, title="A", body="Maggie's version")))
+            world.update_row(seeded.id, etag=etag, body="Maggie's version", path=old)
+
+        bucket.after_get = maggie_writes
+        await world.reconciler.reconcile()
+        bucket.after_get = None
+
+        row = world.row(seeded.id)
+        assert (row.path, row.body) == (old, "Maggie's version")
+
+
+class TestOneBadFile:
+    async def test_a_file_whose_apply_raises_does_not_stall_the_pass(self, world, caplog):
+        gone = world.seed(f"{world.user}/gone.md", title="Gone")
+        await world.reconciler.reconcile()
+        world.bucket.remove(gone.key)
+        bad = world.seed(f"{world.user}/bad.md", title="Bad")
+        good = world.seed(f"{world.user}/good.md", title="Good")
+        real = world.reconciler._apply
+
+        async def flaky(item, *args, **kwargs):
+            if item.owned.key == bad.key:
+                raise RuntimeError("database said no")
+            return await real(item, *args, **kwargs)
+
+        world.reconciler._apply = flaky  # type: ignore[method-assign]
+        with caplog.at_level(logging.ERROR):
+            report = await world.reconciler.reconcile()
+
+        assert world.row(good.id).title == "Good"
+        assert report.errors == 1 and report.incomplete is True and report.soft_deleted == 0
+        assert world.row(gone.id).deleted_at is None, "deletions wait for a pass without errors"
+        assert any("bad.md" in r.getMessage() for r in caplog.records)
+
+        world.reconciler._apply = real  # type: ignore[method-assign]
+        report = await world.reconciler.reconcile()
+        assert report.errors == 0 and world.row(bad.id).title == "Bad" and world.row(gone.id).deleted_at is not None
+
+    async def test_a_body_with_a_nul_byte_is_unreadable_and_never_reaches_the_insert(self, world):
+        world.bucket.seed(f"{world.user}/nul.md", "# Title\n\nbefore\x00after")
+        good = world.seed(f"{world.user}/good.md", title="Good")
+
+        report = await world.reconciler.reconcile()
+
+        assert report.errors == 0 and report.unreadable == 1 and report.incomplete is False
+        assert world.row(good.id).title == "Good"
+        nul = world.row_at(f"{world.user}/nul.md")
+        assert nul.unreadable is True and "NUL" in nul.unreadable_reason
+
+    async def test_a_key_longer_than_the_path_column_is_skipped_and_counted(self, world):
+        long_key = f"{world.user}/{'x' * 600}.md"
+        world.bucket.seed(long_key, "# Long\n\nbody")
+        good = world.seed(f"{world.user}/good.md", title="Good")
+
+        report = await world.reconciler.reconcile()
+
+        assert report.errors == 0 and report.unreadable == 1
+        assert world.row(good.id).title == "Good"
+        assert [r.path for r in world.rows()] == [good.key]

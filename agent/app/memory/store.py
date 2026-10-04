@@ -21,7 +21,7 @@ from datetime import UTC, datetime
 
 from app.db.memory_note_model import MemoryNote, MemoryOutbox
 from app.db.memory_note_repository import MemoryNoteRepository, memory_note_repo
-from app.memory.bucket import Bucket, BucketUnavailable, PreconditionFailed
+from app.memory.bucket import Bucket, BucketUnavailable, ObjectNotFound, PreconditionFailed
 from app.memory.frontmatter import NoteDoc, parse_note, render_note
 from app.memory.index import Change, apply_doc
 from app.memory.locks import PathLocks
@@ -477,7 +477,21 @@ class NoteStore:
             if op == "delete":
                 await self._flush_delete(user_id, path, base_etag, report)
                 return
-            await self._flush_put(user_id, path, content, base_etag, create_only, move_from, move_etag, note_id, report)
+            try:
+                await self._flush_put(
+                    user_id, path, content, base_etag, create_only, move_from, move_etag, note_id, report
+                )
+            except (ObjectNotFound, PreconditionFailed) as e:
+                # The bucket answered, so it is not an outage: this one item raced someone. Keep Maggie's text aside.
+                logger.warning(f"Outbox flush of {path} raced the bucket ({e!r}); kept aside as a conflict")
+                owned = classify_key(path)
+                if owned is None:
+                    await self._drop_outbox(user_id, path)
+                    report.dropped += 1
+                    return
+                doc = parse_note(content, stem(path))
+                doc.id = doc.id or note_id
+                await self._flush_conflict(user_id, path, owned, doc, content, base_etag, None, report)
 
     async def _drop_outbox(self, user_id: str, path: str) -> None:
         async with self.repo.session() as session:
@@ -487,12 +501,15 @@ class NoteStore:
             await session.commit()
 
     async def _flush_delete(self, user_id: str, path: str, expected_etag: str | None, report: FlushReport) -> None:
-        current = await self.bucket.head(path)
-        if current is not None and (not expected_etag or current.etag == expected_etag):
-            await self.bucket.delete(path)
-            report.pushed += 1
-        else:
-            report.dropped += 1
+        try:
+            current = await self.bucket.head(path)
+            if current is not None and (not expected_etag or current.etag == expected_etag):
+                await self.bucket.delete(path)
+                report.pushed += 1
+            else:
+                report.dropped += 1
+        except (ObjectNotFound, PreconditionFailed):
+            report.dropped += 1  # already gone or changed under us: nothing left to delete
         await self._drop_outbox(user_id, path)
 
     async def _flush_put(
@@ -515,15 +532,22 @@ class NoteStore:
         doc = parse_note(content, stem(path))
         current = await self.bucket.head(path)
 
+        existing = None
         if current is not None and current.etag != (base_etag or ""):
-            existing = await self.bucket.get(path)
+            try:
+                existing = await self.bucket.get(path)
+            except ObjectNotFound:
+                current = None  # deleted between the HEAD and the GET: same as a file that is not there
+        if existing is not None:
             if existing.body.decode("utf-8", errors="replace") == content:
                 etag = existing.etag  # a PUT that timed out on our side had landed
             elif create_only:
                 await self._rename_queued(user_id, path, owned, content, doc, note_id)
                 return
             else:
-                await self._flush_conflict(user_id, path, owned, doc, content, base_etag, current.etag, report)
+                await self._flush_conflict(
+                    user_id, path, owned, doc, content, base_etag, current.etag if current else None, report
+                )
                 return
         else:
             try:

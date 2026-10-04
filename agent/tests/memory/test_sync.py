@@ -7,6 +7,7 @@ import pytest
 from app import metrics
 from app.memory.frontmatter import NoteDoc
 from app.memory.sync import RETRY_BASE_SECONDS, MemorySync, TurnState
+from app.memory.bucket import FakeBucket
 from tests.memory.conftest import RacyBucket
 
 
@@ -338,3 +339,50 @@ class TestLoop:
         await world.sync.stop()
 
         assert world.row(seeded.id).title == "Titre"
+
+
+class StatusBucket(FakeBucket):
+    def __init__(self, status: str) -> None:
+        super().__init__()
+        self.status = status
+
+    async def versioning_status(self) -> str:
+        self._guard("versioning")
+        return self.status
+
+
+class TestVersioningWarning:
+    async def _first_pass_sees(self, world, caplog) -> bool:
+        seen: list[bool] = []
+        done = asyncio.Event()
+
+        async def run_pass(trigger: str):
+            seen.append(any("versioning" in r.getMessage().lower() for r in caplog.records))
+            done.set()
+            raise asyncio.CancelledError
+
+        world.sync.run_pass = run_pass  # type: ignore[method-assign]
+        with caplog.at_level(logging.WARNING):
+            world.sync.start()
+            await asyncio.wait_for(done.wait(), timeout=5)
+            await world.sync.stop()
+        return seen[0]
+
+    @pytest.mark.parametrize("status", ["Suspended", "Off"])
+    async def test_a_bucket_that_is_not_versioned_is_warned_about_before_the_first_pass(self, make_world, caplog, status):
+        world = make_world(StatusBucket(status), interval_seconds=0)
+
+        assert await self._first_pass_sees(world, caplog) is True
+        assert any(status in r.getMessage() and r.levelno == logging.WARNING for r in caplog.records)
+
+    async def test_a_versioned_bucket_is_not(self, make_world, caplog):
+        world = make_world(StatusBucket("Enabled"), interval_seconds=0)
+
+        assert await self._first_pass_sees(world, caplog) is False
+
+    async def test_a_bucket_that_cannot_say_never_stops_the_boot(self, make_world, caplog):
+        bucket = StatusBucket("Enabled")
+        bucket.down = True
+        world = make_world(bucket, interval_seconds=0)
+
+        assert await self._first_pass_sees(world, caplog) is False
