@@ -56,6 +56,13 @@ object UiTags {
     /** Top bar — the burger that opens the navigation drawer. */
     const val NAV_MENU = "nav_menu"
 
+    /**
+     * Settings > Voix — the row that makes Maggie the system assistant (MAG-30).
+     * Addressed by its tag and not by its state, which is the point: the journey
+     * reads the state off the row.
+     */
+    const val SETTINGS_ASSISTANT_ROLE = "settings_assistant_role"
+
     /** Navigation drawer — one entry per destination, suffixed by its route. */
     const val DRAWER_ITEM_PREFIX = "drawer_"
 

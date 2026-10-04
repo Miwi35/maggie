@@ -83,9 +83,10 @@ class WakeWordService : Service() {
     }
 
     private fun launchAssistant() {
+        // No « from wake word » marker: the overlay starts listening on every
+        // invocation, whoever sent it (MAG-30).
         val intent = Intent(this, AssistantActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            putExtra(EXTRA_FROM_WAKE_WORD, true)
         }
         startActivity(intent)
     }
@@ -110,7 +111,6 @@ class WakeWordService : Service() {
         private const val TAG = "WakeWordService"
         const val CHANNEL_WAKE_WORD = "wake_word"
         const val ACTION_RESUME_LISTENING = "com.maggie.app.RESUME_LISTENING"
-        const val EXTRA_FROM_WAKE_WORD = "from_wake_word"
         private const val NOTIFICATION_ID = 2001
 
         fun start(context: Context) {

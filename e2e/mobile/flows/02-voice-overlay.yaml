@@ -145,3 +145,71 @@ tags:
 
 # Kept for what it also catches: a `SPEAKING` that sticks.
 - assertNotVisible: ".*Maggie parle.*"
+
+# ---------------------------------------------------------------------------
+# « Définir Maggie comme assistant » (MAG-30) — the entry that asks the system
+# for `ROLE_ASSISTANT`, with the state read off the row.
+#
+# Here rather than in a flow of its own: this is the voice family, and a second
+# flow would pay for another sign-in to assert four lines of a settings screen.
+#
+# What it does *not* do is tap the row. The tap opens a system dialog, outside
+# the app's window and outside what this harness drives; accepting it would also
+# make Maggie the emulator's assistant for the rest of the run. The screen
+# context itself (`onHandleAssist`) is out of reach for the same reason — it
+# needs the system assist gesture — and is covered by unit tests instead:
+# `AssistTextCollectorTest`, `ScreenContextTest`, `AssistLaunchCoordinatorTest`.
+#
+# The state is asserted as an alternation of the three it can be, not as one
+# string. All three are legitimate depending on the emulator image — the role
+# may be held, free, or absent — and betting on one would turn a required check
+# red for a reason that has nothing to do with the app. What is left asserted is
+# therefore exactly « the row shows one of its three states », which is the
+# acceptance criterion « avec l'état affiché » and no more: it cannot tell a
+# `RoleManager` lookup gone wrong from a device that has no assistant role.
+# `AssistantRoleHelperTest` covers which state comes out of which answer.
+# ---------------------------------------------------------------------------
+# Back to a known screen rather than out of the overlay. Closing the sheet and
+# reaching for the burger on the next line failed in CI — « Element not found:
+# nav_menu » — because the sheet's scrim still covers the top bar while it
+# animates away, and a `tapOn` does not wait for something to *stop* being
+# covered. Relaunching is what the flow already does above, and the app stays
+# signed in: no `clearState`.
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "dashboard"
+    timeout: 40000
+
+- tapOn:
+    id: "nav_menu"
+
+# « Paramètres » is pinned to the bottom of the drawer, past a `weight(1f)`
+# spacer, so it is always drawn — but the drawer slides in, hence the wait.
+- extendedWaitUntil:
+    visible:
+      id: "drawer_settings"
+    timeout: 20000
+
+- tapOn:
+    id: "drawer_settings"
+
+- extendedWaitUntil:
+    visible: ".*Assistant par défaut, mot d'activation.*"
+    timeout: 20000
+
+- tapOn: "Voix"
+
+- extendedWaitUntil:
+    visible:
+      id: "settings_assistant_role"
+    timeout: 20000
+
+- extendedWaitUntil:
+    visible: ".*Définir Maggie comme assistant.*"
+    timeout: 20000
+
+- extendedWaitUntil:
+    visible: ".*(Non défini|Maggie répond à l'appui long|Indisponible sur cet appareil).*"
+    timeout: 20000
