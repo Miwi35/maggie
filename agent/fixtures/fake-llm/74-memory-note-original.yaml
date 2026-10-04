@@ -1,0 +1,10 @@
+# The door-code note as first written in the bucket (MAG-195) — the pair of 73-memory-note-edited.yaml.
+name: memory-note-original
+description: Answer with the original version of the door-code note.
+
+match:
+  user_contains: "code de la porte"
+  system_contains: "le code de la porte est 4321"
+
+turns:
+  - text: "Le code de la porte est 4321."

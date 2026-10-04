@@ -465,6 +465,12 @@ services:
       # edge_tts opens its own WebSocket to Microsoft, so there is no URL to
       # redirect — the provider switch is the only way out.
       TTS_PROVIDER: fake
+      # The notes' bucket lives in the agent's memory here: no MinIO to run, and a journey can
+      # take it down or edit a note in it through /e2e/memory/* (MAG-195).
+      MEMORY_BUCKET: fake
+      MEMORY_SYNC_INTERVAL_SECONDS: "3600"
+      # Every turn reconciles first, so a journey sees the opportunistic pass without waiting 30 s.
+      MEMORY_TURN_SYNC_MAX_AGE_SECONDS: "0"
       MCP_SERVER_URL: http://nginx/_mcp
       MERCURE_URL: http://mercure/.well-known/mercure
       MERCURE_PUBLIC_URL: ${E2E_BASE_URL:-http://localhost}/.well-known/mercure

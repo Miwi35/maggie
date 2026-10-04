@@ -1,0 +1,16 @@
+# The bucket is down and the index still answers (MAG-195).
+#
+# Unreachable unless the volatile block holds BOTH the note as last indexed and the notice that it
+# comes from the local index: `system_contains` is matched on the system prompt Maggie is sent.
+# Numbered before 73 and 74 so the stale answer wins over the plain one while the notice is there.
+name: memory-note-stale
+description: Answer from the indexed note while the bucket is unreachable, and say so.
+
+match:
+  user_contains: "code de la porte"
+  system_contains:
+    - "le code de la porte est 8765"
+    - "injoignable"
+
+turns:
+  - text: "Le bucket est injoignable ; d'après mon index local, le code de la porte est 8765."

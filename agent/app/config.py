@@ -85,6 +85,27 @@ class Settings(BaseSettings):
     context_close_after_days: int = 14
     context_lifecycle_interval_seconds: int = 600
 
+    # Memory bucket — the notes' source of truth (MAG-195). Provisioned by the owner; empty bucket
+    # name = no memory bucket configured, the agent runs without it and never starts the sync.
+    # "fake" keeps the bucket in memory (the e2e stack: no MinIO is added to it).
+    memory_bucket: str = ""
+    memory_bucket_endpoint: str = ""
+    memory_bucket_region: str = ""
+    memory_bucket_key: str = ""
+    memory_bucket_secret: str = ""
+    # False when the endpoint ignores or refuses If-Match / If-None-Match: the writer re-reads the ETag first.
+    memory_bucket_conditional_writes: bool = True
+    # One bucket call may take this long before it counts as an outage.
+    memory_bucket_timeout_seconds: float = 10.0
+    # Background reconciliation, independent of RabbitMQ; failed passes retry sooner, with backoff.
+    memory_sync_interval_seconds: int = 60
+    # A turn starts with a pass only if the last one is older than this, and waits for it at most this long.
+    memory_turn_sync_max_age_seconds: int = 30
+    memory_turn_sync_timeout_seconds: float = 2.0
+    # Notes listed in the prompt until summary and search arrive (MAG-16), and how much of each.
+    memory_prompt_max_notes: int = 30
+    memory_prompt_note_chars: int = 1200
+
     @field_validator("llm_provider")
     @classmethod
     def _known_provider(cls, value: str) -> str:

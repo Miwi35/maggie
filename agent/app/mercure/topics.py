@@ -12,8 +12,9 @@ CONTEXTS = "contexts"
 PROACTIONS = "proactions"
 INSTRUCTIONS = "instructions"
 SKILLS = "skills"
+MEMORY = "memory"
 
-STREAMS = (CHAT, CONTEXTS, PROACTIONS, INSTRUCTIONS, SKILLS)
+STREAMS = (CHAT, CONTEXTS, PROACTIONS, INSTRUCTIONS, SKILLS, MEMORY)
 
 SUBSCRIPTION_PATTERNS = {stream: f"/{stream}/{{userId}}" for stream in STREAMS}
 

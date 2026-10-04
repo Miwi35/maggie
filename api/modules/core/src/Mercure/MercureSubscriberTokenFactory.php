@@ -25,7 +25,7 @@ final class MercureSubscriberTokenFactory
      * under /users/{id}. Updates are private, so a token only receives what
      * one of its grants names.
      */
-    private const AGENT_TOPICS = ['chat', 'contexts', 'proactions', 'instructions', 'skills'];
+    private const AGENT_TOPICS = ['chat', 'contexts', 'proactions', 'instructions', 'skills', 'memory'];
 
     public function __construct(
         private readonly MercureAccessToken $accessToken,

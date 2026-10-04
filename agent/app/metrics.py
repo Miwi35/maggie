@@ -1,6 +1,6 @@
 """Prometheus metrics for Maggie Agent Hub."""
 
-from prometheus_client import Counter, Histogram
+from prometheus_client import Counter, Gauge, Histogram
 
 # ---------------------------------------------------------------------------
 # LLM pricing table (USD per 1M tokens)
@@ -67,6 +67,33 @@ TOOL_CALLS = Counter(
     "maggie_tool_calls_total",
     "Total MCP/native tool calls",
     ["tool_name", "source"],
+)
+
+# Memory bucket sync (MAG-195)
+MEMORY_SYNC_PASSES = Counter(
+    "maggie_memory_sync_passes_total",
+    "Memory reconciliation passes",
+    ["trigger", "outcome"],
+)
+
+MEMORY_SYNC_DEGRADED = Gauge(
+    "maggie_memory_sync_degraded",
+    "1 while the memory bucket is unreachable and the index is served stale",
+)
+
+MEMORY_INDEX_AGE_SECONDS = Gauge(
+    "maggie_memory_index_age_seconds",
+    "Seconds since the memory index last matched the bucket (0 when it is fresh)",
+)
+
+MEMORY_OUTBOX_PENDING = Gauge(
+    "maggie_memory_outbox_pending",
+    "Note writes queued while the memory bucket is unreachable",
+)
+
+MEMORY_MASS_DELETION_BLOCKED = Counter(
+    "maggie_memory_mass_deletion_blocked_total",
+    "Passes that refused to soft-delete a large share of a user's notes at once",
 )
 
 # ---------------------------------------------------------------------------

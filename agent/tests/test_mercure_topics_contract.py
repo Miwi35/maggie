@@ -86,3 +86,10 @@ async def test_a_created_message_is_published_on_the_users_chat_topic():
     assert publish.await_args.args[0] == "/chat/01HXYZ"
     assert publish.await_args.args[1]["id"] == message.id
     engine.dispose()
+
+
+def test_the_memory_stream_is_a_published_topic():
+    assert topics.MEMORY == "memory" and topics.MEMORY in topics.STREAMS
+    assert topics.SUBSCRIPTION_PATTERNS["memory"] == "/memory/{userId}"
+    assert topics.for_user(topics.MEMORY, "01HXYZ") == "/memory/01HXYZ"
+    assert json.loads(CONTRACT_FILE.read_text())["memory"] == "/memory/{userId}"

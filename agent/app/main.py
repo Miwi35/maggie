@@ -7,11 +7,17 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from starlette.responses import Response
 
 from app.a2a import setup_a2a
+from app.api.memory_routes import router as memory_router
 from app.api.routes import router
 from app.db.context_model import ConversationContext  # noqa: F401 — register model with AgentBase before create_all
 from app.db.context_repository import context_repo
 from app.db.instruction_model import Instruction  # noqa: F401 — register model with AgentBase before create_all
 from app.db.memory_model import Memory  # noqa: F401 — register model with AgentBase before create_all
+from app.db.memory_note_model import (  # noqa: F401 — register models with AgentBase before create_all
+    MemoryEvent,
+    MemoryNote,
+    MemoryOutbox,
+)
 from app.db.models import Message  # noqa: F401 — register model with AgentBase before create_all
 from app.db.personality_model import PersonalityConfig  # noqa: F401 — register model with AgentBase before create_all
 from app.db.proaction_repository import proaction_repo
@@ -19,6 +25,7 @@ from app.db.skill_model import Skill  # noqa: F401 — register model with Agent
 from app.db.user_setting_model import UserSetting  # noqa: F401 — register model with AgentBase before create_all
 from app.e2e import setup_e2e
 from app.mcp.client import mcp_client
+from app.memory import service as memory_service
 from app.queue import connection as queue_connection
 from app.queue.proaction_consumer import start_consumer
 from app.queue.scheduler import start_scheduler
@@ -81,9 +88,21 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Could not start proaction consumer/scheduler: {e}")
 
+    # The memory sync loop does not depend on RabbitMQ: it starts (and keeps retrying) on its own.
+    try:
+        service = memory_service.configure()
+        if service is not None:
+            service.sync.start()
+            logger.info("Memory bucket sync started")
+    except Exception as e:
+        logger.warning(f"Could not start the memory bucket sync: {e}")
+
     yield
 
     # Shutdown
+    with contextlib.suppress(Exception):
+        if memory_service.get_service() is not None:
+            await memory_service.get_service().sync.stop()
     with contextlib.suppress(Exception):
         await queue_connection.disconnect()
     with contextlib.suppress(Exception):
@@ -99,6 +118,7 @@ app = FastAPI(
 )
 
 app.include_router(router)
+app.include_router(memory_router)
 setup_a2a(app)
 setup_e2e(app)
 

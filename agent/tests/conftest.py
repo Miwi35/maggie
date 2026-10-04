@@ -156,3 +156,25 @@ def agent_db():
     ):
         yield factory
     engine.dispose()
+
+
+@pytest.fixture()
+def memory_db():
+    """In-memory database behind the note index, its journal and its outbox (real queries, no mocks)."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+
+    from app.db.memory_note_model import MemoryEvent, MemoryNote, MemoryOutbox
+
+    engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
+    for model in (MemoryNote, MemoryEvent, MemoryOutbox):
+        model.__table__.create(engine)
+    factory = sessionmaker(engine, expire_on_commit=False)
+
+    def open_session():
+        return _SyncSessionAsAsync(factory())
+
+    with patch("app.db.memory_note_repository.agent_session", open_session):
+        yield factory
+    engine.dispose()

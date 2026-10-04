@@ -3,5 +3,6 @@
     "contexts": "/contexts/{userId}",
     "proactions": "/proactions/{userId}",
     "instructions": "/instructions/{userId}",
-    "skills": "/skills/{userId}"
+    "skills": "/skills/{userId}",
+    "memory": "/memory/{userId}"
 }

@@ -1,0 +1,11 @@
+# The owner edited the note in his bucket; the next turn sees the new version (MAG-195).
+# Reachable only once the reconciler has reindexed the file and the turn put it in the system prompt.
+name: memory-note-edited
+description: Answer with the edited version of the door-code note.
+
+match:
+  user_contains: "code de la porte"
+  system_contains: "le code de la porte est 8765"
+
+turns:
+  - text: "Le code de la porte est 8765."
