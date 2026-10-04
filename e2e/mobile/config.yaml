@@ -23,6 +23,7 @@ executionOrder:
     - 01-login-chat
     - 02-voice-overlay
     - 05-deep-links
-    - 06-grocery-errand
-    - 07-grocery-realtime
-    - 08-grocery-deferred
+    - 06-finance-hub
+    - 07-grocery-errand
+    - 08-grocery-realtime
+    - 09-grocery-deferred

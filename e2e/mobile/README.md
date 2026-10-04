@@ -124,9 +124,9 @@ against an app nobody launched.
 
 | | |
 |---|---|
-| `06-grocery-errand` | the errand: the list by shop in visit order, a tick, « Terminé » on a shop, what is left offered back, a removal |
-| `07-grocery-realtime` | web → phone and phone → web, with the app never relaunched or refreshed |
-| `08-grocery-deferred` | a line with a `buyAfter` in the future is in the database and not on the screen |
+| `07-grocery-errand` | the errand: the list by shop in visit order, a tick, « Terminé » on a shop, what is left offered back, a removal |
+| `08-grocery-realtime` | web → phone and phone → web, with the app never relaunched or refreshed |
+| `09-grocery-deferred` | a line with a `buyAfter` in the future is in the database and not on the screen |
 
 Three things they rely on, none of them obvious:
 
