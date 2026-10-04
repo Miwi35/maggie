@@ -152,26 +152,33 @@ tags:
 # Kept for what it also catches: a `SPEAKING` that sticks.
 - assertNotVisible: ".*Maggie parle.*"
 
-# Closing and reopening reads nothing either (MAG-227): the history is still the
-# same, and still ends with Maggie's answer.
+# Reopening Maggie on a history that ends with her answer reads nothing (MAG-227).
+# This is the reproduction of the bug as the owner met it: the assistant gesture opens
+# a fresh instance, whose history arrives while the surface is already up, and the old
+# code took that load for a request and read the last answer aloud. MAG-205's check
+# above missed it because its history was long loaded when the sheet opened.
+#
+# So: close, restart the app *without* clearing its state (still signed in, history
+# on the server), and tap the mic as soon as the dashboard is there — no HTTP call in
+# between, which would give the history time to land first. The counter was zero
+# above and nothing has spoken since, so it is not reset again.
 - tapOn:
     id: "chat_close"
-# The sheet's scrim still covers the dashboard while it animates away, and a
-# `tapOn` does not wait for something to stop being covered.
+- stopApp
+- launchApp
 - extendedWaitUntil:
     visible:
       id: "dashboard"
-    timeout: 20000
-- extendedWaitUntil:
-    visible:
-      id: "chat_mic"
-    timeout: 20000
+    timeout: 40000
 - tapOn:
     id: "chat_mic"
 - extendedWaitUntil:
     visible:
       id: "voice_state"
     timeout: 20000
+- extendedWaitUntil:
+    visible: ".*déjeuner avec Alex et votre cours de piano.*"
+    timeout: 30000
 - extendedWaitUntil:
     visible: ".*ce texte n'apparaît jamais, il sert de minuterie.*"
     timeout: 5000
