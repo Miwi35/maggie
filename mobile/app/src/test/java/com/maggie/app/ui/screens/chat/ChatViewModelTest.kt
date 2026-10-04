@@ -186,6 +186,49 @@ class ChatViewModelTest {
     }
 
     @Test
+    fun `the screen context travels inside the message, never inside the bubble`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val block = "[Contexte de l'écran]\nPage : https://boutique.example/cafe"
+        every { repository.sendMessageStream(any()) } returns flowOf(AgUiEvent.RunFinished(runId = "run-1"))
+
+        viewModel.sendMessage("ajoute ça à mon agenda", block)
+        advanceUntilIdle()
+
+        verify { repository.sendMessageStream("$block\n\najoute ça à mon agenda") }
+        assertEquals("ajoute ça à mon agenda", viewModel.uiState.value.messages.last().content)
+    }
+
+    @Test
+    fun `no screen context means no prefix, not an empty one`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        every { repository.sendMessageStream(any()) } returns flowOf(AgUiEvent.RunFinished(runId = "run-1"))
+
+        viewModel.sendMessage("bonjour", screenContext = "   ")
+        advanceUntilIdle()
+
+        verify { repository.sendMessageStream("bonjour") }
+    }
+
+    @Test
+    fun `the fallback sends the context too, not the bare question`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val block = "[Contexte de l'écran]\nApplication : Boutique (com.example.shop)"
+        every { repository.sendMessageStream(any()) } returns flow { throw RuntimeException("Stream failed") }
+        coEvery { repository.sendMessage(any()) } returns emptyList()
+
+        viewModel.sendMessage("c'est quoi ce produit ?", block)
+        advanceUntilIdle()
+
+        coVerify { repository.sendMessage("$block\n\nc'est quoi ce produit ?") }
+    }
+
+    @Test
     fun `loadOlderMessages prepends history`() = runTest {
         // Return PAGE_SIZE messages so hasMoreHistory = true
         val fullPage = (1..20).map {

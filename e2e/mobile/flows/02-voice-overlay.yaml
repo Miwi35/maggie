@@ -145,3 +145,51 @@ tags:
 
 # Kept for what it also catches: a `SPEAKING` that sticks.
 - assertNotVisible: ".*Maggie parle.*"
+
+# ---------------------------------------------------------------------------
+# « Définir Maggie comme assistant » (MAG-30) — the entry that asks the system
+# for `ROLE_ASSISTANT`, with the state read off the row.
+#
+# Here rather than in a flow of its own: this is the voice family, and a second
+# flow would pay for another sign-in to assert four lines of a settings screen.
+#
+# What it does *not* do is tap the row. The tap opens a system dialog, outside
+# the app's window and outside what this harness drives; accepting it would also
+# make Maggie the emulator's assistant for the rest of the run. The screen
+# context itself (`onHandleAssist`) is out of reach for the same reason — it
+# needs the system assist gesture — and is covered by unit tests instead:
+# `AssistTextCollectorTest`, `ScreenContextTest`, `AssistLaunchCoordinatorTest`.
+#
+# The state is asserted as an alternation rather than as one string, because
+# both real states are legitimate on an emulator: Maggie is normally not the
+# assistant, but a run that left the role set must not fail here. What it does
+# rule out is the third state — « Indisponible sur cet appareil », which is what
+# a build whose `RoleManager` lookup goes wrong would show.
+# ---------------------------------------------------------------------------
+- tapOn:
+    id: "chat_close"
+
+- tapOn:
+    id: "nav_menu"
+
+- tapOn:
+    id: "drawer_settings"
+
+- extendedWaitUntil:
+    visible: ".*Assistant par défaut, mot d'activation.*"
+    timeout: 20000
+
+- tapOn: "Voix"
+
+- extendedWaitUntil:
+    visible:
+      id: "settings_assistant_role"
+    timeout: 20000
+
+- extendedWaitUntil:
+    visible: ".*Définir Maggie comme assistant.*"
+    timeout: 20000
+
+- extendedWaitUntil:
+    visible: ".*(Non défini|Maggie répond à l'appui long).*"
+    timeout: 20000

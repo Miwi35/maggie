@@ -1,0 +1,84 @@
+package com.maggie.app.voice
+
+/**
+ * Decides *when* the assistant overlay opens, and with what (MAG-30).
+ *
+ * The session used to start [AssistantActivity] from `onShow` and call `finish()`
+ * on the next line, which killed it before Android had a chance to deliver
+ * `onHandleAssist` — the screen content never arrived anywhere. But waiting is
+ * not free either: the overlay must not sit blank while an app takes its time
+ * building an `AssistStructure`, and a session shown without the assist flags
+ * will never receive anything at all.
+ *
+ * So: open at once when there is nothing to wait for, otherwise wait for exactly
+ * the pieces the show flags promised, and give up on [onTimeout] with whatever
+ * arrived. Exactly one launch happens, whichever path gets there first — a late
+ * callback after the timeout must not open a second overlay.
+ *
+ * Kept free of Android types so every one of those paths is a unit test; the
+ * session owns the clock.
+ */
+class AssistLaunchCoordinator(private val onLaunch: (ScreenContext) -> Unit) {
+
+    private var shown = false
+    private var awaitingAssist = false
+    private var awaitingScreenshot = false
+    private var assistReceived = false
+    private var screenshotReceived = false
+    private var context = ScreenContext()
+
+    var hasLaunched: Boolean = false
+        private set
+
+    /**
+     * Returns true when the caller must arm the timeout — i.e. the overlay did
+     * not open yet because something is still expected.
+     */
+    fun onShow(withAssist: Boolean, withScreenshot: Boolean): Boolean {
+        if (hasLaunched) return false
+        shown = true
+        awaitingAssist = withAssist
+        awaitingScreenshot = withScreenshot
+        return !launchIfReady()
+    }
+
+    fun onAssist(appPackage: String?, appLabel: String?, webUri: String?, texts: List<String>) {
+        if (hasLaunched) return
+        assistReceived = true
+        // First window wins: Android may deliver one call per activity in the
+        // task, and the one in front is the one the user is looking at.
+        context = context.copy(
+            appPackage = context.appPackage ?: appPackage?.takeIf { it.isNotBlank() },
+            appLabel = context.appLabel ?: appLabel?.takeIf { it.isNotBlank() },
+            webUri = context.webUri ?: webUri?.takeIf { it.isNotBlank() },
+            texts = context.texts.ifEmpty { texts },
+        )
+        launchIfReady()
+    }
+
+    /** Android calls back with no bitmap when the screenshot is refused; that still ends the wait. */
+    fun onScreenshot(available: Boolean) {
+        if (hasLaunched) return
+        screenshotReceived = true
+        context = context.copy(hasScreenshot = context.hasScreenshot || available)
+        launchIfReady()
+    }
+
+    fun onTimeout() {
+        if (hasLaunched || !shown) return
+        launch()
+    }
+
+    private fun launchIfReady(): Boolean {
+        if (hasLaunched || !shown) return hasLaunched
+        if (awaitingAssist && !assistReceived) return false
+        if (awaitingScreenshot && !screenshotReceived) return false
+        launch()
+        return true
+    }
+
+    private fun launch() {
+        hasLaunched = true
+        onLaunch(context)
+    }
+}

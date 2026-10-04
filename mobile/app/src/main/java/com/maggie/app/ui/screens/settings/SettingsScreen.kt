@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.settings
 
+import android.content.ActivityNotFoundException
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -48,6 +49,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -59,9 +61,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.maggie.app.BuildConfig
+import com.maggie.app.ui.UiTags
+import com.maggie.app.voice.AssistantRoleHelper
+import com.maggie.app.voice.AssistantRoleState
 import org.koin.androidx.compose.koinViewModel
 
 private enum class SettingsSection {
@@ -197,7 +209,7 @@ private fun SettingsList(
             SettingsRow(
                 icon = Icons.Outlined.Mic,
                 title = "Voix",
-                subtitle = "Mot d'activation « Maggie »",
+                subtitle = "Assistant par défaut, mot d'activation",
                 onClick = { onSectionClick(SettingsSection.VOICE) },
             )
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
@@ -695,6 +707,27 @@ private fun VoiceSection(
     onBack: () -> Unit,
 ) {
     val wakeWordEnabled by viewModel.wakeWordManager.isEnabled.collectAsState(initial = false)
+    val context = LocalContext.current
+    var roleState by remember { mutableStateOf(AssistantRoleHelper.state(context)) }
+
+    // The role dialog answers with a result; the system settings list, which is
+    // where an OEM build without that dialog sends the user, does not. So the
+    // state is read again on both — and on every resume, because the role can
+    // also change from outside the app.
+    val roleLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { roleState = AssistantRoleHelper.state(context) }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                roleState = AssistantRoleHelper.state(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     Scaffold(
         topBar = {
@@ -715,6 +748,58 @@ private fun VoiceSection(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            Text("Assistant par défaut", style = MaterialTheme.typography.titleMedium)
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag(UiTags.SETTINGS_ASSISTANT_ROLE)
+                    .clickable(enabled = roleState.canRequest) {
+                        val intent = AssistantRoleHelper.createRoleRequestIntent(context)
+                            ?: AssistantRoleHelper.voiceInputSettingsIntent()
+                        try {
+                            roleLauncher.launch(intent)
+                        } catch (_: ActivityNotFoundException) {
+                            roleLauncher.launch(AssistantRoleHelper.voiceInputSettingsIntent())
+                        }
+                    },
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Définir Maggie comme assistant",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        roleState.label,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (roleState == AssistantRoleState.HELD) {
+                    Icon(
+                        Icons.Outlined.CheckCircle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                } else if (roleState.canRequest) {
+                    Icon(
+                        Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            Text(
+                "Maggie répond alors à l'appui long sur la touche assistant, et peut lire " +
+                    "l'écran que vous regardez pour « ajoute ça à mon agenda ».",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            HorizontalDivider()
+
             Text("Mot d'activation", style = MaterialTheme.typography.titleMedium)
 
             Row(

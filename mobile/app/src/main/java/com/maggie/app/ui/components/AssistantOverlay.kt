@@ -33,14 +33,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.maggie.app.ui.screens.chat.ChatViewModel
+import com.maggie.app.voice.ScreenContext
 import com.maggie.app.voice.VoiceManager
 import com.maggie.app.voice.VoiceState
 
+/**
+ * [screenContext] is what the screen behind the overlay was showing when the
+ * assistant was summoned (MAG-30). It rides along with the **first** thing said
+ * and is then forgotten: « ajoute ça à mon agenda » is about the screen, the
+ * follow-up question is about the answer.
+ */
 @Composable
 fun AssistantOverlay(
     viewModel: ChatViewModel,
     voiceManager: VoiceManager,
     onDismiss: () -> Unit,
+    screenContext: ScreenContext? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val voiceState by voiceManager.state.collectAsState()
@@ -52,8 +60,16 @@ fun AssistantOverlay(
     var lastSpokenMessageId by remember { mutableStateOf<String?>(null) }
     var sawLoadingSinceOpen by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        voiceManager.onFinalResult = { text -> viewModel.sendMessage(text) }
+    // Keyed on the context so a second invocation of the assistant, which
+    // reaches the activity through `onNewIntent` and replaces it, re-arms both
+    // the state holder and the callback that reads it.
+    var pendingContext by remember(screenContext) { mutableStateOf(screenContext) }
+
+    LaunchedEffect(screenContext) {
+        voiceManager.onFinalResult = { text ->
+            viewModel.sendMessage(text, pendingContext?.toPromptBlock())
+            pendingContext = null
+        }
     }
 
     LaunchedEffect(uiState.isLoading) {
@@ -110,6 +126,18 @@ fun AssistantOverlay(
                         .padding(8.dp),
                 ) {
                     Icon(Icons.Default.Close, contentDescription = "Fermer")
+                }
+
+                // What Maggie is about to read, named before anything is said.
+                pendingContext?.source()?.let { source ->
+                    Text(
+                        text = "Contexte : $source",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 4.dp),
+                    )
                 }
 
                 // Messages

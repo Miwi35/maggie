@@ -131,7 +131,13 @@ class ChatViewModel(
         }
     }
 
-    fun sendMessage(text: String) {
+    /**
+     * [screenContext] is the block describing the screen the assistant was
+     * summoned from (MAG-30). It travels inside the message, because the chat
+     * endpoint takes a single string, but never inside the bubble: the
+     * conversation shows what the user said, not what Maggie was told about it.
+     */
+    fun sendMessage(text: String, screenContext: String? = null) {
         if (text.isBlank()) return
 
         viewModelScope.launch {
@@ -151,14 +157,16 @@ class ChatViewModel(
             rebuildDisplayItems()
             scrollToBottom(animate = true)
 
+            val payload = if (screenContext.isNullOrBlank()) text else "$screenContext\n\n$text"
+
             try {
-                repository.sendMessageStream(text)
+                repository.sendMessageStream(payload)
                     .collect { event -> handleStreamEvent(event) }
             } catch (e: Exception) {
                 Log.w(TAG, "Stream failed, falling back to non-streaming: ${e.message}")
                 // Fallback to non-streaming
                 try {
-                    val newMessages = repository.sendMessage(text)
+                    val newMessages = repository.sendMessage(payload)
                     if (newMessages.isNotEmpty()) {
                         // Replace optimistic user message with server response
                         val current = _uiState.value.messages.dropLast(1)
