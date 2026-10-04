@@ -156,6 +156,16 @@ tags:
 # same, and still ends with Maggie's answer.
 - tapOn:
     id: "chat_close"
+# The sheet's scrim still covers the dashboard while it animates away, and a
+# `tapOn` does not wait for something to stop being covered.
+- extendedWaitUntil:
+    visible:
+      id: "dashboard"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "chat_mic"
+    timeout: 20000
 - tapOn:
     id: "chat_mic"
 - extendedWaitUntil:
