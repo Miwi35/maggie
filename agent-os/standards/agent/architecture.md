@@ -20,9 +20,9 @@ Python FastAPI service. Separate from Symfony — consumes the API via MCP like 
 - Will move to database for user-customizable personalities
 
 ## Data ownership
-- Long-term memory has its own standard: `agent/memory` (ADR-010). Once it lands, an
-  S3-compatible bucket is a **mandatory** dependency of the agent (`aioboto3`, one secret): the
-  memory's `.md` files are the source of truth and Postgres is a derived index.
+- Long-term memory has its own standard: `agent/memory` (ADR-011). Once it lands, a folder of
+  Markdown files is the only truth — synced with a versioned S3 bucket, a **mandatory** dependency
+  of the agent (one secret) — and Postgres holds a throwaway index rebuilt from those files.
 - Memories and instructions: every repository read or write is filtered by `user_id`; an id belonging to another user behaves like an unknown id (same "not found" error, no leak). New per-user data follows the same rule and ships a two-user isolation test.
 - Skills live in the `skill` table of `maggie_agent` (MAG-187), saved with the rest of the agent's data; the in-memory index (`skill_index.rebuild()`) is reloaded from it at startup. They are **global**, shared by all users: accepted while Maggie has a single user. Multi-user means adding a `user_id` to that table first (MAG-108).
 
