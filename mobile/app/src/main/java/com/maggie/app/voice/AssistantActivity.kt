@@ -26,6 +26,15 @@ class AssistantActivity : ComponentActivity() {
     /** What the screen behind the overlay was showing, when Android told us (MAG-30). */
     private var screenContext by mutableStateOf<ScreenContext?>(null)
 
+    /**
+     * Counts invocations, and is what the overlay keys its « context not used
+     * yet » state on. The context itself cannot be that key: summoning Maggie
+     * twice from the same screen hands over an equal [ScreenContext], and a
+     * state keyed on equality would not re-arm — the second question would
+     * silently lose the screen it is about.
+     */
+    private var invocation by mutableStateOf(0)
+
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
@@ -44,6 +53,7 @@ class AssistantActivity : ComponentActivity() {
                     voiceManager = voiceManager,
                     onDismiss = { finish() },
                     screenContext = screenContext,
+                    invocation = invocation,
                 )
             }
         }
@@ -61,7 +71,10 @@ class AssistantActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        ScreenContext.fromIntent(intent)?.let { screenContext = it }
+        // Replaced, not merged: an invocation that brings no context — the wake
+        // word, a plain `ACTION_ASSIST` — is not about the previous screen.
+        screenContext = ScreenContext.fromIntent(intent)
+        invocation++
         voiceManager.stopSpeaking()
         requestMicAndListen()
     }

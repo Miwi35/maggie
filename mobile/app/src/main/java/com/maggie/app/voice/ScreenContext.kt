@@ -27,8 +27,14 @@ data class ScreenContext(
     val texts: List<String> = emptyList(),
     val hasScreenshot: Boolean = false,
 ) {
+    /**
+     * [appLabel] counts: a context naming the app but not its package is still
+     * something to tell the model and something [source] would show, and a
+     * definition that ignored it would have [toPromptBlock] return null for a
+     * context the overlay displays.
+     */
     val isEmpty: Boolean
-        get() = appPackage == null && webUri == null && texts.isEmpty() && !hasScreenshot
+        get() = appPackage == null && appLabel == null && webUri == null && texts.isEmpty() && !hasScreenshot
 
     /**
      * The provenance the overlay shows, so the user sees what Maggie is about to
@@ -43,7 +49,7 @@ data class ScreenContext(
     fun toPromptBlock(): String? {
         if (isEmpty) return null
 
-        val lines = mutableListOf("[Contexte de l'écran]")
+        val lines = mutableListOf(PROMPT_HEADER)
         val app = listOfNotNull(
             appLabel?.takeIf { it.isNotBlank() },
             appPackage?.takeIf { it.isNotBlank() }?.let { "($it)" },
@@ -76,11 +82,33 @@ data class ScreenContext(
             ?.takeIf { it.isNotBlank() }
 
     companion object {
+        /** The first line of [toPromptBlock], and the marker [withoutPromptBlock] looks for. */
+        const val PROMPT_HEADER = "[Contexte de l'écran]"
+
         const val EXTRA_PACKAGE = "com.maggie.app.extra.SCREEN_PACKAGE"
         const val EXTRA_LABEL = "com.maggie.app.extra.SCREEN_LABEL"
         const val EXTRA_WEB_URI = "com.maggie.app.extra.SCREEN_WEB_URI"
         const val EXTRA_TEXTS = "com.maggie.app.extra.SCREEN_TEXTS"
         const val EXTRA_SCREENSHOT = "com.maggie.app.extra.SCREEN_SCREENSHOT"
+
+        /**
+         * What the user actually said, out of a message that carries a context
+         * block.
+         *
+         * The block travels *inside* the message, and the agent stores the
+         * message it receives word for word — so the history that comes back,
+         * and the copy the non-streaming fallback returns, both carry it. Taking
+         * it off on the way into the UI is what keeps the promise that a bubble
+         * shows what was said and nothing else (MAG-30).
+         *
+         * A message that starts with the header but has no blank line after the
+         * block is left alone: better an ugly bubble than an empty one.
+         */
+        fun withoutPromptBlock(content: String): String {
+            if (!content.startsWith(PROMPT_HEADER)) return content
+            val said = content.substringAfter("\n\n", missingDelimiterValue = "")
+            return said.ifBlank { content }
+        }
 
         /** Null when the intent carries no context, so the overlay stays as it was. */
         fun fromIntent(intent: Intent): ScreenContext? {

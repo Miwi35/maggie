@@ -57,6 +57,16 @@ private class MaggieVoiceInteractionSession(
         super.onHandleAssist(data, structure, content)
 
         val appPackage = structure?.activityComponent?.packageName
+
+        // Our own overlay in front means the user summoned Maggie while she was
+        // already open. Handing her her own answers back as « the screen you are
+        // looking at » is worse than handing her nothing, so: nothing — but the
+        // wait still ends, or the overlay would sit there for 1.2 s.
+        if (appPackage == service.packageName) {
+            coordinator.onAssist(appPackage = null, appLabel = null, webUri = null, texts = emptyList())
+            return
+        }
+
         coordinator.onAssist(
             appPackage = appPackage,
             appLabel = appPackage?.let(::appLabel),
@@ -71,9 +81,21 @@ private class MaggieVoiceInteractionSession(
         coordinator.onScreenshot(available = screenshot != null)
     }
 
+    /**
+     * Dismissed without opening anything — the session object survives and
+     * Android may show it again, so the screen it was about is forgotten here.
+     * Without this, the next invocation launches at once with the previous
+     * screen's content.
+     */
     override fun onHide() {
         handler.removeCallbacks(giveUp)
+        coordinator.onDismissed()
         super.onHide()
+    }
+
+    override fun onDestroy() {
+        handler.removeCallbacks(giveUp)
+        super.onDestroy()
     }
 
     private fun launchOverlay(screen: ScreenContext) {

@@ -6,6 +6,7 @@ import io.mockk.mockk
 import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -17,6 +18,21 @@ class ScreenContextTest {
         assertTrue(ScreenContext().isEmpty)
         assertNull(ScreenContext().toPromptBlock())
         assertNull(ScreenContext().source())
+    }
+
+    @Test
+    fun `anything the overlay would show is something the model is told`() {
+        // Whatever makes `source()` answer must also make a block: the two said
+        // different things about a context carrying only a label.
+        listOf(
+            ScreenContext(appPackage = "com.example.shop"),
+            ScreenContext(appLabel = "Boutique"),
+            ScreenContext(webUri = "https://boutique.example"),
+            ScreenContext(texts = listOf("Café")),
+        ).forEach { screen ->
+            assertFalse(screen.toString(), screen.isEmpty)
+            assertNotNull(screen.toString(), screen.toPromptBlock())
+        }
     }
 
     @Test
@@ -73,6 +89,43 @@ class ScreenContextTest {
         assertEquals("boutique.example", ScreenContext(webUri = "https://www.boutique.example/cafe?x=1").source())
         assertEquals("com.example.shop", ScreenContext(appPackage = "com.example.shop").source())
         assertNull(ScreenContext(webUri = "pas une url").source())
+    }
+
+    @Test
+    fun `a message that came back carrying a block shows only what was said`() {
+        val screen = ScreenContext(
+            appPackage = "com.example.shop",
+            appLabel = "Boutique",
+            texts = listOf("Café moulu 250 g", "4,90 €"),
+        )
+        val sent = "${screen.toPromptBlock()}\n\nc'est quoi ce produit ?"
+
+        assertEquals("c'est quoi ce produit ?", ScreenContext.withoutPromptBlock(sent))
+    }
+
+    @Test
+    fun `a message the user wrote himself is left alone`() {
+        assertEquals("bonjour", ScreenContext.withoutPromptBlock("bonjour"))
+        assertEquals(
+            "Contexte : deux lignes\n\net une suite",
+            ScreenContext.withoutPromptBlock("Contexte : deux lignes\n\net une suite"),
+        )
+    }
+
+    @Test
+    fun `a blank line in what was said does not cut the message short`() {
+        val sent = "${ScreenContext(appLabel = "Boutique").toPromptBlock()}\n\nnote ça :\n\ndeux lignes"
+
+        assertEquals("note ça :\n\ndeux lignes", ScreenContext.withoutPromptBlock(sent))
+    }
+
+    @Test
+    fun `a header with nothing after it is kept rather than emptied`() {
+        assertEquals(ScreenContext.PROMPT_HEADER, ScreenContext.withoutPromptBlock(ScreenContext.PROMPT_HEADER))
+        assertEquals(
+            "${ScreenContext.PROMPT_HEADER}\nApplication : Boutique\n\n   ",
+            ScreenContext.withoutPromptBlock("${ScreenContext.PROMPT_HEADER}\nApplication : Boutique\n\n   "),
+        )
     }
 
     @Test

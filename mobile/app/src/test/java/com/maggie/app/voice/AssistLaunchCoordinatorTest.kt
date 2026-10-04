@@ -138,6 +138,34 @@ class AssistLaunchCoordinatorTest {
     }
 
     @Test
+    fun `a dismissed invocation does not leak its screen into the next one`() {
+        coordinator.onShow(withAssist = true, withScreenshot = true)
+        coordinator.onAssist("com.example.shop", "Boutique", null, listOf("Café"))
+
+        coordinator.onDismissed()
+
+        val waiting = coordinator.onShow(withAssist = true, withScreenshot = false)
+        assertTrue("the new invocation waits for its own content", waiting)
+        assertTrue(launches.isEmpty())
+
+        coordinator.onAssist("com.example.bank", "Banque", null, listOf("Solde"))
+        assertEquals("Banque", launches.single().appLabel)
+        assertEquals(listOf("Solde"), launches.single().texts)
+    }
+
+    @Test
+    fun `dismissing behind an open overlay does not re-arm a second launch`() {
+        coordinator.onShow(withAssist = false, withScreenshot = false)
+        assertEquals(1, launches.size)
+
+        coordinator.onDismissed()
+        coordinator.onShow(withAssist = false, withScreenshot = false)
+        coordinator.onTimeout()
+
+        assertEquals(1, launches.size)
+    }
+
+    @Test
     fun `hasLaunched says whether the clock still matters`() {
         assertFalse(coordinator.hasLaunched)
 

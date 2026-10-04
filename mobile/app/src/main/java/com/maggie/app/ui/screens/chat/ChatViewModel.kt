@@ -11,6 +11,7 @@ import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.data.repository.ChatPreferencesRepository
 import com.maggie.app.data.repository.ChatRepository
 import com.maggie.app.util.ChatDateFormatter
+import com.maggie.app.voice.ScreenContext
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -76,7 +77,7 @@ class ChatViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
             try {
-                val messages = repository.loadRecentMessages(PAGE_SIZE)
+                val messages = repository.loadRecentMessages(PAGE_SIZE).asSaid()
                 val lastReadId = chatPrefsRepository.getLastReadMessageId()
                 val unreadFromId = resolveUnreadFromId(messages, lastReadId)
                 _uiState.value = _uiState.value.copy(
@@ -94,6 +95,18 @@ class ChatViewModel(
         }
     }
 
+    /**
+     * What the user said, without the screen-context block the assistant may
+     * have attached to it (MAG-30). Applied wherever a message enters the UI,
+     * because the agent stores and returns the string it was POSTed: without
+     * this, « ajoute ça à mon agenda » comes back as a user bubble full of the
+     * shop page it was about.
+     */
+    private fun ChatMessage.asSaid(): ChatMessage =
+        if (role == "user") copy(content = ScreenContext.withoutPromptBlock(content)) else this
+
+    private fun List<ChatMessage>.asSaid(): List<ChatMessage> = map { it.asSaid() }
+
     private fun resolveUnreadFromId(messages: List<ChatMessage>, lastReadId: String?): String? {
         if (lastReadId == null) return null
         val lastReadIndex = messages.indexOfFirst { it.id == lastReadId }
@@ -110,7 +123,7 @@ class ChatViewModel(
             _uiState.value = _uiState.value.copy(isLoadingHistory = true)
             try {
                 val oldestId = state.messages.first().id
-                val older = repository.loadOlderMessages(oldestId, PAGE_SIZE)
+                val older = repository.loadOlderMessages(oldestId, PAGE_SIZE).asSaid()
                 if (older.isNotEmpty()) {
                     val merged = older + _uiState.value.messages
                     _uiState.value = _uiState.value.copy(
@@ -166,7 +179,7 @@ class ChatViewModel(
                 Log.w(TAG, "Stream failed, falling back to non-streaming: ${e.message}")
                 // Fallback to non-streaming
                 try {
-                    val newMessages = repository.sendMessage(payload)
+                    val newMessages = repository.sendMessage(payload).asSaid()
                     if (newMessages.isNotEmpty()) {
                         // Replace optimistic user message with server response
                         val current = _uiState.value.messages.dropLast(1)
@@ -287,7 +300,7 @@ class ChatViewModel(
                     if (query.length >= 2) {
                         _uiState.value = _uiState.value.copy(isSearchLoading = true)
                         try {
-                            val results = repository.searchMessages(query)
+                            val results = repository.searchMessages(query).asSaid()
                             _uiState.value = _uiState.value.copy(
                                 searchResults = results,
                                 isSearchLoading = false,
@@ -316,7 +329,7 @@ class ChatViewModel(
             }
             // Load context around the message
             try {
-                val context = repository.loadMessageContext(messageId)
+                val context = repository.loadMessageContext(messageId).asSaid()
                 if (context.isNotEmpty()) {
                     _uiState.value = _uiState.value.copy(
                         messages = context,
@@ -452,7 +465,7 @@ class ChatViewModel(
                 .catch { /* SSE connection errors — silently retry on next app resume */ }
                 .collect { event ->
                     try {
-                        val message = json.decodeFromString<ChatMessage>(event.data)
+                        val message = json.decodeFromString<ChatMessage>(event.data).asSaid()
                         repository.handleMercureMessage(message)
                         // Append to in-memory list if not already present
                         val current = _uiState.value.messages

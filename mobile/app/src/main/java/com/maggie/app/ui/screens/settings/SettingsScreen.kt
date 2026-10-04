@@ -1,6 +1,5 @@
 package com.maggie.app.ui.screens.settings
 
-import android.content.ActivityNotFoundException
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -756,12 +755,15 @@ private fun VoiceSection(
                     .fillMaxWidth()
                     .testTag(UiTags.SETTINGS_ASSISTANT_ROLE)
                     .clickable(enabled = roleState.canRequest) {
-                        val intent = AssistantRoleHelper.createRoleRequestIntent(context)
-                            ?: AssistantRoleHelper.voiceInputSettingsIntent()
-                        try {
-                            roleLauncher.launch(intent)
-                        } catch (_: ActivityNotFoundException) {
-                            roleLauncher.launch(AssistantRoleHelper.voiceInputSettingsIntent())
+                        // `launch` starts the activity inline, so a build that
+                        // answers neither intent throws here rather than later —
+                        // and a row that does nothing when tapped is worse than
+                        // one that opens the system list. Hence both attempts
+                        // guarded, the second one included.
+                        val request = AssistantRoleHelper.createRoleRequestIntent(context)
+                        val opened = request != null && runCatching { roleLauncher.launch(request) }.isSuccess
+                        if (!opened) {
+                            runCatching { roleLauncher.launch(AssistantRoleHelper.voiceInputSettingsIntent()) }
                         }
                     },
             ) {

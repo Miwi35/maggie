@@ -22,6 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -42,6 +43,11 @@ import com.maggie.app.voice.VoiceState
  * assistant was summoned (MAG-30). It rides along with the **first** thing said
  * and is then forgotten: « ajoute ça à mon agenda » is about the screen, the
  * follow-up question is about the answer.
+ *
+ * [invocation] counts the times the assistant was summoned, and is what re-arms
+ * that « not used yet » state. Keying it on [screenContext] would not: two
+ * invocations from the same screen carry an equal value, and the second
+ * question would lose its context.
  */
 @Composable
 fun AssistantOverlay(
@@ -49,6 +55,7 @@ fun AssistantOverlay(
     voiceManager: VoiceManager,
     onDismiss: () -> Unit,
     screenContext: ScreenContext? = null,
+    invocation: Int = 0,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val voiceState by voiceManager.state.collectAsState()
@@ -60,16 +67,17 @@ fun AssistantOverlay(
     var lastSpokenMessageId by remember { mutableStateOf<String?>(null) }
     var sawLoadingSinceOpen by remember { mutableStateOf(false) }
 
-    // Keyed on the context so a second invocation of the assistant, which
-    // reaches the activity through `onNewIntent` and replaces it, re-arms both
-    // the state holder and the callback that reads it.
-    var pendingContext by remember(screenContext) { mutableStateOf(screenContext) }
+    var pendingContext by remember(invocation) { mutableStateOf(screenContext) }
 
-    LaunchedEffect(screenContext) {
+    DisposableEffect(invocation) {
         voiceManager.onFinalResult = { text ->
             viewModel.sendMessage(text, pendingContext?.toPromptBlock())
             pendingContext = null
         }
+        // Handed back on the way out: the manager is a singleton, and a lambda
+        // left behind pins this activity's view model (and its context) for the
+        // life of the process.
+        onDispose { voiceManager.onFinalResult = null }
     }
 
     LaunchedEffect(uiState.isLoading) {

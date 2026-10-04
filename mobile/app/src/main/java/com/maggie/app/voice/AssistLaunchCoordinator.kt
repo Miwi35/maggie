@@ -69,6 +69,26 @@ class AssistLaunchCoordinator(private val onLaunch: (ScreenContext) -> Unit) {
         launch()
     }
 
+    /**
+     * The session was hidden without opening anything. Android keeps the session
+     * object and may show it again, over another app: everything gathered for
+     * the invocation that was dismissed has to go, or the next one would open
+     * with the previous screen's content — and open at once, believing its wait
+     * is already over.
+     *
+     * Ignored once the overlay is up: `onHide` also fires behind the launch, and
+     * clearing [hasLaunched] there would let a late callback open a second one.
+     */
+    fun onDismissed() {
+        if (hasLaunched) return
+        shown = false
+        awaitingAssist = false
+        awaitingScreenshot = false
+        assistReceived = false
+        screenshotReceived = false
+        context = ScreenContext()
+    }
+
     private fun launchIfReady(): Boolean {
         if (hasLaunched || !shown) return hasLaunched
         if (awaitingAssist && !assistReceived) return false

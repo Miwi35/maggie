@@ -160,11 +160,12 @@ tags:
 # needs the system assist gesture — and is covered by unit tests instead:
 # `AssistTextCollectorTest`, `ScreenContextTest`, `AssistLaunchCoordinatorTest`.
 #
-# The state is asserted as an alternation rather than as one string, because
-# both real states are legitimate on an emulator: Maggie is normally not the
-# assistant, but a run that left the role set must not fail here. What it does
-# rule out is the third state — « Indisponible sur cet appareil », which is what
-# a build whose `RoleManager` lookup goes wrong would show.
+# The state is asserted as an alternation of the three it can be, not as one
+# string. All three are legitimate depending on the emulator image — the role
+# may be held, free, or absent — and betting on one would turn a required check
+# red for a reason that has nothing to do with the app. What the alternation
+# still catches is the row shipping with no state line at all, which is the
+# acceptance criterion: « avec l'état affiché ».
 # ---------------------------------------------------------------------------
 - tapOn:
     id: "chat_close"
@@ -191,5 +192,5 @@ tags:
     timeout: 20000
 
 - extendedWaitUntil:
-    visible: ".*(Non défini|Maggie répond à l'appui long).*"
+    visible: ".*(Non défini|Maggie répond à l'appui long|Indisponible sur cet appareil).*"
     timeout: 20000

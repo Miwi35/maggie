@@ -229,6 +229,48 @@ class ChatViewModelTest {
     }
 
     @Test
+    fun `history that comes back carrying a screen context shows only what was said`() = runTest {
+        // What the agent stores is the string it was POSTed, block included.
+        val stored = "[Contexte de l'écran]\nApplication : Boutique (com.example.shop)\n\nc'est quoi ce produit ?"
+        coEvery { repository.loadRecentMessages(any()) } returns listOf(
+            ChatMessage(id = "msg-1", role = "user", content = stored, createdAt = "2026-02-15T10:00:00Z"),
+            ChatMessage(id = "msg-2", role = "assistant", content = "Du café.", createdAt = "2026-02-15T10:00:05Z"),
+        )
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val messages = viewModel.uiState.value.messages
+        assertEquals("c'est quoi ce produit ?", messages.first().content)
+        assertEquals("Du café.", messages.last().content)
+    }
+
+    @Test
+    fun `the fallback's copy of the user message is shown as what was said`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val block = "[Contexte de l'écran]\nApplication : Boutique (com.example.shop)"
+        every { repository.sendMessageStream(any()) } returns flow { throw RuntimeException("Stream failed") }
+        coEvery { repository.sendMessage(any()) } returns listOf(
+            ChatMessage(
+                id = "u-1",
+                role = "user",
+                content = "$block\n\nc'est quoi ce produit ?",
+                createdAt = "2026-02-15T11:00:00Z",
+            ),
+            ChatMessage(id = "a-1", role = "assistant", content = "Du café.", createdAt = "2026-02-15T11:00:01Z"),
+        )
+
+        viewModel.sendMessage("c'est quoi ce produit ?", block)
+        advanceUntilIdle()
+
+        val messages = viewModel.uiState.value.messages
+        assertEquals("c'est quoi ce produit ?", messages[messages.size - 2].content)
+        assertFalse(messages.any { it.content.contains("[Contexte de l'écran]") })
+    }
+
+    @Test
     fun `loadOlderMessages prepends history`() = runTest {
         // Return PAGE_SIZE messages so hasMoreHistory = true
         val fullPage = (1..20).map {
