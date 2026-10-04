@@ -83,15 +83,24 @@ passage — only when she needs the detail. A conversation that touches several 
 
 ## Recall, four levels
 
-Only level 2 sits on the response path, voice included, so only level 2 is bounded.
+Only level 2 sits on the **read** path, voice included, so only level 2 needs a timeout there.
+
+**The write path is off the response path too.** A turn writes to the **local copy** only; pushing
+to the bucket happens after the answer, never during it. A conversation file is written as the
+exchange goes; its carte is written by the night shift. Need 12 — remembering must not slow Maggie
+down, voice included — is a rule about both directions, not just recall.
 
 1. **A permanent profile** — the 50 to 100 essential facts, always in the prompt, in the cached
-   block. It is generated from the fiches, not hand-written.
+   block. It is generated from the fiches, not hand-written, and **bounded**: past the budget, say
+   how many fiches it does not list rather than truncate in silence. What goes in is Maggie's call
+   from the signals below, not a score.
 2. **An automatic recall every turn** — a fast search over the cartes, **with a relevance
    threshold**, bringing **at most three** memories. It must stay cheap enough for voice: give it
    a hard timeout and continue without it rather than delay the answer. The 5 a.m. daily planning
    (`daily_planning_hour`, `_daily_planning_loop` in `agent/app/queue/scheduler.py`) runs the same
    search over the day's upcoming events, which is what makes the recall *proactive*.
+   **Both are measured**: the latency of this level and the size of the injected block go in the
+   metrics, or "a memory that slows Maggie down" is only ever noticed in use.
 3. **Maggie's own search**, with the associated terms she chooses, when she judges she needs more.
 4. **Opening the full text**, only for a detail.
 
@@ -108,13 +117,18 @@ adding the profile changes that signature and its two call sites, `agent/app/llm
 ## The index is Maggie's, and throwaway
 
 A Postgres table in `maggie_agent`, **rebuilt from the files** at any time: the cartes, the evoked
-terms, aliases, links between fiches (by `id`), usage counters, and French full-text search. It
-holds no knowledge of its own — it only points at files. The owner never has to know it exists.
+terms, aliases, links between fiches (by `id`), usage counters, French full-text search — **and the
+file bodies**, which is what lets levels 1 to 3 keep working when the bucket does not answer.
+
+It **holds no truth of its own**: every row is derived from a file and reproducible from it. That is
+the distinction that matters, not whether it stores text. What need 9 means is that the owner never
+has to know the index exists — not that it must stay thin.
 
 - **Usage counters are never written into the files.** They change on every read; in a versioned
   bucket they would bury the real corrections.
-- Dropping the table and reindexing must lose nothing but those counters. That is the recovery
-  story, and it deserves a test.
+- A **reindex in place** keeps them: it refreshes derived rows and leaves the counters alone.
+  **Dropping the table** loses them, and nothing else — that is the recovery story, and it deserves
+  a test. Say which of the two any given command does.
 - **Full-text search starts at `to_tsvector('french', …)`.** Accent and typo tolerance wants
   `unaccent` and `pg_trgm`, which nothing here installs and whose availability on the shared
   Postgres has to be checked rather than assumed. Until then the `evoque` terms and the aliases
@@ -140,7 +154,8 @@ Off the response path, in batch, every night. Maggie:
 
 - summarises the day's conversations and **writes their cartes** (the conversation text itself
   stays untouched);
-- creates and updates the **fiches**, files and renames them;
+- creates and updates the **fiches**, files and renames them, **merges duplicates and splits
+  catch-alls** — need 8 wants one fiche per subject, surfacing in every situation it touches;
 - resolves contradictions **between two things the owner said** — the most recent wins, the old
   wording stays, dated and marked replaced. That rule never applies against an edit of his: a
   later rewrite by Maggie does not beat his correction;
@@ -148,9 +163,18 @@ Off the response path, in batch, every night. Maggie:
   conversations that say so);
 - **enriches `evoque`** on the fiches that need it;
 - flags the orphans: a fiche with no source, or one nothing points at;
-- keeps **`sommaire.md`** and **`journal.md`** up to date.
+- **lets what was circumstantial fade.** A dentist appointment last spring and a passing craving
+  stop being worth surfacing; a person, a lasting preference, a recurring constraint do not. Maggie
+  is **shown the signals** — age, last use, usage count, how often the fact was said again — and
+  **she** decides, with her reason in the journal. No decay formula decides for her, and **the file
+  is never touched**: fading means leaving the permanent profile and the active fiches, not being
+  deleted. Need 4 asks for a memory that is kept up; need 15 forbids losing anything;
+- keeps **`sommaire.md`** and **`journal.md`** up to date, and leaves a **report per pass** — what
+  it filed, settled, faded and flagged — in the journal and in the proaction log (MAG-155).
 
-Nothing disappears in silence: every change lands in `journal.md` with its reason.
+Nothing disappears in silence: every change lands in `journal.md` with its reason. **A doubt is not
+resolved alone**: when the night shift cannot settle one, it becomes a question Maggie raises at the
+next natural occasion, the same way a set-aside correction does.
 
 ## Learning from its own misses
 
@@ -188,19 +212,30 @@ during an outage leaves none: the index keeps each carte and the full text it se
 and Maggie says so instead of inventing. Writes are queued until the bucket is back. An outage is
 logged at `critical` and counted; it must never look normal.
 
+**Going back has to be reachable**, not merely possible: need 15 asks for it, so versioning being on
+is half an answer. The owner must be able to see a file's previous versions and restore one — from
+the web view (MAG-20) as well as from the bucket — and a deletion must not leave content in a
+version he cannot get to. A delete that only hides is not a delete.
+
 The owner provisions the bucket and a key pair limited to it himself; the settings are `MEMORY_*`
 in `maggie-env`. Nothing is created by the agent.
 
 ## Isolation, and what stays out of the files
 
-One memory per user, no leak between them, with the two-user isolation test every agent
-repository ships (MAG-108). Per-user paths are validated: no title may escape its own prefix.
+One memory per user, no leak between them, with the two-user isolation test every agent repository
+ships — the rule is in `agent/architecture`, *Data ownership*. Per-user paths are validated: no
+title may escape its own prefix.
 
-The files hold **only what is true of the owner**. Maggie's personality, the conversation state
-and the index stay out of them, so that an archive handed to another agent carries the knowledge
-and nothing else. The skills the owner teaches follow the same rules — visible, correctable, not
-lost — but in their own folder outside the knowledge archive (MAG-187 shipped them into the
-`skill` table; MAG-218 moves them to files).
+The files hold **only what is true of the owner**. Maggie's personality, the conversation state, the
+usage counters and the missed-recall cases stay out of them, so that an archive handed to another
+agent carries the knowledge and nothing else. The one exception is the `id` in a carte: it is
+index mechanics, and it is allowed in because identity has to survive a rename — another agent
+reading the archive can ignore it, which is the test for whether a mechanical field may stay.
+
+The skills the owner teaches follow the same rules — visible, correctable, not lost — in **their own
+prefix, outside any user's folder**, since they are global and carry no `user_id` until MAG-108.
+Putting them under a user would make them personal in silence. MAG-187 shipped them into the `skill`
+table; MAG-218 moves them to files.
 
 ## What it replaces
 
