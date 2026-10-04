@@ -13,16 +13,28 @@ at the moment it changes something** — "un bouquet pour la fête des mères" h
 ## The memory is a folder of Markdown files
 
 The files are the only truth. The owner edits them with any tool he likes; his version is the one
-Maggie uses. Everything else — the index, the counters — is rebuilt from them.
+Maggie uses — see *his corrections win*, below, for what that obliges. Everything else — the
+index, the counters — is rebuilt from them.
 
 ```
-Mémoire/
+<utilisateur>/Mémoire/
   LISEZMOI.md, AGENTS.md    how to read this folder, for a human and for any agent
   sommaire.md               table of contents, one line per fiche
   journal.md                what Maggie changed, when, why
   Conversations/AAAA/MM/AAAA-MM-JJ HHhMM — <sujet>.md
   <folders Maggie chooses>/…   e.g. Famille/Françoise/Françoise n'aime pas les roses.md
 ```
+
+**One `Mémoire/` per user, under their own prefix** — that prefix is what the isolation rule below
+validates against, and what an archive is cut along. A path must never escape it.
+
+**The filename is the title, so it needs a rule**: fold accents, strip `/`, `:` and control
+characters, bound the length, and on collision append `-2`. `sommaire` and `journal` are reserved.
+Two fiches may legitimately want the same true sentence; the suffix is what keeps both.
+
+**Identity is an `id` in the carte, not the path.** The night shift renames and moves files, so
+links between fiches, `sources` and the index's counters all key on that `id`. Without it a rename
+is a delete plus a create: the counters are lost and every reference dangles.
 
 `LISEZMOI.md`, `AGENTS.md`, `sommaire.md` and `journal.md` are **generated and maintained by
 Maggie**, and say so in their own first line. The folder is a deliverable in itself: handed to
@@ -41,8 +53,9 @@ them from the conversations, names them and files them **for a human reader**:
 
 - the **title is a true sentence**, not a label — `Françoise n'aime pas les roses.md`;
 - folders stay **shallow** and follow the main subject; Maggie creates and reorganises them;
-- **no category comes from the code** — no enum, no fixed taxonomy, no `Person` entity. A `grep`
-  over `agent/app/` must find no list of memory categories;
+- **no category comes from the code** — no enum, no fixed taxonomy, no `Person` entity. Once the
+  old table is gone (see *what it replaces*), a `grep` over `agent/app/` must find no list of
+  memory categories;
 - **every claim cites its source**: the conversation and its time, or the app data it was read
   from, plus its provenance — `dit` (he said it), `observé` (read from the app), `déduit` (Maggie
   inferred it). `déduit` is announced as such whenever it is used;
@@ -55,6 +68,7 @@ Maggie never answers about what she knows without opening the fiche. No fiche, n
 Every conversation file and every fiche opens on a **carte** in YAML frontmatter — about
 80 tokens, the unit recall works on:
 
+- `id` — a ULID, the file's identity across renames and moves
 - `resume` — a few lines, what this is about
 - `moments` — the key moments, timestamped
 - `personnes` — who is involved
@@ -81,29 +95,44 @@ Only level 2 sits on the response path, voice included, so only level 2 is bound
 3. **Maggie's own search**, with the associated terms she chooses, when she judges she needs more.
 4. **Opening the full text**, only for a detail.
 
-The profile and the recalled cartes are a **system block of their own**, between the cached stable
-block and the volatile one, so a memory change rewrites that block alone. `build_system(stable,
-volatile)` (`agent/app/llm/prompt_cache.py`) has only two blocks today: adding the third changes
-that signature and its two call sites, `agent/app/llm/gateway.py` and
+**Two blocks, not one.** The profile is **cached** — its own block, after the stable prefix, so a
+fiche changing rewrites it alone and not the personality. The recalled cartes change every turn and
+go in the **volatile** block: putting them with the profile would make the profile uncacheable, and
+caching is the whole reason the profile can be 100 facts. Below the provider's minimum cacheable
+block size the profile simply rides along in the volatile block.
+
+`build_system(stable, volatile)` (`agent/app/llm/prompt_cache.py`) has only two blocks today:
+adding the profile changes that signature and its two call sites, `agent/app/llm/gateway.py` and
 `agent/app/llm/streaming.py` (both already build `volatile` from `get_memory_context`).
 
 ## The index is Maggie's, and throwaway
 
 A Postgres table in `maggie_agent`, **rebuilt from the files** at any time: the cartes, the evoked
-terms, aliases, links between fiches, usage counters, and French full-text search. It holds no
-knowledge of its own — it only points at files. The owner never has to know it exists.
+terms, aliases, links between fiches (by `id`), usage counters, and French full-text search. It
+holds no knowledge of its own — it only points at files. The owner never has to know it exists.
 
 - **Usage counters are never written into the files.** They change on every read; in a versioned
   bucket they would bury the real corrections.
 - Dropping the table and reindexing must lose nothing but those counters. That is the recovery
   story, and it deserves a test.
+- **Full-text search starts at `to_tsvector('french', …)`.** Accent and typo tolerance wants
+  `unaccent` and `pg_trgm`, which nothing here installs and whose availability on the shared
+  Postgres has to be checked rather than assumed. Until then the `evoque` terms and the aliases
+  carry that slack — and a miss on a misspelling is a case for the learning loop, not a surprise.
 - **Embeddings are an option, not a starting point**: only if misses persist after the correction
   loop below, and then in-process in the agent — no pgvector, no vector service.
+
+Two things live in Postgres and are **not** part of the rebuildable index, because they are
+Maggie's mechanics rather than the owner's knowledge: the usage counters, and the **missed-recall
+cases** below. They survive a reindex, and they stay out of the files on purpose (see *what stays
+out*).
 
 **Schema changes** follow the convention already in the repo: the agent has no migration tool, so
 `context_repo.run_migrations()` (called at boot from `agent/app/main.py`) *is* the migration
 history — `ALTER TABLE … ADD COLUMN IF NOT EXISTS`, idempotent, every boot. `create_all` only ever
-creates whole tables.
+creates whole tables, and only for a model imported in `agent/app/main.py` with the
+`# noqa: F401 — register model with AgentBase before create_all` pattern; forget the import and the
+table is silently missing.
 
 ## The night shift
 
@@ -112,8 +141,9 @@ Off the response path, in batch, every night. Maggie:
 - summarises the day's conversations and **writes their cartes** (the conversation text itself
   stays untouched);
 - creates and updates the **fiches**, files and renames them;
-- resolves contradictions — the most recent wins, the old wording stays, dated and marked
-  replaced;
+- resolves contradictions **between two things the owner said** — the most recent wins, the old
+  wording stays, dated and marked replaced. That rule never applies against an edit of his: a
+  later rewrite by Maggie does not beat his correction;
 - surfaces **regularities with their proof** ("deux vols ratés avant 7 h" — and the two
   conversations that say so);
 - **enriches `evoque`** on the fiches that need it;
@@ -129,22 +159,34 @@ should have surfaced. At night Maggie works out why the fiche did not come up, a
 associations to its `evoque`, and sweeps the fiches at risk of the same miss. **Each case is
 replayed every night** from then on, so a fixed miss cannot come back unnoticed.
 
-This is the only tuning loop: no hand-set weights, no thresholds for the owner to discover.
+This is the only tuning loop: no hand-set weights, no thresholds for the owner to discover. The
+cases live in Postgres beside the counters, not in the files — they are Maggie's mechanics, and
+need 14 keeps the archive to the owner's knowledge alone.
+
+## His corrections win
+
+A push of Maggie's must never silently overwrite an edit of his, and "most recent wins" does not
+arbitrate between them. So: **compare before pushing.** If the remote file changed since the copy
+was taken, his version stays, Maggie's is set aside, and she raises it at the next natural
+occasion. The journal records both. Everything else is a silent loss of a correction, which is the
+one thing this design exists to prevent.
 
 ## Storage
 
 **An S3-compatible bucket, with versioning on** — and nothing beyond the S3 protocol. The
-endpoint, the region and the keys are `MEMORY_*` settings, so the provider is replaceable without
-touching a line of code. **Which provider it is belongs in the provisioning ticket, not here, and
-not in the code**: naming one in the repo is how a setting quietly becomes a dependency. Hosting
-it away from the server puts the memory outside the cluster, so it survives deploys with its
-history.
+endpoint, the region and the keys are `MEMORY_*` settings, and **which provider hosts it belongs in
+the provisioning ticket, never in the repo**: naming one here is how a setting quietly becomes a
+dependency. Hosting it away from the server puts the memory outside the cluster, so it survives
+deploys with its history.
 
 The agent works on a **local copy** of the folder and syncs it with the bucket; the copy is a
-cache, re-hydrated from the bucket at boot, since the agent pod has no persistent volume. A
-bucket outage must not cost Maggie her memory: she keeps answering from the local copy and the
-index, says so when asked, and queues her writes until the bucket is back. An outage is logged at
-`critical` and counted — it must never look normal.
+cache, re-hydrated from the bucket at boot, since the agent pod has no persistent volume.
+
+**What an outage guarantees, precisely**, because the local copy is not durable and a restart
+during an outage leaves none: the index keeps each carte and the full text it searches, so levels
+1 to 3 of recall keep working from Postgres alone — only level 4, opening a file, is unavailable,
+and Maggie says so instead of inventing. Writes are queued until the bucket is back. An outage is
+logged at `critical` and counted; it must never look normal.
 
 The owner provisions the bucket and a key pair limited to it himself; the settings are `MEMORY_*`
 in `maggie-env`. Nothing is created by the agent.
@@ -160,12 +202,32 @@ and nothing else. The skills the owner teaches follow the same rules — visible
 lost — but in their own folder outside the knowledge archive (MAG-187 shipped them into the
 `skill` table; MAG-218 moves them to files).
 
+## What it replaces
+
+None of this is live yet, and the old mechanism is still wired in. The implementation retires, in
+one go: the `memory` table and its `MemoryType` enum (`agent/app/db/memory_model.py`), the four
+tools `store_memory` / `search_memory` / `update_memory` / `delete_memory`
+(`agent/app/llm/tools.py`), the injection of every factual row into the volatile block
+(`agent/app/memory/agent_memory.py`), and the MÉMOIRE paragraph of
+`agent/app/personality/default.yaml`, which still tells Maggie to call `store_memory`. Leaving that
+paragraph is how the prompt ends up advertising a tool that no longer exists.
+
+The rows already stored become fiches, and the message history already in Postgres becomes
+conversation files. What has lost its source is written as having lost it, not dropped.
+
 ## Ruled out
 
 No vector database, no graph database, no dedicated memory service, no third-party memory
 framework (Mem0, Letta, LangMem), no invisible summary, and no extraction that throws the
-owner's words away. The one dependency that does come in is the S3 bucket, and it is what makes
-the memory portable. Reintroducing any of the rest takes a new ADR, not a commit.
+owner's words away. Not the provider's own memory tool either: it imposes a file semantics, leaves
+the storage to us anyway, and carries neither sources nor provenance — our own tool loop on the
+Messages API is ADR-001. The one dependency that does come in is the S3 bucket, and it is what
+makes the memory portable. Reintroducing any of the rest takes a new ADR, not a commit.
+
+**No Mercure stream, for now.** Nothing watches the memory live until the web view needs it
+(MAG-20); when it does, the stream, `agent/contract/mercure-topics.json` and the hardcoded
+`AGENT_TOPICS` in the API's `MercureSubscriberTokenFactory` all land together, or updates are
+published that no token can receive. Do not add one before.
 
 In the e2e stack the bucket is **faked in-process** behind the same interface as the real client,
 the way `LLM_PROVIDER=fake` does for the model (`agent/app/llm/fake.py`) — no service joins the
