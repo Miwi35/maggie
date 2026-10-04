@@ -159,7 +159,6 @@ class WakeWordService : Service() {
                 startActivity(
                     Intent(this, AssistantActivity::class.java).apply {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        putExtra(EXTRA_FROM_WAKE_WORD, true)
                     },
                 )
             },
