@@ -59,6 +59,9 @@ object UiTags {
     /** Navigation drawer — one entry per destination, suffixed by its route. */
     const val DRAWER_ITEM_PREFIX = "drawer_"
 
+    /** Finance dashboard — one access per part of the module, suffixed by its route. */
+    const val FINANCE_ACCESS_PREFIX = "finance_access_"
+
     /** Calendar toolbar — the « next » arrow and the Semaine switch. */
     const val CALENDAR_NEXT = "calendar_next"
     const val CALENDAR_VIEW_WEEK = "calendar_view_week"
@@ -86,6 +89,8 @@ object UiTags {
     const val CALENDAR_EVENT_PREFIX = "calendar_event_"
 
     fun drawerItem(route: String) = DRAWER_ITEM_PREFIX + route
+
+    fun financeAccess(route: String) = FINANCE_ACCESS_PREFIX + route
 
     fun googleImport(calendarId: String) = GOOGLE_IMPORT_PREFIX + calendarId
 

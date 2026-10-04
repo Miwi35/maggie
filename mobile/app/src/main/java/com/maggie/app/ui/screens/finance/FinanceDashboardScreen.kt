@@ -18,6 +18,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -26,6 +27,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -33,6 +35,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.FinanceDashboard
 import com.maggie.app.data.model.consumedFraction
@@ -41,13 +45,18 @@ import com.maggie.app.data.model.monthLabel
 import com.maggie.app.data.model.postChangeLabel
 import com.maggie.app.data.model.reasonText
 import com.maggie.app.data.model.scoreLabel
+import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.ErrorSnackbar
+import com.maggie.app.ui.navigation.FinanceAccess
+import com.maggie.app.ui.navigation.FinanceFrequency
+import com.maggie.app.ui.navigation.financeAccessesBy
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FinanceDashboardScreen(
     viewModel: FinanceDashboardViewModel,
     onBack: () -> Unit,
+    onOpen: (String) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -91,33 +100,71 @@ fun FinanceDashboardScreen(
                 }
             }
 
-            when {
-                uiState.isLoading && dashboard == null -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
+            // The accesses do not depend on the dashboard figures: a failed load must not lock the module.
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (dashboard != null) item { ScoreCard(dashboard) }
+                item { AccessRow(financeAccessesBy(FinanceFrequency.DAILY), onOpen) }
+                if (dashboard != null) {
+                    item { BalanceCard(dashboard) }
+                    item { CapacityCard(dashboard) }
+                    item { TopPostsCard(dashboard) }
+                    item { EnvelopesCard(dashboard) }
+                } else {
+                    item {
+                        Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                            if (uiState.isLoading) {
+                                CircularProgressIndicator()
+                            } else {
+                                Text(
+                                    uiState.error ?: "Vue indisponible",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
                     }
                 }
-                dashboard == null -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(
-                            uiState.error ?: "Vue indisponible",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-                else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        item { ScoreCard(dashboard) }
-                        item { BalanceCard(dashboard) }
-                        item { CapacityCard(dashboard) }
-                        item { TopPostsCard(dashboard) }
-                        item { EnvelopesCard(dashboard) }
-                    }
-                }
+                item { AccessSection(FinanceFrequency.MONTHLY, onOpen) }
+                item { AccessSection(FinanceFrequency.RARE, onOpen) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccessRow(accesses: List<FinanceAccess>, onOpen: (String) -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        accesses.forEach { access ->
+            FilledTonalButton(
+                onClick = { onOpen(access.route) },
+                modifier = Modifier.weight(1f).testTag(UiTags.financeAccess(access.route)),
+            ) {
+                Text(access.label, textAlign = TextAlign.Center)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccessSection(frequency: FinanceFrequency, onOpen: (String) -> Unit) {
+    val title = requireNotNull(frequency.title) { "The daily accesses have no section" }
+    Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        financeAccessesBy(frequency).forEach { access ->
+            TextButton(
+                onClick = { onOpen(access.route) },
+                modifier = Modifier.fillMaxWidth().testTag(UiTags.financeAccess(access.route)),
+                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
+            ) {
+                Text(access.label, modifier = Modifier.weight(1f))
+                Icon(Icons.Default.ChevronRight, contentDescription = null)
             }
         }
     }

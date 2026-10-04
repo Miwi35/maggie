@@ -187,6 +187,16 @@ private fun NavController.replaceLink(entry: NavBackStackEntry, route: String, s
     }
 }
 
+private fun NavController.backInFinance() {
+    val currentId = currentBackStackEntry?.destination?.id ?: return
+    when (financeBackAction(previousBackStackEntry?.destination?.route)) {
+        FinanceBack.POP -> popBackStack()
+        FinanceBack.REPLACE_WITH_DASHBOARD -> navigate(Screen.FinanceDashboard.route) {
+            popUpTo(currentId) { inclusive = true }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NavGraph() {
@@ -644,7 +654,7 @@ fun NavGraph() {
                     val accountViewModel: AccountViewModel = koinViewModel()
                     AccountListScreen(
                         viewModel = accountViewModel,
-                        onBack = { navController.popBackStack() },
+                        onBack = { navController.backInFinance() },
                         onOpenAccount = { accountId, accountName ->
                             selectedAccount = accountId to accountName
                             navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
@@ -655,7 +665,7 @@ fun NavGraph() {
                     val categoryViewModel: CategoryViewModel = koinViewModel()
                     CategoryListScreen(
                         viewModel = categoryViewModel,
-                        onBack = { navController.popBackStack() },
+                        onBack = { navController.backInFinance() },
                         onOpenRules = {
                             navController.navigate(Screen.CategorizationRuleList.route) {
                                 launchSingleTop = true
@@ -667,35 +677,35 @@ fun NavGraph() {
                     val budgetViewModel: BudgetViewModel = koinViewModel()
                     BudgetScreen(
                         viewModel = budgetViewModel,
-                        onBack = { navController.popBackStack() },
+                        onBack = { navController.backInFinance() },
                     )
                 }
                 composable(Screen.CategorizationRuleList.route, deepLinks = DeepLinks.forRoute(Screen.CategorizationRuleList.route)) {
                     val ruleViewModel: CategorizationRuleViewModel = koinViewModel()
                     CategorizationRuleListScreen(
                         viewModel = ruleViewModel,
-                        onBack = { navController.popBackStack() },
+                        onBack = { navController.backInFinance() },
                     )
                 }
                 composable(Screen.Cushion.route, deepLinks = DeepLinks.forRoute(Screen.Cushion.route)) {
                     val cushionViewModel: CushionViewModel = koinViewModel()
                     CushionScreen(
                         viewModel = cushionViewModel,
-                        onBack = { navController.popBackStack() },
+                        onBack = { navController.backInFinance() },
                     )
                 }
                 composable(Screen.LoanList.route, deepLinks = DeepLinks.forRoute(Screen.LoanList.route)) {
                     val loanViewModel: LoanViewModel = koinViewModel()
                     LoanListScreen(
                         viewModel = loanViewModel,
-                        onBack = { navController.popBackStack() },
+                        onBack = { navController.backInFinance() },
                     )
                 }
                 composable(Screen.MonthlyReview.route, deepLinks = DeepLinks.forRoute(Screen.MonthlyReview.route)) {
                     val reviewViewModel: MonthlyReviewViewModel = koinViewModel()
                     MonthlyReviewScreen(
                         viewModel = reviewViewModel,
-                        onBack = { navController.popBackStack() },
+                        onBack = { navController.backInFinance() },
                     )
                 }
                 composable(Screen.FinanceDashboard.route, deepLinks = DeepLinks.forRoute(Screen.FinanceDashboard.route)) {
@@ -703,6 +713,7 @@ fun NavGraph() {
                     FinanceDashboardScreen(
                         viewModel = dashboardViewModel,
                         onBack = { navController.popBackStack() },
+                        onOpen = { route -> navController.navigate(route) { launchSingleTop = true } },
                     )
                 }
                 composable(Screen.AccountTransactions.route) {
@@ -712,7 +723,7 @@ fun NavGraph() {
                         TransactionListScreen(
                             viewModel = transactionViewModel,
                             accountName = account.second,
-                            onBack = { navController.popBackStack() },
+                            onBack = { navController.backInFinance() },
                         )
                     }
                 }
