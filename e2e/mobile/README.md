@@ -194,8 +194,9 @@ that stopped deserialising is `DtoContractTest` against `api/contract/`
 
 ## In CI
 
-`.github/workflows/ci.yml`, job `E2E Mobile`, on every pull request touching the
-app, the flows or the stack: a stack, KVM enabled, `reactivecircus/android-
+`.github/workflows/ci.yml`, jobs `E2E Mobile journeys (<device>)` behind the
+required `E2E Mobile (phone)` (always reported, green when skipped), on every
+pull request touching the app, the flows or the stack: a stack, KVM enabled, `reactivecircus/android-
 emulator-runner` on API 34 `google_apis`, and `task e2e:mobile` as its script. A
 failed run uploads `report/` — the screenshots are the only way to see what a
 headless emulator had on screen. `device-last-frame.png` and `logcat.txt` are taken
