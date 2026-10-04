@@ -65,6 +65,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
@@ -714,6 +715,15 @@ private fun VoiceSection(
     val context = LocalContext.current
     val wakeWordManager = viewModel.wakeWordManager
     val wakeWordEnabled by wakeWordManager.isEnabled.collectAsState(initial = false)
+    // The microphone is what listening needs; the notification permission is what lets the
+    // « Touchez pour réactiver l'écoute » reminder show after a reboot (Android 13+).
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { granted ->
+        if (granted[Manifest.permission.RECORD_AUDIO] == true) {
+            wakeWordManager.setEnabled(true)
+        }
+    }
     var batteryUnrestricted by remember { mutableStateOf(wakeWordManager.isIgnoringBatteryOptimizations()) }
     var roleState by remember { mutableStateOf(AssistantRoleHelper.state(context)) }
 
@@ -832,7 +842,15 @@ private fun VoiceSection(
                 }
                 Switch(
                     checked = wakeWordEnabled,
-                    onCheckedChange = { wakeWordManager.setEnabled(it) },
+                    onCheckedChange = { enable ->
+                        if (enable) {
+                            permissionLauncher.launch(
+                                arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS),
+                            )
+                        } else {
+                            wakeWordManager.setEnabled(false)
+                        }
+                    },
                 )
             }
 
@@ -852,7 +870,11 @@ private fun VoiceSection(
                     try {
                         context.startActivity(request)
                     } catch (e: ActivityNotFoundException) {
-                        context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                        try {
+                            context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                        } catch (_: ActivityNotFoundException) {
+                            // No system screen to open on this device: the explanation above is all there is.
+                        }
                     }
                 },
             )

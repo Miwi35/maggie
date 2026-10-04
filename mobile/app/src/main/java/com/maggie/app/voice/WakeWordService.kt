@@ -1,11 +1,13 @@
 package com.maggie.app.voice
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.media.AudioPlaybackConfiguration
 import android.os.Build
@@ -66,7 +68,9 @@ class WakeWordService : Service() {
             // (boot, or a restart after the system killed us): hand over to the user.
             Log.w(TAG, "Cannot start in the foreground: ${e.message}")
             foregroundFailed = true
-            WakeWordNotifications.showReactivation(this)
+            if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                WakeWordNotifications.showReactivation(this)
+            }
             stopSelf()
             return
         }
@@ -76,11 +80,14 @@ class WakeWordService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             modeListener?.let { audioManager.addOnModeChangedListener(ContextCompat.getMainExecutor(this), it) }
         }
+        running = this
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (foregroundFailed) return START_NOT_STICKY
-        if (intent?.action == ACTION_RESUME_LISTENING) {
+        // An explicit start while no assistant is on screen (app opened, notification tapped)
+        // must never leave the engine parked behind a stale "assistant open".
+        if (intent?.action == ACTION_RESUME_LISTENING || !AssistantActivity.isShowing) {
             assistantOpen = false
         }
         evaluate()
@@ -158,12 +165,20 @@ class WakeWordService : Service() {
             },
         )
         // A launch the system silently dropped must not leave us deaf for good.
-        mainHandler.postDelayed({
-            if (assistantOpen && !AssistantActivity.isShowing) {
-                assistantOpen = false
-                evaluate()
-            }
-        }, ASSISTANT_LAUNCH_TIMEOUT_MS)
+        mainHandler.removeCallbacks(launchTimeout)
+        mainHandler.postDelayed(launchTimeout, ASSISTANT_LAUNCH_TIMEOUT_MS)
+    }
+
+    private val launchTimeout = Runnable {
+        if (assistantOpen && !AssistantActivity.isShowing) {
+            assistantOpen = false
+            evaluate()
+        }
+    }
+
+    private fun onAssistantClosed() {
+        assistantOpen = false
+        evaluate()
     }
 
     private fun buildNotification(paused: Boolean): Notification {
@@ -183,7 +198,8 @@ class WakeWordService : Service() {
     }
 
     override fun onDestroy() {
-        if (!foregroundFailed) {
+        running = null
+        if (::audioManager.isInitialized) {
             audioManager.unregisterAudioPlaybackCallback(playbackCallback)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 modeListener?.let { audioManager.removeOnModeChangedListener(it) }
@@ -202,6 +218,9 @@ class WakeWordService : Service() {
         private const val NOTIFICATION_ID = 2001
         private const val ASSISTANT_LAUNCH_TIMEOUT_MS = 10_000L
 
+        @Volatile
+        private var running: WakeWordService? = null
+
         fun start(context: Context) {
             val intent = Intent(context, WakeWordService::class.java)
             context.startForegroundService(intent)
@@ -212,6 +231,12 @@ class WakeWordService : Service() {
         }
 
         fun resumeListening(context: Context) {
+            // A running service is told directly: startForegroundService is refused once the
+            // assistant (often shown over the lock screen) was the last thing on screen.
+            running?.let { service ->
+                service.mainHandler.post { service.onAssistantClosed() }
+                return
+            }
             val intent = Intent(context, WakeWordService::class.java).apply {
                 action = ACTION_RESUME_LISTENING
             }

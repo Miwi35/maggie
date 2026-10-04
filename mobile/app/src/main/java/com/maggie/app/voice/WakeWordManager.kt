@@ -64,10 +64,14 @@ class WakeWordManager(private val context: Context) {
     }
 
     /** A boot receiver cannot start the microphone service on Android 15: ask the user to tap instead. */
-    fun onBootCompleted() {
+    fun onBootCompleted(onDone: () -> Unit = {}) {
         scope.launch {
-            if (isEnabled.first()) {
-                WakeWordNotifications.showReactivation(context)
+            try {
+                if (isEnabled.first()) {
+                    WakeWordNotifications.showReactivation(context)
+                }
+            } finally {
+                onDone()
             }
         }
     }
