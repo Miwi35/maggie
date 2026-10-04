@@ -100,36 +100,35 @@ fun FinanceDashboardScreen(
                 }
             }
 
-            when {
-                uiState.isLoading && dashboard == null -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
+            // The accesses do not depend on the dashboard figures: a failed load must not lock the module.
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (dashboard != null) item { ScoreCard(dashboard) }
+                item { AccessRow(financeAccessesBy(FinanceFrequency.DAILY), onOpen) }
+                if (dashboard != null) {
+                    item { BalanceCard(dashboard) }
+                    item { CapacityCard(dashboard) }
+                    item { TopPostsCard(dashboard) }
+                    item { EnvelopesCard(dashboard) }
+                } else {
+                    item {
+                        Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                            if (uiState.isLoading) {
+                                CircularProgressIndicator()
+                            } else {
+                                Text(
+                                    uiState.error ?: "Vue indisponible",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
                     }
                 }
-                dashboard == null -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(
-                            uiState.error ?: "Vue indisponible",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-                else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        item { ScoreCard(dashboard) }
-                        item { AccessRow(financeAccessesBy(FinanceFrequency.DAILY), onOpen) }
-                        item { BalanceCard(dashboard) }
-                        item { CapacityCard(dashboard) }
-                        item { TopPostsCard(dashboard) }
-                        item { EnvelopesCard(dashboard) }
-                        item { AccessSection(FinanceFrequency.MONTHLY, onOpen) }
-                        item { AccessSection(FinanceFrequency.RARE, onOpen) }
-                    }
-                }
+                item { AccessSection(FinanceFrequency.MONTHLY, onOpen) }
+                item { AccessSection(FinanceFrequency.RARE, onOpen) }
             }
         }
     }
@@ -151,9 +150,10 @@ private fun AccessRow(accesses: List<FinanceAccess>, onOpen: (String) -> Unit) {
 
 @Composable
 private fun AccessSection(frequency: FinanceFrequency, onOpen: (String) -> Unit) {
+    val title = requireNotNull(frequency.title) { "The daily accesses have no section" }
     Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
         Text(
-            text = frequency.title.orEmpty(),
+            text = title,
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
