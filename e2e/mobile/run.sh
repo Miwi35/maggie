@@ -223,16 +223,32 @@ flow_env=(
   -e "E2E_LOGIN_TOKEN=$LOGIN_TOKEN"
 )
 
-# --flatten-debug-output so the screenshots of a failed run land in one
-# predictable place for CI to upload, instead of a timestamped folder per run.
+# --debug-output is what puts the screenshot of each failed command, the view
+# hierarchy and maestro.log under $REPORT_DIR: without it Maestro writes them to
+# ~/.maestro/tests, outside the folder CI uploads, and a red run leaves nothing
+# but a one-line assertion to read (MAG-215). --flatten-debug-output keeps them in
+# one folder instead of a timestamped one per run.
 #
 # Not `exec`: that would replace this shell and the EXIT trap above would never
-# remove the reverse bridge.
+# remove the reverse bridge. The status is kept so that the device's own view of
+# a failure — its last frame and its log — is collected before exiting with it.
+status=0
 "$MAESTRO" --device "$SERIAL" test "${targets[@]}" \
   --format junit \
   --output "$REPORT_DIR/junit.xml" \
   --test-output-dir "$REPORT_DIR" \
+  --debug-output "$REPORT_DIR" \
   --flatten-debug-output \
   --no-ansi \
   "${flow_env[@]}" \
-  ${maestro_args[@]+"${maestro_args[@]}"}
+  ${maestro_args[@]+"${maestro_args[@]}"} || status=$?
+
+if [ "$status" -ne 0 ]; then
+  step "The device after the failure"
+  "$ADB" -s "$SERIAL" exec-out screencap -p >"$REPORT_DIR/device-last-frame.png" 2>/dev/null || true
+  "$ADB" -s "$SERIAL" logcat -d -t 5000 >"$REPORT_DIR/logcat.txt" 2>/dev/null || true
+  "$ADB" -s "$SERIAL" shell wm size 2>/dev/null | tr -d '\r' >"$REPORT_DIR/device-size.txt" || true
+  note "last frame, logcat and screen size written to $REPORT_DIR"
+fi
+
+exit "$status"
