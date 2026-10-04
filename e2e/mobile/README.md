@@ -72,7 +72,7 @@ one of them missing.
 | `run.sh` | the whole run: device, bridge, time zone, install, flows |
 | `maestro.sh` | downloads the pinned CLI into `.e2e-cache/` |
 | `lint.sh` | syntax, testTags, tag roots, applicationId, unawaited assertions — seconds, no device |
-| `report/` | JUnit report and the screenshots of a failed run (gitignored) |
+| `report/` | JUnit report, and for a failed run the screenshots, view hierarchy and `maestro.log` of each flow, plus `device-last-frame.png`, `logcat.txt` and `device-size.txt` (gitignored) |
 
 A file put in `flows/` is run as a journey. A shared sequence goes in
 `subflows/`, outside the glob — left in `flows/` it would also be run on its own,
@@ -198,7 +198,12 @@ that stopped deserialising is `DtoContractTest` against `api/contract/`
 app, the flows or the stack: a stack, KVM enabled, `reactivecircus/android-
 emulator-runner` on API 34 `google_apis`, and `task e2e:mobile` as its script. A
 failed run uploads `report/` — the screenshots are the only way to see what a
-headless emulator had on screen.
+headless emulator had on screen. `device-last-frame.png` and `logcat.txt` are taken
+after the failure, so a step that fails on a dialog or another app is readable.
+
+`run.sh` sets `hide_error_dialogs` for the run and restores it on exit: a slow
+emulator makes the Pixel Launcher (also the taskbar on tablets and foldables) hit an
+ANR, and its dialog covers the app, so a flow fails on a screen it never reached.
 
 The nightly run (`nightly.yml` calls `ci.yml`) widens the matrix to a phone, a
 **foldable** and a **tablet**, which is what MAG-35 and MAG-91 ask for. The
