@@ -9,7 +9,7 @@ import { PreferencesPage } from '../pages/PreferencesPage.js'
  * The bucket is the agent's in-memory fake here (`MEMORY_BUCKET=fake`): `/agent/e2e/memory/*`
  * edits it the way the owner's editor would, takes it down and brings it back. Maggie's side
  * is the production one — the reconciler, the outbox, the volatile prompt block — and the
- * model is scripted by 72/73/74-memory-note-*.yaml, whose `system_contains` makes each answer
+ * model is scripted by 13/14/15-memory-note-*.yaml, whose `system_contains` makes each answer
  * reachable only if the note really reached the prompt.
  *
  * As the other seeded account, like the journeys that talk to Maggie in chat.spec.ts: this one

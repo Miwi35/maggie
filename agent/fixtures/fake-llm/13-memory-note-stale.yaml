@@ -2,7 +2,10 @@
 #
 # Unreachable unless the volatile block holds BOTH the note as last indexed and the notice that it
 # comes from the local index: `system_contains` is matched on the system prompt Maggie is sent.
-# Numbered before 73 and 74 so the stale answer wins over the plain one while the notice is there.
+# Numbered right after the context router (10, 11), before the scenarios of the other journeys:
+# a thread whose history still holds another journey's request is merged into one user message,
+# which those scenarios also match. Here `system_contains` is what makes the match deliberate,
+# and 13 wins over 14 and 15 while the notice is there.
 name: memory-note-stale
 description: Answer from the indexed note while the bucket is unreachable, and say so.
 
