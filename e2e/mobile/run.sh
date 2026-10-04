@@ -139,10 +139,34 @@ fi
 
 "$ADB" -s "$SERIAL" reverse --remove "tcp:$DEVICE_PORT" >/dev/null 2>&1 || true
 "$ADB" -s "$SERIAL" reverse "tcp:$DEVICE_PORT" "tcp:$HOST_PORT" >/dev/null
-# Removed on the way out: a stale reverse pointing at a torn-down stack is how
-# the next run fails on a connection refused that names nothing.
-trap '"$ADB" -s "$SERIAL" reverse --remove "tcp:'"$DEVICE_PORT"'" >/dev/null 2>&1 || true' EXIT
 note "device $APP_BASE_URL → host $BASE_URL"
+
+# « Pixel Launcher isn't responding » (MAG-215). On a tablet or a foldable the
+# launcher is also the taskbar, always running, and on a software-rendered CI
+# emulator it misses its ANR deadline now and then; the system dialog that
+# follows is a window above the app, so Maestro reads only that dialog and every
+# `assertVisible` on the app fails while the screenshot shows the app intact. The
+# phone's launcher is idle, which is why it only fails there once in a while.
+# Hiding error dialogs is the platform switch for exactly this; an app that really
+# crashes still fails its flow, and the logcat in the report says why.
+#
+# Put back on the way out: a physical phone keeps its settings between runs, and
+# the owner's must go on telling him when an app of his own crashes.
+previous_hide="$("$ADB" -s "$SERIAL" shell settings get global hide_error_dialogs 2>/dev/null | tr -d '\r')"
+"$ADB" -s "$SERIAL" shell settings put global hide_error_dialogs 1 >/dev/null 2>&1 \
+  || warn "could not hide the system's error dialogs: an ANR dialog above the app will fail a flow."
+
+restore_device() {
+  "$ADB" -s "$SERIAL" reverse --remove "tcp:$DEVICE_PORT" >/dev/null 2>&1 || true
+  if [ -z "$previous_hide" ] || [ "$previous_hide" = "null" ]; then
+    "$ADB" -s "$SERIAL" shell settings delete global hide_error_dialogs >/dev/null 2>&1 || true
+  else
+    "$ADB" -s "$SERIAL" shell settings put global hide_error_dialogs "$previous_hide" >/dev/null 2>&1 || true
+  fi
+}
+# The bridge is removed too: a stale reverse pointing at a torn-down stack is how
+# the next run fails on a connection refused that names nothing.
+trap restore_device EXIT
 
 # ---------------------------------------------------------------------------
 step "3. Build and install the e2e flavor"
