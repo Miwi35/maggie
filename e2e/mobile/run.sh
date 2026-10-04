@@ -242,7 +242,9 @@ flow_env=(
   -e "TODAY=$(seed_day today)"
   -e "TRAIN_START=$(seed_day '+5 days')"
   -e "TRAIN_END=$(seed_day '+6 days')"
-  # `02-voice-overlay.yaml` reads the agent's e2e counter from the host, where Maestro runs.
+  # The flows' scripts run on the host, where Maestro runs, so they need the real
+  # URL rather than the device's bridged one: `02-voice-overlay.yaml` reads the
+  # agent's e2e counter, `scripts/grocery-api.js` signs in with the app's token.
   -e "E2E_BASE_URL=$BASE_URL"
   -e "E2E_LOGIN_TOKEN=$LOGIN_TOKEN"
 )
