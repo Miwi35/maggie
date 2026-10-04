@@ -169,11 +169,28 @@ tags:
 # `RoleManager` lookup gone wrong from a device that has no assistant role.
 # `AssistantRoleHelperTest` covers which state comes out of which answer.
 # ---------------------------------------------------------------------------
-- tapOn:
-    id: "chat_close"
+# Back to a known screen rather than out of the overlay. Closing the sheet and
+# reaching for the burger on the next line failed in CI — « Element not found:
+# nav_menu » — because the sheet's scrim still covers the top bar while it
+# animates away, and a `tapOn` does not wait for something to *stop* being
+# covered. Relaunching is what the flow already does above, and the app stays
+# signed in: no `clearState`.
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "dashboard"
+    timeout: 40000
 
 - tapOn:
     id: "nav_menu"
+
+# « Paramètres » is pinned to the bottom of the drawer, past a `weight(1f)`
+# spacer, so it is always drawn — but the drawer slides in, hence the wait.
+- extendedWaitUntil:
+    visible:
+      id: "drawer_settings"
+    timeout: 20000
 
 - tapOn:
     id: "drawer_settings"
