@@ -742,6 +742,40 @@ class TestAMultiStepAnswerKeepsOnlyItsLastStep:
         assert types[-1] == "RUN_FINISHED"
         assert len({e["messageId"] for e in events if e["type"].startswith("TEXT_MESSAGE")}) == 1
 
+    async def test_a_failure_after_a_first_step_leaves_the_apology_alone(self, gateway_tests, retry_scenario):
+        saved: list[dict] = []
+        events = await gateway_tests._events(
+            retry_scenario,
+            question=self.QUESTION,
+            tool_results=[RuntimeError("tool crashed")],
+            saved=saved,
+        )
+        apology = "Désolé, une erreur est survenue. Réessaie."
+
+        assert [message["content"] for message in saved] == [apology]
+        assert the_bubble(events) == apology
+        assert [e["type"] for e in events].count("TEXT_MESSAGE_END") == 1
+
+    async def test_blank_lead_in_is_not_shown(self, gateway_tests, fixtures_dir):
+        write_scenario(
+            fixtures_dir,
+            "10-router.yaml",
+            {
+                "match": {"system_contains": "routeur de contexte"},
+                "turns": [{"text": '{"context_id": null, "label": "Concerts"}'}],
+            },
+        )
+        write_scenario(
+            fixtures_dir,
+            "20-concert.yaml",
+            {"match": {"user_contains": "black wizards"}, "turns": [{"text": "\n\n  " + self.FINAL}]},
+        )
+        saved: list[dict] = []
+        events = await gateway_tests._events(fixtures_dir, question=self.QUESTION, saved=saved)
+
+        assert the_bubble(events) == self.FINAL
+        assert [message["content"] for message in saved] == [self.FINAL]
+
     async def test_the_shipped_retry_scenario_ends_on_its_closing_sentence(self, gateway_tests):
         saved: list[dict] = []
         events = await gateway_tests._events(
