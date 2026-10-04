@@ -284,7 +284,6 @@ fun NavGraph() {
         if (granted) {
             voiceModeActive = true
             showChatSheet = true
-            voiceManager.startListening()
         }
     }
 
@@ -372,7 +371,6 @@ fun NavGraph() {
                             ) {
                                 voiceModeActive = true
                                 showChatSheet = true
-                                voiceManager.startListening()
                             } else {
                                 permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                             }

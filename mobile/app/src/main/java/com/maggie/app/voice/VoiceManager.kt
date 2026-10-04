@@ -2,9 +2,6 @@ package com.maggie.app.voice
 
 import android.content.Context
 import android.media.MediaPlayer
-import android.media.MediaRecorder
-import android.media.PlaybackParams
-import android.os.Build
 import android.util.Log
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.repository.UserPreferenceRepository
@@ -33,9 +30,14 @@ class VoiceManager(
     private val context: Context,
     private val apiService: MaggieApiService,
     private val userPreferenceRepository: UserPreferenceRepository,
+    private val recorderFactory: () -> AudioRecorder = { MediaAudioRecorder(context) },
+    private val clock: () -> Long = System::currentTimeMillis,
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
 ) {
     companion object {
         private const val TAG = "VoiceManager"
+        const val MIN_HOLD_MS = 300L
+        private const val HOLD_HINT_MS = 2500L
     }
 
     private val _state = MutableStateFlow(VoiceState.IDLE)
@@ -47,12 +49,21 @@ class VoiceManager(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
 
+    private val _holdHint = MutableStateFlow(false)
+    val holdHint: StateFlow<Boolean> = _holdHint
+
     var onFinalResult: ((String) -> Unit)? = null
 
-    private var recorder: MediaRecorder? = null
+    private var recorder: AudioRecorder? = null
     private var audioFile: File? = null
     private var timerJob: Job? = null
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var hintJob: Job? = null
+
+    // Listening opened without a button held down (wake word, assistant gesture): the
+    // button ends it with a tap, since there was no press to release.
+    private val _handsFree = MutableStateFlow(false)
+    val handsFree: StateFlow<Boolean> = _handsFree
+    private var recordingStartedAt = 0L
 
     private var mediaPlayer: MediaPlayer? = null
     private var ttsVoice: String = DEFAULT_VOICE
@@ -71,8 +82,52 @@ class VoiceManager(
         ttsVoice = voice
     }
 
-    fun startListening() {
+    fun startListening() = beginRecording(handsFree = true)
+
+    fun pressDown() {
+        when (_state.value) {
+            VoiceState.IDLE, VoiceState.ERROR -> beginRecording(handsFree = false)
+            VoiceState.SPEAKING -> {
+                stopSpeaking()
+                beginRecording(handsFree = false)
+            }
+            VoiceState.LISTENING, VoiceState.TRANSCRIBING, VoiceState.PROCESSING -> Unit
+        }
+    }
+
+    fun pressRelease() {
+        if (_state.value != VoiceState.LISTENING) return
+        if (_handsFree.value) {
+            stopAndTranscribe()
+            return
+        }
+        if (clock() - recordingStartedAt < MIN_HOLD_MS) {
+            cancelListening()
+            showHoldHint()
+        } else {
+            stopAndTranscribe()
+        }
+    }
+
+    fun pressCancel() {
+        if (!_handsFree.value) cancelListening()
+    }
+
+    private fun showHoldHint() {
+        hintJob?.cancel()
+        _holdHint.value = true
+        hintJob = scope.launch {
+            delay(HOLD_HINT_MS)
+            _holdHint.value = false
+        }
+    }
+
+    private fun beginRecording(handsFree: Boolean) {
         cancelListening()
+        hintJob?.cancel()
+        _holdHint.value = false
+        _handsFree.value = handsFree
+        recordingStartedAt = clock()
         _duration.value = 0
         _errorMessage.value = null
         _state.value = VoiceState.LISTENING
@@ -81,16 +136,7 @@ class VoiceManager(
         audioFile = file
 
         try {
-            recorder = createMediaRecorder(file).apply {
-                setAudioSource(MediaRecorder.AudioSource.MIC)
-                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-                setAudioEncodingBitRate(128_000)
-                setAudioSamplingRate(44_100)
-                setOutputFile(file.absolutePath)
-                prepare()
-                start()
-            }
+            recorder = recorderFactory().also { it.start(file) }
 
             timerJob = scope.launch {
                 while (true) {
@@ -111,8 +157,8 @@ class VoiceManager(
         timerJob?.cancel()
         timerJob = null
 
-        // Skip transcription for very short recordings (< 1s) — likely accidental tap
-        if (_duration.value == 0) {
+        // Hands-free only: a hold is filtered by its press length in pressRelease()
+        if (_handsFree.value && _duration.value == 0) {
             cleanupRecording()
             _state.value = VoiceState.IDLE
             return
@@ -233,15 +279,6 @@ class VoiceManager(
         recorder = null
         audioFile?.delete()
         audioFile = null
-    }
-
-    @Suppress("DEPRECATION")
-    private fun createMediaRecorder(file: File): MediaRecorder {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            MediaRecorder(context)
-        } else {
-            MediaRecorder()
-        }
     }
 }
 

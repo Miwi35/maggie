@@ -372,10 +372,11 @@ relationship to it, not of Maestro:
   boots the emulator with `-timezone Europe/Paris`.
 - **No microphone, for a different reason than the browser.** The browser has none
   because `http://traefik` is not a secure context; the emulator has none because
-  a CI runner has no sound card and runs with `-noaudio`. Recording therefore
-  fails and the voice overlay lands in its `ERROR` state. A flow about the voice
-  path has to assert on what the overlay must *not* do — which is exactly what
-  MAG-93's four voice regressions were.
+  a CI runner has no sound card and runs with `-noaudio`. The `e2e` flavor
+  therefore records placeholder bytes (`AudioRecorderProvider.kt`, MAG-221) and
+  the stubbed Whisper answers one fixed sentence, so a flow can hold the mic and
+  follow the dictation to the chat. What the overlay must *not* do (MAG-93's four
+  voice regressions) is still asserted on the server, not on screen.
 
 ## What a new journey owes
 

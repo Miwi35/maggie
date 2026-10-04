@@ -53,6 +53,9 @@ object UiTags {
     /** The voice bar's state line — « Maggie parle... » and friends. */
     const val VOICE_STATE = "voice_state"
 
+    /** The voice bar's mic — held down to talk. */
+    const val VOICE_MIC = "voice_mic"
+
     /** Top bar — the burger that opens the navigation drawer. */
     const val NAV_MENU = "nav_menu"
 
