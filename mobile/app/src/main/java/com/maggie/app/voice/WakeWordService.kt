@@ -6,9 +6,15 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.media.AudioManager
+import android.media.AudioPlaybackConfiguration
+import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.maggie.app.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -25,20 +31,73 @@ class WakeWordService : Service() {
     private var engine: WakeWordEngine? = null
     private var engineJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    private lateinit var audioManager: AudioManager
+    private var callActive = false
+    private var mediaPlaying = false
+    private var assistantOpen = false
+    private var foregroundFailed = false
+
+    private val modeListener = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        AudioManager.OnModeChangedListener { mode ->
+            callActive = ListeningPolicy.isCallMode(mode)
+            evaluate()
+        }
+    } else {
+        null
+    }
+
+    private val playbackCallback = object : AudioManager.AudioPlaybackCallback() {
+        override fun onPlaybackConfigChanged(configs: MutableList<AudioPlaybackConfiguration>?) {
+            refreshAudioState()
+            evaluate()
+        }
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
-        startForeground(NOTIFICATION_ID, buildNotification())
+        try {
+            startForeground(NOTIFICATION_ID, buildNotification(paused = false))
+        } catch (e: Exception) {
+            // Android 15 refuses a microphone service started from the background
+            // (boot, or a restart after the system killed us): hand over to the user.
+            Log.w(TAG, "Cannot start in the foreground: ${e.message}")
+            foregroundFailed = true
+            WakeWordNotifications.showReactivation(this)
+            stopSelf()
+            return
+        }
+        audioManager = getSystemService(AudioManager::class.java)
+        refreshAudioState()
+        audioManager.registerAudioPlaybackCallback(playbackCallback, mainHandler)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            modeListener?.let { audioManager.addOnModeChangedListener(ContextCompat.getMainExecutor(this), it) }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            ACTION_RESUME_LISTENING -> startEngine()
-            else -> startEngine()
+        if (foregroundFailed) return START_NOT_STICKY
+        if (intent?.action == ACTION_RESUME_LISTENING) {
+            assistantOpen = false
         }
+        evaluate()
         return START_STICKY
+    }
+
+    private fun refreshAudioState() {
+        callActive = ListeningPolicy.isCallMode(audioManager.mode)
+        mediaPlaying = audioManager.isMusicActive
+    }
+
+    private fun evaluate() {
+        if (foregroundFailed || assistantOpen) return
+        val shouldListen = ListeningPolicy.shouldListen(callActive, mediaPlaying)
+        if (shouldListen) startEngine() else stopEngine()
+        getSystemService(NotificationManager::class.java)
+            .notify(NOTIFICATION_ID, buildNotification(paused = !shouldListen))
     }
 
     private fun startEngine() {
@@ -48,21 +107,21 @@ class WakeWordService : Service() {
             val models = listOf(
                 WakeWordModel("Maggie", "maggie.onnx", threshold = 0.5f),
             )
-            engine = WakeWordEngine(
+            val newEngine = WakeWordEngine(
                 context = this,
                 models = models,
                 detectionMode = DetectionMode.SINGLE_BEST,
             )
+            engine = newEngine
 
             engineJob = scope.launch {
-                engine?.detections?.collect { detection ->
+                newEngine.detections.collect { detection ->
                     Log.i(TAG, "Wake word detected! Score: ${detection.score}")
-                    engine?.stop()
-                    launchAssistant()
+                    mainHandler.post { onWakeWord() }
                 }
             }
 
-            engine?.start()
+            newEngine.start()
             Log.i(TAG, "OpenWakeWord started, listening for wake word")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start OpenWakeWord: ${e.message}", e)
@@ -82,26 +141,55 @@ class WakeWordService : Service() {
         engine = null
     }
 
-    private fun launchAssistant() {
-        // No « from wake word » marker: the overlay starts listening on every
-        // invocation, whoever sent it (MAG-30).
-        val intent = Intent(this, AssistantActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        startActivity(intent)
+    private fun onWakeWord() {
+        if (engine == null || assistantOpen) return
+        assistantOpen = true
+        // The microphone belongs to the assistant until AssistantActivity hands it back.
+        stopEngine()
+        AssistantLauncher.launch(
+            showSession = { MaggieVoiceInteractionService.showAssistantSession() },
+            startActivity = {
+                startActivity(
+                    Intent(this, AssistantActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        putExtra(EXTRA_FROM_WAKE_WORD, true)
+                    },
+                )
+            },
+        )
+        // A launch the system silently dropped must not leave us deaf for good.
+        mainHandler.postDelayed({
+            if (assistantOpen && !AssistantActivity.isShowing) {
+                assistantOpen = false
+                evaluate()
+            }
+        }, ASSISTANT_LAUNCH_TIMEOUT_MS)
     }
 
-    private fun buildNotification(): Notification {
+    private fun buildNotification(paused: Boolean): Notification {
         return NotificationCompat.Builder(this, CHANNEL_WAKE_WORD)
             .setSmallIcon(R.drawable.maggie_logo)
             .setContentTitle("Maggie")
-            .setContentText("Dites \u00ab Maggie \u00bb pour commencer")
+            .setContentText(
+                if (paused) {
+                    "Écoute en pause (appel ou lecture en cours)"
+                } else {
+                    "Dites « Maggie » pour commencer"
+                },
+            )
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
             .build()
     }
 
     override fun onDestroy() {
+        if (!foregroundFailed) {
+            audioManager.unregisterAudioPlaybackCallback(playbackCallback)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                modeListener?.let { audioManager.removeOnModeChangedListener(it) }
+            }
+        }
+        mainHandler.removeCallbacksAndMessages(null)
         stopEngine()
         scope.cancel()
         super.onDestroy()
@@ -112,6 +200,7 @@ class WakeWordService : Service() {
         const val CHANNEL_WAKE_WORD = "wake_word"
         const val ACTION_RESUME_LISTENING = "com.maggie.app.RESUME_LISTENING"
         private const val NOTIFICATION_ID = 2001
+        private const val ASSISTANT_LAUNCH_TIMEOUT_MS = 10_000L
 
         fun start(context: Context) {
             val intent = Intent(context, WakeWordService::class.java)
@@ -137,9 +226,10 @@ class WakeWordService : Service() {
                     "Mot d'activation",
                     NotificationManager.IMPORTANCE_LOW,
                 ).apply {
-                    description = "\u00c9coute du mot d'activation \u00ab Maggie \u00bb"
+                    description = "Écoute du mot d'activation « Maggie »"
                 },
             )
+            WakeWordNotifications.createChannel(context)
         }
     }
 }

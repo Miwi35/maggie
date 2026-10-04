@@ -1,0 +1,42 @@
+appId: com.maggie.app.e2e
+name: 07-voice-settings
+tags:
+  - voice
+---
+# Settings > Voix tells the owner what keeping Maggie listening takes and costs
+# (MAG-89). The wake word itself, the lock screen and the reboot are system
+# behaviour Maestro cannot drive: they are accepted by hand on the phone (Recette).
+# What a journey can prove is that the screen carrying those instructions is there.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+
+- runFlow: ../subflows/sign-in.yaml
+
+- tapOn:
+    id: "nav_menu"
+- extendedWaitUntil:
+    visible:
+      id: "drawer_settings"
+    timeout: 20000
+- tapOn:
+    id: "drawer_settings"
+
+- extendedWaitUntil:
+    visible: "Voix"
+    timeout: 20000
+- tapOn: "Voix"
+
+- extendedWaitUntil:
+    visible: ".*Pour qu'elle reste à l'écoute.*"
+    timeout: 20000
+- assertVisible: ".*Batterie non restreinte.*"
+- assertVisible: ".*Assistant par défaut.*"
+
+- scrollUntilVisible:
+    element: ".*Sans coût de batterie.*"
+- extendedWaitUntil:
+    visible: ".*Ce que ça coûte.*"
+    timeout: 10000

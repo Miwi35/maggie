@@ -39,6 +39,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
@@ -64,6 +65,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -706,14 +711,16 @@ private fun VoiceSection(
     viewModel: SettingsViewModel,
     onBack: () -> Unit,
 ) {
-    val wakeWordEnabled by viewModel.wakeWordManager.isEnabled.collectAsState(initial = false)
     val context = LocalContext.current
+    val wakeWordManager = viewModel.wakeWordManager
+    val wakeWordEnabled by wakeWordManager.isEnabled.collectAsState(initial = false)
+    var batteryUnrestricted by remember { mutableStateOf(wakeWordManager.isIgnoringBatteryOptimizations()) }
     var roleState by remember { mutableStateOf(AssistantRoleHelper.state(context)) }
 
     // The role dialog answers with a result; the system settings list, which is
     // where an OEM build without that dialog sends the user, does not. So the
-    // state is read again on both — and on every resume, because the role can
-    // also change from outside the app.
+    // state is read again on both — and on every resume, because the role and
+    // the battery exemption can also change from outside the app.
     val roleLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { roleState = AssistantRoleHelper.state(context) }
@@ -723,6 +730,7 @@ private fun VoiceSection(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 roleState = AssistantRoleHelper.state(context)
+                batteryUnrestricted = wakeWordManager.isIgnoringBatteryOptimizations()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -745,6 +753,7 @@ private fun VoiceSection(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -823,9 +832,92 @@ private fun VoiceSection(
                 }
                 Switch(
                     checked = wakeWordEnabled,
-                    onCheckedChange = { viewModel.wakeWordManager.setEnabled(it) },
+                    onCheckedChange = { wakeWordManager.setEnabled(it) },
                 )
             }
+
+            HorizontalDivider()
+            Text("Pour qu'elle reste à l'écoute", style = MaterialTheme.typography.titleMedium)
+
+            VoiceSetupRow(
+                title = "Batterie non restreinte",
+                description = "Sans cela, le mode économie d'énergie du téléphone arrête l'écoute. " +
+                    "Sur Samsung : Paramètres → Batterie, mettre Maggie en « Non restreinte » " +
+                    "et la retirer des applis en veille prolongée.",
+                done = batteryUnrestricted,
+                actionLabel = "Autoriser",
+                onAction = {
+                    val packageUri = Uri.parse("package:${context.packageName}")
+                    val request = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, packageUri)
+                    try {
+                        context.startActivity(request)
+                    } catch (e: ActivityNotFoundException) {
+                        context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                    }
+                },
+            )
+
+            HorizontalDivider()
+            Text("Ce que ça coûte", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "La détection « Dis Siri » ou « Ok Google » passe par une puce audio basse consommation " +
+                    "réservée aux assistants préinstallés. Maggie écoute donc avec le processeur principal : " +
+                    "quelques pourcents de batterie par jour, une notification permanente et le point vert " +
+                    "du micro toujours visible. L'écoute se met en pause pendant un appel ou une lecture " +
+                    "multimédia, puis reprend.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "Après un redémarrage du téléphone, Android 15 interdit de relancer le micro tout seul : " +
+                    "touchez la notification « Touchez pour réactiver l'écoute », ou ouvrez Maggie.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            HorizontalDivider()
+            Text("Sans coût de batterie (Galaxy S24)", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "• Double appui sur la touche latérale : Paramètres → Fonctions avancées → Touche latérale, " +
+                    "puis « Ouvrir une appli » → Maggie.\n" +
+                    "• « Ok Google, ouvre Maggie » ou « Hi Bixby, ouvre Maggie ».\n" +
+                    "• Geste d'assistant (balayage depuis un coin) quand Maggie est l'assistant par défaut.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun VoiceSetupRow(
+    title: String,
+    description: String,
+    done: Boolean,
+    actionLabel: String,
+    onAction: () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (done) {
+            Icon(
+                Icons.Outlined.CheckCircle,
+                contentDescription = "$title : activé",
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        } else {
+            OutlinedButton(onClick = onAction) { Text(actionLabel) }
         }
     }
 }

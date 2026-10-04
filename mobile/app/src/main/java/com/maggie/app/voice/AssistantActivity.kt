@@ -45,6 +45,9 @@ class AssistantActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        isShowing = true
+        setShowWhenLocked(true)
+        setTurnScreenOn(true)
         // Only on a first start. A recreation — a rotation, a theme change — is
         // not a new invocation: the screen the context described is long gone,
         // and reviving it would attach the whole block to the next sentence as
@@ -94,9 +97,16 @@ class AssistantActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        isShowing = false
         voiceManager.cancelListening()
         voiceManager.stopSpeaking()
         wakeWordManager.resumeListening()
         super.onDestroy()
+    }
+
+    companion object {
+        @Volatile
+        var isShowing = false
+            private set
     }
 }
