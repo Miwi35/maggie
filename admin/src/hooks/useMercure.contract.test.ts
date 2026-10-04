@@ -168,6 +168,7 @@ describe('the admin Mercure subscriptions', () => {
     )
 
     // Without this the check above passes on a codebase that subscribes to nothing.
+    // `memory` has no subscriber yet: the memory inspector (MAG-20) will be the first.
     expect(new Set(through)).toEqual(new Set(['chat', 'contexts', 'proactions', 'instructions', 'skills']))
   })
 

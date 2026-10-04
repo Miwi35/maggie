@@ -12,6 +12,7 @@ export const AGENT_STREAMS = {
   proactions: 'proactions',
   instructions: 'instructions',
   skills: 'skills',
+  memory: 'memory',
 } as const
 
 export type AgentStream = (typeof AGENT_STREAMS)[keyof typeof AGENT_STREAMS]
