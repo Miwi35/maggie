@@ -19,8 +19,8 @@ journal) is a note tagged `journal` with its date in the title, not a second mec
 **The note is a file, and the file is the truth.** It lives as a `.md` object on an
 S3-compatible bucket. The owner may edit it with any tool he likes and Maggie picks the change
 up; Postgres holds a **derived index** that can be dropped and rebuilt from the bucket at any
-time. Writing to the index without writing the file is a bug — the next reconciliation
-overwrites it.
+time — minus the two read counters, the one documented exception below. Writing to the index
+without writing the file is a bug: the next reconciliation overwrites it.
 
 **No business schema.** No `Person`, `Place` or `Routine` entity, no category enum, no closed
 tag list. Tags, links and sources are JSONB on the note. From MAG-17 on, a `grep` over
@@ -65,9 +65,15 @@ once archived. `status` is read from the prefix. `updated_at` is the object's `L
 renaming the file, retitling the note or moving it under `archive/` are **updates** that keep
 the counters and the history — a key-only reconciler would read all three as delete + create.
 The key is a slug of the title (accents folded, `/` and control characters stripped, bounded
-length) because the owner has to recognise his files; on a key collision the writer appends
-`-2`. If two files claim the same `id` — the owner copied one — the most recently modified keeps
-it, the other is given a fresh `id` and reported in the inspector.
+length) because the owner has to recognise his files; `SOMMAIRE` is reserved, and on any other
+key collision the writer appends `-2`. If two files claim the same `id` — the owner copied one —
+the most recently modified keeps it, the other is given a fresh `id` and reported in the
+inspector.
+
+**A file with no usable `id` gets one on first sight, written back.** That is the owner's normal
+way in: he creates a note by hand, with no frontmatter or a partial one. The reconciler keys such
+a file on its `path` until it has stamped an `id` into it — without that rule it matches nothing
+and a new note appears at every pass.
 
 **The rule that removes the ambiguity: if it is in the file it counts, and what is not in the
 file is a counter.** No field written in a file is ever ignored — otherwise the owner edits
@@ -87,7 +93,9 @@ something and nothing happens, which is the trap this design exists to close.
 - `memory_outbox` — writes not yet pushed to the bucket.
 
 Removing a note from the index is a **soft delete**: flag the row, keep the counters and the
-history. A hard delete would destroy the only copy of data the bucket cannot give back.
+`memory_event` rows. A hard delete would destroy the only copy of data the bucket cannot give
+back. A flagged row is out of the summary and out of the default search, or the owner would
+delete a file and still see the note in the prompt.
 
 Every read and write is filtered by `user_id`, with the two-user isolation test every agent
 repository ships (MAG-108). **The agent has no migration tool**: its schema comes from
@@ -115,10 +123,14 @@ Cadence: a background loop every 60 s (configurable) — same shape as `_executi
 `agent/app/queue/scheduler.py`, and note that `start_scheduler()` sits inside the RabbitMQ
 `try/except` in `agent/app/main.py`: the reconciler must not die with RabbitMQ. **Plus** an
 opportunistic pass at the start of a turn when the last one is older than 30 s, so "I edit the
-file, then I ask" works at once. That pass is the only time the bucket touches the response
-path, so it gets a **hard timeout**: past it the turn proceeds on the index, flagged stale. It
-hooks where the memory context is already built — `agent/app/llm/streaming.py` and
-`agent/app/llm/gateway.py`. Plus a button in the inspector, plus always before the nightly
+file, then I ask" works at once. It hooks where the memory context is already built —
+`agent/app/llm/streaming.py` and `agent/app/llm/gateway.py`.
+
+**Both ways the bucket touches the response path are bounded.** That read pass gets a **hard
+timeout**: past it the turn proceeds on the index, carrying a *reconciliation skipped* note
+rather than the staleness flag, which means something else (see below). And a mid-turn
+`write_note` PUT gets the same timeout, falling back to the outbox — a slow bucket must degrade
+like a down one, never hang the answer. Plus a button in the inspector, plus always before the nightly
 consolidation. Bucket event notifications are out: OVH's S3 compatibility does not guarantee
 them and they would need a queue or a public endpoint.
 
@@ -138,9 +150,11 @@ The bucket is mandatory, but an outage must not cost Maggie her memory.
 - **Reads** keep working off the index, which holds every body. It is flagged **stale**, its age
   goes to Maggie in the volatile prompt block and to the inspector, so she can say it if asked.
 - **Writes** go to `memory_outbox` in the same transaction as the index; the reconciler pushes
-  them when the bucket returns, **through the conflict path** — the owner may have edited the
-  file during the outage. A PUT that timed out may still have landed, so a retry compares the
-  current ETag before concluding anything, or it would conflict with Maggie's own write.
+  them when the bucket returns **through the write door**, so the flushed object's ETag is
+  recorded and the next pass does not read it as an owner edit — and **through the conflict
+  path**, since the owner may have edited the file during the outage. A PUT that timed out may
+  still have landed, so a retry compares the current ETag before concluding anything, or it
+  would conflict with Maggie's own write.
 - **Boot** starts on the index and retries with backoff. Readiness stays green — a restart loop
   would make it worse — but the failure is logged at `critical` and counted in the metrics, the
   way `MercurePublishMiddleware` logs an unsignable secret. An outage must not look normal.
@@ -159,6 +173,7 @@ On conflict the owner's file stays untouched, Maggie's version goes to
 her raise it at the next natural occasion. Never a silent last-write-wins. Inside the agent —
 one replica, several writers — a per-`id` lock serialises them, so the only real conflicts are
 with the owner.
+
 ## One write door
 
 Every write — Maggie mid-turn, the background encoder, the nightly consolidation, the owner
@@ -174,9 +189,12 @@ path may treat it as less authoritative than a write of its own.
 
 Publishing means a new `memory` stream in `agent/app/mercure/topics.py` (`STREAMS`) and the
 regenerated `agent/contract/mercure-topics.json` — the admin contract test goes red until
-both land, on purpose. The third step is covered by nothing: `AGENT_TOPICS` in the API's
+both land, on purpose. **MAG-195 adds the stream with the door**, not MAG-17: a door that cannot
+publish is not the door this file describes.
+
+The third step is covered by nothing: `AGENT_TOPICS` in the API's
 `MercureSubscriberTokenFactory` is a hardcoded list, and forgetting `memory` there publishes
-updates no token can ever receive. MAG-17 adds it and extends
+updates no token can ever receive. MAG-195 adds it too, and extends
 `MercureSubscriberTokenFactoryTest`.
 
 ## Tools
@@ -191,9 +209,10 @@ Five, no more:
   `write_note` + `archive_note` with a reason, not extra tools
 - `archive_note(id, reason)` — **moves the file under `archive/`** and writes `archived_at` and
   `archive_reason` into its frontmatter; leaves the summary and the default search, stays visible
-- `forget_note(id)` — **deletes every version of the object**, history included; only on the
-  owner's explicit word. Versioning is on, so a plain delete would leave a delete marker and keep
-  the content where neither the inspector nor `memory_event` can reach it — that is not forgetting
+- `forget_note(id)` — **deletes every version of the object**, and the note's `memory_event` rows
+  with it; only on the owner's explicit word. Versioning is on, so a plain delete would leave a
+  delete marker and keep the content where neither the inspector nor the journal reaches it —
+  that is not forgetting
 
 `search_memory` keeps its name with new semantics, and the others replace tools the system
 prompt still names: `agent/app/personality/default.yaml` tells Maggie to call `store_memory`,
@@ -253,9 +272,11 @@ and the counters are backed up like the rest.
 
 Skills follow the notes to the bucket in **MAG-218** — the argument is stronger for them than
 for notes, since a skill is a document the owner wants to open and has no read counters at all.
-That ticket reuses this reconciler rather than inventing a second one. `render_markdown` already
-helps as is; `parse_markdown` takes a `Path` and reads from disk, so it needs a `str`/`bytes`
-signature before it can parse a bucket body, and its docstring still mentions the dead "mirror".
+That ticket reuses this **mechanism** with its own owned prefix — the note reconciler owns
+`<user>/*.md` and nothing else, so skills get their own pass over `competences/`.
+`parse_markdown` takes a `Path` and reads from disk, so it needs a `str`/`bytes` signature before
+it can parse a bucket body; `render_markdown` works as is, but its docstring still mentions the
+dead "mirror".
 Directives (`instruction`) stay in the database: they are sentences, not documents.
 
 ## Consolidation and forgetting
@@ -268,8 +289,10 @@ doubt becomes a note tagged `question` to raise at the next natural occasion. Ea
 a report.
 
 Forgetting is **archive first** — visible in the inspector, with Maggie's reason, undoable —
-then real deletion after a configurable delay (default 90 days). A pinned note is never
-forgotten. "Forget that" from the owner deletes at once.
+then real deletion after a configurable delay (default 90 days). That deletion takes
+`forget_note`'s path: every version of the object and the note's journal rows, not a delete
+marker over kept content. A pinned note is never forgotten. "Forget that" from the owner deletes
+at once.
 
 Importance, age, last use and use count are **signals shown to Maggie**, not a decay formula
 that decides on its own. No hard-coded rule about what is worth keeping.
