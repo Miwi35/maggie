@@ -34,6 +34,12 @@ A turn with `tools` answers `stop_reason: tool_use`, so the loop runs them and
 comes back for the next turn. A turn without ends the exchange. A turn needs at
 least one of the two.
 
+Only the **last** turn's text is the answer: the gateway stores, shows and reads
+aloud what the model said after its last tool call, and the text of the turns
+before is a passing state at most (MAG-229). Script an intermediate `text` to
+prove that — `36-create-event-retry.yaml` — not to say something the journey
+expects to find.
+
 **Which scenario wins.** The first one that matches, in file name order — so a
 numeric prefix is how you express precedence. A scenario declaring no condition
 at all matches nothing; the catch-all is `default: true`, and it is always tried
