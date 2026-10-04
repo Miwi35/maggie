@@ -19,13 +19,18 @@ fun SpokenReplies(viewModel: ChatViewModel, voiceManager: VoiceManager) {
     val uiState by viewModel.uiState.collectAsState()
     val reply = uiState.replyToSpeak
 
-    LaunchedEffect(reply) {
-        val message = reply ?: return@LaunchedEffect
-        voiceManager.speak(message.content)
-        viewModel.onReplySpoken()
+    // Declared first, so it runs before the effect below: whatever was offered or
+    // awaited while nothing here was listening (a typed request in the chat screen)
+    // belongs to the past, not to this opening.
+    DisposableEffect(viewModel) {
+        viewModel.dropPendingReply()
+        onDispose { viewModel.dropPendingReply() }
     }
 
-    DisposableEffect(viewModel) {
-        onDispose { viewModel.dropPendingReply() }
+    LaunchedEffect(reply) {
+        if (reply == null) return@LaunchedEffect
+        val message = viewModel.uiState.value.replyToSpeak ?: return@LaunchedEffect
+        voiceManager.speak(message.content)
+        viewModel.onReplySpoken()
     }
 }

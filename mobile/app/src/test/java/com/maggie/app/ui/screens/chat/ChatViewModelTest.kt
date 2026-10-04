@@ -24,8 +24,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -437,6 +437,24 @@ class ChatViewModelTest {
     }
 
     @Test
+    fun `an answer nobody was listening for is dropped when a speaker attaches`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream("Bonjour") } returns streamedAnswer("resp-1", "Salut!")
+        coEvery { repository.persistMessage(any()) } returns Unit
+
+        // Typed in the chat screen: no speaker is attached when the answer lands.
+        viewModel.sendMessage("Bonjour")
+        advanceUntilIdle()
+        assertEquals("resp-1", viewModel.uiState.value.replyToSpeak?.id)
+
+        // The sheet opens in voice mode: SpokenReplies drops it on entry.
+        viewModel.dropPendingReply()
+
+        assertNull(viewModel.uiState.value.replyToSpeak)
+    }
+
+    @Test
     fun `nothing is offered while the answer is still streaming`() = runTest {
         viewModel = createViewModel()
         advanceUntilIdle()
@@ -510,6 +528,7 @@ class ChatViewModelTest {
     fun `a proactive message that nobody asked for is not offered`() = runTest {
         val mercure = MutableSharedFlow<MercureEvent>(extraBufferCapacity = 4)
         every { mercureService.subscribe(any()) } returns mercure
+        coEvery { repository.handleMercureMessage(any()) } returns Unit
 
         viewModel = createViewModel()
         advanceUntilIdle()
