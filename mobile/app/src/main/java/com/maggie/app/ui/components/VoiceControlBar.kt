@@ -130,11 +130,11 @@ fun VoiceControlBar(
                             var slidOut = false
                             while (true) {
                                 val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
-                                if (!change.pressed) break
                                 if (!bounds.contains(change.position)) {
                                     slidOut = true
                                     break
                                 }
+                                if (!change.pressed) break
                             }
                             if (slidOut) voiceManager.pressCancel() else voiceManager.pressRelease()
                         }

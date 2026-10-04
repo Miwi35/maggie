@@ -110,7 +110,7 @@ class VoiceManager(
     }
 
     fun pressCancel() {
-        if (!_handsFree.value) cancelListening()
+        if (_state.value == VoiceState.LISTENING && !_handsFree.value) cancelListening()
     }
 
     private fun showHoldHint() {
@@ -136,7 +136,8 @@ class VoiceManager(
         audioFile = file
 
         try {
-            recorder = recorderFactory().also { it.start(file) }
+            recorder = recorderFactory()
+            recorder?.start(file)
 
             timerJob = scope.launch {
                 while (true) {
