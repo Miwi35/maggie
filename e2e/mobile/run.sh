@@ -152,7 +152,7 @@ note "device $APP_BASE_URL → host $BASE_URL"
 #
 # Put back on the way out: a physical phone keeps its settings between runs, and
 # the owner's must go on telling him when an app of his own crashes.
-previous_hide="$("$ADB" -s "$SERIAL" shell settings get global hide_error_dialogs 2>/dev/null | tr -d '\r')"
+previous_hide="$("$ADB" -s "$SERIAL" shell settings get global hide_error_dialogs 2>/dev/null | tr -d '\r' || true)"
 "$ADB" -s "$SERIAL" shell settings put global hide_error_dialogs 1 >/dev/null 2>&1 \
   || warn "could not hide the system's error dialogs: an ANR dialog above the app will fail a flow."
 
