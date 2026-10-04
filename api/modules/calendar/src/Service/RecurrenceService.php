@@ -34,14 +34,12 @@ class RecurrenceService
             return [$event];
         }
 
-        $rruleString = sprintf(
-            "DTSTART:%s\nRRULE:%s",
-            $event->getStartAt()->format('Ymd\THis\Z'),
-            $event->getRrule()
-        );
+        // Expand on the event's own wall clock: in UTC a weekly 18:00 Paris series
+        // would drift an hour when the clocks change.
+        $timeZone = new \DateTimeZone($event->getTimeZone());
+        $start = $event->getStartAt()->setTimezone($timeZone);
 
-        $rule = new Rule($rruleString);
-        $rule->setStartDate($event->getStartAt());
+        $rule = new Rule($event->getRrule(), $start, null, $timeZone->getName());
 
         $recurrences = $this->transformer->transform($rule);
 
@@ -50,7 +48,7 @@ class RecurrenceService
         $exceptionDates = [];
         foreach ($exceptions as $exception) {
             if (null !== $exception->getOriginalStartAt()) {
-                $exceptionDates[$exception->getOriginalStartAt()->format('Y-m-d\TH:i:s')] = $exception;
+                $exceptionDates[$exception->getOriginalStartAt()->getTimestamp()] = $exception;
             }
         }
 
@@ -62,6 +60,8 @@ class RecurrenceService
             $occurrenceStart = $start instanceof \DateTime
                 ? \DateTimeImmutable::createFromMutable($start)
                 : \DateTimeImmutable::createFromInterface($start);
+            // Same instant, same offset notation as the master: callers see no change of shape.
+            $occurrenceStart = $occurrenceStart->setTimezone($event->getStartAt()->getTimezone());
 
             // Skip occurrences outside range
             if ($occurrenceStart >= $rangeEnd) {
@@ -73,7 +73,7 @@ class RecurrenceService
             }
 
             // Check if this occurrence has an exception
-            $key = $occurrenceStart->format('Y-m-d\TH:i:s');
+            $key = $occurrenceStart->getTimestamp();
             if (isset($exceptionDates[$key])) {
                 $exception = $exceptionDates[$key];
                 if (EventStatus::Cancelled !== $exception->getStatus()) {

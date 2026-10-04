@@ -23,6 +23,7 @@ interface RawEvent {
   endAt: string
   allDay: boolean
   agenda: string
+  timeZone?: string
   rrule?: string
   recurringEvent?: string
   originalStartAt?: string
@@ -132,7 +133,7 @@ export const Dashboard = () => {
         if (e.rrule) {
           const dtstart = new Date(e.startAt)
           const duration = new Date(e.endAt).getTime() - dtstart.getTime()
-          const occurrences = expandRrule(e.rrule, dtstart, start, end)
+          const occurrences = expandRrule(e.rrule, dtstart, start, end, e.timeZone)
           const eventIri = `/api/events/${e.id}`
           const exceptions = exceptionMap.get(eventIri)
 

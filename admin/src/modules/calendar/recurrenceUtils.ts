@@ -1,16 +1,61 @@
 import { RRule, rrulestr } from 'rrule'
 
+const DAY_MS = 24 * 3600_000
+
+/** Milliseconds to add to an instant to read its wall clock in `timeZone`. */
+const wallClockOffsetMs = (instant: Date, timeZone: string): number => {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
+  }).formatToParts(instant)
+  const part = (type: string) => Number(parts.find((p) => p.type === type)?.value)
+  const wall = Date.UTC(part('year'), part('month') - 1, part('day'), part('hour'), part('minute'), part('second'))
+  return wall - Math.floor(instant.getTime() / 1000) * 1000
+}
+
+/** The instant at which the wall clock of `timeZone` reads `wall` (read as UTC fields). */
+const instantFromWallClock = (wall: Date, timeZone: string): Date => {
+  const guess = new Date(wall.getTime() - wallClockOffsetMs(wall, timeZone))
+  return new Date(wall.getTime() - wallClockOffsetMs(guess, timeZone))
+}
+
 /**
  * Expand an RRULE string into occurrence dates within a given range.
+ *
+ * With a `timeZone`, the series is expanded on that zone's wall clock — a weekly
+ * 18:00 lesson stays at 18:00 when the clocks change — and each occurrence is
+ * returned as the real instant it falls on. Without one, it is expanded in UTC.
  */
 export const expandRrule = (
   rruleString: string,
   dtstart: Date,
   rangeStart: Date,
   rangeEnd: Date,
+  timeZone?: string,
 ): Date[] => {
-  const rule = rrulestr(rruleString, { dtstart })
-  return rule.between(rangeStart, rangeEnd, true)
+  if (!timeZone) {
+    return rrulestr(rruleString, { dtstart }).between(rangeStart, rangeEnd, true)
+  }
+
+  // rrule.js only knows UTC: feed it the wall clock as if it were UTC, then map back.
+  const floating = (instant: Date) => new Date(instant.getTime() + wallClockOffsetMs(instant, timeZone))
+  const rule = rrulestr(rruleString, { dtstart: floating(dtstart) })
+  // A day of slack on each side: the wall clock and the instant can sit on either side of the bounds.
+  const walls = rule.between(
+    new Date(floating(rangeStart).getTime() - DAY_MS),
+    new Date(floating(rangeEnd).getTime() + DAY_MS),
+    true,
+  )
+
+  return walls
+    .map((wall) => instantFromWallClock(wall, timeZone))
+    .filter((instant) => instant >= rangeStart && instant <= rangeEnd)
 }
 
 const FREQ_LABELS: Record<number, { singular: string; plural: string }> = {

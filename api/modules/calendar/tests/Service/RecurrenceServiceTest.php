@@ -4,6 +4,7 @@ namespace Maggie\Calendar\Tests\Service;
 
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Event;
+use Maggie\Calendar\Enum\EventStatus;
 use Maggie\Calendar\Repository\EventRepository;
 use Maggie\Calendar\Service\RecurrenceService;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -89,5 +90,79 @@ class RecurrenceServiceTest extends TestCase
             );
             self::assertSame('Weekly standup', $occurrence->getSummary());
         }
+    }
+
+    /**
+     * MAG-212: a weekly 18:00 Paris series stays at 18:00 Paris across the autumn
+     * clock change (Sunday 25 Oct 2026), and an exception is matched on that local
+     * time, whatever the offset the database hands back.
+     */
+    public function testExpandOccurrencesKeepsLocalTimeAcrossDstChange(): void
+    {
+        $event = $this->weeklyLessonInParis();
+        $this->eventRepository->method('findExceptionsForRecurringEvent')->willReturn([]);
+
+        $result = $this->recurrenceService->expandOccurrences(
+            $event,
+            new \DateTimeImmutable('2026-10-01T00:00:00Z'),
+            new \DateTimeImmutable('2026-11-30T00:00:00Z'),
+        );
+
+        self::assertSame(
+            [
+                '2026-10-18T18:00:00+02:00',
+                '2026-10-25T18:00:00+01:00',
+                '2026-11-01T18:00:00+01:00',
+                '2026-11-08T18:00:00+01:00',
+            ],
+            array_map(
+                fn (Event $occurrence) => $occurrence->getStartAt()->setTimezone(new \DateTimeZone('Europe/Paris'))->format('Y-m-d\TH:i:sP'),
+                $result,
+            ),
+        );
+    }
+
+    public function testCancelledExceptionOnTheDayClocksGoBackRemovesThatOccurrence(): void
+    {
+        $event = $this->weeklyLessonInParis();
+
+        $cancelled = new Event();
+        $cancelled->setSummary('Cours de piano');
+        $cancelled->setStartAt(new \DateTimeImmutable('2026-10-25T17:00:00Z'));
+        $cancelled->setEndAt(new \DateTimeImmutable('2026-10-25T17:00:00Z'));
+        $cancelled->setOriginalStartAt(new \DateTimeImmutable('2026-10-25T17:00:00Z'));
+        $cancelled->setStatus(EventStatus::Cancelled);
+        $this->eventRepository->method('findExceptionsForRecurringEvent')->willReturn([$cancelled]);
+
+        $result = $this->recurrenceService->expandOccurrences(
+            $event,
+            new \DateTimeImmutable('2026-10-01T00:00:00Z'),
+            new \DateTimeImmutable('2026-11-30T00:00:00Z'),
+        );
+
+        self::assertSame(
+            ['2026-10-18T16:00:00Z', '2026-11-01T17:00:00Z', '2026-11-08T17:00:00Z'],
+            array_map(
+                fn (Event $occurrence) => $occurrence->getStartAt()->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z'),
+                $result,
+            ),
+        );
+    }
+
+    private function weeklyLessonInParis(): Event
+    {
+        $agenda = new Agenda();
+        $agenda->setName('Perso');
+
+        // Stored the way the database returns it: an instant, here in UTC.
+        $event = new Event();
+        $event->setSummary('Cours de piano');
+        $event->setStartAt(new \DateTimeImmutable('2026-10-18T16:00:00Z'));
+        $event->setEndAt(new \DateTimeImmutable('2026-10-18T17:00:00Z'));
+        $event->setTimeZone('Europe/Paris');
+        $event->setRrule('FREQ=WEEKLY;COUNT=4');
+        $event->setAgenda($agenda);
+
+        return $event;
     }
 }
