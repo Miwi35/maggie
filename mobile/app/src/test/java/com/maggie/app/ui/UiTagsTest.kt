@@ -33,4 +33,10 @@ class UiTagsTest {
         assertEquals("drawer_calendar", UiTags.drawerItem("calendar"))
         assertEquals("google_import_e2e@maggie.local", UiTags.googleImport("e2e@maggie.local"))
     }
+
+    /** The flows address the drawer through the constant; the drawer builds the tag from the route. */
+    @Test
+    fun `the declared drawer tag is the one the drawer builds for its route`() {
+        assertEquals(UiTags.DRAWER_GROCERY, UiTags.drawerItem("grocery"))
+    }
 }

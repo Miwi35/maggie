@@ -1,0 +1,170 @@
+appId: com.maggie.app.e2e
+name: 08-grocery-realtime
+tags:
+  - grocery
+  - realtime
+---
+# The list stays in step between the web and the phone, without reloading
+# (MAG-178) — what the owner relies on when the other half of the household adds
+# something while they are already in the shop.
+#
+# **The « web » here is a script, not a browser.** Maestro drives one Android
+# device and cannot open a tab, so `scripts/grocery-api.js` sends the requests
+# the admin sends (same endpoints, same user) and the server publishes to Mercure
+# exactly as it does for a tab. What that cannot prove is the admin's own
+# rendering of a change made on the phone: `e2e/web/tests/grocery-errand.spec.ts`
+# owns the browser half. What it does prove is the half that has broken twice
+# (6ba9859, afc1a70): the server publishes a payload the *phone* can apply, with
+# no refresh and no relaunch — the app is never restarted nor pulled to refresh
+# between the first screen and the last assertion.
+#
+# Signed in as the neighbour, for the reason given in `03`. Every line this flow
+# writes carries the ticket's number and is gone at the end.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_email: e2e-other@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- tapOn:
+    id: "nav_menu"
+- tapOn:
+    id: "drawer_grocery"
+- extendedWaitUntil:
+    visible:
+      id: "grocery"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: ".*Timbres du voisin.*"
+      below: "Épicerie du coin"
+    timeout: 30000
+
+# ---------------------------------------------------------------------------
+# Web → phone. The pause lets the app's Mercure subscription (opened when the
+# list screen is built) be established: a hub does not replay what was published
+# before a subscriber arrived, so a write made at once could be missed by a
+# phone that is working.
+# ---------------------------------------------------------------------------
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: add
+      LABEL: Levure MAG-178
+      STORE: Épicerie du coin
+      WAIT_MS: "3000"
+- extendedWaitUntil:
+    visible:
+      text: ".*Levure MAG-178.*"
+      below: "Épicerie du coin"
+    timeout: 30000
+
+# A tick made in the browser reaches the phone: « Terminé » is only offered on a
+# shop with a ticked line.
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: check
+      LABEL: Levure MAG-178
+- extendedWaitUntil:
+    visible: "Terminé"
+    timeout: 30000
+
+# And a removal.
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: remove
+      LABEL: Levure MAG-178
+- extendedWaitUntil:
+    notVisible: ".*Levure MAG-178.*"
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible: "Terminé"
+    timeout: 30000
+
+# ---------------------------------------------------------------------------
+# Phone → web. A line added on the phone, through the add sheet: the product
+# field opens a full-screen search where a free label is accepted as typed, the
+# shop is picked from the list, then « Ajouter ». The database has it, in the
+# right shop.
+# ---------------------------------------------------------------------------
+- tapOn: "Ajouter un article"
+- extendedWaitUntil:
+    visible: "Nom du produit"
+    timeout: 20000
+- tapOn: "Nom du produit"
+# « Retour » is the full-screen search's own back button; its title is also the
+# sheet's search icon, so it would pass before the dialog is up.
+- extendedWaitUntil:
+    visible: "Retour"
+    timeout: 20000
+# Touched before typing: the focus the dialog asks for on opening is not
+# something a journey can count on, and text sent to nothing is lost silently.
+- tapOn:
+    id: "product_search"
+- inputText: "Tisane MAG-178"
+- extendedWaitUntil:
+    visible: "Utiliser.*Tisane MAG-178.*"
+    timeout: 20000
+- tapOn: "Utiliser.*Tisane MAG-178.*"
+
+# Back on the sheet, with the label filled in; now the shop.
+- extendedWaitUntil:
+    visible: "Magasin"
+    timeout: 20000
+- tapOn: "Magasin"
+- extendedWaitUntil:
+    visible: "Nom du magasin"
+    timeout: 20000
+- tapOn: "Épicerie du coin"
+- extendedWaitUntil:
+    visible: "Ajouter"
+    timeout: 20000
+- tapOn: "Ajouter"
+
+- extendedWaitUntil:
+    visible:
+      text: ".*Tisane MAG-178.*"
+      below: "Épicerie du coin"
+    timeout: 30000
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: expect
+      LABEL: Tisane MAG-178
+      STATE: present
+
+# A tick on the phone reaches the database.
+- longPressOn: ".*Tisane MAG-178.*"
+- tapOn: "Cocher les articles"
+- extendedWaitUntil:
+    visible: "Terminé"
+    timeout: 20000
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: expect
+      LABEL: Tisane MAG-178
+      STATE: checked
+
+# And a removal on the phone reaches it too, which leaves the list as found.
+- longPressOn: ".*Tisane MAG-178.*"
+- tapOn: "Supprimer les articles"
+- extendedWaitUntil:
+    visible: "Cette action est irréversible."
+    timeout: 10000
+- tapOn: "Supprimer"
+- extendedWaitUntil:
+    notVisible: ".*Tisane MAG-178.*"
+    timeout: 20000
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: expect
+      LABEL: Tisane MAG-178
+      STATE: absent
