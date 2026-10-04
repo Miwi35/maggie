@@ -263,6 +263,16 @@ Maggie Finance s'adresse à toute personne souhaitant mieux gérer ses finances 
 - Jauge des enveloppes annuelles actives : consommé + engagé + planifié vs budget
 - Top 5 postes de dépenses du mois vs mois précédent
 
+**Navigation mobile (MAG-196, règle MAG-90).** Le menu principal n'a qu'une entrée « Finance » ; elle ouvre le dashboard, qui mène au reste. Les accès sont classés par fréquence d'usage :
+
+| Fréquence | Accès (dans l'ordre) |
+|-----------|----------------------|
+| Chaque jour — boutons sous le score, visibles sans défiler | Budgets et enveloppes · Comptes et transactions |
+| Chaque mois — section « Chaque mois » | Revue mensuelle · Matelas |
+| Rarement — section « Réglages finance » | Prêts · Catégories · Règles de catégorisation |
+
+Le score, le solde, la capacité d'épargne, les postes et les enveloppes du mois sont sur le dashboard même. La flèche retour d'un écran finance ramène au dashboard finance (ou à la liste dont il dépend : transactions → comptes) ; ouvert par un lien ou une notification, l'écran revient au dashboard finance. Les liens `maggie://finance/…` sont inchangés.
+
 ### Module 7 — Matelas de sécurité
 *Constitution et maintien du filet de sécurité — priorité absolue avant tout investissement*
 
