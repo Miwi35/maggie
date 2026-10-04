@@ -133,8 +133,6 @@ exemption nobody wrote down is a missing test:
 
 - **MAG-174** — the grocery list shows a line deferred with `buyAfter` to a later
   day (`grocery-list.spec.ts`).
-- **MAG-212** — a weekly series lands an hour off after the autumn clock change, so
-  the refused occurrence of 25 Oct is not where the grid looks (`agenda-recurrence.spec.ts`).
 - **MAG-197** — ticking what is in the trolley, then ending the errand, still fails
   after MAG-190's fix: the ticked line never reads as ticked (two tests in
   `grocery-errand.spec.ts`).

@@ -113,10 +113,9 @@ test('the seeded series shows one occurrence a week', async ({ page }) => {
  * Read-only and fed entirely from fixtures: no write of its own, so it can only
  * fail on what the API serves and what the grid draws (MAG-169).
  */
-// Expected to fail — MAG-212: since the seed's anchor moved to 2 Oct, the refused
-// occurrence falls on 25 Oct, the night clocks go back, and the weekly series
-// lands an hour off after the change. Red on main since 1 Oct 22:00 UTC.
-test.fail('an overridden occurrence replaces the original, and a refused one disappears — MAG-212', async ({ page }) => {
+// The refused occurrence falls on 25 Oct from the 2 Oct anchor, the night clocks go
+// back: the series has to stay at 18:00 Paris for the cancellation to match (MAG-212).
+test('an overridden occurrence replaces the original, and a refused one disappears', async ({ page }) => {
   const calendar = new CalendarPage(page)
 
   await calendar.goToEventDate(seedId('e2e_event_recurring_exception'), MOVED_SUMMARY)

@@ -118,6 +118,7 @@ interface CalendarEvent {
   endAt: string
   allDay: boolean
   agenda: string
+  timeZone?: string
   rrule?: string
   recurringEvent?: string
   originalStartAt?: string
@@ -740,7 +741,7 @@ export const CalendarView = () => {
       if (e.rrule && rangeStart && rangeEnd) {
         const dtstart = new Date(e.startAt)
         const duration = new Date(e.endAt).getTime() - dtstart.getTime()
-        const occurrences = expandRrule(e.rrule, dtstart, rangeStart, rangeEnd)
+        const occurrences = expandRrule(e.rrule, dtstart, rangeStart, rangeEnd, e.timeZone)
         const exceptions = exceptionMap.get(masterIri)
 
         for (const occ of occurrences) {
