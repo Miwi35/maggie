@@ -5,6 +5,7 @@ import {
   expectRealtimeSync,
   openMercureProbe,
   openSubscribed,
+  subscribedTopics,
   userTopic,
 } from '../helpers/mercure.js'
 import { PreferencesPage } from '../pages/PreferencesPage.js'
@@ -116,7 +117,7 @@ test('the hub refuses a subscriber asking for another user\'s topic', async ({
   // The assertion this harness was written to make, and the one that found
   // MAG-139: updates used to be published without `private: true`, and a
   // public update reaches any subscriber whose *requested* topic matches,
-  // whatever their token's `mercure.subscribe` claim says. So a user holding
+  // whatever their token's `subscribe` grant says. So a user holding
   // a perfectly valid token of their own received another user's updates by
   // asking for their topic — and user ids are in every API response. Fixed
   // on main; this is what keeps it fixed.
@@ -147,9 +148,11 @@ test("the admin's own subscription is relative and user-scoped", async ({ page, 
   const url = new URL((await subscription).url())
   expect(url.origin, 'the hub URL must resolve against the page origin').toBe(new URL(page.url()).origin)
   expect(url.pathname).toBe(MERCURE_PATH)
-  expect(url.searchParams.getAll('topic').every((topic) => topic.startsWith(`/users/${session.user.id}/`))).toBe(
-    true,
-  )
+  expect(url.searchParams.has('topic'), 'a 1.0 hub answers 400 to the 0.x `topic` parameter').toBe(false)
+
+  const topics = subscribedTopics(url)
+  expect(topics.length).toBeGreaterThan(0)
+  expect(topics.every((topic) => topic.startsWith(`/users/${session.user.id}/`))).toBe(true)
 })
 
 function otherThan(current: string): CalendarView {

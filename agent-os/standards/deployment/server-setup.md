@@ -120,7 +120,7 @@ reused by other projects on the VPS.
 | ciqual | `ghcr.io/miwi35/maggie-ciqual:${IMAGE_TAG}` | 8002 |
 | worker | `maggie-php` (messenger consumer) | — |
 | cron | `maggie-php` (scheduled commands) | — |
-| mercure | `dunglas/mercure` | 80 |
+| mercure | `dunglas/mercure:v1.0.2` (pinned by digest) | 80 |
 
 The cron pod runs `supercronic /etc/maggie/crontab` (from `.docker/php/crontab`) as
 uid 1000, never as root and never with a redirection to `/proc/1/fd/1` (refused to a

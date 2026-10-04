@@ -11,8 +11,10 @@ use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Maggie\Core\E2e\Controller\E2eLoginController;
 use Maggie\Core\Entity\RefreshToken;
 use Maggie\Core\Entity\User;
+use Maggie\Core\Mercure\MercureAccessToken;
 use Maggie\Core\Mercure\MercureSubscriberTokenFactory;
 use Maggie\Core\Repository\UserRepository;
+use Maggie\Core\Tests\Mercure\MercureAccessTokenTest;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -141,19 +143,14 @@ final class E2eLoginControllerTest extends KernelTestCase
         $response = $this->controller()($this->request(['email' => 'e2e@maggie.local']));
         $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
 
-        $claims = json_decode(
-            (string) base64_decode(strtr(explode('.', $payload['mercureToken'])[1], '-_', '+/'), true),
-            true,
-            512,
-            JSON_THROW_ON_ERROR,
-        );
+        $topics = MercureAccessTokenTest::decode($payload['mercureToken'])['claims']['authorization_details'][0]['topics'];
 
         self::assertSame(
-            ['/users/'.$user->getId().'/{+topic}'],
-            array_slice($claims['mercure']['subscribe'], 0, 1),
+            ['match' => '/users/'.$user->getId().'/*', 'match_type' => 'urlpattern'],
+            $topics[array_key_last($topics)],
         );
-        foreach ($claims['mercure']['subscribe'] as $selector) {
-            self::assertStringContainsString((string) $user->getId(), $selector);
+        foreach ($topics as $topic) {
+            self::assertStringContainsString((string) $user->getId(), $topic['match']);
         }
     }
 
@@ -178,7 +175,7 @@ final class E2eLoginControllerTest extends KernelTestCase
             $container->get(JWTTokenManagerInterface::class),
             $container->get(RefreshTokenGeneratorInterface::class),
             $container->get(RefreshTokenManagerInterface::class),
-            new MercureSubscriberTokenFactory('a-mercure-secret'),
+            new MercureSubscriberTokenFactory(new MercureAccessToken('a-mercure-secret-of-at-least-32-bytes', 'http://localhost/.well-known/mercure')),
             $environment,
             $configuredToken,
             2592000,

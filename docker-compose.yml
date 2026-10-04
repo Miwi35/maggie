@@ -163,23 +163,23 @@ services:
   # Mercure (Real-time updates hub)
   # ===========================================================================
   mercure:
-    # Pinned by digest, and it has to stay pinned. `dunglas/mercure` untagged
-    # moved to a build that renamed the subscribe parameter from `topic` to
-    # `match`/`match_urlpattern`; the admin, the agent, the mobile app and the
-    # subscriber tokens all still speak the old one, so an unpinned hub answers
-    # `400 unknown topic matcher query parameter` and every real-time update
-    # dies at once. CI pulls fresh, so it broke there first (MAG-97).
-    #
-    # This exact digest is what production runs, so it is the version validated
-    # by use — no tag points at it any more. Moving to the new parameter is its
-    # own ticket.
-    image: dunglas/mercure@sha256:916834e499613d475e9ad5118cd2349875338f52d99d65b58aeff82f97ccb0c6
+    # Pinned by tag and digest, never untagged (agent-os/standards/global/real-time.md).
+    # An untagged `dunglas/mercure` follows `latest`: the 0.x -> 1.0 move renamed the
+    # subscribe parameter and the token format and broke every subscriber at once
+    # (MAG-97). The digest freezes the build; the tag says which version it is.
+    # Upgrading is a ticket of its own: read the release notes, move every client.
+    image: dunglas/mercure:v1.0.2@sha256:e5d8f06a60f2feb5e91f7ba2046d9184f6339b3498b5d2f5adaeb5bcb080bfc7
     environment:
       SERVER_NAME: ':80'
+      # Mercure 1.0: the hub trusts tokens issued by `maggie`, and `aud` is pinned to the
+      # public URL (it is reached over plain HTTP behind the proxy, so it cannot derive it).
+      MERCURE_TRUSTED_ISSUERS: maggie
       MERCURE_PUBLISHER_JWT_KEY: ${MERCURE_JWT_SECRET}
       MERCURE_SUBSCRIBER_JWT_KEY: ${MERCURE_JWT_SECRET}
       MERCURE_EXTRA_DIRECTIVES: |
         cors_origins *
+        resource_identifier ${MERCURE_PUBLIC_URL}
+        cookie_name mercureAuthorization
     labels:
       - "maggie.stack=dev"
       - "traefik.enable=true"

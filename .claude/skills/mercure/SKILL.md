@@ -24,14 +24,20 @@ All real-time updates use **Mercure** (SSE), not WebSockets.
 
 - Entity updates: `/api/{resource}/{id}` (auto from API Platform)
 - User-scoped: `/users/{userId}/api/{resource}/{id}` (middleware adds prefix)
-- Agent (published by the agent service, not under `/users/`): `/chat/{userId}`, `/contexts/{userId}`, `/proactions/{userId}`, `/instructions/{userId}`, `/skills/{userId}`. `userId` is the API user's ULID, the `sub` of the JWT the agent authenticates — never the `user_id` field/param the mobile sends (`"default"`, ignored). Spelled only in `agent/app/mercure/topics.py`, published in `agent/contract/mercure-topics.json`; clients use `MercureTopics.agentScoped` (mobile) and `agentTopic()` (admin). `MercureService.subscribe` never substitutes: a `{userId}` in a topic is a dead subscription.
+- Agent (published by the agent service, not under `/users/`): `/chat/{userId}`, `/contexts/{userId}`, `/proactions/{userId}`, `/instructions/{userId}`, `/skills/{userId}`. `userId` is the API user's ULID, the `sub` of the JWT the agent authenticates — never the `user_id` field/param the mobile sends (`"default"`, ignored). Spelled only in `agent/app/mercure/topics.py`, published in `agent/contract/mercure-topics.json`; clients use `MercureTopics.agentScoped` (mobile) and `agentTopic()` (admin). Nothing substitutes `{userId}`: a literal one in a topic is a dead subscription.
 
 ## Privacy — every update is private
 
-A public update is delivered to any subscriber whose requested topic matches, **whatever their token's `mercure.subscribe` claim says**. So:
+A public update is delivered to any subscriber whose requested topic matches, **whatever their token's `subscribe` grant says**. So:
 - PHP: `new Update(topics, data, private: true)`; agent: `private=on` in the publish form (`MercurePublisher` does it).
-- The subscriber token (`MercureSubscriberTokenFactory`) lists `/users/{id}/{+topic}` (`{+topic}` crosses `/`, `{topic}` does not) plus the agent topics above, keyed by the user's id. A new topic outside `/users/{id}/` needs a selector there or it goes silent.
+- The subscriber token (`MercureSubscriberTokenFactory`) grants the URL Pattern `/users/{id}/*` (`*` crosses `/`) plus the agent topics above as exact `match`es, keyed by the user's id. A new topic outside `/users/{id}/` needs a grant there or it goes silent.
 - Every `EventSource` passes `{ withCredentials: true }` (cookie `mercureAuthorization`); the hub runs without `anonymous`.
+
+## Mercure 1.0 protocol (hub pinned `dunglas/mercure:v1.0.2@sha256:…` — never untagged)
+
+- Subscribe with `match=<exact topic>` or `match_urlpattern=<pattern>` (`{id}` → `:id`): `hooks/mercureUrl.ts` (admin), `MercureService.buildSubscriptionUrl` (mobile). The 0.x `topic` parameter is a `400`; publishing still posts `topic`.
+- Tokens are OAuth 2.0 access tokens (`typ: at+jwt`, `iss: maggie`, `aud` = `MERCURE_PUBLIC_URL`, `exp`, grants in `authorization_details`), minted by `MercureAccessToken` (API) and `agent/app/mercure/publisher.py`. The old `mercure` claim is a `401`.
+- Hub env: `MERCURE_TRUSTED_ISSUERS=maggie`, `resource_identifier <MERCURE_PUBLIC_URL>` and `cookie_name mercureAuthorization` in `MERCURE_EXTRA_DIRECTIVES`. Full rules: `agent-os/standards/global/real-time.md`.
 
 ## API Entity Publication
 

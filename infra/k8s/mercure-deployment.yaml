@@ -15,19 +15,24 @@ spec:
     spec:
       containers:
         - name: mercure
-          # Pinned by digest, and it has to stay pinned. `dunglas/mercure`
-          # untagged moved to a build that renamed the subscribe parameter from
-          # `topic` to `match`/`match_urlpattern`; everything that subscribes
-          # still speaks the old one, so an unpinned hub answers 400 and all
-          # real-time dies. With imagePullPolicy: Always and no tag, that was
-          # one pod restart away. This digest is what the running pod already
-          # serves. Found by the web journeys (MAG-97).
-          image: dunglas/mercure@sha256:916834e499613d475e9ad5118cd2349875338f52d99d65b58aeff82f97ccb0c6
+          # Pinned by tag and digest, never untagged (agent-os/standards/global/real-time.md).
+          # An untagged `dunglas/mercure` follows `latest`: the 0.x -> 1.0 move renamed the
+          # subscribe parameter and the token format and broke every subscriber at once
+          # (MAG-97). The digest freezes the build; the tag says which version it is.
+          image: dunglas/mercure:v1.0.2@sha256:e5d8f06a60f2feb5e91f7ba2046d9184f6339b3498b5d2f5adaeb5bcb080bfc7
           ports:
             - containerPort: 80
           env:
             - name: SERVER_NAME
               value: ":80"
+            # Tokens are issued by `maggie`; `aud` is pinned to the public URL (plain HTTP behind the ingress).
+            - name: MERCURE_TRUSTED_ISSUERS
+              value: maggie
+            - name: MERCURE_PUBLIC_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: maggie-config
+                  key: MERCURE_PUBLIC_URL
             - name: MERCURE_PUBLISHER_JWT_KEY
               valueFrom:
                 secretKeyRef:
@@ -41,6 +46,8 @@ spec:
             - name: MERCURE_EXTRA_DIRECTIVES
               value: |
                 cors_origins https://maggieai.fr
+                resource_identifier $(MERCURE_PUBLIC_URL)
+                cookie_name mercureAuthorization
           readinessProbe:
             tcpSocket:
               port: 80

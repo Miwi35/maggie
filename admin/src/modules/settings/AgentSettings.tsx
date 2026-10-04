@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNotify } from 'react-admin'
 import { AGENT_STREAMS, agentTopic, getStoredUserId } from '../../hooks/agentTopics'
+import { mercureUrl } from '../../hooks/mercureUrl'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
@@ -178,10 +179,11 @@ export const AgentSettings = () => {
     const userId = getStoredUserId()
     if (!userId) return
 
-    const url = new URL(MERCURE_URL, window.location.origin)
-    url.searchParams.append('topic', agentTopic(AGENT_STREAMS.proactions, userId))
-    url.searchParams.append('topic', agentTopic(AGENT_STREAMS.instructions, userId))
-    url.searchParams.append('topic', agentTopic(AGENT_STREAMS.skills, userId))
+    const url = mercureUrl(MERCURE_URL, [
+      agentTopic(AGENT_STREAMS.proactions, userId),
+      agentTopic(AGENT_STREAMS.instructions, userId),
+      agentTopic(AGENT_STREAMS.skills, userId),
+    ])
     const eventSource = new EventSource(url.toString(), { withCredentials: true })
 
     eventSource.onmessage = (event) => {

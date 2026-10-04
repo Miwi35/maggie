@@ -11,8 +11,7 @@ Uses `@api-platform/admin` (HydraAdmin) with Vite.
 
 ## Mercure subscription
 ```tsx
-const url = new URL(MERCURE_URL, window.location.origin)
-url.searchParams.append('topic', '/api/events/{id}')
+const url = mercureUrl(MERCURE_URL, ['/chat/' + userId]) // hooks/mercureUrl.ts: `match` / `match_urlpattern`, never `topic`
 const eventSource = new EventSource(url.toString(), { withCredentials: true }) // private updates need the cookie
 ```
 

@@ -128,6 +128,18 @@ describe('the admin Mercure subscriptions', () => {
     ).toEqual([])
   })
 
+  it('never uses the 0.x `topic` subscribe parameter', () => {
+    // A 1.0 hub answers 400 to `topic` (MAG-142); only mercureUrl() writes the query.
+    const legacy = sourceFiles(adminSrc).filter((file) =>
+      /searchParams\.(append|set)\(\s*'topic'/.test(readFileSync(file, 'utf8')),
+    )
+
+    expect(
+      legacy.map((file) => file.slice(adminSrc.length + 1)),
+      'These files subscribe with `topic`, which a Mercure 1.0 hub rejects: use mercureUrl().',
+    ).toEqual([])
+  })
+
   it('names only streams the agent publishes', () => {
     // agentTopic() builds `/{stream}/{userId}`; the contract holds the same
     // with `{userId}` left as the placeholder.
@@ -142,7 +154,7 @@ describe('the admin Mercure subscriptions', () => {
     // spelling nothing compares with the agent's (MAG-138).
     const byHand = sourceFiles(adminSrc).flatMap((file) => {
       if (file.endsWith(join('hooks', 'useMercure.ts'))) return []
-      return [...readFileSync(file, 'utf8').matchAll(/searchParams\.append\(\s*'topic',\s*([^\n]*)\)/g)]
+      return [...readFileSync(file, 'utf8').matchAll(/mercureUrl\(\s*\w+,\s*\[([^\]\n]*)\]/g)]
         .filter((match) => !match[1].startsWith('agentTopic('))
         .map((match) => `${file.slice(adminSrc.length + 1)}: ${match[1]}`)
     })
@@ -162,7 +174,7 @@ describe('the admin Mercure subscriptions', () => {
   it('never subscribes with an unsubstituted user placeholder', () => {
     // `${userId}` is a template substitution; a bare `{userId}` is the bug.
     const placeholders = sourceFiles(adminSrc).filter((file) =>
-      /searchParams\.append\(\s*'topic'[^)]*(?<!\$)\{user_?[iI]d\}/.test(readFileSync(file, 'utf8')),
+      /mercureUrl\([^)]*(?<!\$)\{user_?[iI]d\}/.test(readFileSync(file, 'utf8')),
     )
 
     expect(
