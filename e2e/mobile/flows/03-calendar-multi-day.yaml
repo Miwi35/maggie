@@ -3,8 +3,6 @@ name: 03-calendar-multi-day
 tags:
   - calendar
 ---
-# QUARANTINED (MAG-209): red on every run of main since it merged. Run it alone
-# with `task e2e:mobile -- quarantine/03-calendar-multi-day.yaml`.
 # A multi-day event is drawn on every day it crosses, in the week view and in the
 # day view (MAG-204). Two regressions this holds:
 #
