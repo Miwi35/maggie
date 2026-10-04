@@ -122,7 +122,7 @@ tags:
 - assertTrue: "${output.reset == 0}"
 
 # The microphone opens the sheet in voice mode. It no longer listens by itself:
-# talking is holding the sheet's own mic button (MAG-221), exercised at the end.
+# talking is holding the sheet's own mic button (MAG-221), exercised below.
 - tapOn:
     id: "chat_mic"
 
