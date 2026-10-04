@@ -289,16 +289,15 @@ fun NavGraph() {
     // Keyed on the route too: a deep link opened from a cold start sits on top of Loading,
     // and going back to it must land on the dashboard, not on a spinner.
     LaunchedEffect(isAuthenticated, isLocked, currentRoute) {
-        when (isAuthenticated) {
-            false -> if (currentRoute != Screen.Login.route) navController.navigate(Screen.Login.route) {
+        val liveRoute = navController.currentBackStackEntry?.destination?.route
+        when (authRedirect(isAuthenticated, isLocked, liveRoute)) {
+            AuthRedirect.LOGIN -> navController.navigate(Screen.Login.route) {
                 popUpTo(0) { inclusive = true }
             }
-            true -> if (!isLocked && (currentRoute == null || currentRoute == Screen.Login.route || currentRoute == Screen.Loading.route)) {
-                navController.navigate(Screen.Dashboard.route) {
-                    popUpTo(0) { inclusive = true }
-                }
+            AuthRedirect.DASHBOARD -> navController.navigate(Screen.Dashboard.route) {
+                popUpTo(0) { inclusive = true }
             }
-            null -> {} // Still loading
+            AuthRedirect.NONE -> {}
         }
     }
 
