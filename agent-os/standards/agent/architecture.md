@@ -26,7 +26,7 @@ Python FastAPI service. Separate from Symfony — consumes the API via MCP like 
 ## Schema evolution (MAG-195)
 - The agent has no migration tool. New tables come from `create_all` (`proaction_repo.ensure_table()`); new columns on existing tables are added by idempotent SQL in `context_repo.run_migrations()` (`ADD COLUMN IF NOT EXISTS`), replayed at every start.
 - Additive only: never `DROP`, `ALTER TYPE` or rename a column without its own ticket. Alembic is for the day a table holds data nothing else can rebuild.
-- The note index (`memory_note`, `memory_event`, `memory_outbox`) is derived from the bucket (`agent-os/standards/agent/memory.md`): an incompatible change is "drop + rebuild" (`task agent:memory:rebuild`, `POST /agent/memory/rebuild`). Only `last_used_at` and `use_count` exist nowhere else, and the rebuild keeps them.
+- The note index (`memory_note`, `memory_event`, `memory_outbox`) is derived from the bucket (`agent-os/standards/agent/memory.md`): an incompatible change is "drop + rebuild" (`task agent:memory:rebuild -- --offline` with the agent stopped, or `POST /agent/memory/rebuild`). Only `last_used_at` and `use_count` exist nowhere else, and the rebuild keeps them.
 - The memory bucket is optional: `MEMORY_BUCKET` empty means no sync, no index, the old `memory` table only. `MEMORY_BUCKET=fake` is the in-memory bucket of the e2e stack.
 
 ## Dependencies

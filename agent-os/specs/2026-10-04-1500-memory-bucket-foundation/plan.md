@@ -14,7 +14,7 @@ Out of scope: note tools (MAG-17), summary and search (MAG-16), inspector (MAG-2
 5. Loop every 60 s independent of RabbitMQ; opportunistic pass at turn start when the last one is older than 30 s, bounded by a timeout (`skipped`, distinct from `stale`); a pass always runs before consolidation; manual trigger `POST /agent/memory/sync`.
 6. Bucket down: the index is served marked stale with its age in the volatile block, writes go to the outbox in the same transaction, flush compares the current ETag first, boot starts on the index with backoff, critical log + metrics, readiness stays green.
 7. Conflicts: `If-Match` / `If-None-Match: *`, fallback re-reading the ETag when the endpoint refuses conditions; the loser goes to `conflits/<slug>-<timestamp>.md` with a `memory_event`; one lock per note.
-8. Full rebuild from the bucket (`task agent:memory:rebuild`, `POST /agent/memory/rebuild`) gives back the same index; `last_used_at` / `use_count` survive.
+8. Full rebuild from the bucket (`task agent:memory:rebuild -- --offline` with the agent stopped, or `POST /agent/memory/rebuild`) gives back the same index; `last_used_at` / `use_count` survive.
 9. Mercure stream `memory` (agent publishes, `agent/contract/mercure-topics.json` regenerated, `AGENT_TOPICS` in the API token factory).
 10. In-memory fake bucket behind the same interface (outage, 412); `MEMORY_BUCKET=fake` on the e2e stack.
 11. Owner provisions the bucket and the `MEMORY_BUCKET*` secrets in `maggie-env`; `MEMORY_BUCKET` empty keeps the agent on the old `memory` table.
