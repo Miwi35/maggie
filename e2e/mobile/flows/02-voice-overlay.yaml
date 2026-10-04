@@ -36,6 +36,13 @@ tags:
 # HTTP after composition — the asynchronous arrival all three fixes were about — and
 # the old answer is asserted on screen, so there really was something to re-speak.
 #
+# The flow also holds the mic to talk (MAG-221): holding the mic, then letting
+# go, sends what was said. The emulator has no sound card, so the `e2e` flavor records
+# placeholder bytes (`src/e2e/.../AudioRecorderProvider.kt`) and Whisper, simulated by
+# WireMock, hears one fixed sentence; it comes back cleaned (`20-transcription-
+# cleanup.yaml`) and is sent like a typed message. It runs right after the synthesis check, so the messages it adds
+# cannot push the old answer out of the overlay before that check.
+#
 # Needs `E2E_BASE_URL` and `E2E_LOGIN_TOKEN`, which `run.sh` passes with `-e`.
 #
 # Regex selectors wrapped in `.*` for the reason given in `01-login-chat.yaml`.
@@ -114,9 +121,8 @@ tags:
 - evalScript: "${output.reset = json(http.delete(E2E_BASE_URL + '/agent/e2e/tts/syntheses', {headers: {'X-E2E-Token': E2E_LOGIN_TOKEN}}).body).count}"
 - assertTrue: "${output.reset == 0}"
 
-# The microphone opens the sheet in voice mode. It starts listening by itself —
-# on a headless emulator with `-noaudio` that ends in `ERROR`, and neither state
-# matters here.
+# The microphone opens the sheet in voice mode. It no longer listens by itself:
+# talking is holding the sheet's own mic button (MAG-221), exercised below.
 - tapOn:
     id: "chat_mic"
 
@@ -145,6 +151,23 @@ tags:
 
 # Kept for what it also catches: a `SPEAKING` that sticks.
 - assertNotVisible: ".*Maggie parle.*"
+
+# ---------------------------------------------------------------------------
+# Hold to talk (MAG-221): hold the mic, let go, and the dictated sentence is sent.
+# `longPressOn` holds for a few seconds, well past the 300 ms below which a press is
+# taken for a mistake. The sentence is what the stubbed Whisper clip says, cleaned;
+# the answer is the scripted one (`41-grocery-add-dictated.yaml`), which proves the
+# text really went through the chat and not just onto the screen.
+# ---------------------------------------------------------------------------
+- longPressOn:
+    id: "voice_mic"
+
+- extendedWaitUntil:
+    visible: ".*Ajoute des tomates à la liste de courses.*"
+    timeout: 60000
+- extendedWaitUntil:
+    visible: ".*quatre tomates.*"
+    timeout: 60000
 
 # ---------------------------------------------------------------------------
 # « Définir Maggie comme assistant » (MAG-30) — the entry that asks the system

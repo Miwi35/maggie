@@ -172,11 +172,12 @@ that stopped deserialising is `DtoContractTest` against `api/contract/`
   CI passes `-timezone Europe/Paris`; `run.sh` tries to set it on an emulator
   somebody else started and warns when it cannot (a physical phone will not give
   it root, and is on Paris time anyway).
-- **No sound card in CI.** The emulator runs with `-noaudio`, so
-  `VoiceManager.startListening()` fails and the overlay lands in its `ERROR`
-  state. `02-voice-overlay.yaml` is written around that: it waits for the voice
-  bar to exist and for the old answer to be in the sheet, and never asserts that
-  listening succeeded.
+- **No sound card in CI.** The emulator runs with `-noaudio`, so a real recording
+  fails. The `e2e` flavor therefore records placeholder bytes
+  (`src/e2e/.../AudioRecorderProvider.kt`, MAG-221) and WireMock's Whisper answers
+  one fixed sentence: `02-voice-overlay.yaml` ends by holding `voice_mic`
+  (`longPressOn`) and expects that sentence, cleaned, and the scripted answer.
+
 - **Proving an absence is harder than it looks — ask the server, not the screen**
   (MAG-205). « No TTS started when the overlay opens » cannot be asserted on screen:
   `VoiceManager.speak()` sets `SPEAKING` then posts to the TTS endpoint, which under
