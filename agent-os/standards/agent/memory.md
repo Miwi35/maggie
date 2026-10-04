@@ -25,12 +25,16 @@ index, the counters — is rebuilt from them.
   <folders Maggie chooses>/…   e.g. Famille/Françoise/Françoise n'aime pas les roses.md
 ```
 
-**One `Mémoire/` per user, under their own prefix** — that prefix is what the isolation rule below
+**One `Mémoire/` per user, under their own prefix** — the prefix is the **user's ULID**, the JWT
+`sub` claim, the way `agent/app/mercure/topics.py` already keys its topics. Not a display name: that
+would move the whole archive the day it changes. That prefix is what the isolation rule below
 validates against, and what an archive is cut along. A path must never escape it.
 
-**The filename is the title, so it needs a rule**: fold accents, strip `/`, `:` and control
-characters, bound the length, and on collision append `-2`. `sommaire` and `journal` are reserved.
-Two fiches may legitimately want the same true sentence; the suffix is what keeps both.
+**The filename is the title, so it needs a rule**: strip only what a path cannot carry — `/`, `:`,
+control characters — and bound the length. **Accents stay**: the filename is a sentence a human
+reads, so `Françoise n'aime pas les roses.md` is the name, not a folded version of it. On collision
+append `-2`; two fiches may legitimately want the same true sentence. `LISEZMOI`, `AGENTS`,
+`sommaire`, `journal` and `Conversations` are reserved at the root.
 
 **Identity is an `id` in the carte, not the path.** The night shift renames and moves files, so
 links between fiches, `sources` and the index's counters all key on that `id`. Without it a rename
@@ -61,21 +65,28 @@ them from the conversations, names them and files them **for a human reader**:
   inferred it). `déduit` is announced as such whenever it is used;
 - information that stops being true is **dated and marked replaced**, never silently erased.
 
-Maggie never answers about what she knows without opening the fiche. No fiche, no claim.
+Maggie never answers about what she knows without opening the fiche. No fiche, no claim. The one
+exception is an outage, where she answers from the index's copy of the text and says so — spelled
+out under *Storage*.
 
 ## The carte
 
 Every conversation file and every fiche opens on a **carte** in YAML frontmatter — about
 80 tokens, the unit recall works on:
 
-- `id` — a ULID, the file's identity across renames and moves
+- `id` — the file's identity across renames and moves. Nothing in the agent mints a ULID today
+  (`agent/app/llm/history.py` notes its ids are truncated `uuid4().hex`, "not a sortable ULID"), and
+  *Ruled out* is strict about new dependencies: use `uuid4().hex` unless sortability earns the
+  package
 - `resume` — a few lines, what this is about
 - `moments` — the key moments, timestamped
 - `personnes` — who is involved
 - `evoque` — **the situations and themes it should surface for**: `fleurs, cadeau, fête des
   mères, deuil`. This is what makes recall work without a shared word, and the nightly pass keeps
   enriching it
-- `sources` — for a fiche: the conversations and app data behind it, with their provenance
+- `sources` — for a fiche: the conversations and app data behind it, with their provenance. A
+  reference carries **both** the `id` and the title: the `id` is authoritative, the title is what
+  makes the archive readable by a human with nothing else
 
 Maggie judges relevance **on the carte alone**, and opens the full text — or just the useful
 passage — only when she needs the detail. A conversation that touches several subjects gets
@@ -90,8 +101,8 @@ to the bucket happens after the answer, never during it. A conversation file is 
 exchange goes; its carte is written by the night shift. Need 12 — remembering must not slow Maggie
 down, voice included — is a rule about both directions, not just recall.
 
-1. **A permanent profile** — the 50 to 100 essential facts, always in the prompt, in the cached
-   block. It is generated from the fiches, not hand-written, and **bounded**: past the budget, say
+1. **A permanent profile** — the 50 to 100 essential facts, always in the prompt (see *Two blocks*
+   for where). It is generated from the fiches, not hand-written, and **bounded**: past the budget, say
    how many fiches it does not list rather than truncate in silence. What goes in is Maggie's call
    from the signals below, not a score.
 2. **An automatic recall every turn** — a fast search over the cartes, **with a relevance
@@ -136,10 +147,10 @@ has to know the index exists — not that it must stay thin.
 - **Embeddings are an option, not a starting point**: only if misses persist after the correction
   loop below, and then in-process in the agent — no pgvector, no vector service.
 
-Two things live in Postgres and are **not** part of the rebuildable index, because they are
-Maggie's mechanics rather than the owner's knowledge: the usage counters, and the **missed-recall
-cases** below. They survive a reindex, and they stay out of the files on purpose (see *what stays
-out*).
+Two things live in Postgres **outside** the rebuildable index, each in its own table, because they
+are Maggie's mechanics rather than the owner's knowledge: the usage counters, and the
+**missed-recall cases** below. A reindex must not touch them — that is what makes the recovery test
+unambiguous — and they never go into the files.
 
 **Schema changes** follow the convention already in the repo: the agent has no migration tool, so
 `context_repo.run_migrations()` (called at boot from `agent/app/main.py`) *is* the migration
@@ -183,9 +194,7 @@ should have surfaced. At night Maggie works out why the fiche did not come up, a
 associations to its `evoque`, and sweeps the fiches at risk of the same miss. **Each case is
 replayed every night** from then on, so a fixed miss cannot come back unnoticed.
 
-This is the only tuning loop: no hand-set weights, no thresholds for the owner to discover. The
-cases live in Postgres beside the counters, not in the files — they are Maggie's mechanics, and
-need 14 keeps the archive to the owner's knowledge alone.
+This is the only tuning loop: no hand-set weights, no thresholds for the owner to discover.
 
 ## His corrections win
 
@@ -246,6 +255,22 @@ tools `store_memory` / `search_memory` / `update_memory` / `delete_memory`
 (`agent/app/memory/agent_memory.py`), and the MÉMOIRE paragraph of
 `agent/app/personality/default.yaml`, which still tells Maggie to call `store_memory`. Leaving that
 paragraph is how the prompt ends up advertising a tool that no longer exists.
+
+Four more pieces die with those four tools, and **"in one go" is not achievable without them**:
+
+- `agent/app/db/memory_repository.py` — the only other caller of the table;
+- `agent/tests/test_ownership_isolation.py` — built entirely on `Memory` plus `update_memory` and
+  `delete_memory`, and it **is** the two-user isolation test this contract leans on. **Port it to the
+  per-user prefix; do not delete it**;
+- `agent/fixtures/fake-llm/50-memory-allergy.yaml` — remove it and the fake answers
+  `[fake-llm] aucun scénario…` on any memory step of a journey;
+- `scripts/prompt-lab/scenarios/40-memoire-fait-personnel.yaml` — it asserts
+  `expected_tools: [store_memory, search_memory]`, so it fails every `task e2e:eval` night until
+  rewritten.
+
+The last three are **rewritten against the new storage, not dropped**. And all three use an allergy
+as their example fact: **pick another one** — this repo holds no health information, examples
+included.
 
 The rows already stored become fiches, and the message history already in Postgres becomes
 conversation files. What has lost its source is written as having lost it, not dropped.
