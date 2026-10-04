@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -93,11 +94,10 @@ fun EventBlock(
             .fillMaxWidth()
             .padding(horizontal = 1.dp, vertical = 1.dp)
             .clip(RoundedCornerShape(4.dp))
-            .background(bgColor.copy(alpha = 0.85f))
-            .then(if (tag != null) Modifier.testTag(tag) else Modifier)
-            .clickable(onClick = onClick)
-            .padding(4.dp),
+            .background(bgColor.copy(alpha = 0.85f)),
     ) {
+        // Tag and click sit on the Text itself: on a parent Box the merged semantics node
+        // carries the id but not the text, so Maestro cannot match both at once.
         Text(
             text = event.summary,
             style = MaterialTheme.typography.labelSmall,
@@ -105,6 +105,11 @@ fun EventBlock(
             maxLines = if (height > 30.dp) 2 else 1,
             overflow = TextOverflow.Ellipsis,
             lineHeight = 14.sp,
+            modifier = Modifier
+                .fillMaxSize()
+                .then(if (tag != null) Modifier.testTag(tag) else Modifier)
+                .clickable(onClick = onClick)
+                .padding(4.dp),
         )
     }
 }
