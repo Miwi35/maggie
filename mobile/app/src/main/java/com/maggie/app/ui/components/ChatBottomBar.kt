@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
@@ -35,6 +36,9 @@ fun ChatBottomBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                // The app draws edge to edge and the Scaffold adds no inset: without this the
+                // bar sits under a tablet's taskbar, which gets the taps meant for « Demander à Maggie… ».
+                .navigationBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {

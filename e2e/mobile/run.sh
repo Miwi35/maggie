@@ -139,10 +139,34 @@ fi
 
 "$ADB" -s "$SERIAL" reverse --remove "tcp:$DEVICE_PORT" >/dev/null 2>&1 || true
 "$ADB" -s "$SERIAL" reverse "tcp:$DEVICE_PORT" "tcp:$HOST_PORT" >/dev/null
-# Removed on the way out: a stale reverse pointing at a torn-down stack is how
-# the next run fails on a connection refused that names nothing.
-trap '"$ADB" -s "$SERIAL" reverse --remove "tcp:'"$DEVICE_PORT"'" >/dev/null 2>&1 || true' EXIT
 note "device $APP_BASE_URL → host $BASE_URL"
+
+# « Pixel Launcher isn't responding » (MAG-215). On a tablet or a foldable the
+# launcher is also the taskbar, always running, and on a software-rendered CI
+# emulator it misses its ANR deadline now and then; the system dialog that
+# follows is a window above the app, so Maestro reads only that dialog and every
+# `assertVisible` on the app fails while the screenshot shows the app intact. The
+# phone's launcher is idle, which is why it only fails there once in a while.
+# Hiding error dialogs is the platform switch for exactly this; an app that really
+# crashes still fails its flow, and the logcat in the report says why.
+#
+# Put back on the way out: a physical phone keeps its settings between runs, and
+# the owner's must go on telling him when an app of his own crashes.
+previous_hide="$("$ADB" -s "$SERIAL" shell settings get global hide_error_dialogs 2>/dev/null | tr -d '\r' || true)"
+"$ADB" -s "$SERIAL" shell settings put global hide_error_dialogs 1 >/dev/null 2>&1 \
+  || warn "could not hide the system's error dialogs: an ANR dialog above the app will fail a flow."
+
+restore_device() {
+  "$ADB" -s "$SERIAL" reverse --remove "tcp:$DEVICE_PORT" >/dev/null 2>&1 || true
+  if [ -z "$previous_hide" ] || [ "$previous_hide" = "null" ]; then
+    "$ADB" -s "$SERIAL" shell settings delete global hide_error_dialogs >/dev/null 2>&1 || true
+  else
+    "$ADB" -s "$SERIAL" shell settings put global hide_error_dialogs "$previous_hide" >/dev/null 2>&1 || true
+  fi
+}
+# The bridge is removed too: a stale reverse pointing at a torn-down stack is how
+# the next run fails on a connection refused that names nothing.
+trap restore_device EXIT
 
 # ---------------------------------------------------------------------------
 step "3. Build and install the e2e flavor"
@@ -223,16 +247,32 @@ flow_env=(
   -e "E2E_LOGIN_TOKEN=$LOGIN_TOKEN"
 )
 
-# --flatten-debug-output so the screenshots of a failed run land in one
-# predictable place for CI to upload, instead of a timestamped folder per run.
+# --debug-output is what puts the screenshot of each failed command, the view
+# hierarchy and maestro.log under $REPORT_DIR: without it Maestro writes them to
+# ~/.maestro/tests, outside the folder CI uploads, and a red run leaves nothing
+# but a one-line assertion to read (MAG-215). --flatten-debug-output keeps them in
+# one folder instead of a timestamped one per run.
 #
 # Not `exec`: that would replace this shell and the EXIT trap above would never
-# remove the reverse bridge.
+# remove the reverse bridge. The status is kept so that the device's own view of
+# a failure — its last frame and its log — is collected before exiting with it.
+status=0
 "$MAESTRO" --device "$SERIAL" test "${targets[@]}" \
   --format junit \
   --output "$REPORT_DIR/junit.xml" \
   --test-output-dir "$REPORT_DIR" \
+  --debug-output "$REPORT_DIR" \
   --flatten-debug-output \
   --no-ansi \
   "${flow_env[@]}" \
-  ${maestro_args[@]+"${maestro_args[@]}"}
+  ${maestro_args[@]+"${maestro_args[@]}"} || status=$?
+
+if [ "$status" -ne 0 ]; then
+  step "The device after the failure"
+  "$ADB" -s "$SERIAL" exec-out screencap -p >"$REPORT_DIR/device-last-frame.png" 2>/dev/null || true
+  "$ADB" -s "$SERIAL" logcat -d -t 5000 >"$REPORT_DIR/logcat.txt" 2>/dev/null || true
+  "$ADB" -s "$SERIAL" shell wm size 2>/dev/null | tr -d '\r' >"$REPORT_DIR/device-size.txt" || true
+  note "last frame, logcat and screen size written to $REPORT_DIR"
+fi
+
+exit "$status"
