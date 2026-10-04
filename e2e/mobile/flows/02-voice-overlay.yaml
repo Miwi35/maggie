@@ -152,6 +152,23 @@ tags:
 # Kept for what it also catches: a `SPEAKING` that sticks.
 - assertNotVisible: ".*Maggie parle.*"
 
+# Closing and reopening reads nothing either (MAG-227): the history is still the
+# same, and still ends with Maggie's answer.
+- tapOn:
+    id: "chat_close"
+- tapOn:
+    id: "chat_mic"
+- extendedWaitUntil:
+    visible:
+      id: "voice_state"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: ".*ce texte n'apparaît jamais, il sert de minuterie.*"
+    timeout: 5000
+    optional: true
+- evalScript: "${output.syntheses = json(http.get(E2E_BASE_URL + '/agent/e2e/tts/syntheses', {headers: {'X-E2E-Token': E2E_LOGIN_TOKEN}}).body).count}"
+- assertTrue: "${output.syntheses == 0}"
+
 # ---------------------------------------------------------------------------
 # Hold to talk (MAG-221): hold the mic, let go, and the dictated sentence is sent.
 # `longPressOn` holds for a few seconds, well past the 300 ms below which a press is

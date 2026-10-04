@@ -60,13 +60,6 @@ fun AssistantOverlay(
     val uiState by viewModel.uiState.collectAsState()
     val voiceState by voiceManager.state.collectAsState()
     val listState = rememberLazyListState()
-    // Track which assistant messages we've already spoken, plus whether a
-    // request has been observed since the overlay opened. Initializing from
-    // the current messages doesn't work because history loads asynchronously
-    // after composition, so we'd still speak whatever lands first.
-    var lastSpokenMessageId by remember { mutableStateOf<String?>(null) }
-    var sawLoadingSinceOpen by remember { mutableStateOf(false) }
-
     var pendingContext by remember(invocation) { mutableStateOf(screenContext) }
 
     DisposableEffect(invocation) {
@@ -80,22 +73,7 @@ fun AssistantOverlay(
         onDispose { voiceManager.onFinalResult = null }
     }
 
-    LaunchedEffect(uiState.isLoading) {
-        if (uiState.isLoading) sawLoadingSinceOpen = true
-    }
-
-    // Only speak responses to requests sent from within this overlay session;
-    // history that loads on open just syncs the cursor without speaking.
-    LaunchedEffect(uiState.messages.size, uiState.isLoading) {
-        if (uiState.isLoading || uiState.messages.isEmpty()) return@LaunchedEffect
-        val last = uiState.messages.last()
-        if (last.role != "assistant" || last.id == lastSpokenMessageId) return@LaunchedEffect
-        val shouldSpeak = sawLoadingSinceOpen
-        lastSpokenMessageId = last.id
-        if (shouldSpeak) {
-            voiceManager.speak(last.content)
-        }
-    }
+    SpokenReplies(viewModel, voiceManager)
 
     LaunchedEffect(uiState.messages.size) {
         if (uiState.messages.isNotEmpty()) {

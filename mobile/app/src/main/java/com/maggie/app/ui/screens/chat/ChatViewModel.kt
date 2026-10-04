@@ -43,6 +43,8 @@ data class ChatUiState(
     val scrollBehavior: ScrollBehavior = ScrollBehavior.NONE,
     val streamingText: String = "",
     val streamingMessageId: String? = null,
+    /** The answer to a request made in this session, waiting to be read aloud (MAG-227). */
+    val replyToSpeak: ChatMessage? = null,
 )
 
 @OptIn(FlowPreview::class)
@@ -61,6 +63,14 @@ class ChatViewModel(
     private val json = Json { ignoreUnknownKeys = true }
     private val searchQueryFlow = MutableSharedFlow<String>(extraBufferCapacity = 1)
     private var highlightJob: Job? = null
+
+    /**
+     * Raised by [sendMessage], lowered when its answer is in (or the request
+     * failed, or [dropPendingReply]). It is the only thing that lets an answer
+     * be read aloud: `isLoading` is not, because it is also up while the
+     * history loads, and history is never read.
+     */
+    private var awaitingReply = false
 
     companion object {
         private const val PAGE_SIZE = 20
@@ -152,6 +162,7 @@ class ChatViewModel(
      */
     fun sendMessage(text: String, screenContext: String? = null) {
         if (text.isBlank()) return
+        awaitingReply = true
 
         viewModelScope.launch {
             // Add optimistic user message
@@ -166,6 +177,7 @@ class ChatViewModel(
                 isLoading = true,
                 streamingText = "",
                 streamingMessageId = null,
+                replyToSpeak = null,
             )
             rebuildDisplayItems()
             scrollToBottom(animate = true)
@@ -175,6 +187,7 @@ class ChatViewModel(
             try {
                 repository.sendMessageStream(payload)
                     .collect { event -> handleStreamEvent(event) }
+                if (awaitingReply) finishRequest()
             } catch (e: Exception) {
                 Log.w(TAG, "Stream failed, falling back to non-streaming: ${e.message}")
                 // Fallback to non-streaming
@@ -185,13 +198,14 @@ class ChatViewModel(
                         val current = _uiState.value.messages.dropLast(1)
                         _uiState.value = _uiState.value.copy(
                             messages = current + newMessages,
-                            isLoading = false,
                             streamingText = "",
                             streamingMessageId = null,
                         )
+                        finishRequest()
                         rebuildDisplayItems()
                         scrollToBottom(animate = true)
                     } else {
+                        awaitingReply = false
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             streamingText = "",
@@ -199,6 +213,7 @@ class ChatViewModel(
                         )
                     }
                 } catch (_: Exception) {
+                    awaitingReply = false
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         streamingText = "",
@@ -246,7 +261,7 @@ class ChatViewModel(
                 scrollToBottom(animate = true)
             }
             is AgUiEvent.RunFinished -> {
-                _uiState.value = _uiState.value.copy(isLoading = false)
+                finishRequest()
                 rebuildDisplayItems()
             }
             is AgUiEvent.ContextUpdate -> {
@@ -254,6 +269,7 @@ class ChatViewModel(
             }
             is AgUiEvent.Error -> {
                 Log.w(TAG, "Stream error: ${event.message}")
+                awaitingReply = false
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     streamingText = "",
@@ -268,6 +284,24 @@ class ChatViewModel(
                 // Acknowledged but no UI action in v1
             }
         }
+    }
+
+    /** The request is over: its answer, if any, is now the thing to read aloud. */
+    private fun finishRequest() {
+        val reply = if (awaitingReply) _uiState.value.messages.lastOrNull()?.takeIf { it.role == "assistant" } else null
+        awaitingReply = false
+        _uiState.value = _uiState.value.copy(isLoading = false, replyToSpeak = reply)
+    }
+
+    /** Called by whoever read [ChatUiState.replyToSpeak]: it is offered once. */
+    fun onReplySpoken() {
+        _uiState.value = _uiState.value.copy(replyToSpeak = null)
+    }
+
+    /** The surface that would have spoken is gone: an answer arriving now stays silent. */
+    fun dropPendingReply() {
+        awaitingReply = false
+        _uiState.value = _uiState.value.copy(replyToSpeak = null)
     }
 
     fun openSearch() {

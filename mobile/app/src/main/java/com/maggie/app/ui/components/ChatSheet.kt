@@ -102,28 +102,7 @@ fun ChatSheet(
             onDispose { voiceManager.onFinalResult = null }
         }
 
-        // Only speak responses to requests sent from within this sheet session:
-        // history loads asynchronously after composition, so seeding from the
-        // current messages doesn't work. Instead, watch whether a request has
-        // been observed since the sheet opened — if not, the assistant message
-        // already on screen is history and just syncs the cursor silently.
-        var lastSpokenMessageId by remember { mutableStateOf<String?>(null) }
-        var sawLoadingSinceOpen by remember { mutableStateOf(false) }
-
-        LaunchedEffect(uiState.isLoading) {
-            if (uiState.isLoading) sawLoadingSinceOpen = true
-        }
-
-        LaunchedEffect(uiState.messages.size, uiState.isLoading) {
-            if (uiState.isLoading || uiState.messages.isEmpty()) return@LaunchedEffect
-            val last = uiState.messages.last()
-            if (last.role != "assistant" || last.id == lastSpokenMessageId) return@LaunchedEffect
-            val shouldSpeak = sawLoadingSinceOpen
-            lastSpokenMessageId = last.id
-            if (shouldSpeak) {
-                voiceManager.speak(last.content)
-            }
-        }
+        SpokenReplies(viewModel, voiceManager)
 
         ModalBottomSheet(
             onDismissRequest = onDismiss,
