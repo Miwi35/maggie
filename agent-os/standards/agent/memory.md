@@ -7,13 +7,20 @@ d'un assistant*. This file is the operational contract: what the code must hold 
 the ADR's status line says *Acceptée* — MAG-163 carries that validation. The rules below
 describe the target; the current `memory` table, its `MemoryType` enum and its four tools
 (`store_memory`, `search_memory`, `update_memory`, `delete_memory`) are what MAG-17 replaces.
-Change the ADR first, then this file.
+MAG-195 comes first and builds the storage layer this file assumes: bucket client, frontmatter,
+reconciler, outbox, conflicts. Change the ADR first, then this file.
 
 ## One unit, one place
 
 Maggie's long-term memory is **a note** — nothing else. A note is a Markdown document she
 writes, titles, tags, links, rewrites and archives herself. Episodic recall (the daily
 journal) is a note tagged `journal` with its date in the title, not a second mechanism.
+
+**The note is a file, and the file is the truth.** It lives as `<title>.md` on an
+S3-compatible bucket. The owner may edit it with any tool he likes and Maggie picks the change
+up; Postgres holds a **derived index** that can be dropped and rebuilt from the bucket at any
+time. Writing to the index without writing the file is a bug — the next reconciliation
+overwrites it.
 
 **No business schema.** No `Person`, `Place` or `Routine` entity, no category enum, no closed
 tag list. Tags, links and sources are JSONB on the note. From MAG-17 on, a `grep` over
@@ -26,62 +33,104 @@ The five memories and where they already live:
 |---|---|---|
 | Working | conversation window, `conversation_context` | the chat thread and its context chips |
 | Episodic | `agent_message`, `conversation_context`, `journal` notes | the inspector, the conversation history |
-| Semantic | **notes** (`memory_note`) | the inspector (MAG-20) |
-| Procedural | skills and `instruction` directives, in the database like notes (MAG-187) | agent settings, Skills and Directives tabs, and the mirror |
+| Semantic | **the bucket's `.md` files**, indexed in `memory_note` | the inspector (MAG-20), or the file itself |
+| Procedural | skills in the `skill` table (MAG-187, shipped), `instruction` directives; skills move to the bucket in MAG-218 | agent settings, Skills and Directives tabs, then the file itself |
 | Prospective | `proaction` | the proaction log (MAG-155) and settings |
 
-## Storage
+## The bucket holds the truth
 
-Postgres (`maggie_agent`) is the **store**; Markdown is the **format**. Two tables:
+An S3-compatible bucket, **mandatory**, one prefix per user:
 
-- `memory_note` — `id`, `user_id`, `title`, `summary` (one line, feeds the index), `body`
-  (Markdown), `tags` (JSONB), `links` (JSONB, note ids), `sources` (JSONB), `importance`
-  (1–5, set by Maggie), `status` (`active` | `archived`), `pinned` (owner only),
-  `created_at`, `updated_at`, `confirmed_at`, `last_used_at`, `use_count`, `archived_at`,
-  `archive_reason`, `forget_after`.
+```
+<user>/<title>.md          one note, frontmatter + Markdown body
+<user>/archive/<title>.md  archived — archiving is moving the file
+<user>/conflits/…          Maggie's version of a note the owner edited first
+<user>/competences/…       skills, once MAG-218 lands
+<user>/SOMMAIRE.md         generated; its header says not to edit it
+```
+
+Frontmatter carries `title`, `summary`, `tags`, `links`, `sources`, `pinned`, `importance`,
+`confirmed_at`, `forget_after`. Forgetting a note is deleting the object.
+
+**The rule that removes the ambiguity: if it is in the file it counts, and what is not in the
+file is a counter.** No field written in a file is ever ignored — otherwise the owner edits
+something and nothing happens, which is the trap this design exists to close.
+
+## What Postgres keeps
+
+- `memory_note` — the **derived index**, rebuildable from the bucket at any time: every
+  frontmatter field, plus `path`, `etag`, `body_hash`, and the body (kept for full-text search
+  and for degraded mode). Dropping this table and resyncing must lose nothing; that is the
+  disaster-recovery story and it deserves a test.
+- The two fields that must **never** appear in a file, because they change on every read and
+  would otherwise write one bucket version per consultation: `last_used_at`, `use_count`.
 - `memory_event` — the write journal: `note_id`, `at`, `actor` (`maggie` | `encoder` |
   `consolidation` | `owner`), `action`, `reason` (one line), `previous_body`, `source`.
-  Version history *is* the events that carry a `previous_body`.
-
-**The agent has no migration tool.** Its schema comes from `AgentBase.metadata.create_all`,
-which creates missing tables and never alters an existing one or installs an extension.
-MAG-17 settles that before adding a column anywhere: either it brings a migration tool in, or
-it writes down how the schema evolves. Do not assume `agent/migrations/` exists.
+- `memory_outbox` — writes not yet pushed to the bucket.
 
 Every read and write is filtered by `user_id`, with the two-user isolation test every agent
-repository ships (MAG-108).
+repository ships (MAG-108). **The agent has no migration tool**: its schema comes from
+`AgentBase.metadata.create_all`, which creates missing tables and never alters an existing one
+or installs an extension. MAG-195 settles that before adding a column anywhere. Do not assume
+`agent/migrations/` exists.
 
-**Why not a folder of `.md` files on object storage.** Durability is not the reason — an
-S3 bucket solves that, and its versioning would give history for free. The reason is that
-this memory is not a pile of documents but a pile of documents with **living metadata**:
-importance, last used, use count, forget-after, read and written constantly to build the
-index and to pick what the nightly consolidation rereads. Object storage offers no index and
-no query — `ListObjectsV2` returns keys and dates, not metadata — and the freshness "touch"
-on every read means one PUT, hence one bucket version, per consultation: the real edit
-history drowns in it. Second reason: an unreachable bucket would leave Maggie amnesiac,
-where an unreachable mirror only leaves the mirror stale.
+## Reconciliation
 
-## The mirror
+One `ListObjectsV2` per pass over the user's prefix returns key, date and **ETag** for every
+file — 1000 per page, so hundreds of notes in a single request. Compare each ETag with the one
+in the index: unknown key → read and index; different ETag → re-read and re-index; in the
+index but absent from the listing → drop it from the index, its last body staying in
+`memory_event`. A file is fetched **only** when its ETag moved. No user metadata is asked of
+the API, because everything is in the file.
 
-The memory is **also** written out as a folder of `.md` files on an S3-compatible bucket:
-one file per note (metadata and sources in YAML frontmatter), a `SOMMAIRE.md`, archived
-notes under `archive/`, skills under `competences/`, one prefix per user. That is the
-readable, greppable, versioned copy the owner asked for — outside the cluster and outside
-the app.
+Cadence: a background loop every 60 s (configurable), **plus** an opportunistic pass at the
+start of a turn when the last one is older than 30 s — so "I edit the file, then I ask" works
+at once — plus a button in the inspector, plus always before the nightly consolidation. Bucket
+event notifications are out: OVH's S3 compatibility does not guarantee them and they would
+need a queue or a public endpoint.
 
-It is **one-way and off the response path**: written after the nightly consolidation and on
-demand from the inspector, never read back, and a bucket failure is logged and shown but
-blocks nothing. Only notes changed since the last pass are rewritten, so the bucket does not
-collect a version per note per night. MAG-195 carries it, including the bucket, keys and
-region the owner provisions himself; it stays disabled (`MEMORY_MIRROR_ENABLED=false`) in dev
-and e2e, so no MinIO joins the fourteen services already in that stack.
+**A mass-deletion guard.** An empty bucket against a full index looks like the owner deleting
+everything. A pass that would drop more than half the notes (at least five) stops, deletes
+nothing, and says so in the inspector.
+
+## When the bucket does not answer
+
+The bucket is mandatory, but an outage must not cost Maggie her memory.
+
+- **Reads** keep working off the index, which holds every body. It is flagged **stale**, its
+  age goes to Maggie in the volatile prompt block and to the inspector, so she can say it if
+  asked.
+- **Writes** go to `memory_outbox` in the same transaction as the index; the reconciler pushes
+  and clears them when the bucket returns, and the note shows as "not yet synchronised". No
+  write is lost, nothing diverges in silence.
+- **Boot** starts on the index and retries with backoff. Readiness stays green — a restart loop
+  would make it worse — but the failure is logged at `critical` and counted in the metrics. An
+  outage must not look normal (the Mercure-secret precedent in `global/real-time`).
+
+## Conflicts: the owner wins, nothing is thrown away
+
+Maggie writes with `If-Match` on the ETag she last saw; a 412 is a conflict. OVH's support for
+conditional writes **has to be verified** (MAG-195 says which it got), so the fallback is
+mandatory: re-read the ETag immediately before writing and compare — a narrow race, not a
+proof, hence the preference for `If-Match` where it works.
+
+On conflict the owner's file stays untouched, Maggie's version goes to
+`conflits/<title>-<timestamp>.md`, a `memory_event` records it, and a `question`-tagged note
+makes her raise it at the next natural occasion. Never a silent last-write-wins. Inside the
+agent — one replica, several writers — a per-note lock serialises them, so the only real
+conflicts are with the owner.
 
 ## One write door
 
 Every write — Maggie mid-turn, the background encoder, the nightly consolidation, the owner
-in the inspector — goes through the same service. It is the only place that stamps the
-source, appends the `memory_event`, and publishes on Mercure. A repository write that
-bypasses it is a bug, not a shortcut.
+in the inspector — goes through the same service. It is the only place that **writes the file
+first** (or queues it in `memory_outbox` when the bucket is down), then updates the index,
+stamps the source, appends the `memory_event`, and publishes on Mercure. An index write that
+skips the file is a bug, not a shortcut: the next reconciliation overwrites it.
+
+The owner has a **second, perfectly legitimate door**: editing the file in the bucket.
+Reconciliation picks it up, stamps a `memory_event` with `actor = owner`, and no code path may
+treat it as less authoritative than a write of its own.
 
 Publishing means a new `memory` stream in `agent/app/mercure/topics.py` (`STREAMS`) and the
 regenerated `agent/contract/mercure-topics.json` — the admin contract test goes red until
@@ -94,13 +143,15 @@ updates no token can ever receive. MAG-17 adds it and extends
 
 Five, no more:
 
-- `read_notes(ids)` — open full notes; touches `last_used_at` and `use_count`
-- `search_memory(query)` — full text; active notes only unless asked otherwise
-- `write_note(...)` — create or rewrite; the skill requires a search first, so a rewrite
-  replaces instead of piling up. Merging and splitting are `write_note` + `archive_note`
-  with a reason, not extra tools
-- `archive_note(id, reason)` — leaves the index and the default search, stays visible
-- `forget_note(id)` — real deletion, history included; only on the owner's explicit word
+- `read_notes(ids)` — open full notes from the index; touches `last_used_at` and `use_count`,
+  the two fields that stay out of the file precisely so this costs no bucket version
+- `search_memory(query)` — full text over the index; active notes only unless asked otherwise
+- `write_note(...)` — create or rewrite; **writes the file**, then the index. The skill requires
+  a search first, so a rewrite replaces instead of piling up. Merging and splitting are
+  `write_note` + `archive_note` with a reason, not extra tools
+- `archive_note(id, reason)` — **moves the file under `archive/`**; leaves the index and the
+  default search, stays visible
+- `forget_note(id)` — **deletes the object**, history included; only on the owner's explicit word
 
 `search_memory` keeps its name with new semantics, and the others replace tools the system
 prompt still names: `agent/app/personality/default.yaml` tells Maggie to call `store_memory`,
@@ -116,16 +167,22 @@ than assuming either way.
 
 ## Recall
 
-- **Always present**: the index — one line per active note (title, tags, one-line summary,
+Careful with the word *index*: below, **the summary** is the listing that goes in the prompt —
+the same content the generated `SOMMAIRE.md` shows. The *index* is the `memory_note` table.
+
+- **Always present**: the summary — one line per active note (title, tags, one-line summary,
   importance, last used). It is a system block of its own, sitting between the cached stable
   block (personality, skills) and the volatile one, with its own cache breakpoint, so a
   memory change rewrites that block alone — see `build_system` and `cache_tools` in
   `agent/app/llm/prompt_cache.py`. Below the provider's minimum cacheable block size it just
   stays volatile.
 - **Opened on demand**: `read_notes`, then `search_memory` as a fallback.
-- The index is **bounded**. Past the configured token budget, keep the highest
+- The summary is **bounded**. Past the configured token budget, keep the highest
   importance × recency and append the count that was left out — and log it. A silently
-  truncated index reads as "that is all she knows".
+  truncated summary reads as "that is all she knows".
+- When the index is stale (no successful reconciliation for longer than the threshold), the
+  volatile block says so with its age, so Maggie can tell the owner instead of answering as if
+  everything were current.
 - **Before acting** (slot, reminder, event, proaction) Maggie opens the notes touching the
   people, places and moments in play. That rule lives in the memory skill, never in code.
 
@@ -139,19 +196,20 @@ than assuming either way.
 - The background encoder proposes; it writes through the same door, with the source message
   on every change, and every change shows in the inspector. Nothing lands untraceable.
 
-## The memory skill is not durable yet
+## Skills, and the two shipped fixes
 
 The two rules that carry recall — search before writing, consult before acting — live in a
-skill so they can change without a deploy. But skills are files under `/app/data/skills`
-(`agent/app/skills/index.py`) and the agent pod mounts no volume there: they vanish on every
-deploy. **MAG-187 fixes that, and MAG-17 is blocked by it** — otherwise the behaviour this
-file describes silently disappears at the first redeploy after it ships.
+skill so they can change without a deploy. Skills used to be files under `/app/data/skills`
+with no volume mounted, so they vanished on every deploy; **MAG-187 shipped** and they now live
+in the `skill` table of `maggie_agent`, with `skill_index.rebuild()` reloading from it at
+startup. **MAG-188 shipped** too: the pre-deploy `pg_dump` covers both databases, so the index
+and the counters are backed up like the rest.
 
-Skills move to the **same store as the notes**, and appear in the mirror alongside them.
-They would have suited the bucket well — they have no living metadata, so the argument above
-does not apply to them — but one store means one backup, one isolation rule, one inspector
-and no new dependency, and a bucket unreachable at boot would strip Maggie of everything
-procedural.
+Skills follow the notes to the bucket in **MAG-218** — the argument is stronger for them than
+for notes, since a skill is a document the owner wants to open and has no read counters at all.
+That ticket reuses this reconciler rather than inventing a second one; `render_markdown` and
+`parse_markdown` already exist in `agent/app/skills/index.py`. Directives (`instruction`) stay
+in the database: they are sentences, not documents.
 
 ## Consolidation and forgetting
 
@@ -191,6 +249,8 @@ sources nor a write journal. Keeping our own tools on the Messages API is ADR-00
 that reintroduces one of these argues it against the simpler option it replaces — that is an
 ADR, not a commit.
 
-Object storage is **not** on that list — it is the mirror. And if the owner ends up reading
-the mirror more than the inspector, a folder of `.md` files becomes the right primary store
-after all, and that is a new ADR, not a drift.
+**One brick does come in**, deliberately: the object storage is a mandatory dependency of the
+agent — `aioboto3`, a secret, a bucket the owner provisions. That is the price of the decisive
+criterion; without a file that counts, the memory stays something only the app can open. It
+adds **no service to the e2e stack**: the bucket is faked in-process behind the same port as
+the real client, so reconciliation, conflicts and degraded mode are all covered by the journeys.

@@ -16,7 +16,7 @@ agent:
   architecture:
     description: Python FastAPI agent hub — MCP client, LLM gateway, personality YAML, uv
   memory:
-    description: Maggie's memory (ADR-010, proposed) — the note as the only unit, Postgres store, one write door, index then detail, archive before forgetting
+    description: Maggie's memory (ADR-010, proposed) — the note as the only unit, the bucket's .md file is the truth and Postgres a derived index, reconciliation by ETag, outbox when the bucket is down, the owner wins conflicts
   testing:
     description: pytest — async auto mode, respx HTTP mocking, conftest fixtures
 
