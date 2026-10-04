@@ -45,7 +45,11 @@ class AssistantActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        screenContext = ScreenContext.fromIntent(intent)
+        // Only on a first start. A recreation — a rotation, a theme change — is
+        // not a new invocation: the screen the context described is long gone,
+        // and reviving it would attach the whole block to the next sentence as
+        // if it had never been used.
+        screenContext = if (savedInstanceState == null) ScreenContext.fromIntent(intent) else null
         setContent {
             MaggieTheme {
                 AssistantOverlay(

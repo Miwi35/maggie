@@ -2,6 +2,7 @@ package com.maggie.app.voice
 
 import android.app.assist.AssistContent
 import android.app.assist.AssistStructure
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -56,17 +57,22 @@ private class MaggieVoiceInteractionSession(
         @Suppress("DEPRECATION")
         super.onHandleAssist(data, structure, content)
 
-        val appPackage = structure?.activityComponent?.packageName
+        val activity = structure?.activityComponent
 
-        // Our own overlay in front means the user summoned Maggie while she was
-        // already open. Handing her her own answers back as « the screen you are
-        // looking at » is worse than handing her nothing, so: nothing — but the
-        // wait still ends, or the overlay would sit there for 1.2 s.
-        if (appPackage == service.packageName) {
+        // The overlay itself in front means the user summoned Maggie while she
+        // was already open. Handing her her own answers back as « the screen you
+        // are looking at » is worse than handing her nothing, so: nothing — but
+        // the wait still ends, or the overlay would sit there for 1.2 s.
+        //
+        // The overlay, not the package: Maggie's own agenda or grocery list is a
+        // screen like any other, and « ajoute ça à mon agenda » from it is a fair
+        // question.
+        if (activity == ComponentName(service, AssistantActivity::class.java)) {
             coordinator.onAssist(appPackage = null, appLabel = null, webUri = null, texts = emptyList())
             return
         }
 
+        val appPackage = activity?.packageName
         coordinator.onAssist(
             appPackage = appPackage,
             appLabel = appPackage?.let(::appLabel),

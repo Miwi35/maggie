@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.settings
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -761,9 +762,12 @@ private fun VoiceSection(
                         // one that opens the system list. Hence both attempts
                         // guarded, the second one included.
                         val request = AssistantRoleHelper.createRoleRequestIntent(context)
-                        val opened = request != null && runCatching { roleLauncher.launch(request) }.isSuccess
+                        val opened = request != null && runCatching { roleLauncher.launch(request) }
+                            .onFailure { Log.w("SettingsScreen", "Role request refused", it) }
+                            .isSuccess
                         if (!opened) {
                             runCatching { roleLauncher.launch(AssistantRoleHelper.voiceInputSettingsIntent()) }
+                                .onFailure { Log.w("SettingsScreen", "No voice input settings either", it) }
                         }
                     },
             ) {

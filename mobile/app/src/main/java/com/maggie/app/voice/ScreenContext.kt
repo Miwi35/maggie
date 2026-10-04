@@ -103,6 +103,11 @@ data class ScreenContext(
          *
          * A message that starts with the header but has no blank line after the
          * block is left alone: better an ugly bubble than an empty one.
+         *
+         * The cut is the first blank line, which works because every line the
+         * block holds is single-spaced — [AssistTextCollector] collapses the
+         * whitespace of each entry. A field added to [toPromptBlock] that could
+         * contain a blank line would leave half a block in the bubble.
          */
         fun withoutPromptBlock(content: String): String {
             if (!content.startsWith(PROMPT_HEADER)) return content

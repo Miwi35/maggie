@@ -43,7 +43,7 @@ class AssistLaunchCoordinator(private val onLaunch: (ScreenContext) -> Unit) {
     }
 
     fun onAssist(appPackage: String?, appLabel: String?, webUri: String?, texts: List<String>) {
-        if (hasLaunched) return
+        if (hasLaunched || !shown) return
         assistReceived = true
         // First window wins: Android may deliver one call per activity in the
         // task, and the one in front is the one the user is looking at.
@@ -58,7 +58,7 @@ class AssistLaunchCoordinator(private val onLaunch: (ScreenContext) -> Unit) {
 
     /** Android calls back with no bitmap when the screenshot is refused; that still ends the wait. */
     fun onScreenshot(available: Boolean) {
-        if (hasLaunched) return
+        if (hasLaunched || !shown) return
         screenshotReceived = true
         context = context.copy(hasScreenshot = context.hasScreenshot || available)
         launchIfReady()

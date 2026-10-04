@@ -126,15 +126,31 @@ class AssistLaunchCoordinatorTest {
     }
 
     @Test
-    fun `nothing opens before the session is shown`() {
+    fun `a callback outside a shown session is ignored, not banked`() {
+        // Android shows the session before it hands anything over, so this is
+        // either a stray delivery or one that arrived after a dismissal. Keeping
+        // it would open the *next* invocation at once, with the wrong screen.
         coordinator.onAssist("com.example.shop", "Boutique", null, listOf("Café"))
+        coordinator.onScreenshot(available = true)
         coordinator.onTimeout()
         assertTrue(launches.isEmpty())
 
         val waiting = coordinator.onShow(withAssist = true, withScreenshot = false)
 
-        assertFalse("the content is already in hand", waiting)
-        assertEquals("Boutique", launches.single().appLabel)
+        assertTrue("the new invocation waits for its own content", waiting)
+        assertTrue(launches.isEmpty())
+    }
+
+    @Test
+    fun `a callback that lands after a dismissal does not arm the next invocation`() {
+        coordinator.onShow(withAssist = true, withScreenshot = false)
+        coordinator.onDismissed()
+
+        coordinator.onAssist("com.example.shop", "Boutique", null, listOf("Café"))
+
+        assertTrue(launches.isEmpty())
+        assertTrue(coordinator.onShow(withAssist = true, withScreenshot = false))
+        assertTrue(launches.isEmpty())
     }
 
     @Test
