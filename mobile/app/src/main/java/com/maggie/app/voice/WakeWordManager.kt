@@ -45,11 +45,7 @@ class WakeWordManager(private val context: Context) {
     fun restoreIfEnabled() {
         scope.launch {
             if (!isEnabled.first()) return@launch
-            if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) !=
-                PackageManager.PERMISSION_GRANTED
-            ) {
-                return@launch
-            }
+            if (!hasMicrophonePermission()) return@launch
             try {
                 WakeWordService.start(context)
                 WakeWordNotifications.cancelReactivation(context)
@@ -67,7 +63,7 @@ class WakeWordManager(private val context: Context) {
     fun onBootCompleted(onDone: () -> Unit = {}) {
         scope.launch {
             try {
-                if (isEnabled.first()) {
+                if (isEnabled.first() && hasMicrophonePermission()) {
                     WakeWordNotifications.showReactivation(context)
                 }
             } finally {
@@ -87,6 +83,10 @@ class WakeWordManager(private val context: Context) {
             }
         }
     }
+
+    private fun hasMicrophonePermission(): Boolean =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
 
     fun isIgnoringBatteryOptimizations(): Boolean =
         context.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(context.packageName)
