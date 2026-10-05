@@ -10,9 +10,14 @@
 #
 #   1. bridges the stack's ephemeral host port onto a fixed port on the device,
 #      with `adb reverse`, so the APK never has to know which port Docker chose;
-#   2. puts the device on Europe/Paris, the time zone the seed anchors on;
+#   2. puts the device on Europe/Paris, the time zone the seed anchors on, and on
+#      the stack's time: `E2E_NOW` when set (MAG-234), the host's clock otherwise;
 #   3. builds and installs the `e2e` flavor;
 #   4. runs the flows and writes a JUnit report CI uploads.
+#
+# `E2E_NOW` (ISO-8601, see e2e/clock.sh) is the instant the whole stack runs at.
+# Here it sets the emulator's clock, and the dates handed to the flows follow it:
+# the flows then pass or fail the same way at 23:50 on a Sunday as at noon.
 
 set -euo pipefail
 
@@ -137,6 +142,62 @@ else
   warn "the device is on '$current_tz', the seed anchors on $SEED_TIMEZONE: a run between 22:00 and 00:00 UTC will read the dashboard a day off."
 fi
 
+# The device's clock, for the reason above: the bridge comes after anything that
+# needs root. An emulator's clock is its own — a snapshot or a long-lived CI image
+# keeps the time it was saved at — and `LocalDate.now()` in the app reads it. A run
+# on a clock a day behind the stack's looks for « today » on the wrong week
+# (MAG-234: calendar_day_2026-10-05 against a Week view of 28 Sep – 4 Oct), so the
+# device is always put on the stack's time, and what it reads is printed.
+NOW_EPOCH="$("$REPO_ROOT/e2e/clock.sh" epoch)" || exit $?
+CLOCK_PINNED=0
+if [ -n "$NOW_EPOCH" ]; then
+  CLOCK_PINNED=1
+else
+  NOW_EPOCH="$(date +%s)"
+fi
+
+device_epoch() { "$ADB" -s "$SERIAL" shell date +%s 2>/dev/null | tr -d '\r'; }
+
+set_device_time() {
+  "$ADB" -s "$SERIAL" shell "cmd alarm set-time $(($1 * 1000))" >/dev/null 2>&1 || true
+  # `cmd alarm` answers 0 even when it refused, so the reading decides.
+  if [ "$(device_skew "$1")" -gt 5 ]; then
+    "$ADB" -s "$SERIAL" shell "date -u -s @$1" >/dev/null 2>&1 || true
+  fi
+}
+
+# The device's own clock drifts from the stack's by this many seconds, absolute.
+device_skew() {
+  local reading
+  reading="$(device_epoch)"
+  case "$reading" in
+    ''|*[!0-9]*) echo 999999 ;;
+    *) local skew=$((reading - $1)); echo "${skew#-}" ;;
+  esac
+}
+
+"$ADB" -s "$SERIAL" root >/dev/null 2>&1 || true
+"$ADB" -s "$SERIAL" wait-for-device
+previous_auto_time="$("$ADB" -s "$SERIAL" shell settings get global auto_time 2>/dev/null | tr -d '\r' || true)"
+# Network time would undo the next line within minutes.
+"$ADB" -s "$SERIAL" shell settings put global auto_time 0 >/dev/null 2>&1 || true
+
+pin_device_clock() {
+  # Pinned: the exact instant. Not pinned: the host's clock, now.
+  local target=$NOW_EPOCH
+  [ "$CLOCK_PINNED" = 1 ] || target="$(date +%s)"
+  if [ "$CLOCK_PINNED" = 1 ] || [ "$(device_skew "$target")" -gt 30 ]; then
+    set_device_time "$target"
+  fi
+  if [ "$(device_skew "$target")" -gt 90 ]; then
+    if [ "$CLOCK_PINNED" = 1 ]; then
+      die "Could not set the device's clock to $E2E_NOW (it reads $(device_epoch), wanted $target). A pinned clock needs an emulator with root — a google_apis image, not google_apis_playstore."
+    fi
+    warn "the device's clock is $(device_skew "$target")s away from the host's and could not be set: the calendar flows may look at the wrong day."
+  fi
+}
+pin_device_clock
+
 "$ADB" -s "$SERIAL" reverse --remove "tcp:$DEVICE_PORT" >/dev/null 2>&1 || true
 "$ADB" -s "$SERIAL" reverse "tcp:$DEVICE_PORT" "tcp:$HOST_PORT" >/dev/null
 note "device $APP_BASE_URL → host $BASE_URL"
@@ -156,7 +217,13 @@ previous_hide="$("$ADB" -s "$SERIAL" shell settings get global hide_error_dialog
 "$ADB" -s "$SERIAL" shell settings put global hide_error_dialogs 1 >/dev/null 2>&1 \
   || warn "could not hide the system's error dialogs: an ANR dialog above the app will fail a flow."
 
+clock_keeper=''
+
 restore_device() {
+  [ -z "$clock_keeper" ] || kill "$clock_keeper" 2>/dev/null || true
+  if [ -n "$previous_auto_time" ] && [ "$previous_auto_time" != "null" ]; then
+    "$ADB" -s "$SERIAL" shell settings put global auto_time "$previous_auto_time" >/dev/null 2>&1 || true
+  fi
   "$ADB" -s "$SERIAL" reverse --remove "tcp:$DEVICE_PORT" >/dev/null 2>&1 || true
   if [ -z "$previous_hide" ] || [ "$previous_hide" = "null" ]; then
     "$ADB" -s "$SERIAL" shell settings delete global hide_error_dialogs >/dev/null 2>&1 || true
@@ -235,13 +302,60 @@ done
 # in the seed's time zone, not the host's: a runner on UTC between 22:00 and
 # midnight would otherwise name a day the seed has not reached. A flow cannot
 # compute a date itself, and a date typed into it would rot by tomorrow.
-seed_day() { TZ="$SEED_TIMEZONE" date -d "$1" +%F; }
+#
+# « Today » is the day the seed anchored on, read from its manifest, and only when
+# the manifest is not there the day of the stack's clock (MAG-234): a run that
+# started before midnight and reached this line after must not call the seed's
+# day « yesterday ».
+seed_day() { TZ=UTC date -d "$1 $2" +%F; }
 # A failure inside $(…) never trips `set -e`: BSD date would hand the flows empty dates.
-seed_day today >/dev/null 2>&1 || { echo "run.sh needs GNU date (date -d)" >&2; exit 1; }
+seed_day 2000-01-01 '+1 day' >/dev/null 2>&1 || { echo "run.sh needs GNU date (date -d)" >&2; exit 1; }
+anchor_day="$(sed -n 's/.*"anchor": *"\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\).*/\1/p' "$REPO_ROOT/api/var/e2e/seed-manifest.json" 2>/dev/null | head -1)"
+clock_day="$(TZ="$SEED_TIMEZONE" date -d "@$NOW_EPOCH" +%F)"
+TODAY="${anchor_day:-$clock_day}"
+TRAIN_START="$(seed_day "$TODAY" '+5 days')"
+TRAIN_END="$(seed_day "$TODAY" '+6 days')"
+
+step "The clock"
+note "E2E_NOW        ${E2E_NOW:-<not set: the real clock>}"
+note "stack day      $clock_day ($SEED_TIMEZONE)"
+note "TODAY          $TODAY ($([ -n "$anchor_day" ] && echo "the seed's anchor" || echo "no seed manifest: the stack's clock"))"
+note "TRAIN_START    $TRAIN_START"
+note "TRAIN_END      $TRAIN_END"
+note "device         $("$ADB" -s "$SERIAL" shell date 2>/dev/null | tr -d '\r')"
+note "device zone    $("$ADB" -s "$SERIAL" shell getprop persist.sys.timezone 2>/dev/null | tr -d '\r')"
+note "host           $(date)"
+[ -z "$anchor_day" ] || [ "$anchor_day" = "$clock_day" ] \
+  || warn "the seed anchored on $anchor_day but the stack's clock says $clock_day: reseed (\`task e2e:seed\`) before blaming a flow."
+{
+  echo "E2E_NOW=${E2E_NOW:-}"
+  echo "TODAY=$TODAY"
+  echo "TRAIN_START=$TRAIN_START"
+  echo "TRAIN_END=$TRAIN_END"
+  echo "device_date=$("$ADB" -s "$SERIAL" shell date 2>/dev/null | tr -d '\r')"
+  echo "device_timezone=$("$ADB" -s "$SERIAL" shell getprop persist.sys.timezone 2>/dev/null | tr -d '\r')"
+  echo "host_date=$(date)"
+} >"$REPORT_DIR/clock.txt"
+
+# The install above took minutes, and an emulator's clock runs: put it back on the
+# stack's time, then hold it there. The servers stand still on a pinned clock; a
+# device left to run would reach midnight in the middle of a suite that started
+# ten minutes before it. Re-set whenever it has drifted a minute, not on every
+# tick — a clock that jumps all the time is a worse test than one that drifts a bit.
+pin_device_clock
+if [ "$CLOCK_PINNED" = 1 ]; then
+  (
+    while sleep 5; do
+      [ "$(device_skew "$NOW_EPOCH")" -gt 60 ] && set_device_time "$NOW_EPOCH"
+    done
+  ) &
+  clock_keeper=$!
+fi
+
 flow_env=(
-  -e "TODAY=$(seed_day today)"
-  -e "TRAIN_START=$(seed_day '+5 days')"
-  -e "TRAIN_END=$(seed_day '+6 days')"
+  -e "TODAY=$TODAY"
+  -e "TRAIN_START=$TRAIN_START"
+  -e "TRAIN_END=$TRAIN_END"
   # The flows' scripts run on the host, where Maestro runs, so they need the real
   # URL rather than the device's bridged one: `02-voice-overlay.yaml` reads the
   # agent's e2e counter, `scripts/grocery-api.js` signs in with the app's token.

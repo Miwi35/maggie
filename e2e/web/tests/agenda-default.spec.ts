@@ -52,6 +52,11 @@ test('the agenda marked as default receives the events created without a calenda
     // A second agenda never takes the default from the one the user already has.
     expect((await agendas(api)).filter(isDefault).map((agenda) => agenda.name)).toEqual([original.name])
 
+    // The list is served from Elasticsearch, which refreshes once a second: a page opened sooner lists the old agendas.
+    await waitForIndexed<AgendaRow>(api, '/api/agendas?itemsPerPage=100', (member) => member.name === name, {
+      what: `The agenda "${name}"`,
+    })
+
     const calendar = new CalendarPage(page, 'Agenda du voisin')
     await calendar.open()
     await expect(calendar.agendaRow(name)).toBeVisible()

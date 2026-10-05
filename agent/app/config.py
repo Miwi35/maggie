@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     # reachable from the internet through the ingress, so it never opens by default.
     a2a_token: str = ""
     jwt_public_key_path: str = "/etc/jwt/public.pem"
+    # Clock skew tolerated on `iat`/`exp`. Zero in production; the e2e stack sets it because its
+    # simulated clock ticks per process, so the API's drifts ahead of the agent's (MAG-234).
+    jwt_leeway_seconds: int = 0
 
     # Daily planning: runs at this local hour, early enough to schedule a 7:00 directive,
     # in each user's own timezone (MAG-165). This one is the fallback when it is unknown or invalid.

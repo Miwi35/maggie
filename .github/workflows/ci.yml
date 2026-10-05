@@ -6,12 +6,21 @@ on:
   pull_request:
     branches: [main]
   # The nightly run (MAG-96) calls this workflow: every job, whatever changed.
+  #
+  # `e2e-clock.yml` (MAG-234) calls it once per boundary instant with `e2e_now`
+  # set: then only the web and mobile journeys run, on a stack whose clock is
+  # that instant (see agent-os/standards/global/e2e-environment.md, « The clock »).
   workflow_call:
+    inputs:
+      e2e_now:
+        description: A name from `e2e/clock.sh names` (sunday-2350-paris…); empty runs the real clock
+        type: string
+        default: ''
 
 concurrency:
   # `github.workflow` is the caller's name in a called workflow, so the nightly
   # run never shares a group with the push run on the same ref.
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ inputs.e2e_now }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -19,25 +28,44 @@ jobs:
     name: Detect changes
     runs-on: ubuntu-latest
     outputs:
-      api: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.api == 'true' }}
-      agent: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.agent == 'true' }}
-      ciqual: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.ciqual == 'true' }}
-      admin: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.admin == 'true' }}
-      e2e: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.code.outputs.e2e == 'true' }}
-      mobile: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.code.outputs.mobile == 'true' }}
-      cron: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.cron == 'true' }}
+      api: ${{ inputs.e2e_now == '' && ((github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.api == 'true') }}
+      agent: ${{ inputs.e2e_now == '' && ((github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.agent == 'true') }}
+      ciqual: ${{ inputs.e2e_now == '' && ((github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.ciqual == 'true') }}
+      admin: ${{ inputs.e2e_now == '' && ((github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.admin == 'true') }}
+      e2e: ${{ inputs.e2e_now != '' || (github.event_name != 'pull_request' && github.event_name != 'push') || steps.code.outputs.e2e == 'true' }}
+      mobile: ${{ inputs.e2e_now != '' || (github.event_name != 'pull_request' && github.event_name != 'push') || steps.code.outputs.mobile == 'true' }}
+      cron: ${{ inputs.e2e_now == '' && ((github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.cron == 'true') }}
       # The emulators the Maestro journeys run on (MAG-98). One phone on a pull
       # request — an emulator costs minutes and the layout formats are not what a
       # feature branch usually breaks — and the three formats MAG-35 and MAG-91
       # care about on the nightly run, which is the only consumer of the
       # `workflow_call` trigger. `github.event_name` is the caller's event in a
       # called workflow, so `schedule` here means nightly.
+      #
+      # One phone when the clock is pinned (MAG-234): the foldable and the tablet
+      # are layouts, not hours, and the nightly run already covers them.
+      # The instant the e2e stack runs at, resolved once here so every shard and
+      # device of this run agrees on it (MAG-234). Empty: the real clock.
+      e2e_now: ${{ steps.clock.outputs.now }}
       mobile_devices: >-
-        ${{ (github.event_name != 'pull_request' && github.event_name != 'push')
+        ${{ (github.event_name != 'pull_request' && github.event_name != 'push') && inputs.e2e_now == ''
             && '[{"name":"phone","profile":"pixel_6"},{"name":"foldable","profile":"7.6in Foldable"},{"name":"tablet","profile":"10.1in WXGA (Tablet)"}]'
             || '[{"name":"phone","profile":"pixel_6"}]' }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Resolve the e2e clock
+        id: clock
+        env:
+          E2E_CLOCK_SPEC: ${{ inputs.e2e_now }}
+        run: |
+          now=''
+          if [ -n "$E2E_CLOCK_SPEC" ]; then
+            now="$(e2e/clock.sh resolve "$E2E_CLOCK_SPEC")"
+          fi
+          echo "now=$now" >> "$GITHUB_OUTPUT"
+          echo "e2e clock: ${now:-the real one}"
+
       - uses: dorny/paths-filter@v3
         id: filter
         # The nightly run (scheduled or manual) has no base to compare with, and needs none: it runs
@@ -347,6 +375,9 @@ jobs:
       # Same derivation the Taskfile does, except the run id replaces the
       # worktree hash: concurrent jobs must not share containers or a network.
       COMPOSE_PROJECT_NAME: maggie-e2e-ci-${{ github.run_id }}-${{ github.run_attempt }}
+      # MAG-234: the instant every service, the browser and the seed run at.
+      # Empty is the real clock. Read by e2e/clock.sh and nothing else.
+      E2E_NOW: ${{ needs.changes.outputs.e2e_now }}
       E2E_LOGIN_TOKEN: ci-e2e-login-token
     steps:
       # `lfs: true`, like `build-ciqual` in cd.yml and for the same reason:
@@ -486,7 +517,7 @@ jobs:
         # `e2e-report` job merges the four into the one artifact people open.
         uses: actions/upload-artifact@v4
         with:
-          name: blob-report-${{ matrix.shard }}
+          name: blob-report-${{ matrix.shard }}${{ inputs.e2e_now && format('-{0}', inputs.e2e_now) || '' }}
           path: e2e/web/blob-report
           retention-days: 1
           if-no-files-found: ignore
@@ -546,7 +577,7 @@ jobs:
       - uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          pattern: blob-report-*
+          pattern: blob-report-?${{ inputs.e2e_now && format('-{0}', inputs.e2e_now) || '' }}
           merge-multiple: true
           path: e2e/web/all-blob-reports
 
@@ -564,7 +595,7 @@ jobs:
         if: steps.merge.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-${{ github.run_id }}
+          name: playwright-report-${{ github.run_id }}${{ inputs.e2e_now && format('-{0}', inputs.e2e_now) || '' }}
           path: e2e/web/playwright-report
           retention-days: 7
 
@@ -605,6 +636,8 @@ jobs:
       packages: write
     env:
       COMPOSE_PROJECT_NAME: maggie-e2e-mobile-${{ matrix.device.name }}-${{ github.run_id }}-${{ github.run_attempt }}
+      # MAG-234: also the emulator's clock, set by e2e/mobile/run.sh.
+      E2E_NOW: ${{ needs.changes.outputs.e2e_now }}
       E2E_LOGIN_TOKEN: ci-e2e-login-token
     steps:
       # lfs: true for the same reason as `e2e-stack`: `task e2e:up` builds the
@@ -740,7 +773,7 @@ jobs:
         # emulator nobody can attach to.
         uses: actions/upload-artifact@v4
         with:
-          name: maestro-report-${{ matrix.device.name }}-${{ github.run_id }}
+          name: maestro-report-${{ matrix.device.name }}-${{ github.run_id }}${{ inputs.e2e_now && format('-{0}', inputs.e2e_now) || '' }}
           path: e2e/mobile/report
           retention-days: 7
           if-no-files-found: ignore
@@ -818,7 +851,7 @@ jobs:
   incident-gate:
     name: Incident gate
     needs: [changes, api-lint, agent-lint, ciqual-lint, admin-lint, api-test, agent-test, ciqual-test, admin-test, e2e-stack, e2e-mobile, cron-image, infra-scripts]
-    if: always() && github.event_name == 'pull_request'
+    if: always() && github.event_name == 'pull_request' && inputs.e2e_now == ''
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -835,6 +868,8 @@ jobs:
   # guard rails (MAG-128) are checked here for the same reason.
   infra-scripts:
     name: Infra scripts and workflows
+    # Not on a clock run (MAG-234): it checks the repository, not the stack.
+    if: inputs.e2e_now == ''
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -842,11 +877,11 @@ jobs:
         run: |
           docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:latest -color -ignore 'SC2129' .github/workflows/cd.yml .github/workflows/ci.yml \
             .github/workflows/mobile.yml .github/workflows/nightly.yml .github/workflows/agent-guard.yml \
-            .github/workflows/incident-gate-release.yml
+            .github/workflows/incident-gate-release.yml .github/workflows/e2e-clock.yml
       - name: Lint shell scripts
         run: |
           docker run --rm -v "$PWD":/mnt -w /mnt koalaman/shellcheck:stable -x --severity=warning \
-            infra/scripts/*.sh infra/scripts/tests/*.sh scripts/agent-guard/*.sh e2e/mobile/*.sh
+            infra/scripts/*.sh infra/scripts/tests/*.sh scripts/agent-guard/*.sh e2e/*.sh e2e/mobile/*.sh
       - name: Test the smoke suite, the rollback, the failed-deploy report, the incident gate, the deploy gate, the freeze lift and the agent guard rails
         run: |
           bash infra/scripts/tests/smoke-prod.test.sh

@@ -62,6 +62,18 @@ exactly the ids the emulator could not find; it is counted per window because
 `ChatSheet.kt` opens two, and a file-wide "is it in here somewhere" passed with
 one of them missing.
 
+## The clock (MAG-234)
+
+`E2E_NOW=<ISO-8601> task e2e:mobile` runs the whole stack — and the emulator — at
+that instant (see `agent-os/standards/global/e2e-environment.md`, *The clock*).
+`run.sh` sets the device's date, turns automatic time off for the run, and prints
+`E2E_NOW`, `TODAY`, `TRAIN_START`, `TRAIN_END`, the device's date and time zone in
+its log (and `report/clock.txt`). Without the variable the device follows the host,
+and `TODAY` is the seed's anchor day, not the runner's calendar day.
+
+A flow takes its dates from `TODAY` / `TRAIN_START` / `TRAIN_END`, never from a
+literal.
+
 ## Layout
 
 | | |

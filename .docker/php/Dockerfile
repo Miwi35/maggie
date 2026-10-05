@@ -128,6 +128,12 @@ FROM base AS e2e
 
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
+# libfaketime, for the e2e clock (MAG-234): `E2E_NOW` freezes php-fpm and the
+# worker at one instant through LD_PRELOAD. Inert unless the compose file sets
+# LD_PRELOAD, and linked at a path that does not depend on the architecture.
+RUN apk add --no-cache libfaketime \
+    && ln -s "$(find /usr/lib -name 'libfaketime.so.1' | head -n 1)" /usr/local/lib/libfaketime.so.1
+
 USER app
 
 EXPOSE 9000

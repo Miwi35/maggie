@@ -36,6 +36,7 @@ def get_current_user_id(
             _get_public_key(),
             algorithms=["RS256"],
             options={"verify_exp": True, "verify_aud": False},
+            leeway=settings.jwt_leeway_seconds,
         )
     except jwt.ExpiredSignatureError as e:
         raise HTTPException(

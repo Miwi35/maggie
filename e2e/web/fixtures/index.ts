@@ -2,10 +2,12 @@ import { test as base, expect } from '@playwright/test'
 import type { APIRequestContext, BrowserContext, Page } from '@playwright/test'
 import { OTHER_USER_EMAIL, SEED_USER_EMAIL, signIn, storageStateOf } from './session.js'
 import type { Session } from './session.js'
+import { pinClock } from './clock.js'
 
 export { expect }
 export { SEED_USER_EMAIL, OTHER_USER_EMAIL } from './session.js'
 export type { Session, SeededUser } from './session.js'
+export { e2eNow, parisTime } from './clock.js'
 export { seedId, seedAnchorDate, seedDate, seedManifest } from './manifest.js'
 
 /**
@@ -111,6 +113,7 @@ async function isolateFromInternet(context: BrowserContext, baseURL: string): Pr
   const external = new RegExp(`^https?://(?!${host}(?:[/?#]|$))`)
 
   await context.route(external, (route) => route.abort())
+  await pinClock(context)
 }
 
 export const test = base.extend<MaggieFixtures>({
