@@ -61,6 +61,15 @@ const AGENDA_ANSWER = 'Vous avez un déjeuner avec Alex et votre cours de piano 
 const APPOINTMENT = { question: 'Note-moi un dentiste le 12 mars 2099 à 14h', title: 'Dentiste' }
 const APPOINTMENTS_URL = '/api/events?startAt%5Bafter%5D=2099-01-01'
 
+/** 36-create-event-retry.yaml — three steps, the first tool call fails, only the last step is the answer. */
+const RETRY = {
+  question: 'Note-moi le concert des Black Wizards le 3 novembre 2099 à 19h',
+  answer: "C'est noté : les Black Wizards en concert le 3 novembre 2099 à 19h, pour deux heures.",
+  announce: 'Je prends une durée standard de 2 heures.',
+  excuse: "Il y a un souci technique avec l'identifiant de votre agenda.",
+  title: 'Black Wizards',
+}
+
 /** 05-context-router-new-topic.yaml + 70-budget-question.yaml — the change of subject. */
 const OTHER_SUBJECT = 'Parlons de mes finances, où en est mon budget ?'
 
@@ -533,7 +542,7 @@ test('Maggie is told when the last conversation happened', async ({ page }) => {
  * MAG-13: the history is the routed thread's own messages, not the last messages of
  * everything.
  *
- * Last in the file, and it needs every test above it. « Budget e2e » was opened five tests
+ * Next to last in the file, and it needs every test above it. « Budget e2e » was opened five tests
  * ago by the change of subject and has not been spoken in since; every message after it
  * joined « Conversation e2e ». So the Budget thread is *old*, and the stack runs with
  * `RECENT_HISTORY_MESSAGES=2` — the global window holds the previous exchange and nothing
@@ -569,4 +578,47 @@ test('picking an older thread back up sends that thread, not the last messages o
   expect(contextLabel(events)).toBe('Budget e2e')
 
   await expect(chat.bubbles(THREAD_RECALL.answer)).toHaveCount(1)
+})
+
+/**
+ * MAG-229: a run of several steps used to glue every step's text into one bubble —
+ * « …la modifier.Je m'excuse, monsieur. Il y a un souci technique… » — and read the
+ * whole thing aloud. Only the step after the last tool call is the answer.
+ *
+ * 36-create-event-retry.yaml scripts the case that was reported: an announcement, a
+ * first create_event that fails, an excuse and a second try, then the closing
+ * sentence. Last in the file so the threads the tests above count are not disturbed.
+ */
+test('a run whose first tool call fails answers with its last step alone', async ({ page, api }) => {
+  const dashboard = new DashboardPage(page)
+  await dashboard.open()
+
+  const chat = new ChatPanel(page)
+  const events = await chat.send(RETRY.question)
+
+  expect(isUnscripted(assistantText(events)), `no scenario matched — Maggie said: ${assistantText(events)}`).toBe(false)
+
+  // The retry really happened: the first call failed, the second landed.
+  expect(toolResults(events)).toEqual([
+    { toolName: 'create_event', status: 'error' },
+    { toolName: 'create_event', status: 'success' },
+  ])
+
+  // One message, closed once, holding the last step and nothing of the others.
+  expect(messageIds(events), 'the run opened more than one assistant message').toHaveLength(1)
+  expect(countEvents(events, 'TEXT_MESSAGE_END')).toBe(1)
+  expect(assistantText(events)).toBe(RETRY.answer)
+  expect(deltaCount(events), 'the answer did not stream').toBeGreaterThan(1)
+
+  await expect(chat.bubbles(RETRY.answer)).toHaveCount(1)
+  await expect(chat.message(RETRY.announce)).toHaveCount(0)
+  await expect(chat.message(RETRY.excuse)).toHaveCount(0)
+
+  // The data, not the wording: the event is in the agenda once.
+  await waitForIndexed<SeededEvent>(
+    api,
+    APPOINTMENTS_URL,
+    (event) => event.summary === RETRY.title,
+    { what: `The ${RETRY.title} concert Maggie booked on her second try` },
+  )
 })

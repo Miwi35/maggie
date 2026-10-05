@@ -542,7 +542,9 @@ class TestTheRealToolLoop:
 class TestTheRealStreamingGateway:
     """The fake, driving `StreamingGateway.chat_stream` and the AG-UI events."""
 
-    async def _events(self, fixtures_dir) -> list[dict]:
+    async def _events(
+        self, fixtures_dir, *, question: str = "mon agenda ?", tool_results: list[str] | None = None, saved: list | None = None
+    ) -> list[dict]:
         client = build_client(fixtures_dir)
 
         with (
@@ -563,13 +565,13 @@ class TestTheRealStreamingGateway:
             persisted = MagicMock()
             persisted.id = "msg-1"
             persisted.role = "user"
-            persisted.content = "mon agenda ?"
+            persisted.content = question
             persisted.context_id = "ctx-1"
             persisted.created_at = datetime(2026, 10, 1, 12, tzinfo=UTC)
             history_repo.find_by_context = AsyncMock(return_value=[persisted])
             history_repo.find_recent = AsyncMock(return_value=[persisted])
             history_contexts.find_active = AsyncMock(return_value=[])
-            message_repo.create = AsyncMock()
+            message_repo.create = AsyncMock(side_effect=lambda **kwargs: saved.append(kwargs) if saved is not None else None)
             routing_repo.update_context = AsyncMock()
             context_repo.find_active = AsyncMock(return_value=[])
             context_repo.append_tool_call = AsyncMock()
@@ -585,11 +587,14 @@ class TestTheRealStreamingGateway:
             gateway.agent_memory.get_memory_context = AsyncMock(return_value="")
             gateway.tool_router = MagicMock()
             gateway.tool_router.get_tool_definitions = AsyncMock(
-                return_value=[{"name": "get_upcoming_events", "input_schema": {}}]
+                return_value=[
+                    {"name": "get_upcoming_events", "input_schema": {}},
+                    {"name": "create_event", "input_schema": {}},
+                ]
             )
-            gateway.tool_router.call_tool = AsyncMock(return_value='{"events": []}')
+            gateway.tool_router.call_tool = AsyncMock(side_effect=tool_results or ['{"events": []}'])
 
-            return [event async for event in gateway.chat_stream("mon agenda ?", "user-1", "msg-1")]
+            return [event async for event in gateway.chat_stream(question, "user-1", "msg-1")]
 
     @pytest.fixture()
     def scripted(self, fixtures_dir):
@@ -649,6 +654,168 @@ class TestTheRealStreamingGateway:
             "toolName": "get_upcoming_events",
             "status": "success",
         }
+
+
+def the_bubble(events: list[dict]) -> str:
+    """What a client shows once the stream is over: a TEXT_MESSAGE_START empties the bubble."""
+    text = ""
+    for event in events:
+        if event["type"] == "TEXT_MESSAGE_START":
+            text = ""
+        elif event["type"] == "TEXT_MESSAGE_CONTENT":
+            text += event["delta"]
+    return text
+
+
+class TestAMultiStepAnswerKeepsOnlyItsLastStep:
+    """MAG-229: the text of the steps before the last tool call is not the answer."""
+
+    QUESTION = "note le concert des Black Wizards"
+    ANNOUNCE = "Je prends une durée standard de 2 heures."
+    EXCUSE = "Il y a un souci technique avec l'identifiant de votre agenda."
+    FINAL = "Voilà, c'est noté : concert des Black Wizards le 2 novembre à 19h, pour deux heures."
+    FAILURE = '{"error": "unknown calendar"}'
+
+    @pytest.fixture()
+    def gateway_tests(self):
+        return TestTheRealStreamingGateway()
+
+    @pytest.fixture()
+    def retry_scenario(self, fixtures_dir):
+        write_scenario(
+            fixtures_dir,
+            "10-router.yaml",
+            {
+                "match": {"system_contains": "routeur de contexte"},
+                "turns": [{"text": '{"context_id": null, "label": "Concerts"}'}],
+            },
+        )
+        write_scenario(
+            fixtures_dir,
+            "20-concert.yaml",
+            {
+                "match": {"user_contains": "black wizards"},
+                "turns": [
+                    {"text": self.ANNOUNCE, "tools": [{"name": "create_event", "input": {"calendar": "x"}}]},
+                    {"text": self.EXCUSE, "tools": [{"name": "create_event", "input": {"calendar": "concerts"}}]},
+                    {"text": self.FINAL},
+                ],
+            },
+        )
+        return fixtures_dir
+
+    async def _run(self, gateway_tests, fixtures_dir):
+        saved: list[dict] = []
+        events = await gateway_tests._events(
+            fixtures_dir,
+            question=self.QUESTION,
+            tool_results=[self.FAILURE, '{"id": "evt-1"}'],
+            saved=saved,
+        )
+        return events, saved
+
+    async def test_the_stored_message_is_the_last_step_alone(self, gateway_tests, retry_scenario):
+        _, saved = await self._run(gateway_tests, retry_scenario)
+
+        assert [message["content"] for message in saved] == [self.FINAL]
+
+    async def test_the_bubble_ends_up_with_the_last_step_alone(self, gateway_tests, retry_scenario):
+        events, _ = await self._run(gateway_tests, retry_scenario)
+
+        assert the_bubble(events) == self.FINAL
+
+    async def test_the_last_step_streams_token_by_token(self, gateway_tests, retry_scenario):
+        events, _ = await self._run(gateway_tests, retry_scenario)
+
+        last_start = max(i for i, e in enumerate(events) if e["type"] == "TEXT_MESSAGE_START")
+        deltas = [e["delta"] for e in events[last_start:] if e["type"] == "TEXT_MESSAGE_CONTENT"]
+
+        assert len(deltas) > 1
+        assert "".join(deltas) == self.FINAL
+
+    async def test_the_message_is_closed_once_and_the_run_finishes(self, gateway_tests, retry_scenario):
+        events, _ = await self._run(gateway_tests, retry_scenario)
+        types = [event["type"] for event in events]
+
+        assert types.count("TEXT_MESSAGE_END") == 1
+        assert types.index("TEXT_MESSAGE_END") > max(i for i, t in enumerate(types) if t == "TEXT_MESSAGE_START")
+        assert types[-1] == "RUN_FINISHED"
+        assert len({e["messageId"] for e in events if e["type"].startswith("TEXT_MESSAGE")}) == 1
+
+    async def test_a_failure_after_a_first_step_leaves_the_apology_alone(self, gateway_tests, retry_scenario):
+        saved: list[dict] = []
+        events = await gateway_tests._events(
+            retry_scenario,
+            question=self.QUESTION,
+            tool_results=[RuntimeError("tool crashed")],
+            saved=saved,
+        )
+        apology = "Désolé, une erreur est survenue. Réessaie."
+
+        assert [message["content"] for message in saved] == [apology]
+        assert the_bubble(events) == apology
+        assert [e["type"] for e in events].count("TEXT_MESSAGE_END") == 1
+
+    async def test_blank_lead_in_is_not_shown(self, gateway_tests, fixtures_dir):
+        write_scenario(
+            fixtures_dir,
+            "10-router.yaml",
+            {
+                "match": {"system_contains": "routeur de contexte"},
+                "turns": [{"text": '{"context_id": null, "label": "Concerts"}'}],
+            },
+        )
+        write_scenario(
+            fixtures_dir,
+            "20-concert.yaml",
+            {"match": {"user_contains": "black wizards"}, "turns": [{"text": "\n\n  " + self.FINAL}]},
+        )
+        saved: list[dict] = []
+        events = await gateway_tests._events(fixtures_dir, question=self.QUESTION, saved=saved)
+
+        assert the_bubble(events) == self.FINAL
+        assert [message["content"] for message in saved] == [self.FINAL]
+
+    async def test_the_shipped_retry_scenario_ends_on_its_closing_sentence(self, gateway_tests):
+        saved: list[dict] = []
+        events = await gateway_tests._events(
+            DEFAULT_FIXTURES_DIR,
+            question="Note-moi le concert des Black Wizards le 3 novembre 2099 à 19h",
+            tool_results=['{"error": "No agenda found."}', '{"success": true}'],
+            saved=saved,
+        )
+        answer = "C'est noté : les Black Wizards en concert le 3 novembre 2099 à 19h, pour deux heures."
+
+        assert [message["content"] for message in saved] == [answer]
+        assert the_bubble(events) == answer
+        statuses = [e["value"]["status"] for e in events if e.get("name") == "tool_result"]
+        assert statuses == ["error", "success"]
+
+    async def test_an_answer_without_a_closing_step_falls_back_to_the_last_text_said(self, gateway_tests, fixtures_dir):
+        write_scenario(
+            fixtures_dir,
+            "10-router.yaml",
+            {
+                "match": {"system_contains": "routeur de contexte"},
+                "turns": [{"text": '{"context_id": null, "label": "Concerts"}'}],
+            },
+        )
+        write_scenario(
+            fixtures_dir,
+            "20-concert.yaml",
+            {
+                "match": {"user_contains": "black wizards"},
+                "turns": [
+                    {"text": self.ANNOUNCE, "tools": [{"name": "create_event", "input": {}}]},
+                    {"text": "   "},
+                ],
+            },
+        )
+        saved: list[dict] = []
+        events = await gateway_tests._events(fixtures_dir, question=self.QUESTION, saved=saved)
+
+        assert [message["content"] for message in saved] == [self.ANNOUNCE]
+        assert the_bubble(events) == self.ANNOUNCE
 
 
 class TestTheProviderSwitch:

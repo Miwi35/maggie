@@ -126,7 +126,11 @@ class StreamingGateway:
         )
         cached_tools = cache_tools(tools)
 
-        accumulated_text = ""
+        # What is stored, shown and read aloud is the last step's text alone: the steps
+        # before a tool call are the model thinking out loud (announcements, errors, retries),
+        # and glued together they read as one broken sentence (MAG-229). Only a step with no
+        # text of its own leaves the previous one standing, so the answer is never empty.
+        answer = ""
         max_iterations = 5
 
         # Single message ID across all iterations so the frontend sees one message bubble
@@ -147,21 +151,16 @@ class StreamingGateway:
                     tools=cached_tools if cached_tools else anthropic.NOT_GIVEN,
                 )
 
-                current_text_block = ""
                 tool_use_blocks = []
                 response_content = []
                 stop_reason = None
+                step_text = ""
+                step_shown = False
 
                 async with stream as s:
                     async for event in s:
                         if event.type == "content_block_start":
-                            if hasattr(event.content_block, "text"):
-                                # Text block starting
-                                if not text_started:
-                                    yield {"type": "TEXT_MESSAGE_START", "messageId": msg_id, "role": "assistant"}
-                                    text_started = True
-                                current_text_block = ""
-                            elif hasattr(event.content_block, "name"):
+                            if hasattr(event.content_block, "name"):
                                 # Tool use block starting
                                 tool_name = event.content_block.name
                                 tool_id = event.content_block.id
@@ -174,9 +173,16 @@ class StreamingGateway:
                         elif event.type == "content_block_delta":
                             if hasattr(event.delta, "text"):
                                 delta = event.delta.text
-                                current_text_block += delta
-                                accumulated_text += delta
-                                if text_started:
+                                step_text += delta
+                                if not step_shown and step_text.strip():
+                                    # A new TEXT_MESSAGE_START on the same id empties the bubble on
+                                    # both clients: whatever an earlier step showed gives way to this
+                                    # one, so the intermediate text is only ever a passing state.
+                                    yield {"type": "TEXT_MESSAGE_START", "messageId": msg_id, "role": "assistant"}
+                                    text_started = True
+                                    step_shown = True
+                                    delta = step_text.lstrip()
+                                if step_shown:
                                     yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": delta}
 
                         elif event.type == "content_block_stop":
@@ -194,6 +200,9 @@ class StreamingGateway:
                         duration_seconds=duration,
                         **usage_kwargs(response.usage),
                     )
+
+                if step_text.strip():
+                    answer = step_text.strip()
 
                 # Process tool calls if stop_reason is tool_use
                 if stop_reason == "tool_use":
@@ -269,7 +278,6 @@ class StreamingGateway:
                     messages.append({"role": "user", "content": tool_results})
                     # Continue loop for more iterations
                 else:
-                    # Done — save accumulated text as assistant message
                     break
 
             except Exception as e:
@@ -283,27 +291,24 @@ class StreamingGateway:
                     status="error",
                 )
                 logger.error(f"Streaming error: {e}")
-                if not text_started:
-                    yield {"type": "TEXT_MESSAGE_START", "messageId": msg_id, "role": "assistant"}
-                    text_started = True
-                yield {
-                    "type": "TEXT_MESSAGE_CONTENT",
-                    "messageId": msg_id,
-                    "delta": "Désolé, une erreur est survenue. Réessaie.",
-                }
-                accumulated_text = "Désolé, une erreur est survenue. Réessaie."
+                # Restarted, not appended: the bubble must hold what is stored, and
+                # an earlier step's text is not part of that.
+                yield {"type": "TEXT_MESSAGE_START", "messageId": msg_id, "role": "assistant"}
+                text_started = True
+                answer = "Désolé, une erreur est survenue. Réessaie."
+                yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": answer}
                 break
 
-        # End the single text message that spans all iterations
+        # End the single text message of the run
         if text_started:
             yield {"type": "TEXT_MESSAGE_END", "messageId": msg_id}
 
         # Persist the assistant message (no Mercure publish — client already has it from SSE)
-        if accumulated_text.strip():
+        if answer:
             await message_repo.create(
                 user_id=user_id,
                 role="assistant",
-                content=accumulated_text.strip(),
+                content=answer,
                 context_id=current_context_id,
                 publish=False,
             )

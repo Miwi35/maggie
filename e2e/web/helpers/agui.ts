@@ -44,12 +44,23 @@ export function parseAgUiStream(body: string): AgUiEvent[] {
   return events
 }
 
-/** The assistant's answer, reassembled from its `TEXT_MESSAGE_CONTENT` deltas. */
+/**
+ * The assistant's answer, reassembled the way the admin and the app do: a
+ * `TEXT_MESSAGE_START` empties the bubble, so the text a step said before a tool
+ * call gives way to the last step's (MAG-229).
+ */
 export function assistantText(events: AgUiEvent[]): string {
-  return events
-    .filter((event) => event.type === 'TEXT_MESSAGE_CONTENT')
-    .map((event) => String(event.delta ?? ''))
-    .join('')
+  let text = ''
+
+  for (const event of events) {
+    if (event.type === 'TEXT_MESSAGE_START') {
+      text = ''
+    } else if (event.type === 'TEXT_MESSAGE_CONTENT') {
+      text += String(event.delta ?? '')
+    }
+  }
+
+  return text
 }
 
 /** How many deltas the answer arrived in — one means the gateway buffered it. */
