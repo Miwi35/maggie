@@ -99,10 +99,20 @@ test('the usual shop chosen in the product form is saved and still there when th
     const response = await patched
     expect(response.status(), `the API refused the product: ${await response.text()}`).toBe(200)
 
+    // Items are served from the index: reopening before the worker has
+    // reindexed would show the previous document.
+    const greengrocer = `/api/stores/${seedId('e2e_store_greengrocer')}`
+    await waitForIndexed<ProductRow>(
+      api,
+      '/api/products?itemsPerPage=200',
+      (row) => row.name === name && row.preferredStore === greengrocer,
+      { what: 'The product with the shop chosen in the form' },
+    )
+
     await shell.goto(`${ROUTES.products}/${encodeURIComponent(iri)}`)
     await expect(shell.content.getByLabel('Magasin habituel')).toHaveValue('Primeur du marché')
     const stored = await api.get(iri, { headers: { Accept: 'application/ld+json' } })
-    expect(((await stored.json()) as ProductRow).preferredStore).toBe(`/api/stores/${seedId('e2e_store_greengrocer')}`)
+    expect(((await stored.json()) as ProductRow).preferredStore).toBe(greengrocer)
   } finally {
     await api.delete(iri)
   }
