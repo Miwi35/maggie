@@ -14,6 +14,7 @@ import pytest
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
 from app.llm.history import build_history
+from app.llm.tool_blocks import record
 
 OWNER = "user-1"
 NEIGHBOUR = "user-2"
@@ -40,8 +41,11 @@ def say(chat_db):
         minutes: int = 0,
         user: str = OWNER,
         message_id: str | None = None,
+        blocks: list[dict] | None = None,
     ):
-        message = await message_repo.create(user_id=user, role=role, content=content, context_id=context)
+        message = await message_repo.create(
+            user_id=user, role=role, content=content, context_id=context, blocks=blocks
+        )
         # `created_at` defaults to "now", and every message of a test would then share a
         # timestamp at SQLite's resolution — which is exactly the tie the ordering has to
         # survive. Set explicitly, through the same session factory the repository uses.
@@ -99,6 +103,7 @@ class TestTheThreadIsTheConversation:
         with patch("app.llm.history.settings") as settings:
             settings.context_history_messages = 40
             settings.recent_history_messages = 2
+            settings.tool_replay_turns = 2
             turns = await build_history(OWNER, context_id=budget.id)
 
         assert "Où en est mon budget ?" in turns[0]["content"]
@@ -175,6 +180,7 @@ class TestTheThreadIsTheConversation:
         with patch("app.llm.history.settings") as settings:
             settings.context_history_messages = 2
             settings.recent_history_messages = 1
+            settings.tool_replay_turns = 2
             turns = await build_history(OWNER, context_id=courses.id)
 
         joined = " ".join(turn["content"] for turn in turns)
@@ -285,6 +291,172 @@ class TestTheShapeTheApiAccepts:
         turns = await build_history(OWNER, context_id=courses.id)
 
         assert turns == [{"role": "user", "content": "De la farine"}]
+
+
+class TestWhatTheToolsSaid:
+    """A `tool_use` and its `tool_result` survive the turn they were made in (MAG-211).
+
+    What the model is sent is the only observable: these read the turns, and the one thing
+    every assertion comes back to is the API's own rule — a `tool_result` sits
+    immediately behind the `tool_use` whose id it carries, or nothing is sent at all.
+    """
+
+    @staticmethod
+    def _round(tool_id: str = "toolu_1", result: str = '{"items": ["Pile LR03"]}') -> list[dict]:
+        return record([{"id": tool_id, "name": "get_grocery_list", "input": {"includeDeferred": False}, "result": result}])
+
+    async def test_the_call_and_its_result_reach_the_next_turn(self, say, thread):
+        courses = await thread("Courses")
+        await say("user", "Qu'est-ce qu'il me faut acheter ?", context=courses.id, minutes=1)
+        await say("assistant", "Des tomates et des piles.", context=courses.id, minutes=2, blocks=self._round())
+        await say("user", "Et le dernier article, c'est quoi ?", context=courses.id, minutes=3)
+
+        with patch("app.llm.history.settings") as settings:
+            settings.context_history_messages = 40
+            settings.recent_history_messages = 8
+            settings.tool_replay_turns = 2
+            turns = await build_history(OWNER, context_id=courses.id)
+
+        assert [turn["role"] for turn in turns] == ["user", "assistant", "user", "assistant", "user"]
+        # The round, in front of the text it led to, and paired by `tool_use_id`.
+        assert turns[1]["content"][0]["name"] == "get_grocery_list"
+        assert turns[2]["content"][0]["tool_use_id"] == turns[1]["content"][0]["id"]
+        assert "Pile LR03" in turns[2]["content"][0]["content"]
+        # And the message still says what it said.
+        assert turns[3] == {"role": "assistant", "content": "Des tomates et des piles."}
+
+    async def test_beyond_the_window_a_turn_keeps_its_text_and_loses_its_blocks(self, say, thread):
+        courses = await thread("Courses")
+        await say("user", "Ma liste ?", context=courses.id, minutes=1)
+        await say("assistant", "La voilà.", context=courses.id, minutes=2, blocks=self._round("toolu_old"))
+        await say("user", "Et mon agenda ?", context=courses.id, minutes=3)
+        await say("assistant", "Rien aujourd'hui.", context=courses.id, minutes=4, blocks=self._round("toolu_new"))
+
+        with patch("app.llm.history.settings") as settings:
+            settings.context_history_messages = 40
+            settings.recent_history_messages = 8
+            settings.tool_replay_turns = 1
+            turns = await build_history(OWNER, context_id=courses.id)
+
+        sent = str(turns)
+        assert "toolu_new" in sent
+        assert "toolu_old" not in sent
+        # The turn that lost its blocks is still in the conversation, as its text.
+        assert {"role": "assistant", "content": "La voilà."} in turns
+
+    async def test_a_window_of_zero_sends_the_text_alone(self, say, thread):
+        courses = await thread("Courses")
+        await say("user", "Ma liste ?", context=courses.id, minutes=1)
+        await say("assistant", "La voilà.", context=courses.id, minutes=2, blocks=self._round())
+
+        with patch("app.llm.history.settings") as settings:
+            settings.context_history_messages = 40
+            settings.recent_history_messages = 8
+            settings.tool_replay_turns = 0
+            turns = await build_history(OWNER, context_id=courses.id)
+
+        assert turns == [
+            {"role": "user", "content": "Ma liste ?"},
+            {"role": "assistant", "content": "La voilà."},
+        ]
+
+    async def test_blocks_that_cannot_be_vouched_for_cost_the_blocks_only(self, say, thread):
+        """A `tool_use` whose result went missing is a rejected call, so the text answers alone."""
+        courses = await thread("Courses")
+        broken = self._round()[:1]  # the call, without its result
+        await say("user", "Ma liste ?", context=courses.id, minutes=1)
+        await say("assistant", "La voilà.", context=courses.id, minutes=2, blocks=broken)
+
+        with patch("app.llm.history.settings") as settings:
+            settings.context_history_messages = 40
+            settings.recent_history_messages = 8
+            settings.tool_replay_turns = 2
+            turns = await build_history(OWNER, context_id=courses.id)
+
+        assert turns == [
+            {"role": "user", "content": "Ma liste ?"},
+            {"role": "assistant", "content": "La voilà."},
+        ]
+
+    async def test_another_threads_call_is_never_replayed(self, say, thread):
+        """Its text comes in labelled, which is all a neighbouring thread is there for."""
+        budget = await thread("Budget")
+        courses = await thread("Courses")
+        await say("user", "Où en est mon budget ?", context=budget.id, minutes=1)
+        await say("assistant", "Il tient la route.", context=budget.id, minutes=2)
+        await say("assistant", "Ta liste est prête.", context=courses.id, minutes=3, blocks=self._round())
+
+        with patch("app.llm.history.settings") as settings:
+            settings.context_history_messages = 40
+            settings.recent_history_messages = 8
+            settings.tool_replay_turns = 2
+            turns = await build_history(OWNER, context_id=budget.id)
+
+        assert "get_grocery_list" not in str(turns)
+        assert "[fil « Courses »] Ta liste est prête." in str(turns)
+
+    async def test_an_answer_just_before_a_round_is_folded_into_it(self, say, thread):
+        """The API refuses two of Maggie's turns in a row, and a proaction lands between two."""
+        courses = await thread("Courses")
+        await say("user", "Ma liste ?", context=courses.id, minutes=1)
+        await say("assistant", "Pense à sortir les poubelles.", context=courses.id, minutes=2)
+        await say("assistant", "La voilà.", context=courses.id, minutes=3, blocks=self._round())
+
+        with patch("app.llm.history.settings") as settings:
+            settings.context_history_messages = 40
+            settings.recent_history_messages = 8
+            settings.tool_replay_turns = 2
+            turns = await build_history(OWNER, context_id=courses.id)
+
+        assert [turn["role"] for turn in turns] == ["user", "assistant", "user", "assistant"]
+        # The proaction is still there, as the text block in front of the call.
+        assert turns[1]["content"][0] == {"type": "text", "text": "Pense à sortir les poubelles."}
+        assert turns[1]["content"][1]["type"] == "tool_use"
+
+    async def test_a_history_opening_on_a_batch_of_results_is_trimmed(self, say, thread):
+        """An orphan `tool_result` at the front is refused exactly as flatly as a leading answer."""
+        courses = await thread("Courses")
+        await say("assistant", "La voilà.", context=courses.id, minutes=1, blocks=self._round())
+        await say("user", "Merci", context=courses.id, minutes=2)
+
+        with patch("app.llm.history.settings") as settings:
+            settings.context_history_messages = 40
+            settings.recent_history_messages = 8
+            settings.tool_replay_turns = 2
+            turns = await build_history(OWNER, context_id=courses.id)
+
+        assert turns == [{"role": "user", "content": "Merci"}]
+
+    async def test_with_no_thread_nothing_is_replayed(self, say, thread):
+        """No thread, no conversation to replay a call into — the window is all there is."""
+        courses = await thread("Courses")
+        await say("user", "Ma liste ?", context=courses.id, minutes=1)
+        await say("assistant", "La voilà.", context=courses.id, minutes=2, blocks=self._round())
+
+        with patch("app.llm.history.settings") as settings:
+            settings.context_history_messages = 40
+            settings.recent_history_messages = 8
+            settings.tool_replay_turns = 2
+            turns = await build_history(OWNER, context_id=None)
+
+        assert turns == [
+            {"role": "user", "content": "Ma liste ?"},
+            {"role": "assistant", "content": "La voilà."},
+        ]
+
+    async def test_a_pending_message_still_arrives_after_a_replayed_round(self, say, thread):
+        """The A2A path hands its message over, and a round must not swallow it."""
+        courses = await thread("Courses")
+        await say("user", "Ma liste ?", context=courses.id, minutes=1)
+        await say("assistant", "La voilà.", context=courses.id, minutes=2, blocks=self._round())
+
+        with patch("app.llm.history.settings") as settings:
+            settings.context_history_messages = 40
+            settings.recent_history_messages = 8
+            settings.tool_replay_turns = 2
+            turns = await build_history(OWNER, context_id=courses.id, pending_message="Et le dernier article ?")
+
+        assert turns[-1] == {"role": "user", "content": "Et le dernier article ?"}
 
 
 class TestThePendingMessage:

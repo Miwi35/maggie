@@ -110,7 +110,7 @@ class TestRunToolLoop:
 
         result = await _run(client, tool_router, tools=[{"name": "list_events"}])
 
-        assert result == {"response": "Bonjour", "tool_calls": []}
+        assert result == {"response": "Bonjour", "tool_calls": [], "blocks": []}
         client.messages.create.assert_awaited_once()
         tool_router.call_tool.assert_not_awaited()
         usage.assert_called_once()
@@ -171,6 +171,43 @@ class TestRunToolLoop:
 
         assert result["response"] == "Réponse directe"
         assert client.messages.create.call_args.kwargs["tools"] is anthropic.NOT_GIVEN
+
+    async def test_the_rounds_come_back_as_blocks_to_store(self, client, tool_router, usage):
+        """MAG-211: the caller stores them on the message, and the next turn is sent them back."""
+        client.messages.create.side_effect = [
+            _tool_response("list_events", {"day": "2026-09-30"}),
+            _text_response("Rien de prévu"),
+        ]
+
+        result = await _run(client, tool_router, tools=[{"name": "list_events"}])
+
+        assert result["blocks"] == [
+            {
+                "role": "assistant",
+                "content": [
+                    {"type": "tool_use", "id": "tu-1", "name": "list_events", "input": {"day": "2026-09-30"}}
+                ],
+            },
+            {
+                "role": "user",
+                "content": [{"type": "tool_result", "tool_use_id": "tu-1", "content": '{"events": []}'}],
+            },
+        ]
+
+    async def test_a_run_that_called_nothing_has_no_blocks(self, client, tool_router, usage):
+        client.messages.create.return_value = _text_response("Bonjour")
+
+        assert (await _run(client, tool_router, tools=[{"name": "list_events"}]))["blocks"] == []
+
+    async def test_a_run_that_gave_up_keeps_the_rounds_it_did_make(self, client, tool_router, usage):
+        """They happened: the next turn must see them rather than call them again."""
+        client.messages.create.return_value = _tool_response()
+
+        result = await _run(client, tool_router, tools=[{"name": "list_events"}], max_iterations=2)
+
+        assert result["response"] == ITERATION_LIMIT_MESSAGE
+        # Two rounds, two turns each.
+        assert len(result["blocks"]) == 4
 
     async def test_passes_model_and_max_tokens(self, client, tool_router, usage):
         client.messages.create.return_value = _text_response("ok")

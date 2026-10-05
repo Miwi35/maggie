@@ -51,6 +51,10 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
                 role="assistant",
                 content=result["response"],
                 context_id=context_id,
+                # A proaction acts before it speaks, and the reply it invites is routed
+                # into the same thread — so what it looked up is replayed there too
+                # (MAG-211).
+                blocks=result.get("blocks"),
             )
             # Awaited, unlike on the streamed path: nobody is holding a stream
             # open here, and the reply to a reminder is the next thing to be

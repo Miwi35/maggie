@@ -2,6 +2,7 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import Column, DateTime, Index, String, Text
+from sqlalchemy.dialects.postgresql import JSONB
 
 from app.db.proaction_model import AgentBase
 
@@ -24,6 +25,11 @@ class Message(AgentBase):
     user_id = Column(String(36), nullable=False)
     role = Column(String(20), nullable=False)  # user, assistant
     content = Column(Text, nullable=False)
+    # What the turn did before it said that: its `tool_use` / `tool_result` rounds, in the
+    # shape the API takes them (MAG-211, `app.llm.tool_blocks`). `content` stays the whole
+    # message as far as every reader is concerned — this column is for the next model call
+    # alone, which is why it is absent from `to_dict()` below.
+    blocks = Column(JSONB, nullable=True)
     context_id = Column(String(32), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
     # The client's idempotency key: the same key from the same user is the same message.
@@ -38,6 +44,12 @@ class Message(AgentBase):
     turn_screen_context = Column(Text, nullable=True)
 
     def to_dict(self) -> dict:
+        """What a client is shown — `GET /agent/messages`, the Mind panel, the phone.
+
+        The tool blocks are deliberately not in it: a message reads as its text on every
+        screen, and adding them would change a payload three clients parse for nothing
+        they could display.
+        """
         return {
             "id": self.id,
             "role": self.role,

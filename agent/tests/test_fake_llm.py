@@ -141,6 +141,26 @@ class TestReadingTheRequest:
         ]
         assert turn_index(after_one_round) == 1
 
+    def test_turn_index_ignores_the_rounds_the_history_replays(self):
+        """MAG-211: the history carries past rounds, which are batches too.
+
+        Counting them would have the fake answering with turn 3 of a scenario on the first
+        call of a run — `[fake-llm] le scénario … n'a pas de tour 3` on a scenario that is
+        perfectly fine.
+        """
+        replayed = [
+            {"role": "user", "content": "ma liste ?"},
+            {"role": "assistant", "content": [{"type": "tool_use", "id": "toolu_1"}]},
+            {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_1"}]},
+            {"role": "assistant", "content": "des tomates et des piles"},
+            {"role": "user", "content": "et le dernier article ?"},
+        ]
+
+        assert turn_index(replayed) == 0
+
+        # And the current run's own round still counts, replay or no replay.
+        assert turn_index([*replayed, {"role": "assistant", "content": []}, {"role": "user", "content": [{}]}]) == 1
+
 
 class TestParsing:
     def test_a_turn_needs_text_or_tools(self):

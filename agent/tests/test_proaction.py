@@ -102,7 +102,7 @@ class TestProactionRoute:
         assert response.status_code == 200
         assert response.json()["response"] == "Pense au plombier."
         messages.create.assert_awaited_once_with(
-            user_id="test-user", role="assistant", content="Pense au plombier.", context_id="ctx-1"
+            user_id="test-user", role="assistant", content="Pense au plombier.", context_id="ctx-1", blocks=None
         )
         summarizer.maybe_summarize.assert_awaited_once_with("ctx-1")
         # That the stored message reaches the caller at all — what it carries is the
@@ -117,7 +117,7 @@ class TestProactionRoute:
 
         assert response.status_code == 200
         messages.create.assert_awaited_once_with(
-            user_id="test-user", role="assistant", content="Pense au plombier.", context_id=None
+            user_id="test-user", role="assistant", content="Pense au plombier.", context_id=None, blocks=None
         )
         summarizer.maybe_summarize.assert_not_awaited()
 
@@ -350,6 +350,7 @@ class TestProactionConsumer:
             role="assistant",
             content="C'est l'heure d'appeler le plombier !",
             context_id=None,
+            blocks=None,
         )
 
     async def test_consumer_skips_empty_response(self):
@@ -369,6 +370,7 @@ class TestProactionConsumer:
             role="assistant",
             content="C'est l'heure d'appeler le plombier !",
             context_id="ctx-1",
+            blocks=None,
         )
 
     async def test_the_thread_is_summarized_so_the_reply_has_something_to_land_on(self):

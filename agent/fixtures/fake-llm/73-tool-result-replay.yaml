@@ -1,0 +1,28 @@
+# Unreachable unless the previous turn's tool call and its result were replayed (MAG-211).
+#
+# The pair of 45-grocery-list.yaml: that scenario calls `get_grocery_list` and answers
+# from it, and this one answers the follow-up question — but only if the history it is
+# sent still holds the round. Two needles, one per half:
+#
+#   - `Pile LR03` is a seeded item of the owner's list (api/fixtures/e2e/30-grocery.yaml)
+#     and nothing in the suite ever types it: it can only come from the `tool_result` of
+#     `get_grocery_list`. Maggie's own answer says « des piles », not the label, which is
+#     the point — the text of the turn is not the result of its tool.
+#   - `includeDeferred` is the argument 45 calls the tool with, so it can only come from
+#     the `tool_use` block. Without it the result would have no call in front of it, which
+#     the API rejects outright.
+#
+# So this file going red on `[fake-llm] aucun scénario…` means the blocks did not survive
+# the turn, and that is the one thing the journey cannot see from the browser. The journey
+# checks the other half itself: `get_grocery_list` must not be called a second time.
+name: tool-result-replay
+description: Answer about a tool result read in the previous turn, without calling the tool again.
+
+match:
+  user_contains: "dernier article de cette liste"
+  history_contains:
+    - "Pile LR03"
+    - "includeDeferred"
+
+turns:
+  - text: "Le dernier article de ta liste, ce sont les piles LR03."

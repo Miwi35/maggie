@@ -116,7 +116,13 @@ async def chat(request: ChatRequest, user_id: str = Depends(get_current_user_id)
     # the Mind panel never saw it and no summary could be written from it.
     context_id = result.get("context_id")
     assistant_msg = await message_repo.create(
-        user_id=user_id, role="assistant", content=result["response"], context_id=context_id
+        user_id=user_id,
+        role="assistant",
+        content=result["response"],
+        context_id=context_id,
+        # And what its tools said, so the next message of the thread sees the calls rather
+        # than making them again (MAG-211).
+        blocks=result.get("blocks"),
     )
     # Not on a turn the model never answered: the summary would be a second call, as
     # doomed as the first, with the user still waiting on this request — and it would read
@@ -215,6 +221,7 @@ async def proaction(request: ChatRequest, user_id: str = Depends(get_current_use
         role="assistant",
         content=result["response"],
         context_id=context_id,
+        blocks=result.get("blocks"),
     )
     if context_id:
         await context_summarizer.maybe_summarize(context_id)
