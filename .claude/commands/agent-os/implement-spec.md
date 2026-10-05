@@ -207,7 +207,8 @@ Prerequisite: the last `code-reviewer` verdict is `ACCEPT` (Step 7).
 
 - Push the branch and open the PR against `main` **as a draft**
   (`gh pr create --draft`): the merge train marks it ready, runs CI and merges
-  it (`CLAUDE.md` › Reporting). Do not wait for CI. The body says what changed
+  it (`CLAUDE.md` › Reporting). Do not wait for CI (a ticket in « Emergency »
+  is the exception: open it ready, same section). The body says what changed
   and why, **links the Linear ticket by URL**, and lists anything you noticed
   but deliberately left alone.
 - End the body with a **Review** section: number of rounds, blocking findings

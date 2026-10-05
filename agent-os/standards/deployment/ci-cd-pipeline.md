@@ -50,6 +50,8 @@ A public repository on the free plan runs 20 jobs at once; a PR that touches the
 - Workflow side: `ci.yml`, `mobile.yml` and `agent-guard.yml` list `types: [opened, synchronize, reopened, ready_for_review]` (the guard: no `reopened`) and skip a draft. In `ci.yml` every job hangs on `Detect changes`, which has `if: … !github.event.pull_request.draft`; the four that do not (`E2E Stack (smoke journey)`, `E2E Mobile (phone)`, `Incident gate`, `Infra scripts and workflows`) carry the same condition. A skipped required check counts as green, which is harmless: a draft cannot merge, and `ready_for_review` starts the real run.
 - The dispatcher must mark a PR ready with a user or app token: an event made with `GITHUB_TOKEN` starts no workflow, so `ready_for_review` would never run CI.
 - A PR you open yourself (the owner, or a session while the train is off) is opened ready and runs CI as before.
+- A PR of a ticket in « Emergency » is opened **ready** by the session, which arms auto-merge after `task guard:check` and waits with `task ci:watch`: the freeze must lift before any draft is taken. The train does not touch it.
+- What the train reads from the guard: the `needs-human` label and a refused or disabled auto-merge (`agent-guard.yml` sets both together). Nothing else.
 - No clock matrix: CI runs the real clock. `E2E_NOW` / `e2e/clock.sh` stay as a manual tool (`global/e2e-environment.md`, *The clock*).
 
 ### Agent guard events (MAG-243)
