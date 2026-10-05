@@ -2,7 +2,9 @@
 
 namespace Maggie\Finance\Tests\Import;
 
+use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
+use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Import\CsvStatementParser;
@@ -12,13 +14,17 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 class ImportStatementTest extends KernelTestCase
 {
     use FixtureLoaderTrait;
+    use MercureAssertionTrait;
+    use ElasticsearchAssertionTrait;
 
     protected function setUp(): void
     {
         self::bootKernel();
+        $this->resetMercure();
+        $this->resetAsyncTransport();
     }
 
-    /** @return array{imported: int, skipped: int, categorized: int, first: ?string, last: ?string, totalCents: int} */
+    /** @return array{imported: int, skipped: int, categorized: int, first: ?string, last: ?string, totalCents: int, rows: list<array{line: int, bookedAt: string, label: string, amountCents: int, currency: string, duplicate: bool, categoryName: ?string}>} */
     private function import(string $csv, bool $dryRun = false): array
     {
         $parser = self::getContainer()->get(CsvStatementParser::class);
@@ -138,5 +144,60 @@ class ImportStatementTest extends KernelTestCase
 
         self::assertSame(2, $result['imported']);
         self::assertSame($before, $this->countTransactions());
+
+        // A rehearsal that told the open screens about movements it did not
+        // write would be a lie in two places at once.
+        self::assertSame([], $this->getMercureHub()->getUpdates());
+        self::assertSame([], $this->getAsyncTransport()->getSent());
+    }
+
+    /**
+     * The report, line by line.
+     *
+     * The rehearsal is read by someone about to confirm it, and "1 doublon
+     * écarté" does not say which movement was dropped, nor under which
+     * heading the rest is about to be filed.
+     */
+    public function testTheReportSaysWhatBecomesOfEachLine(): void
+    {
+        $this->loadFixtures('categorization_rule.yaml');
+
+        // 01/09 CARREFOUR MARKET 4412 at -45,99 € is already on the account
+        // (fixture `uncategorized_carrefour`), so the first line is a
+        // duplicate while the second is new — and the rule claims it.
+        $statement = <<<'CSV'
+            Date;Libellé;Montant
+            01/09/2026;CARREFOUR MARKET 4412;-45,99
+            07/09/2026;CARREFOUR CITY;-8,10
+            CSV;
+
+        $result = $this->import($statement, dryRun: true);
+
+        self::assertSame(1, $result['skipped']);
+        self::assertSame(1, $result['imported']);
+
+        [$duplicate, $fresh] = $result['rows'];
+
+        self::assertSame(2, $duplicate['line']);
+        self::assertSame('CARREFOUR MARKET 4412', $duplicate['label']);
+        self::assertTrue($duplicate['duplicate']);
+        self::assertNull($duplicate['categoryName'], 'a dropped line is filed nowhere');
+
+        self::assertSame(3, $fresh['line']);
+        self::assertSame('2026-09-07', $fresh['bookedAt']);
+        self::assertSame(-810, $fresh['amountCents']);
+        self::assertSame('EUR', $fresh['currency']);
+        self::assertFalse($fresh['duplicate']);
+        self::assertSame('Alimentation', $fresh['categoryName']);
+    }
+
+    public function testAnImportReachesTheOpenScreensAndTheIndex(): void
+    {
+        $this->loadFixtures('categorization_rule.yaml');
+
+        $this->import(self::STATEMENT);
+
+        $this->assertMercureUpdatePublished('/transactions/');
+        $this->assertElasticsearchIndexDispatched(Transaction::class);
     }
 }

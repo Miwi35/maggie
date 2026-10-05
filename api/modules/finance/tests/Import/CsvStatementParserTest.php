@@ -110,7 +110,10 @@ class CsvStatementParserTest extends TestCase
 
         self::assertCount(2, $parsed['rows']);
         self::assertCount(1, $parsed['errors']);
-        self::assertStringContainsString('Line 3', $parsed['errors'][0]);
+        // In French and naming the line: the owner reads this in the import
+        // report, next to the lines that did go through.
+        self::assertStringContainsString('Ligne 3', $parsed['errors'][0]);
+        self::assertStringContainsString('date illisible', $parsed['errors'][0]);
     }
 
     public function testAFileWithoutAUsableHeaderIsRefusedPlainly(): void
@@ -118,7 +121,7 @@ class CsvStatementParserTest extends TestCase
         $parsed = $this->parser->parse("une ligne\nune autre\n");
 
         self::assertSame([], $parsed['rows']);
-        self::assertStringContainsString('No header row found', $parsed['errors'][0]);
+        self::assertStringContainsString("Aucune ligne d'en-tête", $parsed['errors'][0]);
     }
 
     public function testItSurvivesAByteOrderMarkAndTabSeparators(): void
