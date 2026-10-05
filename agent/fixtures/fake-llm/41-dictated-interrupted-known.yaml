@@ -1,0 +1,16 @@
+# The turn after Maggie was cut off (MAG-223): the dictated sentence comes back,
+# and the history she is sent now ends her interrupted answer with the marker
+# « Le user t'a coupé la parole… ». `history_contains` can only match once the
+# agent wrote that marker into the history, so this scenario proves the next
+# turn knows. It answers without any tool: she does not go back to her story.
+#
+# Sorted before 41-dictated-long-story.yaml, whose history needle is also there.
+name: dictated-interrupted-known
+description: Acknowledge being cut off and stay on the new request, read from the history marker.
+
+match:
+  user_matches: "ajoute.*tomate"
+  history_contains: "coupé la parole"
+
+turns:
+  - text: "Compris, je m'arrête là et je ne reprends pas mon histoire. Les tomates sont déjà sur ta liste."

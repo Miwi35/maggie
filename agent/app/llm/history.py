@@ -30,7 +30,7 @@ import logging
 from app.config import settings
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
-from app.db.models import Message
+from app.db.models import NOTHING_SAID, Message
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +38,28 @@ logger = logging.getLogger(__name__)
 # when it is still open; a closed or deleted one leaves the neutral form, which still says
 # the one thing that matters — this was not said here.
 UNKNOWN_THREAD = "[autre fil] "
+
+
+# What Maggie reads after an answer the user cut short (MAG-223). The row holds only what was
+# said or shown; without this she would take it for the whole of what she meant to say, or —
+# worse, when the full text is gone — not know she was interrupted at all.
+INTERRUPTION_AFTER_WORDS = (
+    "\n[Interruption : l'utilisateur t'a coupé la parole ici. Tu n'as pas pu dire la suite : il ne l'a ni "
+    "entendue ni lue. Ne reprends pas ce que tu disais ; tiens compte de ce qu'il dit maintenant.]"
+)
+INTERRUPTION_BEFORE_WORDS = (
+    "[Interruption : l'utilisateur t'a coupé la parole avant que tu aies dit quoi que ce soit. Ne reprends pas "
+    "ce que tu préparais ; tiens compte de ce qu'il dit maintenant.]"
+)
+
+
+def _spoken(row: Message) -> str:
+    """The row's text, with the interruption it ended on spelled out for the model."""
+    if not row.interrupted:
+        return row.content
+    if row.content == NOTHING_SAID:
+        return INTERRUPTION_BEFORE_WORDS
+    return row.content + INTERRUPTION_AFTER_WORDS
 
 
 def _prefix(label: str | None) -> str:
@@ -166,7 +188,7 @@ def _turns(
         if row.role not in ("user", "assistant") or not row.content:
             continue
 
-        content = row.content
+        content = _spoken(row)
         if _is_foreign(row, context_id, current_message_id):
             content = _prefix(labels.get(str(row.context_id))) + content
 
