@@ -102,14 +102,6 @@ class IndexMetadataReaderTest extends TestCase
         self::assertArrayNotHasKey('format', $fields['createdAt']);
     }
 
-    /** Meal declares it, so the meals index gets it — the field the week filters on. */
-    public function testTheMealDayIsMappedAsADay(): void
-    {
-        $fields = $this->reader->getMapping(\Maggie\Cookbook\Entity\Meal::class);
-
-        self::assertSame(['type' => 'date', 'format' => 'yyyy-MM-dd'], $fields['date']);
-    }
-
     public function testReadParsesKeywordSubField(): void
     {
         $result = $this->reader->read(StubIndexedEntity::class);

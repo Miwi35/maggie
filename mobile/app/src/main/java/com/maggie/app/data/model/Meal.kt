@@ -15,6 +15,5 @@ data class Meal(
     val date: String,
     val slot: MealSlot,
     val recipes: List<String> = emptyList(),
-    val allDay: Boolean = false,
     val agenda: String? = null,
 )

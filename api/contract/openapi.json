@@ -11439,9 +11439,9 @@
                 "type": "object",
                 "required": [
                     "date",
-                    "summary",
                     "startAt",
                     "endAt",
+                    "summary",
                     "agenda"
                 ],
                 "properties": {
@@ -11465,6 +11465,14 @@
                             "format": "iri-reference",
                             "example": "https://example.com/"
                         }
+                    },
+                    "startAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "endAt": {
+                        "type": "string",
+                        "format": "date-time"
                     },
                     "timeZone": {
                         "type": "string"
@@ -11491,14 +11499,6 @@
                     },
                     "allDay": {
                         "type": "boolean"
-                    },
-                    "startAt": {
-                        "type": "string",
-                        "format": "date-time"
-                    },
-                    "endAt": {
-                        "type": "string",
-                        "format": "date-time"
                     },
                     "rrule": {
                         "type": [
@@ -11583,9 +11583,9 @@
                 "type": "object",
                 "required": [
                     "date",
-                    "summary",
                     "startAt",
                     "endAt",
+                    "summary",
                     "agenda"
                 ],
                 "properties": {
@@ -11609,6 +11609,14 @@
                             "format": "iri-reference",
                             "example": "https://example.com/"
                         }
+                    },
+                    "startAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "endAt": {
+                        "type": "string",
+                        "format": "date-time"
                     },
                     "timeZone": {
                         "type": "string"
@@ -11635,14 +11643,6 @@
                     },
                     "allDay": {
                         "type": "boolean"
-                    },
-                    "startAt": {
-                        "type": "string",
-                        "format": "date-time"
-                    },
-                    "endAt": {
-                        "type": "string",
-                        "format": "date-time"
                     },
                     "rrule": {
                         "type": [
@@ -11747,6 +11747,14 @@
                             "example": "https://example.com/"
                         }
                     },
+                    "startAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "endAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
                     "timeZone": {
                         "type": "string"
                     },
@@ -11772,14 +11780,6 @@
                     },
                     "allDay": {
                         "type": "boolean"
-                    },
-                    "startAt": {
-                        "type": "string",
-                        "format": "date-time"
-                    },
-                    "endAt": {
-                        "type": "string",
-                        "format": "date-time"
                     },
                     "rrule": {
                         "type": [
@@ -11869,9 +11869,9 @@
                         "type": "object",
                         "required": [
                             "date",
-                            "summary",
                             "startAt",
                             "endAt",
+                            "summary",
                             "agenda"
                         ],
                         "properties": {
@@ -11895,6 +11895,14 @@
                                     "format": "iri-reference",
                                     "example": "https://example.com/"
                                 }
+                            },
+                            "startAt": {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            "endAt": {
+                                "type": "string",
+                                "format": "date-time"
                             },
                             "timeZone": {
                                 "type": "string"
@@ -11921,14 +11929,6 @@
                             },
                             "allDay": {
                                 "type": "boolean"
-                            },
-                            "startAt": {
-                                "type": "string",
-                                "format": "date-time"
-                            },
-                            "endAt": {
-                                "type": "string",
-                                "format": "date-time"
                             },
                             "rrule": {
                                 "type": [

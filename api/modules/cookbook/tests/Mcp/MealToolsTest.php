@@ -8,6 +8,7 @@ use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Mcp\Tool\ManageMealsTool;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 class MealToolsTest extends KernelTestCase
@@ -182,6 +183,92 @@ class MealToolsTest extends KernelTestCase
 
         $this->assertMercureUpdatePublished('/meals/');
         $this->assertElasticsearchIndexDispatched(Meal::class);
+    }
+
+    /**
+     * A day nobody could have meant is refused, not rolled over (MAG-251).
+     *
+     * `createFromFormat('!Y-m-d', '2026-13-45')` does not fail — it returns
+     * 2027-02-14 — so a strict read is what keeps a meal off a day the model
+     * never named. The tool answers an error object rather than throwing out of
+     * the MCP loop, which is what the `\DomainException` in `__invoke`'s catch
+     * list is for.
+     *
+     * @return iterable<string, array{string}>
+     */
+    public static function notDays(): iterable
+    {
+        yield 'a month and a day that do not exist' => ['2026-13-45'];
+        yield 'the 31st of a 30-day month' => ['2026-04-31'];
+        yield 'a day with a time' => ['2026-03-20 19:30'];
+        yield 'words' => ['demain'];
+    }
+
+    #[DataProvider('notDays')]
+    public function testCreateRefusesADayThatIsNotOne(string $day): void
+    {
+        $this->loadFixtures('meal.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(($this->tool())('create', date: $day, slot: 'lunch'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data, "\"{$day}\" was accepted as a day");
+        self::assertStringContainsString('YYYY-MM-DD', $data['error']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        self::assertCount(0, $em->getRepository(Meal::class)->findAll(), 'a meal was written anyway');
+    }
+
+    #[DataProvider('notDays')]
+    public function testUpdateRefusesADayThatIsNotOne(string $day): void
+    {
+        $this->loadFixtures('meal.yaml');
+        $this->loginFixtureUser();
+
+        $created = json_decode(($this->tool())('create', date: '2026-03-20', slot: 'lunch'), true, 512, JSON_THROW_ON_ERROR);
+
+        $data = json_decode(($this->tool())('update', mealId: $created['meal']['id'], date: $day), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data, "\"{$day}\" was accepted as a day");
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $stored = $em->find(Meal::class, $created['meal']['id']);
+        self::assertSame('2026-03-20', $stored->getDate()->format('Y-m-d'), 'the meal moved on a refused day');
+    }
+
+    /**
+     * The range of `list` is lenient where `create` is strict: it is a window to
+     * read, and the model does send full timestamps (see
+     * GenerateGroceryListHandler). Only the day is kept, read in Paris.
+     */
+    public function testListAcceptsATimestampAsAnEndOfItsRange(): void
+    {
+        $this->loadFixtures('meal.yaml');
+        $this->loginFixtureUser();
+
+        ($this->tool())('create', date: '2026-03-20', slot: 'dinner');
+
+        $data = json_decode(
+            ($this->tool())('list', fromDate: '2026-03-20T00:00:00+01:00', toDate: '2026-03-20T23:30:00+01:00'),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertArrayNotHasKey('error', $data);
+        self::assertCount(1, $data['meals']);
+        self::assertSame('2026-03-20', $data['meals'][0]['date']);
+    }
+
+    public function testListStillRefusesSomethingThatIsNotADateAtAll(): void
+    {
+        $this->loadFixtures('meal.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(($this->tool())('list', fromDate: 'la semaine prochaine', toDate: '2026-03-21'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
     }
 
     public function testUpdateUnknownMealReturnsAnError(): void

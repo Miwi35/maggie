@@ -62,10 +62,16 @@ class ManageMealsTool
 
         // Both ends are days, and the range includes them: a meal is a day, so
         // there is no end-of-day instant to reach for here (MAG-251).
+        //
+        // Lenient, where `create` and `update` are strict: a range is a window
+        // to read, so a model that sends a full timestamp — which it does, see
+        // GenerateGroceryListHandler — gets the week it asked for rather than
+        // an error. Writing a meal on a day nobody named is the mistake worth
+        // refusing; reading one is not.
         $meals = $this->mealRepository->findByDateRangeForUser(
             $user,
-            Meal::dayFromString($fromDate),
-            Meal::dayFromString($toDate),
+            $this->dayOf($fromDate),
+            $this->dayOf($toDate),
         );
 
         return json_encode([
@@ -121,6 +127,23 @@ class ManageMealsTool
         $this->bus->dispatch(new DeleteMealCommand(mealId: $mealId));
 
         return json_encode(['success' => true], JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * The day an end of a range falls on, read in Paris — a bare day, but also
+     * a full timestamp, of which only the day is kept.
+     *
+     * @throws \DomainException when the string is not a date at all
+     */
+    private function dayOf(string $date): \DateTimeImmutable
+    {
+        try {
+            $read = new \DateTimeImmutable($date, new \DateTimeZone('Europe/Paris'));
+        } catch (\Exception $e) {
+            throw new \DomainException("Not a date: \"{$date}\". Use YYYY-MM-DD.", 0, $e);
+        }
+
+        return Meal::dayFromString($read->format('Y-m-d'));
     }
 
     /** @return string[]|null */

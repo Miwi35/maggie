@@ -217,6 +217,75 @@ class MealApiTest extends WebTestCase
         self::assertSame('2026-10-07 23:59:59', $stored->getEndAt()->setTimezone($paris)->format('Y-m-d H:i:s'));
     }
 
+    /**
+     * A meal moved through the *event* door moves its day with it.
+     *
+     * `Meal` shares its primary key with `event`, so `EventRepository::find()`
+     * returns a meal for a meal's id and `findByDateRange()` hands Maggie one
+     * among the events. `update_event` and `PATCH /api/events/{id}` then set the
+     * instants directly. With `date` the field the API, Elasticsearch, Mercure
+     * and every week view read, an inherited `setStartAt()` would move the
+     * instants and leave the day behind: Maggie would answer "c'est décalé" and
+     * the meal would not have moved anywhere the owner can see.
+     */
+    public function testMovingAMealThroughTheEventEndpointMovesItsDay(): void
+    {
+        $this->authenticateFixtureUser();
+
+        $created = $this->postMeal(['date' => '2026-10-06', 'slot' => 'dinner']);
+        self::assertResponseStatusCodeSame(201);
+
+        $this->client->request('PATCH', '/api/events/'.$created['id'], [], [], array_merge([
+            'CONTENT_TYPE' => 'application/merge-patch+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode([
+            'startAt' => '2026-10-08T19:30:00+02:00',
+            'endAt' => '2026-10-08T20:30:00+02:00',
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        /** @var Meal $stored */
+        $stored = $em->getRepository(Meal::class)->find($created['id']);
+
+        self::assertSame('2026-10-08', $stored->getDate()->format('Y-m-d'), 'the day did not follow the instant');
+        // And the instants are the whole of that day again, not the hour sent.
+        $paris = new \DateTimeZone('Europe/Paris');
+        self::assertSame('2026-10-08 00:00:00', $stored->getStartAt()->setTimezone($paris)->format('Y-m-d H:i:s'));
+        self::assertSame('2026-10-08 23:59:59', $stored->getEndAt()->setTimezone($paris)->format('Y-m-d H:i:s'));
+    }
+
+    /**
+     * An instant just past midnight in Paris is the day before in UTC, and the
+     * day the writer meant is the Paris one — the same reading the migration
+     * applies to the rows the old clients wrote.
+     */
+    public function testAnInstantIsReadAsADayInTheMealsOwnTimeZone(): void
+    {
+        $this->authenticateFixtureUser();
+
+        $created = $this->postMeal(['date' => '2026-10-06', 'slot' => 'dinner']);
+
+        $this->client->request('PATCH', '/api/events/'.$created['id'], [], [], array_merge([
+            'CONTENT_TYPE' => 'application/merge-patch+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode([
+            // 2026-10-09 00:30 in Paris, which is 2026-10-08 22:30 in UTC.
+            'startAt' => '2026-10-08T22:30:00+00:00',
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        /** @var Meal $stored */
+        $stored = $em->getRepository(Meal::class)->find($created['id']);
+
+        self::assertSame('2026-10-09', $stored->getDate()->format('Y-m-d'));
+    }
+
     /** @param array<string, mixed> $body */
     private function postMeal(array $body): array
     {

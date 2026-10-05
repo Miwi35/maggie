@@ -26,13 +26,6 @@ interface MealRow {
 }
 
 /**
- * A day of the week the week view is showing, Monday being 0.
- *
- * Read off the Paris day, which is the day the browser is on
- * (`playwright.config.ts` pins the time zone) and so the day `getMonday(new
- * Date())` lands on inside the view.
- */
-/**
  * A name no other attempt of this journey uses: a retry plans a recipe of its
  * own, and the one the previous attempt left behind must not be found instead.
  */
@@ -40,6 +33,13 @@ function recipeName(retry: number): string {
   return `Blanquette MAG-251${0 === retry ? '' : ` essai ${retry}`}`
 }
 
+/**
+ * A day of the week the week view is showing, Monday being 0.
+ *
+ * Read off the Paris day, which is the day the browser is on
+ * (`playwright.config.ts` pins the time zone) and so the day `getMonday(new
+ * Date())` lands on inside the view.
+ */
 function dayOfThisWeek(index: number): string {
   const midnightUtc = new Date(`${parisDay()}T00:00:00Z`)
   const weekday = midnightUtc.getUTCDay()

@@ -112,18 +112,20 @@ class Meal extends Event implements MercurePublishable
     /**
      * A day from the `Y-m-d` the MCP tool and the message commands carry.
      *
-     * Strict on purpose: `new \DateTimeImmutable('2026-13-45')` throws, but
-     * `'2026-10-07 19:30'` and `'next tuesday'` do not, and either would put a
-     * meal somewhere nobody asked for. Nothing but a day gets through here.
+     * The same round trip {@see StrictDayNormalizer} applies to the API, so one
+     * string is a day or is not a day whichever door it comes through: what came
+     * out, formatted back, has to be what came in. `createFromFormat` is lenient
+     * where it matters — `'2026-13-45'` rolls over to February 2027 rather than
+     * failing, and `'2026-10-7'` parses — and either would put a meal on a day
+     * nobody named.
      *
      * @throws \DomainException when the string is not a day
      */
     public static function dayFromString(string $day): \DateTimeImmutable
     {
         $parsed = \DateTimeImmutable::createFromFormat('!Y-m-d', $day, new \DateTimeZone('UTC'));
-        $errors = \DateTimeImmutable::getLastErrors();
 
-        if (false === $parsed || (false !== $errors && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))) {
+        if (false === $parsed || $parsed->format('Y-m-d') !== $day) {
             throw new \DomainException("Not a day: \"{$day}\". A meal's date is YYYY-MM-DD, with no time.");
         }
 
@@ -152,7 +154,7 @@ class Meal extends Event implements MercurePublishable
 
         $this->date = new \DateTimeImmutable($day, new \DateTimeZone('UTC'));
 
-        $wholeDay = new \DateTimeImmutable($day.' 00:00:00', new \DateTimeZone($this->getTimeZone()));
+        $wholeDay = new \DateTimeImmutable($day.' 00:00:00', $this->zone());
         parent::setStartAt($wholeDay);
         parent::setEndAt($wholeDay->setTime(23, 59, 59));
         $this->setAllDay(true);
@@ -160,11 +162,67 @@ class Meal extends Event implements MercurePublishable
         return $this;
     }
 
+    public function setStartAt(\DateTimeImmutable $startAt): static
+    {
+        // An instant handed to a meal names a day, and moves it to that day.
+        //
+        // `Meal` shares its primary key with `event`, so an `Event` write
+        // reaches a meal: `EventRepository::find()` returns one for a meal's
+        // id, and `findByDateRange()` hands Maggie a meal among the events, id
+        // and all. The `update_event` tool and `PATCH /api/events/{id}` then
+        // call this. Left inherited, they would move the instants and leave
+        // `date` — the field the API, Elasticsearch, Mercure and every week
+        // view read — behind, so Maggie would answer "c'est décalé" and the
+        // meal would not move anywhere the owner can see.
+        //
+        // The day is read in the meal's own time zone, as the migration reads
+        // the rows the old clients wrote: an instant at 23:00 UTC is the next
+        // day in Paris, and that is the day the writer meant.
+        //
+        // Comments, not a docblock: API Platform publishes a setter's docblock
+        // as the description of the property it writes.
+        return $this->setDate($startAt->setTimezone($this->zone()));
+    }
+
+    public function setEndAt(\DateTimeImmutable $endAt): static
+    {
+        // A meal ends when its day does, so there is no end to set — only the
+        // day's bounds to re-derive.
+        //
+        // Deliberately not a move: `UpdateEventHandler` sets `startAt` and then
+        // `endAt`, and a span whose two ends fall on different days would
+        // otherwise leave the meal on the last one. `setStartAt()` above is the
+        // one that names the day.
+        if (null !== $this->date) {
+            $this->setDate($this->date);
+        }
+
+        return $this;
+    }
+
+    /**
+     * The meal's time zone, falling back on the owner's.
+     *
+     * `Event::$timeZone` is a free string with no constraint behind it, and the
+     * `Event` write path above can set it: an unknown name would otherwise
+     * throw out of a setter during denormalization and answer 500 where the
+     * worst case is a meal placed in the wrong zone's day.
+     */
+    private function zone(): \DateTimeZone
+    {
+        try {
+            return new \DateTimeZone($this->getTimeZone());
+        } catch (\Exception) {
+            return new \DateTimeZone('Europe/Paris');
+        }
+    }
+
     public function setTimeZone(string $timeZone): static
     {
         // Re-derives the instants: moving the time zone moves the day's
-        // bounds. A comment, not a docblock — API Platform would publish it as
-        // the description of the inherited `timeZone` property.
+        // bounds, and never the day itself. A comment, not a docblock — API
+        // Platform would publish it as the description of the inherited
+        // `timeZone` property.
         parent::setTimeZone($timeZone);
 
         if (null !== $this->date) {
