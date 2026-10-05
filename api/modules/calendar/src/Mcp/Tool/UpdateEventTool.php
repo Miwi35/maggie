@@ -4,16 +4,21 @@ namespace Maggie\Calendar\Mcp\Tool;
 
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Message\UpdateEventCommand;
+use Maggie\Calendar\Service\AgendaResolver;
+use Maggie\Core\Mcp\McpUserContext;
+use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'update_event', description: 'Update an existing calendar event. Only provided fields will be updated. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes. To empty an optional field, list its name in clear (description, location, rrule).')]
+#[McpTool(name: 'update_event', description: 'Update an existing calendar event. Only provided fields will be updated. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes. To empty an optional field, list its name in clear (description, location, rrule). Use agenda_id to move the event to another agenda: pass its name as the user said it (e.g. "Concerts", case and accents do not matter) or its id — no need to call manage_agendas first. An unknown or ambiguous name returns an error listing the user\'s agendas.')]
 class UpdateEventTool
 {
     public function __construct(
         private readonly MessageBusInterface $bus,
+        private readonly McpUserContext $userContext,
+        private readonly AgendaResolver $agendaResolver,
     ) {
     }
 
@@ -27,8 +32,15 @@ class UpdateEventTool
         ?string $description = null,
         ?string $location = null,
         ?array $clear = null,
+        ?string $agenda_id = null,
     ): string {
         try {
+            if (null !== $agenda_id) {
+                $agenda_id = (string) $this->agendaResolver
+                    ->resolve($this->userContext->requireUser(), $agenda_id)
+                    ->getId();
+            }
+
             $startAt = null;
             $endAt = null;
 
@@ -53,6 +65,7 @@ class UpdateEventTool
                 endAt: $endAt,
                 description: $description,
                 location: $location,
+                agendaId: $agenda_id,
                 clearFields: array_values(array_intersect($clear ?? [], ['description', 'location', 'rrule'])),
             ));
 
@@ -66,8 +79,11 @@ class UpdateEventTool
                     'summary' => $event->getSummary(),
                     'startAt' => $event->getStartAt()->format('c'),
                     'endAt' => $event->getEndAt()->format('c'),
+                    'agenda' => $event->getAgenda()->getName(),
                 ],
             ], JSON_THROW_ON_ERROR);
+        } catch (MissingMcpUserException|\DomainException $e) {
+            return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
 
