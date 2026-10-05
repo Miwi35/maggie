@@ -599,6 +599,79 @@ jobs:
           path: e2e/web/playwright-report
           retention-days: 7
 
+  # The e2e flavor's APK, compiled once for every Maestro shard and device
+  # (MAG-233). The shards used to compile and install it themselves, and the job
+  # compiled it a second time after the unit tests, which is 3 minutes of Gradle
+  # on a run of 15. The APK is built against a fixed port on the device's
+  # loopback that `run.sh` bridges with `adb reverse`, so the one file works on
+  # every emulator and every stack.
+  #
+  # Not a required check: `E2E Mobile (phone)` below is.
+  e2e-mobile-build:
+    name: E2E Mobile APK
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      # Compiled into the APK, and what the stack the shards start expects.
+      E2E_LOGIN_TOKEN: ci-e2e-login-token
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build the APK
+        run: e2e/mobile/build-apk.sh
+
+      # Right after the build, before the unit tests: the shards wait for this
+      # job, not for the tests.
+      - name: APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: maggie-e2e-apk${{ inputs.e2e_now && format('-{0}', inputs.e2e_now) || '' }}
+          path: e2e/mobile/apk/maggie-e2e.apk
+          retention-days: 1
+          if-no-files-found: error
+
+  # The e2e flavor's unit tests, beside the shards rather than before them:
+  # `mobile.yml` runs the prod variant, where `src/e2e/` does not exist, so
+  # `E2eSignInTest` only ever runs here. Cheap, and it is the test that says the
+  # login posts its token before an emulator says "the dashboard never came".
+  #
+  # Run through `build-apk.sh`, so with the APK's Gradle properties: under other
+  # ones BuildConfig changes and the whole app is compiled again. It assembles the
+  # APK too, which this job discards.
+  e2e-mobile-unit:
+    name: E2E Mobile unit tests (e2e flavor)
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      E2E_LOGIN_TOKEN: ci-e2e-login-token
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Unit tests of the e2e flavor
+        run: e2e/mobile/build-apk.sh :app:testE2eDebugUnitTest
+
   # The Android app, driven on a headless emulator against the e2e stack
   # (MAG-98). MAG-93 counted seven past regressions no other suite can reach:
   # the voice overlay re-speaking an old answer, a sheet laid out under the
@@ -611,14 +684,19 @@ jobs:
   # three of them in parallel. The cost is a second stack; the stacks are
   # isolated by `COMPOSE_PROJECT_NAME`, so they do not collide.
   #
+  # The journeys are split in three shards (MAG-233, e2e/mobile/shards.txt), each
+  # on its own emulator and its own stack, in parallel: nine flows in a row on one
+  # emulator took 7.5 minutes. The nightly run multiplies that by the three
+  # formats.
+  #
   # Not the required check, and not named `E2E Mobile (…)`: a job skipped by its
   # `if` never expands its matrix, so it reports the literal name
   # `E2E Mobile (${{ matrix.device.name }})` and the required `E2E Mobile
   # (phone)` would wait forever on a PR that leaves the app alone (MAG-213).
   # `e2e-mobile` below is the required one.
   e2e-mobile-device:
-    name: E2E Mobile journeys (${{ matrix.device.name }})
-    needs: changes
+    name: E2E Mobile journeys (${{ matrix.device.name }} ${{ matrix.shard }}/3)
+    needs: [changes, e2e-mobile-build]
     if: needs.changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -629,13 +707,16 @@ jobs:
       fail-fast: false
       matrix:
         device: ${{ fromJSON(needs.changes.outputs.mobile_devices) }}
+        # `run.sh` refuses a count that is not the number of lines in
+        # shards.txt, so a drift between the two fails loudly.
+        shard: [1, 2, 3]
     permissions:
       contents: read
       # Same as `e2e-stack`: the stack's images are pulled by hash, and pushed
       # when a build input moved (MAG-135).
       packages: write
     env:
-      COMPOSE_PROJECT_NAME: maggie-e2e-mobile-${{ matrix.device.name }}-${{ github.run_id }}-${{ github.run_attempt }}
+      COMPOSE_PROJECT_NAME: maggie-e2e-mobile-${{ matrix.device.name }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
       # MAG-234: also the emulator's clock, set by e2e/mobile/run.sh.
       E2E_NOW: ${{ needs.changes.outputs.e2e_now }}
       E2E_LOGIN_TOKEN: ci-e2e-login-token
@@ -652,12 +733,12 @@ jobs:
           version: 3.x
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
+      # The Maestro CLI runs on it. Nothing is compiled here any more: the APK
+      # comes from `e2e-mobile-build`.
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
-      - uses: gradle/actions/setup-gradle@v4
 
       - uses: actions/cache@v4
         with:
@@ -737,32 +818,63 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Unit tests of the e2e flavor
-        # `mobile.yml` runs the prod variant, where `src/e2e/` does not exist —
-        # so `E2eSignInTest` only ever runs here. Cheap, and it is the test that
-        # says the login posts its token before an emulator says "the dashboard
-        # never came".
-        run: ./gradlew :app:testE2eDebugUnitTest -Dorg.gradle.java.home="$JAVA_HOME"
-        working-directory: mobile
+      - name: Download the APK
+        uses: actions/download-artifact@v4
+        with:
+          name: maggie-e2e-apk${{ inputs.e2e_now && format('-{0}', inputs.e2e_now) || '' }}
+          path: e2e/mobile/apk
 
-      - name: Journeys (Maestro)
+      # The booted emulator, saved as a snapshot (MAG-233): a cold boot is a minute
+      # on a runner, a snapshot load a few seconds. One per device profile; the
+      # first run after the key changes boots cold once and saves it. Bump `v1`
+      # when the emulator options below change: a snapshot taken with other
+      # options is refused and the emulator boots cold again.
+      - name: AVD snapshot cache
+        id: avd-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-v1-34-google_apis-x86_64-${{ matrix.device.profile }}
+
+      - name: Create the AVD and its snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
           target: google_apis
           arch: x86_64
           profile: ${{ matrix.device.profile }}
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none -timezone Europe/Paris
+          disable-animations: false
+          script: echo "AVD snapshot generated for the cache."
+
+      - name: Journeys (Maestro)
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          E2E_MOBILE_APK: ${{ github.workspace }}/e2e/mobile/apk/maggie-e2e.apk
+          E2E_MOBILE_SHARD: ${{ matrix.shard }}/3
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: ${{ matrix.device.profile }}
+          force-avd-creation: false
           # -timezone: the seed anchors on midnight in Paris and a runner boots
           # on UTC, so between 22:00 and midnight UTC the device's "today" is
           # the seed's yesterday and the dashboard assertion fails for an hour a
           # day. -noaudio stays: there is no sound card, so recording fails and
           # the voice overlay lands in its ERROR state — 02-voice-overlay.yaml is
           # written around that and never asserts listening succeeded.
+          # -no-snapshot-save: the snapshot in the cache is the clean one, not
+          # the state this run leaves behind.
           #
           # disable-animations also zeroes the animation scale, which is why that
           # flow cannot use waitForAnimationToEnd as a timer; see its header and
           # MAG-205.
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none -timezone Europe/Paris
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none -timezone Europe/Paris -no-snapshot-save
           disable-animations: true
           script: task e2e:mobile
 
@@ -773,7 +885,7 @@ jobs:
         # emulator nobody can attach to.
         uses: actions/upload-artifact@v4
         with:
-          name: maestro-report-${{ matrix.device.name }}-${{ github.run_id }}${{ inputs.e2e_now && format('-{0}', inputs.e2e_now) || '' }}
+          name: maestro-report-${{ matrix.device.name }}-${{ matrix.shard }}-${{ github.run_id }}${{ inputs.e2e_now && format('-{0}', inputs.e2e_now) || '' }}
           path: e2e/mobile/report
           retention-days: 7
           if-no-files-found: ignore
@@ -787,26 +899,31 @@ jobs:
         run: task e2e:down -- --timeout 1
 
   # The required check, always reported (MAG-213): green when no device ran
-  # because nothing the app or its stack depends on changed, red when a device
-  # failed or was cancelled. Same shape as `e2e-stack`. The name says `phone`
-  # because that is the one device a pull request runs; on the nightly run it
-  # aggregates the three. `if: always()` so a red device fails it instead of
-  # skipping it, which branch protection would read as a pass.
+  # because nothing the app or its stack depends on changed, red when the APK,
+  # its unit tests or any shard of any device failed or was cancelled. Same shape
+  # as `e2e-stack`. The name says `phone` because that is the one device a pull
+  # request runs; on the nightly run it aggregates the three. `if: always()` so a
+  # red job fails it instead of skipping it, which branch protection would read as
+  # a pass. A shard skipped because the APK failed is not `success` either.
   e2e-mobile:
     name: E2E Mobile (phone)
-    needs: [changes, e2e-mobile-device]
+    needs: [changes, e2e-mobile-build, e2e-mobile-unit, e2e-mobile-device]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Every device passed, or none was needed
+      - name: Every job passed, or none was needed
         env:
           CHANGES: ${{ needs.changes.result }}
+          BUILD: ${{ needs.e2e-mobile-build.result }}
+          UNIT: ${{ needs.e2e-mobile-unit.result }}
           DEVICES: ${{ needs.e2e-mobile-device.result }}
           WANTED: ${{ needs.changes.outputs.mobile }}
         run: |
-          echo "changes=$CHANGES devices=$DEVICES mobile wanted=$WANTED"
+          echo "changes=$CHANGES build=$BUILD unit=$UNIT devices=$DEVICES mobile wanted=$WANTED"
           [ "$CHANGES" = success ] || { echo "::error::Detect changes did not succeed"; exit 1; }
           if [ "$WANTED" = true ]; then
+            [ "$BUILD" = success ] || { echo "::error::the e2e APK did not build ($BUILD)"; exit 1; }
+            [ "$UNIT" = success ] || { echo "::error::the e2e flavor's unit tests did not succeed ($UNIT)"; exit 1; }
             [ "$DEVICES" = success ] || { echo "::error::a mobile journey did not succeed ($DEVICES)"; exit 1; }
           fi
 

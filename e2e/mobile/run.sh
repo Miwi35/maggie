@@ -12,8 +12,11 @@
 #      with `adb reverse`, so the APK never has to know which port Docker chose;
 #   2. puts the device on Europe/Paris, the time zone the seed anchors on, and on
 #      the stack's time: `E2E_NOW` when set (MAG-234), the host's clock otherwise;
-#   3. builds and installs the `e2e` flavor;
-#   4. runs the flows and writes a JUnit report CI uploads.
+#   3. installs the `e2e` flavor — the APK in `E2E_MOBILE_APK` (CI builds it once for
+#      every shard), or one built by `build-apk.sh`;
+#   4. runs the flows — all of them, `E2E_MOBILE_SHARD=<i>/<n>` for one shard of
+#      `shards.txt`, or the files named as arguments — and writes a JUnit report CI
+#      uploads.
 #
 # `E2E_NOW` (ISO-8601, see e2e/clock.sh) is the instant the whole stack runs at.
 # Here it sets the emulator's clock, and the dates handed to the flows follow it:
@@ -248,23 +251,20 @@ note "hide_error_dialogs = $("$ADB" -s "$SERIAL" shell settings get global hide_
 
 
 # ---------------------------------------------------------------------------
-step "3. Build and install the e2e flavor"
+step "3. Install the e2e flavor"
 # ---------------------------------------------------------------------------
-gradle_args=(
-  "-PE2E_API_BASE_URL=$APP_BASE_URL"
-  "-PE2E_LOGIN_TOKEN=$LOGIN_TOKEN"
-  "-PE2E_LOGIN_EMAIL=$SEED_EMAIL"
-)
-# `mobile/gradle.properties` pins `org.gradle.java.home` to the JDK bundled with
-# the owner's Android Studio. That path does not exist on a CI runner, so the
-# build dies before it starts — override it there, and only there, with whatever
-# JDK was set up. `mobile.yml` does the same thing on its one command line.
-gradle_jdk="$(sed -n 's/^org\.gradle\.java\.home=//p' "$REPO_ROOT/mobile/gradle.properties" | tail -1)"
-if [ -n "${JAVA_HOME:-}" ] && { [ -z "$gradle_jdk" ] || [ ! -x "$gradle_jdk/bin/java" ]; }; then
-  gradle_args+=("-Dorg.gradle.java.home=$JAVA_HOME")
+# CI builds the APK once, in its own job, and hands the file to every shard in
+# `E2E_MOBILE_APK` (MAG-233): nothing is compiled here then. Locally it is built
+# by `build-apk.sh`, which is also what that CI job runs.
+APK="${E2E_MOBILE_APK:-}"
+if [ -z "$APK" ]; then
+  "$REPO_ROOT/e2e/mobile/build-apk.sh"
+  APK="$FLOW_DIR/apk/maggie-e2e.apk"
 fi
-
-(cd "$REPO_ROOT/mobile" && ./gradlew --console=plain :app:installE2eDebug "${gradle_args[@]}")
+[ -f "$APK" ] || die "No APK at $APK (E2E_MOBILE_APK)."
+# -r: replace an install from a previous run; -t: the e2e flavor is a debug build.
+"$ADB" -s "$SERIAL" install -r -t "$APK" >/dev/null
+note "installed ${APK#"$REPO_ROOT"/}"
 
 # ---------------------------------------------------------------------------
 step "4. The journeys"
@@ -306,6 +306,28 @@ for arg in "$@"; do
   esac
   previous="$arg"
 done
+
+# `E2E_MOBILE_SHARD=2/3`: only the flows `shards.txt` gives shard 2, in its order.
+# CI runs one shard per emulator (MAG-233). The shard count is checked against the
+# file, so a matrix that drifts from it fails here instead of skipping flows.
+if [ -n "${E2E_MOBILE_SHARD:-}" ]; then
+  [ "${#targets[@]}" -eq 0 ] || die "E2E_MOBILE_SHARD and a flow argument are both set: pick one."
+  shard_index="${E2E_MOBILE_SHARD%%/*}"
+  shard_count="${E2E_MOBILE_SHARD##*/}"
+  case "$shard_index$shard_count" in
+    ''|*[!0-9]*) die "E2E_MOBILE_SHARD='$E2E_MOBILE_SHARD': expected <index>/<count>, e.g. 2/3." ;;
+  esac
+  shard_lines="$(grep -E '^[0-9]+:' "$FLOW_DIR/shards.txt" || true)"
+  [ "$(printf '%s\n' "$shard_lines" | grep -c .)" -eq "$shard_count" ] \
+    || die "E2E_MOBILE_SHARD says $shard_count shards, e2e/mobile/shards.txt defines $(printf '%s\n' "$shard_lines" | grep -c .)."
+  shard_flows="$(printf '%s\n' "$shard_lines" | sed -n "s/^${shard_index}:[[:space:]]*//p")"
+  [ -n "$shard_flows" ] || die "e2e/mobile/shards.txt has no shard $shard_index."
+  for name in $shard_flows; do
+    [ -f "$FLOW_DIR/flows/$name.yaml" ] || die "shards.txt names flows/$name.yaml, which does not exist."
+    targets+=("$FLOW_DIR/flows/$name.yaml")
+  done
+  note "shard $E2E_MOBILE_SHARD: $shard_flows"
+fi
 [ "${#targets[@]}" -gt 0 ] || targets=("$FLOW_DIR")
 
 # Variables handed to the flows as `-e`. First the dates the calendar journeys look for.

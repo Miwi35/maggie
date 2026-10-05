@@ -144,3 +144,6 @@ e2e/mobile/report/
 ciqual/db/*.db
 ciqual/db/*.db-shm
 ciqual/db/*.db-wal
+
+# The APK `e2e/mobile/build-apk.sh` leaves for run.sh (MAG-233)
+e2e/mobile/apk/
