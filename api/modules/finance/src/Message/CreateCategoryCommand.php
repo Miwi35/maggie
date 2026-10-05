@@ -10,6 +10,7 @@ final readonly class CreateCategoryCommand
         public string $userId,
         public string $name,
         public string $obligation = 'optional',
+        public bool $passiveIncome = false,
         public ?string $parentId = null,
         public ?string $color = null,
         public ?string $icon = null,

@@ -111,6 +111,68 @@ class CategoryToolsTest extends KernelTestCase
         $this->assertElasticsearchIndexDispatched(Category::class);
     }
 
+    public function testAnIncomeCategoryCanBeCreatedAsARente(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
+
+        $tool = self::getContainer()->get(ManageCategoriesTool::class);
+        $result = $tool('create', name: 'Loyers perçus', obligation: 'income', passiveIncome: true);
+
+        $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
+        self::assertTrue($data['success']);
+        self::assertTrue($data['category']['passiveIncome']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $categories = $em->getRepository(Category::class)->findAll();
+        self::assertTrue($categories[0]->isPassiveIncome());
+
+        $this->assertMercureUpdatePublished('/categories/');
+    }
+
+    /**
+     * The agent is told the flag belongs to income only; asked for anything
+     * else it gets a refusal, not a category whose figures lie.
+     */
+    public function testASpendingCategoryIsRefusedAsARente(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
+
+        $tool = self::getContainer()->get(ManageCategoriesTool::class);
+        $result = $tool('create', name: 'Loisirs', obligation: 'optional', passiveIncome: true);
+
+        $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
+        self::assertArrayHasKey('error', $data);
+        self::assertStringContainsString('rente', $data['error']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        self::assertCount(0, $em->getRepository(Category::class)->findAll());
+    }
+
+    public function testAnExistingIncomeCategoryCanBecomeARente(): void
+    {
+        $this->loadFixtures('category.yaml');
+        $this->loginFixtureUser();
+        $category = $this->getFixture('food');
+
+        $tool = self::getContainer()->get(ManageCategoriesTool::class);
+        $result = $tool(
+            'update',
+            categoryId: (string) $category->getId(),
+            obligation: 'income',
+            passiveIncome: true,
+        );
+
+        $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
+        self::assertTrue($data['success']);
+        self::assertTrue($data['category']['passiveIncome']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertTrue($em->find(Category::class, $category->getId())->isPassiveIncome());
+    }
+
     public function testClearMakesASubCategoryTopLevel(): void
     {
         $this->loadFixtures('category.yaml');

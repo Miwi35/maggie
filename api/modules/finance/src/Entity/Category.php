@@ -28,6 +28,7 @@ use Maggie\Finance\State\DeleteCategoryProcessor;
 use Maggie\Finance\State\UpdateCategoryProcessor;
 use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 #[ORM\Entity(repositoryClass: CategoryRepository::class)]
 #[Indexed(index: 'categories', module: 'finance')]
@@ -41,6 +42,8 @@ use Symfony\Component\Validator\Constraints as Assert;
 class Category implements MercurePublishable, OwnedByUserInterface, IndexableInterface
 {
     use MercurePayloadFilterTrait;
+
+    public const RENTE_WITHOUT_INCOME = 'Only an income category can be a rente.';
 
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
@@ -60,6 +63,20 @@ class Category implements MercurePublishable, OwnedByUserInterface, IndexableInt
     #[IndexedField(type: 'keyword')]
     private ObligationFlag $obligation = ObligationFlag::Optional;
 
+    /**
+     * Whether what this category brings in is a rente: income the user does
+     * not work for. It is what the independence counter counts, and the one
+     * thing that tells a rent received from a salary — both are income.
+     *
+     * Named without the `is` on purpose: Symfony serialises `isFoo()` as
+     * `foo`, so a field declared `isPassiveIncome` would be `passiveIncome`
+     * over REST and `isPassiveIncome` on Mercure — the disagreement
+     * `isCushion` already pays for. One spelling, every channel.
+     */
+    #[ORM\Column(name: 'is_passive_income', type: 'boolean', options: ['default' => false])]
+    #[IndexedField(type: 'boolean')]
+    private bool $passiveIncome = false;
+
     #[ORM\Column(length: 20, nullable: true)]
     private ?string $color = null;
 
@@ -74,6 +91,27 @@ class Category implements MercurePublishable, OwnedByUserInterface, IndexableInt
     public function __construct()
     {
         $this->id = new Ulid();
+    }
+
+    /**
+     * A rente is income. A spending category flagged as one would feed the
+     * independence counter a number it reads as money coming in, so the
+     * combination is refused rather than silently ignored.
+     */
+    #[Assert\Callback]
+    public function validateARenteIsIncome(ExecutionContextInterface $context): void
+    {
+        if ($this->declaresARenteWithoutIncome()) {
+            $context->buildViolation(self::RENTE_WITHOUT_INCOME)
+                ->atPath('passiveIncome')
+                ->addViolation();
+        }
+    }
+
+    /** Whether the rente flag contradicts the kind of line this category is. */
+    public function declaresARenteWithoutIncome(): bool
+    {
+        return $this->passiveIncome && ObligationFlag::Income !== $this->obligation;
     }
 
     public function getId(): Ulid
@@ -113,6 +151,18 @@ class Category implements MercurePublishable, OwnedByUserInterface, IndexableInt
     public function setObligation(ObligationFlag $obligation): static
     {
         $this->obligation = $obligation;
+
+        return $this;
+    }
+
+    public function isPassiveIncome(): bool
+    {
+        return $this->passiveIncome;
+    }
+
+    public function setPassiveIncome(bool $passiveIncome): static
+    {
+        $this->passiveIncome = $passiveIncome;
 
         return $this;
     }
@@ -159,6 +209,7 @@ class Category implements MercurePublishable, OwnedByUserInterface, IndexableInt
         return [
             'name' => $this->name,
             'obligation' => $this->obligation->value,
+            'passiveIncome' => $this->passiveIncome,
             'parentId' => null !== $this->parent ? (string) $this->parent->getId() : null,
             'color' => $this->color,
             'icon' => $this->icon,
@@ -172,6 +223,7 @@ class Category implements MercurePublishable, OwnedByUserInterface, IndexableInt
         return self::filterPayload([
             'name' => $this->name,
             'obligation' => $this->obligation->value,
+            'passiveIncome' => $this->passiveIncome,
             'parentId' => null !== $this->parent ? (string) $this->parent->getId() : null,
             'color' => $this->color,
             'icon' => $this->icon,

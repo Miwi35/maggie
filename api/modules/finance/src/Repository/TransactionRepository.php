@@ -192,6 +192,54 @@ class TransactionRepository extends ServiceEntityRepository
     }
 
     /**
+     * What the rentes brought in over a half-open period, by category, as
+     * positive cents, biggest first.
+     *
+     * Only credits of the categories the user declared as rentes, and only
+     * what actually landed: an exceptional credit is a one-off — a sale, a
+     * refund — and counting it as a rente would promise an income that never
+     * comes back.
+     *
+     * The category is scoped to the user as well as the transaction: nothing
+     * stops a transaction from pointing at someone else's category, and the
+     * counter would then sum — and name — a rente that is not his.
+     *
+     * @return array<int, array{categoryId: string, categoryName: string, incomeCents: int}>
+     */
+    public function sumPassiveIncomeByCategoryBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until): array
+    {
+        $rows = $this->createQueryBuilder('t')
+            ->select('IDENTITY(t.category) AS categoryId, c.name AS categoryName, SUM(t.amountCents) AS total')
+            ->innerJoin('t.category', 'c')
+            ->andWhere('t.user = :user')
+            ->andWhere('c.user = :user')
+            ->andWhere('c.passiveIncome = true')
+            ->andWhere('t.amountCents > 0')
+            ->andWhere('t.status IN (:consumed)')
+            ->andWhere('t.isExceptional = false')
+            ->andWhere('t.bookedAt >= :from')
+            ->andWhere('t.bookedAt < :until')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
+            ->setParameter('from', $from)
+            ->setParameter('until', $until)
+            ->groupBy('categoryId')
+            ->addGroupBy('c.name')
+            ->getQuery()
+            ->getResult();
+
+        $income = array_map(static fn (array $row) => [
+            'categoryId' => (string) $row['categoryId'],
+            'categoryName' => (string) $row['categoryName'],
+            'incomeCents' => (int) $row['total'],
+        ], $rows);
+
+        usort($income, static fn (array $a, array $b) => $b['incomeCents'] <=> $a['incomeCents']);
+
+        return $income;
+    }
+
+    /**
      * Debits of a period that are up for review: everything outside the
      * mandatory categories, uncategorized spends included — those are
      * precisely the ones worth a second look. Biggest first.

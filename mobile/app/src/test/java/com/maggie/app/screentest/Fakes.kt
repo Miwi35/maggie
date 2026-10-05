@@ -11,6 +11,7 @@ import com.maggie.app.data.model.AcceptedRuleSuggestion
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.data.model.Event
+import com.maggie.app.data.model.FinanceDashboard
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.GroceryList
 import com.maggie.app.data.model.RuleSuggestion
@@ -287,5 +288,20 @@ class FakeChat(private val history: List<ChatMessage> = Seed.conversation) {
         coEvery { preferences.saveLastReadMessageId(any()) } returns Unit
 
         ChatViewModel(repository, mercure, preferences, auth)
+    }
+}
+
+/**
+ * The finance dashboard over a month the server did compute.
+ *
+ * Only what the caller cares about is filled in: the cards read the dashboard
+ * field by field, and every DTO carries a default, so an unset part of the
+ * fixture is the empty state the screen also has to draw.
+ */
+class FakeLoadedFinanceDashboard(private val dashboard: FinanceDashboard) {
+    val viewModel: FinanceDashboardViewModel by lazy {
+        val repository = mockk<FinanceDashboardRepository>()
+        coEvery { repository.getDashboard(any(), any()) } returns Result.success(dashboard)
+        FinanceDashboardViewModel(repository)
     }
 }

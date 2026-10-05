@@ -49,6 +49,15 @@ export class FinanceOverviewPage extends AdminShell {
     return this.content.locator(`[data-testid="top-post"][data-category="${categoryName}"]`)
   }
 
+  /**
+   * A line of the independence counter's breakdown: one rente category, what
+   * it brings in per month, and its share. Addressed by `data-category` for
+   * the same reason as a top post.
+   */
+  rente(categoryName: string): Locator {
+    return this.content.locator(`[data-testid="rente"][data-category="${categoryName}"]`)
+  }
+
   async selectPeriod(year: number, month: number): Promise<void> {
     await this.content.getByLabel('Année').fill(String(year))
     await this.content.getByLabel('Mois').click()

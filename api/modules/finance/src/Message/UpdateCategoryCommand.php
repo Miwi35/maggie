@@ -16,6 +16,7 @@ final readonly class UpdateCategoryCommand
         public string $categoryId,
         public ?string $name = null,
         public ?string $obligation = null,
+        public ?bool $passiveIncome = null,
         public ?string $parentId = null,
         public ?string $color = null,
         public ?string $icon = null,

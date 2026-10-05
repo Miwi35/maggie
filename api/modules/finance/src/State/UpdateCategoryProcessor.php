@@ -38,6 +38,7 @@ class UpdateCategoryProcessor implements ProcessorInterface
             categoryId: (string) $data->getId(),
             name: $data->getName(),
             obligation: $data->getObligation()->value,
+            passiveIncome: $data->isPassiveIncome(),
             parentId: null !== $data->getParent() ? (string) $data->getParent()->getId() : null,
             color: $data->getColor(),
             icon: $data->getIcon(),

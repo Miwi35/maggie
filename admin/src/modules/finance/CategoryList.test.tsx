@@ -7,6 +7,12 @@ import { CategoryList } from './CategoryList'
 
 const CATEGORIES = [
   { id: '/api/categories/1', name: 'Alimentation', obligation: 'mandatory' },
+  {
+    id: '/api/categories/2',
+    name: 'Loyers perçus',
+    obligation: 'income',
+    passiveIncome: true,
+  },
 ]
 
 const RULES = [
@@ -48,6 +54,14 @@ describe('CategoryList', () => {
     expect(await screen.findByRole('tab', { name: 'Catégories' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Règles de catégorisation' })).toBeInTheDocument()
     expect(await screen.findByText('Alimentation')).toBeInTheDocument()
+  })
+
+  /** Which categories feed the independence counter has to be readable here. */
+  test('a category declared a rente is marked as one', async () => {
+    renderPage()
+
+    expect(await screen.findByText('Recette · rente')).toBeInTheDocument()
+    expect(screen.getByText('Obligatoire')).toBeInTheDocument()
   })
 
   test('every tab opens onto something — an empty panel is a dead end', async () => {

@@ -8999,6 +8999,11 @@
                             "income"
                         ]
                     },
+                    "passiveIncome": {
+                        "description": "Whether what this category brings in is a rente: income the user does\nnot work for. It is what the independence counter counts, and the one\nthing that tells a rent received from a salary — both are income.",
+                        "default": false,
+                        "type": "boolean"
+                    },
                     "color": {
                         "type": [
                             "string",
@@ -9052,6 +9057,11 @@
                             "debt",
                             "income"
                         ]
+                    },
+                    "passiveIncome": {
+                        "description": "Whether what this category brings in is a rente: income the user does\nnot work for. It is what the independence counter counts, and the one\nthing that tells a rent received from a salary — both are income.",
+                        "default": false,
+                        "type": "boolean"
                     },
                     "color": {
                         "type": [
@@ -9107,6 +9117,11 @@
                             "income"
                         ]
                     },
+                    "passiveIncome": {
+                        "description": "Whether what this category brings in is a rente: income the user does\nnot work for. It is what the independence counter counts, and the one\nthing that tells a rent received from a salary — both are income.",
+                        "default": false,
+                        "type": "boolean"
+                    },
                     "color": {
                         "type": [
                             "string",
@@ -9161,6 +9176,11 @@
                                     "debt",
                                     "income"
                                 ]
+                            },
+                            "passiveIncome": {
+                                "description": "Whether what this category brings in is a rente: income the user does\nnot work for. It is what the independence counter counts, and the one\nthing that tells a rent received from a salary — both are income.",
+                                "default": false,
+                                "type": "boolean"
                             },
                             "color": {
                                 "type": [

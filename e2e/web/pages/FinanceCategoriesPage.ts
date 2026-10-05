@@ -17,9 +17,15 @@ export class FinanceCategoriesPage extends AdminShell {
   readonly applyRules: Locator
   readonly suggestionsTable: Locator
   readonly createSuggestedRules: Locator
+  /** Two labels for one button, as on the accounts list: a list with rows
+   * carries react-admin's "Créer", an empty one `ListEmpty`'s invitation. */
+  readonly createCategory: Locator
 
   constructor(page: Page) {
     super(page)
+    this.createCategory = this.content.getByRole('link', {
+      name: /Créer$|Créer une catégorie/,
+    })
     this.tabs = this.content.getByRole('tablist')
     this.applyRules = this.content.getByRole('button', { name: 'Appliquer les règles' })
     this.suggestionsTable = this.content.getByRole('table')
@@ -64,6 +70,39 @@ export class FinanceCategoriesPage extends AdminShell {
    */
   suggestion(pattern: string): Locator {
     return this.suggestionsTable.getByRole('row').filter({ hasText: pattern })
+  }
+
+  /**
+   * Fills the category form and saves.
+   *
+   * The rente box is not on the form until the obligation is a recette — the
+   * API refuses it anywhere else — so it is ticked after the obligation is
+   * chosen, never before.
+   */
+  async createCategoryNamed(
+    name: string,
+    options: { obligation?: string; rente?: boolean } = {},
+  ): Promise<void> {
+    await this.createCategory.click()
+    await expect(this.content.getByLabel('Nom')).toBeVisible()
+
+    await this.content.getByLabel('Nom').fill(name)
+
+    if (options.obligation !== undefined) {
+      // A react-admin SelectInput is a MUI select: its options only exist
+      // once it is open.
+      await this.content.getByLabel('Obligation').click()
+      await this.page.getByRole('option', { name: options.obligation }).click()
+    }
+
+    if (options.rente) {
+      await this.content.getByLabel('Rente').check()
+    }
+
+    await this.content.getByRole('button', { name: 'Enregistrer' }).click()
+    // The URL leaving `/create` is what says the write went through: the edit
+    // screen it lands on carries an "Enregistrer" of its own.
+    await this.page.waitForURL((url) => !url.hash.includes('/create'))
   }
 
   /** Picks the category a suggestion will file its merchant under. */

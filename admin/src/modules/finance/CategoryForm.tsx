@@ -1,9 +1,11 @@
 import {
   SimpleForm,
+  BooleanInput,
   TextInput,
   SelectInput,
   ReferenceInput,
   AutocompleteInput,
+  FormDataConsumer,
   required,
 } from 'react-admin'
 import Box from '@mui/material/Box'
@@ -57,6 +59,20 @@ export const CategoryForm = ({ withDefaults = false }: CategoryFormProps) => (
       fullWidth
       helperText="Obligatoire : loyer, courses. Non-obligatoire : loisirs. Épargne et investissement ne sont pas des dépenses. Recette : ce qui rentre."
     />
+
+    {/* Only asked about a recette: the API refuses a rente anywhere else, so
+        offering the box on a dépense would be a trap. */}
+    <FormDataConsumer>
+      {({ formData }) =>
+        formData.obligation === 'income' && (
+          <BooleanInput
+            source="passiveIncome"
+            label="Rente"
+            helperText="Un revenu qui rentre sans être travaillé — loyers perçus, dividendes, intérêts, redevances. C'est ce que le compteur d'indépendance compare à votre train de vie."
+          />
+        )
+      }
+    </FormDataConsumer>
 
     <FormSection title="Repères visuels" description="Facultatif, pour repérer la catégorie d'un coup d'œil." />
 

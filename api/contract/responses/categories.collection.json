@@ -10,6 +10,7 @@
             "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "name": "Recorded Parent Category",
             "obligation": "optional",
+            "passiveIncome": false,
             "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV"
         },
         {
@@ -19,6 +20,7 @@
             "name": "Recorded Category",
             "parent": "/api/categories/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "obligation": "optional",
+            "passiveIncome": false,
             "color": "#aa3344",
             "icon": "cart",
             "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV"

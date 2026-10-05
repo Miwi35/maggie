@@ -33,6 +33,9 @@ class UpdateCategoryHandler
         if (null !== $command->obligation) {
             $category->setObligation(ObligationFlag::from($command->obligation));
         }
+        if (null !== $command->passiveIncome) {
+            $category->setPassiveIncome($command->passiveIncome);
+        }
         if (null !== $command->color) {
             $category->setColor($command->color);
         } elseif ($command->clears('color')) {
@@ -61,6 +64,12 @@ class UpdateCategoryHandler
             }
         } elseif ($command->clears('parentId')) {
             $category->setParent(null);
+        }
+
+        // Checked after every field is in: moving a rente to a spending
+        // obligation is the same contradiction as flagging a spending one.
+        if ($category->declaresARenteWithoutIncome()) {
+            throw new \DomainException(Category::RENTE_WITHOUT_INCOME);
         }
 
         return $this->updateCategory->execute($category);

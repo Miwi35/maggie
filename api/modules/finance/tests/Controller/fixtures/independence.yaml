@@ -1,0 +1,114 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-independence-test@example.com
+    googleId: google-finance-independence-test
+    name: Finance Independence Test User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 200000
+    isCushion: false
+    user: '@test_user'
+
+Maggie\Finance\Entity\Category:
+  food:
+    name: Alimentation
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  # Income, but worked for: the counter must leave it out.
+  salary:
+    name: Salaire
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    passiveIncome: false
+    user: '@test_user'
+  rent_income:
+    name: Loyers perçus
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    passiveIncome: true
+    user: '@test_user'
+  dividends:
+    name: Dividendes
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    passiveIncome: true
+    user: '@test_user'
+
+Maggie\Finance\Entity\Loan:
+  car:
+    name: Crédit auto
+    principalRemainingCents: 240000
+    monthlyPaymentCents: 20000
+    annualRateBasisPoints: 0
+    priority: 10
+    currency: EUR
+    user: '@test_user'
+
+# Last month, inside the three-month sample. Measured over three months:
+# lifestyle 30 000 / 3 = 10 000, rentes (18 000 + 6 000) / 3 = 8 000 — so the
+# rentes cover 80 % of the way this user lives.
+Maggie\Finance\Entity\Transaction:
+  groceries:
+    account: '@checking'
+    category: '@food'
+    amountCents: -30000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("first day of last month"))>'
+    label: Supermarché
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  salary_in:
+    account: '@checking'
+    category: '@salary'
+    amountCents: 350000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("first day of last month"))>'
+    label: Virement salaire
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  rent_in:
+    account: '@checking'
+    category: '@rent_income'
+    amountCents: 18000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("first day of last month"))>'
+    label: Loyer studio
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  dividends_in:
+    account: '@checking'
+    category: '@dividends'
+    amountCents: 6000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("first day of last month"))>'
+    label: Dividendes CTO
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  # A one-off on a rente category: a sale, not a rente. Counting it would
+  # promise an income that never comes back.
+  flat_sale:
+    account: '@checking'
+    category: '@rent_income'
+    amountCents: 90000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("first day of last month"))>'
+    label: Vente parking
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: true
+    user: '@test_user'
+  # Not landed yet: a planned credit is not an income.
+  rent_planned:
+    account: '@checking'
+    category: '@rent_income'
+    amountCents: 30000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("first day of last month"))>'
+    label: Loyer à venir
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Planned)>'
+    isExceptional: false
+    user: '@test_user'
