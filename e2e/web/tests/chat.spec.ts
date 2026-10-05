@@ -245,7 +245,7 @@ test('changing the subject opens a second context', async ({ page }) => {
   // Two, exactly. "More than one" would pass just as happily on the failure
   // 10-context-router-existing.yaml exists to prevent — a router that opens a
   // context per message — and by this point that would be five. The count is
-  // knowable: the first test opened one, the two after it joined it, this one
+  // knowable: the first test opened one, the three after it joined it, this one
   // opened the second.
   await expect(chat.contextItems).toHaveCount(2)
   await expect(chat.context('Budget e2e')).toBeVisible()
@@ -263,8 +263,8 @@ test('a thread is still there after a reload, and only once', async ({ page }) =
   // A fresh tab: what is on screen now came from `GET /agent/messages`, not
   // from the stream that produced it. That is "resume a thread".
   //
-  // It reads the last 20 messages and the exchanges above account for eight,
-  // so six more inserted before this one would push the agenda question off
+  // It reads the last 20 messages and the exchanges above account for ten,
+  // so five more inserted before this one would push the agenda question off
   // the page and turn these counts into zero — with a failure message blaming
   // persistence. Paginate the history if the file grows that far.
   const chat = new ChatPanel(page)
