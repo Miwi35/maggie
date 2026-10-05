@@ -20,17 +20,22 @@ object TranscriptionQuality {
     const val MIN_CONFIDENCE = 0.55f
 
     /**
-     * Natural French runs at roughly twelve characters a second. A quarter of that
-     * means the engine dropped most of what was said — the failure the owner met in
+     * Natural French runs at roughly twelve characters a second; a fifth of that means
+     * the engine dropped most of what was said — the failure the owner met in
      * February, when it stopped at the first pause.
+     *
+     * Set low because the two mistakes do not cost the same, and because the duration
+     * here is how long the button was held, not how long he spoke: calling a good
+     * result bad costs one Whisper call, calling a truncated one good puts half a
+     * sentence in front of Maggie.
      */
-    const val MIN_CHARS_PER_SECOND = 3.0
+    const val MIN_CHARS_PER_SECOND = 2.5
 
     /**
      * Under this, there is not enough speech for the rate above to mean anything: a
      * one-second « oui » is three characters and perfectly good.
      */
-    const val RATE_FLOOR_MS = 1_500L
+    const val RATE_FLOOR_MS = 2_000L
 
     fun isGoodEnough(text: String, confidence: Float?, spokenMillis: Long): Boolean {
         val trimmed = text.trim()

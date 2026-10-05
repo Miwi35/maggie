@@ -56,6 +56,13 @@ class HesitationFilterTest {
     }
 
     @Test
+    fun `a filler glued to an accented letter is not a filler`() {
+        // What `(?U)` buys: without unicode word boundaries, "é" counts as a
+        // non-letter and "cléeuh" would come back as "clé".
+        assertEquals("cléeuh", HesitationFilter.strip("cléeuh"))
+    }
+
+    @Test
     fun `a sentence made only of fillers is kept as it is`() {
         assertEquals("euh hum", HesitationFilter.strip("euh hum"))
     }

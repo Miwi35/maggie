@@ -72,7 +72,7 @@ class TranscriptionQualityTest {
 
     @Test
     fun `the expected length follows the spoken duration`() {
-        assertEquals(6, TranscriptionQuality.minCharsFor(2_000))
-        assertEquals(30, TranscriptionQuality.minCharsFor(10_000))
+        assertEquals(5, TranscriptionQuality.minCharsFor(2_000))
+        assertEquals(25, TranscriptionQuality.minCharsFor(10_000))
     }
 }

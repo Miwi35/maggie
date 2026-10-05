@@ -46,9 +46,10 @@ _LEFTOVER_SPACE = re.compile(r"\s{2,}")
 # of a sentence the rule is supposed to leave alone.
 _LEFTOVER_PUNCTUATION = re.compile(r"\s+([,.])")
 
-# A word said twice in a row — a sign the sentence stumbled. The reflexive pronouns
-# are left out: « nous nous sommes vus » is French, not a stammer.
-_NOT_A_STAMMER = ("nous", "vous")
+# A word said twice in a row — a sign the sentence stumbled. These are left out: they
+# are French rather than a stammer (« nous nous sommes vus », « très très bien »,
+# « oui oui »), and a false positive here buys a cleanup nobody needed.
+_NOT_A_STAMMER = ("nous", "vous", "très", "tres", "oui", "non", "si")
 _REPEATED_WORD = re.compile(r"\b(\w+)\s+\1\b", re.IGNORECASE)
 
 # Below this, a sentence with no final period is just a short answer ("oui", "demain
@@ -57,7 +58,9 @@ MIN_WORDS_FOR_PUNCTUATION = 8
 
 # How many cleanups were asked of the model since the last reset. Read by the voice
 # journey through the e2e surface to prove an absence — « talking to Maggie no longer
-# pays for a cleanup » is a negative, and nothing on screen shows it (MAG-222).
+# pays for a cleanup » is a negative, and nothing on screen shows it (MAG-222). It
+# counts everywhere, dev and prod included, because the cleanup itself is the same code
+# there; only the route that reads it is mounted on the e2e stack alone.
 _cleanup_requests = 0
 
 

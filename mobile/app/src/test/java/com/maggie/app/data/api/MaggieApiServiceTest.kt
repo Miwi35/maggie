@@ -21,6 +21,16 @@ import java.io.File
 
 class MaggieApiServiceTest {
 
+    /** The value of the multipart `cleanup` field, read off its own part. */
+    private fun cleanupPartOf(body: ByteArray): String? =
+        // Between the disposition line and the value, Ktor writes the part's own
+        // Content-Length, hence the lazy gap.
+        Regex("""name="?cleanup"?.*?\r?\n\r?\n([^\r\n-]*)""", RegexOption.DOT_MATCHES_ALL)
+            .find(String(body, Charsets.ISO_8859_1))
+            ?.groupValues
+            ?.get(1)
+            ?.trim()
+
     @Test
     fun `AgentChatRequest serializes with defaults`() {
         val request = AgentChatRequest(message = "Hello")
@@ -123,12 +133,12 @@ class MaggieApiServiceTest {
         try {
             service.transcribe(tempFile)
 
-            val sent = body!!.decodeToString()
             // Talking to Maggie pays for no cleanup (MAG-222), and Whisper is told the
             // clip is WAV — the microphone now records PCM, for the phone's own engine.
-            assertTrue("the cleanup mode travels with the clip", sent.contains("name=cleanup"))
-            assertTrue("and it is « none »", sent.contains("none"))
-            assertTrue("the clip is labelled audio/wav", sent.contains("audio/wav"))
+            // Read off the `cleanup` part itself: the body also carries a hundred bytes
+            // of arbitrary audio, in which any word can be found by chance.
+            assertEquals("none", cleanupPartOf(body!!))
+            assertTrue("the clip is labelled audio/wav", body!!.decodeToString().contains("audio/wav"))
         } finally {
             tempFile.delete()
         }
@@ -159,7 +169,7 @@ class MaggieApiServiceTest {
 
         try {
             service.transcribe(tempFile, TranscriptCleanup.AUTO)
-            assertTrue(body!!.decodeToString().contains("auto"))
+            assertEquals("auto", cleanupPartOf(body!!))
         } finally {
             tempFile.delete()
         }

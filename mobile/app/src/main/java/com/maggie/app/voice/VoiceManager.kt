@@ -255,11 +255,8 @@ class VoiceManager(
 
         val session = deviceSession
         deviceSession = null
-        // Closing our end tells the engine the sentence is over; without it, it waits
-        // for audio that will never come.
-        try {
-            session?.sink?.close()
-        } catch (_: Exception) { }
+        // The recorder closed the pipe as it stopped, which is what tells the engine
+        // the sentence is over; asking it to stop after that is what makes it answer.
         session?.engine?.stopListening()
 
         val file = audioFile ?: run {
@@ -403,6 +400,8 @@ class VoiceManager(
 
     private fun release(session: DeviceSession?) {
         if (session == null) return
+        // Normally the recorder's stop closed it already; this covers the engine that
+        // was started and then never handed to a recorder at all.
         try {
             session.sink?.close()
         } catch (_: Exception) { }

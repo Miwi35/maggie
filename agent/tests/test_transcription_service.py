@@ -175,6 +175,10 @@ class TestStripHesitations:
     def test_a_word_containing_a_filler_survives(self):
         assert strip_hesitations("Mets du beurre et des hummus") == "Mets du beurre et des hummus"
 
+    def test_a_filler_glued_to_an_accented_letter_is_not_a_filler(self):
+        """The twin of HesitationFilterTest's `(?U)` case: « é » is a letter here too."""
+        assert strip_hesitations("cléeuh") == "cléeuh"
+
     def test_a_sentence_made_only_of_fillers_is_kept(self):
         """An empty bubble says less than « euh »."""
         assert strip_hesitations("euh hum") == "euh hum"
