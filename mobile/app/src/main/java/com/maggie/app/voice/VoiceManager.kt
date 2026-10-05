@@ -79,7 +79,10 @@ class VoiceManager(
     private val _partialText = MutableStateFlow("")
     val partialText: StateFlow<String> = _partialText
 
-    var onFinalResult: ((String) -> Unit)? = null
+    // Owned by the recording in progress, handed in by whoever started it: the
+    // manager is a singleton shared by the chat sheet and the assistant overlay, so
+    // a field they both wrote was won by the last one in, and lost to the first.
+    private var onResult: ((String) -> Unit)? = null
 
     private var recorder: AudioRecorder? = null
     private var audioFile: File? = null
@@ -123,14 +126,14 @@ class VoiceManager(
         ttsVoice = voice
     }
 
-    fun startListening() = beginRecording(handsFree = true)
+    fun startListening(onResult: (String) -> Unit) = beginRecording(handsFree = true, onResult)
 
-    fun pressDown() {
+    fun pressDown(onResult: (String) -> Unit) {
         when (_state.value) {
-            VoiceState.IDLE, VoiceState.ERROR -> beginRecording(handsFree = false)
+            VoiceState.IDLE, VoiceState.ERROR -> beginRecording(handsFree = false, onResult)
             VoiceState.SPEAKING -> {
                 stopSpeaking()
-                beginRecording(handsFree = false)
+                beginRecording(handsFree = false, onResult)
             }
             VoiceState.LISTENING, VoiceState.TRANSCRIBING, VoiceState.PROCESSING -> Unit
         }
@@ -163,8 +166,9 @@ class VoiceManager(
         }
     }
 
-    private fun beginRecording(handsFree: Boolean) {
+    private fun beginRecording(handsFree: Boolean, onResult: (String) -> Unit) {
         cancelListening()
+        this.onResult = onResult
         hintJob?.cancel()
         _holdHint.value = false
         _handsFree.value = handsFree
@@ -267,13 +271,15 @@ class VoiceManager(
 
         _state.value = VoiceState.TRANSCRIBING
 
+        val callback = onResult
+        onResult = null
         scope.launch {
             val heard = awaitDeviceResult(session)
             if (heard != null && TranscriptionQuality.isGoodEnough(heard.text, heard.confidence, spokenMillis)) {
                 file.delete()
                 audioFile = null
                 _partialText.value = ""
-                deliver(HesitationFilter.strip(heard.text))
+                deliver(callback, HesitationFilter.strip(heard.text))
                 return@launch
             }
 
@@ -285,7 +291,7 @@ class VoiceManager(
             try {
                 val text = apiService.transcribe(file, TranscriptCleanup.NONE)
                 if (text.isNotBlank()) {
-                    deliver(text)
+                    deliver(callback, text)
                 } else {
                     _state.value = VoiceState.IDLE
                 }
@@ -300,8 +306,8 @@ class VoiceManager(
         }
     }
 
-    private fun deliver(text: String) {
-        onFinalResult?.invoke(text)
+    private fun deliver(callback: ((String) -> Unit)?, text: String) {
+        callback?.invoke(text)
         _state.value = VoiceState.PROCESSING
     }
 
@@ -316,6 +322,7 @@ class VoiceManager(
     fun cancelListening() {
         timerJob?.cancel()
         timerJob = null
+        if (_state.value == VoiceState.LISTENING) onResult = null
         cleanupRecording()
         if (_state.value == VoiceState.LISTENING) {
             _state.value = VoiceState.IDLE

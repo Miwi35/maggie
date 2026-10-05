@@ -195,6 +195,25 @@ tags:
 - assertTrue: "${output.syntheses == 0}"
 
 # ---------------------------------------------------------------------------
+# The assistant overlay comes and goes, and the sheet's mic still sends (MAG-217).
+# `VoiceManager` is a singleton and used to keep one result callback that the sheet
+# and the overlay both wrote: opening the overlay replaced the sheet's, closing it
+# emptied it, and the next dictation from the sheet was transcribed and dropped.
+# The overlay is opened through the e2e flavor's own link (`src/e2e/AndroidManifest
+# .xml`) — the system's assistant gesture is out of reach — over the sheet, which
+# stays composed behind its translucent window. Closed, the sheet is what is left.
+# ---------------------------------------------------------------------------
+- openLink: "maggie-e2e-assist://overlay"
+- extendedWaitUntil:
+    visible: ".*Je vous écoute.*"
+    timeout: 20000
+- tapOn: "Fermer"
+- extendedWaitUntil:
+    visible:
+      id: "voice_state"
+    timeout: 20000
+
+# ---------------------------------------------------------------------------
 # Hold to talk (MAG-221): hold the mic, let go, and the dictated sentence is sent.
 # `longPressOn` holds for a few seconds, well past the 300 ms below which a press is
 # taken for a mistake. The sentence is what the stubbed Whisper clip says, minus its

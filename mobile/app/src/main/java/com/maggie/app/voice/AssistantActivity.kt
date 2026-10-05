@@ -22,23 +22,24 @@ class AssistantActivity : ComponentActivity() {
     private val voiceManager: VoiceManager by inject()
     private val chatViewModel: ChatViewModel by viewModel()
 
-    /** What the screen behind the overlay was showing, when Android told us (MAG-30). */
-    private var screenContext by mutableStateOf<ScreenContext?>(null)
-
     /**
-     * Counts invocations, and is what the overlay keys its « context not used
-     * yet » state on. The context itself cannot be that key: summoning Maggie
-     * twice from the same screen hands over an equal [ScreenContext], and a
-     * state keyed on equality would not re-arm — the second question would
-     * silently lose the screen it is about.
+     * What the screen behind the overlay was showing, when Android told us
+     * (MAG-30), until a sentence uses it: « ajoute ça à mon agenda » is about the
+     * screen, the follow-up question is about the answer. Assigned afresh on every
+     * invocation, so summoning Maggie twice from the same screen re-arms it.
      */
-    private var invocation by mutableStateOf(0)
+    private var pendingContext by mutableStateOf<ScreenContext?>(null)
+
+    private val sendVoiceResult: (String) -> Unit = { text ->
+        chatViewModel.sendMessage(text, pendingContext?.toPromptBlock())
+        pendingContext = null
+    }
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
         if (granted) {
-            voiceManager.startListening()
+            voiceManager.startListening(sendVoiceResult)
         }
     }
 
@@ -51,15 +52,15 @@ class AssistantActivity : ComponentActivity() {
         // not a new invocation: the screen the context described is long gone,
         // and reviving it would attach the whole block to the next sentence as
         // if it had never been used.
-        screenContext = if (savedInstanceState == null) ScreenContext.fromIntent(intent) else null
+        pendingContext = if (savedInstanceState == null) ScreenContext.fromIntent(intent) else null
         setContent {
             MaggieTheme {
                 AssistantOverlay(
                     viewModel = chatViewModel,
                     voiceManager = voiceManager,
                     onDismiss = { finish() },
-                    screenContext = screenContext,
-                    invocation = invocation,
+                    pendingContext = pendingContext,
+                    onVoiceResult = sendVoiceResult,
                 )
             }
         }
@@ -78,8 +79,7 @@ class AssistantActivity : ComponentActivity() {
         setIntent(intent)
         // Replaced, not merged: an invocation that brings no context — a plain
         // `ACTION_ASSIST` — is not about the previous screen.
-        screenContext = ScreenContext.fromIntent(intent)
-        invocation++
+        pendingContext = ScreenContext.fromIntent(intent)
         voiceManager.stopSpeaking()
         requestMicAndListen()
     }
@@ -88,7 +88,7 @@ class AssistantActivity : ComponentActivity() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             == PackageManager.PERMISSION_GRANTED
         ) {
-            voiceManager.startListening()
+            voiceManager.startListening(sendVoiceResult)
         } else {
             permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }

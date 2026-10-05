@@ -34,7 +34,6 @@ import androidx.compose.material3.SheetState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -97,11 +96,6 @@ fun ChatSheet(
     if (voiceManager != null) {
         val voiceState by voiceManager.state.collectAsState()
 
-        DisposableEffect(voiceManager) {
-            voiceManager.onFinalResult = { text -> viewModel.sendMessage(text) }
-            onDispose { voiceManager.onFinalResult = null }
-        }
-
         SpokenReplies(viewModel, voiceManager)
 
         ModalBottomSheet(
@@ -137,7 +131,7 @@ fun ChatSheet(
                     )
                 }
 
-                VoiceControlBar(voiceManager = voiceManager)
+                VoiceControlBar(voiceManager = voiceManager, onResult = { viewModel.sendMessage(it) })
             }
         }
     } else {
