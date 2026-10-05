@@ -25,7 +25,7 @@ fi
 echo "| Component | Lines covered | Coverage | Baseline | Verdict |"
 echo "|---|---|---|---|---|"
 jq -rs 'sort_by(.component)[] |
-  "| \(.component) | \(.covered) / \(.total) | \(.percent) % | \(if .baseline == null then "—" else "\(.baseline) %" end) | " +
+  "| \(.component) | \(.covered) / \(.total) | \(.percent + 0) % | \(if .baseline == null then "—" else "\(.baseline + 0) %" end) | " +
   ({dropped: "❌ below the baseline", improved: "⬆️ above — raise it", new: "🆕 no baseline yet", ok: "✅ held"}[.status] // "?") + " |"' "${files[@]}"
 echo
 echo "The CI fails when a component falls more than 0.10 point under its baseline (\`scripts/coverage/baseline.json\`). After a gain: \`task coverage:ratchet\`."

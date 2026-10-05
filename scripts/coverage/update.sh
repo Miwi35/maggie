@@ -20,6 +20,6 @@ files=("$dir"/*.json)
 [ -f "$baseline_file" ] || echo '{}' > "$baseline_file"
 jq -S --slurpfile base "$baseline_file" -n '
   reduce (inputs | select(.component != null)) as $m ($base[0];
-    .[$m.component] = ([(.[$m.component] // 0), $m.percent] | max))' "${files[@]}" > "$baseline_file.tmp"
+    .[$m.component] = ([(.[$m.component] // 0), $m.percent] | max + 0))' "${files[@]}" > "$baseline_file.tmp"
 mv "$baseline_file.tmp" "$baseline_file"
 cat "$baseline_file"
