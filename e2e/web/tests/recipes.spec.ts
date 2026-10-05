@@ -1,4 +1,4 @@
-import { test, expect, parisTime, seedDate, seedId } from '../fixtures/index.js'
+import { test, expect, parisDay, seedDate, seedId } from '../fixtures/index.js'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { AdminShell } from '../pages/AdminShell.js'
 import { ROUTES } from '../pages/routes.js'
@@ -20,6 +20,33 @@ interface RecipeRow {
 interface MealRow {
   summary: string
   agenda: unknown
+  /** The day, `YYYY-MM-DD` — a meal has no time (MAG-251). */
+  date: string
+  slot: string
+}
+
+/**
+ * A name no other attempt of this journey uses: a retry plans a recipe of its
+ * own, and the one the previous attempt left behind must not be found instead.
+ */
+function recipeName(retry: number): string {
+  return `Blanquette MAG-251${0 === retry ? '' : ` essai ${retry}`}`
+}
+
+/**
+ * A day of the week the week view is showing, Monday being 0.
+ *
+ * Read off the Paris day, which is the day the browser is on
+ * (`playwright.config.ts` pins the time zone) and so the day `getMonday(new
+ * Date())` lands on inside the view.
+ */
+function dayOfThisWeek(index: number): string {
+  const midnightUtc = new Date(`${parisDay()}T00:00:00Z`)
+  const weekday = midnightUtc.getUTCDay()
+
+  midnightUtc.setUTCDate(midnightUtc.getUTCDate() - (0 === weekday ? 6 : weekday - 1) + index)
+
+  return midnightUtc.toISOString().slice(0, 10)
 }
 
 interface GroceryListRow {
@@ -65,6 +92,60 @@ test.describe('Recipes and meals', () => {
     expect(mine.some((iri) => JSON.stringify(stored.agenda).includes(iri))).toBe(true)
   })
 
+  /**
+   * MAG-251: the owner added a meal in the week view and it came up on the day
+   * before. The view labelled its cells with `toISOString()` — the UTC day —
+   * so the cell he clicked offered him Monday for Tuesday, and then wrote it
+   * there.
+   *
+   * Tuesday lunch, on purpose: the other two journeys in this file plan Monday
+   * and Thursday, and the seed's only meal is a dinner. The recipe is made here
+   * and carries no ingredient, so nothing reaches the grocery list the rest of
+   * the suite shares.
+   *
+   * Three checks, because the bug had three faces: the day the cell offers, the
+   * day the API stores, and the cell the meal is drawn in once the page is
+   * loaded afresh from Elasticsearch.
+   */
+  test('a lunch planned on Tuesday is on Tuesday, and still is after a reload', async ({ page, api }) => {
+    const name = recipeName(test.info().retry)
+    const tuesday = dayOfThisWeek(1)
+
+    const created = await api.post('/api/recipes', {
+      headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },
+      data: { name, servings: 2 },
+    })
+    expect(created.status(), `POST /api/recipes answered ${created.status()}`).toBe(201)
+    await waitForIndexed<RecipeRow>(api, '/api/recipes', (r) => r.name === name, {
+      what: 'The recipe this journey plans',
+    })
+
+    const shell = new AdminShell(page)
+    await shell.goto('/meals')
+
+    await shell.content.getByTestId('meal-cell-lunch-1').click()
+
+    const dialog = page.getByRole('dialog')
+    // The day the cell offers. This is the bug: it used to offer the day before.
+    await expect(dialog.getByLabel('Date')).toHaveValue(tuesday)
+    await dialog.getByLabel('Recettes').fill('Blanquette')
+    await page.getByRole('option', { name }).click()
+    await dialog.getByRole('button', { name: 'Créer' }).click()
+
+    // The day the API stored, as a day.
+    const stored = await waitForIndexed<MealRow>(api, '/api/meals', (m) => String(m.summary).includes(name), {
+      what: 'The lunch planned on Tuesday',
+    })
+    expect(stored.date).toBe(tuesday)
+    expect(stored.slot).toBe('lunch')
+
+    // And the cell it is drawn in, on a page loaded afresh.
+    await page.reload()
+    await expect(shell.content.getByTestId('meal-cell-lunch-1')).toContainText(name)
+    await expect(shell.content.getByTestId('meal-cell-lunch-0')).not.toContainText(name)
+    await expect(shell.content.getByTestId('meal-cell-lunch-2')).not.toContainText(name)
+  })
+
   test('cancelling a meal takes its ingredients back off the grocery list', async ({ page, api }) => {
     // MAG-116: planning a meal put its ingredients on the list and nothing
     // ever took them off again, so a dinner cancelled on Tuesday was still
@@ -100,14 +181,11 @@ test.describe('Recipes and meals', () => {
     })
     await page.reload()
 
-    // Found by its own name rather than by the cell it was planned in: the
-    // grid places a meal on the day its `startAt` string begins with, and a
-    // meal stored at midnight in Paris can come back from Elasticsearch in
-    // UTC and be drawn a day early. That is its own bug (MAG-166) and not
-    // what this journey is about.
-    const planned = shell.content
-      .locator('[data-testid^="meal-cell-"]')
-      .filter({ hasText: 'Gratin de courgettes' })
+    // In the cell it was planned in. It used not to be: the grid placed a meal
+    // on the day its `startAt` string began with, and a meal stored at midnight
+    // in Paris comes back from Elasticsearch in UTC and was drawn a day early
+    // (MAG-166). The day is a day now (MAG-251), so the cell is addressable.
+    const planned = cell.filter({ hasText: 'Gratin de courgettes' })
     await expect(planned).toBeVisible()
     await planned.getByRole('button').first().click()
 
@@ -152,10 +230,9 @@ test.describe('Recipes and meals', () => {
       headers,
       data: {
         summary: 'Dîner',
-        startAt: parisTime(tomorrow, '00:00:00'),
-        endAt: parisTime(tomorrow, '23:59:59'),
+        // A day and a slot, no instant (MAG-251).
+        date: tomorrow,
         slot: 'dinner',
-        allDay: true,
         agenda: `/api/agendas/${seedId('e2e_agenda_personal')}`,
         recipes: [recipeBody['@id']],
       },

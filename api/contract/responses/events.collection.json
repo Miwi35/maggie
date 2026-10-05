@@ -60,16 +60,17 @@
         {
             "@id": "/api/meals/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "@type": "Meal",
+            "date": "2026-03-16",
             "slot": "dinner",
             "recipes": [
                 "/api/recipes/01ARZ3NDEKTSV4RRFFQ69G5FAV"
             ],
+            "startAt": "2026-03-16T00:00:00+01:00",
+            "endAt": "2026-03-16T23:59:59+01:00",
+            "allDay": true,
+            "timeZone": "Europe/Paris",
             "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "summary": "Recorded meal",
-            "allDay": false,
-            "startAt": "2026-03-16T19:00:00+00:00",
-            "endAt": "2026-03-16T20:00:00+00:00",
-            "timeZone": "Europe/Paris",
             "status": "confirmed",
             "agenda": "/api/agendas/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "ownerRelation": "agenda",

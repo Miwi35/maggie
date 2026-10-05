@@ -31,23 +31,13 @@ final class IndexMetadataReader
             foreach ($prop->getAttributes(IndexedField::class) as $fieldAttr) {
                 $field = $fieldAttr->newInstance();
                 $fieldName = $field->name ?? $prop->getName();
-                $mapping = ['type' => $field->type];
 
                 // boost is query-time only — not included in ES mapping
                 if (null !== $field->boost) {
                     $boosts[$fieldName] = $field->boost;
                 }
-                if (null !== $field->analyzer) {
-                    $mapping['analyzer'] = $field->analyzer;
-                }
-                if ($field->keyword && 'text' === $field->type) {
-                    $mapping['fields'] = ['keyword' => ['type' => 'keyword', 'ignore_above' => 256]];
-                }
-                if ([] !== $field->properties) {
-                    $mapping['properties'] = $field->properties;
-                }
 
-                $fields[$fieldName] = $mapping;
+                $fields[$fieldName] = self::mappingOf($field);
             }
 
             foreach ($prop->getAttributes(IndexedRelation::class) as $relAttr) {
@@ -67,20 +57,10 @@ final class IndexMetadataReader
                     $field = $fieldAttr->newInstance();
                     $fieldName = $field->name ?? $prop->getName();
                     if (!isset($fields[$fieldName])) {
-                        $mapping = ['type' => $field->type];
                         if (null !== $field->boost) {
                             $boosts[$fieldName] = $field->boost;
                         }
-                        if (null !== $field->analyzer) {
-                            $mapping['analyzer'] = $field->analyzer;
-                        }
-                        if ($field->keyword && 'text' === $field->type) {
-                            $mapping['fields'] = ['keyword' => ['type' => 'keyword', 'ignore_above' => 256]];
-                        }
-                        if ([] !== $field->properties) {
-                            $mapping['properties'] = $field->properties;
-                        }
-                        $fields[$fieldName] = $mapping;
+                        $fields[$fieldName] = self::mappingOf($field);
                     }
                 }
 
@@ -104,6 +84,32 @@ final class IndexMetadataReader
             'relations' => $relations,
             'boosts' => $boosts,
         ];
+    }
+
+    /**
+     * The index mapping of one declared field. `boost` is left out on purpose:
+     * it is a query-time weight, and Elasticsearch rejects it in a mapping.
+     *
+     * @return array<string, mixed>
+     */
+    private static function mappingOf(IndexedField $field): array
+    {
+        $mapping = ['type' => $field->type];
+
+        if (null !== $field->analyzer) {
+            $mapping['analyzer'] = $field->analyzer;
+        }
+        if (null !== $field->format) {
+            $mapping['format'] = $field->format;
+        }
+        if ($field->keyword && 'text' === $field->type) {
+            $mapping['fields'] = ['keyword' => ['type' => 'keyword', 'ignore_above' => 256]];
+        }
+        if ([] !== $field->properties) {
+            $mapping['properties'] = $field->properties;
+        }
+
+        return $mapping;
     }
 
     /**

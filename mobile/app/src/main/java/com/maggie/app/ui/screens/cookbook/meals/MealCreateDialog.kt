@@ -87,8 +87,7 @@ fun MealCreateDialog(
                     onConfirm(
                         MealCreateRequest(
                             summary = summaryText,
-                            startAt = "${date}T12:00:00+01:00",
-                            endAt = "${date}T13:00:00+01:00",
+                            date = date,
                             slot = slot,
                             recipes = recipeIris,
                         ),

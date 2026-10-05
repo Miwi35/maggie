@@ -64,8 +64,8 @@ Maggie\Cookbook\Entity\Meal:
   e2e_meal_dinner_tomorrow:
     summary: Pâtes à la tomate
     slot: '<(Maggie\Cookbook\Enum\MealSlot::Dinner)>'
-    startAt: '<e2eDate("+1 day 19:30")>'
-    endAt: '<e2eDate("+1 day 20:30")>'
+    # A day and a slot, no time (MAG-251).
+    date: '<e2eDate("+1 day")>'
     timeZone: 'Europe/Paris'
     status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
     agenda: '@e2e_agenda_shared'
@@ -77,8 +77,7 @@ Maggie\Cookbook\Entity\Meal:
   e2e_other_meal_dinner:
     summary: Velouté du voisin
     slot: '<(Maggie\Cookbook\Enum\MealSlot::Dinner)>'
-    startAt: '<e2eDate("+2 days 19:30")>'
-    endAt: '<e2eDate("+2 days 20:30")>'
+    date: '<e2eDate("+2 days")>'
     timeZone: 'Europe/Paris'
     status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
     agenda: '@e2e_other_agenda'

@@ -16,7 +16,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_meals', description: 'List, plan, update, or delete meals. Dates are YYYY-MM-DD, slot is lunch or dinner, and recipeIds is a comma-separated list. List needs fromDate and toDate.')]
+#[McpTool(name: 'manage_meals', description: 'List, plan, update, or delete meals. A meal is a day and a slot, never a time: date, fromDate and toDate are YYYY-MM-DD with no hour, slot is lunch or dinner, and recipeIds is a comma-separated list. List needs fromDate and toDate.')]
 class ManageMealsTool
 {
     public function __construct(
@@ -43,7 +43,7 @@ class ManageMealsTool
                 'delete' => $this->delete($mealId),
                 default => json_encode(['error' => "Unknown action: {$action}. Use list, create, update, or delete."], JSON_THROW_ON_ERROR),
             };
-        } catch (MissingMcpUserException $e) {
+        } catch (MissingMcpUserException|\DomainException $e) {
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
@@ -60,11 +60,16 @@ class ManageMealsTool
 
         $user = $this->userContext->requireUser();
 
-        $timeZone = new \DateTimeZone('Europe/Paris');
+        // Both ends are days, and the range includes them: a meal is a day, so
+        // there is no end-of-day instant to reach for here (MAG-251).
+        //
+        // Lenient, where `create` and `update` are strict — Meal::dayOfString
+        // says why, and `generate_grocery_list` reads its own range the same
+        // way through it.
         $meals = $this->mealRepository->findByDateRangeForUser(
             $user,
-            new \DateTimeImmutable($fromDate, $timeZone),
-            new \DateTimeImmutable($toDate.' 23:59:59', $timeZone),
+            Meal::dayOfString($fromDate),
+            Meal::dayOfString($toDate),
         );
 
         return json_encode([
@@ -137,7 +142,7 @@ class ManageMealsTool
     {
         return [
             'id' => (string) $meal->getId(),
-            'date' => $meal->getStartAt()->format('Y-m-d'),
+            'date' => $meal->getDate()?->format('Y-m-d'),
             'slot' => $meal->getSlot()->value,
             'summary' => $meal->getSummary(),
             'recipes' => $meal->getRecipes()->map(fn ($r) => [

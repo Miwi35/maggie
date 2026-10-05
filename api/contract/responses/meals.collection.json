@@ -7,16 +7,17 @@
         {
             "@id": "/api/meals/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "@type": "Meal",
+            "date": "2026-03-16",
             "slot": "dinner",
             "recipes": [
                 "/api/recipes/01ARZ3NDEKTSV4RRFFQ69G5FAV"
             ],
+            "startAt": "2026-03-15T23:00:00+00:00",
+            "endAt": "2026-03-16T22:59:59+00:00",
+            "allDay": true,
+            "timeZone": "Europe/Paris",
             "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "summary": "Recorded meal",
-            "allDay": false,
-            "startAt": "2026-03-16T19:00:00+00:00",
-            "endAt": "2026-03-16T20:00:00+00:00",
-            "timeZone": "Europe/Paris",
             "status": "confirmed",
             "agenda": "/api/agendas/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "ownerRelation": "agenda",
@@ -27,37 +28,37 @@
     ],
     "search": {
         "@type": "IriTemplate",
-        "template": "/api/meals{?startAt[before],startAt[strictly_before],startAt[after],startAt[strictly_after],order[startAt],startAt[before],startAt[strictly_before],startAt[after],startAt[strictly_after],endAt[before],endAt[strictly_before],endAt[after],endAt[strictly_after],exists[rrule],order[id],order[startAt]}",
+        "template": "/api/meals{?date[before],date[strictly_before],date[after],date[strictly_after],order[date],startAt[before],startAt[strictly_before],startAt[after],startAt[strictly_after],endAt[before],endAt[strictly_before],endAt[after],endAt[strictly_after],exists[rrule],order[id],order[startAt]}",
         "variableRepresentation": "BasicRepresentation",
         "mapping": [
             {
                 "@type": "IriTemplateMapping",
-                "variable": "startAt[before]",
-                "property": "startAt",
+                "variable": "date[before]",
+                "property": "date",
                 "required": false
             },
             {
                 "@type": "IriTemplateMapping",
-                "variable": "startAt[strictly_before]",
-                "property": "startAt",
+                "variable": "date[strictly_before]",
+                "property": "date",
                 "required": false
             },
             {
                 "@type": "IriTemplateMapping",
-                "variable": "startAt[after]",
-                "property": "startAt",
+                "variable": "date[after]",
+                "property": "date",
                 "required": false
             },
             {
                 "@type": "IriTemplateMapping",
-                "variable": "startAt[strictly_after]",
-                "property": "startAt",
+                "variable": "date[strictly_after]",
+                "property": "date",
                 "required": false
             },
             {
                 "@type": "IriTemplateMapping",
-                "variable": "order[startAt]",
-                "property": "startAt",
+                "variable": "order[date]",
+                "property": "date",
                 "required": false
             },
             {

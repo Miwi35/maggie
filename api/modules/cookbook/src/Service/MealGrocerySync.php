@@ -70,7 +70,10 @@ class MealGrocerySync
         }
 
         $list = $this->groceryListRepository->findOrCreateForUser($meal->getAgenda()->getUser());
-        $mealDate = $meal->getStartAt()->setTimezone(new \DateTimeZone('Europe/Paris'));
+        // The meal's day, which is all a shelf life is counted back from
+        // (MAG-251). A meal always has one — `Meal::$date` is not nullable in
+        // the database, only on the way in from a client.
+        $mealDate = $meal->getDate() ?? throw new \LogicException('A stored meal always has a day.');
 
         // Read once: nothing below is flushed, so a second read would return
         // the same rows at the cost of another query.
@@ -330,7 +333,14 @@ class MealGrocerySync
 
         $buyAfter = $mealDate->modify("-{$shelfLifeDays} days");
 
-        return $buyAfter > new \DateTimeImmutable('today', new \DateTimeZone('Europe/Paris')) ? $buyAfter : null;
+        // Both sides are plain days, so this compares days: today where the
+        // owner lives, not where the server runs.
+        $today = new \DateTimeImmutable(
+            (new \DateTimeImmutable('now', new \DateTimeZone('Europe/Paris')))->format('Y-m-d'),
+            new \DateTimeZone('UTC'),
+        );
+
+        return $buyAfter > $today ? $buyAfter : null;
     }
 
     private function keepEarliestBuyAfter(GroceryItem $item, ?\DateTimeImmutable $buyAfter): void

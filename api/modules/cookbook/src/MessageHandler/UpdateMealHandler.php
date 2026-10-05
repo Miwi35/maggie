@@ -36,9 +36,7 @@ class UpdateMealHandler
         }
 
         if (null !== $command->date) {
-            $date = new \DateTimeImmutable($command->date, new \DateTimeZone('Europe/Paris'));
-            $meal->setStartAt($date->setTime(0, 0));
-            $meal->setEndAt($date->setTime(23, 59, 59));
+            $meal->setDate(Meal::dayFromString($command->date));
         }
 
         if (null !== $command->recipeIds) {

@@ -43,6 +43,27 @@ export async function pinClock(context: BrowserContext): Promise<void> {
   }
 }
 
+/**
+ * The day an instant falls on in Paris, as `YYYY-MM-DD`.
+ *
+ * The browser runs on `Europe/Paris` (see `playwright.config.ts`), so this is
+ * the day every screen that turns "now" into a day arrives at — the week view's
+ * Monday, the dashboard's "today". Never build it from a UTC date: between
+ * midnight and 02:00 in Paris, UTC is still the day before, which is the whole
+ * subject of MAG-251.
+ */
+export function parisDay(instant: Date = e2eNow()): string {
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(instant)
+  const part = (type: string) => parts.find((candidate) => candidate.type === type)?.value ?? ''
+
+  return `${part('year')}-${part('month')}-${part('day')}`
+}
+
 /** Paris's offset from UTC at an instant, in minutes — 120 in summer, 60 in winter. */
 function parisOffsetMinutes(instant: number): number {
   const name =

@@ -17,6 +17,13 @@ export default defineConfig({
     environment: 'jsdom',
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     setupFiles: ['src/test/setup.ts'],
+    // The owner's time zone, not the runner's (MAG-251). Anything that turns a
+    // `Date` into a day reads the local one, so a day off by an hour's offset
+    // is invisible on a UTC runner and real in production. Pinning it here is
+    // what lets a test assert "this meal shows on Wednesday" at all.
+    env: {
+      TZ: 'Europe/Paris',
+    },
     // Vitest's 5 s default is below what a full-page render costs in CI (MAG-248):
     // a test that mounts CalendarView or a MUI dialog and drives it takes 2-4 s
     // alone and 6-17 s with v8 coverage on a shared runner, where the rendering

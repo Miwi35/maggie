@@ -173,14 +173,13 @@ data class IngredientCreateRequest(
     val fatPer100g: Float? = null,
 )
 
+/** The day (`YYYY-MM-DD`) and the slot — a meal carries no time (MAG-251). */
 @Serializable
 data class MealCreateRequest(
     val summary: String,
-    val startAt: String,
-    val endAt: String,
+    val date: String,
     val slot: String,
     val recipes: List<String> = emptyList(),
-    val allDay: Boolean = false,
     val agenda: String? = null,
 )
 
@@ -697,11 +696,12 @@ class MaggieApiService(
     }
 
     // Meals
-    suspend fun getMeals(startAfter: String? = null, startBefore: String? = null): List<Meal> {
+    /** [fromDay] and [toDay] are days (`YYYY-MM-DD`), both ends included. */
+    suspend fun getMeals(fromDay: String? = null, toDay: String? = null): List<Meal> {
         return client.get("$baseUrl/api/meals") {
             accept(ContentType("application", "ld+json"))
-            startAfter?.let { url.parameters.append("startAt[after]", it) }
-            startBefore?.let { url.parameters.append("startAt[before]", it) }
+            fromDay?.let { url.parameters.append("date[after]", it) }
+            toDay?.let { url.parameters.append("date[before]", it) }
         }.body<ApiCollection<Meal>>().member
     }
 

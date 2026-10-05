@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useDataProvider, useNotify, Title } from 'react-admin'
 import Box from '@mui/material/Box'
+import { localDay } from '../../dates'
 import { useMercure } from '../../hooks/useMercure'
 import { useItemTransitions, transitionSx } from '../../hooks/useItemTransitions'
 import Paper from '@mui/material/Paper'
@@ -40,9 +41,7 @@ function getMonday(d: Date): Date {
   return date
 }
 
-function formatDate(d: Date): string {
-  return d.toISOString().split('T')[0]
-}
+const formatDate = localDay
 
 function addDays(d: Date, days: number): Date {
   const result = new Date(d)
@@ -66,7 +65,8 @@ interface Agenda {
 interface Meal {
   id: string
   '@id': string
-  startAt: string
+  /** The day, `YYYY-MM-DD`. A meal has no time (MAG-251). */
+  date: string
   slot: string
   summary: string
   recipes: Recipe[]
@@ -87,13 +87,13 @@ export const MealsWeekView = () => {
   const fetchMeals = useCallback(async () => {
     setLoading(true)
     try {
-      const weekEnd = addDays(weekStart, 6)
       const { data } = await dataProvider.getList('meals', {
         pagination: { page: 1, perPage: 50 },
-        sort: { field: 'startAt', order: 'ASC' },
+        sort: { field: 'date', order: 'ASC' },
+        // Days, both ends included: the week is Monday to Sunday.
         filter: {
-          'startAt[after]': formatDate(weekStart),
-          'startAt[before]': formatDate(addDays(weekEnd, 1)),
+          'date[after]': formatDate(weekStart),
+          'date[before]': formatDate(addDays(weekStart, 6)),
         },
       })
       setMeals(data as Meal[])
@@ -161,10 +161,10 @@ export const MealsWeekView = () => {
       const recipeIris = selectedRecipes.map((r) => r['@id'] || `/api/recipes/${r.id}`)
       await dataProvider.create('meals', {
         data: {
-          startAt: `${dialogDate}T00:00:00+01:00`,
-          endAt: `${dialogDate}T23:59:59+01:00`,
+          // The day and the slot, and nothing that looks like a time: the API
+          // derives the instants the agenda shows (MAG-251).
+          date: dialogDate,
           slot: dialogSlot,
-          allDay: true,
           summary:
             (dialogSlot === 'lunch' ? 'Déjeuner' : 'Dîner') +
             (selectedRecipes.length > 0 ? ' : ' + selectedRecipes.map((r) => r.name).join(', ') : ''),
@@ -194,10 +194,8 @@ export const MealsWeekView = () => {
     (dayIndex: number, slot: string): Meal[] => {
       const date = formatDate(addDays(weekStart, dayIndex))
       const currentIds = new Set(meals.map((m) => m.id))
-      const ghosts = removingItems.filter(
-        (m) => m.startAt.startsWith(date) && m.slot === slot && !currentIds.has(m.id),
-      )
-      return [...meals.filter((m) => m.startAt.startsWith(date) && m.slot === slot), ...ghosts]
+      const ghosts = removingItems.filter((m) => m.date === date && m.slot === slot && !currentIds.has(m.id))
+      return [...meals.filter((m) => m.date === date && m.slot === slot), ...ghosts]
     },
     [meals, weekStart, removingItems],
   )

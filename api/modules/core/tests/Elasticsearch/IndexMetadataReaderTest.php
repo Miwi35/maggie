@@ -23,6 +23,9 @@ class StubIndexedEntity
     #[IndexedField(type: 'date')]
     private \DateTimeImmutable $createdAt;
 
+    #[IndexedField(type: 'date', format: 'yyyy-MM-dd')]
+    private \DateTimeImmutable $day;
+
     #[IndexedField(type: 'text', keyword: true)]
     private string $location;
 
@@ -79,6 +82,24 @@ class IndexMetadataReaderTest extends TestCase
 
         self::assertArrayHasKey('createdAt', $fields);
         self::assertSame('date', $fields['createdAt']['type']);
+    }
+
+    /**
+     * A day-typed field declares its format, and the mapping carries it
+     * (MAG-251).
+     *
+     * Without one, Elasticsearch reads the field with its default formats,
+     * which accept a plain day *and* an instant — so a field that is only ever
+     * a day takes instants too, and a `range` over days silently compares the
+     * two shapes.
+     */
+    public function testADayFieldCarriesItsFormat(): void
+    {
+        $fields = $this->reader->read(StubIndexedEntity::class)['fields'];
+
+        self::assertSame(['type' => 'date', 'format' => 'yyyy-MM-dd'], $fields['day']);
+        // And a date field that declares none stays as it was.
+        self::assertArrayNotHasKey('format', $fields['createdAt']);
     }
 
     public function testReadParsesKeywordSubField(): void

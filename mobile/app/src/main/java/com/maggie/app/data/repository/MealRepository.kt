@@ -7,8 +7,8 @@ import com.maggie.app.data.model.Meal
 class MealRepository(
     private val apiService: MaggieApiService,
 ) {
-    suspend fun getMeals(startAfter: String? = null, startBefore: String? = null): Result<List<Meal>> = runCatching {
-        apiService.getMeals(startAfter = startAfter, startBefore = startBefore)
+    suspend fun getMeals(fromDay: String? = null, toDay: String? = null): Result<List<Meal>> = runCatching {
+        apiService.getMeals(fromDay = fromDay, toDay = toDay)
     }
 
     suspend fun createMeal(request: MealCreateRequest): Result<Meal> = runCatching {

@@ -88,7 +88,7 @@ describe('CalendarView deep link from the global search', () => {
         id: '/api/meals/01MEAL',
         summary: 'Dîner',
         slot: 'dinner',
-        startAt: '2026-10-14T19:00:00+00:00',
+        date: '2026-10-14',
         recipes: [{ id: '/api/recipes/01R', name: 'Pâtes carbonara' }],
       },
     })
@@ -112,7 +112,7 @@ describe('CalendarView deep link from the global search', () => {
 
   test('clears the parameter so it does not re-trigger', async () => {
     currentParams = new URLSearchParams({ mealId: '/api/meals/01MEAL' })
-    mockGetOne.mockResolvedValue({ data: { id: '/api/meals/01MEAL', summary: 'Déjeuner', slot: 'lunch', startAt: '2026-10-14T12:00:00+00:00', recipes: [] } })
+    mockGetOne.mockResolvedValue({ data: { id: '/api/meals/01MEAL', summary: 'Déjeuner', slot: 'lunch', date: '2026-10-14', recipes: [] } })
 
     render(<CalendarView />)
 
