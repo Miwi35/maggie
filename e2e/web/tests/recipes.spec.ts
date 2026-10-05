@@ -288,11 +288,20 @@ test.describe('Recipes and meals', () => {
     })
     expect(linesOf(planned), 'the meal planned a single line').toHaveLength(1)
 
+    // Saved the way the edit form does: the recipe as the GET returns it — its
+    // ingredient an embedded object, not an IRI — with the quantity changed.
+    // The first version of this journey sent an IRI and passed while the form's
+    // own save answered 500 (refused at recette).
+    const read = await api.get(recipeBody['@id'], { headers: { Accept: 'application/ld+json' } })
+    expect(read.ok()).toBeTruthy()
+    const record = (await read.json()) as { ingredients: Array<{ quantity: number }> }
+    record.ingredients[0].quantity = 600
+
     const updated = await api.patch(recipeBody['@id'], {
       headers: { 'Content-Type': 'application/merge-patch+json', Accept: 'application/ld+json' },
-      data: { ingredients: [{ ingredient: ingredientIri, quantity: 600, unit: 'g' }] },
+      data: record,
     })
-    expect(updated.ok()).toBeTruthy()
+    expect(updated.ok(), `PATCH answered ${updated.status()}: ${await updated.text()}`).toBeTruthy()
 
     const after = await waitForIndexed<GroceryListRow>(api, '/api/grocery_lists', (list) => lineOf(list)?.quantity === 600, {
       what: 'The recipe’s new 600 g of boulgour',

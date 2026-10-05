@@ -78,6 +78,33 @@ class RecipeApiTest extends WebTestCase
         $this->assertElasticsearchIndexDispatched(Recipe::class);
     }
 
+    public function testPatchWithTheRecipeAsTheAdminReadItChangesTheQuantity(): void
+    {
+        $pasta = $this->loadPasta();
+
+        // The admin edit form saves what it loaded: each ingredient comes back
+        // with its `ingredient` as the embedded object the GET returned, not as
+        // an IRI (MAG-167, refused at recette: the save answered 500).
+        self::getContainer()->get('doctrine.orm.entity_manager')->clear();
+        $this->client->request('GET', '/api/recipes/'.$pasta->getId(), [], [], array_merge([
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()));
+        self::assertResponseIsSuccessful();
+        $record = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($record['ingredients'][0]['ingredient'], 'the GET embeds the ingredient');
+
+        $record['ingredients'][0]['quantity'] = 600;
+        $this->patchRecipe($pasta, $record);
+
+        self::assertResponseIsSuccessful();
+        $reloaded = $this->reload($pasta);
+        self::assertCount(1, $reloaded->getIngredients());
+        self::assertSame(600.0, $reloaded->getIngredients()->first()->getQuantity());
+        self::assertSame('Pâtes', $reloaded->getIngredients()->first()->getIngredient()->getName());
+        $this->assertMercureUpdatePublished('/recipes/');
+        $this->assertElasticsearchIndexDispatched(Recipe::class);
+    }
+
     public function testPatchWithoutNotesKeepsThem(): void
     {
         $pasta = $this->loadPasta();

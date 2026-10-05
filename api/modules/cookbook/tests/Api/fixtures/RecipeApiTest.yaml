@@ -37,3 +37,16 @@ Maggie\Cookbook\Entity\Recipe:
     tags: ['pasta', 'italian']
     notes: Ajouter du basilic
     user: '@test_user'
+
+Maggie\Cookbook\Entity\Ingredient:
+  pasta_product:
+    name: Pâtes
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\RecipeIngredient:
+  ri_pasta:
+    recipe: '@pasta'
+    ingredient: '@pasta_product'
+    quantity: 400
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
