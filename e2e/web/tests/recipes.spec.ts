@@ -55,10 +55,11 @@ interface GroceryListRow {
 
 test.describe('Recipes and meals', () => {
   test('a recipe created with comma-separated tags stores them as a list and shows in the list at once', async ({ page, api }) => {
+    const name = `Soupe MAG-117 ${Date.now()}`
     const shell = new AdminShell(page)
     await shell.goto(`${ROUTES.recipes}/create`)
 
-    await shell.content.getByLabel('Nom').fill('Soupe de potimarron')
+    await shell.content.getByLabel('Nom').fill(name)
     await shell.content.getByLabel(/Tags/).fill('rapide, hiver')
     await shell.content.getByRole('button', { name: 'Enregistrer' }).click()
 
@@ -67,12 +68,12 @@ test.describe('Recipes and meals', () => {
     // recipe — no reload, no waiting for the index.
     await expect(page.getByText('Recette enregistrée')).toBeVisible()
     await expect(page).toHaveURL(new RegExp(`#${ROUTES.recipes}$`))
-    const row = shell.content.getByRole('row').filter({ hasText: 'Soupe de potimarron' })
+    const row = shell.content.getByRole('row').filter({ hasText: name })
     await expect(row).toBeVisible()
     await expect(row.getByText('rapide', { exact: true })).toBeVisible()
     await expect(row.getByText('hiver', { exact: true })).toBeVisible()
 
-    const stored = (await getCollection<RecipeRow>(api, '/api/recipes')).find((r) => r.name === 'Soupe de potimarron')
+    const stored = (await getCollection<RecipeRow>(api, '/api/recipes')).find((r) => r.name === name)
     expect(stored?.tags).toEqual(['rapide', 'hiver'])
   })
 
@@ -109,7 +110,10 @@ test.describe('Recipes and meals', () => {
     await dialog.getByRole('button', { name: 'Créer' }).click()
 
     await expect(page.getByText('Repas créé')).toBeVisible()
-    await expect(cell.getByText(recipeName)).toBeVisible()
+    // Found by its name, not by the cell it was planned in: a meal stored at
+    // midnight in Paris can be drawn a day early (MAG-166), which is not what
+    // this journey is about.
+    await expect(shell.content.locator('[data-testid^="meal-cell-"]').filter({ hasText: recipeName })).toBeVisible()
 
     const stored = (await getCollection<MealRow>(api, '/api/meals')).find((m) => String(m.summary).includes(recipeName))
     expect(stored, 'the meal is not in the API collection right after the screen showed it').toBeDefined()
