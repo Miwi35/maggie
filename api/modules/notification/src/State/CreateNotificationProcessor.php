@@ -13,7 +13,7 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-/** @implements ProcessorInterface<Notification, Notification> */
+/** @implements ProcessorInterface<Notification, Notification|null> */
 class CreateNotificationProcessor implements ProcessorInterface
 {
     public function __construct(
@@ -22,7 +22,7 @@ class CreateNotificationProcessor implements ProcessorInterface
     ) {
     }
 
-    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): Notification
+    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ?Notification
     {
         /** @var User $user */
         $user = $this->security->getUser();

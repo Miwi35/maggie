@@ -1505,6 +1505,8 @@ export const CalendarView = () => {
   const handleNext = useCallback(() => calendarRef.current?.getApi().next(), [])
 
   const handleViewChange = useCallback((view: CalendarView) => {
+    // A view picked by hand beats the saved one, even if the preferences land afterwards.
+    preferencesApplied.current.view = true
     calendarRef.current?.getApi().changeView(view)
   }, [])
 

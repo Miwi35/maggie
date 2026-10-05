@@ -133,6 +133,24 @@ describe('CalendarView — saved preferences', { timeout: 60_000 }, () => {
     expect(writes).toHaveLength(0)
   })
 
+  test('a view picked before the preferences arrive is not overridden by them', async () => {
+    let answer: (response: unknown) => void = () => {}
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockReturnValue(new Promise((resolve) => (answer = resolve))),
+    )
+    await open()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Jour' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Jour' })).toHaveClass('MuiButton-contained'))
+    answer({ ok: true, json: () => Promise.resolve({ ...PREFERENCES, defaultCalendarView: 'week' }) })
+
+    await waitFor(() => expect(mockGetList).toHaveBeenCalled())
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(screen.getByRole('button', { name: 'Jour' })).toHaveClass('MuiButton-contained')
+    expect(screen.getByRole('button', { name: 'Semaine' })).not.toHaveClass('MuiButton-contained')
+  })
+
   test('keeps the default screen when the preferences cannot be read', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
     await open()
