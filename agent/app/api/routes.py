@@ -7,7 +7,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from app.auth import get_current_user_id, require_proaction_trigger, require_service_token
+from app.auth import (
+    get_current_user_id,
+    get_smoke_account_id,
+    require_proaction_trigger,
+    require_service_token,
+)
 from app.db.context_repository import context_repo
 from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
@@ -122,6 +127,15 @@ async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_u
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@router.delete("/smoke/history")
+async def reset_smoke_history(smoke_user_id: str = Depends(get_smoke_account_id)):
+    """Wipe the conversation of the technical smoke account, so each run starts from a blank one (MAG-253)."""
+    deleted_messages = await message_repo.delete_by_user(smoke_user_id)
+    deleted_contexts = await context_repo.delete_by_user(smoke_user_id)
+    logger.info(f"Smoke history reset: {deleted_messages} messages, {deleted_contexts} contexts")
+    return {"deletedMessages": deleted_messages, "deletedContexts": deleted_contexts}
 
 
 @router.get("/contexts")

@@ -37,14 +37,10 @@ class Principal:
     roles: frozenset[str]
 
 
-def get_current_principal(
-    credentials: HTTPAuthorizationCredentials = Depends(security),  # noqa: B008
-) -> Principal:
-    """FastAPI dependency: validate Bearer JWT and return who it identifies."""
-    token = credentials.credentials
+def _decode(credentials: HTTPAuthorizationCredentials) -> dict:
     try:
-        payload = jwt.decode(
-            token,
+        return jwt.decode(
+            credentials.credentials,
             _get_public_key(),
             algorithms=["RS256"],
             options={"verify_exp": True, "verify_aud": False},
@@ -60,6 +56,13 @@ def get_current_principal(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid token: {e}",
         ) from e
+
+
+def get_current_principal(
+    credentials: HTTPAuthorizationCredentials = Depends(security),  # noqa: B008
+) -> Principal:
+    """FastAPI dependency: validate Bearer JWT and return who it identifies."""
+    payload = _decode(credentials)
 
     user_id = payload.get("sub") or payload.get("username")
     if not user_id:
@@ -92,3 +95,22 @@ def require_service_token(credentials: HTTPAuthorizationCredentials = Depends(se
     expected = settings.service_token
     if not expected or not hmac.compare_digest(credentials.credentials.encode(), expected.encode()):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid service token")
+
+
+# The API's `app:smoke:token` command signs a token for this account and no route can: the
+# email in the token's `username` claim is the login identifier, set by the API alone.
+SMOKE_ACCOUNT_EMAIL = "smoke@maggieai.fr"
+
+
+def get_smoke_account_id(
+    credentials: HTTPAuthorizationCredentials = Depends(security),  # noqa: B008
+) -> str:
+    """FastAPI dependency: the user id of the technical smoke account, and nobody else's."""
+    payload = _decode(credentials)
+
+    if payload.get("username") != SMOKE_ACCOUNT_EMAIL or not payload.get("sub"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Reserved to the technical smoke account",
+        )
+    return payload["sub"]

@@ -76,8 +76,28 @@ expect_red "a module missing from MCP discovery"    mcp_missing_module  "no tool
 expect_red "Maggie answering without a tool"        agent_no_tool       "Maggie did not answer through a tool"
 expect_red "a tool that errors"                     agent_tool_error    "the tool call errored"
 expect_red "Maggie apologising instead of answering" agent_apology      "the answer is an apology"
+expect_red "an answer that guesses the title"       agent_guesses       "the answer does not carry the title"
+expect_red "an event the account cannot create"     event_creation_fails "the test event could not be created"
+expect_red "a history reset the agent refuses"      history_reset_fails "DELETE /agent/smoke/history did not answer 200"
 expect_red "an agent that is down"                  agent_down          "Maggie did not answer through a tool"
 expect_red "Elasticsearch out of sync"              ""                  "app:elasticsearch:status --check failed" ES_CHECK_CMD="echo DRIFT; exit 1"
+
+printf '\n\033[1mThe technical account starts blank and leaves nothing\033[0m\n'
+# The stub's model skips the tool whenever a history is behind it — the production failure.
+run_smoke "imitates_history"
+if [ "$STATUS" -eq 0 ]; then
+  printf '  \033[32m✓\033[0m a history that makes the model skip the tool is wiped before the question\n'
+else
+  printf '  \033[31m✗\033[0m the suite must wipe the history first — exit %d\n%s\n' "$STATUS" "$OUTPUT"
+  failures=$((failures + 1))
+fi
+state="$(curl -sS "http://127.0.0.1:$PORT/__state")"
+if [ "$state" = '{"agendas": 0, "history": 0}' ]; then
+  printf '  \033[32m✓\033[0m the test agenda and the history are gone after the run\n'
+else
+  printf '  \033[31m✗\033[0m the technical account kept data after the run: %s\n' "$state"
+  failures=$((failures + 1))
+fi
 
 printf '\n\033[1mElasticsearch check\033[0m\n'
 run_smoke "" ES_CHECK_CMD="true"

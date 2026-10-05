@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 
-from sqlalchemy import func, select, text
+from sqlalchemy import delete, func, select, text
 
 from app.db.agent_engine import agent_engine, agent_session
 from app.db.models import Message
@@ -65,6 +65,13 @@ class MessageRepository:
             messages = list(result.scalars().all())
             messages.reverse()  # chronological order
             return messages
+
+    async def delete_by_user(self, user_id: str) -> int:
+        """Remove every message of one user, and return how many there were."""
+        async with agent_session() as session:
+            result = await session.execute(delete(Message).where(Message.user_id == user_id))
+            await session.commit()
+            return result.rowcount
 
     async def find_last(self, user_id: str, exclude_id: str | None = None) -> Message | None:
         """The newest message of the user, whatever its role — `exclude_id` skips the one being answered (MAG-10)."""

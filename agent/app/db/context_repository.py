@@ -1,7 +1,7 @@
 import logging
 from datetime import UTC, datetime
 
-from sqlalchemy import select, text
+from sqlalchemy import delete, select, text
 
 from app.db.agent_engine import agent_engine, agent_session
 from app.db.context_model import ContextStatus, ConversationContext
@@ -201,6 +201,13 @@ class ContextRepository:
                 .order_by(ConversationContext.created_at.desc())
             )
             return list(result.scalars().all())
+
+    async def delete_by_user(self, user_id: str) -> int:
+        """Remove every thread of one user, and return how many there were."""
+        async with agent_session() as session:
+            result = await session.execute(delete(ConversationContext).where(ConversationContext.user_id == user_id))
+            await session.commit()
+            return result.rowcount
 
     async def get(self, context_id: str) -> ConversationContext | None:
         async with agent_session() as session:

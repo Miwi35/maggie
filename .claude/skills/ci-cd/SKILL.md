@@ -56,7 +56,7 @@ CD's `gate` job (`infra/scripts/should-deploy.sh`) lets a run deploy only when i
 
 ### Smoke and rollback (MAG-106)
 
-After **deploy**, the **smoke** job runs `infra/scripts/smoke-prod.sh` on production as a technical account (read-only). If a build, the deploy script or the smoke fails, **rollback** runs `infra/scripts/rollback-k3s.sh` (`rollout undo` to the recorded revisions; not after a failed build), moves the shipped tickets to the Linear state « Emergency » (an `incident` ticket when none can carry it) and leaves the run red. Migrations are not reverted. Details in the standard below.
+After **deploy**, the **smoke** job runs `infra/scripts/smoke-prod.sh` on production as a technical account (it writes only that account's own data: its chat history, wiped before each question, and a test agenda deleted afterwards — MAG-253). If a build, the deploy script or the smoke fails, **rollback** runs `infra/scripts/rollback-k3s.sh` (`rollout undo` to the recorded revisions; not after a failed build), moves the shipped tickets to the Linear state « Emergency » (an `incident` ticket when none can carry it) and leaves the run red. Migrations are not reverted. Details in the standard below.
 
 ## Mobile CI (`.github/workflows/mobile.yml`)
 

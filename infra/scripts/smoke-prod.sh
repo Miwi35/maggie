@@ -2,9 +2,10 @@
 #
 # Post-deploy smoke suite for production (MAG-106).
 #
-# Read-only: it GETs, lists MCP tools, and asks Maggie one question as the
-# technical account. The only thing it writes is that account's own chat
-# history — the owner's data is never touched. A failure makes the CD workflow
+# It GETs, lists MCP tools, and asks Maggie one question as the technical
+# account. What it writes belongs to that account alone — its chat history, wiped
+# before each question, and a test agenda with one event, deleted afterwards
+# (MAG-253) — the owner's data is never touched. A failure makes the CD workflow
 # roll the deployment back, so every check here must be something a healthy
 # production does every time: no timing luck, no dependence on real data.
 #
@@ -34,15 +35,9 @@ ATTEMPTS="${SMOKE_ATTEMPTS:-12}"
 DELAY="${SMOKE_DELAY:-5}"
 ORIGIN="$BASE_URL"
 
-# Asked to call a tool by name: the answer is then a test of the tool loop
-# (MCP list loaded at agent startup, tool round-trip to the API), not of the
-# model's mood. `get_upcoming_events` takes no argument and only reads.
-QUESTION="Appelle l'outil get_upcoming_events, puis réponds en une phrase : combien d'événements vois-tu ?"
-
 passed=0
 failed=0
 tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT
 
 pass() { printf '  \033[32m✓\033[0m %s\n' "$1"; passed=$((passed + 1)); }
 fail() { printf '  \033[31m✗\033[0m %s\n' "$1"; failed=$((failed + 1)); }
@@ -211,16 +206,78 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-step "6. Maggie answers a simple question through a tool"
+step "6. Maggie answers a question only a tool can answer"
 # ---------------------------------------------------------------------------
 # Covers what no health check can: the agent loaded its tool list at startup
 # (a race once left it empty), and every uvicorn worker serves the same
 # configuration. The question goes through the public URL, like a client's.
-# Two tries: the model may answer without the tool once, and a rollback of
-# production is too costly to hang on a single sample of it.
-asked_ok=""
+#
+# Two things made this check pass or fail on the model's mood (MAG-253):
+#   - the technical account kept its whole history, so after fifty runs the
+#     model had fifty identical answers to imitate and stopped calling the
+#     tool — twice, rolling production back twice. The account's history is
+#     wiped before each question, and after the last one.
+#   - a plausible sentence passed. The question now asks for the title of an
+#     event created a moment ago, a random string no model can guess: the
+#     answer carries it only if the tool was really called and read the API.
+#
+# Everything created here belongs to the technical account (its own token), and
+# is removed at the end. Two tries: the model may answer without the tool once,
+# and a rollback of production is too costly to hang on a single sample of it.
+LD_JSON=(-H 'Content-Type: application/ld+json' -H 'Accept: application/ld+json')
+agenda_id=""
+
+reset_history() {
+  [ "$(status_of -X DELETE "${AUTH[@]}" "$BASE_URL/agent/smoke/history")" = "200" ]
+}
+
+# Never a failed check: a leftover is harmless, since the question names the
+# event it asks about by a code of its own, and the next run wipes it again.
+cleanup_smoke_data() {
+  if [ -n "$agenda_id" ]; then
+    # The database cascade removes the agenda's events with it.
+    [ "$(status_of -X DELETE "${AUTH[@]}" "$BASE_URL/api/agendas/$agenda_id")" = "204" ] ||
+      printf '  - warning: could not delete the test agenda %s\n' "$agenda_id"
+    agenda_id=""
+  fi
+  reset_history || printf '  - warning: could not wipe the technical account history\n'
+}
+trap 'cleanup_smoke_data; rm -rf "$tmp"' EXIT
+
+if reset_history; then
+  pass "the technical account's history is wiped before the question"
+else
+  fail "DELETE /agent/smoke/history did not answer 200 — the account's history may weigh on the answer"
+fi
+
+code="$RANDOM$RANDOM"
+title="Rendez-vous smoke $RANDOM$RANDOM"
+QUESTION="Appelle l'outil get_upcoming_events, puis réponds en une phrase : quel est le titre exact de l'événement dont la description est « code $code » ?"
+
+agenda="$(curl -sS --max-time 15 -X POST "${AUTH[@]}" "${LD_JSON[@]}" \
+  -d "$(jq -nc --arg n "Smoke test $code" '{name: $n}')" "$BASE_URL/api/agendas" 2>/dev/null || true)"
+agenda_id="$(printf '%s' "$agenda" | jq -r '.id // empty' 2>/dev/null)"
+
+event_created=""
+if [ -n "$agenda_id" ]; then
+  event="$(curl -sS --max-time 15 -X POST "${AUTH[@]}" "${LD_JSON[@]}" \
+    -d "$(jq -nc --arg t "$title" --arg d "code $code" --arg a "/api/agendas/$agenda_id" \
+      --arg s "$(date -u -d '+1 hour' '+%Y-%m-%dT%H:%M:%S+00:00')" \
+      --arg e "$(date -u -d '+2 hours' '+%Y-%m-%dT%H:%M:%S+00:00')" \
+      '{summary: $t, description: $d, agenda: $a, startAt: $s, endAt: $e}')" "$BASE_URL/api/events" 2>/dev/null || true)"
+  [ -n "$(printf '%s' "$event" | jq -r '.id // empty' 2>/dev/null)" ] && event_created=yes
+fi
+
+if [ -z "$event_created" ]; then
+  fail "the test event could not be created for the technical account — agenda: $(excerpt "$agenda") event: $(excerpt "${event:-}")"
+else
+  pass "an event with a title only the API knows exists for the technical account"
+fi
+
 chat_output=""
 for try in 1 2; do
+  # A fresh conversation for each try: the first one must not weigh on the second.
+  reset_history || true
   chat_output="$(curl -sS --max-time 120 -X POST "${AUTH[@]}" -H 'Content-Type: application/json' \
     -d "$(jq -nc --arg m "$QUESTION" '{message: $m}')" "$BASE_URL/agent/chat" 2>/dev/null || true)"
 
@@ -228,16 +285,23 @@ for try in 1 2; do
   tool_name="$(printf '%s' "$chat_output" | jq -r '.tool_calls[0].name // empty' 2>/dev/null)"
 
   if [ -n "$answer" ] && [ -n "$tool_name" ]; then
-    asked_ok=yes
-    break
+    case "$answer" in *"$title"*) break ;; esac
   fi
   [ "$try" -lt 2 ] && sleep "$DELAY"
 done
 
-if [ -z "$asked_ok" ]; then
+cleanup_smoke_data
+
+if [ -z "$answer" ] || [ -z "$tool_name" ]; then
   fail "Maggie did not answer through a tool — response: $(excerpt "$chat_output")"
 else
   pass "Maggie answered and called '$tool_name'"
+
+  # The title exists nowhere but in the API: a sentence without it was not read from the tool.
+  case "$answer" in
+    *"$title"*) pass "the answer carries the title read through the tool" ;;
+    *) fail "the answer does not carry the title '$title' the tool should have read — $(excerpt "$answer")" ;;
+  esac
 
   if printf '%s' "$chat_output" | jq -e '.tool_calls[0].result | fromjson | if type == "object" then has("error") else false end' >/dev/null 2>&1; then
     fail "the tool call errored — result: $(excerpt "$(printf '%s' "$chat_output" | jq -r '.tool_calls[0].result')")"
