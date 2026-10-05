@@ -114,6 +114,9 @@ the proaction itself, then the router on what it wrote.
 `system_contains`, and is therefore the proof that the summaries reach a
 proaction at all.
 
+`82-greeting.yaml` answers « Bonjour Maggie » and nothing else: the two-window chat
+journey sends it from one window to see the exchange reach the other (MAG-109).
+
 The transcript cleanup pairs with the WireMock Whisper stub: that stub returns
 one fixed sentence, and `20-transcription-cleanup.yaml` returns it cleaned. Change
 one and change the other.

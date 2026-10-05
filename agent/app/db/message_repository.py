@@ -15,8 +15,9 @@ logger = logging.getLogger(__name__)
 class MessageRepository:
     """Async message persistence using SQLAlchemy + asyncpg.
 
-    Every created message is automatically published to Mercure
-    on the user's chat topic (app.mercure.topics) for real-time multi-device sync.
+    Every created message is published to Mercure on the user's chat topic
+    (app.mercure.topics), the streamed ones included: a second tab or the phone
+    only learns of an exchange that way. The clients recognise their own echo.
     """
 
     def __init__(self):
@@ -28,20 +29,31 @@ class MessageRepository:
             await conn.run_sync(AgentBase.metadata.create_all)
 
     async def create(
-        self, user_id: str, role: str, content: str, context_id: str | None = None, *, publish: bool = True
+        self,
+        user_id: str,
+        role: str,
+        content: str,
+        context_id: str | None = None,
+        *,
+        message_id: str | None = None,
     ) -> Message:
+        """Store a message and publish it on the user's chat topic.
+
+        `message_id` lets a streamed answer be stored under the id its stream announced: the
+        device that streamed it then recognises the Mercure echo of the same message.
+        """
         async with agent_session() as session:
             msg = Message(user_id=user_id, role=role, content=content, context_id=context_id)
+            if message_id:
+                msg.id = message_id
             session.add(msg)
             await session.commit()
             await session.refresh(msg)
 
-        # Auto-publish to Mercure (skip for streaming flow where client already has the message)
-        if publish:
-            try:
-                await self.publisher.publish(topics.for_user(topics.CHAT, user_id), msg.to_dict())
-            except Exception as e:
-                logger.warning(f"Failed to publish message to Mercure: {e}")
+        try:
+            await self.publisher.publish(topics.for_user(topics.CHAT, user_id), msg.to_dict())
+        except Exception as e:
+            logger.warning(f"Failed to publish message to Mercure: {e}")
 
         return msg
 

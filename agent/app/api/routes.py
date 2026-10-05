@@ -108,7 +108,7 @@ async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_u
     """Stream a chat response using AG-UI protocol (Server-Sent Events)."""
     logger.info(f"Stream chat request from user {user_id}: {request.message[:100]}")
 
-    user_msg = await message_repo.create(user_id=user_id, role="user", content=request.message, publish=False)
+    user_msg = await message_repo.create(user_id=user_id, role="user", content=request.message)
 
     async def generate():
         async for event in streaming_gateway.chat_stream(request.message, user_id, user_msg.id):
