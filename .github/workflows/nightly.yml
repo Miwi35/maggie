@@ -9,9 +9,11 @@ name: Nightly
 # fact rather than a promise: it calls Claude, so it is slow and billed, and its
 # verdict is about judgement rather than correctness.
 #
-# A failure of the CI opens an issue (or comments on the one already open): the
-# owner is notified, and a run that stays red for a week is one issue, not seven.
-# The eval does not: a colder prompt is worth knowing about, not an alert.
+# A failure of the CI opens a Linear `Bug` labelled `nightly-failure` (or comments
+# on the one already open): GitHub issues are disabled on this repository, the
+# owner is notified through Linear, and a run that stays red for a week is one
+# ticket, not seven (MAG-151). The eval does not: a colder prompt is worth
+# knowing about, not an alert.
 #
 # On demand from the Actions tab: `what` picks the half to run, and `only` narrows
 # the eval to one scenario while iterating on a prompt (`--only <name>`).
@@ -75,25 +77,20 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      issues: write
-    env:
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
-      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-      CI_RESULT: ${{ needs.ci.result }}
     steps:
-      - name: Open or update the nightly issue
+      - uses: actions/checkout@v4
+
+      - name: Open or update the nightly ticket
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          ALERT_LABEL: nightly-failure
+          ALERT_TITLE: "Nightly : la suite de nuit a échoué"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          CI_RESULT: ${{ needs.ci.result }}
         run: |
-          gh label create nightly-failure --color B60205 --description "The nightly suite failed" 2>/dev/null || true
-
-          body="$(printf 'The nightly suite failed.\n\n- Run: %s\n- CI: %s\n' "$RUN_URL" "$CI_RESULT")"
-
-          open="$(gh issue list --label nightly-failure --state open --json number --jq '.[0].number // empty')"
-          if [ -n "$open" ]; then
-            gh issue comment "$open" --body "$body"
-          else
-            gh issue create --label nightly-failure --title "Nightly suite failed" --body "$body"
-          fi
+          ALERT_BODY="$(printf 'La suite de nuit a échoué.\n\n- Run : %s\n- CI : %s\n' "$RUN_URL" "$CI_RESULT")"
+          export ALERT_BODY
+          bash infra/scripts/alert-ticket.sh
 
   # The prompt-lab scenarios on the real model, in parallel with the CI: another
   # runner, another stack. Nothing depends on it. The `only` input goes through
