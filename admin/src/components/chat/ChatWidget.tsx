@@ -480,7 +480,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                 },
               ]
             })
-            if (!open || sidebarTab !== 'chat') {
+            if (data.role !== 'user' && (!open || sidebarTab !== 'chat')) {
               onUnread()
             }
           }

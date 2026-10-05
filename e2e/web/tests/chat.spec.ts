@@ -694,6 +694,7 @@ test('an exchange streamed in one window shows up in the other, once, without a 
   await expect(actorChat.bubbles(GREETING.answer)).toHaveCount(1)
 
   // A window to prove an absence: a late echo is a second copy.
+  // eslint-disable-next-line playwright/no-wait-for-timeout
   await observer.waitForTimeout(1_000)
   await expect(observerChat.bubbles(GREETING.answer)).toHaveCount(1)
   await expect(actorChat.bubbles(GREETING.answer)).toHaveCount(1)
