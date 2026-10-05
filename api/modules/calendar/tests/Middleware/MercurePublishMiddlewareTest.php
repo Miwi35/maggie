@@ -406,8 +406,7 @@ class MercurePublishMiddlewareTest extends TestCase
         $meal->setSlot(MealSlot::Lunch);
         $meal->setSummary('Déjeuner');
         $meal->setAgenda($agenda);
-        $meal->setStartAt(new \DateTimeImmutable('2026-03-20T00:00:00+01:00'));
-        $meal->setEndAt(new \DateTimeImmutable('2026-03-20T23:59:59+01:00'));
+        $meal->setDate(new \DateTimeImmutable('2026-03-20'));
 
         $envelope = $this->received(new CreateMealCommand(date: '2026-03-20', slot: 'lunch'));
         $this->createMiddleware()->handle($envelope, $this->createPassthroughStack($meal));
@@ -464,8 +463,7 @@ class MercurePublishMiddlewareTest extends TestCase
         $meal->setSlot(MealSlot::Dinner);
         $meal->setSummary('Dîner');
         $meal->setAgenda($agenda);
-        $meal->setStartAt(new \DateTimeImmutable('2026-03-20T00:00:00+01:00'));
-        $meal->setEndAt(new \DateTimeImmutable('2026-03-20T23:59:59+01:00'));
+        $meal->setDate(new \DateTimeImmutable('2026-03-20'));
 
         $envelope = $this->received(new CreateMealCommand(date: '2026-03-20', slot: 'dinner'));
         $this->createMiddleware()->handle($envelope, $this->createPassthroughStack($meal));

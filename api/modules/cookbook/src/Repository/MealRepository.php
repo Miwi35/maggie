@@ -22,6 +22,9 @@ class MealRepository extends ServiceEntityRepository
 
     /** Meals belong to an agenda, which belongs to a user.
      *
+     * The range is a range of days, inclusive on both ends: a meal is a day
+     * (MAG-251), so there is no instant to be off by an offset here.
+     *
      * @return Meal[]
      */
     public function findByDateRangeForUser(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): array
@@ -29,12 +32,12 @@ class MealRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('m')
             ->join('m.agenda', 'a')
             ->where('a.user = :user')
-            ->andWhere('m.startAt >= :from')
-            ->andWhere('m.startAt <= :to')
+            ->andWhere('m.date >= :from')
+            ->andWhere('m.date <= :to')
             ->setParameter('user', $user->getId(), 'ulid')
-            ->setParameter('from', $from)
-            ->setParameter('to', $to)
-            ->orderBy('m.startAt', 'ASC')
+            ->setParameter('from', $from, Types::DATE_IMMUTABLE)
+            ->setParameter('to', $to, Types::DATE_IMMUTABLE)
+            ->orderBy('m.date', 'ASC')
             ->addOrderBy('m.slot', 'ASC')
             ->getQuery()
             ->getResult();
@@ -47,7 +50,7 @@ class MealRepository extends ServiceEntityRepository
      */
     public function findUpcomingByRecipe(Recipe $recipe): array
     {
-        return $this->byRecipe($recipe)->andWhere('m.startAt >= :today')->getQuery()->getResult();
+        return $this->byRecipe($recipe)->andWhere('m.date >= :today')->getQuery()->getResult();
     }
 
     /**
@@ -58,19 +61,21 @@ class MealRepository extends ServiceEntityRepository
      */
     public function findPastByRecipe(Recipe $recipe): array
     {
-        return $this->byRecipe($recipe)->andWhere('m.startAt < :today')->getQuery()->getResult();
+        return $this->byRecipe($recipe)->andWhere('m.date < :today')->getQuery()->getResult();
     }
 
     private function byRecipe(Recipe $recipe): QueryBuilder
     {
-        // Typed: `startAt` is a timestamptz, and an untyped immutable date is
-        // bound without its offset — midnight in Paris would read as 02:00 and
-        // today's meals would count as past.
+        // Today where the owner lives, not where the server runs: between
+        // midnight and 02:00 in Paris, UTC is still the day before, and today's
+        // meals would count as past.
+        $today = new \DateTimeImmutable((new \DateTimeImmutable('now', new \DateTimeZone('Europe/Paris')))->format('Y-m-d'), new \DateTimeZone('UTC'));
+
         return $this->createQueryBuilder('m')
             ->join('m.recipes', 'r')
             ->where('r = :recipe')
             ->setParameter('recipe', $recipe->getId(), 'ulid')
-            ->setParameter('today', new \DateTimeImmutable('today', new \DateTimeZone('Europe/Paris')), Types::DATETIMETZ_IMMUTABLE)
-            ->orderBy('m.startAt', 'ASC');
+            ->setParameter('today', $today, Types::DATE_IMMUTABLE)
+            ->orderBy('m.date', 'ASC');
     }
 }

@@ -82,8 +82,8 @@ Maggie\Cookbook\Entity\Meal:
   recorded_meal:
     summary: Recorded meal
     slot: '<(Maggie\Cookbook\Enum\MealSlot::Dinner)>'
-    startAt: '<(new \DateTimeImmutable("2026-03-16 19:00"))>'
-    endAt: '<(new \DateTimeImmutable("2026-03-16 20:00"))>'
+    # A day and a slot, no time (MAG-251): the instants are derived from it.
+    date: '<(new \DateTimeImmutable("2026-03-16"))>'
     agenda: '@recorded_agenda'
     recipes: ['@recorded_recipe']
 

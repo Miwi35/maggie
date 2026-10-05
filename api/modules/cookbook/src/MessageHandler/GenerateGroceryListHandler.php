@@ -24,28 +24,29 @@ class GenerateGroceryListHandler
         $user = $this->userRepository->find($command->userId)
             ?? throw new \DomainException('User not found.');
 
-        $timeZone = new \DateTimeZone('Europe/Paris');
-        $from = $this->day($command->fromDate, $timeZone)->setTime(0, 0);
-        // The whole of the last day: meals are stored at midnight in Paris, so
-        // a range ending at midnight keeps or drops the last day depending on
-        // the server's own time zone.
-        $to = $this->day($command->toDate, $timeZone)->setTime(23, 59, 59);
-
-        // Returned on purpose: the Mercure and Elasticsearch middlewares read
-        // the handler's result, so this is what gets published and reindexed.
-        return $this->groceryGenerationService->generate($user, $from, $to);
+        // A range of days, both ends included: a meal is a day (MAG-251), so
+        // there is no end-of-day instant to reach for.
+        return $this->groceryGenerationService->generate(
+            $user,
+            $this->day($command->fromDate),
+            $this->day($command->toDate),
+        );
     }
 
     /**
      * Accepts what the model actually sends: a bare day, but also a full
-     * timestamp. Appending a time to the string would throw on the latter.
+     * timestamp — of which only the day is kept. Read in Paris, where the
+     * owner plans his week: a timestamp just past midnight there is still the
+     * day before in UTC.
      */
-    private function day(string $date, \DateTimeZone $timeZone): \DateTimeImmutable
+    private function day(string $date): \DateTimeImmutable
     {
         try {
-            return new \DateTimeImmutable($date, $timeZone);
+            $read = new \DateTimeImmutable($date, new \DateTimeZone('Europe/Paris'));
         } catch (\Exception $e) {
             throw new \DomainException("Not a date: {$date}. Use YYYY-MM-DD.", 0, $e);
         }
+
+        return new \DateTimeImmutable($read->format('Y-m-d'), new \DateTimeZone('UTC'));
     }
 }

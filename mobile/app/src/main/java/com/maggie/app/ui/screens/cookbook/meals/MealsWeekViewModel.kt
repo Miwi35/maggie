@@ -8,10 +8,7 @@ import com.maggie.app.data.repository.MealRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.time.temporal.WeekFields
 import java.util.Locale
 
@@ -46,16 +43,20 @@ class MealsWeekViewModel(
     fun refresh() {
         viewModelScope.launch {
             val weekStart = _uiState.value.weekStart
-            val weekEnd = weekStart.plusDays(7)
+            val weekEnd = weekStart.plusDays(6)
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
+                // Days, both ends included. A meal is a day and a slot
+                // (MAG-251): there is no instant to convert, so there is no
+                // offset to get wrong — which is what put meals on the day
+                // before.
                 val meals = mealRepository.getMeals(
-                    startAfter = weekStart.atStartOfDay(ZoneId.systemDefault()).toInstant().toString(),
-                    startBefore = weekEnd.atStartOfDay(ZoneId.systemDefault()).toInstant().toString(),
+                    fromDay = weekStart.toString(),
+                    toDay = weekEnd.toString(),
                 ).getOrThrow()
 
                 val grouped = meals.groupBy { meal ->
-                    Instant.parse(meal.startAt).atZone(ZoneId.systemDefault()).toLocalDate()
+                    LocalDate.parse(meal.date)
                 }.mapValues { (_, dayMeals) ->
                     dayMeals.groupBy { it.slot }
                 }

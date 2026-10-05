@@ -55,16 +55,12 @@ Maggie\Cookbook\Entity\Meal:
   other_meal:
     summary: 'Dîner : Tarte de l''autre'
     slot: '<(Maggie\Cookbook\Enum\MealSlot::Dinner)>'
-    allDay: true
-    startAt: '<(new \DateTimeImmutable("2030-01-15 00:00:00", new \DateTimeZone("Europe/Paris")))>'
-    endAt: '<(new \DateTimeImmutable("2030-01-15 23:59:59", new \DateTimeZone("Europe/Paris")))>'
+    date: '<(new \DateTimeImmutable("2030-01-15"))>'
     agenda: '@other_repas_agenda'
     recipes: ['@other_recipe']
   own_meal:
     summary: 'Déjeuner : Ma tarte'
     slot: '<(Maggie\Cookbook\Enum\MealSlot::Lunch)>'
-    allDay: true
-    startAt: '<(new \DateTimeImmutable("2030-01-15 00:00:00", new \DateTimeZone("Europe/Paris")))>'
-    endAt: '<(new \DateTimeImmutable("2030-01-15 23:59:59", new \DateTimeZone("Europe/Paris")))>'
+    date: '<(new \DateTimeImmutable("2030-01-15"))>'
     agenda: '@own_agenda'
     recipes: ['@own_recipe']

@@ -3793,6 +3793,71 @@
                         "explode": false
                     },
                     {
+                        "name": "date[before]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "date[strictly_before]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "date[after]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "date[strictly_after]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "order[date]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "asc",
+                            "enum": [
+                                "asc",
+                                "desc"
+                            ]
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
                         "name": "startAt[before]",
                         "in": "query",
                         "description": "",
@@ -3836,23 +3901,6 @@
                         "deprecated": false,
                         "schema": {
                             "type": "string"
-                        },
-                        "style": "form",
-                        "explode": false
-                    },
-                    {
-                        "name": "order[startAt]",
-                        "in": "query",
-                        "description": "",
-                        "required": false,
-                        "deprecated": false,
-                        "schema": {
-                            "type": "string",
-                            "default": "asc",
-                            "enum": [
-                                "asc",
-                                "desc"
-                            ]
                         },
                         "style": "form",
                         "explode": false
@@ -3919,6 +3967,23 @@
                     },
                     {
                         "name": "order[id]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "asc",
+                            "enum": [
+                                "asc",
+                                "desc"
+                            ]
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "order[startAt]",
                         "in": "query",
                         "description": "",
                         "required": false,
@@ -11372,7 +11437,20 @@
             },
             "Meal": {
                 "type": "object",
+                "required": [
+                    "date",
+                    "summary",
+                    "startAt",
+                    "endAt",
+                    "agenda"
+                ],
                 "properties": {
+                    "date": {
+                        "description": "The day the meal is eaten, YYYY-MM-DD. A meal has no time.",
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-10-07"
+                    },
                     "slot": {
                         "type": "string",
                         "enum": [
@@ -11387,6 +11465,9 @@
                             "format": "iri-reference",
                             "example": "https://example.com/"
                         }
+                    },
+                    "timeZone": {
+                        "type": "string"
                     },
                     "id": {
                         "readOnly": true,
@@ -11418,9 +11499,6 @@
                     "endAt": {
                         "type": "string",
                         "format": "date-time"
-                    },
-                    "timeZone": {
-                        "type": "string"
                     },
                     "rrule": {
                         "type": [
@@ -11499,17 +11577,24 @@
                     "googleSynced": {
                         "readOnly": true
                     }
-                },
-                "required": [
-                    "summary",
-                    "startAt",
-                    "endAt",
-                    "agenda"
-                ]
+                }
             },
             "Meal.html": {
                 "type": "object",
+                "required": [
+                    "date",
+                    "summary",
+                    "startAt",
+                    "endAt",
+                    "agenda"
+                ],
                 "properties": {
+                    "date": {
+                        "description": "The day the meal is eaten, YYYY-MM-DD. A meal has no time.",
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-10-07"
+                    },
                     "slot": {
                         "type": "string",
                         "enum": [
@@ -11524,6 +11609,9 @@
                             "format": "iri-reference",
                             "example": "https://example.com/"
                         }
+                    },
+                    "timeZone": {
+                        "type": "string"
                     },
                     "id": {
                         "readOnly": true,
@@ -11555,9 +11643,6 @@
                     "endAt": {
                         "type": "string",
                         "format": "date-time"
-                    },
-                    "timeZone": {
-                        "type": "string"
                     },
                     "rrule": {
                         "type": [
@@ -11636,17 +11721,17 @@
                     "googleSynced": {
                         "readOnly": true
                     }
-                },
-                "required": [
-                    "summary",
-                    "startAt",
-                    "endAt",
-                    "agenda"
-                ]
+                }
             },
             "Meal.jsonMergePatch": {
                 "type": "object",
                 "properties": {
+                    "date": {
+                        "description": "The day the meal is eaten, YYYY-MM-DD. A meal has no time.",
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-10-07"
+                    },
                     "slot": {
                         "type": "string",
                         "enum": [
@@ -11661,6 +11746,9 @@
                             "format": "iri-reference",
                             "example": "https://example.com/"
                         }
+                    },
+                    "timeZone": {
+                        "type": "string"
                     },
                     "id": {
                         "readOnly": true,
@@ -11692,9 +11780,6 @@
                     "endAt": {
                         "type": "string",
                         "format": "date-time"
-                    },
-                    "timeZone": {
-                        "type": "string"
                     },
                     "rrule": {
                         "type": [
@@ -11782,7 +11867,20 @@
                     },
                     {
                         "type": "object",
+                        "required": [
+                            "date",
+                            "summary",
+                            "startAt",
+                            "endAt",
+                            "agenda"
+                        ],
                         "properties": {
+                            "date": {
+                                "description": "The day the meal is eaten, YYYY-MM-DD. A meal has no time.",
+                                "type": "string",
+                                "format": "date",
+                                "example": "2026-10-07"
+                            },
                             "slot": {
                                 "type": "string",
                                 "enum": [
@@ -11797,6 +11895,9 @@
                                     "format": "iri-reference",
                                     "example": "https://example.com/"
                                 }
+                            },
+                            "timeZone": {
+                                "type": "string"
                             },
                             "id": {
                                 "readOnly": true,
@@ -11828,9 +11929,6 @@
                             "endAt": {
                                 "type": "string",
                                 "format": "date-time"
-                            },
-                            "timeZone": {
-                                "type": "string"
                             },
                             "rrule": {
                                 "type": [
@@ -11909,13 +12007,7 @@
                             "googleSynced": {
                                 "readOnly": true
                             }
-                        },
-                        "required": [
-                            "summary",
-                            "startAt",
-                            "endAt",
-                            "agenda"
-                        ]
+                        }
                     }
                 ]
             },

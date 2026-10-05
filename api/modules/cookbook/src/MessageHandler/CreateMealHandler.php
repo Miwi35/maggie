@@ -60,16 +60,12 @@ class CreateMealHandler
             }
         }
 
-        $date = new \DateTimeImmutable($command->date, new \DateTimeZone('Europe/Paris'));
-        $startAt = $date->setTime(0, 0);
-        $endAt = $date->setTime(23, 59, 59);
-
         $meal = new Meal();
         $meal->setSlot($slot);
         $meal->setAgenda($agenda);
-        $meal->setAllDay(true);
-        $meal->setStartAt($startAt);
-        $meal->setEndAt($endAt);
+        // The day is the meal's reference; setDate derives the instants the
+        // agenda shows it on (MAG-251).
+        $meal->setDate(Meal::dayFromString($command->date));
 
         // Add recipes and build summary
         $recipeNames = [];

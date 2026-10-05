@@ -1050,7 +1050,7 @@
                 "action"
             ]
         },
-        "description": "List, plan, update, or delete meals. Dates are YYYY-MM-DD, slot is lunch or dinner, and recipeIds is a comma-separated list. List needs fromDate and toDate."
+        "description": "List, plan, update, or delete meals. A meal is a day and a slot, never a time: date, fromDate and toDate are YYYY-MM-DD with no hour, slot is lunch or dinner, and recipeIds is a comma-separated list. List needs fromDate and toDate."
     },
     "manage_notifications": {
         "name": "manage_notifications",

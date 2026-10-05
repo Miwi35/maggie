@@ -3,6 +3,7 @@ import { useDataProvider, useNotify } from 'react-admin'
 import { useSearchParams } from 'react-router-dom'
 import { useTheme } from '@mui/material/styles'
 import Box from '@mui/material/Box'
+import { localDay } from '../../dates'
 import { useMercure } from '../../hooks/useMercure'
 import Button from '@mui/material/Button'
 import ButtonGroup from '@mui/material/ButtonGroup'
@@ -137,7 +138,8 @@ interface CalendarTask {
 
 interface CalendarMeal {
   id: string
-  startAt: string
+  /** The day, `YYYY-MM-DD`. A meal has no time (MAG-251). */
+  date: string
   slot: string
   summary: string
   recipes: { id: string; name: string }[]
@@ -661,11 +663,13 @@ export const CalendarView = () => {
         filter: { 'dueDate[after]': start, 'dueDate[before]': end },
       })
 
-      // Fetch meals in visible range
+      // Fetch meals in visible range. By day, not by instant: a meal is a day
+      // and a slot, and `date` is a day-typed field — an instant would not even
+      // parse against it (MAG-251).
       const rangeMeals = dataProvider.getList('meals', {
         pagination: { page: 1, perPage: 200 },
-        sort: { field: 'startAt', order: 'ASC' },
-        filter: { 'startAt[after]': start, 'startAt[before]': end },
+        sort: { field: 'date', order: 'ASC' },
+        filter: { 'date[after]': localDay(new Date(start)), 'date[before]': localDay(new Date(end)) },
       })
 
       Promise.all([rangeEvents, recurringEvents, overlappingEvents, rangeTasks, rangeMeals])
@@ -858,7 +862,9 @@ export const CalendarView = () => {
       return {
         id: `meal-${m.id}`,
         title: mealTitle(m),
-        start: m.startAt,
+        // A plain day: FullCalendar places it on that day, with no offset to
+        // get wrong (MAG-251).
+        start: m.date,
         allDay: true,
         calendarId: '__meals__',
         backgroundColor: MEAL_COLOR,
@@ -1379,8 +1385,8 @@ export const CalendarView = () => {
             setPopoverEvent({
               id: `meal-${meal.id}`,
               title: mealTitle(meal),
-              start: meal.startAt,
-              end: meal.startAt,
+              start: meal.date,
+              end: meal.date,
               allDay: true,
               color: MEAL_COLOR,
               calendarName: '',

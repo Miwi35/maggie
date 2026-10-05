@@ -82,10 +82,12 @@ final class QueryParameterContractTest extends WebTestCase
             'order[criticality]' => 'admin Dashboard',
             'order[id]' => 'admin raw-data list (react-admin sorts by id when a list names no sort)',
         ],
+        // A meal is a day and a slot (MAG-251): the week is a range of days,
+        // never of instants.
         '/api/meals' => [
-            'startAt[after]' => 'admin MealsWeekView and CalendarView, mobile getMeals',
-            'startAt[before]' => 'admin MealsWeekView and CalendarView, mobile getMeals',
-            'order[startAt]' => 'admin MealsWeekView and CalendarView',
+            'date[after]' => 'admin MealsWeekView and CalendarView, mobile getMeals',
+            'date[before]' => 'admin MealsWeekView and CalendarView, mobile getMeals',
+            'order[date]' => 'admin MealsWeekView and CalendarView',
         ],
         '/api/notifications' => [
             'exists[readAt]' => 'admin NotificationBell, mobile getNotifications',

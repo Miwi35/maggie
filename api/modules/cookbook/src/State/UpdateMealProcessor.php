@@ -22,10 +22,11 @@ class UpdateMealProcessor implements ProcessorInterface
     public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): Meal
     {
         $recipeIds = $data->getRecipes()->map(fn ($r) => (string) $r->getId())->toArray();
+        $date = $data->getDate() ?? throw new \LogicException('A validated meal always has a day.');
 
         $envelope = $this->bus->dispatch(new UpdateMealCommand(
             mealId: (string) $data->getId(),
-            date: $data->getStartAt()->format('Y-m-d'),
+            date: $date->format('Y-m-d'),
             slot: $data->getSlot()->value,
             recipeIds: $recipeIds,
         ));

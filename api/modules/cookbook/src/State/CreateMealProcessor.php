@@ -27,8 +27,12 @@ class CreateMealProcessor implements ProcessorInterface
         $user = $this->security->getUser();
         $recipeIds = $data->getRecipes()->map(fn ($r) => (string) $r->getId())->toArray();
 
+        // Validation has already refused a meal without a day (Assert\NotNull
+        // on Meal::$date); the throw is the type system's, not a second check.
+        $date = $data->getDate() ?? throw new \LogicException('A validated meal always has a day.');
+
         $envelope = $this->bus->dispatch(new CreateMealCommand(
-            date: $data->getStartAt()->format('Y-m-d'),
+            date: $date->format('Y-m-d'),
             slot: $data->getSlot()->value,
             recipeIds: $recipeIds,
             agendaId: (string) $data->getAgenda()->getId(),

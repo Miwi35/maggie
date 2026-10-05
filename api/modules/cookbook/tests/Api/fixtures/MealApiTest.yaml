@@ -1,0 +1,18 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: meal-api@example.com
+    googleId: google-meal-api
+    name: Meal Api User
+
+Maggie\Calendar\Entity\Agenda:
+  test_agenda:
+    name: Repas
+    color: '#FF6B35'
+    isDefault: true
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\Recipe:
+  pasta:
+    name: Pâtes à la tomate
+    servings: 4
+    user: '@test_user'

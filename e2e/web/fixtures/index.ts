@@ -7,7 +7,7 @@ import { pinClock } from './clock.js'
 export { expect }
 export { SEED_USER_EMAIL, OTHER_USER_EMAIL } from './session.js'
 export type { Session, SeededUser } from './session.js'
-export { e2eNow, parisTime } from './clock.js'
+export { e2eNow, parisDay, parisTime } from './clock.js'
 export { seedId, seedAnchorDate, seedDate, seedManifest } from './manifest.js'
 
 /**
