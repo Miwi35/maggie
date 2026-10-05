@@ -303,14 +303,15 @@ class StreamingGateway:
         if text_started:
             yield {"type": "TEXT_MESSAGE_END", "messageId": msg_id}
 
-        # Persist the assistant message (no Mercure publish — client already has it from SSE)
+        # Persisted under the id the stream announced, and published like any message: the
+        # device that streamed it recognises the echo by that id, the others learn of it.
         if answer:
             await message_repo.create(
                 user_id=user_id,
                 role="assistant",
                 content=answer,
                 context_id=current_context_id,
-                publish=False,
+                message_id=msg_id,
             )
 
             # Both sides of the exchange are now in the database, so this is the one

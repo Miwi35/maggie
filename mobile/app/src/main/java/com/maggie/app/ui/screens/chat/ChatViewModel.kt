@@ -75,6 +75,7 @@ class ChatViewModel(
     companion object {
         private const val PAGE_SIZE = 20
         private const val TAG = "ChatViewModel"
+        private const val PENDING_PREFIX = "pending_"
     }
 
     init {
@@ -167,7 +168,7 @@ class ChatViewModel(
         viewModelScope.launch {
             // Add optimistic user message
             val userMessage = ChatMessage(
-                id = "pending_${System.currentTimeMillis()}",
+                id = "$PENDING_PREFIX${System.currentTimeMillis()}",
                 role = "user",
                 content = text,
                 createdAt = java.time.Instant.now().toString(),
@@ -252,8 +253,11 @@ class ChatViewModel(
                 )
                 // Persist to Room
                 repository.persistMessage(assistantMessage)
+                // The agent stores the answer under the id it streamed it with, so its
+                // Mercure echo — which can land before this point — is the same message.
+                val alreadyThere = _uiState.value.messages.any { it.id == messageId }
                 _uiState.value = _uiState.value.copy(
-                    messages = _uiState.value.messages + assistantMessage,
+                    messages = if (alreadyThere) _uiState.value.messages else _uiState.value.messages + assistantMessage,
                     streamingText = "",
                     streamingMessageId = null,
                 )
@@ -504,8 +508,19 @@ class ChatViewModel(
                         // Append to in-memory list if not already present
                         val current = _uiState.value.messages
                         if (current.none { it.id == message.id }) {
+                            // The question this device just sent comes back with its stored id:
+                            // it is that bubble, not a new one.
+                            val pendingIndex = if (message.role == "user") {
+                                current.indexOfFirst { it.id.startsWith(PENDING_PREFIX) && it.content == message.content }
+                            } else {
+                                -1
+                            }
                             _uiState.value = _uiState.value.copy(
-                                messages = current + message,
+                                messages = if (pendingIndex >= 0) {
+                                    current.mapIndexed { i, m -> if (i == pendingIndex) m.copy(id = message.id) else m }
+                                } else {
+                                    current + message
+                                },
                             )
                             rebuildDisplayItems()
                         }

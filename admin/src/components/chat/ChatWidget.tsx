@@ -187,20 +187,26 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
         streamingTextRef.current += delta
         setStreamingText((prev) => prev + delta)
       },
-      onTextEnd: () => {
+      onTextEnd: (messageId) => {
         // Finalize: move streaming text into messages array
         // Read from ref to avoid impure side effects in state updaters (breaks in StrictMode)
         const finalText = streamingTextRef.current
         if (finalText.trim()) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `stream-${Date.now()}`,
-              role: 'assistant',
-              content: finalText,
-              createdAt: new Date().toISOString(),
-            },
-          ])
+          // The agent stores the answer under the id it streamed it with, so the
+          // Mercure echo — which may land before this point — is the same message.
+          setMessages((prev) =>
+            prev.some((m) => m.id === messageId)
+              ? prev
+              : [
+                  ...prev,
+                  {
+                    id: messageId,
+                    role: 'assistant',
+                    content: finalText,
+                    createdAt: new Date().toISOString(),
+                  },
+                ],
+          )
         }
         streamingTextRef.current = ''
         setStreamingText('')
@@ -453,14 +459,12 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
             setMessages((prev) => {
               // Dedup: skip if already in list by real ID
               if (prev.some((m) => m.id === data.id)) return prev
-              // Find a temp message matching this Mercure echo (stream-* for assistant, tmp-* for user)
-              const tempPrefix = data.role === 'assistant' ? 'stream-' : 'tmp-'
-              const tempIdx = prev.findIndex(
-                (m) =>
-                  m.id.startsWith(tempPrefix) &&
-                  m.role === data.role &&
-                  m.content.trim() === data.content.trim(),
-              )
+              // An answer streamed here carries its stored id already; only the question
+              // this tab sent holds a temp id (tmp-*) until its echo gives it the real one.
+              const tempIdx =
+                data.role === 'user'
+                  ? prev.findIndex((m) => m.id.startsWith('tmp-') && m.role === 'user' && m.content.trim() === data.content.trim())
+                  : -1
               if (tempIdx !== -1) {
                 // Replace the temp id with the real persisted id
                 return prev.map((m, i) => (i === tempIdx ? { ...m, id: data.id } : m))

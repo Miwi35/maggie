@@ -24,11 +24,12 @@ vi.mock('../../hooks/useTranscription', () => ({
 }))
 
 const mockSend = vi.fn()
+const stream = vi.hoisted(() => ({ callbacks: {} as Record<string, (...args: string[]) => void> }))
 vi.mock('../../hooks/useAgUiStream', () => ({
-  useAgUiStream: () => ({
-    send: mockSend,
-    isStreaming: false,
-  }),
+  useAgUiStream: (callbacks: Record<string, (...args: string[]) => void>) => {
+    stream.callbacks = callbacks
+    return { send: mockSend, isStreaming: false }
+  },
 }))
 
 // Mock EventSource globally before any render
@@ -197,6 +198,83 @@ describe('ChatWidget', () => {
         expect(screen.getAllByText(message.content)).toHaveLength(1)
       })
       expect(defaultProps.onUnread).not.toHaveBeenCalled()
+    })
+  })
+
+  // A streamed exchange is published too, so a second tab or the phone sees it
+  // (MAG-109). The tab that streamed it gets the echo back, in either order
+  // relative to the end of its own stream, and must show it once.
+  describe('the echo of an exchange this tab streamed', () => {
+    function chatSource(): MockEventSource {
+      const source = MockEventSource.instances.find(
+        (es) => new URL(es.url, 'http://localhost').searchParams.get('match') === '/chat/user-1',
+      )
+      if (!source) throw new Error('the panel is not subscribed to /chat/user-1')
+      return source
+    }
+
+    function publish(payload: Record<string, unknown>) {
+      act(() => {
+        chatSource().onmessage?.({ data: JSON.stringify(payload) } as MessageEvent)
+      })
+    }
+
+    function streamAnswer(messageId: string, text: string) {
+      act(() => {
+        stream.callbacks.onTextStart(messageId)
+        stream.callbacks.onTextDelta(messageId, text)
+        stream.callbacks.onTextEnd(messageId)
+      })
+    }
+
+    const answer = { id: 'm-42', role: 'assistant', content: 'Bonne idée.', createdAt: '2026-10-05T10:00:00Z' }
+
+    beforeEach(() => {
+      localStorage.setItem('user', JSON.stringify({ id: 'user-1' }))
+      vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
+    })
+
+    afterEach(() => {
+      localStorage.removeItem('user')
+    })
+
+    test('is shown once when it arrives after the stream ended', async () => {
+      render(<ChatWidget {...defaultProps} />)
+
+      streamAnswer(answer.id, answer.content)
+      publish(answer)
+
+      await waitFor(() => expect(screen.getAllByText(answer.content)).toHaveLength(1))
+    })
+
+    test('is shown once when it arrives before the stream ended', async () => {
+      render(<ChatWidget {...defaultProps} />)
+
+      publish(answer)
+      streamAnswer(answer.id, answer.content)
+
+      await waitFor(() => expect(screen.getAllByText(answer.content)).toHaveLength(1))
+    })
+
+    test('does not hide a later answer that happens to read the same', async () => {
+      render(<ChatWidget {...defaultProps} />)
+
+      publish(answer)
+      streamAnswer('m-43', answer.content)
+
+      await waitFor(() => expect(screen.getAllByText(answer.content)).toHaveLength(2))
+    })
+
+    test('keeps the question this tab sent once, under the id the agent stored it with', async () => {
+      render(<ChatWidget {...defaultProps} />)
+      const user = userEvent.setup()
+
+      await user.type(screen.getByPlaceholderText('Demande à Maggie...'), 'Bonjour Maggie')
+      await user.click(screen.getByRole('button', { name: 'Envoyer' }))
+      publish({ id: 'u-1', role: 'user', content: 'Bonjour Maggie', createdAt: '2026-10-05T10:00:00Z' })
+      publish({ id: 'u-1', role: 'user', content: 'Bonjour Maggie', createdAt: '2026-10-05T10:00:00Z' })
+
+      await waitFor(() => expect(screen.getAllByText('Bonjour Maggie')).toHaveLength(1))
     })
   })
 

@@ -97,6 +97,12 @@ const PROACTION_RECALL = {
   message: 'Tu organises ta semaine avec moi — je te relance là-dessus.',
 }
 
+/** 82-greeting.yaml — the exchange one window sends and the other must see. */
+const GREETING = {
+  question: 'Bonjour Maggie',
+  answer: "Bonjour ! Je suis là, dis-moi ce qu'il te faut.",
+}
+
 /** 60-behavior-preference.yaml + 61-behavior-applied.yaml — a preference about how she answers. */
 const BEHAVIOR = {
   request: 'Tutoie-moi et évite les emojis',
@@ -291,8 +297,8 @@ test('a proaction reaches an open chat without anyone reloading', async ({ page,
   await chat.open()
 
   // `POST /agent/proaction` is what the scheduler calls: the answer is
-  // persisted *and published* — unlike the streamed path, where the client
-  // already holds it. That publication is the only thing under test here,
+  // persisted *and published*, with no stream of its own for the client to
+  // have read it from. That publication is the only thing under test here,
   // which is why the scenario calls no tool. What the proaction knows of the
   // conversation, and the thread it lands in, is the last test in this file.
   await expectRealtimeSync(
@@ -654,4 +660,41 @@ test('a run whose first tool call fails answers with its last step alone', async
     (event) => event.summary === RETRY.title,
     { what: `The ${RETRY.title} concert Maggie booked on her second try` },
   )
+})
+
+// A streamed exchange used to be published to nobody — the window that streamed
+// it already held it — so a second window, or the phone, only saw it after a
+// reload (MAG-109). Last in the file because it adds an exchange to the thread,
+// which the counts above would otherwise have to know about.
+test('an exchange streamed in one window shows up in the other, once, without a reload', async ({
+  twoWindows,
+  session,
+}) => {
+  const { actor, observer } = twoWindows
+  const actorChat = new ChatPanel(actor)
+  const observerChat = new ChatPanel(observer)
+
+  await new DashboardPage(actor).open()
+  await openSubscribed(observer, () => new DashboardPage(observer).open(), `/chat/${session.user.id}`)
+  await observerChat.open()
+
+  await expectRealtimeSync(
+    observer,
+    async () => {
+      await actorChat.send(GREETING.question)
+    },
+    async () => {
+      await expect(observerChat.bubbles(GREETING.question)).toHaveCount(1)
+      await expect(observerChat.bubbles(GREETING.answer)).toHaveCount(1)
+    },
+  )
+
+  // And once on the window that streamed it: it receives its own echo too.
+  await expect(actorChat.bubbles(GREETING.question)).toHaveCount(1)
+  await expect(actorChat.bubbles(GREETING.answer)).toHaveCount(1)
+
+  // A window to prove an absence: a late echo is a second copy.
+  await observer.waitForTimeout(1_000)
+  await expect(observerChat.bubbles(GREETING.answer)).toHaveCount(1)
+  await expect(actorChat.bubbles(GREETING.answer)).toHaveCount(1)
 })

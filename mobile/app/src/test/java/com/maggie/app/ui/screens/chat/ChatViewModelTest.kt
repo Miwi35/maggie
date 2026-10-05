@@ -28,6 +28,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.yield
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -578,5 +579,74 @@ class ChatViewModelTest {
             assertEquals("active", update.status)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    // --- MAG-109: a streamed exchange is published too, so another device sees it ---
+
+    private fun echo(id: String, role: String, content: String) = MercureEvent(
+        data = """{"id":"$id","role":"$role","content":"$content","createdAt":"2026-02-15T11:00:00Z"}""",
+    )
+
+    private fun chatTopic(): MutableSharedFlow<MercureEvent> {
+        val topic = MutableSharedFlow<MercureEvent>(extraBufferCapacity = 16)
+        every { mercureService.subscribe("/chat/user-1") } returns topic
+        return topic
+    }
+
+    @Test
+    fun `the echo of the question this device sent replaces the pending one instead of doubling it`() = runTest {
+        val topic = chatTopic()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream(any()) } returns flow {
+            emit(AgUiEvent.RunStarted(runId = "run-1"))
+            topic.tryEmit(echo("u-9", "user", "Bonjour Maggie"))
+            yield()
+            emit(AgUiEvent.RunFinished(runId = "run-1"))
+        }
+        coEvery { repository.handleMercureMessage(any()) } returns Unit
+
+        viewModel.sendMessage("Bonjour Maggie")
+        advanceUntilIdle()
+
+        val said = viewModel.uiState.value.messages.filter { it.content == "Bonjour Maggie" }
+        assertEquals(listOf("u-9"), said.map { it.id })
+    }
+
+    @Test
+    fun `the echo of an answer that lands before the end of its stream is not shown twice`() = runTest {
+        val topic = chatTopic()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream(any()) } returns flow {
+            emit(AgUiEvent.RunStarted(runId = "run-1"))
+            emit(AgUiEvent.TextMessageStart(messageId = "resp-1"))
+            emit(AgUiEvent.TextMessageContent(messageId = "resp-1", delta = "Salut !"))
+            topic.tryEmit(echo("resp-1", "assistant", "Salut !"))
+            yield()
+            emit(AgUiEvent.TextMessageEnd(messageId = "resp-1"))
+            emit(AgUiEvent.RunFinished(runId = "run-1"))
+        }
+        coEvery { repository.handleMercureMessage(any()) } returns Unit
+        coEvery { repository.persistMessage(any()) } returns Unit
+
+        viewModel.sendMessage("Bonjour")
+        advanceUntilIdle()
+
+        assertEquals(1, viewModel.uiState.value.messages.count { it.content == "Salut !" })
+    }
+
+    @Test
+    fun `a message another device sent is appended once`() = runTest {
+        val topic = chatTopic()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        coEvery { repository.handleMercureMessage(any()) } returns Unit
+
+        topic.tryEmit(echo("u-7", "user", "Depuis le web"))
+        topic.tryEmit(echo("u-7", "user", "Depuis le web"))
+        advanceUntilIdle()
+
+        assertEquals(1, viewModel.uiState.value.messages.count { it.content == "Depuis le web" })
     }
 }

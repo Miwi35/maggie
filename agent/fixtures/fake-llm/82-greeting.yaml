@@ -1,0 +1,13 @@
+# A greeting, nothing more: no tool, no thread to recall.
+#
+# What the two-window chat journey sends from one window to see it land in the
+# other (MAG-109). The only thing that can make it red is the delivery of the
+# streamed exchange to a window that did not stream it.
+name: greeting
+description: Answer a greeting.
+
+match:
+  user_contains: "Bonjour Maggie"
+
+turns:
+  - text: "Bonjour ! Je suis là, dis-moi ce qu'il te faut."

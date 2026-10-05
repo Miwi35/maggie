@@ -414,3 +414,54 @@ class TestSummaryTrigger:
 
             assert gw._background == set()
             summarizer.maybe_summarize.assert_not_awaited()
+
+
+class TestStreamedExchangeReachesOtherDevices:
+    """A second tab or the phone only learns of a streamed exchange over Mercure (MAG-109)."""
+
+    async def test_the_answer_is_published_under_the_id_the_stream_announced(self, chat_db):
+        publish = AsyncMock()
+
+        with (
+            patch("app.llm.contexts.context_repo") as contexts,
+            patch("app.llm.streaming.build_history", AsyncMock(return_value=[{"role": "user", "content": "Bonjour"}])),
+            patch("app.llm.streaming.skill_index") as skills,
+            patch("app.llm.streaming.context_summarizer") as summarizer,
+            patch("app.db.message_repository.message_repo.publisher.publish", new=publish),
+        ):
+            contexts.find_active = AsyncMock(return_value=[])
+            skills.get_skills_index.return_value = ""
+            summarizer.maybe_summarize = AsyncMock(return_value=None)
+
+            gw = TestSummaryTrigger._gateway()
+            events = [event async for event in gw.chat_stream("Bonjour", "user-1", "msg-1")]
+            await asyncio.gather(*gw._background)
+
+        streamed_id = next(e["messageId"] for e in events if e["type"] == "TEXT_MESSAGE_START")
+        publish.assert_awaited_once()
+        topic, payload = publish.await_args.args
+        assert topic == "/chat/user-1"
+        assert payload["content"] == "C'est noté."
+        # The device that streamed the answer keeps the id it was given, so the echo
+        # of the same message is recognised and not shown a second time.
+        assert payload["id"] == streamed_id
+
+    def test_the_user_message_is_published_when_the_run_is_streamed(self, authed_client, chat_db):
+        publish = AsyncMock()
+
+        async def empty_run(message, user_id, user_msg_id):
+            yield {"type": "RUN_STARTED", "runId": "run-1"}
+            yield {"type": "RUN_FINISHED", "runId": "run-1"}
+
+        with (
+            patch("app.api.routes.streaming_gateway") as gateway,
+            patch("app.db.message_repository.message_repo.publisher.publish", new=publish),
+        ):
+            gateway.chat_stream = empty_run
+            response = authed_client.post("/chat/stream", json={"message": "Bonjour Maggie"})
+
+        assert response.status_code == 200
+        publish.assert_awaited_once()
+        topic, payload = publish.await_args.args
+        assert topic == "/chat/test-user"
+        assert (payload["role"], payload["content"]) == ("user", "Bonjour Maggie")
