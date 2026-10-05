@@ -359,14 +359,26 @@ def history_text(messages: list[dict] | None) -> str:
 
 
 def turn_index(messages: list[dict] | None) -> int:
-    """How many tool rounds this run has already been through.
+    """How many tool rounds *this* run has already been through.
 
-    The tool loop appends one assistant message and one batch of tool results
-    per round, and conversation history holds nothing but plain strings — so
-    counting the batches counts the rounds, without the fake keeping any state
-    of its own between requests.
+    The tool loop appends one assistant message and one batch of tool results per round,
+    so counting the batches counts the rounds — without the fake keeping any state of its
+    own between requests.
+
+    Counted from the end, and stopped at the message being answered: since MAG-211 the
+    history replays the rounds of the thread's last turns, which are batches too. Counting
+    those as well would have the fake answering with turn 3 of a scenario on the first
+    call of a run — `[fake-llm] le scénario … n'a pas de tour 3`, on a scenario that is
+    perfectly fine.
     """
-    return sum(1 for m in messages or [] if m.get("role") == "user" and isinstance(m.get("content"), list))
+    rounds = 0
+    for message in reversed(messages or []):
+        if message.get("role") != "user":
+            continue
+        if isinstance(message.get("content"), str):
+            break
+        rounds += 1
+    return rounds
 
 
 def _tokens(text: str) -> int:

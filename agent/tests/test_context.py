@@ -153,6 +153,10 @@ class TestContextRepositorySummary:
         # `instruction` — the admin's list, `list_instructions`, the daily
         # planner's `find_user_ids` — raises UndefinedColumn.
         assert "instruction ADD COLUMN IF NOT EXISTS kind VARCHAR(20) NOT NULL DEFAULT 'planning'" in statements
+        # MAG-211. Without it, every chat on an existing database raises UndefinedColumn
+        # on the first `SELECT` of a message — the column is in the model, so it is in
+        # every query the repository builds, read or write.
+        assert "agent_message ADD COLUMN IF NOT EXISTS blocks JSONB" in statements
 
 
 def _back_date(chat_db, context_id: str, **ago) -> None:

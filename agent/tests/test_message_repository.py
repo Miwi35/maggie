@@ -1,6 +1,7 @@
 """The per-context reads a summary is written from (MAG-11) and a history is built from (MAG-13)."""
 
 from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, patch
 
 from app.db.message_repository import message_repo
 from app.db.models import Message
@@ -64,6 +65,63 @@ class TestFindByContext:
         await _write(chat_db.session, "ctx-1", "user", "Mon salaire est de 3000", 30)
 
         assert await message_repo.find_by_context("ctx-1", user_id="user-2") == []
+
+
+class TestTheToolBlocksOfATurn:
+    """The rounds a turn stores, and what a client is shown of them (MAG-211)."""
+
+    @staticmethod
+    def _blocks() -> list[dict]:
+        return [
+            {
+                "role": "assistant",
+                "content": [{"type": "tool_use", "id": "toolu_1", "name": "get_grocery_list", "input": {}}],
+            },
+            {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_1", "content": "{}"}]},
+        ]
+
+    async def test_they_are_stored_and_read_back(self, chat_db):
+        blocks = self._blocks()
+        await message_repo.create(user_id="user-1", role="assistant", content="La voilà.", blocks=blocks)
+
+        [stored] = await message_repo.find_recent("user-1")
+
+        assert stored.blocks == blocks
+
+    async def test_a_turn_that_called_nothing_has_none(self, chat_db):
+        """`None` says « no round », which is not the same thing as a round that is empty."""
+        await message_repo.create(user_id="user-1", role="assistant", content="Bonjour.", blocks=[])
+
+        [stored] = await message_repo.find_recent("user-1")
+
+        assert stored.blocks is None
+
+    async def test_a_message_written_without_them_still_works(self, chat_db):
+        """Every row of an existing database, and every user message."""
+        await message_repo.create(user_id="user-1", role="user", content="Ma liste ?")
+
+        [stored] = await message_repo.find_recent("user-1")
+
+        assert stored.blocks is None
+
+    async def test_what_a_client_is_shown_does_not_change(self, chat_db):
+        """`GET /agent/messages`, the Mind panel and the phone read a message as its text."""
+        message = await message_repo.create(
+            user_id="user-1", role="assistant", content="La voilà.", blocks=self._blocks()
+        )
+
+        assert set(message.to_dict()) == {"id", "role", "content", "contextId", "createdAt"}
+
+    async def test_the_published_payload_does_not_change_either(self, chat_db):
+        """A phone parsing the Mercure echo must not meet a field it has never seen."""
+        publish = AsyncMock()
+        with patch("app.db.message_repository.message_repo.publisher.publish", new=publish):
+            await message_repo.create(
+                user_id="user-1", role="assistant", content="La voilà.", blocks=self._blocks()
+            )
+
+        _topic, payload = publish.await_args.args
+        assert "blocks" not in payload
 
 
 class TestCountByContext:

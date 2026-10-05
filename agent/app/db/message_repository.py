@@ -36,14 +36,27 @@ class MessageRepository:
         context_id: str | None = None,
         *,
         message_id: str | None = None,
+        blocks: list[dict] | None = None,
     ) -> Message:
         """Store a message and publish it on the user's chat topic.
 
         `message_id` lets a streamed answer be stored under the id its stream announced: the
         device that streamed it then recognises the Mercure echo of the same message.
+
+        `blocks` is what the turn did before it answered — its `tool_use` / `tool_result`
+        rounds (MAG-211). Stored for the next model call only: the published payload is
+        `to_dict()`, which does not carry them, so no client sees a thing change.
         """
         async with agent_session() as session:
-            msg = Message(user_id=user_id, role=role, content=content, context_id=context_id)
+            msg = Message(
+                user_id=user_id,
+                role=role,
+                content=content,
+                context_id=context_id,
+                # `None` rather than `[]` for a turn that called nothing: the column then
+                # says « no round », not « a round that is empty ».
+                blocks=blocks or None,
+            )
             if message_id:
                 msg.id = message_id
             session.add(msg)

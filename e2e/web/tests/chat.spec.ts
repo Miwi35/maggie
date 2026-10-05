@@ -139,6 +139,14 @@ const GREETING = {
   answer: "Bonjour ! Je suis là, dis-moi ce qu'il te faut.",
 }
 
+/** 45-grocery-list.yaml + 73-tool-result-replay.yaml — reading a result Maggie fetched last turn. */
+const TOOL_REPLAY = {
+  read: "Qu'est-ce qu'il me faut acheter ?",
+  readAnswer: 'Sur votre liste il y a des tomates, des pâtes et des piles.',
+  followUp: "Et le dernier article de cette liste, c'est quoi exactement ?",
+  answer: 'Le dernier article de ta liste, ce sont les piles LR03.',
+}
+
 /** 60-behavior-preference.yaml + 61-behavior-applied.yaml — a preference about how she answers. */
 const BEHAVIOR = {
   request: 'Tutoie-moi et évite les emojis',
@@ -737,6 +745,53 @@ test('picking an older thread back up sends that thread, not the last messages o
   expect(contextLabel(events)).toBe('Budget e2e')
 
   await expect(chat.bubbles(THREAD_RECALL.answer)).toHaveCount(1)
+})
+
+/**
+ * MAG-211: a tool call and its result survive the turn they were made in.
+ *
+ * Before this, `agent_message` held a `role` and a TEXT `content`, so the
+ * `tool_use` / `tool_result` blocks of a turn died with it: at the next message
+ * Maggie saw « voici tes courses » and no sign of the `get_grocery_list` that
+ * had taught her — so she called it again for something she already knew.
+ *
+ * Both halves are checked, because each is plausible without the other. The
+ * answer proves the blocks reached the model: 73-tool-result-replay.yaml
+ * declares `Pile LR03` — a seeded label the suite never types, so it can only
+ * come from the tool result — and `includeDeferred`, the argument of the call
+ * that fetched it, so the result cannot have arrived without its `tool_use` in
+ * front of it. And the tool list of the second run proves the point of the
+ * ticket: she does not fetch the list a second time.
+ *
+ * After the MAG-13 test and before MAG-229's, so the two exchanges it adds land
+ * in the thread that was last spoken in and the counts above are untouched.
+ */
+test('a tool result read last turn is still there on the next one, without calling the tool again', async ({
+  page,
+}) => {
+  const dashboard = new DashboardPage(page)
+  await dashboard.open()
+
+  const chat = new ChatPanel(page)
+
+  // The turn that fetches the list — this is the round that has to survive.
+  const read = await chat.send(TOOL_REPLAY.read)
+  expect(calledTools(read)).toContain('get_grocery_list')
+  expect(assistantText(read)).toContain(TOOL_REPLAY.readAnswer)
+
+  const events = await chat.send(TOOL_REPLAY.followUp)
+
+  const answer = assistantText(events)
+  expect(
+    isUnscripted(answer),
+    `the tool call and its result never reached the history — Maggie said: ${answer}`,
+  ).toBe(false)
+  expect(answer).toContain(TOOL_REPLAY.answer)
+
+  // And she answered from what she had read, rather than reading it again.
+  expect(calledTools(events)).not.toContain('get_grocery_list')
+
+  await expect(chat.bubbles(TOOL_REPLAY.answer)).toHaveCount(1)
 })
 
 /**

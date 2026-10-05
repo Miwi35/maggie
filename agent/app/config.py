@@ -80,6 +80,13 @@ class Settings(BaseSettings):
     # model as their summary, in the system prompt, never as raw messages.
     context_history_messages: int = 40
     recent_history_messages: int = 8
+    # How many of the thread's turns get their `tool_use` / `tool_result` blocks replayed
+    # on top of their text (MAG-211). A tool result is bulky — a month of transactions is
+    # not a sentence — so replaying all forty turns of a thread would cost more than the
+    # thread itself: beyond this window a turn keeps its text and loses its blocks. Two
+    # covers « what you just read » and the turn before it, which is what a follow-up
+    # question is about. Zero turns the replay off.
+    tool_replay_turns: int = 2
     # How many messages a conversation context has to gain before its summary is
     # rewritten (MAG-11). Low enough that a thread is summarized within a sitting,
     # high enough that a Haiku call is not made on every other message.
