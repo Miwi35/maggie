@@ -876,14 +876,9 @@ jobs:
 
       # The booted emulator, saved as a snapshot (MAG-233): a cold boot is a minute
       # on a runner, a snapshot load a few seconds. One per device profile; the
-      # first run after the key changes boots cold once and saves it. Bump `v2`
-      # when the emulator options or the image below change: a snapshot taken with
-      # other options is refused and the emulator boots cold again.
-      #
-      # `google_atd` (MAG-241): Google's Automated Test Device image, API 34 — no
-      # Pixel Launcher or bundled apps, built for headless runs. The e2e flavor
-      # signs in with the e2e token and never calls Google Play Services, so
-      # `aosp_atd` would do too; `google_atd` keeps the same GMS stubs as before.
+      # first run after the key changes boots cold once and saves it. Bump `v1`
+      # when the emulator options below change: a snapshot taken with other
+      # options is refused and the emulator boots cold again.
       - name: AVD snapshot cache
         id: avd-cache
         uses: actions/cache@v4
@@ -891,14 +886,14 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-v2-34-google_atd-x86_64-${{ matrix.device.profile }}
+          key: avd-v1-34-google_apis-x86_64-${{ matrix.device.profile }}
 
       - name: Create the AVD and its snapshot
         if: steps.avd-cache.outputs.cache-hit != 'true'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
-          target: google_atd
+          target: google_apis
           arch: x86_64
           profile: ${{ matrix.device.profile }}
           force-avd-creation: false
@@ -913,7 +908,7 @@ jobs:
           E2E_MOBILE_SHARD: ${{ matrix.shard }}/3
         with:
           api-level: 34
-          target: google_atd
+          target: google_apis
           arch: x86_64
           profile: ${{ matrix.device.profile }}
           force-avd-creation: false

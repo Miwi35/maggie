@@ -218,7 +218,7 @@ pin_device_clock() {
   fi
   if [ "$(device_skew "$target")" -gt 90 ]; then
     if [ "$CLOCK_PINNED" = 1 ]; then
-      die "Could not set the device's clock to $E2E_NOW (it reads $(device_epoch), wanted $target). A pinned clock needs an emulator with root — a google_apis or google_atd image, not google_apis_playstore."
+      die "Could not set the device's clock to $E2E_NOW (it reads $(device_epoch), wanted $target). A pinned clock needs an emulator with root — a google_apis image, not google_apis_playstore."
     fi
     warn "the device's clock is $(device_skew "$target")s away from the host's and could not be set: the calendar flows may look at the wrong day."
   fi
