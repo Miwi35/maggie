@@ -17,7 +17,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,6 +57,10 @@ private data class EventSlot(
     val slot: Int,
 )
 
+/** The first day of [shown] when the grid scrolled to another month than the one [current] is in; null when it only reports where it opened. */
+internal fun monthChangeTarget(shown: YearMonth, current: LocalDate): LocalDate? =
+    if (shown == YearMonth.from(current)) null else shown.atDay(1)
+
 @Composable
 fun MonthCalendarView(
     currentDate: LocalDate,
@@ -63,6 +69,7 @@ fun MonthCalendarView(
     onEventClick: (ExpandedEvent) -> Unit = {},
     onMonthChange: (YearMonth) -> Unit = {},
 ) {
+    val latestDate by rememberUpdatedState(currentDate)
     val zone = ZoneId.of("Europe/Paris")
     val startMonth = remember { YearMonth.now().minusMonths(24) }
     val endMonth = remember { YearMonth.now().plusMonths(24) }
@@ -83,7 +90,7 @@ fun MonthCalendarView(
 
     LaunchedEffect(calendarState) {
         snapshotFlow { calendarState.firstVisibleMonth.yearMonth }
-            .collect { onMonthChange(it) }
+            .collect { month -> if (monthChangeTarget(month, latestDate) != null) onMonthChange(month) }
     }
 
     HorizontalCalendar(
