@@ -183,8 +183,9 @@ tags:
 # errand carries home is this flow's own line. « Timbres du voisin » is the
 # seed's single unbought line at that shop (`api/fixtures/e2e/30-grocery.yaml`),
 # so the server offers exactly it back: one « Garder » leaves it where it was and
-# the list is as it was found. A second « Garder » appearing means the seed grew
-# a line, which is worth failing on.
+# the list is as it was found. Maestro cannot count nodes, so a second line in that
+# shop would not fail here — it would leave the sheet open and fail the
+# `notVisible` two steps down, which is worth knowing when reading that failure.
 # ---------------------------------------------------------------------------
 - runScript:
     file: ../scripts/grocery-api.js

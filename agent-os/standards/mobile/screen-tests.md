@@ -18,6 +18,11 @@ plus `createComposeRule`, seconds, in `Mobile Unit Tests`).
 If yes, it is a **journey** (`e2e/mobile/flows/`, Maestro on an emulator against the
 e2e stack, minutes, in `E2E Mobile (phone)`).
 
+One correction to the question, learned the hard way: **« a real Android » includes
+the real server.** A screen test fakes the repository, so a request whose shape no
+other test checks loses its only proof when the flow goes — read the second row of
+the journey table before deciding.
+
 ## Screen test — the JVM
 
 Everything a screen does with state it was handed:
@@ -39,6 +44,7 @@ Only what a JVM cannot be:
 | | |
 |---|---|
 | **The socle** | the flavor, `adb reverse`, the test login, the JWT in the DataStore, the Ktor bearer, Traefik, the AG-UI stream, the real MCP tool loop |
+| **A request no contract records** | the app's own call to an endpoint `api/contract/` does not record a response for — a custom controller like `POST /api/grocery/end-errand`. A screen test fakes the repository above the HTTP call and a controller test answers for the server, so nothing else puts the two shapes together. Review of MAG-242 caught exactly this one being dropped |
 | **Permissions and system windows** | a runtime dialog, Credential Manager, the assistant role dialog |
 | **Microphone and voice** | a real recorder, Whisper, a synthesis that must *not* happen |
 | **Deep links** | a `VIEW` intent at a `singleTop` activity, `onNewIntent` |

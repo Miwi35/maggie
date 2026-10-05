@@ -7,16 +7,16 @@
 #
 # Rebalanced after MAG-242 took the screen-logic journeys to the JVM. The
 # durations measured on main (run 37232923840) were 02 = 93 s, 08 = 78 s,
-# 01 = 58 s and the other six ~37 s each; five flows are left, `02` no longer
-# carries the settings screen and `08` gained the end of an errand, so the
-# estimate is 02 ≈ 75 s, 08 ≈ 103 s, 01 = 58 s, 04 and 05 ~37 s each. That makes
-# the longest shard ~112 s of flows against ~169 s before. Re-read the real
-# figures from the `junit.xml` of each shard on this branch's CI run and rebalance
-# from those, not from these estimates.
+# 01 = 58 s and the other six ~37 s each. Five flows are left, `02` no longer
+# carries the settings screen, `08` gained the end of an errand and `05` a deep
+# link, so the estimate is 02 ≈ 75 s, 08 ≈ 103 s, 01 = 58 s, 05 ≈ 45 s and
+# 04 ≈ 37 s: the longest shard holds ~120 s of flows against ~169 s before.
+# These are estimates — re-read the real figures from the `junit.xml` of each
+# shard on this branch's CI run and rebalance from those.
 #
-# Still three shards and not two: with ~310 s of flows left, two shards would put
-# ~160 s on the slowest one, and the wall clock of the required check is the
-# slowest shard. Three keeps it at ~112 s, for the same three emulators CI
+# Still three shards and not two: with ~320 s of flows left, two shards would put
+# ~165 s on the slowest one, and the wall clock of the required check is the
+# slowest shard. Three keeps it at ~120 s, for the same three emulators CI
 # already starts.
 1: 02-voice-overlay 05-deep-links
 2: 08-grocery-realtime

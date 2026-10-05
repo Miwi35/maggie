@@ -8,6 +8,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.utils.io.ByteReadChannel
@@ -140,7 +141,7 @@ class MaggieApiServiceTest {
         val mockEngine = MockEngine { request ->
             capturedMethod = request.method
             capturedUrl = request.url.toString()
-            capturedBody = (request.body as io.ktor.http.content.TextContent).text
+            capturedBody = (request.body as TextContent).text
             respond(
                 content = ByteReadChannel(
                     """{"success":true,"remainingCount":1,"remainingItems":[

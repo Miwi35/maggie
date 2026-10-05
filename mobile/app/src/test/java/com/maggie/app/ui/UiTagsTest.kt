@@ -6,9 +6,11 @@ import org.junit.Test
 
 /**
  * The calendar ids are built here and spelled by hand by whatever addresses the
- * app: a flow in `e2e/mobile/flows/` (`calendar_day_${TODAY}`) or a screen test
- * (`UiTags.calendarSpan(first, last)` in `MultiDayEventScreenTest`, MAG-242). A
- * change of format is a change to both, and this is where it fails first.
+ * app: `calendar_day_${TODAY}` in `e2e/mobile/subflows/open-calendar.yaml`,
+ * `calendar_span_.*` in `e2e/mobile/flows/04-calendar-import.yaml`, and
+ * `UiTags.calendarSpan(first, last)` / `UiTags.calendarEvent(day)` in
+ * `MultiDayEventScreenTest` (MAG-242). A change of format is a change to all of
+ * them, and this is where it fails first.
  */
 class UiTagsTest {
 
