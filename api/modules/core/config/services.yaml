@@ -25,6 +25,11 @@ services:
             # convention someone has to remember.
             - '../src/E2e/'
 
+    Maggie\Core\Weather\OpenMeteoClient:
+        arguments:
+            $forecastUrl: '%env(OPEN_METEO_FORECAST_URL)%'
+            $geocodingUrl: '%env(OPEN_METEO_GEOCODING_URL)%'
+
     Elastic\Elasticsearch\Client:
         factory: ['Maggie\Core\Elasticsearch\ElasticsearchClientFactory', 'create']
         arguments:

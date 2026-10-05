@@ -421,6 +421,33 @@ test('asking for an item writes it to the grocery list', async ({ page, api }) =
 })
 
 /**
+ * 38-weather.yaml, and the Open-Meteo stub it reads
+ * (`.docker/e2e/wiremock/mappings/open-meteo.json`) — MAG-156. No place is given:
+ * the tool takes the default city of the seeded preferences, Rennes.
+ */
+const WEATHER = {
+  question: 'Quel temps demain ?',
+  answer: 'Demain à Rennes, il fera 18,5 °C au plus haut et 9,5 °C au plus bas, avec un peu de pluie.',
+}
+
+test('asking for the weather runs get_weather against the simulated Open-Meteo', async ({ page }) => {
+  const dashboard = new DashboardPage(page)
+  await dashboard.open()
+
+  const chat = new ChatPanel(page)
+  const events = await chat.send(WEATHER.question)
+
+  expect(isUnscripted(assistantText(events)), `no scenario matched — Maggie said: ${assistantText(events)}`).toBe(false)
+
+  // `success` is the proof the stub answered: without a city, a place or a
+  // forecast the tool returns an `error`, and the stream reports `error`.
+  expect(calledTools(events)).toContain('get_weather')
+  expect(toolResults(events)).toContainEqual({ toolName: 'get_weather', status: 'success' })
+
+  await expect(chat.bubbles(WEATHER.answer)).toHaveCount(1)
+})
+
+/**
  * The voice path, from the microphone to the database (MAG-145).
  *
  * It needs a browser that has a microphone to offer, which `http://traefik` never

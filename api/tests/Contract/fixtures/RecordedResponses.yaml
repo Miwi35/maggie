@@ -18,6 +18,7 @@ Maggie\Core\Entity\UserPreference:
     locale: en
     timezone: Europe/Lisbon
     defaultCalendarView: week
+    defaultCity: Rennes
     enabledAgendaIds: ['01JAAAAAAAAAAAAAAAAAAAAAAA']
     notificationsEnabled: false
 

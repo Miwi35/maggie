@@ -122,6 +122,8 @@ x-php-environment: &php-environment
   GOOGLE_WEBHOOK_TOKEN: e2e-webhook-token
   # Calendar and Tasks do have callers, so they go to WireMock.
   GOOGLE_API_BASE_URL: http://wiremock:8080/google/
+  OPEN_METEO_FORECAST_URL: http://wiremock:8080/open-meteo/v1/forecast
+  OPEN_METEO_GEOCODING_URL: http://wiremock:8080/open-meteo/v1/search
   ENABLE_BANKING_APPLICATION_ID: e2e-application-id
   ENABLE_BANKING_PRIVATE_KEY: /var/www/api/config/bank/e2e.pem
   ENABLE_BANKING_BASE_URL: http://wiremock:8080/enablebanking

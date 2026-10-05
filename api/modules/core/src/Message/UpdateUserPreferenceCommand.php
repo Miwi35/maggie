@@ -15,6 +15,8 @@ final readonly class UpdateUserPreferenceCommand
         public ?string $defaultCalendarView = null,
         public ?array $enabledAgendaIds = null,
         public ?bool $notificationsEnabled = null,
+        // An empty string clears the city; null leaves it as it is.
+        public ?string $defaultCity = null,
     ) {
     }
 }

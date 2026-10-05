@@ -172,4 +172,42 @@ class UpdateUserPreferenceControllerTest extends WebTestCase
         $stored = $em->find(UserPreference::class, $this->getFixture('preference')->getId());
         self::assertSame([], $stored->getEnabledAgendaIds());
     }
+
+    public function testTheDefaultCityCanBeSetTrimmedAndCleared(): void
+    {
+        $this->loadFixtures('user_preference.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $id = $this->getFixture('preference')->getId();
+
+        $this->patch(['defaultCity' => '  Rennes ']);
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('Rennes', $data['defaultCity']);
+        $em->clear();
+        self::assertSame('Rennes', $em->find(UserPreference::class, $id)->getDefaultCity());
+
+        $this->patch(['theme' => 'dark']);
+        $em->clear();
+        self::assertSame('Rennes', $em->find(UserPreference::class, $id)->getDefaultCity(), 'left out keeps it');
+
+        $this->patch(['defaultCity' => '']);
+
+        self::assertResponseIsSuccessful();
+        $em->clear();
+        self::assertNull($em->find(UserPreference::class, $id)->getDefaultCity());
+    }
+
+    public function testTheDefaultCityMustBeAShortString(): void
+    {
+        $this->loadFixtures('user_preference.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->patch(['defaultCity' => 42]);
+        self::assertResponseStatusCodeSame(400);
+
+        $this->patch(['defaultCity' => str_repeat('a', 101)]);
+        self::assertResponseStatusCodeSame(400);
+    }
 }

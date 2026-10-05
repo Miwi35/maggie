@@ -1,0 +1,44 @@
+{
+  "mappings": [
+    {
+      "name": "Open-Meteo geocoding — every city is Rennes",
+      "request": {
+        "method": "GET",
+        "urlPath": "/open-meteo/v1/search"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "results": [
+            {
+              "id": 2983990,
+              "name": "Rennes",
+              "latitude": 48.11198,
+              "longitude": -1.67429,
+              "country": "France",
+              "country_code": "FR",
+              "timezone": "Europe/Paris"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Open-Meteo forecast — the days asked for, 18.5 / 9.5 degrees, light rain",
+      "request": {
+        "method": "GET",
+        "urlPath": "/open-meteo/v1/forecast"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": "{\"latitude\":48.11,\"longitude\":-1.68,\"timezone\":\"Europe/Paris\",\"daily\":{\"time\":[\"{{request.query.start_date}}\",\"{{request.query.end_date}}\"],\"weather_code\":[61,61],\"temperature_2m_max\":[18.5,18.5],\"temperature_2m_min\":[9.5,9.5],\"precipitation_sum\":[3.4,3.4],\"precipitation_probability_max\":[70,70],\"wind_speed_10m_max\":[22.5,22.5],\"wind_gusts_10m_max\":[41.5,41.5]}}"
+      }
+    }
+  ]
+}

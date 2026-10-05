@@ -36,6 +36,10 @@ class UpdateUserPreferenceHandler
         if (null !== $command->defaultCalendarView) {
             $pref->setDefaultCalendarView($command->defaultCalendarView);
         }
+        if (null !== $command->defaultCity) {
+            $city = trim($command->defaultCity);
+            $pref->setDefaultCity('' === $city ? null : $city);
+        }
         if (null !== $command->enabledAgendaIds) {
             $pref->setEnabledAgendaIds($command->enabledAgendaIds);
         }
