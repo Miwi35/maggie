@@ -33,16 +33,9 @@ export class ChatPanel {
   readonly contexts: Locator
   /** The Mind panel's "Activité" section. */
   readonly activity: Locator
-  /**
-   * The microphone.
-   *
-   * Nothing drives it yet: `navigator.mediaDevices` needs a trustworthy
-   * origin and the stack answers on plain HTTP, so dictation is asserted over
-   * HTTP in `e2e/smoke/smoke.sh` until MAG-145. Kept here because its
-   * accessible name is what a journey will reach for, and because a button
-   * with no name at all is what the admin had.
-   */
+  /** The microphone. Its name flips to "Arrêter la dictée" while it records. */
   readonly dictateButton: Locator
+  readonly stopDictationButton: Locator
 
   constructor(private readonly page: Page) {
     this.panel = page.getByTestId('chat-panel')
@@ -52,6 +45,7 @@ export class ChatPanel {
     this.contexts = this.panel.getByTestId('mind-contexts')
     this.activity = this.panel.getByTestId('mind-activity')
     this.dictateButton = this.panel.getByRole('button', { name: 'Dicter' })
+    this.stopDictationButton = this.panel.getByRole('button', { name: 'Arrêter la dictée' })
   }
 
   /** The panel opens with the shell; on a narrow viewport it may need the AppBar button. */
@@ -78,6 +72,38 @@ export class ChatPanel {
   }
 
   /**
+   * Dictates a message: records for a moment, stops, and waits for the
+   * transcription to answer.
+   *
+   * Returns what `POST /agent/transcribe` said, so a journey can assert on
+   * `raw` (Whisper, which is WireMock here) and `clean` (the model's tidy-up)
+   * separately. The cleaned sentence reaches the input a beat later: assert on
+   * the input, it retries.
+   */
+  async dictate(): Promise<{ raw: string; clean: string }> {
+    await this.open()
+
+    await this.dictateButton.click()
+    // Chromium's fake capture device has to produce a chunk before the
+    // recorder has anything to hand over; `start(250)` flushes every 250 ms.
+    await expect(this.stopDictationButton).toBeVisible()
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await this.page.waitForTimeout(600)
+
+    const transcription = this.page.waitForResponse(
+      (response) =>
+        response.url().includes('/agent/transcribe') && response.request().method() === 'POST',
+      { timeout: 30_000 },
+    )
+    await this.stopDictationButton.click()
+
+    const response = await transcription
+    expect(response.status(), 'the transcription was refused').toBe(200)
+
+    return (await response.json()) as { raw: string; clean: string }
+  }
+
+  /**
    * Sends a message and returns the AG-UI events of the whole run.
    *
    * Fails if the run never reaches `RUN_FINISHED`: a hung tool loop must read
@@ -85,14 +111,19 @@ export class ChatPanel {
    */
   async send(message: string): Promise<AgUiEvent[]> {
     await this.open()
+    await this.input.fill(message)
 
+    return this.submit()
+  }
+
+  /** Sends whatever the input holds — a dictated sentence, say — and waits for the run to end. */
+  async submit(): Promise<AgUiEvent[]> {
     const stream = this.page.waitForResponse(
       (response) =>
         response.url().includes('/agent/chat/stream') && response.request().method() === 'POST',
       { timeout: 60_000 },
     )
 
-    await this.input.fill(message)
     await this.input.press('Enter')
 
     const response = await stream

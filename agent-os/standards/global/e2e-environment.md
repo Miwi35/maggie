@@ -355,27 +355,36 @@ cheaper, deterministic, and it runs on every PR.
 ## The browser harness
 
 `e2e/web/`, driven by `task e2e:web` — Playwright in a container on the stack's
-own network, browsing `http://traefik`. Its
+own network namespace, browsing `http://localhost`. Its
 [README](../../../e2e/web/README.md) is the full guide; four things belong
 here because they are properties of the *stack*, not of Playwright:
 
 - **One origin, no host port.** The journeys never resolve the ephemeral port:
-  from inside the network Traefik answers on `http://traefik`, and the admin's
-  relative URLs (`/api`, `/.well-known/mercure`, `/agent`) all land on it, as
-  they do in production.
+  they browse `http://localhost`, which is Traefik, and the admin's relative
+  URLs (`/api`, `/.well-known/mercure`, `/agent`) all land on it, as they do in
+  production. It works because the `playwright-journeys` service sets
+  `network_mode: service:traefik` — it shares Traefik's network namespace, so
+  `localhost:80` is the router, and service names (`wiremock`, `php`) still
+  resolve. `playwright`, the one-off service for lint and typecheck, keeps a
+  network of its own and needs no stack.
 - **Nothing leaves the network.** Every request to another origin is aborted —
   the Google font the admin pulls, react-admin's telemetry. Same rule as the
   WireMock stubs: an external call is a bug, not a dependency.
-- **The origin is not trustworthy, so the browser has no microphone.**
-  `http://traefik` is plain HTTP, `window.isSecureContext` is false, and
-  `navigator.mediaDevices` therefore does not exist. Nothing in Playwright
-  works around it: the microphone permission is granted and the property stays
-  absent, Chromium's fake capture device has no API to feed, and
+- **The origin is `localhost` because it is trustworthy, and that gives the
+  browser a microphone.** `navigator.mediaDevices` only exists in a secure
+  context, and `http://traefik` (plain HTTP on a hostname) is not one: the
+  property was absent, and nothing in Playwright worked around it — the
+  microphone permission was granted and the property stayed missing, and
   `--unsafely-treat-insecure-origin-as-secure` is ignored by the bundled build
-  even with a persistent profile. A step that needs `getUserMedia` — dictation —
-  belongs in `e2e/smoke/smoke.sh` over HTTP until MAG-145
-  changes the origin. The symptom, if you forget, is "Accès au microphone
-  refusé", which reads like a permission problem and is not one.
+  even with a persistent profile. `localhost` is secure by definition, with no
+  flag. The config then grants the permission and starts Chromium with its fake
+  capture device, so "Dicter" records a synthetic beep. TLS on the entrypoint
+  was the other option and was not taken: more moving parts (a certificate to
+  mint and ignore) for an origin that is no more trustworthy to the media API
+  than `localhost`, and Traefik terminates TLS identically in dev and prod.
+  `chat.spec.ts` asserts `window.isSecureContext` first, so a regression of the
+  origin says so instead of showing "Accès au microphone refusé". The smoke
+  script still covers dictation over HTTP, without a browser.
 - **Three widths.** `desktop` (1440), `tablet` (834), `phone` (393). Only tests
   tagged `@responsive` run on all three.
 - **The Mercure image is pinned by tag and digest, never untagged** (`dunglas/mercure:v1.0.2@sha256:…`).
@@ -411,8 +420,8 @@ relationship to it, not of Maestro:
   in Paris; an emulator boots on UTC, and between 22:00 and midnight UTC the two
   are a day apart — every "today" assertion then fails for an hour a day. CI
   boots the emulator with `-timezone Europe/Paris`.
-- **No microphone, for a different reason than the browser.** The browser has none
-  because `http://traefik` is not a secure context; the emulator has none because
+- **No microphone, for a different reason than the browser.** The browser has a
+  fake one (`localhost` is a secure context); the emulator has none because
   a CI runner has no sound card and runs with `-noaudio`. The `e2e` flavor
   therefore records placeholder bytes (`AudioRecorderProvider.kt`, MAG-221) and
   the stubbed Whisper answers one fixed sentence, so a flow can hold the mic and

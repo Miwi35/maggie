@@ -449,6 +449,9 @@ tasks:
           CLI_ARGS: ''
       - task: web:run
         vars:
+          # The journeys' own service: it shares Traefik's network namespace so
+          # the browser's origin is `http://localhost`, a trustworthy one (MAG-145).
+          SERVICE: playwright-journeys
           COMMAND: 'npx playwright test {{.CLI_ARGS}}'
 
   web:lint:
@@ -503,7 +506,7 @@ tasks:
       # then point at an empty directory nobody can explain.
       - mkdir -p {{.ROOT_DIR}}/api/var/e2e
       - >-
-        {{.COMPOSE}} --profile tools run --rm --no-deps {{if .TTY}}{{else}}-T{{end}} playwright
+        {{.COMPOSE}} --profile tools run --rm --no-deps {{if .TTY}}{{else}}-T{{end}} {{.SERVICE | default "playwright"}}
         bash -lc 'if [ ! -d node_modules ] || [ package-lock.json -nt node_modules ]; then npm ci --no-audit --no-fund; fi && {{.COMMAND}}'
       # `compose run` creates the network and never removes it, so linting on
       # a machine with no stack up would leave one empty bridge behind per

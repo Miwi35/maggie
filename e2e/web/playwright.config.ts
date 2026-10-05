@@ -3,28 +3,31 @@ import { defineConfig, devices } from '@playwright/test'
 /**
  * Playwright for the admin web app (MAG-97).
  *
- * Two things about this config are load-bearing.
+ * Three things about this config are load-bearing.
  *
- * `baseURL` defaults to `http://traefik`, the stack's own router as seen from
- * inside its network — not the ephemeral host port. The journeys run in a
- * container on the e2e network (`task e2e:web`), so they never have to resolve
- * a port, and the admin's relative URLs (`/api`, `/.well-known/mercure`) all
- * land on the same origin, exactly as they do in production behind Traefik.
- * Override it to point a local `npx playwright test` at `task e2e:url`.
+ * `baseURL` defaults to `http://localhost`, which is the stack's own router as
+ * seen from the journeys' container: it shares Traefik's network namespace
+ * (`playwright-journeys` in `docker-compose.e2e.yml`, MAG-145). Not the
+ * ephemeral host port, so the journeys never have to resolve one, and the
+ * admin's relative URLs (`/api`, `/.well-known/mercure`) all land on the same
+ * origin, exactly as they do in production behind Traefik. And not
+ * `http://traefik`, which is what the stack answered on before: plain HTTP on a
+ * hostname is not a trustworthy origin, so `navigator.mediaDevices` did not
+ * exist and nothing could drive the microphone. `localhost` is trustworthy by
+ * definition, with no flag involved — none of Playwright's own levers worked
+ * (`permissions`, Chromium's fake capture device,
+ * `--unsafely-treat-insecure-origin-as-secure`, which this build ignores even
+ * with a persistent profile). Override it to point a local
+ * `npx playwright test` at `task e2e:url`.
+ *
+ * The microphone is then a fake one: the permission is granted and Chromium
+ * answers `getUserMedia` with its synthetic beep, so "Dicter" records real
+ * bytes without a prompt and without hardware.
  *
  * `tablet` and `phone` only run tests tagged `@responsive`. Every journey on
  * three widths would triple a suite whose slowest steps — the chat stream, the
  * two-tab Mercure wait — have nothing to do with layout. The tag is what MAG-38
  * and MAG-90 will grow: put it on a test whose *layout* is the point.
- *
- * One thing the browser cannot do here, and it is the origin's fault rather
- * than the config's: `http://traefik` is not a trustworthy origin, so
- * `navigator.mediaDevices` does not exist and nothing can drive the microphone
- * — not `permissions: ['microphone']`, not Chromium's fake capture device, not
- * `--unsafely-treat-insecure-origin-as-secure`, which this build ignores even
- * with a persistent profile. Dictation is therefore covered by
- * `e2e/smoke/smoke.sh` over HTTP until MAG-145 gives the stack a trustworthy
- * origin.
  */
 
 const RESPONSIVE = /@responsive/
@@ -63,7 +66,11 @@ export default defineConfig({
   expect: { timeout: 15_000 },
 
   use: {
-    baseURL: process.env.E2E_BASE_URL ?? 'http://traefik',
+    baseURL: process.env.E2E_BASE_URL ?? 'http://localhost',
+    permissions: ['microphone'],
+    launchOptions: {
+      args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'],
+    },
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
