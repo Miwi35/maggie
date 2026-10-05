@@ -1,0 +1,33 @@
+# A reminder for someone who lives in another timezone (MAG-161): the model converts
+# with `date_time` instead of computing in its head, then books the result.
+#
+# 10 h in Fort-de-France (UTC-4, no summer time) on 14 July is 16 h in Paris (UTC+2).
+# The fake does not read tool results, so the 16:00 below is scripted: what the journey
+# proves is that `date_time` really runs in the loop, for the seeded Paris user, and
+# answers without an error — an unknown place or a broken handler would end the call in
+# `error`. The arithmetic itself is proved by the agent's unit tests, and whether the
+# model reaches for the tool at the right moment by `task e2e:eval`.
+#
+# 2099 for the reason given in 35-create-event.yaml.
+name: create-event-timezone
+description: Convert a time from Fort-de-France with date_time, then book the call at the converted hour.
+
+match:
+  user_contains: "appeler kévin"
+
+turns:
+  - tools:
+      - name: date_time
+        input:
+          action: convert
+          datetime: "2099-07-14T10:00"
+          timezone: "Fort-de-France"
+          to_timezone: "Paris"
+  - tools:
+      - name: create_event
+        input:
+          title: "Appeler Kévin"
+          date: "2099-07-14"
+          time: "16:00"
+          duration: 15
+  - text: "C'est noté : appel à Kévin le 14 juillet 2099 à 16 h ici, soit 10 h chez lui à Fort-de-France."

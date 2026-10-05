@@ -2,6 +2,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 from unittest.mock import AsyncMock, patch
+from zoneinfo import ZoneInfo
 
 import pytest
 from fastapi import FastAPI
@@ -23,6 +24,17 @@ def no_last_exchange_lookup():
     with (
         patch("app.llm.streaming.last_exchange_section", AsyncMock(return_value="")),
         patch("app.llm.gateway.last_exchange_section", AsyncMock(return_value="")),
+    ):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def paris_user_timezone():
+    """Keep the user's timezone lookup (MAG-161) off the MCP server in tests that only build a prompt."""
+    paris = AsyncMock(return_value=ZoneInfo("Europe/Paris"))
+    with (
+        patch("app.llm.streaming.resolve_user_timezone", paris),
+        patch("app.llm.gateway.resolve_user_timezone", paris),
     ):
         yield
 

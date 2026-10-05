@@ -17,10 +17,18 @@ DAYS_FR = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanch
 EDITABLE_FIELDS = ("name", "language", "backstory")
 
 
-def current_datetime_line(now: datetime | None = None) -> str:
-    """Current date and time to the minute in Paris. Kept out of the cached prompt prefix: it changes every minute."""
-    now = (now or datetime.now(TZ_PARIS)).astimezone(TZ_PARIS)
-    return f"Nous sommes le {DAYS_FR[now.weekday()]} {now.strftime('%Y-%m-%d')}, il est {now.strftime('%Hh%M')}."
+def current_datetime_line(now: datetime | None = None, tz: ZoneInfo | None = None) -> str:
+    """Current date and time to the minute in the user's timezone (Paris by default), with the zone named.
+
+    Kept out of the cached prompt prefix: it changes every minute. The zone and its offset are said so that
+    « ici » has a meaning for the date_time tool and for anyone reading the prompt across a clock change.
+    """
+    tz = tz or TZ_PARIS
+    now = (now or datetime.now(tz)).astimezone(tz)
+    offset = now.strftime("%z")
+    zone = f"{tz.key}, UTC{offset[:3]}:{offset[3:]}"
+    day = f"{DAYS_FR[now.weekday()]} {now.strftime('%Y-%m-%d')}"
+    return f"Nous sommes le {day}, il est {now.strftime('%Hh%M')} ({zone})."
 
 
 def _elapsed(gap: timedelta) -> str:

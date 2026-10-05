@@ -16,6 +16,7 @@ from app.llm.tools import ToolRouter
 from app.memory.agent_memory import AgentMemory
 from app.personality.engine import PersonalityEngine, current_datetime_line
 from app.skills.index import skill_index
+from app.user_timezone import resolve_user_timezone
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +79,7 @@ class LLMGateway:
         context_section = await active_contexts_section(user_id, current_context_id)
         # How long since the chat last moved, so a proaction or an answer can greet by the gap (MAG-10).
         last_exchange = await last_exchange_section(user_id, exclude_message_id=exclude_message_id)
-        now = current_datetime_line()
+        now = current_datetime_line(tz=await resolve_user_timezone(user_id))
         volatile = f"{memory_context}{directives}{context_section}\n\n{now}{last_exchange}{preamble}"
         return build_system(base + skill_context, volatile)
 
