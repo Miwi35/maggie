@@ -255,13 +255,14 @@ describe('GroceryListView', () => {
       const user = userEvent.setup()
       await user.click(screen.getByRole('button', { name: 'Ajouter' }))
       const dialog = await screen.findByRole('dialog')
-      await user.type(within(dialog).getByLabelText('Article'), 'Câpres')
+      await user.click(within(dialog).getByLabelText('Article'))
+      await user.paste('Câpres')
       await chooseHalles(dialog)
       await user.click(within(dialog).getByRole('button', { name: 'Ajouter' }))
 
       await waitFor(() => expect(sentBody(mockFetch, '/grocery/add-item')).toBeDefined())
       expect(sentBody(mockFetch, '/grocery/add-item').storeId).toBe(ULID)
-    }, 15_000) // typing, a dropdown pick and two dialogs: 2-3 s alone, over 5 s on a busy CI runner
+    })
 
     test('editing an item sends the store ULID, not its IRI', async () => {
       const mockFetch = mockApi({ ok: true, status: 200 })
@@ -302,7 +303,8 @@ describe('GroceryListView', () => {
       await user.click(screen.getByRole('button', { name: 'Ajouter' }))
       const dialog = await screen.findByRole('dialog')
       await waitFor(() => expect(mockGetList).toHaveBeenCalledWith('products', expect.anything()))
-      await user.type(within(dialog).getByLabelText('Article'), 'Câp')
+      await user.click(within(dialog).getByLabelText('Article'))
+      await user.paste('Câp')
       await user.click(await screen.findByRole('option', { name: /Câpres/ }))
 
       await waitFor(() => expect(within(dialog).getByLabelText('Magasin')).toHaveValue('Halles du voisin'))
@@ -321,7 +323,8 @@ describe('GroceryListView', () => {
       const user = userEvent.setup()
       await user.click(screen.getByRole('button', { name: 'Ajouter' }))
       const dialog = await screen.findByRole('dialog')
-      await user.type(within(dialog).getByLabelText('Article'), 'Câpres')
+      await user.click(within(dialog).getByLabelText('Article'))
+      await user.paste('Câpres')
       await user.click(within(dialog).getByRole('button', { name: 'Ajouter' }))
 
       await waitFor(() => expect(mockNotify).toHaveBeenCalledWith(expect.any(String), { type: 'error' }))
