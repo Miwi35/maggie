@@ -220,7 +220,7 @@ Every merge on `main` that touches `mobile/` puts the signed `prodRelease` on th
 
 ## Nightly (`.github/workflows/nightly.yml`, MAG-96, MAG-244)
 
-**Trigger:** 02:43 UTC every day, and on demand (`what`: everything, ci or eval; `only`: one eval scenario). Two parallel jobs: `ci` calls `ci.yml` (every job, path filters bypassed, Mobile Unit Tests included) and `eval` runs the prompt-lab scenarios on the real model (formerly `eval.yml` at 03:17). A failure of the CI opens an issue labelled `nightly-failure`, or comments on the one already open; the eval is billed and judges tone, so it never alerts and is never a required check. The e2e journeys are not in this run (`suite: no-e2e`): they have their own night.
+**Trigger:** 02:43 UTC every day, and on demand (`what`: everything, ci or eval; `only`: one eval scenario). Two parallel jobs: `ci` calls `ci.yml` (every job, path filters bypassed, Mobile Unit Tests included) and `eval` runs the prompt-lab scenarios on the real model (formerly `eval.yml` at 03:17). A failure of the CI opens a Linear `Bug` (Urgent, label `nightly-failure`), or comments the one already open (`infra/scripts/alert-ticket.sh`, MAG-151) — GitHub issues are disabled on this repository, and the alert job needs the `LINEAR_API_KEY` Actions secret (without it the job fails, so the red run is the signal); the eval is billed and judges tone, so it never alerts and is never a required check. The e2e journeys are not in this run (`suite: no-e2e`): they have their own night.
 
 ## Nightly e2e (`.github/workflows/nightly-e2e.yml`, owner's decision of 8 Oct.)
 
