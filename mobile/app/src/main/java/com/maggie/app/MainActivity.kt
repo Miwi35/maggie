@@ -14,10 +14,17 @@ import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.ui.navigation.NavGraph
 import com.maggie.app.ui.theme.MaggieTheme
 import com.maggie.app.ui.uiTagRoot
+import com.maggie.app.voice.WakeWordManager
 import org.koin.android.ext.android.inject
 
 class MainActivity : FragmentActivity() {
     private val userPreferenceRepository: UserPreferenceRepository by inject()
+    private val wakeWordManager: WakeWordManager by inject()
+
+    override fun onStart() {
+        super.onStart()
+        wakeWordManager.restoreIfEnabled()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()

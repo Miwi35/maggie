@@ -250,6 +250,5 @@ class MaggieApp : Application() {
 
         MaggieFcmService.createNotificationChannels(this)
         WakeWordService.createNotificationChannel(this)
-        get<WakeWordManager>().restoreIfEnabled()
     }
 }
