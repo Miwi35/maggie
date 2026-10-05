@@ -330,32 +330,32 @@ if [ -n "${E2E_MOBILE_SHARD:-}" ]; then
 fi
 [ "${#targets[@]}" -gt 0 ] || targets=("$FLOW_DIR")
 
-# Variables handed to the flows as `-e`. First the dates the calendar journeys look for.
-# They are the seed's own days — « today » and the two days « Train de nuit pour
-# Vienne » crosses (`20-calendar.yaml`: +5 days 21:00 → +6 days 08:00) — computed
-# in the seed's time zone, not the host's: a runner on UTC between 22:00 and
-# midnight would otherwise name a day the seed has not reached. A flow cannot
-# compute a date itself, and a date typed into it would rot by tomorrow.
+# Variables handed to the flows as `-e`. First the date the calendar journey looks
+# for, computed in the seed's time zone and not the host's: a runner on UTC between
+# 22:00 and midnight would otherwise name a day the seed has not reached. A flow
+# cannot compute a date itself, and a date typed into it would rot by tomorrow.
 #
 # « Today » is the day the seed anchored on, read from its manifest, and only when
 # the manifest is not there the day of the stack's clock (MAG-234): a run that
 # started before midnight and reached this line after must not call the seed's
 # day « yesterday ».
+#
+# `TRAIN_START` / `TRAIN_END` — the two days « Train de nuit pour Vienne » crossed
+# — are gone with `03-calendar-multi-day` (MAG-242). The screen test that replaced
+# it writes both of its weeks down instead of deriving them from the seed, which is
+# how it covers the Sunday-straddling case on every run rather than one day in
+# three.
 seed_day() { TZ=UTC date -d "$1 $2" +%F; }
 # A failure inside $(…) never trips `set -e`: BSD date would hand the flows empty dates.
 seed_day 2000-01-01 '+1 day' >/dev/null 2>&1 || { echo "run.sh needs GNU date (date -d)" >&2; exit 1; }
 anchor_day="$(sed -n 's/.*"anchor": *"\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\).*/\1/p' "$REPO_ROOT/api/var/e2e/seed-manifest.json" 2>/dev/null | head -1)"
 clock_day="$(TZ="$SEED_TIMEZONE" date -d "@$NOW_EPOCH" +%F)"
 TODAY="${anchor_day:-$clock_day}"
-TRAIN_START="$(seed_day "$TODAY" '+5 days')"
-TRAIN_END="$(seed_day "$TODAY" '+6 days')"
 
 step "The clock"
 note "E2E_NOW        ${E2E_NOW:-<not set: the real clock>}"
 note "stack day      $clock_day ($SEED_TIMEZONE)"
 note "TODAY          $TODAY ($([ -n "$anchor_day" ] && echo "the seed's anchor" || echo "no seed manifest: the stack's clock"))"
-note "TRAIN_START    $TRAIN_START"
-note "TRAIN_END      $TRAIN_END"
 note "device         $("$ADB" -s "$SERIAL" shell date 2>/dev/null | tr -d '\r')"
 note "device zone    $("$ADB" -s "$SERIAL" shell getprop persist.sys.timezone 2>/dev/null | tr -d '\r')"
 note "host           $(date)"
@@ -364,8 +364,6 @@ note "host           $(date)"
 {
   echo "E2E_NOW=${E2E_NOW:-}"
   echo "TODAY=$TODAY"
-  echo "TRAIN_START=$TRAIN_START"
-  echo "TRAIN_END=$TRAIN_END"
   echo "device_date=$("$ADB" -s "$SERIAL" shell date 2>/dev/null | tr -d '\r')"
   echo "device_timezone=$("$ADB" -s "$SERIAL" shell getprop persist.sys.timezone 2>/dev/null | tr -d '\r')"
   echo "host_date=$(date)"
@@ -388,8 +386,6 @@ fi
 
 flow_env=(
   -e "TODAY=$TODAY"
-  -e "TRAIN_START=$TRAIN_START"
-  -e "TRAIN_END=$TRAIN_END"
   # The flows' scripts run on the host, where Maestro runs, so they need the real
   # URL rather than the device's bridged one: `02-voice-overlay.yaml` reads the
   # agent's e2e counter, `scripts/grocery-api.js` signs in with the app's token.

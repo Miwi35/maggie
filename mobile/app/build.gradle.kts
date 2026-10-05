@@ -128,6 +128,16 @@ android {
         compose = true
         buildConfig = true
     }
+
+    // Compose on the JVM (MAG-242). Robolectric reads the variant's merged
+    // manifest and its resources out of the unit-test classpath, which it only
+    // finds when the resources are packaged for unit tests — without this every
+    // `createComposeRule` test fails on a missing `test_config.properties`.
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
 // Line coverage of the unit tests (MAG-105), read by scripts/coverage/. Generated
@@ -217,4 +227,15 @@ dependencies {
     testImplementation(libs.koin.test)
     testImplementation(libs.koin.test.junit4)
     testImplementation(libs.ktor.client.mock)
+
+    // Screen tests on the JVM (MAG-242): what used to need an emulator to read a
+    // screen — the list a screen draws, the order it draws it in, a loading and an
+    // error state, navigation — runs here in seconds instead.
+    // `agent-os/standards/mobile/screen-tests.md` says what belongs here
+    // and what stays in Maestro.
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui.test.junit4)
+    testImplementation(libs.compose.ui.test.manifest)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.junit)
 }

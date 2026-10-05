@@ -19,11 +19,6 @@ executionOrder:
   flowsOrder:
     - 01-login-chat
     - 02-voice-overlay
-    - 03-calendar-multi-day
     - 04-calendar-import
     - 05-deep-links
-    - 06-finance-hub
-    - 07-grocery-errand
     - 08-grocery-realtime
-    - 09-grocery-deferred
-    - 10-voice-settings

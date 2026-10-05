@@ -248,8 +248,8 @@ the runners (MAG-243), and the bug that motivated it was the app's, not the
 journeys'. To reproduce an hour-dependent failure, run
 `E2E_NOW=<name or ISO-8601> task e2e:web` (or `e2e:mobile`) by hand.
 
-`run.sh` prints `E2E_NOW`, `TODAY`, `TRAIN_START`, `TRAIN_END` and the device's date
-and time zone at the top of every mobile run, and writes them to `report/clock.txt`.
+`run.sh` prints `E2E_NOW`, `TODAY` and the device's date and time zone at the top of
+every mobile run, and writes them to `report/clock.txt`.
 
 ## External services
 

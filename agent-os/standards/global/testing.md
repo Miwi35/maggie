@@ -79,11 +79,16 @@ login, and the app is addressed by the `testTag`s declared in
 `mobile/app/src/main/java/com/maggie/app/ui/UiTags.kt`. Read
 [e2e/mobile/README.md](../../../e2e/mobile/README.md) before writing one.
 
-What the emulator is *for* is what no other suite can see: layout under the
-keyboard, a sheet that re-speaks on open, a view that does not refresh. A
-ViewModel assertion that holds on the JVM belongs in a unit test
-([mobile/testing](../mobile/testing.md)), which costs seconds rather than an
-emulator boot.
+**Most of a mobile ticket's screen verifications are not a flow** (MAG-242). What a
+screen draws from a server answer, in what order, its empty and error states, and
+navigation inside the app are a **Compose test on the JVM**
+(`mobile/app/src/test/…/…ScreenTest.kt`, Robolectric, seconds, in `Mobile Unit
+Tests`). The emulator keeps what no other suite can see: the socle, permissions,
+the microphone, deep links, real time end to end, notifications, and layout
+against the platform — a sheet under the keyboard, an overlay that re-speaks on
+open, a view that does not refresh. Which is which:
+[mobile/screen-tests](../mobile/screen-tests.md). A ViewModel assertion that needs
+no screen at all is a plain unit test ([mobile/testing](../mobile/testing.md)).
 
 The journey tickets that carry the rest are MAG-99 chat, MAG-100 agenda, MAG-101
 recipes/meals/groceries, MAG-102 finance, MAG-103 settings/search/notifications.
