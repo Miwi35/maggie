@@ -277,6 +277,17 @@ class GetWeatherToolTest extends KernelTestCase
         self::assertArrayNotHasKey('error', $this->call($tool));
     }
 
+    public function testAnInvalidStoredTimezoneFallsBackToParisInsteadOfThrowing(): void
+    {
+        $this->loggedInWithCity('Rennes')->setTimezone('Not/AZone');
+        $this->em()->flush();
+
+        $result = $this->call($this->tool($this->openMeteo()));
+
+        self::assertArrayNotHasKey('error', $result);
+        self::assertSame([$this->today(), $this->today('tomorrow')], array_column($result['days'], 'date'));
+    }
+
     public function testIsRegisteredAsAnMcpToolWithItsDependenciesWired(): void
     {
         self::assertInstanceOf(GetWeatherTool::class, self::getContainer()->get(GetWeatherTool::class));

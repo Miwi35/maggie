@@ -69,7 +69,12 @@ class GetWeatherTool
 
         $preference = $this->preferenceRepository->findOneByUser($user);
 
-        $timezone = new \DateTimeZone($preference?->getTimezone() ?? self::DEFAULT_TIMEZONE);
+        try {
+            $timezone = new \DateTimeZone($preference?->getTimezone() ?? self::DEFAULT_TIMEZONE);
+        } catch (\Exception) {
+            // A stored value that is not a timezone must not take the tool down.
+            $timezone = new \DateTimeZone(self::DEFAULT_TIMEZONE);
+        }
         $today = new \DateTimeImmutable('today', $timezone);
 
         if (null === $date || '' === trim($date)) {

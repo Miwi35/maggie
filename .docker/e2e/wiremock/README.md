@@ -51,8 +51,9 @@ Two things are **not** here:
   `agent/fixtures/fake-llm/` (MAG-95).
 
 `open-meteo.json` answers the forecast with the two days the request names
-(`start_date`, `end_date`, echoed back by templating, so it follows the clock
-without `{{now}}`): 18.5 °C at most and 9.5 °C at least, light rain.
+(`start_date`, `end_date`, echoed back by templating — the stub declares
+`response-template`, which is what turns it on under `--local-response-templating` —
+so it follows the clock without `{{now}}`): 18.5 °C at most and 9.5 °C at least, light rain.
 `38-weather.yaml` repeats those figures in Maggie's scripted answer, and the
 journey in `chat.spec.ts` drives both — change the figures in one place and
 change them in the other. The API caches a forecast for 30 minutes, so a stub
