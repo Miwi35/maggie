@@ -1,7 +1,7 @@
 import logging
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.db.agent_engine import agent_engine, agent_session
 from app.db.proaction_model import AgentBase, Proaction, ProactionStatus
@@ -72,6 +72,17 @@ class ProactionRepository:
             if proaction:
                 proaction.status = ProactionStatus.RUNNING
                 await session.commit()
+
+    async def claim(self, proaction_id: str) -> bool:
+        """Atomically move a pending proaction to running; False if it is no longer pending (already taken)."""
+        async with agent_session() as session:
+            result = await session.execute(
+                update(Proaction)
+                .where(Proaction.id == proaction_id, Proaction.status == ProactionStatus.PENDING)
+                .values(status=ProactionStatus.RUNNING)
+            )
+            await session.commit()
+            return result.rowcount == 1
 
     async def mark_completed(self, proaction_id: str, response: str) -> None:
         async with agent_session() as session:

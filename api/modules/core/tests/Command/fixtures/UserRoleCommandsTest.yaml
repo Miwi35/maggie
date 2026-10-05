@@ -1,0 +1,9 @@
+Maggie\Core\Entity\User:
+  target:
+    email: target@example.com
+    googleId: google-target
+    name: Target
+  bystander:
+    email: bystander@example.com
+    googleId: google-bystander
+    name: Bystander

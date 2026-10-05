@@ -1,0 +1,196 @@
+# Two accounts with data in every module: the Recette account (`*_recette`) is
+# wiped by the reset, the owner (`*_other`) must come out identical.
+Maggie\Core\Entity\User:
+  user_recette:
+    email: recette@maggieai.fr
+    googleId: technical-recette-account
+    name: Recette (compte technique)
+    roles: ['ROLE_PROACTION_TRIGGER']
+  user_other:
+    email: owner@maggie.local
+    googleId: google-owner
+    name: Owner
+
+Maggie\Core\Entity\UserPreference:
+  preference_{recette, other}:
+    theme: system
+    locale: fr
+    timezone: Europe/Paris
+    defaultCalendarView: month
+    enabledAgendaIds: ['agenda-1']
+    notificationsEnabled: true
+    user: '@user_<current()>'
+
+Maggie\Notification\Entity\Notification:
+  notification_{recette, other}:
+    user: '@user_<current()>'
+    type: '<(Maggie\Notification\Enum\NotificationType::Reminder)>'
+    title: Rendez-vous
+
+Maggie\Calendar\Entity\Agenda:
+  agenda_{recette, other}:
+    name: Repas
+    color: '#FF6B35'
+    user: '@user_<current()>'
+
+Maggie\Calendar\Entity\Event:
+  event_{recette, other}:
+    summary: Weekly sync
+    startAt: '<(new \DateTimeImmutable("2026-03-15 10:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-03-15 11:00"))>'
+    agenda: '@agenda_<current()>'
+
+Maggie\Calendar\Entity\Task:
+  task_{recette, other}:
+    title: Appeler le dentiste
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::High)>'
+    criticality: '<(Maggie\Calendar\Enum\TaskCriticality::Low)>'
+    user: '@user_<current()>'
+
+Maggie\Grocery\Entity\Store:
+  store_{recette, other}:
+    name: Supermarché
+    visitOrder: 1
+    user: '@user_<current()>'
+
+# An Ingredient is a Product: the grocery item below points at it, so the list must go first.
+Maggie\Cookbook\Entity\Ingredient:
+  ingredient_{recette, other}:
+    name: Tomate
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    user: '@user_<current()>'
+    preferredStore: '@store_<current()>'
+
+Maggie\Grocery\Entity\Product:
+  product_{recette, other}:
+    name: Bananes
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    user: '@user_<current()>'
+
+Maggie\Grocery\Entity\GroceryList:
+  list_{recette, other}:
+    user: '@user_<current()>'
+
+Maggie\Grocery\Entity\GroceryItem:
+  item_{recette, other}:
+    groceryList: '@list_<current()>'
+    product: '@ingredient_<current()>'
+    quantity: 3
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@store_<current()>'
+
+Maggie\Grocery\Entity\RecurringGroceryItem:
+  recurring_{recette, other}:
+    product: '@product_<current()>'
+    customLabel: Bananes bio
+    quantity: 2
+    frequency: '<(Maggie\Grocery\Enum\RecurringFrequency::Weekly)>'
+    user: '@user_<current()>'
+
+Maggie\Cookbook\Entity\Recipe:
+  recipe_{recette, other}:
+    name: Pâtes à la tomate
+    servings: 4
+    tags: ['pasta']
+    user: '@user_<current()>'
+
+Maggie\Cookbook\Entity\RecipeIngredient:
+  recipe_ingredient_{recette, other}:
+    recipe: '@recipe_<current()>'
+    ingredient: '@ingredient_<current()>'
+    quantity: 500
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+
+# A meal is an event: it must go with its agenda, from the events and meals indices alike.
+Maggie\Cookbook\Entity\Meal:
+  meal_{recette, other}:
+    summary: Dîner
+    slot: '<(Maggie\Cookbook\Enum\MealSlot::Dinner)>'
+    startAt: '<(new \DateTimeImmutable("2026-03-16 19:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-03-16 20:00"))>'
+    agenda: '@agenda_<current()>'
+    recipes: ['@recipe_<current()>']
+
+Maggie\Cookbook\Entity\MealGroceryContribution:
+  contribution_{recette, other}:
+    meal: '@meal_<current()>'
+    groceryItem: '@item_<current()>'
+    quantity: 3
+
+Maggie\Finance\Entity\BankConnection:
+  bank_{recette, other}:
+    bankName: Crédit Agricole
+    user: '@user_<current()>'
+
+Maggie\Finance\Entity\Account:
+  account_{recette, other}:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@user_<current()>'
+
+Maggie\Finance\Entity\Category:
+  category_{recette, other}:
+    name: Alimentation
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@user_<current()>'
+  subcategory_{recette, other}:
+    name: Restaurants
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    parent: '@category_<current()>'
+    user: '@user_<current()>'
+
+Maggie\Finance\Entity\Transaction:
+  transaction_{recette, other}:
+    account: '@account_<current()>'
+    category: '@subcategory_<current()>'
+    amountCents: -4599
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-01"))>'
+    label: Supermarché
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@user_<current()>'
+
+Maggie\Finance\Entity\Envelope:
+  envelope_{recette, other}:
+    category: '@category_<current()>'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 40000
+    currency: EUR
+    year: 2026
+    month: 7
+    user: '@user_<current()>'
+
+Maggie\Finance\Entity\CategorizationRule:
+  rule_{recette, other}:
+    labelPattern: RESTO
+    matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'
+    category: '@subcategory_<current()>'
+    direction: '<(Maggie\Finance\Enum\AmountDirection::Debit)>'
+    priority: 10
+    isActive: true
+    user: '@user_<current()>'
+
+Maggie\Finance\Entity\Loan:
+  loan_{recette, other}:
+    name: Crédit auto
+    principalRemainingCents: 240000
+    monthlyPaymentCents: 20000
+    annualRateBasisPoints: 0
+    priority: 10
+    currency: EUR
+    user: '@user_<current()>'
+
+Maggie\Finance\Entity\SafetyCushion:
+  cushion_{recette, other}:
+    targetMonths: 3
+    monthlyNetIncomeCents: 350000
+    rechargeCapCents: 15000
+    rechargeTargetMonths: 6
+    completedAt: null
+    user: '@user_<current()>'

@@ -135,6 +135,40 @@ Delivering an implementation spec means updating, in Linear: the **module's func
 spec** (concepts, business rules, journeys, current state) and the **user guide**.
 Entry point: the team document « Index de la documentation Maggie ».
 
+## The Recette account (MAG-249)
+
+A recette agent tries a feature **in production** without touching the owner's data: it acts as
+a technical account of its own, « Recette (compte technique) » (distinct from the smoke account
+of `app:smoke:token`, which only reads). **Every recette object — event, meal, proaction,
+message, rule — lives in this account, never in the owner's.**
+
+| What | How |
+|---|---|
+| Get a token | `kubectl exec` into the `php` pod, `bin/console app:recette:token` — the JWT alone on stdout. The account is created and indexed at first use |
+| Wipe it | `bin/console app:recette:reset` (`--dry-run` only counts). Deletes the account's data in every API module, its Elasticsearch documents and the agent's data (`maggie_agent`); keeps the account and its permission. It takes **no user argument**: the account is a constant in the command, so it cannot be pointed at anyone else. Run by hand, never scheduled |
+| Grant the permission | `bin/console app:user:grant <email> ROLE_PROACTION_TRIGGER` — `app:user:revoke` takes it back. Console only, never a route. The role is stored on the user and carried by the JWT, so it applies to the **next** token; the Recette token has it, service tokens and normal users do not |
+
+Reset before and after a recette: the next one starts from nothing, and a pass leaves nothing behind.
+`app:elasticsearch:status --check` stays green after a reset. Skills are global to the agent, not the
+account's: reset does not touch them.
+
+### Recette of a proaction
+
+Under `ROLE_PROACTION_TRIGGER`, with the Recette token (403 without it), always for the calling account:
+
+1. **Rule** — add the planning rule (instruction) to the account, as a user would.
+2. **Generation** — `POST /agent/proactions/generate` runs the daily planner now (the scheduler's own call)
+   and returns what it planned.
+3. **Proaction** — `GET /agent/proactions` lists them with rule (`prompt`), due date (`scheduledAt`) and `status`.
+4. **Execution** — `POST /agent/proactions/{id}/execute` runs a pending proaction through the consumer's path
+   and returns the message; a proaction already taken answers 409.
+
+**Dry run for calibration:** add `?dry_run=true` to either route. Nothing is recorded — no proaction, no
+message, no notification; the tools that write are simulated (read tools run for real) and the response
+lists them under `simulatedTools`. Repeat until the prompt behaves, then run it for real.
+
+The account has no side effect outside the platform: no push notification, no Google sync.
+
 ## Test Pyramid
 
 | Layer | What | Runs in CI |
