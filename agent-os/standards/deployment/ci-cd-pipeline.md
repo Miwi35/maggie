@@ -131,11 +131,11 @@ docker/build-push-action:
 
 ### Smoke job (MAG-106)
 
-**Requires:** deploy succeeded. Read-only, as the technical account `smoke@maggieai.fr`.
+**Requires:** deploy succeeded. As the technical account `smoke@maggieai.fr`, whose own data is all it writes (MAG-253).
 
 0. **Digest assertion (MAG-96)**, first: `infra/scripts/verify-digests.sh` checks that every pod of php, worker, cron, nginx, agent and ciqual runs the digest the build job pushed in this run — or, for a service this run did not rebuild, the digest it ran before the deploy (`pre-deploy-digests`). A service on a stale tag fails the smoke job, hence the rollback. A digest names an index, not an image: a rebuild with unchanged content pushes a new index for the same image, and the pod keeps reporting the first one. The script therefore also accepts a pod whose image carries the expected digest among its `repoDigests` (`sudo k3s crictl inspecti` on the node, MAG-146). A green rollout is not enough: eleven past fixes were one stale-tag redeploy. Expected digests come from the build jobs' `digest` output; the build jobs are therefore `needs` of the smoke job.
 1. SSH to the VPS, `bin/console app:smoke:token` in the php pod prints a JWT (account created on first use; token masked in the public log).
-2. `infra/scripts/smoke-prod.sh` checks: public URLs (`/`, `/admin` with and without trailing slash, no `http://` redirect), API, agent and Mercure health (+ Mercure CORS), `/_mcp` `tools/list`, `app:elasticsearch:status --check`, and one question to Maggie that must call a tool.
+2. `infra/scripts/smoke-prod.sh` checks: public URLs (`/`, `/admin` with and without trailing slash, no `http://` redirect), API, agent and Mercure health (+ Mercure CORS), `/_mcp` `tools/list`, `app:elasticsearch:status --check`, and one question to Maggie that only a tool can answer: the suite wipes the account's chat history first (`DELETE /agent/smoke/history`, accepted only for that account's token — a history of identical questions made the model answer from memory and rolled production back twice), creates a test agenda with one event of random title, asks for that title, then deletes the agenda and the history.
 3. On success the smoke job deletes the rollback record, so a later deploy that never reaches the cluster cannot undo this healthy release.
 4. Every check is run even after a failure, so one red run lists everything that is broken.
 

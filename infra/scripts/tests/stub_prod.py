@@ -17,6 +17,11 @@ TOKEN = os.environ["STUB_TOKEN"]
 MODULES = ["list_agendas", "get_upcoming_events", "search_recipes", "add_grocery_item", "list_accounts", "list_notifications"]
 SESSION = "stub-session"
 
+# What the technical account owns in the stub: its test agendas and events, and how many
+# messages its history holds. `imitates_history` starts it with the fifty pairs that made
+# the real model stop calling the tool (MAG-253).
+STATE = {"agendas": {}, "events": [], "history": 100 if "imitates_history" in BREAK else 0}
+
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *_):
@@ -59,6 +64,25 @@ class Handler(BaseHTTPRequestHandler):
                 self.json(200, {"email": "smoke@maggieai.fr"})
             else:
                 self.json(401, {"message": "Invalid JWT Token"})
+        elif path == "/__state":
+            self.json(200, {"agendas": len(STATE["agendas"]), "history": STATE["history"]})
+        else:
+            self.send(404)
+
+    def do_DELETE(self):
+        path = self.path.split("?")[0]
+        if not self.authorized():
+            self.json(401, {"message": "Invalid JWT Token"})
+        elif path == "/agent/smoke/history":
+            if "history_reset_fails" in BREAK:
+                self.json(403, {"detail": "Reserved to the technical smoke account"})
+            else:
+                STATE["history"] = 0
+                self.json(200, {"deletedMessages": 0, "deletedContexts": 0})
+        elif path.startswith("/api/agendas/") and path.removeprefix("/api/agendas/") in STATE["agendas"]:
+            del STATE["agendas"][path.removeprefix("/api/agendas/")]
+            STATE["events"] = [e for e in STATE["events"] if e["agenda"] != path.removeprefix("/api/agendas/")]
+            self.send(204)
         else:
             self.send(404)
 
@@ -78,7 +102,21 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/_mcp":
             self.mcp(payload)
         elif path == "/agent/chat":
-            self.chat()
+            self.chat(payload)
+        elif path == "/api/agendas":
+            if self.authorized():
+                agenda_id = f"agenda-{len(STATE['agendas']) + 1}"
+                STATE["agendas"][agenda_id] = payload.get("name")
+                self.json(201, {"id": agenda_id, "name": payload.get("name")})
+            else:
+                self.json(401, {"message": "Invalid JWT Token"})
+        elif path == "/api/events":
+            if self.authorized() and "event_creation_fails" not in BREAK:
+                agenda_id = payload.get("agenda", "").removeprefix("/api/agendas/")
+                STATE["events"].append({**payload, "agenda": agenda_id})
+                self.json(201, {"id": f"event-{len(STATE['events'])}"})
+            else:
+                self.json(422, {"detail": "Unprocessable"})
         else:
             self.send(404)
 
@@ -98,17 +136,29 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self.send(202)
 
-    def chat(self):
+    def chat(self, payload):
         if not self.authorized():
             self.json(401, {"detail": "Invalid token"})
             return
-        tool_calls = [] if "agent_no_tool" in BREAK else [
-            {"name": "get_upcoming_events", "input": {}, "result": '{"error": "boom"}' if "agent_tool_error" in BREAK else "[]"}
-        ]
-        response = "Désolé, une erreur est survenue. Réessaie." if "agent_apology" in BREAK else "Je ne vois aucun événement."
         if "agent_down" in BREAK:
             self.send(502)
             return
+        # Answers from the history like the real model did: with a conversation behind it,
+        # it replies without the tool.
+        skips_tool = "agent_no_tool" in BREAK or STATE["history"] > 0
+        tool_calls = [] if skips_tool else [
+            {"name": "get_upcoming_events", "input": {}, "result": '{"error": "boom"}' if "agent_tool_error" in BREAK else "[]"}
+        ]
+        # What `get_upcoming_events` would read: the title of the event the question names.
+        asked = payload.get("message", "")
+        titles = [e["summary"] for e in STATE["events"] if e["description"] in asked]
+        if "agent_apology" in BREAK:
+            response = "Désolé, une erreur est survenue. Réessaie."
+        elif "agent_guesses" in BREAK or skips_tool or not titles:
+            response = "Je ne vois aucun événement."
+        else:
+            response = f"L'événement s'appelle « {titles[0]} »."
+        STATE["history"] += 2
         self.json(200, {"response": response, "tool_calls": tool_calls, "messages": []})
 
 
