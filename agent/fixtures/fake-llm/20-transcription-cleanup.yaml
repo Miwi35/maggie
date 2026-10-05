@@ -1,5 +1,6 @@
-# Transcript cleanup, the second half of the voice path: Whisper first, then the
-# model tidies what it heard.
+# Transcript cleanup — since MAG-222, the exception rather than the rule: only a
+# dictation meant to be written as is (`cleanup=auto`) and only when the text needs
+# it. What goes to Maggie is never cleaned, so no journey of hers reaches this file.
 #
 # Whisper is WireMock here, and its stub returns one fixed sentence with an
 # "euh" in it (.docker/e2e/wiremock/mappings/openai.json). This returns that

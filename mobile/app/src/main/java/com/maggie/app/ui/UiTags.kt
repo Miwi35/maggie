@@ -56,6 +56,9 @@ object UiTags {
     /** The voice bar's mic — held down to talk. */
     const val VOICE_MIC = "voice_mic"
 
+    /** The voice bar's live text, as the phone's own recognition hears it (MAG-222). */
+    const val VOICE_PARTIAL = "voice_partial"
+
     /** Top bar — the burger that opens the navigation drawer. */
     const val NAV_MENU = "nav_menu"
 

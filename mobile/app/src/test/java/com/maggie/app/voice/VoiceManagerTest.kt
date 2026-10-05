@@ -2,6 +2,7 @@ package com.maggie.app.voice
 
 import android.content.Context
 import com.maggie.app.data.api.MaggieApiService
+import com.maggie.app.data.api.TranscriptCleanup
 import com.maggie.app.data.repository.UserPreferenceRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -17,25 +18,80 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.OutputStream
 import java.nio.file.Files
 
 private class FakeRecorder : AudioRecorder {
     var started = false
     var stopped = false
     var released = false
+    var pcmSink: OutputStream? = null
 
-    override fun start(file: File) {
+    override fun start(file: File, pcmSink: OutputStream?) {
         started = true
+        this.pcmSink = pcmSink
         file.writeText("audio")
     }
 
     override fun stop() {
         stopped = true
+        // The recorder owns the sink it was handed and closes it here — that close is
+        // what tells the engine the sentence is over (MAG-222).
+        pcmSink?.close()
     }
 
     override fun release() {
         released = true
+    }
+}
+
+/** The engine's end of the audio pipe, which remembers being closed. */
+private class ClosingSink : ByteArrayOutputStream() {
+    var closed = false
+
+    override fun close() {
+        closed = true
+        super.close()
+    }
+}
+
+/**
+ * The phone's engine, scripted. [resultOnStop] is what it hands back when the button
+ * comes up — null for « nothing usable », and [answers] false for an engine that never
+ * answers at all, which is what the timeout is for.
+ */
+private class FakeDeviceSpeech(
+    override val isAvailable: Boolean = true,
+    private val resultOnStop: DeviceSpeechResult? = null,
+    private val answers: Boolean = true,
+) : DeviceSpeechRecognizer {
+    val sink = ClosingSink()
+    var listener: DeviceSpeechRecognizer.Listener? = null
+    var startCount = 0
+    var stopped = false
+    var destroyed = false
+
+    /** Whether the audio pipe was closed — the end-of-sentence signal — before we were asked to stop. */
+    var heardTheEndFirst = false
+        private set
+
+    override fun start(listener: DeviceSpeechRecognizer.Listener): OutputStream {
+        this.listener = listener
+        startCount += 1
+        return sink
+    }
+
+    override fun stopListening() {
+        heardTheEndFirst = sink.closed
+        stopped = true
+        if (!answers) return
+        resultOnStop?.let { listener?.onResult(it) } ?: listener?.onUnavailable("no match")
+    }
+
+    override fun destroy() {
+        destroyed = true
     }
 }
 
@@ -58,20 +114,24 @@ class VoiceManagerTest {
         context = mockk(relaxed = true)
         every { context.cacheDir } returns cacheDir
         apiService = mockk(relaxed = true)
-        coEvery { apiService.transcribe(any()) } returns "bonjour Maggie"
+        coEvery { apiService.transcribe(any(), any()) } returns "bonjour Maggie"
         userPreferenceRepository = mockk(relaxed = true)
         testScope = TestScope()
         recorder = FakeRecorder()
         now = 0L
-        voiceManager = VoiceManager(
-            context,
-            apiService,
-            userPreferenceRepository,
-            recorderFactory = { recorder },
-            clock = { now },
-            scope = testScope,
-        )
+        voiceManager = managerWith(NoDeviceSpeech)
     }
+
+    /** A manager whose phone recognition is [engine] — none of it, by default. */
+    private fun managerWith(engine: DeviceSpeechRecognizer) = VoiceManager(
+        context,
+        apiService,
+        userPreferenceRepository,
+        recorderFactory = { recorder },
+        deviceSpeechFactory = { engine },
+        clock = { now },
+        scope = testScope,
+    )
 
     private fun advance(ms: Long) {
         now += ms
@@ -117,7 +177,7 @@ class VoiceManagerTest {
         assertEquals(VoiceState.IDLE, voiceManager.state.value)
         assertNull(sent)
         assertTrue(voiceManager.holdHint.value)
-        coVerify(exactly = 0) { apiService.transcribe(any()) }
+        coVerify(exactly = 0) { apiService.transcribe(any(), any()) }
         assertTrue(recorder.released)
     }
 
@@ -146,7 +206,7 @@ class VoiceManagerTest {
         assertEquals(VoiceState.IDLE, voiceManager.state.value)
         assertNull(sent)
         assertFalse(voiceManager.holdHint.value)
-        coVerify(exactly = 0) { apiService.transcribe(any()) }
+        coVerify(exactly = 0) { apiService.transcribe(any(), any()) }
         assertEquals(0, cacheDir.listFiles()?.size ?: 0)
     }
 
@@ -157,7 +217,7 @@ class VoiceManagerTest {
         voiceManager.pressRelease()
         testScope.runCurrent()
 
-        coVerify(exactly = 1) { apiService.transcribe(any()) }
+        coVerify(exactly = 1) { apiService.transcribe(any(), any()) }
     }
 
     @Test
@@ -170,7 +230,7 @@ class VoiceManagerTest {
         voiceManager.pressRelease()
         testScope.runCurrent()
 
-        coVerify(exactly = 1) { apiService.transcribe(any()) }
+        coVerify(exactly = 1) { apiService.transcribe(any(), any()) }
     }
 
     @Test
@@ -195,6 +255,161 @@ class VoiceManagerTest {
         voiceManager.pressDown()
 
         assertEquals(VoiceState.PROCESSING, voiceManager.state.value)
+    }
+
+    // --- The phone first, Whisper in reserve (MAG-222) ---
+
+    @Test
+    fun `a sentence the phone heard well never reaches Whisper`() {
+        val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("ajoute des tomates", 0.9f))
+        voiceManager = managerWith(engine)
+        var sent: String? = null
+        voiceManager.onFinalResult = { sent = it }
+
+        voiceManager.pressDown()
+        advance(2000)
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        assertEquals("ajoute des tomates", sent)
+        assertEquals(VoiceState.PROCESSING, voiceManager.state.value)
+        coVerify(exactly = 0) { apiService.transcribe(any(), any()) }
+        assertTrue(engine.stopped)
+        assertTrue(engine.destroyed)
+    }
+
+    @Test
+    fun `the microphone is fed to the engine while the button is held`() {
+        val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("oui", 0.9f))
+        voiceManager = managerWith(engine)
+
+        voiceManager.pressDown()
+
+        assertEquals(1, engine.startCount)
+        assertEquals(engine.sink, recorder.pcmSink)
+    }
+
+    @Test
+    fun `the engine is told the sentence is over before it is asked to answer`() {
+        val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("oui", 0.9f))
+        voiceManager = managerWith(engine)
+
+        voiceManager.pressDown()
+        advance(2000)
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        // The pipe closing is the engine's end-of-sentence; stopping it before that
+        // would make it answer on half a hold.
+        assertTrue(engine.heardTheEndFirst)
+    }
+
+    @Test
+    fun `the fillers are dropped from what the phone heard`() {
+        val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("euh ajoute des tomates", 0.9f))
+        voiceManager = managerWith(engine)
+        var sent: String? = null
+        voiceManager.onFinalResult = { sent = it }
+
+        voiceManager.pressDown()
+        advance(2000)
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        assertEquals("ajoute des tomates", sent)
+    }
+
+    @Test
+    fun `a result the judge refuses goes to Whisper on the audio already recorded`() {
+        val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("ajoute", 0.2f))
+        voiceManager = managerWith(engine)
+        var sent: String? = null
+        voiceManager.onFinalResult = { sent = it }
+
+        voiceManager.pressDown()
+        advance(2000)
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        // Nothing was asked of the owner: the same hold produced the clip Whisper read.
+        coVerify(exactly = 1) { apiService.transcribe(any(), TranscriptCleanup.NONE) }
+        assertEquals("bonjour Maggie", sent)
+    }
+
+    @Test
+    fun `an engine that heard nothing goes to Whisper`() {
+        val engine = FakeDeviceSpeech(resultOnStop = null)
+        voiceManager = managerWith(engine)
+
+        voiceManager.pressDown()
+        advance(2000)
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        coVerify(exactly = 1) { apiService.transcribe(any(), any()) }
+    }
+
+    @Test
+    fun `an engine that never answers stops holding up the sentence`() {
+        val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("ajoute", 0.9f), answers = false)
+        voiceManager = managerWith(engine)
+
+        voiceManager.pressDown()
+        advance(2000)
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+        coVerify(exactly = 0) { apiService.transcribe(any(), any()) }
+
+        advance(VoiceManager.DEVICE_RESULT_TIMEOUT_MS)
+
+        coVerify(exactly = 1) { apiService.transcribe(any(), any()) }
+    }
+
+    @Test
+    fun `a phone with no recognition records for Whisper alone`() {
+        val engine = FakeDeviceSpeech(isAvailable = false)
+        voiceManager = managerWith(engine)
+
+        voiceManager.pressDown()
+        advance(2000)
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        assertEquals(0, engine.startCount)
+        assertNull(recorder.pcmSink)
+        coVerify(exactly = 1) { apiService.transcribe(any(), any()) }
+    }
+
+    @Test
+    fun `what the engine hears shows up live and is cleared afterwards`() {
+        val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("ajoute des tomates", 0.9f))
+        voiceManager = managerWith(engine)
+
+        voiceManager.pressDown()
+        assertEquals("", voiceManager.partialText.value)
+
+        engine.listener?.onPartial("ajoute des")
+        assertEquals("ajoute des", voiceManager.partialText.value)
+
+        advance(2000)
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        assertEquals("", voiceManager.partialText.value)
+    }
+
+    @Test
+    fun `sliding out releases the engine`() {
+        val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("ajoute", 0.9f))
+        voiceManager = managerWith(engine)
+
+        voiceManager.pressDown()
+        advance(800)
+        voiceManager.pressCancel()
+        testScope.runCurrent()
+
+        assertTrue(engine.destroyed)
+        coVerify(exactly = 0) { apiService.transcribe(any(), any()) }
     }
 
     @Test

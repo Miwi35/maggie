@@ -10,6 +10,7 @@ import hmac
 from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, status
 
 from app.config import settings
+from app.llm.transcription import cleanup_requests, reset_cleanup_requests
 from app.tts.synthesis import fake_synthesis_requests, reset_fake_synthesis_requests
 
 
@@ -30,6 +31,22 @@ async def tts_syntheses() -> dict[str, int]:
 @router.delete("/tts/syntheses")
 async def reset_tts_syntheses() -> dict[str, int]:
     reset_fake_synthesis_requests()
+    return {"count": 0}
+
+
+@router.get("/transcription/cleanups")
+async def transcription_cleanups() -> dict[str, int]:
+    """How many transcript cleanups the model was asked for since the last reset.
+
+    The voice journey's proof that talking to Maggie no longer pays for one (MAG-222):
+    an absence, which no screen shows.
+    """
+    return {"count": cleanup_requests()}
+
+
+@router.delete("/transcription/cleanups")
+async def reset_transcription_cleanups() -> dict[str, int]:
+    reset_cleanup_requests()
     return {"count": 0}
 
 
