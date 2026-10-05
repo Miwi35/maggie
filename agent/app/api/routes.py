@@ -7,17 +7,20 @@ from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from app.auth import get_current_user_id
+from app.auth import get_current_user_id, require_proaction_trigger, require_service_token
 from app.db.context_repository import context_repo
 from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
 from app.db.message_repository import message_repo
 from app.db.proaction_repository import proaction_repo
+from app.db.user_data import purge_user_data
 from app.db.user_setting_repository import user_setting_repo
 from app.llm.context_summary import context_summarizer
 from app.llm.gateway import LLMGateway
 from app.llm.streaming import StreamingGateway
 from app.llm.transcription import transcribe_audio
+from app.queue.proaction_consumer import execute_proaction
+from app.queue.scheduler import generate_proactions
 from app.skills.index import render_markdown, skill_index
 from app.tts.synthesis import DEFAULT_VOICE, VOICE_IDS, get_voices, synthesize_speech
 
@@ -206,6 +209,83 @@ async def get_proactions(user_id: str = Depends(get_current_user_id)):
     """Get all proactions for the authenticated user."""
     proactions = await proaction_repo.find_by_user(user_id)
     return [p.to_dict() for p in proactions]
+
+
+@router.post("/proactions/generate")
+async def generate_user_proactions(
+    dry_run: bool = Query(default=False),
+    user_id: str = Depends(require_proaction_trigger),
+):
+    """Run the daily proaction generator for the caller now and say what it planned (MAG-249).
+
+    The same call the scheduler makes every morning. With `dry_run=true` nothing is recorded: the tools
+    that write are simulated and the plan is read from what the model tried to schedule.
+    """
+    known = {p.id for p in await proaction_repo.find_by_user(user_id)}
+    try:
+        result = await generate_proactions(llm_gateway, user_id, dry_run=dry_run)
+    except Exception as e:
+        logger.error(f"Proaction generation failed for user {user_id}: {e}")
+        raise HTTPException(status_code=502, detail=f"Proaction generation failed: {e}") from e
+
+    simulated = result.get("simulated_tools", [])
+    if dry_run:
+        planned = [
+            {"prompt": t["input"].get("prompt"), "scheduledAt": t["input"].get("scheduled_at"), "simulated": True}
+            for t in simulated
+            if t["name"] == "schedule_proaction"
+        ]
+    else:
+        planned = [p.to_dict() for p in await proaction_repo.find_by_user(user_id) if p.id not in known]
+
+    return {
+        "dryRun": dry_run,
+        "planned": planned,
+        "response": result["response"],
+        "toolCalls": result.get("tool_calls", []),
+        "simulatedTools": simulated,
+    }
+
+
+@router.post("/proactions/{proaction_id}/execute")
+async def execute_user_proaction(
+    proaction_id: str,
+    dry_run: bool = Query(default=False),
+    user_id: str = Depends(require_proaction_trigger),
+):
+    """Run one of the caller's scheduled proactions now, through the consumer's path, and return its message (MAG-249).
+
+    A real run takes the proaction (pending only: 409 once it was taken, so it cannot run twice); a dry run
+    leaves it pending, stores nothing and simulates the tools that write.
+    """
+    proaction = await proaction_repo.get(proaction_id)
+    if proaction is None or proaction.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Proaction not found")
+
+    if not dry_run and not await proaction_repo.claim(proaction_id):
+        raise HTTPException(status_code=409, detail="Proaction is not pending")
+
+    try:
+        result = await execute_proaction(llm_gateway, proaction, dry_run=dry_run)
+    except Exception as e:
+        logger.error(f"Execution of proaction {proaction_id} failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Proaction execution failed: {e}") from e
+
+    return {"id": proaction_id, "dryRun": dry_run, **result}
+
+
+class RecetteResetRequest(BaseModel):
+    userId: str = Field(min_length=1)
+    dryRun: bool = False
+
+
+@router.post("/internal/recette/reset")
+async def reset_recette_data(request: RecetteResetRequest, _: None = Depends(require_service_token)):
+    """Wipe the agent's rows of one user — called by `app:recette:reset` with the service token (MAG-249).
+
+    The user is the API command's constant, never a client input: no user token reaches this route.
+    """
+    return {"deleted": await purge_user_data(request.userId, dry_run=request.dryRun)}
 
 
 @router.get("/personality")

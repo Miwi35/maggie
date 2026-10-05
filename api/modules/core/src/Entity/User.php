@@ -32,6 +32,11 @@ class User implements UserInterface, MercurePublishable, IndexableInterface
 {
     use HasGoogleOAuthTokensTrait;
     use MercurePayloadFilterTrait;
+    /** Lets the holder start a proactive run on demand (Recette account only). */
+    public const ROLE_PROACTION_TRIGGER = 'ROLE_PROACTION_TRIGGER';
+
+    /** Roles the console may grant; ROLE_USER is implicit. */
+    public const GRANTABLE_ROLES = [self::ROLE_PROACTION_TRIGGER];
 
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
@@ -128,6 +133,20 @@ class User implements UserInterface, MercurePublishable, IndexableInterface
     public function setRoles(array $roles): static
     {
         $this->roles = $roles;
+
+        return $this;
+    }
+
+    public function addRole(string $role): static
+    {
+        $this->roles = array_values(array_unique([...$this->roles, $role]));
+
+        return $this;
+    }
+
+    public function removeRole(string $role): static
+    {
+        $this->roles = array_values(array_diff($this->roles, [$role]));
 
         return $this;
     }

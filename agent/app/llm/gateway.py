@@ -7,6 +7,7 @@ from app.llm.capabilities import generate_capability_summary
 from app.llm.client import create_llm_client, llm_configured
 from app.llm.contexts import active_contexts_section, resolve_context, route_message
 from app.llm.directives import behavior_directives_section
+from app.llm.dry_run import DryRunToolRouter
 from app.llm.history import build_history
 from app.llm.last_exchange import last_exchange_section
 from app.llm.prompt_cache import build_system
@@ -76,7 +77,7 @@ class LLMGateway:
         volatile = f"{memory_context}{directives}{context_section}\n\n{now}{last_exchange}{preamble}"
         return build_system(base + skill_context, volatile)
 
-    async def proaction(self, prompt: str, user_id: str, *, silent: bool = False) -> dict:
+    async def proaction(self, prompt: str, user_id: str, *, silent: bool = False, dry_run: bool = False) -> dict:
         """Execute a proaction prompt, knowing what the open threads are about.
 
         Native tools (schedule_proaction, list_proactions) are available here.
@@ -89,6 +90,8 @@ class LLMGateway:
         Args:
             silent: If True, planning mode — output is an internal log, not sent to user.
                     If False, execution mode — output is a chat message for the user.
+            dry_run: If True, nothing is written (MAG-249): tools that write are simulated and
+                     listed under `simulated_tools`, and no thread is opened for the message.
         """
         if self.client is None:
             return {
@@ -103,6 +106,7 @@ class LLMGateway:
         system_prompt = await self._build_system_prompt(user_id, tools=tools, preamble=preamble)
 
         messages = [{"role": "user", "content": prompt}]
+        tool_router = DryRunToolRouter(self.tool_router) if dry_run else self.tool_router
 
         try:
             result = await run_tool_loop(
@@ -110,7 +114,7 @@ class LLMGateway:
                 messages,
                 tools,
                 client=self.client,
-                tool_router=self.tool_router,
+                tool_router=tool_router,
                 user_id=user_id,
                 model=settings.anthropic_model,
                 call_type="proaction",
@@ -123,7 +127,10 @@ class LLMGateway:
             logger.error(f"Proaction connection error: {e}")
             return {"response": "Unable to reach the AI service.", "tool_calls": []}
 
-        if not silent:
+        if dry_run:
+            result["dry_run"] = True
+            result["simulated_tools"] = tool_router.simulated
+        elif not silent:
             result["context_id"] = await self._resolve_proaction_context(result.get("response", ""), user_id)
         return result
 

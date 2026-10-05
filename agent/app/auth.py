@@ -1,4 +1,6 @@
+import hmac
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 
 import jwt
@@ -10,6 +12,8 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 security = HTTPBearer()
+
+PROACTION_TRIGGER_ROLE = "ROLE_PROACTION_TRIGGER"
 
 _public_key: str | None = None
 
@@ -25,10 +29,18 @@ def _get_public_key() -> str:
     return _public_key
 
 
-def get_current_user_id(
+@dataclass(frozen=True)
+class Principal:
+    """Who is calling: the user ULID (`sub`) and the roles the API put in the JWT."""
+
+    user_id: str
+    roles: frozenset[str]
+
+
+def get_current_principal(
     credentials: HTTPAuthorizationCredentials = Depends(security),  # noqa: B008
-) -> str:
-    """FastAPI dependency: validate Bearer JWT and return user_id from 'sub' claim."""
+) -> Principal:
+    """FastAPI dependency: validate Bearer JWT and return who it identifies."""
     token = credentials.credentials
     try:
         payload = jwt.decode(
@@ -55,4 +67,28 @@ def get_current_user_id(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token missing 'sub' claim",
         )
-    return user_id
+    roles = payload.get("roles")
+    granted = frozenset(r for r in roles if isinstance(r, str)) if isinstance(roles, list) else frozenset()
+    return Principal(user_id=user_id, roles=granted)
+
+
+def get_current_user_id(principal: Principal = Depends(get_current_principal)) -> str:  # noqa: B008
+    """FastAPI dependency: validate Bearer JWT and return user_id from 'sub' claim."""
+    return principal.user_id
+
+
+def require_proaction_trigger(principal: Principal = Depends(get_current_principal)) -> str:  # noqa: B008
+    """The caller's user id, provided the API granted them `ROLE_PROACTION_TRIGGER` (MAG-249).
+
+    The permission is read from the JWT, so a grant or a revoke applies to the next token, not the current one.
+    """
+    if PROACTION_TRIGGER_ROLE not in principal.roles:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Missing permission: proaction trigger")
+    return principal.user_id
+
+
+def require_service_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> None:  # noqa: B008
+    """Service-to-service calls (the API's console commands): bearer `SERVICE_TOKEN`; closed when it is unset."""
+    expected = settings.service_token
+    if not expected or not hmac.compare_digest(credentials.credentials.encode(), expected.encode()):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid service token")

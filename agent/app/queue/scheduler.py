@@ -90,10 +90,20 @@ async def resolve_user_timezone(user_id: str) -> ZoneInfo:
     return _known_timezones[user_id]
 
 
+async def generate_proactions(gateway: LLMGateway, user_id: str, *, dry_run: bool = False) -> dict:
+    """Run the daily planning for one user and return what came out — the planner's and the manual trigger's one path.
+
+    With `dry_run` the run plans nothing for real: `schedule_proaction` is simulated and the result lists it.
+    """
+    logger.info(f"Running daily proaction planning for user {user_id}")
+    if dry_run:
+        return await gateway.proaction(DAILY_PLANNING_PROMPT, user_id, silent=True, dry_run=True)
+    return await gateway.proaction(DAILY_PLANNING_PROMPT, user_id, silent=True)
+
+
 async def plan_user(gateway: LLMGateway, user_id: str) -> None:
     try:
-        logger.info(f"Running daily proaction planning for user {user_id}")
-        result = await gateway.proaction(DAILY_PLANNING_PROMPT, user_id, silent=True)
+        result = await generate_proactions(gateway, user_id)
         logger.info(f"Daily planning complete for user {user_id}: {result['response'][:200]}")
     except Exception as e:
         logger.error(f"Daily planning failed for user {user_id}: {e}")

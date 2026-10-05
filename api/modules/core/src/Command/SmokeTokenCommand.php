@@ -4,16 +4,11 @@ declare(strict_types=1);
 
 namespace Maggie\Core\Command;
 
-use Doctrine\ORM\EntityManagerInterface;
-use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
-use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
-use Maggie\Core\Entity\User;
-use Maggie\Core\Repository\UserRepository;
+use Maggie\Core\Service\TechnicalAccountTokenIssuer;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
  * Signs the technical account the post-deploy smoke suite acts as (MAG-106).
@@ -44,34 +39,14 @@ final class SmokeTokenCommand extends Command
     public const GOOGLE_ID = 'technical-smoke-account';
     public const NAME = 'Smoke test (compte technique)';
 
-    public function __construct(
-        private readonly UserRepository $userRepository,
-        private readonly EntityManagerInterface $entityManager,
-        private readonly JWTTokenManagerInterface $jwtManager,
-        private readonly MessageBusInterface $bus,
-    ) {
+    public function __construct(private readonly TechnicalAccountTokenIssuer $issuer)
+    {
         parent::__construct();
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $user = $this->userRepository->findOneBy(['email' => self::EMAIL]);
-
-        if (null === $user) {
-            $user = (new User())
-                ->setEmail(self::EMAIL)
-                ->setGoogleId(self::GOOGLE_ID)
-                ->setName(self::NAME);
-
-            $this->entityManager->persist($user);
-            $this->entityManager->flush();
-        }
-
-        // Idempotent, so it is sent on every run: an earlier message lost to a
-        // worker restart is repaired by the next deploy.
-        $this->bus->dispatch(new IndexDocumentCommand(User::class, (string) $user->getId()));
-
-        $output->writeln($this->jwtManager->create($user));
+        $output->writeln($this->issuer->issueToken(self::EMAIL, self::GOOGLE_ID, self::NAME));
 
         return Command::SUCCESS;
     }

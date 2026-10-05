@@ -11,6 +11,7 @@ services:
             string $mercurePublicUrl: '%env(MERCURE_PUBLIC_URL)%'
             int $refreshTokenTtl: '%gesdinet_jwt_refresh_token.ttl%'
             string $serviceToken: '%env(SERVICE_TOKEN)%'
+            string $agentServiceUrl: '%env(AGENT_SERVICE_URL)%'
 
     Maggie\Core\:
         resource: '../src/'
