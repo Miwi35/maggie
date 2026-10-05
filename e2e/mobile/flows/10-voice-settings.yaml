@@ -3,10 +3,10 @@ name: 10-voice-settings
 tags:
   - voice
 ---
-# Settings > Voix tells the owner what keeping Maggie listening takes and costs
-# (MAG-89). The wake word itself, the lock screen and the reboot are system
-# behaviour Maestro cannot drive: they are accepted by hand on the phone (Recette).
-# What a journey can prove is that the screen carrying those instructions is there.
+# Settings > Voix carries the assistant role and the quick ways to open Maggie,
+# and no longer offers a background listening option (MAG-240). The assistant key
+# itself is system behaviour Maestro cannot drive: it is accepted by hand on the
+# phone (Recette). What a journey can prove is what the screen says.
 
 - launchApp:
     clearState: true
@@ -30,13 +30,10 @@ tags:
 - tapOn: "Voix"
 
 - extendedWaitUntil:
-    visible: ".*Pour qu'elle reste à l'écoute.*"
+    visible: ".*Assistant par défaut.*"
     timeout: 20000
-- assertVisible: ".*Batterie non restreinte.*"
-- assertVisible: ".*Assistant par défaut.*"
+- assertNotVisible: ".*Mot d'activation.*"
+- assertNotVisible: ".*Batterie non restreinte.*"
 
 - scrollUntilVisible:
-    element: ".*Sans coût de batterie.*"
-- extendedWaitUntil:
-    visible: ".*Ce que ça coûte.*"
-    timeout: 10000
+    element: ".*Ouvrir Maggie rapidement.*"

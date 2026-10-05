@@ -156,10 +156,6 @@ dependencies {
     implementation(libs.ktor.client.auth)
     implementation(libs.ktor.serialization.json)
 
-
-    // OpenWakeWord (Wake Word)
-    implementation(libs.openwakeword)
-
     // Firebase
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
