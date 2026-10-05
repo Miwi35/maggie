@@ -127,7 +127,7 @@ export const MealsWeekView = () => {
       })
       setRecipes(data as Recipe[])
     } catch {
-      // ignore
+      notify('Erreur lors du chargement des recettes', { type: 'error' })
     }
   }
 
@@ -152,6 +152,11 @@ export const MealsWeekView = () => {
   }
 
   const handleCreate = async () => {
+    if (selectedRecipes.length === 0) {
+      notify('Choisissez au moins une recette pour ce repas', { type: 'error' })
+      return
+    }
+
     try {
       const agendaIri = await findMealAgendaIri()
       if (!agendaIri) {
@@ -167,7 +172,8 @@ export const MealsWeekView = () => {
           slot: dialogSlot,
           summary:
             (dialogSlot === 'lunch' ? 'Déjeuner' : 'Dîner') +
-            (selectedRecipes.length > 0 ? ' : ' + selectedRecipes.map((r) => r.name).join(', ') : ''),
+            ' : ' +
+            selectedRecipes.map((r) => r.name).join(', '),
           recipes: recipeIris,
           agenda: agendaIri,
         },

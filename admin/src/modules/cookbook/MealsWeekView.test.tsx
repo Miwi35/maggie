@@ -17,22 +17,40 @@ const agendas = [
   { id: '/api/agendas/01PERSO', '@id': '/api/agendas/01PERSO', name: 'Perso', default: true },
 ]
 
-const answer = (agendaRows: unknown[], mealRows: unknown[] = []) => (resource: string) =>
-  Promise.resolve({ data: resource === 'agendas' ? agendaRows : resource === 'meals' ? mealRows : [], total: 0 })
+const gratin = { id: '/api/recipes/01GRATIN', '@id': '/api/recipes/01GRATIN', name: 'Gratin de courgettes' }
 
-const createEmptyMeal = async (cell = 'meal-cell-lunch-0') => {
+const answer =
+  (agendaRows: unknown[], mealRows: unknown[] = [], recipeRows: unknown[] = [gratin]) =>
+  (resource: string) =>
+    Promise.resolve({
+      data: resource === 'agendas' ? agendaRows : resource === 'meals' ? mealRows : resource === 'recipes' ? recipeRows : [],
+      total: 0,
+    })
+
+const setupUser = () =>
   // Only the day tests below mock the clock, and userEvent waits on real
   // timers for the rest.
-  const user = userEvent.setup({
+  userEvent.setup({
     advanceTimers: (ms) => {
       if (vi.isFakeTimers()) vi.advanceTimersByTime(ms)
     },
   })
+
+const openDialogOnCell = async (user: ReturnType<typeof userEvent.setup>, cell = 'meal-cell-lunch-0') => {
   render(<MealsWeekView />)
   await waitFor(() => expect(mockGetList).toHaveBeenCalledWith('meals', expect.any(Object)))
 
   await user.click(screen.getByTestId(cell))
-  await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Créer' }))
+  return within(await screen.findByRole('dialog'))
+}
+
+const createEmptyMeal = async (cell = 'meal-cell-lunch-0') => {
+  const user = setupUser()
+  const dialog = await openDialogOnCell(user, cell)
+
+  await user.click(dialog.getByLabelText('Recettes'))
+  await user.click(await screen.findByRole('option', { name: gratin.name }))
+  await user.click(dialog.getByRole('button', { name: 'Créer' }))
 }
 
 const createFirstEmptyMeal = () => createEmptyMeal()
@@ -78,6 +96,37 @@ describe('MealsWeekView', () => {
 
     await waitFor(() => expect(mockNotify).toHaveBeenCalledWith(expect.stringMatching(/agenda/i), { type: 'error' }))
     expect(mockCreate).not.toHaveBeenCalled()
+  })
+
+  test('plans the recipe that was picked', async () => {
+    await createFirstEmptyMeal()
+
+    await waitFor(() => expect(mockCreate).toHaveBeenCalled())
+    expect(mockCreate.mock.calls[0][1].data.recipes).toEqual([gratin['@id']])
+    expect(mockNotify).toHaveBeenCalledWith('Repas créé', { type: 'success' })
+  })
+
+  test('refuses a meal with no recipe and keeps the dialog open', async () => {
+    const user = setupUser()
+    const dialog = await openDialogOnCell(user)
+
+    await user.click(dialog.getByRole('button', { name: 'Créer' }))
+
+    await waitFor(() => expect(mockNotify).toHaveBeenCalledWith(expect.stringMatching(/recette/i), { type: 'error' }))
+    expect(mockNotify).not.toHaveBeenCalledWith('Repas créé', expect.anything())
+    expect(mockCreate).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  test('tells the user when the recipes cannot be loaded', async () => {
+    mockGetList.mockImplementation((resource: string) =>
+      resource === 'recipes' ? Promise.reject(new Error('boom')) : answer(agendas)(resource),
+    )
+
+    const user = setupUser()
+    await openDialogOnCell(user)
+
+    await waitFor(() => expect(mockNotify).toHaveBeenCalledWith(expect.stringMatching(/recettes/i), { type: 'error' }))
   })
 })
 

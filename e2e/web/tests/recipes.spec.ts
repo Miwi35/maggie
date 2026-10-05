@@ -54,32 +54,69 @@ interface GroceryListRow {
 }
 
 test.describe('Recipes and meals', () => {
-  test('a recipe created with comma-separated tags stores them as a list', async ({ page, api }) => {
+  test('a recipe created with comma-separated tags stores them as a list and shows in the list at once', async ({ page, api }) => {
+    const name = `Soupe MAG-117 ${Date.now()}`
     const shell = new AdminShell(page)
     await shell.goto(`${ROUTES.recipes}/create`)
 
-    await shell.content.getByLabel('Nom').fill('Soupe de potimarron')
+    await shell.content.getByLabel('Nom').fill(name)
     await shell.content.getByLabel(/Tags/).fill('rapide, hiver')
     await shell.content.getByRole('button', { name: 'Enregistrer' }).click()
 
-    const stored = await waitForIndexed<RecipeRow>(api, '/api/recipes', (r) => r.name === 'Soupe de potimarron', {
-      what: 'The new recipe',
-    })
+    // MAG-117 recette: the owner saved a recipe, stayed on the form and found
+    // an empty list. Saving leads to the list, and the list already has the
+    // recipe — no reload, no waiting for the index.
+    await expect(page.getByText('Recette enregistrée')).toBeVisible()
+    await expect(page).toHaveURL(new RegExp(`#${ROUTES.recipes}$`))
+    const row = shell.content.getByRole('row').filter({ hasText: name })
+    await expect(row).toBeVisible()
+    await expect(row.getByText('rapide', { exact: true })).toBeVisible()
+    await expect(row.getByText('hiver', { exact: true })).toBeVisible()
 
-    expect(stored.tags).toEqual(['rapide', 'hiver'])
+    const stored = (await getCollection<RecipeRow>(api, '/api/recipes')).find((r) => r.name === name)
+    expect(stored?.tags).toEqual(['rapide', 'hiver'])
   })
 
-  test('a meal planned from the week view lands in one of the user’s agendas', async ({ page, api }) => {
+  test('a meal planned from the week view with a recipe saved a moment ago shows in its cell at once', async ({
+    page,
+    api,
+  }) => {
+    // No ingredient on purpose: planning it must not touch the grocery list the
+    // other journeys of this file assert on.
+    const recipeName = `Velouté MAG-117 ${Date.now()}`
+    const created = await api.post('/api/recipes', {
+      headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },
+      data: { name: recipeName, servings: 2 },
+    })
+    expect(created.status()).toBe(201)
+
     const shell = new AdminShell(page)
     await shell.goto('/meals')
 
-    // Monday lunch: the seed plans a single dinner, so a lunch cell is empty.
-    await shell.content.getByTestId('meal-cell-lunch-0').click()
-    await page.getByRole('dialog').getByRole('button', { name: 'Créer' }).click()
+    // Tuesday lunch: the seed plans a single dinner, so a lunch cell is empty.
+    const cell = shell.content.getByTestId('meal-cell-lunch-1')
+    await cell.click()
+    const dialog = page.getByRole('dialog')
 
-    const stored = await waitForIndexed<MealRow>(api, '/api/meals', (m) => m.summary === 'Déjeuner', {
-      what: 'The new meal',
-    })
+    // A meal is a recipe on a day: with none picked, nothing is created.
+    await dialog.getByRole('button', { name: 'Créer' }).click()
+    await expect(page.getByText('Choisissez au moins une recette pour ce repas')).toBeVisible()
+    await expect(dialog).toBeVisible()
+
+    // The recipe list is the API's, and so is the planned meal: both come back
+    // from Elasticsearch, which must already hold what was written a moment ago.
+    await dialog.getByLabel('Recettes').fill('Velouté MAG-117')
+    await page.getByRole('option', { name: recipeName }).click()
+    await dialog.getByRole('button', { name: 'Créer' }).click()
+
+    await expect(page.getByText('Repas créé')).toBeVisible()
+    // Found by its name, not by the cell it was planned in: a meal stored at
+    // midnight in Paris can be drawn a day early (MAG-166), which is not what
+    // this journey is about.
+    await expect(shell.content.locator('[data-testid^="meal-cell-"]').filter({ hasText: recipeName })).toBeVisible()
+
+    const stored = (await getCollection<MealRow>(api, '/api/meals')).find((m) => String(m.summary).includes(recipeName))
+    expect(stored, 'the meal is not in the API collection right after the screen showed it').toBeDefined()
 
     // One of the caller's own agendas, read from the collection rather than
     // named: the seed gives them none called "Repas", so today the week view
@@ -89,7 +126,7 @@ test.describe('Recipes and meals', () => {
     // red the day that lands, for a reason that has nothing to do with MAG-117.
     const mine = (await getCollection<{ '@id': string }>(api, '/api/agendas')).map((agenda) => agenda['@id'])
     expect(mine.length, 'the caller has no agenda at all — did the seed run?').toBeGreaterThan(0)
-    expect(mine.some((iri) => JSON.stringify(stored.agenda).includes(iri))).toBe(true)
+    expect(mine.some((iri) => JSON.stringify(stored?.agenda).includes(iri))).toBe(true)
   })
 
   /**
@@ -155,7 +192,7 @@ test.describe('Recipes and meals', () => {
     await shell.goto('/meals')
 
     // Thursday lunch: the seed plans one dinner and the other journey in this
-    // file uses Monday, so this cell is free whatever order they run in.
+    // file uses Tuesday, so this cell is free whatever order they run in.
     const cell = shell.content.getByTestId('meal-cell-lunch-3')
     await cell.click()
 
