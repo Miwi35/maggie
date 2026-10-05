@@ -127,4 +127,32 @@ class EventRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * The events the agenda deduction reads to recognise a habit (MAG-150): the user's own,
+     * not cancelled, starting before the horizon, newest first.
+     *
+     * The horizon is what makes this history rather than a list: a one-off booked years
+     * ahead is the first row an unbounded `startAt DESC` would return and says nothing
+     * about where the user files things, while a cancelled occurrence is the opposite of a
+     * habit. Agendas are fetch-joined because the caller groups by them.
+     *
+     * @return Event[]
+     */
+    public function findForAgendaDeduction(User $user, \DateTimeImmutable $before, int $limit): array
+    {
+        return $this->createQueryBuilder('e')
+            ->addSelect('a')
+            ->join('e.agenda', 'a')
+            ->where('a.user = :user')
+            ->andWhere('e.status != :cancelled')
+            ->andWhere('e.startAt < :before')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('cancelled', EventStatus::Cancelled)
+            ->setParameter('before', $before, Types::DATETIMETZ_IMMUTABLE)
+            ->orderBy('e.startAt', 'DESC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
 }

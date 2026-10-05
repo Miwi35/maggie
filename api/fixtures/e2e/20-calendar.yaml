@@ -22,6 +22,23 @@ Maggie\Calendar\Entity\Agenda:
     timeZone: 'Europe/Paris'
     user: '@e2e_user'
 
+  # The two agendas the deduction journeys need (MAG-150). « Concerts » is named by
+  # nothing but the event's own title — « un concert de Stromae » — and « Boulot » by
+  # nothing at all: the appointments with Paul below are the only thing pointing at it.
+  e2e_agenda_work:
+    name: Boulot
+    description: Le travail, les clients et les collègues
+    isDefault: false
+    color: '#607d8b'
+    timeZone: 'Europe/Paris'
+    user: '@e2e_user'
+  e2e_agenda_concerts:
+    name: Concerts
+    isDefault: false
+    color: '#ff9800'
+    timeZone: 'Europe/Paris'
+    user: '@e2e_user'
+
   # The neighbour's. Events belong to a user through their agenda, so proving
   # isolation on `/api/events` needs one of these — a second user with no agenda
   # could own no event at all, and the assertion would hold for the wrong reason.
@@ -140,6 +157,45 @@ Maggie\Calendar\Entity\Event:
     timeZone: 'Europe/Paris'
     status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
     agenda: '@e2e_agenda_personal'
+
+  # The habits the agenda deduction reads (MAG-150). All in the past, so well before the
+  # `now + 30 days` the deduction stops at — anything the journeys themselves book is
+  # dated 2099, past that bound, so one journey's write is never the next one's habit.
+  #
+  # Paul is only ever met at work, so « un rendez-vous avec Paul » has one answer.
+  e2e_event_work_paul_meeting:
+    summary: Rendez-vous avec Paul
+    startAt: '<e2eDate("-14 days 10:00")>'
+    endAt: '<e2eDate("-14 days 11:00")>'
+    timeZone: 'Europe/Paris'
+    status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
+    agenda: '@e2e_agenda_work'
+  e2e_event_work_paul_lunch:
+    summary: Déjeuner avec Paul
+    startAt: '<e2eDate("-7 days 12:00")>'
+    endAt: '<e2eDate("-7 days 13:00")>'
+    timeZone: 'Europe/Paris'
+    status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
+    agenda: '@e2e_agenda_work'
+
+  # Camille is lunched with in two agendas — a cousin and a colleague share the name —
+  # so « un déjeuner avec Camille » has two answers and Maggie has to ask. « Déjeuner »
+  # alone is in all three agendas and therefore decides nothing, which is what makes the
+  # doubt about Camille rather than about lunch.
+  e2e_event_family_camille_lunch:
+    summary: Déjeuner avec Camille
+    startAt: '<e2eDate("-21 days 12:30")>'
+    endAt: '<e2eDate("-21 days 13:30")>'
+    timeZone: 'Europe/Paris'
+    status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
+    agenda: '@e2e_agenda_shared'
+  e2e_event_work_camille_lunch:
+    summary: Déjeuner avec Camille
+    startAt: '<e2eDate("-10 days 12:30")>'
+    endAt: '<e2eDate("-10 days 13:30")>'
+    timeZone: 'Europe/Paris'
+    status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
+    agenda: '@e2e_agenda_work'
 
   # The neighbour's, at the same hour as the signed-in user's lunch: a journey
   # asking "what do I have today?" has to come back without it.
