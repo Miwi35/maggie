@@ -8,7 +8,7 @@ name: create-event-named-agenda
 description: Book a concert in a named agenda, without looking its id up first.
 
 match:
-  user_matches: "les mouettes"
+  user_matches: "mouettes"
 
 turns:
   - tools:
