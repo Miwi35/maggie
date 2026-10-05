@@ -98,6 +98,11 @@ const TopPostsCard = ({ dashboard }: { dashboard: FinanceDashboard }) => (
       {dashboard.topPosts.map((post) => (
         <Stack
           key={post.categoryId ?? 'uncategorized'}
+          // The handle the e2e journey uses (MAG-102), as on the budget
+          // gauges: a post is only worth asserting together with the category
+          // it belongs to.
+          data-testid="top-post"
+          data-category={post.categoryName ?? 'Non catégorisé'}
           direction="row"
           justifyContent="space-between"
           sx={{ mt: 1 }}

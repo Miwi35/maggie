@@ -46,6 +46,11 @@ const PendingRow = ({
   onRate: (id: string, verdict: Verdict) => void
 }) => (
   <Stack
+    // The handle the e2e journey uses (MAG-102): the lines repeat, and what is
+    // asserted of one is that *this* spend is still to qualify — reaching it
+    // through the layout would turn that into "some spend is".
+    data-testid="review-pending"
+    data-label={spend.label}
     direction="row"
     spacing={2}
     alignItems="center"
