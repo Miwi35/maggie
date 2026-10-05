@@ -85,7 +85,7 @@ literal.
 | `run.sh` | the whole run: device, bridge, time zone, install, flows |
 | `maestro.sh` | downloads the pinned CLI into `.e2e-cache/` |
 | `lint.sh` | syntax, testTags, tag roots, applicationId, unawaited assertions — seconds, no device |
-| `report/` | JUnit report, and for a failed run the screenshots, view hierarchy and `maestro.log` of each flow, plus `device-last-frame.png`, `logcat.txt` and `device-size.txt` (gitignored) |
+| `report/` | JUnit report, and for a failed run the screenshots, view hierarchy and `maestro.log` of each flow, plus `device-last-frame.png`, `logcat.txt`, `anr.txt` and `device-size.txt` (gitignored) |
 
 A file put in `flows/` is run as a journey. A shared sequence goes in
 `subflows/`, outside the glob — left in `flows/` it would also be run on its own,
@@ -251,6 +251,13 @@ after the failure, so a step that fails on a dialog or another app is readable.
 `run.sh` sets `hide_error_dialogs` for the run and restores it on exit: a slow
 emulator makes the Pixel Launcher (also the taskbar on tablets and foldables) hit an
 ANR, and its dialog covers the app, so a flow fails on a screen it never reached.
+It does not always hold (MAG-236: the window still came up, on a run whose clock was
+not pinned, so the clock is not the cause), hence `subflows/dismiss-system-anr.yaml`:
+`sign-in.yaml` runs it before each of its waits, it taps « Wait » on a « … isn't
+responding » window that does not name Maggie and keeps a screenshot of it, and fails
+the flow on one that does. A failed run also writes `report/anr.txt`, the ANR lines of
+the whole logcat. A flow that waits long somewhere else than at sign-in runs the same
+subflow inside a `retry` the same way.
 
 The nightly run (`nightly.yml` calls `ci.yml`) widens the matrix to a phone, a
 **foldable** and a **tablet**, which is what MAG-35 and MAG-91 ask for. The

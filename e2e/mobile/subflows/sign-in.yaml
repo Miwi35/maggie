@@ -12,10 +12,19 @@ name: sign in as the seeded user
 # and only routes to `Login` once the DataStore has answered that there is no
 # token. A bare `assertVisible` here timed out on its default in CI, on a run
 # where nothing was wrong.
-- extendedWaitUntil:
-    visible:
-      id: "login_sign_in"
-    timeout: 60000
+#
+# Each wait is sliced in `retry` attempts that start by dismissing a system app's
+# « isn't responding » window (MAG-236): that window hides the whole app from
+# Maestro, so a plain wait would sit behind it until its timeout. Three attempts of
+# 30 s keep the 60 s the cold start was given.
+- retry:
+    maxRetries: 3
+    commands:
+      - runFlow: dismiss-system-anr.yaml
+      - extendedWaitUntil:
+          visible:
+            id: "login_sign_in"
+          timeout: 30000
 
 - tapOn:
     id: "login_sign_in"
@@ -23,12 +32,16 @@ name: sign in as the seeded user
 # The dashboard is the whole assertion: `NavGraph` only redirects there once the
 # JWT is in the DataStore, so seeing it means the login round trip succeeded.
 #
-# 40 s because this is the app's first HTTP call: OkHttp, Ktor and the JSON
+# 40–60 s because this is the app's first HTTP call: OkHttp, Ktor and the JSON
 # serializer are all being class-loaded, on an emulator with no JIT warm-up. A
 # failure here is almost always one of two things — `adb reverse` not bridging
 # the stack's port, or `task e2e:seed` never having created the user, which the
 # login answers 404 to.
-- extendedWaitUntil:
-    visible:
-      id: "dashboard"
-    timeout: 40000
+- retry:
+    maxRetries: 2
+    commands:
+      - runFlow: dismiss-system-anr.yaml
+      - extendedWaitUntil:
+          visible:
+            id: "dashboard"
+          timeout: 20000

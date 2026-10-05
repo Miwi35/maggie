@@ -240,6 +240,11 @@ note "device $APP_BASE_URL → host $BASE_URL"
 previous_hide="$("$ADB" -s "$SERIAL" shell settings get global hide_error_dialogs 2>/dev/null | tr -d '\r' || true)"
 "$ADB" -s "$SERIAL" shell settings put global hide_error_dialogs 1 >/dev/null 2>&1 \
   || warn "could not hide the system's error dialogs: an ANR dialog above the app will fail a flow."
+# It is not enough on its own (MAG-236): the system server can still show the
+# launcher's ANR window with it set, and a run on an unpinned clock proved the clock
+# is not what triggers it. `subflows/dismiss-system-anr.yaml` is the real guard; this
+# line says in the log whether the setting was at least in force.
+note "hide_error_dialogs = $("$ADB" -s "$SERIAL" shell settings get global hide_error_dialogs 2>/dev/null | tr -d '\r')"
 
 
 # ---------------------------------------------------------------------------
@@ -394,8 +399,13 @@ if [ "$status" -ne 0 ]; then
   step "The device after the failure"
   "$ADB" -s "$SERIAL" exec-out screencap -p >"$REPORT_DIR/device-last-frame.png" 2>/dev/null || true
   "$ADB" -s "$SERIAL" logcat -d -t 5000 >"$REPORT_DIR/logcat.txt" 2>/dev/null || true
+  # The tail above is taken minutes after an ANR: the lines that name the process and
+  # the reason are long gone from it (MAG-236). The whole buffer, filtered, says
+  # which app hung and when.
+  "$ADB" -s "$SERIAL" logcat -d -b main -b system -b events 2>/dev/null \
+    | grep -E 'ANR in|am_anr|Input dispatching timed out|isn.t responding|AppNotResponding' >"$REPORT_DIR/anr.txt" || true
   "$ADB" -s "$SERIAL" shell wm size 2>/dev/null | tr -d '\r' >"$REPORT_DIR/device-size.txt" || true
-  note "last frame, logcat and screen size written to $REPORT_DIR"
+  note "last frame, logcat, ANR lines and screen size written to $REPORT_DIR"
 fi
 
 exit "$status"
