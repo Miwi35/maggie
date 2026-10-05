@@ -72,6 +72,17 @@ object UiTags {
     /** Navigation drawer — one entry per destination, suffixed by its route. */
     const val DRAWER_ITEM_PREFIX = "drawer_"
 
+    /**
+     * Navigation rail — what replaces the burger and the drawer from 600 dp wide
+     * (MAG-35). The rail itself, so a test can say « this window has no rail », and
+     * one entry per destination, suffixed by its route like the drawer's.
+     */
+    const val NAV_RAIL = "nav_rail"
+    const val RAIL_ITEM_PREFIX = "rail_"
+
+    /** The conversation kept on screen beside the content on a wide window (MAG-35). */
+    const val CHAT_PANEL = "chat_panel"
+
     /** Finance dashboard — one access per part of the module, suffixed by its route. */
     const val FINANCE_ACCESS_PREFIX = "finance_access_"
 
@@ -119,6 +130,8 @@ object UiTags {
     const val CALENDAR_EVENT_PREFIX = "calendar_event_"
 
     fun drawerItem(route: String) = DRAWER_ITEM_PREFIX + route
+
+    fun railItem(route: String) = RAIL_ITEM_PREFIX + route
 
     fun financeAccess(route: String) = FINANCE_ACCESS_PREFIX + route
 
