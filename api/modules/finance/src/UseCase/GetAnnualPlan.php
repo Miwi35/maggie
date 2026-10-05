@@ -163,9 +163,9 @@ class GetAnnualPlan
             'categoryName' => $name,
             // The currency the envelope of this category is, or will be, set
             // in: an envelope of either year overwrites it, and `EUR` is what
-            // ApplyAnnualPlan budgets a new one in. Deliberately not a
-            // transaction's — the lines of one category can be in several
-            // currencies, and each event carries its own.
+            // setting one defaults to (ManageEnvelopesTool::set). Deliberately
+            // not a transaction's — the lines of one category can be in
+            // several currencies, and each event carries its own.
             'currency' => 'EUR',
             'lastYear' => ['budgetedCents' => null, 'consumedCents' => 0, 'events' => []],
             'plannedCents' => 0,

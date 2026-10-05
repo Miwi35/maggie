@@ -2,7 +2,7 @@
 
 Découpée en tranches qui tiennent sous la limite du garde-fou (800 lignes hors tests), dans l'ordre de dépendances : **lecture du plan** (MAG-48), puis **application en un geste**, puis l'écran admin, puis l'écran mobile. La lecture définit ce que la session propose ; l'écriture ne fait que valider ce qui a été proposé, et elle est déjà possible avec `manage_envelopes` et `manage_transactions`.
 
-Testing Rule du repo respectée à chaque tâche (401, 400, happy path + persistance DB, Mercure, Elasticsearch).
+Testing Rule du repo respectée à chaque tâche. **Exemptions de la tâche 1, qui ne fait que lire** : `N/A — état DB, Mercure et Elasticsearch` (rien n'est écrit, comme pour la revue mensuelle) et `N/A — action inconnue et argument requis manquant` (l'outil n'a pas d'action et ses deux paramètres sont facultatifs). La tâche 2 les rétablit toutes.
 
 ## Tâche 1 — Lecture du plan : API + outil MCP (MAG-48)
 

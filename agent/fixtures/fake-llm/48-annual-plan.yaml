@@ -6,8 +6,14 @@
 #
 # No id in the sentence, and none needed: `plan_annual_budget` takes a year and
 # a threshold, nothing a seed invents. The year is a far-future literal, like
-# 35-create-event.yaml's date, so what the journey writes into it cannot be
-# mistaken for seeded data or vice versa.
+# 35-create-event.yaml's date: the journey writes its own expenses into 2032 to
+# be read back as 2033's plan, and no other journey nor any twelve-month window
+# of the module reaches either year.
+#
+# The amount matches what the tool really returns. The fake does not read tool
+# results, so no journey can lean on it — but this corpus is also the reference
+# `task e2e:eval` judges the real model against, and a Maggie who misquotes her
+# own tool is not the reference anyone wants.
 name: annual-plan
 description: Read the yearly plan of a far-future year, through MCP.
 
@@ -21,4 +27,4 @@ turns:
     tools:
       - name: plan_annual_budget
         input: {year: 2033}
-  - text: "D'après l'année écoulée, il te faut compter 480,00 € pour tes festivals."
+  - text: "D'après l'année écoulée, il te faut compter 489,00 € pour tes festivals."

@@ -188,12 +188,23 @@ Maggie\Finance\Entity\Transaction:
     user: '@other_user'
 
 Maggie\Finance\Entity\Envelope:
-  # What 2026 had been budgeted for Loisirs.
+  # What 2026 had been budgeted for Loisirs. In CHF, and Loisirs has no 2027
+  # envelope, so it is this one the row's currency must come from.
   leisure_2026_annual:
     category: '@leisure'
     mode: '<(Maggie\Finance\Enum\BudgetMode::Annual)>'
     amountCents: 36000
-    currency: EUR
+    currency: CHF
+    year: 2026
+    user: '@test_user'
+
+  # Voyages has one on each year, in two currencies: the target year's is the
+  # one the budget will be set in, so it wins.
+  travel_2026_annual:
+    category: '@travel'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Annual)>'
+    amountCents: 70000
+    currency: CHF
     year: 2026
     user: '@test_user'
 

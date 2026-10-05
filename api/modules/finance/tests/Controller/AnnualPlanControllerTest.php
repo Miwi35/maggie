@@ -96,14 +96,23 @@ class AnnualPlanControllerTest extends WebTestCase
 
         // Nothing decided for 2027: the suggestion falls back on what 2026 cost.
         $travel = $this->categoryNamed($plan, 'Voyages');
-        self::assertNull($travel['lastYear']['budgetedCents']);
+        self::assertSame(70000, $travel['lastYear']['budgetedCents']);
         self::assertSame(80000, $travel['lastYear']['consumedCents']);
         self::assertSame(0, $travel['decidedCents']);
         self::assertSame(80000, $travel['suggestedCents']);
+        self::assertSame((string) $this->getFixture('travel_2027_annual')->getId(), $travel['envelopeId']);
         self::assertSame(90000, $travel['envelopeCents']);
 
+        $groceries = $this->categoryNamed($plan, 'Courses');
         // A monthly envelope is not last year's annual budget.
-        self::assertNull($this->categoryNamed($plan, 'Courses')['lastYear']['budgetedCents']);
+        self::assertNull($groceries['lastYear']['budgetedCents']);
+
+        // The currency the budget is, or will be, set in: the target year's
+        // envelope first, then last year's, then what setting one defaults to.
+        // Never a transaction's — the lines of one category can be in several.
+        self::assertSame('EUR', $travel['currency']);
+        self::assertSame('CHF', $leisure['currency']);
+        self::assertSame('EUR', $groceries['currency']);
 
         self::assertSame(165800, $plan['totalLastYearConsumedCents']);
         self::assertSame(18000, $plan['totalDecidedCents']);

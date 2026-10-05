@@ -13,12 +13,14 @@ import { DashboardPage } from '../pages/DashboardPage.js'
  * MCP client and the real `plan_annual_budget` call are the production ones.
  *
  * Which is why the arithmetic is asserted against the API and not against
- * Maggie's wording. She says "480,00 €" because `48-annual-plan.yaml` says so;
+ * Maggie's wording. She says "489,00 €" because `48-annual-plan.yaml` says so;
  * what proves the session works is that the plan, read back, holds last year's
  * expense as a candidate and suggests what that year cost.
  *
- * 2033 is a far-future literal, as in `35-create-event.yaml`: no other journey
- * and no twelve-month window of the module reaches it.
+ * 2033 is a far-future literal, as in `35-create-event.yaml`, and the expenses
+ * it reads go into 2032: no other journey and no twelve-month window of the
+ * module reaches either year, so this attempt's rows and the seed's can never
+ * be taken for one another.
  */
 
 const YEAR = 2033
@@ -87,9 +89,13 @@ test('asking Maggie to prepare the year reads what the year behind cost', async 
     ]),
   )
 
-  // Only the last step's text is the answer (MAG-229): the "je regarde" of the
-  // first round must not be what is left on screen.
-  expect(assistantText(events)).toContain('480,00 €')
+  // Only the last step's text is the answer (MAG-229): one bubble, the last
+  // round's, and the "je regarde" of the first is gone. Both halves matter —
+  // the absence alone would be green on a panel that rendered nothing.
+  expect(assistantText(events)).toContain('489,00 €')
+  await expect(
+    chat.bubbles("D'après l'année écoulée, il te faut compter 489,00 € pour tes festivals."),
+  ).toHaveCount(1)
   await expect(chat.bubbles("Je regarde ce que l'année écoulée a coûté.")).toHaveCount(0)
 
   // The plan, read back: the API is where the proof is.

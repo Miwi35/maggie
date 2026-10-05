@@ -31,7 +31,7 @@ Côté conversation, l'outil MCP `plan_annual_budget` rend ce plan : c'est par l
 
 ## Key Decisions
 
-Les décisions 5 à 8, 10 et 11 portent sur l'application du plan : elles sont prises ici parce que c'est la session qui les impose, et tenues par le ticket d'écriture.
+Les décisions 5, 10 et 11 portent sur l'écriture du plan : elles sont prises ici parce que c'est la session qui les impose, et tenues par le ticket d'écriture. Les décisions 6, 7 et 8 valent des deux côtés, et la lecture les tient déjà : un événement est rendu avec son mois et un montant positif, et seuls les trois statuts planifiables sont lus comme des plans.
 
 1. **Le plan n'est pas une entité.** Il se lit des transactions et des enveloppes, comme la revue mensuelle se lit des verdicts. Stocker un « plan validé » créerait une seconde vérité qui divergerait du premier achat.
 2. **Une grosse dépense est un débit au-dessus d'un seuil** (`thresholdCents`, défaut 100 €), pas un rang dans un top N : un seuil se vérifie de tête sur la liste des transactions, un top N dépend de ce que les autres lignes valent. Le seuil décide **quelles dépenses sont listées une par une, jamais quelles catégories entrent dans la session** : une catégorie qui a coûté quelque chose l'an dernier est toujours là, sinon le total « consommé l'an dernier » bougerait avec un paramètre de présentation.
