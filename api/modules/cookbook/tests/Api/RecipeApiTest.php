@@ -160,6 +160,23 @@ class RecipeApiTest extends WebTestCase
         self::assertEquals(300, $this->readLines($pasta)[0]['quantity']);
     }
 
+    public function testPatchSendingBackTheWholeRecordAsTheAdminDoesChangesTheQuantity(): void
+    {
+        $pasta = $this->loadPasta();
+        self::getContainer()->get('doctrine.orm.entity_manager')->clear();
+
+        // react-admin's Hydra data provider replaces `id` by the IRI and adds `originId`.
+        $record = $this->fetchRecipe($pasta);
+        $record['id'] = $record['@id'];
+        $record['originId'] = (string) $pasta->getId();
+        usort($record['ingredients'], static fn (array $a, array $b) => $a['ingredientName'] <=> $b['ingredientName']);
+        $record['ingredients'][0]['quantity'] = 300;
+        $this->patchRecipe($pasta, $record);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(['Pâtes' => [300.0, 'g'], 'Tomate' => [3.0, 'piece']], $this->lines($pasta));
+    }
+
     public function testPatchChangesTheUnitOfALine(): void
     {
         $pasta = $this->loadPasta();
