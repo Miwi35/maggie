@@ -97,8 +97,8 @@ tasks:
         PR='{{.CLI_ARGS}}'
         [ -n "$PR" ] || { echo "usage: task guard:check -- <pr number>" >&2; exit 64; }
         status=0
-        gh pr diff "$PR" > "${TMPDIR:-/tmp}/guard-$PR.diff"
-        scripts/agent-guard/check.sh < "${TMPDIR:-/tmp}/guard-$PR.diff" > "${TMPDIR:-/tmp}/guard-$PR.txt" || status=$?
+        # A batch PR (label `batch`, MAG-262) is judged PR by PR, as the workflows do.
+        scripts/agent-guard/judge.sh "$PR" > "${TMPDIR:-/tmp}/guard-$PR.txt" || status=$?
         # The fix of an « Emergency » ticket may merge its infra change alone (MAG-184), as the workflow does.
         if [ "$status" -eq 10 ] && scripts/agent-guard/emergency.sh "$(gh pr view "$PR" --json headRefName -q .headRefName)" \
             < "${TMPDIR:-/tmp}/guard-$PR.txt" > "${TMPDIR:-/tmp}/guard-$PR.waived"; then

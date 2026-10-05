@@ -42,7 +42,9 @@ c2=$(commit 'Remove the daily agent report (#56)')
 c3=$(commit 'Index and publish the agenda (MAG-176) (#54)')
 c4=$(commit 'Bump a dependency')
 c5=$(commit 'Freeze production on MAG-184 and MAG-12 (#60)')
+c6=$(commit $'Ship three pull requests together (#170)\n\nBatch of #150, #151 and #152.\n\nFixes MAG-301\n- Fixes MAG-302\nCloses MAG-303\nSee also MAG-999 and Fixes nothing')
 echo 'meven35/mag-150-remove-the-daily-report' > "$work/branches/$c2"
+echo 'train/batch-7' > "$work/branches/$c6"
 
 run_tickets() {
   : > "$work/calls"
@@ -62,6 +64,12 @@ grep -qx "$c2" "$work/calls" && ok "asks GitHub for the PR of a commit without a
 printf '\n\033[1mA subject naming two tickets gives both\033[0m\n'
 run_tickets "$c5" "$c4"
 [ "$KEYS" = "MAG-184 MAG-12" ] && ok "MAG-184 and MAG-12" || bad "found: $KEYS"
+
+printf '\n\033[1mA batch pull request: the tickets are in the body, not in the subject or the branch (MAG-262)\033[0m\n'
+run_tickets "$c6" "$c5"
+[ "$KEYS" = "MAG-301 MAG-302 MAG-303" ] && ok "one key per Fixes/Closes line" || bad "found: $KEYS"
+printf '%s' "$KEYS" | grep -q 'MAG-999' && bad "took a key that is only mentioned" || ok "ignores a key that is only mentioned"
+! grep -qx "$c6" "$work/calls" && ok "never asks GitHub for the branch" || bad "gh calls: $(cat "$work/calls")"
 
 printf '\n\033[1mNo usable last deploy: only the deployed commit\033[0m\n'
 run_tickets "$c3"

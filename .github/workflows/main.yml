@@ -36,13 +36,46 @@ env:
   CIQUAL_IMAGE: ghcr.io/miwi35/maggie-ciqual
 
 jobs:
+  # The merge train rebases a pull request on main and squash-merges it, so the
+  # commit that lands has the file tree the CI of the pull request already passed
+  # (MAG-262). When the trees are the same and that CI was green, the suite is not
+  # run a second time: ~20 minutes saved per merge. Anything else — a branch merged
+  # out of date, a direct push, a revert, a red or missing run, an API that does
+  # not answer — runs it in full. The reason is in this job's log and summary. The
+  # nightly run calls `ci.yml` itself and always runs everything.
+  tested:
+    name: Was this tree already tested
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.decide.outputs.skip }}
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: infra/scripts
+
+      - name: Compare the tree with the one the pull request tested
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_SHA: ${{ env.RELEASE_SHA }}
+        run: |
+          set -o pipefail
+          bash infra/scripts/tested-tree.sh | tee -a "$GITHUB_STEP_SUMMARY"
+
   # The whole suite of a pull request, whatever changed except what the path
   # filters skip on a push (`github.event_name` is `push` in the called workflow,
   # as it was when CI ran on main by itself). The write permissions are the
   # ceiling of the pull-request-only jobs (guard, streak) the file also holds: a
   # called workflow may not ask for more than its caller, even for a job it skips.
+  # `always()`: a `tested` job that dies runs the suite rather than skip it.
   ci:
     name: CI
+    needs: tested
+    if: ${{ always() && !cancelled() && needs.tested.outputs.skip != 'true' }}
     uses: ./.github/workflows/ci.yml
     permissions:
       contents: read
@@ -57,9 +90,16 @@ jobs:
   # (the base of the change detection, the "already deployed" check) would name a
   # commit nobody deployed: a run that stops cancels itself.
   # Checked out at the merged commit, which is where the script is.
+  #
+  # The CI is skipped when the tree was already tested (`tested`): that skip is a
+  # pass, a failed or cancelled CI is not.
   gate:
     name: Should this commit deploy
-    needs: ci
+    needs: [tested, ci]
+    if: >-
+      !cancelled() &&
+      (needs.ci.result == 'success' ||
+       (needs.ci.result == 'skipped' && needs.tested.outputs.skip == 'true'))
     runs-on: ubuntu-latest
     outputs:
       proceed: ${{ steps.decide.outputs.proceed }}
