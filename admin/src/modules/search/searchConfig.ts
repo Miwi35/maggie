@@ -136,11 +136,14 @@ export function useSearch(debounceMs = 300, perType?: number) {
       }
 
       if (perType) {
-        const responses = await Promise.all(
+        const settled = await Promise.allSettled(
           Object.keys(SEARCH_INDEX_CONFIG).map((index) =>
             get(new URLSearchParams({ q, types: index, page: '1', limit: String(perType) })),
           ),
         )
+        if (controller.signal.aborted) return
+        const responses = settled.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []))
+        if (responses.length === 0) throw new Error('Search failed')
         setData({
           total: responses.reduce((sum, r) => sum + r.total, 0),
           page: 1,
