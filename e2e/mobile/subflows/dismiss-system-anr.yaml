@@ -8,7 +8,7 @@ name: dismiss a system app's « isn't responding » window
 # screenshot shows the app intact.
 #
 # Run it before each long wait of a flow's start (`sign-in.yaml`); it costs nothing
-# when there is no dialog. « Wait » rather than « Close app »: closing the launcher
+# but a few seconds when there is no dialog (Maestro looks for it). « Wait » rather than « Close app »: closing the launcher
 # makes the system restart the home process, which can bring it back to the front
 # over the app. If the system is still hung it asks again, and the caller's `retry`
 # comes back here.

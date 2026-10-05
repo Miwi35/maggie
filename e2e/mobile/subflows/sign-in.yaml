@@ -15,8 +15,9 @@ name: sign in as the seeded user
 #
 # Each wait is sliced in `retry` attempts that start by dismissing a system app's
 # « isn't responding » window (MAG-236): that window hides the whole app from
-# Maestro, so a plain wait would sit behind it until its timeout. Three attempts of
-# 30 s keep the 60 s the cold start was given.
+# Maestro, so a plain wait would sit behind it until its timeout. `maxRetries` counts
+# retries, so the first wait has up to four attempts of 30 s: at least the 60 s the
+# cold start was given.
 - retry:
     maxRetries: 3
     commands:
