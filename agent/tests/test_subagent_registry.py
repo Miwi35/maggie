@@ -7,6 +7,55 @@ from app.agents.registry import SubagentRegistry, parse_subagent
 from app.config import settings
 
 SHIPPED_AGENTS = Path(__file__).parent.parent / "data" / "agents"
+# The tools the API serves (api/contract/mcp-tools.json, out of reach of the agent's test container)
+MCP_TOOL_NAMES = (
+    "add_grocery_item",
+    "assign_product_store",
+    "check_conflicts",
+    "check_grocery_item",
+    "create_event",
+    "create_recipe",
+    "create_task",
+    "delete_event",
+    "delete_recipe",
+    "delete_task",
+    "end_errand",
+    "generate_grocery_list",
+    "get_daily_score",
+    "get_events_by_date",
+    "get_finance_dashboard",
+    "get_grocery_list",
+    "get_recipe",
+    "get_tasks",
+    "get_upcoming_events",
+    "get_user_timezone",
+    "manage_accounts",
+    "manage_agendas",
+    "manage_categories",
+    "manage_categorization_rules",
+    "manage_envelopes",
+    "manage_ingredients",
+    "manage_loans",
+    "manage_meals",
+    "manage_notifications",
+    "manage_products",
+    "manage_recurring_groceries",
+    "manage_safety_cushion",
+    "manage_stores",
+    "manage_transactions",
+    "monthly_review",
+    "move_to_fallback",
+    "remove_grocery_item",
+    "reorder_grocery_items",
+    "search",
+    "search_ciqual_foods",
+    "search_ingredients",
+    "search_products",
+    "search_recipes",
+    "update_event",
+    "update_recipe",
+    "update_task",
+)
 
 VALID = """---
 name: researcher
@@ -114,12 +163,22 @@ class TestRegistry:
 
 
 class TestShippedAgents:
-    def test_researcher_is_valid_and_read_only(self):
+    def test_researcher_only_reaches_tools_that_read(self):
+        from app.agents.delegate import select_tools
+        from app.llm.dry_run import READ_ONLY_TOOLS
+        from app.llm.tools import INSTRUCTION_TOOLS, MEMORY_TOOLS, PROACTION_TOOLS, SKILL_TOOLS
+
         registry = SubagentRegistry()
         registry.load(SHIPPED_AGENTS)
-
         researcher = registry.get("researcher")
         assert researcher is not None
         assert researcher.model == "haiku"
-        writers = ("create", "update", "delete", "add", "store", "manage", "schedule", "end")
-        assert not [p for p in researcher.tools if p.startswith(writers)]
+
+        native = MEMORY_TOOLS + INSTRUCTION_TOOLS + SKILL_TOOLS + PROACTION_TOOLS
+        everything = [{"name": n} for n in MCP_TOOL_NAMES] + [{"name": t["name"]} for t in native]
+        reachable = {t["name"] for t in select_tools(researcher, everything)}
+
+        # get_grocery_list is the one read that may create the user's (empty) list, which dry-run does not allow
+        # but the « courses » of a weekly review needs.
+        assert reachable - READ_ONLY_TOOLS == {"get_grocery_list"}
+        assert {"get_upcoming_events", "get_finance_dashboard", "search_memory", "get_skill"} <= reachable

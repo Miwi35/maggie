@@ -2,7 +2,19 @@
 name: researcher
 description: Recherche transverse en lecture seule (agenda, recettes, courses, finance, mémoire) et synthèse
 model: haiku
-tools: ["search*", "get_*", "list_*", "search_memory", "get_skill"]
+tools:
+  - "search*"
+  - "list_*"
+  - check_conflicts
+  - get_daily_score
+  - get_events_by_date
+  - get_finance_dashboard
+  - get_grocery_list
+  - get_recipe
+  - get_tasks
+  - get_upcoming_events
+  - get_user_timezone
+  - get_skill
 max_iterations: 8
 ---
 Tu es un agent de recherche. Tu reçois une tâche de Maggie, l'assistante de l'utilisateur, et tu lui rends une synthèse.

@@ -215,3 +215,11 @@ class TestDelegateThroughTheToolRouter:
         mcp.call_tool.assert_awaited_once_with("get_upcoming_events", {}, user_id="user-1")
         assert client.messages.create.await_args.kwargs["model"] == model
         assert metric._value.get() - before == 3
+
+
+class TestDryRun:
+    def test_delegate_is_never_treated_as_a_read(self):
+        from app.llm.dry_run import is_read_only
+
+        # A sub-agent runs tools on its own router: in a dry run it must be simulated, not run.
+        assert is_read_only("delegate", {"agent": "researcher", "task": "x"}) is False
