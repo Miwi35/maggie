@@ -261,10 +261,9 @@ class Meal extends Event implements MercurePublishable
      * throw out of a setter during denormalization and answer 500, where the
      * worst case here is a meal placed in the default zone's day.
      *
-     * The fallback is not the whole fix. `RecurrenceService` still resolves the
-     * same free string unguarded, so a row that already holds a bad one keeps
-     * breaking the agenda's reads — that wants an `Assert\Timezone` on `Event`,
-     * which is a calendar change and not this bug's (MAG-256).
+     * `Event` now refuses an unknown name (`Assert\Timezone`) and
+     * `RecurrenceService` guards its reads; this fallback stays as a second
+     * net for a row written before that (MAG-256).
      */
     private function zone(): \DateTimeZone
     {
