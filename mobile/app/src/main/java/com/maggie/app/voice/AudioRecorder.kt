@@ -110,7 +110,13 @@ class PcmAudioRecorder : AudioRecorder {
             if (thread.isAlive) Log.e(TAG, "The recording thread did not stop; the clip may be truncated")
         }
         pump = null
-        tee?.finish()
+        tee?.let {
+            it.finish()
+            // A gap in what the engine heard is the one way this design can put wrong
+            // words in front of Maggie — a short, confident transcript the judge
+            // accepts. Worth a line in logcat when a bug report comes back.
+            if (it.dropped > 0) Log.w(TAG, "The engine was too slow for ${it.dropped} buffers")
+        }
         tee = null
     }
 
@@ -136,9 +142,15 @@ class PcmAudioRecorder : AudioRecorder {
                     }
                 } finally {
                     // In a finally so that a clip cut short by an error is still a
-                    // playable WAV rather than 44 zero bytes and silence.
-                    out.seek(0)
-                    out.write(WavHeader.forPcm(dataBytes, SAMPLE_RATE, CHANNEL_COUNT, BITS_PER_SAMPLE))
+                    // playable WAV rather than 44 zero bytes and silence. Caught here
+                    // rather than thrown: a failure writing the header would replace
+                    // whatever really went wrong, which is what the log is for.
+                    try {
+                        out.seek(0)
+                        out.write(WavHeader.forPcm(dataBytes, SAMPLE_RATE, CHANNEL_COUNT, BITS_PER_SAMPLE))
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Could not finalise the WAV header", e)
+                    }
                 }
             }
         } catch (e: Exception) {

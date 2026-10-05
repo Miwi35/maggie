@@ -16,15 +16,33 @@ import java.util.concurrent.TimeUnit
  */
 class PcmTeeTest {
 
+    /**
+     * A sink that says when it was closed, so a test can wait for the writer thread
+     * instead of trusting `finish()`'s own timeout — that one is a production tuning
+     * knob and a loaded CI runner must not turn it into a flake.
+     */
+    private class ClosingSink : ByteArrayOutputStream() {
+        val closed = CountDownLatch(1)
+
+        override fun close() {
+            super.close()
+            closed.countDown()
+        }
+    }
+
+    private fun ClosingSink.awaitClose() =
+        assertTrue("the writer thread should have closed the sink", closed.await(5, TimeUnit.SECONDS))
+
     @Test
     fun `what is offered reaches the engine, and only the bytes offered`() {
-        val sink = ByteArrayOutputStream()
+        val sink = ClosingSink()
         val tee = PcmTee(sink)
 
         // A buffer is handed over with a length: the tail is last round's audio.
         tee.offer(byteArrayOf(1, 2, 3, 9, 9), 3)
         tee.offer(byteArrayOf(4, 5), 2)
         tee.finish()
+        sink.awaitClose()
 
         assertArrayEquals(byteArrayOf(1, 2, 3, 4, 5), sink.toByteArray())
         assertEquals(0, tee.dropped)
@@ -58,27 +76,21 @@ class PcmTeeTest {
 
     @Test
     fun `finishing closes the engine's end — its end-of-sentence signal`() {
-        var closed = false
-        val sink = object : OutputStream() {
-            override fun write(b: Int) = Unit
-
-            override fun close() {
-                closed = true
-            }
-        }
+        val sink = ClosingSink()
 
         PcmTee(sink).finish()
 
-        assertTrue(closed)
+        sink.awaitClose()
     }
 
     @Test
     fun `nothing is offered after finishing`() {
-        val sink = ByteArrayOutputStream()
+        val sink = ClosingSink()
         val tee = PcmTee(sink)
 
         tee.offer(byteArrayOf(1), 1)
         tee.finish()
+        sink.awaitClose()
         tee.offer(byteArrayOf(2), 1)
 
         assertArrayEquals(byteArrayOf(1), sink.toByteArray())

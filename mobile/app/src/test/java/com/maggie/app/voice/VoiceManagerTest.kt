@@ -37,10 +37,23 @@ private class FakeRecorder : AudioRecorder {
 
     override fun stop() {
         stopped = true
+        // The recorder owns the sink it was handed and closes it here — that close is
+        // what tells the engine the sentence is over (MAG-222).
+        pcmSink?.close()
     }
 
     override fun release() {
         released = true
+    }
+}
+
+/** The engine's end of the audio pipe, which remembers being closed. */
+private class ClosingSink : ByteArrayOutputStream() {
+    var closed = false
+
+    override fun close() {
+        closed = true
+        super.close()
     }
 }
 
@@ -54,11 +67,15 @@ private class FakeDeviceSpeech(
     private val resultOnStop: DeviceSpeechResult? = null,
     private val answers: Boolean = true,
 ) : DeviceSpeechRecognizer {
-    val sink = ByteArrayOutputStream()
+    val sink = ClosingSink()
     var listener: DeviceSpeechRecognizer.Listener? = null
     var startCount = 0
     var stopped = false
     var destroyed = false
+
+    /** Whether the audio pipe was closed — the end-of-sentence signal — before we were asked to stop. */
+    var heardTheEndFirst = false
+        private set
 
     override fun start(listener: DeviceSpeechRecognizer.Listener): OutputStream {
         this.listener = listener
@@ -67,6 +84,7 @@ private class FakeDeviceSpeech(
     }
 
     override fun stopListening() {
+        heardTheEndFirst = sink.closed
         stopped = true
         if (!answers) return
         resultOnStop?.let { listener?.onResult(it) } ?: listener?.onUnavailable("no match")
@@ -269,6 +287,21 @@ class VoiceManagerTest {
 
         assertEquals(1, engine.startCount)
         assertEquals(engine.sink, recorder.pcmSink)
+    }
+
+    @Test
+    fun `the engine is told the sentence is over before it is asked to answer`() {
+        val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("oui", 0.9f))
+        voiceManager = managerWith(engine)
+
+        voiceManager.pressDown()
+        advance(2000)
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        // The pipe closing is the engine's end-of-sentence; stopping it before that
+        // would make it answer on half a hold.
+        assertTrue(engine.heardTheEndFirst)
     }
 
     @Test
