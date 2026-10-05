@@ -34,7 +34,7 @@ import org.junit.Test
  *
  * This file is in `src/testE2e/`, so it only exists for the `e2e` flavor — the
  * same boundary as `E2eSignIn` itself. `.github/workflows/ci.yml` runs
- * `testE2eDebugUnitTest` in the `e2e-mobile-device` job; `mobile.yml` keeps running
+ * `testE2eDebugUnitTest` in the `e2e-mobile-unit` job; `mobile.yml` keeps running
  * the prod variant, where neither file exists.
  *
  * What matters here is the request, not the plumbing: the journeys below it all

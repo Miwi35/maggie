@@ -640,6 +640,8 @@ jobs:
           path: e2e/mobile/apk/maggie-e2e.apk
           retention-days: 1
           if-no-files-found: error
+          # A re-run of all jobs is a new attempt of the same run: the name exists.
+          overwrite: true
 
   # The e2e flavor's unit tests, beside the shards rather than before them:
   # `mobile.yml` runs the prod variant, where `src/e2e/` does not exist, so
@@ -886,6 +888,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: maestro-report-${{ matrix.device.name }}-${{ matrix.shard }}-${{ github.run_id }}${{ inputs.e2e_now && format('-{0}', inputs.e2e_now) || '' }}
+          overwrite: true
           path: e2e/mobile/report
           retention-days: 7
           if-no-files-found: ignore
