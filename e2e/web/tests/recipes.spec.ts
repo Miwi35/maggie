@@ -192,7 +192,7 @@ test.describe('Recipes and meals', () => {
     await shell.goto('/meals')
 
     // Thursday lunch: the seed plans one dinner and the other journey in this
-    // file uses Monday, so this cell is free whatever order they run in.
+    // file uses Tuesday, so this cell is free whatever order they run in.
     const cell = shell.content.getByTestId('meal-cell-lunch-3')
     await cell.click()
 
