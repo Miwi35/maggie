@@ -10,6 +10,7 @@ use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Repository\EnvelopeRepository;
 use Maggie\Finance\Repository\TransactionRepository;
+use Symfony\Component\Uid\Ulid;
 
 /**
  * The yearly planning session, read side: what last year actually cost, which
@@ -23,9 +24,9 @@ use Maggie\Finance\Repository\TransactionRepository;
 class GetAnnualPlan
 {
     /**
-     * How much a debit must weigh to come back as a candidate. A threshold is
-     * checkable by hand against the transaction list; a top N would depend on
-     * what the other lines happen to be worth.
+     * How much a debit must weigh to come back as a candidate to reconsider
+     * one by one. A threshold is checkable by hand against the transaction
+     * list; a top N would depend on what the other lines happen to be worth.
      */
     public const DEFAULT_THRESHOLD_CENTS = 10_000;
 
@@ -36,20 +37,19 @@ class GetAnnualPlan
     }
 
     /**
-     * The year the session is about when nobody says. It is an end-of-year
-     * appointment (doc §5.3): in November it is next year that is being
-     * planned, not the one closing.
+     * @return array<string, mixed>
+     *
+     * @throws \InvalidArgumentException on a year or a threshold no session
+     *                                   could be about
      */
-    public static function defaultYear(\DateTimeImmutable $now): int
-    {
-        $year = (int) $now->format('Y');
-
-        return (int) $now->format('n') >= 11 ? $year + 1 : $year;
-    }
-
-    /** @return array<string, mixed> */
     public function execute(User $user, int $year, int $thresholdCents = self::DEFAULT_THRESHOLD_CENTS): array
     {
+        PlanningYear::assert($year);
+
+        if ($thresholdCents < 0) {
+            throw new \InvalidArgumentException('thresholdCents must be a positive integer of cents.');
+        }
+
         $sourceYear = $year - 1;
         $sourceStart = new \DateTimeImmutable(sprintf('%04d-01-01', $sourceYear));
         $targetStart = $sourceStart->modify('+1 year');
@@ -58,10 +58,31 @@ class GetAnnualPlan
         /** @var array<string, array<string, mixed>> $rows keyed by category id */
         $rows = [];
 
-        // What last year had been budgeted, and what it really consumed.
+        // Every category the year behind cost something, whatever the
+        // threshold: it decides which expenses come back one by one, never
+        // whether a category is in the session at all. A total that moved with
+        // it would say last year cost less than it did.
+        foreach ($this->transactionRepository->sumSpendingByCategoryBetween($user, $sourceStart, $targetStart) as $spending) {
+            // Uncategorized: the session budgets categories, so there is
+            // nowhere to put it.
+            if (null === $spending['categoryId']) {
+                continue;
+            }
+
+            // `IDENTITY()` hands back the column's raw value, not the ULID's
+            // own spelling — keyed on that, a category would get one row from
+            // this query and a second from every entity below it.
+            $id = $this->open(
+                $rows,
+                (string) Ulid::fromString($spending['categoryId']),
+                (string) $spending['categoryName'],
+            );
+            $rows[$id]['lastYear']['consumedCents'] = $spending['spentCents'];
+        }
+
+        // What the year behind had been budgeted.
         foreach ($this->envelopeRepository->findForPeriod($user, $sourceYear, null) as $envelope) {
-            $category = $envelope->getCategory();
-            $id = $this->open($rows, $category);
+            $id = $this->openFor($rows, $envelope->getCategory());
             $rows[$id]['currency'] = $envelope->getCurrency();
             $rows[$id]['lastYear']['budgetedCents'] = $envelope->getAmountCents();
         }
@@ -69,7 +90,7 @@ class GetAnnualPlan
         // The annual envelopes already set on the target year: re-opening the
         // session must show what a previous pass decided, not propose it again.
         foreach ($this->envelopeRepository->findForPeriod($user, $year, null) as $envelope) {
-            $id = $this->open($rows, $envelope->getCategory());
+            $id = $this->openFor($rows, $envelope->getCategory());
             $rows[$id]['currency'] = $envelope->getCurrency();
             $rows[$id]['envelopeId'] = (string) $envelope->getId();
             $rows[$id]['envelopeCents'] = $envelope->getAmountCents();
@@ -80,35 +101,37 @@ class GetAnnualPlan
             ->findNotableDebitsBetween($user, $sourceStart, $targetStart, $thresholdCents);
 
         foreach ($notable as $transaction) {
-            $id = $this->open($rows, $this->categoryOf($transaction));
+            $id = $this->openFor($rows, $this->categoryOf($transaction), $transaction->getCurrency());
             $rows[$id]['lastYear']['events'][] = $this->serialize($transaction, withId: false);
         }
 
-        // What the target year has already decided on.
+        // What the target year has already decided on. The statuses are kept
+        // apart and named as GetBudgetStatus names them, so one screen can
+        // read both payloads without the same word meaning two things.
         foreach ($this->transactionRepository->findPlansBetween($user, $targetStart, $targetEnd) as $transaction) {
-            $id = $this->open($rows, $this->categoryOf($transaction));
+            $id = $this->openFor($rows, $this->categoryOf($transaction), $transaction->getCurrency());
             $rows[$id]['plannedEvents'][] = $this->serialize($transaction, withId: true);
 
             $amount = abs($transaction->getAmountCents());
 
-            // To-arbitrate is reported, never summed: that is the whole point
-            // of the status (finance-annual-envelopes, decision 3).
-            if (TransactionStatus::ToArbitrate === $transaction->getStatus()) {
-                $rows[$id]['toArbitrateCents'] += $amount;
-            } else {
-                $rows[$id]['plannedCents'] += $amount;
-            }
+            $rows[$id][match ($transaction->getStatus()) {
+                TransactionStatus::Committed => 'committedCents',
+                // Reported, never summed into what the year owes: that is the
+                // whole point of the status (finance-annual-envelopes, 3).
+                TransactionStatus::ToArbitrate => 'toArbitrateCents',
+                default => 'plannedCents',
+            }] += $amount;
         }
 
         foreach ($rows as $id => $row) {
-            $consumed = $this->consumedBy($user, $row['category'], $sourceStart, $targetStart);
+            // Money the year ahead has committed to one way or another.
+            $decided = $row['plannedCents'] + $row['committedCents'];
 
-            $rows[$id]['lastYear']['consumedCents'] = $consumed;
-            // What the year ahead has already committed to, or failing that
-            // what the year behind actually cost. Two rules, no rolling
-            // average: the owner must be able to redo the sum by hand.
-            $rows[$id]['suggestedCents'] = $row['plannedCents'] > 0 ? $row['plannedCents'] : $consumed;
-            unset($rows[$id]['category']);
+            $rows[$id]['decidedCents'] = $decided;
+            // What the year ahead has decided on, or failing that what the
+            // year behind actually cost. Two rules, no rolling average: the
+            // owner must be able to redo the sum by hand.
+            $rows[$id]['suggestedCents'] = $decided > 0 ? $decided : $row['lastYear']['consumedCents'];
         }
 
         // Biggest decision first.
@@ -120,7 +143,8 @@ class GetAnnualPlan
             'sourceYear' => $sourceYear,
             'thresholdCents' => $thresholdCents,
             'totalLastYearConsumedCents' => $this->total($categories, fn (array $c) => $c['lastYear']['consumedCents']),
-            'totalPlannedCents' => $this->total($categories, fn (array $c) => $c['plannedCents']),
+            'totalDecidedCents' => $this->total($categories, fn (array $c) => $c['decidedCents']),
+            'totalToArbitrateCents' => $this->total($categories, fn (array $c) => $c['toArbitrateCents']),
             'totalSuggestedCents' => $this->total($categories, fn (array $c) => $c['suggestedCents']),
             'totalEnvelopedCents' => $this->total($categories, fn (array $c) => $c['envelopeCents'] ?? 0),
             'categories' => $categories,
@@ -132,39 +156,37 @@ class GetAnnualPlan
      *
      * @param array<string, array<string, mixed>> $rows
      */
-    private function open(array &$rows, Category $category): string
+    private function open(array &$rows, string $id, string $name, ?string $currency = null): string
     {
-        $id = (string) $category->getId();
-
         $rows[$id] ??= [
             'categoryId' => $id,
-            'categoryName' => $category->getName(),
-            'currency' => 'EUR',
+            'categoryName' => $name,
+            // Whatever opened the row knows the currency its own figures are
+            // in; an envelope overwrites it, because that is the one the
+            // budget will be set in.
+            'currency' => $currency ?? 'EUR',
             'lastYear' => ['budgetedCents' => null, 'consumedCents' => 0, 'events' => []],
             'plannedCents' => 0,
+            'committedCents' => 0,
             'toArbitrateCents' => 0,
+            'decidedCents' => 0,
             'plannedEvents' => [],
             'envelopeId' => null,
             'envelopeCents' => null,
             'suggestedCents' => 0,
-            // Dropped before the row goes out; only the totals pass needs it.
-            'category' => $category,
         ];
 
         return $id;
     }
 
-    /** Spent plus committed on a category over the source year. */
-    private function consumedBy(
-        User $user,
-        Category $category,
-        \DateTimeImmutable $from,
-        \DateTimeImmutable $until,
-    ): int {
-        $byStatus = $this->transactionRepository
-            ->sumByStatusForCategoryBetween($user, $category, $from, $until);
-
-        return $byStatus[TransactionStatus::Spent->value] + $byStatus[TransactionStatus::Committed->value];
+    /**
+     * Same, from the entity.
+     *
+     * @param array<string, array<string, mixed>> $rows
+     */
+    private function openFor(array &$rows, Category $category, ?string $currency = null): string
+    {
+        return $this->open($rows, (string) $category->getId(), $category->getName(), $currency);
     }
 
     /**
@@ -197,6 +219,7 @@ class GetAnnualPlan
             'month' => (int) $transaction->getBookedAt()->format('n'),
             'bookedAt' => $transaction->getBookedAt()->format('Y-m-d'),
             'status' => $transaction->getStatus()->value,
+            'isExceptional' => $transaction->isExceptional(),
         ];
 
         return $withId ? ['id' => (string) $transaction->getId()] + $event : $event;

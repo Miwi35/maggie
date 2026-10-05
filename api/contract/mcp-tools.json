@@ -1502,13 +1502,20 @@
                         "string"
                     ],
                     "default": null
+                },
+                "isExceptional": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ],
+                    "default": null
                 }
             },
             "required": [
                 "action"
             ]
         },
-        "description": "Run the yearly planning session: look at the big expenses of the year behind, plan the expenses of the year ahead, and set the annual envelopes they add up to. The review action reports, per category, what last year was budgeted and really consumed, its big expenses (debits over thresholdCents, 10000 by default), what the target year has already planned, what is only to arbitrate, the annual envelope already set, and a suggested amount — the planned total of the target year if there is one, otherwise what last year consumed. year defaults to the one being prepared: next year in November and December, the current one the rest of the time. The schedule action plans one expense: categoryId, label, amountCents as a positive amount in cents, month 1-12 (the transaction lands on the 1st), status planned, committed or to_arbitrate (planned by default, spent is refused — you do not plan what has already gone out), and accountId. The budget action sets the annual envelope of one category for the year: categoryId and amountCents; it overwrites the amount already there, because the session is where the amount is decided. Schedule the expenses one at a time, then budget one envelope per category. This never touches the calendar: a planned expense is a transaction, not an appointment."
+        "description": "Run the yearly planning session: look at the big expenses of the year behind, plan the expenses of the year ahead, and set the annual envelopes they add up to. The review action lists every category the year behind cost something, biggest decision first, and reports for each what it was budgeted and really consumed, its big expenses one by one (the debits over thresholdCents, 10000 by default — the threshold decides which expenses are listed, never which categories are in the session), what the target year has already planned and committed, what is only to arbitrate (reported, never counted), the annual envelope already set, and a suggested amount: what the target year has already decided on if anything, otherwise what the year behind consumed. year is between 2000 and 2100 and defaults to the one being prepared, which is next year in November and December and the current one the rest of the time. The schedule action plans one expense: categoryId, label, amountCents as a positive amount in cents, month 1-12 (the transaction lands on the 1st, because a planning session knows a month and not a day), status planned, committed or to_arbitrate (planned by default; spent is refused — you do not plan what has already gone out), accountId, and isExceptional, false by default, which the owner sets on a genuine one-off so it stays out of the measured everyday lifestyle. The budget action sets the annual envelope of one category for the year: categoryId and amountCents; it overwrites the amount already there, because the session is where the amount is decided. Schedule the expenses one at a time, then budget one envelope per category. This never touches the calendar: a planned expense is a transaction, not an appointment."
     },
     "remove_grocery_item": {
         "name": "remove_grocery_item",

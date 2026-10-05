@@ -6,6 +6,7 @@ use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
+use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Finance\Entity\Envelope;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Mcp\Tool\PlanAnnualBudgetTool;
@@ -36,8 +37,41 @@ class PlanAnnualBudgetToolTest extends KernelTestCase
 
         self::assertSame(2027, $plan['year']);
         self::assertSame(2026, $plan['sourceYear']);
-        self::assertSame(137000, $plan['totalSuggestedCents']);
+        self::assertSame(143000, $plan['totalSuggestedCents']);
         self::assertSame(['Voyages', 'Courses', 'Loisirs'], array_column($plan['categories'], 'categoryName'));
+    }
+
+    public function testACallNobodyIsBoundToIsRefused(): void
+    {
+        $this->loadFixtures(self::FIXTURE);
+
+        // Resolved before the action is read, so an unbound call says what is
+        // actually wrong instead of arguing about the action.
+        $result = $this->call('review', year: 2027);
+
+        self::assertSame(MissingMcpUserException::MESSAGE, $result['error']);
+        self::assertArrayNotHasKey('categories', $result);
+    }
+
+    public function testAYearNoSessionCouldBeAboutIsRefused(): void
+    {
+        $this->signIn();
+
+        // The HTTP side has always checked the range; nothing validates an
+        // Envelope on the bus, so unchecked this wrote a year the admin
+        // cannot show.
+        $result = $this->call(
+            'budget',
+            year: 20330,
+            categoryId: (string) $this->getFixture('leisure')->getId(),
+            amountCents: 1000,
+        );
+
+        self::assertStringContainsString('year must be between 2000 and 2100', $result['error']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertCount(4, $em->getRepository(Envelope::class)->findAll());
     }
 
     public function testSchedulePlansOneExpense(): void
@@ -158,6 +192,31 @@ class PlanAnnualBudgetToolTest extends KernelTestCase
         );
 
         self::assertStringContainsString('status', $result['error']);
+    }
+
+    public function testBudgetWithoutAnAmountIsReported(): void
+    {
+        $this->signIn();
+
+        $result = $this->call('budget', year: 2027, categoryId: (string) $this->getFixture('leisure')->getId());
+
+        self::assertStringContainsString('amountCents', $result['error']);
+    }
+
+    public function testAnotherUsersAccountIsRefused(): void
+    {
+        $this->signIn();
+
+        $result = $this->call(
+            'schedule',
+            year: 2027,
+            categoryId: (string) $this->getFixture('leisure')->getId(),
+            label: 'Chez le voisin',
+            amountCents: 1000,
+            accountId: (string) $this->getFixture('other_checking')->getId(),
+        );
+
+        self::assertStringContainsString('account not found', $result['error']);
     }
 
     public function testAnotherUsersCategoryIsRefused(): void

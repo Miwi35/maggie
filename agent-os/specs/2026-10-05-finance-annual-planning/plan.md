@@ -10,32 +10,36 @@ Testing Rule du repo respectée à chaque tâche (401, 400, happy path + persist
 
 `execute(User $user, int $year, int $thresholdCents = 10_000): array`, année source = `$year - 1`.
 
-Catégories retenues : celles qui ont une enveloppe **annuelle** sur l'année source ou sur l'année cible, celles qui portent une grosse dépense sur l'année source, celles qui portent un plan sur l'année cible. Triées par montant suggéré décroissant — la plus grosse décision d'abord.
+Catégories retenues : **toutes celles que l'année source a coûtées** (`sumSpendingByCategoryBetween`, une requête, pas une par catégorie), plus celles qui ont une enveloppe annuelle sur l'une des deux années ou un plan sur l'année cible. Les débits sans catégorie sont écartés : la session budgète des catégories. Triées par montant suggéré décroissant — la plus grosse décision d'abord. Attention : `IDENTITY()` rend la valeur brute de la colonne, pas l'écriture du ULID — à normaliser avec `Ulid::fromString`, sinon une catégorie récolte deux lignes.
 
 Par catégorie :
 
 | Champ | Contenu |
 |---|---|
-| `categoryId`, `categoryName`, `currency` | la catégorie, et la devise de son enveloppe (sinon `EUR`) |
+| `categoryId`, `categoryName`, `currency` | la catégorie, et la devise de son enveloppe (sinon celle de ses lignes, sinon `EUR`) |
 | `lastYear.budgetedCents` | l'enveloppe annuelle de l'année source, `null` s'il n'y en avait pas |
 | `lastYear.consumedCents` | dépensé + engagé sur l'année source |
-| `lastYear.events` | les grosses dépenses de l'année source : `label`, `amountCents` (positif), `month`, `bookedAt`, `status` |
-| `plannedCents` | planifié + engagé sur l'année cible |
-| `toArbitrateCents` | à arbitrer sur l'année cible, rendu à part, jamais sommé |
-| `plannedEvents` | les plans déjà posés sur l'année cible : `id`, `label`, `amountCents` (positif), `month`, `bookedAt`, `status` |
+| `lastYear.events` | les grosses dépenses de l'année source : `label`, `amountCents` (positif), `month`, `bookedAt`, `status`, `isExceptional` |
+| `plannedCents`, `committedCents` | planifié et engagé sur l'année cible, séparés comme dans `GetBudgetStatus` |
+| `decidedCents` | `plannedCents + committedCents` : ce que l'année cible a déjà engagé d'une manière ou d'une autre |
+| `toArbitrateCents` | à arbitrer sur l'année cible, rendu à part, jamais sommé dans le décidé |
+| `plannedEvents` | les plans déjà posés sur l'année cible : `id` puis les mêmes champs qu'un événement |
 | `envelopeId`, `envelopeCents` | l'enveloppe annuelle déjà posée sur l'année cible, `null` sinon |
-| `suggestedCents` | `plannedCents` s'il est > 0, sinon `lastYear.consumedCents` |
+| `suggestedCents` | `decidedCents` s'il est > 0, sinon `lastYear.consumedCents` |
 
-Enveloppe du retour : `year`, `sourceYear`, `thresholdCents`, `categories`, et les totaux `totalLastYearConsumedCents`, `totalPlannedCents`, `totalSuggestedCents`, `totalEnvelopedCents`.
+Enveloppe du retour : `year`, `sourceYear`, `thresholdCents`, `categories`, et les totaux `totalLastYearConsumedCents`, `totalDecidedCents`, `totalToArbitrateCents`, `totalSuggestedCents`, `totalEnvelopedCents`.
 
 ### Écriture — `UseCase/ApplyAnnualPlan`
 
 `execute(User $user, int $year, array $events, array $envelopes, ?string $accountId): array`.
 
-- `events[]` : `categoryId`, `label`, `amountCents` (> 0), `month` (1-12, défaut 1), `status` (`planned` | `committed` | `to_arbitrate`, défaut `planned`), `accountId` (sinon celui du corps), `currency`. Dispatch `CreateTransactionCommand` avec `-amountCents` et `bookedAt` au 1er du mois.
-- `envelopes[]` : `categoryId`, `amountCents` (≥ 0). Enveloppe **annuelle** de l'année cible : créée si absente (`CreateEnvelopeCommand`), mise à jour si le montant diffère (`UpdateEnvelopeCommand`), laissée seule sinon.
+**Tout est lu et validé avant la première écriture** (shape, décision 10).
+
+- `events[]` : `categoryId`, `label`, `amountCents` (> 0), `month` (1-12, défaut 1), `status` (`planned` | `committed` | `to_arbitrate`, défaut `planned`), `accountId` (sinon celui du corps), `currency` (défaut : celle du compte, vérifiée `/^[A-Z]{3}$/` — rien ne valide une commande sur le bus, et la colonne fait trois caractères), `isExceptional` (défaut `false`). Dispatch `CreateTransactionCommand` avec `-amountCents` et `bookedAt` au 1er du mois.
+- `envelopes[]` : `categoryId`, `amountCents` (≥ 0). Enveloppe **annuelle** de l'année cible : créée si absente (`CreateEnvelopeCommand`), mise à jour si le montant diffère (`UpdateEnvelopeCommand`), laissée seule sinon. L'enveloppe existante est relue au moment d'écrire, pas de valider : un même corps peut nommer deux fois la même catégorie.
+- Compte et catégorie : `Ulid::isValid` puis `find`, puis comparaison du propriétaire. Inconnu, mal formé et « à quelqu'un d'autre » rendent la même erreur — un nom de catégorie à la place d'un id est l'erreur la plus probable avec un outil conversationnel, et Doctrine y répond par une erreur de conversion, pas par `null`.
 - Entrée invalide → `\InvalidArgumentException`, traduite en 400 par le contrôleur et en `{"error": …}` par l'outil MCP.
-- Retour : `eventsCreated`, `envelopesCreated`, `envelopesUpdated`, `envelopesUnchanged`, et les listes `events` / `envelopes` écrites.
+- Retour : `eventsCreated`, `envelopesCreated`, `envelopesUpdated`, `envelopesUnchanged`, et les listes `events` / `envelopes` écrites, chaque enveloppe portant son `outcome`.
 
 ### Dépôt
 
@@ -45,12 +49,14 @@ Deux méthodes sur `TransactionRepository`, toutes deux sur les débits catégor
 
 ### HTTP et MCP
 
-- `Controller/AnnualPlanController` — `GET /api/finance/annual-plan` (`year` facultatif : année suivante en novembre/décembre, année courante sinon ; `thresholdCents` facultatif) et `POST /api/finance/annual-plan`. 401 hors session, 400 sur une année ou un seuil hors bornes et sur un corps invalide.
+- `UseCase/PlanningYear` — l'année par défaut et les bornes acceptées, une seule fois pour les deux canaux.
+- `Controller/AnnualPlanController` — `GET /api/finance/annual-plan` (`year` facultatif : année suivante en novembre/décembre, année courante sinon ; `thresholdCents` facultatif) et `POST /api/finance/annual-plan`. 401 hors session ; 400 sur un `year` ou un `thresholdCents` non entier (`(int) 'abc'` vaut 0, ce qui ferait de tout débit une grosse dépense), hors bornes ou négatif, et sur un corps invalide. Le POST rattrape aussi `HandlerFailedException` en 400 : une commande refusée par son handler reste de la mauvaise entrée, et l'outil MCP y répond déjà ainsi.
 - `Mcp/Tool/PlanAnnualBudgetTool` — outil `plan_annual_budget`, actions `review`, `schedule`, `budget`. Un événement à la fois : aucun paramètre tableau, c'est ainsi qu'on dicte une liste. Pas d'action en `add_*` ni en `plan_*` : `McpToolsContractTest` les lit comme des noms d'outils, et `add_event` entrerait en collision avec `create_event` de l'agenda.
 
 ### Tests
-- `tests/Api/AnnualPlanApiTest.php` : 401 sur les deux verbes ; 400 (année hors bornes, montant ≤ 0, statut `spent`, `accountId` manquant, catégorie inconnue) ; lecture (grosses dépenses au-dessus du seuil seulement, plan déjà posé, suggéré selon les deux règles, à arbitrer isolé) ; application (transaction en débit au 1er du mois, enveloppe annuelle créée puis mise à jour puis inchangée) + Mercure + Elasticsearch.
-- `tests/Mcp/PlanAnnualBudgetToolTest.php` : `review`, `schedule`, `budget`, action inconnue, paramètres manquants, isolation par utilisateur.
+- `tests/UseCase/PlanningYearTest.php` : les deux branches de l'année par défaut sur des instants fixes (pas sur l'horloge : la règle ne change de comportement qu'en novembre et décembre), et les bornes.
+- `tests/Controller/AnnualPlanControllerTest.php` : 401 sur les deux verbes ; 400 (année ou seuil non entier / hors bornes, montant ≤ 0, mois hors bornes, statut `spent` ou inconnu, devise qui n'est pas un code, `accountId` manquant, compte ou catégorie d'un autre utilisateur, catégorie inexistante, nom de catégorie à la place d'un id) ; **un plan refusé n'écrit rien** (comptes de transactions et d'enveloppes inchangés) ; lecture (grosses dépenses au-dessus du seuil seulement, seuil qui ne bouge aucun total, une seule ligne par catégorie avec l'id que le client renvoie, plan déjà posé, suggéré selon les deux règles, à arbitrer isolé) ; application (transaction en débit au 1er du mois, devise du compte, `isExceptional`, enveloppe annuelle créée puis mise à jour puis inchangée, même catégorie deux fois dans un corps) + Mercure + Elasticsearch.
+- `tests/Mcp/PlanAnnualBudgetToolTest.php` : `review`, `schedule`, `budget`, action inconnue, **appel sans utilisateur lié**, paramètres manquants, année hors bornes, compte et catégorie d'un autre utilisateur, isolation en lecture.
 - Contrat : `UPDATE_CONTRACT=1 task wt:test:api -- --testsuite Contract` (OpenAPI + liste des outils MCP).
 
 ## Tâche 2 — Parcours guidé admin React (ticket de suite)
@@ -63,15 +69,19 @@ Modèle `AnnualPlan`, `MaggieApiService`, `AnnualPlanRepository`, `AnnualPlanVie
 
 Étend **MAG-102** (parcours finance). Couvert dans la tâche 1 par le canal conversationnel, puis par une journée Playwright dans la tâche 2 et une journée Maestro dans la tâche 3.
 
+`e2e/web/tests/finance-annual-plan.spec.ts`, avec le scénario `agent/fixtures/fake-llm/48-annual-plan.yaml` :
+
 ```
-Étant donné une grosse dépense « FESTIVAL VIEILLES CHARRUES » de 240,00 € en Loisirs sur l'année N-1
-  et aucune enveloppe annuelle Loisirs sur l'année N
-Quand je demande à Maggie de préparer ma planification annuelle de l'année N
-Alors elle me rend la dépense de l'an dernier et un montant suggéré de 240,00 €
-Quand je lui dis de planifier le festival en juillet et de poser l'enveloppe à 300,00 €
-Alors une transaction planifiée de −240,00 € existe au 1er juillet de l'année N en Loisirs
-  et l'enveloppe annuelle Loisirs de l'année N vaut 300,00 €
-  et le budget de l'année N montre 240,00 € réservés et 60,00 € disponibles
+Étant donné une catégorie « Festivals » et une grosse dépense de 480,00 € dedans sur l'année N-1
+  et aucune enveloppe annuelle sur l'année N
+Quand je demande à Maggie de préparer ma planification annuelle, en lui disant que le festival
+  coûtera 240,00 € en juillet
+Alors les trois tours de `plan_annual_budget` ont réussi
+  et le plan de l'année N rend la dépense de 480,00 € de l'an dernier comme candidate
+  et une transaction planifiée de −240,00 € existe au 1er juillet de l'année N dans cette catégorie
+  et l'enveloppe annuelle de l'année N vaut 300,00 €
+  et le suggéré vaut 240,00 € — le décidé de l'année cible l'emporte sur le consommé de l'an dernier
+  et le budget de l'année N montre 240,00 € réservés, 0 consommé et 60,00 € disponibles
 ```
 
 ## Ordre de dépendances

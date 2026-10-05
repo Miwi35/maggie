@@ -13,6 +13,7 @@ use Maggie\Finance\Enum\TransactionStatus;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\Uid\Ulid;
 
 class AnnualPlanControllerTest extends WebTestCase
 {
@@ -20,6 +21,10 @@ class AnnualPlanControllerTest extends WebTestCase
     use AuthenticatedTestTrait;
     use MercureAssertionTrait;
     use ElasticsearchAssertionTrait;
+
+    /** What the fixture already holds, so a count can say "and nothing more". */
+    private const SEEDED_ENVELOPES = 4;
+    private const SEEDED_TRANSACTIONS = 12;
 
     private KernelBrowser $client;
 
@@ -44,25 +49,28 @@ class AnnualPlanControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(401);
     }
 
-    public function testYearOutOfRangeReturns400(): void
+    /** @return iterable<string, array{string}> */
+    public static function rejectedQueries(): iterable
+    {
+        yield 'year below the range' => ['?year=1999'];
+        yield 'year above the range' => ['?year=2101'];
+        yield 'year is not a number' => ['?year=bientôt'];
+        yield 'negative threshold' => ['?thresholdCents=-1'];
+        // `(int) 'abc'` is 0, which would make every debit a big expense.
+        yield 'threshold is not a number' => ['?thresholdCents=beaucoup'];
+    }
+
+    #[DataProvider('rejectedQueries')]
+    public function testReviewRejectsAMalformedQuery(string $query): void
     {
         $this->signIn();
 
-        $this->client->request('GET', '/api/finance/annual-plan?year=1999', [], [], $this->authHeaders());
+        $this->client->request('GET', '/api/finance/annual-plan'.$query, [], [], $this->authHeaders());
 
         self::assertResponseStatusCodeSame(400);
     }
 
-    public function testNegativeThresholdReturns400(): void
-    {
-        $this->signIn();
-
-        $this->client->request('GET', '/api/finance/annual-plan?thresholdCents=-1', [], [], $this->authHeaders());
-
-        self::assertResponseStatusCodeSame(400);
-    }
-
-    public function testReviewReportsLastYearItsBigExpensesAndWhatIsAlreadyPlanned(): void
+    public function testReviewReportsLastYearItsBigExpensesAndWhatIsAlreadyDecided(): void
     {
         $this->signIn();
 
@@ -72,11 +80,15 @@ class AnnualPlanControllerTest extends WebTestCase
         self::assertSame(2026, $plan['sourceYear']);
         self::assertSame(10000, $plan['thresholdCents']);
 
-        // Biggest decision first: Voyages 80 000, Courses 45 000, Loisirs
-        // 12 000 (already planned, so the planned total wins over last year's).
+        // Biggest decision first: Voyages 80 000 and Courses 45 000 on what
+        // they cost, Loisirs 18 000 on what 2027 has already decided.
         self::assertSame(['Voyages', 'Courses', 'Loisirs'], array_column($plan['categories'], 'categoryName'));
 
         $leisure = $this->categoryNamed($plan, 'Loisirs');
+        // The id the client posts back, in the spelling the rest of the API
+        // uses. One row per category, whatever opened it.
+        self::assertSame((string) $this->getFixture('leisure')->getId(), $leisure['categoryId']);
+        self::assertCount(3, $plan['categories']);
         self::assertSame(36000, $leisure['lastYear']['budgetedCents']);
         // 24 000 spent + 1 800 spent + 15 000 committed; the 50 000 credit is
         // not a cost and the 2025 festival is out of the window.
@@ -91,20 +103,24 @@ class AnnualPlanControllerTest extends WebTestCase
             ),
         );
 
-        // Planned counts, to-arbitrate is reported apart and never summed.
+        // The statuses stay apart, and are named as GetBudgetStatus names them.
         self::assertSame(12000, $leisure['plannedCents']);
+        self::assertSame(6000, $leisure['committedCents']);
+        self::assertSame(18000, $leisure['decidedCents']);
+        // Reported, and absent from everything that is summed.
         self::assertSame(4000, $leisure['toArbitrateCents']);
-        self::assertSame(12000, $leisure['suggestedCents']);
+        self::assertSame(18000, $leisure['suggestedCents']);
         self::assertNull($leisure['envelopeId']);
         self::assertSame(
-            ['Matériel à arbitrer', 'Concert 2027'],
+            ['Matériel à arbitrer', 'Abonnement 2027 déjà payé', 'Concert 2027'],
             array_column($leisure['plannedEvents'], 'label'),
         );
 
-        // Nothing planned for 2027: the suggestion falls back on what 2026 cost.
+        // Nothing decided for 2027: the suggestion falls back on what 2026 cost.
         $travel = $this->categoryNamed($plan, 'Voyages');
         self::assertNull($travel['lastYear']['budgetedCents']);
         self::assertSame(80000, $travel['lastYear']['consumedCents']);
+        self::assertSame(0, $travel['decidedCents']);
         self::assertSame(80000, $travel['suggestedCents']);
         self::assertSame(90000, $travel['envelopeCents']);
 
@@ -112,8 +128,9 @@ class AnnualPlanControllerTest extends WebTestCase
         self::assertNull($this->categoryNamed($plan, 'Courses')['lastYear']['budgetedCents']);
 
         self::assertSame(165800, $plan['totalLastYearConsumedCents']);
-        self::assertSame(12000, $plan['totalPlannedCents']);
-        self::assertSame(137000, $plan['totalSuggestedCents']);
+        self::assertSame(18000, $plan['totalDecidedCents']);
+        self::assertSame(4000, $plan['totalToArbitrateCents']);
+        self::assertSame(143000, $plan['totalSuggestedCents']);
         self::assertSame(90000, $plan['totalEnvelopedCents']);
     }
 
@@ -132,7 +149,7 @@ class AnnualPlanControllerTest extends WebTestCase
         }
     }
 
-    public function testThresholdDecidesWhichExpensesComeBack(): void
+    public function testThresholdDecidesWhichExpensesComeBackAndNothingElse(): void
     {
         $this->signIn();
 
@@ -142,6 +159,17 @@ class AnnualPlanControllerTest extends WebTestCase
             ['Festival des Vieilles Charrues'],
             array_column($this->categoryNamed($plan, 'Loisirs')['lastYear']['events'], 'label'),
         );
+
+        // Raised past every expense, it empties the candidate lists and moves
+        // nothing else: a total that followed it would say 2026 cost less than
+        // it did, and the screens read that figure as "consumed last year".
+        $strict = $this->review('?year=2027&thresholdCents=100000');
+
+        self::assertSame(['Voyages', 'Courses', 'Loisirs'], array_column($strict['categories'], 'categoryName'));
+        self::assertSame([], $this->categoryNamed($strict, 'Courses')['lastYear']['events']);
+        self::assertSame(45000, $this->categoryNamed($strict, 'Courses')['lastYear']['consumedCents']);
+        self::assertSame(165800, $strict['totalLastYearConsumedCents']);
+        self::assertSame(143000, $strict['totalSuggestedCents']);
     }
 
     public function testReviewDefaultsToTheYearBeingPrepared(): void
@@ -190,6 +218,10 @@ class AnnualPlanControllerTest extends WebTestCase
         self::assertSame('2027-07-01', $transaction->getBookedAt()->format('Y-m-d'));
         self::assertSame(TransactionStatus::Planned, $transaction->getStatus());
         self::assertSame((string) $leisure->getId(), (string) $transaction->getCategory()->getId());
+        // The session claims nothing about the owner's everyday lifestyle.
+        self::assertFalse($transaction->isExceptional());
+        // The currency falls back on the account's, not on a hardcoded EUR.
+        self::assertSame($account->getCurrency(), $transaction->getCurrency());
 
         $envelope = $em->getRepository(Envelope::class)->findOneBy([
             'category' => $leisure->getId(),
@@ -203,6 +235,25 @@ class AnnualPlanControllerTest extends WebTestCase
         $this->assertMercureUpdatePublished('/envelopes/');
         $this->assertElasticsearchIndexDispatched(Transaction::class);
         $this->assertElasticsearchIndexDispatched(Envelope::class);
+    }
+
+    public function testApplyMarksAnEventExceptionalWhenAsked(): void
+    {
+        $this->signIn();
+
+        $applied = $this->apply([
+            'year' => 2027,
+            'accountId' => (string) $this->getFixture('checking')->getId(),
+            'events' => [[
+                'categoryId' => (string) $this->getFixture('leisure')->getId(),
+                'label' => 'Ordinateur 2027',
+                'amountCents' => 150000,
+                'month' => 3,
+                'isExceptional' => true,
+            ]],
+        ]);
+
+        self::assertTrue($applied['events'][0]['isExceptional']);
     }
 
     public function testApplyOverwritesAnEnvelopeAlreadySetAndThenLeavesItAlone(): void
@@ -233,7 +284,67 @@ class AnnualPlanControllerTest extends WebTestCase
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $em->clear();
         self::assertSame(120000, $em->find(Envelope::class, $existing->getId())->getAmountCents());
-        self::assertCount(4, $em->getRepository(Envelope::class)->findAll());
+        self::assertCount(self::SEEDED_ENVELOPES, $em->getRepository(Envelope::class)->findAll());
+    }
+
+    public function testApplyBudgetsTheSameCategoryTwiceWithoutDuplicatingIt(): void
+    {
+        $this->signIn();
+        $leisure = (string) $this->getFixture('leisure')->getId();
+
+        // One body naming a category twice: the second line must see what the
+        // first wrote, not try to create a second annual envelope.
+        $applied = $this->apply([
+            'year' => 2027,
+            'envelopes' => [
+                ['categoryId' => $leisure, 'amountCents' => 50000],
+                ['categoryId' => $leisure, 'amountCents' => 60000],
+            ],
+        ]);
+
+        self::assertSame(1, $applied['envelopesCreated']);
+        self::assertSame(1, $applied['envelopesUpdated']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertCount(self::SEEDED_ENVELOPES + 1, $em->getRepository(Envelope::class)->findAll());
+        self::assertSame(60000, $em->getRepository(Envelope::class)->findOneBy([
+            'category' => $this->getFixture('leisure')->getId(),
+            'mode' => BudgetMode::Annual,
+            'year' => 2027,
+        ])->getAmountCents());
+    }
+
+    public function testARejectedPlanWritesNothingAtAll(): void
+    {
+        $this->signIn();
+
+        // A valid event, then an envelope on somebody else's category. The
+        // commands persist one at a time, so an apply that dispatched as it
+        // read would leave the festival behind — and the retry that follows
+        // would plan it twice.
+        $this->postPlan([
+            'year' => 2027,
+            'accountId' => (string) $this->getFixture('checking')->getId(),
+            'events' => [[
+                'categoryId' => (string) $this->getFixture('leisure')->getId(),
+                'label' => 'Festival fantôme',
+                'amountCents' => 26000,
+                'month' => 7,
+            ]],
+            'envelopes' => [[
+                'categoryId' => (string) $this->getFixture('other_leisure')->getId(),
+                'amountCents' => 30000,
+            ]],
+        ]);
+
+        self::assertResponseStatusCodeSame(400);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNull($em->getRepository(Transaction::class)->findOneBy(['label' => 'Festival fantôme']));
+        self::assertCount(self::SEEDED_TRANSACTIONS, $em->getRepository(Transaction::class)->findAll());
+        self::assertCount(self::SEEDED_ENVELOPES, $em->getRepository(Envelope::class)->findAll());
     }
 
     /** @return iterable<string, array{array<string, mixed>}> */
@@ -241,6 +352,7 @@ class AnnualPlanControllerTest extends WebTestCase
     {
         yield 'no year' => [['envelopes' => []]];
         yield 'year out of range' => [['year' => 1999, 'envelopes' => []]];
+        yield 'year is not an integer' => [['year' => '2027', 'envelopes' => []]];
         yield 'events is not a list' => [['year' => 2027, 'events' => 'nope']];
         yield 'event is not an object' => [['year' => 2027, 'events' => ['nope']]];
     }
@@ -256,41 +368,36 @@ class AnnualPlanControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
-    public function testApplyRejectsANonPositiveAmount(): void
+    /** @return iterable<string, array{array<string, mixed>, string}> */
+    public static function rejectedEvents(): iterable
     {
-        $this->signIn();
-
-        $this->postPlan([
-            'year' => 2027,
-            'accountId' => (string) $this->getFixture('checking')->getId(),
-            'events' => [[
-                'categoryId' => (string) $this->getFixture('leisure')->getId(),
-                'label' => 'Gratuit',
-                'amountCents' => 0,
-            ]],
-        ]);
-
-        self::assertResponseStatusCodeSame(400);
-        self::assertStringContainsString('amountCents', $this->errorMessage());
+        yield 'no label' => [['amountCents' => 1000], 'label'];
+        yield 'nothing at zero' => [['label' => 'Gratuit', 'amountCents' => 0], 'amountCents'];
+        yield 'a negative amount' => [['label' => 'À l\'envers', 'amountCents' => -1000], 'amountCents'];
+        yield 'a month out of range' => [['label' => 'Treizième', 'amountCents' => 1000, 'month' => 13], 'month'];
+        // You do not plan what has already gone out.
+        yield 'already spent' => [['label' => 'Déjà payé', 'amountCents' => 1000, 'status' => 'spent'], 'status'];
+        yield 'a status that is not one' => [['label' => 'Peut-être', 'amountCents' => 1000, 'status' => 'maybe'], 'status'];
+        // Three characters wide in the database: unchecked, it would be a 500.
+        yield 'a currency that is not a code' => [['label' => 'Euros', 'amountCents' => 1000, 'currency' => 'EURO'], 'currency'];
     }
 
-    public function testApplyRefusesToPlanSomethingAlreadySpent(): void
+    /**
+     * @param array<string, mixed> $event
+     */
+    #[DataProvider('rejectedEvents')]
+    public function testApplyRejectsAMalformedEvent(array $event, string $expectedField): void
     {
         $this->signIn();
 
         $this->postPlan([
             'year' => 2027,
             'accountId' => (string) $this->getFixture('checking')->getId(),
-            'events' => [[
-                'categoryId' => (string) $this->getFixture('leisure')->getId(),
-                'label' => 'Déjà payé',
-                'amountCents' => 1000,
-                'status' => 'spent',
-            ]],
+            'events' => [['categoryId' => (string) $this->getFixture('leisure')->getId()] + $event],
         ]);
 
         self::assertResponseStatusCodeSame(400);
-        self::assertStringContainsString('status', $this->errorMessage());
+        self::assertStringContainsString($expectedField, $this->errorMessage());
     }
 
     public function testApplyNeedsAnAccountForAnEvent(): void
@@ -310,6 +417,30 @@ class AnnualPlanControllerTest extends WebTestCase
         self::assertStringContainsString('accountId', $this->errorMessage());
     }
 
+    public function testApplyRefusesAnotherUsersAccount(): void
+    {
+        $this->signIn();
+
+        // The one line between a conversational tool and a planned debit in a
+        // stranger's account.
+        $this->postPlan([
+            'year' => 2027,
+            'accountId' => (string) $this->getFixture('other_checking')->getId(),
+            'events' => [[
+                'categoryId' => (string) $this->getFixture('leisure')->getId(),
+                'label' => 'Chez le voisin',
+                'amountCents' => 1000,
+            ]],
+        ]);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertStringContainsString('account not found', $this->errorMessage());
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNull($em->getRepository(Transaction::class)->findOneBy(['label' => 'Chez le voisin']));
+    }
+
     public function testApplyRefusesAnotherUsersCategory(): void
     {
         $this->signIn();
@@ -327,7 +458,35 @@ class AnnualPlanControllerTest extends WebTestCase
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $em->clear();
-        self::assertCount(4, $em->getRepository(Envelope::class)->findAll());
+        self::assertCount(self::SEEDED_ENVELOPES, $em->getRepository(Envelope::class)->findAll());
+    }
+
+    public function testApplyRefusesACategoryThatDoesNotExist(): void
+    {
+        $this->signIn();
+
+        $this->postPlan([
+            'year' => 2027,
+            'envelopes' => [['categoryId' => (string) new Ulid(), 'amountCents' => 1000]],
+        ]);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertStringContainsString('category not found', $this->errorMessage());
+    }
+
+    public function testApplyRefusesACategoryNameInPlaceOfAnId(): void
+    {
+        $this->signIn();
+
+        // The likeliest mistake with a conversational tool. Doctrine answers a
+        // non-ULID with a conversion error, so unchecked this is a 500.
+        $this->postPlan([
+            'year' => 2027,
+            'envelopes' => [['categoryId' => 'Loisirs', 'amountCents' => 1000]],
+        ]);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertStringContainsString('category not found', $this->errorMessage());
     }
 
     private function signIn(): void

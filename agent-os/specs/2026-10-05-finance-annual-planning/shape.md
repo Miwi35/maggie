@@ -10,10 +10,10 @@ Aujourd'hui, faire cela demande de créer à la main une transaction planifiée 
 ## Solution
 Un **plan annuel** qui se lit et s'applique, sur une année cible.
 
-**Lire** (`GET /api/finance/annual-plan?year=2027`) rend, catégorie par catégorie :
-- ce que l'année précédente a réellement consommé, et ce qu'elle avait budgété ;
+**Lire** (`GET /api/finance/annual-plan?year=2027`) rend, pour chaque catégorie que l'année précédente a coûtée :
+- ce qu'elle a réellement consommé, et ce qu'elle avait budgété ;
 - ses **grosses dépenses** — les débits au-dessus d'un seuil, ceux qu'on reconduit ou pas : c'est la matière de la session ;
-- ce qui est **déjà planifié** sur l'année cible, pour que la session se rouvre sans se répéter ;
+- ce qui est **déjà décidé** sur l'année cible — planifié, engagé, à arbitrer à part — pour que la session se rouvre sans se répéter ;
 - un **montant suggéré** et l'enveloppe annuelle déjà posée, s'il y en a une.
 
 **Appliquer** (`POST /api/finance/annual-plan`) écrit ce que l'utilisateur a validé : des **transactions planifiées** (un événement = une transaction, dans le mois où il tombe) et des **enveloppes annuelles** (une catégorie = un montant). Rejouable : réappliquer le même montant d'enveloppe ne crée pas de doublon.
@@ -30,11 +30,14 @@ Côté conversation, l'outil MCP `plan_annual_budget` fait les trois gestes de l
 
 ## Key Decisions
 1. **Le plan n'est pas une entité.** Il se lit des transactions et des enveloppes, comme la revue mensuelle se lit des verdicts. Stocker un « plan validé » créerait une seconde vérité qui divergerait du premier achat.
-2. **Une grosse dépense est un débit au-dessus d'un seuil** (`thresholdCents`, défaut 100 €), pas un rang dans un top N : un seuil se vérifie de tête sur la liste des transactions, un top N dépend de ce que les autres lignes valent.
-3. **Le montant suggéré est le planifié de l'année cible s'il y en a, sinon le consommé de l'année précédente.** Deux règles, aucune moyenne glissante — même choix que `useActualSpending` dans la reconduction, pour la même raison : l'utilisateur doit pouvoir refaire le calcul à la main.
-4. **L'« à arbitrer » n'entre pas dans le suggéré**, il est rendu à part. C'est la règle déjà posée par `finance-annual-envelopes` : voir l'impact d'une dépense envisagée sans qu'elle pèse sur le budget.
+2. **Une grosse dépense est un débit au-dessus d'un seuil** (`thresholdCents`, défaut 100 €), pas un rang dans un top N : un seuil se vérifie de tête sur la liste des transactions, un top N dépend de ce que les autres lignes valent. Le seuil décide **quelles dépenses sont listées une par une, jamais quelles catégories entrent dans la session** : une catégorie qui a coûté quelque chose l'an dernier est toujours là, sinon le total « consommé l'an dernier » bougerait avec un paramètre de présentation.
+3. **Le montant suggéré est le décidé de l'année cible s'il y en a, sinon le consommé de l'année précédente.** Deux règles, aucune moyenne glissante — même choix que `useActualSpending` dans la reconduction, pour la même raison : l'utilisateur doit pouvoir refaire le calcul à la main.
+4. **L'« à arbitrer » n'entre pas dans le suggéré**, il est rendu à part. C'est la règle déjà posée par `finance-annual-envelopes` : voir l'impact d'une dépense envisagée sans qu'elle pèse sur le budget. Les trois statuts restent séparés (`plannedCents`, `committedCents`, `toArbitrateCents`) et portent les noms que `GetBudgetStatus` leur donne déjà, pour qu'un même écran puisse lire les deux charges utiles sans qu'un mot y veuille dire deux choses ; leur somme utile est `decidedCents`.
 5. **La session écrit le montant qu'elle a montré, la reconduction ne l'écrase jamais.** `RollOverEnvelopes` sert à ne pas retaper un budget ; la session sert à **décider** d'un budget. Deux use cases, pas un drapeau : fondre les deux ferait qu'un geste de la session se ferait silencieusement ignorer sur une catégorie déjà budgétée.
 6. **Un événement se saisit avec un mois, pas une date.** On planifie « le festival, en juillet » ; le jour est inventé. La transaction est posée au 1er du mois, et reste modifiable comme n'importe quelle transaction.
 7. **Le montant d'un événement est positif à l'entrée, stocké en débit.** Dans une session de planification, toute ligne est une dépense ; demander un nombre négatif est un piège, et un signe oublié budgéterait une recette.
 8. **Un événement planifié n'est jamais `spent`.** Les trois statuts acceptés sont `planned`, `committed` et `to_arbitrate` ; `spent` est refusé — on ne planifie pas ce qui est déjà sorti.
-9. **L'année cible par défaut est l'année suivante en novembre et décembre, l'année courante le reste du temps.** La session est un rendez-vous de fin d'année (doc §5.3) ; l'ouvrir en novembre sur l'année qui s'achève n'aurait aucun sens.
+9. **L'année cible par défaut est l'année suivante en novembre et décembre, l'année courante le reste du temps.** La session est un rendez-vous de fin d'année (doc §5.3) ; l'ouvrir en novembre sur l'année qui s'achève n'aurait aucun sens. La règle et les bornes (2000-2100, celles que `Envelope::$year` déclare) vivent dans `PlanningYear`, une seule fois pour les deux canaux : séparées, elles avaient déjà divergé.
+10. **Un plan refusé n'écrit rien.** Les commandes `persist`/`flush` une par une, donc tout est lu et validé avant que quoi que ce soit ne soit écrit : sinon un plan rejeté sur sa dernière ligne laisse les premières derrière lui, et la reprise les planifie deux fois.
+11. **Un événement planifié n'est pas « exceptionnel » par défaut.** `isExceptional` est accepté sur l'événement et vaut `false`, comme sur tous les autres chemins d'écriture : la session ne prétend rien sur le train de vie mesuré (`sumConsumedBetween` exclut l'exceptionnel, et le score quotidien comme la capacité d'épargne le lisent). Le passer à `true` est une décision de l'utilisateur sur une ligne, pas une conséquence silencieuse d'avoir planifié.
+12. **Une catégorie obligatoire reste dans la session.** Contrairement à la revue mensuelle, qui écarte l'obligatoire parce que demander si on aurait pu se passer de son loyer n'apporte rien, la session décide des **budgets** : une assurance annuelle ou une taxe foncière mérite son enveloppe autant qu'un festival.

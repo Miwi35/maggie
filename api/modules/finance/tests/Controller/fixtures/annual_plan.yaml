@@ -5,7 +5,8 @@
 #                            is a credit, and credits never weigh on a budget)
 #   Voyages 2026 consumed  = 80 000
 #   Courses 2026 consumed  = 45 000
-# and 2027 already plans 12 000 of Loisirs, plus 4 000 only to arbitrate.
+# and 2027 has already decided on 18 000 of Loisirs (12 000 planned + 6 000
+# committed), plus 4 000 only to arbitrate, which never counts.
 
 Maggie\Core\Entity\User:
   test_user:
@@ -150,6 +151,18 @@ Maggie\Finance\Entity\Transaction:
     bookedAt: '<(new \DateTimeImmutable("2027-06-01"))>'
     label: Concert 2027
     status: '<(Maggie\Finance\Enum\TransactionStatus::Planned)>'
+    user: '@test_user'
+
+  # Committed on the target year: money already out for something still to
+  # come, so the year has decided on it as much as on a planned line.
+  plan_season_2027:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: -6000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2027-04-01"))>'
+    label: Abonnement 2027 déjà payé
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Committed)>'
     user: '@test_user'
 
   # Only to arbitrate: reported apart, never added to the suggestion.

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Finance\UseCase;
 
 use Maggie\Core\Entity\User;
+use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Entity\Envelope;
 use Maggie\Finance\Entity\Transaction;
@@ -18,6 +19,7 @@ use Maggie\Finance\Repository\CategoryRepository;
 use Maggie\Finance\Repository\EnvelopeRepository;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
+use Symfony\Component\Uid\Ulid;
 
 /**
  * The yearly planning session, write side: the events the owner validated
@@ -48,7 +50,8 @@ class ApplyAnnualPlan
     /**
      * @param list<mixed> $events    each an array with categoryId, label,
      *                               amountCents (positive), and optionally
-     *                               month, status, accountId, currency
+     *                               month, status, accountId, currency,
+     *                               isExceptional
      * @param list<mixed> $envelopes each an array with categoryId and
      *                               amountCents
      * @param string|null $accountId the account the events fall on, unless one
@@ -65,17 +68,30 @@ class ApplyAnnualPlan
         array $envelopes,
         ?string $accountId = null,
     ): array {
-        $written = [];
+        PlanningYear::assert($year);
+
+        // Everything is read and checked before anything is written. The
+        // commands persist and flush one at a time, so a plan rejected on its
+        // last line would otherwise leave the first ones behind — and the
+        // retry that follows would plan every one of them twice.
+        $readEvents = [];
         foreach ($events as $index => $event) {
             $at = "events[{$index}]";
-            $written[] = $this->planEvent($user, $year, $this->asFields($event, $at), $accountId, $at);
+            $readEvents[] = $this->readEvent($user, $this->asFields($event, $at), $accountId, $at);
         }
+
+        $readEnvelopes = [];
+        foreach ($envelopes as $index => $envelope) {
+            $at = "envelopes[{$index}]";
+            $readEnvelopes[] = $this->readEnvelope($user, $this->asFields($envelope, $at), $at);
+        }
+
+        $written = array_map(fn (array $event) => $this->planEvent($user, $year, $event), $readEvents);
 
         $budgeted = [];
         $counts = ['created' => 0, 'updated' => 0, 'unchanged' => 0];
-        foreach ($envelopes as $index => $envelope) {
-            $at = "envelopes[{$index}]";
-            [$row, $outcome] = $this->budget($user, $year, $this->asFields($envelope, $at), $at);
+        foreach ($readEnvelopes as $envelope) {
+            [$row, $outcome] = $this->budget($user, $year, $envelope);
             ++$counts[$outcome];
             $budgeted[] = $row + ['outcome' => $outcome];
         }
@@ -94,9 +110,9 @@ class ApplyAnnualPlan
     /**
      * @param array<string, mixed> $event
      *
-     * @return array<string, mixed>
+     * @return array{category: Category, account: Account, label: string, amountCents: int, month: int, status: TransactionStatus, currency: string, isExceptional: bool}
      */
-    private function planEvent(User $user, int $year, array $event, ?string $fallbackAccount, string $at): array
+    private function readEvent(User $user, array $event, ?string $fallbackAccount, string $at): array
     {
         $category = $this->requireCategory($user, $event, $at);
 
@@ -110,7 +126,7 @@ class ApplyAnnualPlan
             // Every line of a planning session is an expense; asking for a
             // negative number is a trap, and a forgotten sign would budget
             // income as if it were a cost.
-            throw new \InvalidArgumentException("{$at}.amountCents must be a positive integer of cents.");
+            throw new \InvalidArgumentException("{$at}.amountCents must be an integer of cents above zero.");
         }
 
         $month = $event['month'] ?? 1;
@@ -118,34 +134,54 @@ class ApplyAnnualPlan
             throw new \InvalidArgumentException("{$at}.month must be an integer between 1 and 12.");
         }
 
-        $status = $this->requireStatus($event['status'] ?? TransactionStatus::Planned->value, $at);
-
         $accountId = $event['accountId'] ?? $fallbackAccount;
         if (!\is_string($accountId) || '' === $accountId) {
             throw new \InvalidArgumentException("{$at}.accountId is required, or give an accountId for the whole plan.");
         }
 
-        $account = $this->accountRepository->find($accountId);
+        $account = Ulid::isValid($accountId) ? $this->accountRepository->find($accountId) : null;
+        // Unknown, malformed and someone else's are one answer: the session
+        // must never let an id reach another user's account.
         if (null === $account || (string) $account->getUser()->getId() !== (string) $user->getId()) {
             throw new \InvalidArgumentException("{$at}: account not found: {$accountId}");
         }
 
-        $currency = $event['currency'] ?? $account->getCurrency();
-        if (!\is_string($currency)) {
-            throw new \InvalidArgumentException("{$at}.currency must be a 3-letter ISO 4217 code.");
+        $isExceptional = $event['isExceptional'] ?? false;
+        if (!\is_bool($isExceptional)) {
+            throw new \InvalidArgumentException("{$at}.isExceptional must be a boolean.");
         }
 
+        return [
+            'category' => $category,
+            'account' => $account,
+            'label' => $label,
+            'amountCents' => $amountCents,
+            'month' => $month,
+            'status' => $this->requireStatus($event['status'] ?? TransactionStatus::Planned->value, $at),
+            'currency' => $this->requireCurrency($event, $account->getCurrency(), $at),
+            'isExceptional' => $isExceptional,
+        ];
+    }
+
+    /**
+     * @param array{category: Category, account: Account, label: string, amountCents: int, month: int, status: TransactionStatus, currency: string, isExceptional: bool} $event
+     *
+     * @return array<string, mixed>
+     */
+    private function planEvent(User $user, int $year, array $event): array
+    {
         $stamped = $this->bus->dispatch(new CreateTransactionCommand(
             userId: (string) $user->getId(),
-            accountId: (string) $account->getId(),
+            accountId: (string) $event['account']->getId(),
             // The session takes what a thing costs; the ledger holds a debit.
-            amountCents: -$amountCents,
-            label: $label,
+            amountCents: -$event['amountCents'],
+            label: $event['label'],
             // A planning session knows a month, not a day (shape, decision 6).
-            bookedAt: sprintf('%04d-%02d-01', $year, $month),
-            status: $status->value,
-            currency: $currency,
-            categoryId: (string) $category->getId(),
+            bookedAt: sprintf('%04d-%02d-01', $year, $event['month']),
+            status: $event['status']->value,
+            currency: $event['currency'],
+            isExceptional: $event['isExceptional'],
+            categoryId: (string) $event['category']->getId(),
         ));
 
         /** @var Transaction $transaction */
@@ -153,30 +189,49 @@ class ApplyAnnualPlan
 
         return [
             'id' => (string) $transaction->getId(),
-            'categoryId' => (string) $category->getId(),
-            'categoryName' => $category->getName(),
+            'categoryId' => (string) $event['category']->getId(),
+            'categoryName' => $event['category']->getName(),
             'label' => $transaction->getLabel(),
             'amountCents' => $transaction->getAmountCents(),
             'currency' => $transaction->getCurrency(),
             'bookedAt' => $transaction->getBookedAt()->format('Y-m-d'),
             'status' => $transaction->getStatus()->value,
+            'isExceptional' => $transaction->isExceptional(),
         ];
     }
 
     /**
      * @param array<string, mixed> $envelope
      *
-     * @return array{0: array<string, mixed>, 1: 'created'|'updated'|'unchanged'}
+     * @return array{category: Category, amountCents: int, currency: string}
      */
-    private function budget(User $user, int $year, array $envelope, string $at): array
+    private function readEnvelope(User $user, array $envelope, string $at): array
     {
-        $category = $this->requireCategory($user, $envelope, $at);
-
         $amountCents = $envelope['amountCents'] ?? null;
         if (!\is_int($amountCents) || $amountCents < 0) {
-            throw new \InvalidArgumentException("{$at}.amountCents must be a positive integer of cents.");
+            throw new \InvalidArgumentException("{$at}.amountCents must be an integer of cents, zero or above.");
         }
 
+        return [
+            'category' => $this->requireCategory($user, $envelope, $at),
+            'amountCents' => $amountCents,
+            'currency' => $this->requireCurrency($envelope, 'EUR', $at),
+        ];
+    }
+
+    /**
+     * @param array{category: Category, amountCents: int, currency: string} $envelope
+     *
+     * @return array{0: array<string, mixed>, 1: 'created'|'updated'|'unchanged'}
+     */
+    private function budget(User $user, int $year, array $envelope): array
+    {
+        $category = $envelope['category'];
+        $amountCents = $envelope['amountCents'];
+
+        // Looked up here rather than at validation time: two lines of one plan
+        // may name the same category, and the second must see what the first
+        // wrote instead of creating a duplicate the handler would refuse.
         $existing = $this->envelopeRepository->findOneForPeriod($category, BudgetMode::Annual, $year, null);
 
         if (null !== $existing && $existing->getAmountCents() === $amountCents) {
@@ -191,7 +246,7 @@ class ApplyAnnualPlan
                 year: $year,
                 mode: BudgetMode::Annual->value,
                 month: null,
-                currency: \is_string($envelope['currency'] ?? null) ? $envelope['currency'] : 'EUR',
+                currency: $envelope['currency'],
             )
             : new UpdateEnvelopeCommand(
                 envelopeId: (string) $existing->getId(),
@@ -222,9 +277,12 @@ class ApplyAnnualPlan
             throw new \InvalidArgumentException("{$at}.categoryId is required.");
         }
 
-        $category = $this->categoryRepository->find($categoryId);
-        // An unknown category and someone else's are the same answer here:
-        // the session must never let an id reach another user's budget.
+        // A name instead of an id is the likeliest mistake with this tool, and
+        // Doctrine answers a non-ULID with a conversion error, not with null.
+        $category = Ulid::isValid($categoryId) ? $this->categoryRepository->find($categoryId) : null;
+
+        // An unknown category, a malformed id and somebody else's are the same
+        // answer: the session must never reach another user's budget.
         if (null === $category || (string) $category->getUser()->getId() !== (string) $user->getId()) {
             throw new \InvalidArgumentException("{$at}: category not found: {$categoryId}");
         }
@@ -243,6 +301,24 @@ class ApplyAnnualPlan
         }
 
         return $parsed;
+    }
+
+    /**
+     * Nothing validates a command on the bus, and the column is three
+     * characters wide: an unchecked code reaches the database driver and comes
+     * back as a 500 on what is plain bad input.
+     *
+     * @param array<string, mixed> $input
+     */
+    private function requireCurrency(array $input, string $fallback, string $at): string
+    {
+        $currency = $input['currency'] ?? $fallback;
+
+        if (!\is_string($currency) || 1 !== preg_match('/^[A-Z]{3}$/', $currency)) {
+            throw new \InvalidArgumentException("{$at}.currency must be a 3-letter ISO 4217 code.");
+        }
+
+        return $currency;
     }
 
     /** @return array<string, mixed> */
