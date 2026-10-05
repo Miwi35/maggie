@@ -22,6 +22,7 @@ export const ROUTES = {
   tasks: '/tasks',
   events: '/events',
   grocery: '/grocery',
+  products: '/products',
   recipes: '/recipes',
   preferences: '/settings/preferences',
   // Finance (MAG-102). Four screens are react-admin resources and four are

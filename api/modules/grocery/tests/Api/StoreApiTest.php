@@ -77,6 +77,21 @@ class StoreApiTest extends WebTestCase
         $this->assertElasticsearchIndexDispatched(Store::class);
     }
 
+    public function testPatchSendingBackTheIdAsAnIriAsTheAdminDoesIsAccepted(): void
+    {
+        $store = $this->load();
+
+        // react-admin's Hydra data provider replaces `id` by the IRI and adds `originId`.
+        $this->patch($store, [
+            'id' => '/api/stores/'.$store->getId(),
+            'originId' => (string) $store->getId(),
+            'description' => 'Open late',
+        ]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('Open late', $this->reload($store)->getDescription());
+    }
+
     public function testPatchWithoutDescriptionKeepsIt(): void
     {
         $store = $this->load();
