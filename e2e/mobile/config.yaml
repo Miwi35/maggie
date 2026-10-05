@@ -26,3 +26,4 @@ executionOrder:
     - 07-grocery-errand
     - 08-grocery-realtime
     - 09-grocery-deferred
+    - 10-voice-settings
