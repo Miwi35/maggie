@@ -35,11 +35,20 @@ vars:
     sh: id -u
   HOST_GID:
     sh: id -g
+  # The e2e clock (MAG-234). `E2E_NOW` (ISO-8601, e.g. 2026-10-11T23:50:00+02:00,
+  # or a name from `e2e/clock.sh names` resolved with `e2e/clock.sh resolve`)
+  # fixes "now" for the whole stack: libfaketime on the API, the worker and the
+  # agent, `Date` in the browser, the emulator's clock. The variable is empty
+  # without it, and nothing changes. Set it before `task e2e:up`: the services
+  # are started with it.
+  E2E_FAKETIME:
+    sh: '{{.ROOT_DIR}}/e2e/clock.sh faketime'
 
 env:
   COMPOSE_PROJECT_NAME: '{{.PROJECT}}'
   UID: '{{.HOST_UID}}'
   GID: '{{.HOST_GID}}'
+  E2E_FAKETIME: '{{.E2E_FAKETIME}}'
 
 tasks:
   # ===========================================================================
@@ -238,7 +247,9 @@ tasks:
     generates:
       - '{{.ROOT_DIR}}/api/vendor/autoload.php'
     cmds:
-      - '{{.COMPOSE}} exec -T php composer install --no-interaction --no-progress'
+      # No simulated clock for composer: a download under a date from the
+      # future fails its TLS checks for a reason nobody would look for.
+      - '{{.COMPOSE}} exec -T -e LD_PRELOAD= -e FAKETIME= php composer install --no-interaction --no-progress'
 
   ciqual:db:
     desc: Build the Ciqual food database the recipe journeys read
@@ -300,6 +311,12 @@ tasks:
     cmds:
       - '{{.COMPOSE}} exec -T php bin/console --env=e2e app:e2e:seed {{.CLI_ARGS}}'
       - task: seed:agent
+      - task: seed:wiremock
+
+  seed:wiremock:
+    desc: Put WireMock's all-day "today" Google event on the seed's anchor day (MAG-234)
+    cmds:
+      - COMPOSE='{{.COMPOSE}}' '{{.ROOT_DIR}}/e2e/wiremock-today.sh'
 
   seed:agent:
     desc: Empty the agent's own database — conversations, contexts, memory
@@ -339,7 +356,9 @@ tasks:
     # this worktree.
     cmds:
       - task: test:prepare
-      - '{{.COMPOSE}} exec -T php bin/phpunit {{.CLI_ARGS}}'
+      # The unit tests own their clock (ClockMock, fixed dates): the stack's
+      # one would only fight them.
+      - '{{.COMPOSE}} exec -T -e LD_PRELOAD= -e FAKETIME= php bin/phpunit {{.CLI_ARGS}}'
 
   test:prepare:
     desc: Create the PHPUnit database inside the e2e stack
@@ -348,9 +367,9 @@ tasks:
     # whole suite errors out on "database does not exist", which reads like
     # hundreds of broken tests rather than one missing schema.
     cmds:
-      - '{{.COMPOSE}} exec -T php bin/console --env=test doctrine:database:create --no-interaction --if-not-exists'
-      - '{{.COMPOSE}} exec -T php bin/console --env=test doctrine:schema:drop --no-interaction --force --full-database'
-      - '{{.COMPOSE}} exec -T php bin/console --env=test doctrine:schema:create --no-interaction'
+      - '{{.COMPOSE}} exec -T -e LD_PRELOAD= -e FAKETIME= php bin/console --env=test doctrine:database:create --no-interaction --if-not-exists'
+      - '{{.COMPOSE}} exec -T -e LD_PRELOAD= -e FAKETIME= php bin/console --env=test doctrine:schema:drop --no-interaction --force --full-database'
+      - '{{.COMPOSE}} exec -T -e LD_PRELOAD= -e FAKETIME= php bin/console --env=test doctrine:schema:create --no-interaction'
 
   eval:
     desc: Replay the prompt-lab scenarios on the real model (needs ANTHROPIC_API_KEY)

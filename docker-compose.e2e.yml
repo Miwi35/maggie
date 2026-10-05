@@ -94,6 +94,13 @@ x-php-environment: &php-environment
   ENABLE_BANKING_BASE_URL: http://wiremock:8080/enablebanking
   BANK_CALLBACK_URL: ${E2E_BASE_URL:-http://localhost}/api/finance/bank-callback
   TRUSTED_PROXIES: 0.0.0.0/0
+  # The e2e clock (MAG-234): set by the Taskfile from E2E_NOW, empty otherwise.
+  # Every process starts at the instant and ticks 10 µs per clock read (see
+  # e2e/clock.sh for why not frozen).
+  LD_PRELOAD: ${E2E_FAKETIME:+/usr/local/lib/libfaketime.so.1}
+  FAKETIME: ${E2E_FAKETIME:-}
+  FAKETIME_DONT_FAKE_MONOTONIC: "1"
+  FAKETIME_NO_CACHE: "1"
 
 services:
   # ===========================================================================
@@ -447,6 +454,15 @@ services:
       - ./.e2e-cache/uv:/home/app/.cache/uv
     environment:
       UV_LINK_MODE: copy
+      # The e2e clock (MAG-234). Not set on the container itself: `uv pip
+      # install` below would run under it, and a simulated date breaks the TLS
+      # checks of anything that downloads. The command applies it to uvicorn only.
+      E2E_AGENT_LD_PRELOAD: ${E2E_FAKETIME:+/usr/local/lib/libfaketime.so.1}
+      E2E_AGENT_FAKETIME: ${E2E_FAKETIME:-}
+      # Each process ticks its own simulated clock, so after a long suite the
+      # API's runs seconds ahead of the agent's and the tokens it signs carry an
+      # `iat` the agent still sees in the future.
+      JWT_LEEWAY_SECONDS: "60"
       # Maggie answers from agent/fixtures/fake-llm/ instead of calling Claude:
       # a journey that talks to her is fast, free and the same every time
       # (MAG-95). `E2E_LLM_PROVIDER=anthropic` switches this stack to the real
@@ -486,6 +502,14 @@ services:
       # in the history because that thread's own messages were loaded. Raise it and the
       # journey still passes for the wrong reason.
       RECENT_HISTORY_MESSAGES: "2"
+    command:
+      - sh
+      - -c
+      - >-
+        uv pip install --system -e '.[dev]' &&
+        exec env LD_PRELOAD="$$E2E_AGENT_LD_PRELOAD" FAKETIME="$$E2E_AGENT_FAKETIME"
+        FAKETIME_DONT_FAKE_MONOTONIC=1 FAKETIME_NO_CACHE=1
+        uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
     depends_on:
       database:
         condition: service_healthy
@@ -600,6 +624,8 @@ services:
       E2E_BASE_URL: http://traefik
       E2E_LOGIN_TOKEN: ${E2E_LOGIN_TOKEN:-e2e-login-token}
       E2E_SEED_MANIFEST: /seed/seed-manifest.json
+      # The browser's clock (MAG-234): the fixtures pin `Date` to it. Empty = real time.
+      E2E_NOW: ${E2E_NOW:-}
       # Retries, the GitHub reporter and `forbidOnly` all key off this.
       CI: ${CI:-}
       # The container runs as the host's uid, which has no entry in the image's

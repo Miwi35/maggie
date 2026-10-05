@@ -1,4 +1,4 @@
-import { test, expect, seedId } from '../fixtures/index.js'
+import { test, expect, parisTime, seedDate, seedId } from '../fixtures/index.js'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { AdminShell } from '../pages/AdminShell.js'
 import { ROUTES } from '../pages/routes.js'
@@ -145,13 +145,15 @@ test.describe('Recipes and meals', () => {
     expect(recipe.status()).toBe(201)
     const recipeBody = (await recipe.json()) as { '@id': string; id: string }
 
-    const tomorrow = new Date(Date.now() + 24 * 3600 * 1000).toISOString().slice(0, 10)
+    // The day after the seed's anchor, not after the wall clock (MAG-234): the two
+    // part ways after midnight, and a week-view assertion cannot tell why.
+    const tomorrow = seedDate(1)
     const meal = await api.post('/api/meals', {
       headers,
       data: {
         summary: 'Dîner',
-        startAt: `${tomorrow}T00:00:00+02:00`,
-        endAt: `${tomorrow}T23:59:59+02:00`,
+        startAt: parisTime(tomorrow, '00:00:00'),
+        endAt: parisTime(tomorrow, '23:59:59'),
         slot: 'dinner',
         allDay: true,
         agenda: `/api/agendas/${seedId('e2e_agenda_personal')}`,
