@@ -17,12 +17,22 @@ import { GlobalSearch } from '../pages/GlobalSearch.js'
 /** The paths the admin itself talks to; anything else is a record id taken for a URL. */
 const KNOWN_PREFIXES = ['/api/', '/admin/', '/.well-known/mercure', '/agent']
 
-/** Every request from here on that left those prefixes — a bare `/<ulid>` lookup is one. */
+/**
+ * Every request from here on that left those prefixes — a bare `/<ulid>` lookup is one.
+ *
+ * Only the admin's own origin counts: the avatar of the signed-in user is fetched
+ * from another host, and whether that request lands before or after this listener
+ * is a race, not something the search did.
+ */
 function strayRequests(page: Page): string[] {
   const stray: string[] = []
 
   page.on('request', (request) => {
-    const { pathname } = new URL(request.url())
+    const { origin, pathname } = new URL(request.url())
+
+    if (origin !== new URL(page.url()).origin) {
+      return
+    }
 
     if (!KNOWN_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
       stray.push(`${request.method()} ${pathname}`)

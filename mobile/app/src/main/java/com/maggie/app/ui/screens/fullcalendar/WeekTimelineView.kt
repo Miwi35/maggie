@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import com.maggie.app.data.model.ExpandedEvent
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.screens.dashboard.parseColor
+import com.maggie.app.util.DateRanges
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -113,7 +114,7 @@ fun WeekTimelineView(
                 .padding(start = HOUR_LABEL_WIDTH),
         ) {
             days.forEach { date ->
-                val isToday = date == LocalDate.now()
+                val isToday = date == DateRanges.todayDate()
                 Text(
                     text = date.format(dayHeaderFormatter).replaceFirstChar { it.uppercase() },
                     style = MaterialTheme.typography.labelSmall,
@@ -194,7 +195,7 @@ fun WeekTimelineView(
                         )
                     }
 
-                    if (date == LocalDate.now()) {
+                    if (date == DateRanges.todayDate()) {
                         NowIndicator()
                     }
                 }

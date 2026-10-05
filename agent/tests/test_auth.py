@@ -93,3 +93,37 @@ class TestAuth:
 
         assert response.status_code == 401
         assert "sub" in response.json()["detail"].lower()
+
+    @patch("app.auth._get_public_key", return_value=_public_key_pem)
+    def test_token_issued_in_the_future_is_refused_by_default(self, _mock_key):
+        """Without leeway, a token whose 'iat' is ahead of this clock is refused."""
+        import time
+
+        client = TestClient(_build_test_app())
+
+        token = jwt.encode(
+            {"sub": "user-123", "iat": int(time.time()) + 5},
+            _private_key_pem,
+            algorithm="RS256",
+        )
+        response = client.get("/protected", headers={"Authorization": f"Bearer {token}"})
+
+        assert response.status_code == 401
+
+    @patch("app.auth._get_public_key", return_value=_public_key_pem)
+    def test_leeway_accepts_a_token_issued_by_a_clock_slightly_ahead(self, _mock_key):
+        """The e2e stack runs a simulated clock per process (MAG-234): the API's can lead the agent's."""
+        import time
+
+        client = TestClient(_build_test_app())
+
+        token = jwt.encode(
+            {"sub": "user-123", "iat": int(time.time()) + 5},
+            _private_key_pem,
+            algorithm="RS256",
+        )
+        with patch("app.auth.settings.jwt_leeway_seconds", 30):
+            response = client.get("/protected", headers={"Authorization": f"Bearer {token}"})
+
+        assert response.status_code == 200
+        assert response.json()["user_id"] == "user-123"

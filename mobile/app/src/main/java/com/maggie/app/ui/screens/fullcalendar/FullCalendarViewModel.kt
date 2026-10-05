@@ -37,7 +37,7 @@ import java.util.Locale
 
 data class FullCalendarUiState(
     val viewType: CalendarViewType = CalendarViewType.MONTH,
-    val currentDate: LocalDate = LocalDate.now(),
+    val currentDate: LocalDate = DateRanges.todayDate(),
     val expandedEvents: List<ExpandedEvent> = emptyList(),
     val tasks: List<Task> = emptyList(),
     val agendas: List<Agenda> = emptyList(),
@@ -103,7 +103,7 @@ class FullCalendarViewModel(
     }
 
     fun goToToday() {
-        _uiState.value = _uiState.value.copy(currentDate = LocalDate.now())
+        _uiState.value = _uiState.value.copy(currentDate = DateRanges.todayDate())
         expandForCurrentRange()
     }
 

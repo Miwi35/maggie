@@ -19,6 +19,12 @@ since `544c9e5`, and its `updated` (09:00) is deliberately **newer** than the
 events list's (08:00): that is what lets a journey prove the next pull skips an
 event Google has not touched since, instead of overwriting the local change.
 
+The all-day "today" Google event (MAG-204) is the one stub that follows the
+calendar: its mapping carries `{{now}}`, but WireMock's JVM does not follow
+`E2E_NOW` and disagrees with the seed's anchor for an hour or two each night, so
+`task e2e:seed` rewrites it in memory to the anchor day (`e2e/wiremock-today.sh`,
+MAG-234). A stub that needs "today" does the same: never rely on `{{now}}`.
+
 Two stubs answer something derived from the request rather than a constant, and
 both are load-bearing:
 
