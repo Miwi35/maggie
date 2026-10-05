@@ -63,6 +63,56 @@ class UpdateProductHandlerTest extends KernelTestCase
         self::assertSame('kg', $product->getDefaultUnit()?->value);
     }
 
+    public function testStoresAndShelfLifeAreSaved(): void
+    {
+        $this->dispatch(new UpdateProductCommand(
+            productId: $this->id(),
+            preferredStoreId: $this->id('halles'),
+            fallbackStoreId: $this->id('bio'),
+            shelfLifeDays: 14,
+        ));
+
+        $product = $this->reload();
+        self::assertSame($this->id('halles'), (string) $product->getPreferredStore()?->getId());
+        self::assertSame($this->id('bio'), (string) $product->getFallbackStore()?->getId());
+        self::assertSame(14, $product->getShelfLifeDays());
+        self::assertSame('Riz', $product->getName());
+        $this->assertMercureUpdatePublished('/products/');
+        $this->assertElasticsearchIndexDispatched(Product::class);
+    }
+
+    public function testClearingTheStoresAndTheShelfLifeEmptiesThemOnly(): void
+    {
+        $this->dispatch(new UpdateProductCommand(
+            productId: $this->id('product_with_stores'),
+            clearFields: ['preferredStore', 'shelfLifeDays'],
+        ));
+
+        $product = $this->reload('product_with_stores');
+        self::assertNull($product->getPreferredStore());
+        self::assertNull($product->getShelfLifeDays());
+        self::assertSame($this->id('bio'), (string) $product->getFallbackStore()?->getId());
+        self::assertSame('Câpres', $product->getName());
+    }
+
+    public function testStoresLeftOutAreLeftUntouched(): void
+    {
+        $this->dispatch(new UpdateProductCommand(productId: $this->id('product_with_stores'), name: 'Câpres au sel'));
+
+        $product = $this->reload('product_with_stores');
+        self::assertSame($this->id('halles'), (string) $product->getPreferredStore()?->getId());
+        self::assertSame($this->id('bio'), (string) $product->getFallbackStore()?->getId());
+        self::assertSame(30, $product->getShelfLifeDays());
+    }
+
+    public function testAStoreOfAnotherUserIsRefused(): void
+    {
+        $this->expectException(\Throwable::class);
+        $this->expectExceptionMessage('Store not found');
+
+        $this->dispatch(new UpdateProductCommand(productId: $this->id(), preferredStoreId: $this->id('other_user_store')));
+    }
+
     public function testUnknownProductFails(): void
     {
         $this->expectException(\Throwable::class);

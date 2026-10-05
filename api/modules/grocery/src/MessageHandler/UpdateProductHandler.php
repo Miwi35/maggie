@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Maggie\Grocery\MessageHandler;
 
 use Maggie\Grocery\Entity\Product;
+use Maggie\Grocery\Entity\Store;
 use Maggie\Grocery\Enum\ProductCategory;
 use Maggie\Grocery\Enum\Unit;
 use Maggie\Grocery\Message\UpdateProductCommand;
 use Maggie\Grocery\Repository\ProductRepository;
+use Maggie\Grocery\Repository\StoreRepository;
 use Maggie\Grocery\UseCase\UpdateProduct;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -18,6 +20,7 @@ class UpdateProductHandler
     public function __construct(
         private readonly UpdateProduct $updateProduct,
         private readonly ProductRepository $productRepository,
+        private readonly StoreRepository $storeRepository,
     ) {
     }
 
@@ -37,7 +40,32 @@ class UpdateProductHandler
         } elseif ($command->clears('defaultUnit')) {
             $product->setDefaultUnit(null);
         }
+        if (null !== $command->preferredStoreId) {
+            $product->setPreferredStore($this->ownedStore($command->preferredStoreId, $product));
+        } elseif ($command->clears('preferredStore')) {
+            $product->setPreferredStore(null);
+        }
+        if (null !== $command->fallbackStoreId) {
+            $product->setFallbackStore($this->ownedStore($command->fallbackStoreId, $product));
+        } elseif ($command->clears('fallbackStore')) {
+            $product->setFallbackStore(null);
+        }
+        if (null !== $command->shelfLifeDays) {
+            $product->setShelfLifeDays($command->shelfLifeDays);
+        } elseif ($command->clears('shelfLifeDays')) {
+            $product->setShelfLifeDays(null);
+        }
 
         return $this->updateProduct->execute($product);
+    }
+
+    private function ownedStore(string $storeId, Product $product): Store
+    {
+        $store = $this->storeRepository->find($storeId);
+        if (null === $store || (string) $store->getUser()->getId() !== (string) $product->getUser()->getId()) {
+            throw new \DomainException("Store not found: {$storeId}");
+        }
+
+        return $store;
     }
 }

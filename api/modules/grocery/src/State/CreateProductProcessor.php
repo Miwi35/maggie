@@ -32,6 +32,9 @@ class CreateProductProcessor implements ProcessorInterface
             name: $data->getName(),
             category: $data->getCategory()->value,
             defaultUnit: $data->getDefaultUnit()?->value,
+            preferredStoreId: null !== $data->getPreferredStore() ? (string) $data->getPreferredStore()->getId() : null,
+            fallbackStoreId: null !== $data->getFallbackStore() ? (string) $data->getFallbackStore()->getId() : null,
+            shelfLifeDays: $data->getShelfLifeDays(),
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();

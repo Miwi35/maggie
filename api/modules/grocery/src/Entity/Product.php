@@ -89,10 +89,12 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
 
     #[ORM\ManyToOne(targetEntity: Store::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    #[IndexedRelation(targetEntity: Store::class, sourceField: 'preferredStoreId')]
     private ?Store $preferredStore = null;
 
     #[ORM\ManyToOne(targetEntity: Store::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    #[IndexedRelation(targetEntity: Store::class, sourceField: 'fallbackStoreId')]
     private ?Store $fallbackStore = null;
 
     #[ORM\Column(type: 'integer', nullable: true)]

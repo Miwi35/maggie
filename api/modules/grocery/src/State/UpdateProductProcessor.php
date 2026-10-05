@@ -29,12 +29,24 @@ class UpdateProductProcessor implements ProcessorInterface
         if (null !== $previous && null === $data->getDefaultUnit() && null !== $previous->getDefaultUnit()) {
             $clearFields[] = 'defaultUnit';
         }
+        if (null !== $previous && null === $data->getPreferredStore() && null !== $previous->getPreferredStore()) {
+            $clearFields[] = 'preferredStore';
+        }
+        if (null !== $previous && null === $data->getFallbackStore() && null !== $previous->getFallbackStore()) {
+            $clearFields[] = 'fallbackStore';
+        }
+        if (null !== $previous && null === $data->getShelfLifeDays() && null !== $previous->getShelfLifeDays()) {
+            $clearFields[] = 'shelfLifeDays';
+        }
 
         $envelope = $this->bus->dispatch(new UpdateProductCommand(
             productId: (string) $data->getId(),
             name: $data->getName(),
             category: $data->getCategory()->value,
             defaultUnit: $data->getDefaultUnit()?->value,
+            preferredStoreId: null !== $data->getPreferredStore() ? (string) $data->getPreferredStore()->getId() : null,
+            fallbackStoreId: null !== $data->getFallbackStore() ? (string) $data->getFallbackStore()->getId() : null,
+            shelfLifeDays: $data->getShelfLifeDays(),
             clearFields: $clearFields,
         ));
 

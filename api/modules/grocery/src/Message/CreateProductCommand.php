@@ -11,6 +11,9 @@ final readonly class CreateProductCommand
         public string $name,
         public string $category,
         public ?string $defaultUnit = null,
+        public ?string $preferredStoreId = null,
+        public ?string $fallbackStoreId = null,
+        public ?int $shelfLifeDays = null,
     ) {
     }
 }
