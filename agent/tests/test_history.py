@@ -303,7 +303,8 @@ class TestWhatTheToolsSaid:
 
     @staticmethod
     def _round(tool_id: str = "toolu_1", result: str = '{"items": ["Pile LR03"]}') -> list[dict]:
-        return record([{"id": tool_id, "name": "get_grocery_list", "input": {"includeDeferred": False}, "result": result}])
+        call = {"id": tool_id, "name": "get_grocery_list", "input": {"includeDeferred": False}, "result": result}
+        return record([call])
 
     async def test_the_call_and_its_result_reach_the_next_turn(self, say, thread):
         courses = await thread("Courses")

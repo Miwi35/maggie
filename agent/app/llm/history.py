@@ -386,6 +386,9 @@ def _append_rounds(turns: list[dict], rounds: list[dict]) -> bool:
     folded, and the rounds are left out rather than sent in a shape that would be rejected.
     """
     if turns and turns[-1]["role"] == "assistant":
+        # Defence, not a live path: a replay always ends on the text of the row it belongs
+        # to, so no assistant turn of blocks is ever the last one here. Left in because the
+        # alternative, if it ever became reachable, is a rejected API call.
         if not isinstance(turns[-1]["content"], str):
             return False
         previous = turns.pop()
