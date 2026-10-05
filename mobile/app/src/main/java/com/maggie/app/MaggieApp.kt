@@ -1,6 +1,7 @@
 package com.maggie.app
 
 import android.app.Application
+import android.app.NotificationManager
 import androidx.room.Room
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.auth.AuthManager
@@ -59,8 +60,6 @@ import com.maggie.app.ui.screens.proactions.ProactionViewModel
 import com.maggie.app.ui.screens.search.SearchViewModel
 import com.maggie.app.ui.screens.settings.SettingsViewModel
 import com.maggie.app.voice.VoiceManager
-import com.maggie.app.voice.WakeWordManager
-import com.maggie.app.voice.WakeWordService
 import com.maggie.app.voice.audioRecorderFactory
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -78,6 +77,7 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.io.File
 import org.koin.android.ext.android.get
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
@@ -212,7 +212,6 @@ class MaggieApp : Application() {
 
             // Other
             single { VoiceManager(androidContext(), get(), get(), audioRecorderFactory(androidContext())) }
-            single { WakeWordManager(androidContext()) }
 
             // ViewModels
             viewModel { LoginViewModel(get()) }
@@ -220,7 +219,7 @@ class MaggieApp : Application() {
             viewModel { FullCalendarViewModel(get(), get(), get(), get(), get()) }
             viewModel { ChatViewModel(get(), get(), get(), get()) }
             viewModel { ContextViewModel(get(), get(), get()) }
-            viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get(), get()) }
+            viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get()) }
             viewModel { NotificationViewModel(get(), get(), get()) }
             viewModel { SearchViewModel(get()) }
             viewModel { ProactionViewModel(get()) }
@@ -249,6 +248,16 @@ class MaggieApp : Application() {
         get<BiometricLockManager>().initialize()
 
         MaggieFcmService.createNotificationChannels(this)
-        WakeWordService.createNotificationChannel(this)
+        removeListeningLeftovers()
+    }
+
+    // The listening service of earlier versions is gone with its class, so nothing
+    // can start it again; what it left behind (notifications, channels, its
+    // preference file) is cleared once here.
+    private fun removeListeningLeftovers() {
+        val notifications = getSystemService(NotificationManager::class.java)
+        listOf(2001, 2002).forEach { notifications.cancel(it) }
+        listOf("wake_word", "wake_word_reactivate").forEach { notifications.deleteNotificationChannel(it) }
+        File(filesDir, "datastore/wake_word_prefs.preferences_pb").delete()
     }
 }

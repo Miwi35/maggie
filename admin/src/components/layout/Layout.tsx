@@ -6,14 +6,12 @@ import { CustomAppBar } from './AppBar'
 import { CustomMenu } from './Menu'
 import { ChatContext } from './ChatContext'
 import type { SidebarTab } from './ChatContext'
-import { useWakeWord } from '../../hooks/useWakeWord'
 import type { AgentState, ContextState, ToolCallState } from '../mind/types'
 
 export const Layout = (props: LayoutProps) => {
   const [chatOpen, setChatOpen] = useState(true)
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>('chat')
   const [unreadChat, setUnreadChat] = useState(false)
-  const [wakeWordTriggered, setWakeWordTriggered] = useState(false)
   const [contexts, setContexts] = useState<ContextState[]>([])
   const [toolCalls, setToolCalls] = useState<ToolCallState[]>([])
   const [agentState, setAgentState] = useState<AgentState>('idle')
@@ -76,22 +74,6 @@ export const Layout = (props: LayoutProps) => {
     [chatOpen],
   )
 
-  const handleWakeWordDetected = useCallback(() => {
-    if (!chatOpen) {
-      setChatOpen(true)
-      setUnreadChat(false)
-      triggerResize()
-    }
-    setSidebarTab('chat')
-    setWakeWordTriggered(true)
-  }, [chatOpen, triggerResize])
-
-  const clearWakeWordTrigger = useCallback(() => {
-    setWakeWordTriggered(false)
-  }, [])
-
-  const wakeWord = useWakeWord({ onDetected: handleWakeWordDetected })
-
   const chatContext = useMemo(
     () => ({
       chatOpen,
@@ -100,13 +82,6 @@ export const Layout = (props: LayoutProps) => {
       onMindToggle: handleMindToggle,
       unreadChat,
       onVoiceMessage: handleVoiceMessage,
-      wakeWordEnabled: wakeWord.enabled,
-      wakeWordListening: wakeWord.isListening,
-      wakeWordTriggered,
-      toggleWakeWord: wakeWord.toggleEnabled,
-      pauseWakeWord: wakeWord.pause,
-      resumeWakeWord: wakeWord.resume,
-      clearWakeWordTrigger,
     }),
     [
       chatOpen,
@@ -115,13 +90,6 @@ export const Layout = (props: LayoutProps) => {
       handleMindToggle,
       unreadChat,
       handleVoiceMessage,
-      wakeWord.enabled,
-      wakeWord.isListening,
-      wakeWordTriggered,
-      wakeWord.toggleEnabled,
-      wakeWord.pause,
-      wakeWord.resume,
-      clearWakeWordTrigger,
     ],
   )
 

@@ -23,7 +23,6 @@
     "@fullcalendar/react": "^6.1.20",
     "@fullcalendar/timegrid": "^6.1.20",
     "@react-oauth/google": "^0.13.4",
-    "openwakeword-wasm-browser": "^0.1.0",
     "ra-i18n-polyglot": "^5.14.1",
     "ra-language-french": "^5.14.1",
     "react": "^19.2.0",

@@ -11,7 +11,6 @@ import com.maggie.app.data.model.UserPreference
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.voice.VoiceManager
-import com.maggie.app.voice.WakeWordManager
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -77,7 +76,6 @@ class SettingsViewModelTest {
         agendaRepository,
         mercureService,
         mockk<VoiceManager>(relaxed = true),
-        mockk<WakeWordManager>(relaxed = true),
     )
 
     @Test

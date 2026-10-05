@@ -20,7 +20,6 @@ import org.koin.androidx.viewmodel.ext.android.viewModel
 class AssistantActivity : ComponentActivity() {
 
     private val voiceManager: VoiceManager by inject()
-    private val wakeWordManager: WakeWordManager by inject()
     private val chatViewModel: ChatViewModel by viewModel()
 
     /** What the screen behind the overlay was showing, when Android told us (MAG-30). */
@@ -70,16 +69,15 @@ class AssistantActivity : ComponentActivity() {
 
     /**
      * The activity is `singleTask`, so every later invocation — the assistant key,
-     * the wake word, `ACTION_ASSIST` — lands here instead of `onCreate`. All of
-     * them mean « I want to talk now », so all of them start listening: the
-     * previous code only did it for the wake word, and a long press on an overlay
-     * that was already open left the microphone shut (MAG-30).
+     * `ACTION_ASSIST` — lands here instead of `onCreate`. Both mean « I want to
+     * talk now », so both start listening: a long press on an overlay that was
+     * already open used to leave the microphone shut (MAG-30).
      */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        // Replaced, not merged: an invocation that brings no context — the wake
-        // word, a plain `ACTION_ASSIST` — is not about the previous screen.
+        // Replaced, not merged: an invocation that brings no context — a plain
+        // `ACTION_ASSIST` — is not about the previous screen.
         screenContext = ScreenContext.fromIntent(intent)
         invocation++
         voiceManager.stopSpeaking()
@@ -100,7 +98,6 @@ class AssistantActivity : ComponentActivity() {
         isShowing = false
         voiceManager.cancelListening()
         voiceManager.stopSpeaking()
-        wakeWordManager.resumeListening()
         super.onDestroy()
     }
 

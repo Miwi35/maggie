@@ -90,13 +90,6 @@ admin/coverage/
 .phpunit.result.cache
 
 # =============================================================================
-# Wake word models (OpenWakeWord ONNX — binary blobs, train locally)
-# =============================================================================
-mobile/app/src/main/assets/*.onnx
-mobile/app/src/main/assets/*.onnx.data
-admin/public/openwakeword/
-
-# =============================================================================
 # Kubernetes secrets (real values — only commit the .example)
 # =============================================================================
 infra/k8s/secrets.yaml

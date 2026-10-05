@@ -11,7 +11,6 @@ import com.maggie.app.data.model.TtsVoice
 import com.maggie.app.data.model.User
 import com.maggie.app.data.model.UserPreference
 import com.maggie.app.voice.VoiceManager
-import com.maggie.app.voice.WakeWordManager
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,7 +39,6 @@ class SettingsViewModel(
     private val agendaRepository: AgendaRepository,
     private val mercureService: MercureService,
     private val voiceManager: VoiceManager,
-    val wakeWordManager: WakeWordManager,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())

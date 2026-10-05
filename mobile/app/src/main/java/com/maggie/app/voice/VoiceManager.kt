@@ -59,7 +59,7 @@ class VoiceManager(
     private var timerJob: Job? = null
     private var hintJob: Job? = null
 
-    // Listening opened without a button held down (wake word, assistant gesture): the
+    // Listening opened without a button held down (assistant gesture): the
     // button ends it with a tap, since there was no press to release.
     private val _handsFree = MutableStateFlow(false)
     val handsFree: StateFlow<Boolean> = _handsFree
