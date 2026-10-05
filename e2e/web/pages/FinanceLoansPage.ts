@@ -25,9 +25,15 @@ export class FinanceLoansPage extends AdminShell {
     await expect(this.timeline).toBeVisible()
   }
 
-  /** A line of the relief schedule, by the loan it frees. */
+  /**
+   * A line of the relief schedule, by the loan it frees.
+   *
+   * Scoped to the schedule's own lines (`data-testid="debt-relief"`) rather
+   * than to whatever `Stack` happens to hold the name: the card's header and
+   * its footer mention the loans too.
+   */
   relief(loanName: string): Locator {
-    return this.timeline.locator('.MuiStack-root').filter({ hasText: loanName }).first()
+    return this.timeline.getByTestId('debt-relief').filter({ hasText: loanName })
   }
 
   /** A row of the loan list below the panel. */

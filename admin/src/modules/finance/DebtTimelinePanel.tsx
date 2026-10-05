@@ -45,6 +45,10 @@ export const DebtTimelinePanel = () => {
         {timeline.reliefByMonth.map((relief) => (
           <Stack
             key={relief.month}
+            // The handle the e2e journey uses (MAG-102): one line per month a
+            // loan frees up, and the assertion is about which loan frees what.
+            data-testid="debt-relief"
+            data-month={relief.month}
             direction="row"
             justifyContent="space-between"
             sx={{ py: 0.5, borderBottom: '1px solid', borderColor: 'divider' }}

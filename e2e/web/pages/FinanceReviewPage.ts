@@ -27,23 +27,35 @@ export class FinanceReviewPage extends AdminShell {
       .filter({ hasText: 'Dépenses à qualifier' })
   }
 
+  /**
+   * Opens the screen and waits for the review to have *answered*.
+   *
+   * The card and its heading render before `useMonthlyReview` comes back, and
+   * `pendingLabels()` is a one-shot read: without this it can legitimately
+   * find no line and call the month qualified.
+   */
   async open(): Promise<void> {
     await this.goto(ROUTES.financeReview)
     await expect(this.summary).toBeVisible()
+    await expect(this.summary.getByText(/dépensés ce mois-ci/)).toBeVisible()
   }
 
   /** A line waiting for a verdict, by its label. */
   pending(label: string): Locator {
-    return this.pendingCard.locator('.MuiStack-root').filter({ hasText: label }).first()
+    return this.pendingCard.locator(`[data-testid="review-pending"][data-label="${label}"]`)
   }
 
-  /** The labels still to qualify, biggest first — the order the page promises. */
+  /**
+   * The labels still to qualify, biggest first — the order the page promises.
+   *
+   * Read off `data-label` rather than out of the layout: the lines are flat
+   * siblings today, and a `Stack` wrapped around them tomorrow would turn
+   * every assertion below into one about the container.
+   */
   async pendingLabels(): Promise<string[]> {
     return this.pendingCard
-      .locator('.MuiStack-root > .MuiBox-root')
-      .evaluateAll((lines) =>
-        lines.map((line) => line.querySelector('.MuiTypography-body2')?.textContent ?? ''),
-      )
+      .getByTestId('review-pending')
+      .evaluateAll((lines) => lines.map((line) => line.getAttribute('data-label') ?? ''))
   }
 
   /** Judges one line, the way the owner does. */

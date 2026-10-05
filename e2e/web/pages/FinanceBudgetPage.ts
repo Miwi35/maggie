@@ -35,9 +35,21 @@ export class FinanceBudgetPage extends AdminShell {
     this.totalLine = this.budgetCard.getByText(/^Total :/)
   }
 
+  /**
+   * Opens the screen and waits for the panel to have *answered*.
+   *
+   * Not just the card: its "Budgets" heading renders before `useBudgetStatus`
+   * comes back, so a read taken on the shell alone can legitimately see no
+   * gauge at all — and `gaugedCategories()` is a one-shot `evaluateAll` with
+   * no auto-retry behind it. The total line only exists once the status is in,
+   * and so does the empty list's own invitation.
+   */
   async open(): Promise<void> {
     await this.goto(ROUTES.envelopes)
     await expect(this.budgetCard).toBeVisible()
+    await expect(
+      this.totalLine.or(this.content.getByText("Aucune enveloppe pour l'instant")),
+    ).toBeVisible()
   }
 
   /**

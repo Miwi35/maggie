@@ -25,8 +25,22 @@ import { FinanceReviewPage } from '../pages/FinanceReviewPage.js'
 interface StoredTransaction {
   id?: string
   label?: string
+  bookedAt?: string
   retrospect?: string
 }
+
+/**
+ * One judged spend, in the month this attempt wrote into.
+ *
+ * The month is part of the match because only the month varies per attempt:
+ * CI retries once without reseeding, and matching on the label alone would let
+ * a replay read the previous attempt's row and call it proof.
+ */
+const judged = (label: string, verdict: string, monthPrefix: string) =>
+  (candidate: StoredTransaction): boolean =>
+    candidate.label === label
+    && candidate.retrospect === verdict
+    && true === candidate.bookedAt?.startsWith(monthPrefix)
 
 const [ANCHOR_YEAR, ANCHOR_MONTH] = seedAnchorDate().split('-').map(Number)
 
@@ -93,10 +107,13 @@ test('judging two spends fills the optimisation score from them', async ({ page,
   await review.open()
   await review.selectPeriod(period.year, period.month)
 
+  // The order is read in one shot, so wait for the period's own lines first:
+  // the card keeps the previous month's on screen while the new ones are
+  // being fetched, and an empty list would read as "nothing to qualify".
+  await expect(review.pending(kept.label)).toContainText(euros(6000))
   // Biggest first, which is the order the card promises — the spend worth
   // thinking about is the expensive one.
   expect(await review.pendingLabels()).toEqual([kept.label, regretted.label])
-  await expect(review.pending(kept.label)).toContainText(euros(6000))
   await expect(
     review.summary,
     'a month nobody has looked at has no score, which is not a zero',
@@ -113,19 +130,19 @@ test('judging two spends fills the optimisation score from them', async ({ page,
   await expect(review.pendingCard).toContainText('Tout est qualifié pour ce mois.')
 
   // The verdicts are the data; the score above is read from them.
-  const stored = await waitForIndexed<StoredTransaction>(
+  const monthPrefix = `${period.year}-${month}-`
+
+  await waitForIndexed<StoredTransaction>(
     api,
-    '/api/transactions?itemsPerPage=100',
-    (candidate) => candidate.label === kept.label && candidate.retrospect === 'keep',
+    '/api/transactions?itemsPerPage=200',
+    judged(kept.label, 'keep', monthPrefix),
     { what: 'The spend judged worth keeping' },
   )
-  expect(stored.retrospect).toBe('keep')
 
-  const avoidable = await waitForIndexed<StoredTransaction>(
+  await waitForIndexed<StoredTransaction>(
     api,
-    '/api/transactions?itemsPerPage=100',
-    (candidate) => candidate.label === regretted.label && candidate.retrospect === 'avoidable',
+    '/api/transactions?itemsPerPage=200',
+    judged(regretted.label, 'avoidable', monthPrefix),
     { what: 'The spend judged avoidable' },
   )
-  expect(avoidable.retrospect).toBe('avoidable')
 })

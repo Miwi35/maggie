@@ -2,23 +2,25 @@ import { test, expect, seedDate, seedId } from '../fixtures/index.js'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { euros, signedEuros } from '../helpers/money.js'
 import { FinanceAccountsPage } from '../pages/FinanceAccountsPage.js'
-import { ROUTES, adminUrl } from '../pages/routes.js'
+import { FinanceBanksPage } from '../pages/FinanceBanksPage.js'
+import { FinanceBudgetPage } from '../pages/FinanceBudgetPage.js'
+import { FinanceCategoriesPage } from '../pages/FinanceCategoriesPage.js'
 
 /**
  * Accounts, and the operations that hang off them (MAG-102).
  *
- * The first two tests only read the owner's seeded world. The third one
- * writes, and it writes as the **neighbour** — for the same reason MAG-149's
+ * The first two tests only read the owner's seeded world. Everything that
+ * writes does so as the **neighbour**, for the same reason MAG-149's
  * `agenda-default.spec.ts` does: an account's balance is summed into the
  * owner's dashboard total and into their safety net, so an account created
  * here would move the figure `finance-overview.spec.ts` and
  * `finance-cushion.spec.ts` assert, on whichever shard happens to run both.
  *
- * Writing as the neighbour buys two things the owner's account could not: the
- * finance screens are asserted **empty** first — the one past regression
- * MAG-93 found in this module (`e05e52f`) was about period controls and empty
- * states — and a journey that finds the owner's rows in the neighbour's list
- * fails here rather than in production.
+ * It buys two things the owner's account could not: an identity whose finance
+ * module is empty, which is where the one past regression MAG-93 found here
+ * (`e05e52f`, period controls and empty states) would show up; and a journey
+ * that finds the owner's rows in the neighbour's list failing here rather than
+ * in production.
  */
 
 /**
@@ -93,27 +95,27 @@ test("an account's operations are its own, and not another account's", async ({ 
  * this identity — the account list is written by the two tests below.
  */
 test('a finance module with nothing in it invites rather than breaks', async ({ otherUser }) => {
-  const page = otherUser.page
-  const content = page.getByTestId('page-content')
-
-  await page.goto(adminUrl(ROUTES.envelopes))
-  await expect(content.getByText("Aucune enveloppe pour l'instant")).toBeVisible()
+  const budget = new FinanceBudgetPage(otherUser.page)
+  await budget.open()
+  await expect(budget.content.getByText("Aucune enveloppe pour l'instant")).toBeVisible()
   await expect(
-    content.getByTestId('budget-gauge'),
+    budget.content.getByTestId('budget-gauge'),
     'no envelope, no gauge — and no gauge of somebody else either',
   ).toHaveCount(0)
   await expect(
-    content.getByRole('alert'),
+    budget.scoreBanner,
     'the day score has nothing to compare against, and says so',
   ).toContainText('Aucune enveloppe sur cette période')
 
-  await page.goto(adminUrl(ROUTES.categories))
-  await content.getByRole('tab', { name: 'Règles de catégorisation' }).click()
-  await expect(content.getByText("Aucune règle pour l'instant")).toBeVisible()
+  const categories = new FinanceCategoriesPage(otherUser.page)
+  await categories.open()
+  await categories.openTab('Règles de catégorisation')
+  await expect(categories.content.getByText("Aucune règle pour l'instant")).toBeVisible()
 
-  await page.goto(adminUrl(ROUTES.financeBanks))
-  await expect(content.getByText('Aucune banque connectée')).toBeVisible()
-  await expect(content.getByText('Mock Bank')).toHaveCount(0)
+  const banks = new FinanceBanksPage(otherUser.page)
+  await banks.open()
+  await expect(banks.content.getByText('Aucune banque connectée')).toBeVisible()
+  await expect(banks.content.getByText('Mock Bank')).toHaveCount(0)
 })
 
 test('a new account and its first operation are created from the screens that own them', async ({
@@ -125,6 +127,7 @@ test('a new account and its first operation are created from the screens that ow
   // read it as a duplicate.
   const accountName = `Compte joint MAG-102, essai ${test.info().retry}`
   const label = `ACHAT TEST MAG-102, essai ${test.info().retry}`
+  const arrivedLabel = `VIREMENT RECU MAG-102, essai ${test.info().retry}`
 
   await accounts.open()
 
@@ -178,7 +181,7 @@ test('a new account and its first operation are created from the screens that ow
     headers: { 'Content-Type': 'application/ld+json' },
     data: {
       account: `/api/accounts/${accountId}`,
-      label: 'VIREMENT RECU',
+      label: arrivedLabel,
       amountCents: 50000,
       currency: 'EUR',
       bookedAt: seedDate(-1),
@@ -190,7 +193,7 @@ test('a new account and its first operation are created from the screens that ow
   await waitForIndexed<StoredTransaction>(
     otherUser.api,
     '/api/transactions',
-    (candidate) => candidate.label === 'VIREMENT RECU',
+    (candidate) => candidate.label === arrivedLabel,
     { what: 'The movement the account was opened with' },
   )
 
@@ -221,11 +224,20 @@ test('a new account and its first operation are created from the screens that ow
   // operation weigh on its category's envelope.
   await expect(accounts.row(label)).toContainText('Dépensée')
 
-  // The neighbour's own list, and nothing more: the writes above went through
-  // their identity, so this is also the user filter's check.
-  const theirs = await getCollection<StoredTransaction>(otherUser.api, '/api/transactions')
-  expect(theirs.map((candidate) => candidate.label).sort()).toEqual(
-    [label, 'VIREMENT RECU'].sort(),
+  // The neighbour's own list, and nothing of the owner's: the writes above went
+  // through their identity, so this is also the user filter's check.
+  //
+  // Phrased as "both of this attempt's labels, and none of the owner's" rather
+  // than as an equality over the whole collection: CI retries once without
+  // reseeding, and `otherUser` is one stable seeded identity — a replay sees
+  // the first attempt's two rows as well, and an equality could never hold.
+  const theirs = (await getCollection<StoredTransaction>(otherUser.api, '/api/transactions')).map(
+    (candidate) => candidate.label,
+  )
+  expect(theirs).toContain(label)
+  expect(theirs).toContain(arrivedLabel)
+  expect(theirs.filter((seen) => seen === 'LECLERC RENNES' || seen === 'VIREMENT SALAIRE')).toEqual(
+    [],
   )
 })
 

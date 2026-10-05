@@ -191,6 +191,15 @@ to one test's data, so:
   (`overview`, for its empty month) and **three years back** (`review`, which
   also varies the month per attempt). Both are outside every window the
   dashboard, the score and the safety net read.
+- `finance-bank.spec.ts` writes too, into whatever month the WireMock stub
+  dates its movements — `2026-03-*`, hard-coded, and the stub ignores the
+  window the sync asks for. That is safe only because `E2E_NOW` never resolves
+  to an instant in the past (`e2e/clock.sh` refuses one, and the named
+  instants are always ahead of the real clock), so those rows always land in a
+  closed month. **Re-dating the stub into the current month would put a
+  "Courses" debit in the figure `finance-rules.spec.ts` owns** — anchor them
+  the way `e2e/wiremock-today.sh` anchors Google's event if they ever need to
+  move.
 
 `BudgetStatusPanel` carries a `data-testid="budget-gauge"` with a
 `data-category`, like the grocery list's lines: the gauges repeat, and the

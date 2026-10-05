@@ -39,12 +39,14 @@ export class FinanceOverviewPage extends AdminShell {
   /**
    * A line of "Principaux postes du mois": the category, what it cost this
    * month, and the change against last month.
+   *
+   * By `data-category`, as on the budget gauges: the posts repeat, and the
+   * assertion is that *this* category cost *that* much. Reaching one through
+   * the layout would make it "some post cost that much" the day a `Stack` is
+   * wrapped around them.
    */
   topPost(categoryName: string): Locator {
-    return this.card('Principaux postes du mois')
-      .locator('.MuiStack-root')
-      .filter({ hasText: categoryName })
-      .first()
+    return this.content.locator(`[data-testid="top-post"][data-category="${categoryName}"]`)
   }
 
   async selectPeriod(year: number, month: number): Promise<void> {
