@@ -15,8 +15,10 @@ on:
       - 'api/contract/**'
       - 'agent/contract/**'
       - '.github/workflows/mobile.yml'
+  # Not on a draft (MAG-243); `ready_for_review` starts it.
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'mobile/**'
       - 'api/contract/**'
@@ -25,9 +27,16 @@ on:
   # The nightly run (MAG-96) calls this workflow, paths or not.
   workflow_call:
 
+# A new push to a pull request cancels the run it supersedes (MAG-243), as in
+# ci.yml; `main` and the nightly run are never cancelled.
+concurrency:
+  group: mobile-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test:
     name: Mobile Unit Tests (release)
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     defaults:
       run:

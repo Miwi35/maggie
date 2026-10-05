@@ -4,7 +4,7 @@ Agents take tickets unattended and merging deploys to production. These rails de
 
 ## What needs a human
 
-`scripts/agent-guard/check.sh` reads a diff and prints one `code: why` per finding (exit 10 = a human merges). `.github/workflows/agent-guard.yml` runs it on every PR, and again when auto-merge is switched on, from the default branch's code (`pull_request_target`, the PR is never checked out: a PR cannot edit its own guard).
+`scripts/agent-guard/check.sh` reads a diff and prints one `code: why` per finding (exit 10 = a human merges). `.github/workflows/agent-guard.yml` runs it on every ready PR (never a draft: it starts at `ready_for_review`, MAG-243), on each new commit, and again when auto-merge is switched on, from the default branch's code (`pull_request_target`, the PR is never checked out: a PR cannot edit its own guard).
 
 | Code | Trips when the diff… |
 |---|---|
