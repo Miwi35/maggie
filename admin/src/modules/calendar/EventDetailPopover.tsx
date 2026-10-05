@@ -7,9 +7,12 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined'
 import NotesOutlinedIcon from '@mui/icons-material/NotesOutlined'
+import NotificationsOutlinedIcon from '@mui/icons-material/NotificationsOutlined'
 import RepeatIcon from '@mui/icons-material/Repeat'
 import ScheduleIcon from '@mui/icons-material/Schedule'
 import { rruleToFrenchText } from './recurrenceUtils'
+import { remindersToFrenchText } from './ReminderPicker'
+import type { EventReminders } from './ReminderPicker'
 
 export interface PopoverEvent {
   id: string
@@ -22,6 +25,7 @@ export interface PopoverEvent {
   description?: string
   location?: string
   rrule?: string
+  reminders?: EventReminders | null
   masterEventId?: string
   isVirtualOccurrence?: boolean
   calendarIri?: string
@@ -140,6 +144,16 @@ export const EventDetailPopover = ({
             <RepeatIcon sx={{ fontSize: 18, color: 'text.secondary', mt: 0.2 }} />
             <Typography variant="body2" color="text.secondary">
               {rruleToFrenchText(event.rrule)}
+            </Typography>
+          </Box>
+        )}
+
+        {/* Reminders — the only place the owner can check what he will be told, and when */}
+        {remindersToFrenchText(event.reminders) && (
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 1 }}>
+            <NotificationsOutlinedIcon sx={{ fontSize: 18, color: 'text.secondary', mt: 0.2 }} />
+            <Typography variant="body2" color="text.secondary">
+              {remindersToFrenchText(event.reminders)}
             </Typography>
           </Box>
         )}

@@ -9815,17 +9815,16 @@
                         ]
                     },
                     "reminders": {
-                        "description": "Reminders as JSON: {useDefault: bool, overrides: [{method: \"popup\"|\"email\", minutes: int}]}",
                         "type": [
                             "object",
                             "null"
                         ],
-                        "additionalProperties": {
-                            "type": [
-                                "string",
-                                "null"
-                            ]
-                        }
+                        "properties": {
+                            "useDefault": {},
+                            "overrides": {}
+                        },
+                        "additionalProperties": false,
+                        "description": "Reminders as JSON: {useDefault: bool, overrides: [{method: \"popup\"|\"email\", minutes: int}]}"
                     },
                     "agenda": {
                         "type": "string",
@@ -9944,17 +9943,16 @@
                         ]
                     },
                     "reminders": {
-                        "description": "Reminders as JSON: {useDefault: bool, overrides: [{method: \"popup\"|\"email\", minutes: int}]}",
                         "type": [
                             "object",
                             "null"
                         ],
-                        "additionalProperties": {
-                            "type": [
-                                "string",
-                                "null"
-                            ]
-                        }
+                        "properties": {
+                            "useDefault": {},
+                            "overrides": {}
+                        },
+                        "additionalProperties": false,
+                        "description": "Reminders as JSON: {useDefault: bool, overrides: [{method: \"popup\"|\"email\", minutes: int}]}"
                     },
                     "agenda": {
                         "type": "string",
@@ -10073,17 +10071,16 @@
                         ]
                     },
                     "reminders": {
-                        "description": "Reminders as JSON: {useDefault: bool, overrides: [{method: \"popup\"|\"email\", minutes: int}]}",
                         "type": [
                             "object",
                             "null"
                         ],
-                        "additionalProperties": {
-                            "type": [
-                                "string",
-                                "null"
-                            ]
-                        }
+                        "properties": {
+                            "useDefault": {},
+                            "overrides": {}
+                        },
+                        "additionalProperties": false,
+                        "description": "Reminders as JSON: {useDefault: bool, overrides: [{method: \"popup\"|\"email\", minutes: int}]}"
                     },
                     "agenda": {
                         "type": "string",
@@ -10201,17 +10198,16 @@
                                 ]
                             },
                             "reminders": {
-                                "description": "Reminders as JSON: {useDefault: bool, overrides: [{method: \"popup\"|\"email\", minutes: int}]}",
                                 "type": [
                                     "object",
                                     "null"
                                 ],
-                                "additionalProperties": {
-                                    "type": [
-                                        "string",
-                                        "null"
-                                    ]
-                                }
+                                "properties": {
+                                    "useDefault": {},
+                                    "overrides": {}
+                                },
+                                "additionalProperties": false,
+                                "description": "Reminders as JSON: {useDefault: bool, overrides: [{method: \"popup\"|\"email\", minutes: int}]}"
                             },
                             "agenda": {
                                 "type": "string",
@@ -11550,16 +11546,12 @@
                         ]
                     },
                     "reminders": {
-                        "type": [
-                            "object",
-                            "null"
-                        ],
-                        "additionalProperties": {
-                            "type": [
-                                "string",
-                                "null"
-                            ]
-                        }
+                        "type": "object",
+                        "properties": {
+                            "useDefault": {},
+                            "overrides": {}
+                        },
+                        "additionalProperties": false
                     },
                     "agenda": {
                         "type": "string",
@@ -11694,16 +11686,12 @@
                         ]
                     },
                     "reminders": {
-                        "type": [
-                            "object",
-                            "null"
-                        ],
-                        "additionalProperties": {
-                            "type": [
-                                "string",
-                                "null"
-                            ]
-                        }
+                        "type": "object",
+                        "properties": {
+                            "useDefault": {},
+                            "overrides": {}
+                        },
+                        "additionalProperties": false
                     },
                     "agenda": {
                         "type": "string",
@@ -11831,16 +11819,12 @@
                         ]
                     },
                     "reminders": {
-                        "type": [
-                            "object",
-                            "null"
-                        ],
-                        "additionalProperties": {
-                            "type": [
-                                "string",
-                                "null"
-                            ]
-                        }
+                        "type": "object",
+                        "properties": {
+                            "useDefault": {},
+                            "overrides": {}
+                        },
+                        "additionalProperties": false
                     },
                     "agenda": {
                         "type": "string",
@@ -11980,16 +11964,12 @@
                                 ]
                             },
                             "reminders": {
-                                "type": [
-                                    "object",
-                                    "null"
-                                ],
-                                "additionalProperties": {
-                                    "type": [
-                                        "string",
-                                        "null"
-                                    ]
-                                }
+                                "type": "object",
+                                "properties": {
+                                    "useDefault": {},
+                                    "overrides": {}
+                                },
+                                "additionalProperties": false
                             },
                             "agenda": {
                                 "type": "string",

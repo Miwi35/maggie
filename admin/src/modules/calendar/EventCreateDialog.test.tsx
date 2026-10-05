@@ -146,6 +146,40 @@ describe('EventCreateDialog', () => {
     )
   })
 
+  /**
+   * A reminder set in the dialog reaches the API in Google's shape (MAG-121).
+   *
+   * The payload is the whole point: the reminder cron reads `overrides`, so a
+   * bare list — or nothing at all, which is what this dialog used to send
+   * whatever the owner asked for — is a reminder that fires silently.
+   */
+  test('the reminder picker posts the delays, and nothing when none is added', async () => {
+    await open()
+
+    fireEvent.change(screen.getByLabelText(/Résumé/), { target: { value: 'Dentiste' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
+
+    await waitFor(() => expect(mockCreate).toHaveBeenCalled())
+    expect(mockCreate.mock.calls[0][1].data).not.toHaveProperty('reminders')
+
+    mockCreate.mockClear()
+    await userEvent.click(screen.getByRole('button', { name: 'Ajouter un rappel' }))
+    await userEvent.click(screen.getByRole('combobox', { name: 'Rappel' }))
+    await userEvent.click(screen.getByRole('option', { name: '1 heure avant' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
+
+    await waitFor(() =>
+      expect(mockCreate).toHaveBeenCalledWith(
+        'events',
+        expect.objectContaining({
+          data: expect.objectContaining({
+            reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 60 }] },
+          }),
+        }),
+      ),
+    )
+  })
+
   test('the recurrence picker adds an RRULE, and leaves it out when set to never', async () => {
     await open()
 

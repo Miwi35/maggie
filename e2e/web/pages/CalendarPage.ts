@@ -21,6 +21,8 @@ export interface NewEvent {
   recurrence?: string
   /** How many occurrences, when `recurrence` is set. Leaves the series open when omitted. */
   occurrences?: number
+  /** A label of the "Rappel" select, e.g. "1 heure avant". No reminder when omitted. */
+  reminder?: string
 }
 
 export interface NewTask {
@@ -287,6 +289,10 @@ export class CalendarPage extends AdminShell {
       }
     }
 
+    if (event.reminder) {
+      await this.pickReminder(dialog, event.reminder)
+    }
+
     if (event.agenda) {
       await this.choose(dialog, 'Calendrier', event.agenda)
     }
@@ -316,8 +322,19 @@ export class CalendarPage extends AdminShell {
     await expect(dialog, 'the task dialog stayed open — the POST was refused').toBeHidden()
   }
 
-  /** Changes the open "Modifier l'événement" dialog and saves. */
-  async submitEventEdit(values: { summary?: string; start?: string; end?: string }): Promise<void> {
+  /**
+   * Changes the open "Modifier l'événement" dialog and saves.
+   *
+   * `reminder` is a delay label to end up with, or `null` to leave none — the
+   * form sends the reminders it holds on every save, so what it shows is what
+   * the event keeps.
+   */
+  async submitEventEdit(values: {
+    summary?: string
+    start?: string
+    end?: string
+    reminder?: string | null
+  }): Promise<void> {
     const dialog = this.editEventDialog
     await expect(dialog).toBeVisible()
 
@@ -330,9 +347,40 @@ export class CalendarPage extends AdminShell {
     if (values.end !== undefined) {
       await dialog.getByLabel(/Fin/).fill(values.end)
     }
+    if (values.reminder === null) {
+      await this.clearReminders(dialog)
+    } else if (values.reminder !== undefined) {
+      await this.clearReminders(dialog)
+      await this.pickReminder(dialog, values.reminder)
+    }
 
     await dialog.getByRole('button', { name: 'Enregistrer' }).click()
     await expect(dialog).toBeHidden()
+  }
+
+  /** The reminders line on the open detail card, by the delay it names. */
+  reminderOnCard(label: string): Locator {
+    return this.popover.getByText(label, { exact: true })
+  }
+
+  /** Adds a reminder row and picks `label` in it. */
+  private async pickReminder(dialog: Locator, label: string): Promise<void> {
+    await dialog.getByRole('button', { name: 'Ajouter un rappel' }).click()
+    await this.choose(dialog, 'Rappel', label)
+  }
+
+  /**
+   * Removes every reminder row the dialog shows.
+   *
+   * One at a time and re-counted each round: the list re-renders on every
+   * removal, so a locator captured before the first click points at nothing.
+   */
+  private async clearReminders(dialog: Locator): Promise<void> {
+    const remove = dialog.getByRole('button', { name: /^Supprimer le rappel/ })
+
+    for (let left = await remove.count(); left > 0; left = await remove.count()) {
+      await remove.first().click()
+    }
   }
 
   /**
