@@ -137,6 +137,18 @@ class CategoryApiTest extends WebTestCase
         self::assertTrue($categories[0]->isPassiveIncome());
 
         $this->assertMercureUpdatePublished('/categories/');
+
+        // The whole point of the property's name: one spelling on both
+        // channels. `isPassiveIncome` here and `passiveIncome` above is the
+        // disagreement `isCushion` already pays for.
+        $payload = json_decode(
+            $this->getMercureHub()->getUpdates()[0]->getData(),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+        self::assertTrue($payload['passiveIncome']);
+        self::assertArrayNotHasKey('isPassiveIncome', $payload);
     }
 
     /**

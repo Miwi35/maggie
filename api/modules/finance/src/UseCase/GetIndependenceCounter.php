@@ -55,10 +55,12 @@ class GetIndependenceCounter
             $this->loanRepository->findByUser($user),
         ));
 
-        // Not capped: above 100 % the rentes cover more than the month costs,
-        // and that is precisely what the user is after.
+        // Truncated, not rounded, so that 100 % means covered and nothing
+        // else: a rounded 99,6 % would read « 100 % » next to « il manque
+        // 0,04 € ». And not capped either — above 100 the rentes cover more
+        // than the month costs, which is what the user is after.
         $coveragePercent = $lifestyleCents > 0
-            ? (int) round($passiveIncomeCents / $lifestyleCents * 100)
+            ? intdiv($passiveIncomeCents * 100, $lifestyleCents)
             : 0;
 
         $monthlyNeedCents = $lifestyleCents + $loanPaymentsCents;
@@ -82,8 +84,10 @@ class GetIndependenceCounter
             // same ratio, payments included.
             'loanPaymentsCents' => $loanPaymentsCents,
             'monthlyNeedCents' => $monthlyNeedCents,
-            'coverageWithDebtPercent' => $monthlyNeedCents > 0
-                ? (int) round($passiveIncomeCents / $monthlyNeedCents * 100)
+            // Gated on the same measure as the headline: a percentage against
+            // the loan payments alone would contradict `isMeasurable`.
+            'coverageWithDebtPercent' => $lifestyleCents > 0
+                ? intdiv($passiveIncomeCents * 100, $monthlyNeedCents)
                 : 0,
             'nextMilestonePercent' => $next['percent'],
             'nextMilestoneGapCents' => $next['gapCents'],

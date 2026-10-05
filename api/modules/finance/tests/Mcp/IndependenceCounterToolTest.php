@@ -60,6 +60,22 @@ class IndependenceCounterToolTest extends KernelTestCase
         self::assertSame(0, $data['coveragePercent']);
     }
 
+    /**
+     * « You have not declared a rente yet » is the one answer the agent can
+     * turn into something to do; 0 % is not.
+     */
+    public function testItSaysWhenNoRenteIsDeclared(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
+
+        $data = $this->counter();
+
+        self::assertFalse($data['hasPassiveIncomeCategories']);
+        self::assertSame([], $data['byCategory']);
+        self::assertSame(0, $data['passiveIncomeCents']);
+    }
+
     /** @return array<string, mixed> */
     private function counter(): array
     {

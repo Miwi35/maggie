@@ -135,12 +135,12 @@ DTO `IndependenceCounter` + `independence` sur `FinanceDashboard`
 (`data/model/DailyScore.kt`, valeurs par défaut partout), `independenceSummary()`
 pour la phrase, et une carte dans `FinanceDashboardScreen` après `CapacityCard`.
 
-Déclarer une rente depuis le téléphone, aussi : `Category.passiveIncome`,
-`CategoryCreateRequest.passiveIncome`, l'obligation `income` ajoutée aux puces
-du dialogue de création (elle y manquait) avec un `Switch` « Rente » qui
-n'apparaît que sur une recette, et `categoryKindLabel()` dans la liste. Sans
-cela le compteur serait à jamais « aucune rente déclarée » pour qui n'ouvre que
-l'app.
+Côté lecture seulement : `Category.passiveIncome` sur le DTO et
+`categoryKindLabel()` dans la liste des catégories, pour voir lesquelles
+alimentent le compteur. **Déclarer** une rente depuis le téléphone est reporté
+(décision D9) : la case est dans l'admin, et le libellé de la carte mobile
+renvoie vers l'admin ou vers Maggie plutôt que vers une case absente de
+l'écran.
 
 Tests dus : `IndependenceCounterTest` (la phrase dans ses quatre états,
 `categoryKindLabel`) ; `IndependenceCardScreenTest` avec un

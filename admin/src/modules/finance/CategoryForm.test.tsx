@@ -1,33 +1,37 @@
-import { describe, test, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, test, expect, vi } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AdminContext, ResourceContextProvider, testDataProvider } from 'react-admin'
-import type { DataProvider } from 'react-admin'
-import { CategoryForm } from './CategoryForm'
+import polyglotI18nProvider from 'ra-i18n-polyglot'
+import { MemoryRouter } from 'react-router-dom'
+import { messages } from '../../i18n/messages'
+import { CategoryCreate } from './CategoryCreate'
 
-const CATEGORIES = [{ id: '/api/categories/1', name: 'Loisirs' }]
+const i18nProvider = polyglotI18nProvider(() => messages, 'fr')
 
-const dataProvider = testDataProvider({
-  getList: (() =>
-    Promise.resolve({
-      data: CATEGORIES,
-      total: CATEGORIES.length,
-    })) as unknown as DataProvider['getList'],
-  getOne: (() => Promise.resolve({ data: CATEGORIES[0] })) as unknown as DataProvider['getOne'],
-  getMany: (() => Promise.resolve({ data: CATEGORIES })) as unknown as DataProvider['getMany'],
-})
-
-const renderForm = () =>
+/** The create screen, and the `create` the data provider received. */
+const renderCreate = () => {
+  const create = vi.fn().mockResolvedValue({ data: { id: '/api/categories/1' } })
+  // The parent picker asks for the list; without it the harness logs the
+  // unimplemented call on every render.
+  const getList = vi.fn().mockResolvedValue({ data: [], total: 0 })
   render(
-    <AdminContext dataProvider={dataProvider}>
-      <ResourceContextProvider value="categories">
-        <CategoryForm withDefaults />
-      </ResourceContextProvider>
-    </AdminContext>,
+    <MemoryRouter>
+      <AdminContext
+        dataProvider={testDataProvider({ create, getList })}
+        i18nProvider={i18nProvider}
+      >
+        <ResourceContextProvider value="categories">
+          <CategoryCreate />
+        </ResourceContextProvider>
+      </AdminContext>
+    </MemoryRouter>,
   )
 
-const chooseObligation = async (label: string) => {
-  const user = userEvent.setup()
+  return create
+}
+
+const chooseObligation = async (user: ReturnType<typeof userEvent.setup>, label: string) => {
   await user.click(await screen.findByLabelText(/Obligation/))
   await user.click(screen.getByRole('option', { name: label }))
 }
@@ -38,12 +42,13 @@ describe('CategoryForm', () => {
    * box offered on a dépense would be a trap.
    */
   test('offers the rente box only once the category is a recette', async () => {
-    renderForm()
+    const user = userEvent.setup()
+    renderCreate()
 
     expect(await screen.findByLabelText(/Obligation/)).toBeInTheDocument()
     expect(screen.queryByLabelText('Rente')).not.toBeInTheDocument()
 
-    await chooseObligation('Recette')
+    await chooseObligation(user, 'Recette')
 
     expect(await screen.findByLabelText('Rente')).toBeInTheDocument()
     expect(
@@ -51,15 +56,46 @@ describe('CategoryForm', () => {
     ).toBeInTheDocument()
   })
 
-  test('takes the box away again when the category stops being a recette', async () => {
+  test('a rente declared on a recette is what the API is sent', async () => {
     const user = userEvent.setup()
-    renderForm()
+    const create = renderCreate()
 
-    await chooseObligation('Recette')
+    await user.type(await screen.findByLabelText(/Nom/), 'Loyers perçus')
+    await chooseObligation(user, 'Recette')
+    await user.click(await screen.findByLabelText('Rente'))
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    await waitFor(() => expect(create).toHaveBeenCalled())
+    expect(create.mock.calls[0][1].data).toMatchObject({
+      name: 'Loyers perçus',
+      obligation: 'income',
+      passiveIncome: true,
+    })
+  })
+
+  /**
+   * The flag must not survive the input that set it: react-hook-form keeps the
+   * value of an unmounted input, and a rente sent with a spending obligation
+   * is a 422 on a field no longer on screen — nothing the user can correct.
+   */
+  test('reclassifying the category takes the rente flag away with the box', async () => {
+    const user = userEvent.setup()
+    const create = renderCreate()
+
+    await user.type(await screen.findByLabelText(/Nom/), 'Loisirs')
+    await chooseObligation(user, 'Recette')
     await user.click(await screen.findByLabelText('Rente'))
 
-    await chooseObligation('Non-obligatoire')
+    await chooseObligation(user, 'Non-obligatoire')
 
     expect(screen.queryByLabelText('Rente')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    await waitFor(() => expect(create).toHaveBeenCalled())
+    expect(create.mock.calls[0][1].data).toMatchObject({
+      obligation: 'optional',
+      passiveIncome: false,
+    })
   })
 })

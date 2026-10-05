@@ -78,7 +78,7 @@ class IndependenceCounterControllerTest extends WebTestCase
 
         self::assertSame(20000, $counter['loanPaymentsCents']);
         self::assertSame(30000, $counter['monthlyNeedCents']);
-        self::assertSame(27, $counter['coverageWithDebtPercent']);
+        self::assertSame(26, $counter['coverageWithDebtPercent']);
     }
 
     public function testTheMilestonesSayWhatIsBehindAndWhatTheNextOneTakes(): void
@@ -98,6 +98,22 @@ class IndependenceCounterControllerTest extends WebTestCase
         // No date: the target date of independence is Premium, and an empty
         // one would read as a promise.
         self::assertArrayNotHasKey('targetDate', $counter);
+    }
+
+    /**
+     * A rente just short of the train de vie must not read 100 %: the
+     * percentage is truncated, so 100 means covered and nothing else.
+     */
+    public function testAlmostCoveredIsNotReportedAsCovered(): void
+    {
+        $this->loadFixtures('independence.yaml');
+        $this->raiseRenteTo(29999);
+
+        $counter = $this->counter();
+
+        self::assertSame(99, $counter['coveragePercent']);
+        self::assertFalse($counter['isReached']);
+        self::assertSame(1, $counter['gapCents']);
     }
 
     public function testNothingMeasuredYetIsSaidRatherThanShownAsZeroPercent(): void
@@ -168,6 +184,15 @@ class IndependenceCounterControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
 
         return json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+    }
+
+    /** Brings the rentes to one cent short of the 10 000 lifestyle. */
+    private function raiseRenteTo(int $amountCents): void
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $this->getFixture('rent_in')->setAmountCents($amountCents);
+        $em->remove($this->getFixture('dividends_in'));
+        $em->flush();
     }
 
     private function removeFixtures(string ...$refs): void

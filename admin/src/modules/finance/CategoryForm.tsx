@@ -1,3 +1,5 @@
+import { useEffect } from 'react'
+import { useFormContext, useWatch } from 'react-hook-form'
 import {
   SimpleForm,
   BooleanInput,
@@ -5,7 +7,6 @@ import {
   SelectInput,
   ReferenceInput,
   AutocompleteInput,
-  FormDataConsumer,
   required,
 } from 'react-admin'
 import Box from '@mui/material/Box'
@@ -18,6 +19,39 @@ const halfSx = { flex: '1 1 240px' }
 
 interface CategoryFormProps {
   withDefaults?: boolean
+}
+
+/**
+ * The rente flag, asked only about a recette — the API refuses it anywhere
+ * else, so the box on a dépense would be a trap.
+ *
+ * And cleared on the way out: react-hook-form keeps the value of an unmounted
+ * input, so a box ticked on a recette and then reclassified would still submit
+ * `passiveIncome: true` — a 422 on a field no longer on screen, with nothing
+ * for the user to correct.
+ */
+const RenteInput = () => {
+  const obligation = useWatch({ name: 'obligation' })
+  const { setValue } = useFormContext()
+  const isIncome = 'income' === obligation
+
+  useEffect(() => {
+    if (!isIncome) {
+      setValue('passiveIncome', false)
+    }
+  }, [isIncome, setValue])
+
+  if (!isIncome) {
+    return null
+  }
+
+  return (
+    <BooleanInput
+      source="passiveIncome"
+      label="Rente"
+      helperText="Un revenu qui rentre sans être travaillé — loyers perçus, dividendes, intérêts, redevances. C'est ce que le compteur d'indépendance compare à votre train de vie."
+    />
+  )
 }
 
 export const CategoryForm = ({ withDefaults = false }: CategoryFormProps) => (
@@ -60,19 +94,7 @@ export const CategoryForm = ({ withDefaults = false }: CategoryFormProps) => (
       helperText="Obligatoire : loyer, courses. Non-obligatoire : loisirs. Épargne et investissement ne sont pas des dépenses. Recette : ce qui rentre."
     />
 
-    {/* Only asked about a recette: the API refuses a rente anywhere else, so
-        offering the box on a dépense would be a trap. */}
-    <FormDataConsumer>
-      {({ formData }) =>
-        formData.obligation === 'income' && (
-          <BooleanInput
-            source="passiveIncome"
-            label="Rente"
-            helperText="Un revenu qui rentre sans être travaillé — loyers perçus, dividendes, intérêts, redevances. C'est ce que le compteur d'indépendance compare à votre train de vie."
-          />
-        )
-      }
-    </FormDataConsumer>
+    <RenteInput />
 
     <FormSection title="Repères visuels" description="Facultatif, pour repérer la catégorie d'un coup d'œil." />
 

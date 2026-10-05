@@ -108,6 +108,28 @@ une rente.
 pourcentage « affiché dans le dashboard », et le dashboard promet une seule
 lecture.
 
+### D9 — Déclarer une rente depuis le téléphone est reporté
+
+- **Dilemme** : la tranche écrite d'abord ajoutait aussi la case « Rente » au
+  dialogue de création de catégorie du mobile. Avec elle, le diff fait 823
+  lignes hors tests, pour une limite de 800 (`agent-guard`).
+- **Options** : (a) tout livrer et laisser le guard passer la PR à l'owner ;
+  (b) retirer la déclaration mobile et en faire un ticket de suite.
+- **Choix** : (b).
+- **Pourquoi** : `CLAUDE.md` tranche — au-delà de 800 lignes hors tests, « split
+  the ticket instead ». Le compteur, lui, est bien lu partout : la carte mobile
+  l'affiche, et déclarer une rente passe par l'admin ou par Maggie (MCP), qui
+  sont tous deux livrés ici. Le libellé de la carte mobile renvoie vers ces
+  deux chemins, pour ne pas désigner une case que l'écran ne porte pas.
+
+### D10 — Le pourcentage est tronqué, pas arrondi
+
+Un arrondi faisait lire « 100 % » à 99,6 % de couverture, juste au-dessus de
+« il manque 0,04 € » : deux affirmations contradictoires sur la même carte. La
+couverture est donc tronquée, et 100 % veut dire couvert, rien d'autre —
+`isReached` et le palier 100 % tombent d'accord par construction. Les parts par
+catégorie restent arrondies : elles n'ont pas de seuil à défendre.
+
 ## Context
 
 - **Visuals** : aucun. Le ticket n'a aucune pièce jointe. La carte reprend la
