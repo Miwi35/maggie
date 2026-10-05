@@ -240,8 +240,10 @@ test('the quantity of an ingredient already in a recipe can be changed', async (
   const response = await patched
   expect(response.status(), `the API refused the recipe: ${await response.text()}`).toBe(200)
 
-  // Kept on the API side, and still there after a reload.
-  await page.reload()
+  // Kept on the API side, and still there when the recipe is opened again — a
+  // save sends the owner back to the list, so the edit page is reopened rather
+  // than reloaded.
+  await shell.goto(`${ROUTES.recipes}/${encodeURIComponent(iri)}`)
   await expect(shell.content.getByLabel('Quantité')).toHaveValue('300')
   const stored = (await (await api.get(iri, { headers: { Accept: 'application/ld+json' } })).json()) as {
     ingredients: { quantity: number; ciqualAlimCode: string }[]
