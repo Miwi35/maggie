@@ -155,8 +155,10 @@ mois dernier — dans la fenêtre mesurée, qui est les trois mois précédant c
 en cours. Arithmétique de la graine : rentes 30 000 / 3 = 10 000, train de vie
 50 000 / 3 = 16 666, couverture 60 %, manque 66,66 €.
 
-`e2e/web/tests/finance-independence.spec.ts`, en lecture seule, comme
-`finance-overview.spec.ts`.
+`e2e/web/tests/finance-independence.spec.ts` : en lecture seule sur le monde de
+l'owner, comme `finance-overview.spec.ts`, plus un cas qui **déclare** une rente
+depuis le formulaire de catégorie — le seul chemin que D9 laisse — sur
+l'identité voisine, dont le module finance est vide et que rien d'autre ne lit.
 
 ## Tests
 

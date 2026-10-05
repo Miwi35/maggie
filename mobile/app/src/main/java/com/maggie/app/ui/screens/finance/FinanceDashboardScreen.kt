@@ -270,13 +270,17 @@ private fun IndependenceCard(dashboard: FinanceDashboard) {
             )
 
             if (!counter.isMeasurable || !counter.hasPassiveIncomeCategories) {
-                // Not « cochez la case » : the box is on the admin's category
-                // form, not here. Asking Maggie is what the phone can do.
+                // Two different states, two different things to say — and not
+                // « cochez la case » : the box is on the admin's category form,
+                // not here. Asking Maggie is what the phone can do.
                 Text(
-                    text = "Une rente se déclare sur une catégorie de recette — loyers perçus, " +
-                        "dividendes — depuis l'admin ou en le demandant à Maggie. Le compteur " +
-                        "se calcule ensuite sur les ${counter.sampleMonths} mois complets " +
-                        "précédents.",
+                    text = if (counter.hasPassiveIncomeCategories) {
+                        "Le compteur se calcule sur les ${counter.sampleMonths} mois " +
+                            "complets précédents."
+                    } else {
+                        "Une rente se déclare sur une catégorie de recette — loyers perçus, " +
+                            "dividendes — depuis l'admin ou en le demandant à Maggie."
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

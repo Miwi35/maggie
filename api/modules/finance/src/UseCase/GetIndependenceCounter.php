@@ -86,7 +86,7 @@ class GetIndependenceCounter
             'monthlyNeedCents' => $monthlyNeedCents,
             // Gated on the same measure as the headline: a percentage against
             // the loan payments alone would contradict `isMeasurable`.
-            'coverageWithDebtPercent' => $lifestyleCents > 0
+            'coverageWithDebtPercent' => $lifestyleCents > 0 && $monthlyNeedCents > 0
                 ? intdiv($passiveIncomeCents * 100, $monthlyNeedCents)
                 : 0,
             'nextMilestonePercent' => $next['percent'],

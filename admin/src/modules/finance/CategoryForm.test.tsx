@@ -2,12 +2,21 @@ import { describe, test, expect, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AdminContext, ResourceContextProvider, testDataProvider } from 'react-admin'
+import type { DataProvider } from 'react-admin'
 import polyglotI18nProvider from 'ra-i18n-polyglot'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { messages } from '../../i18n/messages'
 import { CategoryCreate } from './CategoryCreate'
+import { CategoryEdit } from './CategoryEdit'
 
 const i18nProvider = polyglotI18nProvider(() => messages, 'fr')
+
+const RENTE = {
+  id: '/api/categories/1',
+  name: 'Loyers perçus',
+  obligation: 'income',
+  passiveIncome: true,
+}
 
 /** The create screen, and the `create` the data provider received. */
 const renderCreate = () => {
@@ -29,6 +38,31 @@ const renderCreate = () => {
   )
 
   return create
+}
+
+/** The edit screen of a category already declared a rente. */
+const renderEdit = () => {
+  // The id in the route is the record's own — an IRI, as the API Platform data
+  // provider gives them — and it has to match what `getOne` returns.
+  render(
+    <MemoryRouter initialEntries={[`/categories/${encodeURIComponent(RENTE.id)}`]}>
+      <AdminContext
+        dataProvider={testDataProvider({
+          getOne: (() => Promise.resolve({ data: RENTE })) as unknown as DataProvider['getOne'],
+          getList: (() => Promise.resolve({ data: [], total: 0 })) as unknown as DataProvider['getList'],
+        })}
+        i18nProvider={i18nProvider}
+      >
+        <ResourceContextProvider value="categories">
+          {/* Through a route: `useEditController` reads the record's id from
+              the `:id` parameter, and there is no id prop to give it. */}
+          <Routes>
+            <Route path="/categories/:id" element={<CategoryEdit />} />
+          </Routes>
+        </ResourceContextProvider>
+      </AdminContext>
+    </MemoryRouter>,
+  )
 }
 
 const chooseObligation = async (user: ReturnType<typeof userEvent.setup>, label: string) => {
@@ -97,5 +131,24 @@ describe('CategoryForm', () => {
       obligation: 'optional',
       passiveIncome: false,
     })
+  })
+
+  /**
+   * The edit screen is where the reset runs against a record that is already a
+   * rente: it must not wipe the flag on the way in.
+   */
+  test('an existing rente keeps its flag through an edit', async () => {
+    const user = userEvent.setup()
+    renderEdit()
+
+    expect(await screen.findByLabelText('Rente')).toBeChecked()
+
+    // And it stays: the reset watches the obligation, which this change does
+    // not touch. What the save then sends is `renderCreate`'s business — the
+    // edit screen's mutation is undoable, so the data provider is only called
+    // after the undo window, which no assertion should wait on.
+    await user.type(screen.getByLabelText(/Nom/), ' et garages')
+
+    expect(screen.getByLabelText('Rente')).toBeChecked()
   })
 })
