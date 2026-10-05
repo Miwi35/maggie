@@ -86,6 +86,11 @@ class Settings(BaseSettings):
     # thread itself: beyond this window a turn keeps its text and loses its blocks. Two
     # covers « what you just read » and the turn before it, which is what a follow-up
     # question is about. Zero turns the replay off.
+    #
+    # The ceiling this buys is per result, not per turn: a turn can hold up to five rounds
+    # of tools (the loop's `max_iterations`), each of several calls, and
+    # `tool_blocks.TOOL_RESULT_MAX_CHARS` caps one result at 8 000 characters. So raising
+    # this is not linear in cost — a thread of heavy turns is where it is felt.
     tool_replay_turns: int = 2
     # How many messages a conversation context has to gain before its summary is
     # rewritten (MAG-11). Low enough that a thread is summarized within a sitting,
