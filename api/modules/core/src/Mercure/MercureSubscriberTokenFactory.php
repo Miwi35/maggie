@@ -23,9 +23,11 @@ final class MercureSubscriberTokenFactory
     /**
      * Topics the agent publishes, keyed by the user id rather than scoped
      * under /users/{id}. Updates are private, so a token only receives what
-     * one of its grants names.
+     * one of its grants names — a stream missing here is a surface that
+     * connects, stays connected and never receives anything.
+     * `agent/contract/mercure-topics.json` is the agent's own list.
      */
-    private const AGENT_TOPICS = ['chat', 'contexts', 'proactions', 'instructions', 'skills'];
+    private const AGENT_TOPICS = ['chat', 'contexts', 'proactions', 'instructions', 'skills', 'approvals'];
 
     public function __construct(
         private readonly MercureAccessToken $accessToken,

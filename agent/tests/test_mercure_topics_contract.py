@@ -55,7 +55,12 @@ def test_every_pattern_is_keyed_by_the_user_id():
 
 def test_unknown_stream_is_refused():
     with pytest.raises(ValueError):
-        topics.for_user("approvals", "01HXYZ")
+        topics.for_user("memories", "01HXYZ")
+
+
+def test_the_approvals_stream_is_published_so_a_held_action_reaches_both_surfaces():
+    """A card the web shows and the phone does not is a second deletion one click away (MAG-4)."""
+    assert topics.for_user(topics.APPROVALS, "01HXYZ") == "/approvals/01HXYZ"
 
 
 def test_no_publish_call_spells_a_topic_by_hand():

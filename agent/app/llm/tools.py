@@ -5,8 +5,12 @@ from datetime import UTC, datetime
 from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
 from app.db.memory_repository import memory_repo
+from app.db.pending_action_repository import pending_action_repo
 from app.db.proaction_repository import proaction_repo
 from app.mcp.client import mcp_client
+
+# The policy module is where a `source` means something, so it owns the vocabulary.
+from app.policy.engine import A2A_SOURCE, Mode, policy_engine
 from app.skills.index import skill_index
 
 logger = logging.getLogger(__name__)
@@ -489,7 +493,13 @@ _NATIVE_HANDLERS = {
 }
 
 
-A2A_SOURCE = "a2a"
+# What the model reads back when the policy stops a call. Both are French: they end up
+# in the conversation, the first as the tool's result, the second as what Maggie has to
+# relay to the user.
+POLICY_DENIED_MESSAGE = "Action interdite par la politique"
+PENDING_APPROVAL_MESSAGE = (
+    "En attente de validation par l'utilisateur. Ne réessaie pas ; explique-lui ce que tu t'apprêtes à faire."
+)
 
 # What an A2A peer may use: MCP tools that only read. No native tool (they write
 # memory, skills, instructions and proactions) and no `manage_*` tool (one tool,
@@ -525,6 +535,9 @@ class ToolRouter:
     - MCP tools — fetched from the Symfony MCP server
 
     Calls from the `a2a` source are narrowed to A2A_ALLOWED_TOOLS.
+
+    Every call goes through the tool policy first (`app.policy.engine`): this is the one
+    place a tool call passes, native or MCP, so it is the one place the guard belongs.
     """
 
     async def get_tool_definitions(self, include_native: bool = True, source: str | None = None) -> list[dict]:
@@ -555,14 +568,27 @@ class ToolRouter:
 
         return tools
 
-    async def call_tool(self, name: str, arguments: dict, user_id: str | None = None, source: str = "chat") -> str:
-        """Route a tool call to native handler or MCP server.
+    async def call_tool(
+        self,
+        name: str,
+        arguments: dict,
+        user_id: str | None = None,
+        source: str = "chat",
+        context_id: str | None = None,
+    ) -> str:
+        """Route a tool call to native handler or MCP server, unless the policy says otherwise.
 
         `source` says who triggered the call: chat, chat_stream, proaction, subagent:<name>, a2a or approval.
+        `context_id` is the thread the call was made in, carried onto a held action so the
+        announcement of its result lands in the same conversation.
         """
         if source == A2A_SOURCE and name not in A2A_ALLOWED_TOOLS:
             logger.warning(f"A2A call to a tool outside the read-only list refused: {name}")
             return json.dumps({"error": f"Tool '{name}' is not available over A2A"})
+
+        held = await self._apply_policy(name, arguments, user_id, source, context_id)
+        if held is not None:
+            return held
 
         if name in _NATIVE_HANDLERS:
             if user_id is None:
@@ -580,3 +606,48 @@ class ToolRouter:
         except Exception as e:
             logger.error(f"Tool call failed: {name}({arguments}): {e}")
             return f'{{"error": "Tool call failed: {e}"}}'
+
+    async def _apply_policy(
+        self,
+        name: str,
+        arguments: dict,
+        user_id: str | None,
+        source: str,
+        context_id: str | None,
+    ) -> str | None:
+        """What to answer instead of running the call, or None to run it.
+
+        `deny` is a plain error. `ask` persists the call with its arguments frozen and
+        tells the model to stop and explain itself — the user answers from the web or the
+        phone, and the approval endpoint replays those arguments (MAG-5).
+        """
+        mode = policy_engine.evaluate(name, arguments, source)
+        if mode is Mode.ALLOW:
+            return None
+
+        if mode is Mode.DENY:
+            logger.warning(f"Tool call refused by the policy: {name} (source={source})")
+            return json.dumps({"error": POLICY_DENIED_MESSAGE})
+
+        if user_id is None:
+            # Nobody to ask. Running it anyway would be the one thing the policy exists to stop.
+            logger.error(f"Tool call needing approval has no user to ask: {name}")
+            return json.dumps({"error": "user_id required to request approval"})
+
+        try:
+            action = await pending_action_repo.create(
+                user_id, name, arguments or {}, source=source, context_id=context_id
+            )
+        except Exception as e:
+            # The action could not be stored, so nothing can approve it later: refusing
+            # is the only answer that does not act behind the user's back.
+            logger.error(f"Could not hold {name} for approval: {e}")
+            return json.dumps({"error": "L'action n'a pas pu être soumise à validation"})
+
+        return json.dumps(
+            {
+                "status": "pending_approval",
+                "approval_id": str(action.id),
+                "message": PENDING_APPROVAL_MESSAGE,
+            }
+        )

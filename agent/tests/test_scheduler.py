@@ -2,6 +2,7 @@ import asyncio
 import json
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from zoneinfo import ZoneInfo
 
@@ -435,3 +436,50 @@ class TestContextLifecycle:
 
         assert started == ["lifecycle"]
         assert len(scheduler._tasks) == 3
+
+
+class TestExecutionLoop:
+    """One minute-grained loop: due proactions out to RabbitMQ, stale approvals retired (MAG-4)."""
+
+    @pytest.fixture()
+    def one_pass(self, monkeypatch):
+        """Let the loop run exactly one iteration, then stop it at its sleep."""
+
+        async def sleep(_seconds):
+            raise asyncio.CancelledError
+
+        monkeypatch.setattr(scheduler.asyncio, "sleep", sleep)
+
+    @pytest.fixture()
+    def repos(self, monkeypatch):
+        find_due = AsyncMock(return_value=[])
+        expire = AsyncMock(return_value=0)
+        publish = AsyncMock()
+        monkeypatch.setattr(scheduler.proaction_repo, "find_due", find_due)
+        monkeypatch.setattr(scheduler.pending_action_repo, "expire_overdue", expire)
+        monkeypatch.setattr(scheduler, "publish_proaction", publish)
+        return SimpleNamespace(find_due=find_due, expire=expire, publish=publish)
+
+    async def test_it_retires_the_approvals_nobody_answered(self, one_pass, repos):
+        with pytest.raises(asyncio.CancelledError):
+            await scheduler._execution_loop()
+
+        repos.expire.assert_awaited_once()
+
+    async def test_a_failing_proaction_poll_does_not_skip_the_expiry(self, one_pass, repos):
+        # The two have nothing to do with each other, so one being down must not leave
+        # cards on the user's screen for ever.
+        repos.find_due.side_effect = RuntimeError("db down")
+
+        with pytest.raises(asyncio.CancelledError):
+            await scheduler._execution_loop()
+
+        repos.expire.assert_awaited_once()
+
+    async def test_a_failing_expiry_does_not_stop_the_loop(self, one_pass, repos):
+        repos.expire.side_effect = RuntimeError("db down")
+
+        with pytest.raises(asyncio.CancelledError):
+            await scheduler._execution_loop()
+
+        repos.find_due.assert_awaited_once()

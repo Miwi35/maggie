@@ -128,6 +128,40 @@ def chat_db():
     engine.dispose()
 
 
+@dataclass
+class PendingDb:
+    """What a pending_db test needs: the session factory, and the Mercure publication to assert."""
+
+    session: Callable[[], Any]
+    published: AsyncMock
+
+
+@pytest.fixture()
+def pending_db():
+    """In-memory database behind the pending action repository (real queries, no mocks)."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+
+    from app.db.pending_action_model import PendingAction
+    from app.db.pending_action_repository import pending_action_repo
+
+    engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
+    PendingAction.__table__.create(engine)
+    factory = sessionmaker(engine, expire_on_commit=False)
+
+    def open_session():
+        return _SyncSessionAsAsync(factory())
+
+    published = AsyncMock()
+    with (
+        patch("app.db.pending_action_repository.agent_session", open_session),
+        patch.object(pending_action_repo.publisher, "publish", new=published),
+    ):
+        yield PendingDb(session=open_session, published=published)
+    engine.dispose()
+
+
 @pytest.fixture()
 def agent_db():
     """In-memory database behind the memory, instruction and skill repositories (real queries, no mocks)."""

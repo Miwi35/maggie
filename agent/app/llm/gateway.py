@@ -34,7 +34,12 @@ EXECUTION_PREAMBLE = (
     "\n\nTu es en mode proaction. "
     "Exécute la tâche demandée et rédige un message clair pour l'utilisateur. "
     "Ton message sera envoyé directement dans le chat. "
-    "Ne demande pas de confirmation avant d'agir — agis directement."
+    "Ne demande pas de confirmation avant d'agir — agis directement. "
+    # Without this the model, told to act directly, reads a `pending_approval` result as
+    # a refusal and retries it or apologises. The card is already on the user's screen.
+    "Les actions qui demandent une validation te sont proposées automatiquement : "
+    "si un outil répond « pending_approval », l'utilisateur a déjà la demande sous les yeux — "
+    "dis-lui simplement ce que tu attends de lui, et n'essaie pas de la relancer."
 )
 
 
@@ -220,6 +225,7 @@ class LLMGateway:
                 model=settings.anthropic_model,
                 call_type="chat",
                 source=source,
+                context_id=context_id,
             )
         except anthropic.APIStatusError as e:
             # The API's own wording stays in the log. It used to be the answer, and since
