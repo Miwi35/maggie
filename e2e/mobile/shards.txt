@@ -1,0 +1,13 @@
+# The Maestro journeys split across parallel emulators in CI (MAG-233).
+#
+# `N: flow flow …` — shard N runs these flows, in this order. `run.sh` reads it
+# when `E2E_MOBILE_SHARD=N/<number of lines below>` is set, and `lint.sh` checks
+# that every file in `flows/` is in exactly one shard, in the order of
+# `config.yaml`'s `flowsOrder` — a flow missing here would never run in CI.
+#
+# Balanced on the durations measured on main (run 37232923840): 02 = 93 s,
+# 08 = 78 s, 01 = 58 s, the other six ~37 s each. Heavy flows are on different
+# shards. Re-balance from the `junit.xml` of each shard when a flow is added.
+1: 01-login-chat 04-calendar-import 05-deep-links 10-voice-settings
+2: 02-voice-overlay 06-finance-hub 09-grocery-deferred
+3: 03-calendar-multi-day 07-grocery-errand 08-grocery-realtime

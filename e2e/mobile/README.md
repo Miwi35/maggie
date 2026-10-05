@@ -7,6 +7,8 @@ task e2e:up                                 # the stack, once
 task e2e:mobile                             # reseed, install the e2e flavor, run every flow
 task e2e:mobile -- --include-tags voice     # one family
 task e2e:mobile -- flows/01-login-chat.yaml # one flow — paths are relative to e2e/mobile/
+E2E_MOBILE_SHARD=2/3 task e2e:mobile        # one shard of shards.txt, as CI runs it
+E2E_MOBILE_APK=/path/app.apk task e2e:mobile # install this APK instead of building one
 task e2e:mobile:lint                        # no device, no stack; also in `task lint:all`
 task e2e:mobile:maestro                     # just download the pinned CLI
 ```
@@ -42,7 +44,7 @@ screen.
 **The stack publishes an ephemeral host port, and nothing may hard-code it.** So
 the APK is built against a fixed port on the *device's* loopback
 (`http://localhost:8099`) and `run.sh` bridges it with `adb reverse`. The same
-APK works against any stack, and CI compiles it while eleven containers come up.
+APK works against any stack, and CI compiles it once for every shard.
 `localhost` and not `127.0.0.1`, because the app's `network_security_config.xml`
 permits cleartext for that host name.
 
@@ -82,7 +84,9 @@ literal.
 | `flows/` | the journeys, numbered — what `maestro test` runs |
 | `subflows/` | shared steps (`sign-in.yaml`, `open-calendar.yaml`), kept out of the `flows` glob on purpose |
 | `scripts/` | `runScript` helpers: `grocery-api.js` plays the browser and reads the database back |
+| `shards.txt` | the flows of each CI shard, in order — `lint.sh` checks that every flow is in exactly one |
 | `run.sh` | the whole run: device, bridge, time zone, install, flows |
+| `build-apk.sh` | builds the `e2e` flavor once and leaves `apk/maggie-e2e.apk` (gitignored) |
 | `maestro.sh` | downloads the pinned CLI into `.e2e-cache/` |
 | `lint.sh` | syntax, testTags, tag roots, applicationId, unawaited assertions — seconds, no device |
 | `report/` | JUnit report, and for a failed run the screenshots, view hierarchy and `maestro.log` of each flow, plus `device-last-frame.png`, `logcat.txt`, `anr.txt` and `device-size.txt` (gitignored) |
@@ -240,13 +244,35 @@ that stopped deserialising is `DtoContractTest` against `api/contract/`
 
 ## In CI
 
-`.github/workflows/ci.yml`, jobs `E2E Mobile journeys (<device>)` behind the
-required `E2E Mobile (phone)` (always reported, green when skipped), on every
-pull request touching the app, the flows or the stack: a stack, KVM enabled, `reactivecircus/android-
-emulator-runner` on API 34 `google_apis`, and `task e2e:mobile` as its script. A
-failed run uploads `report/` — the screenshots are the only way to see what a
-headless emulator had on screen. `device-last-frame.png` and `logcat.txt` are taken
-after the failure, so a step that fails on a dialog or another app is readable.
+`.github/workflows/ci.yml`, on every pull request touching the app, the flows or
+the stack (MAG-233 split what used to be one 15-minute job):
+
+- **`E2E Mobile APK`** builds the `e2e` flavor once (`build-apk.sh`) and uploads
+  the APK as an artifact. **`E2E Mobile unit tests (e2e flavor)`** runs
+  `E2eSignInTest` and the rest beside it.
+- **`E2E Mobile journeys (<device> <i>/3)`**, one job per shard of `shards.txt`,
+  each with its own stack and its own emulator, in parallel. It downloads the APK
+  (`E2E_MOBILE_APK`) and runs its flows (`E2E_MOBILE_SHARD=i/3`) with
+  `reactivecircus/android-emulator-runner` on API 34 `google_apis`. The booted
+  emulator is cached as an **AVD snapshot** per device profile
+  (`avd-v1-34-google_apis-x86_64-<profile>`), so a shard loads it in seconds
+  instead of booting cold; the first run after the key changes boots once and
+  saves it. Bump `v1` when the emulator options change.
+- **`E2E Mobile (phone)`**, the required check, always reported: red when the APK,
+  the unit tests or any shard failed, green at once when `Detect changes` says no
+  device is needed.
+
+A failed shard uploads its own `maestro-report-<device>-<i>-<run>` — `report/`, the
+screenshots being the only way to see what a headless emulator had on screen.
+`device-last-frame.png` and `logcat.txt` are taken after the failure, so a step
+that fails on a dialog or another app is readable.
+
+**A new flow goes in `shards.txt`**: `task e2e:mobile:lint` fails on a flow no shard
+names (it would never run in CI), on one named twice, and on an order that is not
+`config.yaml`'s `flowsOrder`. Balance by the `junit.xml` durations of the shards.
+`config.yaml` itself is read when the whole workspace runs, not for a shard, whose
+flows are passed as files, so a shard goes on after a failed flow and reports all
+of them.
 
 `run.sh` sets `hide_error_dialogs` for the run and restores it on exit: a slow
 emulator makes the Pixel Launcher (also the taskbar on tablets and foldables) hit an
@@ -260,10 +286,10 @@ the whole logcat. A flow that waits long somewhere else than at sign-in runs the
 subflow inside a `retry` the same way.
 
 The nightly run (`nightly.yml` calls `ci.yml`) widens the matrix to a phone, a
-**foldable** and a **tablet**, which is what MAG-35 and MAG-91 ask for. The
-matrix comes from the `mobile_devices` output of the `changes` job, keyed on
-`github.event_name` — in a called workflow that is the caller's event, so
-`schedule` means nightly.
+**foldable** and a **tablet**, which is what MAG-35 and MAG-91 ask for, each in
+three shards. The matrix comes from the `mobile_devices` output of the `changes`
+job, keyed on `github.event_name` — in a called workflow that is the caller's
+event, so `schedule` means nightly.
 
 The Maestro CLI is pinned by version **and** by the sha256 the release publishes
 (`maestro.sh`), for the same reason the Mercure image is pinned by digest: a CLI

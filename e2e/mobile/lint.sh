@@ -6,7 +6,7 @@
 #
 # `task e2e:web:lint` exists because ESLint catches the mistakes that make a
 # Playwright suite lie. The equivalent mistakes here are different, and so are
-# the four checks below:
+# the checks below:
 #
 #   1. `maestro check-syntax` — a command Maestro does not know, a malformed
 #      selector. Maestro fails on these at run time, ten minutes into a job that
@@ -28,6 +28,9 @@
 #      no resource id. Check 2 cannot see this — the ids are declared and used,
 #      they are simply unreachable — and it is what broke this harness's first CI
 #      run.
+#   6. every flow is in exactly one shard of `shards.txt`, in the order of
+#      `config.yaml`'s `flowsOrder`: CI runs the shards, so a flow left out of
+#      them never runs and nothing says so.
 
 set -euo pipefail
 
@@ -224,6 +227,47 @@ for flow in "${flows[@]}"; do
     fail "${flow#"$REPO_ROOT"/}: assertVisible straight after an action, on Maestro's invisible default timeout — use extendedWaitUntil with a timeout. After line $offenders"
   fi
 done
+
+# ---------------------------------------------------------------------------
+printf '\n\033[1m6. Every flow is in exactly one shard, in flowsOrder\033[0m\n'
+# ---------------------------------------------------------------------------
+# CI runs the journeys as the shards of `shards.txt` (MAG-233), so a flow missing
+# there is a flow that never runs, and green. `config.yaml`'s `flowsOrder` stays
+# the reference of the order, inside a shard as well.
+mapfile -t on_disk < <(find "$FLOW_DIR/flows" -name '*.yaml' -exec basename {} .yaml \; | sort)
+mapfile -t ordered < <(sed -n '/flowsOrder:/,$ s/^[[:space:]]*-[[:space:]]*//p' "$FLOW_DIR/config.yaml")
+mapfile -t shard_lines < <(grep -E '^[0-9]+:' "$FLOW_DIR/shards.txt" || true)
+[ "${#shard_lines[@]}" -gt 0 ] || { fail "shards.txt defines no shard"; shard_lines=(); }
+
+if [ "$(printf '%s\n' "${ordered[@]}" | sort)" = "$(printf '%s\n' "${on_disk[@]}")" ]; then
+  pass "config.yaml flowsOrder lists every flow once"
+else
+  fail "config.yaml flowsOrder does not list exactly the files of flows/"
+fi
+
+in_shards=()
+for line in "${shard_lines[@]}"; do
+  shard="${line%%:*}"
+  read -ra names <<<"${line#*:}"
+  [ "${#names[@]}" -gt 0 ] || fail "shard $shard is empty"
+  last=-1
+  for name in "${names[@]}"; do
+    in_shards+=("$name")
+    position=-1
+    for i in "${!ordered[@]}"; do [ "${ordered[$i]}" = "$name" ] && position=$i; done
+    if [ "$position" -lt 0 ]; then
+      continue
+    elif [ "$position" -le "$last" ]; then
+      fail "shard $shard lists $name out of flowsOrder"
+    fi
+    last=$position
+  done
+done
+if [ "$(printf '%s\n' "${in_shards[@]}" | sort)" = "$(printf '%s\n' "${on_disk[@]}")" ]; then
+  pass "shards.txt covers ${#on_disk[@]} flows across ${#shard_lines[@]} shards, none twice"
+else
+  fail "shards.txt must name every file of flows/ exactly once (in shards: ${in_shards[*]})"
+fi
 
 printf '\n'
 if [ "$failed" -gt 0 ]; then

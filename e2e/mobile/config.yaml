@@ -7,6 +7,9 @@
 flows:
   - flows/*.yaml
 
+# Read when the whole workspace runs. CI runs shards instead (`shards.txt`, MAG-233):
+# their flows are passed as files, in this order, which `lint.sh` checks.
+#
 # Alphabetical, which the numeric prefixes make deterministic. The flows do not
 # depend on each other — each clears the app's state and signs in again — but
 # they share one seeded server, so the cheapest one runs first and a failure in
@@ -23,3 +26,4 @@ executionOrder:
     - 07-grocery-errand
     - 08-grocery-realtime
     - 09-grocery-deferred
+    - 10-voice-settings
