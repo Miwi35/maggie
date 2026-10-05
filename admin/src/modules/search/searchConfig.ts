@@ -96,7 +96,14 @@ export interface SearchResponse {
   results: SearchResult[]
 }
 
-export function useSearch(debounceMs = 300) {
+/**
+ * `perType`: ask each index for its own best hits instead of one ranked page.
+ *
+ * `/api/search` ranks every index together and cuts at `limit`, so a dozen
+ * products named "Pâtes …" push the recipe and the meal off a 10-hit page.
+ * A dropdown that groups by type needs a few hits of each type, not the top 10.
+ */
+export function useSearch(debounceMs = 300, perType?: number) {
   const [query, setQuery] = useState('')
   const [types, setTypes] = useState<string[] | null>(null)
   const [page, setPage] = useState(1)
@@ -118,25 +125,45 @@ export function useSearch(debounceMs = 300) {
 
     setLoading(true)
     try {
-      const params = new URLSearchParams({ q, page: String(p), limit: String(l) })
-      if (t && t.length > 0) {
-        params.set('types', t.join(','))
-      }
       const token = localStorage.getItem('token')
-      const res = await fetch(`/api/search?${params}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        signal: controller.signal,
-      })
-      if (!res.ok) throw new Error(`Search failed: ${res.status}`)
-      const json: SearchResponse = await res.json()
-      setData(json)
+      const get = async (params: URLSearchParams): Promise<SearchResponse> => {
+        const res = await fetch(`/api/search?${params}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          signal: controller.signal,
+        })
+        if (!res.ok) throw new Error(`Search failed: ${res.status}`)
+        return res.json()
+      }
+
+      if (perType) {
+        const settled = await Promise.allSettled(
+          Object.keys(SEARCH_INDEX_CONFIG).map((index) =>
+            get(new URLSearchParams({ q, types: index, page: '1', limit: String(perType) })),
+          ),
+        )
+        if (controller.signal.aborted) return
+        const responses = settled.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []))
+        if (responses.length === 0) throw new Error('Search failed')
+        setData({
+          total: responses.reduce((sum, r) => sum + r.total, 0),
+          page: 1,
+          limit: perType,
+          results: responses.flatMap((r) => r.results).sort((a, b) => b.score - a.score),
+        })
+      } else {
+        const params = new URLSearchParams({ q, page: String(p), limit: String(l) })
+        if (t && t.length > 0) {
+          params.set('types', t.join(','))
+        }
+        setData(await get(params))
+      }
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return
       setData(null)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [perType])
 
   useEffect(() => {
     clearTimeout(timerRef.current)

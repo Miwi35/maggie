@@ -83,6 +83,30 @@ test.describe('Global search', () => {
     expect(stray).toEqual([])
   })
 
+  test('a recipe and a meal still show when a dozen products match the same word', async ({ page, api }) => {
+    // `/api/search` ranks every index together and cuts at 10 hits: products named
+    // "Pâtes …" used to fill the page and leave the recipe and the meal off it (MAG-144).
+    const batch = test.info().retry
+    for (let i = 1; i <= 12; i++) {
+      const created = await api.post('/api/products', {
+        headers: { 'Content-Type': 'application/ld+json' },
+        data: { name: `Pâtes n°${i}, essai ${batch}`, category: 'produce' },
+      })
+      expect(created.status(), 'the product was not created').toBe(201)
+    }
+    await waitForIndexed(api, '/api/products?itemsPerPage=100', (product) => (product as { name?: string }).name === `Pâtes n°12, essai ${batch}`, {
+      what: 'The last product',
+    })
+
+    const search = new GlobalSearch(page)
+    await search.goto('/')
+    await search.expectLoaded()
+    await search.search('Pâtes')
+
+    await expect(search.result('Repas', 'Pâtes à la tomate'), 'the meal was crowded out of the results').toBeVisible()
+    await expect(search.result('Recettes', 'Pâtes à la tomate'), 'the recipe was crowded out of the results').toBeVisible()
+  })
+
   test('a recipe found by its name opens its page', async ({ page }) => {
     const search = new GlobalSearch(page)
     await search.goto('/')
