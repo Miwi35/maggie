@@ -18,6 +18,7 @@ export const INVALIDATE_URL = `${apiUrl}/token/invalidate`
 
 const REFRESH_MARGIN_MS = 10 * 60 * 1000
 const RETRY_WHEN_UNREACHABLE_MS = 60 * 1000
+const REFRESH_TIMEOUT_MS = 10 * 1000
 const MAX_TIMER_MS = 2 ** 31 - 1
 
 export type RefreshOutcome = 'refreshed' | 'rejected' | 'unreachable'
@@ -105,6 +106,9 @@ async function renew(tokenBefore: string | null): Promise<RefreshOutcome> {
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: '{}',
+      // main.tsx waits for this before mounting: a network that hangs rather
+      // than refuses must not leave the tablet on a blank page.
+      signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS),
     })
   } catch {
     unreachableSinceLastRefresh = true
@@ -126,7 +130,7 @@ async function renew(tokenBefore: string | null): Promise<RefreshOutcome> {
     return 'rejected'
   }
 
-  if (response.status >= 500) {
+  if (response.status >= 500 || response.status === 408 || response.status === 429) {
     unreachableSinceLastRefresh = true
     return 'unreachable'
   }
@@ -224,8 +228,11 @@ function requestUrl(input: RequestInfo | URL): URL | null {
   }
 }
 
+// VITE_API_URL may be relative ("/api"), so compare resolved URLs.
+const absolute = (path: string) => new URL(path, window.location.href).href
+
 function isOwnRequest(url: URL | null): boolean {
-  if (!url || url.href === REFRESH_URL || url.href === INVALIDATE_URL) {
+  if (!url || url.href === absolute(REFRESH_URL) || url.href === absolute(INVALIDATE_URL)) {
     return false
   }
   return url.origin === window.location.origin || url.origin === new URL(apiUrl, window.location.href).origin

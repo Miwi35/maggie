@@ -60,6 +60,7 @@ describe('refreshSession', () => {
     expect(calls[0].init?.method).toBe('POST')
     expect(calls[0].init?.credentials).toBe('include')
     expect(bearer(calls[0].init)).toBeNull()
+    expect(calls[0].init?.signal).toBeInstanceOf(AbortSignal)
   })
 
   test('renews once however many callers ask at the same time', async () => {
@@ -87,6 +88,8 @@ describe('refreshSession', () => {
   test.each([
     ['the network is down', () => Promise.reject(new TypeError('Failed to fetch'))],
     ['the server fails', () => json({}, 503)],
+    ['a proxy answers 429', () => json({}, 429)],
+    ['a proxy answers 408', () => json({}, 408)],
   ])('keeps the session when %s', async (_label, respond) => {
     stubFetch(respond as Handler)
     const { refreshSession, sessionAwaitsNetwork } = await loadSession()
@@ -283,6 +286,7 @@ describe('installAuthRefresh', () => {
     ['a request without a Bearer token', `${API}/events`, undefined],
     ['a request to another site', 'https://example.com/data', { headers: { Authorization: `Bearer ${jwt(1)}` } }],
     ['the refresh route itself', `${API}/token/refresh`, { headers: { Authorization: `Bearer ${jwt(1)}` } }],
+    ['the invalidate route itself', `${API}/token/invalidate`, { headers: { Authorization: `Bearer ${jwt(1)}` } }],
   ])('leaves a 401 on %s alone', async (_label, url, init) => {
     const calls = stubFetch(() => json({}, 401))
     const { installAuthRefresh } = await loadSession()
