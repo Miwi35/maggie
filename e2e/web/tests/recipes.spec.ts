@@ -93,8 +93,10 @@ test.describe('Recipes and meals', () => {
     const shell = new AdminShell(page)
     await shell.goto('/meals')
 
-    // Tuesday lunch: the seed plans a single dinner, so a lunch cell is empty.
-    const cell = shell.content.getByTestId('meal-cell-lunch-1')
+    // Wednesday lunch: a cell with a meal opens no dialog, so each journey of
+    // this file owns its own — Tuesday is MAG-251's, Thursday MAG-116's, and
+    // the seed's single meal is a dinner.
+    const cell = shell.content.getByTestId('meal-cell-lunch-2')
     await cell.click()
     const dialog = page.getByRole('dialog')
 
