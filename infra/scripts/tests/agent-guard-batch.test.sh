@@ -51,7 +51,8 @@ fresh_world() {
 put() {
   local labels
   labels="$(jq -cn --arg l "$3" '$l | split(",") | map(select(. != "") | {name: .})')"
-  jq -n --arg state "$2" --argjson labels "$labels" --arg body "$4" '{state: $state, labels: $labels, body: $body}' > "$work/gh/pr-$1.json"
+  jq -n --arg state "$2" --argjson labels "$labels" --arg body "$4" --arg branch "${BRANCH:-cyrus/mag-1-x}" \
+    '{state: $state, labels: $labels, body: $body, headRefName: $branch}' > "$work/gh/pr-$1.json"
   cat > "$work/gh/pr-$1.diff"
 }
 
@@ -66,7 +67,7 @@ body() {
 put_batch() {
   local n="$1"
   shift
-  put "$n" OPEN "batch" "$(body "$@")"
+  BRANCH="${BRANCH:-train/batch-1}" put "$n" OPEN "batch" "$(body "$@")"
 }
 
 # judge <pr> — findings in $OUTPUT, exit status in $STATUS.
@@ -107,7 +108,7 @@ bulk api/src/A.php a 5 | put 150 OPEN "" "A"
 bulk agent/app/b.py b 5 | put 151 OPEN "" "B"
 { bulk api/src/A.php a 5; bulk agent/app/b.py b 5; } | put_batch 160 150 151
 printf 'Batch\n\n| PR | Tickets |\n|---|---|\n| #151 | MAG-251 |\n| #150 | MAG-250 |\n\n1. Not a PR: see MAG-9\n' \
-  | { jq -Rs '{state: "OPEN", labels: [{name: "batch"}], body: .}' > "$work/gh/pr-160.json"; }
+  | { jq -Rs '{state: "OPEN", labels: [{name: "batch"}], body: ., headRefName: "train/batch-1"}' > "$work/gh/pr-160.json"; }
 judge 160
 accepted "a table lists the PRs too"
 
@@ -190,6 +191,20 @@ bulk api/src/A.php a 5 | put 150 OPEN "" "A"
 judge 160
 refused "a mode change slipped in" batch-content "run.sh"
 
+printf '\n\033[1mA binary file cannot be compared: refused\033[0m\n'
+fresh_world
+bulk api/src/A.php a 5 | put 150 OPEN "" "A"
+{ bulk api/src/A.php a 5; printf 'diff --git a/logo.png b/logo.png\nBinary files /dev/null and b/logo.png differ\n'; } | put_batch 160 150
+judge 160
+refused "a binary file in the batch" batch-content "binary file"
+
+printf '\n\033[1mThe label alone is not a batch\033[0m\n'
+fresh_world
+bulk api/src/A.php a 5 | put 150 OPEN "" "A"
+bulk api/src/A.php a 5 | BRANCH=cyrus/mag-9-sneaky put_batch 160 150
+judge 160
+refused "label batch on a cyrus/ branch" batch-branch "train/batch-"
+
 printf '\n\033[1mTwo PRs on the same file, different lines: still the sum\033[0m\n'
 fresh_world
 modify docs/x.md 'old one' 'new one' | put 150 OPEN "" "A"
@@ -252,7 +267,7 @@ echo x | put 150 OPEN "" "A"
 touch "$work/gh/no-diff-150"
 judge 150
 refused "a diff GitHub cannot render" oversize
-[ "$(sort -u "$work/gh/calls" | paste -sd'|')" = "pr diff 150|pr view 150 --json labels,body" ] && ok "reads nothing but the PR itself" || bad "read other PRs — $(cat "$work/gh/calls")"
+[ "$(sort -u "$work/gh/calls" | paste -sd'|')" = "pr diff 150|pr view 150 --json labels,body,headRefName" ] && ok "reads nothing but the PR itself" || bad "read other PRs — $(cat "$work/gh/calls")"
 
 printf '\n'
 if [ "$failures" -gt 0 ]; then

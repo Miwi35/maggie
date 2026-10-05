@@ -25,6 +25,7 @@
 #     the lines of the listed PRs: nothing slipped in on the way, nothing dropped.
 #     (A line one PR adds and another removes cancels in the batch, which then
 #     differs from the sum: the doubt goes to a human.)
+# The label alone is not enough: the branch must be `train/batch-<n>`.
 # The findings name the PR they come from: `oversize: #151: 912 lines…`.
 
 set -euo pipefail
@@ -60,7 +61,7 @@ normalize() {
   ' "$@" | LC_ALL=C sort
 }
 
-meta="$($GH pr view "$PR" --json labels,body)"
+meta="$($GH pr view "$PR" --json labels,body,headRefName)"
 if ! jq -e '.labels | map(.name) | index("batch")' <<<"$meta" > /dev/null; then
   if diff_of "$PR" "$work/diff"; then
     status=0
@@ -74,6 +75,12 @@ fi
 findings="$work/findings"
 : > "$findings"
 total=0
+
+# The label alone must not unlock the batch rules: only the dispatcher's branch does.
+case "$(jq -r '.headRefName // ""' <<<"$meta")" in
+  train/batch-*) ;;
+  *) echo "batch-branch: the label batch is only for a branch train/batch-<n>" >> "$findings" ;;
+esac
 
 listed="$(jq -r '.body // ""' <<<"$meta" \
   | sed -nE 's/^[[:space:]]*([-*|]|[0-9]+\.)[^#]*#([0-9]+).*/\2/p' | awk -v self="$PR" '$0 != self && !seen[$0]++')"
@@ -113,6 +120,10 @@ done
 if [ "$readable" = true ] && [ "$count" -gt 0 ]; then
   if diff_of "$PR" "$work/diff-batch"; then
     normalize "$work/diff-batch" > "$work/batch"
+    # A binary diff shows no content: its bytes cannot be compared with the PRs'.
+    if grep -qP '\t#(Binary files|GIT binary patch)' "$work/batch"; then
+      echo "batch-content: the batch carries a binary file, whose content cannot be compared with its pull requests: merge that PR alone" >> "$findings"
+    fi
     LC_ALL=C sort -o "$work/sum" "$work/sum"
     extra="$(LC_ALL=C comm -23 "$work/batch" "$work/sum")"
     missing="$(LC_ALL=C comm -13 "$work/batch" "$work/sum")"
