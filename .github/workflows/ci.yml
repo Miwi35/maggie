@@ -628,6 +628,20 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      - uses: actions/cache@v4
+        with:
+          # The lint runs `maestro check-syntax`: same pinned CLI, same key as the shards'.
+          path: .e2e-cache/maestro
+          key: maestro-${{ hashFiles('e2e/mobile/maestro.sh') }}
+
+      # Here and not in each shard (MAG-233): 37 s that three emulator jobs
+      # each spent before their stack, now beside the build. A red flow lint
+      # fails this job, so the shards that wait for it never start.
+      - name: The flows lint
+        # A renamed testTag or a command Maestro does not know fails here rather
+        # than ten minutes into an emulator job.
+        run: e2e/mobile/lint.sh
+
       - name: Build the APK
         run: e2e/mobile/build-apk.sh
 
@@ -701,7 +715,9 @@ jobs:
     needs: [changes, e2e-mobile-build]
     if: needs.changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # A shard takes 4 to 8 minutes. One flow hung for 17 minutes once (02-voice-overlay,
+    # green in the end): a stuck emulator is cut here instead of holding the run for an hour.
+    timeout-minutes: 25
     strategy:
       # The three formats are independent: a failure on the foldable says
       # nothing about the phone, and cancelling it would hide whether the
@@ -798,11 +814,6 @@ jobs:
           echo "E2E_PREBUILT=1" >> "$GITHUB_ENV"
           e2e/images.sh ensure
 
-      - name: The flows lint
-        # Seconds, and before the stack and the emulator: a renamed testTag or a
-        # command Maestro does not know fails here rather than forty minutes in.
-        run: task e2e:mobile:lint
-
       - name: Start the stack
         run: task e2e:up
 
@@ -881,7 +892,9 @@ jobs:
           script: task e2e:mobile
 
       - name: Maestro report
-        if: failure()
+        # Always, not only on failure (MAG-233): the junit.xml of a green shard says
+        # which flow was slow, which is how a 17-minute flow gets diagnosed.
+        if: always()
         # The screenshots are the point: Maestro writes one per failed command,
         # which is the only way to see what the screen looked like on a headless
         # emulator nobody can attach to.
