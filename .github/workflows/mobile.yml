@@ -67,7 +67,7 @@ jobs:
   coverage-report:
     name: Coverage report
     needs: test
-    if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

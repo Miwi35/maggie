@@ -365,7 +365,7 @@ jobs:
   coverage-report:
     name: Coverage report
     needs: [api-test, agent-test, ciqual-test, admin-test]
-    if: ${{ !cancelled() && github.event_name == 'pull_request' && inputs.e2e_now == '' }}
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
