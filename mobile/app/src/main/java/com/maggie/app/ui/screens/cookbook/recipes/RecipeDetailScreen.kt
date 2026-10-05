@@ -131,7 +131,7 @@ fun RecipeDetailScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
-                                Text(text = ing.ingredient, modifier = Modifier.weight(1f))
+                                Text(text = ing.ingredientName.orEmpty(), modifier = Modifier.weight(1f))
                                 Text(text = "${ing.quantity} ${ing.unit.name.lowercase()}")
                             }
                         }

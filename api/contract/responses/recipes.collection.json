@@ -16,7 +16,32 @@
             ],
             "notes": "The notes the client renders",
             "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
-            "ingredients": [],
+            "ingredients": [
+                {
+                    "@type": "RecipeIngredient",
+                    "@id": "/api/.well-known/genid/blank",
+                    "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "recipe": "/api/recipes/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "ingredient": {
+                        "@type": "Ingredient",
+                        "@id": "/api/ingredients/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                        "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                        "name": "Recorded Ingredient",
+                        "defaultUnit": "kg",
+                        "category": "grain",
+                        "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                        "ciqualAlimCode": "9810",
+                        "kcalPer100g": 340,
+                        "proteinPer100g": 12.5,
+                        "carbsPer100g": 71,
+                        "fatPer100g": 1.5
+                    },
+                    "quantity": 200,
+                    "ingredientName": "Recorded Ingredient",
+                    "ciqualAlimCode": "9810",
+                    "unit": "g"
+                }
+            ],
             "createdAt": "2026-01-01T00:00:00+00:00",
             "updatedAt": "2026-01-01T00:00:00+00:00"
         }

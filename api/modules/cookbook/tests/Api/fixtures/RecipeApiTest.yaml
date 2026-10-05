@@ -4,6 +4,32 @@ Maggie\Core\Entity\User:
     googleId: google-cookbook-test
     name: Cookbook Test User
 
+Maggie\Cookbook\Entity\Ingredient:
+  pasta_food:
+    name: Pâtes
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+    ciqualAlimCode: '9810'
+    user: '@test_user'
+  tomato_food:
+    name: Tomate
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+    ciqualAlimCode: '20047'
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\RecipeIngredient:
+  pasta_line:
+    recipe: '@pasta'
+    ingredient: '@pasta_food'
+    quantity: 200.0
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+  tomato_line:
+    recipe: '@pasta'
+    ingredient: '@tomato_food'
+    quantity: 3.0
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+
 Maggie\Cookbook\Entity\Recipe:
   pasta:
     name: Pâtes à la tomate

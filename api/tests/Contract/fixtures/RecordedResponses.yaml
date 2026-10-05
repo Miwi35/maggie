@@ -70,6 +70,13 @@ Maggie\Calendar\Entity\Task:
     completedAt: '<(new \DateTimeImmutable("2026-03-19 10:00"))>'
     user: '@recorded_user'
 
+Maggie\Cookbook\Entity\RecipeIngredient:
+  recorded_recipe_line:
+    recipe: '@recorded_recipe'
+    ingredient: '@recorded_ingredient'
+    quantity: 200.0
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+
 Maggie\Cookbook\Entity\Recipe:
   recorded_recipe:
     name: Recorded Recipe
@@ -118,6 +125,7 @@ Maggie\Cookbook\Entity\Ingredient:
     name: Recorded Ingredient
     category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
     defaultUnit: '<(Maggie\Grocery\Enum\Unit::Kilogram)>'
+    ciqualAlimCode: '9810'
     kcalPer100g: 340.0
     proteinPer100g: 12.5
     carbsPer100g: 71.0

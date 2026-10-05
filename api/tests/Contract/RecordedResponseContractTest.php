@@ -129,8 +129,9 @@ final class RecordedResponseContractTest extends WebTestCase
     }
 
     /**
-     * Two things in these responses change on every run: the ULIDs, and the
-     * audit timestamps the entities stamp in their constructors. Left alone,
+     * Three things in these responses change on every run: the ULIDs, the
+     * blank-node IRIs of nested objects, and the audit timestamps the entities
+     * stamp in their constructors. Left alone,
      * the recordings would differ every time and the contract would turn into
      * noise — the failure mode of a snapshot that changes too often is that
      * nobody reads its diff.
@@ -167,6 +168,8 @@ final class RecordedResponseContractTest extends WebTestCase
             if (\is_string($item)) {
                 // A bare ULID, or one at the end of an IRI.
                 $item = (string) preg_replace('/\b[0-7][0-9A-HJKMNP-TV-Z]{25}\b/', '01ARZ3NDEKTSV4RRFFQ69G5FAV', $item);
+                // An object with no identifier of its own gets a random blank-node IRI.
+                $item = (string) preg_replace('#/\.well-known/genid/[0-9a-f]+#', '/.well-known/genid/blank', $item);
             }
 
             $stable[$key] = $item;
