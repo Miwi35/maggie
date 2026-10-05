@@ -159,6 +159,22 @@ class BankConnectionViewModelTest {
         assertNull(viewModel.uiState.value.authorizationUrl)
     }
 
+    /** Each journey opened is a pending connection stored server-side. */
+    @Test
+    fun `a second reconnection while one is running is not sent`() = runTest {
+        coEvery { repository.reconnect("conn-1") } returns Result.success(
+            BankAuthorization(authorizationUrl = "https://bank.example/consent"),
+        )
+        viewModel = BankConnectionViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.reconnect("conn-1")
+        viewModel.reconnect("conn-1")
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { repository.reconnect("conn-1") }
+    }
+
     @Test
     fun `a reconnection that fails opens nothing and says why`() = runTest {
         coEvery { repository.reconnect("conn-1") } returns Result.failure(RuntimeException("refusé"))

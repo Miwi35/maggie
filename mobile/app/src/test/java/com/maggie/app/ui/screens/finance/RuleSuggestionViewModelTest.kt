@@ -109,6 +109,53 @@ class RuleSuggestionViewModelTest {
         assertTrue(state.canAccept("SNCF CONNECT"))
     }
 
+    /** Without the chips there is no way to answer, so the failure must be said. */
+    @Test
+    fun `headings that cannot be loaded are not hidden`() = runTest {
+        coEvery { categoryRepository.getCategories() } returns Result.failure(RuntimeException("503"))
+        load()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("503", state.error)
+        assertTrue(state.categories.isEmpty())
+    }
+
+    @Test
+    fun `a refresh reads again the headings that failed`() = runTest {
+        coEvery { categoryRepository.getCategories() } returnsMany listOf(
+            Result.failure(RuntimeException("503")),
+            Result.success(categories),
+        )
+        load()
+        advanceUntilIdle()
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf("Courses", "Transports"),
+            viewModel.uiState.value.categories.map { it.name },
+        )
+    }
+
+    /** The headings do not change between a yes and the reload it triggers. */
+    @Test
+    fun `the headings are read once and kept`() = runTest {
+        coEvery { ruleRepository.acceptSuggestions(any()) } returns Result.success(
+            AcceptRuleSuggestionsResult(success = true, created = 1, categorized = 1),
+        )
+        load()
+        advanceUntilIdle()
+
+        viewModel.accept("LECLERC RENNES")
+        advanceUntilIdle()
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { categoryRepository.getCategories() }
+    }
+
     @Test
     fun `a load that fails surfaces the error and stops the spinner`() = runTest {
         coEvery { ruleRepository.getSuggestions() } returns Result.failure(RuntimeException("boom"))

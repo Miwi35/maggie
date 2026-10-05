@@ -7,6 +7,7 @@ import com.maggie.app.data.model.AcceptRuleSuggestionsResult
 import com.maggie.app.data.model.ApplyRulesResult
 import com.maggie.app.data.model.CategorizationRule
 import com.maggie.app.data.model.RuleSuggestion
+import com.maggie.app.util.rethrowCancellation
 
 class CategorizationRuleRepository(
     private val apiService: MaggieApiService,
@@ -29,11 +30,11 @@ class CategorizationRuleRepository(
 
     suspend fun getSuggestions(): Result<List<RuleSuggestion>> = runCatching {
         apiService.getCategorizationRuleSuggestions()
-    }
+    }.rethrowCancellation()
 
     suspend fun acceptSuggestions(
         request: AcceptRuleSuggestionsRequest,
     ): Result<AcceptRuleSuggestionsResult> = runCatching {
         apiService.acceptCategorizationRuleSuggestions(request)
-    }
+    }.rethrowCancellation()
 }

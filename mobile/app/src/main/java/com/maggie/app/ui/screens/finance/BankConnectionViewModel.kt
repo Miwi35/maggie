@@ -85,8 +85,15 @@ class BankConnectionViewModel(
     }
 
     fun reconnect(id: String) {
+        if (_uiState.value.reconnectingId != null) {
+            return
+        }
+
+        // Marked before the coroutine starts, like the fetch: each journey opened
+        // is a pending connection stored server-side, so two taps must not open two.
+        _uiState.value = _uiState.value.copy(reconnectingId = id, error = null)
+
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(reconnectingId = id, error = null)
             repository.reconnect(id)
                 .onSuccess { authorization ->
                     _uiState.value = _uiState.value.copy(

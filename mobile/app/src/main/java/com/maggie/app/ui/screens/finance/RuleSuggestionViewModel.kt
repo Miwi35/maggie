@@ -49,24 +49,38 @@ class RuleSuggestionViewModel(
     val uiState: StateFlow<RuleSuggestionUiState> = _uiState
 
     init {
-        loadCategories()
         refresh()
     }
 
-    private fun loadCategories() {
-        viewModelScope.launch {
-            categoryRepository.getCategories()
-                .onSuccess { categories ->
-                    _uiState.value = _uiState.value.copy(
-                        categories = categories.sortedBy { it.name },
-                    )
-                }
+    /**
+     * The headings to choose from, read in the same pass as the suggestions
+     * rather than beside them: the chips are the only way to answer here, so a
+     * screen without them offers a yes that can never be given — and a failure
+     * must neither be swallowed nor wiped by the other load's `error = null`.
+     *
+     * Read once and kept: an acceptance reloads the suggestions, not the
+     * headings, which do not change in between.
+     */
+    private suspend fun loadCategories() {
+        if (_uiState.value.categories.isNotEmpty()) {
+            return
         }
+
+        categoryRepository.getCategories()
+            .onSuccess { categories ->
+                _uiState.value = _uiState.value.copy(
+                    categories = categories.sortedBy { it.name },
+                )
+            }
+            .onFailure { failure ->
+                _uiState.value = _uiState.value.copy(error = failure.message)
+            }
     }
 
     fun refresh() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            loadCategories()
             ruleRepository.getSuggestions()
                 .onSuccess { suggestions ->
                     val current = _uiState.value

@@ -46,8 +46,14 @@ tags:
 # asserted rather than taken on trust: three debits in the seed.
 - assertVisible: ".*3 fois.*"
 
-# The heading, then the yes. Tapping the chip even when the dictionary already
-# guessed it is deliberate: the journey must fail if choosing one stops working.
+# Nothing is chosen while the heading is a question, so there is nothing to
+# create yet: `MerchantDictionary` files LECLERC under « Nourriture », which no
+# seeded category is named, so the suggestion arrives with no `categoryId`.
+- assertVisible:
+    text: "Créer la règle"
+    enabled: false
+
+# The heading, then the yes.
 - tapOn: "Courses"
 - tapOn: "Créer la règle"
 
