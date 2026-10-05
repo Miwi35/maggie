@@ -1,24 +1,18 @@
 # The yearly planning session, through Maggie (MAG-48).
 #
-# Three real MCP calls: read the year behind, plan one expense of the year
-# ahead, budget the envelope it adds up to. The fake scripts only the model's
-# side — the tool runs against the real MCP server and writes the real rows,
-# which is what the journey then reads back.
+# One real MCP call: read what the year behind cost and what the year ahead
+# should be budgeted. The fake scripts only the model's side — the tool runs
+# against the real MCP server and the seeded database.
 #
-# `plan_annual_budget` takes a categoryId and an accountId, and a ULID differs
-# on every run, so the journey says them and the capture groups carry them into
-# the call (see the README's note on ids). The sentence reads oddly for a human,
-# which is the honest trade: whether Maggie could work out which category
-# "les festivals" is belongs to `task e2e:eval` on the real model.
-#
-# The year is a far-future literal, like 35-create-event.yaml's date: no other
-# journey and no twelve-month window reaches 2033, so what the session writes
-# cannot be mistaken for seeded data — or vice versa.
+# No id in the sentence, and none needed: `plan_annual_budget` takes a year and
+# a threshold, nothing a seed invents. The year is a far-future literal, like
+# 35-create-event.yaml's date, so what the journey writes into it cannot be
+# mistaken for seeded data or vice versa.
 name: annual-plan
-description: Run the yearly planning session end to end, through MCP.
+description: Read the yearly plan of a far-future year, through MCP.
 
 match:
-  user_matches: 'planification annuelle.*catégorie ([0-9A-HJKMNP-TV-Z]{26}).*compte ([0-9A-HJKMNP-TV-Z]{26})'
+  user_contains: "planification annuelle"
 
 turns:
   # An intermediate text, deliberately: only the last turn's is the answer
@@ -26,17 +20,5 @@ turns:
   - text: "Je regarde ce que l'année écoulée a coûté."
     tools:
       - name: plan_annual_budget
-        input: {action: review, year: 2033}
-  - tools:
-      - name: plan_annual_budget
-        input:
-          action: schedule
-          year: 2033
-          categoryId: '\1'
-          accountId: '\2'
-          label: FESTIVAL MAG-48
-          amountCents: 24000
-          month: 7
-      - name: plan_annual_budget
-        input: {action: budget, year: 2033, categoryId: '\1', amountCents: 30000}
-  - text: "C'est planifié : le festival en juillet, et l'enveloppe de l'année posée à 300,00 €."
+        input: {year: 2033}
+  - text: "D'après l'année écoulée, il te faut compter 480,00 € pour tes festivals."

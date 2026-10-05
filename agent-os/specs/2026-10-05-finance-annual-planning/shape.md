@@ -16,19 +16,23 @@ Un **plan annuel** qui se lit et s'applique, sur une année cible.
 - ce qui est **déjà décidé** sur l'année cible — planifié, engagé, à arbitrer à part — pour que la session se rouvre sans se répéter ;
 - un **montant suggéré** et l'enveloppe annuelle déjà posée, s'il y en a une.
 
-**Appliquer** (`POST /api/finance/annual-plan`) écrit ce que l'utilisateur a validé : des **transactions planifiées** (un événement = une transaction, dans le mois où il tombe) et des **enveloppes annuelles** (une catégorie = un montant). Rejouable : réappliquer le même montant d'enveloppe ne crée pas de doublon.
+**Appliquer** ce que l'utilisateur a validé — des **transactions planifiées** (un événement = une transaction, dans le mois où il tombe) et des **enveloppes annuelles** (une catégorie = un montant) — se fait avec les outils qui existent déjà : `manage_envelopes` en mode `annual` et `manage_transactions` avec le statut voulu. Le faire **en un seul geste** est la tranche suivante (voir *Boundaries*) : le travail de la session, celui qu'aucun outil ne sait faire, est de dire ce qu'il faut budgéter.
 
-Côté conversation, l'outil MCP `plan_annual_budget` fait les trois gestes de la session — `review`, `schedule`, `budget` — un événement à la fois, comme on les dicte.
+Côté conversation, l'outil MCP `plan_annual_budget` rend ce plan : c'est par là que la session s'ouvre aujourd'hui, et le dire à Maggie suffit à la tenir de bout en bout.
 
 ## Boundaries (hors périmètre)
 - **Pas d'impact sur N ni sur les projets** (doc §6.4 point 4) : le compteur d'indépendance (M9) et les projets (M10) n'existent pas. Ce que la session rend, c'est un budget annuel, pas une date.
 - **Pas de déclenchement automatique en novembre** : la notification demande un cron et le canal `notification`, comme la relance de la revue mensuelle — même créneau, autre tranche.
-- **Pas d'écran** dans cette tranche : l'admin React et le mobile Kotlin sont deux tickets de suite, bloqués par celui-ci. La limite de taille du garde-fou (800 lignes hors tests) ne laisse pas passer la tranche verticale entière, et la découper par couche est ce que le repo demande.
+- **Pas d'application en un geste** dans cette tranche (`POST /api/finance/annual-plan` et les actions d'écriture de l'outil) : c'est un ticket de suite. La limite de taille du garde-fou (800 lignes hors tests) ne laisse pas passer la lecture et l'écriture ensemble, et le repo demande alors de découper. La coupure suit l'ordre de dépendances de ce plan : la lecture définit ce que la session propose, l'écriture ne fait que valider ce qui a été proposé — et elle est déjà possible avec `manage_envelopes` et `manage_transactions`.
+- **Pas d'écran** non plus : l'admin React et le mobile Kotlin sont deux tickets de suite, bloqués par ceux-ci.
 - **Pas de détection des récurrences** : « les événements récurrents de l'année précédente » (doc §6.4 point 2) sont ici les **grosses dépenses** de l'année écoulée, pas un motif inféré. Une détection d'abonnements est déjà reportée par `finance-categorization-rules`.
 - **Pas de dépense sans catégorie** dans le plan : la session produit des enveloppes, qui budgètent une catégorie. Un débit non catégorisé n'a nulle part où aller.
 - **Pas de modèle de données nouveau** : le plan n'est pas stocké. Les transactions planifiées et les enveloppes **sont** le plan.
 
 ## Key Decisions
+
+Les décisions 5 à 8, 10 et 11 portent sur l'application du plan : elles sont prises ici parce que c'est la session qui les impose, et tenues par le ticket d'écriture.
+
 1. **Le plan n'est pas une entité.** Il se lit des transactions et des enveloppes, comme la revue mensuelle se lit des verdicts. Stocker un « plan validé » créerait une seconde vérité qui divergerait du premier achat.
 2. **Une grosse dépense est un débit au-dessus d'un seuil** (`thresholdCents`, défaut 100 €), pas un rang dans un top N : un seuil se vérifie de tête sur la liste des transactions, un top N dépend de ce que les autres lignes valent. Le seuil décide **quelles dépenses sont listées une par une, jamais quelles catégories entrent dans la session** : une catégorie qui a coûté quelque chose l'an dernier est toujours là, sinon le total « consommé l'an dernier » bougerait avec un paramètre de présentation.
 3. **Le montant suggéré est le décidé de l'année cible s'il y en a, sinon le consommé de l'année précédente.** Deux règles, aucune moyenne glissante — même choix que `useActualSpending` dans la reconduction, pour la même raison : l'utilisateur doit pouvoir refaire le calcul à la main.
