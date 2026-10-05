@@ -33,6 +33,12 @@ EXPOSE 8001
 # =============================================================================
 FROM base AS dev
 
+# libfaketime, for the e2e clock (MAG-234): inert unless the e2e compose file
+# sets LD_PRELOAD on the server process. Linked at an architecture-free path.
+RUN apt-get update && apt-get install -y --no-install-recommends libfaketime \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -s "$(find /usr/lib -name 'libfaketime.so.1' | head -n 1)" /usr/local/lib/libfaketime.so.1
+
 USER app
 
 # In dev, the volume mount provides the source code.

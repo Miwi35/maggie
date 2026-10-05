@@ -210,6 +210,45 @@ Adding data: put it in the file for its module, give it a reference starting
 with `e2e_`, and extend the counts in `E2eSeedCommandTest`. That test runs in
 the normal API suite and is what catches a fixture broken by a renamed property.
 
+## The clock (MAG-234)
+
+A journey that passes at 15:00 and fails at 00:30 depends on the hour it was
+started at (MAG-177, MAG-212, the mobile calendar flow around midnight). So the
+clock is a parameter of the stack, not a property of the runner.
+
+`E2E_NOW=<ISO-8601>` (e.g. `2026-10-11T23:50:00+02:00`) fixes "now" for **every**
+part of the stack at once; unset, nothing changes. `e2e/clock.sh` is the only
+reader of the variable:
+
+| Part | How it follows `E2E_NOW` |
+|---|---|
+| API, worker, agent, seed | libfaketime (`LD_PRELOAD` in `docker-compose.e2e.yml`): each process starts at the instant and moves 10 µs per clock read. Not frozen (`uniqid()` spins forever on a stopped clock), not at real speed (a 40-minute suite would cross midnight); `sleep` is untouched. The seed anchors on `new DateTimeImmutable()`, so it follows with no `--now` |
+| Agent JWT check | the clocks of two processes drift apart (the API's moves with every request it serves), so a token's `iat` can be seconds ahead of the agent's "now": the e2e stack sets `JWT_LEEWAY_SECONDS=60`, production keeps 0 |
+| Browser | `context.clock.setFixedTime` (`web/fixtures/clock.ts`, wired in `isolateFromInternet`): `Date` stands still, timers run |
+| Emulator | `run.sh` sets the device clock through `adb`, disables automatic time, and re-pins it if it drifts |
+| WireMock | its JVM ignores libfaketime: `task e2e:seed` rewrites the all-day Google event to the anchor day (`e2e/wiremock-today.sh`) |
+
+Rules for a journey:
+
+- **Never read the host's clock.** `e2eNow()` and `seedDate()` in Playwright, the
+  `TODAY` / `TRAIN_*` variables in Maestro, `e2e/clock.sh epoch` in shell. A
+  journey that calls `Date.now()` or `date` disagrees with a stack that believes
+  it is Sunday 23:50.
+- **Never write a UTC offset by hand.** `parisTime(day, '00:00:00')` gives the right
+  `+01:00` or `+02:00`.
+- **`E2E_NOW` must be in the future.** Mercure rejects a token whose `exp` is past,
+  and the pinned clock signs them. `e2e/clock.sh resolve <name>` returns the next
+  occurrence of a named instant and refuses a past date.
+
+The boundary instants (`e2e/clock.sh names`): `sunday-2350-paris`,
+`monday-0050-paris`, `dst-fall-back-0230-paris` (02:30 on the last Sunday of
+October, winter time), `saturday-2230-utc`. `.github/workflows/e2e-clock.yml` runs
+the web and mobile suites on each, on every pull request touching the stack and
+every night; a failure there means a journey depends on the hour.
+
+`run.sh` prints `E2E_NOW`, `TODAY`, `TRAIN_START`, `TRAIN_END` and the device's date
+and time zone at the top of every mobile run, and writes them to `report/clock.txt`.
+
 ## External services
 
 Simulated by one WireMock container — see

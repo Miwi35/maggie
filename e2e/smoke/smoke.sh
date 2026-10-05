@@ -558,8 +558,9 @@ step "11. A due reminder becomes a notification"
 # reminder, and the only producer is a cron the browser cannot run. So it is here,
 # where `docker compose exec` can, like the two sync steps above.
 #
-# The event is created against the real clock rather than taken from the seed, and
-# that is forced: `maggie:notification:check-reminders` fires on a reminder whose
+# The event is created against the stack's clock rather than taken from the seed
+# (`E2E_NOW`, else the real one — never the host's `date` under a pinned stack,
+# MAG-234), and that is forced: `maggie:notification:check-reminders` fires on a reminder whose
 # trigger time has passed for an event starting within 24 hours, and no
 # anchor-relative time satisfies both bounds at every hour a run might start at.
 # Forty minutes out with a reminder an hour before leaves the trigger twenty
@@ -571,13 +572,15 @@ else
   fail "no default agenda in /api/agendas — the reminder step has nowhere to write"
 fi
 
-reminder_title="Rappel smoke $(date -u +%H%M%S)"
+now_epoch="$("$REPO_ROOT/e2e/clock.sh" epoch)"
+now_epoch="${now_epoch:-$(date +%s)}"
+reminder_title="Rappel smoke $(date -u -d "@$now_epoch" +%H%M%S)"
 reminder_event="$(curl -sS -X POST "${AUTH[@]}" \
   -H 'Content-Type: application/ld+json' -H 'Accept: application/ld+json' \
   -d "$(jq -nc --arg s "$reminder_title" --arg a "$reminder_agenda" \
-    --arg start "$(date -u -d '+40 minutes' +%FT%T+00:00)" \
-    --arg end "$(date -u -d '+70 minutes' +%FT%T+00:00)" \
-    '{summary: $s, startAt: $start, endAt: $end, agenda: $a}')" \
+    --arg start "$(date -u -d "@$((now_epoch + 2400))" +%FT%T+00:00)" \
+    --arg finish "$(date -u -d "@$((now_epoch + 4200))" +%FT%T+00:00)" \
+    '{summary: $s, startAt: $start, endAt: $finish, agenda: $a}')" \
   "$BASE_URL/api/events")"
 reminder_event_id="$(printf '%s' "$reminder_event" | jq -r '.id // empty')"
 if [ -n "$reminder_event_id" ]; then
