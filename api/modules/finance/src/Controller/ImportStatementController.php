@@ -55,7 +55,16 @@ final class ImportStatementController
         }
 
         if (!$file->isValid()) {
-            return $this->badRequest("Le fichier n'est pas arrivé en entier. Réessayez.");
+            // A file PHP itself turned away for its size is not a file to
+            // retry: told "it did not arrive in one piece", the owner would
+            // send it again, for ever.
+            return $this->badRequest(\in_array(
+                $file->getError(),
+                [\UPLOAD_ERR_INI_SIZE, \UPLOAD_ERR_FORM_SIZE],
+                true,
+            )
+                ? 'Le fichier est trop volumineux pour être envoyé.'
+                : "Le fichier n'est pas arrivé en entier. Réessayez.");
         }
 
         $size = $file->getSize();

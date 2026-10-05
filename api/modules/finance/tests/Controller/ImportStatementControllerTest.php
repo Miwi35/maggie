@@ -103,6 +103,37 @@ class ImportStatementControllerTest extends WebTestCase
         self::assertStringContainsString('identifiant de compte', $this->body()['error']);
     }
 
+    public function testAnUploadCutShortAsksForAnotherTry(): void
+    {
+        $this->loadFixtures('statement_import.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->post(
+            ['account' => (string) $this->account()->getId(), 'confirm' => '1'],
+            self::STATEMENT,
+            \UPLOAD_ERR_PARTIAL,
+        );
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertStringContainsString("n'est pas arrivé en entier", $this->body()['error']);
+    }
+
+    public function testAFilePhpItselfTurnedAwayIsNotOfferedARetry(): void
+    {
+        $this->loadFixtures('statement_import.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->post(
+            ['account' => (string) $this->account()->getId(), 'confirm' => '1'],
+            self::STATEMENT,
+            \UPLOAD_ERR_INI_SIZE,
+        );
+
+        self::assertResponseStatusCodeSame(400);
+        // "Retry" would send the owner round for ever on a file that cannot fit.
+        self::assertStringContainsString('trop volumineux', $this->body()['error']);
+    }
+
     public function testAFileTooLargeToBeAStatementIsRefusedBeforeBeingParsed(): void
     {
         $this->loadFixtures('statement_import.yaml');
@@ -243,8 +274,11 @@ class ImportStatementControllerTest extends WebTestCase
         self::assertSame($afterFirst, $this->countTransactions());
     }
 
-    /** @param array<string, string> $parameters */
-    private function post(array $parameters, string $csv): void
+    /**
+     * @param array<string, string> $parameters
+     * @param int                   $error      an `UPLOAD_ERR_*` PHP would have reported
+     */
+    private function post(array $parameters, string $csv, int $error = \UPLOAD_ERR_OK): void
     {
         $path = (string) tempnam(sys_get_temp_dir(), 'statement');
         file_put_contents($path, $csv);
@@ -254,7 +288,7 @@ class ImportStatementControllerTest extends WebTestCase
             'POST',
             self::ENDPOINT,
             $parameters,
-            ['file' => new UploadedFile($path, 'releve.csv', 'text/csv', null, true)],
+            ['file' => new UploadedFile($path, 'releve.csv', 'text/csv', $error, true)],
             $this->authHeaders(),
         );
     }

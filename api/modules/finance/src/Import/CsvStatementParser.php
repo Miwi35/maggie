@@ -22,9 +22,9 @@ class CsvStatementParser
     private const CURRENCY_COLUMNS = ['devise', 'currency', 'monnaie'];
 
     /**
-     * The `errors` are in French, unlike everything else here: they are shown
+     * The `errors` are in French, unlike the rest of this file: they are shown
      * to the owner — in the admin's import report and under the CLI's warnings
-     * — rather than logged, and they are the only strings this class hands out.
+     * — rather than logged. Same reason as the `Sans libellé` fallback below.
      *
      * @return array{rows: list<StatementRow>, errors: list<string>}
      */
