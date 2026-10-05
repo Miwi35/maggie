@@ -28,6 +28,7 @@
             "defaultUnit": "kg",
             "category": "grain",
             "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "ciqualAlimCode": "9810",
             "kcalPer100g": 340,
             "proteinPer100g": 12.5,
             "carbsPer100g": 71,

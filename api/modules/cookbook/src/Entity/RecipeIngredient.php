@@ -84,6 +84,11 @@ class RecipeIngredient
         return $this->ingredient->getName();
     }
 
+    public function getCiqualAlimCode(): ?string
+    {
+        return $this->ingredient->getCiqualAlimCode();
+    }
+
     public function getUnit(): Unit
     {
         return $this->unit;

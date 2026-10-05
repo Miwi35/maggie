@@ -25,8 +25,13 @@ const unitChoices = [
   { id: 'sachet', name: 'sachet' },
 ]
 
+const positive = (value?: number | null) =>
+  typeof value === 'number' && value > 0 ? undefined : 'La quantité doit être supérieure à 0'
+
+// Pessimistic: the form only shows the new quantity once the API has kept it, and
+// a refusal stays on screen instead of silently putting the old value back.
 export const RecipeEdit = () => (
-  <Edit>
+  <Edit mutationMode="pessimistic">
     <SimpleForm>
       <TextInput source="name" label="Nom" validate={required()} fullWidth />
       <NumberInput source="servings" label="Portions" />
@@ -35,7 +40,7 @@ export const RecipeEdit = () => (
       <ArrayInput source="ingredients" label="Ingrédients">
         <SimpleFormIterator inline>
           <CiqualFoodAutocomplete source="ciqualAlimCode" />
-          <NumberInput source="quantity" label="Quantité" sx={{ maxWidth: 120 }} />
+          <NumberInput source="quantity" label="Quantité" validate={[required(), positive]} sx={{ maxWidth: 120 }} />
           <SelectInput
             source="unit"
             label="Unité"

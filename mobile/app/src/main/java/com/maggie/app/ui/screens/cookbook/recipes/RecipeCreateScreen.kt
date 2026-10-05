@@ -60,6 +60,7 @@ import kotlinx.coroutines.flow.filter
 data class IngredientRow(
     val ciqualAlimCode: String = "",
     val ciqualFoodName: String = "",
+    val ingredientId: String = "",
     val quantity: String = "",
     val unit: CookbookUnit = CookbookUnit.G,
 )

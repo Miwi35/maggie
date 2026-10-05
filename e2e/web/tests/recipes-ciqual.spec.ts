@@ -209,6 +209,47 @@ test('a recipe created from the form carries the Ciqual food picked', async ({ p
   expect(stored.name).toBe(name)
 })
 
+/**
+ * MAG-255: the quantity of a Ciqual ingredient already in a recipe could not be
+ * changed. The form sent the line back as the API had served it — the
+ * ingredient embedded as an object — and the API only understood an IRI, so the
+ * save was refused and the old quantity stayed.
+ */
+test('the quantity of an ingredient already in a recipe can be changed', async ({ page, api }) => {
+  const headers = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
+  const name = perAttempt('Pâtes MAG-255')
+
+  const created = await api.post('/api/recipes', {
+    headers,
+    data: { name, servings: 2, ingredients: [{ ciqualAlimCode: COURGETTE.code, quantity: 200, unit: 'g' }] },
+  })
+  expect(created.status(), `POST /api/recipes answered ${created.status()}: ${await created.text()}`).toBe(201)
+  const iri = ((await created.json()) as { '@id': string })['@id']
+
+  const shell = new AdminShell(page)
+  await shell.goto(`${ROUTES.recipes}/${encodeURIComponent(iri)}`)
+
+  const quantity = shell.content.getByLabel('Quantité')
+  await expect(quantity).toHaveValue('200')
+  await quantity.fill('300')
+
+  const patched = page.waitForResponse(
+    (response) => response.url().includes(iri) && response.request().method() === 'PATCH',
+  )
+  await shell.content.getByRole('button', { name: 'Enregistrer' }).click()
+  const response = await patched
+  expect(response.status(), `the API refused the recipe: ${await response.text()}`).toBe(200)
+
+  // Kept on the API side, and still there after a reload.
+  await page.reload()
+  await expect(shell.content.getByLabel('Quantité')).toHaveValue('300')
+  const stored = (await (await api.get(iri, { headers: { Accept: 'application/ld+json' } })).json()) as {
+    ingredients: { quantity: number; ciqualAlimCode: string }[]
+  }
+  expect(stored.ingredients).toHaveLength(1)
+  expect(stored.ingredients[0]).toMatchObject({ quantity: 300, ciqualAlimCode: COURGETTE.code })
+})
+
 test('asking Maggie for a tag searches the recipes instead of crashing', async ({ otherUser }) => {
   // MAG-114 § 2: `searchByTags` used to run a `LIKE` against a JSON column, and
   // Postgres refuses that outright — so the call *failed*, it did not merely

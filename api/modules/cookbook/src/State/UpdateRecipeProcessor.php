@@ -21,7 +21,7 @@ class UpdateRecipeProcessor implements ProcessorInterface
 
     public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): Recipe
     {
-        $ingredients = $this->extractIngredients($context);
+        $ingredients = RecipeIngredientsPayload::fromContext($context);
 
         $envelope = $this->bus->dispatch(new UpdateRecipeCommand(
             recipeId: (string) $data->getId(),
@@ -34,45 +34,5 @@ class UpdateRecipeProcessor implements ProcessorInterface
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();
-    }
-
-    /**
-     * @param array<string, mixed> $context
-     *
-     * @return array<array{quantity: float, unit: string, ingredientId?: string, ciqualAlimCode?: string}>|null
-     */
-    private function extractIngredients(array $context): ?array
-    {
-        $request = $context['request'] ?? null;
-        if (null === $request) {
-            return null;
-        }
-
-        $body = json_decode($request->getContent(), true);
-        if (!isset($body['ingredients']) || !\is_array($body['ingredients'])) {
-            return null;
-        }
-
-        return array_map(fn (array $item) => [
-            'quantity' => (float) ($item['quantity'] ?? 0),
-            'unit' => $item['unit'] ?? 'g',
-            ...(null !== $this->extractId($item, 'ingredient') ? ['ingredientId' => $this->extractId($item, 'ingredient')] : []),
-            ...(isset($item['ciqualAlimCode']) && \is_string($item['ciqualAlimCode']) ? ['ciqualAlimCode' => $item['ciqualAlimCode']] : []),
-        ], $body['ingredients']);
-    }
-
-    /** @param array<string, mixed> $item */
-    private function extractId(array $item, string $key): ?string
-    {
-        if (!isset($item[$key]) || !\is_string($item[$key])) {
-            return null;
-        }
-
-        $iri = $item[$key];
-
-        // Extract ULID from IRI (e.g. "/api/ingredients/01HXYZ..." → "01HXYZ...")
-        $parts = explode('/', rtrim($iri, '/'));
-
-        return end($parts);
     }
 }

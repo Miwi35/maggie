@@ -37,11 +37,14 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.CiqualFood
 import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.Recipe
+import com.maggie.app.data.model.RecipeIngredient
 import com.maggie.app.data.repository.RecipeRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.addJsonObject
@@ -79,7 +82,9 @@ fun RecipeEditScreen(
             r.ingredients.forEach { ing ->
                 ingredientRows.add(
                     IngredientRow(
+                        ciqualAlimCode = ing.ciqualAlimCode ?: "",
                         ciqualFoodName = ing.ingredientName ?: "",
+                        ingredientId = ing.ingredientId(),
                         quantity = ing.quantity.toString(),
                         unit = ing.unit,
                     ),
@@ -179,10 +184,14 @@ fun RecipeEditScreen(
                             put("notes", notes.ifBlank { null })
                             putJsonArray("ingredients") {
                                 ingredientRows
-                                    .filter { it.ciqualAlimCode.isNotBlank() && it.quantity.isNotBlank() }
+                                    .filter { (it.ciqualAlimCode.isNotBlank() || it.ingredientId.isNotBlank()) && it.quantity.isNotBlank() }
                                     .forEach { row ->
                                         addJsonObject {
-                                            put("ciqualAlimCode", row.ciqualAlimCode)
+                                            if (row.ciqualAlimCode.isNotBlank()) {
+                                                put("ciqualAlimCode", row.ciqualAlimCode)
+                                            } else {
+                                                put("ingredientId", row.ingredientId)
+                                            }
                                             put("quantity", row.quantity.toFloatOrNull() ?: 0f)
                                             put("unit", row.unit.name.lowercase())
                                         }
@@ -199,4 +208,14 @@ fun RecipeEditScreen(
             }
         }
     }
+}
+
+/** The id of the ingredient a recipe line points at, whether the API embeds it or sends its IRI. */
+internal fun RecipeIngredient.ingredientId(): String {
+    val ref = when (val value = ingredient) {
+        is JsonObject -> (value["id"] as? JsonPrimitive)?.contentOrNull
+        is JsonPrimitive -> value.contentOrNull?.substringAfterLast('/')
+        else -> null
+    }
+    return ref.orEmpty()
 }
