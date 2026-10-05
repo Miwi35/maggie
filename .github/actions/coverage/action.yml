@@ -1,0 +1,48 @@
+name: Coverage ratchet
+description: >-
+  Read a component's coverage report, hold it against scripts/coverage/baseline.json
+  and keep the measure as an artifact for the pull request comment (MAG-105).
+
+inputs:
+  component:
+    description: api, agent, ciqual, admin or mobile
+    required: true
+  format:
+    description: clover, cobertura, vitest or jacoco
+    required: true
+  report:
+    description: Path of the report, relative to the repository root
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Measure and hold the ratchet
+      id: check
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        COMPONENT: ${{ inputs.component }}
+        FORMAT: ${{ inputs.format }}
+        REPORT: ${{ inputs.report }}
+      run: |
+        mkdir -p coverage-out
+        scripts/coverage/extract.sh "$COMPONENT" "$FORMAT" "$REPORT" > "coverage-out/$COMPONENT.json"
+        status=0
+        scripts/coverage/check.sh "coverage-out/$COMPONENT.json" | tee -a "$GITHUB_STEP_SUMMARY" || status=$?
+        echo "status=$status" >> "$GITHUB_OUTPUT"
+
+    # Uploaded whatever the verdict: the report of a drop is the one worth reading.
+    - name: Keep the measure for the report
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-${{ inputs.component }}
+        path: ${{ github.workspace }}/coverage-out/${{ inputs.component }}.json
+        retention-days: 7
+        # A re-run of the job is a new attempt of the same run: the name exists.
+        overwrite: true
+
+    - name: Fail when coverage dropped
+      if: steps.check.outputs.status != '0'
+      shell: bash
+      run: exit 1

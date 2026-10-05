@@ -88,6 +88,8 @@ yarn-error.log*
 api/var/coverage/
 admin/coverage/
 .phpunit.result.cache
+.coverage
+coverage.xml
 
 # =============================================================================
 # Kubernetes secrets (real values — only commit the .example)
@@ -109,6 +111,7 @@ infra/k8s/secrets.yaml
 /scripts/*
 !/scripts/prompt-lab/
 !/scripts/agent-guard/
+!/scripts/coverage/
 # JWT cached by `mcp-session.sh login`
 /scripts/prompt-lab/.token
 

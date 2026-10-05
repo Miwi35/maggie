@@ -110,6 +110,20 @@ mounts the main checkout — it would test the wrong code. Use `task wt:test:api
 a throwaway Postgres and this worktree's code. See
 [global/worktree-checks](worktree-checks.md).
 
+**Coverage may not drop (MAG-105).** Every test job measures its component's line coverage
+— PHPUnit with pcov, pytest-cov (agent, ciqual), Vitest v8, Kover (mobile) — and fails when
+it falls more than 0.10 point under its entry in `scripts/coverage/baseline.json`. No absolute
+threshold: the baseline is what the component already has, and it only moves up. A comment on
+the PR shows each component against its baseline (one from `ci.yml`, one from `mobile.yml`).
+
+- Red `Coverage dropped`: test what you changed. Deleting well-tested code can lower the
+  percentage legitimately — then lower the entry in `baseline.json` in the same PR and say why
+  in the description; the diff is the audit trail.
+- Gain: once CI is green, `task coverage:ratchet -- <pr>` raises the baseline to what CI
+  measured; commit the file. Not required, but unraised gains are room to erode.
+- A component with no entry passes as `new` until the first `coverage:ratchet`.
+- The scripts and their tests: `scripts/coverage/`, `infra/scripts/tests/coverage.test.sh`.
+
 ### 5. Documentation up to date (ADR-006)
 
 Delivering an implementation spec means updating, in Linear: the **module's functional
@@ -139,6 +153,7 @@ Entry point: the team document « Index de la documentation Maggie ».
 
 ## Rules
 
+- Coverage is measured by CI, not locally: the ratchet compares like with like (pcov, not Xdebug)
 - Never run test commands on host — always via `task` or Docker
 - CI runs lint before tests (lint gates test jobs)
 - `MESSENGER_TRANSPORT_DSN=sync://` in test env — no RabbitMQ needed

@@ -15,6 +15,7 @@ on:
       - 'api/contract/**'
       - 'agent/contract/**'
       - '.github/workflows/mobile.yml'
+      - '.github/actions/coverage/**'
   # Not on a draft (MAG-243); `ready_for_review` starts it.
   pull_request:
     branches: [main]
@@ -24,6 +25,7 @@ on:
       - 'api/contract/**'
       - 'agent/contract/**'
       - '.github/workflows/mobile.yml'
+      - '.github/actions/coverage/**'
   # The nightly run (MAG-96) calls this workflow, paths or not.
   workflow_call:
 
@@ -50,4 +52,42 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       # The variant that ships, not the dev debug one: three CI fixes came from
       # the gap between what was tested and what was delivered (MAG-96).
-      - run: ./gradlew :app:testProdReleaseUnitTest -Dorg.gradle.java.home="$JAVA_HOME"
+      #
+      # Kover runs that same test task and reads the line coverage off it (MAG-105).
+      - run: ./gradlew :app:koverXmlReportProdRelease -Dorg.gradle.java.home="$JAVA_HOME"
+      - uses: ./.github/actions/coverage
+        with:
+          component: mobile
+          format: jacoco
+          report: mobile/app/build/reports/kover/reportProdRelease.xml
+
+  # The mobile figure's own comment: this workflow only runs when the app or the
+  # contracts change, so it cannot share the one `ci.yml` posts. The ratchet is
+  # enforced in `test` above; this job never fails the run.
+  coverage-report:
+    name: Coverage report
+    needs: test
+    if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: coverage-*
+          path: coverage-out
+          merge-multiple: true
+      - name: Comment the report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          if ! compgen -G 'coverage-out/*.json' > /dev/null; then
+            echo "No component measured on this change."
+            exit 0
+          fi
+          scripts/coverage/report.sh 'Coverage — mobile' coverage-report-mobile coverage-out | tee report.md >> "$GITHUB_STEP_SUMMARY"
+          scripts/coverage/comment.sh "$PR" coverage-report-mobile report.md

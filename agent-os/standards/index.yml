@@ -46,7 +46,7 @@ global:
   taskfile:
     description: Task runner rules — Docker-first enforcement, naming, quick reference
   testing:
-    description: Definition of done and cross-component testing strategy — required coverage per unit touched, mandatory e2e journey, red-first bug fixes, pyramid, run commands
+    description: Definition of done and cross-component testing strategy — required coverage per unit touched, mandatory e2e journey, red-first bug fixes, coverage ratchet (baseline.json, task coverage:ratchet), pyramid, run commands
 
 mobile:
   android-app:

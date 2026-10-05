@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.kover)
     alias(libs.plugins.google.services) apply false
 }
 
@@ -126,6 +127,23 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+}
+
+// Line coverage of the unit tests (MAG-105), read by scripts/coverage/. Generated
+// code is left out: nobody writes a test for it and it would only dilute the figure.
+kover {
+    reports {
+        filters {
+            excludes {
+                classes(
+                    "*.BuildConfig",
+                    "*_Impl",
+                    "*_Impl\$*",
+                    "*ComposableSingletons*",
+                )
+            }
+        }
     }
 }
 

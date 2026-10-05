@@ -50,8 +50,10 @@ tasks:
 
   test:coverage:
     desc: Run tests with coverage report
+    # The dev image's Xdebug is set to develop,debug; coverage needs its own mode.
+    # CI measures with pcov (the ratchet reads that figure, see scripts/coverage/).
     cmds:
-      - docker compose -f {{.COMPOSE_FILE}} exec php bin/phpunit --coverage-html var/coverage
+      - docker compose -f {{.COMPOSE_FILE}} exec -e XDEBUG_MODE=coverage php bin/phpunit --coverage-html var/coverage
 
   # ===========================================================================
   # Code Quality
