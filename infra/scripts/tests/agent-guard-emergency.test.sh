@@ -33,7 +33,7 @@ waive() {
 }
 calls() { wc -l < "$work/api/requests"; }
 
-INFRA=$'infra-path: infra/k8s/php-deployment.yaml\ninfra-path: .github/workflows/cd.yml\ninfo: 12 counted lines, limit 800'
+INFRA=$'infra-path: infra/k8s/php-deployment.yaml\ninfra-path: .github/workflows/main.yml\ninfo: 12 counted lines, limit 800'
 ticket_in MAG-184 Emergency
 ticket_in MAG-150 "In Progress"
 
@@ -51,7 +51,7 @@ printf '\n\033[1mAnything else still needs a human\033[0m\n'
 waive cyrus/mag-150-recipe-filter "$INFRA"
 [ "$STATUS" -ne 0 ] && ok "a ticket not in « Emergency »" || bad "waived: $OUTPUT"
 echo "$OUTPUT" | grep -q 'MAG-150 is in « In Progress »' && ok "says where it is" || bad "unclear: $OUTPUT"
-for other in 'sensitive-path: .github/workflows/cd.yml: uses a secret' 'permissions: .github/workflows/cd.yml:   contents: write' \
+for other in 'sensitive-path: .github/workflows/main.yml: uses a secret' 'permissions: .github/workflows/main.yml:   contents: write' \
   'sensitive-path: scripts/agent-guard/check.sh' 'sensitive-path: agent/data/policy.yaml' \
   'destructive-migration: api/migrations/Version1.php: DROP TABLE x' 'disabled-test: api/tests/FooTest.php' \
   'no-verify: scripts/x.sh' 'oversize: 900 lines outside tests, limit 800: split the ticket' \
@@ -69,7 +69,7 @@ CHECK="$HERE/../../../scripts/agent-guard/check.sh"
 diff_of() { printf 'diff --git a/%s b/%s\n--- a/%s\n+++ b/%s\n@@ -1 +1 @@\n+%s\n' "$1" "$1" "$1" "$1" "$2"; }
 waive cyrus/mag-184-fix-the-deploy "$(diff_of infra/k8s/php-deployment.yaml 'image: x' | "$CHECK")"
 [ "$STATUS" -eq 0 ] && ok "a k8s manifest fix is waived" || bad "exit $STATUS — $OUTPUT"
-waive cyrus/mag-184-fix-the-deploy "$( { diff_of .github/workflows/cd.yml '    secrets: inherit'; } | "$CHECK")"
+waive cyrus/mag-184-fix-the-deploy "$( { diff_of .github/workflows/main.yml '    secrets: inherit'; } | "$CHECK")"
 [ "$STATUS" -ne 0 ] && ok "a workflow reaching for secrets is not" || bad "waived: $OUTPUT"
 waive cyrus/mag-184-fix-the-deploy "$(diff_of infra/scripts/incident-gate.sh 'exit 0' | "$CHECK")"
 [ "$STATUS" -ne 0 ] && ok "loosening the freeze is not" || bad "waived: $OUTPUT"

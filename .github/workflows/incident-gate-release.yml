@@ -1,16 +1,19 @@
 name: Incident gate release
 
-# Once production is no longer frozen (MAG-184), re-runs the red `Incident gate`
-# of every open PR, so their auto-merge fires on its own. A freeze lifts when the
-# fix merges or deploys (CD), or when someone closes an incident ticket by hand:
-# the schedule catches that last case, the CD trigger makes the usual one quick.
+# The hourly safety net of the freeze (MAG-184, MAG-244). The usual release is the
+# last job of main.yml: a green deploy lifts the freeze and, right after, re-runs
+# the red `Incident gate` of every open PR, so their auto-merge fires on its own.
+# What that job cannot see is a freeze lifted by hand — someone closes an incident
+# ticket or moves an « Emergency » ticket out — so this re-runs the same script,
+# which does nothing while production is frozen. It was every ten minutes (144
+# lines a day in the Actions list) for what is a rare, manual case: a PR held for
+# up to an hour then, and `workflow_dispatch` releases it at once.
+
+run-name: Gel d'incident · filet de sécurité horaire
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
-  workflow_run:
-    workflows: [CD]
-    types: [completed]
+    - cron: "11 * * * *"
   workflow_dispatch:
 
 permissions:

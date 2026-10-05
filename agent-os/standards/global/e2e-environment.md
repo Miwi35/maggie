@@ -347,7 +347,7 @@ their [README](../../../scripts/prompt-lab/scenarios/README.md) is the format.
 `task e2e:eval` restarts the agent on `LLM_PROVIDER=anthropic` and puts the fake
 back afterwards, even on failure.
 
-It runs nightly and on demand (`.github/workflows/eval.yml`), never in CI: a
+It runs nightly and on demand (the `eval` job of `.github/workflows/nightly.yml`), never in CI: a
 prompt regression is a signal, not a merge blocker. **An assertion that would
 hold with any plausible wording belongs in a journey with the fake instead** —
 cheaper, deterministic, and it runs on every PR.

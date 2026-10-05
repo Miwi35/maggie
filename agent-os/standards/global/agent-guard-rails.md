@@ -4,7 +4,7 @@ Agents take tickets unattended and merging deploys to production. These rails de
 
 ## What needs a human
 
-`scripts/agent-guard/check.sh` reads a diff and prints one `code: why` per finding (exit 10 = a human merges). `.github/workflows/agent-guard.yml` runs it on every ready PR (never a draft: it starts at `ready_for_review`, MAG-243), on each new commit, and again when auto-merge is switched on, from the default branch's code (`pull_request_target`, the PR is never checked out: a PR cannot edit its own guard).
+`scripts/agent-guard/check.sh` reads a diff and prints one `code: why` per finding (exit 10 = a human merges). It runs as the `Sensitive changes and limits` job of the pull-request pipeline (`ci.yml`, MAG-244: one line per push; never on a draft, it starts at `ready_for_review`, MAG-243) and again from `.github/workflows/agent-guard.yml` when auto-merge is switched on, from the default branch's code (`pull_request_target`, the PR is never checked out: a PR cannot edit that guard — the copy in `ci.yml` runs the PR's own scripts, so this second one is what holds).
 
 | Code | Trips when the diff… |
 |---|---|
@@ -22,7 +22,7 @@ Before turning on auto-merge: `task guard:check -- <pr>`. Anything but exit 0 �
 
 ## Two red CI runs in a row
 
-The `streak` job of the same workflow counts the CI verdicts of an agent branch (`cyrus/*`), one per commit, cancelled runs ignored (`scripts/agent-guard/ci-streak.sh`). Two reds: auto-merge off, `needs-human`, a PR comment. The session stops and comments the failure on the ticket.
+The `Two red runs in a row` job of `ci.yml` (it runs last and counts its own run as the red it is about to be) counts the CI verdicts of an agent branch (`cyrus/*`), one per commit, cancelled runs ignored (`scripts/agent-guard/ci-streak.sh`). Two reds: auto-merge off, `needs-human`, a PR comment. The session stops and comments the failure on the ticket.
 
 ## Emergency stop
 

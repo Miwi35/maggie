@@ -1,22 +1,35 @@
-name: CI
+name: Pull request
+
+# One line per push on a pull request (MAG-244): this workflow is the whole
+# pipeline of a PR — path detection, the agent guard, the CI jobs, the mobile
+# unit tests, the incident gate and the two-reds streak. A job that has nothing to
+# do is skipped, not a workflow. Job names are the required checks, so they do
+# not change when a job moves here.
+#
+# `main.yml` (a merge) and `nightly.yml` call it with `workflow_call`: the night
+# runs every job, a merge applies the path filters, and neither runs the jobs that
+# only mean something on a pull request (guard, Incident gate, streak).
+run-name: >-
+  ${{ github.event_name == 'pull_request'
+      && format('PR #{0} · {1}', github.event.pull_request.number, github.event.pull_request.title)
+      || 'CI' }}
 
 on:
-  push:
-    branches: [main]
   # A draft pull request runs nothing (MAG-243): the merge train opens agent PRs as
   # drafts and the dispatcher marks one ready when its turn comes, which is what
   # starts this workflow (`ready_for_review`). Every job below hangs on `changes`,
-  # which is skipped for a draft; the three that run `if: always()` carry the
+  # which is skipped for a draft; the ones that run `if: always()` carry the
   # condition themselves.
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
-  # The nightly run (MAG-96) calls this workflow: every job, whatever changed.
+  # `main.yml` and the nightly run (MAG-96) call this workflow: the night runs
+  # every job, a merge applies the path filters.
   workflow_call:
 
 concurrency:
-  # `github.workflow` is the caller's name in a called workflow, so the nightly
-  # run never shares a group with the push run on the same ref.
+  # `github.workflow` is the caller's name in a called workflow, so the nightly and
+  # main runs never share a group with a pull request on the same ref.
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
@@ -33,6 +46,7 @@ jobs:
       e2e: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.code.outputs.e2e == 'true' }}
       mobile: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.code.outputs.mobile == 'true' }}
       cron: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.cron == 'true' }}
+      mobile_unit: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.mobile_unit == 'true' }}
       # The emulators the Maestro journeys run on (MAG-98). One phone on a pull
       # request — an emulator costs minutes and the layout formats are not what a
       # feature branch usually breaks — and the three formats MAG-35 and MAG-91
@@ -96,6 +110,18 @@ jobs:
               # as a red nightly at 03:17 that looks like a prompt regression.
               - 'scripts/prompt-lab/**'
               - 'docker-compose.e2e.yml'
+              - '.github/workflows/ci.yml'
+            # The unit tests of the release variant (formerly mobile.yml). The DTO
+            # and Mercure-topic contract tests read api/contract/ and
+            # agent/contract/, which the API and agent suites generate: a change
+            # there is a change to what the app receives, so it runs these tests —
+            # filtered on mobile/** alone, the one job that would have caught it is
+            # the one that does not run.
+            mobile_unit:
+              - 'mobile/**'
+              - 'api/contract/**'
+              - 'agent/contract/**'
+              - '.github/actions/coverage/**'
               - '.github/workflows/ci.yml'
             # The emulator journeys (MAG-98). The app and the flows, obviously —
             # and the stack too, because what these catch is the app against a
@@ -360,11 +386,11 @@ jobs:
   # One comment on the pull request with every component's coverage against its
   # baseline (MAG-105), updated on each push. The ratchet itself is enforced in
   # the test jobs above, so this job never fails the run: a comment that cannot
-  # be posted (a fork's read-only token) is a warning. The mobile figure has its
-  # own comment, from mobile.yml, which does not run on every change.
+  # be posted (a fork's read-only token) is a warning. A component that did not
+  # run on this change has no measure and is left out of the comment.
   coverage-report:
     name: Coverage report
-    needs: [api-test, agent-test, ciqual-test, admin-test]
+    needs: [api-test, agent-test, ciqual-test, admin-test, mobile-unit]
     if: ${{ !cancelled() && github.event_name == 'pull_request' && !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     permissions:
@@ -388,7 +414,7 @@ jobs:
             echo "No component measured on this change."
             exit 0
           fi
-          scripts/coverage/report.sh 'Coverage — API, agent, ciqual, admin' coverage-report-ci coverage-out | tee report.md >> "$GITHUB_STEP_SUMMARY"
+          scripts/coverage/report.sh 'Coverage — API, agent, ciqual, admin, mobile' coverage-report-ci coverage-out | tee report.md >> "$GITHUB_STEP_SUMMARY"
           scripts/coverage/comment.sh "$PR" coverage-report-ci report.md
 
   # The Playwright journeys in four shards (MAG-180), each on a stack of its own
@@ -419,7 +445,7 @@ jobs:
       COMPOSE_PROJECT_NAME: maggie-e2e-ci-${{ github.run_id }}-${{ github.run_attempt }}
       E2E_LOGIN_TOKEN: ci-e2e-login-token
     steps:
-      # `lfs: true`, like `build-ciqual` in cd.yml and for the same reason:
+      # `lfs: true`, like `build-ciqual` in main.yml and for the same reason:
       # `ciqual/data/ciqual/compo.xml` is 69 MB and stored in Git LFS, and a
       # plain checkout leaves a pointer file in its place. `task e2e:up` builds
       # the food base out of it (MAG-101), and a pointer makes that die on
@@ -697,7 +723,7 @@ jobs:
           overwrite: true
 
   # The e2e flavor's unit tests, beside the shards rather than before them:
-  # `mobile.yml` runs the prod variant, where `src/e2e/` does not exist, so
+  # the `mobile-unit` job runs the prod variant, where `src/e2e/` does not exist, so
   # `E2eSignInTest` only ever runs here. Cheap, and it is the test that says the
   # login posts its token before an emulator says "the dashboard never came".
   #
@@ -1010,17 +1036,149 @@ jobs:
           IMAGE: maggie-php-cron-test:ci
         run: bash infra/scripts/tests/cron-image.test.sh
 
+  # The unit tests of the app as it ships (formerly the `Mobile CI` workflow, a
+  # second line per push). Behind `changes` like every other job: skipped when
+  # nothing the app reads moved.
+  mobile-unit:
+    name: Mobile Unit Tests (release)
+    needs: changes
+    if: needs.changes.outputs.mobile_unit == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      # The variant that ships, not the dev debug one: three CI fixes came from
+      # the gap between what was tested and what was delivered (MAG-96).
+      #
+      # Kover runs that same test task and reads the line coverage off it (MAG-105).
+      - run: ./gradlew :app:koverXmlReportProdRelease -Dorg.gradle.java.home="$JAVA_HOME"
+      - uses: ./.github/actions/coverage
+        with:
+          component: mobile
+          format: jacoco
+          report: mobile/app/build/reports/kover/reportProdRelease.xml
+
+  # Guard rails of the autonomous agent (MAG-128). Not a required check: a pull
+  # request that trips a rail is not blocked, it is handed to a human — labelled
+  # `needs-human`, auto-merge switched off, the reason in a comment. The diff
+  # touches infra, the CD, secrets, auth, permissions, a destructive migration or
+  # policy.yaml; is bigger than the limit; disables a test or skips the hooks
+  # (scripts/agent-guard/check.sh). AGENT_ENABLED=false hands every agent pull
+  # request over. The fix of an « Emergency » ticket merges its infra change alone
+  # (emergency.sh, MAG-184).
+  #
+  # This job runs the pull request's own copy of the scripts, so a PR could edit
+  # its own guard: `agent-guard.yml` re-runs the same check from the default
+  # branch when auto-merge is switched on, which is the one that cannot be edited.
+  guard:
+    name: Sensitive changes and limits
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      PR: ${{ github.event.pull_request.number }}
+      BRANCH: ${{ github.event.pull_request.head.ref }}
+      AGENT_ENABLED: ${{ vars.AGENT_ENABLED }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the diff
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+        run: |
+          status=0
+          if gh pr diff "$PR" > diff.patch; then
+            scripts/agent-guard/check.sh < diff.patch > findings.txt || status=$?
+          else
+            # GitHub renders no diff above 20 000 lines.
+            echo "oversize: the diff is too large for GitHub to render, split the ticket" > findings.txt
+            status=10
+          fi
+          if [ "$AGENT_ENABLED" = false ] && [[ "$BRANCH" == cyrus/* ]]; then
+            echo "agent-disabled: AGENT_ENABLED is false, the autonomous agent is stopped" >> findings.txt
+            status=10
+          fi
+          [ "$status" -eq 0 ] || [ "$status" -eq 10 ] || exit "$status"
+          # The fix of an « Emergency » ticket merges its infra change alone; any
+          # other finding, or any doubt, still goes to a human.
+          if [ "$status" -eq 10 ] && scripts/agent-guard/emergency.sh "$BRANCH" < findings.txt > waived.txt; then
+            mv waived.txt findings.txt
+            status=0
+          fi
+          grep -v '^info: ' findings.txt > reasons.txt || true
+          echo "status=$status" >> "$GITHUB_ENV"
+
+      - name: Hand over to a human
+        if: env.status == '10'
+        run: |
+          {
+            echo "A human has to merge this pull request: auto-merge is off and \`needs-human\` is set."
+            echo
+            sed 's/^/- /' reasons.txt
+          } | scripts/agent-guard/hand-over.sh "$PR" guard
+
+  # Two red runs in a row on an agent branch: the agent gives up (MAG-128). Runs
+  # once every other job has ended, so the run in progress counts as the red it is
+  # about to be; the earlier runs come from the API.
+  streak:
+    name: Two red runs in a row
+    needs: [changes, api-lint, agent-lint, ciqual-lint, admin-lint, api-test, agent-test, ciqual-test, admin-test, mobile-unit, e2e-stack, e2e-mobile, cron-image, infra-scripts]
+    if: >-
+      always() && github.event_name == 'pull_request' && !github.event.pull_request.draft
+      && startsWith(github.head_ref, 'cyrus/') && contains(needs.*.result, 'failure')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      PR: ${{ github.event.pull_request.number }}
+      BRANCH: ${{ github.head_ref }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      RUN_ID: ${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Give up after the second red run
+        run: |
+          [ "$(gh pr view "$PR" --json state -q .state)" = OPEN ] || exit 0
+          runs="$(gh run list --workflow ci.yml --branch "$BRANCH" --event pull_request --limit 20 --json conclusion,headSha,databaseId \
+            | jq -c --arg sha "$HEAD_SHA" --argjson id "$RUN_ID" '[{conclusion: "failure", headSha: $sha}] + map(select(.databaseId != $id))')"
+          status=0
+          shas="$(scripts/agent-guard/ci-streak.sh <<< "$runs")" || status=$?
+          [ "$status" -eq 10 ] || exit "$status"
+          {
+            echo "CI was red twice in a row (${shas//$'\n'/, }): the agent gives up, a human takes over."
+            echo "Failing job logs: \`gh run view --log-failed\`."
+          } | scripts/agent-guard/hand-over.sh "$PR" ci-streak
+
   # While production is frozen (MAG-184) — a ticket in « Emergency » after a
   # failed deploy, or an open `incident` ticket — only the PR that carries one
   # of those keys may merge. A required check; it fails closed when Linear does
-  # not answer, and incident-gate-release.yml re-runs it once the freeze lifts.
+  # not answer, and the last job of main.yml (or the hourly incident-gate-release.yml)
+  # re-runs it once the freeze lifts.
   #
   # It runs last, after every other job: checked at the start, it could pass a
   # PR whose slow jobs end after a deploy failed, and the armed auto-merge would
   # merge it into a frozen production. Last, that window shrinks to seconds.
   incident-gate:
     name: Incident gate
-    needs: [changes, api-lint, agent-lint, ciqual-lint, admin-lint, api-test, agent-test, ciqual-test, admin-test, e2e-stack, e2e-mobile, cron-image, infra-scripts]
+    needs: [changes, api-lint, agent-lint, ciqual-lint, admin-lint, api-test, agent-test, ciqual-test, admin-test, mobile-unit, e2e-stack, e2e-mobile, cron-image, infra-scripts]
     if: always() && github.event_name == 'pull_request' && !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -1044,8 +1202,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Lint workflows
         run: |
-          docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:latest -color -ignore 'SC2129' .github/workflows/cd.yml .github/workflows/ci.yml \
-            .github/workflows/mobile.yml .github/workflows/nightly.yml .github/workflows/agent-guard.yml \
+          docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:latest -color -ignore 'SC2129' .github/workflows/ci.yml \
+            .github/workflows/main.yml .github/workflows/nightly.yml .github/workflows/agent-guard.yml \
             .github/workflows/incident-gate-release.yml
       - name: Lint shell scripts
         run: |
