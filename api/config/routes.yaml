@@ -5,3 +5,8 @@ controllers:
 api_refresh_token:
     path: /api/token/refresh
     methods: [POST]
+
+# Handled by the logout listener of the same firewall.
+api_token_invalidate:
+    path: /api/token/invalidate
+    methods: [POST]

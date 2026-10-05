@@ -18,10 +18,14 @@ security:
             stateless: true
             security: false
         token_refresh:
-            pattern: ^/api/token/refresh
+            pattern: ^/api/token/(refresh|invalidate)$
             stateless: true
             refresh_jwt:
                 check_path: /api/token/refresh
+            # Signing out deletes the refresh token and clears its cookie; the
+            # bundle's listener on this firewall does both, with no JWT needed.
+            logout:
+                path: api_token_invalidate
         bank_callback:
             # The user comes back from their bank carrying no token of ours.
             # What authenticates the answer is the single-use state we handed
@@ -36,7 +40,7 @@ security:
 
     access_control:
         - { path: ^/api/auth, roles: PUBLIC_ACCESS }
-        - { path: ^/api/token/refresh, roles: PUBLIC_ACCESS }
+        - { path: ^/api/token/(refresh|invalidate)$, roles: PUBLIC_ACCESS }
         - { path: ^/api/calendar/google/webhook, roles: PUBLIC_ACCESS }
         - { path: ^/api/finance/bank-callback, roles: PUBLIC_ACCESS }
         - { path: ^/api/docs, roles: PUBLIC_ACCESS }

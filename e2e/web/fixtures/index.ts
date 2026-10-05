@@ -87,6 +87,16 @@ export interface MaggieFixtures {
    * refuses — the two regressions behind e799109 and a163dcb.
    */
   pageWithToken: (token: string) => Promise<Page>
+  /**
+   * A tab signed in with a login of its own — its own refresh token — and
+   * optionally an access token other than the one the server issued.
+   *
+   * The refresh token is single-use, so a journey that spends it cannot share
+   * the worker's memoised session: the next journey would present a token the
+   * server has already burned. The `session` it returns carries the cookies
+   * as they were issued, to replay one after the browser has moved on.
+   */
+  pageWithOwnSession: (accessToken?: string) => Promise<{ page: Page; session: Session }>
 }
 
 /**
@@ -237,6 +247,29 @@ export const test = base.extend<MaggieFixtures>({
       contexts.push(context)
 
       return context.newPage()
+    })
+
+    await Promise.all(contexts.map((context) => context.close()))
+  },
+
+  pageWithOwnSession: async ({ browser, baseURL, contextOptions }, use) => {
+    const url = requireBaseURL(baseURL)
+    const contexts: BrowserContext[] = []
+
+    await use(async (accessToken?: string) => {
+      const own = await signIn(url, SEED_USER_EMAIL)
+      const state = storageStateOf(url, own)
+      if (accessToken) {
+        state.origins[0].localStorage = state.origins[0].localStorage.map((entry) =>
+          'token' === entry.name ? { ...entry, value: accessToken } : entry,
+        )
+      }
+
+      const context = await browser.newContext({ ...contextOptions, storageState: state })
+      await isolateFromInternet(context, url)
+      contexts.push(context)
+
+      return { page: await context.newPage(), session: own }
     })
 
     await Promise.all(contexts.map((context) => context.close()))

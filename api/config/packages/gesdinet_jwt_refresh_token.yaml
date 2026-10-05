@@ -5,3 +5,19 @@ gesdinet_jwt_refresh_token:
     # Rotate the refresh token on every use; the old one is invalidated.
     single_use: true
     token_parameter_name: refresh_token
+    # The web admin never holds the refresh token in JS: it rides an httpOnly
+    # cookie that only the two token routes ever receive. The body keeps
+    # carrying it for the mobile app, which has no cookie jar to rely on.
+    cookie:
+        enabled: true
+        same_site: strict
+        path: /api/token
+        secure: true
+        http_only: true
+        remove_token_from_body: false
+
+# The e2e stack is plain HTTP: a Secure cookie would be dropped by the browser.
+when@e2e:
+    gesdinet_jwt_refresh_token:
+        cookie:
+            secure: false

@@ -18,23 +18,26 @@ import {
 } from './auth/authProvider'
 import { LoginPage } from './auth/LoginPage'
 import { LoadingPage } from './auth/LoadingPage'
+import { clearSession, getToken, installAuthRefresh, sessionAwaitsNetwork, startSessionKeeper } from './auth/session'
 import type { HttpClientOptions } from '@api-platform/admin'
 
 // Handle OAuth callback params before React renders
 handleAuthCallback()
 routeVisitorWithoutSessionToLogin()
+installAuthRefresh()
+startSessionKeeper()
 
 const entrypoint = import.meta.env.VITE_API_URL || 'http://localhost/api'
 
 const i18nProvider = polyglotI18nProvider(() => messages, 'fr')
 
 const getAuthHeaders = (): HeadersInit => {
-  const token = localStorage.getItem('token')
+  const token = getToken()
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 const httpClient = (url: URL, options: HttpClientOptions = {}) => {
-  const token = localStorage.getItem('token')
+  const token = getToken()
   if (token) {
     options.user = { authenticated: true, token: `Bearer ${token}` }
   }
@@ -46,9 +49,8 @@ const apiDocumentationParser = async (entrypointUrl: string) => {
     return await parseHydraDocumentation(entrypointUrl, { headers: getAuthHeaders })
   } catch (error) {
     const status = (error as { status?: number }).status
-    if (status === 401 || status === 403) {
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
+    if ((status === 401 || status === 403) && !sessionAwaitsNetwork()) {
+      clearSession()
       window.location.reload()
       throw error
     }
