@@ -383,6 +383,17 @@ fun NavGraph() {
         navController.navigate(route) { launchSingleTop = true }
     }
 
+    // The panel only suppresses the sheet, so the request would survive it: open the
+    // chat on a tablet in portrait, turn to landscape (the sheet gives way to the
+    // panel), then open Paramètres — the panel goes and the sheet would come back
+    // over the settings. Same for a drawer left open when the rail replaces it.
+    LaunchedEffect(chrome.showsChatPanel) {
+        if (chrome.showsChatPanel && !voiceModeActive) showChatSheet = false
+    }
+    LaunchedEffect(chrome.showsRail) {
+        if (chrome.showsRail) drawerState.close()
+    }
+
     // The mic: voice mode needs the permission first, and it always opens the sheet —
     // even behind the panel, which has no push-to-talk bar of its own.
     fun startVoiceMode() {

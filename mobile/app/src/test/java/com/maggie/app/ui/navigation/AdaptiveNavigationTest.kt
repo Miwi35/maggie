@@ -66,13 +66,21 @@ class AdaptiveNavigationTest {
         assertFalse(chrome.showsChatBar)
     }
 
+    /**
+     * Paramètres and Finance are both rail entries that are not main screens, so
+     * both take the whole width and lose the rail. That is today's behaviour on a
+     * phone — each screen brings its own back arrow — and it is written down in
+     * `plan.md` rather than left to be discovered on a tablet.
+     */
     @Test
-    fun `a detail route keeps the whole width, with no rail and no panel`() {
-        val chrome = chromeFor(tabletLandscape, Screen.Settings.route)
+    fun `a rail entry that is not a main screen keeps the whole width`() {
+        listOf(Screen.Settings.route, Screen.FinanceDashboard.route).forEach { route ->
+            val chrome = chromeFor(tabletLandscape, route)
 
-        assertFalse(chrome.showsRail)
-        assertFalse(chrome.showsChatPanel)
-        assertFalse(chrome.showsChatBar)
+            assertFalse("$route should not keep the rail", chrome.showsRail)
+            assertFalse("$route should not keep the panel", chrome.showsChatPanel)
+            assertFalse("$route should not keep the bar", chrome.showsChatBar)
+        }
     }
 
     @Test

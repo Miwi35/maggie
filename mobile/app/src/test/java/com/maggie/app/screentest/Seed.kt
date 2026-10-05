@@ -1,6 +1,7 @@
 package com.maggie.app.screentest
 
 import com.maggie.app.data.model.Category
+import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.GroceryList
@@ -142,6 +143,32 @@ object Seed {
         totalCents = -45700,
         direction = "debit",
         samples = listOf("LECLERC RENNES", "LECLERC RENNES", "LECLERC RENNES"),
+    )
+
+    // ---------------------------------------------------------------------
+    // The conversation the chat surfaces draw (MAG-35)
+    // ---------------------------------------------------------------------
+
+    /**
+     * Two turns of a conversation, the same one the sheet and the panel draw.
+     *
+     * Fixed instants, not `now()`: the panel groups its bubbles under a date
+     * separator, and a history straddling midnight would draw two on one run out
+     * of twenty-four. The same morning as the grocery fixtures above.
+     */
+    val conversation: List<ChatMessage> = listOf(
+        ChatMessage(
+            id = "msg-ask",
+            role = "user",
+            content = "Qu'est-ce qu'il me reste à acheter ?",
+            createdAt = "2026-01-05T09:00:00Z",
+        ),
+        ChatMessage(
+            id = "msg-answer",
+            role = "assistant",
+            content = "Des poireaux et des câpres aux Halles du voisin.",
+            createdAt = "2026-01-05T09:00:04Z",
+        ),
     )
 
     private fun item(

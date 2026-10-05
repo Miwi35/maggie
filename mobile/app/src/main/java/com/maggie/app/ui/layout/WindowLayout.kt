@@ -13,18 +13,13 @@ import androidx.compose.ui.unit.dp
  * reads the same on the 280 dp cover screen of a Flip and on a 1280 dp tablet in
  * landscape, where half the window is a menu nobody needs.
  *
- * The decision is [appLayoutFor], a function of two integers — not a composable, not
- * `calculateWindowSizeClass(activity)`. The ticket asks for six formats to be
+ * The decision is [appLayoutFor], a function of two integers — not a composable and
+ * not `calculateWindowSizeClass(activity)`. The ticket asks for six formats to be
  * *verified* without buying a phone, so the whole rule has to be readable by a test
- * that names a format and asserts what the app makes of it:
- *
- * ```kotlin
- * assertEquals(RAIL, appLayoutFor(800, 1280).navigation)   // tablet, portrait
- * ```
- *
- * `rememberAppLayout()` is the same function over `LocalConfiguration`, which is
- * what Robolectric's `qualifiers` drive — so the screen tests exercise the same
- * breakpoints a second time, through the real composition.
+ * that names a format: `appLayoutFor(800, 1280).navigation == RAIL` is the tablet in
+ * portrait. [rememberAppLayout] is the same function over `LocalConfiguration`,
+ * which is what Robolectric's `qualifiers` and `@Preview`'s `widthDp` both write —
+ * so the previews and the screen tests go through this rule rather than a copy.
  */
 data class AppLayout(
     val width: WindowWidth,

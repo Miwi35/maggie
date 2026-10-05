@@ -28,15 +28,12 @@ import com.maggie.app.ui.theme.MaggieTheme
 /**
  * The six formats of MAG-35, in one annotation.
  *
- * The owner has no foldable and no tablet — the « Z Flip » ticket was deleted for
- * that reason — so these are how the layout is looked at: open a composable
- * annotated with this in Android Studio and the six windows render side by side.
- * The same numbers are asserted on the JVM in `WindowLayoutTest` and
- * `AppShellScreenTest`, so a preview that looks wrong is a test that is already red.
- *
+ * The owner has no foldable and no tablet, so this is how the layout is looked at:
+ * annotate a composable and Android Studio renders the six windows side by side.
  * `widthDp`/`heightDp` write the preview's `Configuration`, which is what
- * [rememberAppLayout] reads — so a preview goes through the real decision, not a
- * copy of it.
+ * [rememberAppLayout] reads, and the same numbers are asserted in `WindowLayoutTest`
+ * and `AppShellScreenTest` — so a preview goes through the real decision, and one
+ * that looks wrong is a test that is already red.
  */
 @Preview(name = "Téléphone 21:9", widthDp = 412, heightDp = 1000)
 @Preview(name = "Pliable fermé", widthDp = 374, heightDp = 840)
@@ -47,13 +44,9 @@ import com.maggie.app.ui.theme.MaggieTheme
 annotation class MaggieWindowPreviews
 
 /**
- * The real shell in the six formats: the real rail, the real top bar, the real
- * collapsed bar, over a stand-in list and a stand-in conversation.
- *
- * Stand-ins and not the app's own screens because a `@Preview` has no Koin
- * container, so no `ChatViewModel` and no repositories. What is being looked at is
- * the frame — where the navigation is, and whether the conversation is beside the
- * content or behind a bar.
+ * The real shell in the six formats — the real rail, top bar and collapsed bar —
+ * over a stand-in list and a stand-in conversation, because a `@Preview` has no
+ * Koin container and so no `ChatViewModel`. What is looked at is the frame.
  */
 @MaggieWindowPreviews
 @Composable

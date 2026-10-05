@@ -1,5 +1,6 @@
 package com.maggie.app.ui.components
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
@@ -22,6 +23,7 @@ import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
@@ -78,6 +80,12 @@ fun AppDrawerContent(
  * the bottom, and the rail scrolls — seven entries are ~500 dp, and a phone in
  * landscape is 411 dp tall. A `weight(1f)` spacer inside a scrollable column is a
  * crash on infinite constraints, so there is no pinning it either.
+ *
+ * The scroll is on a column *inside* the rail, not on the rail: `NavigationRail`
+ * applies its own system-bar padding within its Surface, so scrolling the rail
+ * itself would scroll the top inset away with the entries — on the short window
+ * where the rail actually scrolls — and padding the rail from outside would stop
+ * its container colour short of the edges.
  */
 @Composable
 fun MaggieNavigationRail(
@@ -85,25 +93,25 @@ fun MaggieNavigationRail(
     onNavigate: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    NavigationRail(
-        modifier = modifier
-            .fillMaxHeight()
-            .verticalScroll(rememberScrollState())
-            .testTag(UiTags.NAV_RAIL),
-    ) {
-        Spacer(modifier = Modifier.height(8.dp))
+    NavigationRail(modifier = modifier.fillMaxHeight().testTag(UiTags.NAV_RAIL)) {
+        Column(
+            modifier = Modifier.verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Spacer(modifier = Modifier.height(8.dp))
 
-        RAIL_DESTINATIONS.forEach { destination ->
-            NavigationRailItem(
-                icon = { Icon(destination.icon, contentDescription = null) },
-                label = { Text(destination.label) },
-                selected = currentRoute == destination.route,
-                onClick = { onNavigate(destination.route) },
-                modifier = Modifier.testTag(UiTags.railItem(destination.route)),
-            )
+            RAIL_DESTINATIONS.forEach { destination ->
+                NavigationRailItem(
+                    icon = { Icon(destination.icon, contentDescription = null) },
+                    label = { Text(destination.label) },
+                    selected = currentRoute == destination.route,
+                    onClick = { onNavigate(destination.route) },
+                    modifier = Modifier.testTag(UiTags.railItem(destination.route)),
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
     }
 }
 

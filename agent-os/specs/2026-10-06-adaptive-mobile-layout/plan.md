@@ -28,8 +28,11 @@ asserted so that « expanded » never silently means « tablet ».
    burger, `ModalNavigationDrawer`, collapsed chat bar, chat as a sheet. The
    Maestro journeys keep passing unchanged.
 2. From 600 dp wide, the main screens show a `NavigationRail` carrying the same
-   six destinations plus Paramètres, and the top bar has no burger. A detail
-   route (Paramètres, Recherche, une fiche) still takes the whole width.
+   six destinations plus Paramètres, and the top bar has no burger. A route that
+   is not a main screen still takes the whole width and has no rail — including
+   **Paramètres and Finance, which are rail entries but not main screens**: each
+   brings its own back arrow, as it does on a phone today. Deliberate, and the
+   reason `MAIN_SCREENS` and `RAIL_DESTINATIONS` are not the same list.
 3. From 840 dp wide **and** 480 dp tall, the conversation is a permanent panel on
    the right of every main screen that had the collapsed bar, and the bar is
    gone. The panel carries the contexts button, the mic and the input.
