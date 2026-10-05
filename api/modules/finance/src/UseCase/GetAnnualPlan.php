@@ -101,7 +101,7 @@ class GetAnnualPlan
             ->findNotableDebitsBetween($user, $sourceStart, $targetStart, $thresholdCents);
 
         foreach ($notable as $transaction) {
-            $id = $this->openFor($rows, $this->categoryOf($transaction), $transaction->getCurrency());
+            $id = $this->openFor($rows, $this->categoryOf($transaction));
             $rows[$id]['lastYear']['events'][] = $this->serialize($transaction, withId: false);
         }
 
@@ -109,7 +109,7 @@ class GetAnnualPlan
         // apart and named as GetBudgetStatus names them, so one screen can
         // read both payloads without the same word meaning two things.
         foreach ($this->transactionRepository->findPlansBetween($user, $targetStart, $targetEnd) as $transaction) {
-            $id = $this->openFor($rows, $this->categoryOf($transaction), $transaction->getCurrency());
+            $id = $this->openFor($rows, $this->categoryOf($transaction));
             $rows[$id]['plannedEvents'][] = $this->serialize($transaction, withId: true);
 
             $amount = abs($transaction->getAmountCents());
@@ -156,15 +156,17 @@ class GetAnnualPlan
      *
      * @param array<string, array<string, mixed>> $rows
      */
-    private function open(array &$rows, string $id, string $name, ?string $currency = null): string
+    private function open(array &$rows, string $id, string $name): string
     {
         $rows[$id] ??= [
             'categoryId' => $id,
             'categoryName' => $name,
-            // Whatever opened the row knows the currency its own figures are
-            // in; an envelope overwrites it, because that is the one the
-            // budget will be set in.
-            'currency' => $currency ?? 'EUR',
+            // The currency the envelope of this category is, or will be, set
+            // in: an envelope of either year overwrites it, and `EUR` is what
+            // ApplyAnnualPlan budgets a new one in. Deliberately not a
+            // transaction's — the lines of one category can be in several
+            // currencies, and each event carries its own.
+            'currency' => 'EUR',
             'lastYear' => ['budgetedCents' => null, 'consumedCents' => 0, 'events' => []],
             'plannedCents' => 0,
             'committedCents' => 0,
@@ -184,9 +186,9 @@ class GetAnnualPlan
      *
      * @param array<string, array<string, mixed>> $rows
      */
-    private function openFor(array &$rows, Category $category, ?string $currency = null): string
+    private function openFor(array &$rows, Category $category): string
     {
-        return $this->open($rows, (string) $category->getId(), $category->getName(), $currency);
+        return $this->open($rows, (string) $category->getId(), $category->getName());
     }
 
     /**

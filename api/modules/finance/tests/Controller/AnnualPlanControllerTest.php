@@ -315,27 +315,50 @@ class AnnualPlanControllerTest extends WebTestCase
         ])->getAmountCents());
     }
 
-    public function testARejectedPlanWritesNothingAtAll(): void
+    /** @return iterable<string, array{array<string, mixed>}> */
+    public static function plansRejectedOnTheirLastLine(): iterable
+    {
+        // An envelope on somebody else's category, after a valid event.
+        yield 'a stranger\'s category' => [['envelopes' => [['categoryId' => 'other_leisure', 'amountCents' => 30000]]]];
+        // A second event the database itself would refuse, had the length not
+        // been checked with everything else.
+        yield 'a label longer than its column' => [['events' => [[
+            'categoryId' => 'leisure',
+            'label' => str_repeat('b', 256),
+            'amountCents' => 1000,
+        ]]]];
+    }
+
+    /**
+     * The commands persist one at a time, so an apply that dispatched as it
+     * read would leave the first lines behind — and the retry that follows
+     * would plan them twice.
+     *
+     * @param array<string, mixed> $tail
+     */
+    #[DataProvider('plansRejectedOnTheirLastLine')]
+    public function testARejectedPlanWritesNothingAtAll(array $tail): void
     {
         $this->signIn();
 
-        // A valid event, then an envelope on somebody else's category. The
-        // commands persist one at a time, so an apply that dispatched as it
-        // read would leave the festival behind — and the retry that follows
-        // would plan it twice.
+        $valid = [
+            'categoryId' => (string) $this->getFixture('leisure')->getId(),
+            'label' => 'Festival fantôme',
+            'amountCents' => 26000,
+            'month' => 7,
+        ];
+
+        // The provider names its fixtures; only the test can resolve them.
+        $resolve = fn (array $rows) => array_map(
+            fn (array $row) => ['categoryId' => (string) $this->getFixture($row['categoryId'])->getId()] + $row,
+            $rows,
+        );
+
         $this->postPlan([
             'year' => 2027,
             'accountId' => (string) $this->getFixture('checking')->getId(),
-            'events' => [[
-                'categoryId' => (string) $this->getFixture('leisure')->getId(),
-                'label' => 'Festival fantôme',
-                'amountCents' => 26000,
-                'month' => 7,
-            ]],
-            'envelopes' => [[
-                'categoryId' => (string) $this->getFixture('other_leisure')->getId(),
-                'amountCents' => 30000,
-            ]],
+            'events' => [$valid, ...$resolve($tail['events'] ?? [])],
+            'envelopes' => $resolve($tail['envelopes'] ?? []),
         ]);
 
         self::assertResponseStatusCodeSame(400);
@@ -380,6 +403,10 @@ class AnnualPlanControllerTest extends WebTestCase
         yield 'a status that is not one' => [['label' => 'Peut-être', 'amountCents' => 1000, 'status' => 'maybe'], 'status'];
         // Three characters wide in the database: unchecked, it would be a 500.
         yield 'a currency that is not a code' => [['label' => 'Euros', 'amountCents' => 1000, 'currency' => 'EURO'], 'currency'];
+        // What the columns take is checked here with everything else, so that
+        // no validated plan can be refused halfway through by the driver.
+        yield 'a label longer than its column' => [['label' => str_repeat('a', 256), 'amountCents' => 1000], 'label'];
+        yield 'an amount wider than its column' => [['label' => 'Démesuré', 'amountCents' => 2_147_483_648], 'amountCents'];
     }
 
     /**

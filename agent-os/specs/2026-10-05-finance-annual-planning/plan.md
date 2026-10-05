@@ -16,7 +16,7 @@ Par catégorie :
 
 | Champ | Contenu |
 |---|---|
-| `categoryId`, `categoryName`, `currency` | la catégorie, et la devise de son enveloppe (sinon celle de ses lignes, sinon `EUR`) |
+| `categoryId`, `categoryName`, `currency` | la catégorie, et la devise dans laquelle l'enveloppe de la catégorie est ou sera posée : celle d'une enveloppe de l'une des deux années, sinon `EUR` — jamais celle d'une transaction, les lignes d'une catégorie pouvant être en plusieurs devises |
 | `lastYear.budgetedCents` | l'enveloppe annuelle de l'année source, `null` s'il n'y en avait pas |
 | `lastYear.consumedCents` | dépensé + engagé sur l'année source |
 | `lastYear.events` | les grosses dépenses de l'année source : `label`, `amountCents` (positif), `month`, `bookedAt`, `status`, `isExceptional` |
@@ -35,7 +35,8 @@ Enveloppe du retour : `year`, `sourceYear`, `thresholdCents`, `categories`, et l
 
 **Tout est lu et validé avant la première écriture** (shape, décision 10).
 
-- `events[]` : `categoryId`, `label`, `amountCents` (> 0), `month` (1-12, défaut 1), `status` (`planned` | `committed` | `to_arbitrate`, défaut `planned`), `accountId` (sinon celui du corps), `currency` (défaut : celle du compte, vérifiée `/^[A-Z]{3}$/` — rien ne valide une commande sur le bus, et la colonne fait trois caractères), `isExceptional` (défaut `false`). Dispatch `CreateTransactionCommand` avec `-amountCents` et `bookedAt` au 1er du mois.
+- `events[]` : `categoryId`, `label` (non vide, ≤ 255), `amountCents` (> 0, ≤ 2 147 483 647), `month` (1-12, défaut 1), `status` (`planned` | `committed` | `to_arbitrate`, défaut `planned`), `accountId` (sinon celui du corps), `currency` (défaut : celle du compte, vérifiée `/^[A-Z]{3}$/`), `isExceptional` (défaut `false`). Dispatch `CreateTransactionCommand` avec `-amountCents` et `bookedAt` au 1er du mois.
+- **Ce que les colonnes acceptent est vérifié ici, avec le reste** : rien ne valide une commande sur le bus, donc une devise de quatre lettres, un libellé de 300 caractères ou un montant plus large qu'un `integer` atteindraient le pilote — un 400 avec les premières lignes déjà écrites, soit exactement ce que l'ordre lire-puis-écrire existe pour empêcher.
 - `envelopes[]` : `categoryId`, `amountCents` (≥ 0). Enveloppe **annuelle** de l'année cible : créée si absente (`CreateEnvelopeCommand`), mise à jour si le montant diffère (`UpdateEnvelopeCommand`), laissée seule sinon. L'enveloppe existante est relue au moment d'écrire, pas de valider : un même corps peut nommer deux fois la même catégorie.
 - Compte et catégorie : `Ulid::isValid` puis `find`, puis comparaison du propriétaire. Inconnu, mal formé et « à quelqu'un d'autre » rendent la même erreur — un nom de catégorie à la place d'un id est l'erreur la plus probable avec un outil conversationnel, et Doctrine y répond par une erreur de conversion, pas par `null`.
 - Entrée invalide → `\InvalidArgumentException`, traduite en 400 par le contrôleur et en `{"error": …}` par l'outil MCP.

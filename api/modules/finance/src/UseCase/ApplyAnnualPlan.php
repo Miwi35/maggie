@@ -32,6 +32,16 @@ use Symfony\Component\Uid\Ulid;
  */
 class ApplyAnnualPlan
 {
+    /**
+     * What the columns behind a transaction will take. Checked here, with
+     * everything else, so no validated plan can be refused by the database
+     * driver halfway through: that would answer 400 with the first lines
+     * already written, which is the one thing the read-then-write order of
+     * {@see self::execute()} exists to prevent.
+     */
+    private const LABEL_MAX_LENGTH = 255;
+    private const AMOUNT_MAX_CENTS = 2_147_483_647;
+
     /** You do not plan what has already left the account. */
     private const PLANNABLE = [
         TransactionStatus::Planned,
@@ -117,16 +127,16 @@ class ApplyAnnualPlan
         $category = $this->requireCategory($user, $event, $at);
 
         $label = trim(\is_string($event['label'] ?? null) ? $event['label'] : '');
-        if ('' === $label) {
-            throw new \InvalidArgumentException("{$at}.label is required.");
+        if ('' === $label || mb_strlen($label) > self::LABEL_MAX_LENGTH) {
+            throw new \InvalidArgumentException("{$at}.label is required, and at most ".self::LABEL_MAX_LENGTH.' characters long.');
         }
 
         $amountCents = $event['amountCents'] ?? null;
-        if (!\is_int($amountCents) || $amountCents <= 0) {
+        if (!\is_int($amountCents) || $amountCents <= 0 || $amountCents > self::AMOUNT_MAX_CENTS) {
             // Every line of a planning session is an expense; asking for a
             // negative number is a trap, and a forgotten sign would budget
             // income as if it were a cost.
-            throw new \InvalidArgumentException("{$at}.amountCents must be an integer of cents above zero.");
+            throw new \InvalidArgumentException("{$at}.amountCents must be an integer of cents above zero, and at most ".self::AMOUNT_MAX_CENTS.'.');
         }
 
         $month = $event['month'] ?? 1;
@@ -208,8 +218,8 @@ class ApplyAnnualPlan
     private function readEnvelope(User $user, array $envelope, string $at): array
     {
         $amountCents = $envelope['amountCents'] ?? null;
-        if (!\is_int($amountCents) || $amountCents < 0) {
-            throw new \InvalidArgumentException("{$at}.amountCents must be an integer of cents, zero or above.");
+        if (!\is_int($amountCents) || $amountCents < 0 || $amountCents > self::AMOUNT_MAX_CENTS) {
+            throw new \InvalidArgumentException("{$at}.amountCents must be an integer of cents, zero or above, and at most ".self::AMOUNT_MAX_CENTS.'.');
         }
 
         return [
