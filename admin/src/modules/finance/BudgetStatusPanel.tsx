@@ -39,7 +39,11 @@ const BudgetGauge = ({ line }: { line: BudgetLine }) => {
   const detail = breakdown(line)
 
   return (
-    <Box sx={{ mb: 2 }}>
+    // The handle the e2e journey uses (MAG-102): one gauge per category, and
+    // every amount on it is computed from the transactions, so "this category
+    // consumed that much" has to be read as one line rather than as two texts
+    // that happen to be on the same screen.
+    <Box sx={{ mb: 2 }} data-testid="budget-gauge" data-category={line.categoryName}>
       <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
         <Typography variant="body2">
           {line.categoryName}

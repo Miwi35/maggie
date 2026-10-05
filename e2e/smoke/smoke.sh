@@ -11,6 +11,13 @@
 # Step 9 came with MAG-95: Maggie answers from the scripted model, so the agent
 # is part of the harness rather than the reason a journey is flaky.
 #
+# Steps 12 and 13 came with MAG-102, and both are here because the browser
+# cannot reach them. The bank consent leaves for the bank's own origin, which
+# every Playwright context is cut off from, and the single-use state it comes
+# back with is only readable from the database. The CSV import has no admin
+# surface at all yet — MAG-44 is what will give it one, and the web journey
+# will follow it there.
+#
 # Written in shell rather than Playwright on purpose: MAG-97 owns the browser
 # harness. Every step here is a contract that harness will rely on, so it is
 # worth having under CI before the browser arrives — and it stays afterwards as
@@ -645,6 +652,127 @@ assert_eq "/api/events/$reminder_event_id" \
 "${COMPOSE[@]}" exec -T php bin/console --env=e2e maggie:notification:check-reminders >/dev/null
 sleep 5
 assert_eq 1 "$(reminders_of | jq -r 'length')" "a second run of the cron reminds nobody twice"
+
+# ---------------------------------------------------------------------------
+step "12. A bank consent runs from the picker to the callback"
+# ---------------------------------------------------------------------------
+# MAG-102. The browser harness cannot drive this one: `connect()` hands the
+# window over to the bank's own screen, which in this stack answers on
+# http://wiremock:8080 — a different origin, and every Playwright context is cut
+# off from anything that is not Traefik. So the round trip is driven here, where
+# the single-use state can be read back out of the database.
+#
+# "Other Mock Bank", not the seeded one: a connection already active cannot be
+# authorised again, and the point is the journey a new bank goes through.
+start_response="$(curl -sS -X POST "${AUTH[@]}" -H 'Content-Type: application/json' \
+  -d '{"bankName":"Other Mock Bank","country":"FR"}' \
+  "$BASE_URL/api/finance/bank-connections/start")"
+
+assert_eq 'http://wiremock:8080/enablebanking/consent-screen' \
+  "$(printf '%s' "$start_response" | jq -r '.authorizationUrl // empty')" \
+  "the consent URL comes from the provider, and points at WireMock"
+
+# The state is never handed to the client — it is what authenticates the bank's
+# answer — so the only honest way to replay the callback is to read it where it
+# is stored.
+bank_state="$("${COMPOSE[@]}" exec -T database psql -U maggie -d maggie_e2e -t -A \
+  -c "SELECT state FROM bank_connection WHERE bank_name = 'Other Mock Bank' ORDER BY created_at DESC LIMIT 1")"
+
+if [ -z "$bank_state" ]; then
+  fail "no pending connection was recorded before the user left for the bank"
+else
+  pass "the connection is recorded as pending before the user leaves"
+fi
+
+# Deliberately unauthenticated: the person coming back from their bank carries
+# no session of ours, and the state is what vouches for them.
+callback_location="$(curl -sS -o /dev/null -w '%{redirect_url}' \
+  "$BASE_URL/api/finance/bank-callback?state=$bank_state&code=e2e-one-time-code")"
+
+assert_contains "$callback_location" 'outcome=connected' \
+  "the callback exchanges the code and sends the user back connected"
+# Both seeded accounts are matched by their external id rather than duplicated:
+# people connect a bank they have been tracking by hand for months.
+assert_contains "$callback_location" 'accounts=2' \
+  "the accounts the consent grants are linked, not created a second time"
+
+connections="$(curl -sS "${AUTH[@]}" "$BASE_URL/api/finance/bank-connections")"
+assert_eq active \
+  "$(printf '%s' "$connections" | jq -r '[.connections[] | select(.bankName == "Other Mock Bank")][0].status // empty')" \
+  "the connection is active once the bank has answered"
+
+# A state is good exactly once: replaying one that already succeeded must not
+# re-open anything.
+replayed="$(curl -sS -o /dev/null -w '%{redirect_url}' \
+  "$BASE_URL/api/finance/bank-callback?state=$bank_state&code=e2e-one-time-code")"
+assert_contains "$replayed" 'outcome=unknown' "the same authorization cannot be used twice"
+
+# ---------------------------------------------------------------------------
+step "13. A CSV statement is imported, and importing it again changes nothing"
+# ---------------------------------------------------------------------------
+# MAG-102. The import has no admin surface yet — MAG-44 is what will give it one
+# — so the only way a statement reaches an account today is `app:finance:import`,
+# and that is what this step drives: the format detection, the rules applied on
+# the way in, and the de-duplication that makes a re-export harmless.
+#
+# The file is written into the container rather than committed: `./api` is the
+# only thing the php service mounts, and a statement that lives beside the step
+# that reads it is easier to follow than one three directories away.
+#
+# Dated in 2024 on purpose: far outside every window the dashboard, the score,
+# the safety net and the monthly review read, so the rows cannot move a figure
+# another journey asserts.
+"${COMPOSE[@]}" exec -T php sh -c 'cat > /tmp/releve-smoke.csv' <<'CSV'
+Date;Libellé;Débit;Crédit
+15/02/2024;LECLERC RENNES CB;42,90;
+16/02/2024;PHARMACIE CENTRALE;12,30;
+29/02/2024;VIREMENT SALAIRE;;2350,00
+CSV
+
+import_dry="$("${COMPOSE[@]}" exec -T php bin/console --env=e2e app:finance:import \
+  /tmp/releve-smoke.csv "$SEED_EMAIL" --account 'Compte courant' 2>&1 || true)"
+
+assert_contains "$import_dry" 'Rehearsal only' "the import is a rehearsal until --write is given"
+
+csv_count() {
+  curl -sS "${AUTH[@]}" -H 'Accept: application/ld+json' "$BASE_URL/api/transactions?itemsPerPage=200" \
+    | jq -r '[.member[] | select(.label == "PHARMACIE CENTRALE")] | length'
+}
+
+assert_eq 0 "$(csv_count)" "the rehearsal wrote nothing"
+
+import_run="$("${COMPOSE[@]}" exec -T php bin/console --env=e2e app:finance:import \
+  /tmp/releve-smoke.csv "$SEED_EMAIL" --account 'Compte courant' --write 2>&1 || true)"
+
+assert_contains "$import_run" '3 mouvement(s) importé(s)' \
+  "the three movements of the statement are imported"
+# The separator, the French date and the debit/credit columns are worked out
+# from the header: a statement spelled another way needs no code at all.
+assert_contains "$import_run" 'Catégorisées par règle' "the rules the owner wrote apply to the import"
+
+imported_csv=""
+for _ in $(seq 1 60); do
+  if [ "$(csv_count)" -gt 0 ]; then
+    imported_csv=yes
+    break
+  fi
+  sleep 1
+done
+
+if [ -n "$imported_csv" ]; then
+  pass "an imported movement landed in the database and got indexed"
+else
+  fail "the imported statement never became findable — import said: $(printf '%s' "$import_run" | tail -c 300)"
+fi
+
+# Re-importing has to be harmless: banks reissue exports with the same lines,
+# and people re-export overlapping periods.
+import_again="$("${COMPOSE[@]}" exec -T php bin/console --env=e2e app:finance:import \
+  /tmp/releve-smoke.csv "$SEED_EMAIL" --account 'Compte courant' --write 2>&1 || true)"
+
+assert_contains "$import_again" '0 mouvement(s) importé(s)' "re-importing the same file imports nothing"
+sleep 5
+assert_eq 1 "$(csv_count)" "and stores no movement twice"
 
 # ---------------------------------------------------------------------------
 printf '\n\033[1mSmoke journey: %d passed, %d failed\033[0m\n' "$passed" "$failed"

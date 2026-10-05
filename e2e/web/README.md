@@ -150,6 +150,66 @@ What the browser cannot reach lives in `e2e/smoke/smoke.sh`: the Paris-time conf
 check, driven through the real MCP transport (step 10), and the reminder cron, which
 has no UI at all and which only `docker compose exec` can run (step 11).
 
+## The finance journeys
+
+`tests/finance-*.spec.ts` (MAG-102), the module with the most computed figures in
+the repository. Almost nothing on these screens is stored: the budget
+consumption, the day's score, the safety net, the amortisation schedule, the
+saving capacity and the optimisation score are all recomputed on every read. So
+the journeys check **arithmetic against the seeded data** — the amounts in
+`api/fixtures/e2e/50-finance.yaml` are chosen to be summable by hand — and build
+their expected strings with `helpers/money.ts` rather than hard-coding
+`"1 845,50 €"`: fr-FR groups thousands with a narrow no-break space whose
+position has moved between ICU versions, and Node's and Chromium's do not have
+to agree.
+
+Seven files: `accounts` (the list, an account-scoped operation list, and a
+creation journey), `rules` (the catch-up pass and the suggestions),
+`budget` (envelopes, the score banner, the roll-over), `overview` (the
+dashboard), `cushion` (the safety net and the debts), `review` (the monthly
+look back) and `bank` (the picker and the fetch).
+
+**Who owns which figure** is the thing to keep if you add one. Two buttons in
+this module — "Appliquer les règles" and "Créer N règle(s)" — run the
+categorisation pass over *every* uncategorised operation of the user, and the
+cushion's target drives every number on its own screen. Nothing scopes either
+to one test's data, so:
+
+- `finance-rules.spec.ts` owns the current month's **Courses** consumption. It
+  is serial *and* has retries off, for the reason `chat.spec.ts` does: a serial
+  group replays whole, nothing reseeds in between, and the operation it files
+  is the fixture itself, so it cannot be made unique per attempt.
+- `finance-cushion.spec.ts` owns the **cushion target**, so
+  `finance-budget.spec.ts` asserts that the score is held back by an incomplete
+  net without naming the deficit.
+- `finance-budget.spec.ts` and `finance-overview.spec.ts` read the **annual**
+  "Loisirs" envelope instead of the monthly one: no active rule can reach it.
+- Anything that would move the owner's **balances** is written as the
+  neighbour — an account's balance is summed into the dashboard total *and*
+  into the safety net, so a journey creating one would break two files.
+- The two journeys that write into a month of their own use **two years back**
+  (`overview`, for its empty month) and **three years back** (`review`, which
+  also varies the month per attempt). Both are outside every window the
+  dashboard, the score and the safety net read.
+
+`BudgetStatusPanel` carries a `data-testid="budget-gauge"` with a
+`data-category`, like the grocery list's lines: the gauges repeat, and the
+point of every assertion on them is that *this* category consumed *that* much
+— a `getByText('120,00 € / 200,00 €')` would be just as happy if two gauges
+swapped their categories.
+
+One open bug has its expected-to-fail test here:
+
+- **MAG-245** — an account with no operation renders react-admin's empty state
+  *instead of* the list, toolbar included, so the screen that says "Ajoutez-en
+  une" is the one screen with no button that does
+  (`finance-accounts.spec.ts`).
+
+What the browser cannot reach is in `e2e/smoke/smoke.sh`: the bank consent
+round trip (step 12), which leaves for the bank's own origin and comes back
+with a single-use state only the database holds, and the CSV import (step 13),
+which has no admin surface until MAG-44.
+
 ## The chat journey
 
 `tests/chat.spec.ts` is the one journey that is serial, because the

@@ -24,4 +24,24 @@ export const ROUTES = {
   grocery: '/grocery',
   recipes: '/recipes',
   preferences: '/settings/preferences',
+  // Finance (MAG-102). Four screens are react-admin resources and four are
+  // custom routes; nothing on screen says which, so they sit together here.
+  accounts: '/accounts',
+  categories: '/categories',
+  envelopes: '/envelopes',
+  loans: '/loans',
+  financeOverview: '/finance/dashboard',
+  financeBanks: '/finance/banks',
+  financeCushion: '/finance/cushion',
+  financeReview: '/finance/monthly-review',
 } as const
+
+/**
+ * The transactions of one account — the only way the admin lists them.
+ *
+ * `AccountTransactionsView` takes the bare ULID in the path and rebuilds the
+ * IRI itself, so pass the id, not `/api/accounts/<id>`.
+ */
+export function accountTransactionsRoute(accountId: string): string {
+  return `/accounts/${accountId}/transactions`
+}
