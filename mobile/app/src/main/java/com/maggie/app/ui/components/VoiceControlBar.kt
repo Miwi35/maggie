@@ -56,6 +56,7 @@ fun VoiceControlBar(
     val errorMessage by voiceManager.errorMessage.collectAsState()
     val handsFree by voiceManager.handsFree.collectAsState()
     val holdHint by voiceManager.holdHint.collectAsState()
+    val partialText by voiceManager.partialText.collectAsState()
 
     val isListening = voiceState == VoiceState.LISTENING
     val infiniteTransition = rememberInfiniteTransition(label = "mic_pulse")
@@ -159,5 +160,17 @@ fun VoiceControlBar(
                 MaterialTheme.colorScheme.onSurfaceVariant
             },
         )
+
+        // What the phone's own engine is hearing, live (MAG-222). It is also the one
+        // visible sign of which of the two transcriptions is at work: Whisper only
+        // speaks once the button is up.
+        if (isListening && partialText.isNotBlank()) {
+            Text(
+                text = partialText,
+                modifier = Modifier.testTag(UiTags.VOICE_PARTIAL),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
     }
 }

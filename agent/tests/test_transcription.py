@@ -23,7 +23,32 @@ class TestTranscribeRoute:
         data = response.json()
         assert data["raw"] == "euh bonjour"
         assert data["clean"] == "Bonjour."
-        mock_transcribe.assert_called_once()
+        assert mock_transcribe.call_args.kwargs["cleanup"] == "auto"
+
+    @patch("app.api.routes.transcribe_audio", new_callable=AsyncMock)
+    def test_cleanup_none_is_passed_through(self, mock_transcribe, authed_client):
+        """What a conversation with Maggie asks for: transcribe, never clean (MAG-222)."""
+        mock_transcribe.return_value = {"raw": "euh bonjour", "clean": "bonjour"}
+
+        response = authed_client.post(
+            "/transcribe",
+            files={"audio": ("recording.webm", b"fake-audio-bytes", "audio/webm")},
+            data={"cleanup": "none"},
+        )
+
+        assert response.status_code == 200
+        assert mock_transcribe.call_args.kwargs["cleanup"] == "none"
+
+    @patch("app.api.routes.transcribe_audio", new_callable=AsyncMock)
+    def test_an_unknown_cleanup_mode_returns_400(self, mock_transcribe, authed_client):
+        response = authed_client.post(
+            "/transcribe",
+            files={"audio": ("recording.webm", b"fake-audio-bytes", "audio/webm")},
+            data={"cleanup": "always"},
+        )
+
+        assert response.status_code == 400
+        mock_transcribe.assert_not_called()
 
     def test_transcribe_empty_file_returns_400(self, authed_client):
         """POST /transcribe with empty file returns 400."""

@@ -61,6 +61,7 @@ import com.maggie.app.ui.screens.search.SearchViewModel
 import com.maggie.app.ui.screens.settings.SettingsViewModel
 import com.maggie.app.voice.VoiceManager
 import com.maggie.app.voice.audioRecorderFactory
+import com.maggie.app.voice.deviceSpeechFactory
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.okhttp.OkHttp
@@ -211,7 +212,15 @@ class MaggieApp : Application() {
             single { UserPreferenceRepository(get()) }
 
             // Other
-            single { VoiceManager(androidContext(), get(), get(), audioRecorderFactory(androidContext())) }
+            single {
+                VoiceManager(
+                    androidContext(),
+                    get(),
+                    get(),
+                    audioRecorderFactory(androidContext()),
+                    deviceSpeechFactory(androidContext()),
+                )
+            }
 
             // ViewModels
             viewModel { LoginViewModel(get()) }

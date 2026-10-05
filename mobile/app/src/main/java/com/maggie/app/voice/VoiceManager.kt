@@ -4,7 +4,9 @@ import android.content.Context
 import android.media.MediaPlayer
 import android.util.Log
 import com.maggie.app.data.api.MaggieApiService
+import com.maggie.app.data.api.TranscriptCleanup
 import com.maggie.app.data.repository.UserPreferenceRepository
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -13,7 +15,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
+import java.io.OutputStream
 
 enum class VoiceState {
     IDLE,
@@ -26,11 +30,23 @@ enum class VoiceState {
 
 private const val DEFAULT_VOICE = "fr-FR-DeniseNeural"
 
+/**
+ * The voice path: the phone's own recognition first, Whisper in reserve (MAG-222).
+ *
+ * While the button is held, the microphone is captured once and the bytes go two ways —
+ * into a file, and into the embedded engine, which shows what it hears as it hears it.
+ * On release the result is judged on the spot, without a model
+ * ([TranscriptionQuality]); good enough and it is used as is, otherwise the recording
+ * already on disk goes to Whisper and the owner never repeats himself. Nothing on
+ * this path asks the model to tidy a transcript any more: Maggie reads through a
+ * hesitation on her own, and the bubble gets [HesitationFilter].
+ */
 class VoiceManager(
     private val context: Context,
     private val apiService: MaggieApiService,
     private val userPreferenceRepository: UserPreferenceRepository,
-    private val recorderFactory: () -> AudioRecorder = { MediaAudioRecorder(context) },
+    private val recorderFactory: () -> AudioRecorder = { PcmAudioRecorder() },
+    private val deviceSpeechFactory: () -> DeviceSpeechRecognizer = { NoDeviceSpeech },
     private val clock: () -> Long = System::currentTimeMillis,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
 ) {
@@ -38,6 +54,13 @@ class VoiceManager(
         private const val TAG = "VoiceManager"
         const val MIN_HOLD_MS = 300L
         private const val HOLD_HINT_MS = 2500L
+
+        /**
+         * How long the engine gets to hand back its final sentence after the button
+         * comes up. It has already heard everything, so this is the time it needs to
+         * close the sentence, not to listen; past it, Whisper takes the recording.
+         */
+        const val DEVICE_RESULT_TIMEOUT_MS = 3000L
     }
 
     private val _state = MutableStateFlow(VoiceState.IDLE)
@@ -52,12 +75,30 @@ class VoiceManager(
     private val _holdHint = MutableStateFlow(false)
     val holdHint: StateFlow<Boolean> = _holdHint
 
+    /** What the phone's engine has heard so far, shown while the button is held. Empty when it is not listening. */
+    private val _partialText = MutableStateFlow("")
+    val partialText: StateFlow<String> = _partialText
+
     var onFinalResult: ((String) -> Unit)? = null
 
     private var recorder: AudioRecorder? = null
     private var audioFile: File? = null
     private var timerJob: Job? = null
     private var hintJob: Job? = null
+
+    /**
+     * One run of the phone's engine, owned by whoever started it. Held together rather
+     * than as three fields so that a recording started while the previous one is still
+     * being transcribed cannot release the new engine (`startListening` can do that:
+     * the assistant gesture does not wait for anything).
+     */
+    private class DeviceSession(
+        val engine: DeviceSpeechRecognizer,
+        val sink: OutputStream?,
+        val pending: CompletableDeferred<DeviceSpeechResult?>,
+    )
+
+    private var deviceSession: DeviceSession? = null
 
     // Listening opened without a button held down (assistant gesture): the
     // button ends it with a tap, since there was no press to release.
@@ -130,14 +171,15 @@ class VoiceManager(
         recordingStartedAt = clock()
         _duration.value = 0
         _errorMessage.value = null
+        _partialText.value = ""
         _state.value = VoiceState.LISTENING
 
-        val file = File(context.cacheDir, "voice_${System.currentTimeMillis()}.m4a")
+        val file = File(context.cacheDir, "voice_${System.currentTimeMillis()}.${PcmAudioRecorder.FILE_EXTENSION}")
         audioFile = file
 
         try {
             recorder = recorderFactory()
-            recorder?.start(file)
+            recorder?.start(file, startDeviceSpeech())
 
             timerJob = scope.launch {
                 while (true) {
@@ -149,6 +191,42 @@ class VoiceManager(
             Log.e("VoiceManager", "Failed to start recording", e)
             cleanupRecording()
             _state.value = VoiceState.ERROR
+        }
+    }
+
+    /**
+     * Ask the phone's engine to listen along, and hand back the stream the recorder has
+     * to copy the microphone into. Null — no engine, or it opens the microphone itself
+     * — leaves the recorder writing to the file alone.
+     */
+    private fun startDeviceSpeech(): OutputStream? {
+        val engine = deviceSpeechFactory().takeIf { it.isAvailable } ?: return null
+        val pending = CompletableDeferred<DeviceSpeechResult?>()
+
+        return try {
+            val sink = engine.start(
+                object : DeviceSpeechRecognizer.Listener {
+                    override fun onPartial(text: String) {
+                        if (_state.value == VoiceState.LISTENING) _partialText.value = text
+                    }
+
+                    override fun onResult(result: DeviceSpeechResult) {
+                        pending.complete(result)
+                    }
+
+                    override fun onUnavailable(reason: String) {
+                        pending.complete(null)
+                    }
+                },
+            )
+            deviceSession = DeviceSession(engine, sink, pending)
+            sink
+        } catch (e: Exception) {
+            // An engine that refuses to start is not an error the owner should see:
+            // the recording is still running and Whisper is still there.
+            Log.w(TAG, "On-device recognition would not start", e)
+            engine.destroy()
+            null
         }
     }
 
@@ -165,6 +243,8 @@ class VoiceManager(
             return
         }
 
+        val spokenMillis = clock() - recordingStartedAt
+
         try {
             recorder?.stop()
         } catch (e: Exception) {
@@ -173,7 +253,17 @@ class VoiceManager(
         recorder?.release()
         recorder = null
 
+        val session = deviceSession
+        deviceSession = null
+        // Closing our end tells the engine the sentence is over; without it, it waits
+        // for audio that will never come.
+        try {
+            session?.sink?.close()
+        } catch (_: Exception) { }
+        session?.engine?.stopListening()
+
         val file = audioFile ?: run {
+            release(session)
             _state.value = VoiceState.ERROR
             return
         }
@@ -181,11 +271,24 @@ class VoiceManager(
         _state.value = VoiceState.TRANSCRIBING
 
         scope.launch {
+            val heard = awaitDeviceResult(session)
+            if (heard != null && TranscriptionQuality.isGoodEnough(heard.text, heard.confidence, spokenMillis)) {
+                file.delete()
+                audioFile = null
+                _partialText.value = ""
+                deliver(HesitationFilter.strip(heard.text))
+                return@launch
+            }
+
+            // Not good enough, or nothing at all: Whisper reads the clip the same hold
+            // produced. The owner sees which of the two answered without being told —
+            // the phone's engine writes as he speaks, Whisper only once he lets go.
+            _partialText.value = ""
+
             try {
-                val text = apiService.transcribe(file)
+                val text = apiService.transcribe(file, TranscriptCleanup.NONE)
                 if (text.isNotBlank()) {
-                    onFinalResult?.invoke(text)
-                    _state.value = VoiceState.PROCESSING
+                    deliver(text)
                 } else {
                     _state.value = VoiceState.IDLE
                 }
@@ -198,6 +301,19 @@ class VoiceManager(
                 audioFile = null
             }
         }
+    }
+
+    private fun deliver(text: String) {
+        onFinalResult?.invoke(text)
+        _state.value = VoiceState.PROCESSING
+    }
+
+    /** The engine's last word, or null when there is no engine, it gave up, or it took too long. */
+    private suspend fun awaitDeviceResult(session: DeviceSession?): DeviceSpeechResult? {
+        if (session == null) return null
+        val heard = withTimeoutOrNull(DEVICE_RESULT_TIMEOUT_MS) { session.pending.await() }
+        release(session)
+        return heard
     }
 
     fun cancelListening() {
@@ -280,6 +396,19 @@ class VoiceManager(
         recorder = null
         audioFile?.delete()
         audioFile = null
+        _partialText.value = ""
+        release(deviceSession)
+        deviceSession = null
+    }
+
+    private fun release(session: DeviceSession?) {
+        if (session == null) return
+        try {
+            session.sink?.close()
+        } catch (_: Exception) { }
+        session.engine.destroy()
+        // Anything still waiting on it gets « nothing heard » rather than a timeout.
+        session.pending.complete(null)
     }
 }
 

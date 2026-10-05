@@ -431,6 +431,31 @@ dictated_answer="$(chat "$cleaned")"
 assert_eq add_grocery_item "$(printf '%s' "$dictated_answer" | jq -r '.tool_calls[0].name // empty')" \
   "what she heard reaches the grocery list"
 
+# The same clip, asked for without a cleanup — what talking to Maggie now does
+# (MAG-222). Two things have to hold: the text comes back with its hesitation dropped
+# by the rule, and the model was not called at all. The second is an absence, read off
+# the agent's own counter rather than guessed from the text.
+curl -sS -X DELETE -H "X-E2E-Token: $LOGIN_TOKEN" \
+  "$BASE_URL/agent/e2e/transcription/cleanups" >/dev/null
+cleanups_before="$(curl -sS -H "X-E2E-Token: $LOGIN_TOKEN" \
+  "$BASE_URL/agent/e2e/transcription/cleanups" | jq -r '.count')"
+assert_eq 0 "$cleanups_before" "the cleanup counter starts the check at zero"
+
+uncleaned="$(curl -sS -X POST "${AUTH[@]}" -F "audio=@$dictation;type=audio/webm" \
+  -F 'cleanup=none' "$BASE_URL/agent/transcribe")"
+assert_eq "$dictated" "$(printf '%s' "$uncleaned" | jq -r '.raw // empty')" \
+  "Whisper still answers when no cleanup is asked for"
+assert_eq "${dictated#euh }" "$(printf '%s' "$uncleaned" | jq -r '.clean // empty')" \
+  "the rule dropped the hesitation and nothing else"
+assert_eq 0 "$(curl -sS -H "X-E2E-Token: $LOGIN_TOKEN" \
+  "$BASE_URL/agent/e2e/transcription/cleanups" | jq -r '.count')" \
+  "no cleanup was asked of the model"
+
+# And an unknown mode is refused rather than silently taken for one of the two.
+assert_eq 400 "$(status_of -X POST "${AUTH[@]}" -F "audio=@$dictation;type=audio/webm" \
+  -F 'cleanup=toujours' "$BASE_URL/agent/transcribe")" \
+  "an unknown cleanup mode is refused"
+
 # The other half of the voice path, and the only half with no screen behind it:
 # the admin does not speak, so `TTS_PROVIDER=fake` is checked here rather than
 # in a browser journey. Mobile is what reads it back, and the overlay

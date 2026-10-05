@@ -29,6 +29,7 @@ export const CustomAppBar = () => {
   const handleMicClick = async () => {
     if (recorder.state === 'recording') {
       const blob = await recorder.stopRecording()
+      // Straight to Maggie: no cleanup, she reads through a hesitation (MAG-222).
       const text = await transcription.transcribe(blob)
       if (text) {
         onVoiceMessage(text)

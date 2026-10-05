@@ -612,7 +612,9 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     const handleMicClick = async () => {
       if (recorder.state === 'recording') {
         const blob = await recorder.stopRecording()
-        const text = await transcription.transcribe(blob)
+        // Into the input field, where the owner reads and edits it before sending:
+        // a dictation meant to be written, so the cleanup is allowed (MAG-222).
+        const text = await transcription.transcribe(blob, 'auto')
         if (text) {
           setInput((prev) => (prev ? prev + ' ' + text : text))
         }

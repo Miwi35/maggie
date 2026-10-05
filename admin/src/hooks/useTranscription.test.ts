@@ -41,6 +41,27 @@ describe('useTranscription', () => {
     })
   })
 
+  test('asks for no cleanup by default, and for one when dictating into a field', async () => {
+    const sentModes: (FormDataEntryValue | null)[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+        sentModes.push((init.body as FormData).get('cleanup'))
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ raw: 'euh oui', clean: 'oui' }) })
+      }),
+    )
+
+    const { result } = renderHook(() => useTranscription())
+    const blob = new Blob(['audio'], { type: 'audio/webm' })
+
+    await act(async () => {
+      await result.current.transcribe(blob)
+      await result.current.transcribe(blob, 'auto')
+    })
+
+    expect(sentModes).toEqual(['none', 'auto'])
+  })
+
   test('returns null and sets error on failure', async () => {
     vi.stubGlobal(
       'fetch',

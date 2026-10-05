@@ -127,6 +127,16 @@ data class TranscribeResponse(
     val clean: String = "",
 )
 
+/**
+ * What `POST /agent/transcribe` may do to the transcript (MAG-222). [NONE] never
+ * reaches the model; [AUTO] lets the fast model tidy a text that needs it, for a
+ * dictation destined to be written as is.
+ */
+enum class TranscriptCleanup(val wire: String) {
+    NONE("none"),
+    AUTO("auto"),
+}
+
 @Serializable
 data class TtsSynthesizeRequest(
     val text: String,
@@ -610,14 +620,22 @@ class MaggieApiService(
         }
     }
 
-    suspend fun transcribe(audioFile: File): String {
+    /**
+     * Whisper, with [cleanup] saying whether the model may tidy what it heard.
+     *
+     * Talking to Maggie asks for none: she reads through a hesitation herself, and the
+     * cleanup was a second model call on every sentence (MAG-222). A dictation meant
+     * to be written as is passes [TranscriptCleanup.AUTO].
+     */
+    suspend fun transcribe(audioFile: File, cleanup: TranscriptCleanup = TranscriptCleanup.NONE): String {
         val response = client.submitFormWithBinaryData(
             url = "$baseUrl/agent/transcribe",
             formData = formData {
                 append("audio", audioFile.readBytes(), Headers.build {
                     append(HttpHeaders.ContentDisposition, "filename=\"${audioFile.name}\"")
-                    append(HttpHeaders.ContentType, "audio/mp4")
+                    append(HttpHeaders.ContentType, audioContentType(audioFile))
                 })
+                append("cleanup", cleanup.wire)
             },
         )
         if (!response.status.isSuccess()) {
@@ -1078,5 +1096,16 @@ class MaggieApiService(
             setBody(TtsSynthesizeRequest(text = text, voice = voice))
         }
         return response.bodyAsChannel().readRemaining().readByteArray()
+    }
+
+    /**
+     * The type Whisper is told the clip is, read off the name rather than hardcoded:
+     * the microphone now writes WAV, since raw PCM is the only thing the phone's own
+     * engine can be fed (MAG-222), and a stale `audio/mp4` would mislabel it.
+     */
+    internal fun audioContentType(audioFile: File): String = when (audioFile.extension.lowercase()) {
+        "wav" -> "audio/wav"
+        "webm" -> "audio/webm"
+        else -> "audio/mp4"
     }
 }

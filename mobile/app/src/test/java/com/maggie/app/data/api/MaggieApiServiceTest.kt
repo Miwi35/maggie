@@ -3,6 +3,7 @@ package com.maggie.app.data.api
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.engine.mock.toByteArray
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -94,6 +95,83 @@ class MaggieApiServiceTest {
         } finally {
             tempFile.delete()
         }
+    }
+
+    @Test
+    fun `transcribe asks for no cleanup by default and labels a wav clip`() = runBlocking {
+        var body: ByteArray? = null
+
+        val mockEngine = MockEngine { request ->
+            body = request.body.toByteArray()
+            respond(
+                content = ByteReadChannel("""{"raw":"euh bonjour","clean":"bonjour"}"""),
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
+            )
+        }
+
+        val client = HttpClient(mockEngine) {
+            install(ContentNegotiation) {
+                json(Json { ignoreUnknownKeys = true; isLenient = true })
+            }
+        }
+
+        val service = MaggieApiService(client)
+        val tempFile = File.createTempFile("test_audio", ".wav")
+        tempFile.writeBytes(ByteArray(100) { it.toByte() })
+
+        try {
+            service.transcribe(tempFile)
+
+            val sent = body!!.decodeToString()
+            // Talking to Maggie pays for no cleanup (MAG-222), and Whisper is told the
+            // clip is WAV — the microphone now records PCM, for the phone's own engine.
+            assertTrue("the cleanup mode travels with the clip", sent.contains("name=cleanup"))
+            assertTrue("and it is « none »", sent.contains("none"))
+            assertTrue("the clip is labelled audio/wav", sent.contains("audio/wav"))
+        } finally {
+            tempFile.delete()
+        }
+    }
+
+    @Test
+    fun `transcribe passes the cleanup mode a dictation asks for`() = runBlocking {
+        var body: ByteArray? = null
+
+        val mockEngine = MockEngine { request ->
+            body = request.body.toByteArray()
+            respond(
+                content = ByteReadChannel("""{"raw":"euh bonjour","clean":"Bonjour."}"""),
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
+            )
+        }
+
+        val client = HttpClient(mockEngine) {
+            install(ContentNegotiation) {
+                json(Json { ignoreUnknownKeys = true; isLenient = true })
+            }
+        }
+
+        val service = MaggieApiService(client)
+        val tempFile = File.createTempFile("test_audio", ".wav")
+        tempFile.writeBytes(ByteArray(100) { it.toByte() })
+
+        try {
+            service.transcribe(tempFile, TranscriptCleanup.AUTO)
+            assertTrue(body!!.decodeToString().contains("auto"))
+        } finally {
+            tempFile.delete()
+        }
+    }
+
+    @Test
+    fun `the content type follows the clip's extension`() {
+        val service = MaggieApiService(HttpClient(MockEngine { respond("") }))
+
+        assertEquals("audio/wav", service.audioContentType(File("voice.wav")))
+        assertEquals("audio/webm", service.audioContentType(File("voice.webm")))
+        assertEquals("audio/mp4", service.audioContentType(File("voice.m4a")))
     }
 
     @Test

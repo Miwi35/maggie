@@ -1,6 +1,21 @@
 package com.maggie.app.voice
 
 import android.content.Context
+import android.os.Build
 
 /** What dev and prod record with. Its counterpart lives in `src/e2e/`. */
-fun audioRecorderFactory(context: Context): () -> AudioRecorder = { MediaAudioRecorder(context) }
+@Suppress("UNUSED_PARAMETER")
+fun audioRecorderFactory(context: Context): () -> AudioRecorder = { PcmAudioRecorder() }
+
+/**
+ * What dev and prod try first (MAG-222): Google's embedded engine, when the phone has
+ * it. Below Android 13 there is no on-device recognizer to ask and no way to hand it
+ * our own audio, so the voice path stays what it was — Whisper alone.
+ */
+fun deviceSpeechFactory(context: Context): () -> DeviceSpeechRecognizer = {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        OnDeviceSpeechRecognizer(context)
+    } else {
+        NoDeviceSpeech
+    }
+}

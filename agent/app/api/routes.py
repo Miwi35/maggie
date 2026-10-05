@@ -3,7 +3,7 @@ import logging
 
 import anthropic
 import openai
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -23,7 +23,7 @@ from app.db.user_setting_repository import user_setting_repo
 from app.llm.context_summary import context_summarizer
 from app.llm.gateway import LLMGateway
 from app.llm.streaming import StreamingGateway
-from app.llm.transcription import transcribe_audio
+from app.llm.transcription import CLEANUP_MODES, transcribe_audio
 from app.queue.proaction_consumer import execute_proaction
 from app.queue.scheduler import generate_proactions
 from app.skills.index import render_markdown, skill_index
@@ -319,8 +319,21 @@ MAX_AUDIO_SIZE = 25 * 1024 * 1024  # 25 MB (Whisper limit)
 
 
 @router.post("/transcribe")
-async def transcribe(audio: UploadFile, _user_id: str = Depends(get_current_user_id)):
-    """Transcribe audio via Whisper STT + Claude cleanup."""
+async def transcribe(
+    audio: UploadFile,
+    cleanup: str = Form(default="auto"),
+    _user_id: str = Depends(get_current_user_id),
+):
+    """Transcribe audio via Whisper, and tidy it only if asked and only if needed.
+
+    `cleanup=none` never reaches the model — what a conversation with Maggie sends,
+    since she reads through a hesitation herself (MAG-222). `cleanup=auto`, the
+    default, calls the fast model for a text destined to be written as is, and only
+    when `needs_cleanup` says it would gain from it.
+    """
+    if cleanup not in CLEANUP_MODES:
+        raise HTTPException(status_code=400, detail=f"cleanup must be one of {', '.join(CLEANUP_MODES)}")
+
     contents = await audio.read()
     if not contents:
         raise HTTPException(status_code=400, detail="Empty audio file")
@@ -328,7 +341,7 @@ async def transcribe(audio: UploadFile, _user_id: str = Depends(get_current_user
         raise HTTPException(status_code=400, detail="Audio file exceeds 25 MB limit")
 
     try:
-        result = await transcribe_audio(contents, audio.filename or "audio.webm")
+        result = await transcribe_audio(contents, audio.filename or "audio.webm", cleanup=cleanup)
     except openai.RateLimitError as exc:
         logger.warning("Whisper quota exhausted: %s", exc)
         raise HTTPException(
