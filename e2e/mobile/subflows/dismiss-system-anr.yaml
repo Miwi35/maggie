@@ -1,0 +1,31 @@
+appId: com.maggie.app.e2e
+name: dismiss a system app's « isn't responding » window
+---
+# « Pixel Launcher isn't responding » (MAG-215, MAG-236). On a software-rendered CI
+# emulator the launcher misses its ANR deadline now and then, and `hide_error_dialogs`
+# does not stop the window: it is a system window above the app, Maestro then reads
+# only that dialog, and every selector of the app is « not visible » while the
+# screenshot shows the app intact.
+#
+# Run it before each long wait of a flow's start (`sign-in.yaml`); it costs nothing
+# but a few seconds when there is no dialog (Maestro looks for it). « Wait » rather than « Close app »: closing the launcher
+# makes the system restart the home process, which can bring it back to the front
+# over the app. If the system is still hung it asks again, and the caller's `retry`
+# comes back here.
+#
+# **An app of ours never goes through here.** The conditions say « not Maggie », and
+# the assertion at the end fails the flow on a window that names it: a crash or an
+# ANR of Maggie is a result of the journey, not noise around it. The title is one
+# node, hence the regexes on the whole text; `.` stands for the apostrophe, straight
+# or curly depending on the Android build.
+- runFlow:
+    when:
+      visible: ".*isn.t responding.*"
+      notVisible: ".*Maggie.*isn.t responding.*"
+    commands:
+      # The picture of what was covering the screen stays in the report, since the
+      # failure that would have shown it no longer happens.
+      - takeScreenshot: system-anr-dismissed
+      - tapOn: "Wait"
+
+- assertNotVisible: ".*Maggie.*(isn.t responding|keeps stopping|has stopped).*"
