@@ -27,6 +27,8 @@ use Maggie\Cookbook\Message\CreateRecipeCommand;
 use Maggie\Cookbook\Message\DeleteMealCommand;
 use Maggie\Cookbook\Message\DeleteRecipeCommand;
 use Maggie\Cookbook\Message\UpdateRecipeCommand;
+use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
+use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\ChangesetStore;
 use Maggie\Core\Mercure\Middleware\MercurePublishMiddleware;
@@ -101,6 +103,17 @@ class MercurePublishMiddlewareTest extends TestCase
     private function createMiddleware(): MercurePublishMiddleware
     {
         return new MercurePublishMiddleware($this->hub, $this->security, $this->changesetStore);
+    }
+
+    /** Indexing runs in the request, with a user: it must not publish a delete on a topic of its own. */
+    public function testIndexingCommandsPublishNothing(): void
+    {
+        $middleware = $this->createMiddleware();
+
+        $middleware->handle($this->received(new DeleteDocumentCommand(indexName: 'events', documentId: (string) new Ulid())), $this->createPassthroughStack());
+        $middleware->handle($this->received(new IndexDocumentCommand(entityClass: Event::class, entityId: (string) new Ulid())), $this->createPassthroughStack());
+
+        self::assertSame([], $this->publishedUpdates);
     }
 
     /** Wrap a command in an envelope with ReceivedStamp (simulates sync transport re-dispatch). */

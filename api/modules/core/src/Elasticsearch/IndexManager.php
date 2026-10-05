@@ -10,6 +10,9 @@ use Psr\Log\LoggerInterface;
 
 final class IndexManager
 {
+    /** @var array<string, true> */
+    private array $written = [];
+
     public function __construct(
         private readonly Client $client,
         private readonly IndexMetadataReader $metadataReader,
@@ -100,6 +103,7 @@ final class IndexManager
             'id' => $id,
             'body' => self::withId($id, $document),
         ]);
+        $this->written[$indexName] = true;
     }
 
     public function deleteDocument(string $indexName, string $id): void
@@ -108,6 +112,29 @@ final class IndexManager
             'index' => $indexName,
             'id' => $id,
         ]);
+        $this->written[$indexName] = true;
+    }
+
+    /**
+     * A search only sees refreshed documents (every second by default), and the web client
+     * refetches its list the moment a write answers: the indices written during the request are
+     * refreshed once, before the response leaves, however many documents the write touched.
+     */
+    public function refreshWritten(): void
+    {
+        $indices = array_keys($this->written);
+        $this->written = [];
+
+        foreach ($indices as $indexName) {
+            try {
+                $this->client->indices()->refresh(['index' => $indexName]);
+            } catch (\Throwable $e) {
+                $this->logger->warning('Failed to refresh ES index {index}: {error}', [
+                    'index' => $indexName,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
     }
 
     /**

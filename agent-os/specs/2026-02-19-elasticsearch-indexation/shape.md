@@ -32,3 +32,5 @@ Every document stores `userId`. ES queries always filter by current user ID (sam
 ## Decision: Async Indexation
 
 Index operations are dispatched as async messages to RabbitMQ. This prevents ES failures from breaking API responses and allows bulk processing.
+
+**Revised (MAG-113):** indexation now runs inside the request (`sync` routing, `refresh=true` on each write). The web client refetches its list the moment a write returns and the list comes from ES, so a worker-side index (plus the 1 s refresh) made every change appear seconds late. `IndexManager` swallows ES failures, so an ES outage still does not break a response. Tests keep `async` in memory to assert the dispatch.
