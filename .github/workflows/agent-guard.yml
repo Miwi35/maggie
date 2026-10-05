@@ -21,7 +21,12 @@ name: Agent guard
 
 on:
   pull_request_target:
-    types: [opened, reopened, synchronize, ready_for_review, auto_merge_enabled]
+    # MAG-243: only the events that can change the verdict. `ready_for_review` is
+    # the one that starts a draft's check; `synchronize` is a new diff;
+    # `auto_merge_enabled` stays so arming it after the fact does not get around
+    # the guard. Gone: `reopened` (same diff, same verdict) and, by being absent,
+    # `labeled`, `edited`, `converted_to_draft`… (nothing the guard reads moves).
+    types: [opened, synchronize, ready_for_review, auto_merge_enabled]
   workflow_run:
     workflows: [CI]
     types: [completed]
@@ -41,7 +46,7 @@ env:
 jobs:
   guard:
     name: Sensitive changes and limits
-    if: github.event_name == 'pull_request_target'
+    if: github.event_name == 'pull_request_target' && !github.event.pull_request.draft
     runs-on: ubuntu-latest
     concurrency:
       group: agent-guard-${{ github.event.pull_request.number }}
@@ -96,6 +101,9 @@ jobs:
       && github.event.workflow_run.conclusion == 'failure'
       && startsWith(github.event.workflow_run.head_branch, 'cyrus/')
     runs-on: ubuntu-latest
+    concurrency:
+      group: agent-guard-streak-${{ github.event.workflow_run.head_branch }}
+      cancel-in-progress: true
     env:
       PR: ${{ github.event.workflow_run.pull_requests[0].number }}
       BRANCH: ${{ github.event.workflow_run.head_branch }}

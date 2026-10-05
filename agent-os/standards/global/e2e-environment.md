@@ -242,9 +242,11 @@ Rules for a journey:
 
 The boundary instants (`e2e/clock.sh names`): `sunday-2350-paris`,
 `monday-0050-paris`, `dst-fall-back-0230-paris` (02:30 on the last Sunday of
-October, winter time), `saturday-2230-utc`. `.github/workflows/e2e-clock.yml` runs
-the web and mobile suites on each, on every pull request touching the stack and
-every night; a failure there means a journey depends on the hour.
+October, winter time), `saturday-2230-utc`. A manual tool, not a CI matrix: CI
+runs the real clock, a matrix of four extra full runs per pull request clogged
+the runners (MAG-243), and the bug that motivated it was the app's, not the
+journeys'. To reproduce an hour-dependent failure, run
+`E2E_NOW=<name or ISO-8601> task e2e:web` (or `e2e:mobile`) by hand.
 
 `run.sh` prints `E2E_NOW`, `TODAY`, `TRAIN_START`, `TRAIN_END` and the device's date
 and time zone at the top of every mobile run, and writes them to `report/clock.txt`.
