@@ -3,6 +3,7 @@ package com.maggie.app.ui.screens.chat
 import android.util.Log
 import app.cash.turbine.test
 import com.maggie.app.data.auth.AuthRepository
+import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.AgUiEvent
 import com.maggie.app.data.model.ChatMessage
@@ -16,6 +17,7 @@ import io.mockk.mockkStatic
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -23,6 +25,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -386,6 +389,165 @@ class ChatViewModelTest {
         assertEquals("Partial", state.streamingText)
         assertTrue(state.displayItems.any { it is ChatListItem.StreamingMessage })
     }
+
+    // --- MAG-227: only the answer to a request made in this session is read aloud ---
+
+    @Test
+    fun `opening on a history that ends with Maggie reads nothing aloud`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertEquals("assistant", viewModel.uiState.value.messages.last().role)
+        assertNull(viewModel.uiState.value.replyToSpeak)
+    }
+
+    @Test
+    fun `history still loading is not a request awaiting an answer`() = runTest {
+        val history = kotlinx.coroutines.CompletableDeferred<List<ChatMessage>>()
+        coEvery { repository.loadRecentMessages(any()) } coAnswers { history.await() }
+
+        viewModel = createViewModel()
+        // Mid-load: isLoading is up, which is what the old overlay took for a request.
+        runCurrent()
+        assertTrue(viewModel.uiState.value.isLoading)
+        assertNull(viewModel.uiState.value.replyToSpeak)
+
+        history.complete(sampleMessages)
+        advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.isLoading)
+        assertNull(viewModel.uiState.value.replyToSpeak)
+    }
+
+    @Test
+    fun `the answer to a request is offered to be read once, then consumed`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream("Bonjour") } returns streamedAnswer("resp-1", "Salut!")
+        coEvery { repository.persistMessage(any()) } returns Unit
+
+        viewModel.sendMessage("Bonjour")
+        advanceUntilIdle()
+
+        val reply = viewModel.uiState.value.replyToSpeak
+        assertEquals("resp-1", reply?.id)
+        assertEquals("Salut!", reply?.content)
+
+        viewModel.onReplySpoken()
+        assertNull(viewModel.uiState.value.replyToSpeak)
+    }
+
+    @Test
+    fun `an answer nobody was listening for is dropped when a speaker attaches`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream("Bonjour") } returns streamedAnswer("resp-1", "Salut!")
+        coEvery { repository.persistMessage(any()) } returns Unit
+
+        // Typed in the chat screen: no speaker is attached when the answer lands.
+        viewModel.sendMessage("Bonjour")
+        advanceUntilIdle()
+        assertEquals("resp-1", viewModel.uiState.value.replyToSpeak?.id)
+
+        // The sheet opens in voice mode: SpokenReplies drops it on entry.
+        viewModel.dropPendingReply()
+
+        assertNull(viewModel.uiState.value.replyToSpeak)
+    }
+
+    @Test
+    fun `nothing is offered while the answer is still streaming`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream("Bonjour") } returns flow {
+            emit(AgUiEvent.RunStarted(runId = "run-1"))
+            emit(AgUiEvent.TextMessageStart(messageId = "resp-1"))
+            emit(AgUiEvent.TextMessageContent(messageId = "resp-1", delta = "Sal"))
+            kotlinx.coroutines.awaitCancellation()
+        }
+
+        viewModel.sendMessage("Bonjour")
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.replyToSpeak)
+    }
+
+    @Test
+    fun `the non-streaming fallback answer is offered too`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream("Hello") } returns flow { throw RuntimeException("Stream failed") }
+        val userMsg = ChatMessage(id = "u-1", role = "user", content = "Hello", createdAt = "2026-02-15T11:00:00Z")
+        val assistantMsg = ChatMessage(id = "a-1", role = "assistant", content = "Hi!", createdAt = "2026-02-15T11:00:01Z")
+        coEvery { repository.sendMessage("Hello") } returns listOf(userMsg, assistantMsg)
+
+        viewModel.sendMessage("Hello")
+        advanceUntilIdle()
+
+        assertEquals("a-1", viewModel.uiState.value.replyToSpeak?.id)
+    }
+
+    @Test
+    fun `a failed request offers nothing`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream("Hello") } returns flow { throw RuntimeException("Stream error") }
+        coEvery { repository.sendMessage("Hello") } throws RuntimeException("Network error")
+
+        viewModel.sendMessage("Hello")
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.replyToSpeak)
+    }
+
+    @Test
+    fun `closing before the answer lands means it is never offered, even on reopening`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        every { repository.sendMessageStream("Bonjour") } returns flow {
+            emit(AgUiEvent.RunStarted(runId = "run-1"))
+            gate.await()
+            emit(AgUiEvent.TextMessageStart(messageId = "resp-1"))
+            emit(AgUiEvent.TextMessageContent(messageId = "resp-1", delta = "Salut!"))
+            emit(AgUiEvent.TextMessageEnd(messageId = "resp-1"))
+            emit(AgUiEvent.RunFinished(runId = "run-1"))
+        }
+        coEvery { repository.persistMessage(any()) } returns Unit
+
+        viewModel.sendMessage("Bonjour")
+        advanceUntilIdle()
+        viewModel.dropPendingReply()
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals("Salut!", viewModel.uiState.value.messages.last().content)
+        assertNull(viewModel.uiState.value.replyToSpeak)
+    }
+
+    @Test
+    fun `a proactive message that nobody asked for is not offered`() = runTest {
+        val mercure = MutableSharedFlow<MercureEvent>(extraBufferCapacity = 4)
+        every { mercureService.subscribe(any()) } returns mercure
+        coEvery { repository.handleMercureMessage(any()) } returns Unit
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        mercure.emit(
+            MercureEvent(data = """{"id":"p-1","role":"assistant","content":"Rappel : dentiste demain","createdAt":"2026-02-15T12:00:00Z"}"""),
+        )
+        advanceUntilIdle()
+
+        assertEquals("p-1", viewModel.uiState.value.messages.last().id)
+        assertNull(viewModel.uiState.value.replyToSpeak)
+    }
+
+    private fun streamedAnswer(id: String, text: String) = flowOf(
+        AgUiEvent.RunStarted(runId = "run-1"),
+        AgUiEvent.TextMessageStart(messageId = id),
+        AgUiEvent.TextMessageContent(messageId = id, delta = text),
+        AgUiEvent.TextMessageEnd(messageId = id),
+        AgUiEvent.RunFinished(runId = "run-1"),
+    )
 
     @Test
     fun `context update emitted on SharedFlow`() = runTest {

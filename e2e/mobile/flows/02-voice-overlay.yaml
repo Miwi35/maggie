@@ -152,6 +152,40 @@ tags:
 # Kept for what it also catches: a `SPEAKING` that sticks.
 - assertNotVisible: ".*Maggie parle.*"
 
+# Reopening Maggie on a history that ends with her answer reads nothing (MAG-227).
+# This is the reproduction of the bug as the owner met it: the assistant gesture opens
+# a fresh instance, whose history arrives while the surface is already up, and the old
+# code took that load for a request and read the last answer aloud. MAG-205's check
+# above missed it because its history was long loaded when the sheet opened.
+#
+# So: close, restart the app *without* clearing its state (still signed in, history
+# on the server), and tap the mic as soon as the dashboard is there — no HTTP call in
+# between, which would give the history time to land first. The counter was zero
+# above and nothing has spoken since, so it is not reset again.
+- tapOn:
+    id: "chat_close"
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "dashboard"
+    timeout: 40000
+- tapOn:
+    id: "chat_mic"
+- extendedWaitUntil:
+    visible:
+      id: "voice_state"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: ".*déjeuner avec Alex et votre cours de piano.*"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ".*ce texte n'apparaît jamais, il sert de minuterie.*"
+    timeout: 5000
+    optional: true
+- evalScript: "${output.syntheses = json(http.get(E2E_BASE_URL + '/agent/e2e/tts/syntheses', {headers: {'X-E2E-Token': E2E_LOGIN_TOKEN}}).body).count}"
+- assertTrue: "${output.syntheses == 0}"
+
 # ---------------------------------------------------------------------------
 # Hold to talk (MAG-221): hold the mic, let go, and the dictated sentence is sent.
 # `longPressOn` holds for a few seconds, well past the 300 ms below which a press is
