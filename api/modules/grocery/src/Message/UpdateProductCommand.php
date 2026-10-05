@@ -10,12 +10,15 @@ final readonly class UpdateProductCommand
 {
     use ClearsFieldsTrait;
 
-    /** @param list<'defaultUnit'> $clearFields */
+    /** @param list<'defaultUnit'|'preferredStore'|'fallbackStore'|'shelfLifeDays'> $clearFields */
     public function __construct(
         public string $productId,
         public ?string $name = null,
         public ?string $category = null,
         public ?string $defaultUnit = null,
+        public ?string $preferredStoreId = null,
+        public ?string $fallbackStoreId = null,
+        public ?int $shelfLifeDays = null,
         public array $clearFields = [],
     ) {
     }

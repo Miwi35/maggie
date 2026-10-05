@@ -8,6 +8,7 @@ use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Core\Entity\User;
 use Maggie\Grocery\Entity\Product;
+use Maggie\Grocery\Entity\Store;
 use Maggie\Grocery\Enum\ProductCategory;
 
 /** @extends ServiceEntityRepository<Product> */
@@ -48,5 +49,15 @@ class ProductRepository extends ServiceEntityRepository
     public function findByCategory(ProductCategory $category): array
     {
         return $this->findBy(['category' => $category], ['name' => 'ASC']);
+    }
+
+    /** @return Product[] */
+    public function findByStore(Store $store): array
+    {
+        return $this->createQueryBuilder('p')
+            ->where('p.preferredStore = :store OR p.fallbackStore = :store')
+            ->setParameter('store', $store->getId(), 'ulid')
+            ->getQuery()
+            ->getResult();
     }
 }

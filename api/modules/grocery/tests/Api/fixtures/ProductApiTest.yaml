@@ -3,6 +3,24 @@ Maggie\Core\Entity\User:
     email: grocery-handler-test@example.com
     googleId: google-grocery-handler-test
     name: Grocery Handler Test User
+  other_user:
+    email: grocery-other-user@example.com
+    googleId: google-grocery-other-user
+    name: Grocery Other User
+
+Maggie\Grocery\Entity\Store:
+  halles:
+    name: Halles du voisin
+    visitOrder: 1
+    user: '@test_user'
+  bio:
+    name: Biocoop
+    visitOrder: 2
+    user: '@test_user'
+  other_user_store:
+    name: Magasin d'un autre
+    visitOrder: 1
+    user: '@other_user'
 
 Maggie\Grocery\Entity\Product:
   product:
@@ -10,3 +28,10 @@ Maggie\Grocery\Entity\Product:
     category: '<(Maggie\Grocery\Enum\ProductCategory::Other)>'
     defaultUnit: '<(Maggie\Grocery\Enum\Unit::Kilogram)>'
     user: '@test_user'
+  product_with_stores:
+    name: Câpres
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Other)>'
+    user: '@test_user'
+    preferredStore: '@halles'
+    fallbackStore: '@bio'
+    shelfLifeDays: 30
