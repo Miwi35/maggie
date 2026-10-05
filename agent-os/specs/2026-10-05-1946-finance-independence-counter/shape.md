@@ -39,7 +39,7 @@ Hors périmètre, écrit tel quel dans le ticket et la roadmap :
   investissements (M12, Premium v1.2) les projettera depuis le portefeuille,
   mais il n'existe pas.
 - **Options** : (a) une entité `PassiveIncome` saisie à la main (nom, type,
-  montant net mensuel) ; (b) un drapeau `isPassiveIncome` sur `Category`, et le
+  montant net mensuel) ; (b) un drapeau `passiveIncome` sur `Category`, et le
   montant **mesuré** sur les transactions de ces catégories.
 - **Choix** : (b).
 - **Pourquoi** : la spec fonctionnelle M9 pose la règle pour le train de vie —
@@ -52,7 +52,7 @@ Hors périmètre, écrit tel quel dans le ticket et la roadmap :
 
 ### D2 — Une rente est une recette
 
-`isPassiveIncome` n'est acceptée que sur une catégorie dont l'obligation est
+`passiveIncome` n'est acceptée que sur une catégorie dont l'obligation est
 `income` (`ObligationFlag::Income`, livré par `finance-mvp`). Une dépense
 déclarée rente n'a pas de sens, et le compteur n'additionne que des crédits :
 la validation refuse la combinaison au lieu de produire un pourcentage dont
@@ -115,7 +115,7 @@ lecture.
   lignes hors tests, pour une limite de 800 (`agent-guard`).
 - **Options** : (a) tout livrer et laisser le guard passer la PR à l'owner ;
   (b) retirer la déclaration mobile et en faire un ticket de suite.
-- **Choix** : (b).
+- **Choix** : (b) — ticket **MAG-257**.
 - **Pourquoi** : `CLAUDE.md` tranche — au-delà de 800 lignes hors tests, « split
   the ticket instead ». Le compteur, lui, est bien lu partout : la carte mobile
   l'affiche, et déclarer une rente passe par l'admin ou par Maggie (MCP), qui
