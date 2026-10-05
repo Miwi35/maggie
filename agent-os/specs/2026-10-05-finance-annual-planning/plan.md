@@ -1,6 +1,6 @@
 # Maggie Finance — Session de planification annuelle — Plan
 
-Découpée en tranches qui tiennent sous la limite du garde-fou (800 lignes hors tests), dans l'ordre de dépendances : **lecture du plan** (MAG-48), puis **application en un geste**, puis l'écran admin, puis l'écran mobile. La lecture définit ce que la session propose ; l'écriture ne fait que valider ce qui a été proposé, et elle est déjà possible avec `manage_envelopes` et `manage_transactions`.
+Découpée en tranches qui tiennent sous la limite du garde-fou (800 lignes hors tests), dans l'ordre de dépendances : **lecture du plan** (MAG-48), puis **application en un geste** (MAG-258), puis l'écran admin (MAG-259), puis l'écran mobile (MAG-260). La lecture définit ce que la session propose ; l'écriture ne fait que valider ce qui a été proposé, et elle est déjà possible avec `manage_envelopes` et `manage_transactions`.
 
 Testing Rule du repo respectée à chaque tâche. **Exemptions de la tâche 1, qui ne fait que lire** : `N/A — état DB, Mercure et Elasticsearch` (rien n'est écrit, comme pour la revue mensuelle) et `N/A — action inconnue et argument requis manquant` (l'outil n'a pas d'action et ses deux paramètres sont facultatifs). La tâche 2 les rétablit toutes.
 
@@ -47,7 +47,7 @@ Deux méthodes sur `TransactionRepository`, toutes deux sur les débits catégor
 - `tests/Mcp/PlanAnnualBudgetToolTest.php` : le plan, l'année par défaut, le seuil, **appel sans utilisateur lié**, année hors bornes, isolation en lecture.
 - Contrat : `UPDATE_CONTRACT=1 task wt:test:api -- --testsuite Contract` (liste des outils MCP).
 
-## Tâche 2 — Application du plan en un geste (ticket de suite)
+## Tâche 2 — Application du plan en un geste (MAG-258)
 
 `UseCase/ApplyAnnualPlan` + `POST /api/finance/annual-plan` + deux actions d'écriture sur l'outil MCP (un événement à la fois : aucun paramètre tableau, c'est ainsi qu'on dicte une liste ; pas d'action en `add_*` ni en `plan_*`, `McpToolsContractTest` les lit comme des noms d'outils et `add_event` entrerait en collision avec `create_event` de l'agenda).
 
@@ -62,10 +62,10 @@ Deux méthodes sur `TransactionRepository`, toutes deux sur les débits catégor
 - Retour : `eventsCreated`, `envelopesCreated`, `envelopesUpdated`, `envelopesUnchanged`, et les listes écrites, chaque enveloppe portant son `outcome`.
 - Tests : 401, 400 sur chacune des règles ci-dessus, **un plan refusé n'écrit rien** (comptes de transactions et d'enveloppes inchangés), happy path + état DB + Mercure + Elasticsearch, même catégorie deux fois dans un corps ; côté MCP, appel sans utilisateur lié, année hors bornes, compte et catégorie d'un autre utilisateur. Le parcours e2e étend la journée de la tâche 1 : la même conversation planifie et pose l'enveloppe, puis le budget de l'année montre le réservé et le disponible.
 
-## Tâche 3 — Parcours guidé admin React (ticket de suite)
+## Tâche 3 — Parcours guidé admin React (MAG-259)
 Page `/finance/annual-plan` : sélecteur d'année, une ligne par catégorie (consommé l'an dernier, grosses dépenses à reconduire, plans de l'année cible, montant d'enveloppe éditable pré-rempli sur le suggéré), ajout d'un événement, bouton de validation du plan. Hook `useAnnualPlan`, entrée de menu, tests Vitest (rendu, interaction, erreur).
 
-## Tâche 4 — Parcours guidé mobile Kotlin (ticket de suite)
+## Tâche 4 — Parcours guidé mobile Kotlin (MAG-260)
 Modèle `AnnualPlan`, `MaggieApiService`, `AnnualPlanRepository`, `AnnualPlanViewModel` + écran, entrée « Réglages finance » (MAG-196) et lien `maggie://finance/annual-plan`, tests MockK du ViewModel.
 
 ## Parcours e2e
