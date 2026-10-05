@@ -10,6 +10,23 @@ vi.mock('react-router-dom', () => ({
 
 const emptyResponse = { ok: true, json: () => Promise.resolve({ total: 0, page: 1, limit: 10, results: [] }) }
 
+/** Serves `corpus` the way `/api/search` does: filtered by `types`, cut at `limit`. */
+function stubSearch(corpus: Array<{ index: string; id: string; score: number; data: Record<string, unknown>; highlights: Record<string, string[]> }>) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockImplementation((url: string) => {
+      const params = new URL(url, 'http://localhost').searchParams
+      const types = params.get('types')?.split(',')
+      const limit = Number(params.get('limit') ?? 10)
+      const matching = corpus.filter((r) => !types || types.includes(r.index))
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ total: matching.length, page: 1, limit, results: matching.slice(0, limit) }),
+      })
+    }),
+  )
+}
+
 describe('SearchBar', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
@@ -38,17 +55,9 @@ describe('SearchBar', () => {
   })
 
   test('typing shows results dropdown', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({
-        total: 1,
-        page: 1,
-        limit: 10,
-        results: [
-          { index: 'recipes', id: 'abc123', score: 1.5, data: { name: 'Pâtes carbonara' }, highlights: { name: ['<em>Pâtes</em> carbonara'] } },
-        ],
-      }),
-    }))
+    stubSearch([
+      { index: 'recipes', id: 'abc123', score: 1.5, data: { name: 'Pâtes carbonara' }, highlights: { name: ['<em>Pâtes</em> carbonara'] } },
+    ])
 
     render(<SearchBar />)
     await userEvent.type(screen.getByPlaceholderText('Rechercher…'), 'pâtes')
@@ -61,17 +70,9 @@ describe('SearchBar', () => {
   })
 
   test('clicking a result navigates', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({
-        total: 1,
-        page: 1,
-        limit: 10,
-        results: [
-          { index: 'recipes', id: 'abc123', score: 1.5, data: { name: 'Pâtes carbonara' }, highlights: { name: ['<em>Pâtes</em> carbo'] } },
-        ],
-      }),
-    }))
+    stubSearch([
+      { index: 'recipes', id: 'abc123', score: 1.5, data: { name: 'Pâtes carbonara' }, highlights: { name: ['<em>Pâtes</em> carbo'] } },
+    ])
 
     render(<SearchBar />)
     await userEvent.type(screen.getByPlaceholderText('Rechercher…'), 'pâtes')
@@ -85,17 +86,9 @@ describe('SearchBar', () => {
   })
 
   test('clicking an event result navigates to calendar', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({
-        total: 1,
-        page: 1,
-        limit: 10,
-        results: [
-          { index: 'events', id: 'evt123', score: 1.5, data: { summary: 'Réunion hebdo' }, highlights: { summary: ['<em>Réunion</em> hebdo'] } },
-        ],
-      }),
-    }))
+    stubSearch([
+      { index: 'events', id: 'evt123', score: 1.5, data: { summary: 'Réunion hebdo' }, highlights: { summary: ['<em>Réunion</em> hebdo'] } },
+    ])
 
     render(<SearchBar />)
     await userEvent.type(screen.getByPlaceholderText('Rechercher…'), 'réunion')
@@ -108,18 +101,36 @@ describe('SearchBar', () => {
     expect(mockNavigate).toHaveBeenCalledWith(`/calendar?eventId=${encodeURIComponent('/api/events/evt123')}`)
   })
 
+  test('lists every type that matches, even when one type fills the first page of hits', async () => {
+    // The API ranks all indexes together and cuts at `limit`: a dozen products
+    // named "Pâtes …" outrank the recipe and the meal, which then never reach the screen.
+    const hit = (index: string, id: string, label: string, score: number) => ({
+      index,
+      id,
+      score,
+      data: { name: label, summary: label },
+      highlights: {},
+    })
+    const corpus = [
+      ...Array.from({ length: 12 }, (_, i) => hit('products', `p${i}`, `Pâtes ${i}`, 9 - i * 0.1)),
+      hit('meals', 'm1', 'Dîner : Pâtes carbonara', 3),
+      hit('recipes', 'r1', 'Pâtes carbonara', 2),
+    ]
+    stubSearch(corpus)
+
+    render(<SearchBar />)
+    await userEvent.type(screen.getByPlaceholderText('Rechercher…'), 'pâtes')
+
+    expect(await screen.findByText('Recettes')).toBeInTheDocument()
+    expect(screen.getByText('Repas')).toBeInTheDocument()
+    expect(screen.getAllByText('Dîner : Pâtes carbonara').length).toBeGreaterThan(0)
+    expect(screen.getByText('Voir tous les résultats (14)')).toBeInTheDocument()
+  })
+
   test('Escape closes dropdown', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({
-        total: 1,
-        page: 1,
-        limit: 10,
-        results: [
-          { index: 'recipes', id: 'abc123', score: 1.5, data: { name: 'Test result' }, highlights: { name: ['<em>Test</em> match'] } },
-        ],
-      }),
-    }))
+    stubSearch([
+      { index: 'recipes', id: 'abc123', score: 1.5, data: { name: 'Test result' }, highlights: { name: ['<em>Test</em> match'] } },
+    ])
 
     render(<SearchBar />)
     await userEvent.type(screen.getByPlaceholderText('Rechercher…'), 'test')

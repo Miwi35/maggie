@@ -60,7 +60,7 @@ export function SearchBar() {
     anchorRef.current = node
     setAnchorEl(node)
   }, [])
-  const { query, setQuery, data, loading } = useSearch(300)
+  const { query, setQuery, data, loading } = useSearch(300, MAX_PER_TYPE)
 
   // Ctrl+K shortcut
   useEffect(() => {
