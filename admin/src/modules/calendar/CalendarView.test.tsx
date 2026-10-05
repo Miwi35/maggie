@@ -348,6 +348,48 @@ describe('CalendarView', () => {
       expect(mockNotify).toHaveBeenCalledWith('Occurrence supprimée', { type: 'success' })
     })
 
+    describe('deleting a meal from its card', () => {
+      const MEAL = '/api/meals/01DINNER'
+      const day = `${noon.getFullYear()}-${String(noon.getMonth() + 1).padStart(2, '0')}-15`
+      const meal = { id: MEAL, date: day, slot: 'dinner', summary: 'Dîner', recipes: [{ id: '/api/recipes/01R', name: 'Pâtes' }] }
+
+      const serveMeal = () => {
+        mockGetList.mockImplementation((resource: string) => {
+          if (resource === 'agendas') return Promise.resolve({ data: [{ id: AGENDA, name: 'Perso', default: true }], total: 1 })
+          if (resource === 'meals') return Promise.resolve({ data: [meal], total: 1 })
+          return Promise.resolve({ data: [], total: 0 })
+        })
+      }
+
+      const clickDelete = async () => {
+        const chips = await screen.findAllByText('Dîner: Pâtes')
+        await userEvent.click(chips[0])
+        await userEvent.click(await screen.findByRole('button', { name: 'Supprimer' }))
+      }
+
+      test('deletes the meal by its IRI on the meals resource, not an event', async () => {
+        serveMeal()
+        render(<CalendarView />)
+
+        await clickDelete()
+
+        await waitFor(() => expect(mockDelete).toHaveBeenCalledWith('meals', { id: MEAL, previousData: { id: MEAL } }))
+        expect(mockDelete).not.toHaveBeenCalledWith('events', expect.anything())
+        expect(mockNotify).toHaveBeenCalledWith('Repas supprimé', { type: 'success' })
+      })
+
+      test('says so when the meal cannot be deleted', async () => {
+        serveMeal()
+        mockDelete.mockRejectedValue(new Error('Forbidden'))
+        render(<CalendarView />)
+
+        await clickDelete()
+
+        await waitFor(() => expect(mockNotify).toHaveBeenCalledWith('Erreur: Forbidden', { type: 'error' }))
+        expect(mockNotify).not.toHaveBeenCalledWith('Repas supprimé', { type: 'success' })
+      })
+    })
+
     test('a refused write shows the error, announces no success and keeps the dialog open', async () => {
       serve([series])
       mockCreate.mockRejectedValue(new Error('Invalid IRI'))

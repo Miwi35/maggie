@@ -983,6 +983,23 @@ export const CalendarView = () => {
         return
       }
 
+      // Meal deletion: the id is `meal-<IRI>`, and a meal is not an event
+      if (eventId.startsWith('meal-')) {
+        const id = mealIri(eventId.slice('meal-'.length))
+        setPopoverAnchorEl(null)
+        setPopoverEvent(null)
+        dataProvider
+          .delete('meals', { id, previousData: { id } })
+          .then(() => {
+            notify('Repas supprimé', { type: 'success' })
+            refreshEvents()
+          })
+          .catch((error: Error) => {
+            notify(`Erreur: ${error.message}`, { type: 'error' })
+          })
+        return
+      }
+
       // Virtual occurrence → open recurrence confirmation dialog
       if (eventId.includes('__')) {
         if (!popoverEvent) return
