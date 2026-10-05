@@ -7,6 +7,8 @@ use Maggie\Core\Contract\MercureActionPayload;
 use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Contract\OwnedByUserInterface;
 use Maggie\Core\Contract\OwnedThroughInterface;
+use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
+use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Identifier\CanonicalId;
 use Maggie\Core\Mercure\ChangesetStore;
@@ -46,6 +48,13 @@ class MercurePublishMiddleware implements MiddlewareInterface
         $envelope = $stack->next()->handle($envelope, $stack);
 
         $message = $envelope->getMessage();
+
+        // Indexing is not a change a client subscribes to: it looks like a "Delete<Entity>Command"
+        // and would publish a delete on a topic that does not exist.
+        if ($message instanceof DeleteDocumentCommand || $message instanceof IndexDocumentCommand) {
+            return $envelope;
+        }
+
         $parsed = self::parseCommandClass($message::class);
 
         try {

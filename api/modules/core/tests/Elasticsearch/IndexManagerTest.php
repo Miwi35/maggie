@@ -93,26 +93,44 @@ final class IndexManagerTest extends TestCase
     }
 
     /**
-     * The list a user sees is served from the index: a document is searchable
-     * only once the index is refreshed (every second by default), so a write
-     * the user just made would not show up in the refetch that follows it.
+     * The list a user sees is served from the index, and a document is searchable only once the
+     * index is refreshed (every second by default): the indices a request wrote are refreshed once.
      */
-    public function testAWrittenDocumentIsSearchableWhenTheWriteReturns(): void
+    public function testEveryWrittenIndexIsRefreshedOnceWhateverTheNumberOfWrites(): void
     {
-        $manager = $this->manager(static fn (): array => [201, ['result' => 'created']]);
+        $manager = $this->manager(static fn (): array => [200, ['result' => 'created']]);
 
         $manager->indexDocument('events', '01J0000000000000000000000A', ['summary' => 'Lunch']);
+        $manager->deleteDocument('events', '01J0000000000000000000000B');
+        $manager->deleteDocument('events', '01J0000000000000000000000C');
+        $manager->indexDocument('agendas', '01J0000000000000000000000D', ['name' => 'Perso']);
+        $manager->refreshWritten();
 
-        self::assertSame('refresh=true', $this->requests[0]['query']);
+        self::assertSame(
+            ['PUT /events/_doc/01J0000000000000000000000A', 'DELETE /events/_doc/01J0000000000000000000000B', 'DELETE /events/_doc/01J0000000000000000000000C', 'PUT /agendas/_doc/01J0000000000000000000000D', 'POST /events/_refresh', 'POST /agendas/_refresh'],
+            array_map(static fn (array $r): string => $r['method'].' '.$r['path'], $this->requests),
+        );
     }
 
-    public function testADeletedDocumentIsGoneFromTheListWhenTheDeleteReturns(): void
+    public function testNothingIsRefreshedWhenNothingWasWritten(): void
     {
-        $manager = $this->manager(static fn (): array => [200, ['result' => 'deleted']]);
+        $manager = $this->manager(static fn (): array => [200, []]);
 
-        $manager->deleteDocument('events', '01J0000000000000000000000A');
+        $manager->refreshWritten();
 
-        self::assertSame('refresh=true', $this->requests[0]['query']);
+        self::assertSame([], $this->requests);
+    }
+
+    public function testAFailedRefreshDoesNotBreakTheResponse(): void
+    {
+        $manager = $this->manager(static fn (string $method): array => 'POST' === $method
+            ? [503, ['error' => ['type' => 'unavailable', 'reason' => 'down'], 'status' => 503]]
+            : [201, ['result' => 'created']]);
+        $manager->indexDocument('events', '01J0000000000000000000000A', ['summary' => 'Lunch']);
+
+        $manager->refreshWritten();
+
+        self::assertSame('POST /events/_refresh', $this->requests[1]['method'].' '.$this->requests[1]['path']);
     }
 
     public function testABulkDocumentCarriesItsIdentifier(): void

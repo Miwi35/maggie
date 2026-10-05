@@ -10,6 +10,9 @@ use Psr\Log\LoggerInterface;
 
 final class IndexManager
 {
+    /** @var array<string, true> */
+    private array $written = [];
+
     public function __construct(
         private readonly Client $client,
         private readonly IndexMetadataReader $metadataReader,
@@ -92,20 +95,15 @@ final class IndexManager
         }
     }
 
-    /**
-     * Refreshed on return: the web client refetches its list the moment a write answers, and a
-     * search only sees refreshed documents (every second by default).
-     *
-     * @param array<string, mixed> $document
-     */
+    /** @param array<string, mixed> $document */
     public function indexDocument(string $indexName, string $id, array $document): void
     {
         $this->client->index([
             'index' => $indexName,
             'id' => $id,
             'body' => self::withId($id, $document),
-            'refresh' => 'true',
         ]);
+        $this->written[$indexName] = true;
     }
 
     public function deleteDocument(string $indexName, string $id): void
@@ -113,8 +111,30 @@ final class IndexManager
         $this->client->delete([
             'index' => $indexName,
             'id' => $id,
-            'refresh' => 'true',
         ]);
+        $this->written[$indexName] = true;
+    }
+
+    /**
+     * A search only sees refreshed documents (every second by default), and the web client
+     * refetches its list the moment a write answers: the indices written during the request are
+     * refreshed once, before the response leaves, however many documents the write touched.
+     */
+    public function refreshWritten(): void
+    {
+        $indices = array_keys($this->written);
+        $this->written = [];
+
+        foreach ($indices as $indexName) {
+            try {
+                $this->client->indices()->refresh(['index' => $indexName]);
+            } catch (\Throwable $e) {
+                $this->logger->warning('Failed to refresh ES index {index}: {error}', [
+                    'index' => $indexName,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
     }
 
     /**
