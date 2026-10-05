@@ -253,12 +253,11 @@ the stack (MAG-233 split what used to be one 15-minute job):
 - **`E2E Mobile journeys (<device> <i>/3)`**, one job per shard of `shards.txt`,
   each with its own stack and its own emulator, in parallel. It downloads the APK
   (`E2E_MOBILE_APK`) and runs its flows (`E2E_MOBILE_SHARD=i/3`) with
-  `reactivecircus/android-emulator-runner` on the API 34 **`google_atd`** image (Google's Automated Test Device: no
-  Pixel Launcher or bundled apps, built for headless runs; MAG-241). The booted
+  `reactivecircus/android-emulator-runner` on API 34 `google_apis`. The booted
   emulator is cached as an **AVD snapshot** per device profile
-  (`avd-v2-34-google_atd-x86_64-<profile>`), so a shard loads it in seconds
+  (`avd-v1-34-google_apis-x86_64-<profile>`), so a shard loads it in seconds
   instead of booting cold; the first run after the key changes boots once and
-  saves it. Bump `v2` when the emulator options or the image change.
+  saves it. Bump `v1` when the emulator options change.
 - **`E2E Mobile (phone)`**, the required check, always reported: red when the APK,
   the unit tests or any shard failed, green at once when `Detect changes` says no
   device is needed.
@@ -285,11 +284,6 @@ responding » window that does not name Maggie and keeps a screenshot of it, and
 the flow on one that does. A failed run also writes `report/anr.txt`, the ANR lines of
 the whole logcat. A flow that waits long somewhere else than at sign-in runs the same
 subflow inside a `retry` the same way.
-
-MAG-241 moved CI to the ATD image, which ships no Pixel Launcher, so the window should
-not come up any more — but that is only known after enough green runs, so the setting
-and the subflow stay until ten consecutive runs show no « isn't responding » (the
-subflow keeps a screenshot of any it dismisses; look for `system-anr-dismissed` in the report).
 
 The nightly run (`nightly.yml` calls `ci.yml`) widens the matrix to a phone, a
 **foldable** and a **tablet**, which is what MAG-35 and MAG-91 ask for, each in
