@@ -12,11 +12,14 @@ import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.ExpandedEvent
 import com.maggie.app.data.model.GoogleCalendar
 import com.maggie.app.data.model.Task
+import com.maggie.app.data.model.UserPreference
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.TaskRepository
+import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.util.DateRanges
 import com.maggie.app.util.EventExpander
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -25,6 +28,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
@@ -54,6 +59,7 @@ class FullCalendarViewModel(
     private val agendaRepository: AgendaRepository,
     private val mercureService: MercureService,
     private val authRepository: AuthRepository,
+    private val userPreferenceRepository: UserPreferenceRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FullCalendarUiState())
@@ -63,6 +69,13 @@ class FullCalendarViewModel(
     private var agendaMap: Map<String, Agenda> = emptyMap()
     private var delayedRefreshes: Job? = null
 
+    // Saved preferences only seed the initial state (MAG-120): once the user has picked a view or
+    // toggled an agenda, or the seed was applied, they are not consulted again.
+    private var preference: UserPreference? = null
+    private var agendasLoaded = false
+    private var viewSettled = false
+    private var agendasSettled = false
+
     init {
         // Load once the auth token is available (and again on each login), rather
         // than racing the login in init.
@@ -70,12 +83,60 @@ class FullCalendarViewModel(
             authRepository.token
                 .map { it != null }
                 .distinctUntilChanged()
-                .collect { authenticated -> if (authenticated) refresh() }
+                .collect { authenticated ->
+                    if (authenticated) {
+                        refresh()
+                        fetchPreferenceIfMissing()
+                    }
+                }
+        }
+        viewModelScope.launch {
+            applyPreference(userPreferenceRepository.preference.filterNotNull().first())
         }
         subscribeToMercure()
     }
 
+    // The request can fail or be slow: the defaults stay until (and unless) it lands.
+    private suspend fun fetchPreferenceIfMissing() {
+        if (userPreferenceRepository.preference.value != null) return
+        try {
+            userPreferenceRepository.refresh()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun applyPreference(pref: UserPreference) {
+        preference = pref
+        if (!viewSettled) {
+            viewSettled = true
+            _uiState.value = _uiState.value.copy(viewType = viewTypeOf(pref.defaultCalendarView))
+        }
+        applyAgendaPreference()
+        expandForCurrentRange()
+    }
+
+    private fun applyAgendaPreference() {
+        val pref = preference ?: return
+        if (!agendasLoaded || agendasSettled) return
+        agendasSettled = true
+        val wanted = pref.enabledAgendaIds.map { it.substringAfterLast('/') }.toSet()
+        val agendaIds = _uiState.value.agendas.map { it.id }
+        val matching = agendaIds.filter { it.substringAfterLast('/') in wanted }
+        // Empty = never customised; no match = stale ids: both keep every agenda visible.
+        if (matching.isEmpty()) return
+        _uiState.value = _uiState.value.copy(enabledAgendas = matching.toSet())
+    }
+
+    private fun viewTypeOf(value: String) = when (value) {
+        "week" -> CalendarViewType.WEEK
+        "day" -> CalendarViewType.DAY
+        else -> CalendarViewType.MONTH
+    }
+
     fun setViewType(type: CalendarViewType) {
+        viewSettled = true
         _uiState.value = _uiState.value.copy(viewType = type)
         expandForCurrentRange()
     }
@@ -113,6 +174,7 @@ class FullCalendarViewModel(
     }
 
     fun toggleAgenda(agendaId: String) {
+        agendasSettled = true
         val current = _uiState.value.enabledAgendas.toMutableSet()
         if (agendaId in current) current.remove(agendaId) else current.add(agendaId)
         _uiState.value = _uiState.value.copy(enabledAgendas = current)
@@ -148,6 +210,8 @@ class FullCalendarViewModel(
                     tasks = tasks,
                     isLoading = false,
                 )
+                agendasLoaded = true
+                applyAgendaPreference()
                 expandForCurrentRange()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)

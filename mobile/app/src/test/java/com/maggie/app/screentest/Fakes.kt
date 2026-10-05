@@ -16,12 +16,14 @@ import com.maggie.app.data.repository.GroceryListRepository
 import com.maggie.app.data.repository.ProductRepository
 import com.maggie.app.data.repository.StoreRepository
 import com.maggie.app.data.repository.TaskRepository
+import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.ui.screens.cookbook.grocery.GroceryViewModel
 import com.maggie.app.ui.screens.finance.FinanceDashboardViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 
@@ -167,7 +169,10 @@ class FakeCalendar(private val events: List<Event>) {
         coEvery { taskRepository.refreshTasks() } returns Result.success(emptyList())
         coEvery { taskRepository.getUndoneTasks(any()) } returns emptyList()
         coEvery { agendaRepository.refreshAgendas() } returns Result.success(emptyList())
-        FullCalendarViewModel(eventRepository, taskRepository, agendaRepository, mercure, auth)
+        val userPreferenceRepository = mockk<UserPreferenceRepository>()
+        every { userPreferenceRepository.preference } returns MutableStateFlow(null)
+        coEvery { userPreferenceRepository.refresh() } returns Result.failure(IllegalStateException("no preference"))
+        FullCalendarViewModel(eventRepository, taskRepository, agendaRepository, mercure, auth, userPreferenceRepository)
     }
 }
 

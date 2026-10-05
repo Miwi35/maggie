@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maggie\Notification\MessageHandler;
 
+use Maggie\Core\Repository\UserPreferenceRepository;
 use Maggie\Core\Repository\UserRepository;
 use Maggie\Notification\Entity\Notification;
 use Maggie\Notification\Enum\NotificationType;
@@ -17,10 +18,11 @@ class CreateNotificationHandler
     public function __construct(
         private readonly CreateNotification $createNotification,
         private readonly UserRepository $userRepository,
+        private readonly UserPreferenceRepository $preferenceRepository,
     ) {
     }
 
-    public function __invoke(CreateNotificationCommand $command): Notification
+    public function __invoke(CreateNotificationCommand $command): ?Notification
     {
         if (null !== $command->userId) {
             $user = $this->userRepository->find($command->userId);
@@ -31,6 +33,11 @@ class CreateNotificationHandler
 
         if (null === $user) {
             throw new \DomainException('No user found.');
+        }
+
+        // On by default: a user who never saved preferences has no row.
+        if (false === $this->preferenceRepository->findOneByUser($user)?->isNotificationsEnabled()) {
+            return null;
         }
 
         $notification = new Notification();

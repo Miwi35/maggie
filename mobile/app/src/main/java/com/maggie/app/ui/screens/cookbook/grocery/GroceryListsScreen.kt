@@ -2,6 +2,7 @@ package com.maggie.app.ui.screens.cookbook.grocery
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +25,8 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragIndicator
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material3.AlertDialog
@@ -124,8 +127,8 @@ fun GroceryScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                val checkedCount = uiState.groceryList?.items?.count { it.checked } ?: 0
-                val totalCount = uiState.storeGroups.sumOf { it.items.size }
+                val checkedCount = uiState.checkedCount
+                val totalCount = uiState.totalCount
                 Text(
                     text = "Liste de courses",
                     style = MaterialTheme.typography.titleMedium,
@@ -175,7 +178,7 @@ fun GroceryScreen(
                             CircularProgressIndicator()
                         }
                     }
-                    uiState.groceryList == null || uiState.storeGroups.isEmpty() -> {
+                    uiState.groceryList == null || (uiState.storeGroups.isEmpty() && uiState.laterItems.isEmpty()) -> {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text(
                                 "Aucun article dans la liste",
@@ -185,6 +188,7 @@ fun GroceryScreen(
                     }
                     else -> {
                         val lazyListState = rememberLazyListState()
+                        var laterExpanded by remember { mutableStateOf(false) }
                         val reorderableLazyListState = rememberReorderableLazyListState(lazyListState) { from, to ->
                             // Find which store group these items belong to
                             val fromKey = from.key as? String ?: return@rememberReorderableLazyListState
@@ -287,6 +291,23 @@ fun GroceryScreen(
                                                 Modifier
                                             },
                                         )
+                                    }
+                                }
+                            }
+                            if (uiState.laterItems.isNotEmpty()) {
+                                item(key = "later-header") {
+                                    LaterSectionHeader(
+                                        count = uiState.laterItems.size,
+                                        expanded = laterExpanded,
+                                        onClick = { laterExpanded = !laterExpanded },
+                                    )
+                                }
+                                if (laterExpanded) {
+                                    items(
+                                        uiState.laterItems,
+                                        key = { "later|${it.id ?: it.hashCode()}" },
+                                    ) { laterItem ->
+                                        LaterItemRow(laterItem)
                                     }
                                 }
                             }
@@ -563,6 +584,51 @@ private fun SelectionBottomBar(
         }
         IconButton(onClick = onDelete) {
             Icon(Icons.Default.Delete, contentDescription = "Supprimer les articles")
+        }
+    }
+}
+
+@Composable
+private fun LaterSectionHeader(count: Int, expanded: Boolean, onClick: () -> Unit) {
+    Column(modifier = Modifier.padding(top = 16.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Plus tard ($count)",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Icon(
+                imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                contentDescription = if (expanded) "Replier" else "Déplier",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        HorizontalDivider()
+    }
+}
+
+/** A deferred item: no checkbox, no swipe — it is not on today's list. */
+@Composable
+private fun LaterItemRow(item: GroceryItem) {
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp, horizontal = 4.dp)) {
+        Text(
+            text = item.label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        formatBuyAfter(item.buyAfter)?.let { date ->
+            Text(
+                text = "À acheter à partir du $date",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

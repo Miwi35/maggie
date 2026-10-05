@@ -194,7 +194,8 @@ class GroceryToolsTest extends KernelTestCase
      * a meal planned ten days out defers its perishables on its own. A regression
      * here reads as "the shopping list is full of things I cannot buy yet".
      *
-     * The admin ignores `buyAfter` entirely, which is MAG-174.
+     * The admin and the mobile app do the same and show the hidden lines in a
+     * « Plus tard » section (MAG-120): the tool's `later` list is that section.
      */
     public function testGetGroceryListHidesALineDeferredToTheFuture(): void
     {
@@ -215,6 +216,35 @@ class GroceryToolsTest extends KernelTestCase
         self::assertSame(2, $data['groceryList']['totalItems']);
         // Hidden, not lost — the agent can still say there is something coming.
         self::assertSame(1, $data['groceryList']['deferredCount']);
+    }
+
+    public function testGetGroceryListListsTheDeferredLinesInALaterSection(): void
+    {
+        $this->loadFixtures('grocery-deferred.yaml');
+        $this->loginFixtureUser();
+        $this->em()->clear();
+
+        $tool = self::getContainer()->get(GetGroceryListTool::class);
+        $data = json_decode($tool(), true, 512, JSON_THROW_ON_ERROR);
+
+        $later = $data['groceryList']['later'] ?? null;
+        self::assertIsArray($later, 'the hidden lines are only counted, never named');
+        self::assertCount(1, $later);
+        self::assertSame('Liquide vaisselle', $later[0]['label']);
+        self::assertSame((new \DateTimeImmutable('+6 days'))->format('Y-m-d'), $later[0]['buyAfter']);
+        self::assertNotContains('Liquide vaisselle', $this->labelsOf($data), 'it is in `later`, not in today’s groups');
+    }
+
+    public function testGetGroceryListHasNoLaterSectionWhenTheDeferredLinesAreAlreadyShown(): void
+    {
+        $this->loadFixtures('grocery-deferred.yaml');
+        $this->loginFixtureUser();
+        $this->em()->clear();
+
+        $tool = self::getContainer()->get(GetGroceryListTool::class);
+        $data = json_decode($tool(true), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame([], $data['groceryList']['later']);
     }
 
     public function testGetGroceryListShowsADeferredLineWhenAskedFor(): void

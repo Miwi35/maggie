@@ -120,6 +120,97 @@ describe('GroceryListView', () => {
     expect(handles.length).toBeGreaterThan(0)
   })
 
+  describe('lines deferred by buyAfter (MAG-120)', () => {
+    // The REST API sends a date-time, the Mercure payload a plain date.
+    const day = (offset: number, withTime = true) => {
+      const d = new Date()
+      d.setDate(d.getDate() + offset)
+      const pad = (n: number) => String(n).padStart(2, '0')
+      const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+      return withTime ? `${date}T00:00:00+00:00` : date
+    }
+    const line = (id: string, label: string, buyAfter?: string) => ({
+      id,
+      '@id': `/api/grocery_items/${id}`,
+      label,
+      checked: false,
+      source: 'manual',
+      store: { id: 'store-1', name: 'Supermarché', visitOrder: 1 },
+      position: 0,
+      ...(buyAfter ? { buyAfter } : {}),
+    })
+    const listWith = (items: ReturnType<typeof line>[]) => {
+      const list = { ...sampleList, items }
+      mockGetList.mockResolvedValue({ data: [list], total: items.length })
+      mockGetOne.mockResolvedValue({ data: list })
+    }
+
+    test('a line to buy later is not in its store group, a line of today or without date is', async () => {
+      listWith([
+        line('a', 'Lait'),
+        line('b', 'Pain', day(0)),
+        line('c', 'Liquide vaisselle', day(5)),
+        line('d', 'Beurre', day(-2)),
+      ])
+      render(<GroceryListView />)
+
+      await waitFor(() => expect(screen.getByText('Lait')).toBeInTheDocument())
+      const group = screen.getByTestId('grocery-store-group')
+      expect(within(group).getByText('Pain')).toBeInTheDocument()
+      expect(within(group).getByText('Beurre')).toBeInTheDocument()
+      expect(within(group).queryByText('Liquide vaisselle')).not.toBeInTheDocument()
+    })
+
+    test('the checked/total counter ignores the deferred lines', async () => {
+      listWith([line('a', 'Lait'), line('b', 'Pain'), line('c', 'Liquide vaisselle', day(5))])
+      render(<GroceryListView />)
+
+      await waitFor(() => expect(screen.getByText('Lait')).toBeInTheDocument())
+      // the list header and the store group both carry it
+      expect(screen.getAllByText('0/2')).toHaveLength(2)
+      expect(screen.queryByText('0/3')).not.toBeInTheDocument()
+    })
+
+    test('a « Plus tard » section counts the deferred lines and shows them with their date on demand', async () => {
+      const user = userEvent.setup()
+      listWith([
+        line('a', 'Lait'),
+        line('c', 'Liquide vaisselle', day(5, false)),
+        line('d', 'Yaourts', day(9)),
+      ])
+      render(<GroceryListView />)
+
+      await waitFor(() => expect(screen.getByText('Lait')).toBeInTheDocument())
+      const later = screen.getByTestId('grocery-later')
+      expect(within(later).getByText(/Plus tard/)).toHaveTextContent('2')
+      expect(within(later).queryByText('Liquide vaisselle')).not.toBeInTheDocument()
+
+      await user.click(within(later).getByText(/Plus tard/))
+
+      const row = await within(later).findByText('Liquide vaisselle')
+      expect(row.closest('li')).toHaveTextContent(/\d{2}\/\d{2}\/\d{4}|\d{1,2} \p{L}+/u)
+      expect(within(later).getByText('Yaourts')).toBeInTheDocument()
+      // Not shoppable yet: no checkbox in this section.
+      expect(within(later).queryByRole('checkbox')).not.toBeInTheDocument()
+    })
+
+    test('no « Plus tard » section when nothing is deferred', async () => {
+      listWith([line('a', 'Lait'), line('b', 'Pain', day(-1))])
+      render(<GroceryListView />)
+
+      await waitFor(() => expect(screen.getByText('Lait')).toBeInTheDocument())
+      expect(screen.queryByTestId('grocery-later')).not.toBeInTheDocument()
+    })
+
+    test('a list holding only deferred lines still says so', async () => {
+      listWith([line('c', 'Liquide vaisselle', day(5))])
+      render(<GroceryListView />)
+
+      await waitFor(() => expect(screen.getByTestId('grocery-later')).toBeInTheDocument())
+      expect(screen.getByText('Cette liste est vide.')).toBeInTheDocument()
+    })
+  })
+
   describe('writes on a line go to the route the API exposes (MAG-197)', () => {
     // `GroceryItem` is not an ApiResource: the API serialises each line with an
     // anonymous `@id` (`/.well-known/genid/…`), which nothing routes — nginx

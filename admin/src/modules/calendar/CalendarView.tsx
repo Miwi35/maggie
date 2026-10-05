@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useTheme } from '@mui/material/styles'
 import Box from '@mui/material/Box'
 import { useMercure } from '../../hooks/useMercure'
+import { useUserPreferences } from '../../hooks/useUserPreferences'
 import Button from '@mui/material/Button'
 import ButtonGroup from '@mui/material/ButtonGroup'
 import Checkbox from '@mui/material/Checkbox'
@@ -102,6 +103,12 @@ const SIDEBAR_WIDTH = 230
 const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 
 type CalendarView = 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'timeGrid' | 'dayGrid'
+
+const PREFERRED_VIEWS: Record<string, CalendarView> = {
+  month: 'dayGridMonth',
+  week: 'timeGridWeek',
+  day: 'timeGridDay',
+}
 
 const VIEW_BUTTONS: { label: string; view: CalendarView }[] = [
   { label: 'Mois', view: 'dayGridMonth' },
@@ -478,6 +485,7 @@ export const CalendarView = () => {
   const [createAgendaLoading, setCreateAgendaLoading] = useState(false)
 
   // --- Fetch calendars ---
+  const knownCalendarIds = useRef(new Set<string>())
   const loadCalendars = useCallback(() => {
     dataProvider
       .getList('agendas', {
@@ -488,13 +496,14 @@ export const CalendarView = () => {
       .then(({ data }) => {
         const cals = data as unknown as CalendarData[]
         setCalendars(cals)
+        const known = knownCalendarIds.current
+        const fresh = cals.filter((c) => !known.has(c.id))
+        for (const c of fresh) known.add(c.id)
         setEnabledCalendars((prev) => {
           if (prev === null) return new Set([...cals.map((c) => c.id), '__tasks__', '__meals__'])
-          // Keep existing toggles, add new calendars
+          // Keep existing toggles (a hidden agenda stays hidden), show the agendas never seen before
           const next = new Set(prev)
-          for (const c of cals) {
-            if (!Array.from(prev).includes(c.id)) next.add(c.id)
-          }
+          for (const c of fresh) next.add(c.id)
           return next
         })
       })
@@ -502,6 +511,28 @@ export const CalendarView = () => {
   }, [dataProvider])
 
   useEffect(() => { loadCalendars() }, [loadCalendars])
+
+  // --- Saved preferences: the view the grid opens on and the agendas it shows ---
+  const { preferences } = useUserPreferences()
+  const preferencesApplied = useRef({ view: false, agendas: false })
+
+  useEffect(() => {
+    const view = preferences ? PREFERRED_VIEWS[preferences.defaultCalendarView] : undefined
+    if (!view || preferencesApplied.current.view) return
+    preferencesApplied.current.view = true
+    calendarRef.current?.getApi().changeView(view)
+  }, [preferences])
+
+  useEffect(() => {
+    const saved = preferences?.enabledAgendaIds
+    if (!Array.isArray(saved) || 0 === saved.length || 0 === calendars.length || preferencesApplied.current.agendas) return
+    preferencesApplied.current.agendas = true
+    const savedIds = new Set(saved.map(bareId))
+    const shown = calendars.filter((c) => savedIds.has(bareId(c.id)))
+    // Every saved agenda deleted since: an empty screen would look broken, not filtered.
+    if (0 === shown.length) return
+    setEnabledCalendars(new Set([...shown.map((c) => c.id), '__tasks__', '__meals__']))
+  }, [preferences, calendars])
 
   // --- Agenda sidebar handlers ---
   const handleAgendaMenuOpen = useCallback((e: React.MouseEvent<HTMLElement>, cal: CalendarData) => {

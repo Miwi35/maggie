@@ -216,7 +216,7 @@ class MaggieApp : Application() {
             // ViewModels
             viewModel { LoginViewModel(get()) }
             viewModel { DashboardViewModel(get(), get(), get(), get(), get()) }
-            viewModel { FullCalendarViewModel(get(), get(), get(), get(), get()) }
+            viewModel { FullCalendarViewModel(get(), get(), get(), get(), get(), get()) }
             viewModel { ChatViewModel(get(), get(), get(), get()) }
             viewModel { ContextViewModel(get(), get(), get()) }
             viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get()) }

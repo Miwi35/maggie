@@ -1,0 +1,21 @@
+Maggie\Core\Entity\User:
+  silent_user:
+    email: silent@example.com
+    googleId: google-silent
+    name: Silent User
+  default_user:
+    email: default@example.com
+    googleId: google-default
+    name: Default User
+  enabled_user:
+    email: enabled@example.com
+    googleId: google-enabled
+    name: Enabled User
+
+Maggie\Core\Entity\UserPreference:
+  silent_preference:
+    user: '@silent_user'
+    notificationsEnabled: false
+  enabled_preference:
+    user: '@enabled_user'
+    notificationsEnabled: true

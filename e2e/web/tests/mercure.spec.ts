@@ -9,7 +9,7 @@ import {
   userTopic,
 } from '../helpers/mercure.js'
 import { PreferencesPage } from '../pages/PreferencesPage.js'
-import type { CalendarView } from '../pages/PreferencesPage.js'
+import type { Theme } from '../pages/PreferencesPage.js'
 
 /**
  * Real-time, the part of the socle MAG-93 says carries the value.
@@ -23,7 +23,9 @@ import type { CalendarView } from '../pages/PreferencesPage.js'
  * nothing, and the admin's own subscription is built from a relative path
  * resolved against the current origin.
  *
- * `defaultCalendarView` is the thing being changed throughout. It is stored on
+ * `theme` is the thing being changed throughout — not the calendar view, which
+ * the calendar screen now opens on (MAG-120): flipping it would change what every
+ * parallel journey sees on the owner's agenda. It is stored on
  * `UserPreference`, one of the few entities served straight from Doctrine —
  * on an Elasticsearch-backed collection the observing tab would refetch before
  * the worker had indexed anything, and the flake would say nothing about
@@ -39,7 +41,7 @@ const PREFERENCE_TOPIC = '/api/user_preferences/{id}'
 // for the next test and the next retry. Putting it at the end of each test
 // meant the first failure poisoned everything after it.
 test.afterEach(async ({ api }) => {
-  await setCalendarView(api, 'week')
+  await setTheme(api, 'light')
 })
 
 test('one window sees what the other did, without reloading', async ({ twoWindows, api }) => {
@@ -52,13 +54,13 @@ test('one window sees what the other did, without reloading', async ({ twoWindow
   // is waiting for is published into a socket nobody holds yet.
   await openSubscribed(observer, () => observerPage.open())
 
-  const before = await calendarView(api)
+  const before = await theme(api)
   const target = otherThan(before)
 
   await expectRealtimeSync(
     observer,
-    () => actorPage.chooseCalendarView(target),
-    () => observerPage.expectCalendarView(target),
+    () => actorPage.chooseTheme(target),
+    () => observerPage.expectTheme(target),
   )
 })
 
@@ -66,13 +68,13 @@ test('the hub delivers on the user-scoped topic the API publishes to', async ({ 
   await new PreferencesPage(page).open()
 
   const probe = await openMercureProbe(page, [userTopic(session.user.id, PREFERENCE_TOPIC)])
-  const before = await calendarView(api)
+  const before = await theme(api)
   const target = otherThan(before)
 
-  await setCalendarView(api, target)
+  await setTheme(api, target)
 
   const update = await probe.waitFor((message) => typeof message.parsed?.['@id'] === 'string')
-  expect(update.parsed?.defaultCalendarView, 'the payload must carry what changed').toBe(target)
+  expect(update.parsed?.theme, 'the payload must carry what changed').toBe(target)
 
   await probe.close()
 })
@@ -97,12 +99,12 @@ test("nothing published for one user shows up on another's own topics", async ({
   // precisely what a 144-bit MERCURE_JWT_SECRET made it mean for a while.
   const owner = await openMercureProbe(page, [userTopic(session.user.id, PREFERENCE_TOPIC)])
 
-  const before = await calendarView(api)
+  const before = await theme(api)
   const target = otherThan(before)
 
-  await setCalendarView(api, target)
+  await setTheme(api, target)
 
-  await owner.waitFor((message) => message.parsed?.defaultCalendarView === target)
+  await owner.waitFor((message) => message.parsed?.theme === target)
   await neighbour.expectSilence()
 
   await Promise.all([owner.close(), neighbour.close()])
@@ -126,8 +128,8 @@ test('the hub refuses a subscriber asking for another user\'s topic', async ({
 
   const eavesdrop = await openMercureProbe(otherUser.page, [userTopic(session.user.id, PREFERENCE_TOPIC)])
 
-  const before = await calendarView(api)
-  await setCalendarView(api, otherThan(before))
+  const before = await theme(api)
+  await setTheme(api, otherThan(before))
 
   await eavesdrop.expectSilence()
 
@@ -155,21 +157,21 @@ test("the admin's own subscription is relative and user-scoped", async ({ page, 
   expect(topics.every((topic) => topic.startsWith(`/users/${session.user.id}/`))).toBe(true)
 })
 
-function otherThan(current: string): CalendarView {
-  return current === 'month' ? 'day' : 'month'
+function otherThan(current: string): Theme {
+  return current === 'dark' ? 'light' : 'dark'
 }
 
-async function calendarView(api: APIRequestContext): Promise<string> {
+async function theme(api: APIRequestContext): Promise<string> {
   const response = await api.get('/api/user_preferences/me')
-  const body = (await response.json()) as { defaultCalendarView?: string }
+  const body = (await response.json()) as { theme?: string }
 
-  return body.defaultCalendarView ?? 'week'
+  return body.theme ?? 'light'
 }
 
-async function setCalendarView(api: APIRequestContext, view: string): Promise<void> {
+async function setTheme(api: APIRequestContext, value: string): Promise<void> {
   const response = await api.patch('/api/user_preferences/me', {
     headers: { 'Content-Type': 'application/merge-patch+json' },
-    data: { defaultCalendarView: view },
+    data: { theme: value },
   })
 
   expect(response.ok(), `PATCH /api/user_preferences/me answered ${response.status()}`).toBe(true)
