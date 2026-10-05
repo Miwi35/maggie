@@ -146,8 +146,15 @@ against an app nobody launched.
 
 `08-grocery-realtime` is what is left of the three: web → phone and phone → web,
 with the app never relaunched or refreshed. The errand itself — the list by shop
-in visiting order, a tick, « Terminé », what is left offered back, a removal, a
-deferred line missing — is `GroceryScreenTest` on the JVM (MAG-242).
+in visiting order, a tick, the sheet of what is left, a removal behind a
+confirmation, a deferred line missing — is `GroceryScreenTest` on the JVM
+(MAG-242).
+
+It also ends the errand at a shop, which is not about real time: « Terminé » posts
+to `/api/grocery/end-errand`, a controller of its own that none of
+`api/contract/`'s recorded responses covers, so the app's own request reaching it
+has nowhere else to be proven. It is here because this is the flow that already
+signs in as the shopper and reads the database back.
 
 Four things it relies on, none of them obvious:
 
@@ -204,13 +211,15 @@ MAG-242 moved five journeys and the tail of a sixth. Nothing was dropped.
 | | the day view of the second day draws it (`76017dd`) | same |
 | `06-finance-hub` | one « Finance » entry in the drawer, and no budgets or accounts entry | `FinanceHubScreenTest` + `FinanceNavigationTest` |
 | | the dashboard offers every part of the module, and opens one | `FinanceHubScreenTest` |
+| | the Budgets screen really opens (the `NavHost` route is wired) | `05-deep-links` gained `maggie-e2e://finance/budgets`: a route dropped from the `NavHost` is invisible to both the screen test and `FinanceNavigationTest` |
 | | back lands on the finance dashboard | `FinanceNavigationTest.financeBackAction` |
 | `07-grocery-errand` | the list grouped by shop in visiting order, unassigned last | `GroceryScreenTest` |
 | | a tick offers « Terminé » on its shop | same |
 | | « Terminé » offers the unbought lines back, with Transférer / Garder | same |
 | | the bought line leaves the list, the others stay unticked | same, read on the screen **and** on the fake server |
 | | a removal asks for a confirmation | same |
-| | the tick, the removal and the end of the errand reach the database | `EndErrandControllerTest`, `GroceryToolsTest`, and `08-grocery-realtime` for the phone → database half |
+| | a tick and a removal made on the phone reach the database | `08-grocery-realtime`, which already did both |
+| | **« Terminé » reaches `/api/grocery/end-errand`** | `08-grocery-realtime` gained the step: it is a controller of its own, in none of `api/contract/`'s recorded responses, so the live round trip had nowhere else to go. The request shape and the answer's parsing are also `MaggieApiServiceTest.endErrand…`, and the server's own behaviour stays `EndErrandControllerTest` |
 | `09-grocery-deferred` | a `buyAfter` line is served and not drawn | `GroceryScreenTest` + `GroceryViewModelTest` |
 | | it is in the database | `GroceryToolsTest` |
 | `10-voice-settings` | Voix shows the assistant role row and its state | `VoiceSettingsScreenTest` — each of the three states asserted as itself, where the flows could only assert an alternation |

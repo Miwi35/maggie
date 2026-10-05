@@ -80,7 +80,10 @@ class SomeScreenTest {
 - **The real ViewModel over faked repositories,** as `screentest/Fakes.kt` builds
   them. What the journeys proved was « the list the server sent comes out grouped,
   in this order, with that line hidden » — the state machine as much as the drawing,
-  and mocking the state out leaves a test asserting its own fixture.
+  and mocking the state out leaves a test asserting its own fixture. The exception
+  is a screen whose assertions are not about its state at all — static copy, a
+  platform read — where mocking the ViewModel saves building six fakes to reach it;
+  `VoiceSettingsScreenTest` says so where it does it.
 - **Fixture names come from `api/fixtures/e2e/`.** A test that replaced a flow should
   fail for the same reason the flow did.
 - **Fix the dates.** A flow read a server seeded « today + 5 days » and could only

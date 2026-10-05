@@ -5,8 +5,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * The calendar ids are built here and spelled by hand in `e2e/mobile/flows/` —
- * `calendar_span_${TRAIN_START}_.*` — so a change of format is a change of flow.
+ * The calendar ids are built here and spelled by hand by whatever addresses the
+ * app: a flow in `e2e/mobile/flows/` (`calendar_day_${TODAY}`) or a screen test
+ * (`UiTags.calendarSpan(first, last)` in `MultiDayEventScreenTest`, MAG-242). A
+ * change of format is a change to both, and this is where it fails first.
  */
 class UiTagsTest {
 

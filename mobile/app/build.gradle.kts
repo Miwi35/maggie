@@ -235,7 +235,6 @@ dependencies {
     // and what stays in Maestro.
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.compose.ui.test.junit4)
-    testImplementation(libs.compose.ui.test.manifest)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.junit)
 }

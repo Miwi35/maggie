@@ -97,6 +97,10 @@ object Seed {
      * server sends and not on the screen (MAG-101). The API serves it either way —
      * the filter is the app's (`GroceryViewModel.buildStoreGroups`), which is why
      * `09-grocery-deferred` had to look at a screen at all.
+     *
+     * The one date here that follows the clock, and it has to: the filter compares
+     * `buyAfter` to the real today, so « later » can only be expressed relative to
+     * it. A literal would stop being in the future.
      */
     val deferredDishSoap = item(
         id = "item-dish-soap",

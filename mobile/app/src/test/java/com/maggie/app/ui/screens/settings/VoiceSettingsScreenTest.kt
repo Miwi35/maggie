@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.settings
 
+import android.app.Application
 import android.app.role.RoleManager
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
@@ -48,6 +49,13 @@ class VoiceSettingsScreenTest {
     @get:Rule
     val compose = ScreenRule()
 
+    /**
+     * The one screen test that mocks its ViewModel whole rather than building the
+     * real one over faked repositories, and the exception the standard names:
+     * `VoiceSection` takes no ViewModel at all. What is asserted here is a
+     * `RoleManager` read and static copy, so a real `SettingsViewModel` would only
+     * add six fakes to reach the list the first tap goes through.
+     */
     private val viewModel = mockk<SettingsViewModel>(relaxed = true).also {
         every { it.uiState } returns MutableStateFlow(SettingsUiState())
     }
@@ -96,11 +104,28 @@ class VoiceSettingsScreenTest {
 
     @Test
     fun `a device where the role is free invites the tap`() {
-        shadowOf(ApplicationProvider.getApplicationContext<android.app.Application>().getSystemService(RoleManager::class.java))
-            .addAvailableRole(RoleManager.ROLE_ASSISTANT)
+        roleIsAvailable()
 
         openVoiceSettings()
 
         compose.onNodeWithText(AssistantRoleState.NOT_HELD.label).assertIsDisplayed()
     }
+
+    @Test
+    fun `a device where Maggie holds the role says she answers the long press`() {
+        roleIsAvailable()
+        shadowOf(roleManager()).addHeldRole(RoleManager.ROLE_ASSISTANT)
+
+        openVoiceSettings()
+
+        compose.onNodeWithText(AssistantRoleState.HELD.label).assertIsDisplayed()
+    }
+
+    private fun roleIsAvailable() {
+        shadowOf(roleManager()).addAvailableRole(RoleManager.ROLE_ASSISTANT)
+    }
+
+    private fun roleManager(): RoleManager =
+        ApplicationProvider.getApplicationContext<Application>()
+            .getSystemService(RoleManager::class.java)
 }
