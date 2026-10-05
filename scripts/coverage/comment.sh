@@ -15,8 +15,9 @@ set -euo pipefail
 pr="$1" marker="$2" body="$3"
 repo="${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is not set}"
 
-existing="$(gh api --paginate "repos/$repo/issues/$pr/comments" \
-  --jq ".[] | select(.body | startswith(\"<!-- $marker -->\")) | .id" | head -1)" || existing=""
+ids="$(gh api --paginate "repos/$repo/issues/$pr/comments" \
+  --jq ".[] | select(.body | startswith(\"<!-- $marker -->\")) | .id" || true)"
+existing="$(head -1 <<<"$ids")"
 
 if [ -n "$existing" ]; then
   gh api -X PATCH "repos/$repo/issues/comments/$existing" -F "body=@$body" > /dev/null \

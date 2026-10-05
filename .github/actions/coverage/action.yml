@@ -29,7 +29,10 @@ runs:
         mkdir -p coverage-out
         scripts/coverage/extract.sh "$COMPONENT" "$FORMAT" "$REPORT" > "coverage-out/$COMPONENT.json"
         status=0
-        scripts/coverage/check.sh "coverage-out/$COMPONENT.json" | tee -a "$GITHUB_STEP_SUMMARY" || status=$?
+        scripts/coverage/check.sh "coverage-out/$COMPONENT.json" > check.out || status=$?
+        grep -v '^::' check.out | tee -a "$GITHUB_STEP_SUMMARY" || true
+        grep '^::' check.out || true
+        rm -f check.out
         echo "status=$status" >> "$GITHUB_OUTPUT"
 
     # Uploaded whatever the verdict: the report of a drop is the one worth reading.
