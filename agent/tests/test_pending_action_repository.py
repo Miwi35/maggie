@@ -191,10 +191,12 @@ class TestDecide:
     async def test_an_unknown_action_is_not_a_crash(self, pending_db):
         assert await pending_action_repo.decide("nope", PendingActionStatus.APPROVED) is None
 
-    async def test_an_action_the_scheduler_expired_meanwhile_cannot_be_approved(self, pending_db):
-        # The row is claimed by the UPDATE, not read then written: the user clicking
-        # Autoriser the second the sweep retires the action must not get a decision,
-        # or MAG-5 would replay the call on an action that is no longer waiting.
+    async def test_an_action_moved_out_of_pending_behind_our_back_is_not_decided(self, pending_db):
+        # What the claim protects: the scheduler's sweep retires the action while the
+        # user clicks Autoriser. Only `status == PENDING` is written, so the decision is
+        # refused whole — MAG-5 must not replay a call on an action no longer waiting.
+        # (Sequential here: SQLite on one connection cannot interleave. Atomicity itself
+        # rests on the single conditional UPDATE, the shape `ProactionRepository.claim` uses.)
         action = await hold()
         move(pending_db.session, str(action.id), PendingActionStatus.EXPIRED)
         pending_db.published.reset_mock()

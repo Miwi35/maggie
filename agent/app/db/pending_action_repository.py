@@ -138,7 +138,9 @@ class PendingActionRepository:
                 return None
 
             found = await session.execute(select(PendingAction).where(PendingAction.id == action_id))
-            action = found.scalar_one()
+            action = found.scalar_one_or_none()
+            if action is None:
+                return None
 
         await self._publish(action)
         return action
