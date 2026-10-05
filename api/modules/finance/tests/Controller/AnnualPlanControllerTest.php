@@ -89,12 +89,15 @@ class AnnualPlanControllerTest extends WebTestCase
         self::assertSame(4000, $leisure['toArbitrateCents']);
         self::assertSame(18000, $leisure['suggestedCents']);
         self::assertNull($leisure['envelopeId']);
+        // A plan is what is still to come and what a budget has to cover: the
+        // 2027 debit already paid and the 2027 credit are neither.
         self::assertSame(
             ['Matériel à arbitrer', 'Abonnement 2027 déjà payé', 'Concert 2027'],
             array_column($leisure['plannedEvents'], 'label'),
         );
 
-        // Nothing decided for 2027: the suggestion falls back on what 2026 cost.
+        // Voyages has decided nothing for 2027, so its suggestion falls back
+        // on what 2026 cost — even though an envelope is already set.
         $travel = $this->categoryNamed($plan, 'Voyages');
         self::assertSame(70000, $travel['lastYear']['budgetedCents']);
         self::assertSame(80000, $travel['lastYear']['consumedCents']);

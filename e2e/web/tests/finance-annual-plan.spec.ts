@@ -23,6 +23,12 @@ import { DashboardPage } from '../pages/DashboardPage.js'
  * be taken for one another.
  */
 
+// `retries: 0`, as `chat.spec.ts` does and for the same reason: the
+// conversation is stateful and nothing reseeds between attempts, so a replay
+// would find the first attempt's answer still in the panel and count two
+// bubbles where this one expects the answer exactly once.
+test.describe.configure({ retries: 0 })
+
 const YEAR = 2033
 const SOURCE_YEAR = YEAR - 1
 
@@ -38,15 +44,12 @@ interface PlannedCategory {
 }
 
 test('asking Maggie to prepare the year reads what the year behind cost', async ({ page, api }) => {
-  // A category of this attempt's own. CI retries once without reseeding, and a
-  // replay sharing the category would read its own first attempt's expense
-  // beside this one and suggest twice as much.
+  // A category of its own rather than a seeded one: the plan is read per
+  // category, and sharing Loisirs would mean asserting a suggestion the rest
+  // of the seed moves.
   const created = await api.post('/api/categories', {
     headers: { 'Content-Type': 'application/ld+json' },
-    data: {
-      name: `Festivals MAG-48, essai ${test.info().retry}`,
-      obligation: 'optional',
-    },
+    data: { name: 'Festivals MAG-48', obligation: 'optional' },
   })
   expect(created.status(), await created.text()).toBe(201)
   const categoryId = String(((await created.json()) as { id?: string }).id ?? '')

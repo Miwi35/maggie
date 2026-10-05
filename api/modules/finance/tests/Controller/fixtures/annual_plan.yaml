@@ -176,6 +176,28 @@ Maggie\Finance\Entity\Transaction:
     status: '<(Maggie\Finance\Enum\TransactionStatus::ToArbitrate)>'
     user: '@test_user'
 
+  # 2027, but already paid: a plan is what is still to come, so this is not one.
+  spent_2027:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: -5000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2027-05-01"))>'
+    label: Déjà réglé en 2027
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    user: '@test_user'
+
+  # 2027, a plannable status, but a credit: nothing a budget has to cover.
+  refund_2027:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: 7000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2027-03-01"))>'
+    label: Remboursement attendu en 2027
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Planned)>'
+    user: '@test_user'
+
   # Another user's year: never in this one's plan.
   other_festival_2026:
     account: '@other_checking'
