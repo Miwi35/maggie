@@ -23,6 +23,7 @@ _CATEGORY_MAP: dict[str, tuple[str, str]] = {
     "instruction": ("Directives", "enregistrer des règles de planification et des préférences de ton"),
     "skill": ("Compétences", "apprendre de nouvelles procédures"),
     "proaction": ("Proactions", "programmer des rappels et tâches autonomes"),
+    "delegate": ("Délégation", "confier une tâche de recherche à un sous-agent"),
     "search": ("Recherche", "recherche plein texte dans toutes les données"),
 }
 

@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.llm.time_tool import DATE_TIME_TOOLS
+from app.agents.registry import SubagentDefinition, SubagentRegistry
 from app.llm.tools import (
     INSTRUCTION_TOOLS,
     MEMORY_TOOLS,
@@ -342,3 +343,69 @@ class TestThePolicyGuard:
 
         assert "error" in result
         guard.mcp.call_tool.assert_not_awaited()
+
+
+def _registry(*names: str) -> SubagentRegistry:
+    return SubagentRegistry(
+        agents={
+            name: SubagentDefinition(
+                name=name, description=f"Description de {name}", model="haiku", tools=["get_*"], prompt="Prompt"
+            )
+            for name in names
+        }
+    )
+
+
+class TestDelegateTool:
+    @patch("app.llm.tools.mcp_client")
+    async def test_absent_when_no_sub_agent_is_loaded(self, mock_mcp_client):
+        mock_mcp_client.list_tools = AsyncMock(return_value=[])
+
+        with patch("app.llm.tools.subagent_registry", _registry()):
+            tools = await ToolRouter().get_tool_definitions()
+
+        assert "delegate" not in [t["name"] for t in tools]
+        assert len(tools) == NUM_DEFAULT_TOOLS
+
+    @patch("app.llm.tools.mcp_client")
+    async def test_present_with_the_agents_as_enum_and_in_the_description(self, mock_mcp_client):
+        mock_mcp_client.list_tools = AsyncMock(return_value=[])
+
+        with patch("app.llm.tools.subagent_registry", _registry("researcher", "cook")):
+            tools = await ToolRouter().get_tool_definitions()
+
+        delegate = next(t for t in tools if t["name"] == "delegate")
+        assert delegate["input_schema"]["properties"]["agent"]["enum"] == ["cook", "researcher"]
+        assert delegate["input_schema"]["required"] == ["agent", "task"]
+        assert "- researcher : Description de researcher" in delegate["description"]
+        assert "- cook : Description de cook" in delegate["description"]
+
+    @patch("app.llm.tools.mcp_client")
+    async def test_also_present_without_proaction_tools(self, mock_mcp_client):
+        mock_mcp_client.list_tools = AsyncMock(return_value=[])
+
+        with patch("app.llm.tools.subagent_registry", _registry("researcher")):
+            tools = await ToolRouter().get_tool_definitions(include_native=False)
+
+        assert "delegate" in [t["name"] for t in tools]
+
+    @patch("app.llm.tools.mcp_client")
+    async def test_never_offered_to_a_peer_over_a2a(self, mock_mcp_client):
+        mock_mcp_client.list_tools = AsyncMock(return_value=[])
+
+        with patch("app.llm.tools.subagent_registry", _registry("researcher")):
+            tools = await ToolRouter().get_tool_definitions(source="a2a")
+
+        assert "delegate" not in [t["name"] for t in tools]
+
+    async def test_a2a_cannot_call_it_either(self):
+        result = json.loads(await ToolRouter().call_tool("delegate", {}, user_id="u", source="a2a"))
+
+        assert "not available over A2A" in result["error"]
+
+    async def test_call_reaches_the_delegate_handler(self):
+        with patch("app.agents.delegate.handle_delegate", AsyncMock(return_value='{"agent": "researcher"}')) as handle:
+            result = await ToolRouter().call_tool("delegate", {"agent": "researcher", "task": "x"}, user_id="u")
+
+        assert result == '{"agent": "researcher"}'
+        handle.assert_awaited_once_with({"agent": "researcher", "task": "x"}, "u")

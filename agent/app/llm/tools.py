@@ -2,6 +2,7 @@ import json
 import logging
 from datetime import UTC, datetime
 
+from app.agents.registry import subagent_registry
 from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
 from app.db.memory_repository import memory_repo
@@ -299,6 +300,36 @@ SKILL_TOOLS = [
 ]
 
 
+def delegate_tool_definition() -> dict:
+    """The `delegate` tool, built from the sub-agents loaded at startup: they are its enum and its description."""
+    agents = subagent_registry.list_all()
+    listing = "\n".join(f"- {a.name} : {a.description}" for a in agents)
+    return {
+        "name": "delegate",
+        "description": (
+            "Confie une tâche à un sous-agent spécialisé, qui l'exécute avec ses propres outils et te rend une "
+            "synthèse. À utiliser quand la tâche demande beaucoup de lectures ou de recherches ; pas pour une "
+            "action simple. Décris la tâche en entier : le sous-agent ne voit pas la conversation.\n"
+            f"Agents disponibles :\n{listing}"
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "agent": {
+                    "type": "string",
+                    "enum": [a.name for a in agents],
+                    "description": "Le sous-agent à qui confier la tâche",
+                },
+                "task": {
+                    "type": "string",
+                    "description": "La tâche à exécuter, complète et autonome (période, sujets, forme de la synthèse)",
+                },
+            },
+            "required": ["agent", "task"],
+        },
+    }
+
+
 # --- Handlers ---
 
 
@@ -476,6 +507,13 @@ async def _handle_delete_skill(arguments: dict, user_id: str) -> str:
     return json.dumps({"deleted": True, "name": name})
 
 
+async def _handle_delegate(arguments: dict, user_id: str) -> str:
+    # Imported here: app.agents.delegate imports this module for ToolRouter.
+    from app.agents.delegate import handle_delegate
+
+    return await handle_delegate(arguments, user_id)
+
+
 _NATIVE_HANDLERS = {
     "schedule_proaction": _handle_schedule_proaction,
     "list_proactions": _handle_list_proactions,
@@ -492,6 +530,7 @@ _NATIVE_HANDLERS = {
     "update_skill": _handle_update_skill,
     "delete_skill": _handle_delete_skill,
     "date_time": handle_date_time,
+    "delegate": _handle_delegate,
 }
 
 
@@ -535,6 +574,7 @@ class ToolRouter:
     - Skill tools — always available (chat + proaction)
     - Date and time tool — always available (chat + proaction)
     - Proaction tools — always available (chat + proaction)
+    - `delegate` — only when sub-agents are loaded (never over A2A)
     - MCP tools — fetched from the Symfony MCP server
 
     Calls from the `a2a` source are narrowed to A2A_ALLOWED_TOOLS.
@@ -556,6 +596,9 @@ class ToolRouter:
 
         if include_native and not a2a:
             tools.extend(PROACTION_TOOLS)
+
+        if not a2a and subagent_registry.agents:
+            tools.append(delegate_tool_definition())
 
         mcp_tools = await mcp_client.list_tools()
         for tool in mcp_tools:

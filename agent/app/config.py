@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     # summarizing a thread. Named here rather than written at each call site because
     # `metrics.PRICING` is keyed on it — a rename has to move in one place.
     anthropic_fast_model: str = "claude-haiku-4-5-20251001"
+    # The heavy model a sub-agent may ask for with `model: opus` (MAG-3).
+    anthropic_opus_model: str = "claude-opus-5-5"
     # "anthropic" talks to the real model. "fake" answers from the scenario
     # files in agent/fixtures/fake-llm/ instead, through the same tool loop and
     # the same streaming gateway — what the e2e stack runs, so a journey that
@@ -94,6 +96,15 @@ class Settings(BaseSettings):
         if value not in LLM_PROVIDERS:
             raise ValueError(f"LLM_PROVIDER must be one of {LLM_PROVIDERS}, not {value!r}")
         return value
+
+    @property
+    def model_aliases(self) -> dict[str, str]:
+        """What `model:` may say in a sub-agent file (agent/data/agents/*.md) and the model each name stands for."""
+        return {
+            "haiku": self.anthropic_fast_model,
+            "sonnet": self.anthropic_model,
+            "opus": self.anthropic_opus_model,
+        }
 
     @computed_field
     @property
