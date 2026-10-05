@@ -46,7 +46,7 @@ A public repository on the free plan runs 20 jobs at once; a PR that touches the
 
 - A Cyrus session ends by opening its PR **as a draft** and does not wait for CI. Drafts wait in line; a draft cannot be merged.
 - The dispatcher takes the first one, rebases it, marks it **ready** (this starts CI), arms auto-merge if `task guard:check` allows it, and merges it when green before taking the next. Red or a rebase conflict: Cyrus is relaunched on a repair slot and the train waits.
-- A PR waiting for the owner leaves the train once green; the PRs of tickets that depend on it (`blockedBy`) stay drafts until it merges.
+- A PR waiting for the owner leaves the train once green. The dispatcher never starts a ticket whose blocker is not Done, so no draft depends on another PR.
 - Workflow side: `ci.yml`, `mobile.yml` and `agent-guard.yml` list `types: [opened, synchronize, reopened, ready_for_review]` (the guard: no `reopened`) and skip a draft. In `ci.yml` every job hangs on `Detect changes`, which has `if: … !github.event.pull_request.draft`; the four that do not (`E2E Stack (smoke journey)`, `E2E Mobile (phone)`, `Incident gate`, `Infra scripts and workflows`) carry the same condition. A skipped required check counts as green, which is harmless: a draft cannot merge, and `ready_for_review` starts the real run.
 - The dispatcher must mark a PR ready with a user or app token: an event made with `GITHUB_TOKEN` starts no workflow, so `ready_for_review` would never run CI.
 - A PR you open yourself (the owner, or a session while the train is off) is opened ready and runs CI as before.
