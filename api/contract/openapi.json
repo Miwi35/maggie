@@ -11474,6 +11474,9 @@
                         "type": "string",
                         "format": "date-time"
                     },
+                    "allDay": {
+                        "type": "boolean"
+                    },
                     "timeZone": {
                         "type": "string"
                     },
@@ -11496,9 +11499,6 @@
                             "string",
                             "null"
                         ]
-                    },
-                    "allDay": {
-                        "type": "boolean"
                     },
                     "rrule": {
                         "type": [
@@ -11618,6 +11618,9 @@
                         "type": "string",
                         "format": "date-time"
                     },
+                    "allDay": {
+                        "type": "boolean"
+                    },
                     "timeZone": {
                         "type": "string"
                     },
@@ -11640,9 +11643,6 @@
                             "string",
                             "null"
                         ]
-                    },
-                    "allDay": {
-                        "type": "boolean"
                     },
                     "rrule": {
                         "type": [
@@ -11755,6 +11755,9 @@
                         "type": "string",
                         "format": "date-time"
                     },
+                    "allDay": {
+                        "type": "boolean"
+                    },
                     "timeZone": {
                         "type": "string"
                     },
@@ -11777,9 +11780,6 @@
                             "string",
                             "null"
                         ]
-                    },
-                    "allDay": {
-                        "type": "boolean"
                     },
                     "rrule": {
                         "type": [
@@ -11904,6 +11904,9 @@
                                 "type": "string",
                                 "format": "date-time"
                             },
+                            "allDay": {
+                                "type": "boolean"
+                            },
                             "timeZone": {
                                 "type": "string"
                             },
@@ -11926,9 +11929,6 @@
                                     "string",
                                     "null"
                                 ]
-                            },
-                            "allDay": {
-                                "type": "boolean"
                             },
                             "rrule": {
                                 "type": [

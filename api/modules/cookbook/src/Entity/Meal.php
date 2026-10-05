@@ -74,6 +74,9 @@ class Meal extends Event implements MercurePublishable
      */
     private const WRITE_CONTEXT = ['ignored_attributes' => ['startAt', 'endAt', 'originalStartAt']];
 
+    /** What `Event::$timeZone` defaults to, and what an unresolvable one falls back on. */
+    private const DEFAULT_TIME_ZONE = 'Europe/Paris';
+
     // The day the meal is eaten, as a day: `DATE` in the database, `Y-m-d` on
     // the wire. The serializer format is pinned on both sides — without it a
     // `DateTimeImmutable` normalizes to an instant, which is the shape this
@@ -130,6 +133,40 @@ class Meal extends Event implements MercurePublishable
         }
 
         return $parsed;
+    }
+
+    /**
+     * The day a *range* end falls on, read in Paris — a bare day, but also a
+     * full timestamp, of which only the day is kept.
+     *
+     * Lenient where {@see dayFromString} is strict, and the asymmetry is the
+     * point: a range is a window to read, and the model does send timestamps,
+     * so answering the week it meant beats answering an error. Writing a meal
+     * on a day nobody named is the mistake worth refusing; reading one is not.
+     *
+     * @throws \DomainException when the string is not a date at all
+     */
+    public static function dayOfString(string $date): \DateTimeImmutable
+    {
+        // `new \DateTimeImmutable('')` is *now*, not an error, so an empty
+        // range end would silently mean today.
+        if ('' === trim($date)) {
+            throw new \DomainException('Not a date: "". Use YYYY-MM-DD.');
+        }
+
+        $paris = new \DateTimeZone(self::DEFAULT_TIME_ZONE);
+
+        try {
+            $read = new \DateTimeImmutable($date, $paris);
+        } catch (\Exception $e) {
+            throw new \DomainException("Not a date: \"{$date}\". Use YYYY-MM-DD.", 0, $e);
+        }
+
+        // `setTimezone` and not only the constructor's zone: a string that
+        // carries its own offset ignores that argument, so `2026-10-06T22:30Z`
+        // would read as the 6th where in Paris it is already the 7th — the day
+        // the asker meant.
+        return new \DateTimeImmutable($read->setTimezone($paris)->format('Y-m-d'), new \DateTimeZone('UTC'));
     }
 
     public function getDate(): ?\DateTimeImmutable
@@ -193,27 +230,48 @@ class Meal extends Event implements MercurePublishable
         // `endAt`, and a span whose two ends fall on different days would
         // otherwise leave the meal on the last one. `setStartAt()` above is the
         // one that names the day.
-        if (null !== $this->date) {
-            $this->setDate($this->date);
+        if (null === $this->date) {
+            // No day to derive from yet. Taking the instant keeps the typed
+            // property initialised — `getEndAt()` on an `Event` whose end was
+            // never set is an `Error`, not a null — and `setDate()` overwrites
+            // it as soon as the day arrives.
+            return parent::setEndAt($endAt);
         }
 
-        return $this;
+        return $this->setDate($this->date);
+    }
+
+    public function setAllDay(bool $allDay): static
+    {
+        // A meal covers its day, always. `UpdateEventHandler` sets `allDay`
+        // *after* the instants, so without this `update_event allDay=false` on
+        // a meal would leave the flag off next to 00:00–23:59:59 — the last
+        // derived field the `Event` door could still knock out of step.
+        //
+        // Comments, not a docblock: API Platform publishes a setter's docblock
+        // as the description of the property it writes.
+        return parent::setAllDay(true);
     }
 
     /**
-     * The meal's time zone, falling back on the owner's.
+     * The meal's time zone, falling back on the column's default.
      *
      * `Event::$timeZone` is a free string with no constraint behind it, and the
      * `Event` write path above can set it: an unknown name would otherwise
-     * throw out of a setter during denormalization and answer 500 where the
-     * worst case is a meal placed in the wrong zone's day.
+     * throw out of a setter during denormalization and answer 500, where the
+     * worst case here is a meal placed in the default zone's day.
+     *
+     * The fallback is not the whole fix. `RecurrenceService` still resolves the
+     * same free string unguarded, so a row that already holds a bad one keeps
+     * breaking the agenda's reads — that wants an `Assert\Timezone` on `Event`,
+     * which is a calendar change and not this bug's (MAG-256).
      */
     private function zone(): \DateTimeZone
     {
         try {
             return new \DateTimeZone($this->getTimeZone());
         } catch (\Exception) {
-            return new \DateTimeZone('Europe/Paris');
+            return new \DateTimeZone(self::DEFAULT_TIME_ZONE);
         }
     }
 

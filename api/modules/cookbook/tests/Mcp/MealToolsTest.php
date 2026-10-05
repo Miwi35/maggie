@@ -202,6 +202,10 @@ class MealToolsTest extends KernelTestCase
         yield 'the 31st of a 30-day month' => ['2026-04-31'];
         yield 'a day with a time' => ['2026-03-20 19:30'];
         yield 'words' => ['demain'];
+        // The two shapes the shared round-trip rule exists for: both used to
+        // pass here and be refused by the API.
+        yield 'a day without its padding' => ['2026-3-20'];
+        yield 'nothing' => [''];
     }
 
     #[DataProvider('notDays')]
@@ -268,7 +272,24 @@ class MealToolsTest extends KernelTestCase
 
         $data = json_decode(($this->tool())('list', fromDate: 'la semaine prochaine', toDate: '2026-03-21'), true, 512, JSON_THROW_ON_ERROR);
 
-        self::assertArrayHasKey('error', $data);
+        // The format, not just "an error": `list` also answers an error key
+        // when an argument is missing, which is a different branch.
+        self::assertStringContainsString('YYYY-MM-DD', $data['error']);
+    }
+
+    /**
+     * An empty range end is not today. `new \DateTimeImmutable('')` is *now*,
+     * so without a guard `fromDate=""` would silently mean the day the server
+     * happens to be on.
+     */
+    public function testListRefusesAnEmptyRangeEnd(): void
+    {
+        $this->loadFixtures('meal.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(($this->tool())('list', fromDate: '  ', toDate: '2026-03-21'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertStringContainsString('YYYY-MM-DD', $data['error']);
     }
 
     public function testUpdateUnknownMealReturnsAnError(): void

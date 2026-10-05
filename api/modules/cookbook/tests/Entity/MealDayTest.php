@@ -132,9 +132,11 @@ final class MealDayTest extends TestCase
     /**
      * A time zone nobody can resolve must not be a 500 on the operation this
      * ticket touches: `Event::$timeZone` is a free string with no constraint
-     * behind it, and the `Event` write path can set it.
+     * behind it, and the `Event` write path can set it. The fallback is the
+     * column's default, Europe/Paris — there is no per-user time zone in the
+     * model to fall back on.
      */
-    public function testAnUnknownTimeZoneFallsBackOnTheOwnersAndKeepsTheDay(): void
+    public function testAnUnknownTimeZoneFallsBackOnTheDefaultAndKeepsTheDay(): void
     {
         $meal = $this->aMeal('2026-10-07');
 
@@ -168,6 +170,76 @@ final class MealDayTest extends TestCase
     {
         self::assertSame('2026-10-07', Meal::dayFromString('2026-10-07')->format('Y-m-d'));
         self::assertSame('00:00:00', Meal::dayFromString('2026-10-07')->format('H:i:s'));
+    }
+
+    /**
+     * The range reader is the lenient half, and deliberately so: a window to
+     * read is not a day to write on. `manage_meals action=list` and
+     * `generate_grocery_list` both go through it.
+     *
+     * @return iterable<string, array{string, string}>
+     */
+    public static function rangeEnds(): iterable
+    {
+        yield 'a bare day' => ['2026-10-07', '2026-10-07'];
+        yield 'a day with a time' => ['2026-10-07 19:30', '2026-10-07'];
+        yield 'a full instant in Paris' => ['2026-10-07T00:30:00+02:00', '2026-10-07'];
+        // 00:30 in Paris, which is still the day before in UTC — the day the
+        // asker meant is the Paris one.
+        yield 'an instant whose UTC day is the day before' => ['2026-10-06T22:30:00+00:00', '2026-10-07'];
+    }
+
+    #[DataProvider('rangeEnds')]
+    public function testDayOfStringKeepsOnlyTheDay(string $value, string $expected): void
+    {
+        self::assertSame($expected, Meal::dayOfString($value)->format('Y-m-d'));
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function notDates(): iterable
+    {
+        yield 'words' => ['demain'];
+        // `new \DateTimeImmutable('')` is *now*, so an empty range end would
+        // silently mean the day the server happens to be on.
+        yield 'nothing' => [''];
+        yield 'blanks' => ['   '];
+    }
+
+    #[DataProvider('notDates')]
+    public function testDayOfStringRefusesWhatIsNotADateAtAll(string $value): void
+    {
+        $this->expectException(\DomainException::class);
+
+        Meal::dayOfString($value);
+    }
+
+    /**
+     * `allDay` is derived too, and `UpdateEventHandler` sets it *after* the
+     * instants — so it is the last field the `Event` door could have knocked
+     * out of step with a whole-day span.
+     */
+    public function testAMealStaysAllDayWhateverTheEventDoorSets(): void
+    {
+        $meal = $this->aMeal('2026-10-07');
+
+        $meal->setAllDay(false);
+
+        self::assertTrue($meal->isAllDay());
+        self::assertSame('2026-10-07', $meal->getDate()?->format('Y-m-d'));
+    }
+
+    /**
+     * Before a day is known there is nothing to derive, and `Event::$endAt` is
+     * typed non-nullable with no default: leaving it untouched would make
+     * `getEndAt()` an `Error` rather than a null.
+     */
+    public function testAnEndSetBeforeAnyDayLeavesTheEntityReadable(): void
+    {
+        $meal = new Meal();
+        $meal->setEndAt(new \DateTimeImmutable('2026-10-07T20:30:00+02:00'));
+
+        self::assertSame('2026-10-07T20:30:00+02:00', $meal->getEndAt()->format('c'));
+        self::assertNull($meal->getDate());
     }
 
     /**
