@@ -92,13 +92,19 @@ final class IndexManager
         }
     }
 
-    /** @param array<string, mixed> $document */
+    /**
+     * Refreshed on return: the web client refetches its list the moment a write answers, and a
+     * search only sees refreshed documents (every second by default).
+     *
+     * @param array<string, mixed> $document
+     */
     public function indexDocument(string $indexName, string $id, array $document): void
     {
         $this->client->index([
             'index' => $indexName,
             'id' => $id,
             'body' => self::withId($id, $document),
+            'refresh' => 'true',
         ]);
     }
 
@@ -107,6 +113,7 @@ final class IndexManager
         $this->client->delete([
             'index' => $indexName,
             'id' => $id,
+            'refresh' => 'true',
         ]);
     }
 

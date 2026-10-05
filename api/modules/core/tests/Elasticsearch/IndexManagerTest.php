@@ -92,6 +92,29 @@ final class IndexManagerTest extends TestCase
         );
     }
 
+    /**
+     * The list a user sees is served from the index: a document is searchable
+     * only once the index is refreshed (every second by default), so a write
+     * the user just made would not show up in the refetch that follows it.
+     */
+    public function testAWrittenDocumentIsSearchableWhenTheWriteReturns(): void
+    {
+        $manager = $this->manager(static fn (): array => [201, ['result' => 'created']]);
+
+        $manager->indexDocument('events', '01J0000000000000000000000A', ['summary' => 'Lunch']);
+
+        self::assertSame('refresh=true', $this->requests[0]['query']);
+    }
+
+    public function testADeletedDocumentIsGoneFromTheListWhenTheDeleteReturns(): void
+    {
+        $manager = $this->manager(static fn (): array => [200, ['result' => 'deleted']]);
+
+        $manager->deleteDocument('events', '01J0000000000000000000000A');
+
+        self::assertSame('refresh=true', $this->requests[0]['query']);
+    }
+
     public function testABulkDocumentCarriesItsIdentifier(): void
     {
         $manager = $this->manager(static fn (): array => [200, ['errors' => false, 'items' => []]]);

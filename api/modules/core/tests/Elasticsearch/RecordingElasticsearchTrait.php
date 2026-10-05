@@ -17,7 +17,7 @@ use Symfony\Component\HttpClient\Response\MockResponse;
  */
 trait RecordingElasticsearchTrait
 {
-    /** @var list<array{method: string, path: string, body: string}> */
+    /** @var list<array{method: string, path: string, body: string, query: string}> */
     private array $requests = [];
 
     /**
@@ -27,7 +27,8 @@ trait RecordingElasticsearchTrait
     {
         $http = new MockHttpClient(function (string $method, string $url, array $options) use ($respond): MockResponse {
             $path = (string) parse_url($url, \PHP_URL_PATH);
-            $this->requests[] = ['method' => $method, 'path' => $path, 'body' => (string) ($options['body'] ?? '')];
+            $query = (string) parse_url($url, \PHP_URL_QUERY);
+            $this->requests[] = ['method' => $method, 'path' => $path, 'body' => (string) ($options['body'] ?? ''), 'query' => $query];
 
             [$status, $body] = $respond($method, $path);
 
