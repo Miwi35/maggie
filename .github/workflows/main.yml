@@ -56,7 +56,7 @@ jobs:
   # A run is never left green by a stop, or "a successful run of this workflow"
   # (the base of the change detection, the "already deployed" check) would name a
   # commit nobody deployed: a run that stops cancels itself.
-  # Checked out from the default branch: the SHA of an old commit may predate the script.
+  # Checked out at the merged commit, which is where the script is.
   gate:
     name: Should this commit deploy
     needs: ci

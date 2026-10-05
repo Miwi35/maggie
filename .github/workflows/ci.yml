@@ -6,9 +6,9 @@ name: Pull request
 # do is skipped, not a workflow. Job names are the required checks, so they do
 # not change when a job moves here.
 #
-# `main.yml` (a merge) and `nightly.yml` call it with `workflow_call`: every job,
-# whatever changed, except the ones that only mean something on a pull request
-# (guard, Incident gate, streak).
+# `main.yml` (a merge) and `nightly.yml` call it with `workflow_call`: the night
+# runs every job, a merge applies the path filters, and neither runs the jobs that
+# only mean something on a pull request (guard, Incident gate, streak).
 run-name: >-
   ${{ github.event_name == 'pull_request'
       && format('PR #{0} · {1}', github.event.pull_request.number, github.event.pull_request.title)
@@ -23,8 +23,8 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
-  # `main.yml` and the nightly run (MAG-96) call this workflow: every job,
-  # whatever changed.
+  # `main.yml` and the nightly run (MAG-96) call this workflow: the night runs
+  # every job, a merge applies the path filters.
   workflow_call:
 
 concurrency:

@@ -92,6 +92,8 @@ function destructive(l, rest) {
     if (file ~ /^\.github\// && line ~ /(^|[^[:alnum:]_])secrets([^[:alnum:]_-]|$)/) flag("sensitive-path", file ": uses a secret")
     # The Incident gate job: the ambulance must not loosen the freeze it is held by.
     if (file ~ /^\.github\/workflows\/ci\.ya?ml$/ && line ~ /[Ii]ncident.gate/) flag("sensitive-path", file ": the Incident gate")
+    # The guard and the streak are jobs of ci.yml (MAG-244): editing them is editing the guard.
+    if (file ~ /^\.github\/workflows\/ci\.ya?ml$/ && line ~ /agent-guard|ci-streak/) flag("sensitive-path", file ": the agent guard")
     # Its release moved from incident-gate-release.yml to the last job of main.yml (MAG-244).
     if (file ~ /^\.github\/workflows\/main\.ya?ml$/ && line ~ /rerun-incident-gates|release-gates|[Ii]ncident.gate/) flag("sensitive-path", file ": the release of the Incident gate")
   }

@@ -67,6 +67,7 @@ section .github/workflows/main.yml '          ALL: ${{ toJSON(secrets) }}' | exp
 section infra/k8s/maggie-sealed-secret.yaml 'kind: SealedSecret' | expect "a sealed secret manifest is a secret" sensitive-path
 section infra/scripts/incident-gate.sh 'exit 0' | expect "the freeze cannot be loosened by an agent" sensitive-path
 section .github/workflows/ci.yml '  incident-gate:' | expect "nor its CI job" sensitive-path
+section .github/workflows/ci.yml '        run: scripts/agent-guard/check.sh' | expect "nor the guard job of ci.yml" sensitive-path
 section .github/workflows/main.yml '  release-gates:' | expect "nor the job of main.yml that releases it" sensitive-path
 section infra/k8s/php-deployment.yaml 'image: x' | exact "plain infra raises infra-path alone" "infra-path: infra/k8s/php-deployment.yaml"
 section .github/workflows/main.yml '      - run: echo deploy' | exact "a plain workflow step raises infra-path alone" "infra-path: .github/workflows/main.yml"
