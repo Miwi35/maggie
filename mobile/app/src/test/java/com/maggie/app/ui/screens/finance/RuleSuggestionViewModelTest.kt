@@ -154,6 +154,9 @@ class RuleSuggestionViewModelTest {
         advanceUntilIdle()
 
         coVerify(exactly = 1) { categoryRepository.getCategories() }
+        // Three reads of the suggestions — the init, the yes, the pull — so the
+        // single read above is the headings being kept, not the reloads missing.
+        coVerify(exactly = 3) { ruleRepository.getSuggestions() }
     }
 
     @Test
