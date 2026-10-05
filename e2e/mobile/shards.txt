@@ -18,6 +18,11 @@
 # ~165 s on the slowest one, and the wall clock of the required check is the
 # slowest shard. Three keeps it at ~120 s, for the same three emulators CI
 # already starts.
+#
+# MAG-45 adds `09-finance-banks` (sign-in + two screens + one bank fetch, ≈ 55 s)
+# to shard 3, the lightest of the three at ~95 s. That makes it ~150 s against
+# shard 2's ~103 s, so shard 3 becomes the one to watch: re-read the figures from
+# this branch's CI run and move a flow if it is the slowest by much.
 1: 02-voice-overlay 05-deep-links
 2: 08-grocery-realtime
-3: 01-login-chat 04-calendar-import
+3: 01-login-chat 04-calendar-import 09-finance-banks

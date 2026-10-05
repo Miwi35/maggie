@@ -75,6 +75,13 @@ object UiTags {
     /** Finance dashboard — one access per part of the module, suffixed by its route. */
     const val FINANCE_ACCESS_PREFIX = "finance_access_"
 
+    /**
+     * Banques — the fetch. Tagged rather than tapped by its label because the
+     * label changes while the fetch runs (« Récupération… »), and a journey that
+     * taps the text would hit a button that is no longer there.
+     */
+    const val BANK_SYNC = "bank_sync"
+
     /** Calendar toolbar — the « next » arrow and the Semaine switch. */
     const val CALENDAR_NEXT = "calendar_next"
     const val CALENDAR_VIEW_WEEK = "calendar_view_week"

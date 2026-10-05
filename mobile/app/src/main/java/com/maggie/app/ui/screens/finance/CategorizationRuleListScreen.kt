@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -57,6 +58,7 @@ private val MATCH_TYPES = listOf("contains", "starts_with", "equals")
 fun CategorizationRuleListScreen(
     viewModel: CategorizationRuleViewModel,
     onBack: () -> Unit,
+    onOpenSuggestions: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -86,6 +88,11 @@ fun CategorizationRuleListScreen(
                     }
                 },
                 actions = {
+                    // The rules the statement already implies, rather than a blank
+                    // page: the shortest way to a first rule.
+                    IconButton(onClick = onOpenSuggestions) {
+                        Icon(Icons.Default.Lightbulb, contentDescription = "Suggestions")
+                    }
                     IconButton(onClick = { viewModel.applyRules() }, enabled = !uiState.isApplying) {
                         Icon(Icons.Default.PlayArrow, contentDescription = "Appliquer les règles")
                     }

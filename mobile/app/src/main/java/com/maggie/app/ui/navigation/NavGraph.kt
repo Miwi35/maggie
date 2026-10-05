@@ -70,7 +70,11 @@ import com.maggie.app.ui.screens.cookbook.grocery.GroceryScreen
 import com.maggie.app.ui.screens.cookbook.grocery.GroceryViewModel
 import com.maggie.app.ui.screens.finance.AccountListScreen
 import com.maggie.app.ui.screens.finance.AccountViewModel
+import com.maggie.app.ui.screens.finance.BankConnectionListScreen
+import com.maggie.app.ui.screens.finance.BankConnectionViewModel
 import com.maggie.app.ui.screens.finance.BudgetScreen
+import com.maggie.app.ui.screens.finance.RuleSuggestionListScreen
+import com.maggie.app.ui.screens.finance.RuleSuggestionViewModel
 import com.maggie.app.ui.screens.finance.CategorizationRuleListScreen
 import com.maggie.app.ui.screens.finance.CushionScreen
 import com.maggie.app.ui.screens.finance.LoanListScreen
@@ -151,6 +155,8 @@ sealed class Screen(val route: String, val label: String) {
     data object CategoryList : Screen("categories", "Catégories")
     data object BudgetList : Screen("budgets", "Budgets")
     data object CategorizationRuleList : Screen("categorization_rules", "Règles")
+    data object RuleSuggestions : Screen("rule_suggestions", "Suggestions")
+    data object BankConnectionList : Screen("bank_connections", "Banques")
     data object Cushion : Screen("cushion", "Matelas")
     data object LoanList : Screen("loans", "Prêts")
     data object MonthlyReview : Screen("monthly_review", "Revue mensuelle")
@@ -687,6 +693,25 @@ fun NavGraph() {
                     val ruleViewModel: CategorizationRuleViewModel = koinViewModel()
                     CategorizationRuleListScreen(
                         viewModel = ruleViewModel,
+                        onBack = { navController.backInFinance() },
+                        onOpenSuggestions = {
+                            navController.navigate(Screen.RuleSuggestions.route) {
+                                launchSingleTop = true
+                            }
+                        },
+                    )
+                }
+                composable(Screen.RuleSuggestions.route, deepLinks = DeepLinks.forRoute(Screen.RuleSuggestions.route)) {
+                    val suggestionViewModel: RuleSuggestionViewModel = koinViewModel()
+                    RuleSuggestionListScreen(
+                        viewModel = suggestionViewModel,
+                        onBack = { navController.backInFinance() },
+                    )
+                }
+                composable(Screen.BankConnectionList.route, deepLinks = DeepLinks.forRoute(Screen.BankConnectionList.route)) {
+                    val bankViewModel: BankConnectionViewModel = koinViewModel()
+                    BankConnectionListScreen(
+                        viewModel = bankViewModel,
                         onBack = { navController.backInFinance() },
                     )
                 }
