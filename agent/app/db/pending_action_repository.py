@@ -1,7 +1,7 @@
 import logging
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.db.agent_engine import agent_session
 from app.db.pending_action_model import PendingAction, PendingActionStatus
@@ -46,6 +46,10 @@ class PendingActionRepository:
         The model is told « do not retry », but a new turn asking for the same
         deletion again is not a retry — and two cards for one intention would
         make the user answer twice, the second answer running the call twice.
+
+        Read-then-insert, so two identical `ask` calls landing in the same instant
+        (a chat turn and a proaction) can still produce two cards. What makes a
+        double execution impossible is `decide` claiming its row, not this.
         """
         existing = await self.find_identical_pending(user_id, tool_name, arguments)
         if existing is not None:
@@ -112,28 +116,29 @@ class PendingActionRepository:
         status: PendingActionStatus,
         result: str | None = None,
     ) -> PendingAction | None:
-        """Write the answer and publish it. None if the action is gone or no longer pending.
+        """Claim the action and write the answer. None if it is gone or no longer pending.
 
-        Pending is checked in the read: two tabs clicking Autoriser at the same instant
-        must not run the call twice.
+        One conditional UPDATE, like `ProactionRepository.claim`: two tabs clicking
+        Autoriser at the same instant, or the scheduler expiring the action while the
+        user answers it, must not both get a decision — the second would run the call
+        a second time. Read-then-write would leave that window open, and the process
+        runs with several workers.
         """
         if status not in DECIDABLE:
             raise ValueError(f"A decision is one of {[s.value for s in DECIDABLE]}, got {status!r}")
 
         async with agent_session() as session:
-            found = await session.execute(
-                select(PendingAction).where(
-                    PendingAction.id == action_id, PendingAction.status == PendingActionStatus.PENDING
-                )
+            claimed = await session.execute(
+                update(PendingAction)
+                .where(PendingAction.id == action_id, PendingAction.status == PendingActionStatus.PENDING)
+                .values(status=status, result=result, decided_at=datetime.now(UTC))
             )
-            action = found.scalar_one_or_none()
-            if action is None:
-                return None
-            action.status = status
-            action.result = result
-            action.decided_at = datetime.now(UTC)
             await session.commit()
-            await session.refresh(action)
+            if claimed.rowcount != 1:
+                return None
+
+            found = await session.execute(select(PendingAction).where(PendingAction.id == action_id))
+            action = found.scalar_one()
 
         await self._publish(action)
         return action
@@ -143,7 +148,9 @@ class PendingActionRepository:
 
         Called from the scheduler's execution loop. Each one is published, which is
         why it reads the rows instead of a bulk UPDATE: a card left on screen for a
-        dead action is one the user clicks for nothing.
+        dead action is one the user clicks for nothing. Two workers sweeping at once
+        may publish the same `expired` twice, which costs a client one redundant
+        event — and never an execution, since `decide` claims its row.
         """
         now = datetime.now(UTC)
         async with agent_session() as session:

@@ -8,6 +8,7 @@ has been answered is a second deletion one click away.
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy import update as sa_update
 
 from app.db.pending_action_model import PENDING_TTL, PendingAction, PendingActionStatus
 from app.db.pending_action_repository import pending_action_repo
@@ -36,6 +37,16 @@ def write(session_factory, **fields) -> PendingAction:
     session.refresh(action)
     session.close()
     return action
+
+
+def move(session_factory, action_id: str, status: PendingActionStatus) -> None:
+    """Move an action behind the repository's back, standing in for a concurrent writer."""
+    session = session_factory()._session
+    session.execute(
+        sa_update(PendingAction).where(PendingAction.id == action_id).values(status=status)
+    )
+    session.commit()
+    session.close()
 
 
 class TestCreate:
@@ -179,6 +190,22 @@ class TestDecide:
 
     async def test_an_unknown_action_is_not_a_crash(self, pending_db):
         assert await pending_action_repo.decide("nope", PendingActionStatus.APPROVED) is None
+
+    async def test_an_action_the_scheduler_expired_meanwhile_cannot_be_approved(self, pending_db):
+        # The row is claimed by the UPDATE, not read then written: the user clicking
+        # Autoriser the second the sweep retires the action must not get a decision,
+        # or MAG-5 would replay the call on an action that is no longer waiting.
+        action = await hold()
+        move(pending_db.session, str(action.id), PendingActionStatus.EXPIRED)
+        pending_db.published.reset_mock()
+
+        assert await pending_action_repo.decide(str(action.id), PendingActionStatus.APPROVED, "{}") is None
+
+        reread = await pending_action_repo.get_for_user(USER, str(action.id))
+        assert reread is not None
+        assert reread.status == PendingActionStatus.EXPIRED
+        assert reread.result is None
+        pending_db.published.assert_not_awaited()
 
     async def test_a_failed_run_is_a_decision_too(self, pending_db):
         action = await hold()
