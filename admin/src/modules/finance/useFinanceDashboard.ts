@@ -17,12 +17,6 @@ export interface TopPost {
   changeCents: number
 }
 
-export interface IndependenceMilestone {
-  percent: number
-  isReached: boolean
-  monthlyIncomeNeededCents: number
-}
-
 export interface IndependenceRente {
   categoryId: string
   categoryName: string
@@ -49,7 +43,6 @@ export interface IndependenceCounter {
   coverageWithDebtPercent: number
   nextMilestonePercent: number | null
   nextMilestoneGapCents: number | null
-  milestones: IndependenceMilestone[]
   byCategory: IndependenceRente[]
 }
 

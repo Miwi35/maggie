@@ -107,13 +107,6 @@ data class TopPost(
 )
 
 @Serializable
-data class IndependenceMilestone(
-    val percent: Int = 0,
-    val isReached: Boolean = false,
-    val monthlyIncomeNeededCents: Int = 0,
-)
-
-@Serializable
 data class IndependenceRente(
     val categoryId: String,
     val categoryName: String,
@@ -136,12 +129,8 @@ data class IndependenceCounter(
     val isMeasurable: Boolean = false,
     val hasPassiveIncomeCategories: Boolean = false,
     val isReached: Boolean = false,
-    val loanPaymentsCents: Int = 0,
-    val monthlyNeedCents: Int = 0,
-    val coverageWithDebtPercent: Int = 0,
     val nextMilestonePercent: Int? = null,
     val nextMilestoneGapCents: Int? = null,
-    val milestones: List<IndependenceMilestone> = emptyList(),
     val byCategory: List<IndependenceRente> = emptyList(),
 )
 

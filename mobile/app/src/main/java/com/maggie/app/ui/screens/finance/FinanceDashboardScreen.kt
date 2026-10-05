@@ -302,15 +302,6 @@ private fun IndependenceCard(dashboard: FinanceDashboard) {
                 modifier = Modifier.padding(top = 6.dp),
             )
 
-            if (counter.loanPaymentsCents > 0) {
-                Text(
-                    text = "Mensualités de prêt comprises : ${counter.coverageWithDebtPercent} % " +
-                        "des ${formatCents(counter.monthlyNeedCents)} que coûte le mois",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
             counter.byCategory.forEach { rente ->
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(top = 6.dp),

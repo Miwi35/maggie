@@ -17,7 +17,6 @@ const counter = (overrides: Partial<IndependenceCounter> = {}): IndependenceCoun
   coverageWithDebtPercent: 27,
   nextMilestonePercent: 100,
   nextMilestoneGapCents: 2000,
-  milestones: [{ percent: 100, isReached: false, monthlyIncomeNeededCents: 10000 }],
   byCategory: [
     { categoryId: '1', categoryName: 'Loyers perçus', monthlyCents: 6000, sharePercent: 75 },
     { categoryId: '2', categoryName: 'Dividendes', monthlyCents: 2000, sharePercent: 25 },

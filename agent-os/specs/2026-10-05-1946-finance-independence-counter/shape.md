@@ -130,6 +130,20 @@ couverture est donc tronquée, et 100 % veut dire couvert, rien d'autre —
 `isReached` et le palier 100 % tombent d'accord par construction. Les parts par
 catégorie restent arrondies : elles n'ont pas de seuil à défendre.
 
+### D11 — Ce que chaque surface porte
+
+La réponse de l'API sert trois lecteurs, et aucun n'a besoin de tout :
+
+- `milestones` (les quatre paliers détaillés) n'est lu que par l'agent, en MCP.
+  Les clients lisent `nextMilestonePercent` / `nextMilestoneGapCents`, qui sont
+  la même information aplatie — un champ déclaré dans un DTO et rendu nulle part
+  est du poids mort, et côté mobile c'est exactement ce que `DtoContractTest`
+  surveille.
+- `coverageWithDebtPercent` et `monthlyNeedCents` restent à l'admin et à
+  l'agent : la nuance « tant qu'un prêt court, le mois coûte plus » mérite le
+  grand écran et une phrase de Maggie, pas une ligne de plus sur une carte de
+  téléphone.
+
 ## Context
 
 - **Visuals** : aucun. Le ticket n'a aucune pièce jointe. La carte reprend la
