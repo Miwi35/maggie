@@ -15,6 +15,8 @@ coroutines-test = "1.9.0"
 turbine = "1.2.0"
 koin-test = "4.0.1"
 ktor-mock = "3.0.2"
+robolectric = "4.14.1"
+androidx-test-junit = "1.2.1"
 calendar-compose = "2.9.0"
 biometric = "1.2.0-alpha05"
 credentials = "1.5.0-beta01"
@@ -99,6 +101,19 @@ turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine
 koin-test = { group = "io.insert-koin", name = "koin-test", version.ref = "koin-test" }
 koin-test-junit4 = { group = "io.insert-koin", name = "koin-test-junit4", version.ref = "koin-test" }
 ktor-client-mock = { group = "io.ktor", name = "ktor-client-mock", version.ref = "ktor-mock" }
+
+# Compose on the JVM (MAG-242): Robolectric gives the Android framework and
+# ui-test-junit4 gives `createComposeRule`; androidx.test.ext:junit is the
+# `AndroidJUnit4` runner that puts Robolectric under a test.
+#
+# Not `ui-test-manifest`, which is what a device test uses to get the
+# `ComponentActivity` the rule hosts its content in: it contributes to the
+# *instrumentation* manifest, and a unit test reads the app's packaged one. That
+# activity is declared to Robolectric's package manager by `ScreenRule` instead —
+# the dependency was tried here and changes nothing.
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+androidx-test-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidx-test-junit" }
+compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

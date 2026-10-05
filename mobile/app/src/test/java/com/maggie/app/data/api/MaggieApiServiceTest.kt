@@ -8,6 +8,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.utils.io.ByteReadChannel
@@ -121,5 +122,51 @@ class MaggieApiServiceTest {
         } finally {
             tempFile.delete()
         }
+    }
+
+    /**
+     * « Terminé » on a shop (MAG-242). The screen half is `GroceryScreenTest` over a
+     * fake repository and the server half is `EndErrandControllerTest`, so this is
+     * the only thing that reads the request the app actually sends and the answer it
+     * actually parses: `/api/grocery/end-errand` is a controller of its own, not an
+     * API Platform operation, so it is in none of the recorded responses of
+     * `api/contract/`. The live round trip stays in `08-grocery-realtime`.
+     */
+    @Test
+    fun `endErrand posts the store and reads the lines offered back`() = runBlocking {
+        var capturedMethod: HttpMethod? = null
+        var capturedUrl: String? = null
+        var capturedBody: String? = null
+
+        val mockEngine = MockEngine { request ->
+            capturedMethod = request.method
+            capturedUrl = request.url.toString()
+            capturedBody = (request.body as TextContent).text
+            respond(
+                content = ByteReadChannel(
+                    """{"success":true,"remainingCount":1,"remainingItems":[
+                       {"id":"item-1","label":"Timbres du voisin","quantity":2,"unit":"piece",
+                        "store":{"id":"store-corner","name":"Épicerie du coin"}}]}""",
+                ),
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
+            )
+        }
+
+        val client = HttpClient(mockEngine) {
+            install(ContentNegotiation) {
+                json(Json { ignoreUnknownKeys = true; isLenient = true })
+            }
+        }
+
+        val response = MaggieApiService(client).endErrand(EndErrandRequest(storeId = "store-corner"))
+
+        assertEquals(HttpMethod.Post, capturedMethod)
+        assertTrue("URL should end with /api/grocery/end-errand", capturedUrl!!.endsWith("/api/grocery/end-errand"))
+        assertTrue("the shop is in the body", capturedBody!!.contains("\"storeId\":\"store-corner\""))
+        assertTrue(response.success)
+        assertEquals(1, response.remainingCount)
+        assertEquals(listOf("Timbres du voisin"), response.remainingItems.map { it.label })
+        assertEquals("Épicerie du coin", response.remainingItems.single().store?.name)
     }
 }

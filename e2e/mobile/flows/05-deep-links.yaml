@@ -34,6 +34,19 @@ tags:
     visible: ".*Solde de tous les comptes.*"
     timeout: 20000
 
+# A screen *inside* a module, which is also the last live proof that the finance
+# routes are wired to their composables in `NavGraph` (MAG-242). `06-finance-hub`
+# used to open Budgets by tapping the dashboard's access; the tap and the access
+# are now `FinanceHubScreenTest`, and the route table is `FinanceNavigationTest`,
+# but neither would notice a route dropped from the `NavHost`. « Budgets » is the
+# whole text of the screen's title bar, so it does not match « Budgets et
+# enveloppes » on the dashboard we are coming from.
+- openLink: "maggie-e2e://finance/budgets"
+
+- extendedWaitUntil:
+    visible: "Budgets"
+    timeout: 20000
+
 # The chat takes the message as a draft and does not send it: any app can fire a
 # link, and Maggie acts on what she is sent. « Envoyer » is enabled only while the
 # field holds text and nothing is being sent — a message that went out would

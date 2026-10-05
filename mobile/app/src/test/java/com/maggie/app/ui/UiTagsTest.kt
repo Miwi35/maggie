@@ -5,8 +5,12 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * The calendar ids are built here and spelled by hand in `e2e/mobile/flows/` —
- * `calendar_span_${TRAIN_START}_.*` — so a change of format is a change of flow.
+ * The calendar ids are built here and spelled by hand by whatever addresses the
+ * app: `calendar_day_${TODAY}` in `e2e/mobile/subflows/open-calendar.yaml`,
+ * `calendar_span_.*` in `e2e/mobile/flows/04-calendar-import.yaml`, and
+ * `UiTags.calendarSpan(first, last)` / `UiTags.calendarEvent(day)` in
+ * `MultiDayEventScreenTest` (MAG-242). A change of format is a change to all of
+ * them, and this is where it fails first.
  */
 class UiTagsTest {
 

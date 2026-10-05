@@ -2,6 +2,13 @@
 
 Maestro driving the Android app on an emulator, against the e2e stack (MAG-98).
 
+**Only what needs a real Android lives here** (MAG-242). Screen logic — what a
+screen draws from a server answer, in what order, its empty and error states,
+navigation inside the app — runs as a Compose test on the JVM, in
+`mobile/app/src/test/`, in seconds. The rule is
+[`agent-os/standards/mobile/screen-tests.md`](../../agent-os/standards/mobile/screen-tests.md),
+and *Where the old assertions went* below says which flow became which test.
+
 ```sh
 task e2e:up                                 # the stack, once
 task e2e:mobile                             # reseed, install the e2e flavor, run every flow
@@ -69,19 +76,18 @@ one of them missing.
 `E2E_NOW=<ISO-8601> task e2e:mobile` runs the whole stack — and the emulator — at
 that instant (see `agent-os/standards/global/e2e-environment.md`, *The clock*).
 `run.sh` sets the device's date, turns automatic time off for the run, and prints
-`E2E_NOW`, `TODAY`, `TRAIN_START`, `TRAIN_END`, the device's date and time zone in
-its log (and `report/clock.txt`). Without the variable the device follows the host,
-and `TODAY` is the seed's anchor day, not the runner's calendar day.
+`E2E_NOW`, `TODAY`, the device's date and time zone in its log (and
+`report/clock.txt`). Without the variable the device follows the host, and `TODAY`
+is the seed's anchor day, not the runner's calendar day.
 
-A flow takes its dates from `TODAY` / `TRAIN_START` / `TRAIN_END`, never from a
-literal.
+A flow takes its dates from `TODAY`, never from a literal.
 
 ## Layout
 
 | | |
 |---|---|
 | `config.yaml` | the workspace: which files are flows, and in which order |
-| `flows/` | the journeys, numbered — what `maestro test` runs |
+| `flows/` | the journeys, numbered — what `maestro test` runs. The numbers have gaps (01, 02, 04, 05, 08): the missing ones moved to the JVM and keeping their numbers keeps the trail |
 | `subflows/` | shared steps (`sign-in.yaml`, `open-calendar.yaml`), kept out of the `flows` glob on purpose |
 | `scripts/` | `runScript` helpers: `grocery-api.js` plays the browser and reads the database back |
 | `shards.txt` | the flows of each CI shard, in order — `lint.sh` checks that every flow is in exactly one |
@@ -120,14 +126,14 @@ against an app nobody launched.
    `launchApp` comes after all of `MaggieApp.onCreate`, and the first HTTP call
    pays for Ktor and OkHttp being class-loaded; the 20–60 s here are not
    generosity, they are a CI failure that already happened.
-6. **Dates come from `run.sh`, as `-e` variables** — `TODAY`, `TRAIN_START`,
-   `TRAIN_END`, computed in the seed's time zone. A flow cannot compute a date and
-   one typed into it is wrong by tomorrow; a seed offset (`+5 days`) belongs in
-   `run.sh`, next to the others. Some ids are a prefix plus an ISO date
-   (`calendar_day_${TODAY}`, `calendar_span_<first>_<last>`, `calendar_event_<day>`):
-   declare the prefix as a `*_PREFIX` const in `UiTags.kt` and the lint accepts any
-   id that starts with it. Both ends of a calendar bar are read with a regex
-   (`calendar_span_${TRAIN_START}_.*`) — Maestro matches `id:` as one.
+6. **Dates come from `run.sh`, as `-e` variables** — `TODAY`, computed in the
+   seed's time zone. A flow cannot compute a date and one typed into it is wrong by
+   tomorrow; a seed offset (`+5 days`) belongs in `run.sh`, next to it. Some ids are
+   a prefix plus an ISO date (`calendar_day_${TODAY}`,
+   `calendar_span_<first>_<last>`, `calendar_event_<day>`): declare the prefix as a
+   `*_PREFIX` const in `UiTags.kt` and the lint accepts any id that starts with it.
+   A date a flow would have to *derive* — « the day the train arrives » — is a sign
+   the verification belongs on the JVM, where it can be written down (MAG-242).
 7. **Assert on seeded data, never on counts.** `api/fixtures/e2e/` is shared with
    the browser suite, which writes to the same user at the same time. A flow that
    writes labels its lines with its ticket (`… MAG-178`) and removes them.
@@ -136,30 +142,37 @@ against an app nobody launched.
    ne correspond à : … », which is a plausible-looking bubble. Assert
    `assertNotVisible: ".*aucun scénario.*"` after an exchange.
 
-## The grocery journeys (MAG-178)
+## The grocery journey (MAG-178)
 
-| | |
-|---|---|
-| `07-grocery-errand` | the errand: the list by shop in visit order, a tick, « Terminé » on a shop, what is left offered back, a removal |
-| `08-grocery-realtime` | web → phone and phone → web, with the app never relaunched or refreshed |
-| `09-grocery-deferred` | a line with a `buyAfter` in the future is in the database and not on the screen |
+`08-grocery-realtime` is what is left of the three: web → phone and phone → web,
+with the app never relaunched or refreshed. The errand itself — the list by shop
+in visiting order, a tick, the sheet of what is left, a removal behind a
+confirmation, a deferred line missing — is `GroceryScreenTest` on the JVM
+(MAG-242).
 
-Three things they rely on, none of them obvious:
+It also ends the errand at a shop, which is not about real time: « Terminé » posts
+to `/api/grocery/end-errand`, a controller of its own that none of
+`api/contract/`'s recorded responses covers, so the app's own request reaching it
+has nowhere else to be proven. It is here because this is the flow that already
+signs in as the shopper and reads the database back.
 
-- **Another account.** `03` and `04` sign in as the seed's second user
+Four things it relies on, none of them obvious:
+
+- **Another account.** It signs in as the seed's second user
   (`e2e-other@maggie.local`: two shops with visit orders, a leek with a fallback
-  shop). `launchApp: arguments: { e2e_email: … }` becomes an intent extra that
+  shop), so it can write without touching the list `01` and `05` read.
+  `launchApp: arguments: { e2e_email: … }` becomes an intent extra that
   `E2eSignIn.kt` reads; without it the flavor signs in as the build's default
-  account. They leave the list as they found it, so each run starts from the seed.
+  account. It leaves the list as it found it, so each run starts from the seed.
 - **The « browser » is a script.** Maestro drives one device and cannot open a
   tab. `scripts/grocery-api.js` sends the requests the admin sends, as the same
   user, so the server publishes to Mercure exactly as it does for a tab. It proves
   the phone applies what the web publishes; the admin's own rendering of a change
   made on the phone stays with `e2e/web/tests/grocery-errand.spec.ts`. The script
   gets the stack's URL and login token from `run.sh` (`-e E2E_BASE_URL=…`).
-- **A stack of its own.** `03` reads the neighbour's seeded order (the leek in
-  Halles), which `task e2e:web` moves on the same stack: run `task e2e:seed`
-  (done by `task e2e:mobile`) between the two. CI gives each its own stack.
+- **A stack of its own.** It reads and writes the neighbour's seeded list, which
+  `task e2e:web` also moves on the same stack: run `task e2e:seed` (done by
+  `task e2e:mobile`) between the two. CI gives each its own stack.
 - **Row selectors are wrapped in `.*`.** A list row is one merged node (text plus
   quantity), so its label alone is not the node's whole text. Headers, buttons and
   dialog texts are plain nodes and stay bare.
@@ -169,15 +182,53 @@ Three things they rely on, none of them obvious:
 
 ## What belongs here, and what does not
 
+Full rule:
+[`agent-os/standards/mobile/screen-tests.md`](../../agent-os/standards/mobile/screen-tests.md).
+One question tells the two apart: **would this fail on a device for a reason a JVM
+cannot reproduce?**
+
 The emulator is the only place a few things are visible, and MAG-93 counted them:
 a sheet laid out under the keyboard, an overlay that speaks on open, a view that
 does not refresh after an import. All of them are about a real app on a real
-screen.
+screen — as are the socle, the permissions, the microphone, the deep links and the
+notifications.
 
-Everything else is cheaper elsewhere. A ViewModel state transition is a JUnit
-test (`mobile/app/src/test/`), seconds instead of an emulator boot. A DTO field
-that stopped deserialising is `DtoContractTest` against `api/contract/`
-(MAG-104). Maggie's wording is the eval suite, on the real model.
+Everything else is cheaper elsewhere. **What a screen draws, in what order, and
+its empty and error states is a Compose test on the JVM**
+(`mobile/app/src/test/…/…ScreenTest.kt`), seconds instead of an emulator boot. A
+ViewModel state transition is a JUnit test next to it. A DTO field that stopped
+deserialising is `DtoContractTest` against `api/contract/` (MAG-104). Maggie's
+wording is the eval suite, on the real model.
+
+### Where the old assertions went
+
+MAG-242 moved five journeys and the tail of a sixth. Nothing was dropped.
+
+| Was | Assertion | Is now |
+|---|---|---|
+| `03-calendar-multi-day` | a multi-day event is one bar across both of its days in the week view | `MultiDayEventScreenTest` |
+| | the bar is cut at Sunday and the next week draws the rest (`dfad086`) | same — and on **every** run, where the flow saw this case only some weekdays |
+| | the day view of the second day draws it (`76017dd`) | same |
+| `06-finance-hub` | one « Finance » entry in the drawer, and no budgets or accounts entry | `FinanceHubScreenTest` + `FinanceNavigationTest` |
+| | the dashboard offers every part of the module, and opens one | `FinanceHubScreenTest` |
+| | the Budgets screen really opens (the `NavHost` route is wired) | `05-deep-links` gained `maggie-e2e://finance/budgets`: a route dropped from the `NavHost` is invisible to both the screen test and `FinanceNavigationTest` |
+| | back lands on the finance dashboard | `FinanceNavigationTest.financeBackAction` |
+| `07-grocery-errand` | the list grouped by shop in visiting order, unassigned last | `GroceryScreenTest` |
+| | a tick offers « Terminé » on its shop | same |
+| | « Terminé » offers the unbought lines back, with Transférer / Garder | same |
+| | the bought line leaves the list, the others stay unticked | same, read on the screen **and** on the fake server |
+| | a removal asks for a confirmation | same |
+| | a tick and a removal made on the phone reach the database | `08-grocery-realtime`, which already did both |
+| | **« Terminé » reaches `/api/grocery/end-errand`** | `08-grocery-realtime` gained the step: it is a controller of its own, in none of `api/contract/`'s recorded responses, so the live round trip had nowhere else to go. The request shape and the answer's parsing are also `MaggieApiServiceTest.endErrand…`, and the server's own behaviour stays `EndErrandControllerTest` |
+| `09-grocery-deferred` | a `buyAfter` line is served and not drawn | `GroceryScreenTest` + `GroceryViewModelTest` |
+| | it is in the database | `GroceryToolsTest` |
+| `10-voice-settings` | Voix shows the assistant role row and its state | `VoiceSettingsScreenTest` — each of the three states asserted as itself, where the flows could only assert an alternation |
+| | no wake word, no battery option (MAG-240) | same |
+| | « Ouvrir Maggie rapidement » further down | same |
+| `02-voice-overlay` (tail) | the drawer → Paramètres → Voix walk, and the role row | `VoiceSettingsScreenTest` |
+| | tapping the row (a system dialog) | nobody's test — Recette, on the owner's phone |
+
+Everything else of `02`, and all of `01`, `04`, `05`, `08`, stayed.
 
 ## Traps
 
@@ -220,12 +271,14 @@ that stopped deserialising is `DtoContractTest` against `api/contract/`
   an effect the broken build cannot produce: the text field still holds what was
   typed when a send does not happen, so « the sentence is on screen » proves
   nothing.
-- **The calendar journeys depend on the weekday.** « Train de nuit pour Vienne »
-  is seeded five days out, so its two days share a week from Monday to Wednesday
-  and straddle a Sunday the rest of the time. `03-calendar-multi-day.yaml` follows
-  the week with `calendar_next` only when a day is missing, and both cases are
-  the point: the straddling one is the `dfad086` regression. A flow that only ever
-  ran on a Tuesday would never see it.
+- **A flow that has to derive a date sees one of its cases per run.** « Train de
+  nuit pour Vienne » is seeded five days out, so its two days shared a week from
+  Monday to Wednesday and straddled a Sunday the rest of the time, and the
+  straddling one is the `dfad086` regression: `03-calendar-multi-day.yaml` followed
+  the week with `calendar_next` only when a day was missing, and a run on a Tuesday
+  never saw the case that mattered. That is why the two weeks are now written down
+  in `MultiDayEventScreenTest` instead (MAG-242) — and why a verification whose
+  dates come out of the seed is a candidate for the JVM.
 - **`04-calendar-import.yaml` consumes the seeded Google calendar.** The import
   dialog lists only calendars not yet connected, so the flow needs a freshly
   seeded stack — `task e2e:mobile` reseeds first. Running `maestro` by hand on a
@@ -267,9 +320,11 @@ screenshots being the only way to see what a headless emulator had on screen.
 `device-last-frame.png` and `logcat.txt` are taken after the failure, so a step
 that fails on a dialog or another app is readable.
 
-**A new flow goes in `shards.txt`**: `task e2e:mobile:lint` fails on a flow no shard
-names (it would never run in CI), on one named twice, and on an order that is not
-`config.yaml`'s `flowsOrder`. Balance by the `junit.xml` durations of the shards.
+**A new flow goes in `shards.txt`** — and before writing one, read *What belongs
+here* above: most verifications do not need a flow at all. `task e2e:mobile:lint`
+fails on a flow no shard names (it would never run in CI), on one named twice, and
+on an order that is not `config.yaml`'s `flowsOrder`. Balance by the `junit.xml`
+durations of the shards.
 `config.yaml` itself is read when the whole workspace runs, not for a shard, whose
 flows are passed as files, so a shard goes on after a failed flow and reports all
 of them.

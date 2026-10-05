@@ -51,5 +51,7 @@ global:
 mobile:
   android-app:
     description: Android app — Kotlin/Compose, Koin DI, Ktor HTTP, repository pattern
+  screen-tests:
+    description: Where a mobile verification lives — Compose on the JVM (Robolectric, ScreenRule, faked repositories) for screen logic, Maestro on an emulator only for what needs a real Android
   testing:
     description: JUnit + MockK — coroutine testing, backtick names, state verification

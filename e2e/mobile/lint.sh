@@ -93,12 +93,17 @@ for id in "${used[@]}"; do
   fi
 done
 
-# The other direction is a warning, not a failure: a tag may be declared ahead
-# of the flow that will use it, and MAG-98 ships fewer flows than tags.
+# The other direction is a warning, not a failure, and since MAG-242 it is a weak
+# one: a tag may be declared ahead of the flow that will use it, and most of them
+# are now addressed from a screen test on the JVM
+# (`mobile/app/src/test/…/…ScreenTest.kt`) rather than from a flow. Those tests
+# spell the constant — `UiTags.CALENDAR_NEXT`, `UiTags.calendarEvent(day)` — not the
+# id, so there is nothing here to match them against. A tag nothing uses at all is
+# found by Android Studio, not by this.
 for id in "${declared[@]}"; do
   printf '%s\n' "${used[@]}" | grep -qxF "$id" && continue
   case "$id" in *_) printf '%s\n' "${used[@]}" | grep -q "^$id" && continue ;; esac
-  printf '  \033[33m·\033[0m id "%s" is declared but no flow uses it yet\n' "$id"
+  printf '  \033[33m·\033[0m id "%s" is declared but no flow uses it (a screen test may)\n' "$id"
 done
 
 # ---------------------------------------------------------------------------

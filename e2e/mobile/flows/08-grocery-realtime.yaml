@@ -168,3 +168,70 @@ tags:
       ACTION: expect
       LABEL: Tisane MAG-178
       STATE: absent
+
+# ---------------------------------------------------------------------------
+# The end of the errand — the one request of this screen no JVM test can make
+# (MAG-242). « Terminé » posts to `/api/grocery/end-errand`, a controller of its
+# own rather than an API Platform operation, so it is in none of the recorded
+# responses of `api/contract/`. `07-grocery-errand` used to prove the app's
+# request reaches it; its screen half is now `GroceryScreenTest` against a fake
+# server and its server half is `EndErrandControllerTest`, and neither sends the
+# app's own request to the real controller. So that one step stays here, on the
+# flow that already signs in as the shopper and reads the database back.
+#
+# « Levain » is added through the script and ticked on the phone, so what the
+# errand carries home is this flow's own line. « Timbres du voisin » is the
+# seed's single unbought line at that shop (`api/fixtures/e2e/30-grocery.yaml`),
+# so the server offers exactly it back: one « Garder » leaves it where it was and
+# the list is as it was found. Maestro cannot count nodes, so a second line in that
+# shop would not fail here — it would leave the sheet open and fail the
+# `notVisible` two steps down, which is worth knowing when reading that failure.
+# ---------------------------------------------------------------------------
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: add
+      LABEL: Levain MAG-178
+      STORE: Épicerie du coin
+      WAIT_MS: "3000"
+- extendedWaitUntil:
+    visible:
+      text: ".*Levain MAG-178.*"
+      below: "Épicerie du coin"
+    timeout: 30000
+
+- longPressOn: ".*Levain MAG-178.*"
+- tapOn: "Cocher les articles"
+- extendedWaitUntil:
+    visible: "Terminé"
+    timeout: 20000
+
+- tapOn: "Terminé"
+- extendedWaitUntil:
+    visible: "Articles non achetés à Épicerie du coin"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Garder"
+    timeout: 10000
+- tapOn: "Garder"
+- extendedWaitUntil:
+    notVisible: "Articles non achetés.*"
+    timeout: 20000
+
+# The bought line left the list on the server — which is the whole point of the
+# step — and the seed's is still there, unticked.
+- extendedWaitUntil:
+    notVisible: ".*Levain MAG-178.*"
+    timeout: 30000
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: expect
+      LABEL: Levain MAG-178
+      STATE: absent
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: expect
+      LABEL: Timbres du voisin
+      STATE: unchecked
