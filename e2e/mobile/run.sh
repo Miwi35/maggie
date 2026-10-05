@@ -209,6 +209,31 @@ previous_auto_time="$("$ADB" -s "$SERIAL" shell settings get global auto_time 2>
 # Network time would undo the next line within minutes.
 "$ADB" -s "$SERIAL" shell settings put global auto_time 0 >/dev/null 2>&1 || true
 
+# « Pixel Launcher isn't responding » (MAG-215). On a tablet or a foldable the
+# launcher is also the taskbar, always running, and on a software-rendered CI
+# emulator it misses its ANR deadline now and then; the system dialog that
+# follows is a window above the app, so Maestro reads only that dialog and every
+# `assertVisible` on the app fails while the screenshot shows the app intact. The
+# phone's launcher is idle, which is why it only fails there once in a while.
+# Hiding error dialogs is the platform switch for exactly this; an app that really
+# crashes still fails its flow, and the logcat in the report says why.
+#
+# Set *before* the clock moves: a jump of the system time is what wakes the launcher
+# up mid-boot (MAG-233: a fresh CI emulator showed the dialog over the login screen,
+# on all three flows of a shard). A dialog already on screen survives the switch, so
+# it is closed by hand below, once the clock is pinned.
+#
+# Put back on the way out: a physical phone keeps its settings between runs, and
+# the owner's must go on telling him when an app of his own crashes.
+previous_hide="$("$ADB" -s "$SERIAL" shell settings get global hide_error_dialogs 2>/dev/null | tr -d '\r' || true)"
+"$ADB" -s "$SERIAL" shell settings put global hide_error_dialogs 1 >/dev/null 2>&1 \
+  || warn "could not hide the system's error dialogs: an ANR dialog above the app will fail a flow."
+# It is not enough on its own (MAG-236): the system server can still show the
+# launcher's ANR window with it set, and a run on an unpinned clock proved the clock
+# is not what triggers it. `subflows/dismiss-system-anr.yaml` is the real guard; this
+# line says in the log whether the setting was at least in force.
+note "hide_error_dialogs = $("$ADB" -s "$SERIAL" shell settings get global hide_error_dialogs 2>/dev/null | tr -d '\r')"
+
 pin_device_clock() {
   # Pinned: the exact instant. Not pinned: the host's clock, now.
   local target=$NOW_EPOCH
@@ -224,31 +249,13 @@ pin_device_clock() {
   fi
 }
 pin_device_clock
+# Whatever dialog appeared before the switch took effect is still there.
+"$ADB" -s "$SERIAL" shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1 || true
+"$ADB" -s "$SERIAL" shell input keyevent KEYCODE_HOME >/dev/null 2>&1 || true
 
 "$ADB" -s "$SERIAL" reverse --remove "tcp:$DEVICE_PORT" >/dev/null 2>&1 || true
 "$ADB" -s "$SERIAL" reverse "tcp:$DEVICE_PORT" "tcp:$HOST_PORT" >/dev/null
 note "device $APP_BASE_URL → host $BASE_URL"
-
-# « Pixel Launcher isn't responding » (MAG-215). On a tablet or a foldable the
-# launcher is also the taskbar, always running, and on a software-rendered CI
-# emulator it misses its ANR deadline now and then; the system dialog that
-# follows is a window above the app, so Maestro reads only that dialog and every
-# `assertVisible` on the app fails while the screenshot shows the app intact. The
-# phone's launcher is idle, which is why it only fails there once in a while.
-# Hiding error dialogs is the platform switch for exactly this; an app that really
-# crashes still fails its flow, and the logcat in the report says why.
-#
-# Put back on the way out: a physical phone keeps its settings between runs, and
-# the owner's must go on telling him when an app of his own crashes.
-previous_hide="$("$ADB" -s "$SERIAL" shell settings get global hide_error_dialogs 2>/dev/null | tr -d '\r' || true)"
-"$ADB" -s "$SERIAL" shell settings put global hide_error_dialogs 1 >/dev/null 2>&1 \
-  || warn "could not hide the system's error dialogs: an ANR dialog above the app will fail a flow."
-# It is not enough on its own (MAG-236): the system server can still show the
-# launcher's ANR window with it set, and a run on an unpinned clock proved the clock
-# is not what triggers it. `subflows/dismiss-system-anr.yaml` is the real guard; this
-# line says in the log whether the setting was at least in force.
-note "hide_error_dialogs = $("$ADB" -s "$SERIAL" shell settings get global hide_error_dialogs 2>/dev/null | tr -d '\r')"
-
 
 # ---------------------------------------------------------------------------
 step "3. Install the e2e flavor"
