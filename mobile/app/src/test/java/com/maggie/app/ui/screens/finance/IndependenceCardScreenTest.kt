@@ -77,6 +77,22 @@ class IndependenceCardScreenTest {
         compose.onNodeWithText("Loyers perçus").performScrollTo().assertIsDisplayed()
     }
 
+    /**
+     * A rente declared and no month measured yet is a different state: the
+     * hint must say how the window works, not how to declare a rente again.
+     */
+    @Test
+    fun `with a rente but no history the card explains the window`() {
+        open(IndependenceCounter(hasPassiveIncomeCategories = true))
+
+        compose.onNodeWithText("Pas encore de train de vie mesuré")
+            .performScrollTo()
+            .assertIsDisplayed()
+        compose.onNodeWithText("Le compteur se calcule sur les 3 mois complets précédents.")
+            .performScrollTo()
+            .assertIsDisplayed()
+    }
+
     /** No rente declared is something to do, not a 0 % to read. */
     @Test
     fun `without a declared rente the card says where to start`() {

@@ -172,10 +172,10 @@ l'identité voisine, dont le module finance est vide et que rien d'autre ne lit.
 | `Category` (champ) | `CategoryApiTest` : 201 + état DB + Mercure, 422 sur une dépense, 422 au déplacement, PATCH ; `CategoryToolsTest` : create/update MCP + refus |
 | Contrats | `openapi.json`, `categories.collection.json`, `mcp-tools.json` régénérés |
 | `IndependenceCard.tsx` | rendu, paliers, mensualités, non mesurable, aucune rente déclarée, > 100 % |
-| `CategoryForm.tsx` | la case n'existe que sur une recette |
+| `CategoryForm.tsx` | la case n'existe que sur une recette, ce qui part à l'API quand elle est cochée, le drapeau retiré avec elle au reclassement, et conservé à l'édition d'une rente |
 | `CategoryList.tsx` | le repère « rente » |
 | `IndependenceCounter` (Kotlin) | la phrase dans ses quatre états, `categoryKindLabel` |
-| `FinanceDashboardScreen` | la carte est dessinée et porte les deux termes |
+| `FinanceDashboardScreen` | la carte est dessinée et porte les deux termes, et chacun des deux états vides dit ce qui lui est propre |
 
 Aucune correction de bug dans ce périmètre : pas de test de reproduction dû.
 
