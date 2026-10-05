@@ -15,7 +15,9 @@ name: Agent guard
 #
 # What it checks: the diff touches infra, the CD, secrets, auth, permissions, a
 # destructive migration or policy.yaml; is bigger than the limit; disables a test
-# or skips the hooks (scripts/agent-guard/check.sh). AGENT_ENABLED=false
+# or skips the hooks (scripts/agent-guard/check.sh). A batch of the merge train
+# (label `batch`, MAG-262) is judged PR by PR, each listed PR with the same rules,
+# and must be exactly their sum (scripts/agent-guard/judge.sh). AGENT_ENABLED=false
 # (repo variable, `task guard:stop`) hands every agent pull request over.
 # Emergency (MAG-184): when infra or CD files are the only reason, and the
 # branch's ticket is in the Linear state « Emergency », the PR may merge itself:
@@ -56,15 +58,10 @@ jobs:
         env:
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
         run: |
+          # A pull request labelled `batch` is judged PR by PR (judge.sh, MAG-262).
           status=0
-          if gh pr diff "$PR" > diff.patch; then
-            scripts/agent-guard/check.sh < diff.patch > findings.txt || status=$?
-          else
-            # GitHub renders no diff above 20 000 lines.
-            echo "oversize: the diff is too large for GitHub to render, split the ticket" > findings.txt
-            status=10
-          fi
-          if [ "$AGENT_ENABLED" = false ] && [[ "$BRANCH" == cyrus/* ]]; then
+          scripts/agent-guard/judge.sh "$PR" > findings.txt || status=$?
+          if [ "$AGENT_ENABLED" = false ] && [[ "$BRANCH" == cyrus/* || "$BRANCH" == train/batch-* ]]; then
             echo "agent-disabled: AGENT_ENABLED is false, the autonomous agent is stopped" >> findings.txt
             status=10
           fi

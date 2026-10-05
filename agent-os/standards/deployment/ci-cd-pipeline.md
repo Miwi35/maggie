@@ -7,7 +7,7 @@ One line in the Actions list per event (MAG-244), each saying what it is (`run-n
 | Event | Workflow | Line | Jobs |
 |---|---|---|---|
 | Push on a ready PR | `ci.yml` (`Pull request`) | `PR #120 · <title>` | path detection → guard, lint, tests, e2e, mobile unit tests, `Incident gate`, two-reds streak |
-| Merge on `main` | `main.yml` (`Main`) | `main · CI puis déploiement · <commit message>` | `ci.yml` called → gate → builds → deploy → smoke → lift the freeze → release the held PRs (or rollback) |
+| Merge on `main` | `main.yml` (`Main`) | `main · CI puis déploiement · <commit message>` | `tested` → `ci.yml` called (skipped for a tree already tested) → gate → builds → deploy → smoke → lift the freeze → release the held PRs (or rollback) |
 | Every night | `nightly.yml` (`Nuit`) | `Nuit · CI complète + eval du modèle réel` | `ci.yml` called with no path filter, beside the real-model eval |
 | Auto-merge armed | `agent-guard.yml` | `Agent guard · auto-merge armed · PR #n` | the guard, from the default branch |
 | Every hour | `incident-gate-release.yml` | `Gel d'incident · filet de sécurité horaire` | re-run the held gates if the freeze was lifted by hand |
@@ -61,15 +61,39 @@ A public repository on the free plan runs 20 jobs at once; a PR that touches the
 
 ### Agent guard events (MAG-243, MAG-244)
 
-The guard is a job of `ci.yml`: it runs on `opened`, `synchronize` and `ready_for_review`, never on a draft, and a new push cancels the stale run with the rest of the pipeline. `agent-guard.yml` keeps a single trigger, `pull_request_target` on `auto_merge_enabled`: the same check from the default branch's code, the PR never checked out. The job in `ci.yml` runs the PR's own copy of `scripts/agent-guard/`, so a PR could edit it away; arming auto-merge, which is what lets a merge happen without a human, always goes through the copy that cannot be edited. The guard reads no label: the diff, the branch and `AGENT_ENABLED` are its whole input. The two-red-runs streak is the last job of `ci.yml`: it runs when another job failed on a `cyrus/**` branch, counts its own run as red and reads the earlier ones from the API.
+The guard is a job of `ci.yml`: it runs on `opened`, `synchronize` and `ready_for_review`, never on a draft, and a new push cancels the stale run with the rest of the pipeline. `agent-guard.yml` keeps a single trigger, `pull_request_target` on `auto_merge_enabled`: the same check from the default branch's code, the PR never checked out. The job in `ci.yml` runs the PR's own copy of `scripts/agent-guard/`, so a PR could edit it away; arming auto-merge, which is what lets a merge happen without a human, always goes through the copy that cannot be edited. The guard reads one label, `batch`: the diff, the branch, `AGENT_ENABLED` and that label are its whole input. The two-red-runs streak is the last job of `ci.yml`: it runs when another job failed on a `cyrus/**` or `train/batch-*` branch, counts its own run as red and reads the earlier ones from the API.
+
+### Batch pull requests (MAG-262)
+
+The dispatcher groups up to 3 ready PRs into one **batch PR**: branch `train/batch-<n>`, label `batch` **set when the PR is created** (`gh pr create --label batch`: adding it later starts no run, so the first guard verdict would be the unlabelled one), a description that lists each PR as a list item or table row whose first `#<number>` names it, and one `Fixes MAG-x` per ticket. One CI, one deployment. The original PRs stay **open** while the batch is judged (a listed PR that is not open refuses the batch); the dispatcher closes them with a comment pointing at the batch once it has merged.
+
+`scripts/agent-guard/judge.sh <pr>` is what both guard jobs run (`ci.yml` and `agent-guard.yml`). Without the label it is `check.sh` on the PR's diff, as before. With it — and only on a branch `train/batch-*`: the label on any other branch is refused (`batch-branch`) — the batch is **judged PR by PR** instead of on its total, which would trip the 800-line limit on its own:
+- each listed PR goes through `check.sh` with the rules it would meet alone (size, sensitive paths, infra, permissions, destructive migration, disabled test, skipped hooks), and must be open and not labelled `needs-human`; a finding names its PR (`oversize: #151: …`);
+- the lines the batch adds and removes, file by file (plus mode changes and renames), must be exactly the sum of those of the listed PRs: nothing added on the way, nothing dropped. A binary file shows no content in a diff, so a batch that carries one is refused: that PR merges alone. Line numbers and `index` lines are not compared, since the PRs were cut against another base. A line one PR adds and another removes cancels in the batch, which then differs from the sum: the doubt goes to a human;
+- more than `AGENT_MAX_BATCH_PRS` (3) listed, none listed, a listed PR that cannot be read, or a diff GitHub cannot render (above 20 000 lines): refused.
+
+The batch is accepted only if all of this holds; otherwise the usual hand-over (`needs-human`, auto-merge off, the reasons in a comment). Branch `train/batch-*` also counts as an agent branch for `AGENT_ENABLED=false` and for the two-red-runs streak, so the rule « red twice → `needs-human` » applies to the batch. Tested by `infra/scripts/tests/agent-guard-batch.test.sh`.
+
+Merging: `deploy-tickets.sh` also reads the `Fixes MAG-x` lines of the squash commit's body (the PR description), since the subject and branch of a batch name no ticket: a failed deploy of a batch freezes every ticket it carries. Linear's GitHub integration moves a ticket on its own from the same `Fixes MAG-x` magic word, when the PR that carries it merges. Not covered: the `Incident gate` reads the title and branch of the PR, so a batch cannot carry the fix of an « Emergency » ticket through a freeze — the dispatcher opens that fix alone.
 
 ---
 
 ## Main pipeline (`.github/workflows/main.yml`, MAG-244)
 
-**Trigger:** push on `main`. One run per merge: `ci` (calls `ci.yml`, whose `Detect changes` filters on a push as it did when CI ran by itself) → `gate` → `changes` → builds → `deploy` → `smoke` → `lift-freeze` → `release-gates`, or `rollback`. A red CI ends the run before the gate: nothing deploys.
+**Trigger:** push on `main`. One run per merge: `tested` → `ci` (calls `ci.yml`, whose `Detect changes` filters on a push as it did when CI ran by itself; skipped when the tree was already tested) → `gate` → `changes` → builds → `deploy` → `smoke` → `lift-freeze` → `release-gates`, or `rollback`. A red CI ends the run before the gate: nothing deploys.
 
 **One at a time:** the workflow's concurrency group `main-pipeline` queues runs and never cancels one that started. GitHub keeps one pending run per group and cancels the one a newer pending run replaces: a commit merged while another one is in the pipeline waits, and if a third commit arrives first the second never runs, which is right, the third contains it. The price against the old chain: a queued commit's CI starts after the running pipeline ends, not beside its deploy. The last merge is always the one deployed. `ci.yml`'s own group (`ci-Main-<ref>`) differs from this one: a group shared by caller and callee would deadlock.
+
+### The CI of main is not repeated on a tree already tested (MAG-262)
+
+The merge train rebases a PR on the head of `main` before its CI and squash-merges it: the commit that lands has exactly the file tree the CI of the PR ran on. Running the same suite again on `main` cost ~20-25 minutes per merge, of the ~40 the train spends on each PR.
+
+- The first job, `tested` (`infra/scripts/tested-tree.sh`, tested by `tested-tree.test.sh`), skips the `ci` job when **all** hold: the commit is the merge commit of one merged PR; its tree (`git/commits/<sha>` → `tree.sha`, the same value as `git rev-parse <sha>^{tree}`) equals the tree of the PR's head commit; the latest finished `Pull request` run on that head is `success` and really ran (its `Detect changes` job is not skipped, as it is for a draft).
+- The CI of a PR tests the merge of its head with the base of the moment; a base that moved and came back to the same tree is not told apart, which is acceptable since that run was green on a tree identical to the one that lands.
+- Anything else runs the suite in full, as before: a branch merged out of date (the trees differ), a direct push, a revert not made through a PR, a red, missing or draft-only run, an API that does not answer. Doubt runs the CI.
+- The reason is in the log and the summary of `tested`. A skipped `ci` counts as a pass for the `gate` (`needs.ci.result == 'skipped'` **and** `skip == 'true'`); a red or cancelled CI still stops the run. Path detection, builds, deployment and smoke tests are unchanged, and the base of the change detection (the last successful run of `main.yml`) is too.
+- A `tested` job that dies does not skip the CI: `ci` runs on `always()`.
+- `nightly.yml` calls `ci.yml` directly and keeps the whole suite.
 
 ### Gate (MAG-189)
 
@@ -152,7 +176,7 @@ Its own chat history is the only thing it writes. Unit tests of the scripts: `in
 **Runs when:** a build job, the deploy or the smoke job failed. A failed build never reached the cluster: nothing is rolled back.
 
 1. `rollback-k3s.sh` runs `kubectl rollout undo --to-revision` on the deployments whose revision moved, using the record written before the apply. No record: nothing is undone. The record is kept when an undo fails, so the script can be run again by hand.
-2. `report-failed-deploy.sh` moves every ticket shipped since the last green run of `main.yml` (`deploy-tickets.sh`: key in the commit subject, else in the PR branch) to the Linear state « Emergency », adds `Top` and comments the cause, the production state and the run (MAG-184). « Emergency » freezes production until the fix deploys green; the `lift-freeze` job then moves the ticket to Recette, or Done for a Task. A separate incident ticket (`Bug`, Urgent, labels `incident` and `Top`) is opened only when no ticket can carry the freeze or the rollback itself failed. GitHub issues are disabled on this repository, so nothing goes there. Needs the `LINEAR_API_KEY` Actions secret; the run summary carries the same text if the calls fail.
+2. `report-failed-deploy.sh` moves every ticket shipped since the last green run of `main.yml` (`deploy-tickets.sh`: key in the commit subject or in a `Fixes MAG-x` line of its body, else in the PR branch) to the Linear state « Emergency », adds `Top` and comments the cause, the production state and the run (MAG-184). « Emergency » freezes production until the fix deploys green; the `lift-freeze` job then moves the ticket to Recette, or Done for a Task. A separate incident ticket (`Bug`, Urgent, labels `incident` and `Top`) is opened only when no ticket can carry the freeze or the rollback itself failed. GitHub issues are disabled on this repository, so nothing goes there. Needs the `LINEAR_API_KEY` Actions secret; the run summary carries the same text if the calls fail.
 3. The run ends red.
 
 **Freeze (MAG-184):** while a ticket is in « Emergency » or an `incident` ticket is open, the required check `Incident gate` (`infra/scripts/incident-gate.sh`) fails every PR whose title or branch does not carry one of those keys; no Linear answer fails it too. The last job of `main.yml`, `release-gates` (`Re-run the held gates`, after `lift-freeze` and `rollback`, for any run that passed the gate), runs `infra/scripts/rerun-incident-gates.sh`: once the freeze lifts, the red gates are re-run and held PRs merge on their own. `incident-gate-release.yml` stays as an hourly safety net (`workflow_dispatch` too) for a freeze someone lifts by hand — the one case the pipeline cannot see; it was every 10 minutes (144 lines a day), and a PR held an hour in that rare case is what that costs. The dispatcher delegates the « Emergency » ticket first, over every slot and hold.

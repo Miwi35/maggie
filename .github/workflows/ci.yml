@@ -1070,8 +1070,10 @@ jobs:
   # `needs-human`, auto-merge switched off, the reason in a comment. The diff
   # touches infra, the CD, secrets, auth, permissions, a destructive migration or
   # policy.yaml; is bigger than the limit; disables a test or skips the hooks
-  # (scripts/agent-guard/check.sh). AGENT_ENABLED=false hands every agent pull
-  # request over. The fix of an « Emergency » ticket merges its infra change alone
+  # (scripts/agent-guard/check.sh). A batch of the merge train (label `batch`,
+  # MAG-262) is judged PR by PR, each listed PR with these same rules, and must be
+  # exactly their sum (scripts/agent-guard/judge.sh). AGENT_ENABLED=false hands
+  # every agent pull request over. The fix of an « Emergency » ticket merges its infra change alone
   # (emergency.sh, MAG-184).
   #
   # This job runs the pull request's own copy of the scripts, so a PR could edit
@@ -1098,15 +1100,10 @@ jobs:
         env:
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
         run: |
+          # A pull request labelled `batch` is judged PR by PR (judge.sh, MAG-262).
           status=0
-          if gh pr diff "$PR" > diff.patch; then
-            scripts/agent-guard/check.sh < diff.patch > findings.txt || status=$?
-          else
-            # GitHub renders no diff above 20 000 lines.
-            echo "oversize: the diff is too large for GitHub to render, split the ticket" > findings.txt
-            status=10
-          fi
-          if [ "$AGENT_ENABLED" = false ] && [[ "$BRANCH" == cyrus/* ]]; then
+          scripts/agent-guard/judge.sh "$PR" > findings.txt || status=$?
+          if [ "$AGENT_ENABLED" = false ] && [[ "$BRANCH" == cyrus/* || "$BRANCH" == train/batch-* ]]; then
             echo "agent-disabled: AGENT_ENABLED is false, the autonomous agent is stopped" >> findings.txt
             status=10
           fi
@@ -1129,15 +1126,17 @@ jobs:
             sed 's/^/- /' reasons.txt
           } | scripts/agent-guard/hand-over.sh "$PR" guard
 
-  # Two red runs in a row on an agent branch: the agent gives up (MAG-128). Runs
-  # once every other job has ended, so the run in progress counts as the red it is
-  # about to be; the earlier runs come from the API.
+  # Two red runs in a row on an agent branch, or on a batch of the merge train
+  # (`train/batch-<n>`, MAG-262): the agent gives up (MAG-128). Runs once every
+  # other job has ended, so the run in progress counts as the red it is about to
+  # be; the earlier runs come from the API.
   streak:
     name: Two red runs in a row
     needs: [changes, api-lint, agent-lint, ciqual-lint, admin-lint, api-test, agent-test, ciqual-test, admin-test, mobile-unit, e2e-stack, e2e-mobile, cron-image, infra-scripts]
     if: >-
       always() && github.event_name == 'pull_request' && !github.event.pull_request.draft
-      && startsWith(github.head_ref, 'cyrus/') && contains(needs.*.result, 'failure')
+      && (startsWith(github.head_ref, 'cyrus/') || startsWith(github.head_ref, 'train/batch-'))
+      && contains(needs.*.result, 'failure')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1209,7 +1208,7 @@ jobs:
         run: |
           docker run --rm -v "$PWD":/mnt -w /mnt koalaman/shellcheck:stable -x --severity=warning \
             infra/scripts/*.sh infra/scripts/tests/*.sh scripts/agent-guard/*.sh scripts/coverage/*.sh e2e/*.sh e2e/mobile/*.sh
-      - name: Test the smoke suite, the rollback, the failed-deploy report, the incident gate, the deploy gate, the freeze lift and the agent guard rails
+      - name: Test the smoke suite, the rollback, the failed-deploy report, the incident gate, the deploy gate, the skipped CI of main, the freeze lift and the agent guard rails
         run: |
           bash infra/scripts/tests/smoke-prod.test.sh
           bash infra/scripts/tests/rollback-k3s.test.sh
@@ -1220,8 +1219,10 @@ jobs:
           bash infra/scripts/tests/incident-gate.test.sh
           bash infra/scripts/tests/verify-digests.test.sh
           bash infra/scripts/tests/should-deploy.test.sh
+          bash infra/scripts/tests/tested-tree.test.sh
           bash infra/scripts/tests/cd-lift-freeze.test.sh
           bash infra/scripts/tests/agent-guard.test.sh
+          bash infra/scripts/tests/agent-guard-batch.test.sh
           bash infra/scripts/tests/agent-guard-streak.test.sh
           bash infra/scripts/tests/agent-guard-emergency.test.sh
           bash infra/scripts/tests/merge-ready.test.sh

@@ -7,7 +7,9 @@ set -euo pipefail
 #
 # Every commit after the last successful deploy, up to the deployed one, counts:
 # a deploy can carry several merges. A commit gives the key in its subject (the
-# squash merge keeps the PR title, `… (MAG-176) (#54)`), or else the one in the
+# squash merge keeps the PR title, `… (MAG-176) (#54)`) and, in its body, the
+# `Fixes MAG-x` lines of a batch pull request (MAG-262: one commit, several
+# tickets, a branch `train/batch-n` that names none), or else the one in the
 # branch name of its PR (`meven35/mag-184-…`), asked from GitHub with `gh`
 # (GH_TOKEN and GH_REPO set). No last deploy, or one that is not an ancestor:
 # only the deployed commit counts.
@@ -32,6 +34,9 @@ fi
 
 for sha in $commits; do
   keys=$(git log -1 --format=%s "$sha" | grep -oE "\\b$KEY-[0-9]+\\b" || true)
+  body=$(git log -1 --format=%b "$sha" | grep -iE "^[[:space:]]*[-*]?[[:space:]]*(fix(e[sd])?|close[sd]?|resolve[sd]?)[: ]+$KEY-[0-9]+\\b" \
+    | grep -oE "\\b$KEY-[0-9]+\\b" || true)
+  keys=$(printf '%s\n%s\n' "$keys" "$body" | sed '/^$/d')
   if [ -z "$keys" ]; then
     branch=$(gh api "repos/$GH_REPO/commits/$sha/pulls" --jq '.[0].head.ref // empty' 2>/dev/null || true)
     keys=$(printf '%s' "$branch" | grep -oiE "\\b$KEY-[0-9]+" | tr '[:lower:]' '[:upper:]' || true)
