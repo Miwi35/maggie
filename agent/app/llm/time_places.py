@@ -13,6 +13,8 @@ import unicodedata
 from functools import lru_cache
 from zoneinfo import ZoneInfo, available_timezones
 
+# Legacy fixed-offset zones: « EST » in July is New York's UTC-4, not the fixed UTC-5 these would give.
+_FIXED_OFFSET_ABBREVIATIONS = {"est": "America/New_York", "mst": "America/Denver", "hst": "Pacific/Honolulu"}
 HERE_WORDS = {"ici", "chez moi", "local", "locale", "maison", "here", "home", "moi"}
 _LEADING_WORDS = {"a", "au", "aux", "en", "le", "la", "les", "l", "de", "du", "des", "d", "the", "in", "at"}
 
@@ -67,7 +69,7 @@ _SINGLE: dict[str, tuple[str, ...]] = {
     "Africa/Kinshasa": ("kinshasa",),
     "Indian/Antananarivo": ("antananarivo", "tananarive", "madagascar"),
     "Indian/Mauritius": ("maurice", "ile maurice", "port louis"),
-    "America/New_York": ("new york", "new york city", "nyc", "boston", "washington", "miami", "atlanta", "floride"),
+    "America/New_York": ("new york", "new york city", "nyc", "boston", "miami", "atlanta"),
     "America/Chicago": ("chicago", "houston", "dallas", "la nouvelle orleans"),
     "America/Denver": ("denver", "salt lake city"),
     "America/Los_Angeles": ("los angeles", "san francisco", "californie", "seattle", "las vegas", "san diego"),
@@ -89,7 +91,7 @@ _SINGLE: dict[str, tuple[str, ...]] = {
     "America/Caracas": ("caracas", "venezuela"),
     "America/Montevideo": ("montevideo", "uruguay"),
     "America/Panama": ("panama",),
-    "America/Costa_Rica": ("costa rica", "san jose"),
+    "America/Costa_Rica": ("costa rica",),
     "Asia/Tokyo": ("tokyo", "japon", "osaka", "kyoto"),
     "Asia/Seoul": ("seoul", "coree du sud", "coree"),
     "Asia/Shanghai": ("pekin", "beijing", "shanghai", "chine", "canton", "shenzhen"),
@@ -129,6 +131,9 @@ _MULTI: dict[str, tuple[str, ...]] = {
     "canada": ("America/Toronto", "America/Winnipeg", "America/Edmonton", "America/Vancouver", "America/Halifax"),
     "russie": ("Europe/Moscow", "Asia/Yekaterinburg", "Asia/Novosibirsk", "Asia/Vladivostok"),
     "bresil": ("America/Sao_Paulo", "America/Manaus", "America/Noronha"),
+    "washington": ("America/New_York", "America/Los_Angeles"),
+    "san jose": ("America/Costa_Rica", "America/Los_Angeles"),
+    "floride": ("America/New_York", "America/Chicago"),
     "australie": ("Australia/Sydney", "Australia/Perth", "Australia/Adelaide", "Australia/Brisbane"),
 }
 
@@ -174,6 +179,10 @@ def resolve_place(place: str, here: ZoneInfo) -> ZoneInfo:
     raw = (place or "").strip()
     if not raw or normalize(raw) in HERE_WORDS:
         return here
+
+    if raw.lower() in _FIXED_OFFSET_ABBREVIATIONS:
+        city = _FIXED_OFFSET_ABBREVIATIONS[raw.lower()]
+        raise PlaceError(f"'{raw}' is a fixed offset that ignores summer time: give a city instead.", (city,))
 
     by_name = _iana_by_lowercase().get(raw.lower())
     if by_name:

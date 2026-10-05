@@ -164,6 +164,7 @@ class TestAdd:
     def test_the_iso_can_be_given_to_schedule_a_reminder(self):
         iso = call(action="add", datetime="2026-07-15T10:00", timezone="Montréal", hours=0)["result"]["iso"]
 
+        assert iso == "2026-07-15T10:00-04:00"
         assert datetime.fromisoformat(iso).utcoffset().total_seconds() == -4 * 3600
 
     @pytest.mark.parametrize(
@@ -257,6 +258,20 @@ class TestErrors:
         assert "several timezones" in result["error"]
         assert "America/New_York" in result["candidates"]
         assert "America/Los_Angeles" in result["candidates"]
+
+    @pytest.mark.parametrize("abbreviation", ["EST", "mst", "HST"])
+    def test_a_fixed_offset_abbreviation_is_refused_for_a_city(self, abbreviation):
+        result = call(action="now", timezone=abbreviation)
+
+        assert "summer time" in result["error"]
+        assert result["candidates"]
+
+    @pytest.mark.parametrize("place", ["Washington", "San José", "Floride"])
+    def test_a_place_name_shared_by_several_zones_asks_for_a_city(self, place):
+        result = call(action="now", timezone=place)
+
+        assert "several timezones" in result["error"]
+        assert len(result["candidates"]) >= 2
 
     def test_a_timezone_must_be_a_string(self):
         assert "'timezone'" in call(action="now", timezone=3)["error"]
