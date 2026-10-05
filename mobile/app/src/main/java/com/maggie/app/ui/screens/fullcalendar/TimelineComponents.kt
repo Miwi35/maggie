@@ -31,9 +31,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.maggie.app.data.model.ExpandedEvent
 import com.maggie.app.ui.screens.dashboard.parseColor
+import com.maggie.app.util.DateRanges
 import java.time.Instant
 import java.time.LocalDate
-import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
@@ -116,7 +116,7 @@ fun EventBlock(
 
 @Composable
 fun NowIndicator(modifier: Modifier = Modifier) {
-    val now = LocalTime.now()
+    val now = DateRanges.nowTime()
     val minutesSinceStart = (now.hour - TIMELINE_START_HOUR) * 60 + now.minute
     if (minutesSinceStart < 0) return
 

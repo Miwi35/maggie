@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures/index.js'
+import { test, expect, e2eNow } from '../fixtures/index.js'
 import { AdminShell } from '../pages/AdminShell.js'
 import { LoginPage } from '../pages/LoginPage.js'
 import { adminUrl, ROUTES } from '../pages/routes.js'
@@ -34,8 +34,8 @@ function forgedToken(expiresInSeconds: number): string {
     sub: 'e2e@maggie.local',
     username: 'e2e@maggie.local',
     roles: ['ROLE_USER'],
-    iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + expiresInSeconds,
+    iat: Math.floor(e2eNow().getTime() / 1000),
+    exp: Math.floor(e2eNow().getTime() / 1000) + expiresInSeconds,
   })
 
   return `${header}.${payload}.not-a-real-signature`

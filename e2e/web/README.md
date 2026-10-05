@@ -30,6 +30,13 @@ its network. Three things follow:
   journey. The e2e stack simulates every external service, so a request leaving
   the network is a bug, not a dependency.
 
+## The clock (MAG-234)
+
+`E2E_NOW=<ISO-8601> task e2e:web` runs the stack at that instant and pins the
+browser's `Date` to it. In a journey read "now" through `e2eNow()` (not
+`Date.now()`) and write a Paris time with `parisTime(day, '09:00:00')` (never
+`+02:00`). Both live in `fixtures/clock.ts`.
+
 ## Layout
 
 | | |

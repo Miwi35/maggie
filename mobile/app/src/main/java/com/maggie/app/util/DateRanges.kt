@@ -1,7 +1,9 @@
 package com.maggie.app.util
 
+import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
@@ -10,6 +12,12 @@ data class DateRange(val start: Instant, val end: Instant)
 object DateRanges {
 
     private val zone = ZoneId.of("Europe/Paris")
+
+    /** The day it is in Paris — the zone the events are drawn in — whatever zone the device reports. */
+    fun todayDate(clock: Clock = Clock.systemUTC()): LocalDate = LocalDate.now(clock.withZone(zone))
+
+    /** The time of day in Paris, for the « now » line of the timelines. */
+    fun nowTime(clock: Clock = Clock.systemUTC()): LocalTime = LocalTime.now(clock.withZone(zone))
 
     fun today(): DateRange {
         val now = LocalDate.now(zone)
