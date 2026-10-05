@@ -322,7 +322,6 @@ class VoiceManager(
     fun cancelListening() {
         timerJob?.cancel()
         timerJob = null
-        if (_state.value == VoiceState.LISTENING) onResult = null
         cleanupRecording()
         if (_state.value == VoiceState.LISTENING) {
             _state.value = VoiceState.IDLE
@@ -393,6 +392,7 @@ class VoiceManager(
     }
 
     private fun cleanupRecording() {
+        onResult = null
         try {
             recorder?.stop()
         } catch (_: Exception) { }
