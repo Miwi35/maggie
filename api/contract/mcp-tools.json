@@ -1432,6 +1432,84 @@
         },
         "description": "When a store is closed, move all unchecked items from that store to their fallback stores."
     },
+    "plan_annual_budget": {
+        "name": "plan_annual_budget",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "year": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "thresholdCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "categoryId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "label": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "amountCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "month": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "status": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "accountId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "currency": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "Run the yearly planning session: look at the big expenses of the year behind, plan the expenses of the year ahead, and set the annual envelopes they add up to. The review action reports, per category, what last year was budgeted and really consumed, its big expenses (debits over thresholdCents, 10000 by default), what the target year has already planned, what is only to arbitrate, the annual envelope already set, and a suggested amount — the planned total of the target year if there is one, otherwise what last year consumed. year defaults to the one being prepared: next year in November and December, the current one the rest of the time. The schedule action plans one expense: categoryId, label, amountCents as a positive amount in cents, month 1-12 (the transaction lands on the 1st), status planned, committed or to_arbitrate (planned by default, spent is refused — you do not plan what has already gone out), and accountId. The budget action sets the annual envelope of one category for the year: categoryId and amountCents; it overwrites the amount already there, because the session is where the amount is decided. Schedule the expenses one at a time, then budget one envelope per category. This never touches the calendar: a planned expense is a transaction, not an appointment."
+    },
     "remove_grocery_item": {
         "name": "remove_grocery_item",
         "inputSchema": {
