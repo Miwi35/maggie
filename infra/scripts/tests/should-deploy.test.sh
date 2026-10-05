@@ -3,10 +3,11 @@
 #
 # Tests of infra/scripts/should-deploy.sh against a fake gh (MAG-189).
 #
-# A CD run starts for every CI that finishes, including the late CI of an older
-# commit. It used to build and deploy the head of main anyway: new digests under
-# the same tag, a failed digest assertion, a rollback for nothing. What matters:
-# only the CI of the current head of main, not yet in production, deploys.
+# A main run starts for every merge and its CI takes minutes, so a newer commit
+# may be the head by the time it ends. It used to build and deploy the head of
+# main anyway: new digests under the same tag, a failed digest assertion, a
+# rollback for nothing. What matters: only the current head of main, not yet in
+# production, deploys.
 #
 # Usage: infra/scripts/tests/should-deploy.test.sh
 
@@ -27,7 +28,7 @@ HEAD_SHA="$(h a)"
 OLDER_SHA="$(h b)"
 OLDEST_SHA="$(h c)"
 
-# fresh_world <main-head> — no CD run has succeeded yet.
+# fresh_world <main-head> — no main run has succeeded yet.
 fresh_world() {
   rm -rf "$work/gh" "$work/output"
   mkdir -p "$work/gh"
@@ -67,7 +68,7 @@ run_gate "$OLDEST_SHA"
 run_gate "$OLDER_SHA"
 [ "$PROCEED" = "false" ] && ok "the older does not" || bad "proceed='$PROCEED'"
 
-printf '\n\033[1mA second CD on a SHA already deployed\033[0m\n'
+printf '\n\033[1mA second run on a SHA already deployed\033[0m\n'
 fresh_world "$HEAD_SHA"
 echo "$HEAD_SHA" >> "$work/gh/deployed-shas"
 run_gate "$HEAD_SHA"

@@ -39,7 +39,7 @@ gradle_args=(
 # `mobile/gradle.properties` pins `org.gradle.java.home` to the JDK bundled with
 # the owner's Android Studio. That path does not exist on a CI runner, so the
 # build dies before it starts — override it there, and only there, with whatever
-# JDK was set up. `mobile.yml` does the same thing on its one command line.
+# JDK was set up. the `mobile-unit` job of `ci.yml` does the same thing on its one command line.
 gradle_jdk="$(sed -n 's/^org\.gradle\.java\.home=//p' "$REPO_ROOT/mobile/gradle.properties" | tail -1)"
 if [ -n "${JAVA_HOME:-}" ] && { [ -z "$gradle_jdk" ] || [ ! -x "$gradle_jdk/bin/java" ]; }; then
   gradle_args+=("-Dorg.gradle.java.home=$JAVA_HOME")

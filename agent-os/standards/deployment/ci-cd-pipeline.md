@@ -2,18 +2,23 @@
 
 ## Pipeline Architecture
 
-```
-Push to main → CI (lint + test) → CD (build → push → deploy)
-                                         ↓
-                                  Requires approval
-                                  (production environment)
-```
+One line in the Actions list per event (MAG-244), each saying what it is (`run-name`):
+
+| Event | Workflow | Line | Jobs |
+|---|---|---|---|
+| Push on a ready PR | `ci.yml` (`Pull request`) | `PR #120 · <title>` | path detection → guard, lint, tests, e2e, mobile unit tests, `Incident gate`, two-reds streak |
+| Merge on `main` | `main.yml` (`Main`) | `main · CI puis déploiement · <commit message>` | `ci.yml` called → gate → builds → deploy → smoke → lift the freeze → release the held PRs (or rollback) |
+| Every night | `nightly.yml` (`Nuit`) | `Nuit · CI complète + eval du modèle réel` | `ci.yml` called with no path filter, beside the real-model eval |
+| Auto-merge armed | `agent-guard.yml` | `Agent guard · auto-merge armed · PR #n` | the guard, from the default branch |
+| Every hour | `incident-gate-release.yml` | `Gel d'incident · filet de sécurité horaire` | re-run the held gates if the freeze was lifted by hand |
+
+No `workflow_run` anywhere: a chained workflow that does not apply shows up as a grey, skipped line. `ci.yml` is also a `workflow_call` target for `main.yml` and `nightly.yml`; in that case `github.event_name` is the caller's event (`push` on main, `schedule` at night).
 
 ---
 
 ## CI Workflow (`.github/workflows/ci.yml`)
 
-**Trigger:** Push and PRs on `main` (excludes `mobile/**` and `**.md`)
+**Trigger:** `pull_request` on `main` (opened, synchronize, reopened, ready_for_review), and `workflow_call` from `main.yml` and `nightly.yml`. It is the whole pull-request pipeline: the checks below are its jobs, and a job with nothing to do is skipped, not a workflow. `Mobile Unit Tests (release)` (formerly `mobile.yml`) and the agent guard (`Sensitive changes and limits`, `Two red runs in a row`) are jobs of it.
 
 ### Jobs (run in parallel)
 
@@ -47,30 +52,31 @@ A public repository on the free plan runs 20 jobs at once; a PR that touches the
 - A Cyrus session ends by opening its PR **as a draft** and does not wait for CI. Drafts wait in line; a draft cannot be merged.
 - The dispatcher takes the first one, rebases it, marks it **ready** (this starts CI), arms auto-merge if `task guard:check` allows it, and merges it when green before taking the next. Red or a rebase conflict: Cyrus is relaunched on a repair slot and the train waits.
 - A PR waiting for the owner leaves the train once green; the PRs of tickets that depend on it (`blockedBy`) stay drafts until it merges.
-- Workflow side: `ci.yml`, `mobile.yml` and `agent-guard.yml` list `types: [opened, synchronize, reopened, ready_for_review]` (the guard: no `reopened`) and skip a draft. In `ci.yml` every job hangs on `Detect changes`, which has `if: … !github.event.pull_request.draft`; the four that do not (`E2E Stack (smoke journey)`, `E2E Mobile (phone)`, `Incident gate`, `Infra scripts and workflows`) carry the same condition. A skipped required check counts as green, which is harmless: a draft cannot merge, and `ready_for_review` starts the real run.
+- Workflow side: `ci.yml` lists `types: [opened, synchronize, reopened, ready_for_review]` and skips a draft. In `ci.yml` every job hangs on `Detect changes`, which has `if: … !github.event.pull_request.draft`; the ones that do not (`E2E Stack (smoke journey)`, `E2E Mobile (phone)`, `Incident gate`, `Infra scripts and workflows`, the guard and the streak) carry the same condition. A skipped required check counts as green, which is harmless: a draft cannot merge, and `ready_for_review` starts the real run.
 - The dispatcher must mark a PR ready with a user or app token: an event made with `GITHUB_TOKEN` starts no workflow, so `ready_for_review` would never run CI.
 - A PR you open yourself (the owner, or a session while the train is off) is opened ready and runs CI as before.
 - A PR of a ticket in « Emergency » is opened **ready** by the session, which arms auto-merge after `task guard:check` and waits with `task ci:watch`: the freeze must lift before any draft is taken. The train does not touch it.
-- What the train reads from the guard: the `needs-human` label and a refused or disabled auto-merge (`agent-guard.yml` sets both together). Nothing else.
+- What the train reads from the guard: the `needs-human` label and a refused or disabled auto-merge (the guard sets both together). Nothing else.
 - No clock matrix: CI runs the real clock. `E2E_NOW` / `e2e/clock.sh` stay as a manual tool (`global/e2e-environment.md`, *The clock*).
 
-### Agent guard events (MAG-243)
+### Agent guard events (MAG-243, MAG-244)
 
-`agent-guard.yml` runs the diff check on `opened`, `synchronize`, `ready_for_review` and `auto_merge_enabled`, never on a draft, one run per PR with the stale one cancelled. Removed: `reopened` (same diff, same verdict) and every event the guard does not read (labels, edits, conversion to draft). The guard reads no label: the diff, the branch and `AGENT_ENABLED` are its whole input. The two-red-runs streak job is serialized per branch, the stale run cancelled.
+The guard is a job of `ci.yml`: it runs on `opened`, `synchronize` and `ready_for_review`, never on a draft, and a new push cancels the stale run with the rest of the pipeline. `agent-guard.yml` keeps a single trigger, `pull_request_target` on `auto_merge_enabled`: the same check from the default branch's code, the PR never checked out. The job in `ci.yml` runs the PR's own copy of `scripts/agent-guard/`, so a PR could edit it away; arming auto-merge, which is what lets a merge happen without a human, always goes through the copy that cannot be edited. The guard reads no label: the diff, the branch and `AGENT_ENABLED` are its whole input. The two-red-runs streak is the last job of `ci.yml`: it runs when another job failed on a `cyrus/**` branch, counts its own run as red and reads the earlier ones from the API.
 
 ---
 
-## CD Workflow (`.github/workflows/cd.yml`)
+## Main pipeline (`.github/workflows/main.yml`, MAG-244)
 
-**Trigger:** Successful completion of CI workflow on `main`
+**Trigger:** push on `main`. One run per merge: `ci` (calls `ci.yml`, whose `Detect changes` filters on a push as it did when CI ran by itself) → `gate` → `changes` → builds → `deploy` → `smoke` → `lift-freeze` → `release-gates`, or `rollback`. A red CI ends the run before the gate: nothing deploys.
+
+**One at a time:** the workflow's concurrency group `main-pipeline` queues runs and never cancels one that started. GitHub keeps one pending run per group and cancels the one a newer pending run replaces: a commit merged while another one is in the pipeline waits, and if a third commit arrives first the second never runs, which is right, the third contains it. The price against the old chain: a queued commit's CI starts after the running pipeline ends, not beside its deploy. The last merge is always the one deployed. `ci.yml`'s own group (`ci-Main-<ref>`) differs from this one: a group shared by caller and callee would deadlock.
 
 ### Gate (MAG-189)
 
-Every CI that finishes on `main` starts a CD run, including the late CI of an older commit. For `workflow_run`, `github.sha` is the head of `main`, not the commit of that CI, so such a run used to build the head again (new digests, same tag), fail the digest assertion and roll back for nothing.
+The gate runs after the CI of the run, which takes minutes: a newer commit may be the head of `main` by then. Without it, such a run would build the head again (new digests, same tag), fail the digest assertion and roll back for nothing.
 
-- The `gate` job runs `infra/scripts/should-deploy.sh` (tested by `infra/scripts/tests/should-deploy.test.sh`): the run deploys only if `workflow_run.head_sha` is the head of `main` right now and no earlier successful CD run exists for that SHA. Otherwise every other job is skipped: no build, no deploy, no incident, no rollback. A stopped run is never left green, because a successful CD run is the record that a commit was handled (the "already deployed" check, the base of the change detection): a SHA that is not the head of `main` at trigger time skips the gate (run `skipped`), a later stop cancels its own run (`actions: write`). It fails closed (exit 1) when the GitHub API cannot be read.
-- Everything is built, tagged, copied and verified on `env.RELEASE_SHA` (= `workflow_run.head_sha`), never on `github.sha`.
-- A run whose SHA is not the head of `main` at trigger time gets its own concurrency group, so it cannot displace the head's pending run.
+- The `gate` job runs `infra/scripts/should-deploy.sh` (tested by `infra/scripts/tests/should-deploy.test.sh`): the run deploys only if its commit is the head of `main` right now and no earlier successful run of `main.yml` exists for that SHA. Otherwise every other job is skipped: no build, no deploy, no incident, no rollback. A stopped run is never left green, because a successful run of `main.yml` is the record that a commit was handled (the "already deployed" check, the base of the change detection): a stop cancels its own run (`actions: write`). It fails closed (exit 1) when the GitHub API cannot be read.
+- Everything is built, tagged, copied and verified on `env.RELEASE_SHA` (= `github.sha`, the merged commit).
 
 ### Build Jobs (parallel)
 
@@ -146,10 +152,10 @@ Its own chat history is the only thing it writes. Unit tests of the scripts: `in
 **Runs when:** a build job, the deploy or the smoke job failed. A failed build never reached the cluster: nothing is rolled back.
 
 1. `rollback-k3s.sh` runs `kubectl rollout undo --to-revision` on the deployments whose revision moved, using the record written before the apply. No record: nothing is undone. The record is kept when an undo fails, so the script can be run again by hand.
-2. `report-failed-deploy.sh` moves every ticket shipped since the last green CD run (`deploy-tickets.sh`: key in the commit subject, else in the PR branch) to the Linear state « Emergency », adds `Top` and comments the cause, the production state and the run (MAG-184). « Emergency » freezes production until the fix deploys green; the `lift-freeze` job then moves the ticket to Recette, or Done for a Task. A separate incident ticket (`Bug`, Urgent, labels `incident` and `Top`) is opened only when no ticket can carry the freeze or the rollback itself failed. GitHub issues are disabled on this repository, so nothing goes there. Needs the `LINEAR_API_KEY` Actions secret; the run summary carries the same text if the calls fail.
+2. `report-failed-deploy.sh` moves every ticket shipped since the last green run of `main.yml` (`deploy-tickets.sh`: key in the commit subject, else in the PR branch) to the Linear state « Emergency », adds `Top` and comments the cause, the production state and the run (MAG-184). « Emergency » freezes production until the fix deploys green; the `lift-freeze` job then moves the ticket to Recette, or Done for a Task. A separate incident ticket (`Bug`, Urgent, labels `incident` and `Top`) is opened only when no ticket can carry the freeze or the rollback itself failed. GitHub issues are disabled on this repository, so nothing goes there. Needs the `LINEAR_API_KEY` Actions secret; the run summary carries the same text if the calls fail.
 3. The run ends red.
 
-**Freeze (MAG-184):** while a ticket is in « Emergency » or an `incident` ticket is open, the required check `Incident gate` (`infra/scripts/incident-gate.sh`) fails every PR whose title or branch does not carry one of those keys; no Linear answer fails it too. `incident-gate-release.yml` (every 10 min and after each CD run) re-runs the red gates once the freeze lifts, so held PRs merge on their own. The dispatcher delegates the « Emergency » ticket first, over every slot and hold.
+**Freeze (MAG-184):** while a ticket is in « Emergency » or an `incident` ticket is open, the required check `Incident gate` (`infra/scripts/incident-gate.sh`) fails every PR whose title or branch does not carry one of those keys; no Linear answer fails it too. The last job of `main.yml`, `release-gates` (`Re-run the held gates`, after `lift-freeze` and `rollback`, for any run that passed the gate), runs `infra/scripts/rerun-incident-gates.sh`: once the freeze lifts, the red gates are re-run and held PRs merge on their own. `incident-gate-release.yml` stays as an hourly safety net (`workflow_dispatch` too) for a freeze someone lifts by hand — the one case the pipeline cannot see; it was every 10 minutes (144 lines a day), and a PR held an hour in that rare case is what that costs. The dispatcher delegates the « Emergency » ticket first, over every slot and hold.
 
 **Not reverted:** database migrations and Elasticsearch mappings. The pre-deploy dumps (API and agent) are in `/opt/maggie/backups`.
 
@@ -160,33 +166,34 @@ Its own chat history is the only thing it writes. Unit tests of the scripts: `in
 
 ---
 
-## Mobile CI (`.github/workflows/mobile.yml`)
+## Mobile unit tests (job `Mobile Unit Tests (release)` of `ci.yml`)
 
-**Trigger:** Push/PR with changes to `mobile/**` or `api/contract/**`, and the nightly run.
+**Runs:** when `Detect changes` sees `mobile/**`, `api/contract/**`, `agent/contract/**` or `ci.yml` change, and on the nightly run (every job, no filter). It was a workflow of its own (`mobile.yml`, a second line per push; a path-filtered workflow cannot be required, a skipped job can).
 
-**Job:** Mobile Unit Tests (release)
 - Runtime: Java 17 (Temurin), Gradle
 - Command: `./gradlew :app:testProdReleaseUnitTest` — the variant that ships (three CI fixes came from testing `devDebug` while delivering `prodRelease`)
 
-> Path-filtered, so it cannot be a required check (a skipped workflow never reports). The emulator journeys are not here: they are the `E2E Mobile` jobs of `ci.yml` (see *Branch protection*).
+The emulator journeys are the `E2E Mobile` jobs of `ci.yml` (see *Branch protection*).
 
 ---
 
-## Nightly (`.github/workflows/nightly.yml`, MAG-96)
+## Nightly (`.github/workflows/nightly.yml`, MAG-96, MAG-244)
 
-**Trigger:** 02:43 UTC every day, and on demand. Calls `ci.yml` (every job, path filters bypassed) and `mobile.yml`. A failure opens an issue labelled `nightly-failure`, or comments on the one already open. The real-model eval has its own nightly, `eval.yml`.
+**Trigger:** 02:43 UTC every day, and on demand (`what`: everything, ci or eval; `only`: one eval scenario). Two parallel jobs: `ci` calls `ci.yml` (every job, path filters bypassed, Mobile Unit Tests included) and `eval` runs the prompt-lab scenarios on the real model (formerly `eval.yml` at 03:17). A failure of the CI opens an issue labelled `nightly-failure`, or comments on the one already open; the eval is billed and judges tone, so it never alerts and is never a required check.
 
 ---
 
 ## Branch protection on `main`
 
-Required checks are the job names of `ci.yml`: Detect changes, API Lint (PHPStan), API Tests (PHPUnit), Agent Lint (Ruff), Agent Tests (pytest), Ciqual Lint (Ruff), Ciqual Tests (pytest), Admin Lint (ESLint + TypeScript), Admin Tests (Vitest), E2E Stack (smoke journey), E2E Mobile (phone), Infra scripts and workflows, Incident gate. Read the live list with `gh api repos/<owner>/<repo>/branches/main --jq .protection.required_status_checks.contexts` (works without admin). `E2E Stack (smoke journey)` is an aggregator (MAG-180): it waits for the four `E2E shard i/4` jobs, each with its own stack and a quarter of the Playwright journeys (`--shard=i/4`, two workers), and fails if any shard does. It passes without a stack when the PR changes nothing but Markdown or nothing the stack runs, so the required name never changes. The smoke journey, the journeys' lint and typecheck and `e2e:eval:check` run in shard 2 only (the one that finishes first). On failure `E2E merged report` merges the shards' blob reports into the one `playwright-report-<run>` artifact, traces and videos included. Images are built from the layers of the last image pushed under `maggie-e2e-<service>:cache`, so editing a Dockerfile rebuilds only from the edited line down. The stack starts faster than it builds: the admin bundle is cached (`e2e-admin-dist-v1-<hash of the admin sources>`, so a PR that leaves the admin alone skips `npm ci` and `vite build`; bump `v1` when the build environment changes), the agent starts before nginx (its MCP client reconnects lazily), Elasticsearch starts first with a small heap, and the teardown removes containers with `--timeout 1`. List a cache key's sources one by one: an `admin/**` glob walks `node_modules`, 5 s at restore and again at save.
+Required checks are the job names of `ci.yml`, which is the pull-request workflow (MAG-244: the names did not change when the jobs moved into one workflow — a required context is a job name; `Mobile Unit Tests (release)` can now be added to the list, being a skippable job rather than a path-filtered workflow): Detect changes, API Lint (PHPStan), API Tests (PHPUnit), Agent Lint (Ruff), Agent Tests (pytest), Ciqual Lint (Ruff), Ciqual Tests (pytest), Admin Lint (ESLint + TypeScript), Admin Tests (Vitest), E2E Stack (smoke journey), E2E Mobile (phone), Infra scripts and workflows, Incident gate. Read the live list with `gh api repos/<owner>/<repo>/branches/main --jq .protection.required_status_checks.contexts` (works without admin). `E2E Stack (smoke journey)` is an aggregator (MAG-180): it waits for the four `E2E shard i/4` jobs, each with its own stack and a quarter of the Playwright journeys (`--shard=i/4`, two workers), and fails if any shard does. It passes without a stack when the PR changes nothing but Markdown or nothing the stack runs, so the required name never changes. The smoke journey, the journeys' lint and typecheck and `e2e:eval:check` run in shard 2 only (the one that finishes first). On failure `E2E merged report` merges the shards' blob reports into the one `playwright-report-<run>` artifact, traces and videos included. Images are built from the layers of the last image pushed under `maggie-e2e-<service>:cache`, so editing a Dockerfile rebuilds only from the edited line down. The stack starts faster than it builds: the admin bundle is cached (`e2e-admin-dist-v1-<hash of the admin sources>`, so a PR that leaves the admin alone skips `npm ci` and `vite build`; bump `v1` when the build environment changes), the agent starts before nginx (its MCP client reconnects lazily), Elasticsearch starts first with a small heap, and the teardown removes containers with `--timeout 1`. List a cache key's sources one by one: an `admin/**` glob walks `node_modules`, 5 s at restore and again at save.
 
 `E2E Mobile (phone)` (MAG-213) is the same kind of aggregator: it waits for `E2E Mobile APK` (the `e2e` flavor, compiled once, uploaded as an artifact), `E2E Mobile unit tests (e2e flavor)` and the `E2E Mobile journeys (<device> <i>/3)` matrix (only when `Detect changes` says the app, the flows, the API, the agent or the stack changed), passes at once otherwise, and fails when any of them failed or was cancelled. The matrix job itself is never required: skipped, it would report the literal name `E2E Mobile journeys (${{ matrix.device.name }} ${{ matrix.shard }}/3)`, never `(phone)`. The Maestro flows run as three shards (MAG-233, `e2e/mobile/shards.txt`, one emulator and one stack each, in parallel; `task e2e:mobile:lint` fails on a flow no shard names), from the APK the build job uploaded, on an emulator restored from an AVD snapshot cached per device profile (`avd-v1-34-google_apis-x86_64-<profile>`; bump `v1` when the emulator options change). Each shard uploads its own `maestro-report-<device>-<i>-<run>` on failure. The nightly widens the same matrix to phone, foldable and tablet.
 
+**Rule — the jobs of `ci.yml` stay in `ci.yml` (MAG-244):** a job moved behind a reusable workflow (`uses:`) is reported as `<caller job> / <job>`, which is not the name branch protection waits for. Only `main.yml` and `nightly.yml` call `ci.yml`, never the other way round. A called workflow may not ask for more token permissions than its caller grants, even for a job it skips: the callers' `ci` jobs hold the ceiling of `guard` and `streak` (`pull-requests: write`, `issues: write`).
+
 **Rule:** a new job in `ci.yml` is added to the required checks in the same delivery (Settings → Branches → `main`), or auto-merge does not wait for it. Settings need repo admin: an agent token cannot change them.
 
-**Rule — a required check is always reported (MAG-213):** a required name must be reported on every PR, or GitHub waits for it forever and blocks every PR that does not trigger it. Never require a job that is path-filtered at the workflow level (`on.paths`, like `mobile.yml`) or whose name holds a `matrix.*` expression and that can be skipped by its `if`. Put the work behind `Detect changes` and require a job with a fixed name that runs `if: always()` and ends green when nothing was needed (`E2E Stack (smoke journey)`, `E2E Mobile (phone)`).
+**Rule — a required check is always reported (MAG-213):** a required name must be reported on every PR, or GitHub waits for it forever and blocks every PR that does not trigger it. Never require a job that is path-filtered at the workflow level (`on.paths`, as `mobile.yml` was) or whose name holds a `matrix.*` expression and that can be skipped by its `if`. Put the work behind `Detect changes` and require a job with a fixed name that runs `if: always()` and ends green when nothing was needed (`E2E Stack (smoke journey)`, `E2E Mobile (phone)`).
 
 **Owner, once the PR is merged** (admin only; adds the check without dropping the others):
 
@@ -241,9 +248,9 @@ All images use GitHub Actions cache (`type=gha`) with dedicated scopes:
 
 ```
 1. Developer pushes to main
-2. CI runs 6 jobs in parallel (lint + test for API, Agent, Admin)
-3. All CI jobs pass → CD workflow triggered
-4. CD builds 3 Docker images (PHP + Agent in parallel, then Nginx)
+2. `main.yml` runs: CI (`ci.yml` called) first
+3. All CI jobs pass → gate → change detection
+4. It builds 3 Docker images (PHP + Agent in parallel, then Nginx)
 5. Images pushed to GHCR
 6. Deploy job waits for manual approval
 7. SSH to VPS:

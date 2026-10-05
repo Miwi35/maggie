@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2015 # `cond && ok || bad`: ok and bad cannot fail
 #
-# Test of the condition of the `lift-freeze` job in .github/workflows/cd.yml (MAG-199).
+# Test of the condition of the `lift-freeze` job in .github/workflows/main.yml (MAG-199).
 #
 # The job takes the shipped tickets out of « Emergency » after a green release
 # (MAG-184). Its `if:` had no status function, so GitHub added an implicit
@@ -16,7 +16,7 @@
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CD="${CD:-$HERE/../../../.github/workflows/cd.yml}"
+CD="${CD:-$HERE/../../../.github/workflows/main.yml}"
 failures=0
 
 ok()  { printf '  \033[32m✓\033[0m %s\n' "$1"; }
@@ -98,7 +98,7 @@ scenario() { # name, expected (runs|stays), then job=result pairs
 
 echo
 echo "1. The job in the workflow"
-[ -n "$(field lift-freeze 1)" ] && ok "lift-freeze is in cd.yml" || { bad "lift-freeze is not in cd.yml"; exit 1; }
+[ -n "$(field lift-freeze 1)" ] && ok "lift-freeze is in main.yml" || { bad "lift-freeze is not in main.yml"; exit 1; }
 printf '  needs: %s\n  if:    %s\n' "$(field lift-freeze 2)" "$(field lift-freeze 3)"
 case "$(field lift-freeze 3)" in *"always()"*) ok "the condition has always(), so GitHub adds no implicit success() over the builds" ;; *) bad "no always(): a skipped build skips the job" ;; esac
 
@@ -126,6 +126,14 @@ old_needs="smoke"
 TABLE="$(printf '%s\n' "$TABLE" | awk -F'\t' -v n="$old_needs" 'BEGIN { OFS = "\t" } $1 == "lift-freeze" { $2 = n } { print }')"
 runs lift-freeze "needs.smoke.result == 'success'" && bad "the old condition lifts the freeze after skipped builds: the replay does not model GitHub's implicit success()" \
   || ok "the old condition (no always()) leaves the freeze after skipped builds"
+
+echo
+echo "5. Nothing releases the held PRs before the freeze is lifted (MAG-244)"
+[ -n "$(field release-gates 1)" ] && ok "release-gates is in main.yml" || bad "release-gates is not in main.yml"
+for j in lift-freeze rollback; do
+  case " $(field release-gates 2) " in *" $j "*) ok "release-gates waits for $j" ;; *) bad "release-gates does not wait for $j: it could run before the freeze is lifted" ;; esac
+done
+case "$(field release-gates 3)" in *"always()"*) ok "release-gates has always(): a skipped build or rollback does not skip it" ;; *) bad "release-gates has no always()" ;; esac
 
 echo
 if [ "$failures" -eq 0 ]; then echo "All checks passed."; else echo "$failures check(s) failed."; exit 1; fi

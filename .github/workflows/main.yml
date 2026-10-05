@@ -1,26 +1,34 @@
-name: CD
+name: Main
+
+# What a merge on main does, in one run (MAG-244): the CI, then the deployment,
+# then the freeze lifted. It used to be three workflows chained by `workflow_run`
+# (CI, CD, Incident gate release) and four or five lines per merge.
+#
+# `run-name` says what the line is: the pipeline of main (CI then deployment),
+# then the commit message. The expression language cannot split a message to keep
+# its subject, and a squash message has a body: the fixed words come first so a
+# truncated title still says what the line is.
+run-name: main · CI puis déploiement · ${{ github.event.head_commit.message }}
 
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
+  push:
     branches: [main]
 
-# One deployment at a time: two runs 10 s apart once raced in the same pod.
-# Queued, never cancelled, so the last merge always ends up deployed.
-# GitHub keeps a single pending run per group and cancels the one it replaces: the
-# late CI of an older commit (its SHA is not the head of main, which is what
-# github.sha is for this trigger) gets a group of its own, or it would push the
-# head's run out of the queue and then stop at the gate, deploying nothing.
+# One pipeline at a time: two deployments 10 s apart once raced in the same pod.
+# Queued, never cancelled once started, so the last merge always ends up deployed.
+# GitHub keeps a single pending run per group and cancels the one it replaces: a
+# commit merged while another is being deployed waits, and if a third arrives
+# first the second never runs, which is right — the third contains it. The gate
+# below still refuses a run whose commit is no longer the head of main.
+# The called `ci.yml` has its own group (`ci-Main-…`), a different string: a group
+# shared by caller and callee would deadlock.
 concurrency:
-  group: ${{ github.event.workflow_run.head_sha == github.sha && 'cd-production' || format('cd-stale-{0}', github.run_id) }}
+  group: main-pipeline
   cancel-in-progress: false
 
 env:
-  # Everything is built, tagged, copied and verified on the commit of the CI that
-  # triggered this run. github.sha is the head of main when the run was
-  # triggered, which is another commit when a late CI finishes (MAG-189).
-  RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+  # Everything is built, tagged, copied and verified on the commit that was merged.
+  RELEASE_SHA: ${{ github.sha }}
   REGISTRY: ghcr.io
   PHP_IMAGE: ghcr.io/miwi35/maggie-php
   NGINX_IMAGE: ghcr.io/miwi35/maggie-nginx
@@ -28,17 +36,31 @@ env:
   CIQUAL_IMAGE: ghcr.io/miwi35/maggie-ciqual
 
 jobs:
-  # Only the CI of the head of main, not yet in production, deploys (MAG-189).
+  # The whole suite of a pull request, whatever changed except what the path
+  # filters skip on a push (`github.event_name` is `push` in the called workflow,
+  # as it was when CI ran on main by itself). The write permissions are the
+  # ceiling of the pull-request-only jobs (guard, streak) the file also holds: a
+  # called workflow may not ask for more than its caller, even for a job it skips.
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+      packages: write
+      actions: read
+      pull-requests: write
+      issues: write
+
+  # Only the head of main, not yet in production, deploys (MAG-189).
   # Any other run ends here: every other job is skipped, no incident, no rollback.
-  # A run is never left green by a stop, or "a successful CD run" (the base of the
-  # change detection, the "already deployed" check) would name a commit nobody
-  # deployed: a commit that is not the head of main when the run is triggered gets
-  # a skipped run (the condition below), one that stops later cancels itself.
-  # Checked out from the default branch: the SHA of an old CI may predate the script.
+  # A run is never left green by a stop, or "a successful run of this workflow"
+  # (the base of the change detection, the "already deployed" check) would name a
+  # commit nobody deployed: a run that stops cancels itself.
+  # Checked out from the default branch: the SHA of an old commit may predate the script.
   gate:
     name: Should this commit deploy
+    needs: ci
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_sha == github.sha }}
     outputs:
       proceed: ${{ steps.decide.outputs.proceed }}
     permissions:
@@ -82,7 +104,7 @@ jobs:
           # Compare against the last commit we actually deployed. Diffing HEAD~1
           # only exposes the final commit of a push, so a batch of commits could
           # ship an API change while silently skipping the agent image it needs.
-          BASE=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/cd.yml/runs?status=success&per_page=1" \
+          BASE=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/main.yml/runs?status=success&per_page=1" \
             --jq '.workflow_runs[0].head_sha' 2>/dev/null || true)
           if [ -z "$BASE" ] || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
             BASE=$(git rev-parse HEAD~1)
@@ -93,7 +115,7 @@ jobs:
           echo "app=$(echo "$CHANGED" | grep -qE '^(api/|admin/|\.docker/(php|nginx)/)' && echo true || echo false)" >> "$GITHUB_OUTPUT"
           echo "agent=$(echo "$CHANGED" | grep -qE '^(agent/|\.docker/python/)' && echo true || echo false)" >> "$GITHUB_OUTPUT"
           echo "ciqual=$(echo "$CHANGED" | grep -qE '^(ciqual/|\.docker/ciqual/)' && echo true || echo false)" >> "$GITHUB_OUTPUT"
-          echo "infra=$(echo "$CHANGED" | grep -qE '^(infra/(k8s|scripts)/|\.github/workflows/cd\.yml)' && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "infra=$(echo "$CHANGED" | grep -qE '^(infra/(k8s|scripts)/|\.github/workflows/main\.yml)' && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
   # ===========================================================================
   # Build PHP image (needed by nginx build)
@@ -424,8 +446,8 @@ jobs:
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
           SHA: ${{ env.RELEASE_SHA }}
         run: |
-          # The same range as the `changes` job: since the last green CD run.
-          base=$(gh api "repos/$GH_REPO/actions/workflows/cd.yml/runs?status=success&per_page=1" \
+          # The same range as the `changes` job: since the last green run of this workflow.
+          base=$(gh api "repos/$GH_REPO/actions/workflows/main.yml/runs?status=success&per_page=1" \
             --jq '.workflow_runs[0].head_sha' 2>/dev/null || true)
           # Never turns a green release red: the run's success is what the next
           # deploy counts its range from.
@@ -544,8 +566,8 @@ jobs:
             --jq '[.jobs[] | .name as $job | .steps[] | select(.conclusion == "failure") | "\($job) › \(.name)"] | join(", ")' 2>/dev/null || true)
           restored=$(grep -E ': revision [0-9]+ → back to [0-9]+' "$RUNNER_TEMP/rollback.log" 2>/dev/null | sed 's/^==> /- /' || true)
 
-          # The tickets shipped since the last green CD run, as the `changes` job counts them.
-          base=$(gh api "repos/$GH_REPO/actions/workflows/cd.yml/runs?status=success&per_page=1" \
+          # The tickets shipped since the last green run of this workflow, as the `changes` job counts them.
+          base=$(gh api "repos/$GH_REPO/actions/workflows/main.yml/runs?status=success&per_page=1" \
             --jq '.workflow_runs[0].head_sha' 2>/dev/null || true)
           tickets=$(bash infra/scripts/deploy-tickets.sh "$SHA" "$base" || true)
 
@@ -560,3 +582,38 @@ jobs:
           FAILURE_CAUSE="${cause_fr} (commit ${SHA:0:7})" PROD_STATE="$state_fr" \
           DEPLOY_TICKETS="$tickets" ROLLBACK_FAILED="$rollback_failed" \
             bash infra/scripts/report-failed-deploy.sh
+
+  # ===========================================================================
+  # Last job: the held pull requests are released (MAG-184, MAG-244)
+  #
+  # `Incident gate` is red on every PR while production is frozen. Once the freeze
+  # lifts — the job above moved the shipped tickets out of « Emergency » — the red
+  # gates are re-run so the armed auto-merges fire on their own. It was a workflow
+  # of its own, started by `workflow_run` after each CD and by a cron every ten
+  # minutes. Here it is the end of the run that lifts the freeze; the hourly
+  # `incident-gate-release.yml` stays for a freeze someone lifts by hand.
+  # Runs for any commit that passed the gate, deployed or rolled back: while the
+  # freeze holds the script does nothing.
+  # ===========================================================================
+  release-gates:
+    name: Re-run the held gates
+    runs-on: ubuntu-latest
+    needs: [gate, lift-freeze, rollback]
+    if: always() && needs.gate.result == 'success'
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
+      pull-requests: read
+      checks: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: infra/scripts
+
+      - name: Re-run the red Incident gates if the freeze lifted
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+        run: bash infra/scripts/rerun-incident-gates.sh

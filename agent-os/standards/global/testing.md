@@ -119,7 +119,7 @@ a throwaway Postgres and this worktree's code. See
 — PHPUnit with pcov, pytest-cov (agent, ciqual), Vitest v8, Kover (mobile) — and fails when
 it falls more than 0.10 point under its entry in `scripts/coverage/baseline.json`. No absolute
 threshold: the baseline is what the component already has, and it only moves up. A comment on
-the PR shows each component against its baseline (one from `ci.yml`, one from `mobile.yml`).
+the PR shows each component against its baseline (one comment, from `ci.yml`, for the components that ran).
 
 - Red `Coverage dropped`: test what you changed. Deleting well-tested code can lower the
   percentage legitimately — then lower the entry in `baseline.json` in the same PR and say why

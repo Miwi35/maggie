@@ -92,6 +92,8 @@ function destructive(l, rest) {
     if (file ~ /^\.github\// && line ~ /(^|[^[:alnum:]_])secrets([^[:alnum:]_-]|$)/) flag("sensitive-path", file ": uses a secret")
     # The Incident gate job: the ambulance must not loosen the freeze it is held by.
     if (file ~ /^\.github\/workflows\/ci\.ya?ml$/ && line ~ /[Ii]ncident.gate/) flag("sensitive-path", file ": the Incident gate")
+    # Its release moved from incident-gate-release.yml to the last job of main.yml (MAG-244).
+    if (file ~ /^\.github\/workflows\/main\.ya?ml$/ && line ~ /rerun-incident-gates|release-gates|[Ii]ncident.gate/) flag("sensitive-path", file ": the release of the Incident gate")
   }
   if (c == "+") {
     if (file !~ /\.md$/ && line ~ /--no-verif[y]|--no-gpg-sig[n]/) flag("no-verify", file)

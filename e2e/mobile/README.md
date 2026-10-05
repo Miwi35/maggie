@@ -340,7 +340,7 @@ the flow on one that does. A failed run also writes `report/anr.txt`, the ANR li
 the whole logcat. A flow that waits long somewhere else than at sign-in runs the same
 subflow inside a `retry` the same way.
 
-The nightly run (`nightly.yml` calls `ci.yml`) widens the matrix to a phone, a
+The nightly run (`nightly.yml` calls `ci.yml`, and runs the real-model eval beside it) widens the matrix to a phone, a
 **foldable** and a **tablet**, which is what MAG-35 and MAG-91 ask for, each in
 three shards. The matrix comes from the `mobile_devices` output of the `changes`
 job, keyed on `github.event_name` — in a called workflow that is the caller's

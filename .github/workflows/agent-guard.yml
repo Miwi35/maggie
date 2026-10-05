@@ -1,38 +1,32 @@
 name: Agent guard
 
-# Guard rails of the autonomous agent (MAG-128). Nothing here is a required check:
-# a pull request that trips a rail is not blocked, it is handed to a human —
-# labelled `needs-human`, auto-merge switched off, the reason in a comment — and
-# the owner merges it, or does not.
+# The trusted copy of the guard rails (MAG-128), run only when auto-merge is
+# switched on. The everyday guard and the two-reds streak are jobs of the pull
+# request pipeline (ci.yml, MAG-244): one line per push instead of three.
+# Nothing here is a required check: a pull request that trips a rail is not
+# blocked, it is handed to a human — labelled `needs-human`, auto-merge switched
+# off, the reason in a comment — and the owner merges it, or does not.
 #
-#  - guard: the diff touches infra, the CD, secrets, auth, permissions, a
-#    destructive migration or policy.yaml; is bigger than the limit; disables a
-#    test or skips the hooks (scripts/agent-guard/check.sh). Also runs when
-#    auto-merge is switched on, so arming it after the fact does not get around it.
-#  - streak: two red CI runs in a row on an agent branch, the agent gives up.
-#  - AGENT_ENABLED=false (repo variable, `task guard:stop`) hands every agent
-#    pull request over, whatever it touches.
-#  - Emergency (MAG-184): when infra or CD files are the only reason, and the
-#    branch's ticket is in the Linear state « Emergency », the PR may merge
-#    itself: the ambulance ships its fix (scripts/agent-guard/emergency.sh).
+# Why this one stays: `pull_request_target` runs the workflow file and the scripts
+# of the default branch and never checks out the pull request, so a pull request
+# cannot edit this guard. The copy in ci.yml runs the PR's own scripts and could be
+# edited away by the PR it judges; arming auto-merge, which is what makes a merge
+# happen without a human, always goes through this one. It runs once per PR.
 #
-# Both triggers run the workflow file and the scripts of the default branch, and
-# never check out the pull request: a pull request cannot edit its own guard.
+# What it checks: the diff touches infra, the CD, secrets, auth, permissions, a
+# destructive migration or policy.yaml; is bigger than the limit; disables a test
+# or skips the hooks (scripts/agent-guard/check.sh). AGENT_ENABLED=false
+# (repo variable, `task guard:stop`) hands every agent pull request over.
+# Emergency (MAG-184): when infra or CD files are the only reason, and the
+# branch's ticket is in the Linear state « Emergency », the PR may merge itself:
+# the ambulance ships its fix (scripts/agent-guard/emergency.sh).
 
 on:
   pull_request_target:
-    # MAG-243: only the events that can change the verdict. `ready_for_review` is
-    # the one that starts a draft's check; `synchronize` is a new diff;
-    # `auto_merge_enabled` stays so arming it after the fact does not get around
-    # the guard. Gone: `reopened` (same diff, same verdict) and, by being absent,
-    # `labeled`, `edited`, `converted_to_draft`… (nothing the guard reads moves).
-    types: [opened, synchronize, ready_for_review, auto_merge_enabled]
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
-    # The head branch of the CI run: only agent branches have a streak to count,
-    # the others would only make skipped runs.
-    branches: ['cyrus/**']
+    types: [auto_merge_enabled]
+
+run-name: >-
+  Agent guard · auto-merge armed · PR #${{ github.event.pull_request.number }}
 
 permissions:
   contents: read
@@ -92,33 +86,3 @@ jobs:
             echo
             sed 's/^/- /' reasons.txt
           } | scripts/agent-guard/hand-over.sh "$PR" guard
-
-  streak:
-    name: Two red runs in a row
-    if: >-
-      github.event_name == 'workflow_run'
-      && github.event.workflow_run.event == 'pull_request'
-      && github.event.workflow_run.conclusion == 'failure'
-      && startsWith(github.event.workflow_run.head_branch, 'cyrus/')
-    runs-on: ubuntu-latest
-    concurrency:
-      group: agent-guard-streak-${{ github.event.workflow_run.head_branch }}
-      cancel-in-progress: true
-    env:
-      PR: ${{ github.event.workflow_run.pull_requests[0].number }}
-      BRANCH: ${{ github.event.workflow_run.head_branch }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Give up after the second red run
-        run: |
-          [ -n "$PR" ] || exit 0
-          [ "$(gh pr view "$PR" --json state -q .state)" = OPEN ] || exit 0
-          runs="$(gh run list --workflow CI --branch "$BRANCH" --event pull_request --limit 20 --json conclusion,headSha)"
-          status=0
-          shas="$(scripts/agent-guard/ci-streak.sh <<< "$runs")" || status=$?
-          [ "$status" -eq 10 ] || exit "$status"
-          {
-            echo "CI was red twice in a row (${shas//$'\n'/, }): the agent gives up, a human takes over."
-            echo "Failing job logs: \`gh run view --log-failed\`."
-          } | scripts/agent-guard/hand-over.sh "$PR" ci-streak

@@ -160,6 +160,6 @@ export default defineConfig({
 - SDK: compileSdk 35, minSdk 29, targetSdk 35
 
 ### CI
-- GitHub Actions workflow: `.github/workflows/mobile.yml`
+- GitHub Actions workflow: the `mobile-unit` job of `.github/workflows/ci.yml`
 - Trigger: push/PR with changes to `mobile/**`
 - Runs: `./gradlew :app:testDebugUnitTest` (Java 17)

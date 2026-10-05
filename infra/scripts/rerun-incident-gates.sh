@@ -5,7 +5,8 @@ set -euo pipefail
 # Re-runs the red Incident gates of the open PRs once the freeze lifts (MAG-184)
 # Usage: LINEAR_API_KEY=… GH_TOKEN=… GH_REPO=owner/repo rerun-incident-gates.sh
 #
-# Run every 10 minutes and after each CD run (incident-gate-release.yml). While
+# Run by the last job of main.yml and, as a safety net, every hour
+# (incident-gate-release.yml). While
 # production is frozen it does nothing. Once it is not, every open PR whose
 # `Incident gate` check failed gets that job re-run: it turns green, and the
 # PR's auto-merge, still armed, fires on its own.
@@ -32,7 +33,7 @@ prs=$(gh pr list --repo "$GH_REPO" --state open --limit 100 --json number,isCros
   || { echo "::warning::could not list the open PRs"; exit 0; }
 
 # A fork's PR never gets the Linear key: its gate stays red, and re-running it
-# every 10 minutes would change nothing. The owner merges those.
+# every run would change nothing. The owner merges those.
 red=$(jq -r --arg gate "$GATE" \
   '.[] | select(.isCrossRepository | not) | .number as $pr | .statusCheckRollup[]?
    | select(.name == $gate and .conclusion == "FAILURE") | "\($pr) \(.detailsUrl)"' \

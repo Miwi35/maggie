@@ -383,7 +383,7 @@ tasks:
     # next journey slow, billed and flaky, which is exactly what this ticket
     # removed.
     #
-    # Separate from CI on purpose (.github/workflows/eval.yml, nightly and on
+    # Separate from CI on purpose (the `eval` job of .github/workflows/nightly.yml, nightly and on
     # demand): a prompt regression is a signal, not a merge blocker.
     #
     # Three things to know before reading a local run's report. It reseeds first,
@@ -412,7 +412,7 @@ tasks:
       - defer: '{{.COMPOSE}} up -d --wait --no-deps --force-recreate agent'
       # CLI_ARGS is global in Task: it reaches every task called with `- task:`,
       # and `seed` passes it to app:e2e:seed. Left alone, `task e2e:eval --
-      # --report …` — what eval.yml always runs — dies on "The --report option
+      # --report …` — what the nightly `eval` job always runs — dies on "The --report option
       # does not exist", before the agent is ever flipped to the real model.
       - task: seed
         vars:

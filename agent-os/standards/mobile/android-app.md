@@ -37,7 +37,7 @@ above is irrelevant to it.
   it only declares the `SignInStrategy` seam and `AuthManager`, which persists
   whatever payload came back.
 - Anything else that must only exist on the emulator goes in `app/src/e2e/`, with
-  its unit tests in `app/src/testE2e/`. `mobile.yml` runs the prod variant; the
+  its unit tests in `app/src/testE2e/`. the `mobile-unit` job of `ci.yml` runs the prod variant; the
   `E2E Mobile unit tests (e2e flavor)` CI job runs `testE2eDebugUnitTest`.
 - `API_BASE_URL` is `http://localhost:8099`, bridged onto the stack's ephemeral
   port by `adb reverse` — never a hard-coded host port. Override with

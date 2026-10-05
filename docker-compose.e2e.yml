@@ -506,7 +506,7 @@ services:
       # Passed through from the caller when set, absent otherwise — no default,
       # because the one thing that cares is `task e2e:eval`, which has to run on
       # the model production serves, and a value pinned here would silently win
-      # over the caller's. eval.yml reads it from infra/k8s/configmap.yaml, the
+      # over the caller's. nightly.yml reads it from infra/k8s/configmap.yaml, the
       # only place that decides it. Under the fake it merely labels a metric.
       ANTHROPIC_MODEL:
       OPENAI_API_KEY: e2e-openai-key

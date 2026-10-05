@@ -50,7 +50,7 @@ tasks:
         # 2. A CI run must exist for the PR's head within 2 minutes.
         SHA=$(gh pr view "$PR" --json headRefOid -q .headRefOid)
         for i in $(seq 1 12); do
-          RUN=$(gh run list --commit "$SHA" --workflow CI --json databaseId -q '.[0].databaseId' 2>/dev/null || true)
+          RUN=$(gh run list --commit "$SHA" --workflow ci.yml --json databaseId -q '.[0].databaseId' 2>/dev/null || true)
           [ -n "$RUN" ] && break
           sleep 10
         done
@@ -165,11 +165,8 @@ tasks:
         TMP=$(mktemp -d)
         trap 'rm -rf "$TMP"' EXIT
         mkdir "$TMP/flat"
-        for WORKFLOW in CI "Mobile CI"; do
-          RUN=$(gh run list --commit "$SHA" --workflow "$WORKFLOW" --json databaseId -q '.[0].databaseId' 2>/dev/null || true)
-          [ -n "$RUN" ] || continue
-          gh run download "$RUN" --pattern 'coverage-*' --dir "$TMP/$RUN" 2>/dev/null || true
-        done
+        RUN=$(gh run list --commit "$SHA" --workflow ci.yml --json databaseId -q '.[0].databaseId' 2>/dev/null || true)
+        [ -z "$RUN" ] || gh run download "$RUN" --pattern 'coverage-*' --dir "$TMP/$RUN" 2>/dev/null || true
         find "$TMP" -path "$TMP/flat" -prune -o -name '*.json' -exec mv -t "$TMP/flat" {} +
         scripts/coverage/update.sh "$TMP/flat"
         echo "Baseline updated: review and commit scripts/coverage/baseline.json."

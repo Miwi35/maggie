@@ -55,20 +55,21 @@ exact() {
 
 echo "Sensitive paths"
 section infra/k8s/php-deployment.yaml 'replicas: 3' | expect "infra/k8s needs a human" infra-path
-section .github/workflows/cd.yml 'name: CD' | expect "a workflow needs a human" infra-path
+section .github/workflows/main.yml 'name: Main' | expect "a workflow needs a human" infra-path
 section infra/scripts/deploy-k3s.sh 'echo deploy' | expect "the deploy scripts need a human" infra-path
 section .github/workflows/agent-guard.yml 'name: x' | expect "the guard's workflow is never mere infra" sensitive-path
 section infra/k8s/secrets.yaml 'kind: Secret' | expect "a secret under infra is never mere infra" sensitive-path
-section .github/workflows/cd.yml '    permissions:' '      contents: write' | expect "a workflow's token rights need a human" permissions
-section .github/workflows/cd.yml '          TOKEN: ${{ secrets.VPS_SSH_KEY }}' | expect "a workflow reaching for a secret needs a human" sensitive-path
-section .github/workflows/cd.yml '    secrets: inherit' | expect "secrets: inherit is a secret" sensitive-path
-section .github/workflows/cd.yml "          K: \${{ secrets['VPS'] }}" | expect "secrets[...] is a secret" sensitive-path
-section .github/workflows/cd.yml '          ALL: ${{ toJSON(secrets) }}' | expect "toJSON(secrets) is a secret" sensitive-path
+section .github/workflows/main.yml '    permissions:' '      contents: write' | expect "a workflow's token rights need a human" permissions
+section .github/workflows/main.yml '          TOKEN: ${{ secrets.VPS_SSH_KEY }}' | expect "a workflow reaching for a secret needs a human" sensitive-path
+section .github/workflows/main.yml '    secrets: inherit' | expect "secrets: inherit is a secret" sensitive-path
+section .github/workflows/main.yml "          K: \${{ secrets['VPS'] }}" | expect "secrets[...] is a secret" sensitive-path
+section .github/workflows/main.yml '          ALL: ${{ toJSON(secrets) }}' | expect "toJSON(secrets) is a secret" sensitive-path
 section infra/k8s/maggie-sealed-secret.yaml 'kind: SealedSecret' | expect "a sealed secret manifest is a secret" sensitive-path
 section infra/scripts/incident-gate.sh 'exit 0' | expect "the freeze cannot be loosened by an agent" sensitive-path
 section .github/workflows/ci.yml '  incident-gate:' | expect "nor its CI job" sensitive-path
+section .github/workflows/main.yml '  release-gates:' | expect "nor the job of main.yml that releases it" sensitive-path
 section infra/k8s/php-deployment.yaml 'image: x' | exact "plain infra raises infra-path alone" "infra-path: infra/k8s/php-deployment.yaml"
-section .github/workflows/cd.yml '      - run: echo deploy' | exact "a plain workflow step raises infra-path alone" "infra-path: .github/workflows/cd.yml"
+section .github/workflows/main.yml '      - run: echo deploy' | exact "a plain workflow step raises infra-path alone" "infra-path: .github/workflows/main.yml"
 section api/config/jwt/private.pem 'x' | expect "a key needs a human" sensitive-path
 section .env.prod 'TOKEN=x' | expect "a prod env file needs a human" sensitive-path
 section .env.prod.example 'TOKEN=' | expect "an env example does not" clean

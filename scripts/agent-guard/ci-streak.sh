@@ -3,7 +3,7 @@
 # Two red CI runs in a row on a pull request: the agent gives up (MAG-128).
 #
 # Reads on stdin the CI runs of the PR's branch, newest first:
-#   gh run list --workflow CI --branch <branch> --event pull_request \
+#   gh run list --workflow ci.yml --branch <branch> --event pull_request \
 #     --json conclusion,headSha --limit 20 | scripts/agent-guard/ci-streak.sh
 #
 # Prints the commits of the red runs and exits 10 when the two latest commits

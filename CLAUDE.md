@@ -75,7 +75,7 @@ To ask: reply in the ticket's agent thread with short questions, each as options
 Full rules: `agent-os/standards/global/agent-guard-rails.md`.
 
 - **First step of every session: `task guard:enabled`.** Exit 20 = the owner stopped the agent (`AGENT_ENABLED=false`): comment on the ticket, `needs-human`, do nothing.
-- **A human merges, auto-merge stays off, `needs-human` is set** when the PR touches `infra/`, `.github/`, secrets, auth or permissions, a destructive migration or a `policy.yaml`; changes more than 800 lines outside tests (split the ticket instead); disables a test; or skips the hooks. `.github/workflows/agent-guard.yml` enforces it on every PR; `task guard:check -- <pr>` tells you before.
+- **A human merges, auto-merge stays off, `needs-human` is set** when the PR touches `infra/`, `.github/`, secrets, auth or permissions, a destructive migration or a `policy.yaml`; changes more than 800 lines outside tests (split the ticket instead); disables a test; or skips the hooks. The guard job of `ci.yml` (and `agent-guard.yml` when auto-merge is armed) enforces it; `task guard:check -- <pr>` tells you before.
 - **Exception — the ambulance (MAG-184):** a PR from the ticket in « Emergency » whose only finding is `infra-path` merges itself: `task guard:check` says so (exit 0). Secrets, permissions and the guard's or the freeze's own files are still handed to the owner.
 - Never `--no-verify`, never a test disabled to get green.
 
