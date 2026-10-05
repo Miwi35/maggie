@@ -65,7 +65,7 @@ Command: `./gradlew :app:testProdReleaseUnitTest` (the variant that ships)
 
 ## Nightly (`.github/workflows/nightly.yml`)
 
-Calls `ci.yml` with no path filter, beside the real-model eval (formerly `eval.yml`); a CI failure opens a `nightly-failure` issue.
+Calls `ci.yml` with no path filter, beside the real-model eval (formerly `eval.yml`); a CI failure opens a Linear `Bug` labelled `nightly-failure`, or comments the one already open (`infra/scripts/alert-ticket.sh`; GitHub issues are disabled).
 
 ## Digest assertion (MAG-96)
 
