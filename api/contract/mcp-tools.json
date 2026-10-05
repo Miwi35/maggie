@@ -173,7 +173,7 @@
                 "date"
             ]
         },
-        "description": "Create a new calendar event. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes (default 60). Use agenda_id to target a specific agenda (its id comes from manage_agendas with action list), or omit for the default agenda — when the user has none the tool returns an error: ask which agenda to use rather than picking one."
+        "description": "Create a new calendar event. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes (default 60). Use agenda_id to target a specific agenda: pass its name as the user said it (e.g. \"Concerts\", case and accents do not matter) or its id — no need to call manage_agendas first. An unknown or ambiguous name returns an error listing the user's agendas. Omit agenda_id for the default agenda — when the user has none the tool returns an error: ask which agenda to use rather than picking one."
     },
     "create_recipe": {
         "name": "create_recipe",
@@ -1616,13 +1616,20 @@
                         "null"
                     ],
                     "default": null
+                },
+                "agenda_id": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
                 }
             },
             "required": [
                 "id"
             ]
         },
-        "description": "Update an existing calendar event. Only provided fields will be updated. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes. To empty an optional field, list its name in clear (description, location, rrule)."
+        "description": "Update an existing calendar event. Only provided fields will be updated. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes. To empty an optional field, list its name in clear (description, location, rrule). Use agenda_id to move the event to another agenda: pass its name as the user said it (e.g. \"Concerts\", case and accents do not matter) or its id — no need to call manage_agendas first. An unknown or ambiguous name returns an error listing the user's agendas."
     },
     "update_recipe": {
         "name": "update_recipe",

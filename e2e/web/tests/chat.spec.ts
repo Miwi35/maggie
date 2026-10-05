@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures/index.js'
+import { test, expect, seedId } from '../fixtures/index.js'
 import {
   assistantText,
   calledTools,
@@ -68,6 +68,12 @@ const RETRY = {
   announce: 'Je prends une durée standard de 2 heures.',
   excuse: "Il y a un souci technique avec l'identifiant de votre agenda.",
   title: 'Black Wizards',
+}
+
+/** 37-create-event-named-agenda.yaml — the agenda is named, never identified. */
+const CONCERT = {
+  question: "Enregistre le concert des Mouettes le 2 novembre 2099 à 19 h à l'UBU, dans l'agenda famille",
+  title: 'Concert des Mouettes',
 }
 
 /** 05-context-router-new-topic.yaml + 70-budget-question.yaml — the change of subject. */
@@ -192,6 +198,33 @@ test('what Maggie books shows up in the Mind panel, in the database and in the a
   // search uses moves the grid there and opens the card.
   const calendar = new CalendarPage(page)
   await calendar.openEvent(String(booked.id), APPOINTMENT.title)
+})
+
+test('an event asked for in a named agenda lands in that agenda in one tool call', async ({ page, api }) => {
+  const dashboard = new DashboardPage(page)
+  await dashboard.open()
+
+  expect(await getCollection<SeededEvent>(api, APPOINTMENTS_URL)).not.toContainEqual(
+    expect.objectContaining({ summary: CONCERT.title }),
+  )
+
+  const chat = new ChatPanel(page)
+  const events = await chat.send(CONCERT.question)
+
+  // One call, and it worked: the name was resolved by the tool, with no
+  // `manage_agendas` round trip and no error to recover from (MAG-230).
+  expect(calledTools(events).filter((tool) => tool === 'create_event')).toHaveLength(1)
+  expect(calledTools(events)).not.toContain('manage_agendas')
+  expect(toolResults(events)).toContainEqual({ toolName: 'create_event', status: 'success' })
+
+  // The data: it is in « Famille », not in the default agenda.
+  const booked = await waitForIndexed<SeededEvent & { agenda?: string }>(
+    api,
+    APPOINTMENTS_URL,
+    (event) => event.summary === CONCERT.title,
+    { what: `The ${CONCERT.title} Maggie booked` },
+  )
+  expect(booked.agenda).toBe(`/api/agendas/${seedId('e2e_agenda_shared')}`)
 })
 
 test('changing the subject opens a second context', async ({ page }) => {

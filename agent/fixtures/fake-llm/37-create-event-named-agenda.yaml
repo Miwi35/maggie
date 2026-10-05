@@ -1,0 +1,23 @@
+# The same write as 35-create-event.yaml, aimed at an agenda *by the name the
+# user speaks* (MAG-230): « Famille » arrives lower-cased and without any id,
+# which is what a model sends when it does not call manage_agendas first. The
+# tool resolves it among the user's own agendas, in one call.
+#
+# 2099 for the reason given in 35-create-event.yaml.
+name: create-event-named-agenda
+description: Book a concert in a named agenda, without looking its id up first.
+
+match:
+  user_matches: "les mouettes"
+
+turns:
+  - tools:
+      - name: create_event
+        input:
+          title: "Concert des Mouettes"
+          date: "2099-11-02"
+          time: "19:00"
+          duration: 120
+          location: "UBU"
+          agenda_id: "famille"
+  - text: "C'est noté : les Mouettes à l'UBU le 2 novembre 2099 à 19h, dans l'agenda Famille."

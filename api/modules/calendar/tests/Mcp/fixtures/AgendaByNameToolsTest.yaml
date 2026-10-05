@@ -1,0 +1,41 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+  other_user:
+    email: other@example.com
+    googleId: google-other-id
+    name: Other User
+
+Maggie\Calendar\Entity\Agenda:
+  main_agenda:
+    name: Main
+    isDefault: true
+    user: '@test_user'
+  concerts_agenda:
+    name: Concerts
+    user: '@test_user'
+  evenings_agenda:
+    name: Soirées
+    user: '@test_user'
+  sport_agenda:
+    name: Sport
+    user: '@test_user'
+  sport_twin_agenda:
+    name: sport
+    user: '@test_user'
+  other_concerts_agenda:
+    name: Concerts
+    isDefault: true
+    user: '@other_user'
+  other_secret_agenda:
+    name: Agenda secret du voisin
+    user: '@other_user'
+
+Maggie\Calendar\Entity\Event:
+  movable_event:
+    summary: Movable event
+    startAt: '<(new \DateTimeImmutable("2026-11-02 19:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("2026-11-02 20:00", new \DateTimeZone("Europe/Paris")))>'
+    agenda: '@main_agenda'
