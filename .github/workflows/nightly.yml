@@ -19,10 +19,13 @@ concurrency:
   group: nightly
   cancel-in-progress: false
 
-# What the called workflows ask for: the e2e stack pushes its images to GHCR.
+# What the called workflows ask for: the e2e stack pushes its images to GHCR, and
+# their coverage-report jobs (which skip here) comment on pull requests — a called
+# workflow may not ask for more than its caller grants (MAG-105).
 permissions:
   contents: read
   packages: write
+  pull-requests: write
 
 jobs:
   ci:

@@ -147,6 +147,34 @@ tasks:
       - gh variable set AGENT_ENABLED --body true
 
   # ===========================================================================
+  # Coverage ratchet (MAG-105)
+  # ===========================================================================
+  coverage:ratchet:
+    desc: Raise scripts/coverage/baseline.json to what CI measured on a PR's head (task coverage:ratchet -- <pr>)
+    # CI measures coverage (pcov, pytest-cov, Vitest v8, Kover) and fails when a
+    # component drops under its baseline. Nothing lowers the baseline: after a
+    # gain, run this once the PR's CI is green, commit the file. To accept a drop
+    # on purpose, edit baseline.json by hand — the diff is the explanation.
+    silent: true
+    cmds:
+      - |
+        set -euo pipefail
+        PR='{{.CLI_ARGS}}'
+        [ -n "$PR" ] || { echo "usage: task coverage:ratchet -- <pr number>" >&2; exit 64; }
+        SHA=$(gh pr view "$PR" --json headRefOid -q .headRefOid)
+        TMP=$(mktemp -d)
+        trap 'rm -rf "$TMP"' EXIT
+        mkdir "$TMP/flat"
+        for WORKFLOW in CI "Mobile CI"; do
+          RUN=$(gh run list --commit "$SHA" --workflow "$WORKFLOW" --json databaseId -q '.[0].databaseId' 2>/dev/null || true)
+          [ -n "$RUN" ] || continue
+          gh run download "$RUN" --pattern 'coverage-*' --dir "$TMP/$RUN" 2>/dev/null || true
+        done
+        find "$TMP" -path "$TMP/flat" -prune -o -name '*.json' -exec mv -t "$TMP/flat" {} +
+        scripts/coverage/update.sh "$TMP/flat"
+        echo "Baseline updated: review and commit scripts/coverage/baseline.json."
+
+  # ===========================================================================
   # Docker Compose Commands
   # ===========================================================================
   up:
