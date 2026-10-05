@@ -25,7 +25,7 @@ par l'autre lecteur.
 
 ## Task 3 : Une catégorie peut être une rente
 
-`Category::isPassiveIncome` (booléen, défaut `false`) : colonne, champ
+`Category::$passiveIncome` (booléen, défaut `false`) : colonne, champ
 Elasticsearch, payload Mercure, `Create`/`UpdateCategoryCommand` et leurs
 handlers, `ManageCategoriesTool`. Validation en deux endroits, parce qu'il y a
 deux portes : `Assert\Callback` pour REST, et le même prédicat
@@ -48,7 +48,7 @@ par l'outil MCP, refus sur une dépense sans rien persister).
 - train de vie mensuel via `MeasureMonthlyLifestyle` ;
 - rentes mensuelles via
   `TransactionRepository::sumPassiveIncomeByCategoryBetween()` — crédits des
-  catégories `isPassiveIncome`, statuts consommés (`Spent` + `Committed`), hors
+  catégories `passiveIncome`, statuts consommés (`Spent` + `Committed`), hors
   exceptionnelles, sur la fenêtre du train de vie, groupés par catégorie ;
 - mensualités de prêt via `LoanRepository`.
 
@@ -66,7 +66,7 @@ Réponse :
   "isReached": false,
   "loanPaymentsCents": 21000,
   "monthlyNeedCents": 37666,
-  "coverageWithDebtPercent": 27,
+  "coverageWithDebtPercent": 26,
   "nextMilestonePercent": 75,
   "nextMilestoneGapCents": 2500,
   "milestones": [{ "percent": 25, "isReached": true, "monthlyIncomeNeededCents": 4167 }],
@@ -79,8 +79,8 @@ Réponse :
 `isMeasurable` est faux quand le train de vie mesuré est nul : sans
 dénominateur il n'y a pas de pourcentage, et `coveragePercent` vaut 0.
 `hasPassiveIncomeCategories` distingue « aucune rente déclarée » de « rentes
-déclarées, rien encaissé ». Pas de plafond à 100 % (D5). Ni date N ni courbe
-(hors périmètre).
+déclarées, rien encaissé ». Les pourcentages sont **tronqués** (D10) et non
+plafonnés (D5). Ni date N ni courbe (hors périmètre).
 
 Puis : `IndependenceCounterController` sur `GET /api/finance/independence`
 (401 sans utilisateur), et la clé `independence` de
@@ -106,7 +106,7 @@ avec `hasPassiveIncomeCategories: false`).
 
 ## Task 6 : Les contrats
 
-`isPassiveIncome` change `openapi.json` et
+`passiveIncome` change `openapi.json` et
 `contract/responses/categories.collection.json` ; le nouvel outil change
 `mcp-tools.json`. Lire l'échec de la suite `Contract`, puis
 `UPDATE_CONTRACT=1 task wt:test:api -- --testsuite Contract` et committer le
@@ -120,14 +120,17 @@ diff.
   manque, la décomposition par catégorie, le palier suivant, et l'état « aucune
   catégorie déclarée comme rente » qui dit où le faire.
 - la case « Rente » dans `CategoryForm`, **seulement** quand l'obligation est
-  une recette (`FormDataConsumer`) : l'API refuse la rente ailleurs, une case
-  offerte sur une dépense serait un piège ;
+  une recette, et remise à `false` dès qu'elle la quitte (`RenteInput`,
+  `useWatch` + `setValue`) : l'API refuse la rente ailleurs, et react-hook-form
+  garde la valeur d'un champ démonté — sans cela le formulaire enverrait une
+  rente sur une dépense et prendrait un 422 sur un champ absent de l'écran ;
 - la colonne « Obligation » de `CategoryList` dit « Recette · rente ».
 
 Tests dus : `IndependenceCard.test.tsx` (rendu avec couverture, paliers,
 mensualités, état non mesurable, état sans rente déclarée, couverture au-delà de
-100 %) ; `CategoryForm.test.tsx` (la case apparaît sur une recette et disparaît
-avec elle) ; `CategoryList.test.tsx` étendu au repère.
+100 %) ; `CategoryForm.test.tsx` (la case n'existe que sur une recette ; ce
+qui part au data provider quand elle est cochée ; le drapeau retiré avec elle
+au reclassement ; conservé à l'édition d'une rente) ; `CategoryList.test.tsx` étendu au repère.
 
 ## Task 8 : Mobile
 
@@ -150,7 +153,7 @@ Tests dus : `IndependenceCounterTest` (la phrase dans ses quatre états,
 ## Task 9 : Le parcours e2e
 
 Fixtures `api/fixtures/e2e/50-finance.yaml` : la catégorie « Loyers perçus »
-(`income`, `isPassiveIncome: true`) et une transaction de rente de 300,00 € le
+(`income`, `passiveIncome: true`) et une transaction de rente de 300,00 € le
 mois dernier — dans la fenêtre mesurée, qui est les trois mois précédant celui
 en cours. Arithmétique de la graine : rentes 30 000 / 3 = 10 000, train de vie
 50 000 / 3 = 16 666, couverture 60 %, manque 66,66 €.

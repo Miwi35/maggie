@@ -50,7 +50,7 @@
   `Enum/ObligationFlag.php`, `Message/{Create,Update}CategoryCommand.php`,
   `MessageHandler/*CategoryHandler.php`, `Mcp/Tool/ManageCategoriesTool.php`,
   `admin/src/modules/finance/CategoryForm.tsx`.
-- **Pertinence** : `isPassiveIncome` suit le chemin exact de `obligation` —
+- **Pertinence** : `passiveIncome` suit le chemin exact de `obligation` —
   entité, document ES, payload Mercure, commandes, outil MCP, formulaire admin.
 - **À reprendre** : `ObligationFlag::Income` existe déjà et porte la validation
   de la décision D2.
