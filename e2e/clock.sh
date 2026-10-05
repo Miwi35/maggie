@@ -12,14 +12,18 @@
 #   clock.sh epoch            E2E_NOW as seconds since the epoch, or nothing
 #   clock.sh names            the named boundary instants
 #
-# Named instants resolve to the *next* occurrence after the real now, never a
-# past one: Mercure rejects a token whose `exp` is in the past, and the
+# Named instants resolve to the *next* occurrence at least two hours after the
+# real now, never a past one: Mercure rejects a token whose `exp` is in the past, and the
 # simulated clock signs them, so an instant behind the real clock would take
 # real-time down with it. A date in the past given as ISO-8601 is refused for
 # the same reason.
 set -euo pipefail
 
 PARIS=Europe/Paris
+# A named instant starts at least this far ahead: the simulated clock barely
+# moves while real time does, so a Mercure token signed with `exp = instant + TTL`
+# must not run out during a suite started a few minutes before the instant.
+LEAD=7200
 
 die() {
   echo "clock.sh: $*" >&2
@@ -33,7 +37,7 @@ next_weekday_paris() {
     day=$(TZ=$PARIS date -d "today +${offset} days" +%F)
     [ "$(TZ=$PARIS date -d "$day" +%u)" = "$weekday" ] || continue
     candidate=$(TZ=$PARIS date -d "$day $time" --iso-8601=seconds)
-    if [ "$(date -d "$candidate" +%s)" -gt "$(date +%s)" ]; then
+    if [ "$(date -d "$candidate" +%s)" -gt "$(($(date +%s) + LEAD))" ]; then
       echo "$candidate"
       return
     fi
@@ -49,7 +53,7 @@ next_dst_fall_back() {
     for day in 31 30 29 28 27 26 25; do
       [ "$(date -d "$year-10-$day" +%u)" = 7 ] || continue
       candidate="$year-10-${day}T02:30:00+01:00"
-      if [ "$(date -d "$candidate" +%s)" -gt "$(date +%s)" ]; then
+      if [ "$(date -d "$candidate" +%s)" -gt "$(($(date +%s) + LEAD))" ]; then
         echo "$candidate"
         return
       fi
@@ -66,7 +70,7 @@ next_saturday_utc() {
     day=$(date -u -d "today +${offset} days" +%F)
     [ "$(date -u -d "$day" +%u)" = 6 ] || continue
     candidate="${day}T22:30:00+00:00"
-    if [ "$(date -d "$candidate" +%s)" -gt "$(date +%s)" ]; then
+    if [ "$(date -d "$candidate" +%s)" -gt "$(($(date +%s) + LEAD))" ]; then
       echo "$candidate"
       return
     fi

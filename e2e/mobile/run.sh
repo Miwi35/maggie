@@ -176,6 +176,30 @@ device_skew() {
   esac
 }
 
+clock_keeper=''
+previous_auto_time=''
+previous_hide=''
+
+restore_device() {
+  [ -z "$clock_keeper" ] || kill "$clock_keeper" 2>/dev/null || true
+  if [ -n "$previous_auto_time" ] && [ "$previous_auto_time" != "null" ]; then
+    "$ADB" -s "$SERIAL" shell settings put global auto_time "$previous_auto_time" >/dev/null 2>&1 || true
+  fi
+  # A pinned run leaves the device in the future: put its clock back on the host's.
+  if [ "$CLOCK_PINNED" = 1 ]; then
+    set_device_time "$(date +%s)"
+  fi
+  "$ADB" -s "$SERIAL" reverse --remove "tcp:$DEVICE_PORT" >/dev/null 2>&1 || true
+  if [ -z "$previous_hide" ] || [ "$previous_hide" = "null" ]; then
+    "$ADB" -s "$SERIAL" shell settings delete global hide_error_dialogs >/dev/null 2>&1 || true
+  else
+    "$ADB" -s "$SERIAL" shell settings put global hide_error_dialogs "$previous_hide" >/dev/null 2>&1 || true
+  fi
+}
+# The bridge is removed too: a stale reverse pointing at a torn-down stack is how
+# the next run fails on a connection refused that names nothing.
+trap restore_device EXIT
+
 "$ADB" -s "$SERIAL" root >/dev/null 2>&1 || true
 "$ADB" -s "$SERIAL" wait-for-device
 previous_auto_time="$("$ADB" -s "$SERIAL" shell settings get global auto_time 2>/dev/null | tr -d '\r' || true)"
@@ -217,23 +241,6 @@ previous_hide="$("$ADB" -s "$SERIAL" shell settings get global hide_error_dialog
 "$ADB" -s "$SERIAL" shell settings put global hide_error_dialogs 1 >/dev/null 2>&1 \
   || warn "could not hide the system's error dialogs: an ANR dialog above the app will fail a flow."
 
-clock_keeper=''
-
-restore_device() {
-  [ -z "$clock_keeper" ] || kill "$clock_keeper" 2>/dev/null || true
-  if [ -n "$previous_auto_time" ] && [ "$previous_auto_time" != "null" ]; then
-    "$ADB" -s "$SERIAL" shell settings put global auto_time "$previous_auto_time" >/dev/null 2>&1 || true
-  fi
-  "$ADB" -s "$SERIAL" reverse --remove "tcp:$DEVICE_PORT" >/dev/null 2>&1 || true
-  if [ -z "$previous_hide" ] || [ "$previous_hide" = "null" ]; then
-    "$ADB" -s "$SERIAL" shell settings delete global hide_error_dialogs >/dev/null 2>&1 || true
-  else
-    "$ADB" -s "$SERIAL" shell settings put global hide_error_dialogs "$previous_hide" >/dev/null 2>&1 || true
-  fi
-}
-# The bridge is removed too: a stale reverse pointing at a torn-down stack is how
-# the next run fails on a connection refused that names nothing.
-trap restore_device EXIT
 
 # ---------------------------------------------------------------------------
 step "3. Build and install the e2e flavor"

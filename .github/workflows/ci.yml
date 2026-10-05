@@ -35,6 +35,9 @@ jobs:
       e2e: ${{ inputs.e2e_now != '' || (github.event_name != 'pull_request' && github.event_name != 'push') || steps.code.outputs.e2e == 'true' }}
       mobile: ${{ inputs.e2e_now != '' || (github.event_name != 'pull_request' && github.event_name != 'push') || steps.code.outputs.mobile == 'true' }}
       cron: ${{ inputs.e2e_now == '' && ((github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.cron == 'true') }}
+      # The instant the e2e stack runs at, resolved once here so every shard and
+      # device of this run agrees on it (MAG-234). Empty: the real clock.
+      e2e_now: ${{ steps.clock.outputs.now }}
       # The emulators the Maestro journeys run on (MAG-98). One phone on a pull
       # request — an emulator costs minutes and the layout formats are not what a
       # feature branch usually breaks — and the three formats MAG-35 and MAG-91
@@ -44,9 +47,6 @@ jobs:
       #
       # One phone when the clock is pinned (MAG-234): the foldable and the tablet
       # are layouts, not hours, and the nightly run already covers them.
-      # The instant the e2e stack runs at, resolved once here so every shard and
-      # device of this run agrees on it (MAG-234). Empty: the real clock.
-      e2e_now: ${{ steps.clock.outputs.now }}
       mobile_devices: >-
         ${{ (github.event_name != 'pull_request' && github.event_name != 'push') && inputs.e2e_now == ''
             && '[{"name":"phone","profile":"pixel_6"},{"name":"foldable","profile":"7.6in Foldable"},{"name":"tablet","profile":"10.1in WXGA (Tablet)"}]'
