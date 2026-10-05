@@ -18,12 +18,23 @@ second run starts from the same world as the first.
 
 ## Where it runs, and why that matters
 
-The journeys browse **`http://traefik`** — the stack's own router, from inside
-its network. Three things follow:
+The journeys browse **`http://localhost`**, which is the stack's own router: the
+`playwright-journeys` container shares Traefik's network namespace
+(`network_mode: service:traefik`), so `localhost:80` is Traefik. Four things
+follow:
 
 - no ephemeral host port to discover;
 - the admin's relative URLs (`/api`, `/.well-known/mercure`, `/agent`) all
   resolve against one origin, exactly as they do in production behind Traefik;
+- **the origin is trustworthy**, which is the reason it is `localhost` and not
+  `http://traefik`. `navigator.mediaDevices` only exists in a secure context;
+  plain HTTP on a hostname is not one, and nothing in Playwright can change that
+  (not `permissions`, not Chromium's fake device, not
+  `--unsafely-treat-insecure-origin-as-secure`, which the bundled build ignores).
+  `localhost` is secure by definition, so the config grants the microphone,
+  starts Chromium with its fake capture device, and `ChatPanel.dictate()`
+  drives "Dicter" end to end. If a journey reads "Accès au microphone refusé",
+  the origin changed;
 - every request that is *not* that origin is aborted. The admin pulls a Google
   font and react-admin phones home to a telemetry endpoint; both are slow or
   blocked depending on the runner, and neither has anything to do with a
@@ -248,15 +259,15 @@ them are `176c40c`, which fixed the same symptom — one message shown twice —
 three independent places. So the journey asserts one message id per run, one
 bubble per message, and the same again after a reload.
 
-**The microphone is out of reach.** `navigator.mediaDevices` only exists in a
-trustworthy origin and the stack answers on plain `http://traefik`, so
-`useVoiceRecorder` reports "Accès au microphone refusé" and nothing in
-Playwright works around it — not the permission, not Chromium's fake capture
-device, not `--unsafely-treat-insecure-origin-as-secure`, which this build
-ignores even with a persistent profile. Dictation is asserted over HTTP in
-`e2e/smoke/smoke.sh` (step 9) until MAG-145 gives the stack an origin the
-browser trusts. TTS has no surface in the admin at all: the web never speaks,
-so it lives in the smoke journey and in the Maestro flows (MAG-98).
+**Dictation runs in the browser** (MAG-145): `ChatPanel.dictate()` clicks
+"Dicter", records Chromium's fake microphone for a moment, stops, and returns
+what `POST /agent/transcribe` answered; the journey then checks that the cleaned
+sentence reached the input, sends it, and ends on the grocery list in the
+database. The first assertion is `window.isSecureContext`, so a regression of
+the origin fails by name. `e2e/smoke/smoke.sh` (step 9) still covers the same
+path over HTTP, without a browser. TTS has no surface in the admin at all: the
+web never speaks, so it lives in the smoke journey and in the Maestro flows
+(MAG-98).
 
 ## Two windows, not two tabs
 

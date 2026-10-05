@@ -323,22 +323,8 @@ test('a proaction reaches an open chat without anyone reloading', async ({ page,
 })
 
 interface GroceryList {
-  items?: Array<{ label?: string }>
+  items?: Array<{ label?: string; quantity?: number | null }>
 }
-
-/**
- * The voice path is not here, and that is the stack's doing rather than a gap
- * in this file. `navigator.mediaDevices` only exists in a trustworthy origin;
- * the e2e stack answers on plain `http://traefik`, so the property is
- * undefined, `useVoiceRecorder` reports "Accès au microphone refusé", and
- * nothing in Playwright can work around it — not the microphone permission,
- * not Chromium's fake capture device, not
- * `--unsafely-treat-insecure-origin-as-secure`, which this build ignores even
- * with a persistent profile. Dictation is therefore asserted over HTTP in
- * `e2e/smoke/smoke.sh` (step 9), which drives WireMock's Whisper stub, the
- * cleanup scenario and the write it ends on; MAG-145 gives the stack an origin
- * the browser trusts, and brings the step back here.
- */
 
 test('asking for an item writes it to the grocery list', async ({ page, api }) => {
   const grocery = new GroceryListPage(page)
@@ -366,6 +352,74 @@ test('asking for an item writes it to the grocery list', async ({ page, api }) =
 
   // And it reaches the screen the owner actually looks at.
   await grocery.expectItemEventually('Basilic')
+})
+
+/**
+ * The voice path, from the microphone to the database (MAG-145).
+ *
+ * It needs a browser that has a microphone to offer, which `http://traefik` never
+ * was: a trustworthy origin is what makes `navigator.mediaDevices` exist, and the
+ * journeys now browse `http://localhost` (see `playwright.config.ts`). The first
+ * assertion is that precondition, so that a regression of the origin says so
+ * instead of showing up as "Accès au microphone refusé".
+ *
+ * The two stand-ins have to agree: WireMock dictates one fixed sentence
+ * (`.docker/e2e/wiremock/mappings/openai.json`), 20-transcription-cleanup.yaml
+ * returns it tidied, and 41-grocery-add-dictated.yaml is what Maggie does with
+ * that. Each is plausible alone, so only driving all three catches one being
+ * edited without the others. `e2e/smoke/smoke.sh` still asserts the same path
+ * over HTTP, without the browser.
+ */
+test('a dictated sentence reaches the input cleaned, and sending it writes to the grocery list', async ({
+  page,
+  api,
+}) => {
+  const dashboard = new DashboardPage(page)
+  await dashboard.open()
+
+  const secure = await page.evaluate(() => ({
+    secureContext: window.isSecureContext,
+    mediaDevices: typeof navigator.mediaDevices,
+  }))
+  expect(secure, 'the origin is not trustworthy, so the browser has no microphone').toEqual({
+    secureContext: true,
+    mediaDevices: 'object',
+  })
+
+  // Summed over the lines: the tool may fold the four into the seeded line or
+  // open a second one (it does when the unit differs), and either way the owner
+  // has more tomatoes to buy.
+  const tomatoes = async (): Promise<number> => {
+    const [list] = await getCollection<GroceryList>(api, '/api/grocery_lists')
+
+    return (list?.items ?? [])
+      .filter((item) => item.label?.toLowerCase() === 'tomate')
+      .reduce((total, item) => total + (item.quantity ?? 0), 0)
+  }
+  const before = await tomatoes()
+  expect(before, 'the seed puts tomatoes on the list; the assertion below needs a starting point').toBeGreaterThan(0)
+
+  const chat = new ChatPanel(page)
+  const { raw, clean } = await chat.dictate()
+
+  // Whisper is WireMock, and the model's cleanup is a scenario: the sentence
+  // that reaches the input is the cleaned one, not the hesitation-laden raw one.
+  expect(clean, 'no scenario cleaned the dictation — is 20-transcription-cleanup.yaml matching?').not.toContain(
+    '[fake-llm]',
+  )
+  expect(clean).not.toBe(raw)
+  await expect(chat.input).toHaveValue(clean)
+
+  const events = await chat.submit()
+  expect(calledTools(events)).toContain('add_grocery_item')
+  expect(toolResults(events)).toContainEqual({ toolName: 'add_grocery_item', status: 'success' })
+
+  // The data, not her wording: the quantity went up. Polled, because the
+  // collection is served from Elasticsearch and the write is indexed through
+  // RabbitMQ — the row exists before it is findable.
+  await expect
+    .poll(tomatoes, { message: 'the dictated tomatoes never reached the list', timeout: 30_000 })
+    .toBeGreaterThan(before)
 })
 
 interface AgentContext {

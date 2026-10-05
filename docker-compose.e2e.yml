@@ -31,11 +31,44 @@
 # 2.5 GiB; below these, measured services hit their limit (Elasticsearch at
 # 896 MB sat at 842 MB) or trip their own alarms (RabbitMQ's watermark).
 # Two one-shots sit outside the sum: admin-build (1280, gone once the bundle
-# exists) and playwright (1536, behind a profile). Raise a limit here, never
+# exists) and playwright / playwright-journeys (1536 each, behind a profile,
+# never run together). Raise a limit here, never
 # remove it. `task e2e:up` refuses to start below 5 GB available (wt/guard.sh).
 
 x-stack-label: &stack-label
   maggie.stack: ${COMPOSE_PROJECT_NAME:-maggie-e2e}
+
+# The Playwright harness, shared by the two services that run it (see the
+# `playwright` and `playwright-journeys` services below).
+x-playwright: &playwright
+  profiles: [tools]
+  # The tag must match @playwright/test in e2e/web/package.json: the image
+  # bakes the browsers, and Playwright refuses a version it did not ship.
+  image: mcr.microsoft.com/playwright:v1.63.0-noble
+  working_dir: /e2e
+  user: ${UID:-1000}:${GID:-1000}
+  volumes:
+    - ./e2e/web:/e2e:cached
+    # Read-only, and only this: the journeys read ids from the seed manifest
+    # and must not be able to write anything back into the repository.
+    - ./api/var/e2e:/seed:ro
+  environment: &playwright-environment
+    E2E_BASE_URL: http://traefik
+    E2E_LOGIN_TOKEN: ${E2E_LOGIN_TOKEN:-e2e-login-token}
+    E2E_SEED_MANIFEST: /seed/seed-manifest.json
+    # The browser's clock (MAG-234): the fixtures pin `Date` to it. Empty = real time.
+    E2E_NOW: ${E2E_NOW:-}
+    # Retries, the GitHub reporter and `forbidOnly` all key off this.
+    CI: ${CI:-}
+    # The container runs as the host's uid, which has no entry in the image's
+    # passwd — HOME would resolve to / and npm could not write its cache.
+    HOME: /tmp
+    npm_config_cache: /tmp/.npm-cache
+    npm_config_update_notifier: "false"
+  mem_limit: 1536m
+  memswap_limit: 1536m
+  labels:
+    <<: *stack-label
 
 # One image for php and worker: same Dockerfile, same args, so one build and one
 # pull. The tag is the hash of the build inputs, set by e2e/images.sh in CI
@@ -603,42 +636,34 @@ services:
   # Behind a profile: `task e2e:up` must not start it, and `docker compose run`
   # enables the profile of whatever it is asked to run.
   #
-  # It browses `http://traefik` — the stack's own router, from inside its
-  # network. That is the one origin every relative URL the admin is built with
-  # (`/api`, `/.well-known/mercure`, `/agent`) resolves against, exactly as in
-  # production; and it means the journeys never have to discover the ephemeral
-  # host port.
+  # Two services, one image and one configuration (`x-playwright`), because the
+  # journeys and the tooling need different networks:
+  #
+  #  - `playwright-journeys` runs the journeys. It joins Traefik's network
+  #    *namespace* (MAG-145), so `http://localhost` is the stack's router and
+  #    the browser sees a trustworthy origin: `localhost` is one by definition,
+  #    which is what gives `navigator.mediaDevices` — and so the microphone —
+  #    to the page. `http://traefik` is plain HTTP on a hostname and is not one,
+  #    and nothing in Playwright can change that (see e2e/web/README.md). Every
+  #    relative URL the admin is built with (`/api`, `/.well-known/mercure`,
+  #    `/agent`) still resolves against that single origin, as in production,
+  #    and the journeys never have to discover the ephemeral host port.
+  #    Service names (`wiremock`, `php`) keep resolving: the namespace is
+  #    Traefik's, and Traefik sits on the stack's network. It can only start
+  #    while Traefik is running, which `task e2e:web` already requires.
+  #  - `playwright` is the one-off container for lint, typecheck and install. It
+  #    needs no stack, so it keeps a network of its own.
   playwright:
-    profiles: [tools]
-    # The tag must match @playwright/test in e2e/web/package.json: the image
-    # bakes the browsers, and Playwright refuses a version it did not ship.
-    image: mcr.microsoft.com/playwright:v1.63.0-noble
-    working_dir: /e2e
-    user: ${UID:-1000}:${GID:-1000}
-    volumes:
-      - ./e2e/web:/e2e:cached
-      # Read-only, and only this: the journeys read ids from the seed manifest
-      # and must not be able to write anything back into the repository.
-      - ./api/var/e2e:/seed:ro
-    environment:
-      E2E_BASE_URL: http://traefik
-      E2E_LOGIN_TOKEN: ${E2E_LOGIN_TOKEN:-e2e-login-token}
-      E2E_SEED_MANIFEST: /seed/seed-manifest.json
-      # The browser's clock (MAG-234): the fixtures pin `Date` to it. Empty = real time.
-      E2E_NOW: ${E2E_NOW:-}
-      # Retries, the GitHub reporter and `forbidOnly` all key off this.
-      CI: ${CI:-}
-      # The container runs as the host's uid, which has no entry in the image's
-      # passwd — HOME would resolve to / and npm could not write its cache.
-      HOME: /tmp
-      npm_config_cache: /tmp/.npm-cache
-      npm_config_update_notifier: "false"
-    mem_limit: 1536m
-    memswap_limit: 1536m
-    labels:
-      <<: *stack-label
+    <<: *playwright
     networks:
       - e2e
+
+  playwright-journeys:
+    <<: *playwright
+    network_mode: service:traefik
+    environment:
+      <<: *playwright-environment
+      E2E_BASE_URL: http://localhost
 
 networks:
   e2e:
