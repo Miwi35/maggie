@@ -34,6 +34,7 @@ import com.kizitonwose.calendar.core.DayPosition
 import com.kizitonwose.calendar.core.daysOfWeek
 import com.maggie.app.data.model.ExpandedEvent
 import com.maggie.app.ui.screens.dashboard.parseColor
+import com.maggie.app.util.DateRanges
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -242,7 +243,7 @@ private fun FullMonthDayCell(
     onDayClick: () -> Unit,
 ) {
     val isCurrentMonth = day.position == DayPosition.MonthDate
-    val isToday = day.date == LocalDate.now()
+    val isToday = day.date == DateRanges.todayDate()
 
     Column(
         modifier = Modifier
