@@ -15,6 +15,7 @@ use Maggie\Cookbook\Service\IngredientFromCiqualResolver;
 use Maggie\Cookbook\Service\MealGrocerySync;
 use Maggie\Cookbook\UseCase\UpdateRecipe;
 use Maggie\Core\Entity\User;
+use Maggie\Core\Mercure\EntityBroadcaster;
 use Maggie\Grocery\Enum\Unit;
 use Maggie\Grocery\Service\GroceryListBroadcaster;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -27,6 +28,7 @@ class UpdateRecipeHandler
         private readonly RecipeRepository $recipeRepository,
         private readonly IngredientRepository $ingredientRepository,
         private readonly IngredientFromCiqualResolver $ciqualResolver,
+        private readonly EntityBroadcaster $entityBroadcaster,
         private readonly MealRepository $mealRepository,
         private readonly MealGrocerySync $mealGrocerySync,
         private readonly GroceryListBroadcaster $groceryListBroadcaster,
@@ -37,6 +39,9 @@ class UpdateRecipeHandler
     {
         $recipe = $this->recipeRepository->find($command->recipeId)
             ?? throw new \DomainException("Recipe not found: {$command->recipeId}");
+
+        /** @var list<Ingredient> $createdIngredients */
+        $createdIngredients = [];
 
         if (null !== $command->name) {
             $recipe->setName($command->name);
@@ -57,7 +62,7 @@ class UpdateRecipeHandler
             $user = $recipe->getUser();
             $recipe->clearIngredients();
             foreach ($command->ingredients as $item) {
-                $ingredient = $this->resolveIngredient($item, $user);
+                $ingredient = $this->resolveIngredient($item, $user, $createdIngredients);
 
                 $ri = new RecipeIngredient();
                 $ri->setIngredient($ingredient);
@@ -70,6 +75,12 @@ class UpdateRecipeHandler
         $recipe->setUpdatedAt(new \DateTimeImmutable());
 
         $recipe = $this->updateRecipe->execute($recipe);
+
+        // The handler returns the recipe: the ingredients created on the way
+        // would otherwise be neither indexed nor published (MAG-182).
+        foreach ($createdIngredients as $ingredient) {
+            $this->entityBroadcaster->broadcast($ingredient);
+        }
 
         if (null !== $command->ingredients) {
             // The meals already planned with this recipe bought the old
@@ -90,11 +101,14 @@ class UpdateRecipeHandler
         return $recipe;
     }
 
-    /** @param array{quantity: float, unit: string, ingredientId?: string, ciqualAlimCode?: string} $item */
-    private function resolveIngredient(array $item, User $user): Ingredient
+    /**
+     * @param array{quantity: float, unit: string, ingredientId?: string, ciqualAlimCode?: string} $item
+     * @param list<Ingredient>                                                                     $created
+     */
+    private function resolveIngredient(array $item, User $user, array &$created): Ingredient
     {
         if (isset($item['ciqualAlimCode'])) {
-            return $this->ciqualResolver->resolve($item['ciqualAlimCode'], $user);
+            return $this->ciqualResolver->resolve($item['ciqualAlimCode'], $user, $created);
         }
 
         if (isset($item['ingredientId'])) {
