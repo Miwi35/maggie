@@ -97,9 +97,17 @@ class VoiceManager(
      */
     private class DeviceSession(
         val engine: DeviceSpeechRecognizer,
-        val sink: OutputStream?,
         val pending: CompletableDeferred<DeviceSpeechResult?>,
-    )
+    ) {
+        var sink: OutputStream? = null
+
+        /**
+         * Set the moment the sentence is over (the button comes up). An engine that
+         * answers before that closed the sentence on a pause of its own: what it
+         * heard is only the beginning, and only the release ends a sentence.
+         */
+        var sentenceOver = false
+    }
 
     private var deviceSession: DeviceSession? = null
 
@@ -206,16 +214,19 @@ class VoiceManager(
     private fun startDeviceSpeech(): OutputStream? {
         val engine = deviceSpeechFactory().takeIf { it.isAvailable } ?: return null
         val pending = CompletableDeferred<DeviceSpeechResult?>()
+        val session = DeviceSession(engine, pending)
 
         return try {
-            val sink = engine.start(
+            session.sink = engine.start(
                 object : DeviceSpeechRecognizer.Listener {
                     override fun onPartial(text: String) {
-                        if (_state.value == VoiceState.LISTENING) _partialText.value = text
+                        if (!session.sentenceOver && _state.value == VoiceState.LISTENING) _partialText.value = text
                     }
 
                     override fun onResult(result: DeviceSpeechResult) {
-                        pending.complete(result)
+                        // Before the release it is a segment, never the sentence:
+                        // the recording goes on and Whisper reads all of it.
+                        pending.complete(result.takeIf { session.sentenceOver })
                     }
 
                     override fun onUnavailable(reason: String) {
@@ -223,8 +234,8 @@ class VoiceManager(
                     }
                 },
             )
-            deviceSession = DeviceSession(engine, sink, pending)
-            sink
+            deviceSession = session
+            session.sink
         } catch (e: Exception) {
             // An engine that refuses to start is not an error the owner should see:
             // the recording is still running and Whisper is still there.
@@ -259,6 +270,7 @@ class VoiceManager(
 
         val session = deviceSession
         deviceSession = null
+        session?.sentenceOver = true
         // The recorder closed the pipe as it stopped, which is what tells the engine
         // the sentence is over; asking it to stop after that is what makes it answer.
         session?.engine?.stopListening()

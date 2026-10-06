@@ -388,6 +388,46 @@ class VoiceManagerTest {
     }
 
     @Test
+    fun `an engine that closes the sentence on a pause while the button is held never ends it`() {
+        val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("ajoute du lait à la liste de courses", 0.9f))
+        voiceManager = managerWith(engine)
+        var sent: String? = null
+
+        voiceManager.pressDown { sent = it }
+        advance(2000)
+        // Three seconds of silence in the middle of the sentence: the engine answers
+        // on its own with the first half, the button is still down.
+        engine.listener?.onResult(DeviceSpeechResult("ajoute du lait à la liste de courses", 0.9f))
+        advance(3000)
+        assertEquals(VoiceState.LISTENING, voiceManager.state.value)
+        advance(2000)
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        // Only the release ends the sentence: the whole recording is read, not the
+        // first segment the engine closed early.
+        coVerify(exactly = 1) { apiService.transcribe(any(), TranscriptCleanup.NONE) }
+        assertEquals("bonjour Maggie", sent)
+    }
+
+    @Test
+    fun `an engine that gives up on a pause while the button is held leaves the rest to Whisper`() {
+        val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("ajoute du lait", 0.9f))
+        voiceManager = managerWith(engine)
+        var sent: String? = null
+
+        voiceManager.pressDown { sent = it }
+        advance(1000)
+        engine.listener?.onUnavailable("error 7")
+        advance(5000)
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        coVerify(exactly = 1) { apiService.transcribe(any(), any()) }
+        assertEquals("bonjour Maggie", sent)
+    }
+
+    @Test
     fun `a phone with no recognition records for Whisper alone`() {
         val engine = FakeDeviceSpeech(isAvailable = false)
         voiceManager = managerWith(engine)
