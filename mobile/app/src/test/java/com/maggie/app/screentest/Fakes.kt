@@ -18,6 +18,7 @@ import com.maggie.app.data.model.RuleSuggestion
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.CategorizationRuleRepository
+import com.maggie.app.data.repository.ApprovalRepository
 import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.ChatPreferencesRepository
 import com.maggie.app.data.repository.ChatRepository
@@ -287,7 +288,11 @@ class FakeChat(private val history: List<ChatMessage> = Seed.conversation) {
         coEvery { preferences.getLastReadMessageId() } returns null
         coEvery { preferences.saveLastReadMessageId(any()) } returns Unit
 
-        ChatViewModel(repository, mercure, preferences, auth)
+        val approvals = mockk<ApprovalRepository>()
+        coEvery { approvals.getPending() } returns Result.success(emptyList())
+        every { approvals.observe() } returns emptyFlow()
+
+        ChatViewModel(repository, mercure, preferences, auth, approvals)
     }
 }
 
