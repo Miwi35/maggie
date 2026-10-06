@@ -20,6 +20,14 @@ interface AudioRecorder {
      */
     fun start(file: File, pcmSink: OutputStream? = null)
 
+    /**
+     * Hear the loudness (0..1) of every buffer read, on the recording thread, for a
+     * caller that has to decide by itself when the speech is over — the dictation
+     * service (MAG-216), where nobody holds a button. Set before [start]; a recorder
+     * that cannot measure keeps the default and never reports a level.
+     */
+    fun setLevelListener(listener: ((level: Float, durationMs: Long) -> Unit)?) = Unit
+
     fun stop()
 
     fun release()
@@ -47,9 +55,14 @@ class PcmAudioRecorder : AudioRecorder {
     private var record: AudioRecord? = null
     private var pump: Thread? = null
     private var tee: PcmTee? = null
+    private var levelListener: ((Float, Long) -> Unit)? = null
 
     @Volatile
     private var recording = false
+
+    override fun setLevelListener(listener: ((level: Float, durationMs: Long) -> Unit)?) {
+        levelListener = listener
+    }
 
     override fun start(file: File, pcmSink: OutputStream?) {
         val minBuffer = AudioRecord.getMinBufferSize(
@@ -139,6 +152,7 @@ class PcmAudioRecorder : AudioRecorder {
                         out.write(buffer, 0, read)
                         dataBytes += read
                         tee?.offer(buffer, read)
+                        levelListener?.invoke(PcmLevel.rms(buffer, read), PcmLevel.durationMs(read))
                     }
                 } finally {
                     // In a finally so that a clip cut short by an error is still a

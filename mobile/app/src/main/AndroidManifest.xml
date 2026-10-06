@@ -72,6 +72,16 @@
             android:exported="true"
             android:permission="android.permission.BIND_VOICE_INTERACTION">
         </service>
+
+        <!-- The engine behind the assistant role (MAG-216): without it Android refuses the voice interaction service. -->
+        <service
+            android:name=".voice.MaggieRecognitionService"
+            android:exported="true"
+            android:permission="android.permission.RECORD_AUDIO">
+            <intent-filter>
+                <action android:name="android.speech.RecognitionService" />
+            </intent-filter>
+        </service>
     </application>
 
 </manifest>
