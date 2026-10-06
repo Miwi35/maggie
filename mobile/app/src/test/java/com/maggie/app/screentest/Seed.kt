@@ -1,8 +1,10 @@
 package com.maggie.app.screentest
 
+import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.GroceryList
+import com.maggie.app.data.model.RuleSuggestion
 import com.maggie.app.data.model.Store
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -113,6 +115,33 @@ object Seed {
     val groceryList = GroceryList(
         id = "list-neighbour",
         items = listOf(leek, capers, pickles, stamps, bags, deferredDishSoap),
+    )
+
+    // ---------------------------------------------------------------------
+    // The rule the statement implies (09-finance-banks)
+    // ---------------------------------------------------------------------
+
+    /** The headings the e2e seed holds, in the order the chips draw them. */
+    val financeCategories: List<Category> = listOf(
+        Category(id = "cat-courses", name = "Courses"),
+        Category(id = "cat-loisirs", name = "Loisirs"),
+        Category(id = "cat-salaire", name = "Salaire"),
+        Category(id = "cat-vie-courante", name = "Vie courante"),
+    )
+
+    /**
+     * « LECLERC RENNES », three debits no rule covers — the one suggestion the
+     * pristine seed yields, and it arrives with **no** `categoryId`:
+     * `MerchantDictionary` files LECLERC under « Nourriture », which no seeded
+     * category is named. That is what leaves the yes to be refused until a chip
+     * is tapped.
+     */
+    val leclercSuggestion = RuleSuggestion(
+        pattern = "LECLERC RENNES",
+        occurrences = 3,
+        totalCents = -45700,
+        direction = "debit",
+        samples = listOf("LECLERC RENNES", "LECLERC RENNES", "LECLERC RENNES"),
     )
 
     private fun item(

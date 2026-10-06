@@ -2,8 +2,12 @@ package com.maggie.app.data.repository
 
 import com.maggie.app.data.api.CategorizationRuleCreateRequest
 import com.maggie.app.data.api.MaggieApiService
+import com.maggie.app.data.model.AcceptRuleSuggestionsRequest
+import com.maggie.app.data.model.AcceptRuleSuggestionsResult
 import com.maggie.app.data.model.ApplyRulesResult
 import com.maggie.app.data.model.CategorizationRule
+import com.maggie.app.data.model.RuleSuggestion
+import com.maggie.app.util.rethrowCancellation
 
 class CategorizationRuleRepository(
     private val apiService: MaggieApiService,
@@ -23,4 +27,14 @@ class CategorizationRuleRepository(
     suspend fun applyRules(): Result<ApplyRulesResult> = runCatching {
         apiService.applyCategorizationRules()
     }
+
+    suspend fun getSuggestions(): Result<List<RuleSuggestion>> = runCatching {
+        apiService.getCategorizationRuleSuggestions()
+    }.rethrowCancellation()
+
+    suspend fun acceptSuggestions(
+        request: AcceptRuleSuggestionsRequest,
+    ): Result<AcceptRuleSuggestionsResult> = runCatching {
+        apiService.acceptCategorizationRuleSuggestions(request)
+    }.rethrowCancellation()
 }

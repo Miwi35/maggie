@@ -29,6 +29,8 @@ class DeepLinksTest {
             Screen.BudgetList,
             Screen.CategoryList,
             Screen.CategorizationRuleList,
+            Screen.RuleSuggestions,
+            Screen.BankConnectionList,
             Screen.Cushion,
             Screen.LoanList,
             Screen.MonthlyReview,

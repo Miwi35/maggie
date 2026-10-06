@@ -1,0 +1,92 @@
+appId: com.maggie.app.e2e
+name: 09-finance-banks
+tags:
+  - finance
+---
+# The bank link and the rules the statement implies, from the phone (MAG-45).
+#
+# Both screens exist in the admin already (`finance-bank.spec.ts`,
+# `finance-rules.spec.ts`); what is new is that the phone can do them, and that
+# is what this journey proves — on the real API, against the WireMock stand-in
+# for Enable Banking (`.docker/e2e/wiremock/mappings/enablebanking.json`), so a
+# request leaving the Docker network would be a bug.
+#
+# What is not here: connecting a bank for the first time. The provider sends the
+# user back to the web admin once the consent is given (`BankCallbackController`),
+# and the consent itself is a page at the bank — a different origin, which the
+# smoke journey drives over HTTP instead (step 12).
+#
+# The suggestions come first on purpose: the fetch below imports two movements of
+# its own, and the single deterministic suggestion of the pristine seed —
+# « LECLERC RENNES », three debits no rule spells that way — is what makes the
+# acceptance assertable.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+
+- runFlow: ../subflows/sign-in.yaml
+
+- openLink: "maggie-e2e://finance/rules"
+
+- extendedWaitUntil:
+    visible: "Règles"
+    timeout: 20000
+
+# The icon's content description, which is how the rules screen offers the
+# shortest way to a first rule.
+- tapOn: "Suggestions"
+
+- extendedWaitUntil:
+    visible: "LECLERC RENNES"
+    timeout: 20000
+
+# The count is what decides whether a merchant is a habit worth a rule, so it is
+# asserted rather than taken on trust: three debits in the seed.
+- assertVisible: ".*3 fois.*"
+
+# Nothing is chosen while the heading is a question, so there is nothing to
+# create yet: `MerchantDictionary` files LECLERC under « Nourriture », which no
+# seeded category is named, so the suggestion arrives with no `categoryId`.
+#
+# Addressed by its tag and not by its label: a `Button`'s text is a node of its
+# own in the hierarchy, and a `Text` is always `enabled: true` — so the pair
+# « label + disabled » matches nothing, on a greyed-out button as much as on a
+# live one. The tag is on the button, which carries the state.
+- assertVisible:
+    id: "suggestion_accept"
+    enabled: false
+
+# The heading, then the yes.
+- tapOn: "Courses"
+- tapOn:
+    id: "suggestion_accept"
+
+# The rule it wrote covers the merchant now, so there is nothing left to ask —
+# asserted on the empty state and not on the snackbar, which lives four seconds.
+- extendedWaitUntil:
+    visible: "Rien à proposer pour l'instant"
+    timeout: 30000
+
+- openLink: "maggie-e2e://finance/banks"
+
+- extendedWaitUntil:
+    visible: "Mock Bank"
+    timeout: 20000
+
+# The consent runs to 2099 in the fixture, deliberately: `isUsable()` reads the
+# real clock, so a near date would make the link look expired and the fetch would
+# quietly do nothing.
+- assertVisible: "Connectée"
+- assertVisible: "Jamais synchronisée"
+
+- tapOn:
+    id: "bank_sync"
+
+# A fetch that reached the bank says when it happened — the one assertion that
+# does not depend on how many movements the stub holds, nor on whether a previous
+# run already imported them.
+- extendedWaitUntil:
+    visible: ".*Dernière synchronisation.*"
+    timeout: 60000

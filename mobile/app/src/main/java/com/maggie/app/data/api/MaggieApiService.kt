@@ -16,9 +16,17 @@ import com.maggie.app.data.model.Proaction
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.Recipe
 import com.maggie.app.data.model.Account
+import com.maggie.app.data.model.AcceptRuleSuggestionsRequest
+import com.maggie.app.data.model.AcceptRuleSuggestionsResult
 import com.maggie.app.data.model.ApplyRulesResult
+import com.maggie.app.data.model.BankAuthorization
+import com.maggie.app.data.model.BankConnection
+import com.maggie.app.data.model.BankConnectionsResponse
+import com.maggie.app.data.model.BankSyncResult
 import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.CategorizationRule
+import com.maggie.app.data.model.RuleSuggestion
+import com.maggie.app.data.model.RuleSuggestionsResponse
 import com.maggie.app.data.model.CushionStatus
 import com.maggie.app.data.model.DailyScore
 import com.maggie.app.data.model.DebtTimeline
@@ -989,6 +997,40 @@ class MaggieApiService(
 
     suspend fun applyCategorizationRules(): ApplyRulesResult {
         return client.post("$baseUrl/api/finance/apply-categorization-rules").body()
+    }
+
+    // Finance — Rules the statement implies
+    suspend fun getCategorizationRuleSuggestions(): List<RuleSuggestion> {
+        return client.get("$baseUrl/api/finance/categorization-rules/suggestions")
+            .body<RuleSuggestionsResponse>().suggestions
+    }
+
+    suspend fun acceptCategorizationRuleSuggestions(
+        request: AcceptRuleSuggestionsRequest,
+    ): AcceptRuleSuggestionsResult {
+        return client.post("$baseUrl/api/finance/categorization-rules/suggestions") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.body()
+    }
+
+    // Finance — Bank connections
+    suspend fun getBankConnections(): List<BankConnection> {
+        return client.get("$baseUrl/api/finance/bank-connections")
+            .body<BankConnectionsResponse>().connections
+    }
+
+    /**
+     * Pulls what the banks have. Triggered by hand rather than on a timer:
+     * every fetch spends part of the bank's daily allowance.
+     */
+    suspend fun syncBankConnections(): BankSyncResult {
+        return client.post("$baseUrl/api/finance/bank-connections/sync").body()
+    }
+
+    /** Hands back the URL to send the user to, at their bank. */
+    suspend fun reconnectBankConnection(id: String): BankAuthorization {
+        return client.post("$baseUrl/api/finance/bank-connections/$id/reconnect").body()
     }
 
     // Finance — Safety cushion

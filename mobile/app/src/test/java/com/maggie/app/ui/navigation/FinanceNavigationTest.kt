@@ -26,6 +26,7 @@ class FinanceNavigationTest {
 
         assertTrue(routes.containsAll(legacyDrawerRoutes))
         assertTrue(Screen.CategorizationRuleList.route in routes)
+        assertTrue(Screen.BankConnectionList.route in routes)
         assertEquals(routes.size, routes.toSet().size)
     }
 
@@ -50,7 +51,12 @@ class FinanceNavigationTest {
             financeAccessesBy(FinanceFrequency.MONTHLY).map { it.route },
         )
         assertEquals(
-            listOf(Screen.LoanList.route, Screen.CategoryList.route, Screen.CategorizationRuleList.route),
+            listOf(
+                Screen.LoanList.route,
+                Screen.CategoryList.route,
+                Screen.CategorizationRuleList.route,
+                Screen.BankConnectionList.route,
+            ),
             financeAccessesBy(FinanceFrequency.RARE).map { it.route },
         )
     }
@@ -64,6 +70,9 @@ class FinanceNavigationTest {
     fun `back goes to the finance list a screen belongs to`() {
         assertEquals(FinanceBack.POP, financeBackAction(Screen.AccountList.route))
         assertEquals(FinanceBack.POP, financeBackAction(Screen.CategoryList.route))
+        // Suggestions are opened from the rules screen, which is where back goes.
+        assertEquals(FinanceBack.POP, financeBackAction(Screen.CategorizationRuleList.route))
+        assertEquals(FinanceBack.POP, financeBackAction(Screen.RuleSuggestions.route))
     }
 
     @Test

@@ -19,6 +19,7 @@ val FINANCE_ACCESSES = listOf(
     FinanceAccess(Screen.LoanList, "Prêts", FinanceFrequency.RARE),
     FinanceAccess(Screen.CategoryList, "Catégories", FinanceFrequency.RARE),
     FinanceAccess(Screen.CategorizationRuleList, "Règles de catégorisation", FinanceFrequency.RARE),
+    FinanceAccess(Screen.BankConnectionList, "Banques", FinanceFrequency.RARE),
 )
 
 internal fun financeAccessesBy(frequency: FinanceFrequency): List<FinanceAccess> =
@@ -26,7 +27,13 @@ internal fun financeAccessesBy(frequency: FinanceFrequency): List<FinanceAccess>
 
 private val FINANCE_ROUTES: Set<String> =
     FINANCE_ACCESSES.map { it.route }.toSet() +
-        setOf(Screen.FinanceDashboard.route, Screen.AccountTransactions.route)
+        setOf(
+            Screen.FinanceDashboard.route,
+            Screen.AccountTransactions.route,
+            // Opened from the rules screen, not from the dashboard: back belongs
+            // to the list it was opened from, like a transaction to its account.
+            Screen.RuleSuggestions.route,
+        )
 
 enum class FinanceBack { POP, REPLACE_WITH_DASHBOARD }
 

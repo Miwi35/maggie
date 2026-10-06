@@ -5,11 +5,18 @@ import com.maggie.app.data.api.EndErrandRemainingStore
 import com.maggie.app.data.api.EndErrandResponse
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.model.AcceptRuleSuggestionsRequest
+import com.maggie.app.data.model.AcceptRuleSuggestionsResult
+import com.maggie.app.data.model.AcceptedRuleSuggestion
+import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.GroceryList
+import com.maggie.app.data.model.RuleSuggestion
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.repository.AgendaRepository
+import com.maggie.app.data.repository.CategorizationRuleRepository
+import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.FinanceDashboardRepository
 import com.maggie.app.data.repository.GroceryListRepository
@@ -18,6 +25,7 @@ import com.maggie.app.data.repository.StoreRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.ui.screens.cookbook.grocery.GroceryViewModel
 import com.maggie.app.ui.screens.finance.FinanceDashboardViewModel
+import com.maggie.app.ui.screens.finance.RuleSuggestionViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
 import io.mockk.coEvery
 import io.mockk.every
@@ -188,5 +196,46 @@ class FakeFinanceDashboard(private val error: String = "Service indisponible") {
         coEvery { repository.getDashboard(any(), any()) } returns
             Result.failure(IllegalStateException(error))
         FinanceDashboardViewModel(repository)
+    }
+}
+
+/**
+ * The suggestions screen over the merchant the dictionary could not file.
+ *
+ * A small server again rather than canned answers: accepting writes the rule and
+ * the merchant stops being a question, which is what the screen then draws as
+ * « Rien à proposer pour l'instant ». A stub that kept serving the card would let
+ * a screen that never reloads pass.
+ */
+class FakeRuleSuggestions(
+    suggestions: List<RuleSuggestion> = listOf(Seed.leclercSuggestion),
+    private val categories: List<Category> = Seed.financeCategories,
+) {
+    private val remaining = suggestions.toMutableList()
+
+    /** What the fake server was asked to write — the rule half of an assertion. */
+    val accepted = mutableListOf<AcceptedRuleSuggestion>()
+
+    val viewModel: RuleSuggestionViewModel by lazy {
+        val ruleRepository = mockk<CategorizationRuleRepository>()
+        val categoryRepository = mockk<CategoryRepository>()
+
+        coEvery { categoryRepository.getCategories() } returns Result.success(categories)
+        coEvery { ruleRepository.getSuggestions() } answers { Result.success(remaining.toList()) }
+        coEvery { ruleRepository.acceptSuggestions(any()) } answers {
+            val rules = firstArg<AcceptRuleSuggestionsRequest>().rules
+            accepted += rules
+            remaining.removeAll { suggestion -> rules.any { it.pattern == suggestion.pattern } }
+            Result.success(
+                AcceptRuleSuggestionsResult(
+                    success = true,
+                    created = rules.size,
+                    categorized = rules.size * 3,
+                    patterns = rules.map { it.pattern },
+                ),
+            )
+        }
+
+        RuleSuggestionViewModel(ruleRepository, categoryRepository)
     }
 }
