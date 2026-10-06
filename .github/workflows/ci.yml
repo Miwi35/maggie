@@ -772,6 +772,14 @@ jobs:
           java-version: '17'
 
       - uses: gradle/actions/setup-gradle@v4
+      # Robolectric downloads its Android runtime (`android-all-instrumented`,
+      # ~150 MB) into ~/.m2, which setup-gradle does not cover (MAG-247). Keyed on
+      # the Robolectric version and on the API level `robolectric.properties` pins,
+      # the two things that decide which jar is fetched.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: robolectric-runtime-${{ runner.os }}-${{ hashFiles('mobile/gradle/libs.versions.toml', 'mobile/app/src/test/resources/robolectric.properties') }}
 
       - name: Unit tests of the e2e flavor
         run: e2e/mobile/build-apk.sh :app:testE2eDebugUnitTest
@@ -1090,6 +1098,14 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
+      # Robolectric downloads its Android runtime (`android-all-instrumented`,
+      # ~150 MB) into ~/.m2, which setup-gradle does not cover (MAG-247). Keyed on
+      # the Robolectric version and on the API level `robolectric.properties` pins,
+      # the two things that decide which jar is fetched.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: robolectric-runtime-${{ runner.os }}-${{ hashFiles('mobile/gradle/libs.versions.toml', 'mobile/app/src/test/resources/robolectric.properties') }}
       # The variant that ships, not the dev debug one: three CI fixes came from
       # the gap between what was tested and what was delivered (MAG-96).
       #

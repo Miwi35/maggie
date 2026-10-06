@@ -323,8 +323,10 @@ that fails on a dialog or another app is readable.
 **A new flow goes in `shards.txt`** — and before writing one, read *What belongs
 here* above: most verifications do not need a flow at all. `task e2e:mobile:lint`
 fails on a flow no shard names (it would never run in CI), on one named twice, and
-on an order that is not `config.yaml`'s `flowsOrder`. Balance by the `junit.xml`
-durations of the shards.
+on an order that is not `config.yaml`'s `flowsOrder`. Balance by the durations
+measured in CI (`junit.xml` of the report, or the `[Passed] <flow> (<time>)` lines of
+the job), not by estimates: `shards.txt` carries the last measure and the reasoning
+behind three shards and not two (MAG-247).
 `config.yaml` itself is read when the whole workspace runs, not for a shard, whose
 flows are passed as files, so a shard goes on after a failed flow and reports all
 of them.
