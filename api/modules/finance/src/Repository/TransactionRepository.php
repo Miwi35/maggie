@@ -13,9 +13,20 @@ use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\ObligationFlag;
 use Maggie\Finance\Enum\TransactionStatus;
+use Maggie\Finance\Enum\TransferKind;
+use Maggie\Finance\Enum\TransferSource;
 use Symfony\Component\Uid\Ulid;
 
-/** @extends ServiceEntityRepository<Transaction> */
+/**
+ * Every method that aggregates or lists movements keeps `transferKind = none`:
+ * counting a movement between two of the owner's own accounts once as a debit
+ * and once as a credit is what measured a 11 129 €/month lifestyle on 4 950 €
+ * of income (MAG-271). `countMatching` (import de-duplication) and
+ * `findByUser` / `findByAccount` (raw lists) filter nothing: a transfer is
+ * still a line of the statement, and the balances already moved with the money.
+ *
+ * @extends ServiceEntityRepository<Transaction>
+ */
 class TransactionRepository extends ServiceEntityRepository
 {
     public function __construct(ManagerRegistry $registry)
@@ -57,11 +68,13 @@ class TransactionRepository extends ServiceEntityRepository
         $rows = $this->createQueryBuilder('t')
             ->select('t.status AS status, SUM(t.amountCents) AS total')
             ->andWhere('t.user = :user')
+            ->andWhere('t.transferKind = :noTransfer')
             ->andWhere('t.category = :category')
             ->andWhere('t.amountCents < 0')
             ->andWhere('t.bookedAt >= :from')
             ->andWhere('t.bookedAt < :until')
             ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('noTransfer', TransferKind::None->value)
             ->setParameter('category', $category->getId(), 'ulid')
             ->setParameter('from', $from)
             ->setParameter('until', $until)
@@ -102,6 +115,80 @@ class TransactionRepository extends ServiceEntityRepository
     }
 
     /**
+     * The lines of one user the detection may still pair, oldest first.
+     *
+     * Already paired lines and lines the user judged by hand are left out, so
+     * a second catch-up pass over the same history changes nothing.
+     *
+     * @param \DateTimeImmutable|null $since how far back to look, or null for the whole history
+     *
+     * @return Transaction[]
+     */
+    public function findUnpairedForUser(User $user, ?\DateTimeImmutable $since = null): array
+    {
+        $qb = $this->createQueryBuilder('t')
+            ->innerJoin('t.account', 'a')
+            ->andWhere('t.user = :user')
+            ->andWhere('a.user = :user')
+            ->andWhere('t.counterpart IS NULL')
+            ->andWhere('t.transferSource != :manual')
+            ->andWhere('t.status IN (:consumed)')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('manual', TransferSource::Manual->value)
+            ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
+            ->orderBy('t.bookedAt', 'ASC')
+            ->addOrderBy('t.id', 'ASC');
+
+        if (null !== $since) {
+            $qb->andWhere('t.bookedAt >= :since')->setParameter('since', $since);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * Every line that could be the other leg of this movement, in one query.
+     *
+     * Same user, two accounts of his that are not the same one, exactly
+     * opposite amounts in the same currency, booked within the window, already
+     * consumed, not paired yet and not judged by hand. Which one wins is the
+     * use case's call: the order here is only there to make the result stable.
+     *
+     * @return Transaction[]
+     */
+    public function findTransferCandidates(Transaction $transaction, int $windowDays): array
+    {
+        $bookedAt = $transaction->getBookedAt();
+
+        return $this->createQueryBuilder('t')
+            ->innerJoin('t.account', 'a')
+            ->andWhere('t.user = :user')
+            ->andWhere('a.user = :user')
+            ->andWhere('t.id != :id')
+            ->andWhere('t.account != :account')
+            ->andWhere('t.amountCents = :opposite')
+            ->andWhere('t.currency = :currency')
+            ->andWhere('t.bookedAt >= :from')
+            ->andWhere('t.bookedAt <= :until')
+            ->andWhere('t.status IN (:consumed)')
+            ->andWhere('t.counterpart IS NULL')
+            ->andWhere('t.transferSource != :manual')
+            ->setParameter('user', $transaction->getUser()->getId(), 'ulid')
+            ->setParameter('id', $transaction->getId(), 'ulid')
+            ->setParameter('account', $transaction->getAccount()->getId(), 'ulid')
+            ->setParameter('opposite', -$transaction->getAmountCents())
+            ->setParameter('currency', $transaction->getCurrency())
+            ->setParameter('from', $bookedAt->modify(sprintf('-%d days', $windowDays)))
+            ->setParameter('until', $bookedAt->modify(sprintf('+%d days', $windowDays)))
+            ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
+            ->setParameter('manual', TransferSource::Manual->value)
+            ->orderBy('t.bookedAt', 'ASC')
+            ->addOrderBy('t.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Everyday consumption over a half-open period, as positive cents: spent
      * and committed debits, without the exceptional ones and the loan
      * payments (counted on their own by the debt timeline).
@@ -112,6 +199,7 @@ class TransactionRepository extends ServiceEntityRepository
             ->select('SUM(t.amountCents)')
             ->leftJoin('t.category', 'c')
             ->andWhere('t.user = :user')
+            ->andWhere('t.transferKind = :noTransfer')
             ->andWhere('t.amountCents < 0')
             ->andWhere('t.status IN (:consumed)')
             ->andWhere('t.isExceptional = false')
@@ -119,6 +207,7 @@ class TransactionRepository extends ServiceEntityRepository
             ->andWhere('t.bookedAt >= :from')
             ->andWhere('t.bookedAt < :until')
             ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('noTransfer', TransferKind::None->value)
             ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
             ->setParameter('debt', ObligationFlag::Debt->value)
             ->setParameter('from', $from)
@@ -147,6 +236,7 @@ class TransactionRepository extends ServiceEntityRepository
     ): array {
         return $this->createQueryBuilder('t')
             ->andWhere('t.user = :user')
+            ->andWhere('t.transferKind = :noTransfer')
             ->andWhere('t.category IS NOT NULL')
             ->andWhere('t.amountCents < 0')
             ->andWhere('t.amountCents <= :ceiling')
@@ -154,6 +244,7 @@ class TransactionRepository extends ServiceEntityRepository
             ->andWhere('t.bookedAt >= :from')
             ->andWhere('t.bookedAt < :until')
             ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('noTransfer', TransferKind::None->value)
             ->setParameter('ceiling', -$minAmountCents)
             ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
             ->setParameter('from', $from)
@@ -173,12 +264,14 @@ class TransactionRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('t')
             ->andWhere('t.user = :user')
+            ->andWhere('t.transferKind = :noTransfer')
             ->andWhere('t.category IS NOT NULL')
             ->andWhere('t.amountCents < 0')
             ->andWhere('t.status IN (:decided)')
             ->andWhere('t.bookedAt >= :from')
             ->andWhere('t.bookedAt < :until')
             ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('noTransfer', TransferKind::None->value)
             ->setParameter('decided', [
                 TransactionStatus::Planned->value,
                 TransactionStatus::Committed->value,
@@ -212,6 +305,7 @@ class TransactionRepository extends ServiceEntityRepository
             ->select('IDENTITY(t.category) AS categoryId, c.name AS categoryName, SUM(t.amountCents) AS total')
             ->innerJoin('t.category', 'c')
             ->andWhere('t.user = :user')
+            ->andWhere('t.transferKind = :noTransfer')
             ->andWhere('c.user = :user')
             ->andWhere('c.passiveIncome = true')
             ->andWhere('t.amountCents > 0')
@@ -220,6 +314,7 @@ class TransactionRepository extends ServiceEntityRepository
             ->andWhere('t.bookedAt >= :from')
             ->andWhere('t.bookedAt < :until')
             ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('noTransfer', TransferKind::None->value)
             ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
             ->setParameter('from', $from)
             ->setParameter('until', $until)
@@ -251,12 +346,14 @@ class TransactionRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('t')
             ->leftJoin('t.category', 'c')
             ->andWhere('t.user = :user')
+            ->andWhere('t.transferKind = :noTransfer')
             ->andWhere('t.amountCents < 0')
             ->andWhere('t.status IN (:consumed)')
             ->andWhere('t.bookedAt >= :from')
             ->andWhere('t.bookedAt < :until')
             ->andWhere('c.id IS NULL OR c.obligation != :mandatory')
             ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('noTransfer', TransferKind::None->value)
             ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
             ->setParameter('from', $from)
             ->setParameter('until', $until)
@@ -281,10 +378,12 @@ class TransactionRepository extends ServiceEntityRepository
         $rows = $this->createQueryBuilder('t')
             ->select('t.bookedAt AS bookedAt, t.amountCents AS amountCents')
             ->andWhere('t.user = :user')
+            ->andWhere('t.transferKind = :noTransfer')
             ->andWhere('t.status IN (:consumed)')
             ->andWhere('t.bookedAt >= :from')
             ->andWhere('t.bookedAt < :until')
             ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('noTransfer', TransferKind::None->value)
             ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
             ->setParameter('from', $from)
             ->setParameter('until', $until)
@@ -318,11 +417,13 @@ class TransactionRepository extends ServiceEntityRepository
             ->select('IDENTITY(t.category) AS categoryId, c.name AS categoryName, SUM(t.amountCents) AS total')
             ->leftJoin('t.category', 'c')
             ->andWhere('t.user = :user')
+            ->andWhere('t.transferKind = :noTransfer')
             ->andWhere('t.amountCents < 0')
             ->andWhere('t.status IN (:consumed)')
             ->andWhere('t.bookedAt >= :from')
             ->andWhere('t.bookedAt < :until')
             ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('noTransfer', TransferKind::None->value)
             ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
             ->setParameter('from', $from)
             ->setParameter('until', $until)

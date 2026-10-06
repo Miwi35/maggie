@@ -8,11 +8,16 @@ use Maggie\Core\Repository\UserRepository;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\TransactionStatus;
+use Maggie\Finance\Enum\TransferKind;
+use Maggie\Finance\Enum\TransferSource;
 use Maggie\Finance\Message\CreateTransactionCommand;
+use Maggie\Finance\Message\UpdateTransactionCommand;
 use Maggie\Finance\Service\OwnedReferenceResolver;
 use Maggie\Finance\UseCase\CategorizeTransaction;
 use Maggie\Finance\UseCase\CreateTransaction;
+use Maggie\Finance\UseCase\DetectInternalTransfers;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 #[AsMessageHandler]
 class CreateTransactionHandler
@@ -20,8 +25,10 @@ class CreateTransactionHandler
     public function __construct(
         private readonly CreateTransaction $createTransaction,
         private readonly CategorizeTransaction $categorizeTransaction,
+        private readonly DetectInternalTransfers $detectInternalTransfers,
         private readonly OwnedReferenceResolver $references,
         private readonly UserRepository $userRepository,
+        private readonly MessageBusInterface $bus,
     ) {
     }
 
@@ -49,6 +56,29 @@ class CreateTransactionHandler
             $this->categorizeTransaction->apply($transaction);
         }
 
-        return $this->createTransaction->execute($transaction);
+        // A movement between two of the owner's own accounts is recognised as
+        // it lands, like a rule claiming a category: the second leg of a
+        // transfer is often imported minutes after the first.
+        $counterpart = $this->detectInternalTransfers->detectFor($transaction);
+        if (null !== $counterpart) {
+            $transaction->markAsInternalTransfer($counterpart, TransferSource::Auto);
+        }
+
+        $transaction = $this->createTransaction->execute($transaction);
+
+        // The other leg changed too, and only a command of its own republishes
+        // it: without this, the search index — which is what the transaction
+        // list reads — would still call it an ordinary expense.
+        if (null !== $counterpart) {
+            $this->bus->dispatch(new UpdateTransactionCommand(
+                userId: (string) $user->getId(),
+                transactionId: (string) $counterpart->getId(),
+                transferKind: TransferKind::Internal->value,
+                transferSource: TransferSource::Auto->value,
+                counterpartId: (string) $transaction->getId(),
+            ));
+        }
+
+        return $transaction;
     }
 }

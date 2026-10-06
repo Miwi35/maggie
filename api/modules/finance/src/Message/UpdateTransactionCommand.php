@@ -10,7 +10,7 @@ final readonly class UpdateTransactionCommand
 {
     use ClearsFieldsTrait;
 
-    /** @param list<'categoryId'> $clearFields */
+    /** @param list<'categoryId'|'transferKind'> $clearFields */
     public function __construct(
         public string $userId,
         public string $transactionId,
@@ -24,6 +24,9 @@ final readonly class UpdateTransactionCommand
         public ?string $categoryId = null,
         public ?string $categorySource = null,
         public ?string $retrospect = null,
+        public ?string $transferKind = null,
+        public ?string $transferSource = null,
+        public ?string $counterpartId = null,
         public array $clearFields = [],
     ) {
     }
