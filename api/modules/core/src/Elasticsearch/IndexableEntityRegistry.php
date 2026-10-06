@@ -61,6 +61,12 @@ final class IndexableEntityRegistry
                 continue;
             }
 
+            // A subclass sharing its parent's index (Ingredient extends Product) must not
+            // replace it: the index is rebuilt from the parent's rows, subclasses included.
+            if (isset($result[$indexMeta['index']]) && is_subclass_of($class, $result[$indexMeta['index']])) {
+                continue;
+            }
+
             $result[$indexMeta['index']] = $class;
         }
 
