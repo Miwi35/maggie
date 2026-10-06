@@ -276,7 +276,7 @@ Everything else is the same pixels under a name. These are not:
   `TokensContractTest`, the one net that would have caught it, never runs. Not
   fixed here: the filters live under `.github/`, which the guard hands to a
   human as `infra-path` (`agent-guard-rails.md`), and this PR is on the merge
-  train. A follow-up `Task` adds `design/**` to the `admin`, `mobile_unit` and
+  train. **MAG-286** adds `design/**` to the `admin`, `mobile_unit` and
   `e2e` filters — three lines, and a `.github/` PR is the owner's to merge
   anyway. Until then the standard carries the warning: the three files travel in
   one commit, and nothing but a reviewer enforces it.

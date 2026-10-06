@@ -67,7 +67,7 @@ internal val MaggieDarkColorScheme = darkColorScheme(
     primaryContainer = MaggieTokens.Brand.containerDark,
     onPrimaryContainer = MaggieTokens.Brand.onContainerDark,
     secondary = MaggieTokens.Brand.secondaryDark,
-    // Not white: `#FF83F6` is a light pink, and white on it is a contrast of 2.2.
+    // Not white: `#FF83F6` is a light pink, and white on it is a contrast of 2.14.
     onSecondary = MaggieTokens.surfaceDark.background,
     secondaryContainer = MaggieTokens.Brand.containerDark,
     onSecondaryContainer = MaggieTokens.Brand.onContainerDark,

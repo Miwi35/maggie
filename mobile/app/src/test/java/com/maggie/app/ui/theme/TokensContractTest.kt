@@ -76,6 +76,19 @@ class TokensContractTest {
     }
 
     @Test
+    fun `the night screens' muted text is the night text at the token's alpha`() {
+        // `Night.textMuted` is derived, so the map comparison only pins the two
+        // values it is derived *from*. It is what `LoginScreen` and `LockScreen`
+        // write their subtitles in, and a literal put here instead would drift
+        // from the token with nothing to notice it.
+        val night = source["night"] as JsonObject
+        val text = Color(night["text"]!!.jsonPrimitive.content.removePrefix("#").toLong(16) or 0xFF000000)
+        val alpha = night["textMutedAlpha"]!!.jsonPrimitive.content.toFloat()
+
+        assertEquals(text.copy(alpha = alpha), MaggieTokens.Night.textMuted)
+    }
+
+    @Test
     fun `an unknown criticality or context state still draws a colour`() {
         // The API's enums may grow; a null would draw nothing at all.
         assertEquals(MaggieTokens.Signal.success, criticalityColor("whatever-comes-next"))

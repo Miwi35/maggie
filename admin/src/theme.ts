@@ -32,9 +32,19 @@ const narrow = (theme: Theme) => theme.breakpoints.down('md')
  * The identity (MAG-39). Radiant already carried most of it — the violet and
  * Gabarito are its own — so these options mostly *name* what was already on
  * screen; `design/tokens.json` is where the names live, and the mobile theme
- * reads the same file. Two values do change, both of them bugs:
- * `index.html` loads `wght@400;500;600;700` while radiant asks `h4` for 800
- * and `h5` for 900, so the browser synthesises those two.
+ * reads the same file. Three values do change:
+ *
+ *  - `h4` and `h5`, which were bugs. `index.html` loads `wght@400;500;600;700`
+ *    while radiant asks them for 800 and 900, so the browser synthesised both
+ *    and every page title in the admin was faux-bold. Both are 700 now, the
+ *    loaded maximum, which is the closest thing to what radiant asked for;
+ *  - the dark mode's `text.secondary`, which was MUI's `rgba(255,255,255,0.7)`
+ *    and is now the opaque `#B8B7BB` — the same colour over `#110E1C`, but it
+ *    no longer composites over whatever sits underneath. Compose takes a
+ *    colour and not a CSS alpha, and this is a token the phone reads too.
+ *
+ * The full list, the phone's own changes included:
+ * `agent-os/specs/2026-10-06-2240-design-system-tokens/shape.md`.
  */
 const paletteFor = (mode: ThemeMode): ThemeOptions['palette'] => {
   const surface = TOKENS.surface[mode]
