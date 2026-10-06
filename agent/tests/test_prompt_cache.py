@@ -124,6 +124,25 @@ class TestUsageAndCost:
         # 2.00 input + 2.50 cache write + 0.20 cache read + 10.00 output
         assert LLM_COST_USD.labels(**labels)._value.get() - before == pytest.approx(14.70)
 
+    def test_opus_5_5_reads_the_cache_at_five_percent(self):
+        from app.metrics import record_llm_usage
+
+        labels = {"model": "claude-opus-5-5", "call_type": "cost_test"}
+        before = LLM_COST_USD.labels(**labels)._value.get()
+
+        record_llm_usage(
+            "claude-opus-5-5",
+            "cost_test",
+            input_tokens=1_000_000,
+            output_tokens=1_000_000,
+            duration_seconds=0.1,
+            cache_creation_input_tokens=1_000_000,
+            cache_read_input_tokens=1_000_000,
+        )
+
+        # 4.00 input + 5.00 cache write + 0.20 cache read + 20.00 output
+        assert LLM_COST_USD.labels(**labels)._value.get() - before == pytest.approx(29.20)
+
 
 class TestStreamingPrefix:
     async def test_chat_stream_sends_cached_system_and_tools_and_records_cache_usage(self):

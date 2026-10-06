@@ -7,6 +7,8 @@ from prometheus_client import Counter, Histogram
 # ---------------------------------------------------------------------------
 PRICING: dict[str, tuple[float, float]] = {
     # (input_price, output_price) per 1M tokens
+    "claude-opus-5-5": (4.0, 20.0),
+    "claude-opus-5": (5.0, 25.0),
     "claude-sonnet-5-5": (2.0, 10.0),
     "claude-haiku-4-5-20251001": (1.0, 5.0),
     "claude-sonnet-4-5-20250929": (3.0, 15.0),
@@ -23,6 +25,8 @@ DEFAULT_PRICING = (3.0, 15.0)  # Sonnet-level as safe default
 # Prompt caching, as multiples of the input price: a 5-minute cache write costs 1.25x, a cache read 0.1x
 CACHE_WRITE_MULTIPLIER = 1.25
 CACHE_READ_MULTIPLIER = 0.1
+# Opus 5.5 reads from the cache at 0.05x its input price, not 0.1x
+CACHE_READ_MULTIPLIER_BY_MODEL = {"claude-opus-5-5": 0.05}
 
 # ---------------------------------------------------------------------------
 # Counters
@@ -118,10 +122,11 @@ def record_llm_usage(
 
     # Estimate cost
     input_price, output_price = PRICING.get(model, DEFAULT_PRICING)
+    cache_read_multiplier = CACHE_READ_MULTIPLIER_BY_MODEL.get(model, CACHE_READ_MULTIPLIER)
     cost = (
         input_tokens * input_price
         + cache_creation_input_tokens * input_price * CACHE_WRITE_MULTIPLIER
-        + cache_read_input_tokens * input_price * CACHE_READ_MULTIPLIER
+        + cache_read_input_tokens * input_price * cache_read_multiplier
         + output_tokens * output_price
     ) / 1_000_000
     LLM_COST_USD.labels(model=model, call_type=call_type).inc(cost)
