@@ -8,6 +8,7 @@ import PsychologyIcon from '@mui/icons-material/Psychology'
 import MicIcon from '@mui/icons-material/Mic'
 import StopIcon from '@mui/icons-material/Stop'
 import CircularProgress from '@mui/material/CircularProgress'
+import { TOKENS } from '../../design/tokens'
 import { NotificationBell } from '../notifications/NotificationBell'
 import { SearchBar } from '../../modules/search/SearchBar'
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder'
@@ -68,7 +69,7 @@ export const CustomAppBar = () => {
                 {isTranscribing ? (
                   <CircularProgress size={24} color="inherit" />
                 ) : recorder.state === 'recording' ? (
-                  <StopIcon sx={{ color: '#ff5252' }} />
+                  <StopIcon sx={{ color: TOKENS.signal.danger }} />
                 ) : (
                   <MicIcon />
                 )}
@@ -82,7 +83,9 @@ export const CustomAppBar = () => {
           {!isNarrow && (
             <Tooltip title="Maggie's Mind">
               <IconButton color="inherit" onClick={onMindToggle}>
-                <PsychologyIcon sx={{ color: chatOpen && sidebarTab === 'mind' ? '#ce93d8' : 'inherit' }} />
+                <PsychologyIcon
+                  sx={{ color: chatOpen && sidebarTab === 'mind' ? TOKENS.brand.primary : 'inherit' }}
+                />
               </IconButton>
             </Tooltip>
           )}

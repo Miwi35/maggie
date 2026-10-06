@@ -3,6 +3,7 @@ import { useDataProvider, useNotify } from 'react-admin'
 import { useSearchParams } from 'react-router-dom'
 import { useTheme } from '@mui/material/styles'
 import Box from '@mui/material/Box'
+import { criticalityColor, SOURCE_COLORS } from '../../design/tokens'
 import { localDay } from '../../dates'
 import { useMercure } from '../../hooks/useMercure'
 import { useUserPreferences } from '../../hooks/useUserPreferences'
@@ -80,8 +81,8 @@ const bareId = (id: string) => id.split('/').pop() ?? id
 const eventIri = (id: string) => (id.startsWith('/') ? id : `/api/events/${id}`)
 const mealIri = (id: string) => (id.startsWith('/') ? id : `/api/meals/${id}`)
 
-const MEAL_COLOR = '#FF6B35'
-const TASK_DONE_COLOR = '#9E9E9E'
+const MEAL_COLOR = SOURCE_COLORS.meals
+const TASK_DONE_COLOR = SOURCE_COLORS.done
 const MEAL_SLOT_LABELS: Record<string, string> = { lunch: 'Déj', dinner: 'Dîner' }
 const mealTitle = (m: CalendarMeal) => {
   const label = MEAL_SLOT_LABELS[m.slot] || m.slot
@@ -152,13 +153,6 @@ interface CalendarMeal {
   slot: string
   summary: string
   recipes: { id: string; name: string }[]
-}
-
-const TASK_CRITICALITY_COLORS: Record<string, string> = {
-  low: '#4CAF50',
-  medium: '#FF9800',
-  high: '#F44336',
-  critical: '#9C27B0',
 }
 
 type RecurrenceAction = 'this' | 'thisAndFollowing' | 'all'
@@ -871,7 +865,7 @@ export const CalendarView = () => {
     return rawTasks
       .filter((t) => t.dueDate)
       .map((t) => {
-        const color = TASK_CRITICALITY_COLORS[t.criticality] || TASK_CRITICALITY_COLORS.low
+        const color = criticalityColor(t.criticality)
         const isDone = t.completedAt != null
         const background = isDone ? TASK_DONE_COLOR : color
         return {
@@ -1904,8 +1898,8 @@ export const CalendarView = () => {
                 disableRipple
                 sx={{
                   p: 0.25,
-                  color: '#FF6B35',
-                  '&.Mui-checked': { color: '#FF6B35' },
+                  color: MEAL_COLOR,
+                  '&.Mui-checked': { color: MEAL_COLOR },
                 }}
               />
               <RestaurantIcon sx={{ fontSize: 16, color: 'text.secondary', ml: 0.5, mr: 0.5 }} />
@@ -1932,8 +1926,8 @@ export const CalendarView = () => {
                 disableRipple
                 sx={{
                   p: 0.25,
-                  color: '#1976d2',
-                  '&.Mui-checked': { color: '#1976d2' },
+                  color: SOURCE_COLORS.tasks,
+                  '&.Mui-checked': { color: SOURCE_COLORS.tasks },
                 }}
               />
               <ChecklistIcon sx={{ fontSize: 16, color: 'text.secondary', ml: 0.5, mr: 0.5 }} />

@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Proaction
+import com.maggie.app.ui.theme.MaggieTokens
 import org.koin.androidx.compose.koinViewModel
 import java.time.Instant
 import java.time.ZoneId
@@ -151,8 +152,8 @@ private fun ProactionCard(proaction: Proaction) {
 private fun StatusChip(status: String) {
     val (label, color) = when (status) {
         "pending" -> "En attente" to MaterialTheme.colorScheme.outline
-        "running" -> "En cours" to Color(0xFF2196F3)
-        "completed" -> "Terminé" to Color(0xFF4CAF50)
+        "running" -> "En cours" to MaggieTokens.Signal.info
+        "completed" -> "Terminé" to MaggieTokens.Signal.success
         "failed" -> "Échoué" to MaterialTheme.colorScheme.error
         else -> status to MaterialTheme.colorScheme.outline
     }

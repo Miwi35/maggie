@@ -323,12 +323,13 @@ tasks:
         # mode=1777 because a Docker tmpfs belongs to root and this container
         # runs as the host user.
         #
-        # api/contract and agent/contract are mounted too, read-only:
+        # api/contract, agent/contract and design/ are mounted too, read-only:
         # useMercure.contract.test.ts compares the admin's Mercure
-        # subscriptions against what the API and the agent say they publish.
-        # /app is admin/, so they sit at /api/contract and /agent/contract —
-        # the same place relative to the sources as in the checkout, which is
-        # what the test walks up to find.
+        # subscriptions against what the API and the agent say they publish,
+        # and tokens.contract.test.ts its design tokens against
+        # design/tokens.json. /app is admin/, so they sit at /api/contract,
+        # /agent/contract and /design — the same place relative to the sources
+        # as in the checkout, which is what the tests walk up to find.
         docker run --rm \
           --memory {{.WT_MEMORY}} --cpus {{.WT_CPUS}} \
           -u $(id -u):$(id -g) \
@@ -338,6 +339,7 @@ tasks:
           -v "$NPM_CACHE":/tmp/npm-cache \
           -v "{{.ROOT_DIR}}/api/contract":/api/contract:ro \
           -v "{{.ROOT_DIR}}/agent/contract":/agent/contract:ro \
+          -v "{{.ROOT_DIR}}/design":/design:ro \
           --tmpfs /app/node_modules/.vite-temp:mode=1777 \
           --tmpfs /app/node_modules/.vite:mode=1777 \
           -w /app {{.NODE_IMAGE}} \

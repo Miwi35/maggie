@@ -3,17 +3,19 @@ import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { useTheme } from '@mui/material/styles'
+import { chartColor } from '../../design/tokens'
 import { formatCents } from './accountTypes'
 import type { MonthlyFlow } from './useFinanceDashboard'
 
 /**
  * Categorical slots 1 and 2 of the validated palette — light and dark steps of
- * the same two hues. Money in and money out are two identities, not a scale
- * and not a status, so they take categorical colours in fixed order.
+ * the same two hues, now `chart.categorical` in `design/tokens.json` (MAG-39).
+ * Money in and money out are two identities, not a scale and not a status, so
+ * they take categorical colours in fixed order.
  */
 const SERIES = {
-  income: { light: '#2a78d6', dark: '#3987e5', label: 'Recettes' },
-  expense: { light: '#eb6834', dark: '#d95926', label: 'Dépenses' },
+  income: { slot: 1, label: 'Recettes' },
+  expense: { slot: 2, label: 'Dépenses' },
 }
 
 const CHART_HEIGHT = 180
@@ -38,9 +40,8 @@ interface MonthlyFlowsChartProps {
 export const MonthlyFlowsChart = ({ flows }: MonthlyFlowsChartProps) => {
   const theme = useTheme()
   const [hovered, setHovered] = useState<number | null>(null)
-  const isDark = theme.palette.mode === 'dark'
-
-  const colour = (series: keyof typeof SERIES) => SERIES[series][isDark ? 'dark' : 'light']
+  const colour = (series: keyof typeof SERIES) =>
+    chartColor(SERIES[series].slot, theme.palette.mode === 'dark' ? 'dark' : 'light')
 
   const peak = Math.max(
     1,

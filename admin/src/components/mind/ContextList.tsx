@@ -1,15 +1,18 @@
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
+import { contextStateColor } from '../../design/tokens'
 import type { ContextState } from './types'
 
 interface ContextListProps {
   contexts: ContextState[]
 }
 
-const statusConfig = {
-  active: { color: '#4caf50', icon: '●' },
-  dormant: { color: '#ff9800', icon: '◐' },
-  closed: { color: '#9e9e9e', icon: '○' },
+// Exhaustive on purpose: a status added to `ContextState` has to be given a
+// glyph here, rather than rendering nothing at all.
+const statusIcons: Record<ContextState['status'], string> = {
+  active: '●',
+  dormant: '◐',
+  closed: '○',
 }
 
 /**
@@ -34,7 +37,6 @@ export const ContextList = ({ contexts }: ContextListProps) => {
   return (
     <Box data-testid="mind-contexts" sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
       {contexts.map((ctx) => {
-        const config = statusConfig[ctx.status]
         return (
           <Box
             key={ctx.id}
@@ -50,8 +52,10 @@ export const ContextList = ({ contexts }: ContextListProps) => {
               borderRadius: 1,
             }}
           >
-            <Typography sx={{ color: config.color, fontSize: 12, lineHeight: '20px' }}>
-              {config.icon}
+            <Typography
+              sx={{ color: contextStateColor(ctx.status), fontSize: 12, lineHeight: '20px' }}
+            >
+              {statusIcons[ctx.status]}
             </Typography>
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Typography variant="body2" noWrap>
