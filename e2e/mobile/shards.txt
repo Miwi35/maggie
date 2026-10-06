@@ -12,12 +12,12 @@
 #
 #   02-voice-overlay     121 s   (124 · 122 · 116)
 #   08-grocery-realtime  107 s   (111 · 116 ·  95)
-#   01-login-chat         62 s   ( 69 ·  84 ·  34)   the first flow of a shard pays the cold app
+#   01-login-chat         62 s   ( 69 ·  84 ·  34)   varies from 34 s to 84 s from one run to the next
 #   04-calendar-import    48 s   ( 48 ·  54 ·  41)
 #   09-finance-banks      36 s   (      38 ·  33)
 #   05-deep-links         33 s   ( 35 ·  31 ·  34)
 #
-# That is ~407 s of flows, and a shard job costs ~255 s before its first flow
+# That is ~407 s of flows, and a shard job costs ~255–270 s besides its flows
 # (stack, emulator, APK install): the flows no longer decide much, the fixed cost does.
 #
 # Three shards and not two. Two would put ~205 s of flows on the slowest shard
