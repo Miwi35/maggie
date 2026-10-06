@@ -96,6 +96,7 @@ private data class RefreshRequest(@SerialName("refresh_token") val refreshToken:
 private data class RefreshResponse(
     val token: String,
     @SerialName("refresh_token") val refreshToken: String? = null,
+    val mercureToken: String? = null,
 )
 
 class MaggieApp : Application() {
@@ -173,7 +174,7 @@ class MaggieApp : Application() {
                                             contentType(ContentType.Application.Json)
                                             setBody(RefreshRequest(refresh))
                                         }.body()
-                                    authRepository.updateTokens(refreshed.token, refreshed.refreshToken)
+                                    authRepository.updateTokens(refreshed.token, refreshed.refreshToken, refreshed.mercureToken)
                                     BearerTokens(refreshed.token, refreshed.refreshToken ?: refresh)
                                 } catch (e: Exception) {
                                     authRepository.clear()

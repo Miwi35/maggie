@@ -89,6 +89,25 @@ class AuthRepositoryTest {
     }
 
     @Test
+    fun `updateTokens renews the Mercure token, encrypted, so real-time survives the first refresh`() = runBlocking {
+        save()
+
+        repository.updateTokens("jwt2", "refresh2", "mercure2")
+
+        assertEquals("mercure2", repository.getMercureToken())
+        assertFalse(raw()[mercureKey]!!.contains("mercure2"))
+    }
+
+    @Test
+    fun `updateTokens keeps the Mercure token when the refresh carries none`() = runBlocking {
+        save()
+
+        repository.updateTokens("jwt2", "refresh2", null)
+
+        assertEquals("mercure", repository.getMercureToken())
+    }
+
+    @Test
     fun `legacy plaintext tokens are migrated without signing the user out`() = runBlocking {
         dataStore.edit {
             it[tokenKey] = "legacy-jwt"
