@@ -9,6 +9,7 @@ import com.maggie.app.data.model.AcceptRuleSuggestionsRequest
 import com.maggie.app.data.model.AcceptRuleSuggestionsResult
 import com.maggie.app.data.model.AcceptedRuleSuggestion
 import com.maggie.app.data.model.Category
+import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.GroceryList
@@ -17,6 +18,8 @@ import com.maggie.app.data.model.Store
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.CategorizationRuleRepository
 import com.maggie.app.data.repository.CategoryRepository
+import com.maggie.app.data.repository.ChatPreferencesRepository
+import com.maggie.app.data.repository.ChatRepository
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.FinanceDashboardRepository
 import com.maggie.app.data.repository.GroceryListRepository
@@ -24,6 +27,7 @@ import com.maggie.app.data.repository.ProductRepository
 import com.maggie.app.data.repository.StoreRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
+import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.screens.cookbook.grocery.GroceryViewModel
 import com.maggie.app.ui.screens.finance.FinanceDashboardViewModel
 import com.maggie.app.ui.screens.finance.RuleSuggestionViewModel
@@ -242,5 +246,46 @@ class FakeRuleSuggestions(
         }
 
         RuleSuggestionViewModel(ruleRepository, categoryRepository)
+    }
+}
+
+/**
+ * The conversation, over a history the fake holds (MAG-35).
+ *
+ * Built for `ChatPanelScreenTest`: the permanent side panel of a wide window
+ * draws the same conversation as the sheet, and the sheet's half has the Maestro
+ * flows as a net while the panel has nothing — the CI emulator is a phone and
+ * will never see a 1280 dp window.
+ *
+ * What a sent message is read back through is [sent], not the screen: the panel's
+ * send button is only right if it reaches the repository with what was typed.
+ */
+class FakeChat(private val history: List<ChatMessage> = Seed.conversation) {
+    private val outgoing = mutableListOf<String>()
+
+    /** What the panel asked the server to send, in order. */
+    val sent: List<String> get() = outgoing.toList()
+
+    val viewModel: ChatViewModel by lazy {
+        val (auth, mercure) = signedIn()
+        val repository = mockk<ChatRepository>()
+        val preferences = mockk<ChatPreferencesRepository>()
+
+        every { repository.observeMessages() } returns flowOf(history)
+        coEvery { repository.syncMessages() } returns Unit
+        coEvery { repository.loadRecentMessages(any()) } returns history
+        coEvery { repository.persistMessage(any()) } returns Unit
+        coEvery { repository.sendMessage(any()) } answers {
+            outgoing += firstArg<String>()
+            emptyList()
+        }
+        every { repository.sendMessageStream(any()) } answers {
+            outgoing += firstArg<String>()
+            emptyFlow()
+        }
+        coEvery { preferences.getLastReadMessageId() } returns null
+        coEvery { preferences.saveLastReadMessageId(any()) } returns Unit
+
+        ChatViewModel(repository, mercure, preferences, auth)
     }
 }

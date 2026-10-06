@@ -16,11 +16,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import com.maggie.app.ui.UiTags
 
+/**
+ * @param onMenuClick `null` when a [MaggieNavigationRail] is on screen (MAG-35):
+ *   the destinations are already visible, and a burger that opens a drawer over
+ *   them would be a second way to the same six routes.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MaggieTopBar(
     title: String,
-    onMenuClick: () -> Unit,
+    onMenuClick: (() -> Unit)?,
     unreadCount: Int = 0,
     onNotificationsClick: () -> Unit = {},
     onSearchClick: () -> Unit = {},
@@ -28,8 +33,10 @@ fun MaggieTopBar(
     TopAppBar(
         title = { Text(title) },
         navigationIcon = {
-            IconButton(onClick = onMenuClick, modifier = Modifier.testTag(UiTags.NAV_MENU)) {
-                Icon(Icons.Default.Menu, contentDescription = "Menu")
+            if (onMenuClick != null) {
+                IconButton(onClick = onMenuClick, modifier = Modifier.testTag(UiTags.NAV_MENU)) {
+                    Icon(Icons.Default.Menu, contentDescription = "Menu")
+                }
             }
         },
         actions = {

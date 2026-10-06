@@ -43,4 +43,11 @@ class UiTagsTest {
     fun `the declared drawer tag is the one the drawer builds for its route`() {
         assertEquals(UiTags.DRAWER_GROCERY, UiTags.drawerItem("grocery"))
     }
+
+    /** The rail carries the drawer's destinations under its own prefix (MAG-35), so the two never collide. */
+    @Test
+    fun `a rail entry is suffixed by its route, under its own prefix`() {
+        assertEquals("rail_grocery", UiTags.railItem("grocery"))
+        assertEquals("rail_settings", UiTags.railItem("settings"))
+    }
 }

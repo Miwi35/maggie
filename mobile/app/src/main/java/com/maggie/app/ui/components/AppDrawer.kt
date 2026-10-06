@@ -1,8 +1,12 @@
 package com.maggie.app.ui.components
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Dashboard
@@ -15,8 +19,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
@@ -35,7 +42,10 @@ val DRAWER_DESTINATIONS = listOf(
     DrawerDestination("finance_dashboard", "Finance", Icons.Default.Insights),
 )
 
-private val SETTINGS_DESTINATION = DrawerDestination("settings", "Paramètres", Icons.Default.Settings)
+internal val SETTINGS_DESTINATION = DrawerDestination("settings", "Paramètres", Icons.Default.Settings)
+
+/** The destinations the rail shows, in order: the modules, then the settings. */
+val RAIL_DESTINATIONS = DRAWER_DESTINATIONS + SETTINGS_DESTINATION
 
 @Composable
 fun AppDrawerContent(
@@ -57,6 +67,51 @@ fun AppDrawerContent(
         DrawerItem(SETTINGS_DESTINATION, currentRoute, onNavigate, onCloseDrawer)
 
         Spacer(modifier = Modifier.height(12.dp))
+    }
+}
+
+/**
+ * The same destinations, pinned to the left edge instead of hidden behind a burger
+ * (MAG-35). Drawn from 600 dp wide, where a modal drawer would slide over a window
+ * that has room to show it.
+ *
+ * Nothing to close: the rail is already visible, so a tap is a navigation and that
+ * is all. [SETTINGS_DESTINATION] is the last entry rather than a footer pinned to
+ * the bottom, and the rail scrolls — seven entries are ~500 dp, and a phone in
+ * landscape is 411 dp tall. A `weight(1f)` spacer inside a scrollable column is a
+ * crash on infinite constraints, so there is no pinning it either.
+ *
+ * The scroll is on a column *inside* the rail, not on the rail: `NavigationRail`
+ * applies its own system-bar padding within its Surface, so scrolling the rail
+ * itself would scroll the top inset away with the entries — on the short window
+ * where the rail actually scrolls — and padding the rail from outside would stop
+ * its container colour short of the edges.
+ */
+@Composable
+fun MaggieNavigationRail(
+    currentRoute: String?,
+    onNavigate: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    NavigationRail(modifier = modifier.fillMaxHeight().testTag(UiTags.NAV_RAIL)) {
+        Column(
+            modifier = Modifier.verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Spacer(modifier = Modifier.height(8.dp))
+
+            RAIL_DESTINATIONS.forEach { destination ->
+                NavigationRailItem(
+                    icon = { Icon(destination.icon, contentDescription = null) },
+                    label = { Text(destination.label) },
+                    selected = currentRoute == destination.route,
+                    onClick = { onNavigate(destination.route) },
+                    modifier = Modifier.testTag(UiTags.railItem(destination.route)),
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+        }
     }
 }
 
