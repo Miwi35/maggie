@@ -144,10 +144,7 @@ class ImportStatementControllerTest extends WebTestCase
         $before = $this->countTransactions();
         $padding = str_repeat("09/09/2026;LIGNE DE REMPLISSAGE;-1,00\n", 70_000);
 
-        $this->post(
-            ['account' => (string) $this->account()->getId(), 'confirm' => '1'],
-            "Date;Libellé;Montant\n".$padding,
-        );
+        $this->postUnderstatingItsSize("Date;Libellé;Montant\n".$padding);
 
         self::assertResponseStatusCodeSame(400);
         self::assertStringContainsString('dépasse 2 Mo', $this->body()['error']);
@@ -289,6 +286,38 @@ class ImportStatementControllerTest extends WebTestCase
             self::ENDPOINT,
             $parameters,
             ['file' => new UploadedFile($path, 'releve.csv', 'text/csv', $error, true)],
+            $this->authHeaders(),
+        );
+    }
+
+    /**
+     * Sends a file past the 2 MB ceiling without letting the runtime's own
+     * upload limit answer in its place.
+     *
+     * The test client swaps any upload bigger than `upload_max_filesize` for an
+     * `UPLOAD_ERR_INI_SIZE` one before the application sees it
+     * ({@see \Symfony\Component\HttpKernel\HttpKernelBrowser::filterFiles}),
+     * and CI caps uploads at exactly 2 MB where the dev image allows 64 MB — so
+     * the refusal under test would only ever be reached on a developer's
+     * machine. This upload understates its size to get past that swap; what the
+     * controller then measures is the real file, on disk.
+     */
+    private function postUnderstatingItsSize(string $csv): void
+    {
+        $path = (string) tempnam(sys_get_temp_dir(), 'statement');
+        file_put_contents($path, $csv);
+        $this->tempFiles[] = $path;
+
+        $this->client->request(
+            'POST',
+            self::ENDPOINT,
+            ['account' => (string) $this->account()->getId(), 'confirm' => '1'],
+            ['file' => new class($path, 'releve.csv', 'text/csv', \UPLOAD_ERR_OK, true) extends UploadedFile {
+                public function getSize(): int|false
+                {
+                    return 1;
+                }
+            }],
             $this->authHeaders(),
         );
     }
