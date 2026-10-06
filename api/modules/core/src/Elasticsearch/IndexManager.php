@@ -116,6 +116,20 @@ final class IndexManager
     }
 
     /**
+     * @param list<string> $ids
+     */
+    public function bulkDelete(string $indexName, array $ids): void
+    {
+        foreach (array_chunk($ids, 1000) as $chunk) {
+            $body = [];
+            foreach ($chunk as $id) {
+                $body[] = ['delete' => ['_index' => $indexName, '_id' => $id]];
+            }
+            $this->client->bulk(['body' => $body, 'refresh' => 'true']);
+        }
+    }
+
+    /**
      * A search only sees refreshed documents (every second by default), and the web client
      * refetches its list the moment a write answers: the indices written during the request are
      * refreshed once, before the response leaves, however many documents the write touched.

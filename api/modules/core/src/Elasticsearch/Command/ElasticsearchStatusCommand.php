@@ -118,7 +118,7 @@ final class ElasticsearchStatusCommand extends Command
         $io->table(['Index', 'DB', 'ES', 'Status'], $rows);
 
         if ($hasDrift) {
-            $io->warning('Index drift detected — run "app:elasticsearch:reindex --all" and check the messenger worker.');
+            $io->warning('Index drift detected — more documents than rows: run "app:elasticsearch:reindex --orphans" (removes the documents of deleted rows, rebuilds nothing); fewer: run "app:elasticsearch:reindex --all" and check the messenger worker.');
 
             return $check ? Command::FAILURE : Command::SUCCESS;
         }
