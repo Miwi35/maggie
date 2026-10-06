@@ -49,9 +49,11 @@ x-playwright: &playwright
   user: ${UID:-1000}:${GID:-1000}
   volumes:
     - ./e2e/web:/e2e:cached
-    # Read-only, and only this: the journeys read ids from the seed manifest
-    # and must not be able to write anything back into the repository.
+    # Read-only, and only these: the journeys read ids from the seed manifest
+    # and the identity from the design tokens (MAG-39), and must not be able to
+    # write anything back into the repository.
     - ./api/var/e2e:/seed:ro
+    - ./design:/design:ro
   environment: &playwright-environment
     E2E_BASE_URL: http://traefik
     E2E_LOGIN_TOKEN: ${E2E_LOGIN_TOKEN:-e2e-login-token}

@@ -9,6 +9,7 @@ import ListItemText from '@mui/material/ListItemText'
 import Skeleton from '@mui/material/Skeleton'
 import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
+import { criticalityColor } from '../../design/tokens'
 import { useItemTransitions, transitionSx } from '../../hooks/useItemTransitions'
 
 export interface DashboardTask {
@@ -17,13 +18,6 @@ export interface DashboardTask {
   criticality: string
   dueDate?: string
   completedAt?: string
-}
-
-const CRITICALITY_COLORS: Record<string, string> = {
-  low: '#4CAF50',
-  medium: '#FF9800',
-  high: '#F44336',
-  critical: '#9C27B0',
 }
 
 const CRITICALITY_ORDER: Record<string, number> = {
@@ -115,7 +109,7 @@ export const TaskListWidget = ({ tasks, loading, onToggleDone }: TaskListWidgetP
                     label={task.criticality}
                     size="small"
                     sx={{
-                      bgcolor: CRITICALITY_COLORS[task.criticality] || CRITICALITY_COLORS.low,
+                      bgcolor: criticalityColor(task.criticality),
                       color: '#fff',
                       fontSize: '0.65rem',
                       height: 20,

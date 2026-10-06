@@ -23,15 +23,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.maggie.app.ui.theme.criticalityColor
 
 object TaskConstants {
-    val CRITICALITY_COLORS = mapOf(
-        "low" to Color(0xFF4CAF50),
-        "medium" to Color(0xFFFF9800),
-        "high" to Color(0xFFF44336),
-        "critical" to Color(0xFF9C27B0),
-    )
-
     val CRITICALITY_LABELS = mapOf(
         "low" to "Faible",
         "medium" to "Moyen",
@@ -95,7 +89,7 @@ fun DropdownField(
 
 @Composable
 fun CriticalityChip(criticality: String) {
-    val color = TaskConstants.CRITICALITY_COLORS[criticality] ?: TaskConstants.CRITICALITY_COLORS["low"]!!
+    val color = criticalityColor(criticality)
     Surface(
         color = color,
         shape = MaterialTheme.shapes.small,

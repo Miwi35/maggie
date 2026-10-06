@@ -18,15 +18,14 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.maggie.app.R
-
-private val DarkBackground = Color(0xFF1A1A2E)
+import com.maggie.app.ui.theme.MaggieTokens
 
 @Composable
 fun LoadingScreen() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(DarkBackground),
+            .background(MaggieTokens.Night.background),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {

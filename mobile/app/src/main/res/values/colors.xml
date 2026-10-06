@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The tokens the Android platform itself needs, outside Compose (MAG-39).
+
+    `night.background` in `design/tokens.json`: the splash the system draws
+    before the app has a single composable on screen, and the sign-in, loading
+    and lock screens it hands over to. TokensContractTest checks this value
+    against the token file.
+-->
+<resources>
+    <color name="maggie_night">#1A1A2E</color>
+</resources>

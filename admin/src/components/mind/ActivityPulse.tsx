@@ -1,4 +1,5 @@
 import Box from '@mui/material/Box'
+import { TOKENS } from '../../design/tokens'
 import type { AgentState } from './types'
 
 interface ActivityPulseProps {
@@ -8,7 +9,9 @@ interface ActivityPulseProps {
 export const ActivityPulse = ({ state }: ActivityPulseProps) => {
   if (state === 'idle') return null
 
-  const color = state === 'thinking' ? '#9c27b0' : '#ff9800'
+  // Thinking is Maggie herself, so it is her violet; working is a tool running,
+  // which is the signal the rest of the app uses for « in progress » (MAG-39).
+  const color = state === 'thinking' ? TOKENS.brand.primary : TOKENS.signal.warning
   const speed = state === 'thinking' ? '2s' : '1s'
 
   return (
