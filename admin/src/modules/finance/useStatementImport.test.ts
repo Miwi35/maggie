@@ -94,7 +94,8 @@ describe('useStatementImport', () => {
       'fetch',
       vi.fn().mockResolvedValue({
         ok: false,
-        json: () => Promise.resolve({ error: 'Le fichier dépasse 2 Mo.', errors: [] }),
+        json: () =>
+          Promise.resolve({ error: 'Le fichier dépasse la limite de 2 Mo.', errors: [] }),
       }),
     )
 
@@ -106,7 +107,7 @@ describe('useStatementImport', () => {
     })
 
     expect(returned).toBeNull()
-    expect(result.current.error).toBe('Le fichier dépasse 2 Mo.')
+    expect(result.current.error).toBe('Le fichier dépasse la limite de 2 Mo.')
     expect(result.current.report).toBeNull()
     expect(result.current.running).toBe(false)
   })

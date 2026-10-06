@@ -57,19 +57,21 @@ final class ImportStatementController
         if (!$file->isValid()) {
             // A file PHP itself turned away for its size is not a file to
             // retry: told "it did not arrive in one piece", the owner would
-            // send it again, for ever.
+            // send it again, for ever. It is refused for the same reason as
+            // the ceiling below — the runtime lets 64 Mo through, so anything
+            // it rejects is far past 2 Mo — so it is refused in the same words.
             return $this->badRequest(\in_array(
                 $file->getError(),
                 [\UPLOAD_ERR_INI_SIZE, \UPLOAD_ERR_FORM_SIZE],
                 true,
             )
-                ? 'Le fichier est trop volumineux pour être envoyé.'
+                ? self::tooLarge()
                 : "Le fichier n'est pas arrivé en entier. Réessayez.");
         }
 
         $size = $file->getSize();
         if (false !== $size && $size > self::MAX_BYTES) {
-            return $this->badRequest('Le fichier dépasse 2 Mo.');
+            return $this->badRequest(self::tooLarge());
         }
 
         $account = $this->resolveAccount($request, $user);
@@ -131,6 +133,18 @@ final class ImportStatementController
         }
 
         return $account;
+    }
+
+    /**
+     * The one refusal for a file too big, whoever noticed first.
+     *
+     * Read from the ceiling so the sentence cannot drift from the number it
+     * announces, and said in Mo because that is what the owner reads on his
+     * own file.
+     */
+    private static function tooLarge(): string
+    {
+        return \sprintf('Le fichier dépasse la limite de %d Mo.', intdiv(self::MAX_BYTES, 1024 * 1024));
     }
 
     /** @param list<string> $errors */

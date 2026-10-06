@@ -140,6 +140,10 @@ export const StatementImportPage = () => {
               type="file"
               size="small"
               label="Fichier"
+              // The ceiling the API enforces, said before the upload rather
+              // than only in its refusal: a year of movements is a few tens of
+              // kilobytes, so meeting it is a sign the wrong file was picked.
+              helperText="CSV, 2 Mo au maximum"
               inputRef={fileInput}
               slotProps={{
                 inputLabel: { shrink: true },

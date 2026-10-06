@@ -23,6 +23,13 @@ class ImportStatementControllerTest extends WebTestCase
     private const ENDPOINT = '/api/finance/import-statement';
 
     /**
+     * Spelled out here rather than read from the controller: the sentence the
+     * owner sees is the thing under test, and a shared constant would make the
+     * two tests agree with a typo.
+     */
+    private const TOO_LARGE = 'Le fichier dépasse la limite de 2 Mo.';
+
+    /**
      * Three lines: the first is already on the account, the second and third
      * are new, and `CARREFOUR CITY` is what the seeded rule claims.
      */
@@ -130,8 +137,10 @@ class ImportStatementControllerTest extends WebTestCase
         );
 
         self::assertResponseStatusCodeSame(400);
-        // "Retry" would send the owner round for ever on a file that cannot fit.
-        self::assertStringContainsString('trop volumineux', $this->body()['error']);
+        // The same sentence as our own ceiling: both mean one thing to the
+        // owner, and it names the limit. "Retry" would send him round for ever
+        // on a file that cannot fit.
+        self::assertSame(self::TOO_LARGE, $this->body()['error']);
     }
 
     public function testAFileTooLargeToBeAStatementIsRefusedBeforeBeingParsed(): void
@@ -146,8 +155,19 @@ class ImportStatementControllerTest extends WebTestCase
 
         $this->postUnderstatingItsSize("Date;Libellé;Montant\n".$padding);
 
+        // The runtime's own refusal says the very same sentence, so without
+        // this the test above could pass while the ceiling under test was
+        // never reached.
+        /** @var UploadedFile $received */
+        $received = $this->client->getRequest()->files->get('file');
+        self::assertSame(
+            \UPLOAD_ERR_OK,
+            $received->getError(),
+            'the upload reached the controller intact: the 2 MB ceiling is what refused it',
+        );
+
         self::assertResponseStatusCodeSame(400);
-        self::assertStringContainsString('dépasse 2 Mo', $this->body()['error']);
+        self::assertSame(self::TOO_LARGE, $this->body()['error']);
         self::assertSame($before, $this->countTransactions());
     }
 
@@ -313,7 +333,7 @@ class ImportStatementControllerTest extends WebTestCase
             self::ENDPOINT,
             ['account' => (string) $this->account()->getId(), 'confirm' => '1'],
             ['file' => new class($path, 'releve.csv', 'text/csv', \UPLOAD_ERR_OK, true) extends UploadedFile {
-                public function getSize(): int|false
+                public function getSize(): int
                 {
                     return 1;
                 }
