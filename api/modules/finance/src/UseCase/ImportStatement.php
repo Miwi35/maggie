@@ -5,13 +5,12 @@ declare(strict_types=1);
 namespace Maggie\Finance\UseCase;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
+use Maggie\Core\Mercure\EntityBroadcaster;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Import\StatementRow;
 use Maggie\Finance\Repository\TransactionRepository;
-use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
  * Turns the rows of a bank export into transactions on an account.
@@ -20,6 +19,11 @@ use Symfony\Component\Messenger\MessageBusInterface;
  * the same lines, and people re-export overlapping periods. What the pass
  * counts on is that a movement already stored stays stored once — while two
  * genuinely identical movements on the same day stay two.
+ *
+ * The pass also reports what it did line by line, because its first use is a
+ * rehearsal someone reads before confirming: a count of skipped duplicates
+ * does not say *which* movement was dropped, nor under which heading the rest
+ * is about to be filed.
  */
 class ImportStatement
 {
@@ -27,14 +31,14 @@ class ImportStatement
         private readonly TransactionRepository $transactionRepository,
         private readonly CategorizeTransaction $categorizeTransaction,
         private readonly EntityManagerInterface $em,
-        private readonly MessageBusInterface $bus,
+        private readonly EntityBroadcaster $broadcaster,
     ) {
     }
 
     /**
      * @param list<StatementRow> $rows
      *
-     * @return array{imported: int, skipped: int, categorized: int, first: ?string, last: ?string, totalCents: int}
+     * @return array{imported: int, skipped: int, categorized: int, first: ?string, last: ?string, totalCents: int, rows: list<array{line: int, bookedAt: string, label: string, amountCents: int, currency: string, duplicate: bool, categoryName: ?string}>}
      */
     public function execute(Account $account, array $rows, bool $dryRun = false): array
     {
@@ -44,6 +48,7 @@ class ImportStatement
         // already stored gets written.
         $seenInFile = [];
         $written = [];
+        $report = [];
         $imported = 0;
         $skipped = 0;
         $categorized = 0;
@@ -63,6 +68,7 @@ class ImportStatement
 
             if ($seenInFile[$key] <= $alreadyStored) {
                 ++$skipped;
+                $report[] = $this->describe($row, true, null);
                 continue;
             }
 
@@ -88,19 +94,18 @@ class ImportStatement
             ++$imported;
             $totalCents += $row->amountCents;
             $dates[] = $row->bookedAt;
+            $report[] = $this->describe($row, false, $transaction->getCategory()?->getName());
         }
 
         if (!$dryRun && $imported > 0) {
             $this->em->flush();
 
             // Imports write straight to the database, so nothing on the bus
-            // indexes them: without this the movements exist and the lists
-            // that read Elasticsearch show none of them.
+            // publishes or indexes them: without this the movements exist, the
+            // screens already open never see them arrive, and the lists served
+            // from Elasticsearch show none of them.
             foreach ($written as $transaction) {
-                $this->bus->dispatch(new IndexDocumentCommand(
-                    entityClass: Transaction::class,
-                    entityId: (string) $transaction->getId(),
-                ));
+                $this->broadcaster->broadcast($transaction);
             }
         }
 
@@ -113,6 +118,23 @@ class ImportStatement
             'first' => [] === $dates ? null : $dates[0]->format('Y-m-d'),
             'last' => [] === $dates ? null : end($dates)->format('Y-m-d'),
             'totalCents' => $totalCents,
+            'rows' => $report,
+        ];
+    }
+
+    /**
+     * @return array{line: int, bookedAt: string, label: string, amountCents: int, currency: string, duplicate: bool, categoryName: ?string}
+     */
+    private function describe(StatementRow $row, bool $duplicate, ?string $categoryName): array
+    {
+        return [
+            'line' => $row->lineNumber,
+            'bookedAt' => $row->bookedAt->format('Y-m-d'),
+            'label' => $row->label,
+            'amountCents' => $row->amountCents,
+            'currency' => $row->currency,
+            'duplicate' => $duplicate,
+            'categoryName' => $categoryName,
         ];
     }
 }

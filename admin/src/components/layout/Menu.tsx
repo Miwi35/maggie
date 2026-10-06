@@ -36,6 +36,7 @@ import ShieldIcon from '@mui/icons-material/Shield'
 import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined'
 import CreditScoreIcon from '@mui/icons-material/CreditScore'
 import FactCheckIcon from '@mui/icons-material/FactCheck'
+import UploadFileIcon from '@mui/icons-material/UploadFile'
 
 export const CustomMenu = () => {
   const [groceryOpen, setGroceryOpen] = useState(false)
@@ -145,6 +146,12 @@ export const CustomMenu = () => {
                 to="/finance/banks"
                 primaryText="Banques"
                 leftIcon={<AccountBalanceOutlinedIcon />}
+                sx={{ pl: 4 }}
+              />
+              <MenuItemLink
+                to="/finance/import"
+                primaryText="Import de relevé"
+                leftIcon={<UploadFileIcon />}
                 sx={{ pl: 4 }}
               />
               <MenuItemLink

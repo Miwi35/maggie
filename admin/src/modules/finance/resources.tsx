@@ -13,6 +13,7 @@ import { CushionPage } from './CushionPage'
 import { FinanceDashboardPage } from './FinanceDashboardPage'
 import { LoanCreate } from './LoanCreate'
 import { MonthlyReviewPage } from './MonthlyReviewPage'
+import { StatementImportPage } from './StatementImportPage'
 import { LoanEdit } from './LoanEdit'
 import { LoanList } from './LoanList'
 import { CategorizationRuleEdit } from './CategorizationRuleEdit'
@@ -31,6 +32,7 @@ export const financeResources = (
       <Route path="/accounts/:id/transactions" element={<AccountTransactionsView />} />
       <Route path="/finance/dashboard" element={<FinanceDashboardPage />} />
       <Route path="/finance/banks" element={<BankConnectionsPage />} />
+      <Route path="/finance/import" element={<StatementImportPage />} />
       <Route path="/finance/cushion" element={<CushionPage />} />
       <Route path="/finance/monthly-review" element={<MonthlyReviewPage />} />
     </CustomRoutes>
