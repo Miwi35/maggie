@@ -57,9 +57,11 @@ private const val DEFAULT_VOICE = "fr-FR-DeniseNeural"
  * Two things the retour de recette of 7 October added, each the same principle — the
  * owner's press is the only authority on the sentence:
  *
- *  - a hold that held no voice is sent nowhere ([SpeechPresence]). Whisper does not
- *    answer nothing when given nothing, it answers the subtitle boilerplate it was
- *    trained on, and « Thank you for watching » landed in the chat.
+ *  - a hold that held no voice ([SpeechPresence]) and that the phone's own engine heard
+ *    nothing in is sent nowhere. Whisper does not answer nothing when given nothing, it
+ *    answers the subtitle boilerplate it was trained on, and « Thank you for watching »
+ *    landed in the chat. A sentence the engine did transcribe passes anyway: it is
+ *    proof someone spoke, which a loudness estimate can only guess at.
  *  - the engine listens for as long as the button is down ([SegmentedDeviceSpeech]),
  *    whatever it thinks of the pauses in between.
  */
@@ -317,18 +319,6 @@ class VoiceManager(
             return
         }
 
-        if (!heardAVoice) {
-            // Nothing was ever loud enough. Sending this clip anywhere is how « Thank
-            // you for watching » reached the chat (retour de recette MAG-222): Whisper
-            // fills a silence with the credits it was trained on.
-            Log.i(TAG, "The hold held no voice; nothing is sent")
-            release(session)
-            cleanupRecording()
-            _state.value = VoiceState.IDLE
-            showHint(VoiceHint.NOTHING_HEARD)
-            return
-        }
-
         _state.value = VoiceState.TRANSCRIBING
 
         val callback = onResult
@@ -341,10 +331,28 @@ class VoiceManager(
                 awaitDeviceResult(session)
             }
             if (heard != null && TranscriptionQuality.isGoodEnough(heard.text, heard.confidence, spokenMillis)) {
+                // Whatever the levels said. The engine having transcribed a sentence
+                // is proof someone spoke it, and it outranks an estimate made from
+                // loudness: `VOICE_RECOGNITION` applies no gain, so a whisper close to
+                // the phone never clears the gate below.
                 file.delete()
                 audioFile = null
                 _partialText.value = ""
                 deliver(callback, HesitationFilter.strip(heard.text))
+                return@launch
+            }
+
+            if (!heardAVoice) {
+                // Nothing was ever loud enough and the phone heard nothing either, so
+                // the only leg left is the one the invention came from: Whisper fills a
+                // silence with the credits it was trained on, and « Thank you for
+                // watching » reached the chat that way (retour de recette MAG-222).
+                Log.i(TAG, "The hold held no voice; nothing is sent")
+                file.delete()
+                audioFile = null
+                _partialText.value = ""
+                _state.value = VoiceState.IDLE
+                showHint(VoiceHint.NOTHING_HEARD)
                 return@launch
             }
 
@@ -480,12 +488,16 @@ class VoiceManager(
 
     private fun release(session: DeviceSession?) {
         if (session == null) return
-        // Normally the recorder's stop closed it already; this covers the engine that
-        // was started and then never handed to a recorder at all.
+        // The engine first: it is the one holding the read end of the pipe, and letting
+        // go of it ends a write blocked on a full one instead of making this thread —
+        // the main one — wait for it. Nothing is lost by the order, since the
+        // end-of-sentence signal is the recorder's stop(), long before here.
+        session.engine.destroy()
+        // Normally the recorder's stop closed the sink already; this covers the engine
+        // that was started and then never handed to a recorder at all.
         try {
             session.sink?.close()
         } catch (_: Exception) { }
-        session.engine.destroy()
         // Anything still waiting on it gets « nothing heard » rather than a timeout.
         session.pending.complete(null)
     }

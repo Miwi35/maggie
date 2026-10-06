@@ -112,32 +112,39 @@ def needs_cleanup(text: str) -> bool:
 # coming out of a clip that holds no speech may leave this module, and the three signs
 # below decide, read off the transcription itself — no second model call.
 
-# Whisper's own two scores, per segment. Its reference implementation drops a segment
-# when both fire; here either is enough, because the failure they guard is not
-# symmetrical: a hallucination over silence often comes out *confidently* (a good
-# `avg_logprob`) with a high `no_speech_prob`, and « send nothing when in doubt » is
-# what the owner asked for. Real speech sits far from both — under 0.1 and above -0.5.
+# Whisper's own two scores, per segment. A high `no_speech_prob` is enough on its own:
+# a hallucination over silence often comes out *confidently* — a good `avg_logprob` —
+# with that probability near one, and « send nothing when in doubt » is what the owner
+# asked for. A poor `avg_logprob` is not enough on its own, which is why the companion
+# threshold below exists. Real speech sits far from both — under 0.1 and above -0.5.
 NO_SPEECH_PROB_MAX = 0.6
 AVG_LOGPROB_MIN = -1.0
 
+# A poor average log-probability only means silence when the model also had doubts
+# there was speech. Alone, that score destroys real sentences: a short French command
+# — « oui », « appelle le dentiste » — is a single segment, so there is no other one to
+# carry the clip, and whisper-1 routinely rates those around -0.8 to -1.2 while
+# reporting a `no_speech_prob` near zero.
+AVG_LOGPROB_COMPANION_PROB = 0.2
+
 # Under this there is no sentence, only a finger slip or a door closing. Whisper pads
 # anything shorter to its 30-second window with silence, which is exactly what it
-# invents over.
-MIN_AUDIO_SECONDS = 0.4
+# invents over. Aligned with the phone's own floor, `VoiceManager.MIN_HOLD_MS`: a hold
+# the button accepts must not be refused here.
+MIN_AUDIO_SECONDS = 0.3
 
-# What Whisper says when it has heard nothing: end-of-video credits, subtitle
-# signatures, a lone « merci ». Matched on the whole transcript, accents and case
-# folded away — a sentence that merely *contains* « merci » or « regarder » is a
-# sentence the owner may well have dictated and is left alone.
+# What Whisper says when it has heard nothing: end-of-video credits and subtitle
+# signatures. Matched on the whole transcript, accents and case folded away — a
+# sentence that merely *contains* « merci » or « regarder » is a sentence the owner may
+# well have dictated and is left alone. A bare « merci », « merci beaucoup » or « au
+# revoir » is left alone too: he says those to Maggie, and refusing them answered him
+# « Je n'ai rien entendu » for a word he really spoke.
 HALLUCINATION_PHRASES = (
     "thank you",
     "thank you for watching",
     "thanks for watching",
-    "merci",
-    "merci beaucoup",
     "merci a tous",
     "merci de votre attention",
-    "au revoir",
 )
 
 # The same boilerplate, in the forms whose tail varies ("… par la communauté
@@ -203,7 +210,14 @@ def _is_silent_segment(segment: Any) -> bool:
     avg_logprob = _score(segment, "avg_logprob")
     if no_speech_prob is not None and no_speech_prob > NO_SPEECH_PROB_MAX:
         return True
-    return avg_logprob is not None and avg_logprob < AVG_LOGPROB_MIN
+    if avg_logprob is None or avg_logprob >= AVG_LOGPROB_MIN:
+        return False
+    return no_speech_prob is not None and no_speech_prob > AVG_LOGPROB_COMPANION_PROB
+
+
+def _segment_scores(transcript: WhisperTranscript) -> list[tuple[float | None, float | None]]:
+    """The two per-segment scores, for a log line that must not carry the words."""
+    return [(_score(s, "no_speech_prob"), _score(s, "avg_logprob")) for s in transcript.segments]
 
 
 def holds_speech(transcript: WhisperTranscript) -> bool:
@@ -314,7 +328,15 @@ async def transcribe_audio(
     """
     transcript = await _whisper_transcribe(audio_bytes, filename)
     if not holds_speech(transcript):
-        logger.info("No speech in the clip; refusing the transcript %r", transcript.text[:80])
+        # Never the words themselves: this repository is public and what the owner
+        # dictates is his. Their number and Whisper's own scores are enough to tell
+        # which of the three signs refused the clip.
+        logger.info(
+            "No speech in the clip; refusing a transcript of %d characters (duration=%s, scores=%s)",
+            len(transcript.text),
+            transcript.duration,
+            _segment_scores(transcript),
+        )
         return {"raw": "", "clean": ""}
 
     raw = transcript.text

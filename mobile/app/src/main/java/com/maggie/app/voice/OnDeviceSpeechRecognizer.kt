@@ -59,11 +59,17 @@ class OnDeviceSpeechRecognizer(
          * Errors a restart cannot help: the engine, not the speech, is what failed.
          * Everything else — no match, speech timeout — is a run that simply heard no
          * words, and the next one gets its turn.
+         *
+         * `ERROR_RECOGNIZER_BUSY` is deliberately not here: it is the likeliest answer
+         * to the destroy-create-start that [SegmentedDeviceSpeech] does from inside the
+         * previous run's own callback. Calling it fatal would turn off segmentation —
+         * the behaviour the owner refused, by another route — while retrying costs at
+         * most [SegmentedDeviceSpeech.MAX_RUNS] quick runs before the hold falls back to
+         * Whisper, which is the chain's floor anyway.
          */
         private val FATAL_ERRORS = setOf(
             SpeechRecognizer.ERROR_CLIENT,
             SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS,
-            SpeechRecognizer.ERROR_RECOGNIZER_BUSY,
             SpeechRecognizer.ERROR_AUDIO,
             SpeechRecognizer.ERROR_SERVER,
             SpeechRecognizer.ERROR_SERVER_DISCONNECTED,

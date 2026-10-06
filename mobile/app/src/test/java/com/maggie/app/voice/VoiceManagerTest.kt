@@ -611,9 +611,12 @@ class VoiceManagerTest {
     }
 
     @Test
-    fun `a silent hold does not ask the phone engine either`() {
+    fun `a silent hold the engine heard nothing in releases it and sends nothing`() {
+        // The engine heard no more than the microphone did, so nothing outranks the
+        // loudness gate: the clip goes nowhere rather than to Whisper, which answers
+        // a silence with the credits it was trained on.
         recorder.levels = List(48) { 0.0008f }
-        val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("Thank you for watching", 0.9f))
+        val engine = FakeDeviceSpeech(resultOnStop = null)
         voiceManager = managerWith(engine)
         var sent: String? = null
 
@@ -623,7 +626,32 @@ class VoiceManagerTest {
         testScope.runCurrent()
 
         assertNull(sent)
+        assertEquals(VoiceHint.NOTHING_HEARD, voiceManager.hint.value)
+        coVerify(exactly = 0) { apiService.transcribe(any(), any()) }
         assertTrue(engine.destroyed)
+    }
+
+    @Test
+    fun `a sentence the phone transcribed survives a hold too quiet to measure`() {
+        // Recette step 6: he whispers, close to the phone. VOICE_RECOGNITION applies
+        // no automatic gain, so every buffer sits under the loudness gate — while the
+        // engine had the sentence all along. A result it is confident about is proof
+        // someone spoke, and it outranks an estimate made from loudness alone; the
+        // gate guards the Whisper leg, which is where the invention came from.
+        recorder.levels = List(48) { 0.004f }
+        val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("ajoute des tomates", 0.9f))
+        voiceManager = managerWith(engine)
+        var sent: String? = null
+
+        voiceManager.pressDown { sent = it }
+        advance(3_000)
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        assertEquals("ajoute des tomates", sent)
+        assertNull("nothing was lost, so there is nothing to apologise for", voiceManager.hint.value)
+        coVerify(exactly = 0) { apiService.transcribe(any(), any()) }
+        assertEquals("the clip must not be left behind", 0, cacheDir.listFiles()?.size ?: 0)
     }
 
     @Test

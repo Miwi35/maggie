@@ -14,6 +14,8 @@ import org.junit.Test
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.OutputStream
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /**
  * One run of a phone engine, driven by hand. A real one closes its own sentence on a
@@ -22,6 +24,10 @@ import java.io.OutputStream
 private class ScriptedRun(
     override val isAvailable: Boolean = true,
     val sink: OutputStream? = ByteArrayOutputStream(),
+    /** A run that refuses from inside [start], before it has returned — [NoDeviceSpeech] does. */
+    private val quitsInline: Boolean = false,
+    /** A run that answers from inside [destroy], the way a torn-down `SpeechRecognizer` can. */
+    private val quitsOnDestroy: Boolean = false,
 ) : DeviceSpeechRecognizer {
     var listener: DeviceSpeechRecognizer.Listener? = null
     var started = false
@@ -31,6 +37,7 @@ private class ScriptedRun(
     override fun start(listener: DeviceSpeechRecognizer.Listener): OutputStream? {
         this.listener = listener
         started = true
+        if (quitsInline) listener.onUnavailable("no match", fatal = false)
         return sink
     }
 
@@ -40,6 +47,7 @@ private class ScriptedRun(
 
     override fun destroy() {
         destroyed = true
+        if (quitsOnDestroy) listener?.onUnavailable("error 5", fatal = false)
     }
 
     /** The engine closing a sentence by itself — on a silence, or when asked to stop. */
@@ -322,6 +330,88 @@ class SegmentedDeviceSpeechTest {
 
         assertTrue(first.destroyed)
     }
+
+    @Test
+    fun `an engine that answers from inside destroy does not open another run`() {
+        val first = ScriptedRun(quitsOnDestroy = true)
+        val engine = segmented(first)
+
+        engine.start(Recorded())
+        engine.destroy()
+
+        assertEquals("the hold is over; nothing may start listening again", 1, started.size)
+    }
+
+    @Test
+    fun `a run that gives up inline does not take the audio from the one that replaced it`() {
+        val first = ScriptedRun()
+        val quitter = ScriptedRun(quitsInline = true)
+        val third = ScriptedRun()
+        val engine = segmented(first, quitter, third)
+
+        val sink = engine.start(Recorded())!!
+        // The engine closes on a pause, the next run refuses from inside start() and
+        // the one after it is the live engine: the audio must reach that one, not the
+        // run whose own frame destroyed it on the way out.
+        first.hears("ajoute des tomates")
+        sink.write("deux".toByteArray())
+
+        assertTrue(third.started)
+        assertEquals("deux", third.sink.toString())
+    }
+
+    // --- A pipe nobody drains must never hold the main thread ---
+    //
+    // The engine's end is a ~64 kB kernel buffer and a write to a full one blocks,
+    // which is why PcmTee does its writing on its own thread. If the relay held its
+    // monitor across that write, the main thread's close() or retarget() would wait
+    // on the stuck tee thread — an ANR with the very call that would free it, the
+    // engine's destroy(), one statement away.
+
+    @Test
+    fun `closing the audio does not wait for a write stuck on a full pipe`() {
+        val stuck = BlockingSink()
+        val engine = segmented(ScriptedRun(sink = stuck))
+        val relay = engine.start(Recorded())!!
+
+        val tee = daemon("tee") { relay.write("un".toByteArray()) }
+        assertTrue("the write must reach the engine's pipe", stuck.entered.await(2, TimeUnit.SECONDS))
+
+        val closing = daemon("main") { relay.close() }
+        closing.join(2_000)
+        assertFalse("close() runs on the main thread and must not wait on the write", closing.isAlive)
+
+        stuck.release()
+        tee.join(2_000)
+    }
+
+    @Test
+    fun `a new run takes over while the old pipe is still blocked`() {
+        val stuck = BlockingSink()
+        val first = ScriptedRun(sink = stuck)
+        val second = ScriptedRun()
+        val engine = segmented(first, second)
+        val relay = engine.start(Recorded())!!
+
+        val tee = daemon("tee") { relay.write("un".toByteArray()) }
+        assertTrue(stuck.entered.await(2, TimeUnit.SECONDS))
+
+        // The engine closes its sentence on a pause: the swap happens on the main
+        // thread, which the pipe nobody is draining must not hold up.
+        val swapping = daemon("main") { first.hears("ajoute des tomates") }
+        swapping.join(2_000)
+        assertFalse("retarget() must not wait on the write", swapping.isAlive)
+        assertTrue(second.started)
+
+        stuck.release()
+        tee.join(2_000)
+    }
+
+    private fun daemon(name: String, body: () -> Unit) =
+        Thread(body, "relay-test-$name").apply {
+            isDaemon = true
+            start()
+        }
 }
 
 /** A pipe the engine stopped reading: every write fails. */
@@ -329,4 +419,21 @@ private class RefusingSink : OutputStream() {
     override fun write(b: Int) = throw IOException("broken pipe")
 
     override fun write(b: ByteArray, off: Int, len: Int) = throw IOException("broken pipe")
+}
+
+/** A pipe whose reader holds its end without draining it: every write blocks. */
+private class BlockingSink : OutputStream() {
+    /** Counted down once a writer is inside [write] and stuck there. */
+    val entered = CountDownLatch(1)
+    private val released = CountDownLatch(1)
+
+    override fun write(b: Int) = write(byteArrayOf(b.toByte()), 0, 1)
+
+    override fun write(b: ByteArray, off: Int, len: Int) {
+        entered.countDown()
+        released.await()
+    }
+
+    /** What the engine letting go of its read end does to a blocked write. */
+    fun release() = released.countDown()
 }

@@ -54,10 +54,34 @@ class TestHoldsSpeech:
         noise = WhisperTranscript(
             text="Sous-titres réalisés par la communauté d'Amara.org",
             duration=4.0,
-            segments=[segment(no_speech_prob=0.3, avg_logprob=-1.6)],
+            segments=[segment(no_speech_prob=0.45, avg_logprob=-1.8)],
         )
 
         assert holds_speech(noise) is False
+
+    def test_noise_is_refused_on_its_scores_even_when_the_words_are_not_boilerplate(self):
+        """The two scores together: a bad average, and the model doubting it was speech."""
+        noise = WhisperTranscript(
+            text="Ça, c'est ça.",
+            duration=4.0,
+            segments=[segment(no_speech_prob=0.45, avg_logprob=-1.8)],
+        )
+
+        assert holds_speech(noise) is False
+
+    def test_a_short_command_scored_badly_is_still_speech(self):
+        """whisper-1 rates « appelle le dentiste » around -1.2 and knows it heard a voice.
+
+        A poor average log-probability on its own would destroy it: a short French
+        command is one segment, so there is no other segment to carry the clip.
+        """
+        short = WhisperTranscript(
+            text="appelle le dentiste",
+            duration=1.3,
+            segments=[segment(no_speech_prob=0.02, avg_logprob=-1.2)],
+        )
+
+        assert holds_speech(short) is True
 
     def test_a_clip_too_short_to_hold_a_sentence_is_refused(self):
         assert holds_speech(WhisperTranscript(text="Merci.", duration=0.2, segments=[segment()])) is False
@@ -97,7 +121,8 @@ class TestHoldsSpeech:
             no_speech_prob = 0.95
             avg_logprob = -0.3
 
-        assert holds_speech(WhisperTranscript(text="Thank you.", duration=3.0, segments=[Segment()])) is False
+        # Words the phrase lists would let through, so the scores are what decides.
+        assert holds_speech(WhisperTranscript(text="Oui, bon.", duration=3.0, segments=[Segment()])) is False
 
 
 class TestLooksHallucinated:
@@ -112,7 +137,6 @@ class TestLooksHallucinated:
             "Abonnez-vous à la chaîne !",
             "...",
             "♪ ♪ ♪",
-            "Merci.",
         ],
         ids=[
             "english",
@@ -123,7 +147,6 @@ class TestLooksHallucinated:
             "subscribe",
             "ellipsis",
             "music",
-            "bare-thanks",
         ],
     )
     def test_the_boilerplate_whisper_says_over_silence_is_caught(self, text):
@@ -137,8 +160,22 @@ class TestLooksHallucinated:
             "Note que je dois regarder le match ce soir.",
             "Abonne-moi au cours de piano du mercredi.",
             "oui",
+            # He says it to Maggie, and refusing it answered him « Je n'ai rien
+            # entendu » for a word he really spoke.
+            "Merci.",
+            "Merci beaucoup !",
+            "Au revoir",
         ],
-        ids=["grocery", "thanks-in-a-sentence", "watch-in-a-sentence", "subscribe-lookalike", "one-word"],
+        ids=[
+            "grocery",
+            "thanks-in-a-sentence",
+            "watch-in-a-sentence",
+            "subscribe-lookalike",
+            "one-word",
+            "bare-thanks",
+            "thanks-a-lot",
+            "goodbye",
+        ],
     )
     def test_a_sentence_the_owner_could_say_is_left_alone(self, text):
         assert looks_hallucinated(text) is False
@@ -167,7 +204,7 @@ class TestTranscribeAudioRefusesSilence:
         mock_whisper.return_value = WhisperTranscript(
             text="Sous-titres réalisés par la communauté d'Amara.org",
             duration=4.0,
-            segments=[segment(no_speech_prob=0.2, avg_logprob=-1.8)],
+            segments=[segment(no_speech_prob=0.45, avg_logprob=-1.8)],
         )
 
         result = await transcribe_audio(b"noise", "voice.wav", cleanup="auto")

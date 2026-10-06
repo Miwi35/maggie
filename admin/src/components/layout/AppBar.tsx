@@ -45,11 +45,15 @@ export const CustomAppBar = () => {
 
   const isTranscribing = recorder.state === 'processing' || transcription.loading
 
+  // The refusal rides on the tooltip: the bar has no error line and no room for one,
+  // so « Je n'ai rien entendu » would be unreachable from here otherwise (MAG-222).
+  // The chat widget, which has the room, shows it on its own line — that is the full
+  // treatment, this is the message at least arriving.
   const micTooltip = isTranscribing
     ? 'Transcription...'
     : recorder.state === 'recording'
       ? `Enregistrement... ${recorder.duration}s`
-      : 'Parler à Maggie'
+      : (transcription.error ?? 'Parler à Maggie')
 
   return (
     <RAAppBar
