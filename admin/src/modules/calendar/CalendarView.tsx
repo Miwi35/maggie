@@ -56,7 +56,7 @@ import { EventDetailPopover } from './EventDetailPopover'
 import { EventEditDialog } from './EventEditDialog'
 import type { EventEditValues } from './EventEditDialog'
 import type { PopoverEvent } from './EventDetailPopover'
-import { getCalendarThemeSx } from './calendarTheme'
+import { getCalendarThemeSx, getEventTextColor } from './calendarTheme'
 import { addUntilToRrule, expandRrule } from './recurrenceUtils'
 
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost/api'
@@ -79,6 +79,7 @@ const eventIri = (id: string) => (id.startsWith('/') ? id : `/api/events/${id}`)
 const mealIri = (id: string) => (id.startsWith('/') ? id : `/api/meals/${id}`)
 
 const MEAL_COLOR = '#FF6B35'
+const TASK_DONE_COLOR = '#9E9E9E'
 const MEAL_SLOT_LABELS: Record<string, string> = { lunch: 'Déj', dinner: 'Dîner' }
 const mealTitle = (m: CalendarMeal) => {
   const label = MEAL_SLOT_LABELS[m.slot] || m.slot
@@ -769,6 +770,7 @@ export const CalendarView = () => {
               calendarId: excCalId,
               backgroundColor: excColor,
               borderColor: excColor,
+              textColor: getEventTextColor(theme, excColor),
               extendedProps: {
                 description: exception.description,
                 location: exception.location,
@@ -791,6 +793,7 @@ export const CalendarView = () => {
               calendarId: calId,
               backgroundColor: color,
               borderColor: color,
+              textColor: getEventTextColor(theme, color),
               extendedProps: {
                 description: e.description,
                 location: e.location,
@@ -817,6 +820,7 @@ export const CalendarView = () => {
           calendarId: calId,
           backgroundColor: color,
           borderColor: color,
+          textColor: getEventTextColor(theme, color),
           extendedProps: {
             description: e.description,
             location: e.location,
@@ -828,7 +832,7 @@ export const CalendarView = () => {
     }
 
     return result
-  }, [rawEvents, calendarColorMap, activeRange])
+  }, [rawEvents, calendarColorMap, activeRange, theme])
 
   // --- Map tasks → FullCalendar all-day events with criticality colors ---
   const taskEvents: (EventInput & { calendarId: string })[] = useMemo(() => {
@@ -837,14 +841,16 @@ export const CalendarView = () => {
       .map((t) => {
         const color = TASK_CRITICALITY_COLORS[t.criticality] || TASK_CRITICALITY_COLORS.low
         const isDone = t.completedAt != null
+        const background = isDone ? TASK_DONE_COLOR : color
         return {
           id: `task-${t.id}`,
           title: `${isDone ? '\u2713 ' : ''}${t.title}`,
           start: t.dueDate!,
           allDay: true,
           calendarId: '__tasks__',
-          backgroundColor: isDone ? '#9E9E9E' : color,
-          borderColor: isDone ? '#9E9E9E' : color,
+          backgroundColor: background,
+          borderColor: background,
+          textColor: getEventTextColor(theme, background),
           extendedProps: {
             description: t.description,
             isTask: true,
@@ -854,7 +860,7 @@ export const CalendarView = () => {
           },
         }
       })
-  }, [rawTasks])
+  }, [rawTasks, theme])
 
   // --- Map meals → FullCalendar all-day events ---
   const mealEvents: (EventInput & { calendarId: string })[] = useMemo(() => {
@@ -869,10 +875,11 @@ export const CalendarView = () => {
         calendarId: '__meals__',
         backgroundColor: MEAL_COLOR,
         borderColor: MEAL_COLOR,
+        textColor: getEventTextColor(theme, MEAL_COLOR),
         extendedProps: { isMeal: true },
       }
     })
-  }, [rawMeals])
+  }, [rawMeals, theme])
 
   // --- Filter by enabled calendars ---
   const filteredEvents = useMemo(() => {
