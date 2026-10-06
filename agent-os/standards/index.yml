@@ -14,7 +14,7 @@ agenda:
 
 agent:
   architecture:
-    description: Python FastAPI agent hub — MCP client, LLM gateway, personality YAML, uv
+    description: Python FastAPI agent hub — MCP client, LLM gateway and shared tool loop, skills on demand, Markdown sub-agents and delegate, tool policy and pending approvals, uv
   testing:
     description: pytest — async auto mode, respx HTTP mocking, conftest fixtures
 
