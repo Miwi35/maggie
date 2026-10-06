@@ -128,6 +128,35 @@ final class DeletionReachesTheIndexTest extends WebTestCase
         $this->assertEveryVanishedRowHasItsDocumentDeleted($before);
     }
 
+    /**
+     * A meal is an event: the events screens and `delete_event` find it by its id too.
+     */
+    public function testDeletingAMealAsAnEventThroughTheApiRemovesTheDocumentsOfBothIndices(): void
+    {
+        $owner = $this->getFixture('user_other');
+        self::assertInstanceOf(User::class, $owner);
+        $this->authenticateAsUser($owner);
+        $id = (string) $this->getFixture('meal_other')->getId();
+        $before = $this->documentsInTheDatabase();
+
+        $this->client->request('DELETE', "/api/events/{$id}", [], [], $this->authHeaders());
+
+        self::assertResponseStatusCodeSame(204);
+        $this->assertEveryVanishedRowHasItsDocumentDeleted($before);
+    }
+
+    public function testDeletingAMealAsAnEventThroughMaggieRemovesTheDocumentsOfBothIndices(): void
+    {
+        $this->loginFixtureUser('user_other');
+        $id = (string) $this->getFixture('meal_other')->getId();
+        $before = $this->documentsInTheDatabase();
+
+        $answer = json_decode((self::getContainer()->get(DeleteEventTool::class))($id), true, 512, \JSON_THROW_ON_ERROR);
+
+        self::assertArrayNotHasKey('error', $answer);
+        $this->assertEveryVanishedRowHasItsDocumentDeleted($before);
+    }
+
     public function testErasingAUserRemovesTheDocumentsOfEveryModule(): void
     {
         $before = $this->documentsInTheDatabase();

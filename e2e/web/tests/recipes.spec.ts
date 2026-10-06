@@ -84,8 +84,8 @@ test.describe('Recipes and meals', () => {
    * the deploy back. Asserted on a list loaded afresh, which is the index's word.
    */
   for (const kind of [
-    { label: 'recipe', route: ROUTES.recipes, path: '/api/recipes', data: (name: string) => ({ name, servings: 2 }) },
-    { label: 'ingredient', route: ROUTES.ingredients, path: '/api/ingredients', data: (name: string) => ({ name, category: 'grain' }) },
+    { label: 'recipe', index: 'recipes', route: ROUTES.recipes, path: '/api/recipes', data: (name: string) => ({ name, servings: 2 }) },
+    { label: 'ingredient', index: 'products', route: ROUTES.ingredients, path: '/api/ingredients', data: (name: string) => ({ name, category: 'grain' }) },
   ]) {
     test(`a deleted ${kind.label} leaves the list, and stays gone after a reload`, async ({ page, api }) => {
       const name = `Suppression MAG-266 ${kind.label} ${Date.now()}`
@@ -94,9 +94,22 @@ test.describe('Recipes and meals', () => {
         data: kind.data(name),
       })
       expect(created.status(), `POST ${kind.path} answered ${created.status()}`).toBe(201)
+      const id = ((await created.json()) as { id: string }).id
       await waitForIndexed<{ name: string }>(api, kind.path, (row) => row.name === name, {
         what: `The ${kind.label} this journey deletes`,
       })
+
+      // The index the document lives in, asked through the global search: an
+      // ingredient's list is the database's, its document is a product's.
+      const inIndex = async (): Promise<boolean> => {
+        const found = await api.get('/api/search', { params: { q: name, types: kind.index } })
+        expect(found.ok()).toBeTruthy()
+
+        return ((await found.json()) as { results: { id: string }[] }).results.some((hit) => hit.id === id)
+      }
+      await expect
+        .poll(inIndex, { timeout: 30_000, message: `The ${kind.label} never reached the ${kind.index} index` })
+        .toBe(true)
 
       // Newest first, so the row is on the first page whatever the seed holds.
       const shell = new AdminShell(page)
@@ -115,6 +128,10 @@ test.describe('Recipes and meals', () => {
           timeout: 30_000,
           message: `The deleted ${kind.label} is still served by the API`,
         })
+        .toBe(false)
+
+      await expect
+        .poll(inIndex, { timeout: 30_000, message: `The deleted ${kind.label} is still in the ${kind.index} index` })
         .toBe(false)
 
       await shell.goto(list)
