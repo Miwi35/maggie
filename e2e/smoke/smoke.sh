@@ -523,43 +523,43 @@ step "10. A conflict is read in the owner's day, not in UTC"
 tool_text() { printf '%s' "$1" | jq -r '[.. | objects | select(has("text")) | .text] | first // empty'; }
 
 # One id per call, never a constant: JSON-RPC correlates a response to its request
-# by id, and a session that has already answered 10 does not answer it again — the
-# second call then comes back with nothing readable, and the assertion blames the
-# tool for a mistake the caller made. Ids 1 to 3 are taken by the steps above.
+# by id. Ids 1 to 3 are taken by the steps above.
 mcp_request_id=10
 
-# Calls a tool and prints its answer. `tool_text` reads the first `text` field
-# anywhere in the response rather than a fixed path: the MCP transport is free to
-# move it, and a hard-coded `.result.content[0]` would read as "no conflict" the day
-# it does.
+# mcp_tool <variable> <tool> <json arguments>
 #
-# An unreadable envelope goes to stderr, not through `fail`: this runs inside a
-# command substitution, so `fail`'s line would be captured into the caller's variable
-# instead of printed and its counter would be lost with the subshell. The empty
-# answer makes the caller's own assertion fail, with the envelope logged just above it.
+# Calls a tool and stores its answer in <variable>. Several calls in one session are
+# fine: the transport answers each with its own plain JSON envelope (MAG-170).
+#
+# The answer goes into a variable rather than to stdout so the helper never runs in a
+# command substitution: there `fail`'s line would be captured by the caller instead of
+# printed and its counter lost with the subshell, and stderr was swallowed under Task.
+# An unreadable envelope is a failure of its own, with the raw body in the log.
 mcp_tool() {
+  local out_var="$1" name="$2" args="$3" raw text
   mcp_request_id=$((mcp_request_id + 1))
-  local raw text
   raw="$(curl -sS -X POST "${AUTH[@]}" "${mcp_headers[@]}" \
-    -d "$(jq -nc --arg name "$1" --argjson args "$2" --argjson id "$mcp_request_id" \
+    -d "$(jq -nc --arg name "$name" --argjson args "$args" --argjson id "$mcp_request_id" \
       '{jsonrpc: "2.0", id: $id, method: "tools/call", params: {name: $name, arguments: $args}}')" \
     "$BASE_URL/_mcp" | sed 's/^data: //')"
   text="$(tool_text "$raw")"
 
   if [ -z "$text" ]; then
-    printf '    (%s answered nothing readable: %s)\n' "$1" "$(printf '%s' "$raw" | head -c 400)" >&2
+    fail "$name answered nothing readable — response: $(printf '%s' "$raw" | head -c 400)"
   fi
 
-  printf '%s' "$text"
+  printf -v "$out_var" '%s' "$text"
 }
 
 # The seed books "Réunion d'équipe" from 10:00 to 11:00 *in Paris* on the day after
 # the anchor; 10:30 for half an hour sits squarely inside it.
 conflict_day="$(date -u -d "$anchor_date + 1 day" +%F)"
-conflicts="$(mcp_tool check_conflicts "$(jq -nc --arg d "$conflict_day" \
-  '{date: $d, time: "10:30", duration: 30}')")"
+mcp_tool conflicts check_conflicts "$(jq -nc --arg d "$conflict_day" \
+  '{date: $d, time: "10:30", duration: 30}')"
 
-assert_eq true "$(printf '%s' "$conflicts" | jq -r '.hasConflicts // empty')" \
+# `// empty` would turn a `false` into nothing — jq's alternative operator treats
+# false like null — so every boolean is read through `tostring`.
+assert_eq true "$(printf '%s' "$conflicts" | jq -r '.hasConflicts | tostring')" \
   "10:30 inside a 10:00–11:00 meeting in Paris is a conflict"
 assert_eq 1 "$(printf '%s' "$conflicts" | jq -r '[.conflicts[]?] | length')" \
   "the one meeting that overlaps is the one reported"
@@ -573,17 +573,15 @@ offset="$(printf '%s' "$conflicts" | jq -r '.checkedSlot.start // empty' | cut -
 assert_eq false "$([ "$offset" = '+00:00' ] && echo true || echo false)" \
   "the slot carries Paris's offset ('$offset'), not UTC"
 
-# The control — "an evening nobody booked is still free", which is what stops a tool
-# answering "conflict" to everything from passing all of the above — is **not** here,
-# and that is MAG-170 rather than a gap. A second `tools/call` in one session comes
-# back with something this script cannot read, twice on CI; the step before this one
-# was the only tool call the smoke journey had ever made, so nobody had tried two.
-#
-# Nothing is lost meanwhile: `CheckConflictsToolTest::testASlotOutsideEveryMeetingIsFree`
-# and `testBackToBackIsFreeAndOneMinuteOfOverlapIsNot` are that control, they run on
-# every pull request, and they pin the free slot on both sides of the DST change.
-# What this step alone can prove is the Paris offset through the real transport, and
-# the four assertions above are it.
+# The control: an evening nobody booked is free, which is what stops a tool that
+# answers "conflict" to everything from passing all of the above. Second call of the
+# session, on purpose.
+mcp_tool evening check_conflicts "$(jq -nc --arg d "$conflict_day" \
+  '{date: $d, time: "20:00", duration: 30}')"
+assert_eq false "$(printf '%s' "$evening" | jq -r '.hasConflicts | tostring')" \
+  "an evening nobody booked is still free"
+assert_eq 0 "$(printf '%s' "$evening" | jq -r '[.conflicts[]?] | length')" \
+  "a free evening reports no meeting"
 
 # ---------------------------------------------------------------------------
 step "11. A due reminder becomes a notification"
