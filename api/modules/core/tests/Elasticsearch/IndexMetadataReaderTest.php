@@ -141,4 +141,11 @@ class IndexMetadataReaderTest extends TestCase
     {
         self::assertNull($this->reader->getIndexName(StubNotIndexedEntity::class));
     }
+
+    public function testIndicesOfFollowsTheAncestors(): void
+    {
+        self::assertSame(['meals', 'events'], $this->reader->indicesOf(\Maggie\Cookbook\Entity\Meal::class));
+        self::assertSame(['products'], $this->reader->indicesOf(\Maggie\Cookbook\Entity\Ingredient::class));
+        self::assertSame([], $this->reader->indicesOf(StubNotIndexedEntity::class));
+    }
 }
