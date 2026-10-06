@@ -14153,6 +14153,36 @@
                         ],
                         "format": "date-time"
                     },
+                    "transferKind": {
+                        "readOnly": true,
+                        "description": "What kind of internal movement this is, if any. Anything but `None` is\nneither an expense nor an income, and leaves every aggregate.",
+                        "default": "none",
+                        "type": "string",
+                        "enum": [
+                            "none",
+                            "internal"
+                        ]
+                    },
+                    "transferSource": {
+                        "readOnly": true,
+                        "description": "Who decided it: the detection, or the user by hand.",
+                        "default": "auto",
+                        "type": "string",
+                        "enum": [
+                            "auto",
+                            "manual"
+                        ]
+                    },
+                    "counterpart": {
+                        "readOnly": true,
+                        "description": "The other leg of the same movement. Null when only one of the two\naccounts is known — the normal case when a single bank is synced.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
@@ -14169,7 +14199,9 @@
                     "label",
                     "status",
                     "retrospect",
-                    "categorySource"
+                    "categorySource",
+                    "transferKind",
+                    "transferSource"
                 ]
             },
             "Transaction.html": {
@@ -14253,6 +14285,36 @@
                         ],
                         "format": "date-time"
                     },
+                    "transferKind": {
+                        "readOnly": true,
+                        "description": "What kind of internal movement this is, if any. Anything but `None` is\nneither an expense nor an income, and leaves every aggregate.",
+                        "default": "none",
+                        "type": "string",
+                        "enum": [
+                            "none",
+                            "internal"
+                        ]
+                    },
+                    "transferSource": {
+                        "readOnly": true,
+                        "description": "Who decided it: the detection, or the user by hand.",
+                        "default": "auto",
+                        "type": "string",
+                        "enum": [
+                            "auto",
+                            "manual"
+                        ]
+                    },
+                    "counterpart": {
+                        "readOnly": true,
+                        "description": "The other leg of the same movement. Null when only one of the two\naccounts is known — the normal case when a single bank is synced.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
@@ -14269,7 +14331,9 @@
                     "label",
                     "status",
                     "retrospect",
-                    "categorySource"
+                    "categorySource",
+                    "transferKind",
+                    "transferSource"
                 ]
             },
             "Transaction.jsonMergePatch": {
@@ -14352,6 +14416,36 @@
                             "null"
                         ],
                         "format": "date-time"
+                    },
+                    "transferKind": {
+                        "readOnly": true,
+                        "description": "What kind of internal movement this is, if any. Anything but `None` is\nneither an expense nor an income, and leaves every aggregate.",
+                        "default": "none",
+                        "type": "string",
+                        "enum": [
+                            "none",
+                            "internal"
+                        ]
+                    },
+                    "transferSource": {
+                        "readOnly": true,
+                        "description": "Who decided it: the detection, or the user by hand.",
+                        "default": "auto",
+                        "type": "string",
+                        "enum": [
+                            "auto",
+                            "manual"
+                        ]
+                    },
+                    "counterpart": {
+                        "readOnly": true,
+                        "description": "The other leg of the same movement. Null when only one of the two\naccounts is known — the normal case when a single bank is synced.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
                     },
                     "user": {
                         "type": "string",
@@ -14449,6 +14543,36 @@
                                 ],
                                 "format": "date-time"
                             },
+                            "transferKind": {
+                                "readOnly": true,
+                                "description": "What kind of internal movement this is, if any. Anything but `None` is\nneither an expense nor an income, and leaves every aggregate.",
+                                "default": "none",
+                                "type": "string",
+                                "enum": [
+                                    "none",
+                                    "internal"
+                                ]
+                            },
+                            "transferSource": {
+                                "readOnly": true,
+                                "description": "Who decided it: the detection, or the user by hand.",
+                                "default": "auto",
+                                "type": "string",
+                                "enum": [
+                                    "auto",
+                                    "manual"
+                                ]
+                            },
+                            "counterpart": {
+                                "readOnly": true,
+                                "description": "The other leg of the same movement. Null when only one of the two\naccounts is known — the normal case when a single bank is synced.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
                             "user": {
                                 "type": "string",
                                 "format": "iri-reference",
@@ -14465,7 +14589,9 @@
                             "label",
                             "status",
                             "retrospect",
-                            "categorySource"
+                            "categorySource",
+                            "transferKind",
+                            "transferSource"
                         ]
                     }
                 ]

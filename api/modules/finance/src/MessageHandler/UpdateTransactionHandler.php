@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\MessageHandler;
 
+use Maggie\Core\Mercure\EntityBroadcaster;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\RetrospectVerdict;
 use Maggie\Finance\Enum\TransactionStatus;
+use Maggie\Finance\Enum\TransferKind;
+use Maggie\Finance\Enum\TransferSource;
 use Maggie\Finance\Message\UpdateTransactionCommand;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\Service\OwnedReferenceResolver;
@@ -21,6 +24,7 @@ class UpdateTransactionHandler
         private readonly UpdateTransaction $updateTransaction,
         private readonly TransactionRepository $transactionRepository,
         private readonly OwnedReferenceResolver $references,
+        private readonly EntityBroadcaster $broadcaster,
     ) {
     }
 
@@ -69,6 +73,79 @@ class UpdateTransactionHandler
             $transaction->assignCategory(null, CategorySource::None);
         }
 
-        return $this->updateTransaction->execute($transaction);
+        // The middlewares publish and reindex the result only, so the other
+        // legs a marking touched have to be broadcast by hand — a stale index
+        // would show the badge on one of the two lines and not the other.
+        $alsoChanged = [];
+        foreach ($this->applyTransfer($transaction, $command) as $other) {
+            if (null !== $other && $other !== $transaction) {
+                $alsoChanged[(string) $other->getId()] = $other;
+            }
+        }
+
+        $updated = $this->updateTransaction->execute($transaction);
+
+        foreach ($alsoChanged as $other) {
+            $this->broadcaster->broadcast($other);
+        }
+
+        return $updated;
+    }
+
+    /**
+     * A transfer marking, from the detection or from the user's hand.
+     *
+     * `transferKind` without a `counterpartId` marks a single-legged transfer,
+     * which is the normal case when only one of the two accounts is synced.
+     * The source defaults to `manual`, as `categorySource` does: the only
+     * caller that knows better — the detection — says so.
+     *
+     * @return array<int, ?Transaction> the other lines the marking changed
+     */
+    private function applyTransfer(Transaction $transaction, UpdateTransactionCommand $command): array
+    {
+        if (null === $command->transferKind) {
+            if (!$command->clears('transferKind')) {
+                return [];
+            }
+
+            $former = $transaction->getCounterpart();
+            $transaction->releaseInternalTransfer(TransferSource::Manual);
+
+            return [$former];
+        }
+
+        $kind = TransferKind::from($command->transferKind);
+        $source = TransferSource::from($command->transferSource ?? TransferSource::Manual->value);
+
+        if (TransferKind::None === $kind) {
+            $former = $transaction->getCounterpart();
+            $transaction->releaseInternalTransfer($source);
+
+            return [$former];
+        }
+
+        if (null === $command->counterpartId) {
+            // A single leg contradicts whatever pairing was on this line.
+            $former = $transaction->getCounterpart();
+            $transaction->releaseInternalTransfer($source)->setTransferKind($kind);
+
+            return [$former];
+        }
+
+        if ($command->counterpartId === (string) $transaction->getId()) {
+            throw new \DomainException('A transaction cannot be its own counterpart.');
+        }
+
+        $counterpart = $this->references->transaction($command->counterpartId, $transaction->getUser(), 'Counterpart');
+
+        if ($counterpart->getAccount()->getId()->equals($transaction->getAccount()->getId())) {
+            throw new \DomainException('An internal transfer goes between two different accounts.');
+        }
+
+        $freed = [$transaction->getCounterpart(), $counterpart->getCounterpart()];
+        $transaction->markAsInternalTransfer($counterpart, $source);
+
+        return [...$freed, $counterpart];
     }
 }
