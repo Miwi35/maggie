@@ -257,4 +257,90 @@ class MaggieApiServiceTest {
         assertEquals(listOf("Timbres du voisin"), response.remainingItems.map { it.label })
         assertEquals("Épicerie du coin", response.remainingItems.single().store?.name)
     }
+
+    private fun approvalClient(
+        status: HttpStatusCode = HttpStatusCode.OK,
+        body: String,
+        seen: MutableList<Pair<HttpMethod, String>>,
+    ) = HttpClient(
+        MockEngine { request ->
+            seen += request.method to request.url.toString()
+            respond(
+                content = ByteReadChannel(body),
+                status = status,
+                headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
+            )
+        },
+    ) {
+        install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true; isLenient = true }) }
+    }
+
+    private val pendingJson =
+        """{"id":"ap-1","toolName":"delete_event","arguments":{"id":"evt-1"},"status":"pending","expiresAt":"2026-10-07T10:00:00Z"}"""
+
+    @Test
+    fun `getPendingApprovals asks the agent for the pending ones`() = runBlocking {
+        val seen = mutableListOf<Pair<HttpMethod, String>>()
+        val client = approvalClient(body = "[$pendingJson]", seen = seen)
+
+        val approvals = MaggieApiService(client).getPendingApprovals()
+
+        assertEquals(HttpMethod.Get, seen.single().first)
+        assertTrue(seen.single().second.endsWith("/agent/approvals?status=pending"))
+        assertEquals("delete_event", approvals.single().toolName)
+        assertEquals("evt-1", approvals.single().arguments["id"].toString().trim('"'))
+    }
+
+    @Test
+    fun `approve posts to the approve endpoint and returns the settled approval`() = runBlocking {
+        val seen = mutableListOf<Pair<HttpMethod, String>>()
+        val client = approvalClient(body = pendingJson.replace("pending", "approved"), seen = seen)
+
+        val approval = MaggieApiService(client).approve("ap-1")
+
+        assertEquals(HttpMethod.Post, seen.single().first)
+        assertTrue(seen.single().second.endsWith("/agent/approvals/ap-1/approve"))
+        assertEquals("approved", approval.status)
+    }
+
+    @Test
+    fun `deny posts to the deny endpoint`() = runBlocking {
+        val seen = mutableListOf<Pair<HttpMethod, String>>()
+        val client = approvalClient(body = pendingJson.replace("pending", "denied"), seen = seen)
+
+        val approval = MaggieApiService(client).deny("ap-1")
+
+        assertTrue(seen.single().second.endsWith("/agent/approvals/ap-1/deny"))
+        assertEquals("denied", approval.status)
+    }
+
+    @Test
+    fun `an approval already decided raises a final decision error`() = runBlocking {
+        for (code in listOf(404, 409, 410)) {
+            val client = approvalClient(
+                status = HttpStatusCode.fromValue(code),
+                body = """{"detail":"gone"}""",
+                seen = mutableListOf(),
+            )
+
+            val error = runCatching { MaggieApiService(client).approve("ap-1") }.exceptionOrNull()
+
+            assertTrue("HTTP $code", error is ApprovalDecisionException)
+            assertTrue("HTTP $code is final", (error as ApprovalDecisionException).isFinal)
+        }
+    }
+
+    @Test
+    fun `a server error is not final, the user can try again`() = runBlocking {
+        val client = approvalClient(
+            status = HttpStatusCode.InternalServerError,
+            body = """{"detail":"boom"}""",
+            seen = mutableListOf(),
+        )
+
+        val error = runCatching { MaggieApiService(client).deny("ap-1") }.exceptionOrNull()
+
+        assertTrue(error is ApprovalDecisionException)
+        assertFalse((error as ApprovalDecisionException).isFinal)
+    }
 }

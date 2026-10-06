@@ -129,6 +129,20 @@ object UiTags {
     /** Day view — a timed event block, suffixed by the ISO date of the day shown. */
     const val CALENDAR_EVENT_PREFIX = "calendar_event_"
 
+    /** Chat — a held action's card and its buttons, suffixed by the approval's id (MAG-7). */
+    const val APPROVAL_CARD_PREFIX = "approval_card_"
+    const val APPROVAL_ALLOW_PREFIX = "approval_allow_"
+    const val APPROVAL_DENY_PREFIX = "approval_deny_"
+    const val APPROVAL_DISMISS_PREFIX = "approval_dismiss_"
+
+    fun approvalCard(id: String) = APPROVAL_CARD_PREFIX + id
+
+    fun approvalAllow(id: String) = APPROVAL_ALLOW_PREFIX + id
+
+    fun approvalDeny(id: String) = APPROVAL_DENY_PREFIX + id
+
+    fun approvalDismiss(id: String) = APPROVAL_DISMISS_PREFIX + id
+
     fun drawerItem(route: String) = DRAWER_ITEM_PREFIX + route
 
     fun railItem(route: String) = RAIL_ITEM_PREFIX + route
