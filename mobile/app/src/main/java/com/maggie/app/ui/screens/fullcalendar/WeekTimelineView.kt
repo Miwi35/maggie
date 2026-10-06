@@ -186,7 +186,7 @@ fun WeekTimelineView(
 
                     val dayTimedEvents = timedByDay[date].orEmpty()
                     dayTimedEvents.forEach { event ->
-                        val (topOffset, height) = calculateEventPosition(event, zone)
+                        val (topOffset, height) = calculateEventPosition(event, date, zone)
                         EventBlock(
                             event = event,
                             topOffset = topOffset,
