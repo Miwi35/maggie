@@ -37,10 +37,9 @@ import org.junit.runner.RunWith
  * seen on some days and not others. Here both cases are written down and both run
  * on every pull request.
  *
- * What is not asserted, as in the flow: the vertical position of the block in the
- * day view. It is drawn from the start hour to the end hour of *that* day
- * whatever the event's own times, so a night event lands at 21:00 on its second
- * day — a known quirk, and not what this is about.
+ * The vertical position of the block in the day view is `EventPositionTest`'s
+ * business; here only the consequence is asserted: the block of the arrival day
+ * is at the top of the grid, so it is there without scrolling (MAG-207).
  */
 @RunWith(AndroidJUnit4::class)
 class MultiDayEventScreenTest {
@@ -94,8 +93,9 @@ class MultiDayEventScreenTest {
 
     /**
      * The day view of the second day, opened the way a person does: tap the day's
-     * header in the week view. The block sits below the fold — the timeline is 17
-     * hours of 60 dp — so it is scrolled to, which is what the flow did too.
+     * header in the week view. The block of the arrival day starts at the top of
+     * the grid, so it is displayed without scrolling; the departure day's block
+     * (21:00) sits below the fold and is scrolled to.
      */
     @Test
     fun `tapping a day header opens that day, with the event that reaches into it`() {
@@ -108,7 +108,6 @@ class MultiDayEventScreenTest {
         compose.onNodeWithTag(UiTags.calendarDay(last)).performClick()
 
         compose.onNodeWithTag(UiTags.calendarEvent(last))
-            .performScrollTo()
             .assertIsDisplayed()
             .assertTextEquals(train)
 
