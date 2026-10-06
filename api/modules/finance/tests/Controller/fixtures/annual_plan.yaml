@@ -1,0 +1,258 @@
+# The world of a yearly planning session: 2026 behind, 2027 to prepare.
+#
+# Amounts are chosen so every figure is checkable by hand:
+#   Loisirs 2026 consumed  = 24 000 + 1 800 + 15 000 = 40 800 (the +5 000 refund
+#                            is a credit, and credits never weigh on a budget)
+#   Voyages 2026 consumed  = 80 000
+#   Courses 2026 consumed  = 45 000
+# and 2027 has already decided on 18 000 of Loisirs (12 000 planned + 6 000
+# committed), plus 4 000 only to arbitrate, which never counts.
+
+Maggie\Core\Entity\User:
+  test_user:
+    email: annual-plan-test@example.com
+    googleId: google-annual-plan-test
+    name: Annual Plan Test User
+
+  other_user:
+    email: annual-plan-other@example.com
+    googleId: google-annual-plan-other
+    name: Annual Plan Other User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 300000
+    isCushion: false
+    user: '@test_user'
+
+  other_checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 100000
+    isCushion: false
+    user: '@other_user'
+
+Maggie\Finance\Entity\Category:
+  leisure:
+    name: Loisirs
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  travel:
+    name: Voyages
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  groceries:
+    name: Courses
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+
+  other_leisure:
+    name: Loisirs
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@other_user'
+
+Maggie\Finance\Entity\Transaction:
+  # 2026, big enough to come back as a candidate.
+  festival_2026:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: -24000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-12"))>'
+    label: Festival des Vieilles Charrues
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    user: '@test_user'
+
+  # Committed is money already out: it counts as consumed, and it is a
+  # candidate like any other.
+  season_ticket_2026:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: -15000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-11-20"))>'
+    label: Abonnement saison
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Committed)>'
+    user: '@test_user'
+
+  # Under the threshold: consumed, but not worth reconsidering one by one.
+  cinema_2026:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: -1800
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-03-04"))>'
+    label: Cinéma
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    user: '@test_user'
+
+  # A credit, big enough to pass the threshold if the sign were ignored.
+  refund_2026:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: 50000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-20"))>'
+    label: Remboursement festival annulé
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    user: '@test_user'
+
+  trip_2026:
+    account: '@checking'
+    category: '@travel'
+    amountCents: -80000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-08-01"))>'
+    label: Voyage Lisbonne
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    user: '@test_user'
+
+  groceries_2026:
+    account: '@checking'
+    category: '@groceries'
+    amountCents: -45000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-05-10"))>'
+    label: Courses du mois
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    user: '@test_user'
+
+  # Uncategorized: nowhere to put it, so the session leaves it out.
+  unclassified_2026:
+    account: '@checking'
+    amountCents: -30000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-09"))>'
+    label: Achat non classé
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    user: '@test_user'
+
+  # 2025: outside the window the session looks at.
+  festival_2025:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: -22000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2025-07-10"))>'
+    label: Festival 2025
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    user: '@test_user'
+
+  # 2027, already decided: the session must show it instead of proposing it.
+  plan_concert_2027:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: -12000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2027-06-01"))>'
+    label: Concert 2027
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Planned)>'
+    user: '@test_user'
+
+  # Committed on the target year: money already out for something still to
+  # come, so the year has decided on it as much as on a planned line.
+  plan_season_2027:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: -6000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2027-04-01"))>'
+    label: Abonnement 2027 déjà payé
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Committed)>'
+    user: '@test_user'
+
+  # Only to arbitrate: reported apart, never added to the suggestion.
+  arbitrate_gear_2027:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: -4000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2027-02-01"))>'
+    label: Matériel à arbitrer
+    status: '<(Maggie\Finance\Enum\TransactionStatus::ToArbitrate)>'
+    user: '@test_user'
+
+  # 2027, but already paid: a plan is what is still to come, so this is not one.
+  spent_2027:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: -5000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2027-05-01"))>'
+    label: Déjà réglé en 2027
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    user: '@test_user'
+
+  # 2027, a plannable status, but a credit: nothing a budget has to cover.
+  refund_2027:
+    account: '@checking'
+    category: '@leisure'
+    amountCents: 7000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2027-03-01"))>'
+    label: Remboursement attendu en 2027
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Planned)>'
+    user: '@test_user'
+
+  # Another user's year: never in this one's plan.
+  other_festival_2026:
+    account: '@other_checking'
+    category: '@other_leisure'
+    amountCents: -99000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-12"))>'
+    label: Festival du voisin
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    user: '@other_user'
+
+Maggie\Finance\Entity\Envelope:
+  # What 2026 had been budgeted for Loisirs. In CHF, and Loisirs has no 2027
+  # envelope, so it is this one the row's currency must come from.
+  leisure_2026_annual:
+    category: '@leisure'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Annual)>'
+    amountCents: 36000
+    currency: CHF
+    year: 2026
+    user: '@test_user'
+
+  # Voyages has one on each year, in two currencies: the target year's is the
+  # one the budget will be set in, so it wins.
+  travel_2026_annual:
+    category: '@travel'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Annual)>'
+    amountCents: 70000
+    currency: CHF
+    year: 2026
+    user: '@test_user'
+
+  # Monthly, so a monthly budget is never read as last year's annual one.
+  groceries_2026_monthly:
+    category: '@groceries'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 40000
+    currency: EUR
+    year: 2026
+    month: 5
+    user: '@test_user'
+
+  # Already set on the target year: a second pass must see it, not redo it.
+  travel_2027_annual:
+    category: '@travel'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Annual)>'
+    amountCents: 90000
+    currency: EUR
+    year: 2027
+    user: '@test_user'
+
+  other_leisure_2026_annual:
+    category: '@other_leisure'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Annual)>'
+    amountCents: 99000
+    currency: EUR
+    year: 2026
+    user: '@other_user'

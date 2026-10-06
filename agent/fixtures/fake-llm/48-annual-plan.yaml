@@ -1,0 +1,30 @@
+# The yearly planning session, through Maggie (MAG-48).
+#
+# One real MCP call: read what the year behind cost and what the year ahead
+# should be budgeted. The fake scripts only the model's side — the tool runs
+# against the real MCP server and the seeded database.
+#
+# No id in the sentence, and none needed: `plan_annual_budget` takes a year and
+# a threshold, nothing a seed invents. The year is a far-future literal, like
+# 35-create-event.yaml's date: the journey writes its own expenses into 2032 to
+# be read back as 2033's plan, and no other journey nor any twelve-month window
+# of the module reaches either year.
+#
+# The amount matches what the tool really returns. The fake does not read tool
+# results, so no journey can lean on it — but this corpus is also the reference
+# `task e2e:eval` judges the real model against, and a Maggie who misquotes her
+# own tool is not the reference anyone wants.
+name: annual-plan
+description: Read the yearly plan of a far-future year, through MCP.
+
+match:
+  user_contains: "planification annuelle"
+
+turns:
+  # An intermediate text, deliberately: only the last turn's is the answer
+  # (MAG-229), and this one proves the gateway drops it.
+  - text: "Je regarde ce que l'année écoulée a coûté."
+    tools:
+      - name: plan_annual_budget
+        input: {year: 2033}
+  - text: "D'après l'année écoulée, il te faut compter 489,00 € pour tes festivals."
