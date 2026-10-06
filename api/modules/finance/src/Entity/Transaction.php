@@ -341,11 +341,7 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
         return $this;
     }
 
-    /**
-     * Not serialized: `transferKind` is the one truth a client reads, and a
-     * derived boolean beside it would be the second one to keep in agreement —
-     * exactly what shape decision 2 refused.
-     */
+    /** Not serialized: `transferKind` is the one truth a client reads. */
     #[ApiProperty(readable: false)]
     public function isInternalTransfer(): bool
     {
@@ -355,12 +351,16 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
     /**
      * Pairs the two legs of one movement, recording who decided it.
      *
-     * Both sides carry the same judgement: a transfer is a single fact seen
-     * twice, and a leg pointing at a line that does not point back would be a
-     * second truth to reconcile.
+     * Both sides carry the same judgement — a transfer is a single fact seen
+     * twice — and whatever either side pointed at before is freed: a third
+     * line left pointing at a line that disowns it would be excluded from
+     * every aggregate for good, with nothing to justify it.
      */
     public function markAsInternalTransfer(self $counterpart, TransferSource $source): static
     {
+        $this->unpair();
+        $counterpart->unpair();
+
         $this->transferKind = TransferKind::Internal;
         $this->transferSource = $source;
         $this->counterpart = $counterpart;
@@ -372,29 +372,34 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
         return $this;
     }
 
-    /**
-     * Takes this line back out of the transfers, unpairing whatever it pointed
-     * at.
-     *
-     * The other leg goes back to `None` but keeps its own `transferSource`: a
-     * user saying « this one is not a transfer » judges the line he is looking
-     * at, and the line in front of it may well have a different counterpart.
-     * This one is sealed, so the pair cannot come back on the next pass.
-     */
+    /** Takes this line out of the transfers, with who decided that. */
     public function releaseInternalTransfer(TransferSource $source): static
+    {
+        $this->unpair();
+        $this->transferSource = $source;
+
+        return $this;
+    }
+
+    /**
+     * Frees the leg this one pointed at, which goes back to `auto`.
+     *
+     * The pair cannot come back — the line the user judged is sealed `manual`
+     * and the detection skips it — but the leg in front may well belong to a
+     * third line, and sealing it too would hide that pairing for ever.
+     */
+    private function unpair(): void
     {
         $former = $this->counterpart;
 
         $this->transferKind = TransferKind::None;
-        $this->transferSource = $source;
         $this->counterpart = null;
 
         if (null !== $former && $former->counterpart === $this) {
             $former->transferKind = TransferKind::None;
+            $former->transferSource = TransferSource::Auto;
             $former->counterpart = null;
         }
-
-        return $this;
     }
 
     public function getUser(): User

@@ -6,6 +6,7 @@ use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
+use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Enum\TransferSource;
@@ -170,6 +171,57 @@ class TransactionToolsTest extends KernelTestCase
         $this->assertElasticsearchDeleteDispatched('transactions');
     }
 
+    /** Every id a published Mercure topic names, as one string. */
+    private function publishedTopics(): string
+    {
+        $topics = [];
+        foreach ($this->getMercureHub()->getUpdates() as $update) {
+            foreach ($update->getTopics() as $topic) {
+                $topics[] = $topic;
+            }
+        }
+
+        return implode(' ', $topics);
+    }
+
+    /** @return string[] the ids sent for reindexing */
+    private function reindexedIds(): array
+    {
+        $ids = [];
+        foreach ($this->getAsyncTransport()->getSent() as $envelope) {
+            $message = $envelope->getMessage();
+            if ($message instanceof IndexDocumentCommand && Transaction::class === $message->entityClass) {
+                $ids[] = $message->entityId;
+            }
+        }
+
+        return $ids;
+    }
+
+    public function testAnUnknownActionIsReported(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
+
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+        $data = json_decode($tool('archive'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
+        self::assertStringContainsString('Unknown action', $data['error']);
+    }
+
+    public function testUpdateWithoutATransactionIdIsReported(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
+
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+        $data = json_decode($tool('update', label: 'Sans cible'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
+        self::assertStringContainsString('transactionId is required', $data['error']);
+    }
+
     public function testWithoutAUserBoundTheToolReportsTheError(): void
     {
         $this->loadFixtures('internal_transfers.yaml');
@@ -208,8 +260,41 @@ class TransactionToolsTest extends KernelTestCase
         self::assertSame(TransferSource::Manual, $storedIn->getTransferSource());
         self::assertSame((string) $out->getId(), (string) $storedIn->getCounterpart()?->getId());
 
-        $this->assertMercureUpdatePublished('/transactions/');
-        $this->assertElasticsearchIndexDispatched(Transaction::class);
+        // Both legs, not just the one the tool was pointed at: the list is
+        // served from Elasticsearch, so a stale document is a missing badge.
+        $topics = $this->publishedTopics();
+        self::assertStringContainsString((string) $out->getId(), $topics);
+        self::assertStringContainsString((string) $in->getId(), $topics);
+        self::assertContains((string) $out->getId(), $this->reindexedIds());
+        self::assertContains((string) $in->getId(), $this->reindexedIds());
+    }
+
+    public function testMarkingAPairBreaksTheOldOneAndRepublishesTheLineItFreed(): void
+    {
+        $this->loadFixtures('internal_transfers.yaml');
+        $this->loginFixtureUser();
+
+        $out = $this->getFixture('transfer_out');
+        $in = $this->getFixture('transfer_in');
+        $other = $this->getFixture('other_savings_debit');
+
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+        $tool('update', transactionId: (string) $in->getId(), transferKind: 'internal', counterpartId: (string) $other->getId());
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        // The owner corrects himself: the credit really faces the debit.
+        $tool('update', transactionId: (string) $in->getId(), transferKind: 'internal', counterpartId: (string) $out->getId());
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+
+        $freed = $em->find(Transaction::class, $other->getId());
+        self::assertFalse($freed->isInternalTransfer(), 'the line it no longer faces is freed, not left excluded');
+        self::assertNull($freed->getCounterpart());
+        self::assertSame(TransferSource::Auto, $freed->getTransferSource());
+        self::assertStringContainsString((string) $other->getId(), $this->publishedTopics());
+        self::assertContains((string) $other->getId(), $this->reindexedIds());
     }
 
     public function testUnmarkingAnInternalTransferSealsTheLineAgainstTheDetection(): void

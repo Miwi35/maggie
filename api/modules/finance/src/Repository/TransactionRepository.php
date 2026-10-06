@@ -115,12 +115,11 @@ class TransactionRepository extends ServiceEntityRepository
     }
 
     /**
-     * The lines of one user the detection may still pair, oldest first.
+     * The lines of one user the detection may still pair, oldest first: the
+     * paired ones and the ones he judged by hand are left out, so a second
+     * catch-up pass over the same history changes nothing.
      *
-     * Already paired lines and lines the user judged by hand are left out, so
-     * a second catch-up pass over the same history changes nothing.
-     *
-     * @param \DateTimeImmutable|null $since how far back to look, or null for the whole history
+     * @param \DateTimeImmutable|null $since how far back to look, or null for everything
      *
      * @return Transaction[]
      */
@@ -152,7 +151,7 @@ class TransactionRepository extends ServiceEntityRepository
      * Same user, two accounts of his that are not the same one, exactly
      * opposite amounts in the same currency, booked within the window, already
      * consumed, not paired yet and not judged by hand. Which one wins is the
-     * use case's call: the order here is only there to make the result stable.
+     * use case's call; the order here only makes the result stable.
      *
      * @return Transaction[]
      */

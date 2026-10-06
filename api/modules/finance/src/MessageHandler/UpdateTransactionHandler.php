@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\MessageHandler;
 
+use Maggie\Core\Mercure\EntityBroadcaster;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\RetrospectVerdict;
@@ -23,6 +24,7 @@ class UpdateTransactionHandler
         private readonly UpdateTransaction $updateTransaction,
         private readonly TransactionRepository $transactionRepository,
         private readonly OwnedReferenceResolver $references,
+        private readonly EntityBroadcaster $broadcaster,
     ) {
     }
 
@@ -71,9 +73,23 @@ class UpdateTransactionHandler
             $transaction->assignCategory(null, CategorySource::None);
         }
 
-        $this->applyTransfer($transaction, $command);
+        // The middlewares publish and reindex the result only, so the other
+        // legs a marking touched have to be broadcast by hand — a stale index
+        // would show the badge on one of the two lines and not the other.
+        $alsoChanged = [];
+        foreach ($this->applyTransfer($transaction, $command) as $other) {
+            if (null !== $other && $other !== $transaction) {
+                $alsoChanged[(string) $other->getId()] = $other;
+            }
+        }
 
-        return $this->updateTransaction->execute($transaction);
+        $updated = $this->updateTransaction->execute($transaction);
+
+        foreach ($alsoChanged as $other) {
+            $this->broadcaster->broadcast($other);
+        }
+
+        return $updated;
     }
 
     /**
@@ -83,30 +99,36 @@ class UpdateTransactionHandler
      * which is the normal case when only one of the two accounts is synced.
      * The source defaults to `manual`, as `categorySource` does: the only
      * caller that knows better — the detection — says so.
+     *
+     * @return array<int, ?Transaction> the other lines the marking changed
      */
-    private function applyTransfer(Transaction $transaction, UpdateTransactionCommand $command): void
+    private function applyTransfer(Transaction $transaction, UpdateTransactionCommand $command): array
     {
         if (null === $command->transferKind) {
-            if ($command->clears('transferKind')) {
-                $transaction->releaseInternalTransfer(TransferSource::Manual);
+            if (!$command->clears('transferKind')) {
+                return [];
             }
 
-            return;
+            $former = $transaction->getCounterpart();
+            $transaction->releaseInternalTransfer(TransferSource::Manual);
+
+            return [$former];
         }
 
         $kind = TransferKind::from($command->transferKind);
         $source = TransferSource::from($command->transferSource ?? TransferSource::Manual->value);
 
         if (TransferKind::None === $kind) {
+            $former = $transaction->getCounterpart();
             $transaction->releaseInternalTransfer($source);
 
-            return;
+            return [$former];
         }
 
         if (null === $command->counterpartId) {
             $transaction->setTransferKind($kind)->setTransferSource($source);
 
-            return;
+            return [];
         }
 
         if ($command->counterpartId === (string) $transaction->getId()) {
@@ -119,6 +141,9 @@ class UpdateTransactionHandler
             throw new \DomainException('An internal transfer goes between two different accounts.');
         }
 
+        $freed = [$transaction->getCounterpart(), $counterpart->getCounterpart()];
         $transaction->markAsInternalTransfer($counterpart, $source);
+
+        return [...$freed, $counterpart];
     }
 }

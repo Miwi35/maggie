@@ -107,6 +107,22 @@ class DetectInternalTransfersControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
+    public function testADryRunThatIsNotABooleanReturns400(): void
+    {
+        $this->loadFixtures('internal_transfers.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $out = $this->tx('transfer_out');
+
+        $this->detect(['dryRun' => 'false']);
+
+        self::assertResponseStatusCodeSame(400, '"false" is truthy, and a dry run that writes is the whole risk');
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertSame(TransferKind::None, $em->find(Transaction::class, $out->getId())->getTransferKind());
+    }
+
     public function testTheCatchUpPairsBothLegsAndTellsEveryScreen(): void
     {
         $this->loadFixtures('internal_transfers.yaml');

@@ -43,10 +43,26 @@ class DetectInternalTransfers
     ) {
     }
 
-    /** The other leg of this movement, if the history holds exactly one. */
+    /**
+     * The other leg of this movement: closest date, then oldest, then smallest
+     * ULID.
+     */
     public function detectFor(Transaction $transaction): ?Transaction
     {
-        return $this->bestCandidate($transaction);
+        if (!$this->isEligible($transaction)) {
+            return null;
+        }
+
+        $candidates = $this->transactionRepository->findTransferCandidates($transaction, self::WINDOW_DAYS);
+        if ([] === $candidates) {
+            return null;
+        }
+
+        $reference = $transaction->getBookedAt();
+        usort($candidates, static fn (Transaction $a, Transaction $b) => [self::gapInDays($reference, $a), self::sortKey($a)]
+            <=> [self::gapInDays($reference, $b), self::sortKey($b)]);
+
+        return $candidates[0];
     }
 
     /**
@@ -163,48 +179,18 @@ class DetectInternalTransfers
     }
 
     /**
-     * One command per leg: Mercure and Elasticsearch follow the command, so a
-     * single dispatch would leave the other line stale in the search index and
-     * invisible to the other tab.
+     * One command: its handler marks both legs and broadcasts the other one,
+     * so each line reaches Mercure and the search index exactly once.
      */
     private function pair(User $user, string $transactionId, string $counterpartId): void
     {
-        foreach ([[$transactionId, $counterpartId], [$counterpartId, $transactionId]] as [$leg, $other]) {
-            $this->bus->dispatch(new UpdateTransactionCommand(
-                userId: (string) $user->getId(),
-                transactionId: $leg,
-                transferKind: TransferKind::Internal->value,
-                transferSource: TransferSource::Auto->value,
-                counterpartId: $other,
-            ));
-        }
-    }
-
-    /** The counterpart of one line: closest date, then oldest, then smallest ULID. */
-    private function bestCandidate(Transaction $transaction): ?Transaction
-    {
-        if (!$this->isEligible($transaction)) {
-            return null;
-        }
-
-        $candidates = $this->transactionRepository->findTransferCandidates($transaction, self::WINDOW_DAYS);
-
-        if ([] === $candidates) {
-            return null;
-        }
-
-        $reference = $transaction->getBookedAt();
-        usort($candidates, static fn (Transaction $a, Transaction $b) => [
-            self::gapInDays($reference, $a),
-            $a->getBookedAt()->format('Y-m-d'),
-            (string) $a->getId(),
-        ] <=> [
-            self::gapInDays($reference, $b),
-            $b->getBookedAt()->format('Y-m-d'),
-            (string) $b->getId(),
-        ]);
-
-        return $candidates[0];
+        $this->bus->dispatch(new UpdateTransactionCommand(
+            userId: (string) $user->getId(),
+            transactionId: $transactionId,
+            transferKind: TransferKind::Internal->value,
+            transferSource: TransferSource::Auto->value,
+            counterpartId: $counterpartId,
+        ));
     }
 
     /**

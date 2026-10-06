@@ -41,7 +41,7 @@ final class DetectInternalTransfersController
         try {
             $body = '' === $content ? [] : json_decode($content, true, 512, \JSON_THROW_ON_ERROR);
         } catch (\JsonException) {
-            return new JsonResponse(['error' => 'The body must be a JSON object'], Response::HTTP_BAD_REQUEST);
+            $body = null;
         }
 
         if (!\is_array($body)) {
@@ -56,10 +56,15 @@ final class DetectInternalTransfersController
             );
         }
 
-        return new JsonResponse(['success' => true] + $this->detectInternalTransfers->execute(
-            $user,
-            $limitDays,
-            (bool) ($body['dryRun'] ?? false),
-        ));
+        // Not coerced: `"false"` is truthy, and a dry run that writes is the
+        // one mistake this parameter exists to prevent.
+        $dryRun = $body['dryRun'] ?? false;
+        if (!\is_bool($dryRun)) {
+            return new JsonResponse(['error' => 'dryRun must be a boolean'], Response::HTTP_BAD_REQUEST);
+        }
+
+        return new JsonResponse(
+            ['success' => true] + $this->detectInternalTransfers->execute($user, $limitDays, $dryRun),
+        );
     }
 }

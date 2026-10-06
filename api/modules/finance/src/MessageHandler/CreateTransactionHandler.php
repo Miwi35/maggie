@@ -4,20 +4,18 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\MessageHandler;
 
+use Maggie\Core\Mercure\EntityBroadcaster;
 use Maggie\Core\Repository\UserRepository;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\TransactionStatus;
-use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Enum\TransferSource;
 use Maggie\Finance\Message\CreateTransactionCommand;
-use Maggie\Finance\Message\UpdateTransactionCommand;
 use Maggie\Finance\Service\OwnedReferenceResolver;
 use Maggie\Finance\UseCase\CategorizeTransaction;
 use Maggie\Finance\UseCase\CreateTransaction;
 use Maggie\Finance\UseCase\DetectInternalTransfers;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
-use Symfony\Component\Messenger\MessageBusInterface;
 
 #[AsMessageHandler]
 class CreateTransactionHandler
@@ -28,7 +26,7 @@ class CreateTransactionHandler
         private readonly DetectInternalTransfers $detectInternalTransfers,
         private readonly OwnedReferenceResolver $references,
         private readonly UserRepository $userRepository,
-        private readonly MessageBusInterface $bus,
+        private readonly EntityBroadcaster $broadcaster,
     ) {
     }
 
@@ -66,17 +64,11 @@ class CreateTransactionHandler
 
         $transaction = $this->createTransaction->execute($transaction);
 
-        // The other leg changed too, and only a command of its own republishes
-        // it: without this, the search index — which is what the transaction
-        // list reads — would still call it an ordinary expense.
+        // The other leg changed too, and the middlewares only ever see the
+        // result: without this the search index — which is what the
+        // transaction list reads — still calls it an ordinary expense.
         if (null !== $counterpart) {
-            $this->bus->dispatch(new UpdateTransactionCommand(
-                userId: (string) $user->getId(),
-                transactionId: (string) $counterpart->getId(),
-                transferKind: TransferKind::Internal->value,
-                transferSource: TransferSource::Auto->value,
-                counterpartId: (string) $transaction->getId(),
-            ));
+            $this->broadcaster->broadcast($counterpart);
         }
 
         return $transaction;

@@ -88,6 +88,36 @@ class TransactionTransferTest extends TestCase
         );
     }
 
+    public function testReleasingAHandMadePairFreesTheOtherLegForTheDetection(): void
+    {
+        $this->out->markAsInternalTransfer($this->in, TransferSource::Manual);
+
+        $this->out->releaseInternalTransfer(TransferSource::Manual);
+
+        self::assertSame(TransferSource::Manual, $this->out->getTransferSource());
+        self::assertSame(
+            TransferSource::Auto,
+            $this->in->getTransferSource(),
+            'the pair cannot come back — the sealed line is skipped — but this leg may face a third one',
+        );
+    }
+
+    public function testPairingAgainFreesTheLineTheLegNoLongerFaces(): void
+    {
+        $third = $this->movement($this->savings, -300000, '2026-09-20', 'Autre virement sortant');
+        $this->in->markAsInternalTransfer($third, TransferSource::Auto);
+
+        $this->out->markAsInternalTransfer($this->in, TransferSource::Manual);
+
+        self::assertSame($this->in, $this->out->getCounterpart());
+        self::assertSame($this->out, $this->in->getCounterpart());
+        self::assertFalse(
+            $third->isInternalTransfer(),
+            'a line left pointing at a line that disowns it would leave every aggregate for good',
+        );
+        self::assertNull($third->getCounterpart());
+    }
+
     public function testTheMercurePayloadCarriesTheThreeFields(): void
     {
         $this->out->markAsInternalTransfer($this->in, TransferSource::Manual);

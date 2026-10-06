@@ -58,7 +58,7 @@ Branchement à la création : `CreateTransactionHandler` appelle la détection a
 - `tests/Repository/TransactionRepositoryTest.php` : **un virement interne ne compte ni dans le consommé, ni dans les flux mensuels, ni par catégorie, ni dans l'enveloppe, ni dans la file de revue, ni dans les grosses dépenses, ni dans les plans, ni dans les rentes** — un cas par méthode, et le cas du propriétaire en entier (cf. *Cas du propriétaire*, cas 5).
 - `tests/Mcp/ManageTransactionsToolTest.php` : marquage et démarquage manuels, `transferSource` posé à `manual`, appel sans utilisateur lié, contrepartie d'un autre utilisateur refusée.
 - `tests/Mcp/DetectInternalTransfersToolTest.php` : rattrapage, `dryRun`, appel sans utilisateur lié.
-- `MercurePublishMiddlewareTest` : les trois champs dans la charge utile Create/Update.
+- `tests/Entity/TransactionTransferTest.php` : les trois champs dans la charge utile Mercure (complète et différentielle) et dans le document Elasticsearch, aller-retour par l'hydrateur compris, et la symétrie des deux jambes.
 - Contrat : `UPDATE_CONTRACT=1 task wt:test:api -- --testsuite Contract` (liste des outils MCP, OpenAPI, réponses enregistrées).
 
 ## Tâche 3 — Virements internes : badge et correction, admin et mobile — MAG-272
