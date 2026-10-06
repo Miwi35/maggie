@@ -35,6 +35,8 @@ import { ROUTES } from '../pages/routes.js'
 /** Two real Ciqual foods. Codes are stable: they come from the published base. */
 const COURGETTE = { code: '20020', name: 'Courgette, chair et peau, crue' }
 const TOMATO = { code: '20276', name: 'Tomate ronde, crue' }
+/** Used by no other journey and not seeded, so the recipe below is what creates it (MAG-182). */
+const CARROT = { code: '20009', name: 'Carotte, crue' }
 
 // Every test here makes an ingredient for the same account and the same Ciqual
 // code. In two workers at once both find none and each creates one, and the
@@ -156,6 +158,33 @@ test('the ingredient made from a Ciqual code is listed, macros and all, and made
     all.filter((candidate) => candidate.ciqualAlimCode === COURGETTE.code),
     'asking for the same Ciqual food twice made a second ingredient',
   ).toHaveLength(1)
+})
+
+test('the ingredient a recipe creates from a Ciqual code is searchable at once, without a reindex', async ({ api }) => {
+  // MAG-182: the resolver persisted the ingredient and the recipe handler
+  // returned only the recipe, so the ingredient was in Postgres and in neither
+  // Elasticsearch nor Mercure — `/api/products` is served from the index and
+  // never listed it. `CreateRecipeHandlerTest` pins the dispatch; this is the
+  // read the owner's ingredient search does.
+  const headers = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
+
+  const created = await api.post('/api/recipes', {
+    headers,
+    data: {
+      name: perAttempt('Carottes râpées MAG-182'),
+      servings: 2,
+      ingredients: [{ ciqualAlimCode: CARROT.code, quantity: 200, unit: 'g' }],
+    },
+  })
+  expect(created.status(), `POST /api/recipes answered ${created.status()}: ${await created.text()}`).toBe(201)
+
+  const found = await waitForIndexed<StoredIngredient>(
+    api,
+    '/api/products?itemsPerPage=100',
+    (product) => product.name === CARROT.name,
+    { what: 'The ingredient created with the recipe, among the products' },
+  )
+  expect(found.name).toBe(CARROT.name)
 })
 
 /**
