@@ -216,13 +216,6 @@ point of every assertion on them is that *this* category consumed *that* much
 — a `getByText('120,00 € / 200,00 €')` would be just as happy if two gauges
 swapped their categories.
 
-One open bug has its expected-to-fail test here:
-
-- **MAG-245** — an account with no operation renders react-admin's empty state
-  *instead of* the list, toolbar included, so the screen that says "Ajoutez-en
-  une" is the one screen with no button that does
-  (`finance-accounts.spec.ts`).
-
 What the browser cannot reach is in `e2e/smoke/smoke.sh`: the bank consent
 round trip (step 12), which leaves for the bank's own origin and comes back
 with a single-use state only the database holds, and the CSV import (step 13),
