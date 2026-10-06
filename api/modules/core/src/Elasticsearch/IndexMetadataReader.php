@@ -122,6 +122,26 @@ final class IndexMetadataReader
         return null !== $meta ? $meta['fields'] : [];
     }
 
+    /**
+     * Every index a row of this class is served from: its own, then those of its
+     * ancestors. A Meal is a document of `meals` and of `events`; an Ingredient,
+     * which declares no index, is a document of `products`. A row that leaves the
+     * database has to leave all of them.
+     *
+     * @return list<string>
+     */
+    public function indicesOf(string $className): array
+    {
+        $indices = [];
+        for ($ref = new \ReflectionClass($className); false !== $ref; $ref = $ref->getParentClass()) {
+            foreach ($ref->getAttributes(Indexed::class) as $attribute) {
+                $indices[] = $attribute->newInstance()->index;
+            }
+        }
+
+        return array_values(array_unique($indices));
+    }
+
     public function getIndexName(string $className): ?string
     {
         $meta = $this->read($className);

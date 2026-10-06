@@ -8,6 +8,8 @@ use Maggie\Calendar\Message\CreateEventCommand;
 use Maggie\Calendar\Message\DeleteEventCommand;
 use Maggie\Calendar\Message\PullFromGoogleCommand;
 use Maggie\Calendar\Message\UpdateEventCommand;
+use Maggie\Cookbook\Message\DeleteIngredientCommand;
+use Maggie\Cookbook\Message\DeleteMealCommand;
 use Maggie\Core\Elasticsearch\IndexMetadataReader;
 use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
 use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
@@ -129,6 +131,27 @@ class ElasticsearchIndexMiddlewareTest extends TestCase
         self::assertInstanceOf(DeleteDocumentCommand::class, $this->dispatched[0]);
         self::assertSame('events', $this->dispatched[0]->indexName);
         self::assertSame($eventId, $this->dispatched[0]->documentId);
+    }
+
+    public function testDeletingAnIngredientDeletesItsProductDocument(): void
+    {
+        $id = (string) new Ulid();
+
+        $this->createMiddleware()->handle($this->received(new DeleteIngredientCommand(ingredientId: $id)), $this->createPassthroughStack());
+
+        self::assertSame(['products'], array_map(static fn (DeleteDocumentCommand $c) => $c->indexName, $this->dispatched));
+        self::assertSame($id, $this->dispatched[0]->documentId);
+    }
+
+    public function testDeletingAMealDeletesItsDocumentInMealsAndInEvents(): void
+    {
+        $id = (string) new Ulid();
+
+        $this->createMiddleware()->handle($this->received(new DeleteMealCommand(mealId: $id)), $this->createPassthroughStack());
+
+        $indices = array_map(static fn (DeleteDocumentCommand $c) => $c->indexName, $this->dispatched);
+        sort($indices);
+        self::assertSame(['events', 'meals'], $indices);
     }
 
     public function testDeleteWithNonCanonicalIdTargetsTheCanonicalDocumentId(): void

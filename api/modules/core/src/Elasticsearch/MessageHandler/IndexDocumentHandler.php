@@ -42,17 +42,18 @@ final class IndexDocumentHandler
             return;
         }
 
-        $meta = $this->metadataReader->read($command->entityClass);
-        if (null === $meta) {
-            return;
-        }
+        // A Meal is a document of `meals` and of `events`, an Ingredient one of `products`:
+        // the same indices the reindex fills and the delete empties.
+        $indices = $this->metadataReader->indicesOf($command->entityClass);
 
         try {
-            $this->indexManager->indexDocument(
-                $meta['index'],
-                (string) $entity->getId(),
-                $entity->toSearchDocument(),
-            );
+            foreach ($indices as $index) {
+                $this->indexManager->indexDocument(
+                    $index,
+                    (string) $entity->getId(),
+                    $entity->toSearchDocument(),
+                );
+            }
         } catch (\Throwable $e) {
             $this->logger->error('Failed to index document in ES: {error}', [
                 'error' => $e->getMessage(),

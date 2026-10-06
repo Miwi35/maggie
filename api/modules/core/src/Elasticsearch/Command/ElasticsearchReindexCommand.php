@@ -9,6 +9,7 @@ use Maggie\Core\Contract\IndexableInterface;
 use Maggie\Core\Elasticsearch\IndexableEntityRegistry;
 use Maggie\Core\Elasticsearch\IndexManager;
 use Maggie\Core\Elasticsearch\IndexMetadataReader;
+use Maggie\Core\Identifier\CanonicalId;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\ProgressBar;
@@ -40,7 +41,8 @@ final class ElasticsearchReindexCommand extends Command
             ->addOption('all', null, InputOption::VALUE_NONE, 'Reindex all entities')
             ->addOption('entity', null, InputOption::VALUE_REQUIRED, 'Entity short name (e.g. Event)')
             ->addOption('module', null, InputOption::VALUE_REQUIRED, 'Module name (e.g. calendar)')
-            ->addOption('recreate', null, InputOption::VALUE_NONE, 'Delete and recreate indices before reindexing');
+            ->addOption('recreate', null, InputOption::VALUE_NONE, 'Delete and recreate indices before reindexing')
+            ->addOption('orphans', null, InputOption::VALUE_NONE, 'Only remove the documents whose row is gone from the database (every index, or the --entity / --module given); nothing is rebuilt');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -50,18 +52,24 @@ final class ElasticsearchReindexCommand extends Command
         $entityName = $input->getOption('entity');
         $moduleName = $input->getOption('module');
 
-        if (!$all && null === $entityName && null === $moduleName) {
-            $io->error('Specify --all, --entity, or --module');
+        $orphans = (bool) $input->getOption('orphans');
+
+        if (!$all && !$orphans && null === $entityName && null === $moduleName) {
+            $io->error('Specify --all, --entity, --module or --orphans');
 
             return Command::FAILURE;
         }
 
-        $entities = $this->resolveEntities($all, $entityName, $moduleName);
+        $entities = $this->resolveEntities($all || ($orphans && null === $entityName && null === $moduleName), $entityName, $moduleName);
 
         if ([] === $entities) {
             $io->warning('No indexable entities found');
 
             return Command::SUCCESS;
+        }
+
+        if ($orphans) {
+            return $this->purgeOrphans($io, $entities);
         }
 
         foreach ($entities as $indexName => $entityClass) {
@@ -124,6 +132,36 @@ final class ElasticsearchReindexCommand extends Command
         }
 
         $io->success('Reindexing complete');
+
+        return Command::SUCCESS;
+    }
+
+    /**
+     * @param array<string, class-string<IndexableInterface>> $entities
+     */
+    private function purgeOrphans(SymfonyStyle $io, array $entities): int
+    {
+        $removed = 0;
+
+        foreach ($entities as $indexName => $entityClass) {
+            // The index is listed before the database: a row created in between has no document
+            // in the list and is left alone, a row deleted in between is correctly an orphan.
+            $documentIds = $this->indexManager->documentIds($indexName);
+
+            $rowIds = [];
+            foreach ($this->em->createQueryBuilder()->select('e.id')->from($entityClass, 'e')->getQuery()->getArrayResult() as $row) {
+                $rowIds[CanonicalId::of((string) $row['id'])] = true;
+            }
+            $this->em->clear();
+
+            $orphanIds = array_values(array_filter($documentIds, static fn (string $id) => !isset($rowIds[$id])));
+            $this->indexManager->bulkDelete($indexName, $orphanIds);
+
+            $io->text(sprintf('<comment>%s</comment>: %d orphan document(s) removed', $indexName, \count($orphanIds)));
+            $removed += \count($orphanIds);
+        }
+
+        $io->success(sprintf('%d orphan document(s) removed', $removed));
 
         return Command::SUCCESS;
     }
