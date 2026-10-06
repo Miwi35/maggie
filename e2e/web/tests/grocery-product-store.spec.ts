@@ -1,5 +1,7 @@
 import { test, expect, seedId } from '../fixtures/index.js'
 import { waitForIndexed } from '../helpers/api.js'
+import { AdminShell } from '../pages/AdminShell.js'
+import { ROUTES } from '../pages/routes.js'
 
 /**
  * A product's usual shop: set it, change it, clear it, and read it back.
@@ -64,5 +66,54 @@ test('the usual shop of a product is saved, changed, cleared and read back from 
     expect(without.fallbackStore, 'clearing one shop must not clear the other').toBe(greengrocer)
   } finally {
     await api.delete(`/api/products/${productId}`)
+  }
+})
+
+/**
+ * MAG-190, second refusal: through the admin form the shop did not stick. The
+ * form sends the record back with `id` set to its IRI (and `originId`), the API
+ * parsed that as a Ulid and answered 400, so the saved shop never reached the
+ * database. The journey above talks to the API directly and cannot see it.
+ */
+test('the usual shop chosen in the product form is saved and still there when the product is reopened', async ({
+  page,
+  api,
+}) => {
+  const name = `Câpres MAG-190 form ${Date.now()}`
+  const created = await api.post('/api/products', { headers: LD, data: { name, category: 'other' } })
+  expect(created.status()).toBe(201)
+  const iri = ((await created.json()) as { '@id': string })['@id']
+
+  try {
+    const shell = new AdminShell(page)
+    await shell.goto(`${ROUTES.products}/${encodeURIComponent(iri)}`)
+
+    const shop = shell.content.getByLabel('Magasin habituel')
+    await shop.fill('Primeur')
+    await page.getByRole('option', { name: 'Primeur du marché' }).click()
+
+    const patched = page.waitForResponse(
+      (response) => response.url().includes(iri) && response.request().method() === 'PATCH',
+    )
+    await shell.content.getByRole('button', { name: 'Enregistrer' }).click()
+    const response = await patched
+    expect(response.status(), `the API refused the product: ${await response.text()}`).toBe(200)
+
+    // Items are served from the index: reopening before the worker has
+    // reindexed would show the previous document.
+    const greengrocer = `/api/stores/${seedId('e2e_store_greengrocer')}`
+    await waitForIndexed<ProductRow>(
+      api,
+      '/api/products?itemsPerPage=200',
+      (row) => row.name === name && row.preferredStore === greengrocer,
+      { what: 'The product with the shop chosen in the form' },
+    )
+
+    await shell.goto(`${ROUTES.products}/${encodeURIComponent(iri)}`)
+    await expect(shell.content.getByLabel('Magasin habituel')).toHaveValue('Primeur du marché')
+    const stored = await api.get(iri, { headers: { Accept: 'application/ld+json' } })
+    expect(((await stored.json()) as ProductRow).preferredStore).toBe(greengrocer)
+  } finally {
+    await api.delete(iri)
   }
 })
