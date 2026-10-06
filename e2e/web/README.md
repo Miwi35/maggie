@@ -149,8 +149,6 @@ Writing them — and then *running* them — found bugs, and each open one has a
 expected-to-fail test naming its ticket rather than a missing assertion, because an
 exemption nobody wrote down is a missing test:
 
-- **MAG-174** — the grocery list shows a line deferred with `buyAfter` to a later
-  day (`grocery-list.spec.ts`).
 - **MAG-197** — ticking what is in the trolley, then ending the errand, still fails
   after MAG-190's fix: the ticked line never reads as ticked (two tests in
   `grocery-errand.spec.ts`).

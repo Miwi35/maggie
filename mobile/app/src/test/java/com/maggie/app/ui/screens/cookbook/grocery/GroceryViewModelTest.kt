@@ -624,4 +624,114 @@ class GroceryViewModelTest {
         assertEquals("Yaourt", carrefourGroup.items[1].label)
         assertEquals("Beurre", carrefourGroup.items[2].label)
     }
+
+    private fun stubDeferred(vararg items: GroceryItem) {
+        coEvery { groceryListRepository.getGroceryList() } returns
+            Result.success(GroceryList(id = "list-1", items = items.toList()))
+    }
+
+    @Test
+    fun `deferred items are exposed as later items with their date`() = runTest {
+        val today = java.time.LocalDate.now()
+        stubDeferred(
+            GroceryItem(id = "now", label = "Lait", store = store),
+            GroceryItem(id = "rest", label = "Oeufs", store = store, buyAfter = "${today.plusDays(3)}T00:00:00+00:00"),
+        )
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val later = viewModel.uiState.value.laterItems
+        assertEquals(listOf("rest"), later.map { it.id })
+        assertEquals("${today.plusDays(3)}T00:00:00+00:00", later[0].buyAfter)
+        assertEquals(listOf("now"), viewModel.uiState.value.storeGroups.flatMap { it.items }.map { it.id })
+    }
+
+    @Test
+    fun `later items are sorted by date then label`() = runTest {
+        val today = java.time.LocalDate.now()
+        stubDeferred(
+            GroceryItem(id = "c", label = "Citrons", buyAfter = today.plusDays(5).toString()),
+            GroceryItem(id = "b", label = "Beurre", buyAfter = "${today.plusDays(2)}T00:00:00+00:00"),
+            GroceryItem(id = "a", label = "Ail", buyAfter = today.plusDays(5).toString()),
+            GroceryItem(id = "z", label = "Zeste", buyAfter = today.plusDays(2).toString()),
+        )
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertEquals(listOf("b", "z", "a", "c"), viewModel.uiState.value.laterItems.map { it.id })
+    }
+
+    @Test
+    fun `later items are empty when nothing is deferred`() = runTest {
+        val today = java.time.LocalDate.now()
+        stubDeferred(
+            GroceryItem(id = "now", label = "Lait", store = store),
+            GroceryItem(id = "due", label = "Pain", store = store, buyAfter = today.minusDays(1).toString()),
+            GroceryItem(id = "today", label = "Riz", store = store, buyAfter = "${today}T00:00:00+00:00"),
+        )
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.laterItems.isEmpty())
+    }
+
+    @Test
+    fun `a list holding only deferred items has no store groups but has later items`() = runTest {
+        stubDeferred(GroceryItem(id = "x", label = "Sel", buyAfter = java.time.LocalDate.now().plusDays(1).toString()))
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.storeGroups.isEmpty())
+        assertEquals(1, viewModel.uiState.value.laterItems.size)
+    }
+
+    @Test
+    fun `counters ignore deferred items even when checked`() = runTest {
+        val tomorrow = java.time.LocalDate.now().plusDays(1)
+        stubDeferred(
+            GroceryItem(id = "a", label = "Lait", store = store, checked = true),
+            GroceryItem(id = "b", label = "Pain", store = store),
+            GroceryItem(id = "c", label = "Oeufs", store = store, checked = true, buyAfter = tomorrow.toString()),
+            GroceryItem(id = "d", label = "Sel", store = store, buyAfter = tomorrow.toString()),
+        )
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertEquals(1, viewModel.uiState.value.checkedCount)
+        assertEquals(2, viewModel.uiState.value.totalCount)
+    }
+
+    @Test
+    fun `later items follow a Mercure update that defers an item`() = runTest {
+        val tomorrow = java.time.LocalDate.now().plusDays(1)
+        stubDeferred(GroceryItem(id = "a", label = "Lait", store = store))
+        val updates = MutableSharedFlow<MercureEvent>()
+        every { mercureService.subscribe(any()) } returns updates
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.laterItems.isEmpty())
+
+        updates.emit(
+            MercureEvent(
+                data = """{"items":[{"id":"a","label":"Lait","buyAfter":"$tomorrow"}]}""",
+            ),
+        )
+        advanceUntilIdle()
+
+        assertEquals(listOf("a"), viewModel.uiState.value.laterItems.map { it.id })
+        assertTrue(viewModel.uiState.value.storeGroups.isEmpty())
+    }
+
+    @Test
+    fun `buy after date is formatted day month year for a date and a date-time`() {
+        assertEquals("07/10/2026", formatBuyAfter("2026-10-07"))
+        assertEquals("07/10/2026", formatBuyAfter("2026-10-07T00:00:00+00:00"))
+        assertNull(formatBuyAfter("not a date"))
+    }
 }

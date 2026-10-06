@@ -29,12 +29,15 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 data class StoreGroup(val store: Store?, val items: List<GroceryItem>)
 
 data class GroceryUiState(
     val groceryList: GroceryList? = null,
     val storeGroups: List<StoreGroup> = emptyList(),
+    /** Items deferred to a later day (`buyAfter` after today), soonest first: shown apart, not checkable. */
+    val laterItems: List<GroceryItem> = emptyList(),
     val products: List<Product> = emptyList(),
     val stores: List<Store> = emptyList(),
     val showAddSheet: Boolean = false,
@@ -44,7 +47,21 @@ data class GroceryUiState(
     val isSelecting: Boolean = false,
     val pendingFinishStoreName: String? = null,
     val pendingFinishItems: List<EndErrandRemainingItem> = emptyList(),
-)
+) {
+    // Deferred items count in neither figure: they are not on today's list.
+    val checkedCount: Int get() = storeGroups.sumOf { group -> group.items.count { it.checked } }
+    val totalCount: Int get() = storeGroups.sumOf { it.items.size }
+}
+
+private val BUY_AFTER_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+
+// The REST API sends a date-time, the Mercure payload a plain date: the first ten
+// characters ("yyyy-MM-dd") are the day in both.
+private fun buyAfterDate(buyAfter: String?): LocalDate? =
+    buyAfter?.let { runCatching { LocalDate.parse(it.take(10)) }.getOrNull() }
+
+/** « dd/MM/yyyy » for a `buyAfter` value, null when it is not a date. */
+fun formatBuyAfter(buyAfter: String?): String? = buyAfterDate(buyAfter)?.format(BUY_AFTER_FORMAT)
 
 class GroceryViewModel(
     private val groceryListRepository: GroceryListRepository,
@@ -117,6 +134,7 @@ class GroceryViewModel(
                                 _uiState.value = _uiState.value.copy(
                                     groceryList = updatedList,
                                     storeGroups = buildStoreGroups(updatedList),
+                                    laterItems = buildLaterItems(updatedList),
                                 )
                             }
                             else -> {
@@ -128,6 +146,7 @@ class GroceryViewModel(
                                 _uiState.value = _uiState.value.copy(
                                     groceryList = updatedList,
                                     storeGroups = buildStoreGroups(updatedList),
+                                    laterItems = buildLaterItems(updatedList),
                                 )
                             }
                         }
@@ -144,6 +163,7 @@ class GroceryViewModel(
         _uiState.value = _uiState.value.copy(
             groceryList = updatedList,
             storeGroups = buildStoreGroups(updatedList),
+            laterItems = buildLaterItems(updatedList),
         )
     }
 
@@ -156,6 +176,7 @@ class GroceryViewModel(
                 _uiState.value = _uiState.value.copy(
                     groceryList = list,
                     storeGroups = groups,
+                    laterItems = buildLaterItems(list),
                     isLoading = false,
                 )
             } catch (e: Exception) {
@@ -241,6 +262,7 @@ class GroceryViewModel(
                 _uiState.value = _uiState.value.copy(
                     groceryList = updatedList,
                     storeGroups = buildStoreGroups(updatedList),
+                    laterItems = buildLaterItems(updatedList),
                 )
 
                 // Server call
@@ -264,6 +286,7 @@ class GroceryViewModel(
                 _uiState.value = _uiState.value.copy(
                     groceryList = updatedList,
                     storeGroups = buildStoreGroups(updatedList),
+                    laterItems = buildLaterItems(updatedList),
                 )
 
                 // Server call
@@ -302,6 +325,7 @@ class GroceryViewModel(
         _uiState.value = _uiState.value.copy(
             groceryList = updatedList,
             storeGroups = buildStoreGroups(updatedList),
+            laterItems = buildLaterItems(updatedList),
         )
 
         viewModelScope.launch {
@@ -348,6 +372,7 @@ class GroceryViewModel(
             _uiState.value = _uiState.value.copy(
                 groceryList = updatedList,
                 storeGroups = buildStoreGroups(updatedList),
+                laterItems = buildLaterItems(updatedList),
                 isSelecting = false,
                 selectedIds = emptySet(),
             )
@@ -374,6 +399,7 @@ class GroceryViewModel(
             _uiState.value = _uiState.value.copy(
                 groceryList = updatedList,
                 storeGroups = buildStoreGroups(updatedList),
+                laterItems = buildLaterItems(updatedList),
                 isSelecting = false,
                 selectedIds = emptySet(),
             )
@@ -439,18 +465,7 @@ class GroceryViewModel(
         if (list == null) return emptyList()
 
         val today = LocalDate.now()
-        val visibleItems = list.items.filter { item ->
-            val buyAfter = item.buyAfter
-            if (buyAfter == null) return@filter true
-            try {
-                // The REST API sends a date-time, the Mercure payload a plain date:
-                // the first ten characters ("yyyy-MM-dd") are the day in both.
-                val date = LocalDate.parse(buyAfter.take(10))
-                !date.isAfter(today)
-            } catch (_: Exception) {
-                true
-            }
-        }
+        val visibleItems = list.items.filter { !isDeferred(it, today) }
 
         val grouped = visibleItems.groupBy { it.store?.id ?: "__unassigned__" }
         val storeMap = mutableMapOf<String, StoreGroup>()
@@ -461,5 +476,16 @@ class GroceryViewModel(
         }
 
         return storeMap.values.sortedBy { it.store?.visitOrder ?: Int.MAX_VALUE }
+    }
+
+    private fun isDeferred(item: GroceryItem, today: LocalDate): Boolean =
+        buyAfterDate(item.buyAfter)?.isAfter(today) == true
+
+    private fun buildLaterItems(list: GroceryList?): List<GroceryItem> {
+        if (list == null) return emptyList()
+        val today = LocalDate.now()
+        return list.items
+            .filter { isDeferred(it, today) }
+            .sortedWith(compareBy({ buyAfterDate(it.buyAfter) }, { it.label }))
     }
 }

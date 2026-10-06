@@ -79,7 +79,7 @@ Maggie\Core\Entity\UserPreference:
         theme: 'light'
         locale: 'fr'
         timezone: 'Europe/Paris'
-        defaultCalendarView: 'week'
+        defaultCalendarView: 'month'
         notificationsEnabled: true
 
     # Its own row, so the neighbour's settings page renders instead of hanging
@@ -89,5 +89,5 @@ Maggie\Core\Entity\UserPreference:
         theme: 'light'
         locale: 'fr'
         timezone: 'Europe/Paris'
-        defaultCalendarView: 'week'
+        defaultCalendarView: 'month'
         notificationsEnabled: true
