@@ -1,0 +1,15 @@
+# "Quel temps demain ?" — no place given, so the tool reads the user's default
+# city (Rennes in the seed). The tool call is real and reaches the simulated
+# Open-Meteo (.docker/e2e/wiremock/mappings/open-meteo.json); the figures in the
+# answer are that stub's, 18.5 / 9.5 degrees.
+name: weather
+description: Read the weather for the default city through MCP.
+
+match:
+  user_matches: "quel temps|la météo|la meteo"
+
+turns:
+  - tools:
+      - name: get_weather
+        input: {}
+  - text: "Demain à Rennes, il fera 18,5 °C au plus haut et 9,5 °C au plus bas, avec un peu de pluie."

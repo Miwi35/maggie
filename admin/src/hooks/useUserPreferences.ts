@@ -6,6 +6,8 @@ export interface UserPreference {
   locale: string
   timezone: string
   defaultCalendarView: string
+  // Absent from the API answer while it is unset.
+  defaultCity?: string | null
   enabledAgendaIds: string[]
   notificationsEnabled: boolean
 }
@@ -45,7 +47,7 @@ export function useUserPreferences() {
   }, [refresh])
 
   const updatePreference = useCallback(
-    async (patch: Partial<Omit<UserPreference, 'id'>>) => {
+    async (patch: Partial<Omit<UserPreference, 'id'>>): Promise<boolean> => {
       try {
         const res = await apiFetch('/api/user_preferences/me', {
           method: 'PATCH',
@@ -55,8 +57,9 @@ export function useUserPreferences() {
         if (res.ok) {
           setPreferences(await res.json())
         }
+        return res.ok
       } catch {
-        // silently ignore
+        return false
       }
     },
     [],

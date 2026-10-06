@@ -48,10 +48,17 @@ final class UpdateUserPreferenceController
             return new JsonResponse(['error' => 'A JSON object is expected'], Response::HTTP_BAD_REQUEST);
         }
 
-        foreach (['theme', 'locale', 'timezone', 'defaultCalendarView'] as $name) {
+        foreach (['theme', 'locale', 'timezone', 'defaultCalendarView', 'defaultCity'] as $name) {
             if (\array_key_exists($name, $body) && !\is_string($body[$name])) {
                 return new JsonResponse(['error' => "{$name} must be a string"], Response::HTTP_BAD_REQUEST);
             }
+        }
+
+        if (isset($body['defaultCity']) && mb_strlen(trim($body['defaultCity'])) > 100) {
+            return new JsonResponse(
+                ['error' => 'defaultCity must be at most 100 characters'],
+                Response::HTTP_BAD_REQUEST,
+            );
         }
 
         if (\array_key_exists('notificationsEnabled', $body) && !\is_bool($body['notificationsEnabled'])) {
@@ -82,6 +89,7 @@ final class UpdateUserPreferenceController
                 defaultCalendarView: $body['defaultCalendarView'] ?? null,
                 enabledAgendaIds: null === $agendaIds ? null : array_values($agendaIds),
                 notificationsEnabled: $body['notificationsEnabled'] ?? null,
+                defaultCity: $body['defaultCity'] ?? null,
             ));
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
@@ -91,7 +99,7 @@ final class UpdateUserPreferenceController
 
         $this->em->refresh($preference);
 
-        return new JsonResponse([
+        $response = [
             'id' => (string) $preference->getId(),
             'theme' => $preference->getTheme(),
             'locale' => $preference->getLocale(),
@@ -99,7 +107,14 @@ final class UpdateUserPreferenceController
             'defaultCalendarView' => $preference->getDefaultCalendarView(),
             'enabledAgendaIds' => $preference->getEnabledAgendaIds(),
             'notificationsEnabled' => $preference->isNotificationsEnabled(),
-        ]);
+        ];
+        // Like the GET, which API Platform serialises without its null fields:
+        // the two answers must carry the same keys.
+        if (null !== $preference->getDefaultCity()) {
+            $response['defaultCity'] = $preference->getDefaultCity();
+        }
+
+        return new JsonResponse($response);
     }
 
     private function createFor(User $user): UserPreference

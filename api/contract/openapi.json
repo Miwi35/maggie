@@ -14598,6 +14598,12 @@
                         "default": "month",
                         "type": "string"
                     },
+                    "defaultCity": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "enabledAgendaIds": {
                         "type": "array",
                         "items": {
@@ -14647,6 +14653,12 @@
                     "defaultCalendarView": {
                         "default": "month",
                         "type": "string"
+                    },
+                    "defaultCity": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     },
                     "enabledAgendaIds": {
                         "type": "array",
@@ -14702,6 +14714,12 @@
                             "defaultCalendarView": {
                                 "default": "month",
                                 "type": "string"
+                            },
+                            "defaultCity": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
                             },
                             "enabledAgendaIds": {
                                 "type": "array",

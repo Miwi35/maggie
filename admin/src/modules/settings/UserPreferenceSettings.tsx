@@ -34,6 +34,12 @@ export const UserPreferenceSettings = () => {
   const { preferences, updatePreference, loading, refresh } = useUserPreferences()
   const [agendas, setAgendas] = useState<Agenda[]>([])
   const [, setRaTheme] = useStore('RaStore.theme', 'light')
+  const [city, setCity] = useState('')
+
+  const savedCity = preferences?.defaultCity ?? ''
+  useEffect(() => {
+    setCity(savedCity)
+  }, [savedCity])
 
   useEffect(() => {
     dataProvider
@@ -67,6 +73,20 @@ export const UserPreferenceSettings = () => {
   const handleCalendarViewChange = async (view: string) => {
     await updatePreference({ defaultCalendarView: view })
     notify('Vue par défaut mise à jour', { type: 'success' })
+  }
+
+  const handleCityBlur = async () => {
+    const next = city.trim()
+    setCity(next)
+    if (next === savedCity) return
+    // An empty string is how the API is told to forget the city.
+    const saved = await updatePreference({ defaultCity: next })
+    if (saved) {
+      notify(next ? 'Ville par défaut mise à jour' : 'Ville par défaut retirée', { type: 'success' })
+    } else {
+      setCity(savedCity)
+      notify('Impossible de mettre à jour la ville par défaut', { type: 'error' })
+    }
   }
 
   const handleToggleAgenda = async (agendaId: string) => {
@@ -178,6 +198,23 @@ export const UserPreferenceSettings = () => {
               </Box>
             )}
           </Stack>
+        </CardContent>
+      </Card>
+
+      {/* Weather */}
+      <Card sx={{ mb: 3 }}>
+        <CardHeader title="Météo" />
+        <CardContent>
+          <TextField
+            label="Ville par défaut"
+            helperText="La météo que Maggie donne quand tu ne précises pas de lieu."
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            onBlur={handleCityBlur}
+            slotProps={{ htmlInput: { maxLength: 100 } }}
+            size="small"
+            fullWidth
+          />
         </CardContent>
       </Card>
 

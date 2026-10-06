@@ -80,6 +80,8 @@ Maggie\Core\Entity\UserPreference:
         locale: 'fr'
         timezone: 'Europe/Paris'
         defaultCalendarView: 'month'
+        # The weather tool's default place; .docker/e2e/wiremock/mappings/open-meteo.json answers for it.
+        defaultCity: 'Rennes'
         notificationsEnabled: true
 
     # Its own row, so the neighbour's settings page renders instead of hanging

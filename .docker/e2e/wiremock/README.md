@@ -10,6 +10,7 @@ the one thing this stack exists to guarantee.
 | `mappings/enablebanking.json` | Enable Banking — banks, consent, session, balances, transactions | `ENABLE_BANKING_BASE_URL` |
 | `mappings/google.json` | Google Calendar and Google Tasks | `GOOGLE_API_BASE_URL` |
 | `mappings/openai.json` | Whisper speech-to-text | `OPENAI_BASE_URL` (agent) |
+| `mappings/open-meteo.json` | Open-Meteo — city search and daily forecast (`get_weather`, MAG-156) | `OPEN_METEO_FORECAST_URL`, `OPEN_METEO_GEOCODING_URL` |
 
 `google.json` covers every call the agenda can make from the browser: list the
 calendars, import one (watch + pull), export a local agenda (create a calendar),
@@ -48,6 +49,15 @@ Two things are **not** here:
   would have to script a whole tool-use conversation in JSON. The agent switches
   provider instead — `LLM_PROVIDER=fake` answers from the scenario files in
   `agent/fixtures/fake-llm/` (MAG-95).
+
+`open-meteo.json` answers the forecast with the two days the request names
+(`start_date`, `end_date`, echoed back by templating — the stub declares
+`response-template`, which is what turns it on under `--local-response-templating` —
+so it follows the clock without `{{now}}`): 18.5 °C at most and 9.5 °C at least, light rain.
+`38-weather.yaml` repeats those figures in Maggie's scripted answer, and the
+journey in `chat.spec.ts` drives both — change the figures in one place and
+change them in the other. The API caches a forecast for 30 minutes, so a stub
+edit may need `task e2e:down` before it shows.
 
 One pairing to keep in mind: `mappings/openai.json` dictates a fixed sentence,
 and `agent/fixtures/fake-llm/20-transcription-cleanup.yaml` returns that sentence

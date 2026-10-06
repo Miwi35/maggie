@@ -45,6 +45,9 @@ class UserPreference implements MercurePublishable, OwnedByUserInterface
     #[ORM\Column(length: 10, options: ['default' => 'month'])]
     private string $defaultCalendarView = 'month';
 
+    #[ORM\Column(length: 100, nullable: true)]
+    private ?string $defaultCity = null;
+
     /** @var list<string> */
     #[ORM\Column(type: Types::JSON)]
     private array $enabledAgendaIds = [];
@@ -130,6 +133,18 @@ class UserPreference implements MercurePublishable, OwnedByUserInterface
         return $this;
     }
 
+    public function getDefaultCity(): ?string
+    {
+        return $this->defaultCity;
+    }
+
+    public function setDefaultCity(?string $defaultCity): static
+    {
+        $this->defaultCity = $defaultCity;
+
+        return $this;
+    }
+
     /** @return list<string> */
     public function getEnabledAgendaIds(): array
     {
@@ -181,6 +196,7 @@ class UserPreference implements MercurePublishable, OwnedByUserInterface
             'locale' => $this->locale,
             'timezone' => $this->timezone,
             'defaultCalendarView' => $this->defaultCalendarView,
+            'defaultCity' => $this->defaultCity,
             'enabledAgendaIds' => $this->enabledAgendaIds,
             'notificationsEnabled' => $this->notificationsEnabled,
         ], $changedProperties);
