@@ -1030,7 +1030,9 @@ class TestTheShippedFixtures:
         story = next(s for s in library.scenarios if s.name == "dictated-long-story")
         text = story.turns[0].text
 
-        assert story.stream_delay_ms * (len(text) / 24) >= 5000, "a journey needs seconds to press the mic"
+        # On a CI emulator Maestro needs over ten seconds to notice the first words, and the
+        # story at 400 ms a delta (~12 s) was over before the mic was pressed (main, 6985e58).
+        assert story.stream_delay_ms * (len(text) / 24) >= 25000, "a journey needs tens of seconds to press the mic"
 
     async def test_the_voice_path_cleans_the_stubbed_whisper_sentence(self):
         client = build_client(DEFAULT_FIXTURES_DIR)
