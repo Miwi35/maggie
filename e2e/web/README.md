@@ -250,6 +250,24 @@ them are `176c40c`, which fixed the same symptom — one message shown twice —
 three independent places. So the journey asserts one message id per run, one
 bubble per message, and the same again after a reload.
 
+**One turn at a time, across every file** (MAG-211). The conversation is scoped
+to the *account*, not to the test: the chat routes store the message, then build
+the history out of the user's last messages — the thread's own, plus a short
+window across every thread. Two journeys talking to Maggie as the same account at
+once therefore each read the other's question, and the fake resolves its scenario
+on the last thing the user said. That is how `meals-grocery.spec.ts` ran
+`move_to_fallback`: `grocery-errand.spec.ts`'s « le magasin … est fermé » was
+merged into the same user turn as « Planifie la recette … », and
+`43-grocery-fallback.yaml` is read before `47-meal-plan.yaml`.
+
+`chat.spec.ts`'s serial group says this for its own file, and Playwright has no
+serial group that spans files — so `helpers/maggieTurn.ts` is that group:
+`ChatPanel.submit()` and the `POST /agent/proaction` calls take a lock every
+worker of the stack respects, held for the round trip and nothing else. **A new
+way of making Maggie answer belongs inside `withMaggieToItself`**; outside it, the
+journey is one of two tests picking the other's scenario, which reads as a flaky
+assertion and is not one.
+
 **Dictation runs in the browser** (MAG-145): `ChatPanel.dictate()` clicks
 "Dicter", records Chromium's fake microphone for a moment, stops, and returns
 what `POST /agent/transcribe` answered; the journey then checks that the cleaned

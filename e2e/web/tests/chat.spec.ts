@@ -11,6 +11,7 @@ import {
   toolResults,
 } from '../helpers/agui.js'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
+import { withMaggieToItself } from '../helpers/maggieTurn.js'
 import { expectRealtimeSync, openSubscribed } from '../helpers/mercure.js'
 import { CalendarPage } from '../pages/CalendarPage.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
@@ -378,7 +379,11 @@ test('a proaction reaches an open chat without anyone reloading', async ({ page,
   await expectRealtimeSync(
     page,
     async () => {
-      const response = await api.post('/agent/proaction', { data: { message: PROACTION.prompt } })
+      // A turn like any other — it routes, reads the history and writes to the
+      // thread — so it takes the conversation the same way (MAG-211).
+      const response = await withMaggieToItself('a proaction reaching an open chat', () =>
+        api.post('/agent/proaction', { data: { message: PROACTION.prompt } }),
+      )
       expect(response.status(), `the proaction failed: ${await response.text()}`).toBe(200)
     },
     async () => {
@@ -643,7 +648,9 @@ interface AgentMessage {
  *    of opening a context of its own.
  */
 test('a proaction is written from the thread in progress, and stored in it', async ({ api }) => {
-  const fired = await api.post('/agent/proaction', { data: { message: PROACTION_RECALL.prompt } })
+  const fired = await withMaggieToItself('a proaction written from the thread in progress', () =>
+    api.post('/agent/proaction', { data: { message: PROACTION_RECALL.prompt } }),
+  )
   expect(fired.status(), `the proaction failed: ${await fired.text()}`).toBe(200)
 
   const body = (await fired.json()) as { response: string; messages: AgentMessage[] }
