@@ -1,12 +1,13 @@
 package com.maggie.app.voice
 
 import android.content.Context
-import android.media.MediaPlayer
 import android.util.Log
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.api.TranscriptCleanup
 import com.maggie.app.data.repository.UserPreferenceRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -49,6 +50,8 @@ class VoiceManager(
     private val deviceSpeechFactory: () -> DeviceSpeechRecognizer = { NoDeviceSpeech },
     private val clock: () -> Long = System::currentTimeMillis,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val playerFactory: () -> SpeechPlayer = { MediaSpeechPlayer() },
 ) {
     companion object {
         private const val TAG = "VoiceManager"
@@ -81,6 +84,10 @@ class VoiceManager(
 
     var onFinalResult: ((String) -> Unit)? = null
 
+    // Maggie was cut off while preparing an answer (null) or while saying it (what was
+    // heard so far, "" if nothing yet): whoever owns the answer says it in the history.
+    var onInterrupt: ((String?) -> Unit)? = null
+
     private var recorder: AudioRecorder? = null
     private var audioFile: File? = null
     private var timerJob: Job? = null
@@ -106,7 +113,12 @@ class VoiceManager(
     val handsFree: StateFlow<Boolean> = _handsFree
     private var recordingStartedAt = 0L
 
-    private var mediaPlayer: MediaPlayer? = null
+    private val speakLock = Any()
+    private var speakGeneration = 0
+    private var speakJob: Job? = null
+    private var speechPlayer: SpeechPlayer? = null
+    private var speechFile: File? = null
+    private var spokenText: String = ""
     private var ttsVoice: String = DEFAULT_VOICE
 
     fun initialize() {
@@ -123,17 +135,40 @@ class VoiceManager(
         ttsVoice = voice
     }
 
-    fun startListening() = beginRecording(handsFree = true)
+    fun startListening() {
+        interrupt()
+        beginRecording(handsFree = true)
+    }
 
     fun pressDown() {
         when (_state.value) {
             VoiceState.IDLE, VoiceState.ERROR -> beginRecording(handsFree = false)
-            VoiceState.SPEAKING -> {
-                stopSpeaking()
+            VoiceState.SPEAKING, VoiceState.PROCESSING -> {
+                interrupt()
                 beginRecording(handsFree = false)
             }
-            VoiceState.LISTENING, VoiceState.TRANSCRIBING, VoiceState.PROCESSING -> Unit
+            VoiceState.LISTENING, VoiceState.TRANSCRIBING -> Unit
         }
+    }
+
+    /** Cuts Maggie off wherever she is — preparing, synthesizing or speaking. False when she was not busy. */
+    fun interrupt(): Boolean {
+        val heard = when (_state.value) {
+            VoiceState.PROCESSING -> null
+            VoiceState.SPEAKING -> heardSoFar()
+            else -> return false
+        }
+        stopSpeaking()
+        _state.value = VoiceState.IDLE
+        onInterrupt?.invoke(heard)
+        return true
+    }
+
+    private fun heardSoFar(): String {
+        val player = synchronized(speakLock) { speechPlayer } ?: return ""
+        val duration = player.durationMs
+        if (duration <= 0) return ""
+        return heardPart(spokenText, player.positionMs.toFloat() / duration)
     }
 
     fun pressRelease() {
@@ -323,60 +358,73 @@ class VoiceManager(
     }
 
     fun speak(text: String) {
+        val generation = invalidateSpeech()
+        spokenText = text
         _state.value = VoiceState.SPEAKING
-        scope.launch(Dispatchers.IO) {
+        speakJob = scope.launch(ioDispatcher) {
             var tempFile: File? = null
             try {
                 val audioBytes = apiService.synthesizeSpeech(text, ttsVoice)
                 tempFile = File(context.cacheDir, "tts_${System.currentTimeMillis()}.mp3")
                 tempFile.writeBytes(audioBytes)
 
-                val player = MediaPlayer().apply {
-                    setDataSource(tempFile.absolutePath)
-                    prepare()
-                    setOnCompletionListener {
-                        _state.value = VoiceState.IDLE
-                        it.release()
+                // The user may have cut Maggie off while the voice was being made: that audio
+                // is never played, however late it arrives.
+                synchronized(speakLock) {
+                    if (generation != speakGeneration) {
                         tempFile.delete()
-                        mediaPlayer = null
+                        return@launch
                     }
-                    setOnErrorListener { mp, _, _ ->
-                        _state.value = VoiceState.IDLE
-                        mp.release()
-                        tempFile.delete()
-                        mediaPlayer = null
-                        true
-                    }
-                    start()
-                    // Speed-up after start() so a setPlaybackParams failure on certain
-                    // devices doesn't prevent playback; reuse the existing params so
-                    // sampling rate, fallback mode, etc. keep their defaults.
-                    try {
-                        playbackParams = playbackParams.setSpeed(1.5f)
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Failed to set TTS playback speed", e)
-                    }
+                    val player = playerFactory()
+                    speechPlayer = player
+                    speechFile = tempFile
+                    player.play(tempFile) { onPlaybackFinished(generation) }
                 }
-                mediaPlayer = player
+            } catch (e: CancellationException) {
+                tempFile?.delete()
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "TTS synthesis failed", e)
-                _state.value = VoiceState.IDLE
                 tempFile?.delete()
+                synchronized(speakLock) {
+                    if (generation == speakGeneration) {
+                        releasePlayer()
+                        _state.value = VoiceState.IDLE
+                    }
+                }
             }
         }
     }
 
+    private fun onPlaybackFinished(generation: Int) {
+        synchronized(speakLock) {
+            if (generation != speakGeneration) return
+            releasePlayer()
+            _state.value = VoiceState.IDLE
+        }
+    }
+
+    private fun invalidateSpeech(): Int = synchronized(speakLock) {
+        speakGeneration++
+        speakJob?.cancel()
+        speakJob = null
+        speechPlayer?.stop()
+        releasePlayer()
+        speakGeneration
+    }
+
     fun stopSpeaking() {
-        try {
-            mediaPlayer?.apply {
-                if (isPlaying) stop()
-                release()
-            }
-        } catch (_: Exception) { }
-        mediaPlayer = null
+        invalidateSpeech()
         if (_state.value == VoiceState.SPEAKING) {
             _state.value = VoiceState.IDLE
         }
+    }
+
+    private fun releasePlayer() {
+        speechPlayer?.release()
+        speechPlayer = null
+        speechFile?.delete()
+        speechFile = null
     }
 
     fun destroy() {
@@ -424,4 +472,13 @@ private fun extractTranscribeErrorMessage(e: Throwable): String {
         detailRegex.find(raw)?.groupValues?.getOrNull(1)?.let { return it }
     }
     return raw?.take(140) ?: "Erreur de transcription"
+}
+
+/** The start of [text] a voice has covered at [fraction] of its length, cut back to the last whole word. */
+internal fun heardPart(text: String, fraction: Float): String {
+    val covered = (text.length * fraction.coerceIn(0f, 1f)).toInt()
+    if (covered >= text.length) return text
+    val head = text.substring(0, covered)
+    if (text[covered].isWhitespace()) return head.trimEnd()
+    return head.substringBeforeLast(' ', "").trimEnd()
 }

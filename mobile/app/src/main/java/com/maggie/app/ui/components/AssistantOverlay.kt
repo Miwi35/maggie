@@ -67,10 +67,16 @@ fun AssistantOverlay(
             viewModel.sendMessage(text, pendingContext?.toPromptBlock())
             pendingContext = null
         }
+        // The answer being written is not shown here, only "Maggie réfléchit…": until
+        // she speaks, nothing of it was seen either (MAG-223).
+        voiceManager.onInterrupt = { heard -> viewModel.interrupt(heard, streamingIsShown = false) }
         // Handed back on the way out: the manager is a singleton, and a lambda
         // left behind pins this activity's view model (and its context) for the
         // life of the process.
-        onDispose { voiceManager.onFinalResult = null }
+        onDispose {
+            voiceManager.onFinalResult = null
+            voiceManager.onInterrupt = null
+        }
     }
 
     SpokenReplies(viewModel, voiceManager)
