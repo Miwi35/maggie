@@ -21,5 +21,5 @@ Carry out one `Task` ticket: work nobody can accept through the UI — docs, ref
 4. **Do it**, following the surrounding code and structure.
 5. **Verify**: lint of every touched component and the targeted tests of the change — never the full suite, CI runs it (`CLAUDE.md` › Tests, and the worktree note). The plan's `E2E` line is `N/A — task`.
 6. **Review loop** (`CLAUDE.md` › Review loop).
-7. **Commit and PR** — open it **as a draft** (`gh pr create --draft`) and move the ticket to In Review; the merge train takes it from there, no waiting for CI (`CLAUDE.md` › Reporting). Ticket in « Emergency »: open it ready, arm auto-merge, `task ci:watch`, leave the ticket where it is. The PR says what changed and how it was verified, then the Review section.
+7. **Commit and PR** — a Cyrus session follows its `verify-and-ship` skill (a draft for the merge train); any other session ships as `CLAUDE.md` › Shipping says. The PR says what changed and how it was verified, then the Review section.
 8. **Report**: the final ticket comment (`CLAUDE.md` › Reporting). After merge the ticket goes to **Done**, not Recette.
