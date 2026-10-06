@@ -168,7 +168,7 @@ describe('the admin Mercure subscriptions', () => {
     )
 
     // Without this the check above passes on a codebase that subscribes to nothing.
-    expect(new Set(through)).toEqual(new Set(['chat', 'contexts', 'proactions', 'instructions', 'skills']))
+    expect(new Set(through)).toEqual(new Set(['chat', 'contexts', 'proactions', 'instructions', 'skills', 'approvals']))
   })
 
   it('never subscribes with an unsubstituted user placeholder', () => {
