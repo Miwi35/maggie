@@ -35,3 +35,31 @@ Maggie\Grocery\Entity\Product:
     preferredStore: '@halles'
     fallbackStore: '@bio'
     shelfLifeDays: 30
+  product_in_lists:
+    name: Lentilles
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Other)>'
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryList:
+  grocery_list:
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryItem:
+  grocery_item_from_product:
+    groceryList: '@grocery_list'
+    product: '@product_in_lists'
+    quantity: 2
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 1
+  grocery_item_with_label:
+    groceryList: '@grocery_list'
+    product: '@product_in_lists'
+    customLabel: Lentilles corail
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 2
+
+Maggie\Grocery\Entity\RecurringGroceryItem:
+  recurring_from_product:
+    product: '@product_in_lists'
+    frequency: '<(Maggie\Grocery\Enum\RecurringFrequency::Weekly)>'
+    user: '@test_user'
