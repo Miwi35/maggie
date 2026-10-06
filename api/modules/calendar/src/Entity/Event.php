@@ -55,6 +55,9 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
     use HasGoogleEventTrackingTrait;
     use MercurePayloadFilterTrait;
 
+    /** The column's default, and what a time zone nobody can resolve falls back on. */
+    public const FALLBACK_TIME_ZONE = 'Europe/Paris';
+
     public static function getOwnerRelation(): string
     {
         return 'agenda';
@@ -91,8 +94,9 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
     #[IndexedField(type: 'date')]
     private \DateTimeImmutable $endAt;
 
-    #[ORM\Column(length: 50, options: ['default' => 'Europe/Paris'])]
-    private string $timeZone = 'Europe/Paris';
+    #[ORM\Column(length: 50, options: ['default' => self::FALLBACK_TIME_ZONE])]
+    #[Assert\Timezone]
+    private string $timeZone = self::FALLBACK_TIME_ZONE;
 
     /** @var string|null RFC 5545 RRULE (e.g. "FREQ=WEEKLY;INTERVAL=2") */
     #[ORM\Column(length: 500, nullable: true)]

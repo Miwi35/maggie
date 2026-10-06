@@ -4,6 +4,7 @@ namespace Maggie\Calendar\Tests\Api;
 
 use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\FixtureLoaderTrait;
+use Maggie\Calendar\Entity\Event;
 use Maggie\Core\Entity\User;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -105,5 +106,30 @@ class EventApiTest extends WebTestCase
         ], JSON_THROW_ON_ERROR));
 
         self::assertResponseStatusCodeSame(422);
+    }
+
+    public function testCreateEventWithUnknownTimeZoneIsRefused(): void
+    {
+        $this->loadFixtures('EventApiTest.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+
+        $agenda = $this->getFixture('test_agenda');
+
+        $this->client->request('POST', '/api/events', [], [], array_merge([
+            'CONTENT_TYPE' => 'application/ld+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode([
+            'summary' => 'On Mars',
+            'startAt' => '2026-03-20T10:00:00+01:00',
+            'endAt' => '2026-03-20T11:00:00+01:00',
+            'timeZone' => 'Mars/Olympus',
+            'agenda' => '/api/agendas/'.$agenda->getId(),
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseStatusCodeSame(422);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        self::assertNull($em->getRepository(Event::class)->findOneBy(['summary' => 'On Mars']));
     }
 }

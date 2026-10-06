@@ -5,6 +5,7 @@ namespace Maggie\Calendar\Service;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Enum\EventStatus;
 use Maggie\Calendar\Repository\EventRepository;
+use Psr\Log\LoggerInterface;
 use Recurr\Rule;
 use Recurr\Transformer\ArrayTransformer;
 use Recurr\Transformer\ArrayTransformerConfig;
@@ -15,6 +16,7 @@ class RecurrenceService
 
     public function __construct(
         private readonly EventRepository $eventRepository,
+        private readonly LoggerInterface $logger,
     ) {
         $config = new ArrayTransformerConfig();
         $config->enableLastDayOfMonthFix();
@@ -36,7 +38,7 @@ class RecurrenceService
 
         // Expand on the event's own wall clock: in UTC a weekly 18:00 Paris series
         // would drift an hour when the clocks change.
-        $timeZone = new \DateTimeZone($event->getTimeZone());
+        $timeZone = $this->resolveTimeZone($event);
         $start = $event->getStartAt()->setTimezone($timeZone);
 
         $rule = new Rule($event->getRrule(), $start, null, $timeZone->getName());
@@ -90,6 +92,28 @@ class RecurrenceService
         }
 
         return $occurrences;
+    }
+
+    /**
+     * A row can still hold a time zone nobody resolves (the column was free text
+     * before it was validated): one such event must not fail the whole read.
+     * An error, not a warning, so the row gets fixed; `event` is the stable key.
+     */
+    private function resolveTimeZone(Event $event): \DateTimeZone
+    {
+        try {
+            return new \DateTimeZone($event->getTimeZone());
+        } catch (\Exception $e) {
+            $this->logger->error('Event time zone cannot be resolved, expanding on {fallback}: {timeZone}', [
+                'event' => 'event_time_zone_fallback',
+                'eventId' => (string) $event->getId(),
+                'timeZone' => $event->getTimeZone(),
+                'fallback' => Event::FALLBACK_TIME_ZONE,
+                'exception' => $e,
+            ]);
+
+            return new \DateTimeZone(Event::FALLBACK_TIME_ZONE);
+        }
     }
 
     /**
