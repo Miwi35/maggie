@@ -34,7 +34,8 @@ class OnDeviceSpeechRecognizer(
 ) : DeviceSpeechRecognizer {
 
     companion object {
-        private const val TAG = "OnDeviceSpeech"    }
+        private const val TAG = "OnDeviceSpeech"
+    }
 
     private var recognizer: SpeechRecognizer? = null
     private var audioSource: ParcelFileDescriptor? = null
