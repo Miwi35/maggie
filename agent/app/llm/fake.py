@@ -41,6 +41,9 @@ DEFAULT_FIXTURES_DIR = Path(__file__).resolve().parent.parent.parent / "fixtures
 # then provably reconstitutes the text, which is the property a streaming
 # journey asserts. The real API does not align on words either.
 DELTA_SIZE = 24
+# How long a stalled stream waits: far more than a journey needs to act, bounded so a client that
+# never hangs up cannot leave the request open for good.
+STALL_SECONDS = 90
 
 
 def no_scenario_message(user_text: str) -> str:
@@ -89,6 +92,9 @@ class FakeMessage:
     # Seconds the stream waits between two text deltas: what lets a journey act on an answer
     # that is still being written (MAG-223). Not part of the real API's message, only of this fake.
     delta_delay: float = 0.0
+    # Deltas after which the stream stalls for STALL_SECONDS, 0 for never: an answer that cannot
+    # finish by itself, however slow the journey acting on it is (MAG-223).
+    stall_after_deltas: int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -123,6 +129,7 @@ class Scenario:
     system_contains: tuple[str, ...] = ()
     history_contains: tuple[str, ...] = ()
     stream_delay_ms: int = 0
+    stall_after_deltas: int = 0
     is_default: bool = False
     source: str = ""
 
@@ -237,6 +244,10 @@ def parse_scenario(raw: Any, source: str) -> Scenario:
     if isinstance(stream_delay_ms, bool) or not isinstance(stream_delay_ms, int) or stream_delay_ms < 0:
         raise ValueError(f"{source}: 'stream_delay_ms' must be a non-negative integer")
 
+    stall_after_deltas = raw.get("stall_after_deltas", 0)
+    if isinstance(stall_after_deltas, bool) or not isinstance(stall_after_deltas, int) or stall_after_deltas < 0:
+        raise ValueError(f"{source}: 'stall_after_deltas' must be a non-negative integer")
+
     return Scenario(
         name=str(name),
         turns=tuple(turns),
@@ -245,6 +256,7 @@ def parse_scenario(raw: Any, source: str) -> Scenario:
         system_contains=_as_tuple(match.get("system_contains")),
         history_contains=_as_tuple(match.get("history_contains")),
         stream_delay_ms=stream_delay_ms,
+        stall_after_deltas=stall_after_deltas,
         is_default=bool(raw.get("default")),
         source=source,
     )
@@ -443,10 +455,12 @@ class FakeStream:
         for index, block in enumerate(self._message.content):
             if isinstance(block, FakeTextBlock):
                 yield _Event(type="content_block_start", index=index, content_block=FakeTextBlock(text=""))
-                for delta in _deltas(block.text):
+                for sent, delta in enumerate(_deltas(block.text), start=1):
                     if self._message.delta_delay:
                         await asyncio.sleep(self._message.delta_delay)
                     yield _Event(type="content_block_delta", index=index, delta=_TextDelta(text=delta))
+                    if sent == self._message.stall_after_deltas:
+                        await asyncio.sleep(STALL_SECONDS)
             else:
                 yield _Event(type="content_block_start", index=index, content_block=block)
                 yield _Event(
@@ -528,6 +542,7 @@ class FakeMessages:
             ),
             model=model or "fake",
             delta_delay=(scenario.stream_delay_ms / 1000) if scenario else 0.0,
+            stall_after_deltas=scenario.stall_after_deltas if scenario else 0,
         )
 
     async def create(

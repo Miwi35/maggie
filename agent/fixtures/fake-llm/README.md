@@ -77,6 +77,11 @@ or non-integer value is refused at load. `41-dictated-long-story.yaml` uses it, 
 `41-dictated-interrupted-known.yaml` — `history_contains: coupé la parole` — proves
 the turn after an interruption was told about it.
 
+**Answers that wait.** `stall_after_deltas: 4` makes the stream pause for 90 seconds
+after its fourth delta, so the answer cannot finish before a journey acts on it, however
+slow the emulator: a pace alone is a race. Default `0` (never); a negative or non-integer
+value is refused at load.
+
 ## Beyond chat
 
 Four calls in the agent are not a conversation, and each has its scenario here

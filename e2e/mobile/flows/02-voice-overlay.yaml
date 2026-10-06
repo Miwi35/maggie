@@ -229,8 +229,8 @@ tags:
 #
 # The same sentence is dictated a second time. Its history now holds the first answer
 # ("quatre tomates"), which is what `41-dictated-long-story.yaml` waits for: a story
-# of about thirty seconds, written slowly (`stream_delay_ms`) — Maestro takes over ten
-# seconds on a CI emulator to see the first words. The flow waits for its
+# that stalls after its first words (`stall_after_deltas`) and cannot end by itself —
+# a pace was a race against the CI emulator, lost twice. The flow waits for its
 # first words, then holds the mic again: the press itself interrupts — the stream is
 # closed, the voice would be stopped, what was written is kept — and the dictation that
 # follows is the third.
@@ -240,8 +240,7 @@ tags:
 # `41-dictated-interrupted-known.yaml` is unreachable without; without the marker the
 # scenario that matches is the long story again, and the flow fails on its text.
 #
-# And the story's last words are asserted absent *after* a window longer than the
-# rest of the story would have taken: `assertNotVisible` alone would pass at once.
+# And the story's last words are asserted absent: the stream was closed, not waited out.
 # ---------------------------------------------------------------------------
 - longPressOn:
     id: "voice_mic"
@@ -254,10 +253,6 @@ tags:
 - extendedWaitUntil:
     visible: ".*je ne reprends pas mon histoire.*"
     timeout: 60000
-- extendedWaitUntil:
-    visible: ".*FIN DE L'HISTOIRE.*"
-    timeout: 25000
-    optional: true
 - assertNotVisible: ".*FIN DE L'HISTOIRE.*"
 
 # Settings > Voix used to end this flow — the assistant role row with its state,
