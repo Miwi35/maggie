@@ -1,6 +1,10 @@
 import type { Theme } from '@mui/material/styles'
 import type { SxProps } from '@mui/system'
 
+/** Black or white, whichever reads better on `background` (MUI's contrast threshold). */
+export const getEventTextColor = (theme: Theme, background: string | undefined): string =>
+  theme.palette.getContrastText(background ?? theme.palette.primary.main)
+
 /**
  * Google Calendar-style FullCalendar CSS overrides.
  */
