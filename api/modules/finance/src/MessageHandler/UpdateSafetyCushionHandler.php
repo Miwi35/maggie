@@ -21,7 +21,7 @@ class UpdateSafetyCushionHandler
 
     public function __invoke(UpdateSafetyCushionCommand $command): SafetyCushion
     {
-        $cushion = $this->repository->find($command->safetyCushionId)
+        $cushion = $this->repository->findOneBy(['id' => $command->safetyCushionId, 'user' => $command->userId])
             ?? throw new \DomainException("Safety cushion not found: {$command->safetyCushionId}");
 
         if (null !== $command->targetMonths) {

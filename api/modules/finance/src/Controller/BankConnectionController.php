@@ -207,7 +207,7 @@ final class BankConnectionController
         $connection = $this->connectionRepository->find(Ulid::fromString($id));
 
         // Someone else's connection is not theirs to know about either.
-        if (null === $connection || $connection->getUser()->getId() !== $user->getId()) {
+        if (null === $connection || !$connection->getUser()->getId()->equals($user->getId())) {
             return new JsonResponse(['error' => 'Not found'], Response::HTTP_NOT_FOUND);
         }
 

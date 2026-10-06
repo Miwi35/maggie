@@ -1,0 +1,66 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-test@example.com
+    googleId: google-finance-test
+    name: Finance Test User
+  other_user:
+    email: finance-other@example.com
+    googleId: google-finance-other
+    name: Finance Other User
+
+Maggie\Finance\Entity\Account:
+  own_account:
+    name: Mon compte
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 1000
+    isCushion: false
+    user: '@test_user'
+  foreign_account:
+    name: Compte étranger
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@other_user'
+
+Maggie\Finance\Entity\Category:
+  own_category:
+    name: Ma catégorie
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  foreign_category:
+    name: Catégorie étrangère
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@other_user'
+
+Maggie\Finance\Entity\Envelope:
+  foreign_envelope:
+    category: '@foreign_category'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 40000
+    currency: EUR
+    year: 2026
+    month: 7
+    user: '@other_user'
+
+Maggie\Finance\Entity\SafetyCushion:
+  foreign_cushion:
+    targetMonths: 3
+    monthlyNetIncomeCents: 250000
+    rechargeCapCents: 15000
+    rechargeTargetMonths: 6
+    completedAt: null
+    user: '@other_user'
+
+Maggie\Finance\Entity\Transaction:
+  foreign_transaction:
+    account: '@foreign_account'
+    category: '@foreign_category'
+    amountCents: -4599
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-01"))>'
+    label: Supermarché étranger
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@other_user'
