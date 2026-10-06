@@ -91,6 +91,3 @@ export const SOURCE_COLORS = {
 /** Categorical slot `index` (1-based, as a chart's legend numbers them). */
 export const chartColor = (index: number, mode: ThemeMode): string =>
   TOKENS.chart.categorical[index - 1][mode]
-
-/** The secondary text of the night screens — white, at the token's alpha. */
-export const NIGHT_TEXT_MUTED = `rgba(255, 255, 255, ${TOKENS.night.textMutedAlpha})`

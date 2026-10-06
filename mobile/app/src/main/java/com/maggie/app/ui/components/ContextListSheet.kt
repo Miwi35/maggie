@@ -27,7 +27,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Context
 import com.maggie.app.ui.screens.contexts.ContextUiState
@@ -121,7 +120,7 @@ private fun ContextRow(context: Context) {
         Text(
             text = statusIndicator(context.status),
             style = MaterialTheme.typography.bodyLarge,
-            color = statusColor(context.status),
+            color = contextStateColor(context.status),
         )
         Spacer(modifier = Modifier.width(12.dp))
         Text(
@@ -136,10 +135,4 @@ private fun statusIndicator(status: String): String = when (status) {
     "active" -> "●"
     "dormant" -> "◐"
     else -> "○"
-}
-
-@Composable
-private fun statusColor(status: String): Color = when (status) {
-    "active", "dormant" -> contextStateColor(status)
-    else -> MaterialTheme.colorScheme.onSurfaceVariant
 }

@@ -203,6 +203,19 @@ Everything else is the same pixels under a name. These are not:
   (`ActivityPulse.tsx`). The purple was the criticality-critical hue standing in
   for « Maggie is busy »; now that the two are named, the dot that says *Maggie*
   takes Maggie's colour. A 10 px dot in the Mind panel.
+- **The Mind button in the app bar, while the panel is open** (`AppBar.tsx`),
+  `#ce93d8` → the brand violet. MUI's purple 200 was standing in for « this is
+  Maggie », as the activity dot was; the button that opens her panel takes her
+  colour. It is a control the owner uses every day, so it is worth saying out
+  loud — and the swap also takes its contrast on the light app bar from 2.1:1 to
+  3.8:1, which is the first time it clears WCAG's non-text minimum.
+- **The dark mode's secondary text**, MUI's `rgba(255, 255, 255, 0.7)` → the
+  opaque `#B8B7BB`. Over the dark background the two are the same appearance to
+  the eye, which is where the hex comes from; what changes is that it no longer
+  composites over whatever sits underneath, so a muted caption on a raised card
+  or on a coloured chip is now the same grey as everywhere else instead of a
+  lighter one. Compose takes a colour and not a CSS alpha, which is why the
+  token is a hex at all.
 - One shade is unified where the same intent was written twice: mobile's
   `#FFA000` (grocery « annuler ») → `signal.warning` `#FF9800`, and the admin's
   `#FF5252` (recording) → `signal.danger` `#F44336`.
@@ -250,3 +263,20 @@ Everything else is the same pixels under a name. These are not:
   with. `ThemeTest` asserts every role against its token and the Robolectric
   screen tests render the real theme, but what a surface *looks* like is the
   recette's job.
+- **`design/**` is in no path filter of `ci.yml`, so a drift can merge green.**
+  The source now sits outside every component's directory, and the filters
+  (`admin`, `mobile_unit`, `e2e`, …) only list the components. The precedent for
+  the fix is right there: the `admin` filter lists `api/contract/**` and
+  `agent/contract/**` for exactly this reason — « a topic renamed there must run
+  the admin tests, or the one check that would catch it is the one that is
+  skipped ». The drift that merges: edit `design/tokens.json` and
+  `admin/src/design/tokens.ts`, forget `Tokens.kt`. The `admin` filter fires on
+  the `admin/**` change and passes — the web mirror does match the source —
+  while `mobile_unit` sees no `mobile/**` change and is **skipped**, so
+  `TokensContractTest`, the one net that would have caught it, never runs. Not
+  fixed here: the filters live under `.github/`, which the guard hands to a
+  human as `infra-path` (`agent-guard-rails.md`), and this PR is on the merge
+  train. A follow-up `Task` adds `design/**` to the `admin`, `mobile_unit` and
+  `e2e` filters — three lines, and a `.github/` PR is the owner's to merge
+  anyway. Until then the standard carries the warning: the three files travel in
+  one commit, and nothing but a reviewer enforces it.

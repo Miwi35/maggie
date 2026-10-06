@@ -1,9 +1,43 @@
 package com.maggie.app.ui.theme
 
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ColorScheme
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import kotlin.math.max
+import kotlin.math.min
+
+/**
+ * WCAG's non-text minimum — the floor for an icon, a border or a glyph that
+ * carries meaning without being prose (SC 1.4.11), and not 4.5, the body-text
+ * figure. Four of the pairs below sit between the two, and they were **measured,
+ * not missed**: they are radiant's own values, which this ticket exists to name
+ * rather than to redraw.
+ *
+ *  - `primary` / `onPrimary`, both modes — white on the brand violet `#9055FD`:
+ *    **4.28**;
+ *  - `error` / `onError`, both modes — white on `#DB488B`: **3.95**;
+ *  - light `secondary` / `onSecondary` — white on `#A270FF`: **3.33**;
+ *  - light `surfaceVariant` / `onSurfaceVariant` — `#89868D` on `#F0F1F6`:
+ *    **3.18**.
+ *
+ * Every other pair is between 5.9 and 19.0. Raising one of the four means
+ * changing the web in the same breath, so it belongs to MAG-90's audit, not here.
+ */
+private const val MIN_CONTRAST = 3.0f
+
+/**
+ * WCAG 2.1's ratio, `(L1 + 0.05) / (L2 + 0.05)` over relative luminance — the
+ * same measure `ContrastText.kt` thresholds to pick black or white, read off
+ * Compose's own `Color.luminance()`.
+ */
+private fun contrastRatio(a: Color, b: Color): Float {
+    val first = a.luminance()
+    val second = b.luminance()
+
+    return (max(first, second) + 0.05f) / (min(first, second) + 0.05f)
+}
 
 /**
  * The Compose theme against the tokens (MAG-39).
@@ -57,24 +91,28 @@ class ThemeTest {
     }
 
     @Test
-    fun `no on-colour is left on Material's baseline`() {
-        // The failure this catches: a role set without its `on` pair, which is
-        // how text ends up invisible on a container nobody checked.
+    fun `every on-colour reads on the surface it is drawn on`() {
+        // The failure this catches: a role set without its `on` pair, which is how
+        // text ends up invisible on a container nobody looked at. `container !=
+        // content` would not catch it — `#000001` on black is a different colour.
         for ((mode, scheme) in modes) {
-            val pairs: List<Pair<String, Pair<androidx.compose.ui.graphics.Color, androidx.compose.ui.graphics.Color>>> =
-                listOf(
-                    "primary" to (scheme.primary to scheme.onPrimary),
-                    "primaryContainer" to (scheme.primaryContainer to scheme.onPrimaryContainer),
-                    "secondary" to (scheme.secondary to scheme.onSecondary),
-                    "secondaryContainer" to (scheme.secondaryContainer to scheme.onSecondaryContainer),
-                    "surface" to (scheme.surface to scheme.onSurface),
-                    "background" to (scheme.background to scheme.onBackground),
-                    "error" to (scheme.error to scheme.onError),
-                )
+            val pairs = listOf(
+                "primary" to (scheme.primary to scheme.onPrimary),
+                "primaryContainer" to (scheme.primaryContainer to scheme.onPrimaryContainer),
+                "secondary" to (scheme.secondary to scheme.onSecondary),
+                "secondaryContainer" to (scheme.secondaryContainer to scheme.onSecondaryContainer),
+                "surface" to (scheme.surface to scheme.onSurface),
+                "surfaceVariant" to (scheme.surfaceVariant to scheme.onSurfaceVariant),
+                "background" to (scheme.background to scheme.onBackground),
+                "error" to (scheme.error to scheme.onError),
+            )
 
             for ((role, colors) in pairs) {
                 val (container, content) = colors
-                assert(container != content) { "$mode: $role draws its content in its own colour" }
+                val ratio = contrastRatio(container, content)
+                assert(ratio >= MIN_CONTRAST) {
+                    "$mode: $role draws its content at a contrast of $ratio, under $MIN_CONTRAST"
+                }
             }
         }
     }
@@ -92,11 +130,10 @@ class ThemeTest {
     fun `the night surface reads on both modes, because it belongs to neither`() {
         // The sign-in, loading and lock screens are drawn on `night`, not on the
         // scheme — they are shown before anything knows which mode is on.
-        val scheme: ColorScheme = MaggieLightColorScheme
-
-        assert(MaggieTokens.Night.background != scheme.background) {
-            "the night surface is the light background; the splash would flash"
+        for ((mode, scheme) in modes) {
+            assert(MaggieTokens.Night.background != scheme.background) {
+                "the night surface is the $mode background; the splash would flash"
+            }
         }
-        assertEquals(MaggieTokens.Night.text.copy(alpha = 0.6f), MaggieTokens.Night.textMuted)
     }
 }

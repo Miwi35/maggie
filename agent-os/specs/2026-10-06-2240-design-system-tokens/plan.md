@@ -37,10 +37,14 @@ resolves it through the signal family.
    mirror drifts from the file — the test does not skip when it cannot find the
    file, it fails.
 2. The admin's light and dark themes read their palette, typography, radii and
-   spacing scale from the mirror. The admin looks the same as before, with two
-   deliberate exceptions: `h4` and `h5` are weight 700 instead of 800 and 900,
-   which `index.html` never loaded, and Maggie's « thinking » dot is the brand
-   violet.
+   spacing scale from the mirror. The admin looks the same as before, with four
+   deliberate exceptions, all four in `shape.md`'s « visual changes taken
+   deliberately »: `h4` and `h5` are weight 700 instead of 800 and 900, which
+   `index.html` never loaded; Maggie's « thinking » dot is the brand violet; the
+   Mind button's active colour is the brand violet rather than MUI's purple 200;
+   and the dark mode's `text.secondary` is the opaque `#B8B7BB` rather than
+   MUI's 70 % white. The phone's own changes are listed there too, separately —
+   it had six roles out of twenty-nine, so it had more to gain.
 3. The Compose theme reads the same tokens: seventeen roles of the M3 colour
    scheme instead of six, and `Shapes` over the shared radii. The typeface is the
    follow-up ticket's (see `shape.md`); the phone keeps Roboto at Material's
@@ -70,12 +74,13 @@ Tests it owes: none of its own; the two contract tests below are its net.
 ## Task 3: The admin — the mirror, the theme, the screens
 
 - `admin/src/design/tokens.ts` — the mirror: `TOKENS`, typed, plus
-  `criticalityColor()`, `contextStateColor()`, `SOURCE_COLORS`, `chartColor()`
-  and `NIGHT_TEXT_MUTED`, resolving the mappings through `TOKENS.signal`.
+  `criticalityColor()`, `contextStateColor()`, `SOURCE_COLORS` and
+  `chartColor()`, resolving the mappings through `TOKENS.signal`. The `night`
+  group is declared and not read: its only web consumers are under
+  `admin/src/auth/`, which `shape.md` puts out of scope.
 - `admin/src/theme.ts` — `paletteFor(mode)`, `TYPOGRAPHY` and `shape` added to
   the options merged onto radiant. The `components` block of MAG-38 is untouched.
-- The screens, losing their literals: `auth/LoginPage.tsx`, `auth/LoadingPage.tsx`
-  (night), `modules/dashboard/TaskListWidget.tsx` and
+- The screens, losing their literals: `modules/dashboard/TaskListWidget.tsx` and
   `modules/calendar/CalendarView.tsx` (criticality, source),
   `components/mind/ContextList.tsx` and `ActivityPulse.tsx` (context state, brand),
   `components/layout/AppBar.tsx` (danger, brand),
@@ -89,8 +94,8 @@ Tests it owes:
 | Unit | Tests |
 |---|---|
 | `admin/src/design/tokens.contract.test.ts` | every token in the mirror equals `design/tokens.json`; the file is found or the test fails; the three mappings resolve to the signal entry they name |
-| `admin/src/theme.test.ts` (extended) | both modes: primary is the brand token, the surfaces and text are the mode's tokens, MUI's alert roles are the feedback tokens, `shape.borderRadius` is `radius.sm`, the font family is the token's, `h4`/`h5` weights are 700 and **no variant asks for a weight `index.html` does not load**; the two MAG-38 assertions stay |
-| `TaskListWidget` | its existing tests stay green; one asserts a chip carries the criticality token rather than a literal |
+| `admin/src/theme.test.ts` (extended) | both modes: primary is the brand token, the surfaces and text are the mode's tokens, MUI's alert roles are the feedback tokens, `shape.borderRadius` is `radius.sm`, the font family is the token's, `h4`/`h5` weights are 700 and **no variant asks for a weight `index.html` does not load**; the two MAG-38 assertions stay. Plus the other direction — the tokens against `radiantLightTheme` / `radiantDarkTheme` themselves, so a react-admin upgrade that moves radiant's palette fails here: the assertions above read `TOKENS` on both sides and would hold with any value |
+| `admin/src/modules/dashboard/TaskListWidget.test.tsx` (**new** — the widget had none) | the four tasks render with their criticality, each chip's background being `criticalityColor(task.criticality)`; an unknown criticality falls back to `low`; ticking a task reports it done; the empty and loading states |
 
 ## Task 4: The mobile — the mirror, the theme, the screens
 
@@ -112,7 +117,7 @@ Tests it owes:
 | Unit | Tests |
 |---|---|
 | `ui/theme/TokensContractTest.kt` | the mirror and `design/tokens.json` compared **as whole maps**, which is what catches a token added to the source and forgotten here (walking up as `DtoContractTest` does, failing if it cannot find it); `colors.xml`'s `maggie_night` equals `night.background`; an unknown criticality or context state still draws a colour; the shared stack names Gabarito |
-| `ui/theme/ThemeTest.kt` | the light and dark schemes take primary, surfaces, onSurface, outline and error from the tokens; no role draws its content in its own colour; the shapes have the token radii; the night surface is neither mode's background |
+| `ui/theme/ThemeTest.kt` | the light and dark schemes take primary, surfaces, onSurface, outline and error from the tokens; every container/content pair of both schemes clears WCAG's non-text contrast minimum of 3.0; the shapes have the token radii; the night surface is neither mode's background |
 | `ui/theme/ContrastTextTest.kt` | stays green (`readableTextOn` is untouched) |
 
 ## Tests

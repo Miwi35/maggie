@@ -18,13 +18,21 @@ commit. The contract tests walk up the tree to find `design/tokens.json`, as the
 missing mount is a broken test, not a silent pass. `task wt:test:admin`,
 `docker-compose.e2e.yml` and the Gradle unit tests all see `design/`.
 
+> ⚠ **Until `design/**` is in `ci.yml`'s path filters, nothing enforces that.** A
+> commit touching `design/tokens.json` and one mirror runs only that mirror's
+> job; the other platform's contract test is *skipped*, and the drift merges
+> green. Edit the three files together, by hand. (The hole and the follow-up:
+> `agent-os/specs/2026-10-06-2240-design-system-tokens/shape.md`, Risks.)
+
 ## Two colour families, two jobs
 
 - **`feedback`** — react-admin radiant's alert palette, wired into MUI's
   `palette.error/warning/info/success` and into Compose's `error` role. It is
   about *this interaction*: a field in error, an `Alert`, a snackbar. The web
   already draws it; the token file pins it so a react-admin upgrade that changes
-  it fails a test instead of a screen.
+  it fails a test instead of a screen — `admin/src/theme.test.ts` compares the
+  tokens against `radiantLightTheme` / `radiantDarkTheme` themselves, not just
+  against the theme they were merged onto.
 - **`signal`** — the Material hues the app labels *data* with: a task's
   criticality, a thread's state, an item just ticked off. They have to read as a
   chip, as a swipe background and as a 10 px dot, in both modes.
@@ -56,6 +64,15 @@ entry, not a hex: the mapping is the design intent, and each mirror resolves it
 - **The colour a picker starts on** — a new agenda's `#1976D2`
   (`CalendarView.tsx`), the `#4CAF50` in a field's help text. The owner replaces
   it on the next click.
+- **The Material 3 roles the phone's scheme still leaves on Material's
+  baseline** — `surfaceContainer`, `surfaceContainerLow/High/Highest`,
+  `surfaceBright`, `surfaceDim`, `outlineVariant`, the `tertiary*` family and
+  `errorContainer`. `Theme.kt` sets seventeen; live screens read some of the
+  rest (`GroceryListsScreen` takes a dragged row from `surfaceContainerHighest`;
+  `BudgetScreen`, `FinanceDashboardScreen`, `CushionScreen` and
+  `VoiceControlBar` use `tertiary` / `errorContainer` as status colours, which is
+  a `signal` wearing a Material role). Naming them means deciding each screen's
+  intent, which is MAG-90's module-by-module audit, not a guess.
 
 Anything else written as a hex in `admin/src` or `mobile/app/src/main` is a token
 that was not declared yet.

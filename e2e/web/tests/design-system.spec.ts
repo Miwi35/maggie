@@ -54,15 +54,36 @@ function readTokens(): Tokens {
 
 const TOKENS = readTokens()
 
-/** `rgb(26, 26, 46)` as `#1A1A2E`, so a failure prints the token, not three numbers. */
-const asHex = (computed: string): string => {
-  const [r, g, b] = (computed.match(/\d+(\.\d+)?/g) ?? []).slice(0, 3).map(Number)
+/**
+ * `rgb(26, 26, 46)` as `#1A1A2E`, so a failure prints the token, not three
+ * numbers — and the alpha beside it, because that is what tells a colour from
+ * no colour at all.
+ */
+const asColor = (computed: string): { hex: string; alpha: number } => {
+  const channels = (computed.match(/\d+(\.\d+)?/g) ?? []).map(Number)
+  const [r, g, b] = channels
 
-  return `#${[r, g, b].map((channel) => channel.toString(16).padStart(2, '0')).join('')}`.toUpperCase()
+  return {
+    hex: `#${[r, g, b].map((channel) => channel.toString(16).padStart(2, '0')).join('')}`.toUpperCase(),
+    // `getComputedStyle` writes `rgb(…)`, with no fourth channel, when opaque.
+    alpha: channels.length > 3 ? channels[3] : 1,
+  }
 }
 
-const backgroundOf = (locator: Locator): Promise<string> =>
-  locator.evaluate((element) => getComputedStyle(element).backgroundColor).then(asHex)
+/**
+ * The element's *painted* background. An unpainted one computes to
+ * `rgba(0, 0, 0, 0)`, and read as a hex alone that is an indistinguishable
+ * black: the failure would read « #000000 instead of #F0F1F6 » when what
+ * happened is that nothing painted the element at all.
+ */
+const backgroundOf = async (locator: Locator, what: string): Promise<string> => {
+  const computed = await locator.evaluate((element) => getComputedStyle(element).backgroundColor)
+  const { hex, alpha } = asColor(computed)
+
+  expect(alpha, `${what} is transparent (${computed}) — nothing painted it`).toBe(1)
+
+  return hex
+}
 
 test('the shell is drawn on the light surface, and writes its titles in Gabarito at a weight it loads', async ({
   page,
@@ -73,9 +94,13 @@ test('the shell is drawn on the light surface, and writes its titles in Gabarito
 
   // MUI's CssBaseline paints `body` with `background.default` and `text.primary`.
   const body = page.locator('body')
-  expect(await backgroundOf(body)).toBe(TOKENS.surface.light.background.toUpperCase())
+  expect(await backgroundOf(body, 'the page background')).toBe(
+    TOKENS.surface.light.background.toUpperCase(),
+  )
   expect(
-    await body.evaluate((element) => getComputedStyle(element).color).then(asHex),
+    await body
+      .evaluate((element) => getComputedStyle(element).color)
+      .then((computed) => asColor(computed).hex),
   ).toBe(TOKENS.surface.light.text.toUpperCase())
 
   const title = await dashboard.heading.evaluate((element) => {
@@ -95,18 +120,26 @@ test('no text on the dashboard asks for a weight the page does not load', async 
 
   // `index.html` loads `wght@400;500;600;700`. Anything else is synthesised by
   // the browser — faux-bold, and nobody notices until a screenshot is compared.
+  // Each weight is kept with the first element that asked for it, so a failure
+  // in CI names the element to go and look at rather than a bare number.
   const asked = await page.evaluate(() => {
-    const weights = new Set<string>()
+    const seen = new Map<number, string>()
     Array.from(document.querySelectorAll('body *')).forEach((element) => {
-      if (element.textContent?.trim()) {
-        weights.add(getComputedStyle(element).fontWeight)
+      if (!element.textContent?.trim()) return
+      const weight = Number(getComputedStyle(element).fontWeight)
+      if (!seen.has(weight)) {
+        // `getAttribute`, not `className`: on an SVG node the latter is an
+        // `SVGAnimatedString` and prints as `[object …]`.
+        const names = element.getAttribute('class')?.trim()
+        const classes = names ? `.${names.split(/\s+/).join('.')}` : ''
+        seen.set(weight, `<${element.tagName.toLowerCase()}${classes}>`)
       }
     })
 
-    return Array.from(weights).map(Number)
+    return Array.from(seen, ([weight, where]) => ({ weight, where }))
   })
 
   const loaded = Object.values(TOKENS.typography.weight)
   expect(asked.length, 'no text was found on the dashboard at all').toBeGreaterThan(0)
-  expect(asked.filter((weight) => !loaded.includes(weight))).toEqual([])
+  expect(asked.filter(({ weight }) => !loaded.includes(weight))).toEqual([])
 })

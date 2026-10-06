@@ -1,4 +1,6 @@
 import { describe, test, expect } from 'vitest'
+import { createTheme } from '@mui/material/styles'
+import { radiantDarkTheme, radiantLightTheme } from 'react-admin'
 import { NARROW_QUERY } from './breakpoints'
 import { TOKENS } from './design/tokens'
 import { lightTheme, darkTheme } from './theme'
@@ -8,6 +10,20 @@ import type { Theme } from '@mui/material/styles'
 const MODES: [name: 'light' | 'dark', theme: Theme][] = [
   ['light', lightTheme],
   ['dark', darkTheme],
+]
+
+/**
+ * Radiant as react-admin ships it, with none of our options merged on.
+ * `createTheme` of a single argument adds MUI's own defaults and nothing else —
+ * which is why only the values radiant really declares are asserted below: for
+ * the others, what would be read is MUI's default, not radiant's intent.
+ */
+const radiantLight = createTheme(radiantLightTheme)
+const radiantDark = createTheme(radiantDarkTheme)
+
+const RADIANT: [name: 'light' | 'dark', radiant: Theme][] = [
+  ['light', radiantLight],
+  ['dark', radiantDark],
 ]
 
 /**
@@ -53,10 +69,13 @@ describe('the admin theme', () => {
  * The identity, in both modes (MAG-39).
  *
  * Radiant already carried the violet and Gabarito, so most of what is asserted
- * here is unchanged pixels under a name. Asserting it anyway is the point: the
- * values now come from `design/tokens.json`, the mobile theme reads the same
- * file, and a react-admin upgrade that moves radiant's palette has to fail here
- * rather than on a screen the owner notices weeks later.
+ * here is unchanged pixels under a name. Asserting it anyway is the point: it
+ * says the theme *reads* `design/tokens.json`, which the mobile theme reads too,
+ * rather than keeping its own copy of the same hexes.
+ *
+ * What it does not say: that the values are right. Both sides of every equals
+ * sign below are `TOKENS`, so these hold whatever is in the token file. Radiant's
+ * own palette is compared against it in the describe at the bottom of this file.
  */
 describe('the identity the admin is drawn in', () => {
   test.each(MODES)('takes its brand colours from the tokens (%s)', (mode, theme) => {
@@ -78,8 +97,9 @@ describe('the identity the admin is drawn in', () => {
   })
 
   test.each(MODES)('keeps MUI’s alert roles on the feedback family (%s)', (_mode, theme) => {
-    // Radiant's acid palette. It is a token so that an upgrade cannot change it
-    // silently; the data colours are `signal`, and are nobody's `palette.error`.
+    // Radiant's acid palette, wired onto MUI's alert roles. The data colours are
+    // `signal`, and are nobody's `palette.error`. That the four tokens still are
+    // what radiant declares is the next describe's job.
     expect(theme.palette.error.main).toBe(TOKENS.feedback.error)
     expect(theme.palette.warning.main).toBe(TOKENS.feedback.warning)
     expect(theme.palette.info.main).toBe(TOKENS.feedback.info)
@@ -123,5 +143,58 @@ describe('the identity the admin is drawn in', () => {
 
   test.each(MODES)('rounds corners by the shared radius (%s)', (_mode, theme) => {
     expect(theme.shape.borderRadius).toBe(TOKENS.radius.sm)
+  })
+})
+
+/**
+ * The token file against radiant itself (MAG-39).
+ *
+ * The decision in `shape.md` is that the tokens *are* radiant's values, named —
+ * not a new identity. That makes a react-admin upgrade which moves radiant's
+ * palette a change of the app's identity, and this is the test it has to fail:
+ * the describe above reads `TOKENS` on both sides and would hold with any value,
+ * so nothing else in the repository would notice until the owner did, on screen.
+ *
+ * Only what radiant actually declares. It leaves light `background.paper` and the
+ * whole dark `text.*` to MUI, and the dark muted text is deliberately an opaque
+ * `#B8B7BB` rather than MUI's 70 % white (`plan.md`) — asserting those would be
+ * asserting MUI's defaults, or a divergence taken on purpose. Radiant writes
+ * `#9055fd` in lower case and the tokens in upper, so the comparison folds it.
+ */
+describe('the tokens are radiant’s own values', () => {
+  const sameColour = (actual: string, expected: string, role: string) =>
+    expect(actual.toLowerCase(), `radiant’s ${role}`).toBe(expected.toLowerCase())
+
+  test.each(RADIANT)('declares the brand violet as its primary (%s)', (_mode, radiant) => {
+    sameColour(radiant.palette.primary.main, TOKENS.brand.primary, 'palette.primary.main')
+  })
+
+  test.each(RADIANT)('declares the four feedback colours (%s)', (_mode, radiant) => {
+    sameColour(radiant.palette.error.main, TOKENS.feedback.error, 'palette.error.main')
+    sameColour(radiant.palette.warning.main, TOKENS.feedback.warning, 'palette.warning.main')
+    sameColour(radiant.palette.info.main, TOKENS.feedback.info, 'palette.info.main')
+    sameColour(radiant.palette.success.main, TOKENS.feedback.success, 'palette.success.main')
+  })
+
+  test('declares the light mode’s secondary, its background and its two text colours', () => {
+    const light = TOKENS.surface.light
+
+    sameColour(radiantLight.palette.secondary.main, TOKENS.brand.secondaryLight, 'light secondary.main')
+    sameColour(radiantLight.palette.background.default, light.background, 'light background.default')
+    sameColour(radiantLight.palette.text.primary, light.text, 'light text.primary')
+    sameColour(radiantLight.palette.text.secondary, light.textMuted, 'light text.secondary')
+  })
+
+  test('declares the dark mode’s secondary and both of its surfaces', () => {
+    const dark = TOKENS.surface.dark
+
+    sameColour(radiantDark.palette.secondary.main, TOKENS.brand.secondaryDark, 'dark secondary.main')
+    sameColour(radiantDark.palette.background.default, dark.background, 'dark background.default')
+    sameColour(radiantDark.palette.background.paper, dark.paper, 'dark background.paper')
+  })
+
+  test.each(RADIANT)('declares the shared radius and the shared font stack (%s)', (_mode, radiant) => {
+    expect(radiant.shape.borderRadius).toBe(TOKENS.radius.sm)
+    expect(radiant.typography.fontFamily).toBe(TOKENS.typography.family)
   })
 })

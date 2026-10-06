@@ -13,10 +13,12 @@ import androidx.compose.runtime.Composable
  * reads (MAG-39).
  *
  * What changed when the tokens arrived: the scheme was six roles out of
- * Material's twenty-nine, so every surface, every outline and the error colour
- * were Material's own baseline and had nothing to do with Maggie. They are the
- * admin's now, to the hex. Three of them are a visible change on the phone, all
- * three deliberate:
+ * Material's twenty-nine, so almost everything was Material's own baseline and
+ * had nothing to do with Maggie. The **seventeen roles set below** are the
+ * admin's values now, to the hex — the accent and its container pair, the
+ * secondary pair, `background`, `surface`, `surfaceVariant` and their `on`
+ * colours, `outline`, and `error` / `onError`. Three of them are a visible
+ * change on the phone, all three deliberate:
  *
  *  - the **dark** mode's `primary` was the pale lavender `#E8DEFF` with dark
  *    text on it, Material's convention for a dark scheme. It is the brand violet
@@ -24,6 +26,15 @@ import androidx.compose.runtime.Composable
  *  - the surfaces move from Material's near-white and near-black to radiant's
  *    `#F0F1F6` / `#110E1C`;
  *  - `error` is the admin's pink rather than Material's red.
+ *
+ * What is **not** covered: the roles left on Material's baseline —
+ * `surfaceContainer`, `surfaceContainerLow/High/Highest`, `surfaceBright`,
+ * `surfaceDim`, `outlineVariant`, the `tertiary*` family and `errorContainer`.
+ * Live screens read some of them: `GroceryListsScreen` takes a dragged row from
+ * `surfaceContainerHighest`, and `BudgetScreen`, `FinanceDashboardScreen`,
+ * `CushionScreen` and `VoiceControlBar` use `tertiary` / `errorContainer` as
+ * status colours — which is a signal wearing a Material role. Naming them is
+ * MAG-90's module-by-module audit, screen by screen, not a guess made here.
  *
  * The typeface is not here: Gabarito has to be bundled in `res/font/`, with its
  * licence, and that is a ticket of its own — the colours and the shapes are what

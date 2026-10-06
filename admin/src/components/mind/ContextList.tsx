@@ -7,7 +7,9 @@ interface ContextListProps {
   contexts: ContextState[]
 }
 
-const statusIcons: Record<string, string> = {
+// Exhaustive on purpose: a status added to `ContextState` has to be given a
+// glyph here, rather than rendering nothing at all.
+const statusIcons: Record<ContextState['status'], string> = {
   active: '●',
   dormant: '◐',
   closed: '○',

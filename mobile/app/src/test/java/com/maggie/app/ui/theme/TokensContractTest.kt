@@ -101,7 +101,10 @@ class TokensContractTest {
             is JsonArray -> element.withIndex().flatMap { (index, value) ->
                 flatten(value, "$prefix.$index").entries.map { it.toPair() }
             }.toMap()
-            is JsonPrimitive -> mapOf(prefix to element.content)
+            // A number goes through the same formatter the mirror's values do, so
+            // `0.60` in the JSON reads as `0.6` and the comparison is on the value
+            // rather than on how it was typed.
+            is JsonPrimitive -> mapOf(prefix to if (element.isString) element.content else num(element.content))
             else -> emptyMap()
         }
 
@@ -186,14 +189,27 @@ class TokensContractTest {
         }
     }
 
-    private fun Color.hex(): String = "#%02X%02X%02X".format(
-        (red * 255).roundToInt(),
-        (green * 255).roundToInt(),
-        (blue * 255).roundToInt(),
-    )
+    /**
+     * `#RRGGBB`, and `#AARRGGBB` when the colour is not opaque. The JSON never
+     * writes more than six digits, so a token given an alpha channel here fails
+     * the comparison instead of passing on its first six.
+     */
+    private fun Color.hex(): String {
+        val rgb = "#%02X%02X%02X".format(
+            (red * 255).roundToInt(),
+            (green * 255).roundToInt(),
+            (blue * 255).roundToInt(),
+        )
+        val alphaByte = (alpha * 255).roundToInt()
+
+        return if (alphaByte == 255) rgb else "#%02X%s".format(alphaByte, rgb.removePrefix("#"))
+    }
 
     private fun num(value: Float): String =
         if (value == value.toInt().toFloat()) value.toInt().toString() else value.toString()
+
+    /** The same formatting, for a numeric JSON primitive — a non-number is left as it is. */
+    private fun num(value: String): String = value.toFloatOrNull()?.let { num(it) } ?: value
 
     private fun num(value: Dp): String = num(value.value)
 
