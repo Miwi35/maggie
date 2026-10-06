@@ -6,7 +6,6 @@ use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
-use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Enum\TransferSource;
@@ -51,33 +50,6 @@ class DetectInternalTransfersControllerTest extends WebTestCase
         $transaction = $this->getFixture($ref);
 
         return $transaction;
-    }
-
-    /** @return string[] the ids every published Mercure topic names */
-    private function publishedTopics(): array
-    {
-        $topics = [];
-        foreach ($this->getMercureHub()->getUpdates() as $update) {
-            foreach ($update->getTopics() as $topic) {
-                $topics[] = $topic;
-            }
-        }
-
-        return $topics;
-    }
-
-    /** @return string[] the ids sent for reindexing */
-    private function reindexedIds(): array
-    {
-        $ids = [];
-        foreach ($this->getAsyncTransport()->getSent() as $envelope) {
-            $message = $envelope->getMessage();
-            if ($message instanceof IndexDocumentCommand && Transaction::class === $message->entityClass) {
-                $ids[] = $message->entityId;
-            }
-        }
-
-        return $ids;
     }
 
     public function testUnauthenticatedReturns401(): void
@@ -155,13 +127,10 @@ class DetectInternalTransfersControllerTest extends WebTestCase
         self::assertSame((string) $out->getId(), (string) $storedIn->getCounterpart()?->getId());
         self::assertSame(TransferKind::None, $storedGroceries->getTransferKind());
 
-        $topics = implode(' ', $this->publishedTopics());
-        self::assertStringContainsString((string) $out->getId(), $topics, 'the debit must reach the open screens');
-        self::assertStringContainsString((string) $in->getId(), $topics, 'so must the credit');
-
-        $reindexed = $this->reindexedIds();
-        self::assertContains((string) $out->getId(), $reindexed);
-        self::assertContains((string) $in->getId(), $reindexed);
+        $this->assertMercureUpdatePublished((string) $out->getId());
+        $this->assertMercureUpdatePublished((string) $in->getId());
+        $this->assertElasticsearchIndexDispatchedFor(Transaction::class, (string) $out->getId());
+        $this->assertElasticsearchIndexDispatchedFor(Transaction::class, (string) $in->getId());
     }
 
     public function testADryRunReportsThePairAndWritesNothing(): void
@@ -185,7 +154,7 @@ class DetectInternalTransfersControllerTest extends WebTestCase
         self::assertSame(TransferKind::None, $em->find(Transaction::class, $out->getId())->getTransferKind());
         self::assertSame(TransferKind::None, $em->find(Transaction::class, $in->getId())->getTransferKind());
         self::assertMercureUpdateCount(0);
-        self::assertSame([], $this->reindexedIds());
+        $this->assertNoElasticsearchIndexDispatched(Transaction::class);
     }
 
     public function testTheAccountBalancesDoNotMove(): void

@@ -126,9 +126,11 @@ class UpdateTransactionHandler
         }
 
         if (null === $command->counterpartId) {
-            $transaction->setTransferKind($kind)->setTransferSource($source);
+            // A single leg contradicts whatever pairing was on this line.
+            $former = $transaction->getCounterpart();
+            $transaction->releaseInternalTransfer($source)->setTransferKind($kind);
 
-            return [];
+            return [$former];
         }
 
         if ($command->counterpartId === (string) $transaction->getId()) {
