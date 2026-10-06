@@ -7,7 +7,8 @@ gesdinet_jwt_refresh_token:
     token_parameter_name: refresh_token
     # The web admin never holds the refresh token in JS: it rides an httpOnly
     # cookie that only the two token routes ever receive. The body keeps
-    # carrying it for the mobile app, which has no cookie jar to rely on.
+    # carrying it for the mobile app, which has no cookie jar to rely on;
+    # RemoveRefreshTokenFromBodyOnCookieListener strips it when it came by cookie.
     cookie:
         enabled: true
         same_site: strict

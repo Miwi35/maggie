@@ -13,7 +13,6 @@ import { financeResources } from './modules/finance'
 import { searchResources } from './modules/search'
 import {
   authProvider,
-  handleAuthCallback,
   routeVisitorWithoutSessionToLogin,
 } from './auth/authProvider'
 import { LoginPage } from './auth/LoginPage'
@@ -21,8 +20,6 @@ import { LoadingPage } from './auth/LoadingPage'
 import { clearSession, getToken, installAuthRefresh, sessionAwaitsNetwork, startSessionKeeper } from './auth/session'
 import type { HttpClientOptions } from '@api-platform/admin'
 
-// Handle OAuth callback params before React renders
-handleAuthCallback()
 routeVisitorWithoutSessionToLogin()
 installAuthRefresh()
 startSessionKeeper()

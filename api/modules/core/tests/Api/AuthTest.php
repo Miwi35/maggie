@@ -124,7 +124,8 @@ class AuthTest extends WebTestCase
         // The refresh token is rotated into a new httpOnly cookie that only the token routes receive.
         self::assertArrayHasKey('refresh_token', $cookies);
         self::assertNotSame($refreshToken, $cookies['refresh_token']->getValue());
-        self::assertSame($data['refresh_token'], $cookies['refresh_token']->getValue());
+        // ...and never in the body, where a script injected in the page could read it.
+        self::assertArrayNotHasKey('refresh_token', $data);
         self::assertTrue($cookies['refresh_token']->isHttpOnly());
         self::assertSame('/api/token', $cookies['refresh_token']->getPath());
         self::assertSame('strict', $cookies['refresh_token']->getSameSite());
@@ -133,6 +134,22 @@ class AuthTest extends WebTestCase
         self::assertArrayHasKey('mercureAuthorization', $cookies);
         self::assertSame('/.well-known/mercure', $cookies['mercureAuthorization']->getPath());
         self::assertTrue($cookies['mercureAuthorization']->isHttpOnly());
+    }
+
+    public function testRefreshTokenSentInTheBodyIsReturnedInTheBody(): void
+    {
+        $refreshToken = $this->createRefreshTokenForUser();
+
+        // The mobile app has no cookie jar: it sends the token in the body and reads the rotated one there.
+        $this->client->request('POST', '/api/token/refresh', [], [], [
+            'CONTENT_TYPE' => 'application/json',
+        ], json_encode(['refresh_token' => $refreshToken], JSON_THROW_ON_ERROR));
+
+        self::assertResponseIsSuccessful();
+
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertArrayHasKey('refresh_token', $data);
+        self::assertNotSame($refreshToken, $data['refresh_token']);
     }
 
     public function testConsumedRefreshTokenCannotBeReplayed(): void
