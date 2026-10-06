@@ -9,16 +9,19 @@ use Maggie\Calendar\Repository\EventRepository;
 use Maggie\Calendar\Service\RecurrenceService;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 
 class RecurrenceServiceTest extends TestCase
 {
     private EventRepository&MockObject $eventRepository;
+    private LoggerInterface&MockObject $logger;
     private RecurrenceService $recurrenceService;
 
     protected function setUp(): void
     {
         $this->eventRepository = $this->createMock(EventRepository::class);
-        $this->recurrenceService = new RecurrenceService($this->eventRepository);
+        $this->logger = $this->createMock(LoggerInterface::class);
+        $this->recurrenceService = new RecurrenceService($this->eventRepository, $this->logger);
     }
 
     public function testExpandOccurrencesReturnsSelfForNonRecurring(): void
@@ -146,6 +149,55 @@ class RecurrenceServiceTest extends TestCase
                 fn (Event $occurrence) => $occurrence->getStartAt()->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z'),
                 $result,
             ),
+        );
+    }
+
+    public function testUnresolvableTimeZoneFallsBackOnTheDefaultZoneAndIsLogged(): void
+    {
+        $event = $this->weeklyLessonInParis();
+        $event->setTimeZone('Mars/Olympus');
+        $this->eventRepository->method('findExceptionsForRecurringEvent')->willReturn([]);
+
+        $this->logger
+            ->expects(self::once())
+            ->method('error')
+            ->with(
+                self::anything(),
+                self::callback(fn (array $context) => 'event_time_zone_fallback' === $context['event']
+                    && 'Mars/Olympus' === $context['timeZone']),
+            );
+
+        $result = $this->recurrenceService->expandOccurrences(
+            $event,
+            new \DateTimeImmutable('2026-10-01T00:00:00Z'),
+            new \DateTimeImmutable('2026-11-30T00:00:00Z'),
+        );
+
+        // Expanded on Europe/Paris, the column's default: 18:00 stays 18:00 across the clock change.
+        self::assertSame(
+            [
+                '2026-10-18T18:00:00+02:00',
+                '2026-10-25T18:00:00+01:00',
+                '2026-11-01T18:00:00+01:00',
+                '2026-11-08T18:00:00+01:00',
+            ],
+            array_map(
+                fn (Event $occurrence) => $occurrence->getStartAt()->setTimezone(new \DateTimeZone('Europe/Paris'))->format('Y-m-d\TH:i:sP'),
+                $result,
+            ),
+        );
+    }
+
+    public function testResolvableTimeZoneIsNotLogged(): void
+    {
+        $event = $this->weeklyLessonInParis();
+        $this->eventRepository->method('findExceptionsForRecurringEvent')->willReturn([]);
+        $this->logger->expects(self::never())->method('error');
+
+        $this->recurrenceService->expandOccurrences(
+            $event,
+            new \DateTimeImmutable('2026-10-01T00:00:00Z'),
+            new \DateTimeImmutable('2026-11-30T00:00:00Z'),
         );
     }
 
