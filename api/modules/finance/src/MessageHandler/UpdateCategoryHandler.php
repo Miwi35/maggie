@@ -8,6 +8,7 @@ use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Enum\ObligationFlag;
 use Maggie\Finance\Message\UpdateCategoryCommand;
 use Maggie\Finance\Repository\CategoryRepository;
+use Maggie\Finance\Service\OwnedReferenceResolver;
 use Maggie\Finance\UseCase\UpdateCategory;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -16,6 +17,7 @@ class UpdateCategoryHandler
 {
     public function __construct(
         private readonly UpdateCategory $updateCategory,
+        private readonly OwnedReferenceResolver $references,
         private readonly CategoryRepository $categoryRepository,
     ) {
     }
@@ -49,8 +51,7 @@ class UpdateCategoryHandler
                     throw new \DomainException('A category cannot be its own parent.');
                 }
 
-                $parent = $this->categoryRepository->find($command->parentId)
-                    ?? throw new \DomainException("Parent category not found: {$command->parentId}");
+                $parent = $this->references->category($command->parentId, $category->getUser(), 'Parent category');
 
                 if (null !== $parent->getParent()) {
                     throw new \DomainException('Categories support only two levels: a sub-category cannot have children.');

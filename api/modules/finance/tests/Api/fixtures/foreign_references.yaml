@@ -1,0 +1,81 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-api-test@example.com
+    googleId: google-finance-api-test
+    name: Finance Api Test User
+  other_user:
+    email: finance-api-other@example.com
+    googleId: google-finance-api-other
+    name: Finance Api Other User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+  other_checking:
+    name: Compte de l'autre
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 900
+    isCushion: false
+    user: '@other_user'
+
+Maggie\Finance\Entity\Category:
+  food:
+    name: Alimentation
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  leisure:
+    name: Loisirs
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  other_secret:
+    name: Cadeaux secrets
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@other_user'
+
+Maggie\Finance\Entity\Envelope:
+  food_july:
+    category: '@food'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 40000
+    currency: EUR
+    year: 2026
+    month: 7
+    user: '@test_user'
+
+Maggie\Finance\Entity\CategorizationRule:
+  rule_carrefour:
+    labelPattern: CARREFOUR
+    matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'
+    category: '@food'
+    direction: '<(Maggie\Finance\Enum\AmountDirection::Debit)>'
+    priority: 10
+    isActive: true
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  groceries:
+    account: '@checking'
+    category: '@food'
+    amountCents: -4599
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-01"))>'
+    label: Supermarché
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  other_purchase:
+    account: '@other_checking'
+    category: '@other_secret'
+    amountCents: -1500
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-02"))>'
+    label: Cadeau surprise
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@other_user'
