@@ -6,7 +6,10 @@ use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
+use Maggie\Grocery\Entity\GroceryItem;
+use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\Product;
+use Maggie\Grocery\Entity\RecurringGroceryItem;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
@@ -183,5 +186,66 @@ class ProductApiTest extends WebTestCase
         $reloaded = $this->reload($product);
         self::assertSame('Riz basmati', $reloaded->getName());
         self::assertSame('kg', $reloaded->getDefaultUnit()?->value);
+    }
+
+    private function deleteProduct(Product $product, bool $authenticated = true): void
+    {
+        $this->client->request('DELETE', '/api/products/'.$product->getId(), [], [], $authenticated ? $this->authHeaders() : []);
+    }
+
+    public function testDeleteRequiresAuthentication(): void
+    {
+        $product = $this->load();
+
+        $this->deleteProduct($product, authenticated: false);
+
+        self::assertResponseStatusCodeSame(401);
+    }
+
+    public function testDeleteRemovesAProductNoListUses(): void
+    {
+        $product = $this->load();
+
+        $this->deleteProduct($product);
+
+        self::assertResponseStatusCodeSame(204);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNull($em->find(Product::class, $product->getId()));
+        $this->assertMercureUpdatePublished('/products/');
+        $this->assertElasticsearchDeleteDispatched();
+    }
+
+    public function testDeleteKeepsTheGroceryItemsAndRecurringItemsThatReferencedTheProduct(): void
+    {
+        $product = $this->load('product_in_lists');
+        $fromProduct = (string) $this->getFixture('grocery_item_from_product')->getId();
+        $withLabel = (string) $this->getFixture('grocery_item_with_label')->getId();
+        $recurring = (string) $this->getFixture('recurring_from_product')->getId();
+
+        $this->deleteProduct($product);
+
+        self::assertResponseStatusCodeSame(204);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNull($em->find(Product::class, $product->getId()));
+
+        $item = $em->find(GroceryItem::class, $fromProduct);
+        self::assertNotNull($item, 'The list item is kept');
+        self::assertNull($item->getProduct());
+        self::assertSame('Lentilles', $item->getLabel(), 'The item keeps the product name as its label');
+        $labelled = $em->find(GroceryItem::class, $withLabel);
+        self::assertNull($labelled->getProduct());
+        self::assertSame('Lentilles corail', $labelled->getLabel(), 'A label the user chose is not overwritten');
+
+        $recurringItem = $em->find(RecurringGroceryItem::class, $recurring);
+        self::assertNotNull($recurringItem, 'The recurring item is kept');
+        self::assertNull($recurringItem->getProduct());
+        self::assertSame('Lentilles', $recurringItem->getLabel());
+
+        $this->assertMercureUpdatePublished('/products/');
+        $this->assertElasticsearchDeleteDispatched();
+        $this->assertElasticsearchIndexDispatched(RecurringGroceryItem::class);
+        $this->assertElasticsearchIndexDispatched(GroceryList::class);
     }
 }

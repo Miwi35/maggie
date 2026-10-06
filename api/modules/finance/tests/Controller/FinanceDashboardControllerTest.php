@@ -54,6 +54,43 @@ class FinanceDashboardControllerTest extends WebTestCase
         self::assertArrayHasKey('netCapacityCents', $data['savingCapacity']);
     }
 
+    public function testTopPostsCarryTheCategoryIdTheRestOfTheApiUses(): void
+    {
+        $this->loadFixtures('dashboard.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->client->request('GET', '/api/finance/dashboard?year=2026&month=9', [], [], $this->authHeaders());
+
+        self::assertResponseIsSuccessful();
+
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $byName = array_column($data['topPosts'], 'categoryId', 'categoryName');
+
+        self::assertSame((string) $this->getFixture('food')->getId(), $byName['Alimentation']);
+        self::assertSame((string) $this->getFixture('leisure')->getId(), $byName['Loisirs']);
+        self::assertSame(26, \strlen($byName['Alimentation']), 'a ULID in base32, not RFC 4122');
+
+        $this->client->request('GET', '/api/categories/'.$byName['Alimentation'], [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+    }
+
+    public function testThePostWithoutACategoryKeepsANullCategoryId(): void
+    {
+        $this->loadFixtures('dashboard.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->client->request('GET', '/api/finance/dashboard?year=2026&month=9', [], [], $this->authHeaders());
+
+        self::assertResponseIsSuccessful();
+
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $uncategorized = array_values(array_filter($data['topPosts'], static fn (array $post) => null === $post['categoryName']));
+
+        self::assertCount(1, $uncategorized);
+        self::assertNull($uncategorized[0]['categoryId']);
+        self::assertSame(1500, $uncategorized[0]['spentCents']);
+    }
+
     public function testDefaultsToTheCurrentPeriod(): void
     {
         $this->loadFixtures('dashboard.yaml');

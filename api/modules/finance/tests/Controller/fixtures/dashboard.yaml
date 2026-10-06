@@ -79,6 +79,16 @@ Maggie\Finance\Entity\Transaction:
     status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
     isExceptional: false
     user: '@test_user'
+  # Spent with no category: its post carries no categoryId.
+  coffee:
+    account: '@checking'
+    amountCents: -1500
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-07"))>'
+    label: Café
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
 
   # Same month last year, spending more — so this year compares well.
   groceries_last_year:
