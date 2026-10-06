@@ -38,5 +38,9 @@ check "a cancelled run does not break the streak" 10 \
 check "a cancelled run does not make one" 0 \
   '[{"conclusion":"failure","headSha":"c"},{"conclusion":"cancelled","headSha":"b"}]'
 check "no run at all" 0 '[]'
+check "the red run of a draft is not a failure of the code" 0 \
+  '[{"conclusion":"failure","headSha":"b"},{"conclusion":"failure","headSha":"a","displayTitle":"PR #1 · title · draft"}]'
+check "red drafts between two real reds do not hide them" 10 \
+  '[{"conclusion":"failure","headSha":"c"},{"conclusion":"failure","headSha":"b","displayTitle":"PR #1 · t · draft"},{"conclusion":"failure","headSha":"a","displayTitle":"PR #1 · t"}]'
 
 [ "$failures" -eq 0 ] && echo "All good." || { echo "$failures failed."; exit 1; }

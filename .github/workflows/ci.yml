@@ -9,9 +9,11 @@ name: Pull request
 # `main.yml` (a merge) and `nightly.yml` call it with `workflow_call`: the night
 # runs every job, a merge applies the path filters, and neither runs the jobs that
 # only mean something on a pull request (guard, Incident gate, streak).
+# A draft's run says so (` · draft`): its `PR checks passed` is red by design, and the
+# streak job must not count it as a failure of the code (scripts/agent-guard/ci-streak.sh).
 run-name: >-
   ${{ github.event_name == 'pull_request'
-      && format('PR #{0} · {1}', github.event.pull_request.number, github.event.pull_request.title)
+      && format('PR #{0} · {1}{2}', github.event.pull_request.number, github.event.pull_request.title, github.event.pull_request.draft && ' · draft' || '')
       || 'CI' }}
 
 on:
@@ -552,7 +554,10 @@ jobs:
       - name: Pin the e2e clock
         env:
           E2E_CI_NOW: ${{ vars.E2E_NOW }}
-        run: echo "E2E_NOW=$(e2e/clock.sh ci)" | tee -a "$GITHUB_ENV"
+        run: |
+          # Assigned first: a failure inside `$(...)` would not fail an `echo`.
+          now="$(e2e/clock.sh ci)"
+          echo "E2E_NOW=$now" | tee -a "$GITHUB_ENV"
 
       - name: Start the stack
         run: task e2e:up
@@ -903,7 +908,10 @@ jobs:
       - name: Pin the e2e clock
         env:
           E2E_CI_NOW: ${{ vars.E2E_NOW }}
-        run: echo "E2E_NOW=$(e2e/clock.sh ci)" | tee -a "$GITHUB_ENV"
+        run: |
+          # Assigned first: a failure inside `$(...)` would not fail an `echo`.
+          now="$(e2e/clock.sh ci)"
+          echo "E2E_NOW=$now" | tee -a "$GITHUB_ENV"
 
       - name: Start the stack
         run: task e2e:up
@@ -1184,7 +1192,7 @@ jobs:
       - name: Give up after the second red run
         run: |
           [ "$(gh pr view "$PR" --json state -q .state)" = OPEN ] || exit 0
-          runs="$(gh run list --workflow ci.yml --branch "$BRANCH" --event pull_request --limit 20 --json conclusion,headSha,databaseId \
+          runs="$(gh run list --workflow ci.yml --branch "$BRANCH" --event pull_request --limit 20 --json conclusion,headSha,databaseId,displayTitle \
             | jq -c --arg sha "$HEAD_SHA" --argjson id "$RUN_ID" '[{conclusion: "failure", headSha: $sha}] + map(select(.databaseId != $id))')"
           status=0
           shas="$(scripts/agent-guard/ci-streak.sh <<< "$runs")" || status=$?
