@@ -46,6 +46,7 @@ import com.maggie.app.data.model.User
 import com.maggie.app.data.model.UserPreference
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.accept
 import io.ktor.client.request.delete
 import io.ktor.client.request.forms.formData
@@ -395,6 +396,7 @@ class MaggieApiService(
     private companion object {
         // The next request waits for the interruption to be recorded: it must not wait forever.
         const val INTERRUPT_TIMEOUT_MS = 5_000L
+        const val STREAM_SOCKET_TIMEOUT_MS = 120_000L
     }
 
     suspend fun getEvents(
@@ -636,6 +638,9 @@ class MaggieApiService(
     fun sendChatStream(message: String): Flow<AgUiEvent> = kotlinx.coroutines.flow.flow {
         try {
             val response = client.post("$baseUrl/agent/chat/stream") {
+                // The model can stay silent for a while (a tool, a long think): the default 10 s
+                // read timeout ended the stream and wiped the answer being written.
+                timeout { socketTimeoutMillis = STREAM_SOCKET_TIMEOUT_MS }
                 contentType(ContentType.Application.Json)
                 setBody(AgentChatRequest(message = message))
             }

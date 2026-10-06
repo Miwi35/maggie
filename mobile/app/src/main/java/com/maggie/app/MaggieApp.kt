@@ -71,6 +71,7 @@ import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.auth.Auth
 import io.ktor.client.plugins.auth.providers.BearerTokens
 import io.ktor.client.plugins.auth.providers.bearer
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -143,6 +144,9 @@ class MaggieApp : Application() {
                 val authRepository: AuthRepository = get()
                 val apiHost = Url(BuildConfig.API_BASE_URL).host
                 HttpClient(OkHttp) {
+                    // Only here so a request can raise its own socket timeout (the chat stream);
+                    // everything else keeps OkHttp's 10 s.
+                    install(HttpTimeout) { socketTimeoutMillis = 10_000 }
                     install(ContentNegotiation) {
                         json(Json {
                             ignoreUnknownKeys = true
