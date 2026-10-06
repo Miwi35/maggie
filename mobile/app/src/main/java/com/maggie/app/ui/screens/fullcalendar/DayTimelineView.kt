@@ -85,7 +85,7 @@ fun DayTimelineView(
 
                 // Timed events
                 timedEvents.forEach { event ->
-                    val (topOffset, height) = calculateEventPosition(event, zone)
+                    val (topOffset, height) = calculateEventPosition(event, currentDate, zone)
                     EventBlock(
                         event = event,
                         topOffset = topOffset,
