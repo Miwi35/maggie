@@ -9,6 +9,7 @@ import InputAdornment from '@mui/material/InputAdornment'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import Divider from '@mui/material/Divider'
+import Badge from '@mui/material/Badge'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
 import SendIcon from '@mui/icons-material/Send'
@@ -32,6 +33,8 @@ import { mercureUrl } from '../../hooks/mercureUrl'
 import { saidInMessage } from '../../screenContext'
 import { useAgUiStream } from '../../hooks/useAgUiStream'
 import { newMessageKey } from '../../hooks/messageKey'
+import { isAwaitingAnswer, useApprovals } from '../../hooks/useApprovals'
+import { ApprovalCard } from './ApprovalCard'
 import { ActivityPulse } from '../mind/ActivityPulse'
 import { MaggieAvatar } from '../maggie/MaggieAvatar'
 import { ContextList } from '../mind/ContextList'
@@ -219,6 +222,8 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     const recorder = useVoiceRecorder()
     const transcription = useTranscription()
     const isNarrow = useNarrowScreen()
+    const { approvals, approve, deny } = useApprovals()
+    const awaitingCount = approvals.filter((a) => isAwaitingAnswer(a)).length
 
     // AG-UI stream callbacks
     const toolCallsRef = useRef<ToolCallState[]>([])
@@ -417,7 +422,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     // below the fold.
     useLayoutEffect(() => {
       if (followingRef.current && !searchMode) pinToBottom()
-    }, [messages, streamingText, agentState, loadingHistory, searchMode, pinToBottom])
+    }, [messages, approvals.length, streamingText, agentState, loadingHistory, searchMode, pinToBottom])
 
     // A keyboard, a card or a resized window changes the height without any message.
     useEffect(() => {
@@ -880,7 +885,25 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                 }}
               >
                 <Tab value="chat" label="Chat" icon={<ChatIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
-                <Tab value="mind" label="Mind" icon={<PsychologyIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
+                <Tab
+                  value="mind"
+                  label={
+                    awaitingCount > 0 ? (
+                      <Badge
+                        badgeContent={awaitingCount}
+                        color="warning"
+                        data-testid="mind-approvals-badge"
+                        sx={{ '& .MuiBadge-badge': { right: -14 } }}
+                      >
+                        Mind
+                      </Badge>
+                    ) : (
+                      'Mind'
+                    )
+                  }
+                  icon={<PsychologyIcon sx={{ fontSize: 18 }} />}
+                  iconPosition="start"
+                />
               </Tabs>
             )}
           </Box>
@@ -1032,6 +1055,9 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                     {streamingMsgId && streamingText && (
                       <ChatBubble role="assistant">{streamingText}</ChatBubble>
                     )}
+                    {approvals.map((approval) => (
+                      <ApprovalCard key={approval.id} approval={approval} onApprove={approve} onDeny={deny} />
+                    ))}
                     {agentState !== 'idle' && !streamingText && (
                       <Box
                         sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', px: 1 }}
