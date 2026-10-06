@@ -49,13 +49,19 @@ tags:
 # Nothing is chosen while the heading is a question, so there is nothing to
 # create yet: `MerchantDictionary` files LECLERC under « Nourriture », which no
 # seeded category is named, so the suggestion arrives with no `categoryId`.
+#
+# Addressed by its tag and not by its label: a `Button`'s text is a node of its
+# own in the hierarchy, and a `Text` is always `enabled: true` — so the pair
+# « label + disabled » matches nothing, on a greyed-out button as much as on a
+# live one. The tag is on the button, which carries the state.
 - assertVisible:
-    text: "Créer la règle"
+    id: "suggestion_accept"
     enabled: false
 
 # The heading, then the yes.
 - tapOn: "Courses"
-- tapOn: "Créer la règle"
+- tapOn:
+    id: "suggestion_accept"
 
 # The rule it wrote covers the merchant now, so there is nothing left to ask —
 # asserted on the empty state and not on the snackbar, which lives four seconds.

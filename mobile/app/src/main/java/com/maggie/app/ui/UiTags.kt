@@ -82,6 +82,16 @@ object UiTags {
      */
     const val BANK_SYNC = "bank_sync"
 
+    /**
+     * Suggestions — the yes of a card, which is refused while no heading is
+     * chosen. Tagged because that refusal is what the journey asserts, and a
+     * `Button`'s label is a node of its own in the hierarchy Maestro reads: the
+     * `enabled` of a `Text` is always true, so `text: "Créer la règle",
+     * enabled: false` matches nothing even on a button that is greyed out. The
+     * tag lands on the button itself, which does carry the state.
+     */
+    const val SUGGESTION_ACCEPT = "suggestion_accept"
+
     /** Calendar toolbar — the « next » arrow and the Semaine switch. */
     const val CALENDAR_NEXT = "calendar_next"
     const val CALENDAR_VIEW_WEEK = "calendar_view_week"

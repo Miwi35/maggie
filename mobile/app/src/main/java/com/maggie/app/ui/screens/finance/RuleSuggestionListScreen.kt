@@ -36,11 +36,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.RuleSuggestion
 import com.maggie.app.data.model.directionLabel
 import com.maggie.app.data.model.suggestionWeight
+import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
 
@@ -187,7 +189,11 @@ private fun SuggestionCard(
                 TextButton(onClick = onDismiss) {
                     Text("Ignorer")
                 }
-                Button(onClick = onAccept, enabled = canAccept) {
+                Button(
+                    onClick = onAccept,
+                    enabled = canAccept,
+                    modifier = Modifier.testTag(UiTags.SUGGESTION_ACCEPT),
+                ) {
                     Text("Créer la règle")
                 }
             }
