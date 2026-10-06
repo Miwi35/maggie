@@ -86,6 +86,30 @@ test('a spending post is shown against the same post last month', async ({ page 
 })
 
 /**
+ * A post's `categoryId` is the one `/api/categories/{id}` answers to (MAG-261):
+ * the dashboard used to hand back the column's raw RFC 4122 spelling, which no
+ * other entry point accepts.
+ */
+test('a spending post links to its category resource', async ({ api }) => {
+  const response = await api.get(
+    `/api/finance/dashboard?year=${ANCHOR_YEAR}&month=${ANCHOR_MONTH}`,
+  )
+  expect(response.ok()).toBe(true)
+
+  const { topPosts } = (await response.json()) as {
+    topPosts: Array<{ categoryId: string | null; categoryName: string | null }>
+  }
+  const post = topPosts.find((p) => p.categoryId !== null)
+  expect(post, 'the seed spends in at least one category this month').toBeDefined()
+
+  const category = await api.get(`/api/categories/${post!.categoryId}`, {
+    headers: { Accept: 'application/ld+json' },
+  })
+  expect(category.status()).toBe(200)
+  expect(((await category.json()) as { name: string }).name).toBe(post!.categoryName)
+})
+
+/**
  * Moving the period controls is the one past regression MAG-93 found here
  * (`e05e52f`): the picker and the empty states. A month the seed never touched
  * must come back empty and say so, rather than keeping the month before it on
