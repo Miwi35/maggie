@@ -131,7 +131,7 @@ class TestRunToolLoop:
             {"name": "list_events", "input": {"day": "2026-09-30"}, "result": '{"events": []}'}
         ]
         tool_router.call_tool.assert_awaited_once_with(
-            "list_events", {"day": "2026-09-30"}, user_id="user-1", source="proaction"
+            "list_events", {"day": "2026-09-30"}, user_id="user-1", source="proaction", context_id=None
         )
         assert [m["role"] for m in messages] == ["user", "assistant", "user"]
         assert messages[-1]["content"] == [{"type": "tool_result", "tool_use_id": "tu-1", "content": '{"events": []}'}]

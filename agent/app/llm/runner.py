@@ -26,12 +26,16 @@ async def run_tool_loop(
     max_tokens: int = DEFAULT_MAX_TOKENS,
     call_type: str = "chat",
     source: str = "chat",
+    context_id: str | None = None,
 ) -> dict:
     """Call Claude, execute the tools it asks for, and loop until it answers with text.
 
     `system` is a string or a list of system blocks (see `build_system`). `messages` is extended in place.
     `tools=None` (or empty) yields a plain answer without tools. The tool list gets a prompt-cache breakpoint.
     API errors are not caught: callers decide how to present them.
+
+    `context_id` is the thread this turn belongs to; a call the policy holds back for the
+    user's approval carries it, so the result is announced in the same conversation (MAG-4).
     """
     tool_calls_made: list[dict] = []
     cached_tools = cache_tools(tools)
@@ -78,7 +82,9 @@ async def run_tool_loop(
             if block.type == "tool_use":
                 logger.info(f"Tool call: {block.name}({block.input})")
                 TOOL_CALLS.labels(tool_name=block.name, source=source).inc()
-                result = await tool_router.call_tool(block.name, block.input, user_id=user_id, source=source)
+                result = await tool_router.call_tool(
+                    block.name, block.input, user_id=user_id, source=source, context_id=context_id
+                )
                 tool_calls_made.append({"name": block.name, "input": block.input, "result": result})
                 tool_results.append({"type": "tool_result", "tool_use_id": block.id, "content": result})
 

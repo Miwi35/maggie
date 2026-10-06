@@ -13,6 +13,7 @@ from app.db.context_repository import context_repo
 from app.db.instruction_model import Instruction  # noqa: F401 — register model with AgentBase before create_all
 from app.db.memory_model import Memory  # noqa: F401 — register model with AgentBase before create_all
 from app.db.models import Message  # noqa: F401 — register model with AgentBase before create_all
+from app.db.pending_action_model import PendingAction  # noqa: F401 — register model with AgentBase before create_all
 from app.db.personality_model import PersonalityConfig  # noqa: F401 — register model with AgentBase before create_all
 from app.db.proaction_repository import proaction_repo
 from app.db.skill_model import Skill  # noqa: F401 — register model with AgentBase before create_all

@@ -9,6 +9,7 @@ from app.db.context_model import ContextStatus, ConversationContext
 from app.db.context_repository import context_repo
 from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
+from app.db.pending_action_repository import pending_action_repo
 from app.db.proaction_repository import proaction_repo
 from app.llm.context_summary import context_summarizer
 from app.llm.gateway import LLMGateway
@@ -35,7 +36,12 @@ _known_timezones: dict[str, ZoneInfo] = {}
 
 
 async def _execution_loop() -> None:
-    """Poll for due proactions every 60s and publish them to RabbitMQ."""
+    """Poll for due proactions every 60s, publish them to RabbitMQ, and retire stale approvals.
+
+    The two are unrelated but share a minute-grained clock, and an action nobody answered
+    in 24 h is retired here rather than on read: the card has to leave the user's screen
+    on its own (MAG-4).
+    """
     while True:
         try:
             due = await proaction_repo.find_due()
@@ -45,6 +51,11 @@ async def _execution_loop() -> None:
                 await publish_proaction(proaction.id)
         except Exception as e:
             logger.error(f"Execution loop error: {e}")
+
+        try:
+            await pending_action_repo.expire_overdue()
+        except Exception as e:
+            logger.error(f"Could not expire overdue pending actions: {e}")
 
         await asyncio.sleep(EXECUTION_INTERVAL)
 

@@ -46,9 +46,16 @@ class DryRunToolRouter:
     async def get_tool_definitions(self, *args, **kwargs) -> list[dict]:
         return await self._router.get_tool_definitions(*args, **kwargs)
 
-    async def call_tool(self, name: str, arguments: dict, user_id: str | None = None, source: str = "chat") -> str:
+    async def call_tool(
+        self,
+        name: str,
+        arguments: dict,
+        user_id: str | None = None,
+        source: str = "chat",
+        context_id: str | None = None,
+    ) -> str:
         if is_read_only(name, arguments):
-            return await self._router.call_tool(name, arguments, user_id=user_id, source=source)
+            return await self._router.call_tool(name, arguments, user_id=user_id, source=source, context_id=context_id)
 
         self.simulated.append({"name": name, "input": arguments})
         return json.dumps(SIMULATED_RESULT)

@@ -29,6 +29,27 @@ from app.skills.index import skill_index
 
 logger = logging.getLogger(__name__)
 
+PENDING_APPROVAL_STATUS = "pending_approval"
+
+
+def tool_result_status(result: str) -> str:
+    """How a tool call ended, as the Mind panel and the thread's activity log read it.
+
+    `pending_approval` is a third outcome, not a failure: the policy held the call back
+    and the user has the card in front of them (MAG-4). Drawing it as an error would say
+    Maggie tried and could not, which is the opposite of « Propose, never impose ».
+    """
+    try:
+        data = json.loads(result)
+    except (json.JSONDecodeError, TypeError):
+        return "error" if '"error"' in result else "success"
+
+    if not isinstance(data, dict):
+        return "success"
+    if data.get("status") == PENDING_APPROVAL_STATUS:
+        return PENDING_APPROVAL_STATUS
+    return "error" if "error" in data else "success"
+
 
 class StreamingGateway:
     """Claude API gateway with AG-UI streaming event emission."""
@@ -219,7 +240,11 @@ class StreamingGateway:
                             TOOL_CALLS.labels(tool_name=tool_name, source="chat_stream").inc()
 
                             result = await self.tool_router.call_tool(
-                                tool_name, tool_input, user_id=user_id, source="chat_stream"
+                                tool_name,
+                                tool_input,
+                                user_id=user_id,
+                                source="chat_stream",
+                                context_id=current_context_id,
                             )
                             tool_use_blocks.append(
                                 {
@@ -232,7 +257,7 @@ class StreamingGateway:
                             # Log to context if we have one
                             if current_context_id:
                                 try:
-                                    status = "error" if '"error"' in result else "success"
+                                    status = tool_result_status(result)
                                     await context_repo.append_tool_call(
                                         current_context_id,
                                         {
@@ -251,11 +276,7 @@ class StreamingGateway:
                             }
 
                             # Emit tool result for Mind Panel
-                            try:
-                                result_data = json.loads(result)
-                                status = "error" if "error" in result_data else "success"
-                            except (json.JSONDecodeError, TypeError):
-                                status = "success"
+                            status = tool_result_status(result)
 
                             yield {
                                 "type": "CUSTOM",

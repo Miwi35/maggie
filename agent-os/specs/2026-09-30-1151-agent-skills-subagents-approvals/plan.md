@@ -109,6 +109,7 @@ Prérequis pour `delegate` et pour la garde de validation.
   - `tests/test_tool_router.py` : `ask` ne route pas l'appel et crée l'action, `deny`, déduplication ;
   - repository : style mock existant ;
   - publisher : `private` transmis (respx).
+- **E2E : N/A — rien d'accostable tant que la tâche 6 n'est pas livrée.** La garde retient l'action et Maggie annonce qu'elle attend, mais aucune surface ne permet encore de répondre : un parcours ne pourrait qu'affirmer qu'une suppression n'a pas eu lieu, ce que `test_tool_router.py` prouve déjà, et il serait réécrit dès que la carte existe. Le Given/When/Then est posé avec les endpoints et les cartes (tâches 6 et 7) : *Étant donné un événement dans l'agenda, quand je demande à Maggie de le supprimer, alors l'événement est toujours là et une carte en attente s'affiche ; quand je clique Autoriser, alors l'événement disparaît et Maggie confirme* — il étend le parcours de chat MAG-99.
 
 ## Tâche 6 : Endpoints de validation et reprise
 

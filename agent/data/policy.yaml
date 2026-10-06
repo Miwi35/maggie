@@ -1,0 +1,29 @@
+# What Maggie may do on her own, what she has to propose first (MAG-4).
+#
+# allow = Act · ask = Propose (the action waits for the user) · deny = refused.
+#
+# The first rule whose `tools` patterns match wins, so the exceptions come
+# before the broad patterns; when none matches, `default` applies. A rule may
+# narrow itself with `when` (an argument must take one of the listed values)
+# and with `sources` (who asked: chat, chat_stream, proaction, subagent:<name>,
+# a2a). `approval` is never evaluated — it *is* the user's answer — and an
+# `ask` reached from `a2a` becomes `deny`, because no one is there to answer.
+#
+# Read by app/policy/engine.py. A malformed file stops the agent from starting
+# rather than silently allowing everything.
+default: allow
+rules:
+  # Maggie's own notes about the user: hers to write and to correct, or she
+  # would ask permission to forget a thing she herself got wrong.
+  - tools: ["delete_memory", "delete_instruction", "update_*memory*"]
+    mode: allow
+
+  # Everything else named « delete » destroys something the user made: an
+  # event, a recipe, a task, a skill. Those are proposed, never done.
+  - tools: ["delete_*"]
+    mode: ask
+
+  # One tool, many actions — only the destructive one is held back.
+  - tools: ["manage_*"]
+    when: { action: ["delete"] }
+    mode: ask

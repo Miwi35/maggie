@@ -1,6 +1,7 @@
 """Tests for StreamingGateway AG-UI event emission."""
 
 import asyncio
+import json
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -8,7 +9,7 @@ import pytest
 
 from app.db.context_model import ContextStatus
 from app.llm.fake import FakeMessage, FakeStream, FakeTextBlock, FakeUsage
-from app.llm.streaming import StreamingGateway
+from app.llm.streaming import StreamingGateway, tool_result_status
 
 
 class TestStreamingGateway:
@@ -465,3 +466,29 @@ class TestStreamedExchangeReachesOtherDevices:
         topic, payload = publish.await_args.args
         assert topic == "/chat/test-user"
         assert (payload["role"], payload["content"]) == ("user", "Bonjour Maggie")
+
+
+class TestToolResultStatus:
+    """What the Mind panel and the thread's activity log are told a tool call did (MAG-4)."""
+
+    def test_a_held_call_is_its_own_outcome_not_an_error(self):
+        # Drawn as an error it would read « Maggie tried and failed »; the truth is she
+        # has asked and the card is on the user's screen.
+        held = json.dumps({"status": "pending_approval", "approval_id": "01H", "message": "…"})
+
+        assert tool_result_status(held) == "pending_approval"
+
+    def test_an_error_is_an_error(self):
+        assert tool_result_status(json.dumps({"error": "Action interdite par la politique"})) == "error"
+
+    def test_a_result_is_a_success(self):
+        assert tool_result_status(json.dumps({"deleted": True})) == "success"
+
+    def test_a_list_result_is_a_success(self):
+        assert tool_result_status(json.dumps([{"id": "evt-1"}])) == "success"
+
+    def test_plain_text_mentioning_an_error_key_is_still_an_error(self):
+        assert tool_result_status('oops {"error": "boom"} oops') == "error"
+
+    def test_plain_text_is_a_success(self):
+        assert tool_result_status("Event created successfully") == "success"

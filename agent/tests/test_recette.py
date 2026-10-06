@@ -79,7 +79,9 @@ class TestDryRunToolRouter:
         dry, inner = router
 
         assert await dry.call_tool(name, arguments, user_id=RECETTE, source="proaction") == '{"ok": true}'
-        inner.call_tool.assert_awaited_once_with(name, arguments, user_id=RECETTE, source="proaction")
+        inner.call_tool.assert_awaited_once_with(
+            name, arguments, user_id=RECETTE, source="proaction", context_id=None
+        )
         assert dry.simulated == []
 
     @pytest.mark.parametrize(

@@ -1,6 +1,19 @@
-from unittest.mock import AsyncMock, patch
+import json
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.llm.tools import INSTRUCTION_TOOLS, MEMORY_TOOLS, PROACTION_TOOLS, SKILL_TOOLS, ToolRouter
+import pytest
+
+from app.llm.tools import (
+    INSTRUCTION_TOOLS,
+    MEMORY_TOOLS,
+    PENDING_APPROVAL_MESSAGE,
+    POLICY_DENIED_MESSAGE,
+    PROACTION_TOOLS,
+    SKILL_TOOLS,
+    ToolRouter,
+)
+from app.policy.engine import PolicyEngine
 
 NUM_MEMORY_TOOLS = len(MEMORY_TOOLS)
 NUM_PROACTION_TOOLS = len(PROACTION_TOOLS)
@@ -208,3 +221,122 @@ class TestToolRouter:
 
         assert "coffee" in result
         mock_repo.search.assert_awaited_once_with("test-user", "coffee", None)
+
+
+class TestThePolicyGuard:
+    """`call_tool` is the one place every tool call passes, so it is where the policy stands (MAG-4).
+
+    The point of each test is the *absence* of the call: an `ask` that still deletes the
+    event and merely also asks would be worse than no policy at all.
+    """
+
+    POLICY = PolicyEngine.from_mapping(
+        {
+            "default": "allow",
+            "rules": [
+                {"tools": ["delete_memory"], "mode": "allow"},
+                {"tools": ["delete_*"], "mode": "ask"},
+                {"tools": ["drop_database"], "mode": "deny"},
+            ],
+        }
+    )
+
+    @pytest.fixture()
+    def guard(self):
+        """The router's policy and its pending-action store, both under control."""
+        action = MagicMock()
+        action.id = "01HAPPROVAL"
+        repo = MagicMock()
+        repo.create = AsyncMock(return_value=action)
+
+        with (
+            patch("app.llm.tools.policy_engine", self.POLICY),
+            patch("app.llm.tools.pending_action_repo", repo),
+            patch("app.llm.tools.mcp_client") as mcp,
+            patch("app.llm.tools.memory_repo") as memory,
+        ):
+            mcp.call_tool = AsyncMock(return_value='{"deleted": true}')
+            memory.delete = AsyncMock(return_value=True)
+            yield SimpleNamespace(repo=repo, mcp=mcp, memory=memory)
+
+    async def test_an_ask_tool_is_not_routed(self, guard):
+        await ToolRouter().call_tool("delete_event", {"eventId": "evt-1"}, user_id="user-1")
+
+        guard.mcp.call_tool.assert_not_awaited()
+
+    async def test_an_ask_tool_is_held_with_its_arguments_source_and_thread(self, guard):
+        await ToolRouter().call_tool(
+            "delete_event", {"eventId": "evt-1"}, user_id="user-1", source="chat_stream", context_id="ctx-1"
+        )
+
+        guard.repo.create.assert_awaited_once_with(
+            "user-1", "delete_event", {"eventId": "evt-1"}, source="chat_stream", context_id="ctx-1"
+        )
+
+    async def test_an_ask_tool_answers_the_model_with_the_approval_id_and_an_order_not_to_retry(self, guard):
+        result = json.loads(await ToolRouter().call_tool("delete_event", {"eventId": "evt-1"}, user_id="user-1"))
+
+        assert result == {
+            "status": "pending_approval",
+            "approval_id": "01HAPPROVAL",
+            "message": PENDING_APPROVAL_MESSAGE,
+        }
+
+    async def test_a_native_ask_tool_is_held_before_its_handler_runs(self, guard):
+        # The guard sits before the native/MCP fork, so a native tool is covered too.
+        result = json.loads(await ToolRouter().call_tool("delete_skill", {"name": "courses"}, user_id="user-1"))
+
+        assert result["status"] == "pending_approval"
+
+    async def test_the_second_identical_call_gets_the_same_approval(self, guard):
+        # Deduplication is the repository's, so what is checked here is that the router
+        # asks for it instead of creating a card per turn.
+        first = json.loads(await ToolRouter().call_tool("delete_event", {"eventId": "evt-1"}, user_id="user-1"))
+        second = json.loads(await ToolRouter().call_tool("delete_event", {"eventId": "evt-1"}, user_id="user-1"))
+
+        assert first["approval_id"] == second["approval_id"]
+        assert guard.repo.create.await_count == 2
+        assert guard.repo.create.await_args_list[0] == guard.repo.create.await_args_list[1]
+
+    async def test_a_denied_tool_is_refused_without_being_routed(self, guard):
+        result = json.loads(await ToolRouter().call_tool("drop_database", {}, user_id="user-1"))
+
+        assert result == {"error": POLICY_DENIED_MESSAGE}
+        guard.mcp.call_tool.assert_not_awaited()
+        guard.repo.create.assert_not_awaited()
+
+    async def test_an_allowed_tool_still_runs(self, guard):
+        result = await ToolRouter().call_tool("create_event", {"title": "Dentiste"}, user_id="user-1")
+
+        assert result == '{"deleted": true}'
+        guard.repo.create.assert_not_awaited()
+
+    async def test_the_exception_rule_lets_maggie_correct_her_own_notes(self, guard):
+        result = json.loads(await ToolRouter().call_tool("delete_memory", {"memory_id": "m1"}, user_id="user-1"))
+
+        assert result == {"deleted": True, "id": "m1"}
+        guard.repo.create.assert_not_awaited()
+
+    async def test_an_approved_call_is_replayed_for_real(self, guard):
+        result = await ToolRouter().call_tool("delete_event", {"eventId": "evt-1"}, user_id="user-1", source="approval")
+
+        assert result == '{"deleted": true}'
+        guard.repo.create.assert_not_awaited()
+        guard.mcp.call_tool.assert_awaited_once_with("delete_event", {"eventId": "evt-1"}, user_id="user-1")
+
+    async def test_an_ask_tool_with_nobody_to_ask_is_refused_rather_than_run(self, guard):
+        result = json.loads(await ToolRouter().call_tool("delete_event", {"eventId": "evt-1"}))
+
+        assert "error" in result
+        guard.mcp.call_tool.assert_not_awaited()
+        guard.repo.create.assert_not_awaited()
+
+    async def test_an_action_that_cannot_be_stored_is_refused_rather_than_run(self, guard):
+        # No row means nothing can ever approve it; running it anyway would be acting
+        # behind the user's back, which is the one outcome the policy exists to prevent.
+        guard.repo.create.side_effect = RuntimeError("db down")
+
+        result = json.loads(await ToolRouter().call_tool("delete_event", {"eventId": "evt-1"}, user_id="user-1"))
+
+        assert "error" in result
+        guard.mcp.call_tool.assert_not_awaited()

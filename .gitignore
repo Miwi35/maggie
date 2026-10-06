@@ -48,7 +48,11 @@ agent/*.egg-info/
 agent/.pytest_cache/
 agent/.mypy_cache/
 agent/.ruff_cache/
-agent/data/
+# agent/data/ used to be runtime-only, back when skills were Markdown files in the
+# container. They live in the database now, and the directory carries committed
+# content the agent reads at startup — policy.yaml (MAG-4), agents/ next — so only
+# the legacy skill mirror, which startup imports and nothing writes, stays ignored.
+agent/data/skills/
 # What `task e2e:eval --report` writes: the agent container mounts ./agent, so
 # its report lands here.
 agent/eval-report.md
