@@ -143,7 +143,19 @@ class TestScopedToolRouter:
         )
 
         assert result == "events"
-        inner.call_tool.assert_awaited_once_with("get_events", {"a": 1}, user_id="u", source="subagent:researcher")
+        inner.call_tool.assert_awaited_once_with(
+            "get_events", {"a": 1}, user_id="u", source="subagent:researcher", context_id=None
+        )
+
+    async def test_accepts_the_thread_the_runner_passes_and_forwards_it(self):
+        inner = MagicMock()
+        inner.call_tool = AsyncMock(return_value="events")
+
+        await ScopedToolRouter(inner, {"get_events"}).call_tool(
+            "get_events", {}, user_id="u", source="subagent:researcher", context_id="ctx-1"
+        )
+
+        assert inner.call_tool.await_args.kwargs["context_id"] == "ctx-1"
 
     async def test_refuses_a_tool_it_was_not_given(self):
         inner = MagicMock()

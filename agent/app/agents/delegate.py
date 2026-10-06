@@ -40,10 +40,17 @@ class ScopedToolRouter:
         self._router = router
         self._allowed = allowed
 
-    async def call_tool(self, name: str, arguments: dict, user_id: str | None = None, source: str = "chat") -> str:
+    async def call_tool(
+        self,
+        name: str,
+        arguments: dict,
+        user_id: str | None = None,
+        source: str = "chat",
+        context_id: str | None = None,
+    ) -> str:
         if name not in self._allowed:
             return json.dumps({"error": f"Tool '{name}' is not available to this agent"})
-        return await self._router.call_tool(name, arguments, user_id=user_id, source=source)
+        return await self._router.call_tool(name, arguments, user_id=user_id, source=source, context_id=context_id)
 
 
 async def _system_prompt(definition: SubagentDefinition, user_id: str, tools: list[dict]) -> str:
