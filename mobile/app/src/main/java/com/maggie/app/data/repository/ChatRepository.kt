@@ -110,6 +110,13 @@ class ChatRepository(
         return apiService.sendChatStream(message = content)
     }
 
+    /** Tells the agent what of an answer was heard or shown; returns the answer as it is now stored. */
+    suspend fun interruptChat(messageId: String?, spokenText: String): ChatMessage {
+        val message = apiService.interruptChat(messageId, spokenText)
+        chatMessageDao.upsert(ChatMessageEntity.fromModel(message))
+        return message
+    }
+
     /** Persist a completed assistant message to Room. */
     suspend fun persistMessage(message: ChatMessage) {
         chatMessageDao.upsert(ChatMessageEntity.fromModel(message))
