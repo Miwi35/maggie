@@ -22,6 +22,7 @@ improvises is worse than no fake at all:
     That is how a module dropping out of `discovery.scan_dirs` surfaces here.
 """
 
+import asyncio
 import logging
 import re
 from dataclasses import dataclass, field
@@ -85,6 +86,9 @@ class FakeMessage:
     model: str = "fake"
     role: str = "assistant"
     type: str = "message"
+    # Seconds the stream waits between two text deltas: what lets a journey act on an answer
+    # that is still being written (MAG-223). Not part of the real API's message, only of this fake.
+    delta_delay: float = 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -118,6 +122,7 @@ class Scenario:
     user_matches: str | None = None
     system_contains: tuple[str, ...] = ()
     history_contains: tuple[str, ...] = ()
+    stream_delay_ms: int = 0
     is_default: bool = False
     source: str = ""
 
@@ -228,6 +233,10 @@ def parse_scenario(raw: Any, source: str) -> Scenario:
         except re.error as exc:
             raise ValueError(f"{source}: 'user_matches' is not a valid regex: {exc}") from exc
 
+    stream_delay_ms = raw.get("stream_delay_ms", 0)
+    if isinstance(stream_delay_ms, bool) or not isinstance(stream_delay_ms, int) or stream_delay_ms < 0:
+        raise ValueError(f"{source}: 'stream_delay_ms' must be a non-negative integer")
+
     return Scenario(
         name=str(name),
         turns=tuple(turns),
@@ -235,6 +244,7 @@ def parse_scenario(raw: Any, source: str) -> Scenario:
         user_matches=str(user_matches) if user_matches is not None else None,
         system_contains=_as_tuple(match.get("system_contains")),
         history_contains=_as_tuple(match.get("history_contains")),
+        stream_delay_ms=stream_delay_ms,
         is_default=bool(raw.get("default")),
         source=source,
     )
@@ -434,6 +444,8 @@ class FakeStream:
             if isinstance(block, FakeTextBlock):
                 yield _Event(type="content_block_start", index=index, content_block=FakeTextBlock(text=""))
                 for delta in _deltas(block.text):
+                    if self._message.delta_delay:
+                        await asyncio.sleep(self._message.delta_delay)
                     yield _Event(type="content_block_delta", index=index, delta=_TextDelta(text=delta))
             else:
                 yield _Event(type="content_block_start", index=index, content_block=block)
@@ -515,6 +527,7 @@ class FakeMessages:
                 output_tokens=_tokens(output),
             ),
             model=model or "fake",
+            delta_delay=(scenario.stream_delay_ms / 1000) if scenario else 0.0,
         )
 
     async def create(
