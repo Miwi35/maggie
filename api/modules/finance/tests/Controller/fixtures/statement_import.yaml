@@ -1,0 +1,60 @@
+# The world the CSV import is filed into: one account with a movement already
+# on it (so a line of the file is a duplicate) and one rule (so another line
+# comes back with a category), plus a stranger's account the import must not
+# be able to reach.
+
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-import-test@example.com
+    googleId: google-finance-import-test
+    name: Finance Import Test User
+
+  other_user:
+    email: finance-import-other@example.com
+    googleId: google-finance-import-other
+    name: Someone Else
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+
+  other_checking:
+    name: Compte du voisin
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 1000
+    isCushion: false
+    user: '@other_user'
+
+Maggie\Finance\Entity\Category:
+  food:
+    name: Alimentation
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+
+Maggie\Finance\Entity\CategorizationRule:
+  rule_carrefour:
+    labelPattern: CARREFOUR
+    matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'
+    category: '@food'
+    direction: '<(Maggie\Finance\Enum\AmountDirection::Debit)>'
+    priority: 10
+    isActive: true
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  # The line the file repeats: 01/09/2026, CARREFOUR MARKET 4412, -45,99 €.
+  already_stored:
+    account: '@checking'
+    amountCents: -4599
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-01"))>'
+    label: CARREFOUR MARKET 4412
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
