@@ -169,18 +169,29 @@ fun AllDayRow(
 }
 
 /**
- * Calculate the Y offset and height for an event block based on its time.
+ * Y offset and height of an event block on [day]: only the part of the event
+ * inside that day, clamped to the visible grid (a multi-day event is cut at
+ * midnight, and at the grid's first hour on its arrival day).
  */
 fun calculateEventPosition(
     event: ExpandedEvent,
+    day: LocalDate,
     zone: ZoneId = ZoneId.of("Europe/Paris"),
 ): Pair<Dp, Dp> {
-    val startZdt = ZonedDateTime.ofInstant(Instant.parse(event.startAt), zone)
-    val endZdt = ZonedDateTime.ofInstant(Instant.parse(event.endAt), zone)
+    val gridEndMinutes = (TIMELINE_END_HOUR - TIMELINE_START_HOUR) * 60
 
-    val startMinutes = (startZdt.hour - TIMELINE_START_HOUR) * 60 + startZdt.minute
-    val endMinutes = (endZdt.hour - TIMELINE_START_HOUR) * 60 + endZdt.minute
-    val durationMinutes = (endMinutes - startMinutes).coerceAtLeast(15)
+    // Wall-clock minutes, not elapsed time: the grid is labelled in local hours, also on a DST day.
+    fun minutesOnGrid(instant: String): Int {
+        val zdt = ZonedDateTime.ofInstant(Instant.parse(instant), zone)
+        return when {
+            zdt.toLocalDate() < day -> 0
+            zdt.toLocalDate() > day -> gridEndMinutes
+            else -> (zdt.hour - TIMELINE_START_HOUR) * 60 + zdt.minute
+        }.coerceIn(0, gridEndMinutes)
+    }
+
+    val startMinutes = minutesOnGrid(event.startAt)
+    val durationMinutes = (minutesOnGrid(event.endAt) - startMinutes).coerceAtLeast(15)
 
     val topOffset = (startMinutes.toFloat() / 60f) * HOUR_HEIGHT.value
     val height = (durationMinutes.toFloat() / 60f) * HOUR_HEIGHT.value
