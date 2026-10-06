@@ -128,6 +128,7 @@ class CategoryToolsTest extends KernelTestCase
         self::assertTrue($categories[0]->isPassiveIncome());
 
         $this->assertMercureUpdatePublished('/categories/');
+        $this->assertElasticsearchIndexDispatched(Category::class);
     }
 
     /**
@@ -171,6 +172,9 @@ class CategoryToolsTest extends KernelTestCase
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $em->clear();
         self::assertTrue($em->find(Category::class, $category->getId())->isPassiveIncome());
+
+        $this->assertMercureUpdatePublished('/categories/');
+        $this->assertElasticsearchIndexDispatched(Category::class);
     }
 
     public function testClearMakesASubCategoryTopLevel(): void

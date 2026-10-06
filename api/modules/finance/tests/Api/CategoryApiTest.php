@@ -189,6 +189,9 @@ class CategoryApiTest extends WebTestCase
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $em->clear();
         self::assertFalse($em->find(Category::class, $rent->getId())->isPassiveIncome());
+
+        $this->assertMercureUpdatePublished('/categories/');
+        $this->assertElasticsearchIndexDispatched(Category::class);
     }
 
     /** Moving a rente to a spending obligation is the same contradiction. */
