@@ -11,6 +11,7 @@
 #   clock.sh faketime         E2E_NOW as a libfaketime time (UTC), or nothing
 #   clock.sh epoch            E2E_NOW as seconds since the epoch, or nothing
 #   clock.sh names            the named boundary instants
+#   clock.sh ci               the instant CI pins the journeys of a PR and of main to
 #
 # Named instants resolve to the *next* occurrence at least two hours after the
 # real now, never a past one: Mercure rejects a token whose `exp` is in the past, and the
@@ -20,6 +21,14 @@
 set -euo pipefail
 
 PARIS=Europe/Paris
+# The instant CI runs the journeys at (MAG-267): an ordinary Wednesday at noon in
+# Paris, in winter time, far from a midnight, a Monday or a DST change. Fixed, so
+# that the meals and agenda journeys see the same week in every run, whatever
+# day the run starts on (the "Tuesday" collision of MAG-117). It has to stay in
+# the future (see below): when it is reached, `clock.sh ci` fails and says so,
+# and this line is the one to move. A repository variable `E2E_NOW` overrides it,
+# for CI, without a commit.
+CI_REFERENCE=2030-01-16T12:00:00+01:00
 # A named instant starts at least this far ahead: the simulated clock barely
 # moves while real time does, so a Mercure token signed with `exp = instant + TTL`
 # must not run out during a suite started a few minutes before the instant.
@@ -94,6 +103,20 @@ resolve() {
   esac
 }
 
+# The CI instant: the repository variable's if there is one (`E2E_CI_NOW`), else
+# the reference. Same rules as any date given to `resolve`; a reference that has
+# gone by is a CI failure with a message, not a silent return to the wall clock.
+ci_instant() {
+  if [ -n "${E2E_CI_NOW:-}" ]; then
+    resolve "$E2E_CI_NOW"
+    return
+  fi
+  local instant
+  instant=$(resolve "$CI_REFERENCE" 2>/dev/null) ||
+    die "the CI reference instant $CI_REFERENCE has been reached: move CI_REFERENCE in e2e/clock.sh"
+  echo "$instant"
+}
+
 now_epoch() {
   [ -n "${E2E_NOW:-}" ] || return 0
   date -d "$E2E_NOW" +%s 2>/dev/null || die "E2E_NOW is not a date: $E2E_NOW"
@@ -101,6 +124,7 @@ now_epoch() {
 
 case "${1:-}" in
   resolve) resolve "${2:-}" ;;
+  ci) ci_instant ;;
   names) printf '%s\n' sunday-2350-paris monday-0050-paris dst-fall-back-0230-paris saturday-2230-utc ;;
   epoch) now_epoch ;;
   # Starts at the instant and moves 10 µs forward per clock read, in every
@@ -114,5 +138,5 @@ case "${1:-}" in
     [ -n "$epoch" ] || exit 0
     echo "@$(date -u -d "@$epoch" '+%Y-%m-%d %H:%M:%S') i0.00001"
     ;;
-  *) die 'usage: clock.sh resolve <spec> | faketime | epoch | names' ;;
+  *) die 'usage: clock.sh resolve <spec> | faketime | epoch | names | ci' ;;
 esac

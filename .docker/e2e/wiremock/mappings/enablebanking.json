@@ -67,7 +67,7 @@
         "jsonBody": {
           "session_id": "e2e-session-id",
           "access": {
-            "valid_until": "2027-01-01T00:00:00Z"
+            "valid_until": "2099-01-01T00:00:00Z"
           },
           "accounts": [
             {
