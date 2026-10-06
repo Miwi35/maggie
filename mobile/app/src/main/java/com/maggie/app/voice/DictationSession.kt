@@ -104,7 +104,11 @@ class DictationSession(
     }
 
     private fun startEngine(): OutputStream? {
-        if (!engine.isAvailable) return null
+        if (!engine.isAvailable) {
+            // Nobody will ever answer: do not make Whisper wait out the timeout.
+            pending.complete(null)
+            return null
+        }
         return try {
             engine.start(
                 object : DeviceSpeechRecognizer.Listener {
@@ -125,6 +129,7 @@ class DictationSession(
             // Not an error for the caller: the recording runs and Whisper is still there.
             Log.w(TAG, "On-device recognition would not start", e)
             engine.destroy()
+            pending.complete(null)
             null
         }
     }

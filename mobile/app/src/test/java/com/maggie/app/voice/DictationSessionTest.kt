@@ -178,12 +178,26 @@ class DictationSessionTest {
     }
 
     @Test
-    fun `no phone engine at all is Whisper alone`() {
+    fun `no phone engine at all is Whisper alone, at once`() {
         session(NoDeviceSpeech).start()
 
         speak(1_000)
         pause(1_000)
-        settle()
+        scope.runCurrent()
+
+        assertEquals("bonjour de Whisper", heard.text)
+    }
+
+    @Test
+    fun `an engine that refuses to start is Whisper alone, at once`() {
+        val refusing = object : DeviceSpeechRecognizer by ScriptedEngine() {
+            override fun start(listener: DeviceSpeechRecognizer.Listener): OutputStream = throw IllegalStateException("no")
+        }
+        session(refusing).start()
+
+        speak(1_000)
+        pause(1_000)
+        scope.runCurrent()
 
         assertEquals("bonjour de Whisper", heard.text)
     }
