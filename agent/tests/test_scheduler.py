@@ -13,13 +13,15 @@ from app.db.context_model import ContextStatus, ConversationContext
 from app.db.context_repository import context_repo
 from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
+from app import user_timezone
 from app.queue import scheduler
-from app.queue.scheduler import next_planning_time, plan_user, planning_schedule, resolve_user_timezone
+from app.queue.scheduler import next_planning_time, plan_user, planning_schedule
+from app.user_timezone import resolve_user_timezone
 
 
 @pytest.fixture(autouse=True)
 def paris_at_five(monkeypatch):
-    scheduler._known_timezones.clear()
+    user_timezone.known_timezones.clear()
     monkeypatch.setattr(settings, "planning_timezone", "Europe/Paris")
     monkeypatch.setattr(settings, "daily_planning_hour", 5)
 
@@ -77,7 +79,7 @@ def timezones(monkeypatch, by_user: dict[str, str | Exception]) -> AsyncMock:
         return answer if answer.startswith("{") else json.dumps({"timezone": answer})
 
     mock = AsyncMock(side_effect=call_tool)
-    monkeypatch.setattr(scheduler.mcp_client, "call_tool", mock)
+    monkeypatch.setattr(user_timezone.mcp_client, "call_tool", mock)
     return mock
 
 

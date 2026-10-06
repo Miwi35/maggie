@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 import yaml
+from zoneinfo import ZoneInfo
 
 from app.personality.engine import DAYS_FR, TZ_PARIS, PersonalityEngine, current_datetime_line, last_exchange_line
 
@@ -120,11 +121,23 @@ class TestPersonalityEngine:
     def test_current_datetime_line_is_to_the_minute(self):
         """18:42 UTC is 20:42 in Paris in summer: minutes, not just the hour."""
         now = datetime(2026, 7, 1, 18, 42, tzinfo=UTC)
-        assert current_datetime_line(now) == "Nous sommes le mercredi 2026-07-01, il est 20h42."
+        assert current_datetime_line(now) == (
+            "Nous sommes le mercredi 2026-07-01, il est 20h42 (Europe/Paris, UTC+02:00)."
+        )
 
     def test_current_datetime_line_pads_the_minutes(self):
         now = datetime(2026, 1, 5, 8, 5, tzinfo=TZ_PARIS)
-        assert current_datetime_line(now).endswith("il est 08h05.")
+        assert current_datetime_line(now).endswith("il est 08h05 (Europe/Paris, UTC+01:00).")
+
+    def test_current_datetime_line_follows_the_users_timezone(self):
+        """The same instant reads differently for a user in Fort-de-France: other hour, other offset, no summer time."""
+        now = datetime(2026, 7, 1, 23, 30, tzinfo=UTC)
+        line = current_datetime_line(now, ZoneInfo("America/Martinique"))
+        assert line == "Nous sommes le mercredi 2026-07-01, il est 19h30 (America/Martinique, UTC-04:00)."
+
+    def test_current_datetime_line_changes_day_with_the_timezone(self):
+        now = datetime(2026, 7, 1, 23, 30, tzinfo=UTC)
+        assert current_datetime_line(now, ZoneInfo("Asia/Tokyo")).startswith("Nous sommes le jeudi 2026-07-02, il est 08h30")
 
     @pytest.mark.asyncio
     async def test_default_prompt_has_no_date(self):

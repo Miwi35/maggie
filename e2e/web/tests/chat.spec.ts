@@ -76,6 +76,14 @@ const CONCERT = {
   title: 'Concert des Mouettes',
 }
 
+/** 38-create-event-timezone.yaml — converts from Fort-de-France with `date_time`, then books the converted hour. */
+const TIMEZONE_CALL = {
+  question: "Rappelle-moi d'appeler Kévin le 14 juillet 2099 à 10 h chez lui, il vit à Fort-de-France",
+  title: 'Appeler Kévin',
+  // 10:00 in Fort-de-France is 14:00 UTC, which is 16:00 in Paris.
+  startsAt: '2099-07-14T14:00:00.000Z',
+}
+
 /** 05-context-router-new-topic.yaml + 70-budget-question.yaml — the change of subject. */
 const OTHER_SUBJECT = 'Parlons de mes finances, où en est mon budget ?'
 
@@ -163,6 +171,7 @@ test('an unscripted message says so rather than improvising', async ({ page }) =
 interface SeededEvent {
   id?: string
   summary?: string
+  startAt?: string
 }
 
 test('what Maggie books shows up in the Mind panel, in the database and in the agenda', async ({
@@ -231,6 +240,35 @@ test('an event asked for in a named agenda lands in that agenda in one tool call
     { what: `The ${CONCERT.title} Maggie booked` },
   )
   expect(booked.agenda).toBe(`/api/agendas/${seedId('e2e_agenda_shared')}`)
+})
+
+test('a call for someone in another timezone is converted by the date_time tool, then booked', async ({
+  page,
+  api,
+}) => {
+  const dashboard = new DashboardPage(page)
+  await dashboard.open()
+
+  const chat = new ChatPanel(page)
+  const events = await chat.send(TIMEZONE_CALL.question)
+
+  // `date_time` ran natively in the tool loop and answered without an error —
+  // an unknown place or a broken handler would end it in `error` — before the
+  // write. The order matters: the conversion is what the booking is made from.
+  expect(calledTools(events).filter((tool) => ['date_time', 'create_event'].includes(tool))).toEqual([
+    'date_time',
+    'create_event',
+  ])
+  expect(toolResults(events)).toContainEqual({ toolName: 'date_time', status: 'success' })
+  expect(toolResults(events)).toContainEqual({ toolName: 'create_event', status: 'success' })
+
+  const booked = await waitForIndexed<SeededEvent>(
+    api,
+    APPOINTMENTS_URL,
+    (event) => event.summary === TIMEZONE_CALL.title,
+    { what: `The ${TIMEZONE_CALL.title} reminder Maggie booked` },
+  )
+  expect(new Date(String(booked.startAt)).toISOString()).toBe(TIMEZONE_CALL.startsAt)
 })
 
 test('changing the subject opens a second context', async ({ page }) => {
