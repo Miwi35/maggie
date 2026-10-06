@@ -268,6 +268,7 @@ export const MealsWeekView = () => {
 
     return (
       <Paper
+        key={day}
         elevation={0}
         sx={{
           p: 1,
@@ -360,9 +361,7 @@ export const MealsWeekView = () => {
         >
           {/* Header row */}
           <Box />
-          {DAYS.map((day, i) => (
-            <Box key={day}>{dayHeader(day, i)}</Box>
-          ))}
+          {DAYS.map((day, i) => dayHeader(day, i))}
 
           {/* Meal rows */}
           {SLOTS.map(({ value: slot, label }) => (

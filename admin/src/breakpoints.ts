@@ -12,13 +12,11 @@
  * content. The tablet is the width this ticket is really about; the phone was
  * merely more obviously broken.
  *
- * The scale itself is MUI's, written down rather than inherited silently: it
- * is the contract `useNarrowScreen`, `src/theme.ts` and the Playwright
- * projects (1440 / 834 / 393) share.
- *
- * Kept apart from `theme.ts` so that reading the breakpoint never costs a
- * theme: `useNarrowScreen` is called by components that unit tests render
- * without a `ThemeProvider`.
+ * The scale is MUI's own, written down rather than inherited silently: it is
+ * the contract `useNarrowScreen`, `src/theme.ts` and the Playwright projects
+ * (1440 / 834 / 393) share, and `theme.test.ts` checks the theme agrees.
+ * Kept out of `theme.ts` so reading the breakpoint never costs a theme —
+ * `useNarrowScreen` runs in components unit tests render bare.
  */
 export const BREAKPOINTS = { xs: 0, sm: 600, md: 900, lg: 1200, xl: 1536 } as const
 

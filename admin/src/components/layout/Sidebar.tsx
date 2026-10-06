@@ -30,9 +30,11 @@ const NARROW_DRAWER_WIDTH = 'min(300px, 85vw)'
 export const CustomSidebar = ({ children, ...props }: SidebarProps) => {
   const isNarrow = useNarrowScreen()
   const [open, setOpen] = useSidebarState()
-  // `sidebar.open` is persisted in the store, so folding the menu for a narrow
-  // window would otherwise be waiting as a 56px rail the next time the same
-  // window is wide. Remember what wide was, hand it back when wide returns.
+  // `sidebar.open` is persisted, so folding the menu for a narrow window would
+  // otherwise be waiting as a 56px rail the next time the same window is wide.
+  // Remember what wide was, hand it back when wide returns — in a ref, so the
+  // memory is session-scoped on purpose: a phone and a desk are two browsers
+  // with two stores, and the only case to cover is one window resized.
   const wideOpen = useRef<boolean | null>(null)
   /**
    * One paint's worth of grace, while the fold below catches up.

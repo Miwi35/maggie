@@ -161,6 +161,12 @@ test.describe('Responsive @responsive', () => {
       visible: shape.narrow,
     })
 
+    // And the Mind shortcut goes the other way: one icon too many for a
+    // phone's bar, and the sheet carries a "Mind" tab of its own.
+    await expect(shell.appBar.getByRole('button', { name: "Maggie's Mind" })).toBeVisible({
+      visible: !shape.narrow,
+    })
+
     const chatButton = await shell.appBar.getByRole('button', { name: 'Chat avec Maggie' }).boundingBox()
     expect(chatButton?.height ?? 0, 'the chat button is too short to tap').toBeGreaterThanOrEqual(shape.touchTarget)
     expect(chatButton?.width ?? 0, 'the chat button is too narrow to tap').toBeGreaterThanOrEqual(shape.touchTarget)

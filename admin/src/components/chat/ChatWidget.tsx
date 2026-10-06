@@ -30,7 +30,7 @@ import { useAgUiStream } from '../../hooks/useAgUiStream'
 import { ActivityPulse } from '../mind/ActivityPulse'
 import { ContextList } from '../mind/ContextList'
 import { ToolCallList } from '../mind/ToolCallList'
-import type { Theme } from '@mui/material/styles'
+import type { SxProps, Theme } from '@mui/material/styles'
 import type { SidebarTab } from '../layout/ChatContext'
 import type { AgentState, ContextState, ToolCallState } from '../mind/types'
 
@@ -656,7 +656,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     // to nothing, with the panel itself fixed to the right edge. Translated
     // off that edge is not gone, though — the panel kept a box and a place in
     // the focus order — so it is hidden outright once it has slid away.
-    const outerSx = isNarrow
+    const outerSx: SxProps<Theme> = isNarrow
       ? { height: '100%', display: 'flex', flexDirection: 'column' }
       : {
           width: open ? SIDEBAR_WIDTH : 0,
@@ -664,7 +664,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
           transition: 'width 225ms cubic-bezier(0, 0, 0.2, 1)',
         }
 
-    const innerSx = isNarrow
+    const innerSx: SxProps<Theme> = isNarrow
       ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }
       : {
           width: SIDEBAR_WIDTH,
