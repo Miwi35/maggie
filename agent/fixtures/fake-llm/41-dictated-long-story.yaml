@@ -2,10 +2,11 @@
 # still being written, then checks the end of the story never shows up.
 #
 # `history_contains` is the first dictation's answer (41-grocery-add-dictated.yaml), so
-# this is the second dictation of the journey. `stream_delay_ms` spaces the deltas out:
-# the whole text takes about thirty seconds, the window in which the journey presses the
-# mic. Twelve were not enough: on a CI emulator Maestro needs more than ten seconds to
-# notice the first words, and the story was over before the mic was pressed.
+# this is the second dictation of the journey. After its first deltas the stream stalls
+# (`stall_after_deltas`, 90 s) and never reaches « FIN DE L'HISTOIRE » by itself: how long
+# Maestro takes to notice the first words, and to press the mic, no longer matters. Pacing
+# alone did not hold: at 400 ms, then 1000 ms a delta, the story was over before the third
+# dictation on a CI emulator, so nothing was interrupted (main red on 02-voice-overlay).
 #
 # Sorted before 41-grocery-add-dictated.yaml, which would match the same sentence.
 name: dictated-long-story
@@ -15,7 +16,8 @@ match:
   user_matches: "ajoute.*tomate"
   history_contains: "quatre tomates"
 
-stream_delay_ms: 1000
+stream_delay_ms: 300
+stall_after_deltas: 4
 
 turns:
   - text: "Il était une fois, dans un petit village au pied des montagnes, un jardinier qui cultivait des tomates si rouges que les voisins venaient de loin pour les admirer. Chaque matin, il arrosait ses plants en chantant, et chaque soir, il comptait les fruits mûrs, un par un, en les nommant comme de vieux amis. Un jour, un voyageur frappa à sa porte et lui demanda le secret de ses récoltes. Le jardinier sourit, remplit un panier, et commença un très long récit sur la patience, la pluie, le soleil, et les saisons qui se suivent sans jamais se ressembler. Le voyageur écouta, puis écouta encore, tandis que la nuit tombait doucement sur le potager et que les lucioles s'allumaient entre les rangs. FIN DE L'HISTOIRE."
