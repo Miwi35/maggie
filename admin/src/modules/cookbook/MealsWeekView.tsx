@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { Fragment, useState, useEffect, useCallback, useMemo } from 'react'
 import { useDataProvider, useNotify, Title } from 'react-admin'
 import Box from '@mui/material/Box'
 import { localDay } from '../../dates'
 import { useMercure } from '../../hooks/useMercure'
 import { useItemTransitions, transitionSx } from '../../hooks/useItemTransitions'
+import { useNarrowScreen } from '../../hooks/useNarrowScreen'
 import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
 import IconButton from '@mui/material/IconButton'
@@ -75,6 +76,7 @@ interface Meal {
 export const MealsWeekView = () => {
   const dataProvider = useDataProvider()
   const notify = useNotify()
+  const isNarrow = useNarrowScreen()
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()))
   const [meals, setMeals] = useState<Meal[]>([])
   const [loading, setLoading] = useState(false)
@@ -209,119 +211,173 @@ export const MealsWeekView = () => {
   const weekEnd = addDays(weekStart, 6)
   const weekLabel = `${weekStart.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} - ${weekEnd.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`
 
+  const mealCell = (slot: string, dayIndex: number) => {
+    const cellMeals = getMealsForCell(dayIndex, slot)
+
+    return (
+      <Paper
+        data-testid={`meal-cell-${slot}-${dayIndex}`}
+        variant="outlined"
+        sx={{
+          p: 1,
+          minHeight: 80,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 0.5,
+          cursor: 'pointer',
+          '&:hover': { bgcolor: 'action.hover' },
+        }}
+        onClick={() => cellMeals.length === 0 && openCreateDialog(dayIndex, slot)}
+      >
+        {cellMeals.map((meal) => (
+          <Box key={meal.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, borderRadius: 1, ...transitionSx(meal.id, addedIds, removingIds) }}>
+            <RestaurantIcon sx={{ fontSize: 14, color: 'primary.main' }} />
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              {meal.recipes?.map((r: Recipe) => (
+                <Chip key={r.id || r.name} label={r.name} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
+              ))}
+              {(!meal.recipes || meal.recipes.length === 0) && (
+                <Typography variant="caption" color="text.secondary">
+                  {meal.summary}
+                </Typography>
+              )}
+            </Box>
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleDelete(meal)
+              }}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        ))}
+        {cellMeals.length === 0 && (
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, opacity: 0.3 }}>
+            <AddIcon />
+          </Box>
+        )}
+      </Paper>
+    )
+  }
+
+  const dayHeader = (day: string, dayIndex: number) => {
+    const date = addDays(weekStart, dayIndex)
+    const isToday = formatDate(date) === formatDate(new Date())
+
+    return (
+      <Paper
+        key={day}
+        elevation={0}
+        sx={{
+          p: 1,
+          textAlign: 'center',
+          bgcolor: isToday ? 'primary.main' : 'action.selected',
+          color: isToday ? 'primary.contrastText' : 'text.primary',
+          borderRadius: 1,
+        }}
+      >
+        <Typography variant="subtitle2">{day}</Typography>
+        <Typography variant="caption">{date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</Typography>
+      </Paper>
+    )
+  }
+
   return (
-    <Box sx={{ p: 2 }}>
+    <Box sx={{ p: { xs: 1, md: 2 } }}>
       <Title title="Repas de la semaine" />
 
       {/* Week navigation */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 3 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexWrap: 'wrap',
+          gap: 1,
+          mb: 3,
+        }}
+      >
         <IconButton onClick={() => setWeekStart(addDays(weekStart, -7))}>
           <ChevronLeftIcon />
         </IconButton>
-        <Typography variant="h5" sx={{ mx: 3, minWidth: 300, textAlign: 'center' }}>
+        <Typography
+          variant="h5"
+          sx={{
+            mx: { xs: 0, md: 3 },
+            minWidth: { xs: 0, md: 300 },
+            textAlign: 'center',
+            fontSize: { xs: '1.1rem', md: '1.5rem' },
+          }}
+        >
           {weekLabel}
         </Typography>
         <IconButton onClick={() => setWeekStart(addDays(weekStart, 7))}>
           <ChevronRightIcon />
         </IconButton>
-        <Button variant="outlined" size="small" sx={{ ml: 2 }} onClick={() => setWeekStart(getMonday(new Date()))}>
+        <Button variant="outlined" size="small" sx={{ ml: { xs: 0, md: 2 } }} onClick={() => setWeekStart(getMonday(new Date()))}>
           Aujourd'hui
         </Button>
       </Box>
 
-      {/* Week grid */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: '100px repeat(7, 1fr)',
-          gap: 0.5,
-          opacity: loading && meals.length === 0 ? 0.5 : 1,
-        }}
-      >
-        {/* Header row */}
-        <Box />
-        {DAYS.map((day, i) => {
-          const date = addDays(weekStart, i)
-          const isToday = formatDate(date) === formatDate(new Date())
-          return (
-            <Paper
-              key={day}
-              elevation={0}
-              sx={{
-                p: 1,
-                textAlign: 'center',
-                bgcolor: isToday ? 'primary.main' : 'action.selected',
-                color: isToday ? 'primary.contrastText' : 'text.primary',
-                borderRadius: 1,
-              }}
-            >
-              <Typography variant="subtitle2">{day}</Typography>
-              <Typography variant="caption">{date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</Typography>
-            </Paper>
-          )
-        })}
-
-        {/* Meal rows */}
-        {SLOTS.map(({ value: slot, label }) => (
-          <>
-            <Box key={`label-${slot}`} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
-                {label}
-              </Typography>
+      {/* The week, one way or the other (MAG-38). Seven columns across 393px
+          give each day 42px — a chip with a recipe name in it has nowhere to
+          go. Below `md` the week reads downwards instead: one card per day,
+          its two meals side by side. Same cells, same handles. */}
+      {isNarrow ? (
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 1.5,
+            opacity: loading && meals.length === 0 ? 0.5 : 1,
+          }}
+        >
+          {DAYS.map((day, dayIndex) => (
+            <Box key={day}>
+              {dayHeader(day, dayIndex)}
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.5, mt: 0.5 }}>
+                {SLOTS.map(({ value: slot, label }) => (
+                  <Box key={slot}>
+                    <Typography variant="caption" color="text.secondary" sx={{ pl: 0.5, fontWeight: 500 }}>
+                      {label}
+                    </Typography>
+                    {mealCell(slot, dayIndex)}
+                  </Box>
+                ))}
+              </Box>
             </Box>
-            {DAYS.map((_, dayIndex) => {
-              const cellMeals = getMealsForCell(dayIndex, slot)
-              return (
-                <Paper
-                  key={`${slot}-${dayIndex}`}
-                  data-testid={`meal-cell-${slot}-${dayIndex}`}
-                  variant="outlined"
-                  sx={{
-                    p: 1,
-                    minHeight: 80,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 0.5,
-                    cursor: 'pointer',
-                    '&:hover': { bgcolor: 'action.hover' },
-                  }}
-                  onClick={() => cellMeals.length === 0 && openCreateDialog(dayIndex, slot)}
-                >
-                  {cellMeals.map((meal) => (
-                    <Box key={meal.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, borderRadius: 1, ...transitionSx(meal.id, addedIds, removingIds) }}>
-                      <RestaurantIcon sx={{ fontSize: 14, color: 'primary.main' }} />
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        {meal.recipes?.map((r: Recipe) => (
-                          <Chip key={r.id || r.name} label={r.name} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
-                        ))}
-                        {(!meal.recipes || meal.recipes.length === 0) && (
-                          <Typography variant="caption" color="text.secondary">
-                            {meal.summary}
-                          </Typography>
-                        )}
-                      </Box>
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleDelete(meal)
-                        }}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  ))}
-                  {cellMeals.length === 0 && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, opacity: 0.3 }}>
-                      <AddIcon />
-                    </Box>
-                  )}
-                </Paper>
-              )
-            })}
-          </>
-        ))}
-      </Box>
+          ))}
+        </Box>
+      ) : (
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: '100px repeat(7, 1fr)',
+            gap: 0.5,
+            opacity: loading && meals.length === 0 ? 0.5 : 1,
+          }}
+        >
+          {/* Header row */}
+          <Box />
+          {DAYS.map((day, i) => dayHeader(day, i))}
+
+          {/* Meal rows */}
+          {SLOTS.map(({ value: slot, label }) => (
+            <Fragment key={slot}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+                  {label}
+                </Typography>
+              </Box>
+              {DAYS.map((_, dayIndex) => (
+                <Fragment key={`${slot}-${dayIndex}`}>{mealCell(slot, dayIndex)}</Fragment>
+              ))}
+            </Fragment>
+          ))}
+        </Box>
+      )}
 
       {/* Create meal dialog */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>

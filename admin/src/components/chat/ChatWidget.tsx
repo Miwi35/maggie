@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle, Fragment } from 'react'
 import Box from '@mui/material/Box'
+import Drawer from '@mui/material/Drawer'
 import Typography from '@mui/material/Typography'
 import IconButton from '@mui/material/IconButton'
 import TextField from '@mui/material/TextField'
@@ -22,12 +23,14 @@ import PsychologyIcon from '@mui/icons-material/Psychology'
 import CircularProgress from '@mui/material/CircularProgress'
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder'
 import { useTranscription } from '../../hooks/useTranscription'
+import { useNarrowScreen } from '../../hooks/useNarrowScreen'
 import { AGENT_STREAMS, agentTopic, getStoredUserId } from '../../hooks/agentTopics'
 import { mercureUrl } from '../../hooks/mercureUrl'
 import { useAgUiStream } from '../../hooks/useAgUiStream'
 import { ActivityPulse } from '../mind/ActivityPulse'
 import { ContextList } from '../mind/ContextList'
 import { ToolCallList } from '../mind/ToolCallList'
+import type { SxProps, Theme } from '@mui/material/styles'
 import type { SidebarTab } from '../layout/ChatContext'
 import type { AgentState, ContextState, ToolCallState } from '../mind/types'
 
@@ -158,6 +161,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
 
     const recorder = useVoiceRecorder()
     const transcription = useTranscription()
+    const isNarrow = useNarrowScreen()
 
     // AG-UI stream callbacks
     const toolCallsRef = useRef<ToolCallState[]>([])
@@ -642,31 +646,47 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
 
     // --- Render ---
 
-    return (
-      <Box
-        data-testid="chat-panel"
-        sx={{
+    // Below `md` the conversation is a sheet over the whole window instead of
+    // a column beside the page (MAG-38): 380px of chat next to a 393px phone
+    // leaves nothing left to talk *about*. Only the two wrappers change —
+    // same panel, same tabs, same `chat-panel` handle the journeys scope to —
+    // and the app bar's chat button is what brings the sheet back.
+    //
+    // The wide pair is the original: a column in the flex row that collapses
+    // to nothing, with the panel itself fixed to the right edge. Translated
+    // off that edge is not gone, though — the panel kept a box and a place in
+    // the focus order — so it is hidden outright once it has slid away.
+    const outerSx: SxProps<Theme> = isNarrow
+      ? { height: '100%', display: 'flex', flexDirection: 'column' }
+      : {
           width: open ? SIDEBAR_WIDTH : 0,
           flexShrink: 0,
           transition: 'width 225ms cubic-bezier(0, 0, 0.2, 1)',
-        }}
-      >
-        <Box
-          sx={{
-            width: SIDEBAR_WIDTH,
-            position: 'fixed',
-            top: (theme) => theme.mixins.toolbar.minHeight,
-            right: 0,
-            bottom: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            borderLeft: 1,
-            borderColor: 'divider',
-            bgcolor: 'background.paper',
-            transform: open ? 'translateX(0)' : `translateX(${SIDEBAR_WIDTH}px)`,
-            transition: 'transform 225ms cubic-bezier(0, 0, 0.2, 1)',
-          }}
-        >
+        }
+
+    const innerSx: SxProps<Theme> = isNarrow
+      ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }
+      : {
+          width: SIDEBAR_WIDTH,
+          position: 'fixed',
+          top: (theme: Theme) => theme.mixins.toolbar.minHeight,
+          right: 0,
+          bottom: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          borderLeft: 1,
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+          transform: open ? 'translateX(0)' : `translateX(${SIDEBAR_WIDTH}px)`,
+          visibility: open ? 'visible' : 'hidden',
+          transition: open
+            ? 'transform 225ms cubic-bezier(0, 0, 0.2, 1)'
+            : 'transform 225ms cubic-bezier(0, 0, 0.2, 1), visibility 0s 225ms',
+        }
+
+    const panel = (
+      <Box data-testid="chat-panel" sx={outerSx}>
+        <Box sx={innerSx}>
           {/* Header */}
           <Box
             sx={{
@@ -725,13 +745,22 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
               </Tabs>
             )}
             <Box sx={{ display: 'flex', gap: 0.5, ml: 'auto', pr: 1 }}>
+              {/* Neither carried a name, so a screen reader announced them both
+                  as "button" — and once the panel is a full-screen sheet, its
+                  own close button is the only way back to the page. */}
               {!searchMode && sidebarTab === 'chat' && (
-                <IconButton size="small" onClick={openSearch} sx={{ color: 'inherit' }}>
+                <IconButton
+                  size="small"
+                  aria-label="Rechercher dans la conversation"
+                  onClick={openSearch}
+                  sx={{ color: 'inherit' }}
+                >
                   <SearchIcon />
                 </IconButton>
               )}
               <IconButton
                 size="small"
+                aria-label={searchMode ? 'Fermer la recherche' : 'Fermer la conversation'}
                 onClick={searchMode ? closeSearch : onClose}
                 sx={{ color: 'inherit' }}
               >
@@ -1074,6 +1103,21 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
           )}
         </Box>
       </Box>
+    )
+
+    if (!isNarrow) {
+      return panel
+    }
+
+    return (
+      <Drawer
+        anchor="right"
+        open={open}
+        onClose={onClose}
+        slotProps={{ paper: { sx: { width: '100%' } } }}
+      >
+        {panel}
+      </Drawer>
     )
   },
 )

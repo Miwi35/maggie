@@ -14,6 +14,7 @@ import Dialog from '@mui/material/Dialog'
 import DialogActions from '@mui/material/DialogActions'
 import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
+import Fab from '@mui/material/Fab'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import Grow from '@mui/material/Grow'
 import IconButton from '@mui/material/IconButton'
@@ -1576,13 +1577,28 @@ export const CalendarView = () => {
   const calendarThemeSx = useMemo(() => getCalendarThemeSx(theme), [theme])
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 48px)' }}>
-      {/* ---- Top toolbar ---- */}
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        // The app bar is react-admin's dense toolbar (48px) — except below
+        // `sm`, where it switches to the regular 56px one. Subtracting 48
+        // everywhere left the month grid 8px taller than the window on a
+        // phone, which is a whole page scroll for nothing.
+        height: { xs: 'calc(100vh - 56px)', sm: 'calc(100vh - 48px)' },
+      }}
+    >
+      {/* ---- Top toolbar ----
+           Wraps below `md` (MAG-38): "Aujourd'hui", the two arrows, a month
+           name and three view buttons do not fit across 393px, and a toolbar
+           that overflows takes the view switcher — the one control a phone
+           needs most — off the screen. */}
       <Box
         sx={{
           display: 'flex',
           alignItems: 'center',
-          px: 2,
+          flexWrap: { xs: 'wrap', md: 'nowrap' },
+          px: { xs: 1, md: 2 },
           py: 1,
           borderBottom: 1,
           borderColor: 'divider',
@@ -1604,7 +1620,19 @@ export const CalendarView = () => {
         <IconButton size="small" onClick={handleNext} aria-label={`${navAriaLabel} suivant(e)`}>
           <ChevronRightIcon />
         </IconButton>
-        <Typography variant="h6" sx={{ ml: 1, textTransform: 'capitalize', fontWeight: 400 }}>
+        <Typography
+          variant="h6"
+          sx={{
+            ml: 1,
+            minWidth: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            textTransform: 'capitalize',
+            fontWeight: 400,
+            fontSize: { xs: '1rem', md: '1.25rem' },
+          }}
+        >
           {title}
         </Typography>
         <Box sx={{ flex: 1 }} />
@@ -1945,6 +1973,29 @@ export const CalendarView = () => {
           />
         </Box>
       </Box>
+
+      {/* The left column — and with it the "+ Créer" split button — is hidden
+          below `md`. Without this, creating an event on a phone meant guessing
+          that a long press on an empty slot opens the dialog. */}
+      <Fab
+        color="primary"
+        aria-label="Créer un événement"
+        onClick={() => {
+          setDialogStart(undefined)
+          setDialogEnd(undefined)
+          setDialogAllDay(false)
+          setDialogOpen(true)
+        }}
+        sx={{
+          display: { xs: 'flex', md: 'none' },
+          position: 'fixed',
+          bottom: 24,
+          right: 24,
+          zIndex: (theme) => theme.zIndex.speedDial,
+        }}
+      >
+        <AddIcon />
+      </Fab>
 
       <EventCreateDialog
         open={dialogOpen}

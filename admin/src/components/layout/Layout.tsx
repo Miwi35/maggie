@@ -4,18 +4,34 @@ import Box from '@mui/material/Box'
 import { ChatWidget, ChatWidgetRef } from '../chat/ChatWidget'
 import { CustomAppBar } from './AppBar'
 import { CustomMenu } from './Menu'
+import { CustomSidebar } from './Sidebar'
 import { ChatContext } from './ChatContext'
+import { useNarrowScreen } from '../../hooks/useNarrowScreen'
 import type { SidebarTab } from './ChatContext'
 import type { AgentState, ContextState, ToolCallState } from '../mind/types'
 
 export const Layout = (props: LayoutProps) => {
-  const [chatOpen, setChatOpen] = useState(true)
+  const isNarrow = useNarrowScreen()
+  // Open beside the page on a desk, folded away on a phone or a tablet
+  // (MAG-38): below `md` the panel is a sheet over the whole window, and
+  // nobody arrives on the admin wanting the conversation on top of it.
+  const [chatOpen, setChatOpen] = useState(!isNarrow)
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>('chat')
   const [unreadChat, setUnreadChat] = useState(false)
   const [contexts, setContexts] = useState<ContextState[]>([])
   const [toolCalls, setToolCalls] = useState<ToolCallState[]>([])
   const [agentState, setAgentState] = useState<AgentState>('idle')
   const chatRef = useRef<ChatWidgetRef>(null)
+
+  // Crossing the breakpoint re-decides it: a window narrowed past 900px with
+  // the chat open would otherwise be a sheet over a page nobody asked to hide.
+  // Adjusted while rendering rather than in an effect — React re-runs this pass
+  // before painting, so the panel never flashes in the wrong shape.
+  const [wasNarrow, setWasNarrow] = useState(isNarrow)
+  if (wasNarrow !== isNarrow) {
+    setWasNarrow(isNarrow)
+    setChatOpen(!isNarrow)
+  }
 
   const triggerResize = useCallback(() => {
     setTimeout(() => window.dispatchEvent(new Event('resize')), 250)
@@ -95,7 +111,7 @@ export const Layout = (props: LayoutProps) => {
 
   return (
     <ChatContext.Provider value={chatContext}>
-      <RALayout {...props} menu={CustomMenu} appBar={CustomAppBar}>
+      <RALayout {...props} menu={CustomMenu} appBar={CustomAppBar} sidebar={CustomSidebar}>
         <Box sx={{ display: 'flex', flex: 1, minHeight: 0 }}>
           {/* `page-content` and the chat panel's `chat-panel` are the two
               handles the e2e journeys scope their locators to (MAG-97).
@@ -105,7 +121,20 @@ export const Layout = (props: LayoutProps) => {
               that an unscoped getByText matches twice. */}
           <Box
             data-testid="page-content"
-            sx={{ flex: 1, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+            sx={(theme) => ({
+              flex: 1,
+              minWidth: 0,
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              // A datagrid is wider than a phone and there is no honest way to
+              // make a twelve-column table narrow. Below `md` the page carries
+              // the sideways scroll itself, instead of clipping the table
+              // (`overflow: hidden`) or dragging the whole frame — app bar
+              // included — out of the viewport (MAG-38, with `RaLayout` in
+              // `src/theme.ts`).
+              [theme.breakpoints.down('md')]: { overflowX: 'auto' },
+            })}
           >
             {props.children}
           </Box>
