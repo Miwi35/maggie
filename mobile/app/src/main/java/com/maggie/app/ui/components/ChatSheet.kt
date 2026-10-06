@@ -99,11 +99,7 @@ fun ChatSheet(
 
         DisposableEffect(voiceManager) {
             voiceManager.onFinalResult = { text -> viewModel.sendMessage(text) }
-            voiceManager.onInterrupt = { heard -> viewModel.interrupt(heard) }
-            onDispose {
-                voiceManager.onFinalResult = null
-                voiceManager.onInterrupt = null
-            }
+            onDispose { voiceManager.onFinalResult = null }
         }
 
         SpokenReplies(viewModel, voiceManager)

@@ -8,9 +8,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -97,30 +95,6 @@ private class FakeDeviceSpeech(
     }
 }
 
-private class FakeSpeechPlayer : SpeechPlayer {
-    var played = false
-    var stopped = false
-    var released = false
-    override var durationMs = 10_000
-    override var positionMs = 0
-    private var onFinished: (() -> Unit)? = null
-
-    override fun play(file: File, onFinished: () -> Unit) {
-        played = true
-        this.onFinished = onFinished
-    }
-
-    override fun stop() {
-        stopped = true
-    }
-
-    override fun release() {
-        released = true
-    }
-
-    fun finish() = onFinished?.invoke()
-}
-
 @OptIn(ExperimentalCoroutinesApi::class)
 
 class VoiceManagerTest {
@@ -131,7 +105,6 @@ class VoiceManagerTest {
     private lateinit var voiceManager: VoiceManager
     private lateinit var testScope: TestScope
     private lateinit var recorder: FakeRecorder
-    private lateinit var players: MutableList<FakeSpeechPlayer>
     private lateinit var cacheDir: File
     private var now = 0L
 
@@ -145,7 +118,6 @@ class VoiceManagerTest {
         userPreferenceRepository = mockk(relaxed = true)
         testScope = TestScope()
         recorder = FakeRecorder()
-        players = mutableListOf()
         now = 0L
         voiceManager = managerWith(NoDeviceSpeech)
     }
@@ -159,8 +131,6 @@ class VoiceManagerTest {
         deviceSpeechFactory = { engine },
         clock = { now },
         scope = testScope,
-        ioDispatcher = StandardTestDispatcher(testScope.testScheduler),
-        playerFactory = { FakeSpeechPlayer().also { players.add(it) } },
     )
 
     private fun advance(ms: Long) {
@@ -274,156 +244,17 @@ class VoiceManagerTest {
         assertEquals(VoiceState.LISTENING, voiceManager.state.value)
     }
 
-    private fun reachProcessing() {
+    @Test
+    fun `press down is ignored while a request is being processed`() {
         voiceManager.pressDown()
         advance(600)
         voiceManager.pressRelease()
         testScope.runCurrent()
         assertEquals(VoiceState.PROCESSING, voiceManager.state.value)
-    }
-
-    private fun speakWhenSynthesized(text: String): CompletableDeferred<ByteArray> {
-        val synthesized = CompletableDeferred<ByteArray>()
-        coEvery { apiService.synthesizeSpeech(any(), any()) } coAnswers { synthesized.await() }
-        voiceManager.speak(text)
-        testScope.runCurrent()
-        return synthesized
-    }
-
-    private fun speakNow(text: String): FakeSpeechPlayer {
-        speakWhenSynthesized(text).complete(ByteArray(4))
-        testScope.runCurrent()
-        return players.single()
-    }
-
-    @Test
-    fun `press down while a request is being prepared interrupts it and starts listening`() {
-        reachProcessing()
-        val interruptions = mutableListOf<String?>()
-        voiceManager.onInterrupt = { interruptions.add(it) }
 
         voiceManager.pressDown()
 
-        assertEquals(VoiceState.LISTENING, voiceManager.state.value)
-        assertEquals(listOf<String?>(null), interruptions)
-        assertFalse(voiceManager.handsFree.value)
-    }
-
-    @Test
-    fun `press down while the voice is being synthesized says nothing was heard`() {
-        val interruptions = mutableListOf<String?>()
-        voiceManager.onInterrupt = { interruptions.add(it) }
-        speakWhenSynthesized("Il était une fois un roi.")
-        assertEquals(VoiceState.SPEAKING, voiceManager.state.value)
-
-        voiceManager.pressDown()
-
-        assertEquals(VoiceState.LISTENING, voiceManager.state.value)
-        assertEquals(listOf<String?>(""), interruptions)
-    }
-
-    @Test
-    fun `a synthesis cancelled by the user never plays afterwards`() {
-        val synthesized = speakWhenSynthesized("Il était une fois un roi.")
-
-        voiceManager.pressDown()
-        synthesized.complete(ByteArray(4))
-        testScope.runCurrent()
-
-        assertTrue(players.none { it.played })
-        assertEquals(VoiceState.LISTENING, voiceManager.state.value)
-        assertEquals(0, cacheDir.listFiles { f -> f.name.startsWith("tts_") }?.size ?: 0)
-    }
-
-    @Test
-    fun `a synthesis that fails after being cancelled does not reset the new listening`() {
-        coEvery { apiService.synthesizeSpeech(any(), any()) } coAnswers { error("network down") }
-        voiceManager.speak("Il était une fois un roi.")
-        voiceManager.pressDown()
-        testScope.runCurrent()
-
-        assertEquals(VoiceState.LISTENING, voiceManager.state.value)
-    }
-
-    @Test
-    fun `press down during playback stops it and reports what was heard`() {
-        val interruptions = mutableListOf<String?>()
-        voiceManager.onInterrupt = { interruptions.add(it) }
-        val player = speakNow("Il était une fois un roi qui avait trois fils.")
-        player.positionMs = 5_500
-
-        voiceManager.pressDown()
-
-        assertTrue(player.stopped)
-        assertTrue(player.released)
-        assertEquals(VoiceState.LISTENING, voiceManager.state.value)
-        assertEquals(listOf<String?>("Il était une fois un roi"), interruptions)
-    }
-
-    @Test
-    fun `playback that ends by itself is not an interruption`() {
-        val interruptions = mutableListOf<String?>()
-        voiceManager.onInterrupt = { interruptions.add(it) }
-        val player = speakNow("Bonjour.")
-
-        player.finish()
-        voiceManager.pressDown()
-
-        assertEquals(VoiceState.LISTENING, voiceManager.state.value)
-        assertTrue(interruptions.isEmpty())
-    }
-
-    @Test
-    fun `starting a hands-free listening while speaking interrupts the voice`() {
-        val interruptions = mutableListOf<String?>()
-        voiceManager.onInterrupt = { interruptions.add(it) }
-        val player = speakNow("Il était une fois un roi qui avait trois fils.")
-        player.positionMs = 5_500
-
-        voiceManager.startListening()
-
-        assertEquals(VoiceState.LISTENING, voiceManager.state.value)
-        assertTrue(voiceManager.handsFree.value)
-        assertEquals(listOf<String?>("Il était une fois un roi"), interruptions)
-    }
-
-    @Test
-    fun `interrupt reports nothing when Maggie is not busy`() {
-        val interruptions = mutableListOf<String?>()
-        voiceManager.onInterrupt = { interruptions.add(it) }
-
-        assertFalse(voiceManager.interrupt())
-        voiceManager.pressDown()
-        assertFalse(voiceManager.interrupt())
-
-        assertEquals(VoiceState.LISTENING, voiceManager.state.value)
-        assertTrue(interruptions.isEmpty())
-    }
-
-    @Test
-    fun `a second interrupt is ignored once the first has taken effect`() {
-        val interruptions = mutableListOf<String?>()
-        voiceManager.onInterrupt = { interruptions.add(it) }
-        speakNow("Il était une fois un roi.")
-
-        assertTrue(voiceManager.interrupt())
-        assertFalse(voiceManager.interrupt())
-
-        assertEquals(1, interruptions.size)
-        assertEquals(VoiceState.IDLE, voiceManager.state.value)
-    }
-
-    @Test
-    fun `heard text is cut at the last whole word`() {
-        val text = "Il était une fois un roi"
-
-        assertEquals("", heardPart(text, 0f))
-        assertEquals("Il", heardPart(text, 0.1f))
-        assertEquals("Il était une", heardPart(text, 0.5f))
-        assertEquals("Il était une fois", heardPart(text, 0.74f))
-        assertEquals(text, heardPart(text, 1f))
-        assertEquals(text, heardPart(text, 1.4f))
-        assertEquals("", heardPart(text, -1f))
+        assertEquals(VoiceState.PROCESSING, voiceManager.state.value)
     }
 
     // --- The phone first, Whisper in reserve (MAG-222) ---

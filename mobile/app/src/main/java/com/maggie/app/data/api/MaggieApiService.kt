@@ -63,10 +63,8 @@ import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.utils.io.readRemaining
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.withTimeout
 import kotlinx.io.readByteArray
+import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -123,12 +121,6 @@ data class MessageContextResponse(val messages: List<ChatMessage> = emptyList())
 data class AgentChatRequest(
     val message: String,
     val user_id: String = "default",
-)
-
-@Serializable
-data class InterruptChatRequest(
-    val messageId: String? = null,
-    val spokenText: String,
 )
 
 @Serializable
@@ -392,11 +384,6 @@ class MaggieApiService(
 ) {
     private val baseUrl = BuildConfig.API_BASE_URL
 
-    private companion object {
-        // The next request waits for the interruption to be recorded: it must not wait forever.
-        const val INTERRUPT_TIMEOUT_MS = 5_000L
-    }
-
     suspend fun getEvents(
         afterDate: String? = null,
         beforeDate: String? = null,
@@ -583,16 +570,6 @@ class MaggieApiService(
         }.body()
     }
 
-    /** Tells the agent what of an answer was heard or shown before the user cut Maggie off (MAG-223). */
-    suspend fun interruptChat(messageId: String?, spokenText: String): ChatMessage {
-        return withTimeout(INTERRUPT_TIMEOUT_MS) {
-            client.post("$baseUrl/agent/chat/interrupt") {
-                contentType(ContentType.Application.Json)
-                setBody(InterruptChatRequest(messageId = messageId, spokenText = spokenText))
-            }.body()
-        }
-    }
-
     suspend fun getMessagesPaginated(
         userId: String = "default",
         beforeId: String? = null,
@@ -646,8 +623,6 @@ class MaggieApiService(
                 val channel = response.bodyAsChannel()
                 AgUiStreamParser.parseStream(channel).collect { emit(it) }
             }
-        } catch (e: CancellationException) {
-            throw e
         } catch (e: Exception) {
             emit(AgUiEvent.Error(e.message ?: "Stream error"))
         }
