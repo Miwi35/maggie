@@ -1,9 +1,11 @@
 import json
 import logging
+from datetime import UTC, datetime
+from typing import Literal
 
 import anthropic
 import openai
-from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -13,15 +15,19 @@ from app.auth import (
     require_proaction_trigger,
     require_service_token,
 )
+from app.config import settings
 from app.db.context_repository import context_repo
 from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
 from app.db.message_repository import message_repo
+from app.db.pending_action_model import PendingAction, PendingActionStatus
+from app.db.pending_action_repository import pending_action_repo
 from app.db.proaction_repository import proaction_repo
 from app.db.user_data import purge_user_data
 from app.db.user_setting_repository import user_setting_repo
 from app.llm.context_summary import context_summarizer
 from app.llm.gateway import LLMGateway
+from app.llm.runner import run_tool_loop
 from app.llm.streaming import StreamingGateway
 from app.llm.transcription import CLEANUP_MODES, transcribe_audio
 from app.queue.proaction_consumer import execute_proaction
@@ -174,6 +180,135 @@ async def proaction(request: ChatRequest, user_id: str = Depends(get_current_use
         tool_calls=result.get("tool_calls", []),
         messages=[assistant_msg.to_dict()],
     )
+
+
+# --- Approvals (MAG-5) ---
+
+
+def _is_overdue(action: PendingAction) -> bool:
+    expires_at = action.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=UTC)
+    return expires_at <= datetime.now(UTC)
+
+
+def _is_error_result(result: str) -> bool:
+    try:
+        parsed = json.loads(result)
+    except (TypeError, ValueError):
+        return False
+    return isinstance(parsed, dict) and "error" in parsed
+
+
+async def _pending_action_or_error(user_id: str, action_id: str) -> PendingAction:
+    """The user's action if it can still be answered — 404, 409 or 410 otherwise.
+
+    The owner is part of the query: someone else's action is as unknown as a made-up id.
+    """
+    action = await pending_action_repo.get_for_user(user_id, action_id)
+    if action is None:
+        raise HTTPException(status_code=404, detail="Approval not found")
+    if action.status == PendingActionStatus.EXPIRED:
+        raise HTTPException(status_code=410, detail="Approval has expired")
+    if action.status != PendingActionStatus.PENDING:
+        raise HTTPException(status_code=409, detail="Approval is not pending")
+    if _is_overdue(action):
+        raise HTTPException(status_code=410, detail="Approval has expired")
+    return action
+
+
+async def announce_approved_action(action: PendingAction, result: str) -> None:
+    """Have Maggie say what the approved action did, in the thread it was asked in.
+
+    Runs after the response has gone out, so it never raises: the action is already done and
+    recorded, and a failed announcement must not look like a failed approval. Same ending as
+    `execute_proaction` — the message is stored (and published on the chat topic by
+    `message_repo`) in the thread, which is then re-summarized.
+    """
+    if llm_gateway.client is None:
+        return
+
+    prompt = (
+        f"L'utilisateur a validé {action.tool_name}({json.dumps(action.arguments, ensure_ascii=False)}). "
+        f"Résultat : {result}. Annonce-le brièvement."
+    )
+    try:
+        system = await llm_gateway._build_system_prompt(action.user_id, current_context_id=action.context_id)
+        answer = await run_tool_loop(
+            system,
+            [{"role": "user", "content": prompt}],
+            None,
+            client=llm_gateway.client,
+            tool_router=llm_gateway.tool_router,
+            user_id=action.user_id,
+            model=settings.anthropic_model,
+            call_type="approval",
+            source="approval",
+            context_id=action.context_id,
+        )
+        if not answer["response"]:
+            return
+        await message_repo.create(
+            user_id=action.user_id, role="assistant", content=answer["response"], context_id=action.context_id
+        )
+        if action.context_id:
+            await context_summarizer.maybe_summarize(action.context_id)
+    except Exception as e:
+        logger.error(f"Announcement of approved action {action.id} failed: {e}")
+
+
+@router.get("/approvals")
+async def get_approvals(
+    status: Literal["pending"] = Query(default="pending"),
+    user_id: str = Depends(get_current_user_id),
+):
+    """The authenticated user's actions waiting for an answer, oldest first."""
+    actions = await pending_action_repo.find_pending(user_id)
+    return [a.to_dict() for a in actions]
+
+
+@router.post("/approvals/{approval_id}/approve")
+async def approve_action(
+    approval_id: str,
+    background_tasks: BackgroundTasks,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Run the held call with its frozen arguments, record the outcome, and announce it in the background.
+
+    The row is claimed as approved *before* the call runs: two tabs clicking at once, or the
+    scheduler expiring the action meanwhile, get a 409 instead of a second execution.
+    """
+    action = await _pending_action_or_error(user_id, approval_id)
+
+    claimed = await pending_action_repo.decide(approval_id, PendingActionStatus.APPROVED)
+    if claimed is None:
+        raise HTTPException(status_code=409, detail="Approval is not pending")
+
+    try:
+        result = await llm_gateway.tool_router.call_tool(
+            action.tool_name, action.arguments or {}, user_id, source="approval"
+        )
+    except Exception as e:
+        logger.error(f"Approved action {approval_id} failed to run: {e}")
+        result = json.dumps({"error": f"Tool call failed: {e}"})
+
+    status = PendingActionStatus.FAILED if _is_error_result(result) else PendingActionStatus.APPROVED
+    settled = await pending_action_repo.settle(approval_id, status, result)
+    final = settled or claimed
+
+    background_tasks.add_task(announce_approved_action, final, result)
+    return final.to_dict()
+
+
+@router.post("/approvals/{approval_id}/deny")
+async def deny_action(approval_id: str, user_id: str = Depends(get_current_user_id)):
+    """Refuse the held call: nothing runs and the model is not called."""
+    await _pending_action_or_error(user_id, approval_id)
+
+    denied = await pending_action_repo.decide(approval_id, PendingActionStatus.DENIED)
+    if denied is None:
+        raise HTTPException(status_code=409, detail="Approval is not pending")
+    return denied.to_dict()
 
 
 @router.get("/messages")
