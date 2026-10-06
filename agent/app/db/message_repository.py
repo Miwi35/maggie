@@ -36,7 +36,6 @@ class MessageRepository:
         context_id: str | None = None,
         *,
         message_id: str | None = None,
-        interrupted: bool = False,
     ) -> Message:
         """Store a message and publish it on the user's chat topic.
 
@@ -44,7 +43,7 @@ class MessageRepository:
         device that streamed it then recognises the Mercure echo of the same message.
         """
         async with agent_session() as session:
-            msg = Message(user_id=user_id, role=role, content=content, context_id=context_id, interrupted=interrupted)
+            msg = Message(user_id=user_id, role=role, content=content, context_id=context_id)
             if message_id:
                 msg.id = message_id
             session.add(msg)
@@ -53,34 +52,6 @@ class MessageRepository:
 
         try:
             await self.publisher.publish(topics.for_user(topics.CHAT, user_id), msg.to_dict())
-        except Exception as e:
-            logger.warning(f"Failed to publish message to Mercure: {e}")
-
-        return msg
-
-    async def get(self, message_id: str) -> Message | None:
-        async with agent_session() as session:
-            result = await session.execute(select(Message).where(Message.id == message_id))
-            return result.scalar_one_or_none()
-
-    async def mark_interrupted(self, message_id: str, content: str) -> Message | None:
-        """Cut a stored answer down to what was said or shown, and say it was cut (MAG-223).
-
-        Published like any message: another window or the phone holds the full text and
-        replaces it on seeing the same id again.
-        """
-        async with agent_session() as session:
-            result = await session.execute(select(Message).where(Message.id == message_id))
-            msg = result.scalar_one_or_none()
-            if msg is None:
-                return None
-            msg.content = content
-            msg.interrupted = True
-            await session.commit()
-            await session.refresh(msg)
-
-        try:
-            await self.publisher.publish(topics.for_user(topics.CHAT, msg.user_id), msg.to_dict())
         except Exception as e:
             logger.warning(f"Failed to publish message to Mercure: {e}")
 
@@ -102,12 +73,10 @@ class MessageRepository:
             await session.commit()
             return result.rowcount
 
-    async def find_last(self, user_id: str, exclude_id: str | None = None, role: str | None = None) -> Message | None:
-        """The user's newest message, of `role` if given; `exclude_id` skips the one being answered (MAG-10)."""
+    async def find_last(self, user_id: str, exclude_id: str | None = None) -> Message | None:
+        """The newest message of the user, whatever its role — `exclude_id` skips the one being answered (MAG-10)."""
         async with agent_session() as session:
             query = select(Message).where(Message.user_id == user_id)
-            if role:
-                query = query.where(Message.role == role)
             if exclude_id:
                 query = query.where(Message.id != exclude_id)
             result = await session.execute(query.order_by(Message.created_at.desc()).limit(1))

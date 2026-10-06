@@ -1,13 +1,9 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Index, String, Text, false
+from sqlalchemy import Column, DateTime, Index, String, Text
 
 from app.db.proaction_model import AgentBase
-
-# What an interrupted answer holds when the user cut in before a single word of it was said or
-# shown: a message row cannot be empty on the clients' side, and this is what its bubble reads.
-NOTHING_SAID = "…"
 
 
 class Message(AgentBase):
@@ -22,8 +18,6 @@ class Message(AgentBase):
     content = Column(Text, nullable=False)
     context_id = Column(String(32), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
-    # An answer the user cut short (MAG-223): `content` is then only what was said or shown.
-    interrupted = Column(Boolean, nullable=False, default=False, server_default=false())
 
     def to_dict(self) -> dict:
         return {
@@ -32,5 +26,4 @@ class Message(AgentBase):
             "content": self.content,
             "contextId": self.context_id,
             "createdAt": self.created_at.isoformat() if self.created_at else "",
-            "interrupted": bool(self.interrupted),
         }
