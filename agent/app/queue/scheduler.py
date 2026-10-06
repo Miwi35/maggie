@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 from datetime import UTC, datetime, time, timedelta
 from zoneinfo import ZoneInfo
@@ -13,14 +12,13 @@ from app.db.pending_action_repository import pending_action_repo
 from app.db.proaction_repository import proaction_repo
 from app.llm.context_summary import context_summarizer
 from app.llm.gateway import LLMGateway
-from app.mcp.client import mcp_client
 from app.queue.proaction_publisher import publish_proaction
+from app.user_timezone import resolve_user_timezone
 
 logger = logging.getLogger(__name__)
 
 EXECUTION_INTERVAL = 60  # seconds
 PLANNING_REFRESH = 900  # seconds: how often new users and changed timezones are picked up
-USER_TIMEZONE_TOOL = "get_user_timezone"
 
 DAILY_PLANNING_PROMPT = (
     "C'est le début de la journée. "
@@ -32,7 +30,6 @@ DAILY_PLANNING_PROMPT = (
 )
 
 _tasks: list[asyncio.Task] = []
-_known_timezones: dict[str, ZoneInfo] = {}
 
 
 async def _execution_loop() -> None:
@@ -76,29 +73,6 @@ def next_planning_time(now: datetime, tz: ZoneInfo | None = None) -> datetime:
     if target <= local_now:
         target = datetime.combine(day + timedelta(days=1), time(settings.daily_planning_hour), tzinfo=tz)
     return target.astimezone(UTC)
-
-
-async def resolve_user_timezone(user_id: str) -> ZoneInfo:
-    """The timezone stored in the user's preferences.
-
-    A stored name that is not a timezone means Europe/Paris. A preference that cannot be read right now
-    (API restarting) keeps the last timezone read for the user: falling back to Paris for one cycle would
-    skip a New York user's planning moment for the whole day.
-    """
-    try:
-        raw = await mcp_client.call_tool(USER_TIMEZONE_TOOL, {}, user_id=user_id)
-        name = json.loads(raw)["timezone"]
-    except Exception as e:
-        known = _known_timezones.get(user_id) or ZoneInfo(settings.planning_timezone)
-        logger.warning(f"Timezone of user {user_id} unreadable, keeping {known.key}: {e!r}")
-        return known
-
-    try:
-        _known_timezones[user_id] = ZoneInfo(name)
-    except Exception as e:
-        logger.warning(f"Invalid timezone {name!r} for user {user_id}, planning on {settings.planning_timezone}: {e!r}")
-        _known_timezones[user_id] = ZoneInfo(settings.planning_timezone)
-    return _known_timezones[user_id]
 
 
 async def generate_proactions(gateway: LLMGateway, user_id: str, *, dry_run: bool = False) -> dict:

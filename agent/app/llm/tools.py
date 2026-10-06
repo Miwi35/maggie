@@ -7,6 +7,7 @@ from app.db.instruction_repository import instruction_repo
 from app.db.memory_repository import memory_repo
 from app.db.pending_action_repository import pending_action_repo
 from app.db.proaction_repository import proaction_repo
+from app.llm.time_tool import DATE_TIME_TOOLS, handle_date_time
 from app.mcp.client import mcp_client
 
 # The policy module is where a `source` means something, so it owns the vocabulary.
@@ -490,6 +491,7 @@ _NATIVE_HANDLERS = {
     "get_skill": _handle_get_skill,
     "update_skill": _handle_update_skill,
     "delete_skill": _handle_delete_skill,
+    "date_time": handle_date_time,
 }
 
 
@@ -531,6 +533,7 @@ class ToolRouter:
     - Memory tools — always available (chat + proaction)
     - Instruction tools — always available (chat + proaction)
     - Skill tools — always available (chat + proaction)
+    - Date and time tool — always available (chat + proaction)
     - Proaction tools — always available (chat + proaction)
     - MCP tools — fetched from the Symfony MCP server
 
@@ -549,7 +552,7 @@ class ToolRouter:
             source: Who the tools are for. `a2a` gets the read-only MCP tools and nothing else.
         """
         a2a = source == A2A_SOURCE
-        tools = [] if a2a else list(MEMORY_TOOLS) + list(INSTRUCTION_TOOLS) + list(SKILL_TOOLS)
+        tools = [] if a2a else list(MEMORY_TOOLS) + list(INSTRUCTION_TOOLS) + list(SKILL_TOOLS) + list(DATE_TIME_TOOLS)
 
         if include_native and not a2a:
             tools.extend(PROACTION_TOOLS)
