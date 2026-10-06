@@ -103,7 +103,10 @@ final class E2eSeedCommandTest extends KernelTestCase
         // appearing in the fixtures would otherwise go unnoticed.
         self::assertSame(2, $this->rowsOf(GroceryList::class));
         self::assertSame(2, $this->rowsOf(Account::class));
-        self::assertSame(12, $this->rowsOf(Transaction::class));
+        // Thirteen and not twelve since MAG-46: the rent received last month is
+        // what the independence counter reads as a rente, and the journey
+        // asserts the 60 % it makes of the measured train de vie.
+        self::assertSame(13, $this->rowsOf(Transaction::class));
         self::assertSame(2, $this->rowsOf(Envelope::class));
         self::assertSame(2, $this->rowsOf(Notification::class));
     }
@@ -122,7 +125,7 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertSame(3, $this->rowsOf(Task::class, ['user' => $user]));
         self::assertSame(2, $this->rowsOf(Recipe::class, ['user' => $user]));
         self::assertSame(2, $this->rowsOf(Account::class, ['user' => $user]));
-        self::assertSame(12, $this->rowsOf(Transaction::class, ['user' => $user]));
+        self::assertSame(13, $this->rowsOf(Transaction::class, ['user' => $user]));
         self::assertSame(2, $this->rowsOf(Notification::class, ['user' => $user]));
     }
 
