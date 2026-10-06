@@ -75,6 +75,17 @@ Maggie\Finance\Entity\Category:
     icon: 'wallet'
     user: '@e2e_user'
 
+  # A rente: income that comes in without being worked for. Declared as such,
+  # it is what the independence counter compares to the train de vie (MAG-46).
+  # The salary above is income too, and deliberately not a rente.
+  e2e_category_rent_income:
+    name: Loyers perçus
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    passiveIncome: true
+    color: '#00897b'
+    icon: 'key'
+    user: '@e2e_user'
+
 Maggie\Finance\Entity\Transaction:
   # This month, category set by hand.
   e2e_transaction_salary:
@@ -182,6 +193,21 @@ Maggie\Finance\Entity\Transaction:
     label: 'LECLERC RENNES'
     status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
     categorySource: '<(Maggie\Finance\Enum\CategorySource::Rule)>'
+    user: '@e2e_user'
+
+  # Last month, so it falls inside the three-month window the independence
+  # counter measures: 300,00 € of rente becomes 100,00 € a month against a
+  # 166,66 € train de vie — 60 % of coverage.
+  e2e_transaction_last_month_rent_income:
+    account: '@e2e_account_checking'
+    category: '@e2e_category_rent_income'
+    amountCents: 30000
+    currency: EUR
+    bookedAt: '<e2eDate("first day of last month +3 days")>'
+    label: 'LOYER STUDIO RENNES'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
     user: '@e2e_user'
 
   e2e_transaction_last_month_leisure:

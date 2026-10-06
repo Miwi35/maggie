@@ -110,6 +110,104 @@ class CategoryApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(422);
     }
 
+    public function testAnIncomeCategoryCanBeDeclaredARente(): void
+    {
+        $this->loadFixtures('user.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+
+        $this->client->request('POST', '/api/categories', [], [], array_merge([
+            'CONTENT_TYPE' => 'application/ld+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode([
+            'name' => 'Loyers perçus',
+            'obligation' => 'income',
+            'passiveIncome' => true,
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseStatusCodeSame(201);
+
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertTrue($data['passiveIncome']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $categories = $em->getRepository(Category::class)->findAll();
+        self::assertTrue($categories[0]->isPassiveIncome());
+
+        $this->assertMercureUpdatePublished('/categories/');
+
+        // The whole point of the property's name: one spelling on both
+        // channels. `isPassiveIncome` here and `passiveIncome` above is the
+        // disagreement `isCushion` already pays for.
+        $payload = json_decode(
+            $this->getMercureHub()->getUpdates()[0]->getData(),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+        self::assertTrue($payload['passiveIncome']);
+        self::assertArrayNotHasKey('isPassiveIncome', $payload);
+    }
+
+    /**
+     * A rente is money coming in. Flagged on a spending category it would feed
+     * the independence counter a number it reads as income.
+     */
+    public function testASpendingCategoryCannotBeARente(): void
+    {
+        $this->loadFixtures('user.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+
+        $this->client->request('POST', '/api/categories', [], [], array_merge([
+            'CONTENT_TYPE' => 'application/ld+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode([
+            'name' => 'Loisirs',
+            'obligation' => 'optional',
+            'passiveIncome' => true,
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseStatusCodeSame(422);
+    }
+
+    public function testTheRenteFlagCanBePostedAndTakenBack(): void
+    {
+        $this->loadFixtures('category_income.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+        $rent = $this->getFixture('rent_income');
+
+        $this->patch((string) $rent->getId(), ['passiveIncome' => false]);
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertFalse($em->find(Category::class, $rent->getId())->isPassiveIncome());
+
+        $this->assertMercureUpdatePublished('/categories/');
+        $this->assertElasticsearchIndexDispatched(Category::class);
+    }
+
+    /** Moving a rente to a spending obligation is the same contradiction. */
+    public function testARenteCannotBeMovedToASpendingObligation(): void
+    {
+        $this->loadFixtures('category_income.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+        $rent = $this->getFixture('rent_income');
+
+        $this->patch((string) $rent->getId(), ['obligation' => 'optional']);
+
+        self::assertResponseStatusCodeSame(422);
+    }
+
     /** @param array<string, mixed> $body */
     private function patch(string $id, array $body, bool $authenticated = true): void
     {

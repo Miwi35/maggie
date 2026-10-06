@@ -1,0 +1,14 @@
+# A user who declared a rente category and has no history yet: nothing to
+# measure on either side of the ratio.
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-independence-bare@example.com
+    googleId: google-finance-independence-bare
+    name: Finance Independence Bare User
+
+Maggie\Finance\Entity\Category:
+  rent_income:
+    name: Loyers perçus
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    passiveIncome: true
+    user: '@test_user'

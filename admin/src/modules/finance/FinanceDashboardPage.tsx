@@ -10,6 +10,7 @@ import { useMercure } from '../../hooks/useMercure'
 import { formatCents } from './accountTypes'
 import { consumedPercent } from './budgetModes'
 import { DailyScoreBanner } from './DailyScoreBanner'
+import { IndependenceCard } from './IndependenceCard'
 import { MonthlyFlowsChart } from './MonthlyFlowsChart'
 import { PeriodPicker } from './PeriodPicker'
 import { useFinanceDashboard } from './useFinanceDashboard'
@@ -197,6 +198,7 @@ export const FinanceDashboardPage = () => {
           <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', gap: 2, mb: 2 }}>
             <BalanceCard dashboard={dashboard} />
             <CapacityCard dashboard={dashboard} />
+            <IndependenceCard counter={dashboard.independence} />
           </Stack>
 
           <Card sx={{ mb: 2 }}>

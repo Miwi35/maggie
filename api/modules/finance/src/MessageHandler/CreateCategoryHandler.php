@@ -31,8 +31,13 @@ class CreateCategoryHandler
         $category->setUser($user);
         $category->setName($command->name);
         $category->setObligation(ObligationFlag::from($command->obligation));
+        $category->setPassiveIncome($command->passiveIncome);
         $category->setColor($command->color);
         $category->setIcon($command->icon);
+
+        if ($category->declaresARenteWithoutIncome()) {
+            throw new \DomainException(Category::RENTE_WITHOUT_INCOME);
+        }
 
         if (null !== $command->parentId) {
             $parent = $this->references->category($command->parentId, $user, 'Parent category');

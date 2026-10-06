@@ -29,6 +29,18 @@ class CategoryRepository extends ServiceEntityRepository
         return $this->findBy(['user' => $user, 'parent' => null], ['name' => 'ASC']);
     }
 
+    /**
+     * The categories the user declared as rentes. The independence counter
+     * needs them to tell "no rente declared yet" — where the user has
+     * something to do — from "declared, nothing came in this quarter".
+     *
+     * @return Category[]
+     */
+    public function findPassiveIncomeByUser(User $user): array
+    {
+        return $this->findBy(['user' => $user, 'passiveIncome' => true], ['name' => 'ASC']);
+    }
+
     /** @return Category[] */
     public function findChildren(Category $parent): array
     {

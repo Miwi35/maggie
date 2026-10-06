@@ -44,7 +44,12 @@ const CategoryDatagrid = () => {
       <FunctionField
         label="Obligation"
         render={(record: RaRecord) =>
-          OBLIGATION_LABELS[record.obligation as string] ?? record.obligation
+          // A rente is said on the obligation column rather than on one of its
+          // own: it only ever qualifies a recette, and a column of blanks for
+          // every expense would say nothing.
+          record.passiveIncome
+            ? 'Recette · rente'
+            : (OBLIGATION_LABELS[record.obligation as string] ?? record.obligation)
         }
       />
       <ReferenceField source="parent" reference="categories" label="Catégorie parente" link={false}>

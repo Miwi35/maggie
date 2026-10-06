@@ -1,0 +1,49 @@
+# Rentes well past the train de vie: 60 000 / 3 = 20 000 a month against a
+# 10 000 lifestyle, so the counter reads 200 % and stays there.
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-independence-reached@example.com
+    googleId: google-finance-independence-reached
+    name: Finance Independence Reached User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 200000
+    isCushion: false
+    user: '@test_user'
+
+Maggie\Finance\Entity\Category:
+  food:
+    name: Alimentation
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  rent_income:
+    name: Loyers perçus
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    passiveIncome: true
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  groceries:
+    account: '@checking'
+    category: '@food'
+    amountCents: -30000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("first day of last month"))>'
+    label: Supermarché
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  rent_in:
+    account: '@checking'
+    category: '@rent_income'
+    amountCents: 60000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("first day of last month"))>'
+    label: Loyers
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'

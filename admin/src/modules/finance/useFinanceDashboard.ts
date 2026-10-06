@@ -17,6 +17,35 @@ export interface TopPost {
   changeCents: number
 }
 
+export interface IndependenceRente {
+  categoryId: string
+  categoryName: string
+  monthlyCents: number
+  sharePercent: number
+}
+
+/**
+ * How far the rentes cover the train de vie (MAG-46). Both sides measured,
+ * never declared; the target date and the curve are Premium, so there is no
+ * field for them.
+ */
+export interface IndependenceCounter {
+  coveragePercent: number
+  lifestyleCents: number
+  passiveIncomeCents: number
+  gapCents: number
+  sampleMonths: number
+  isMeasurable: boolean
+  hasPassiveIncomeCategories: boolean
+  isReached: boolean
+  loanPaymentsCents: number
+  monthlyNeedCents: number
+  coverageWithDebtPercent: number
+  nextMilestonePercent: number | null
+  nextMilestoneGapCents: number | null
+  byCategory: IndependenceRente[]
+}
+
 export interface FinanceDashboard {
   year: number
   month: number
@@ -44,6 +73,7 @@ export interface FinanceDashboard {
     netCapacityCents: number
     isIncomeKnown: boolean
   }
+  independence: IndependenceCounter
 }
 
 /** The whole month in one read. */

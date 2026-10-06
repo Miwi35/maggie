@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.FinanceDashboard
 import com.maggie.app.data.model.consumedFraction
 import com.maggie.app.data.model.formatCents
+import com.maggie.app.data.model.independenceSummary
 import com.maggie.app.data.model.monthLabel
 import com.maggie.app.data.model.postChangeLabel
 import com.maggie.app.data.model.reasonText
@@ -111,6 +112,7 @@ fun FinanceDashboardScreen(
                 if (dashboard != null) {
                     item { BalanceCard(dashboard) }
                     item { CapacityCard(dashboard) }
+                    item { IndependenceCard(dashboard) }
                     item { TopPostsCard(dashboard) }
                     item { EnvelopesCard(dashboard) }
                 } else {
@@ -242,6 +244,79 @@ private fun CapacityCard(dashboard: FinanceDashboard) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+        }
+    }
+}
+
+/**
+ * How far the rentes cover the way the owner lives (MAG-46).
+ *
+ * The card says what it compares, never a bare percentage: a ratio whose
+ * terms are hidden cannot be checked. No target date — that is Premium, and
+ * an empty one would read as a promise.
+ */
+@Composable
+private fun IndependenceCard(dashboard: FinanceDashboard) {
+    val counter = dashboard.independence
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Text("Indépendance financière", style = MaterialTheme.typography.titleSmall)
+            Text(
+                text = independenceSummary(counter),
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(vertical = 4.dp),
+            )
+
+            if (!counter.isMeasurable || !counter.hasPassiveIncomeCategories) {
+                // Two different states, two different things to say — and not
+                // « cochez la case » : the box is on the admin's category form,
+                // not here. Asking Maggie is what the phone can do.
+                Text(
+                    text = if (counter.hasPassiveIncomeCategories) {
+                        "Le compteur se calcule sur les ${counter.sampleMonths} mois " +
+                            "complets précédents."
+                    } else {
+                        "Une rente se déclare sur une catégorie de recette — loyers perçus, " +
+                            "dividendes — depuis l'admin ou en le demandant à Maggie."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                return@Column
+            }
+
+            LinearProgressIndicator(
+                progress = { minOf(1f, counter.coveragePercent / 100f) },
+                color = if (counter.isReached) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.tertiary
+                },
+                modifier = Modifier.fillMaxWidth().height(6.dp).padding(top = 4.dp),
+            )
+
+            Text(
+                text = "${formatCents(counter.passiveIncomeCents)} de rentes sur " +
+                    "${formatCents(counter.lifestyleCents)} de train de vie, mesurés sur " +
+                    "${counter.sampleMonths} mois",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+
+            counter.byCategory.forEach { rente ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(rente.categoryName, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        text = "${formatCents(rente.monthlyCents)} / mois · ${rente.sharePercent} %",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
             }
         }
     }

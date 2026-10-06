@@ -395,6 +395,14 @@
         },
         "description": "Get the grocery list with items grouped by store in visit order. By default hides deferred items (buyAfter in the future) from the store groups and lists them, with their date, in `later`. Set includeDeferred=true to see them in the store groups instead."
     },
+    "get_independence_counter": {
+        "name": "get_independence_counter",
+        "inputSchema": {
+            "type": "object",
+            "properties": []
+        },
+        "description": "Read how far the rentes already cover the way the user lives. Both sides are measured over the last three complete months, never declared: passiveIncomeCents is the monthly average of the credits of the categories flagged as rentes (manage_categories, passiveIncome), lifestyleCents is what a month actually costs, loan payments and exceptional movements excluded. coveragePercent is the first over the second and is NOT capped — above 100 the rentes cover more than the month costs. gapCents is what is still missing each month, byCategory breaks the rentes down, and milestones gives 25/50/75/100 % with the monthly rente each one takes. isMeasurable is false when no month has been measured yet, so there is no percentage to give; hasPassiveIncomeCategories is false when the user has not declared any rente category yet — say that, rather than reporting 0 %. coverageWithDebtPercent is the same ratio against the month including loan payments. The target date of independence and the progression curve are NOT available: they are Premium, so never estimate a date."
+    },
     "get_recipe": {
         "name": "get_recipe",
         "inputSchema": {
@@ -636,6 +644,13 @@
                     ],
                     "default": null
                 },
+                "passiveIncome": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ],
+                    "default": null
+                },
                 "parentId": {
                     "type": [
                         "null",
@@ -669,7 +684,7 @@
                 "action"
             ]
         },
-        "description": "List, create, update, or delete budget categories. Categories form a two-level tree (a category may have a parentId, sub-categories cannot have children). Each category has an obligation flag: mandatory, optional, saving, investment, debt (loan repayments, left out of the measured lifestyle), or income (money coming in, such as a salary: use income for revenue categories, never mandatory). On update, only provided fields change; to empty an optional field (make it a top-level category, drop its color or icon), list parentId, color or icon in clear."
+        "description": "List, create, update, or delete budget categories. Categories form a two-level tree (a category may have a parentId, sub-categories cannot have children). Each category has an obligation flag: mandatory, optional, saving, investment, debt (loan repayments, left out of the measured lifestyle), or income (money coming in, such as a salary: use income for revenue categories, never mandatory). An income category may also be flagged passiveIncome: a rente, money that comes in without being worked for (rent received, dividends, interest, royalties) — that flag is what the independence counter counts, and it is refused on anything but an income category. On update, only provided fields change; to empty an optional field (make it a top-level category, drop its color or icon), list parentId, color or icon in clear."
     },
     "manage_categorization_rules": {
         "name": "manage_categorization_rules",

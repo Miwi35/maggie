@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.CategoryCreateRequest
+import com.maggie.app.data.model.categoryKindLabel
 import com.maggie.app.data.model.obligationLabel
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
@@ -129,7 +130,7 @@ fun CategoryListScreen(
                                         style = MaterialTheme.typography.bodyLarge,
                                     )
                                     Text(
-                                        text = obligationLabel(category.obligation),
+                                        text = categoryKindLabel(category),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )

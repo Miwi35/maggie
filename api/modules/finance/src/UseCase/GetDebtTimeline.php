@@ -8,7 +8,6 @@ use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Loan;
 use Maggie\Finance\Repository\LoanRepository;
 use Maggie\Finance\Repository\SafetyCushionRepository;
-use Maggie\Finance\Repository\TransactionRepository;
 
 /**
  * When each fixed charge falls away, and what is actually left to save.
@@ -19,11 +18,10 @@ use Maggie\Finance\Repository\TransactionRepository;
 class GetDebtTimeline
 {
     private const DEFAULT_HORIZON_MONTHS = 60;
-    private const LIFESTYLE_SAMPLE_MONTHS = 3;
 
     public function __construct(
         private readonly LoanRepository $loanRepository,
-        private readonly TransactionRepository $transactionRepository,
+        private readonly MeasureMonthlyLifestyle $measureMonthlyLifestyle,
         private readonly SafetyCushionRepository $cushionRepository,
     ) {
     }
@@ -58,7 +56,7 @@ class GetDebtTimeline
             return $a['freedOn'] <=> $b['freedOn'];
         });
 
-        $lifestyle = $this->estimateMonthlyLifestyle($user, $today);
+        $lifestyle = $this->measureMonthlyLifestyle->execute($user, $today);
         $income = $this->cushionRepository->findOneByUser($user)?->getMonthlyNetIncomeCents() ?? 0;
 
         return [
@@ -168,18 +166,5 @@ class GetDebtTimeline
         }
 
         return $relief;
-    }
-
-    /**
-     * Lifestyle is measured, not declared: the average month actually consumed
-     * over the recent past, loan payments excluded — those are counted on
-     * their own.
-     */
-    private function estimateMonthlyLifestyle(User $user, \DateTimeImmutable $thisMonth): int
-    {
-        $from = $thisMonth->modify(sprintf('-%d months', self::LIFESTYLE_SAMPLE_MONTHS));
-        $consumed = $this->transactionRepository->sumConsumedBetween($user, $from, $thisMonth);
-
-        return intdiv($consumed, self::LIFESTYLE_SAMPLE_MONTHS);
     }
 }

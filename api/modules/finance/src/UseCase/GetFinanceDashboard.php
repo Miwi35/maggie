@@ -26,6 +26,7 @@ class GetFinanceDashboard
         private readonly GetDailyScore $getDailyScore,
         private readonly GetBudgetStatus $getBudgetStatus,
         private readonly GetDebtTimeline $getDebtTimeline,
+        private readonly GetIndependenceCounter $getIndependenceCounter,
         private readonly AccountRepository $accountRepository,
         private readonly TransactionRepository $transactionRepository,
     ) {
@@ -46,6 +47,9 @@ class GetFinanceDashboard
             'budgets' => $this->getBudgetStatus->execute($user, $year, $month)['budgets'],
             'topPosts' => $this->topPosts($user, $monthStart),
             'savingCapacity' => $this->getDebtTimeline->execute($user)['savingCapacity'],
+            // Not a figure of the month shown: the counter is measured over the
+            // last complete months, like the saving capacity beside it.
+            'independence' => $this->getIndependenceCounter->execute($user),
         ];
     }
 
