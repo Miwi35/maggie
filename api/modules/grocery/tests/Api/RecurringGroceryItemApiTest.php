@@ -79,6 +79,21 @@ class RecurringGroceryItemApiTest extends WebTestCase
         $this->assertElasticsearchIndexDispatched(RecurringGroceryItem::class);
     }
 
+    public function testPatchSendingBackTheIdAsAnIriAsTheAdminDoesIsAccepted(): void
+    {
+        $item = $this->load();
+
+        // react-admin's Hydra data provider replaces `id` by the IRI and adds `originId`.
+        $this->patch($item, [
+            'id' => '/api/recurring_grocery_items/'.$item->getId(),
+            'originId' => (string) $item->getId(),
+            'customLabel' => 'Bananes jaunes',
+        ]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('Bananes jaunes', $this->reload($item)->getCustomLabel());
+    }
+
     public function testPatchWithNullCustomLabelKeepsTheProduct(): void
     {
         $item = $this->load();
