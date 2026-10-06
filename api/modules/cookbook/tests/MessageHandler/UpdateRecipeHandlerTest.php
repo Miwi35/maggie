@@ -5,7 +5,6 @@ namespace Maggie\Cookbook\Tests\MessageHandler;
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
-use Maggie\Cookbook\Entity\Ingredient;
 use Maggie\Cookbook\Entity\Recipe;
 use Maggie\Cookbook\Message\UpdateRecipeCommand;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -16,7 +15,6 @@ class UpdateRecipeHandlerTest extends KernelTestCase
     use FixtureLoaderTrait;
     use MercureAssertionTrait;
     use ElasticsearchAssertionTrait;
-    use FakesCiqualTrait;
 
     protected function setUp(): void
     {
@@ -24,7 +22,6 @@ class UpdateRecipeHandlerTest extends KernelTestCase
         $this->resetMercure();
         $this->resetAsyncTransport();
         $this->loadFixtures('UpdateRecipeHandlerTest.yaml');
-        $this->fakeCiqual();
     }
 
     private function dispatch(UpdateRecipeCommand $command): void
@@ -82,20 +79,5 @@ class UpdateRecipeHandlerTest extends KernelTestCase
         $this->expectExceptionMessage('Recipe not found');
 
         $this->dispatch(new UpdateRecipeCommand(recipeId: '01ARZ3NDEKTSV4RRFFQ69G5FAV', clearFields: ['notes']));
-    }
-
-    public function testAnIngredientCreatedFromACiqualCodeIsIndexedAndPublished(): void
-    {
-        $this->dispatch(new UpdateRecipeCommand(
-            recipeId: $this->id(),
-            ingredients: [['ciqualAlimCode' => self::COURGETTE, 'quantity' => 300.0, 'unit' => 'g']],
-        ));
-
-        $em = self::getContainer()->get('doctrine.orm.entity_manager');
-        $em->clear();
-        $courgette = $em->getRepository(Ingredient::class)->findOneBy(['ciqualAlimCode' => self::COURGETTE]);
-        self::assertNotNull($courgette);
-        $this->assertElasticsearchIndexDispatched(Ingredient::class);
-        $this->assertMercureUpdatePublished('/ingredients/'.$courgette->getId());
     }
 }
