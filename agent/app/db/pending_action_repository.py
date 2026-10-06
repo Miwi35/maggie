@@ -145,6 +145,34 @@ class PendingActionRepository:
         await self._publish(action)
         return action
 
+    async def settle(self, action_id: str, status: PendingActionStatus, result: str | None) -> PendingAction | None:
+        """Write the outcome of an action `decide` already claimed as approved.
+
+        The approval endpoint claims first and runs second, so that a double click cannot run
+        the call twice; this records how the run went. Only an `approved` row moves, to
+        `approved` (with its result) or `failed`.
+        """
+        if status not in (PendingActionStatus.APPROVED, PendingActionStatus.FAILED):
+            raise ValueError(f"A run ends as approved or failed, got {status!r}")
+
+        async with agent_session() as session:
+            written = await session.execute(
+                update(PendingAction)
+                .where(PendingAction.id == action_id, PendingAction.status == PendingActionStatus.APPROVED)
+                .values(status=status, result=result)
+            )
+            await session.commit()
+            if written.rowcount != 1:
+                return None
+
+            found = await session.execute(select(PendingAction).where(PendingAction.id == action_id))
+            action = found.scalar_one_or_none()
+            if action is None:
+                return None
+
+        await self._publish(action)
+        return action
+
     async def expire_overdue(self) -> int:
         """Retire the actions nobody answered in time, and tell the clients so the cards go.
 

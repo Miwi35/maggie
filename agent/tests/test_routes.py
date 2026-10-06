@@ -1,6 +1,9 @@
-from unittest.mock import AsyncMock, patch
+import json
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.db.models import Message
+from app.db.pending_action_model import PendingAction, PendingActionStatus
 
 
 class TestRoutes:
@@ -213,3 +216,270 @@ class TestRoutes:
         """GET /messages/context without around param returns 422."""
         response = authed_client.get("/messages/context")
         assert response.status_code == 422
+
+
+def held_action(**overrides) -> PendingAction:
+    """A pending action of `test-user`, with the fields the tests vary."""
+    fields = {
+        "id": "act-1",
+        "user_id": "test-user",
+        "tool_name": "delete_event",
+        "arguments": {"eventId": "evt-1"},
+        "source": "chat",
+        "context_id": "ctx-1",
+        "status": PendingActionStatus.PENDING,
+        "created_at": datetime.now(UTC),
+        "expires_at": datetime.now(UTC) + timedelta(hours=23),
+    }
+    fields.update(overrides)
+    return PendingAction(**fields)
+
+
+def answered(action: PendingAction, status: PendingActionStatus, result: str | None = None) -> PendingAction:
+    """The same action as the repository hands it back once the answer is written."""
+    return held_action(
+        id=action.id,
+        arguments=action.arguments,
+        status=status,
+        result=result,
+        decided_at=datetime.now(UTC),
+        expires_at=action.expires_at,
+    )
+
+
+class TestApprovals:
+    def test_list_requires_auth(self, client):
+        assert client.get("/approvals").status_code in (401, 403)
+
+    def test_approve_requires_auth(self, client):
+        assert client.post("/approvals/act-1/approve").status_code in (401, 403)
+
+    def test_deny_requires_auth(self, client):
+        assert client.post("/approvals/act-1/deny").status_code in (401, 403)
+
+    @patch("app.api.routes.pending_action_repo")
+    def test_list_returns_the_users_pending_actions(self, mock_repo, authed_client):
+        mock_repo.find_pending = AsyncMock(return_value=[held_action(), held_action(id="act-2")])
+
+        response = authed_client.get("/approvals", params={"status": "pending"})
+
+        assert response.status_code == 200
+        assert [a["id"] for a in response.json()] == ["act-1", "act-2"]
+        assert response.json()[0]["toolName"] == "delete_event"
+        mock_repo.find_pending.assert_awaited_once_with("test-user")
+
+    def test_list_refuses_a_status_it_does_not_serve(self, authed_client):
+        assert authed_client.get("/approvals", params={"status": "approved"}).status_code == 422
+
+    @patch("app.api.routes.llm_gateway")
+    @patch("app.api.routes.pending_action_repo")
+    def test_approve_another_users_action_is_a_404(self, mock_repo, mock_gateway, authed_client):
+        mock_repo.get_for_user = AsyncMock(return_value=None)
+        mock_gateway.tool_router.call_tool = AsyncMock()
+
+        response = authed_client.post("/approvals/act-1/approve")
+
+        assert response.status_code == 404
+        mock_repo.get_for_user.assert_awaited_once_with("test-user", "act-1")
+        mock_gateway.tool_router.call_tool.assert_not_awaited()
+
+    @patch("app.api.routes.pending_action_repo")
+    def test_deny_another_users_action_is_a_404(self, mock_repo, authed_client):
+        mock_repo.get_for_user = AsyncMock(return_value=None)
+        mock_repo.decide = AsyncMock()
+
+        assert authed_client.post("/approvals/act-1/deny").status_code == 404
+        mock_repo.decide.assert_not_awaited()
+
+    @patch("app.api.routes.llm_gateway")
+    @patch("app.api.routes.pending_action_repo")
+    def test_approve_an_already_decided_action_is_a_409(self, mock_repo, mock_gateway, authed_client):
+        mock_repo.get_for_user = AsyncMock(return_value=held_action(status=PendingActionStatus.DENIED))
+        mock_gateway.tool_router.call_tool = AsyncMock()
+
+        response = authed_client.post("/approvals/act-1/approve")
+
+        assert response.status_code == 409
+        mock_gateway.tool_router.call_tool.assert_not_awaited()
+
+    @patch("app.api.routes.pending_action_repo")
+    def test_deny_an_already_decided_action_is_a_409(self, mock_repo, authed_client):
+        mock_repo.get_for_user = AsyncMock(return_value=held_action(status=PendingActionStatus.APPROVED))
+
+        assert authed_client.post("/approvals/act-1/deny").status_code == 409
+
+    @patch("app.api.routes.llm_gateway")
+    @patch("app.api.routes.pending_action_repo")
+    def test_approve_an_action_claimed_meanwhile_is_a_409_and_runs_nothing(self, mock_repo, mock_gateway, authed_client):
+        """Two tabs clicking Autoriser: the one that loses the claim must not run the call."""
+        mock_repo.get_for_user = AsyncMock(return_value=held_action())
+        mock_repo.decide = AsyncMock(return_value=None)
+        mock_gateway.tool_router.call_tool = AsyncMock()
+
+        assert authed_client.post("/approvals/act-1/approve").status_code == 409
+        mock_gateway.tool_router.call_tool.assert_not_awaited()
+
+    @patch("app.api.routes.llm_gateway")
+    @patch("app.api.routes.pending_action_repo")
+    def test_approve_an_expired_action_is_a_410(self, mock_repo, mock_gateway, authed_client):
+        overdue = held_action(expires_at=datetime.now(UTC) - timedelta(minutes=1))
+        mock_repo.get_for_user = AsyncMock(return_value=overdue)
+        mock_repo.decide = AsyncMock()
+        mock_gateway.tool_router.call_tool = AsyncMock()
+
+        response = authed_client.post("/approvals/act-1/approve")
+
+        assert response.status_code == 410
+        mock_repo.decide.assert_not_awaited()
+        mock_gateway.tool_router.call_tool.assert_not_awaited()
+
+    @patch("app.api.routes.llm_gateway")
+    @patch("app.api.routes.pending_action_repo")
+    def test_approve_an_action_the_scheduler_expired_is_a_410(self, mock_repo, mock_gateway, authed_client):
+        mock_repo.get_for_user = AsyncMock(return_value=held_action(status=PendingActionStatus.EXPIRED))
+        mock_gateway.tool_router.call_tool = AsyncMock()
+
+        assert authed_client.post("/approvals/act-1/approve").status_code == 410
+        mock_gateway.tool_router.call_tool.assert_not_awaited()
+
+    @patch("app.api.routes.pending_action_repo")
+    def test_deny_an_expired_action_is_a_410(self, mock_repo, authed_client):
+        overdue = held_action(expires_at=datetime.now(UTC) - timedelta(minutes=1))
+        mock_repo.get_for_user = AsyncMock(return_value=overdue)
+
+        assert authed_client.post("/approvals/act-1/deny").status_code == 410
+
+    @patch("app.api.routes.context_summarizer")
+    @patch("app.api.routes.message_repo")
+    @patch("app.api.routes.run_tool_loop")
+    @patch("app.api.routes.llm_gateway")
+    @patch("app.api.routes.pending_action_repo")
+    def test_approve_runs_the_frozen_arguments_records_the_outcome_and_announces_it(
+        self, mock_repo, mock_gateway, mock_loop, mock_msg_repo, mock_summarizer, authed_client
+    ):
+        pending = held_action()
+        approved = answered(pending, PendingActionStatus.APPROVED)
+        settled = answered(pending, PendingActionStatus.APPROVED, '{"deleted": true}')
+        mock_repo.get_for_user = AsyncMock(return_value=pending)
+        mock_repo.decide = AsyncMock(return_value=approved)
+        mock_repo.settle = AsyncMock(return_value=settled)
+        mock_gateway.client = MagicMock()
+        mock_gateway.tool_router.call_tool = AsyncMock(return_value='{"deleted": true}')
+        mock_gateway._build_system_prompt = AsyncMock(return_value=[{"type": "text", "text": "system"}])
+        mock_loop.return_value = {"response": "J'ai supprimé l'événement.", "tool_calls": []}
+        mock_msg_repo.create = AsyncMock()
+        mock_summarizer.maybe_summarize = AsyncMock()
+
+        response = authed_client.post("/approvals/act-1/approve")
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "approved"
+        assert response.json()["result"] == '{"deleted": true}'
+        mock_gateway.tool_router.call_tool.assert_awaited_once_with(
+            "delete_event", {"eventId": "evt-1"}, "test-user", source="approval"
+        )
+        # Claimed before the call runs, outcome written after it.
+        mock_repo.decide.assert_awaited_once_with("act-1", PendingActionStatus.APPROVED)
+        mock_repo.settle.assert_awaited_once_with("act-1", PendingActionStatus.APPROVED, '{"deleted": true}')
+
+        # The announcement: no tools, the validated call and its result in the prompt.
+        mock_loop.assert_awaited_once()
+        loop_args, loop_kwargs = mock_loop.call_args
+        assert loop_args[2] is None
+        prompt = loop_args[1][0]["content"]
+        assert "L'utilisateur a validé delete_event" in prompt
+        assert "evt-1" in prompt
+        assert '{"deleted": true}' in prompt
+        assert loop_kwargs["source"] == "approval"
+        # Stored in the thread the action was asked in; message_repo publishes it on the chat topic.
+        mock_msg_repo.create.assert_awaited_once_with(
+            user_id="test-user", role="assistant", content="J'ai supprimé l'événement.", context_id="ctx-1"
+        )
+        mock_summarizer.maybe_summarize.assert_awaited_once_with("ctx-1")
+
+    @patch("app.api.routes.message_repo")
+    @patch("app.api.routes.run_tool_loop")
+    @patch("app.api.routes.llm_gateway")
+    @patch("app.api.routes.pending_action_repo")
+    def test_approve_marks_the_action_failed_when_the_tool_returns_an_error(
+        self, mock_repo, mock_gateway, mock_loop, mock_msg_repo, authed_client
+    ):
+        error = json.dumps({"error": "Event not found"})
+        pending = held_action(context_id=None)
+        mock_repo.get_for_user = AsyncMock(return_value=pending)
+        mock_repo.decide = AsyncMock(return_value=answered(pending, PendingActionStatus.APPROVED))
+        mock_repo.settle = AsyncMock(return_value=answered(pending, PendingActionStatus.FAILED, error))
+        mock_gateway.client = MagicMock()
+        mock_gateway.tool_router.call_tool = AsyncMock(return_value=error)
+        mock_gateway._build_system_prompt = AsyncMock(return_value=[])
+        mock_loop.return_value = {"response": "Je n'ai pas pu le supprimer.", "tool_calls": []}
+        mock_msg_repo.create = AsyncMock()
+
+        response = authed_client.post("/approvals/act-1/approve")
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "failed"
+        mock_repo.settle.assert_awaited_once_with("act-1", PendingActionStatus.FAILED, error)
+        # The failure is announced too: the user clicked and is owed an answer.
+        mock_msg_repo.create.assert_awaited_once()
+
+    @patch("app.api.routes.message_repo")
+    @patch("app.api.routes.run_tool_loop")
+    @patch("app.api.routes.llm_gateway")
+    @patch("app.api.routes.pending_action_repo")
+    def test_approve_marks_the_action_failed_when_the_call_raises(
+        self, mock_repo, mock_gateway, mock_loop, mock_msg_repo, authed_client
+    ):
+        pending = held_action()
+        mock_repo.get_for_user = AsyncMock(return_value=pending)
+        mock_repo.decide = AsyncMock(return_value=answered(pending, PendingActionStatus.APPROVED))
+        mock_repo.settle = AsyncMock(return_value=answered(pending, PendingActionStatus.FAILED, "x"))
+        mock_gateway.client = None
+        mock_gateway.tool_router.call_tool = AsyncMock(side_effect=RuntimeError("boom"))
+
+        response = authed_client.post("/approvals/act-1/approve")
+
+        assert response.status_code == 200
+        status = mock_repo.settle.await_args.args[1]
+        assert status == PendingActionStatus.FAILED
+        assert "boom" in mock_repo.settle.await_args.args[2]
+
+    @patch("app.api.routes.message_repo")
+    @patch("app.api.routes.run_tool_loop")
+    @patch("app.api.routes.llm_gateway")
+    @patch("app.api.routes.pending_action_repo")
+    def test_a_failing_announcement_does_not_fail_the_approval(
+        self, mock_repo, mock_gateway, mock_loop, mock_msg_repo, authed_client
+    ):
+        pending = held_action()
+        mock_repo.get_for_user = AsyncMock(return_value=pending)
+        mock_repo.decide = AsyncMock(return_value=answered(pending, PendingActionStatus.APPROVED))
+        mock_repo.settle = AsyncMock(return_value=answered(pending, PendingActionStatus.APPROVED, "{}"))
+        mock_gateway.client = MagicMock()
+        mock_gateway.tool_router.call_tool = AsyncMock(return_value="{}")
+        mock_gateway._build_system_prompt = AsyncMock(return_value=[])
+        mock_loop.side_effect = RuntimeError("API down")
+        mock_msg_repo.create = AsyncMock()
+
+        assert authed_client.post("/approvals/act-1/approve").status_code == 200
+        mock_msg_repo.create.assert_not_awaited()
+
+    @patch("app.api.routes.run_tool_loop")
+    @patch("app.api.routes.llm_gateway")
+    @patch("app.api.routes.pending_action_repo")
+    def test_deny_records_the_refusal_without_running_anything(
+        self, mock_repo, mock_gateway, mock_loop, authed_client
+    ):
+        pending = held_action()
+        mock_repo.get_for_user = AsyncMock(return_value=pending)
+        mock_repo.decide = AsyncMock(return_value=answered(pending, PendingActionStatus.DENIED))
+        mock_gateway.tool_router.call_tool = AsyncMock()
+        mock_loop.return_value = {"response": "x", "tool_calls": []}
+
+        response = authed_client.post("/approvals/act-1/deny")
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "denied"
+        mock_repo.decide.assert_awaited_once_with("act-1", PendingActionStatus.DENIED)
+        mock_gateway.tool_router.call_tool.assert_not_awaited()
+        mock_loop.assert_not_awaited()
