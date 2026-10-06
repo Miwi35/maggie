@@ -10,7 +10,6 @@ use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Repository\EnvelopeRepository;
 use Maggie\Finance\Repository\TransactionRepository;
-use Symfony\Component\Uid\Ulid;
 
 /**
  * The yearly planning session, read side: what last year actually cost, which
@@ -69,14 +68,7 @@ class GetAnnualPlan
                 continue;
             }
 
-            // `IDENTITY()` hands back the column's raw value, not the ULID's
-            // own spelling — keyed on that, a category would get one row from
-            // this query and a second from every entity below it.
-            $id = $this->open(
-                $rows,
-                (string) Ulid::fromString($spending['categoryId']),
-                (string) $spending['categoryName'],
-            );
+            $id = $this->open($rows, $spending['categoryId'], (string) $spending['categoryName']);
             $rows[$id]['lastYear']['consumedCents'] = $spending['spentCents'];
         }
 

@@ -13,6 +13,7 @@ use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\ObligationFlag;
 use Maggie\Finance\Enum\TransactionStatus;
+use Symfony\Component\Uid\Ulid;
 
 /** @extends ServiceEntityRepository<Transaction> */
 class TransactionRepository extends ServiceEntityRepository
@@ -282,8 +283,11 @@ class TransactionRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
 
+        // `IDENTITY()` hands back the column's raw value (RFC 4122, 36
+        // characters), not the ULID's own spelling (26 characters in base32)
+        // that every other entry point of the API renders.
         $spending = array_map(static fn (array $row) => [
-            'categoryId' => null === $row['categoryId'] ? null : (string) $row['categoryId'],
+            'categoryId' => null === $row['categoryId'] ? null : (string) Ulid::fromString($row['categoryId']),
             'categoryName' => $row['categoryName'],
             'spentCents' => abs((int) $row['total']),
         ], $rows);
