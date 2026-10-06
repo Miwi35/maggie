@@ -3,6 +3,7 @@ import Typography from '@mui/material/Typography'
 import CircularProgress from '@mui/material/CircularProgress'
 import CheckIcon from '@mui/icons-material/Check'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
+import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty'
 import type { ToolCallState } from './types'
 
 interface ToolCallListProps {
@@ -45,6 +46,9 @@ export const ToolCallList = ({ toolCalls }: ToolCallListProps) => {
           {tc.status === 'running' && <CircularProgress size={14} />}
           {tc.status === 'success' && <CheckIcon sx={{ fontSize: 14, color: 'success.main' }} />}
           {tc.status === 'error' && <ErrorOutlineIcon sx={{ fontSize: 14, color: 'error.main' }} />}
+          {tc.status === 'pending_approval' && (
+            <HourglassEmptyIcon titleAccess="En attente de validation" sx={{ fontSize: 14, color: 'warning.main' }} />
+          )}
           <Typography variant="body2" noWrap sx={{ flex: 1, fontFamily: 'monospace', fontSize: 12 }}>
             {tc.toolName}
           </Typography>

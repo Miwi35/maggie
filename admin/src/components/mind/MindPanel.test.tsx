@@ -85,6 +85,14 @@ describe('ToolCallList', () => {
     expect(screen.getByTestId('mind-activity')).toBeInTheDocument()
   })
 
+  test('marks a call held for approval with its own icon and status', () => {
+    const toolCalls: ToolCallState[] = [{ toolCallId: 'tc1', toolName: 'delete_event', status: 'pending_approval' }]
+    render(<ToolCallList toolCalls={toolCalls} />)
+
+    expect(screen.getByTestId('mind-tool-call')).toHaveAttribute('data-status', 'pending_approval')
+    expect(screen.getByTitle('En attente de validation')).toBeInTheDocument()
+  })
+
   test('marks the section even when there is nothing to show', () => {
     render(<ToolCallList toolCalls={[]} />)
     expect(screen.getByTestId('mind-activity')).toBeInTheDocument()

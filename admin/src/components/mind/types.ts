@@ -9,7 +9,8 @@ export interface ContextState {
 export interface ToolCallState {
   toolCallId: string
   toolName: string
-  status: 'running' | 'success' | 'error'
+  /** `pending_approval`: the policy held the call back until the user answers it (MAG-4). */
+  status: 'running' | 'success' | 'error' | 'pending_approval'
 }
 
 export type AgentState = 'idle' | 'thinking' | 'acting'

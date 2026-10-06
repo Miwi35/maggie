@@ -1,0 +1,11 @@
+# What she says once the owner has approved the held call: the approve endpoint
+# runs the frozen call, then asks the model to announce it with a prompt that
+# starts « L'utilisateur a validé <outil>(…) » (`announce_approved_action`).
+name: delete-event-approved
+description: Announce a deletion the user has approved.
+
+match:
+  user_contains: "a validé delete_event"
+
+turns:
+  - text: "C'est fait : l'événement est supprimé."
