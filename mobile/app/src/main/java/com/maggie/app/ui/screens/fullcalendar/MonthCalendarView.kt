@@ -23,7 +23,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -36,6 +35,7 @@ import com.kizitonwose.calendar.core.DayPosition
 import com.kizitonwose.calendar.core.daysOfWeek
 import com.maggie.app.data.model.ExpandedEvent
 import com.maggie.app.ui.screens.dashboard.parseColor
+import com.maggie.app.ui.theme.readableTextOn
 import com.maggie.app.util.DateRanges
 import java.time.DayOfWeek
 import java.time.Instant
@@ -357,7 +357,7 @@ private fun ContinuousEventChip(
                 text = event.summary,
                 fontSize = 9.sp,
                 lineHeight = 10.sp,
-                color = Color.White,
+                color = readableTextOn(color),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
