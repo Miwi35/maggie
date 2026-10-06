@@ -12,6 +12,7 @@ final readonly class UpdateLoanCommand
 
     /** @param list<'lender'> $clearFields */
     public function __construct(
+        public string $userId,
         public string $loanId,
         public ?string $name = null,
         public ?int $principalRemainingCents = null,

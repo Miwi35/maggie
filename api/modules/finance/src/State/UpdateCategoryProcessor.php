@@ -34,6 +34,7 @@ class UpdateCategoryProcessor implements ProcessorInterface
         }
 
         $envelope = $this->bus->dispatch(new UpdateCategoryCommand(
+            userId: (string) $data->getUser()->getId(),
             categoryId: (string) $data->getId(),
             name: $data->getName(),
             obligation: $data->getObligation()->value,

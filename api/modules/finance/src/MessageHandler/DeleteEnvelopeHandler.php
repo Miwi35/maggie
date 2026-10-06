@@ -20,7 +20,7 @@ class DeleteEnvelopeHandler
 
     public function __invoke(DeleteEnvelopeCommand $command): void
     {
-        $envelope = $this->envelopeRepository->find($command->envelopeId)
+        $envelope = $this->envelopeRepository->findOneBy(['id' => $command->envelopeId, 'user' => $command->userId])
             ?? throw new \DomainException("Envelope not found: {$command->envelopeId}");
 
         $this->deleteEnvelope->execute($envelope);

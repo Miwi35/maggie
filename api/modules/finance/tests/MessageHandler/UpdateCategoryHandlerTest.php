@@ -24,6 +24,11 @@ class UpdateCategoryHandlerTest extends KernelTestCase
         $this->loadFixtures('clearable_fields.yaml');
     }
 
+    private function userId(): string
+    {
+        return (string) $this->getFixture('test_user')->getId();
+    }
+
     private function dispatch(UpdateCategoryCommand $command): void
     {
         self::getContainer()->get(MessageBusInterface::class)->dispatch($command);
@@ -45,6 +50,7 @@ class UpdateCategoryHandlerTest extends KernelTestCase
     public function testClearingTheParentMakesItATopLevelCategory(): void
     {
         $this->dispatch(new UpdateCategoryCommand(
+            userId: $this->userId(),
             categoryId: $this->id(),
             clearFields: ['parentId'],
         ));
@@ -61,6 +67,7 @@ class UpdateCategoryHandlerTest extends KernelTestCase
     public function testClearingColorAndIconKeepsTheParent(): void
     {
         $this->dispatch(new UpdateCategoryCommand(
+            userId: $this->userId(),
             categoryId: $this->id(),
             clearFields: ['color', 'icon'],
         ));
@@ -74,6 +81,7 @@ class UpdateCategoryHandlerTest extends KernelTestCase
     public function testNullFieldsWithoutClearAreLeftUntouched(): void
     {
         $this->dispatch(new UpdateCategoryCommand(
+            userId: $this->userId(),
             categoryId: $this->id(),
             name: 'Festivals',
         ));
@@ -90,6 +98,6 @@ class UpdateCategoryHandlerTest extends KernelTestCase
         $this->expectException(\Throwable::class);
         $this->expectExceptionMessage('Category not found');
 
-        $this->dispatch(new UpdateCategoryCommand(categoryId: '01ARZ3NDEKTSV4RRFFQ69G5FAV', clearFields: ['color']));
+        $this->dispatch(new UpdateCategoryCommand(userId: $this->userId(), categoryId: '01ARZ3NDEKTSV4RRFFQ69G5FAV', clearFields: ['color']));
     }
 }

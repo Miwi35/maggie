@@ -108,6 +108,7 @@ class ManageLoansTool
         }
 
         $stamped = $this->bus->dispatch(new UpdateLoanCommand(
+            userId: (string) $this->userContext->requireUser()->getId(),
             loanId: $loanId,
             name: $name,
             principalRemainingCents: $principalRemainingCents,
@@ -134,7 +135,10 @@ class ManageLoansTool
             return json_encode(['error' => 'loanId is required for delete.'], JSON_THROW_ON_ERROR);
         }
 
-        $this->bus->dispatch(new DeleteLoanCommand(loanId: $loanId));
+        $this->bus->dispatch(new DeleteLoanCommand(
+            userId: (string) $this->userContext->requireUser()->getId(),
+            loanId: $loanId,
+        ));
 
         return json_encode(['success' => true], JSON_THROW_ON_ERROR);
     }

@@ -21,6 +21,7 @@ class DeleteCategorizationRuleProcessor implements ProcessorInterface
     public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): void
     {
         $this->bus->dispatch(new DeleteCategorizationRuleCommand(
+            userId: (string) $data->getUser()->getId(),
             categorizationRuleId: (string) $data->getId(),
         ));
     }

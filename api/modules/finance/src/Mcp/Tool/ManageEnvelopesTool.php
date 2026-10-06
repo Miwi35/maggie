@@ -129,6 +129,7 @@ class ManageEnvelopesTool
         }
 
         $stamped = $this->bus->dispatch(new UpdateEnvelopeCommand(
+            userId: (string) $this->userContext->requireUser()->getId(),
             envelopeId: $envelopeId,
             categoryId: $categoryId,
             amountCents: $amountCents,
@@ -186,7 +187,10 @@ class ManageEnvelopesTool
             return json_encode(['error' => 'envelopeId is required for delete.'], JSON_THROW_ON_ERROR);
         }
 
-        $this->bus->dispatch(new DeleteEnvelopeCommand(envelopeId: $envelopeId));
+        $this->bus->dispatch(new DeleteEnvelopeCommand(
+            userId: (string) $this->userContext->requireUser()->getId(),
+            envelopeId: $envelopeId,
+        ));
 
         return json_encode(['success' => true], JSON_THROW_ON_ERROR);
     }

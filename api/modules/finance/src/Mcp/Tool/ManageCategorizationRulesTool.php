@@ -117,6 +117,7 @@ class ManageCategorizationRulesTool
         }
 
         $stamped = $this->bus->dispatch(new UpdateCategorizationRuleCommand(
+            userId: (string) $this->userContext->requireUser()->getId(),
             categorizationRuleId: $categorizationRuleId,
             labelPattern: $labelPattern,
             categoryId: $categoryId,
@@ -144,7 +145,10 @@ class ManageCategorizationRulesTool
             return json_encode(['error' => 'categorizationRuleId is required for delete.'], JSON_THROW_ON_ERROR);
         }
 
-        $this->bus->dispatch(new DeleteCategorizationRuleCommand(categorizationRuleId: $categorizationRuleId));
+        $this->bus->dispatch(new DeleteCategorizationRuleCommand(
+            userId: (string) $this->userContext->requireUser()->getId(),
+            categorizationRuleId: $categorizationRuleId,
+        ));
 
         return json_encode(['success' => true], JSON_THROW_ON_ERROR);
     }
@@ -192,6 +196,7 @@ class ManageCategorizationRulesTool
         $rule = $stamped->last(HandledStamp::class)->getResult();
 
         $this->bus->dispatch(new UpdateTransactionCommand(
+            userId: (string) $user->getId(),
             transactionId: $transactionId,
             categoryId: $categoryId,
             categorySource: CategorySource::Manual->value,

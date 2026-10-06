@@ -25,6 +25,11 @@ class UpdateTransactionHandlerTest extends KernelTestCase
         $this->loadFixtures('clearable_fields.yaml');
     }
 
+    private function userId(): string
+    {
+        return (string) $this->getFixture('test_user')->getId();
+    }
+
     private function dispatch(UpdateTransactionCommand $command): void
     {
         self::getContainer()->get(MessageBusInterface::class)->dispatch($command);
@@ -46,6 +51,7 @@ class UpdateTransactionHandlerTest extends KernelTestCase
     public function testClearFieldsRemovesTheCategory(): void
     {
         $this->dispatch(new UpdateTransactionCommand(
+            userId: $this->userId(),
             transactionId: $this->id(),
             clearFields: ['categoryId'],
         ));
@@ -63,6 +69,7 @@ class UpdateTransactionHandlerTest extends KernelTestCase
     public function testAnEmptyCategoryIdStillRemovesTheCategory(): void
     {
         $this->dispatch(new UpdateTransactionCommand(
+            userId: $this->userId(),
             transactionId: $this->id(),
             categoryId: '',
         ));
@@ -75,6 +82,7 @@ class UpdateTransactionHandlerTest extends KernelTestCase
     public function testNullCategoryWithoutClearIsLeftUntouched(): void
     {
         $this->dispatch(new UpdateTransactionCommand(
+            userId: $this->userId(),
             transactionId: $this->id(),
             label: 'Renamed',
         ));
@@ -91,6 +99,7 @@ class UpdateTransactionHandlerTest extends KernelTestCase
         $this->expectExceptionMessage('Transaction not found');
 
         $this->dispatch(new UpdateTransactionCommand(
+            userId: $this->userId(),
             transactionId: '01ARZ3NDEKTSV4RRFFQ69G5FAV',
             clearFields: ['categoryId'],
         ));

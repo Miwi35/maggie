@@ -12,6 +12,7 @@ final readonly class UpdateCategorizationRuleCommand
 
     /** @param list<'minAmountCents'|'maxAmountCents'> $clearFields */
     public function __construct(
+        public string $userId,
         public string $categorizationRuleId,
         public ?string $labelPattern = null,
         public ?string $categoryId = null,

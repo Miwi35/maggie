@@ -24,7 +24,7 @@ class UpdateCategoryHandler
 
     public function __invoke(UpdateCategoryCommand $command): Category
     {
-        $category = $this->categoryRepository->find($command->categoryId)
+        $category = $this->categoryRepository->findOneBy(['id' => $command->categoryId, 'user' => $command->userId])
             ?? throw new \DomainException("Category not found: {$command->categoryId}");
 
         if (null !== $command->name) {

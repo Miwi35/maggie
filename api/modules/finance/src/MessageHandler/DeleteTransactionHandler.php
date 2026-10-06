@@ -20,7 +20,7 @@ class DeleteTransactionHandler
 
     public function __invoke(DeleteTransactionCommand $command): void
     {
-        $transaction = $this->transactionRepository->find($command->transactionId)
+        $transaction = $this->transactionRepository->findOneBy(['id' => $command->transactionId, 'user' => $command->userId])
             ?? throw new \DomainException("Transaction not found: {$command->transactionId}");
 
         $this->deleteTransaction->execute($transaction);

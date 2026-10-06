@@ -21,6 +21,7 @@ class DeleteTransactionProcessor implements ProcessorInterface
     public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): void
     {
         $this->bus->dispatch(new DeleteTransactionCommand(
+            userId: (string) $data->getUser()->getId(),
             transactionId: (string) $data->getId(),
         ));
     }

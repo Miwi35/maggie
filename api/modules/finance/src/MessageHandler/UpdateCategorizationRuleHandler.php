@@ -25,7 +25,7 @@ class UpdateCategorizationRuleHandler
 
     public function __invoke(UpdateCategorizationRuleCommand $command): CategorizationRule
     {
-        $rule = $this->ruleRepository->find($command->categorizationRuleId)
+        $rule = $this->ruleRepository->findOneBy(['id' => $command->categorizationRuleId, 'user' => $command->userId])
             ?? throw new \DomainException("Categorization rule not found: {$command->categorizationRuleId}");
 
         if (null !== $command->categoryId) {

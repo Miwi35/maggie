@@ -99,6 +99,7 @@ class ManageCategoriesTool
         }
 
         $envelope = $this->bus->dispatch(new UpdateCategoryCommand(
+            userId: (string) $this->userContext->requireUser()->getId(),
             categoryId: $categoryId,
             name: $name,
             obligation: $obligation,
@@ -123,7 +124,10 @@ class ManageCategoriesTool
             return json_encode(['error' => 'categoryId is required for delete.'], JSON_THROW_ON_ERROR);
         }
 
-        $this->bus->dispatch(new DeleteCategoryCommand(categoryId: $categoryId));
+        $this->bus->dispatch(new DeleteCategoryCommand(
+            userId: (string) $this->userContext->requireUser()->getId(),
+            categoryId: $categoryId,
+        ));
 
         return json_encode(['success' => true], JSON_THROW_ON_ERROR);
     }

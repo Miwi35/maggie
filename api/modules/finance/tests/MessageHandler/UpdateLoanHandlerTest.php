@@ -24,6 +24,11 @@ class UpdateLoanHandlerTest extends KernelTestCase
         $this->loadFixtures('clearable_fields.yaml');
     }
 
+    private function userId(): string
+    {
+        return (string) $this->getFixture('test_user')->getId();
+    }
+
     private function dispatch(UpdateLoanCommand $command): void
     {
         self::getContainer()->get(MessageBusInterface::class)->dispatch($command);
@@ -40,6 +45,7 @@ class UpdateLoanHandlerTest extends KernelTestCase
     public function testClearingTheLenderLeavesTheFiguresUntouched(): void
     {
         $this->dispatch(new UpdateLoanCommand(
+            userId: $this->userId(),
             loanId: (string) $this->getFixture('car')->getId(),
             clearFields: ['lender'],
         ));
@@ -56,6 +62,7 @@ class UpdateLoanHandlerTest extends KernelTestCase
     public function testNullFieldsWithoutClearAreLeftUntouched(): void
     {
         $this->dispatch(new UpdateLoanCommand(
+            userId: $this->userId(),
             loanId: (string) $this->getFixture('car')->getId(),
             priority: 3,
         ));
@@ -70,6 +77,6 @@ class UpdateLoanHandlerTest extends KernelTestCase
         $this->expectException(\Throwable::class);
         $this->expectExceptionMessage('Loan not found');
 
-        $this->dispatch(new UpdateLoanCommand(loanId: '01ARZ3NDEKTSV4RRFFQ69G5FAV', clearFields: ['lender']));
+        $this->dispatch(new UpdateLoanCommand(userId: $this->userId(), loanId: '01ARZ3NDEKTSV4RRFFQ69G5FAV', clearFields: ['lender']));
     }
 }

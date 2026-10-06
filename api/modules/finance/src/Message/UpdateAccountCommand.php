@@ -12,6 +12,7 @@ final readonly class UpdateAccountCommand
 
     /** @param list<'bank'|'externalAccountId'> $clearFields */
     public function __construct(
+        public string $userId,
         public string $accountId,
         public ?string $name = null,
         public ?string $type = null,

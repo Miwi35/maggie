@@ -24,6 +24,11 @@ class UpdateAccountHandlerTest extends KernelTestCase
         $this->loadFixtures('clearable_fields.yaml');
     }
 
+    private function userId(): string
+    {
+        return (string) $this->getFixture('test_user')->getId();
+    }
+
     private function dispatch(UpdateAccountCommand $command): void
     {
         self::getContainer()->get(MessageBusInterface::class)->dispatch($command);
@@ -40,6 +45,7 @@ class UpdateAccountHandlerTest extends KernelTestCase
     public function testClearingTheBankLeavesTheOtherFieldsUntouched(): void
     {
         $this->dispatch(new UpdateAccountCommand(
+            userId: $this->userId(),
             accountId: (string) $this->getFixture('bank_account')->getId(),
             clearFields: ['bank'],
         ));
@@ -56,6 +62,7 @@ class UpdateAccountHandlerTest extends KernelTestCase
     public function testClearingTheExternalAccountId(): void
     {
         $this->dispatch(new UpdateAccountCommand(
+            userId: $this->userId(),
             accountId: (string) $this->getFixture('bank_account')->getId(),
             clearFields: ['externalAccountId'],
         ));
@@ -68,6 +75,7 @@ class UpdateAccountHandlerTest extends KernelTestCase
     public function testNullFieldsWithoutClearAreLeftUntouched(): void
     {
         $this->dispatch(new UpdateAccountCommand(
+            userId: $this->userId(),
             accountId: (string) $this->getFixture('bank_account')->getId(),
             name: 'Renamed',
         ));
@@ -83,6 +91,6 @@ class UpdateAccountHandlerTest extends KernelTestCase
         $this->expectException(\Throwable::class);
         $this->expectExceptionMessage('Account not found');
 
-        $this->dispatch(new UpdateAccountCommand(accountId: '01ARZ3NDEKTSV4RRFFQ69G5FAV', clearFields: ['bank']));
+        $this->dispatch(new UpdateAccountCommand(userId: $this->userId(), accountId: '01ARZ3NDEKTSV4RRFFQ69G5FAV', clearFields: ['bank']));
     }
 }

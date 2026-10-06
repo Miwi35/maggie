@@ -28,7 +28,7 @@ class DeleteCategoryHandler
 
     public function __invoke(DeleteCategoryCommand $command): void
     {
-        $category = $this->categoryRepository->find($command->categoryId)
+        $category = $this->categoryRepository->findOneBy(['id' => $command->categoryId, 'user' => $command->userId])
             ?? throw new \DomainException("Category not found: {$command->categoryId}");
 
         // The database cascades remove sub-categories, envelopes and rules without any command of their own.

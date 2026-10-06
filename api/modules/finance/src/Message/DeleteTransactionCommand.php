@@ -7,6 +7,7 @@ namespace Maggie\Finance\Message;
 final readonly class DeleteTransactionCommand
 {
     public function __construct(
+        public string $userId,
         public string $transactionId,
     ) {
     }

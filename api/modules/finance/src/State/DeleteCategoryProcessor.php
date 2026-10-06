@@ -21,6 +21,7 @@ class DeleteCategoryProcessor implements ProcessorInterface
     public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): void
     {
         $this->bus->dispatch(new DeleteCategoryCommand(
+            userId: (string) $data->getUser()->getId(),
             categoryId: (string) $data->getId(),
         ));
     }
