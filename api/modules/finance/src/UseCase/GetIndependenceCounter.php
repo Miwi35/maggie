@@ -39,7 +39,9 @@ class GetIndependenceCounter
     /** @return array<string, mixed> */
     public function execute(User $user, ?\DateTimeImmutable $thisMonth = null): array
     {
-        $thisMonth ??= new \DateTimeImmutable('first day of this month');
+        // Midnight: `bookedAt` is a date, and the current time of day would
+        // slide the window by a day at both ends (see `sampleWindow`).
+        $thisMonth ??= new \DateTimeImmutable('midnight first day of this month');
         [$from, $until] = MeasureMonthlyLifestyle::sampleWindow($thisMonth);
 
         $lifestyleCents = $this->measureMonthlyLifestyle->execute($user, $thisMonth);
