@@ -402,6 +402,9 @@ describe('CalendarView', () => {
         vi.stubGlobal('EventSource', MockEventSource)
       })
 
+      // The saved preferences are read on mount too; they are not what these tests are about.
+      const agendaCalls = () => fetchMock.mock.calls.filter(([url]) => !String(url).includes('/user_preferences/'))
+
       const openMenu = async (item: string) => {
         render(<CalendarView />)
         await userEvent.click(await screen.findByRole('button', { name: "Options de l'agenda Famille" }))
@@ -411,8 +414,8 @@ describe('CalendarView', () => {
       test('exports the agenda by its bare identifier', async () => {
         await openMenu('Exporter vers Google')
 
-        await waitFor(() => expect(fetchMock).toHaveBeenCalled())
-        const [url, init] = fetchMock.mock.calls[0]
+        await waitFor(() => expect(agendaCalls()).not.toHaveLength(0))
+        const [url, init] = agendaCalls()[0]
         expect(String(url)).toMatch(/\/calendar\/google\/export$/)
         expect(JSON.parse(init.body)).toEqual({ agendaId: '01FAMILLE' })
       })
@@ -423,8 +426,8 @@ describe('CalendarView', () => {
         const dialog = await screen.findByRole('dialog', { name: "Supprimer l'agenda" })
         await userEvent.click(within(dialog).getByRole('button', { name: 'Supprimer' }))
 
-        await waitFor(() => expect(fetchMock).toHaveBeenCalled())
-        const [url, init] = fetchMock.mock.calls[0]
+        await waitFor(() => expect(agendaCalls()).not.toHaveLength(0))
+        const [url, init] = agendaCalls()[0]
         expect(String(url)).toBe('http://localhost/api/agendas/01FAMILLE')
         expect(init.method).toBe('DELETE')
       })

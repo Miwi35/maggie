@@ -170,6 +170,11 @@ export class CalendarPage extends AdminShell {
     await expect(button).toHaveClass(/MuiButton-contained/)
   }
 
+  /** The view whose toolbar button is the pressed one. */
+  async expectView(view: CalendarViewName): Promise<void> {
+    await expect(this.content.getByRole('button', { name: view, exact: true })).toHaveClass(/MuiButton-contained/)
+  }
+
   /** Forward one month, week or day, depending on the view. */
   async goForward(): Promise<void> {
     await this.step(/suivant/)
@@ -363,6 +368,11 @@ export class CalendarPage extends AdminShell {
     return this.content.getByTestId('agenda-row').filter({
       has: this.page.getByTestId('agenda-name').filter({ hasText: exactly(name) }),
     })
+  }
+
+  /** The sidebar checkbox that shows or hides one agenda. */
+  agendaCheckbox(name: string): Locator {
+    return this.agendaRow(name).getByRole('checkbox')
   }
 
   /** Opens the ⋮ menu of one agenda. It only appears on hover, so hover first. */

@@ -8,6 +8,11 @@ export const CALENDAR_VIEWS = { month: 'Mois', week: 'Semaine', day: 'Jour' } as
 
 export type CalendarView = keyof typeof CALENDAR_VIEWS
 
+/** The « Thème » select's options, label by stored value. */
+export const THEMES = { system: 'Système', light: 'Clair', dark: 'Sombre' } as const
+
+export type Theme = keyof typeof THEMES
+
 /**
  * Settings → Préférences.
  *
@@ -55,5 +60,19 @@ export class PreferencesPage extends AdminShell {
 
   async expectCalendarView(view: CalendarView): Promise<void> {
     await expect(this.calendarView(view)).toBeChecked()
+  }
+
+  get themeSelect(): Locator {
+    return this.content.getByRole('combobox', { name: 'Thème' })
+  }
+
+  /** Like the calendar view, the select only moves once the server's answer comes back. */
+  async chooseTheme(theme: Theme): Promise<void> {
+    await this.themeSelect.click()
+    await this.page.getByRole('option', { name: THEMES[theme], exact: true }).click()
+  }
+
+  async expectTheme(theme: Theme): Promise<void> {
+    await expect(this.themeSelect).toHaveText(THEMES[theme])
   }
 }

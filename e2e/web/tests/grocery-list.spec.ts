@@ -12,43 +12,31 @@ import { GroceryListPage } from '../pages/GroceryListPage.js'
  */
 
 /**
- * A line deferred by `buyAfter` is not today's shopping.
+ * A line deferred by `buyAfter` is not today's shopping (MAG-120).
  *
  * `buyAfter` is not something the owner sets by hand: `MealGrocerySync` puts it
  * there from an ingredient's shelf life, so a meal planned ten days out defers
- * its perishables on its own. The three clients then disagree about what that
- * means:
- *
- *   `get_grocery_list`  hides it unless asked for `includeDeferred`, says so in
- *                       its own description, and now has tests for both
- *                       (`GroceryToolsTest`).
- *   mobile              filters it out in `GroceryViewModel`.
- *   the admin           declares `buyAfter` on its `GroceryItem` type and then
- *                       never reads it, so the line is on the list.
- *
- * Two clients out of three agree, the API tool agrees with them, and the
- * owner's own seed comment says the line "must stay out of today's list" — so
- * the admin is the one that is wrong. Expected to fail, naming its ticket
- * rather than quietly asserting the behaviour the owner does not want: the
- * journey is the fix's reproduction, already written.
- *
- * Paired, as `e2e/web/README.md` requires: the test below it drives the same
- * setup — opening the list and finding it loaded — without a marker, so a
- * screen that failed to load at all cannot hide behind this one.
+ * its perishables on its own. The admin, the mobile app and `get_grocery_list`
+ * all keep such a line off today's list and say so: it waits in « Plus tard »,
+ * with its date, and does not count in the `coché/total` figure.
  */
-test.fail('a line deferred to next week is not on today list — MAG-174', async ({ page }) => {
+test('a line deferred to next week is not on today list but waits in « Plus tard » — MAG-120', async ({
+  page,
+}) => {
   const grocery = new GroceryListPage(page)
   await grocery.open()
 
-  await expect(
-    grocery.line('Liquide vaisselle'),
-    'the admin shows a line it is told to buy in five days',
-  ).toHaveCount(0)
+  await expect(grocery.line('Liquide vaisselle')).toHaveCount(0)
+
+  const later = grocery.laterSection
+  await expect(later).toContainText('Plus tard (1)')
+  await later.getByText('Plus tard').click()
+  await expect(later.getByTestId('grocery-later-item').filter({ hasText: 'Liquide vaisselle' })).toBeVisible()
 })
 
 test("the owner's list loads, with the lines the seed put on it", async ({ page }) => {
-  // The pair for the expectation above: it is the setup, unmarked, so "the
-  // deferred line is absent" can never be satisfied by an empty screen.
+  // The setup of the journey above, on its own, so "the deferred line is
+  // absent" can never be satisfied by an empty screen.
   const grocery = new GroceryListPage(page)
   await grocery.open()
 

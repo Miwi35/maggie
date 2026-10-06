@@ -8,6 +8,8 @@ export class GroceryListPage extends AdminShell {
   readonly heading: Locator
   readonly addButton: Locator
   readonly endErrandButton: Locator
+  /** « Plus tard »: the lines whose `buyAfter` is still ahead. */
+  readonly laterSection: Locator
   /** The dialog behind "Ajouter" and the one behind "Terminer les courses". */
   readonly addDialog: Locator
   readonly remainingDialog: Locator
@@ -17,6 +19,7 @@ export class GroceryListPage extends AdminShell {
     this.heading = this.content.getByText('Ma liste de courses')
     this.addButton = this.content.getByRole('button', { name: 'Ajouter' })
     this.endErrandButton = this.content.getByRole('button', { name: 'Terminer les courses' })
+    this.laterSection = this.content.getByTestId('grocery-later')
     this.addDialog = page.getByRole('dialog').filter({ hasText: 'Ajouter un article' })
     this.remainingDialog = page.getByRole('dialog').filter({ hasText: 'Articles restants' })
   }

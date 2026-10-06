@@ -95,6 +95,19 @@ const categoryChoices = [
   { id: 'other', name: 'Autre' },
 ]
 
+// The REST API sends `buyAfter` as a date-time, Mercure as a plain date: the
+// first ten characters are the day in both, compared with the local today.
+const localToday = () => {
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+const isDeferred = (item: GroceryItem, today: string) => !!item.buyAfter && item.buyAfter.slice(0, 10) > today
+const formatBuyAfter = (buyAfter: string) => {
+  const [y, m, d] = buyAfter.slice(0, 10).split('-')
+  return `${d}/${m}/${y}`
+}
+
 const GROCERY_LIST_TOPICS = ['/api/grocery_lists/{id}']
 const entrypoint = import.meta.env.VITE_API_URL || 'http://localhost/api'
 
@@ -207,6 +220,7 @@ export const GroceryListView = () => {
   const [selectedStore, setSelectedStore] = useState<StoreOption | null>(null)
   const [storeInputValue, setStoreInputValue] = useState('')
   const [collapsedStores, setCollapsedStores] = useState<Set<string>>(new Set())
+  const [laterOpen, setLaterOpen] = useState(false)
   const [detailItem, setDetailItem] = useState<GroceryItem | null>(null)
   const [editLabel, setEditLabel] = useState('')
   const [editQuantity, setEditQuantity] = useState('')
@@ -475,7 +489,8 @@ export const GroceryListView = () => {
           return
         }
       }
-      const remaining = groceryList.items.filter((i) => !i.checked)
+      const today = localToday()
+      const remaining = groceryList.items.filter((i) => !i.checked && !isDeferred(i, today))
       setUncheckedItems(remaining)
       setEndErrandDialogOpen(true)
       const { data } = await dataProvider.getOne('grocery_lists', { id: groceryList.id })
@@ -571,13 +586,24 @@ export const GroceryListView = () => {
   )
   const removingIds = useMemo(() => new Set(removingItems.map((i) => i.id)), [removingItems])
 
+  // A line with a future `buyAfter` is not today's shopping: it waits in « Plus tard ».
+  const { todayItems, laterItems } = useMemo(() => {
+    const today = localToday()
+    const all = groceryList?.items ?? []
+    return {
+      todayItems: all.filter((i) => !isDeferred(i, today)),
+      laterItems: all
+        .filter((i) => isDeferred(i, today))
+        .sort((a, b) => (a.buyAfter ?? '').localeCompare(b.buyAfter ?? '') || a.label.localeCompare(b.label)),
+    }
+  }, [groceryList?.items])
+
   // Merge current items + ghost (removing) items for display
   const displayItems = useMemo(() => {
-    const current = groceryList?.items ?? []
-    const currentIds = new Set(current.map((i) => i.id))
+    const currentIds = new Set(todayItems.map((i) => i.id))
     const ghosts = removingItems.filter((ri) => !currentIds.has(ri.id))
-    return [...current, ...ghosts]
-  }, [groceryList?.items, removingItems])
+    return [...todayItems, ...ghosts]
+  }, [todayItems, removingItems])
 
   // Group items by store, sorted by visitOrder
   const storeGroups: StoreGroup[] = []
@@ -603,8 +629,8 @@ export const GroceryListView = () => {
   }
 
   // Counts exclude ghost (removing) items
-  const checkedCount = groceryList?.items?.filter((i) => i.checked).length || 0
-  const totalCount = groceryList?.items?.length || 0
+  const checkedCount = todayItems.filter((i) => i.checked).length
+  const totalCount = todayItems.length
 
   return (
     <Box sx={{ p: 2, maxWidth: 800, mx: 'auto' }}>
@@ -710,6 +736,30 @@ export const GroceryListView = () => {
               <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
                 Cette liste est vide.
               </Typography>
+            )}
+
+            {laterItems.length > 0 && (
+              <Box data-testid="grocery-later" sx={{ mt: 1 }}>
+                <List dense>
+                  <ListItemButton onClick={() => setLaterOpen((open) => !open)} dense>
+                    <ListItemText
+                      primary={`Plus tard (${laterItems.length})`}
+                      primaryTypographyProps={{ fontWeight: 600 }}
+                    />
+                    {laterOpen ? <ExpandLess /> : <ExpandMore />}
+                  </ListItemButton>
+                  <Collapse in={laterOpen} unmountOnExit>
+                    {laterItems.map((item) => (
+                      <ListItem key={item.id} data-testid="grocery-later-item">
+                        <ListItemText
+                          primary={item.label}
+                          secondary={`À acheter à partir du ${formatBuyAfter(item.buyAfter ?? '')}`}
+                        />
+                      </ListItem>
+                    ))}
+                  </Collapse>
+                </List>
+              </Box>
             )}
           </>
         )}

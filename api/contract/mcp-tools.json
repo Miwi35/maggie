@@ -393,7 +393,7 @@
                 }
             }
         },
-        "description": "Get the grocery list with items grouped by store in visit order. By default hides deferred items (buyAfter in the future). Set includeDeferred=true to see all items."
+        "description": "Get the grocery list with items grouped by store in visit order. By default hides deferred items (buyAfter in the future) from the store groups and lists them, with their date, in `later`. Set includeDeferred=true to see them in the store groups instead."
     },
     "get_recipe": {
         "name": "get_recipe",
