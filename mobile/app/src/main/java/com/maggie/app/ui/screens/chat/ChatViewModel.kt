@@ -3,11 +3,14 @@ package com.maggie.app.ui.screens.chat
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.maggie.app.data.api.ApprovalDecisionException
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.AgUiEvent
 import com.maggie.app.data.model.ChatMessage
+import com.maggie.app.data.model.PendingApproval
+import com.maggie.app.data.repository.ApprovalRepository
 import com.maggie.app.data.repository.ChatPreferencesRepository
 import com.maggie.app.data.repository.ChatRepository
 import com.maggie.app.util.ChatDateFormatter
@@ -25,6 +28,19 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 
 enum class ScrollBehavior { NONE, ANIMATE_TO_BOTTOM, INSTANT_TO_INDEX }
+
+enum class ApprovalDecision { APPROVE, DENY }
+
+/**
+ * An approval as the chat shows it. [decision] is the answer sent and not yet
+ * confirmed — the optimistic state, in which the card is locked; [error] says the
+ * last attempt did not reach the agent and the card is answerable again.
+ */
+data class ApprovalItem(
+    val approval: PendingApproval,
+    val decision: ApprovalDecision? = null,
+    val error: Boolean = false,
+)
 
 data class ChatUiState(
     val displayItems: List<ChatListItem> = emptyList(),
@@ -45,6 +61,8 @@ data class ChatUiState(
     val streamingMessageId: String? = null,
     /** The answer to a request made in this session, waiting to be read aloud (MAG-227). */
     val replyToSpeak: ChatMessage? = null,
+    /** Actions Maggie holds until the user answers, oldest first (MAG-4). */
+    val pendingApprovals: List<ApprovalItem> = emptyList(),
 )
 
 @OptIn(FlowPreview::class)
@@ -53,6 +71,7 @@ class ChatViewModel(
     private val mercureService: MercureService,
     private val chatPrefsRepository: ChatPreferencesRepository,
     private val authRepository: AuthRepository,
+    private val approvalRepository: ApprovalRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState
@@ -82,6 +101,8 @@ class ChatViewModel(
         loadInitialMessages()
         subscribeToChatUpdates()
         observeSearchQuery()
+        subscribeToApprovals()
+        loadPendingApprovals()
     }
 
     private fun loadInitialMessages() {
@@ -494,6 +515,97 @@ class ChatViewModel(
         }
 
         _uiState.value = _uiState.value.copy(displayItems = items)
+    }
+
+    /** Locks the card at once, then confirms with the agent; a failure unlocks it with an error. */
+    fun approve(id: String) = decide(id, ApprovalDecision.APPROVE)
+
+    fun deny(id: String) = decide(id, ApprovalDecision.DENY)
+
+    /** Drops a card that stays on screen once settled — a failed action — when the user closes it. */
+    fun dismissApproval(id: String) {
+        _uiState.value = _uiState.value.copy(
+            pendingApprovals = _uiState.value.pendingApprovals.filterNot { it.approval.id == id },
+        )
+    }
+
+    private fun decide(id: String, decision: ApprovalDecision) {
+        val item = _uiState.value.pendingApprovals.firstOrNull { it.approval.id == id } ?: return
+        if (item.decision != null || !item.approval.isPending) return
+
+        updateApproval(id) { it.copy(decision = decision, error = false) }
+        viewModelScope.launch {
+            val outcome = when (decision) {
+                ApprovalDecision.APPROVE -> approvalRepository.approve(id)
+                ApprovalDecision.DENY -> approvalRepository.deny(id)
+            }
+            outcome
+                .onSuccess { confirmed -> applyApproval(confirmed) }
+                .onFailure { e ->
+                    Log.w(TAG, "Approval $id not ${decision.name.lowercase()}d: ${e.message}")
+                    if (e is ApprovalDecisionException && e.isFinal) {
+                        // Decided elsewhere, expired or not ours: there is nothing left to answer.
+                        dismissApproval(id)
+                    } else {
+                        updateApproval(id) { it.copy(decision = null, error = true) }
+                    }
+                }
+        }
+    }
+
+    private fun updateApproval(id: String, change: (ApprovalItem) -> ApprovalItem) {
+        _uiState.value = _uiState.value.copy(
+            pendingApprovals = _uiState.value.pendingApprovals.map {
+                if (it.approval.id == id) change(it) else it
+            },
+        )
+    }
+
+    /**
+     * Folds in what the agent says about an approval, from a decision's answer or from
+     * Mercure. Only a pending action and a failed one are worth a card: an approved or
+     * denied one is over — Maggie's own message in the chat says what it did — and an
+     * expired one can no longer be answered.
+     */
+    private fun applyApproval(approval: PendingApproval) {
+        val current = _uiState.value.pendingApprovals
+        val known = current.any { it.approval.id == approval.id }
+        val shown = approval.isPending || approval.status == PendingApproval.STATUS_FAILED
+        val updated = when {
+            !shown -> current.filterNot { it.approval.id == approval.id }
+            known -> current.map {
+                // A pending echo of an answer still in flight must not unlock the card.
+                if (it.approval.id != approval.id) it
+                else if (approval.isPending) it.copy(approval = approval)
+                else it.copy(approval = approval, decision = null, error = false)
+            }
+            else -> current + ApprovalItem(approval)
+        }
+        _uiState.value = _uiState.value.copy(pendingApprovals = updated)
+    }
+
+    private fun loadPendingApprovals() {
+        viewModelScope.launch {
+            approvalRepository.getPending().onSuccess { loaded ->
+                // An id the stream already told about is fresher than this snapshot.
+                val known = _uiState.value.pendingApprovals.map { it.approval.id }.toSet()
+                val fresh = loaded.filter { it.id !in known && it.isPending }
+                if (fresh.isNotEmpty()) {
+                    _uiState.value = _uiState.value.copy(
+                        pendingApprovals = (_uiState.value.pendingApprovals + fresh.map { ApprovalItem(it) })
+                            .sortedBy { it.approval.createdAt },
+                    )
+                }
+            }
+        }
+    }
+
+    private fun subscribeToApprovals() {
+        viewModelScope.launch {
+            approvalRepository.observe()
+                .catch { /* SSE connection errors — silently retry on next app resume */ }
+                .collect { approval -> applyApproval(approval) }
+        }
     }
 
     private fun subscribeToChatUpdates() {

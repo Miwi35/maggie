@@ -2,11 +2,14 @@ package com.maggie.app.ui.screens.chat
 
 import android.util.Log
 import app.cash.turbine.test
+import com.maggie.app.data.api.ApprovalDecisionException
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.AgUiEvent
 import com.maggie.app.data.model.ChatMessage
+import com.maggie.app.data.model.PendingApproval
+import com.maggie.app.data.repository.ApprovalRepository
 import com.maggie.app.data.repository.ChatPreferencesRepository
 import com.maggie.app.data.repository.ChatRepository
 import io.mockk.coEvery
@@ -15,6 +18,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.verify
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -29,6 +33,8 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.yield
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -45,6 +51,7 @@ class ChatViewModelTest {
     private lateinit var mercureService: MercureService
     private lateinit var chatPrefsRepository: ChatPreferencesRepository
     private lateinit var authRepository: AuthRepository
+    private lateinit var approvalRepository: ApprovalRepository
     private lateinit var viewModel: ChatViewModel
 
     private val sampleMessages = listOf(
@@ -62,6 +69,9 @@ class ChatViewModelTest {
         mercureService = mockk()
         chatPrefsRepository = mockk()
         authRepository = mockk()
+        approvalRepository = mockk()
+        coEvery { approvalRepository.getPending() } returns Result.success(emptyList())
+        every { approvalRepository.observe() } returns emptyFlow()
         coEvery { authRepository.getUserId() } returns "user-1"
         every { mercureService.subscribe(any()) } returns emptyFlow()
         coEvery { repository.loadRecentMessages(any()) } returns sampleMessages
@@ -70,7 +80,7 @@ class ChatViewModelTest {
     }
 
     private fun createViewModel(): ChatViewModel {
-        return ChatViewModel(repository, mercureService, chatPrefsRepository, authRepository)
+        return ChatViewModel(repository, mercureService, chatPrefsRepository, authRepository, approvalRepository)
     }
 
     @After
@@ -648,5 +658,245 @@ class ChatViewModelTest {
         advanceUntilIdle()
 
         assertEquals(1, viewModel.uiState.value.messages.count { it.content == "Depuis le web" })
+    }
+
+    // --- Approvals (MAG-7) ---
+
+    private fun approval(
+        id: String = "ap-1",
+        status: String = PendingApproval.STATUS_PENDING,
+        createdAt: String = "2026-10-06T10:00:00Z",
+    ) = PendingApproval(
+        id = id,
+        toolName = "delete_event",
+        arguments = buildJsonObject { put("id", "evt-1") },
+        status = status,
+        createdAt = createdAt,
+        expiresAt = "2026-10-07T10:00:00Z",
+    )
+
+    @Test
+    fun `pending approvals are loaded when the chat opens`() = runTest {
+        coEvery { approvalRepository.getPending() } returns Result.success(
+            listOf(approval("ap-1"), approval("ap-2", createdAt = "2026-10-06T11:00:00Z")),
+        )
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val ids = viewModel.uiState.value.pendingApprovals.map { it.approval.id }
+        assertEquals(listOf("ap-1", "ap-2"), ids)
+        assertTrue(viewModel.uiState.value.pendingApprovals.all { it.decision == null && !it.error })
+    }
+
+    @Test
+    fun `a failed load leaves the chat without cards`() = runTest {
+        coEvery { approvalRepository.getPending() } returns Result.failure(RuntimeException("offline"))
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.pendingApprovals.isEmpty())
+    }
+
+    @Test
+    fun `an approval published on Mercure shows up without a reload`() = runTest {
+        val stream = MutableSharedFlow<PendingApproval>(extraBufferCapacity = 4)
+        every { approvalRepository.observe() } returns stream
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        stream.emit(approval("ap-9"))
+        advanceUntilIdle()
+
+        assertEquals(listOf("ap-9"), viewModel.uiState.value.pendingApprovals.map { it.approval.id })
+    }
+
+    @Test
+    fun `a decision taken elsewhere takes the card away`() = runTest {
+        val stream = MutableSharedFlow<PendingApproval>(extraBufferCapacity = 4)
+        every { approvalRepository.observe() } returns stream
+        coEvery { approvalRepository.getPending() } returns Result.success(listOf(approval("ap-1")))
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        stream.emit(approval("ap-1", status = PendingApproval.STATUS_APPROVED))
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.pendingApprovals.isEmpty())
+    }
+
+    @Test
+    fun `an expired approval leaves the chat`() = runTest {
+        val stream = MutableSharedFlow<PendingApproval>(extraBufferCapacity = 4)
+        every { approvalRepository.observe() } returns stream
+        coEvery { approvalRepository.getPending() } returns Result.success(listOf(approval("ap-1")))
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        stream.emit(approval("ap-1", status = PendingApproval.STATUS_EXPIRED))
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.pendingApprovals.isEmpty())
+    }
+
+    @Test
+    fun `approving locks the card at once, then the confirmation removes it`() = runTest {
+        coEvery { approvalRepository.getPending() } returns Result.success(listOf(approval("ap-1")))
+        val answer = CompletableDeferred<Result<PendingApproval>>()
+        coEvery { approvalRepository.approve("ap-1") } coAnswers { answer.await() }
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.approve("ap-1")
+        runCurrent()
+
+        val optimistic = viewModel.uiState.value.pendingApprovals.single()
+        assertEquals(ApprovalDecision.APPROVE, optimistic.decision)
+        assertEquals(PendingApproval.STATUS_PENDING, optimistic.approval.status)
+
+        answer.complete(Result.success(approval("ap-1", status = PendingApproval.STATUS_APPROVED)))
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.pendingApprovals.isEmpty())
+        coVerify(exactly = 1) { approvalRepository.approve("ap-1") }
+    }
+
+    @Test
+    fun `an approved action that failed keeps its card, with the failure and no pending decision`() = runTest {
+        coEvery { approvalRepository.getPending() } returns Result.success(listOf(approval("ap-1")))
+        coEvery { approvalRepository.approve("ap-1") } returns Result.success(
+            approval("ap-1", status = PendingApproval.STATUS_FAILED).copy(result = """{"error":"boom"}"""),
+        )
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.approve("ap-1")
+        advanceUntilIdle()
+
+        val item = viewModel.uiState.value.pendingApprovals.single()
+        assertEquals(PendingApproval.STATUS_FAILED, item.approval.status)
+        assertNull(item.decision)
+
+        viewModel.dismissApproval("ap-1")
+        assertTrue(viewModel.uiState.value.pendingApprovals.isEmpty())
+    }
+
+    @Test
+    fun `denying locks the card, then removes it`() = runTest {
+        coEvery { approvalRepository.getPending() } returns Result.success(listOf(approval("ap-1")))
+        val answer = CompletableDeferred<Result<PendingApproval>>()
+        coEvery { approvalRepository.deny("ap-1") } coAnswers { answer.await() }
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.deny("ap-1")
+        runCurrent()
+        assertEquals(ApprovalDecision.DENY, viewModel.uiState.value.pendingApprovals.single().decision)
+
+        answer.complete(Result.success(approval("ap-1", status = PendingApproval.STATUS_DENIED)))
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.pendingApprovals.isEmpty())
+        coVerify(exactly = 0) { approvalRepository.approve(any()) }
+    }
+
+    @Test
+    fun `a network error unlocks the card and says the answer did not go through`() = runTest {
+        coEvery { approvalRepository.getPending() } returns Result.success(listOf(approval("ap-1")))
+        coEvery { approvalRepository.approve("ap-1") } returns Result.failure(RuntimeException("timeout"))
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.approve("ap-1")
+        advanceUntilIdle()
+
+        val item = viewModel.uiState.value.pendingApprovals.single()
+        assertNull(item.decision)
+        assertTrue(item.error)
+        assertTrue(item.approval.isPending)
+    }
+
+    @Test
+    fun `the card can be answered again after a network error`() = runTest {
+        coEvery { approvalRepository.getPending() } returns Result.success(listOf(approval("ap-1")))
+        coEvery { approvalRepository.approve("ap-1") } returnsMany listOf(
+            Result.failure(RuntimeException("timeout")),
+            Result.success(approval("ap-1", status = PendingApproval.STATUS_APPROVED)),
+        )
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.approve("ap-1")
+        advanceUntilIdle()
+        viewModel.approve("ap-1")
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.pendingApprovals.isEmpty())
+        coVerify(exactly = 2) { approvalRepository.approve("ap-1") }
+    }
+
+    @Test
+    fun `an action already decided or expired is dropped instead of offered again`() = runTest {
+        coEvery { approvalRepository.getPending() } returns Result.success(listOf(approval("ap-1")))
+        coEvery { approvalRepository.approve("ap-1") } returns Result.failure(ApprovalDecisionException(410))
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.approve("ap-1")
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.pendingApprovals.isEmpty())
+    }
+
+    @Test
+    fun `a second tap while the answer is in flight is ignored`() = runTest {
+        coEvery { approvalRepository.getPending() } returns Result.success(listOf(approval("ap-1")))
+        val answer = CompletableDeferred<Result<PendingApproval>>()
+        coEvery { approvalRepository.approve("ap-1") } coAnswers { answer.await() }
+        coEvery { approvalRepository.deny("ap-1") } coAnswers { answer.await() }
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.approve("ap-1")
+        runCurrent()
+        viewModel.approve("ap-1")
+        viewModel.deny("ap-1")
+        runCurrent()
+
+        coVerify(exactly = 1) { approvalRepository.approve("ap-1") }
+        coVerify(exactly = 0) { approvalRepository.deny(any()) }
+        assertEquals(ApprovalDecision.APPROVE, viewModel.uiState.value.pendingApprovals.single().decision)
+    }
+
+    @Test
+    fun `a pending echo of the answer in flight does not unlock the card`() = runTest {
+        val stream = MutableSharedFlow<PendingApproval>(extraBufferCapacity = 4)
+        every { approvalRepository.observe() } returns stream
+        coEvery { approvalRepository.getPending() } returns Result.success(listOf(approval("ap-1")))
+        val answer = CompletableDeferred<Result<PendingApproval>>()
+        coEvery { approvalRepository.approve("ap-1") } coAnswers { answer.await() }
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.approve("ap-1")
+        runCurrent()
+        stream.emit(approval("ap-1"))
+        runCurrent()
+
+        assertEquals(ApprovalDecision.APPROVE, viewModel.uiState.value.pendingApprovals.single().decision)
+    }
+
+    @Test
+    fun `answering a card that is not there does nothing`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.approve("ghost")
+        viewModel.deny("ghost")
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { approvalRepository.approve(any()) }
+        coVerify(exactly = 0) { approvalRepository.deny(any()) }
     }
 }

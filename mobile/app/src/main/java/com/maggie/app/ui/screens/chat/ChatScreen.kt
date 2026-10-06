@@ -117,6 +117,10 @@ fun ChatScreen(viewModel: ChatViewModel, draft: String = "") {
                 onLoadMore = viewModel::loadOlderMessages,
                 onMessageTapped = viewModel::onMessageTapped,
                 modifier = Modifier.weight(1f),
+                approvals = uiState.pendingApprovals,
+                onApprove = viewModel::approve,
+                onDeny = viewModel::deny,
+                onDismissApproval = viewModel::dismissApproval,
             )
 
             Row(

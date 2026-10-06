@@ -40,6 +40,7 @@ object MercureTopics {
 
     const val CHAT = "chat"
     const val CONTEXTS = "contexts"
+    const val APPROVALS = "approvals"
 
     const val AGENDAS = "agendas"
     const val EVENTS = "events"
@@ -66,5 +67,5 @@ object MercureTopics {
     )
 
     /** The agent streams the app subscribes to, checked against `agent/contract/mercure-topics.json`. */
-    val SUBSCRIBED_AGENT: Set<String> = setOf(CHAT, CONTEXTS)
+    val SUBSCRIBED_AGENT: Set<String> = setOf(CHAT, CONTEXTS, APPROVALS)
 }

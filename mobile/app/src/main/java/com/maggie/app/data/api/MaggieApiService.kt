@@ -12,6 +12,7 @@ import com.maggie.app.data.model.GroceryList
 import com.maggie.app.data.model.Ingredient
 import com.maggie.app.data.model.Meal
 import com.maggie.app.data.model.Notification
+import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.data.model.Proaction
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.Recipe
@@ -376,6 +377,11 @@ data class EndErrandResponse(
     val remainingItems: List<EndErrandRemainingItem> = emptyList(),
     val remainingCount: Int = 0,
 )
+
+/** The agent refused a decision: 404 (not yours), 409 (already decided) or 410 (expired) mean it can no longer be answered. */
+class ApprovalDecisionException(val status: Int) : Exception("HTTP $status") {
+    val isFinal: Boolean get() = status == 404 || status == 409 || status == 410
+}
 
 private val MERGE_PATCH = ContentType("application", "merge-patch+json")
 
@@ -1113,6 +1119,25 @@ class MaggieApiService(
     // Proactions — agent endpoint
     suspend fun getProactions(): List<Proaction> {
         return client.get("$baseUrl/agent/proactions").body()
+    }
+
+    // Approvals — agent endpoints
+    suspend fun getPendingApprovals(): List<PendingApproval> {
+        return client.get("$baseUrl/agent/approvals") {
+            url.parameters.append("status", "pending")
+        }.body()
+    }
+
+    suspend fun approve(id: String): PendingApproval = decideApproval(id, "approve")
+
+    suspend fun deny(id: String): PendingApproval = decideApproval(id, "deny")
+
+    // The client does not `expectSuccess`: without this check a 409 body ({"detail": …})
+    // would fail to decode and read as a network error, hiding that the answer is final.
+    private suspend fun decideApproval(id: String, verb: String): PendingApproval {
+        val response = client.post("$baseUrl/agent/approvals/$id/$verb")
+        if (!response.status.isSuccess()) throw ApprovalDecisionException(response.status.value)
+        return response.body()
     }
 
     // TTS — agent endpoint

@@ -12,6 +12,7 @@ import com.maggie.app.data.fcm.MaggieFcmService
 import com.maggie.app.data.local.MaggieDatabase
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.repository.AgendaRepository
+import com.maggie.app.data.repository.ApprovalRepository
 import com.maggie.app.data.repository.ChatPreferencesRepository
 import com.maggie.app.data.repository.ChatRepository
 import com.maggie.app.data.repository.EventRepository
@@ -192,6 +193,7 @@ class MaggieApp : Application() {
             single { TaskRepository(get(), get()) }
             single { ChatPreferencesRepository(androidContext()) }
             single { ChatRepository(get(), get()) }
+            single { ApprovalRepository(get(), get(), get()) }
             single { AgendaRepository(get(), get()) }
             single { RecipeRepository(get(), get()) }
             single { IngredientRepository(get()) }
@@ -230,7 +232,7 @@ class MaggieApp : Application() {
             viewModel { LoginViewModel(get()) }
             viewModel { DashboardViewModel(get(), get(), get(), get(), get()) }
             viewModel { FullCalendarViewModel(get(), get(), get(), get(), get(), get()) }
-            viewModel { ChatViewModel(get(), get(), get(), get()) }
+            viewModel { ChatViewModel(get(), get(), get(), get(), get()) }
             viewModel { ContextViewModel(get(), get(), get()) }
             viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get()) }
             viewModel { NotificationViewModel(get(), get(), get()) }
