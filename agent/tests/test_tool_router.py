@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.llm.time_tool import DATE_TIME_TOOLS
 from app.llm.tools import (
     INSTRUCTION_TOOLS,
     MEMORY_TOOLS,
@@ -19,10 +20,11 @@ NUM_MEMORY_TOOLS = len(MEMORY_TOOLS)
 NUM_PROACTION_TOOLS = len(PROACTION_TOOLS)
 NUM_INSTRUCTION_TOOLS = len(INSTRUCTION_TOOLS)
 NUM_SKILL_TOOLS = len(SKILL_TOOLS)
-# All native tools are included by default (include_native=True)
-NUM_DEFAULT_TOOLS = NUM_MEMORY_TOOLS + NUM_INSTRUCTION_TOOLS + NUM_SKILL_TOOLS + NUM_PROACTION_TOOLS
+NUM_DATE_TIME_TOOLS = len(DATE_TIME_TOOLS)
 # Tools available when include_native=False (no proaction tools)
-NUM_ALWAYS_ON_TOOLS = NUM_MEMORY_TOOLS + NUM_INSTRUCTION_TOOLS + NUM_SKILL_TOOLS
+NUM_ALWAYS_ON_TOOLS = NUM_MEMORY_TOOLS + NUM_INSTRUCTION_TOOLS + NUM_SKILL_TOOLS + NUM_DATE_TIME_TOOLS
+# All native tools are included by default (include_native=True)
+NUM_DEFAULT_TOOLS = NUM_ALWAYS_ON_TOOLS + NUM_PROACTION_TOOLS
 
 
 class TestToolRouter:
