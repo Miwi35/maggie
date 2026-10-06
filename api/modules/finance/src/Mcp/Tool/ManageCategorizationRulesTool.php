@@ -171,7 +171,7 @@ class ManageCategorizationRulesTool
         $user = $this->userContext->requireUser();
 
         $transaction = $this->transactionRepository->find($transactionId);
-        if (null === $transaction) {
+        if (null === $transaction || !$transaction->getUser()->getId()->equals($user->getId())) {
             return json_encode(['error' => "Transaction not found: {$transactionId}"], JSON_THROW_ON_ERROR);
         }
 

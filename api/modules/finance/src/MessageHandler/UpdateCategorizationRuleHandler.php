@@ -9,7 +9,7 @@ use Maggie\Finance\Enum\AmountDirection;
 use Maggie\Finance\Enum\MatchType;
 use Maggie\Finance\Message\UpdateCategorizationRuleCommand;
 use Maggie\Finance\Repository\CategorizationRuleRepository;
-use Maggie\Finance\Repository\CategoryRepository;
+use Maggie\Finance\Service\OwnedReferenceResolver;
 use Maggie\Finance\UseCase\UpdateCategorizationRule;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -19,7 +19,7 @@ class UpdateCategorizationRuleHandler
     public function __construct(
         private readonly UpdateCategorizationRule $updateCategorizationRule,
         private readonly CategorizationRuleRepository $ruleRepository,
-        private readonly CategoryRepository $categoryRepository,
+        private readonly OwnedReferenceResolver $references,
     ) {
     }
 
@@ -29,8 +29,7 @@ class UpdateCategorizationRuleHandler
             ?? throw new \DomainException("Categorization rule not found: {$command->categorizationRuleId}");
 
         if (null !== $command->categoryId) {
-            $category = $this->categoryRepository->find($command->categoryId)
-                ?? throw new \DomainException("Category not found: {$command->categoryId}");
+            $category = $this->references->category($command->categoryId, $rule->getUser());
             $rule->setCategory($category);
         }
         if (null !== $command->labelPattern) {

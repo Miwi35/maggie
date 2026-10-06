@@ -8,8 +8,8 @@ use Maggie\Core\Repository\UserRepository;
 use Maggie\Finance\Entity\Envelope;
 use Maggie\Finance\Enum\BudgetMode;
 use Maggie\Finance\Message\CreateEnvelopeCommand;
-use Maggie\Finance\Repository\CategoryRepository;
 use Maggie\Finance\Repository\EnvelopeRepository;
+use Maggie\Finance\Service\OwnedReferenceResolver;
 use Maggie\Finance\UseCase\CreateEnvelope;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -19,7 +19,7 @@ class CreateEnvelopeHandler
     public function __construct(
         private readonly CreateEnvelope $createEnvelope,
         private readonly EnvelopeRepository $envelopeRepository,
-        private readonly CategoryRepository $categoryRepository,
+        private readonly OwnedReferenceResolver $references,
         private readonly UserRepository $userRepository,
     ) {
     }
@@ -29,8 +29,7 @@ class CreateEnvelopeHandler
         $user = $this->userRepository->find($command->userId)
             ?? throw new \DomainException('User not found.');
 
-        $category = $this->categoryRepository->find($command->categoryId)
-            ?? throw new \DomainException("Category not found: {$command->categoryId}");
+        $category = $this->references->category($command->categoryId, $user);
 
         $mode = BudgetMode::from($command->mode);
         $month = BudgetMode::Monthly === $mode ? $command->month : null;
