@@ -92,15 +92,31 @@ final class ElasticsearchIndexMiddleware implements MiddlewareInterface
             return;
         }
 
-        // Resolve index name from entity FQCN by scanning known entity classes
-        // CamelCase to snake_case plural: GroceryList → grocery_lists
-        $snake = strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $entityName));
-        $indexName = self::pluralize($snake);
+        $entityClass = self::entityClassOf($message::class, $entityName);
+        if (null === $entityClass) {
+            $this->logger->warning('No entity found for {message}: its document is left in the index', ['message' => $message::class]);
 
-        $this->bus->dispatch(new DeleteDocumentCommand(
-            indexName: $indexName,
-            documentId: CanonicalId::of($message->$idProp),
-        ));
+            return;
+        }
+
+        $documentId = CanonicalId::of($message->$idProp);
+        foreach ($this->metadataReader->indicesOf($entityClass) as $indexName) {
+            $this->bus->dispatch(new DeleteDocumentCommand(indexName: $indexName, documentId: $documentId));
+        }
+    }
+
+    /**
+     * The index follows the entity, not the command's name: DeleteIngredientCommand
+     * deletes a row of `products`, DeleteMealCommand one of `meals` and `events`.
+     * Commands live in a module's `Message` namespace, entities in its `Entity` one.
+     *
+     * @return class-string|null
+     */
+    private static function entityClassOf(string $commandClass, string $entityName): ?string
+    {
+        $class = substr($commandClass, 0, (int) strrpos($commandClass, '\\Message\\')).'\\Entity\\'.$entityName;
+
+        return class_exists($class) ? $class : null;
     }
 
     /**
