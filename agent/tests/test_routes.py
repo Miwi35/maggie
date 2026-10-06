@@ -63,7 +63,7 @@ class TestRoutes:
 
         assert response.status_code == 200
         mock_msg_repo.create.assert_awaited_with(
-            user_id="test-user", role="assistant", content="C'est noté.", context_id="ctx-1"
+            user_id="test-user", role="assistant", content="C'est noté.", context_id="ctx-1", blocks=None
         )
         # And the thread is re-summarized, so the reply to it is routed against a summary
         # that knows about this exchange — what `POST /agent/proaction` already does.
@@ -83,7 +83,7 @@ class TestRoutes:
         assert authed_client.post("/chat", json={"message": "Bonjour"}).status_code == 200
 
         mock_msg_repo.create.assert_awaited_with(
-            user_id="test-user", role="assistant", content="C'est noté.", context_id=None
+            user_id="test-user", role="assistant", content="C'est noté.", context_id=None, blocks=None
         )
         mock_summarizer.maybe_summarize.assert_not_awaited()
 
@@ -115,6 +115,7 @@ class TestRoutes:
             role="assistant",
             content="Désolé, une erreur est survenue. Réessaie.",
             context_id="ctx-1",
+            blocks=None,
         )
         mock_summarizer.maybe_summarize.assert_not_awaited()
 

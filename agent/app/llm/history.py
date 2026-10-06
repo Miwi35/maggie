@@ -21,6 +21,16 @@ Three things reach the model, and the split is deliberate:
     where MAG-11 put it (`active_contexts_section`). A summary is written *about* a
     conversation, not *in* it, so it is not a turn anyone took.
 
+And since MAG-211 the thread's last turns bring back **what their tools said**, not only
+what Maggie made of it: the `tool_use` / `tool_result` rounds stored on the message
+(`app.llm.tool_blocks`), replayed in front of its text. Only the last
+`tool_replay_turns` of them, because a tool result is bulky and a thread is long — past
+that window a turn is its text again, which is exactly what it was before.
+
+The prompt cache is untouched by any of this: the cached prefix is the tools and the
+stable system block (`app.llm.prompt_cache`), and the conversation has never been part of
+it. Replaying blocks makes a call bigger, never less cacheable.
+
 Nothing here raises. A database that will not answer costs the model the conversation; it
 must not cost the user the answer.
 """
@@ -31,6 +41,7 @@ from app.config import settings
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
 from app.db.models import Message
+from app.llm.tool_blocks import replay
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +107,9 @@ async def build_history(
     if not turns and fallback_message:
         _append_user(turns, fallback_message)
 
+    # The number of turns no longer matches the number of messages once blocks are
+    # replayed, so both are logged: a thread whose history suddenly doubles in turns is a
+    # replay window that has been raised, not messages appearing out of nowhere.
     logger.info(f"History: {len(turns)} turns from {len(rows)} messages (thread {context_id})")
     return turns
 
@@ -160,7 +174,8 @@ async def _labels(user_id: str) -> dict[str, str]:
 def _turns(
     rows: list[Message], context_id: str | None, labels: dict[str, str], current_message_id: str | None
 ) -> list[dict]:
-    """The rows as Anthropic turns: labelled, merged, and starting on the user."""
+    """The rows as Anthropic turns: labelled, replayed, merged, and starting on the user."""
+    replayed = _replay_window(rows, context_id)
     turns: list[dict] = []
     for row in rows:
         if row.role not in ("user", "assistant") or not row.content:
@@ -170,10 +185,18 @@ def _turns(
         if _is_foreign(row, context_id, current_message_id):
             content = _prefix(labels.get(str(row.context_id))) + content
 
+        # What this turn's tools said, before the text it led to (MAG-211). Whole or not at
+        # all: `replay` returns nothing for blocks it cannot vouch for, and the message is
+        # then the text it has always been.
+        rounds = replay(row.blocks) if str(row.id) in replayed else []
+        if rounds and _append_rounds(turns, rounds):
+            turns.append({"role": row.role, "content": content})
+            continue
+
         # The API refuses two turns of the same role in a row, and a thread does get them:
         # a proaction arrives unprompted between two of Maggie's answers, and a user sends
         # three messages before she replies to the first.
-        if turns and turns[-1]["role"] == row.role:
+        if turns and turns[-1]["role"] == row.role and isinstance(turns[-1]["content"], str):
             turns[-1]["content"] += "\n" + content
         else:
             turns.append({"role": row.role, "content": content})
@@ -181,14 +204,66 @@ def _turns(
     # And it refuses a conversation that does not open on the user. A thread whose oldest
     # loaded message is one of Maggie's own — a proaction, or simply the window cutting
     # mid-exchange — would otherwise be a 400 on every message from then on.
-    while turns and turns[0]["role"] != "user":
+    #
+    # A batch of tool results is one of those: it is a user turn, but an orphan one as soon
+    # as the `tool_use` it answers has been trimmed off in front of it — which the API
+    # rejects just as flatly. Only a turn of plain text can open the conversation.
+    while turns and (turns[0]["role"] != "user" or not isinstance(turns[0]["content"], str)):
         turns.pop(0)
 
     return turns
 
 
+def _replay_window(rows: list[Message], context_id: str | None) -> set[str]:
+    """Which messages are sent their tool blocks back, and not merely their text.
+
+    The thread's own, because the blocks are replayed as turns of *this* conversation: a
+    neighbouring thread's call has no place in it, and its text already comes in labelled,
+    which is all it is there for. And only the last `tool_replay_turns` of them, walked
+    newest first — a tool result is bulky, so what the budget buys goes to the turns a
+    follow-up question is actually about.
+    """
+    budget = settings.tool_replay_turns
+    if not context_id or budget <= 0:
+        return set()
+
+    window: set[str] = set()
+    for row in reversed(rows):
+        if len(window) >= budget:
+            break
+        if row.role == "assistant" and str(row.context_id) == str(context_id) and row.blocks:
+            window.add(str(row.id))
+    return window
+
+
+def _append_rounds(turns: list[dict], rounds: list[dict]) -> bool:
+    """Put a turn's tool rounds on the conversation, in front of the text they led to.
+
+    Returns whether they could go on at all. They open on one of Maggie's turns and the
+    API refuses two of hers in a row, so an answer of hers sitting just before them — a
+    proaction between two of her messages, the window cutting mid-exchange — is folded
+    into the first one as a text block. A preceding turn that is not plain text cannot be
+    folded, and the rounds are left out rather than sent in a shape that would be rejected.
+    """
+    if turns and turns[-1]["role"] == "assistant":
+        # Defence, not a live path: a replay always ends on the text of the row it belongs
+        # to, so no assistant turn of blocks is ever the last one here. Left in because the
+        # alternative, if it ever became reachable, is a rejected API call.
+        if not isinstance(turns[-1]["content"], str):
+            return False
+        previous = turns.pop()
+        rounds[0] = {
+            "role": "assistant",
+            "content": [{"type": "text", "text": previous["content"]}, *rounds[0]["content"]],
+        }
+    turns.extend(rounds)
+    return True
+
+
 def _append_user(turns: list[dict], message: str) -> None:
-    if turns and turns[-1]["role"] == "user":
+    # Merged into a trailing user turn, unless that turn is a batch of tool results — a
+    # list of blocks, which a sentence cannot be glued onto.
+    if turns and turns[-1]["role"] == "user" and isinstance(turns[-1]["content"], str):
         turns[-1]["content"] += "\n" + message
     else:
         turns.append({"role": "user", "content": message})

@@ -25,6 +25,10 @@ class ContextRepository:
         """
         async with agent_engine.begin() as conn:
             await conn.execute(text("ALTER TABLE agent_message ADD COLUMN IF NOT EXISTS context_id VARCHAR(32)"))
+            # MAG-211 — the `tool_use` / `tool_result` rounds of a turn, so the next one
+            # can read them. Nullable: every message written before this column existed
+            # keeps its text and simply has no blocks to replay.
+            await conn.execute(text("ALTER TABLE agent_message ADD COLUMN IF NOT EXISTS blocks JSONB"))
             # MAG-11 — the thread's summary, and where it stops.
             await conn.execute(text("ALTER TABLE conversation_context ADD COLUMN IF NOT EXISTS summary TEXT"))
             await conn.execute(

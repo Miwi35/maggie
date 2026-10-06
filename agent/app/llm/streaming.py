@@ -21,6 +21,7 @@ from app.llm.directives import behavior_directives_section
 from app.llm.history import build_history
 from app.llm.last_exchange import last_exchange_section
 from app.llm.prompt_cache import build_system, cache_tools
+from app.llm.tool_blocks import record
 from app.llm.tools import ToolRouter
 from app.memory.agent_memory import AgentMemory
 from app.metrics import TOOL_CALLS, record_llm_usage, usage_kwargs
@@ -156,6 +157,12 @@ class StreamingGateway:
         answer = ""
         max_iterations = 5
 
+        # The `tool_use` / `tool_result` rounds of this run, stored on the answer so the
+        # next message of the thread is sent them back (MAG-211). Not the same thing as
+        # the context's `tool_calls_log` below, which is a list of names for the Mind
+        # panel: this is what the calls said.
+        blocks: list[dict] = []
+
         # Single message ID across all iterations so the frontend sees one message bubble
         msg_id = uuid.uuid4().hex[:16]
         text_started = False
@@ -232,6 +239,7 @@ class StreamingGateway:
                     messages.append({"role": "assistant", "content": response_content})
 
                     tool_results = []
+                    round_calls = []
                     for block in response_content:
                         if block.type == "tool_use":
                             tool_name = block.name
@@ -297,8 +305,14 @@ class StreamingGateway:
                                     "content": result,
                                 }
                             )
+                            round_calls.append(
+                                {"id": block.id, "name": tool_name, "input": tool_input, "result": result}
+                            )
 
                     messages.append({"role": "user", "content": tool_results})
+                    # The same round as plain data, which is what a column can hold:
+                    # `response_content` is the SDK's own block objects.
+                    blocks.extend(record(round_calls))
                     # Continue loop for more iterations
                 else:
                     break
@@ -335,6 +349,10 @@ class StreamingGateway:
                 content=answer,
                 context_id=current_context_id,
                 message_id=msg_id,
+                # What this turn's tools said, carried on the message so the next one can
+                # read it instead of calling them again (MAG-211). The error path falls
+                # here too, with the rounds that did run before it: they happened.
+                blocks=blocks,
             )
 
             # Both sides of the exchange are now in the database, so this is the one

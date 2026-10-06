@@ -99,6 +99,20 @@ condition deliberately ignores the message being answered: `user_contains` alrea
 covers that one, and counting it would let a scenario "prove" the history carried a
 sentence the user had just typed.
 
+**What a tool call said** is in the history too, since MAG-211: the `tool_use` and
+`tool_result` blocks of the thread's last turns are replayed there, stringified like
+any other content, so `history_contains` matches them.
+`73-tool-result-replay.yaml` is the proof — it declares `Pile LR03`, a seeded
+grocery label the suite never types, and `includeDeferred`, the argument the call
+that fetched it was made with. One needle per half of the round: a result without
+its call in front of it is a conversation the API rejects.
+
+Two consequences when writing a scenario with tools. A round is counted as one of
+*this* run's turns only while it is the current run's — a replayed one is not, so a
+scenario's turns still line up on the first call. And a needle meant to prove a
+replay must be something no message ever said: Maggie's own answer is in the history
+as plain text, so matching on her wording proves nothing about the blocks.
+
 A behaviour preference (`add_instruction` with `kind: behavior`, MAG-22) is
 stored and injected the same way, and is proved the same way:
 `60-behavior-preference.yaml` stores « Tutoie-moi et évite les emojis » and
