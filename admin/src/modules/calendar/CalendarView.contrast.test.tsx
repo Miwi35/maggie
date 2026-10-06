@@ -47,6 +47,8 @@ const AGENDAS = [
 const noon = new Date()
 noon.setHours(12, 0, 0, 0)
 noon.setDate(15)
+const localDay = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 const day = (offset: number) => new Date(noon.getTime() + offset * 86_400_000).toISOString()
 
 const allDay = (id: string, summary: string, agenda: string, extra: Record<string, unknown> = {}) => ({
@@ -160,7 +162,7 @@ describe('CalendarView — readable text on coloured bars', { timeout: 60_000 },
         task('t-critical', 'Tâche critique', 'critical'),
         task('t-done', 'Tâche finie', 'critical', true),
       ],
-      meals: [{ id: 'm1', startAt: noon.toISOString(), slot: 'lunch', summary: 'Pâtes', recipes: [] }],
+      meals: [{ id: 'm1', date: localDay(noon), slot: 'lunch', summary: 'Pâtes', recipes: [] }],
     })
     render(<CalendarView />)
 
