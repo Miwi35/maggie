@@ -101,6 +101,7 @@ class ManageAccountsTool
         }
 
         $envelope = $this->bus->dispatch(new UpdateAccountCommand(
+            userId: (string) $this->userContext->requireUser()->getId(),
             accountId: $accountId,
             name: $name,
             type: $type,
@@ -126,7 +127,10 @@ class ManageAccountsTool
             return json_encode(['error' => 'accountId is required for delete.'], JSON_THROW_ON_ERROR);
         }
 
-        $this->bus->dispatch(new DeleteAccountCommand(accountId: $accountId));
+        $this->bus->dispatch(new DeleteAccountCommand(
+            userId: (string) $this->userContext->requireUser()->getId(),
+            accountId: $accountId,
+        ));
 
         return json_encode(['success' => true], JSON_THROW_ON_ERROR);
     }

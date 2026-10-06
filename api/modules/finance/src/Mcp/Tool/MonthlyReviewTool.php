@@ -73,6 +73,7 @@ class MonthlyReviewTool
         $parsed = RetrospectVerdict::from($verdict);
 
         $stamped = $this->bus->dispatch(new UpdateTransactionCommand(
+            userId: (string) $this->userContext->requireUser()->getId(),
             transactionId: $transactionId,
             retrospect: $parsed->value,
         ));

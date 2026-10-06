@@ -152,7 +152,7 @@ class SuggestCategorizationRules
             }
 
             $category = $this->categoryRepository->find(Ulid::fromString($categoryId));
-            if (!$category instanceof Category || $category->getUser()->getId() !== $user->getId()) {
+            if (!$category instanceof Category || !$category->getUser()->getId()->equals($user->getId())) {
                 continue;
             }
 

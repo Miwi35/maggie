@@ -12,6 +12,7 @@ final readonly class UpdateCategoryCommand
 
     /** @param list<'parentId'|'color'|'icon'> $clearFields */
     public function __construct(
+        public string $userId,
         public string $categoryId,
         public ?string $name = null,
         public ?string $obligation = null,

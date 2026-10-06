@@ -21,6 +21,7 @@ class DeleteAccountProcessor implements ProcessorInterface
     public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): void
     {
         $this->bus->dispatch(new DeleteAccountCommand(
+            userId: (string) $data->getUser()->getId(),
             accountId: (string) $data->getId(),
         ));
     }

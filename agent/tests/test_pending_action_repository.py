@@ -225,6 +225,51 @@ class TestDecide:
             await pending_action_repo.decide(str(action.id), status)
 
 
+class TestSettle:
+    async def test_it_records_the_result_of_a_claimed_action(self, pending_db):
+        action = await hold()
+        await pending_action_repo.decide(str(action.id), PendingActionStatus.APPROVED)
+        pending_db.published.reset_mock()
+
+        settled = await pending_action_repo.settle(str(action.id), PendingActionStatus.APPROVED, '{"deleted": true}')
+
+        assert settled is not None
+        assert settled.status == PendingActionStatus.APPROVED
+        assert settled.result == '{"deleted": true}'
+        pending_db.published.assert_awaited_once()
+
+    async def test_a_run_that_errored_ends_as_failed(self, pending_db):
+        action = await hold()
+        await pending_action_repo.decide(str(action.id), PendingActionStatus.APPROVED)
+
+        settled = await pending_action_repo.settle(str(action.id), PendingActionStatus.FAILED, '{"error": "boom"}')
+
+        assert settled is not None
+        assert settled.status == PendingActionStatus.FAILED
+
+    async def test_an_action_nobody_claimed_is_not_settled(self, pending_db):
+        action = await hold()
+
+        assert await pending_action_repo.settle(str(action.id), PendingActionStatus.APPROVED, "{}") is None
+
+        reread = await pending_action_repo.get_for_user(USER, str(action.id))
+        assert reread is not None
+        assert reread.status == PendingActionStatus.PENDING
+
+    async def test_a_refused_action_is_not_settled(self, pending_db):
+        action = await hold()
+        await pending_action_repo.decide(str(action.id), PendingActionStatus.DENIED)
+
+        assert await pending_action_repo.settle(str(action.id), PendingActionStatus.APPROVED, "{}") is None
+
+    @pytest.mark.parametrize("status", [PendingActionStatus.DENIED, PendingActionStatus.EXPIRED])
+    async def test_a_run_cannot_end_as_something_else(self, pending_db, status):
+        action = await hold()
+
+        with pytest.raises(ValueError):
+            await pending_action_repo.settle(str(action.id), status, "{}")
+
+
 class TestExpireOverdue:
     def _overdue(self, session_factory, **overrides) -> PendingAction:
         return write(

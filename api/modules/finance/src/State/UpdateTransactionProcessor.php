@@ -22,6 +22,7 @@ class UpdateTransactionProcessor implements ProcessorInterface
     public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): Transaction
     {
         $envelope = $this->bus->dispatch(new UpdateTransactionCommand(
+            userId: (string) $data->getUser()->getId(),
             transactionId: (string) $data->getId(),
             accountId: (string) $data->getAccount()->getId(),
             amountCents: $data->getAmountCents(),

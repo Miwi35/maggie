@@ -37,6 +37,7 @@ class ApplyCategorizationRules
 
             // Go through the bus so each change publishes to Mercure and reindexes.
             $this->bus->dispatch(new UpdateTransactionCommand(
+                userId: (string) $user->getId(),
                 transactionId: (string) $transaction->getId(),
                 categoryId: (string) $rule->getCategory()->getId(),
                 categorySource: CategorySource::Rule->value,

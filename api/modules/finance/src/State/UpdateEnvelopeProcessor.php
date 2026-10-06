@@ -22,6 +22,7 @@ class UpdateEnvelopeProcessor implements ProcessorInterface
     public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): Envelope
     {
         $stamped = $this->bus->dispatch(new UpdateEnvelopeCommand(
+            userId: (string) $data->getUser()->getId(),
             envelopeId: (string) $data->getId(),
             categoryId: (string) $data->getCategory()->getId(),
             amountCents: $data->getAmountCents(),

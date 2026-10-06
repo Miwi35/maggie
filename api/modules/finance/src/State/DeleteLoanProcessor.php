@@ -20,6 +20,9 @@ class DeleteLoanProcessor implements ProcessorInterface
 
     public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): void
     {
-        $this->bus->dispatch(new DeleteLoanCommand(loanId: (string) $data->getId()));
+        $this->bus->dispatch(new DeleteLoanCommand(
+            userId: (string) $data->getUser()->getId(),
+            loanId: (string) $data->getId(),
+        ));
     }
 }

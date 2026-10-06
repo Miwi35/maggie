@@ -20,7 +20,7 @@ class DeleteCategorizationRuleHandler
 
     public function __invoke(DeleteCategorizationRuleCommand $command): void
     {
-        $rule = $this->ruleRepository->find($command->categorizationRuleId)
+        $rule = $this->ruleRepository->findOneBy(['id' => $command->categorizationRuleId, 'user' => $command->userId])
             ?? throw new \DomainException("Categorization rule not found: {$command->categorizationRuleId}");
 
         $this->deleteCategorizationRule->execute($rule);

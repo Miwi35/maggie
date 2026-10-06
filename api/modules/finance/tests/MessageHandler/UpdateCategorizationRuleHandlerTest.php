@@ -24,6 +24,11 @@ class UpdateCategorizationRuleHandlerTest extends KernelTestCase
         $this->loadFixtures('clearable_fields.yaml');
     }
 
+    private function userId(): string
+    {
+        return (string) $this->getFixture('test_user')->getId();
+    }
+
     private function dispatch(UpdateCategorizationRuleCommand $command): void
     {
         self::getContainer()->get(MessageBusInterface::class)->dispatch($command);
@@ -45,6 +50,7 @@ class UpdateCategorizationRuleHandlerTest extends KernelTestCase
     public function testClearingTheMaximumKeepsTheMinimum(): void
     {
         $this->dispatch(new UpdateCategorizationRuleCommand(
+            userId: $this->userId(),
             categorizationRuleId: $this->id(),
             clearFields: ['maxAmountCents'],
         ));
@@ -61,6 +67,7 @@ class UpdateCategorizationRuleHandlerTest extends KernelTestCase
     public function testClearingBothBoundsOpensTheRange(): void
     {
         $this->dispatch(new UpdateCategorizationRuleCommand(
+            userId: $this->userId(),
             categorizationRuleId: $this->id(),
             clearFields: ['minAmountCents', 'maxAmountCents'],
         ));
@@ -74,6 +81,7 @@ class UpdateCategorizationRuleHandlerTest extends KernelTestCase
     public function testNullFieldsWithoutClearAreLeftUntouched(): void
     {
         $this->dispatch(new UpdateCategorizationRuleCommand(
+            userId: $this->userId(),
             categorizationRuleId: $this->id(),
             priority: 20,
         ));
@@ -90,6 +98,7 @@ class UpdateCategorizationRuleHandlerTest extends KernelTestCase
         $this->expectExceptionMessage('Categorization rule not found');
 
         $this->dispatch(new UpdateCategorizationRuleCommand(
+            userId: $this->userId(),
             categorizationRuleId: '01ARZ3NDEKTSV4RRFFQ69G5FAV',
             clearFields: ['minAmountCents'],
         ));

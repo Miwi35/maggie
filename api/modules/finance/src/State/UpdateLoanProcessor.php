@@ -22,6 +22,7 @@ class UpdateLoanProcessor implements ProcessorInterface
     public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): Loan
     {
         $stamped = $this->bus->dispatch(new UpdateLoanCommand(
+            userId: (string) $data->getUser()->getId(),
             loanId: (string) $data->getId(),
             name: $data->getName(),
             principalRemainingCents: $data->getPrincipalRemainingCents(),
