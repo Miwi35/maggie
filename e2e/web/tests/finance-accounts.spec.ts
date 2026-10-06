@@ -127,7 +127,6 @@ test('a new account and its first operation are created from the screens that ow
   // read it as a duplicate.
   const accountName = `Compte joint MAG-102, essai ${test.info().retry}`
   const label = `ACHAT TEST MAG-102, essai ${test.info().retry}`
-  const arrivedLabel = `VIREMENT RECU MAG-102, essai ${test.info().retry}`
 
   await accounts.open()
 
@@ -135,7 +134,7 @@ test('a new account and its first operation are created from the screens that ow
   // "Compte courant" would not do, it is also the label of the `checking`
   // type, which any account of the neighbour's own may carry.
   //
-  // The list is **not** asserted empty: the expected-to-fail test below
+  // The list is **not** asserted empty: the empty-account test below
   // creates an account of its own on the same identity, and the two run side
   // by side. What a finance module with no data looks like is asserted in the
   // test above, on the screens no journey writes to.
@@ -173,33 +172,8 @@ test('a new account and its first operation are created from the screens that ow
     'a brand new account has no movement, and says so',
   ).toBeVisible()
 
-  // The first movement is written through the API, and that is not a shortcut
-  // taken for speed: while the list is empty the screen offers no way in at
-  // all (MAG-245, reproduced below). The placeholder's own wording expects
-  // this one — "attendez la prochaine synchronisation".
-  const arrived = await otherUser.api.post('/api/transactions', {
-    headers: { 'Content-Type': 'application/ld+json' },
-    data: {
-      account: `/api/accounts/${accountId}`,
-      label: arrivedLabel,
-      amountCents: 50000,
-      currency: 'EUR',
-      bookedAt: seedDate(-1),
-      status: 'spent',
-    },
-  })
-  expect(arrived.status(), await arrived.text()).toBe(201)
-
-  await waitForIndexed<StoredTransaction>(
-    otherUser.api,
-    '/api/transactions',
-    (candidate) => candidate.label === arrivedLabel,
-    { what: 'The movement the account was opened with' },
-  )
-
-  // Now that the grid is there, so is its toolbar — and the owner's own way
-  // of adding a movement by hand.
-  await accounts.openTransactions(accountId)
+  // The empty state carries its own way in, with the account already chosen
+  // (MAG-245): the first operation is typed in by hand, not slipped in by API.
   await accounts.createTransaction({
     label,
     amountEuros: -42.5,
@@ -210,7 +184,7 @@ test('a new account and its first operation are created from the screens that ow
     otherUser.api,
     '/api/transactions',
     (candidate) => candidate.label === label,
-    { what: 'The operation created from the form' },
+    { what: 'The operation created from the empty state' },
   )
 
   expect(transaction.amountCents).toBe(-4250)
@@ -227,40 +201,28 @@ test('a new account and its first operation are created from the screens that ow
   // The neighbour's own list, and nothing of the owner's: the writes above went
   // through their identity, so this is also the user filter's check.
   //
-  // Phrased as "both of this attempt's labels, and none of the owner's" rather
+  // Phrased as "this attempt's label, and none of the owner's" rather
   // than as an equality over the whole collection: CI retries once without
   // reseeding, and `otherUser` is one stable seeded identity — a replay sees
-  // the first attempt's two rows as well, and an equality could never hold.
+  // the first attempt's row as well, and an equality could never hold.
   const theirs = (await getCollection<StoredTransaction>(otherUser.api, '/api/transactions')).map(
     (candidate) => candidate.label,
   )
   expect(theirs).toContain(label)
-  expect(theirs).toContain(arrivedLabel)
   expect(theirs.filter((seen) => seen === 'LECLERC RENNES' || seen === 'VIREMENT SALAIRE')).toEqual(
     [],
   )
 })
 
 /**
- * An account with no operation is a dead end (MAG-245).
+ * An account with no operation is not a dead end (MAG-245).
  *
  * React-admin renders a list's `empty` *instead of* the list — the toolbar
- * with it — so `AccountTransactionsView` loses the "Ajouter une opération"
- * button on exactly the screen whose text asks for one. The only way out is
- * to know the `#/transactions/create` URL, which nothing on screen leads to.
- *
- * Expected to fail, naming its ticket rather than quietly asserting the
- * behaviour nobody wants: this is the fix's reproduction, already written. It
- * builds its own account rather than reusing the one above — a marked test
- * absorbs everything that goes wrong in it, including another test's state
- * not being there.
- *
- * Paired with the journey above, which drives the same screen unmarked: a view
- * that failed to load at all cannot hide behind this marker.
+ * with it — so `AccountTransactionsView` gives the placeholder its own button.
+ * Builds its own account rather than reusing the journey's above, so the test
+ * does not depend on another one's state.
  */
-test.fail('an account with no operation offers a way to add one — MAG-245', async ({
-  otherUser,
-}) => {
+test('an account with no operation offers a way to add one', async ({ otherUser }) => {
   const created = await otherUser.api.post('/api/accounts', {
     headers: { 'Content-Type': 'application/ld+json' },
     data: {
@@ -282,6 +244,6 @@ test.fail('an account with no operation offers a way to add one — MAG-245', as
   ).toBeVisible()
   await expect(
     accounts.addTransaction,
-    'asks for one and takes the only button that adds one away',
+    'the empty state asks for an operation and carries the button that adds one',
   ).toBeVisible()
 })

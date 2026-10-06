@@ -54,6 +54,26 @@ const TransactionDatagrid = () => {
   )
 }
 
+const AddTransactionButton = ({ accountIri }: { accountIri: string }) => (
+  <CreateButton
+    resource="transactions"
+    label="Ajouter une opération"
+    state={{ record: { account: accountIri } }}
+  />
+)
+
+/**
+ * React-admin renders `empty` *instead of* the list, toolbar included: the
+ * invitation has to carry its own button or the screen is a dead end (MAG-245).
+ */
+export const AccountTransactionsEmpty = ({ accountIri }: { accountIri: string }) => (
+  <Placeholder
+    title="Aucune opération sur ce compte"
+    description="Ajoutez-en une, ou attendez la prochaine synchronisation si ce compte est alimenté automatiquement."
+    action={<AddTransactionButton accountIri={accountIri} />}
+  />
+)
+
 /**
  * Account-scoped transaction list — transactions are accessed primarily through
  * their account (banking-app pattern), reached by clicking an account row.
@@ -71,11 +91,7 @@ export const AccountTransactionsView = () => {
 
   const actions = (
     <TopToolbar>
-      <CreateButton
-        resource="transactions"
-        label="Ajouter une opération"
-        state={{ record: { account: accountIri } }}
-      />
+      <AddTransactionButton accountIri={accountIri} />
     </TopToolbar>
   )
 
@@ -85,12 +101,7 @@ export const AccountTransactionsView = () => {
       <List
         resource="transactions"
         filter={{ account: accountIri }}
-        empty={
-          <Placeholder
-            title="Aucune opération sur ce compte"
-            description="Ajoutez-en une, ou attendez la prochaine synchronisation si ce compte est alimenté automatiquement."
-          />
-        }
+        empty={<AccountTransactionsEmpty accountIri={accountIri} />}
         actions={actions}
         disableSyncWithLocation
         sort={{ field: 'bookedAt', order: 'DESC' }}
