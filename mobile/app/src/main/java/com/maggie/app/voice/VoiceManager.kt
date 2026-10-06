@@ -324,11 +324,15 @@ class VoiceManager(
         val callback = onResult
         onResult = null
         scope.launch {
+            // A hold the meter heard no voice in needs the engine to have *rated* what
+            // it transcribed, not merely produced it: with no confidence and no voiced
+            // span, [TranscriptionQuality] has nothing left to compare and would accept
+            // any text at all — which is the hole this whole gate exists to close.
             val heard = if (engineMissedAudio) {
                 release(session)
                 null
             } else {
-                awaitDeviceResult(session)
+                awaitDeviceResult(session)?.takeIf { heardAVoice || it.confidence != null }
             }
             if (heard != null && TranscriptionQuality.isGoodEnough(heard.text, heard.confidence, spokenMillis)) {
                 // Whatever the levels said. The engine having transcribed a sentence

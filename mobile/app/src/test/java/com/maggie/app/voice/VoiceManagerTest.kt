@@ -632,6 +632,44 @@ class VoiceManagerTest {
     }
 
     @Test
+    fun `an unrated text from a hold with no voice in it is not trusted`() {
+        // Most engines report no confidence at all, and a silent hold has no voiced
+        // span either — so the quality judge has nothing left to compare and would take
+        // any text as good. A sentence on a clip of silence is the thing being
+        // refused, so it takes a rating to outrank the meter.
+        recorder.levels = List(48) { 0.0008f }
+        val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("Thank you for watching", null))
+        voiceManager = managerWith(engine)
+        var sent: String? = null
+
+        voiceManager.pressDown { sent = it }
+        advance(3_000)
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        assertNull(sent)
+        assertEquals(VoiceHint.NOTHING_HEARD, voiceManager.hint.value)
+        coVerify(exactly = 0) { apiService.transcribe(any(), any()) }
+    }
+
+    @Test
+    fun `an unrated text is trusted as soon as a voice was heard`() {
+        // The common case on a phone that reports no confidence: the meter heard the
+        // voice, so the engine's word is all the chain needs.
+        val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("ajoute des tomates", null))
+        voiceManager = managerWith(engine)
+        var sent: String? = null
+
+        voiceManager.pressDown { sent = it }
+        advance(2_000)
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        assertEquals("ajoute des tomates", sent)
+        coVerify(exactly = 0) { apiService.transcribe(any(), any()) }
+    }
+
+    @Test
     fun `a sentence the phone transcribed survives a hold too quiet to measure`() {
         // Recette step 6: he whispers, close to the phone. VOICE_RECOGNITION applies
         // no automatic gain, so every buffer sits under the loudness gate — while the

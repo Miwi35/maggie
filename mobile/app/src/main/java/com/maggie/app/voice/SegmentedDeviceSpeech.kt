@@ -150,8 +150,13 @@ class SegmentedDeviceSpeech(
         }
         run?.destroy()
         run = null
-        val mine = engine()
+        // The factory is inside the try with the start it feeds: a run this chain
+        // cannot even build is the same kind of event as one that refuses to listen,
+        // and letting it out of here would throw from inside the previous engine's own
+        // callback, on the main thread.
+        val mine: DeviceSpeechRecognizer
         val sink = try {
+            mine = engine()
             startRun(mine)
         } catch (e: Exception) {
             // A refused restart is not an error the owner should see: the recording is
@@ -162,10 +167,12 @@ class SegmentedDeviceSpeech(
             run = null
             return
         }
-        // A run that answers from inside its own start() — [NoDeviceSpeech] does — has
-        // already come back through here and opened a newer one. That newer run is the
-        // live engine, and this frame has destroyed the run it started: retargeting
-        // now would leave the live one deaf for the rest of the hold.
+        // A run that gives up from inside its own start() has already come back through
+        // here and opened a newer one. That newer run is the live engine, and this
+        // frame has destroyed the run it started: retargeting now would leave the live
+        // one deaf for the rest of the hold. No engine on this phone does it — a real
+        // one answers through the looper, and [NoDeviceSpeech] gives up fatally, which
+        // never reaches here — so the guard is for the next implementation.
         if (run === mine) relay?.retarget(sink)
     }
 
