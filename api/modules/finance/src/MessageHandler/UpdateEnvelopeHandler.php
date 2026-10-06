@@ -7,8 +7,8 @@ namespace Maggie\Finance\MessageHandler;
 use Maggie\Finance\Entity\Envelope;
 use Maggie\Finance\Enum\BudgetMode;
 use Maggie\Finance\Message\UpdateEnvelopeCommand;
-use Maggie\Finance\Repository\CategoryRepository;
 use Maggie\Finance\Repository\EnvelopeRepository;
+use Maggie\Finance\Service\OwnedReferenceResolver;
 use Maggie\Finance\UseCase\UpdateEnvelope;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -18,7 +18,7 @@ class UpdateEnvelopeHandler
     public function __construct(
         private readonly UpdateEnvelope $updateEnvelope,
         private readonly EnvelopeRepository $envelopeRepository,
-        private readonly CategoryRepository $categoryRepository,
+        private readonly OwnedReferenceResolver $references,
     ) {
     }
 
@@ -28,8 +28,7 @@ class UpdateEnvelopeHandler
             ?? throw new \DomainException("Envelope not found: {$command->envelopeId}");
 
         if (null !== $command->categoryId) {
-            $category = $this->categoryRepository->find($command->categoryId)
-                ?? throw new \DomainException("Category not found: {$command->categoryId}");
+            $category = $this->references->category($command->categoryId, $envelope->getUser());
             $envelope->setCategory($category);
         }
         if (null !== $command->amountCents) {

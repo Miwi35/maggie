@@ -11,8 +11,8 @@ use Maggie\Finance\Enum\BudgetMode;
 use Maggie\Finance\Message\CreateEnvelopeCommand;
 use Maggie\Finance\Message\DeleteEnvelopeCommand;
 use Maggie\Finance\Message\UpdateEnvelopeCommand;
-use Maggie\Finance\Repository\CategoryRepository;
 use Maggie\Finance\Repository\EnvelopeRepository;
+use Maggie\Finance\Service\OwnedReferenceResolver;
 use Maggie\Finance\UseCase\GetBudgetStatus;
 use Maggie\Finance\UseCase\RollOverEnvelopes;
 use Mcp\Capability\Attribute\McpTool;
@@ -26,7 +26,7 @@ class ManageEnvelopesTool
     public function __construct(
         private readonly MessageBusInterface $bus,
         private readonly EnvelopeRepository $envelopeRepository,
-        private readonly CategoryRepository $categoryRepository,
+        private readonly OwnedReferenceResolver $references,
         private readonly GetBudgetStatus $getBudgetStatus,
         private readonly RollOverEnvelopes $rollOverEnvelopes,
         private readonly McpUserContext $userContext,
@@ -86,9 +86,10 @@ class ManageEnvelopesTool
 
         $user = $this->userContext->requireUser();
 
-        $category = $this->categoryRepository->find($categoryId);
-        if (null === $category) {
-            return json_encode(['error' => "Category not found: {$categoryId}"], JSON_THROW_ON_ERROR);
+        try {
+            $category = $this->references->category($categoryId, $user);
+        } catch (\DomainException $e) {
+            return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
         }
 
         $budgetMode = BudgetMode::from($mode ?? BudgetMode::Monthly->value);

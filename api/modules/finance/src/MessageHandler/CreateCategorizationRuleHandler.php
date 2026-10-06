@@ -9,7 +9,7 @@ use Maggie\Finance\Entity\CategorizationRule;
 use Maggie\Finance\Enum\AmountDirection;
 use Maggie\Finance\Enum\MatchType;
 use Maggie\Finance\Message\CreateCategorizationRuleCommand;
-use Maggie\Finance\Repository\CategoryRepository;
+use Maggie\Finance\Service\OwnedReferenceResolver;
 use Maggie\Finance\UseCase\CreateCategorizationRule;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -18,7 +18,7 @@ class CreateCategorizationRuleHandler
 {
     public function __construct(
         private readonly CreateCategorizationRule $createCategorizationRule,
-        private readonly CategoryRepository $categoryRepository,
+        private readonly OwnedReferenceResolver $references,
         private readonly UserRepository $userRepository,
     ) {
     }
@@ -28,8 +28,7 @@ class CreateCategorizationRuleHandler
         $user = $this->userRepository->find($command->userId)
             ?? throw new \DomainException('User not found.');
 
-        $category = $this->categoryRepository->find($command->categoryId)
-            ?? throw new \DomainException("Category not found: {$command->categoryId}");
+        $category = $this->references->category($command->categoryId, $user);
 
         if ('' === $command->labelPattern) {
             throw new \DomainException('A rule needs a label pattern to match on.');

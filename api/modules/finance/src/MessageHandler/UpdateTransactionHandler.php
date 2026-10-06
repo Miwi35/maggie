@@ -9,9 +9,8 @@ use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\RetrospectVerdict;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Message\UpdateTransactionCommand;
-use Maggie\Finance\Repository\AccountRepository;
-use Maggie\Finance\Repository\CategoryRepository;
 use Maggie\Finance\Repository\TransactionRepository;
+use Maggie\Finance\Service\OwnedReferenceResolver;
 use Maggie\Finance\UseCase\UpdateTransaction;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -21,8 +20,7 @@ class UpdateTransactionHandler
     public function __construct(
         private readonly UpdateTransaction $updateTransaction,
         private readonly TransactionRepository $transactionRepository,
-        private readonly AccountRepository $accountRepository,
-        private readonly CategoryRepository $categoryRepository,
+        private readonly OwnedReferenceResolver $references,
     ) {
     }
 
@@ -32,8 +30,7 @@ class UpdateTransactionHandler
             ?? throw new \DomainException("Transaction not found: {$command->transactionId}");
 
         if (null !== $command->accountId) {
-            $account = $this->accountRepository->find($command->accountId)
-                ?? throw new \DomainException("Account not found: {$command->accountId}");
+            $account = $this->references->account($command->accountId, $transaction->getUser());
             $transaction->setAccount($account);
         }
         if (null !== $command->amountCents) {
@@ -62,8 +59,7 @@ class UpdateTransactionHandler
             if ('' === $command->categoryId) {
                 $transaction->assignCategory(null, CategorySource::None);
             } else {
-                $category = $this->categoryRepository->find($command->categoryId)
-                    ?? throw new \DomainException("Category not found: {$command->categoryId}");
+                $category = $this->references->category($command->categoryId, $transaction->getUser());
                 $transaction->assignCategory(
                     $category,
                     CategorySource::from($command->categorySource ?? CategorySource::Manual->value),
