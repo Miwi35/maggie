@@ -117,6 +117,97 @@ class CreateEventToolTest extends KernelTestCase
         self::assertSame('Concerts', $data['event']['agenda']);
     }
 
+    /**
+     * "Déjeuner jeudi, préviens-moi une heure avant" — in one tool call.
+     *
+     * Reminders had no way in but Google's import: neither this tool nor the API's
+     * POST carried them, so Maggie answered "c'est noté" to an event nobody would
+     * ever be reminded of (MAG-121). The delays are what she hears; the entity
+     * holds Google's `{useDefault, overrides}` and this is where the two meet.
+     */
+    public function testCreateEventStoresTheRemindersTheUserAskedFor(): void
+    {
+        $this->loadFixtures('CreateEventToolTest.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(
+            ($this->getTool())('Déjeuner avec Léa', '2026-03-20', '12:30', reminders: [1440, 60]),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertTrue($data['success']);
+        // Said back in minutes, so Maggie can confirm what she set.
+        self::assertSame([60, 1440], $data['event']['reminders']);
+        self::assertSame(
+            ['useDefault' => false, 'overrides' => [
+                ['method' => 'popup', 'minutes' => 60],
+                ['method' => 'popup', 'minutes' => 1440],
+            ]],
+            $this->stored('Déjeuner avec Léa')->getReminders(),
+        );
+    }
+
+    public function testCreateEventWithoutRemindersStoresNone(): void
+    {
+        $this->loadFixtures('CreateEventToolTest.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(($this->getTool())('Déjeuner seul', '2026-03-20'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
+        self::assertSame([], $data['event']['reminders']);
+        self::assertNull($this->stored('Déjeuner seul')->getReminders());
+    }
+
+    /**
+     * A delay nothing can honour is an error Maggie can read, not a silent event.
+     *
+     * Zero minutes is the one worth naming: the cron skips it, so storing it would
+     * promise a reminder that never comes.
+     */
+    public function testCreateEventRefusesAReminderOfZeroMinutes(): void
+    {
+        $this->loadFixtures('CreateEventToolTest.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(
+            ($this->getTool())('Rendez-vous sans délai', '2026-03-20', reminders: [0]),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertArrayNotHasKey('success', $data);
+        self::assertStringContainsString('between 1 and', $data['error']);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        self::assertSame(0, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM event'));
+    }
+
+    /**
+     * "Tous les lundis" — the recurrence Maggie could read but not write (MAG-121).
+     *
+     * `update_event` could already clear an rrule it had no way of setting, so a
+     * repeating event could only be created from the web or the mobile app.
+     */
+    public function testCreateEventStoresARecurrenceRule(): void
+    {
+        $this->loadFixtures('CreateEventToolTest.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(
+            ($this->getTool())('Point hebdomadaire', '2026-03-23', '09:00', rrule: 'FREQ=WEEKLY;BYDAY=MO'),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertTrue($data['success']);
+        self::assertSame('FREQ=WEEKLY;BYDAY=MO', $data['event']['rrule']);
+        self::assertSame('FREQ=WEEKLY;BYDAY=MO', $this->stored('Point hebdomadaire')->getRrule());
+    }
+
     public function testCreateEventUsesDefaultDuration(): void
     {
         $this->loadFixtures('CreateEventToolTest.yaml');
@@ -135,5 +226,17 @@ class CreateEventToolTest extends KernelTestCase
         $end = new \DateTimeImmutable($data['event']['endAt']);
         $diff = $start->diff($end);
         self::assertSame(60, $diff->i + $diff->h * 60);
+    }
+
+    /** An event read back from the database, not from the response that claimed to write it. */
+    private function stored(string $summary): Event
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+
+        $event = $em->getRepository(Event::class)->findOneBy(['summary' => $summary]);
+        self::assertInstanceOf(Event::class, $event);
+
+        return $event;
     }
 }

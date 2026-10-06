@@ -72,6 +72,9 @@ class CreateEventHandler
         if (null !== $command->status) {
             $event->setStatus(EventStatus::from($command->status));
         }
+        if (null !== $command->reminders) {
+            $event->setReminders($command->reminders);
+        }
 
         $event = $this->createEvent->execute($event);
 

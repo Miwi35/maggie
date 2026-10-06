@@ -37,6 +37,12 @@ Maggie\Calendar\Entity\Event:
     location: Lisbon
     startAt: '<(new \DateTimeImmutable("2026-03-15 10:00"))>'
     endAt: '<(new \DateTimeImmutable("2026-03-15 11:00"))>'
+    # Every optional field means the reminders too, now that a client sets them
+    # (MAG-121): what a client reads back has to carry the shape it wrote.
+    reminders:
+      useDefault: false
+      overrides:
+        - { method: 'popup', minutes: 30 }
     agenda: '@recorded_agenda'
 
   recorded_recurring_event:

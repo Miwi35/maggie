@@ -34,6 +34,7 @@ interface StoredEvent {
   endAt?: string
   agenda?: string
   allDay?: boolean
+  reminders?: { useDefault: boolean; overrides: { method: string; minutes: number }[] } | null
 }
 
 /** The anchor's own day — the fixtures' "today", and always on screen. */
@@ -137,6 +138,71 @@ test('the pencil renames an event, and the bin removes it for good', async ({ pa
       { timeout: 30_000, message: 'the deleted event should stop being findable' },
     )
     .toBe(false)
+})
+
+/**
+ * A reminder set in the dialog is stored in the shape the cron reads (MAG-121).
+ *
+ * Reminders used to be filled by Google's import alone: the dialog had no field,
+ * and the API's POST dropped them in silence even when a client sent them — so the
+ * smoke journey needed a second PATCH for its one event. What this asserts is the
+ * stored shape rather than the field on screen, because `{useDefault, overrides}`
+ * is the only one `maggie:notification:check-reminders` looks at; a bare list
+ * stores fine and reminds nobody, and the whole chain stays green.
+ *
+ * The firing itself has no browser surface — the producer is a cron — and
+ * `e2e/smoke/smoke.sh` step 11 is where that half is proved, for a one-off event
+ * and for an occurrence of a series.
+ */
+test('a reminder set in the dialog is stored, and shown on the card', async ({ page, api }) => {
+  const created = slot('Rendez-vous chez le notaire')
+  const calendar = new CalendarPage(page)
+  await calendar.open()
+
+  await calendar.createEvent({ ...created, agenda: 'Perso', reminder: '1 heure avant' })
+
+  const stored = await storedEvent(api, created.summary)
+  expect(stored.reminders).toEqual({
+    useDefault: false,
+    overrides: [{ method: 'popup', minutes: 60 }],
+  })
+
+  // And the owner can see what he will be told, and when, without reopening the form.
+  await calendar.openEvent(String(stored.id), created.summary)
+  await expect(calendar.reminderOnCard('1 heure avant')).toBeVisible()
+})
+
+/**
+ * Renaming an event does not throw its reminder away.
+ *
+ * The edit form sends the reminders it holds on every save, so a form that opened
+ * empty would quietly clear everything the owner had set from Maggie or imported
+ * from Google — on an edit that had nothing to do with reminders.
+ *
+ * Its own event rather than the seeded dentist appointment, which carries a
+ * reminder too: `tests/mag-130-controls.spec.ts` renames that row through the same
+ * dialog, and two files renaming one row read each other's result.
+ */
+test('renaming an event keeps the reminder it already had', async ({ page, api }) => {
+  const created = slot('Révision de la voiture')
+  const renamed = `${created.summary} — reportée`
+  const calendar = new CalendarPage(page)
+  await calendar.open()
+
+  await calendar.createEvent({ ...created, agenda: 'Perso', reminder: '30 minutes avant' })
+  const stored = await storedEvent(api, created.summary)
+
+  await calendar.openEvent(String(stored.id), created.summary)
+  await calendar.editFromPopover()
+  // Nothing said about the reminders: the form keeps the ones it was opened with.
+  await calendar.submitEventEdit({ summary: renamed })
+
+  const afterEdit = await storedEvent(api, renamed)
+  expect(afterEdit.id).toBe(stored.id)
+  expect(afterEdit.reminders).toEqual({
+    useDefault: false,
+    overrides: [{ method: 'popup', minutes: 30 }],
+  })
 })
 
 /**

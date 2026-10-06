@@ -46,6 +46,7 @@ class CreateNotificationHandler
         $notification->setTitle($command->title);
         $notification->setBody($command->body);
         $notification->setRelatedEntityIri($command->relatedEntityIri);
+        $notification->setOccurrenceStartAt($command->occurrenceStartAt);
 
         return $this->createNotification->execute($notification);
     }

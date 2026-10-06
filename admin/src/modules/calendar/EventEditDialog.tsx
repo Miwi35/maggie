@@ -8,6 +8,8 @@ import FormControlLabel from '@mui/material/FormControlLabel'
 import Stack from '@mui/material/Stack'
 import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
+import { ReminderPicker } from './ReminderPicker'
+import type { EventReminders } from './ReminderPicker'
 
 export interface EditableEvent {
   summary: string
@@ -16,6 +18,7 @@ export interface EditableEvent {
   allDay: boolean
   description?: string
   location?: string
+  reminders?: EventReminders | null
 }
 
 export interface EventEditValues {
@@ -25,6 +28,7 @@ export interface EventEditValues {
   allDay: boolean
   description: string | null
   location: string | null
+  reminders: EventReminders | null
 }
 
 interface EventEditDialogProps {
@@ -47,6 +51,7 @@ export const EventEditDialog = ({ open, event, onClose, onSubmit }: EventEditDia
   const [endAt, setEndAt] = useState('')
   const [location, setLocation] = useState('')
   const [description, setDescription] = useState('')
+  const [reminders, setReminders] = useState<EventReminders | null>(null)
   const [summaryError, setSummaryError] = useState(false)
 
   useEffect(() => {
@@ -67,6 +72,7 @@ export const EventEditDialog = ({ open, event, onClose, onSubmit }: EventEditDia
     }
     setLocation(event.location ?? '')
     setDescription(event.description ?? '')
+    setReminders(event.reminders ?? null)
     setSummaryError(false)
   }, [open, event])
 
@@ -93,6 +99,7 @@ export const EventEditDialog = ({ open, event, onClose, onSubmit }: EventEditDia
       allDay,
       description: description.trim() || null,
       location: location.trim() || null,
+      reminders,
     })
   }
 
@@ -135,6 +142,7 @@ export const EventEditDialog = ({ open, event, onClose, onSubmit }: EventEditDia
             required
             slotProps={{ inputLabel: { shrink: true } }}
           />
+          <ReminderPicker value={reminders} onChange={setReminders} />
           <TextField label="Lieu" value={location} onChange={(e) => setLocation(e.target.value)} />
           <TextField
             label="Description"

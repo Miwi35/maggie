@@ -2,6 +2,8 @@ package com.maggie.app.ui.screens.shared
 
 import com.maggie.app.data.api.EventCreateRequest
 import com.maggie.app.data.model.Event
+import com.maggie.app.data.model.EventReminder
+import com.maggie.app.data.model.EventReminders
 import com.maggie.app.data.model.ExpandedEvent
 import com.maggie.app.data.repository.EventRepository
 import io.mockk.coEvery
@@ -10,6 +12,8 @@ import io.mockk.coVerifyOrder
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -24,6 +28,9 @@ class RecurringEventEditorTest {
     private lateinit var editor: RecurringEventEditor
 
     private val stubEvent = Event(id = "x", summary = "x", startAt = "2026-01-01T00:00:00Z", endAt = "2026-01-01T01:00:00Z")
+
+    private fun at(vararg minutes: Int) =
+        EventReminders(useDefault = false, overrides = minutes.map { EventReminder(minutes = it) })
 
     // Weekly series started Monday 2026-10-05 10:00-11:00 UTC; the user edits the 2026-10-12 occurrence
     private val occurrence = ExpandedEvent(
@@ -119,6 +126,42 @@ class RecurringEventEditorTest {
 
         coVerify(exactly = 1) { repository.updateEvent("exc1", any()) }
         coVerify(exactly = 0) { repository.createEvent(any()) }
+    }
+
+    /**
+     * The reminders on the form follow the occurrence the owner is splitting off (MAG-121).
+     *
+     * `THIS` creates a brand-new event, so anything the form holds that the
+     * request does not name is lost — which is how a reminder set on screen could
+     * end up on no event at all.
+     */
+    @Test
+    fun `this occurrence keeps the reminders the form holds`() = runTest {
+        val data = buildJsonObject {
+            editedData().forEach { (key, value) -> put(key, value) }
+            put("reminders", Json.encodeToJsonElement(EventReminders.serializer(), at(60)))
+        }
+
+        editor.edit(occurrence, RecurrenceAction.THIS, data)
+
+        val request = slot<EventCreateRequest>()
+        coVerify(exactly = 1) { repository.createEvent(capture(request)) }
+        assertEquals(at(60), request.captured.reminders)
+    }
+
+    /** A form left without a reminder sends null, and the exception gets none. */
+    @Test
+    fun `this occurrence drops the reminders when the form has none`() = runTest {
+        val data = buildJsonObject {
+            editedData().forEach { (key, value) -> put(key, value) }
+            put("reminders", JsonNull)
+        }
+
+        editor.edit(occurrence.copy(reminders = at(30)), RecurrenceAction.THIS, data)
+
+        val request = slot<EventCreateRequest>()
+        coVerify(exactly = 1) { repository.createEvent(capture(request)) }
+        assertNull(request.captured.reminders)
     }
 
     @Test

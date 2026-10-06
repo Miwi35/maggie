@@ -3,6 +3,8 @@ package com.maggie.app.data.local.entity
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.maggie.app.data.model.Event
+import com.maggie.app.data.model.EventReminders
+import kotlinx.serialization.json.Json
 
 enum class SyncStatus {
     SYNCED,
@@ -26,6 +28,14 @@ data class EventEntity(
     val rrule: String?,
     val recurringEvent: String?,
     val originalStartAt: String?,
+    /**
+     * The reminders as the API serves them, kept as the JSON itself.
+     *
+     * A column per delay would mean a schema per number of reminders; the shape
+     * is Google's and the app never reads inside it except through
+     * `remindersOf`/`remindersFrom`.
+     */
+    val reminders: String?,
     val agenda: String?,
     val syncStatus: SyncStatus = SyncStatus.SYNCED,
 ) {
@@ -42,10 +52,13 @@ data class EventEntity(
         rrule = rrule,
         recurringEvent = recurringEvent,
         originalStartAt = originalStartAt,
+        reminders = reminders?.let { JSON.decodeFromString<EventReminders>(it) },
         agenda = agenda,
     )
 
     companion object {
+        private val JSON = Json { ignoreUnknownKeys = true }
+
         fun fromModel(event: Event, syncStatus: SyncStatus = SyncStatus.SYNCED): EventEntity =
             EventEntity(
                 id = event.id,
@@ -60,6 +73,7 @@ data class EventEntity(
                 rrule = event.rrule,
                 recurringEvent = event.recurringEvent,
                 originalStartAt = event.originalStartAt,
+                reminders = event.reminders?.let { JSON.encodeToString(EventReminders.serializer(), it) },
                 agenda = event.agenda,
                 syncStatus = syncStatus,
             )

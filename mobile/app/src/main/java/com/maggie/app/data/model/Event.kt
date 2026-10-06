@@ -16,5 +16,6 @@ data class Event(
     val rrule: String? = null,
     val recurringEvent: String? = null,
     val originalStartAt: String? = null,
+    val reminders: EventReminders? = null,
     val agenda: String? = null,
 )

@@ -32,6 +32,7 @@ class CreateEventProcessor implements ProcessorInterface
             recurringEventId: (string) $data->getRecurringEvent()?->getId(),
             originalStartAt: $data->getOriginalStartAt(),
             status: $data->getStatus()->value,
+            reminders: $data->getReminders(),
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();
