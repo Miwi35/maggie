@@ -1,0 +1,23 @@
+# The user answers the question 33 raised, and the same write goes through (MAG-150):
+# `agenda_id` is now the agenda they named, which resolves exactly — one call, no
+# `manage_agendas` round trip (MAG-230).
+#
+# Two conditions on the message this matches, both of them about not being stolen: it must
+# not contain « Camille », which 33 claims and which sorts first, and it must not contain
+# « mon agenda », which 30-upcoming-events.yaml claims. Hence « Mets-le dans Boulot ».
+name: create-event-agenda-answered
+description: The lunch is booked once the user says which agenda.
+
+match:
+  user_matches: "dans boulot"
+
+turns:
+  - tools:
+      - name: create_event
+        input:
+          title: "Déjeuner avec Camille"
+          date: "2099-11-14"
+          time: "12:30"
+          duration: 60
+          agenda_id: "Boulot"
+  - text: "C'est noté : déjeuner avec Camille le 14 novembre 2099 à 12 h 30, dans l'agenda Boulot."

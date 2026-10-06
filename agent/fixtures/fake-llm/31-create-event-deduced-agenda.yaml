@@ -1,0 +1,31 @@
+# A write with **no** `agenda_id` at all (MAG-150): the agenda is not named, and the
+# tool works it out from the event's own title against the user's agendas — « un
+# concert » belongs in « Concerts ».
+#
+# That absence is the whole point of the fixture, and it is what makes the journey assert
+# something about the API rather than about this file: the model sends nothing about the
+# agenda, so where the event lands is entirely the deduction's doing.
+#
+# 2099 for the reason given in 35-create-event.yaml — and here it also keeps the event out
+# of the thirty-day window the deduction reads, so one journey's write cannot become the
+# next journey's habit.
+#
+# Numbered below 35 only to keep the four MAG-150 scenarios together; the conditions are
+# disjoint from every other file's. « Stromae » appears in no other journey, and the one
+# collision worth checking is 30-upcoming-events.yaml, which claims any message containing
+# « mon agenda » — hence « dans quel agenda » never being asked here.
+name: create-event-deduced-agenda
+description: Book a concert without naming an agenda; the tool files it under « Concerts ».
+
+match:
+  user_matches: "stromae"
+
+turns:
+  - tools:
+      - name: create_event
+        input:
+          title: "Concert de Stromae"
+          date: "2099-11-12"
+          time: "20:00"
+          duration: 120
+  - text: "C'est noté : Stromae le 12 novembre 2099 à 20 h, rangé dans l'agenda Concerts."

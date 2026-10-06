@@ -10,6 +10,9 @@ use Fidry\AliceDataFixtures\LoaderInterface;
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Entity\Task;
+use Maggie\Calendar\Service\AgendaCandidate;
+use Maggie\Calendar\Service\AgendaChoiceKind;
+use Maggie\Calendar\Service\AgendaSuggester;
 use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Entity\Recipe;
 use Maggie\Core\E2e\Command\E2eSeedCommand;
@@ -81,12 +84,16 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-other@maggie.local']));
 
-        // Three: the signed-in user's two, and the neighbour's one. An event
+        // Five: the signed-in user's four, and the neighbour's one. An event
         // belongs to a user through its agenda, so the neighbour needs one of
-        // their own for the isolation journey to have anything to leak.
-        self::assertSame(3, $this->rowsOf(Agenda::class));
-        // Events include the meals, which extend Event: 9 events + 2 meals.
-        self::assertSame(11, $this->rowsOf(Event::class));
+        // their own for the isolation journey to have anything to leak. Four and
+        // not two since MAG-150: the agenda deduction has nothing to deduce
+        // between two agendas, and « Boulot » and « Concerts » are what the
+        // journeys watch an event be filed into.
+        self::assertSame(5, $this->rowsOf(Agenda::class));
+        // Events include the meals, which extend Event: 13 events + 2 meals. Four
+        // of the thirteen are the habits the deduction reads (MAG-150).
+        self::assertSame(15, $this->rowsOf(Event::class));
         self::assertSame(2, $this->rowsOf(Meal::class));
         self::assertSame(4, $this->rowsOf(Task::class));
         self::assertSame(3, $this->rowsOf(Recipe::class));
@@ -111,7 +118,7 @@ final class E2eSeedCommandTest extends KernelTestCase
         // MCP tools and API collections filter by user. A fixture attached to
         // nobody would simply be invisible, and the journey would report an
         // empty list without saying why.
-        self::assertSame(2, $this->rowsOf(Agenda::class, ['user' => $user]));
+        self::assertSame(4, $this->rowsOf(Agenda::class, ['user' => $user]));
         self::assertSame(3, $this->rowsOf(Task::class, ['user' => $user]));
         self::assertSame(2, $this->rowsOf(Recipe::class, ['user' => $user]));
         self::assertSame(2, $this->rowsOf(Account::class, ['user' => $user]));
@@ -163,6 +170,57 @@ final class E2eSeedCommandTest extends KernelTestCase
         foreach ([Account::class, Transaction::class, Notification::class] as $entity) {
             self::assertSame(0, $this->rowsOf($entity, ['user' => $neighbour]), $entity);
         }
+    }
+
+    public function testTheAgendaDeductionReadsTheSeedTheWayTheJourneysExpect(): void
+    {
+        // The three MAG-150 journeys in `e2e/web/tests/chat.spec.ts` assert which agenda
+        // an event Maggie creates lands in, and the answer comes out of the whole seeded
+        // world: every agenda, and every plain event starting before `now + 30 days`
+        // (meals are skipped, `AgendaSuggester::scoreHistory`). So a fixture added
+        // anywhere can change it, and the browser suite is the slowest and least legible
+        // place to find out. Here it fails in two seconds, naming the agenda it got.
+        $this->seed();
+
+        $user = $this->repository(User::class)->findOneBy(['email' => 'e2e@maggie.local']);
+        self::assertNotNull($user);
+        $suggester = self::getContainer()->get(AgendaSuggester::class);
+
+        // « an event nobody placed lands in the agenda its own words point at »
+        $concert = $suggester->suggest($user, 'Concert de Stromae');
+        self::assertSame(AgendaChoiceKind::Deduced, $concert->kind);
+        self::assertSame('Concerts', $concert->agenda?->getName());
+
+        // « an appointment nobody placed lands where the past ones went »
+        $paul = $suggester->suggest($user, 'Rendez-vous avec Paul');
+        self::assertSame(AgendaChoiceKind::Deduced, $paul->kind);
+        self::assertSame('Boulot', $paul->agenda?->getName());
+
+        // « an event two agendas fit is not created until the owner says which one » —
+        // and those two agendas, in that order, are what the refusal names.
+        $camille = $suggester->suggest($user, 'Déjeuner avec Camille');
+        self::assertSame(AgendaChoiceKind::Ambiguous, $camille->kind);
+        self::assertSame(
+            ['Boulot', 'Famille'],
+            array_map(static fn (AgendaCandidate $c) => $c->agenda->getName(), $camille->candidates),
+        );
+
+        // And the three writes the older chat journeys make still go through without a
+        // question: 35-create-event.yaml, 36-create-event-retry.yaml and
+        // 38-create-event-timezone.yaml all call `create_event` with no agenda at all,
+        // and a doubt there would fail them as « the tool errored » with nothing
+        // pointing at the fixture that caused it.
+        $dentist = $suggester->suggest($user, 'Dentiste');
+        self::assertSame(AgendaChoiceKind::Deduced, $dentist->kind);
+        self::assertSame('Perso', $dentist->agenda?->getName());
+
+        $wizards = $suggester->suggest($user, 'Black Wizards');
+        self::assertSame(AgendaChoiceKind::Fallback, $wizards->kind);
+        self::assertSame('Perso', $wizards->agenda?->getName());
+
+        $kevin = $suggester->suggest($user, 'Appeler Kévin');
+        self::assertNotSame(AgendaChoiceKind::Ambiguous, $kevin->kind);
+        self::assertSame('Perso', $kevin->agenda?->getName());
     }
 
     public function testRunningTwiceLeavesTheSameCounts(): void
