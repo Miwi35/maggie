@@ -39,7 +39,11 @@ class IngredientFromCiqualResolver
     ) {
     }
 
-    public function resolve(string $ciqualAlimCode, User $user): Ingredient
+    /**
+     * @param list<Ingredient> $created receives the ingredient when it had to be created: a handler returns its
+     *                                  recipe, so it must broadcast that ingredient itself once flushed (MAG-182)
+     */
+    public function resolve(string $ciqualAlimCode, User $user, array &$created = []): Ingredient
     {
         $existing = $this->ingredientRepository->findOneByUserAndCiqualAlimCode($user, $ciqualAlimCode);
         if (null !== $existing) {
@@ -73,6 +77,7 @@ class IngredientFromCiqualResolver
         }
 
         $this->em->persist($ingredient);
+        $created[] = $ingredient;
 
         return $ingredient;
     }

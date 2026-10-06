@@ -12,6 +12,7 @@ use Maggie\Cookbook\Repository\IngredientRepository;
 use Maggie\Cookbook\Service\IngredientFromCiqualResolver;
 use Maggie\Cookbook\UseCase\CreateRecipe;
 use Maggie\Core\Entity\User;
+use Maggie\Core\Mercure\EntityBroadcaster;
 use Maggie\Core\Repository\UserRepository;
 use Maggie\Grocery\Enum\Unit;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -24,6 +25,7 @@ class CreateRecipeHandler
         private readonly UserRepository $userRepository,
         private readonly IngredientRepository $ingredientRepository,
         private readonly IngredientFromCiqualResolver $ciqualResolver,
+        private readonly EntityBroadcaster $entityBroadcaster,
     ) {
     }
 
@@ -31,6 +33,9 @@ class CreateRecipeHandler
     {
         $user = $this->userRepository->find($command->userId)
             ?? throw new \DomainException('User not found.');
+
+        /** @var list<Ingredient> $createdIngredients */
+        $createdIngredients = [];
 
         $recipe = new Recipe();
         $recipe->setUser($user);
@@ -44,7 +49,7 @@ class CreateRecipeHandler
 
         if (null !== $command->ingredients) {
             foreach ($command->ingredients as $item) {
-                $ingredient = $this->resolveIngredient($item, $user);
+                $ingredient = $this->resolveIngredient($item, $user, $createdIngredients);
 
                 $ri = new RecipeIngredient();
                 $ri->setIngredient($ingredient);
@@ -54,14 +59,25 @@ class CreateRecipeHandler
             }
         }
 
-        return $this->createRecipe->execute($recipe);
+        $recipe = $this->createRecipe->execute($recipe);
+
+        // The handler returns the recipe: the ingredients created on the way
+        // would otherwise be neither indexed nor published (MAG-182).
+        foreach ($createdIngredients as $ingredient) {
+            $this->entityBroadcaster->broadcast($ingredient);
+        }
+
+        return $recipe;
     }
 
-    /** @param array{quantity: float, unit: string, ingredientId?: string, ciqualAlimCode?: string} $item */
-    private function resolveIngredient(array $item, User $user): Ingredient
+    /**
+     * @param array{quantity: float, unit: string, ingredientId?: string, ciqualAlimCode?: string} $item
+     * @param list<Ingredient>                                                                     $created
+     */
+    private function resolveIngredient(array $item, User $user, array &$created): Ingredient
     {
         if (isset($item['ciqualAlimCode'])) {
-            return $this->ciqualResolver->resolve($item['ciqualAlimCode'], $user);
+            return $this->ciqualResolver->resolve($item['ciqualAlimCode'], $user, $created);
         }
 
         if (isset($item['ingredientId'])) {

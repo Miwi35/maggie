@@ -2,14 +2,14 @@
 
 namespace Maggie\Cookbook\Tests\MessageHandler;
 
+use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
+use App\Tests\Support\MercureAssertionTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Cookbook\Entity\Ingredient;
 use Maggie\Cookbook\Entity\Recipe;
 use Maggie\Cookbook\Message\CreateRecipeCommand;
-use Maggie\Cookbook\Service\CiqualClient;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
@@ -21,33 +21,18 @@ use Symfony\Component\Messenger\MessageBusInterface;
 class CreateRecipeHandlerTest extends KernelTestCase
 {
     use FixtureLoaderTrait;
-
-    private const COURGETTE = '20020';
+    use MercureAssertionTrait;
+    use ElasticsearchAssertionTrait;
+    use FakesCiqualTrait;
 
     protected function setUp(): void
     {
         self::bootKernel();
+        $this->resetMercure();
+        $this->resetAsyncTransport();
         $this->loadFixtures('CreateRecipeHandlerTest.yaml');
 
-        self::getContainer()->set(CiqualClient::class, new class(new MockHttpClient()) extends CiqualClient {
-            public function getFood(string $alimCode): ?array
-            {
-                return [
-                    'alim_code' => $alimCode,
-                    'alim_name_fr' => 'Courgette, crue',
-                    'alim_group_code' => '02',
-                    'alim_group_name_fr' => 'fruits, légumes, légumineuses et oléagineux',
-                    'alim_ssgroup_code' => '0201',
-                    'alim_ssgroup_name_fr' => 'légumes',
-                    'nutrients' => [
-                        ['const_code' => '328', 'const_name_fr' => 'Energie', 'const_unit' => 'kcal/100 g', 'value' => 19.0, 'confidence_code' => 'A', 'raw_value' => '19'],
-                        ['const_code' => '25000', 'const_name_fr' => 'Protéines', 'const_unit' => 'g/100 g', 'value' => 1.2, 'confidence_code' => 'A', 'raw_value' => '1,2'],
-                        ['const_code' => '31000', 'const_name_fr' => 'Glucides', 'const_unit' => 'g/100 g', 'value' => 2.3, 'confidence_code' => 'A', 'raw_value' => '2,3'],
-                        ['const_code' => '40000', 'const_name_fr' => 'Lipides', 'const_unit' => 'g/100 g', 'value' => 0.4, 'confidence_code' => 'A', 'raw_value' => '0,4'],
-                    ],
-                ];
-            }
-        });
+        $this->fakeCiqual();
     }
 
     private function createRecipe(string $name, string $userFixture = 'test_user'): void
@@ -101,5 +86,24 @@ class CreateRecipeHandlerTest extends KernelTestCase
         $this->createRecipe('Courgettes sautées', 'other_user');
 
         self::assertCount(2, $this->courgettes());
+    }
+
+    public function testTheIngredientCreatedOnTheWayIsIndexedAndPublished(): void
+    {
+        $this->createRecipe('Gratin de courgettes');
+
+        $this->assertElasticsearchIndexDispatched(Ingredient::class);
+        $this->assertMercureUpdatePublished('/ingredients/'.$this->courgettes()[0]->getId());
+    }
+
+    public function testAnIngredientReusedByARecipeIsNotBroadcastAgain(): void
+    {
+        $this->createRecipe('Gratin de courgettes');
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $this->createRecipe('Courgettes sautées');
+
+        $this->assertMercureUpdateCount(1);
     }
 }
