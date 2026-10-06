@@ -67,6 +67,16 @@ class EventUpdateApiTest extends WebTestCase
         $this->assertElasticsearchIndexDispatched(Event::class);
     }
 
+    public function testPatchWithUnknownTimeZoneIsRefusedAndChangesNothing(): void
+    {
+        $this->patch(['summary' => 'Renamed', 'timeZone' => 'Mars/Olympus']);
+
+        self::assertResponseStatusCodeSame(422);
+        $event = $this->reload();
+        self::assertSame('Dentist', $event->getSummary());
+        self::assertSame('Europe/Paris', $event->getTimeZone());
+    }
+
     public function testPatchMovesTheEventToAnotherAgenda(): void
     {
         $agendaB = $this->getFixture('agenda_b');

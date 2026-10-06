@@ -1,0 +1,12 @@
+# Rows nothing points at, so that deleting them is not blocked by a foreign key.
+Maggie\Grocery\Entity\Product:
+  product_free_other:
+    name: Savon
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Other)>'
+    user: '@user_other'
+
+Maggie\Cookbook\Entity\Ingredient:
+  ingredient_free_other:
+    name: Basilic
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    user: '@user_other'

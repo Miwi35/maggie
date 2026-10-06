@@ -253,14 +253,16 @@ final class DedupeGoogleAgendasCommand extends Command
         $dropped = [];
         foreach ($toDrop as $event) {
             // A Meal is an Event with its own index and its own topic, and the
-            // agenda holds both.
-            $dropped[] = [(string) $event->getId(), $this->indexNameOf($event), MercureTopic::collection($event)];
+            // agenda holds both; its document is in the two indices.
+            $dropped[] = [(string) $event->getId(), $this->metadataReader->indicesOf($event::class), MercureTopic::collection($event)];
             $this->entityManager->remove($event);
         }
         $this->entityManager->flush();
 
-        foreach ($dropped as [$eventId, $indexName, $topic]) {
-            $this->messageBus->dispatch(new DeleteDocumentCommand(indexName: $indexName, documentId: $eventId));
+        foreach ($dropped as [$eventId, $indices, $topic]) {
+            foreach ($indices as $indexName) {
+                $this->messageBus->dispatch(new DeleteDocumentCommand(indexName: $indexName, documentId: $eventId));
+            }
             $this->publishDelete($topic, $eventId, $userId);
         }
 
@@ -388,12 +390,6 @@ final class DedupeGoogleAgendasCommand extends Command
             entityId: (string) $event->getId(),
         ));
         $this->publish(MercureTopic::collection($event), (string) $event->getId(), $userId, $event->toMercurePayload());
-    }
-
-    private function indexNameOf(Event $event): string
-    {
-        return $this->metadataReader->read($event::class)['index']
-            ?? throw new \RuntimeException($event::class.' is not indexed, so its document cannot be removed.');
     }
 
     /**
