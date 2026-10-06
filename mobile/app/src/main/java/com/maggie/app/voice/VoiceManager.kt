@@ -220,7 +220,7 @@ class VoiceManager(
             session.sink = engine.start(
                 object : DeviceSpeechRecognizer.Listener {
                     override fun onPartial(text: String) {
-                        if (!session.sentenceOver && _state.value == VoiceState.LISTENING) _partialText.value = text
+                        if (_state.value == VoiceState.LISTENING) _partialText.value = text
                     }
 
                     override fun onResult(result: DeviceSpeechResult) {

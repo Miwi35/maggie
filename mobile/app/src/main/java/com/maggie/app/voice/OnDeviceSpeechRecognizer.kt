@@ -34,9 +34,7 @@ class OnDeviceSpeechRecognizer(
 ) : DeviceSpeechRecognizer {
 
     companion object {
-        private const val TAG = "OnDeviceSpeech"
-        private const val PATIENCE_MS = 30_000L
-    }
+        private const val TAG = "OnDeviceSpeech"    }
 
     private var recognizer: SpeechRecognizer? = null
     private var audioSource: ParcelFileDescriptor? = null
@@ -64,12 +62,6 @@ class OnDeviceSpeechRecognizer(
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, language)
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                // A hold ends on the release, not on a silence: ask the engine to wait.
-                // It may ignore this, which VoiceManager survives by handing the whole
-                // recording to Whisper when the engine closed the sentence early.
-                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, PATIENCE_MS)
-                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, PATIENCE_MS)
-                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, PATIENCE_MS)
                 putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE, pipe[0])
                 putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_ENCODING, AudioFormat.ENCODING_PCM_16BIT)
                 putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_SAMPLING_RATE, PcmAudioRecorder.SAMPLE_RATE)

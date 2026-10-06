@@ -411,6 +411,23 @@ class VoiceManagerTest {
     }
 
     @Test
+    fun `a hands-free listening is not ended by the engine's own pause either`() {
+        val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("ajoute du lait à la liste de courses", 0.9f))
+        voiceManager = managerWith(engine)
+        var sent: String? = null
+
+        voiceManager.startListening { sent = it }
+        advance(2000)
+        engine.listener?.onResult(DeviceSpeechResult("ajoute du lait à la liste de courses", 0.9f))
+        advance(5000)
+        voiceManager.stopAndTranscribe()
+        testScope.runCurrent()
+
+        coVerify(exactly = 1) { apiService.transcribe(any(), TranscriptCleanup.NONE) }
+        assertEquals("bonjour Maggie", sent)
+    }
+
+    @Test
     fun `an engine that gives up on a pause while the button is held leaves the rest to Whisper`() {
         val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("ajoute du lait", 0.9f))
         voiceManager = managerWith(engine)
