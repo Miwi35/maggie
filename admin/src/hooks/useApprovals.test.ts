@@ -2,21 +2,6 @@ import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { APPROVAL_ERRORS, isAwaitingAnswer, useApprovals, type Approval } from './useApprovals'
 
-class MockEventSource {
-  static instances: MockEventSource[] = []
-  onmessage: ((event: MessageEvent) => void) | null = null
-  close = vi.fn()
-  constructor(
-    public url: string,
-    public init?: EventSourceInit,
-  ) {
-    MockEventSource.instances.push(this)
-  }
-  emit(data: unknown) {
-    this.onmessage?.({ data: typeof data === 'string' ? data : JSON.stringify(data) } as MessageEvent)
-  }
-}
-
 const IN_ONE_HOUR = new Date(Date.now() + 60 * 60 * 1000).toISOString()
 
 function action(overrides: Partial<Approval> = {}): Approval {
@@ -38,8 +23,6 @@ function response(status: number, body: unknown = {}) {
 
 describe('useApprovals', () => {
   beforeEach(() => {
-    MockEventSource.instances = []
-    vi.stubGlobal('EventSource', MockEventSource)
     localStorage.setItem('user', JSON.stringify({ id: 'user-1' }))
     localStorage.setItem('token', 'jwt')
   })
@@ -71,49 +54,44 @@ describe('useApprovals', () => {
     expect(result.current.approvals).toEqual([])
   })
 
-  test('subscribes to the approvals topic of the current user, with credentials', () => {
+  test('opens no connection of its own: the caller feeds the stream through receive', () => {
+    const eventSource = vi.fn()
+    vi.stubGlobal('EventSource', eventSource)
     vi.stubGlobal('fetch', vi.fn(() => response(200, [])))
 
     renderHook(() => useApprovals())
 
-    expect(MockEventSource.instances).toHaveLength(1)
-    const [es] = MockEventSource.instances
-    expect(new URL(es.url, 'http://localhost').searchParams.get('match')).toBe('/approvals/user-1')
-    expect(es.init?.withCredentials).toBe(true)
+    expect(eventSource).not.toHaveBeenCalled()
   })
 
-  test('adds an action and follows its status from Mercure messages', async () => {
+  test('adds an action and follows its status from the messages it receives', async () => {
     vi.stubGlobal('fetch', vi.fn(() => response(200, [])))
     const { result } = renderHook(() => useApprovals())
-    const [es] = MockEventSource.instances
 
-    act(() => es.emit(action()))
+    act(() => {
+      expect(result.current.receive(action())).toBe(true)
+    })
     expect(result.current.approvals).toHaveLength(1)
     expect(result.current.approvals[0].status).toBe('pending')
 
-    act(() => es.emit(action({ status: 'approved', result: '{"deleted":true}' })))
+    act(() => {
+      result.current.receive(action({ status: 'approved', result: '{"deleted":true}' }))
+    })
     expect(result.current.approvals).toHaveLength(1)
     expect(result.current.approvals[0]).toMatchObject({ status: 'approved', result: '{"deleted":true}' })
   })
 
-  test('ignores malformed Mercure messages', () => {
+  test('declines what is not an approval, so the caller can use it', () => {
     vi.stubGlobal('fetch', vi.fn(() => response(200, [])))
     const { result } = renderHook(() => useApprovals())
-    const [es] = MockEventSource.instances
 
-    act(() => es.emit('not json'))
-    act(() => es.emit({ unrelated: true }))
+    act(() => {
+      expect(result.current.receive({ id: 'c1', label: 'Courses', status: 'active' })).toBe(false)
+      expect(result.current.receive(null)).toBe(false)
+      expect(result.current.receive('not an approval')).toBe(false)
+    })
 
     expect(result.current.approvals).toEqual([])
-  })
-
-  test('closes the subscription on unmount', () => {
-    vi.stubGlobal('fetch', vi.fn(() => response(200, [])))
-    const { unmount } = renderHook(() => useApprovals())
-
-    unmount()
-
-    expect(MockEventSource.instances[0].close).toHaveBeenCalled()
   })
 
   test('approve POSTs, stays busy until it returns, then shows the settled action', async () => {
@@ -221,7 +199,9 @@ describe('useApprovals', () => {
     await act(() => result.current.approve('a1'))
     expect(result.current.approvals[0].error).toBe(APPROVAL_ERRORS.alreadyDecided)
 
-    act(() => MockEventSource.instances[0].emit(action({ status: 'denied' })))
+    act(() => {
+      result.current.receive(action({ status: 'denied' }))
+    })
     expect(result.current.approvals[0]).toMatchObject({ status: 'denied', error: undefined })
   })
 

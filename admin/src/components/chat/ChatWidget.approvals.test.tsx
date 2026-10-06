@@ -35,7 +35,7 @@ class MockEventSource {
 
 function approvalsStream(): MockEventSource {
   const es = MockEventSource.instances.find(
-    (i) => new URL(i.url, 'http://localhost').searchParams.get('match') === '/approvals/user-1',
+    (i) => new URL(i.url, 'http://localhost').searchParams.getAll('match').includes('/approvals/user-1'),
   )
   if (!es) throw new Error('No subscription to the approvals topic')
   return es
@@ -130,6 +130,15 @@ describe('ChatWidget approvals (MAG-6)', () => {
     act(() => approvalsStream().onmessage?.({ data: JSON.stringify(deleteEvent) } as MessageEvent))
 
     expect(await screen.findByTestId('approval-card')).toHaveAttribute('data-status', 'pending')
+  })
+
+  test('the approvals ride the contexts connection: no extra EventSource', async () => {
+    stubFetch([])
+    render(<ChatWidget {...props} />)
+
+    const matches = new URL(approvalsStream().url, 'http://localhost').searchParams.getAll('match')
+    expect(matches).toContain('/contexts/user-1')
+    expect(MockEventSource.instances.filter((i) => i.url.includes('approvals'))).toHaveLength(1)
   })
 
   test('a Mercure update made from another device settles the card', async () => {

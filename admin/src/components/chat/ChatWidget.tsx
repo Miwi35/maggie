@@ -225,7 +225,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     const recorder = useVoiceRecorder()
     const transcription = useTranscription()
     const isNarrow = useNarrowScreen()
-    const { approvals, approve, deny } = useApprovals()
+    const { approvals, approve, deny, receive: receiveApproval } = useApprovals()
     const awaitingCount = approvals.filter((a) => isAwaitingAnswer(a)).length
 
     // AG-UI stream callbacks
@@ -601,7 +601,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
       return () => eventSource.close()
     }, [open, sidebarTab, onUnread])
 
-    // --- Mercure SSE subscription for context updates ---
+    // --- Mercure SSE subscription for context and approval updates (one connection: see useApprovals) ---
 
     useEffect(() => {
       const userId = getStoredUserId()
@@ -610,6 +610,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
       return subscribeAgentFeed(userId, (raw) => {
         try {
           const data = JSON.parse(raw)
+          if (receiveApproval(data)) return
           if (data.id && data.label) {
             const ctx: ContextState = {
               id: data.id,
@@ -631,7 +632,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
           // Ignore malformed messages
         }
       })
-    }, [onContextsChange])
+    }, [onContextsChange, receiveApproval])
 
     // --- Search ---
 
