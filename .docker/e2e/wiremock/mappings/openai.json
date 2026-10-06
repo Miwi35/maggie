@@ -1,7 +1,47 @@
 {
   "mappings": [
     {
+      "name": "Whisper transcription — a clip with no speech in it",
+      "comment": "Whisper answers the subtitle boilerplate it was trained on when it is given silence, which is how « Thank you for watching » reached the owner's chat (retour de recette MAG-222). The agent refuses such a transcript on the scores below, and this mapping is how a journey gets one: it matches a clip whose bytes carry the marker, so the case is reproducible without a sound card and without ordering tricks. Priority 1 so it wins over the catch-all below.",
+      "priority": 1,
+      "request": {
+        "method": "POST",
+        "urlPathPattern": "/openai/v1/audio/transcriptions",
+        "multipartPatterns": [
+          {
+            "matchingType": "ANY",
+            "bodyPatterns": [{ "contains": "MAGGIE_E2E_SILENCE" }]
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "task": "transcribe",
+          "language": "french",
+          "duration": 3.2,
+          "text": "Thank you for watching!",
+          "segments": [
+            {
+              "id": 0,
+              "start": 0.0,
+              "end": 3.2,
+              "text": "Thank you for watching!",
+              "avg_logprob": -0.41,
+              "compression_ratio": 1.1,
+              "no_speech_prob": 0.94
+            }
+          ]
+        }
+      }
+    },
+    {
       "name": "Whisper transcription — one fixed sentence",
+      "comment": "verbose_json rather than text since MAG-222's retour de recette: no_speech_prob and avg_logprob are what tell a sentence from an invention over silence, and they come with this format alone. The scores here are those of speech really heard.",
+      "priority": 5,
       "request": {
         "method": "POST",
         "urlPathPattern": "/openai/v1/audio/transcriptions"
@@ -9,9 +49,25 @@
       "response": {
         "status": 200,
         "headers": {
-          "Content-Type": "text/plain"
+          "Content-Type": "application/json"
         },
-        "body": "euh ajoute des tomates à la liste de courses s'il te plaît"
+        "jsonBody": {
+          "task": "transcribe",
+          "language": "french",
+          "duration": 4.1,
+          "text": "euh ajoute des tomates à la liste de courses s'il te plaît",
+          "segments": [
+            {
+              "id": 0,
+              "start": 0.0,
+              "end": 4.1,
+              "text": "euh ajoute des tomates à la liste de courses s'il te plaît",
+              "avg_logprob": -0.24,
+              "compression_ratio": 1.4,
+              "no_speech_prob": 0.02
+            }
+          ]
+        }
       }
     }
   ]

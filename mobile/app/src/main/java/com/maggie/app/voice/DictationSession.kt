@@ -120,7 +120,7 @@ class DictationSession(
                         pending.complete(result)
                     }
 
-                    override fun onUnavailable(reason: String) {
+                    override fun onUnavailable(reason: String, fatal: Boolean) {
                         pending.complete(null)
                     }
                 },

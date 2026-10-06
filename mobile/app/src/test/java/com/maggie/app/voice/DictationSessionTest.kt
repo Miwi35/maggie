@@ -61,7 +61,7 @@ private class ScriptedEngine(
 
     override fun stopListening() {
         if (!answers) return
-        result?.let { listener?.onResult(it) } ?: listener?.onUnavailable("no match")
+        result?.let { listener?.onResult(it) } ?: listener?.onUnavailable("no match", false)
     }
 
     override fun destroy() {

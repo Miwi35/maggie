@@ -9,10 +9,14 @@ data class DeviceSpeechResult(val text: String, val confidence: Float?)
  * The phone's own speech recognition — the first leg of the voice path (MAG-222).
  *
  * It was dropped in February 2026 (`bdcb51b`) for cutting off at the first pause and
- * for stumbling on natural speech. « Hold to talk » (MAG-221) answers the first: the
- * end of the sentence is the button coming up, not a silence. The second is why
- * nothing here is trusted blindly — [TranscriptionQuality] judges the result and
- * Whisper takes over on the audio already recorded.
+ * for stumbling on natural speech. « Hold to talk » (MAG-221) was supposed to answer
+ * the first — and did not, because the button governs our recording and not the
+ * engine's idea of a sentence: it still closed on a silence with the button held
+ * (retour de recette MAG-222). An implementation here is therefore *one run*, which an
+ * engine may end whenever it likes, and [SegmentedDeviceSpeech] is what makes a hold
+ * last across as many runs as it takes. The second reason is why nothing here is
+ * trusted blindly — [TranscriptionQuality] judges the result and Whisper takes over on
+ * the audio already recorded.
  *
  * Deliberately free of Android types so the orchestration can be unit-tested: an
  * implementation hands back the stream its engine wants the audio in, or null when it
@@ -40,11 +44,18 @@ interface DeviceSpeechRecognizer {
         /** Text so far, while the button is still held. */
         fun onPartial(text: String)
 
-        /** The final sentence. Called at most once per [start]. */
+        /** The final sentence of this run. Called at most once per [start]. */
         fun onResult(result: DeviceSpeechResult)
 
-        /** Nothing usable will come — go to Whisper. Called at most once per [start]. */
-        fun onUnavailable(reason: String)
+        /**
+         * This run produced nothing usable. Called at most once per [start].
+         *
+         * [fatal] separates « it heard no words » — a pause, a silence, which another
+         * run can follow — from « the engine itself is out »: no permission, busy,
+         * language unavailable. A restart would fail the same way, so only the second
+         * sends the hold to Whisper for good ([SegmentedDeviceSpeech]).
+         */
+        fun onUnavailable(reason: String, fatal: Boolean)
     }
 }
 
@@ -56,7 +67,7 @@ object NoDeviceSpeech : DeviceSpeechRecognizer {
     override val isAvailable = false
 
     override fun start(listener: DeviceSpeechRecognizer.Listener): OutputStream? {
-        listener.onUnavailable("no on-device recognition")
+        listener.onUnavailable("no on-device recognition", fatal = true)
         return null
     }
 

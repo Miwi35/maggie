@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.e2e import setup_e2e
-from app.llm.transcription import reset_cleanup_requests
+from app.llm.transcription import WhisperTranscript, reset_cleanup_requests
 from app.tts.synthesis import reset_fake_synthesis_requests, synthesize_speech
 
 TOKEN = "token-for-the-test"
@@ -119,7 +119,18 @@ class TestOnTheE2eStack:
         # The real `_cleanup_with_llm` runs — it is what moves the counter — with only
         # the model behind it replaced.
         with (
-            patch("app.llm.transcription._whisper_transcribe", AsyncMock(return_value="euh bonjour")),
+            patch(
+                "app.llm.transcription._whisper_transcribe",
+                # A transcript with speech behind it: the silence gate added by
+                # MAG-222's retour de recette refuses one without.
+                AsyncMock(
+                    return_value=WhisperTranscript(
+                        text="euh bonjour",
+                        duration=1.5,
+                        segments=[{"no_speech_prob": 0.02, "avg_logprob": -0.3}],
+                    ),
+                ),
+            ),
             patch("app.llm.transcription.create_llm_client", return_value=_client_saying("Bonjour.")),
         ):
             with TestClient(app_for(monkeypatch, "fake")) as client:

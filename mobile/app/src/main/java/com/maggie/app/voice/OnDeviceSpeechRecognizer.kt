@@ -26,6 +26,11 @@ import java.io.OutputStream
  * listen for itself. That is survivable — it then captures in parallel, and whichever
  * of the two gets silence loses to the other, which is exactly what the judge and the
  * fallback are for.
+ *
+ * This is **one run**, which the engine ends when it decides the sentence is over —
+ * including on a silence, with the button still held, which is what the owner refused
+ * in recette. The silence windows below ask it to wait much longer, and
+ * [SegmentedDeviceSpeech] carries the hold across the runs it ends anyway.
  */
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 class OnDeviceSpeechRecognizer(
@@ -35,6 +40,40 @@ class OnDeviceSpeechRecognizer(
 
     companion object {
         private const val TAG = "OnDeviceSpeech"
+
+        /**
+         * How long a silence the engine should sit through before closing a sentence.
+         * Ten seconds rather than its default second or two: the owner hesitates, and
+         * while the button is down a pause is a pause, not an end. Documented as a
+         * hint an engine may ignore — hence the segments.
+         */
+        private const val COMPLETE_SILENCE_MS = 10_000
+
+        /** A longer window still for a sentence it merely *suspects* is finished. */
+        private const val POSSIBLY_COMPLETE_SILENCE_MS = 15_000
+
+        /** It must not close a run before the owner has had time to start. */
+        private const val MINIMUM_LENGTH_MS = 2_000
+
+        /**
+         * Errors a restart cannot help: the engine, not the speech, is what failed.
+         * Everything else — no match, speech timeout — is a run that simply heard no
+         * words, and the next one gets its turn.
+         */
+        private val FATAL_ERRORS = setOf(
+            SpeechRecognizer.ERROR_CLIENT,
+            SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS,
+            SpeechRecognizer.ERROR_RECOGNIZER_BUSY,
+            SpeechRecognizer.ERROR_AUDIO,
+            SpeechRecognizer.ERROR_SERVER,
+            SpeechRecognizer.ERROR_SERVER_DISCONNECTED,
+            SpeechRecognizer.ERROR_NETWORK,
+            SpeechRecognizer.ERROR_NETWORK_TIMEOUT,
+            SpeechRecognizer.ERROR_TOO_MANY_REQUESTS,
+            SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED,
+            SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE,
+            SpeechRecognizer.ERROR_CANNOT_CHECK_SUPPORT,
+        )
     }
 
     private var recognizer: SpeechRecognizer? = null
@@ -67,6 +106,14 @@ class OnDeviceSpeechRecognizer(
                 putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_ENCODING, AudioFormat.ENCODING_PCM_16BIT)
                 putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_SAMPLING_RATE, PcmAudioRecorder.SAMPLE_RATE)
                 putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_CHANNEL_COUNT, PcmAudioRecorder.CHANNEL_COUNT)
+                // « Hold to talk » means held: a silence is not the end of anything
+                // while the button is down (retour de recette MAG-222).
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, COMPLETE_SILENCE_MS)
+                putExtra(
+                    RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,
+                    POSSIBLY_COMPLETE_SILENCE_MS,
+                )
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, MINIMUM_LENGTH_MS)
             },
         )
         return ParcelFileDescriptor.AutoCloseOutputStream(pipe[1])
@@ -101,14 +148,15 @@ class OnDeviceSpeechRecognizer(
         override fun onResults(results: Bundle?) {
             val best = bestOf(results)
             if (best == null) {
-                deliverUnavailable(listener, "empty result")
+                deliverUnavailable(listener, "empty result", fatal = false)
             } else if (!delivered) {
                 delivered = true
                 listener.onResult(best)
             }
         }
 
-        override fun onError(error: Int) = deliverUnavailable(listener, "error $error")
+        override fun onError(error: Int) =
+            deliverUnavailable(listener, "error $error", fatal = error in FATAL_ERRORS)
 
         override fun onReadyForSpeech(params: Bundle?) = Unit
 
@@ -123,11 +171,11 @@ class OnDeviceSpeechRecognizer(
         override fun onEvent(eventType: Int, params: Bundle?) = Unit
     }
 
-    private fun deliverUnavailable(listener: DeviceSpeechRecognizer.Listener, reason: String) {
+    private fun deliverUnavailable(listener: DeviceSpeechRecognizer.Listener, reason: String, fatal: Boolean) {
         if (delivered) return
         delivered = true
-        Log.i(TAG, "On-device recognition gave up ($reason) — going to Whisper")
-        listener.onUnavailable(reason)
+        Log.i(TAG, "This run of on-device recognition gave up ($reason, fatal=$fatal)")
+        listener.onUnavailable(reason, fatal)
     }
 
     /** The engine's first guess, with its confidence when it reports one. */

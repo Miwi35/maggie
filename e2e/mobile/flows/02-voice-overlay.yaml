@@ -51,6 +51,26 @@ tags:
 # driven in CI: the emulator carries no Google engine (`src/e2e/` returns
 # `NoDeviceSpeech`), so it is verified in recette on the owner's phone.
 #
+# What MAG-222's retour de recette added, and where each half is proved. « Thank you
+# for watching » appeared in the chat without the owner saying a word — Whisper
+# inventing subtitle credits over silence — and the hold stopped listening on a pause.
+#
+#   - *No text out of an audio with no speech.* The agent's gate is the authority and
+#     is driven end to end by `chat.spec.ts` (« a clip with no speech in it comes back
+#     with no text at all »), through the real route, against a WireMock mapping that
+#     answers the hallucination for a marked clip. It cannot be driven from here: the
+#     emulator has no sound card, so `src/e2e/` records placeholder bytes it cannot
+#     choose. The phone's own half — the hold that is sent nowhere, « Je n'ai rien
+#     entendu » under the button — is `SpeechPresenceTest` and `VoiceManagerTest`.
+#   - *Held means held.* `SegmentedDeviceSpeech` restarts the engine at every segment
+#     it closes by itself and joins the pieces; the engine is not drivable in CI, so it
+#     is `SegmentedDeviceSpeechTest` plus the two `VoiceManagerTest` cases, and the
+#     owner's own « phrase with a three-second pause » in recette.
+#
+# The step below still proves the chain it always did, and now also that the gate lets
+# real speech through: the stub answers `verbose_json`, and a build that mis-reads that
+# shape drops the sentence and fails here.
+#
 # Needs `E2E_BASE_URL` and `E2E_LOGIN_TOKEN`, which `run.sh` passes with `-e`.
 #
 # Regex selectors wrapped in `.*` for the reason given in `01-login-chat.yaml`.
