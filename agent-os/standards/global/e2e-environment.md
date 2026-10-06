@@ -245,7 +245,7 @@ The boundary instants (`e2e/clock.sh names`): `sunday-2350-paris`,
 October, winter time), `saturday-2230-utc`. A manual tool, not a CI matrix: a
 matrix of four extra full runs per pull request clogged the runners (MAG-243),
 and the bug that motivated it was the app's, not the journeys'. CI itself runs
-at **one fixed instant** (MAG-267): `e2e/clock.sh ci`, 2030-01-16 at noon in
+at **one fixed instant** (MAG-267): `e2e/clock.sh ci`, 2030-11-13 at noon in
 Paris (an ordinary Wednesday), so the meals and agenda journeys never depend on
 the week they run in. The repository variable `E2E_NOW` overrides it. The
 reference has to stay in the future (rule above): when it is reached `clock.sh

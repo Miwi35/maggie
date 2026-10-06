@@ -53,11 +53,11 @@ at 2026-10-13
 at 2029-07-04
 [ "$STATUS" -eq 0 ] && [ "$OUTPUT" = "$first" ] && ok "so does 2029-07-04" || bad "2029-07-04: '$OUTPUT' instead of '$first'"
 [ "$("$REAL_DATE" -d "$first" +%u)" = 3 ] && ok "it is a Wednesday" || bad "$first is not a Wednesday"
-[ "$("$REAL_DATE" -d "$first" +%s)" = "$("$REAL_DATE" -d 2030-01-16T12:00:00+01:00 +%s)" ] \
-  && ok "noon in Paris, in winter time" || bad "$first is not 2030-01-16T12:00 in Paris"
+[ "$("$REAL_DATE" -d "$first" +%s)" = "$("$REAL_DATE" -d 2030-11-13T12:00:00+01:00 +%s)" ] \
+  && ok "noon in Paris, in winter time" || bad "$first is not 2030-11-13T12:00 in Paris"
 
 printf '\n\033[1mThe reference has been reached\033[0m\n'
-at 2030-01-16
+at 2030-11-13
 [ "$STATUS" -ne 0 ] && ok "fails instead of falling back to the wall clock" || bad "exit 0 after the reference: '$OUTPUT'"
 case "$OUTPUT" in *CI_REFERENCE*) ok "and names what to move" ;; *) bad "no hint in: $OUTPUT" ;; esac
 

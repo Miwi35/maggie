@@ -22,13 +22,14 @@ set -euo pipefail
 
 PARIS=Europe/Paris
 # The instant CI runs the journeys at (MAG-267): an ordinary Wednesday at noon in
-# Paris, in winter time, far from a midnight, a Monday or a DST change. Fixed, so
+# Paris, in winter time, far from a midnight, a Monday or a DST change, and not
+# in January: the budget journey reads last month inside the same year. Fixed, so
 # that the meals and agenda journeys see the same week in every run, whatever
 # day the run starts on (the "Tuesday" collision of MAG-117). It has to stay in
 # the future (see below): when it is reached, `clock.sh ci` fails and says so,
 # and this line is the one to move. A repository variable `E2E_NOW` overrides it,
 # for CI, without a commit.
-CI_REFERENCE=2030-01-16T12:00:00+01:00
+CI_REFERENCE=2030-11-13T12:00:00+01:00
 # A named instant starts at least this far ahead: the simulated clock barely
 # moves while real time does, so a Mercure token signed with `exp = instant + TTL`
 # must not run out during a suite started a few minutes before the instant.

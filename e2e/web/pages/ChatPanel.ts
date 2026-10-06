@@ -1,6 +1,7 @@
 import { expect } from '@playwright/test'
 import type { Locator, Page } from '@playwright/test'
 import { parseAgUiStream } from '../helpers/agui.js'
+import { withChatLock } from '../helpers/chatLock.js'
 import type { AgUiEvent } from '../helpers/agui.js'
 
 /**
@@ -118,26 +119,29 @@ export class ChatPanel {
 
   /** Sends whatever the input holds — a dictated sentence, say — and waits for the run to end. */
   async submit(): Promise<AgUiEvent[]> {
-    const stream = this.page.waitForResponse(
-      (response) =>
-        response.url().includes('/agent/chat/stream') && response.request().method() === 'POST',
-      { timeout: 60_000 },
-    )
+    // One run at a time across the workers: see `withChatLock`.
+    return withChatLock(async () => {
+      const stream = this.page.waitForResponse(
+        (response) =>
+          response.url().includes('/agent/chat/stream') && response.request().method() === 'POST',
+        { timeout: 60_000 },
+      )
 
-    await this.input.press('Enter')
+      await this.input.press('Enter')
 
-    const response = await stream
-    expect(response.status(), 'the agent refused the message').toBe(200)
+      const response = await stream
+      expect(response.status(), 'the agent refused the message').toBe(200)
 
-    // Resolves when the stream closes, which is precisely "the run is over".
-    const events = parseAgUiStream(await response.text())
+      // Resolves when the stream closes, which is precisely "the run is over".
+      const events = parseAgUiStream(await response.text())
 
-    expect(
-      events.map((event) => event.type),
-      `the run never finished — events seen: ${events.map((e) => e.type).join(', ') || '(none)'}`,
-    ).toContain('RUN_FINISHED')
+      expect(
+        events.map((event) => event.type),
+        `the run never finished — events seen: ${events.map((e) => e.type).join(', ') || '(none)'}`,
+      ).toContain('RUN_FINISHED')
 
-    return events
+      return events
+    })
   }
 
   /**
