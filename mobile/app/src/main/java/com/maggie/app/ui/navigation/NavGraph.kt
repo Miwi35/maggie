@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -60,9 +59,15 @@ import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.AppDrawerContent
 import com.maggie.app.data.model.Context
 import com.maggie.app.ui.components.ChatBottomBar
+import com.maggie.app.ui.components.ChatPanel
 import com.maggie.app.ui.components.ChatSheet
 import com.maggie.app.ui.components.ContextListSheet
+import com.maggie.app.ui.components.MaggieNavigationRail
 import com.maggie.app.ui.components.MaggieTopBar
+import com.maggie.app.ui.layout.AppLayout
+import com.maggie.app.ui.layout.AppShell
+import com.maggie.app.ui.layout.NavigationKind
+import com.maggie.app.ui.layout.rememberAppLayout
 import com.maggie.app.ui.screens.contexts.ContextViewModel
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.screens.cookbook.CookbookScreen
@@ -182,6 +187,40 @@ private val MAIN_SCREENS = setOf(
 // The full-screen chat has its own input: the bottom bar would duplicate it
 internal fun showsChatBottomBar(route: String?): Boolean = route in MAIN_SCREENS && route != Screen.Chat.route
 
+/** Which parts of the frame this window and this route call for (MAG-35). */
+internal data class Chrome(
+    val showsRail: Boolean,
+    val showsChatPanel: Boolean,
+    val showsChatBar: Boolean,
+)
+
+/**
+ * The window's size meets the current route.
+ *
+ * Here rather than in `ui/layout/` because every one of these four answers needs a
+ * route as much as a width, and the routes live in this file. It is a function of
+ * two values so the rules are a unit test (`AdaptiveNavigationTest`) instead of
+ * something to reproduce by resizing an emulator.
+ */
+internal fun chromeFor(layout: AppLayout, route: String?): Chrome {
+    val chatPanel = layout.chatPanelFits && showsChatBottomBar(route)
+    return Chrome(
+        // The rail serves the drawer's destinations, so it appears where the drawer
+        // did: on the main screens. A detail route keeps the whole width, as today.
+        showsRail = layout.navigation == NavigationKind.RAIL && route in MAIN_SCREENS,
+        showsChatPanel = chatPanel,
+        // The panel *is* the conversation; the collapsed bar would be a second way in.
+        showsChatBar = showsChatBottomBar(route) && !chatPanel,
+    )
+}
+
+/**
+ * With the conversation already on screen, only voice mode still needs the sheet —
+ * a push-to-talk session wants `VoiceControlBar`, which the panel does not carry.
+ */
+internal fun showsChatSheet(requested: Boolean, voiceMode: Boolean, hasChatPanel: Boolean): Boolean =
+    requested && (voiceMode || !hasChatPanel)
+
 private tailrec fun AndroidContext.findComponentActivity(): ComponentActivity? = when (this) {
     is ComponentActivity -> this
     is ContextWrapper -> baseContext.findComponentActivity()
@@ -213,6 +252,9 @@ fun NavGraph() {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+
+    val layout = rememberAppLayout()
+    val chrome = chromeFor(layout, currentRoute)
 
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -337,50 +379,85 @@ fun NavGraph() {
         calendarViewModel.refresh()
     }
 
-    ModalNavigationDrawer(
+    fun navigateTo(route: String) {
+        navController.navigate(route) { launchSingleTop = true }
+    }
+
+    // The panel only suppresses the sheet, so the request would survive it: open the
+    // chat on a tablet in portrait, turn to landscape (the sheet gives way to the
+    // panel), then open Paramètres — the panel goes and the sheet would come back
+    // over the settings. Same for a drawer left open when the rail replaces it.
+    LaunchedEffect(chrome.showsChatPanel) {
+        if (chrome.showsChatPanel && !voiceModeActive) showChatSheet = false
+    }
+    LaunchedEffect(chrome.showsRail) {
+        if (chrome.showsRail) drawerState.close()
+    }
+
+    // The mic: voice mode needs the permission first, and it always opens the sheet —
+    // even behind the panel, which has no push-to-talk bar of its own.
+    fun startVoiceMode() {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
+            == PackageManager.PERMISSION_GRANTED
+        ) {
+            voiceModeActive = true
+            showChatSheet = true
+        } else {
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    AppShell(
         drawerState = drawerState,
-        gesturesEnabled = isMainScreen,
-        drawerContent = {
+        drawerGesturesEnabled = isMainScreen,
+        drawer = {
             AppDrawerContent(
                 currentRoute = currentRoute,
-                onNavigate = { route ->
-                    navController.navigate(route) { launchSingleTop = true }
-                },
+                onNavigate = ::navigateTo,
                 onCloseDrawer = { scope.launch { drawerState.close() } },
             )
         },
+        rail = if (chrome.showsRail) {
+            { MaggieNavigationRail(currentRoute = currentRoute, onNavigate = ::navigateTo) }
+        } else {
+            null
+        },
+        chatPanel = if (chrome.showsChatPanel) {
+            {
+                ChatPanel(
+                    viewModel = chatViewModel,
+                    onMicClick = ::startVoiceMode,
+                    onBrainClick = { showContextSheet = true },
+                    activeContextCount = contextUiState.activeCount,
+                )
+            }
+        } else {
+            null
+        },
     ) {
         Scaffold(
+            modifier = Modifier.weight(1f),
             contentWindowInsets = WindowInsets(0),
             topBar = {
                 if (isMainScreen) {
                     MaggieTopBar(
                         title = title,
-                        onMenuClick = { scope.launch { drawerState.open() } },
+                        onMenuClick = if (chrome.showsRail) {
+                            null
+                        } else {
+                            { scope.launch { drawerState.open() } }
+                        },
                         unreadCount = notificationUiState.unreadCount,
-                        onNotificationsClick = {
-                            navController.navigate(Screen.Notifications.route) { launchSingleTop = true }
-                        },
-                        onSearchClick = {
-                            navController.navigate(Screen.Search.route) { launchSingleTop = true }
-                        },
+                        onNotificationsClick = { navigateTo(Screen.Notifications.route) },
+                        onSearchClick = { navigateTo(Screen.Search.route) },
                     )
                 }
             },
             bottomBar = {
-                if (showsChatBottomBar(currentRoute)) {
+                if (chrome.showsChatBar) {
                     ChatBottomBar(
                         onOpenChat = { showChatSheet = true },
-                        onMicClick = {
-                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
-                                == PackageManager.PERMISSION_GRANTED
-                            ) {
-                                voiceModeActive = true
-                                showChatSheet = true
-                            } else {
-                                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                            }
-                        },
+                        onMicClick = ::startVoiceMode,
                         onBrainClick = { showContextSheet = true },
                         activeContextCount = contextUiState.activeCount,
                     )
@@ -832,8 +909,9 @@ fun NavGraph() {
         )
     }
 
-    // Chat sheet
-    if (showChatSheet) {
+    // Chat sheet — on a wide window the conversation is already in the panel, and
+    // only voice mode still opens it (MAG-35).
+    if (showsChatSheet(showChatSheet, voiceModeActive, chrome.showsChatPanel)) {
         ChatSheet(
             sheetState = chatSheetState,
             viewModel = chatViewModel,
