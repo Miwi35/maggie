@@ -141,7 +141,7 @@ class VoiceManagerTest {
 
     @Test
     fun `press down starts recording in hold mode`() {
-        voiceManager.pressDown()
+        voiceManager.pressDown {}
 
         assertEquals(VoiceState.LISTENING, voiceManager.state.value)
         assertTrue(recorder.started)
@@ -151,9 +151,7 @@ class VoiceManagerTest {
     @Test
     fun `release after a real hold transcribes and sends the text`() {
         var sent: String? = null
-        voiceManager.onFinalResult = { sent = it }
-
-        voiceManager.pressDown()
+        voiceManager.pressDown { sent = it }
         advance(600)
         voiceManager.pressRelease()
         assertEquals(VoiceState.TRANSCRIBING, voiceManager.state.value)
@@ -165,11 +163,40 @@ class VoiceManagerTest {
     }
 
     @Test
+    fun `the result goes to whoever started the listening, however many came before`() {
+        var chat: String? = null
+        var overlay: String? = null
+
+        voiceManager.startListening { overlay = it }
+        voiceManager.cancelListening()
+        voiceManager.pressDown { chat = it }
+        advance(600)
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        assertEquals("bonjour Maggie", chat)
+        assertNull(overlay)
+    }
+
+    @Test
+    fun `a hands-free listening still delivers to its own requester after a button press`() {
+        var overlay: String? = null
+        var chat: String? = null
+
+        voiceManager.startListening { overlay = it }
+        advance(2000)
+        voiceManager.pressDown { chat = it }
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        assertEquals("bonjour Maggie", overlay)
+        assertNull(chat)
+    }
+
+    @Test
     fun `release after a short press sends nothing and shows the hint`() {
         var sent: String? = null
-        voiceManager.onFinalResult = { sent = it }
-
-        voiceManager.pressDown()
+        voiceManager.pressDown { sent = it }
         advance(100)
         voiceManager.pressRelease()
         testScope.runCurrent()
@@ -183,7 +210,7 @@ class VoiceManagerTest {
 
     @Test
     fun `hold hint goes away after a moment`() {
-        voiceManager.pressDown()
+        voiceManager.pressDown {}
         advance(100)
         voiceManager.pressRelease()
         assertTrue(voiceManager.holdHint.value)
@@ -196,9 +223,7 @@ class VoiceManagerTest {
     @Test
     fun `sliding out cancels the recording and sends nothing`() {
         var sent: String? = null
-        voiceManager.onFinalResult = { sent = it }
-
-        voiceManager.pressDown()
+        voiceManager.pressDown { sent = it }
         advance(800)
         voiceManager.pressCancel()
         testScope.runCurrent()
@@ -212,7 +237,7 @@ class VoiceManagerTest {
 
     @Test
     fun `a hold under one second is still sent`() {
-        voiceManager.pressDown()
+        voiceManager.pressDown {}
         advance(500)
         voiceManager.pressRelease()
         testScope.runCurrent()
@@ -222,11 +247,11 @@ class VoiceManagerTest {
 
     @Test
     fun `listening opened hands-free is ended by a tap on the button`() {
-        voiceManager.startListening()
+        voiceManager.startListening {}
         assertTrue(voiceManager.handsFree.value)
         advance(2000)
 
-        voiceManager.pressDown()
+        voiceManager.pressDown {}
         voiceManager.pressRelease()
         testScope.runCurrent()
 
@@ -235,10 +260,10 @@ class VoiceManagerTest {
 
     @Test
     fun `sliding out does not cancel a hands-free listening`() {
-        voiceManager.startListening()
+        voiceManager.startListening {}
         advance(2000)
 
-        voiceManager.pressDown()
+        voiceManager.pressDown {}
         voiceManager.pressCancel()
 
         assertEquals(VoiceState.LISTENING, voiceManager.state.value)
@@ -246,13 +271,13 @@ class VoiceManagerTest {
 
     @Test
     fun `press down is ignored while a request is being processed`() {
-        voiceManager.pressDown()
+        voiceManager.pressDown {}
         advance(600)
         voiceManager.pressRelease()
         testScope.runCurrent()
         assertEquals(VoiceState.PROCESSING, voiceManager.state.value)
 
-        voiceManager.pressDown()
+        voiceManager.pressDown {}
 
         assertEquals(VoiceState.PROCESSING, voiceManager.state.value)
     }
@@ -264,9 +289,8 @@ class VoiceManagerTest {
         val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("ajoute des tomates", 0.9f))
         voiceManager = managerWith(engine)
         var sent: String? = null
-        voiceManager.onFinalResult = { sent = it }
 
-        voiceManager.pressDown()
+        voiceManager.pressDown { sent = it }
         advance(2000)
         voiceManager.pressRelease()
         testScope.runCurrent()
@@ -283,7 +307,7 @@ class VoiceManagerTest {
         val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("oui", 0.9f))
         voiceManager = managerWith(engine)
 
-        voiceManager.pressDown()
+        voiceManager.pressDown {}
 
         assertEquals(1, engine.startCount)
         assertEquals(engine.sink, recorder.pcmSink)
@@ -294,7 +318,7 @@ class VoiceManagerTest {
         val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("oui", 0.9f))
         voiceManager = managerWith(engine)
 
-        voiceManager.pressDown()
+        voiceManager.pressDown {}
         advance(2000)
         voiceManager.pressRelease()
         testScope.runCurrent()
@@ -309,9 +333,8 @@ class VoiceManagerTest {
         val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("euh ajoute des tomates", 0.9f))
         voiceManager = managerWith(engine)
         var sent: String? = null
-        voiceManager.onFinalResult = { sent = it }
 
-        voiceManager.pressDown()
+        voiceManager.pressDown { sent = it }
         advance(2000)
         voiceManager.pressRelease()
         testScope.runCurrent()
@@ -324,9 +347,8 @@ class VoiceManagerTest {
         val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("ajoute", 0.2f))
         voiceManager = managerWith(engine)
         var sent: String? = null
-        voiceManager.onFinalResult = { sent = it }
 
-        voiceManager.pressDown()
+        voiceManager.pressDown { sent = it }
         advance(2000)
         voiceManager.pressRelease()
         testScope.runCurrent()
@@ -341,7 +363,7 @@ class VoiceManagerTest {
         val engine = FakeDeviceSpeech(resultOnStop = null)
         voiceManager = managerWith(engine)
 
-        voiceManager.pressDown()
+        voiceManager.pressDown {}
         advance(2000)
         voiceManager.pressRelease()
         testScope.runCurrent()
@@ -354,7 +376,7 @@ class VoiceManagerTest {
         val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("ajoute", 0.9f), answers = false)
         voiceManager = managerWith(engine)
 
-        voiceManager.pressDown()
+        voiceManager.pressDown {}
         advance(2000)
         voiceManager.pressRelease()
         testScope.runCurrent()
@@ -370,7 +392,7 @@ class VoiceManagerTest {
         val engine = FakeDeviceSpeech(isAvailable = false)
         voiceManager = managerWith(engine)
 
-        voiceManager.pressDown()
+        voiceManager.pressDown {}
         advance(2000)
         voiceManager.pressRelease()
         testScope.runCurrent()
@@ -385,7 +407,7 @@ class VoiceManagerTest {
         val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("ajoute des tomates", 0.9f))
         voiceManager = managerWith(engine)
 
-        voiceManager.pressDown()
+        voiceManager.pressDown {}
         assertEquals("", voiceManager.partialText.value)
 
         engine.listener?.onPartial("ajoute des")
@@ -403,7 +425,7 @@ class VoiceManagerTest {
         val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("ajoute", 0.9f))
         voiceManager = managerWith(engine)
 
-        voiceManager.pressDown()
+        voiceManager.pressDown {}
         advance(800)
         voiceManager.pressCancel()
         testScope.runCurrent()
@@ -423,11 +445,6 @@ class VoiceManagerTest {
     }
 
     @Test
-    fun `onFinalResult callback is null by default`() {
-        assertNull(voiceManager.onFinalResult)
-    }
-
-    @Test
     fun `cancelListening from IDLE stays IDLE`() {
         voiceManager.cancelListening()
         assertEquals(VoiceState.IDLE, voiceManager.state.value)
@@ -443,16 +460,5 @@ class VoiceManagerTest {
     fun `destroy resets state to IDLE`() {
         voiceManager.destroy()
         assertEquals(VoiceState.IDLE, voiceManager.state.value)
-    }
-
-    @Test
-    fun `onFinalResult callback can be set and cleared`() {
-        var captured: String? = null
-        voiceManager.onFinalResult = { captured = it }
-        voiceManager.onFinalResult?.invoke("test")
-        assertEquals("test", captured)
-
-        voiceManager.onFinalResult = null
-        assertNull(voiceManager.onFinalResult)
     }
 }
