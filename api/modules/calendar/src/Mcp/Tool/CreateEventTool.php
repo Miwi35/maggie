@@ -4,7 +4,12 @@ namespace Maggie\Calendar\Mcp\Tool;
 
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Message\CreateEventCommand;
+use Maggie\Calendar\Service\AgendaCandidate;
+use Maggie\Calendar\Service\AgendaChoice;
+use Maggie\Calendar\Service\AgendaChoiceKind;
 use Maggie\Calendar\Service\AgendaResolver;
+use Maggie\Calendar\Service\AgendaSuggester;
+use Maggie\Core\Entity\User;
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
@@ -12,13 +17,14 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'create_event', description: 'Create a new calendar event. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes (default 60). Use agenda_id to target a specific agenda: pass its name as the user said it (e.g. "Concerts", case and accents do not matter) or its id — no need to call manage_agendas first. An unknown or ambiguous name returns an error listing the user\'s agendas. Omit agenda_id for the default agenda — when the user has none the tool returns an error: ask which agenda to use rather than picking one.')]
+#[McpTool(name: 'create_event', description: 'Create a new calendar event. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes (default 60). Pass agenda_id whenever the user said or implied where the event belongs — its name as they said it ("Concerts", "au boulot": case, accents and approximations do not matter) or its id, with no manage_agendas call first. Omit it when they said nothing about the agenda: the tool then works it out from the event itself, from the agendas\' names and descriptions, and from the agenda the user filed similar events in before. Two agendas fitting equally well, or a name matching none, returns an error naming the plausible agendas and creates nothing — ask the user which one they mean and retry, never pick one yourself. Tell the user which agenda the event went to: it is in event.agenda.')]
 class CreateEventTool
 {
     public function __construct(
         private readonly MessageBusInterface $bus,
         private readonly McpUserContext $userContext,
         private readonly AgendaResolver $agendaResolver,
+        private readonly AgendaSuggester $agendaSuggester,
     ) {
     }
 
@@ -36,17 +42,22 @@ class CreateEventTool
         $user = $this->userContext->getUser();
 
         try {
-            if (null !== $agenda_id) {
-                $agenda_id = (string) $this->agendaResolver
-                    ->resolve($user ?? throw new MissingMcpUserException(), $agenda_id)
-                    ->getId();
+            if (null === $user) {
+                // Nothing to deduce from and nobody to ask: naming an agenda is refused
+                // outright, and omitting one falls to the handler's own guard.
+                if (null !== $agenda_id) {
+                    throw new MissingMcpUserException();
+                }
+                $choice = null;
+            } else {
+                $choice = $this->chooseAgenda($user, $title, $description, $location, $agenda_id);
             }
 
             $envelope = $this->bus->dispatch(new CreateEventCommand(
                 summary: $title,
                 startAt: $startAt,
                 endAt: $endAt,
-                agendaId: $agenda_id,
+                agendaId: null !== $choice?->agenda ? (string) $choice->agenda->getId() : null,
                 description: $description,
                 location: $location,
                 userId: null !== $user ? (string) $user->getId() : null,
@@ -64,6 +75,10 @@ class CreateEventTool
                     'endAt' => $event->getEndAt()->format('c'),
                     'agenda' => $event->getAgenda()->getName(),
                 ],
+                // How the agenda was settled, so the sentence the user reads says what
+                // actually happened instead of what the model assumes happened (MAG-150).
+                'agendaChoice' => $choice?->kind->value,
+                'agendaReason' => $choice?->reason,
             ], JSON_THROW_ON_ERROR);
         } catch (MissingMcpUserException|\DomainException $e) {
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
@@ -72,5 +87,47 @@ class CreateEventTool
 
             return json_encode(['error' => $cause->getMessage()], JSON_THROW_ON_ERROR);
         }
+    }
+
+    /**
+     * The agenda this event goes in: the one the user named, the one the deduction settles
+     * on, or a question (MAG-150).
+     *
+     * @throws \DomainException when the answer is a question — and then nothing is created
+     */
+    private function chooseAgenda(User $user, string $title, ?string $description, ?string $location, ?string $reference): AgendaChoice
+    {
+        if (null !== $reference && '' === trim($reference)) {
+            $reference = null;
+        }
+
+        if (null !== $reference) {
+            // Exactly as before: one call, the name as it was spoken (MAG-230). Several
+            // agendas carrying that name still throws — that is an ambiguity in the
+            // agendas themselves, and no deduction may pick one of two identical names.
+            $exact = $this->agendaResolver->findExact($user, $reference);
+            if (null !== $exact) {
+                return AgendaChoice::named($exact);
+            }
+        }
+
+        $choice = $this->agendaSuggester->suggest($user, $title, $description, $location, $reference);
+
+        return match ($choice->kind) {
+            AgendaChoiceKind::Ambiguous => throw $this->askWhichOne($choice),
+            // A reference that matched nothing and pointed nowhere is not an absent
+            // agenda: the user did say something, and booking somewhere else instead of
+            // asking is the behaviour this ticket exists to remove.
+            AgendaChoiceKind::Ask => throw null !== $reference ? $this->agendaResolver->unknownReference($user, $reference) : new \DomainException(sprintf('No default agenda is set: ask which agenda to use, or pass agenda_id (ids come from manage_agendas with action list). %s', $this->agendaResolver->describeFor($user))),
+            default => $choice,
+        };
+    }
+
+    private function askWhichOne(AgendaChoice $choice): \DomainException
+    {
+        return new \DomainException(sprintf(
+            'Several agendas fit this event as well as each other: %s. Nothing was created: ask the user which one they mean, then retry with that agenda_id.',
+            implode('; ', array_map(static fn (AgendaCandidate $c) => $c->describe(), $choice->candidates)),
+        ));
     }
 }

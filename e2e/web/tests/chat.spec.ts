@@ -84,6 +84,34 @@ const TIMEZONE_CALL = {
   startsAt: '2099-07-14T14:00:00.000Z',
 }
 
+/**
+ * 31 to 34-create-event-*.yaml — MAG-150: the agenda **nobody named**. Each question
+ * sends `create_event` with no `agenda_id` at all, so where the event lands is the API's
+ * deduction and nothing else. Dated 2099 like the writes above, which also keeps them out
+ * of the thirty-day window the deduction reads.
+ */
+const DEDUCED = {
+  /** « un concert » against an agenda called « Concerts ». */
+  byName: {
+    question: 'Ajoute le concert de Stromae le 12 novembre 2099 à 20 h',
+    title: 'Concert de Stromae',
+    agenda: 'e2e_agenda_concerts',
+  },
+  /** Nothing names an agenda; the two past appointments with Paul are in « Boulot ». */
+  byHistory: {
+    question: 'Ajoute un rendez-vous avec Paul le 13 novembre 2099 à 10 h',
+    title: 'Rendez-vous avec Paul',
+    agenda: 'e2e_agenda_work',
+  },
+  /** Camille is lunched with in « Famille » and in « Boulot »: she has to ask. */
+  ambiguous: {
+    question: 'Ajoute un déjeuner avec Camille le 14 novembre 2099 à 12 h 30',
+    reply: 'Mets-le dans Boulot',
+    title: 'Déjeuner avec Camille',
+    agenda: 'e2e_agenda_work',
+  },
+}
+
 /** 05-context-router-new-topic.yaml + 70-budget-question.yaml — the change of subject. */
 const OTHER_SUBJECT = 'Parlons de mes finances, où en est mon budget ?'
 
@@ -718,7 +746,8 @@ test('picking an older thread back up sends that thread, not the last messages o
  *
  * 36-create-event-retry.yaml scripts the case that was reported: an announcement, a
  * first create_event that fails, an excuse and a second try, then the closing
- * sentence. Last in the file so the threads the tests above count are not disturbed.
+ * sentence. Near the end of the file, after everything that counts threads and bubbles —
+ * so is every test below it.
  */
 test('a run whose first tool call fails answers with its last step alone', async ({ page, api }) => {
   const dashboard = new DashboardPage(page)
@@ -756,8 +785,8 @@ test('a run whose first tool call fails answers with its last step alone', async
 
 // A streamed exchange used to be published to nobody — the window that streamed
 // it already held it — so a second window, or the phone, only saw it after a
-// reload (MAG-109). Last in the file because it adds an exchange to the thread,
-// which the counts above would otherwise have to know about.
+// reload (MAG-109). Near the end of the file because it adds an exchange to the
+// thread, which the counts above would otherwise have to know about.
 test('an exchange streamed in one window shows up in the other, once, without a reload', async ({
   twoWindows,
   session,
@@ -790,4 +819,110 @@ test('an exchange streamed in one window shows up in the other, once, without a 
   await observer.waitForTimeout(1_000)
   await expect(observerChat.bubbles(GREETING.answer)).toHaveCount(1)
   await expect(actorChat.bubbles(GREETING.answer)).toHaveCount(1)
+})
+
+/**
+ * MAG-150: the agenda nobody named.
+ *
+ * Until this ticket every event Maggie created went to the default agenda, whatever it was
+ * about — « Concerts » in production, because the fallback before MAG-149 was alphabetical.
+ * `create_event` now works the agenda out from the event itself, from the agendas' names
+ * and from where the user filed similar events before, and refuses to choose when two fit.
+ *
+ * The three below are at the **end of the file**, after the tests that count contexts,
+ * bubbles and the twenty messages the chat panel reloads: four more exchanges inserted
+ * above would push the agenda question off that page and the counts would fail blaming
+ * persistence.
+ *
+ * What they assert is the agenda the row landed in, read back from the API — never her
+ * wording. The fake does not read tool results, so every sentence here is a fixture; which
+ * agenda the event is in is not.
+ */
+test('an event nobody placed lands in the agenda its own words point at', async ({ page, api }) => {
+  const dashboard = new DashboardPage(page)
+  await dashboard.open()
+
+  const chat = new ChatPanel(page)
+  const events = await chat.send(DEDUCED.byName.question)
+
+  expect(isUnscripted(assistantText(events)), `no scenario matched — Maggie said: ${assistantText(events)}`).toBe(
+    false,
+  )
+
+  // One call, no agenda named in it, and no `manage_agendas` round trip to find one: the
+  // API decided (MAG-230 bought the single call, MAG-150 the decision).
+  expect(calledTools(events).filter((tool) => tool === 'create_event')).toHaveLength(1)
+  expect(calledTools(events)).not.toContain('manage_agendas')
+  expect(toolResults(events)).toContainEqual({ toolName: 'create_event', status: 'success' })
+
+  const booked = await waitForIndexed<SeededEvent & { agenda?: string }>(
+    api,
+    APPOINTMENTS_URL,
+    (event) => event.summary === DEDUCED.byName.title,
+    { what: `The ${DEDUCED.byName.title} Maggie booked` },
+  )
+  expect(booked.agenda, 'the concert did not land in « Concerts »').toBe(
+    `/api/agendas/${seedId(DEDUCED.byName.agenda)}`,
+  )
+})
+
+test('an appointment nobody placed lands where the past ones went', async ({ page, api }) => {
+  const dashboard = new DashboardPage(page)
+  await dashboard.open()
+
+  const chat = new ChatPanel(page)
+  const events = await chat.send(DEDUCED.byHistory.question)
+
+  expect(isUnscripted(assistantText(events)), `no scenario matched — Maggie said: ${assistantText(events)}`).toBe(
+    false,
+  )
+  expect(toolResults(events)).toContainEqual({ toolName: 'create_event', status: 'success' })
+
+  // Nothing in « Rendez-vous avec Paul » names an agenda and no agenda is called anything
+  // like it: the only thing pointing at « Boulot » is the user's own history, seeded in
+  // `api/fixtures/e2e/20-calendar.yaml`. The default agenda is « Perso ».
+  const booked = await waitForIndexed<SeededEvent & { agenda?: string }>(
+    api,
+    APPOINTMENTS_URL,
+    (event) => event.summary === DEDUCED.byHistory.title,
+    { what: `The appointment with Paul Maggie booked` },
+  )
+  expect(booked.agenda, 'the appointment did not land in « Boulot »').toBe(
+    `/api/agendas/${seedId(DEDUCED.byHistory.agenda)}`,
+  )
+})
+
+test('an event two agendas fit is not created until the owner says which one', async ({ page, api }) => {
+  const dashboard = new DashboardPage(page)
+  await dashboard.open()
+
+  const chat = new ChatPanel(page)
+  const asked = await chat.send(DEDUCED.ambiguous.question)
+
+  expect(isUnscripted(assistantText(asked)), `no scenario matched — Maggie said: ${assistantText(asked)}`).toBe(false)
+
+  // The tool ran and refused — one call, come back `error`. That is the assertion: the
+  // question Maggie then asks is scripted, so it could not prove anything by itself.
+  expect(toolResults(asked)).toEqual([{ toolName: 'create_event', status: 'error' }])
+
+  // And nothing was written. Read once rather than polled, on purpose: a row that does not
+  // exist never becomes findable, so there is nothing to wait for — the refusal above is
+  // what makes this absence mean something, and the write below is what proves the
+  // collection would have shown it.
+  expect(await getCollection<SeededEvent>(api, APPOINTMENTS_URL)).not.toContainEqual(
+    expect.objectContaining({ summary: DEDUCED.ambiguous.title }),
+  )
+
+  const answered = await chat.send(DEDUCED.ambiguous.reply)
+
+  expect(toolResults(answered)).toEqual([{ toolName: 'create_event', status: 'success' }])
+  const booked = await waitForIndexed<SeededEvent & { agenda?: string }>(
+    api,
+    APPOINTMENTS_URL,
+    (event) => event.summary === DEDUCED.ambiguous.title,
+    { what: `The lunch with Camille Maggie booked once told which agenda` },
+  )
+  expect(booked.agenda, 'the lunch did not land in the agenda the owner named').toBe(
+    `/api/agendas/${seedId(DEDUCED.ambiguous.agenda)}`,
+  )
 })

@@ -173,7 +173,7 @@
                 "date"
             ]
         },
-        "description": "Create a new calendar event. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes (default 60). Use agenda_id to target a specific agenda: pass its name as the user said it (e.g. \"Concerts\", case and accents do not matter) or its id — no need to call manage_agendas first. An unknown or ambiguous name returns an error listing the user's agendas. Omit agenda_id for the default agenda — when the user has none the tool returns an error: ask which agenda to use rather than picking one."
+        "description": "Create a new calendar event. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes (default 60). Pass agenda_id whenever the user said or implied where the event belongs — its name as they said it (\"Concerts\", \"au boulot\": case, accents and approximations do not matter) or its id, with no manage_agendas call first. Omit it when they said nothing about the agenda: the tool then works it out from the event itself, from the agendas' names and descriptions, and from the agenda the user filed similar events in before. Two agendas fitting equally well, or a name matching none, returns an error naming the plausible agendas and creates nothing — ask the user which one they mean and retry, never pick one yourself. Tell the user which agenda the event went to: it is in event.agenda."
     },
     "create_recipe": {
         "name": "create_recipe",

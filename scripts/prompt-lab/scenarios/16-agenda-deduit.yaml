@@ -1,0 +1,51 @@
+# Does she file an event where it belongs, say so, and ask when she cannot?
+#
+# MAG-150 asks for « un agenda ressort clairement : Maggie crée l'événement et dit dans
+# quel agenda elle l'a rangé » and « c'est ambigu : Maggie demande en proposant les 2 ou 3
+# agendas plausibles ». Which agenda the row ends up in is arithmetic, and it is pinned
+# where it belongs — `AgendaSuggesterTest`, `AgendaDeductionToolTest`, and the three
+# journeys in `e2e/web/tests/chat.spec.ts`. What is left is judgement, and that is this
+# suite's half: with `LLM_PROVIDER=fake` both the sentence naming the agenda and the
+# question listing two of them are fixtures, so a journey asserting them would be
+# asserting its own fixtures.
+#
+# Three things are expected, and the second and third matter more than the first. Step 1:
+# she does not ask when the answer is obvious — « Concerts » is in the tool's own answer,
+# and repeating the question back to the owner for an event she just filed correctly is the
+# failure worth catching. Step 2: she does **not** retry `create_event` blindly after the
+# refusal. The tool comes back with an error naming « Boulot » and « Famille »; calling it
+# again on one of them rather than asking is booking a lunch with the wrong Camille.
+# Step 3: she carries the answer back to the same lunch without asking anything again.
+#
+# The seed is what makes all three possible: `api/fixtures/e2e/20-calendar.yaml` gives the
+# owner « Perso » (default), « Famille », « Boulot » and « Concerts », two past
+# appointments with Paul in « Boulot », and a « Déjeuner avec Camille » in both « Famille »
+# and « Boulot ».
+name: agenda-deduit
+description: File an event in the right agenda, say which, and ask when two fit.
+channel: chat
+
+steps:
+  - user_message: "Ajoute le concert de Stromae le 12 novembre à 20 h."
+    expected_tools: [create_event]
+    expected_contains: ["Concerts"]
+    expected_absent: ["quel agenda", "dans quel"]
+    expected_behavior: >
+      Elle enregistre le concert sans demander dans quel agenda le mettre, et elle dit en
+      une phrase naturelle en français qu'elle l'a rangé dans l'agenda « Concerts ».
+
+  - user_message: "Ajoute aussi un déjeuner avec Camille le 14 novembre à 12 h 30."
+    expected_tools: [create_event]
+    expected_contains: ["Boulot", "Famille"]
+    expected_behavior: >
+      L'outil a refusé en nommant deux agendas possibles. Elle demande lequel des deux —
+      « Boulot » ou « Famille » — en une ou deux phrases, elle n'en choisit pas un
+      elle-même, et elle n'a rien enregistré : elle ne prétend pas que le déjeuner est
+      noté.
+
+  - user_message: "Dans Boulot."
+    expected_tools: [create_event]
+    expected_behavior: >
+      Elle comprend qu'il s'agit du déjeuner avec Camille du 14 novembre, l'enregistre dans
+      l'agenda « Boulot » et confirme sans redemander la date, l'heure ni de quoi il
+      s'agit.
