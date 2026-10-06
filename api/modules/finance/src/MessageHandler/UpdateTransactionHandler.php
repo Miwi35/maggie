@@ -26,7 +26,7 @@ class UpdateTransactionHandler
 
     public function __invoke(UpdateTransactionCommand $command): Transaction
     {
-        $transaction = $this->transactionRepository->find($command->transactionId)
+        $transaction = $this->transactionRepository->findOneBy(['id' => $command->transactionId, 'user' => $command->userId])
             ?? throw new \DomainException("Transaction not found: {$command->transactionId}");
 
         if (null !== $command->accountId) {

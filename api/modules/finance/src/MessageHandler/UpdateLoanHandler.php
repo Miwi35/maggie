@@ -21,7 +21,7 @@ class UpdateLoanHandler
 
     public function __invoke(UpdateLoanCommand $command): Loan
     {
-        $loan = $this->loanRepository->find($command->loanId)
+        $loan = $this->loanRepository->findOneBy(['id' => $command->loanId, 'user' => $command->userId])
             ?? throw new \DomainException("Loan not found: {$command->loanId}");
 
         if (null !== $command->name) {

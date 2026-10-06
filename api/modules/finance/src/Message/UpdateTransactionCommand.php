@@ -12,6 +12,7 @@ final readonly class UpdateTransactionCommand
 
     /** @param list<'categoryId'> $clearFields */
     public function __construct(
+        public string $userId,
         public string $transactionId,
         public ?string $accountId = null,
         public ?int $amountCents = null,

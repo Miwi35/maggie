@@ -33,6 +33,7 @@ class UpdateCategorizationRuleProcessor implements ProcessorInterface
         }
 
         $stamped = $this->bus->dispatch(new UpdateCategorizationRuleCommand(
+            userId: (string) $data->getUser()->getId(),
             categorizationRuleId: (string) $data->getId(),
             labelPattern: $data->getLabelPattern(),
             categoryId: (string) $data->getCategory()->getId(),

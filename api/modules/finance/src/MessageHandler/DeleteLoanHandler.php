@@ -20,7 +20,7 @@ class DeleteLoanHandler
 
     public function __invoke(DeleteLoanCommand $command): void
     {
-        $loan = $this->loanRepository->find($command->loanId)
+        $loan = $this->loanRepository->findOneBy(['id' => $command->loanId, 'user' => $command->userId])
             ?? throw new \DomainException("Loan not found: {$command->loanId}");
 
         $this->deleteLoan->execute($loan);

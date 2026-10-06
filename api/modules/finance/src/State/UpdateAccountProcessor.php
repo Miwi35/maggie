@@ -33,6 +33,7 @@ class UpdateAccountProcessor implements ProcessorInterface
         }
 
         $envelope = $this->bus->dispatch(new UpdateAccountCommand(
+            userId: (string) $data->getUser()->getId(),
             accountId: (string) $data->getId(),
             name: $data->getName(),
             type: $data->getType()->value,

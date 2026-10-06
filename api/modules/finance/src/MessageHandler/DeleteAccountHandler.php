@@ -25,7 +25,7 @@ class DeleteAccountHandler
 
     public function __invoke(DeleteAccountCommand $command): void
     {
-        $account = $this->accountRepository->find($command->accountId)
+        $account = $this->accountRepository->findOneBy(['id' => $command->accountId, 'user' => $command->userId])
             ?? throw new \DomainException("Account not found: {$command->accountId}");
 
         // The database cascade removes the account's transactions without any command of their own.

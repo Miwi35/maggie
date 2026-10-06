@@ -106,6 +106,7 @@ class ManageTransactionsTool
         }
 
         $envelope = $this->bus->dispatch(new UpdateTransactionCommand(
+            userId: (string) $this->userContext->requireUser()->getId(),
             transactionId: $transactionId,
             accountId: $accountId,
             amountCents: $amountCents,
@@ -134,6 +135,7 @@ class ManageTransactionsTool
         }
 
         $envelope = $this->bus->dispatch(new UpdateTransactionCommand(
+            userId: (string) $this->userContext->requireUser()->getId(),
             transactionId: $transactionId,
             categoryId: $categoryId,
         ));
@@ -153,7 +155,10 @@ class ManageTransactionsTool
             return json_encode(['error' => 'transactionId is required for delete.'], JSON_THROW_ON_ERROR);
         }
 
-        $this->bus->dispatch(new DeleteTransactionCommand(transactionId: $transactionId));
+        $this->bus->dispatch(new DeleteTransactionCommand(
+            userId: (string) $this->userContext->requireUser()->getId(),
+            transactionId: $transactionId,
+        ));
 
         return json_encode(['success' => true], JSON_THROW_ON_ERROR);
     }

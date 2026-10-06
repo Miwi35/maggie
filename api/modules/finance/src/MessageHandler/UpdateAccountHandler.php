@@ -22,7 +22,7 @@ class UpdateAccountHandler
 
     public function __invoke(UpdateAccountCommand $command): Account
     {
-        $account = $this->accountRepository->find($command->accountId)
+        $account = $this->accountRepository->findOneBy(['id' => $command->accountId, 'user' => $command->userId])
             ?? throw new \DomainException("Account not found: {$command->accountId}");
 
         if (null !== $command->name) {

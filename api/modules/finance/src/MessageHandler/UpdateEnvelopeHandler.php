@@ -24,7 +24,7 @@ class UpdateEnvelopeHandler
 
     public function __invoke(UpdateEnvelopeCommand $command): Envelope
     {
-        $envelope = $this->envelopeRepository->find($command->envelopeId)
+        $envelope = $this->envelopeRepository->findOneBy(['id' => $command->envelopeId, 'user' => $command->userId])
             ?? throw new \DomainException("Envelope not found: {$command->envelopeId}");
 
         if (null !== $command->categoryId) {
