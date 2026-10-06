@@ -80,7 +80,8 @@ class AssistantActivity : ComponentActivity() {
         // `ACTION_ASSIST` — is not about the previous screen.
         screenContext = ScreenContext.fromIntent(intent)
         invocation++
-        voiceManager.stopSpeaking()
+        // Summoning her again cuts her off wherever she is, like a tap on the mic (MAG-223).
+        voiceManager.interrupt()
         requestMicAndListen()
     }
 
