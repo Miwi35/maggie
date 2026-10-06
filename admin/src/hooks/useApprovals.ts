@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AGENT_STREAMS, agentTopic, getStoredUserId } from './agentTopics'
-import { mercureUrl } from './mercureUrl'
 
 const APPROVALS_URL = '/agent/approvals'
-const MERCURE_URL = import.meta.env.VITE_MERCURE_PUBLIC_URL || 'http://maggie.local/.well-known/mercure'
 
 export type ApprovalStatus = 'pending' | 'approved' | 'denied' | 'expired' | 'failed'
 
@@ -55,7 +52,7 @@ export function isAwaitingAnswer(approval: ApprovalItem, now: number = Date.now(
 
 /**
  * The user's pending approvals: loaded on mount, then kept current by the
- * `approvals` Mercure stream. A card stays in the list once answered, so the
+ * `approvals` Mercure stream, whose messages the caller hands to `receive`. A card stays in the list once answered, so the
  * thread shows how it ended (validée, refusée, échouée, expirée).
  */
 export function useApprovals() {
@@ -111,22 +108,16 @@ export function useApprovals() {
     }
   }, [upsert])
 
-  useEffect(() => {
-    const userId = getStoredUserId()
-    if (!userId) return
-    const url = mercureUrl(MERCURE_URL, [agentTopic(AGENT_STREAMS.approvals, userId)])
-
-    const eventSource = new EventSource(url.toString(), { withCredentials: true })
-    eventSource.onmessage = (event) => {
-      try {
-        const data: unknown = JSON.parse(event.data)
-        if (isApproval(data)) upsert(data)
-      } catch {
-        // Ignore malformed messages
-      }
-    }
-    return () => eventSource.close()
-  }, [upsert])
+  // The `approvals` stream is read by the caller's own EventSource: a browser serves six
+  // connections per origin over HTTP/1.1, and one more here starves every fetch of a page.
+  const receive = useCallback(
+    (data: unknown): boolean => {
+      if (!isApproval(data)) return false
+      upsert(data)
+      return true
+    },
+    [upsert],
+  )
 
   const answer = useCallback(
     async (id: string, decision: 'approve' | 'deny') => {
@@ -159,5 +150,5 @@ export function useApprovals() {
   const approve = useCallback((id: string) => answer(id, 'approve'), [answer])
   const deny = useCallback((id: string) => answer(id, 'deny'), [answer])
 
-  return { approvals, approve, deny }
+  return { approvals, approve, deny, receive }
 }
