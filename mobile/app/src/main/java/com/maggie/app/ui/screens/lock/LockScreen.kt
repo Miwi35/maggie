@@ -33,10 +33,8 @@ import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
 import com.maggie.app.R
 import com.maggie.app.data.auth.BiometricLockManager
+import com.maggie.app.ui.theme.MaggieTokens
 import kotlinx.coroutines.delay
-
-private val DarkBackground = Color(0xFF1A1A2E)
-private val SubtitleColor = Color(0x99FFFFFF)
 
 @Composable
 fun LockScreen(lockManager: BiometricLockManager) {
@@ -71,7 +69,7 @@ fun LockScreen(lockManager: BiometricLockManager) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(DarkBackground),
+            .background(MaggieTokens.Night.background),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -92,7 +90,7 @@ fun LockScreen(lockManager: BiometricLockManager) {
         Text(
             text = if (unlocking) "Chargement..." else "Authentifiez-vous pour continuer",
             fontSize = 14.sp,
-            color = SubtitleColor,
+            color = MaggieTokens.Night.textMuted,
         )
         Spacer(modifier = Modifier.height(32.dp))
 
@@ -125,7 +123,7 @@ fun LockScreen(lockManager: BiometricLockManager) {
             Text(
                 text = "Appuyez pour d\u00e9verrouiller",
                 fontSize = 12.sp,
-                color = SubtitleColor,
+                color = MaggieTokens.Night.textMuted,
             )
         }
     }
