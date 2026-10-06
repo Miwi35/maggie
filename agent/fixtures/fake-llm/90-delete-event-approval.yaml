@@ -1,0 +1,21 @@
+# « Supprime l'événement <id> » — a deletion the policy holds back (MAG-4), and
+# the card that waits for the owner's answer (MAG-6).
+#
+# `delete_*` is `ask` in `agent/data/policy.yaml`, so the tool is not run: the
+# router answers `pending_approval` and the turn below is what she says next.
+# The fake does not read tool results, so this sentence would be the same if the
+# deletion had gone through — the journey asserts on the database and on the
+# card, never on these words.
+#
+# The id is in the sentence because a scenario cannot look one up (README, "Ids").
+name: delete-event-approval
+description: Ask to delete an event; the call waits for the user's approval.
+
+match:
+  user_matches: "[Ss]upprime l'événement ([0-9A-HJKMNP-TV-Z]{26})"
+
+turns:
+  - tools:
+      - name: delete_event
+        input: {id: '\1'}
+  - text: "Cette suppression attend ton accord : autorise-la ou refuse-la depuis la carte."
