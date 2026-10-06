@@ -28,6 +28,7 @@ import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,8 +50,10 @@ import com.maggie.app.voice.VoiceState
 @Composable
 fun VoiceControlBar(
     voiceManager: VoiceManager,
+    onResult: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val currentOnResult by rememberUpdatedState(onResult)
     val voiceState by voiceManager.state.collectAsState()
     val duration by voiceManager.duration.collectAsState()
     val errorMessage by voiceManager.errorMessage.collectAsState()
@@ -126,7 +129,7 @@ fun VoiceControlBar(
                     .pointerInput(voiceManager) {
                         awaitEachGesture {
                             val down = awaitFirstDown(requireUnconsumed = false)
-                            voiceManager.pressDown()
+                            voiceManager.pressDown { currentOnResult(it) }
                             val bounds = Rect(Offset.Zero, Size(size.width.toFloat(), size.height.toFloat()))
                             var slidOut = false
                             while (true) {
