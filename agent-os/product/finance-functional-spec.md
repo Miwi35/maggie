@@ -191,6 +191,7 @@ Maggie Finance s'adresse à toute personne souhaitant mieux gérer ses finances 
 - Solde unifié multi-comptes en devise d'affichage
 - Détection des rejets de prélèvements avec notification immédiate
 - Gestion du matelas de trésorerie : montant cible paramétrable, alerte si solde < seuil
+- Import manuel d'un relevé CSV sur un compte, pour une banque non connectée ou un historique antérieur à la connexion (MAG-44) : détection du format de l'export (séparateur, format de date, virgule décimale), **simulation obligatoire** avant écriture — ce qui serait importé, les doublons écartés et les catégories que les règles appliqueraient, ligne par ligne — puis confirmation. Réimporter une période qui se chevauche est sans effet : un mouvement déjà stocké est reconnu, deux mouvements identiques le même jour restent deux.
 
 ### Module 2 — Catégorisation
 *Classification intelligente des transactions*

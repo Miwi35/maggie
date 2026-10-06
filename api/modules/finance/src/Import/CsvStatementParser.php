@@ -22,6 +22,10 @@ class CsvStatementParser
     private const CURRENCY_COLUMNS = ['devise', 'currency', 'monnaie'];
 
     /**
+     * The `errors` are in French, unlike the rest of this file: they are shown
+     * to the owner — in the admin's import report and under the CLI's warnings
+     * — rather than logged. Same reason as the `Sans libellé` fallback below.
+     *
      * @return array{rows: list<StatementRow>, errors: list<string>}
      */
     public function parse(string $contents, ?string $defaultCurrency = null): array
@@ -30,7 +34,7 @@ class CsvStatementParser
         $lines = array_values(array_filter($lines, static fn (string $line) => '' !== trim($line)));
 
         if ([] === $lines) {
-            return ['rows' => [], 'errors' => ['The file is empty.']];
+            return ['rows' => [], 'errors' => ['Le fichier est vide.']];
         }
 
         $separator = $this->detectSeparator($lines);
@@ -39,7 +43,7 @@ class CsvStatementParser
         if (null === $headerIndex) {
             return [
                 'rows' => [],
-                'errors' => ['No header row found: expected a line naming at least a date and an amount column.'],
+                'errors' => ['Aucune ligne d\'en-tête : il faut une ligne nommant au moins une colonne de date et une de montant.'],
             ];
         }
 
@@ -56,7 +60,7 @@ class CsvStatementParser
             try {
                 $row = $this->toRow($cells, $columns, $lineNumber, $defaultCurrency);
             } catch (\RuntimeException $e) {
-                $errors[] = sprintf('Line %d: %s', $lineNumber, $e->getMessage());
+                $errors[] = sprintf('Ligne %d : %s', $lineNumber, $e->getMessage());
                 continue;
             }
 
@@ -85,10 +89,10 @@ class CsvStatementParser
         }
 
         $bookedAt = $this->parseDate($rawDate)
-            ?? throw new \RuntimeException(sprintf('cannot read the date "%s".', $rawDate));
+            ?? throw new \RuntimeException(sprintf('date illisible « %s ».', $rawDate));
 
         $amountCents = $this->readAmount($read, $columns)
-            ?? throw new \RuntimeException('cannot read the amount.');
+            ?? throw new \RuntimeException('montant illisible.');
 
         $label = $read($columns['label'] ?? null);
         if ('' === $label) {
