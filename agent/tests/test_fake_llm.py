@@ -13,6 +13,7 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
+from zoneinfo import ZoneInfo
 
 import anthropic
 import pytest
@@ -41,6 +42,7 @@ from app.llm.fake import (
 )
 from app.llm.runner import run_tool_loop
 from app.llm.streaming import StreamingGateway
+from app.llm.time_tool import run_date_time
 
 
 def write_scenario(directory: Path, filename: str, scenario: dict) -> Path:
@@ -1070,6 +1072,23 @@ class TestTheShippedFixtures:
         # agree: a title edited here and not there fails on an empty collection.
         assert booked.input["title"] == "Dentiste"
         assert booked.input["date"].startswith("2099-")
+
+    async def test_a_call_across_timezones_converts_with_date_time_before_booking(self):
+        client = build_client(DEFAULT_FIXTURES_DIR)
+        question = "Rappelle-moi d'appeler Kévin le 14 juillet 2099 à 10 h chez lui, il vit à Fort-de-France"
+
+        convert = await ask(client, question)
+        assert convert.stop_reason == "tool_use"
+        call = next(block for block in convert.content if isinstance(block, FakeToolUseBlock))
+        assert call.name == "date_time"
+        assert call.input["action"] == "convert"
+
+        # What the scenario scripts as the booking hour is what date_time really answers:
+        # the journey asserts the booked instant, so the two must not drift apart.
+        converted = run_date_time(call.input, ZoneInfo("Europe/Paris"))
+        assert converted["target"]["iso"] == "2099-07-14T16:00+02:00"
+        booking = yaml.safe_load((DEFAULT_FIXTURES_DIR / "38-create-event-timezone.yaml").read_text())["turns"][1]
+        assert booking["tools"][0]["input"]["time"] == "16:00"
 
     async def test_a_proaction_prompt_has_something_to_say(self):
         # `POST /agent/proaction` runs the tool loop with no conversation history
