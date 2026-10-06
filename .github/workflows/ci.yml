@@ -9,9 +9,11 @@ name: Pull request
 # `main.yml` (a merge) and `nightly.yml` call it with `workflow_call`: the night
 # runs every job, a merge applies the path filters, and neither runs the jobs that
 # only mean something on a pull request (guard, Incident gate, streak).
+# A draft's run says so (` · draft`): its `PR checks passed` is red by design, and the
+# streak job must not count it as a failure of the code (scripts/agent-guard/ci-streak.sh).
 run-name: >-
   ${{ github.event_name == 'pull_request'
-      && format('PR #{0} · {1}', github.event.pull_request.number, github.event.pull_request.title)
+      && format('PR #{0} · {1}{2}', github.event.pull_request.number, github.event.pull_request.title, github.event.pull_request.draft && ' · draft' || '')
       || 'CI' }}
 
 on:
@@ -30,7 +32,14 @@ on:
 concurrency:
   # `github.workflow` is the caller's name in a called workflow, so the nightly and
   # main runs never share a group with a pull request on the same ref.
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  #
+  # The draft state is part of the key (MAG-267): the merge train rebases a draft
+  # and then marks it ready, so the run of a draft push used to share the group of
+  # the `ready_for_review` run and cancel it. What was left was a run whose jobs
+  # were all skipped, which branch protection reads as green. A draft run now
+  # only ever cancels another draft run. `PR checks passed` is what turns the
+  # remaining skipped runs red.
+  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.draft && 'draft' || 'ready' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -537,6 +546,19 @@ jobs:
           echo "E2E_PREBUILT=1" >> "$GITHUB_ENV"
           e2e/images.sh ensure
 
+      # The journeys run at a fixed instant (MAG-267), not on the week they
+      # happen to run in: the meals and agenda journeys read "Tuesday" and the
+      # days around it (MAG-117). `E2E_NOW` is read by `task e2e:up` (the services'
+      # clock), the seed, the browser and the emulator. Change it by hand with the
+      # repository variable `E2E_NOW` (Settings > Variables), no commit needed.
+      - name: Pin the e2e clock
+        env:
+          E2E_CI_NOW: ${{ vars.E2E_NOW }}
+        run: |
+          # Assigned first: a failure inside `$(...)` would not fail an `echo`.
+          now="$(e2e/clock.sh ci)"
+          echo "E2E_NOW=$now" | tee -a "$GITHUB_ENV"
+
       - name: Start the stack
         run: task e2e:up
 
@@ -544,12 +566,13 @@ jobs:
       # depends on how the Playwright tests are split.
       - name: Seed
         if: matrix.shard == 2
-        # No --now. Pinning the anchor to a past date would move the whole
-        # seeded world into that month while the containers' clock stays real,
-        # so every endpoint that derives its period from `new DateTimeImmutable`
-        # — the finance dashboard, the daily score, "upcoming events" — would
-        # return an empty list in CI and only in CI. Journeys that need a fixed
-        # date should template the stub instead (response templating is on).
+        # No --now. The seed anchors on the containers' clock, which follows
+        # `E2E_NOW` (pinned above): passing --now would move the seeded world away
+        # from it, and every endpoint that derives its period from `new
+        # DateTimeImmutable` — the finance dashboard, the daily score, "upcoming
+        # events" — would return an empty list in CI and only in CI. Journeys that
+        # need a fixed date should template the stub instead (response templating
+        # is on).
         run: task e2e:seed
 
       - name: Smoke journey
@@ -877,6 +900,19 @@ jobs:
           echo "E2E_PREBUILT=1" >> "$GITHUB_ENV"
           e2e/images.sh ensure
 
+      # The journeys run at a fixed instant (MAG-267), not on the week they
+      # happen to run in: the meals and agenda journeys read "Tuesday" and the
+      # days around it (MAG-117). `E2E_NOW` is read by `task e2e:up` (the services'
+      # clock), the seed, the browser and the emulator. Change it by hand with the
+      # repository variable `E2E_NOW` (Settings > Variables), no commit needed.
+      - name: Pin the e2e clock
+        env:
+          E2E_CI_NOW: ${{ vars.E2E_NOW }}
+        run: |
+          # Assigned first: a failure inside `$(...)` would not fail an `echo`.
+          now="$(e2e/clock.sh ci)"
+          echo "E2E_NOW=$now" | tee -a "$GITHUB_ENV"
+
       - name: Start the stack
         run: task e2e:up
 
@@ -1156,7 +1192,7 @@ jobs:
       - name: Give up after the second red run
         run: |
           [ "$(gh pr view "$PR" --json state -q .state)" = OPEN ] || exit 0
-          runs="$(gh run list --workflow ci.yml --branch "$BRANCH" --event pull_request --limit 20 --json conclusion,headSha,databaseId \
+          runs="$(gh run list --workflow ci.yml --branch "$BRANCH" --event pull_request --limit 20 --json conclusion,headSha,databaseId,displayTitle \
             | jq -c --arg sha "$HEAD_SHA" --argjson id "$RUN_ID" '[{conclusion: "failure", headSha: $sha}] + map(select(.databaseId != $id))')"
           status=0
           shas="$(scripts/agent-guard/ci-streak.sh <<< "$runs")" || status=$?
@@ -1190,6 +1226,32 @@ jobs:
           PR_BRANCH: ${{ github.head_ref }}
         run: bash infra/scripts/incident-gate.sh
 
+  # The one check that cannot be skipped (MAG-267). GitHub counts a skipped
+  # required check as green, so a draft run, a run cancelled by a newer one or a
+  # job skipped because its `needs` failed all looked like a pass, and an armed
+  # auto-merge merged pull requests no test had run on. `if: always()` makes this
+  # job run on a draft too, and infra/scripts/pr-checks-gate.sh turns every skip
+  # that `Detect changes` did not decide into red. Pull requests only: a merge or
+  # the nightly run has no branch protection to satisfy.
+  #
+  # The list below is the script's (infra/scripts/pr-checks-gate.sh), kept in step
+  # by its test. The old required checks stay required beside this one.
+  pr-checks:
+    name: PR checks passed
+    needs: [changes, api-lint, agent-lint, ciqual-lint, admin-lint, api-test, agent-test, ciqual-test, admin-test, mobile-unit, e2e-stack, e2e-mobile, cron-image, infra-scripts, incident-gate]
+    if: always() && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: infra/scripts
+      - name: Everything that had to run ran, and is green
+        env:
+          DRAFT: ${{ github.event.pull_request.draft }}
+          NEEDS: ${{ toJSON(needs) }}
+        run: bash infra/scripts/pr-checks-gate.sh
+
   # The scripts the CD workflow runs on the VPS (MAG-106). They only execute
   # after a merge, so a typo would otherwise surface as a failed deploy. The agent
   # guard rails (MAG-128) are checked here for the same reason.
@@ -1208,7 +1270,7 @@ jobs:
         run: |
           docker run --rm -v "$PWD":/mnt -w /mnt koalaman/shellcheck:stable -x --severity=warning \
             infra/scripts/*.sh infra/scripts/tests/*.sh scripts/agent-guard/*.sh scripts/coverage/*.sh e2e/*.sh e2e/mobile/*.sh
-      - name: Test the smoke suite, the rollback, the failed-deploy report, the incident gate, the deploy gate, the skipped CI of main, the freeze lift and the agent guard rails
+      - name: Test the PR aggregator, the e2e reference clock, the smoke suite, the rollback, the failed-deploy report, the incident gate, the deploy gate, the skipped CI of main, the freeze lift and the agent guard rails
         run: |
           bash infra/scripts/tests/smoke-prod.test.sh
           bash infra/scripts/tests/rollback-k3s.test.sh
@@ -1227,3 +1289,5 @@ jobs:
           bash infra/scripts/tests/agent-guard-emergency.test.sh
           bash infra/scripts/tests/merge-ready.test.sh
           bash infra/scripts/tests/coverage.test.sh
+          bash infra/scripts/tests/pr-checks-gate.test.sh
+          bash infra/scripts/tests/clock.test.sh

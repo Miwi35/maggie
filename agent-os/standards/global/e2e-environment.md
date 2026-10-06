@@ -242,10 +242,14 @@ Rules for a journey:
 
 The boundary instants (`e2e/clock.sh names`): `sunday-2350-paris`,
 `monday-0050-paris`, `dst-fall-back-0230-paris` (02:30 on the last Sunday of
-October, winter time), `saturday-2230-utc`. A manual tool, not a CI matrix: CI
-runs the real clock, a matrix of four extra full runs per pull request clogged
-the runners (MAG-243), and the bug that motivated it was the app's, not the
-journeys'. To reproduce an hour-dependent failure, run
+October, winter time), `saturday-2230-utc`. A manual tool, not a CI matrix: a
+matrix of four extra full runs per pull request clogged the runners (MAG-243),
+and the bug that motivated it was the app's, not the journeys'. CI itself runs
+at **one fixed instant** (MAG-267): `e2e/clock.sh ci`, 2030-11-13 at noon in
+Paris (an ordinary Wednesday), so the meals and agenda journeys never depend on
+the week they run in. The repository variable `E2E_NOW` overrides it. The
+reference has to stay in the future (rule above): when it is reached `clock.sh
+ci` fails and names the line to move (`CI_REFERENCE`). To reproduce an hour-dependent failure, run
 `E2E_NOW=<name or ISO-8601> task e2e:web` (or `e2e:mobile`) by hand.
 
 `run.sh` prints `E2E_NOW`, `TODAY` and the device's date and time zone at the top of
