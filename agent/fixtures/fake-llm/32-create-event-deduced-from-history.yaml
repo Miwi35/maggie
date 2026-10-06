@@ -1,0 +1,22 @@
+# The same absence of `agenda_id` as 31, deduced from the other signal (MAG-150): nothing
+# in « Rendez-vous avec Paul » names an agenda, and no agenda is called anything like it.
+# What points at « Boulot » is the user's own history — the two past appointments with Paul
+# seeded in `api/fixtures/e2e/20-calendar.yaml`.
+#
+# « Paul » appears in no other journey. « rendez-vous » is deliberately singular:
+# 30-upcoming-events.yaml claims « mes rendez-vous ».
+name: create-event-deduced-from-history
+description: Book an appointment with Paul; the tool files it where the past ones went.
+
+match:
+  user_matches: "paul"
+
+turns:
+  - tools:
+      - name: create_event
+        input:
+          title: "Rendez-vous avec Paul"
+          date: "2099-11-13"
+          time: "10:00"
+          duration: 60
+  - text: "C'est noté : Paul le 13 novembre 2099 à 10 h, rangé dans l'agenda Boulot."

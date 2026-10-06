@@ -121,11 +121,13 @@ events="$(curl -sS "${AUTH[@]}" -H 'Accept: application/ld+json' "$BASE_URL/api/
 assert_contains "$events" 'Déjeuner avec Alex' "the seeded event of today is listed"
 assert_contains "$events" 'Cours de piano' "the seeded recurring event is listed"
 
-# Two, out of three in the database: the neighbour owns the third (MAG-114), so this
-# is where a read that forgot its user filter shows up before any journey runs.
+# Four, out of five in the database: the neighbour owns the fifth (MAG-114), so this
+# is where a read that forgot its user filter shows up before any journey runs. Four
+# since MAG-150 — the agenda deduction has nothing to deduce between two agendas, so the
+# seed gives the owner « Boulot » and « Concerts » besides « Perso » and « Famille ».
 agendas="$(curl -sS "${AUTH[@]}" -H 'Accept: application/ld+json' "$BASE_URL/api/agendas")"
-assert_eq 2 "$(printf '%s' "$agendas" | jq -r '.totalItems // (.member | length)')" \
-  "the owner sees their two agendas and not the neighbour's"
+assert_eq 4 "$(printf '%s' "$agendas" | jq -r '.totalItems // (.member | length)')" \
+  "the owner sees their four agendas and not the neighbour's"
 if printf '%s' "$events" | grep -qF 'Déjeuner du voisin'; then
   fail "the neighbour's lunch is in the owner's events — a read lost its user filter"
 else

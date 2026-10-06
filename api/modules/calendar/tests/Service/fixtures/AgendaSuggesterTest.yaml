@@ -1,0 +1,210 @@
+# The world the agenda deduction reads (MAG-150): five agendas with a name and sometimes a
+# description, and the events that make a habit visible.
+#
+# Dates are relative to the run, because the deduction only reads events starting before
+# `now + 30 days` — a habit is recent by definition. The one far-future event is here to
+# prove that boundary, and the cancelled one to prove a refused occurrence is not a habit.
+#
+# `other_user` owns an agenda carrying the same name and an event carrying the same title
+# as the caller's, so every assertion about a score would come out differently if the
+# queries leaked across users.
+
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+  other_user:
+    email: other@example.com
+    googleId: google-other-id
+    name: Other User
+  # No agenda at all: the only case where there is nothing even to fall back to.
+  agendaless_user:
+    email: agendaless@example.com
+    googleId: google-agendaless-id
+    name: Agendaless User
+  # Exactly two agendas, which is where "a word carried by every agenda decides nothing"
+  # and "a habit kept mostly in one agenda" are the same condition.
+  two_agenda_user:
+    email: two-agendas@example.com
+    googleId: google-two-agendas-id
+    name: Two Agendas User
+
+Maggie\Calendar\Entity\Agenda:
+  # Its description mentions « boulot » on purpose: what the user says about the agenda has
+  # to reach the one *called* « Boulot » and not the one merely talking about it.
+  personal_agenda:
+    name: Perso
+    description: Tout ce qui n'est pas le boulot
+    isDefault: true
+    user: '@test_user'
+  family_agenda:
+    name: Famille
+    user: '@test_user'
+  work_agenda:
+    name: Boulot
+    description: Le travail, les clients et les collègues
+    user: '@test_user'
+  concerts_agenda:
+    name: Concerts
+    user: '@test_user'
+  # « transports » contains « sport », which is how a reference matched inside a free-text
+  # description would file an event somewhere the user never mentioned.
+  travel_agenda:
+    name: Voyages
+    description: Déplacements et transports
+    user: '@test_user'
+
+  two_agenda_personal:
+    name: Perso
+    isDefault: true
+    user: '@two_agenda_user'
+  two_agenda_work:
+    name: Boulot
+    user: '@two_agenda_user'
+
+  other_work_agenda:
+    name: Boulot
+    isDefault: true
+    user: '@other_user'
+  # The neighbour's second agenda, so a word carried by *every* one of their agendas has
+  # something to be measured against — with one agenda the rule could never be read.
+  other_personal_agenda:
+    name: Perso du voisin
+    user: '@other_user'
+
+Maggie\Calendar\Entity\Event:
+  # The habit the second acceptance criterion rests on: appointments with Paul go to work.
+  work_paul_meeting:
+    summary: Rendez-vous avec Paul
+    startAt: '<(new \DateTimeImmutable("-14 days 10:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("-14 days 11:00", new \DateTimeZone("Europe/Paris")))>'
+    agenda: '@work_agenda'
+  work_paul_lunch:
+    summary: Déjeuner avec Paul
+    startAt: '<(new \DateTimeImmutable("-7 days 12:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("-7 days 13:00", new \DateTimeZone("Europe/Paris")))>'
+    agenda: '@work_agenda'
+
+  # Camille is lunched with in two agendas: the genuine doubt.
+  family_camille_lunch:
+    summary: Déjeuner avec Camille
+    startAt: '<(new \DateTimeImmutable("-21 days 12:30", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("-21 days 13:30", new \DateTimeZone("Europe/Paris")))>'
+    agenda: '@family_agenda'
+  work_camille_lunch:
+    summary: Déjeuner avec Camille
+    startAt: '<(new \DateTimeImmutable("-10 days 12:30", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("-10 days 13:30", new \DateTimeZone("Europe/Paris")))>'
+    agenda: '@work_agenda'
+
+  # « Déjeuner » therefore lives in three agendas and points nowhere on its own.
+  personal_alex_lunch:
+    summary: Déjeuner avec Alex
+    startAt: '<(new \DateTimeImmutable("-3 days 12:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("-3 days 13:00", new \DateTimeZone("Europe/Paris")))>'
+    agenda: '@personal_agenda'
+
+  # A place rather than a name: the location signal.
+  family_show_at_ubu:
+    summary: Spectacle de rue
+    location: UBU
+    startAt: '<(new \DateTimeImmutable("-5 days 20:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("-5 days 22:00", new \DateTimeZone("Europe/Paris")))>'
+    agenda: '@family_agenda'
+
+  # Refused, so it is the opposite of a habit: « Yoga » must point nowhere.
+  family_cancelled_yoga:
+    summary: Yoga avec Inès
+    status: '<(Maggie\Calendar\Enum\EventStatus::Cancelled)>'
+    startAt: '<(new \DateTimeImmutable("-2 days 18:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("-2 days 19:00", new \DateTimeZone("Europe/Paris")))>'
+    agenda: '@family_agenda'
+
+  # Past the horizon: a single evening booked for 2099 says nothing about where concerts go.
+  family_far_future_concert:
+    summary: Concert des Mouettes
+    startAt: '<(new \DateTimeImmutable("2099-11-02 19:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("2099-11-02 21:00", new \DateTimeZone("Europe/Paris")))>'
+    agenda: '@family_agenda'
+
+  # The same title in all four agendas: nothing can be deduced, and the question has to be
+  # cut down to three agendas rather than list every one of them.
+  personal_pottery:
+    summary: Atelier poterie
+    startAt: '<(new \DateTimeImmutable("-6 days 14:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("-6 days 16:00", new \DateTimeZone("Europe/Paris")))>'
+    agenda: '@personal_agenda'
+  family_pottery:
+    summary: Atelier poterie
+    startAt: '<(new \DateTimeImmutable("-13 days 14:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("-13 days 16:00", new \DateTimeZone("Europe/Paris")))>'
+    agenda: '@family_agenda'
+  work_pottery:
+    summary: Atelier poterie
+    startAt: '<(new \DateTimeImmutable("-20 days 14:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("-20 days 16:00", new \DateTimeZone("Europe/Paris")))>'
+    agenda: '@work_agenda'
+  concerts_pottery:
+    summary: Atelier poterie
+    startAt: '<(new \DateTimeImmutable("-27 days 14:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("-27 days 16:00", new \DateTimeZone("Europe/Paris")))>'
+    agenda: '@concerts_agenda'
+
+  # Two short plurals of words naming a kind of entry rather than a subject. Kept, they
+  # would match the request's own « Trucs » and « RDVs » and point at whichever agenda
+  # holds them — which is what happens when the lists are only read against the word and
+  # not against it without its « s ».
+  family_odd_jobs:
+    summary: Trucs à faire
+    startAt: '<(new \DateTimeImmutable("-8 days 09:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("-8 days 10:00", new \DateTimeZone("Europe/Paris")))>'
+    agenda: '@family_agenda'
+  work_monthly_slots:
+    summary: RDVs du mois
+    startAt: '<(new \DateTimeImmutable("-9 days 09:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("-9 days 10:00", new \DateTimeZone("Europe/Paris")))>'
+    agenda: '@work_agenda'
+
+  # Léa is met in both of this user's two agendas, but three times out of four at work:
+  # the habit leans, so it has to be read, even though it reaches every agenda they own.
+  two_agenda_lea_point:
+    summary: Point avec Léa
+    startAt: '<(new \DateTimeImmutable("-6 days 11:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("-6 days 12:00", new \DateTimeZone("Europe/Paris")))>'
+    agenda: '@two_agenda_work'
+  two_agenda_lea_coffee:
+    summary: Café avec Léa
+    startAt: '<(new \DateTimeImmutable("-12 days 11:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("-12 days 12:00", new \DateTimeZone("Europe/Paris")))>'
+    agenda: '@two_agenda_work'
+  two_agenda_lea_workshop:
+    summary: Atelier avec Léa
+    startAt: '<(new \DateTimeImmutable("-18 days 11:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("-18 days 12:00", new \DateTimeZone("Europe/Paris")))>'
+    agenda: '@two_agenda_work'
+  two_agenda_lea_dinner:
+    summary: Dîner avec Léa
+    startAt: '<(new \DateTimeImmutable("-25 days 20:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("-25 days 22:00", new \DateTimeZone("Europe/Paris")))>'
+    agenda: '@two_agenda_personal'
+
+  # The neighbour's, word for word the caller's habit. Counting it would change every score.
+  other_paul_meeting:
+    summary: Rendez-vous avec Paul
+    startAt: '<(new \DateTimeImmutable("-14 days 10:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("-14 days 11:00", new \DateTimeZone("Europe/Paris")))>'
+    agenda: '@other_work_agenda'
+
+  # « Vélo » in both of the neighbour's agendas, and they have only those two: a word
+  # carried by every one of a user's agendas singles out none of them.
+  other_bike_morning:
+    summary: Vélo du matin
+    startAt: '<(new \DateTimeImmutable("-4 days 07:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("-4 days 08:00", new \DateTimeZone("Europe/Paris")))>'
+    agenda: '@other_work_agenda'
+  other_bike_evening:
+    summary: Vélo du soir
+    startAt: '<(new \DateTimeImmutable("-11 days 19:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("-11 days 20:00", new \DateTimeZone("Europe/Paris")))>'
+    agenda: '@other_personal_agenda'

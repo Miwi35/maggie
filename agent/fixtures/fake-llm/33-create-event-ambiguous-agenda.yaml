@@ -1,0 +1,28 @@
+# The doubt (MAG-150): Camille is lunched with in « Famille » *and* in « Boulot », so
+# `create_event` refuses rather than picking — it comes back with an error naming both
+# agendas and nothing is written.
+#
+# Two turns, like 36-create-event-retry.yaml: the first asks for the tool, the tool really
+# runs and really fails, the second is the question. Only the second is the answer, which
+# is why the first carries no text.
+#
+# The question itself is a fixture and proves nothing — a journey asserting it would be
+# asserting this file. What the journey asserts is that the call came back `error` and that
+# no « Déjeuner avec Camille » exists in 2099 before the user answers. Whether Maggie words
+# the question well belongs to `task e2e:eval` on the real model
+# (`scripts/prompt-lab/scenarios/16-agenda-deduit.yaml`).
+name: create-event-ambiguous-agenda
+description: "A lunch two agendas fit equally: the tool refuses and Maggie asks."
+
+match:
+  user_matches: "camille"
+
+turns:
+  - tools:
+      - name: create_event
+        input:
+          title: "Déjeuner avec Camille"
+          date: "2099-11-14"
+          time: "12:30"
+          duration: 60
+  - text: "Deux agendas conviennent pour ce déjeuner : Boulot ou Famille ? Je n'ai rien enregistré pour l'instant."
