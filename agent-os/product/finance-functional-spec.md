@@ -299,6 +299,7 @@ Le score, le solde, la capacité d'épargne, les postes et les enveloppes du moi
 *L'indicateur central de Maggie Finance*
 
 - Taux de couverture : % rentes nettes / train de vie mensuel, affiché en permanence
+- Une rente est une **catégorie de recette cochée « rente »**. La case ne se transmet pas aux sous-catégories : une sous-catégorie non cochée n'est pas comptée, même si sa parente l'est. C'est la catégorie de l'opération qui décide, comme pour les enveloppes.
 - Date cible N : date projetée d'atteinte des 100% selon trajectoire actuelle
 - Décomposition des rentes actives : immobilier, placements, dividendes, SaaS...
 - Train de vie calculé dynamiquement depuis les transactions (pas saisi manuellement)

@@ -3,6 +3,12 @@ Maggie\Core\Entity\User:
     email: finance-independence-test@example.com
     googleId: google-finance-independence-test
     name: Finance Independence Test User
+  # Someone else's rentes, far bigger than this user's: none of them may reach
+  # his counter, and his neighbour's category name may not reach his breakdown.
+  other_user:
+    email: finance-independence-other@example.com
+    googleId: google-finance-independence-other
+    name: Finance Independence Other User
 
 Maggie\Finance\Entity\Account:
   checking:
@@ -12,6 +18,13 @@ Maggie\Finance\Entity\Account:
     balanceCents: 200000
     isCushion: false
     user: '@test_user'
+  other_checking:
+    name: Compte courant du voisin
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 900000
+    isCushion: false
+    user: '@other_user'
 
 Maggie\Finance\Entity\Category:
   food:
@@ -34,6 +47,24 @@ Maggie\Finance\Entity\Category:
     obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
     passiveIncome: true
     user: '@test_user'
+  # A sub-category of a rente, not declared one itself. The flag does not travel
+  # down the tree: what the counter reads is the category the transaction
+  # carries, the same way an envelope budgets the sub-category itself.
+  rent_income_garage:
+    name: Loyers perçus — garage
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    passiveIncome: false
+    parent: '@rent_income'
+    user: '@test_user'
+  # A rente of the other user's. Nothing stops a transaction from pointing at a
+  # category it does not own — no handler checks it — so one of `test_user`'s
+  # credits below is filed under this one, the way a tool call carrying someone
+  # else's category id would file it.
+  other_rent_income:
+    name: Loyers du voisin
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    passiveIncome: true
+    user: '@other_user'
 
 Maggie\Finance\Entity\Loan:
   car:
@@ -110,5 +141,42 @@ Maggie\Finance\Entity\Transaction:
     bookedAt: '<(new \DateTimeImmutable("first day of last month"))>'
     label: Loyer à venir
     status: '<(Maggie\Finance\Enum\TransactionStatus::Planned)>'
+    isExceptional: false
+    user: '@test_user'
+  # Landed, not exceptional, on a sub-category of a rente — and still not a
+  # rente, because that sub-category does not carry the flag.
+  garage_rent_in:
+    account: '@checking'
+    category: '@rent_income_garage'
+    amountCents: 45000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("first day of last month"))>'
+    label: Loyer garage
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  # The other user's own rente, on his own account and category: kept out by
+  # the owner of the transaction.
+  other_rent_in:
+    account: '@other_checking'
+    category: '@other_rent_income'
+    amountCents: 600000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("first day of last month"))>'
+    label: Loyer du voisin
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@other_user'
+  # This user's credit, filed under the other user's rente category. The
+  # transaction is his, so only the owner of the *category* keeps it out — and
+  # keeps « Loyers du voisin » out of his breakdown.
+  rent_in_on_a_foreign_category:
+    account: '@checking'
+    category: '@other_rent_income'
+    amountCents: 600000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("first day of last month"))>'
+    label: Loyer encaissé pour le voisin
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
     isExceptional: false
     user: '@test_user'

@@ -72,6 +72,43 @@ class IndependenceCounterControllerTest extends WebTestCase
         self::assertSame(8000, $this->counter()['passiveIncomeCents']);
     }
 
+    /**
+     * The flag does not travel down the category tree: a sub-category of a
+     * rente has to be declared one itself. The fixture files a landed, ordinary
+     * 450 € under « Loyers perçus — garage », a child of a rente that is not
+     * flagged — counting it would read as 1 500 € of rentes a month the user
+     * never declared.
+     */
+    public function testASubCategoryOfARenteIsOnlyCountedIfItIsDeclaredOneItself(): void
+    {
+        $counter = $this->counterFor('independence.yaml');
+
+        self::assertSame(8000, $counter['passiveIncomeCents']);
+        self::assertNotContains(
+            'Loyers perçus — garage',
+            array_column($counter['byCategory'], 'categoryName'),
+        );
+    }
+
+    /**
+     * No handler checks that a transaction's category belongs to the same user
+     * as the transaction, so a credit of this user can sit on someone else's
+     * rente category. Scoping on the transaction's owner alone would then sum
+     * 6 000 € that are not his and name his neighbour's category in his own
+     * breakdown — the counter must be deaf to both.
+     */
+    public function testARenteCategoryOfAnotherUserIsNeitherSummedNorNamed(): void
+    {
+        $counter = $this->counterFor('independence.yaml');
+
+        self::assertSame(8000, $counter['passiveIncomeCents']);
+        self::assertSame(80, $counter['coveragePercent']);
+        self::assertSame(
+            ['Loyers perçus', 'Dividendes'],
+            array_column($counter['byCategory'], 'categoryName'),
+        );
+    }
+
     public function testWhileALoanRunsTheMonthCostsMoreThanTheTrainDeVie(): void
     {
         $counter = $this->counterFor('independence.yaml');
