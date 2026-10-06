@@ -196,7 +196,7 @@ class ManageCategorizationRulesTool
         $rule = $stamped->last(HandledStamp::class)->getResult();
 
         $this->bus->dispatch(new UpdateTransactionCommand(
-            userId: (string) $this->userContext->requireUser()->getId(),
+            userId: (string) $user->getId(),
             transactionId: $transactionId,
             categoryId: $categoryId,
             categorySource: CategorySource::Manual->value,

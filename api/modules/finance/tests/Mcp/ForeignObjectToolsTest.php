@@ -73,10 +73,10 @@ class ForeignObjectToolsTest extends KernelTestCase
         return json_decode($result, true, 512, JSON_THROW_ON_ERROR);
     }
 
-    private function assertRefused(array $result): void
+    private function assertRefused(array $result, string $expected = 'not found'): void
     {
         self::assertArrayHasKey('error', $result);
-        self::assertStringContainsString('not found', $result['error']);
+        self::assertStringContainsString($expected, $result['error']);
         $this->assertMercureUpdateCount(0);
         self::assertSame([], $this->getAsyncTransport()->getSent());
     }
@@ -130,7 +130,7 @@ class ForeignObjectToolsTest extends KernelTestCase
             categoryId: (string) $this->getFixture('foreign_category')->getId(),
         ));
 
-        $this->assertRefused($result);
+        $this->assertRefused($result, 'Category not found');
         self::assertNull($this->reload(Transaction::class, 'own_transaction')->getCategory());
     }
 
@@ -142,7 +142,34 @@ class ForeignObjectToolsTest extends KernelTestCase
             accountId: (string) $this->getFixture('foreign_account')->getId(),
         ));
 
-        $this->assertRefused($result);
+        $this->assertRefused($result, 'Account not found');
         self::assertSame('Mon compte', $this->reload(Transaction::class, 'own_transaction')->getAccount()->getName());
+    }
+
+    public function testLearningFromAnotherUsersTransactionIsRefusedAndCreatesNoRule(): void
+    {
+        $result = $this->decode(self::getContainer()->get(ManageCategorizationRulesTool::class)(
+            'learn',
+            transactionId: (string) $this->getFixture('foreign_transaction')->getId(),
+            categoryId: (string) $this->getFixture('own_category')->getId(),
+        ));
+
+        $this->assertRefused($result, 'Transaction not found');
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        self::assertCount(0, $em->getRepository(CategorizationRule::class)->findBy(['user' => $this->getFixture('test_user')]));
+    }
+
+    public function testSettingAnEnvelopeOnAnotherUsersCategoryIsRefused(): void
+    {
+        $result = $this->decode(self::getContainer()->get(ManageEnvelopesTool::class)(
+            'set',
+            categoryId: (string) $this->getFixture('foreign_category')->getId(),
+            amountCents: 5000,
+            year: 2026,
+            month: 7,
+        ));
+
+        $this->assertRefused($result, 'Category not found');
+        self::assertSame(40000, $this->reload(Envelope::class, 'foreign_envelope')->getAmountCents());
     }
 }
