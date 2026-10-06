@@ -8,6 +8,7 @@ import Tooltip from '@mui/material/Tooltip'
 import InputAdornment from '@mui/material/InputAdornment'
 import Chip from '@mui/material/Chip'
 import Divider from '@mui/material/Divider'
+import Badge from '@mui/material/Badge'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
 import SendIcon from '@mui/icons-material/Send'
@@ -27,6 +28,8 @@ import { useNarrowScreen } from '../../hooks/useNarrowScreen'
 import { AGENT_STREAMS, agentTopic, getStoredUserId } from '../../hooks/agentTopics'
 import { mercureUrl } from '../../hooks/mercureUrl'
 import { useAgUiStream } from '../../hooks/useAgUiStream'
+import { isAwaitingAnswer, useApprovals } from '../../hooks/useApprovals'
+import { ApprovalCard } from './ApprovalCard'
 import { ActivityPulse } from '../mind/ActivityPulse'
 import { ContextList } from '../mind/ContextList'
 import { ToolCallList } from '../mind/ToolCallList'
@@ -162,6 +165,8 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     const recorder = useVoiceRecorder()
     const transcription = useTranscription()
     const isNarrow = useNarrowScreen()
+    const { approvals, approve, deny } = useApprovals()
+    const awaitingCount = approvals.filter((a) => isAwaitingAnswer(a)).length
 
     // AG-UI stream callbacks
     const toolCallsRef = useRef<ToolCallState[]>([])
@@ -392,7 +397,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
       if (isNearBottom && !searchMode) {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
       }
-    }, [messages, isNearBottom, searchMode])
+    }, [messages, approvals.length, isNearBottom, searchMode])
 
     // --- Track chat close → save last read to localStorage ---
 
@@ -741,7 +746,25 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                 }}
               >
                 <Tab value="chat" label="Chat" icon={<ChatIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
-                <Tab value="mind" label="Mind" icon={<PsychologyIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
+                <Tab
+                  value="mind"
+                  label={
+                    awaitingCount > 0 ? (
+                      <Badge
+                        badgeContent={awaitingCount}
+                        color="warning"
+                        data-testid="mind-approvals-badge"
+                        sx={{ '& .MuiBadge-badge': { right: -14 } }}
+                      >
+                        Mind
+                      </Badge>
+                    ) : (
+                      'Mind'
+                    )
+                  }
+                  icon={<PsychologyIcon sx={{ fontSize: 18 }} />}
+                  iconPosition="start"
+                />
               </Tabs>
             )}
             <Box sx={{ display: 'flex', gap: 0.5, ml: 'auto', pr: 1 }}>
@@ -936,6 +959,9 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                         {streamingText}
                       </Box>
                     )}
+                    {approvals.map((approval) => (
+                      <ApprovalCard key={approval.id} approval={approval} onApprove={approve} onDeny={deny} />
+                    ))}
                     {agentState !== 'idle' && !streamingText && (
                       <Box
                         sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', px: 1 }}
