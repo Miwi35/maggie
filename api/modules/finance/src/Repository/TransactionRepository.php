@@ -129,6 +129,68 @@ class TransactionRepository extends ServiceEntityRepository
     }
 
     /**
+     * The big debits of a period: what an annual planning session reconsiders,
+     * biggest first. Categorized only — the session budgets categories, so an
+     * uncategorized debit has nowhere to go.
+     *
+     * @param int $minAmountCents how much a debit must weigh to be worth a
+     *                            second look, as positive cents
+     *
+     * @return Transaction[]
+     */
+    public function findNotableDebitsBetween(
+        User $user,
+        \DateTimeImmutable $from,
+        \DateTimeImmutable $until,
+        int $minAmountCents,
+    ): array {
+        return $this->createQueryBuilder('t')
+            ->andWhere('t.user = :user')
+            ->andWhere('t.category IS NOT NULL')
+            ->andWhere('t.amountCents < 0')
+            ->andWhere('t.amountCents <= :ceiling')
+            ->andWhere('t.status IN (:consumed)')
+            ->andWhere('t.bookedAt >= :from')
+            ->andWhere('t.bookedAt < :until')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('ceiling', -$minAmountCents)
+            ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
+            ->setParameter('from', $from)
+            ->setParameter('until', $until)
+            ->orderBy('t.amountCents', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * The debits a period has already decided on without having spent them:
+     * planned, committed and to-arbitrate. Categorized only, in date order.
+     *
+     * @return Transaction[]
+     */
+    public function findPlansBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until): array
+    {
+        return $this->createQueryBuilder('t')
+            ->andWhere('t.user = :user')
+            ->andWhere('t.category IS NOT NULL')
+            ->andWhere('t.amountCents < 0')
+            ->andWhere('t.status IN (:decided)')
+            ->andWhere('t.bookedAt >= :from')
+            ->andWhere('t.bookedAt < :until')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('decided', [
+                TransactionStatus::Planned->value,
+                TransactionStatus::Committed->value,
+                TransactionStatus::ToArbitrate->value,
+            ])
+            ->setParameter('from', $from)
+            ->setParameter('until', $until)
+            ->orderBy('t.bookedAt', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Debits of a period that are up for review: everything outside the
      * mandatory categories, uncategorized spends included — those are
      * precisely the ones worth a second look. Biggest first.

@@ -7,6 +7,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from starlette.responses import Response
 
 from app.a2a import setup_a2a
+from app.agents.registry import subagent_registry
 from app.api.routes import router
 from app.db.context_model import ConversationContext  # noqa: F401 — register model with AgentBase before create_all
 from app.db.context_repository import context_repo
@@ -62,6 +63,12 @@ async def lifespan(app: FastAPI):
         logger.info(f"Skill index built: {len(skill_index.entries)} skills")
     except Exception as e:
         logger.warning(f"Could not build skill index: {e}")
+
+    try:
+        loaded = subagent_registry.load()
+        logger.info(f"Sub-agent registry loaded: {loaded} agents")
+    except Exception as e:
+        logger.warning(f"Could not load sub-agents: {e}")
 
     # Connect to MCP server (best-effort; tools will be lazy-loaded if this fails)
     try:

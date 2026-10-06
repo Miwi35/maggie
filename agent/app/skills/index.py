@@ -4,6 +4,7 @@ from pathlib import Path
 
 import yaml
 
+from app.common.frontmatter import parse_frontmatter
 from app.db.skill_model import Skill
 from app.db.skill_repository import SkillRepository, skill_repo
 from app.mercure import topics
@@ -31,19 +32,16 @@ def render_markdown(name: str, description: str, tags: list[str], content: str) 
 
 def parse_markdown(path: Path) -> tuple[SkillEntry, str] | None:
     """Parse a legacy skill file (YAML frontmatter + body); None if it has no valid frontmatter."""
-    text = path.read_text(encoding="utf-8")
-    parts = text.split("---", 2)
-    if not text.startswith("---") or len(parts) < 3:
+    parsed = parse_frontmatter(path.read_text(encoding="utf-8"))
+    if parsed is None:
         return None
-    frontmatter = yaml.safe_load(parts[1])
-    if not isinstance(frontmatter, dict):
-        return None
+    frontmatter, body = parsed
     entry = SkillEntry(
         name=str(frontmatter.get("name", path.stem)),
         description=frontmatter.get("description") or "",
         tags=frontmatter.get("tags") or [],
     )
-    return entry, parts[2].strip()
+    return entry, body
 
 
 @dataclass
