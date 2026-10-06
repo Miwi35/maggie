@@ -16,7 +16,13 @@ final class IndexMetadataReader
     public function read(string $className): ?array
     {
         $ref = new \ReflectionClass($className);
-        $indexedAttrs = $ref->getAttributes(Indexed::class);
+
+        // Class attributes are not inherited: a subclass of an indexed entity
+        // (Ingredient extends Product) shares its parent's index unless it declares its own.
+        $indexedAttrs = [];
+        for ($class = $ref; false !== $class && [] === $indexedAttrs; $class = $class->getParentClass()) {
+            $indexedAttrs = $class->getAttributes(Indexed::class);
+        }
 
         if ([] === $indexedAttrs) {
             return null;

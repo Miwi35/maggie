@@ -40,6 +40,15 @@ class StubNotIndexedEntity
     private string $name;
 }
 
+class StubUnindexedChildEntity extends StubIndexedEntity
+{
+}
+
+#[Indexed(index: 'test_children', module: 'test')]
+class StubIndexedChildEntity extends StubIndexedEntity
+{
+}
+
 class IndexMetadataReaderTest extends TestCase
 {
     private IndexMetadataReader $reader;
@@ -53,6 +62,21 @@ class IndexMetadataReaderTest extends TestCase
     {
         $result = $this->reader->read(StubNotIndexedEntity::class);
         self::assertNull($result);
+    }
+
+    /** PHP does not inherit class attributes: an `Ingredient` is a `Product` row and belongs in the products index (MAG-182). */
+    public function testASubclassWithoutItsOwnIndexIsIndexedWithItsParent(): void
+    {
+        $result = $this->reader->read(StubUnindexedChildEntity::class);
+
+        self::assertNotNull($result);
+        self::assertSame('test_entities', $result['index']);
+        self::assertSame($this->reader->read(StubIndexedEntity::class)['fields'] ?? null, $result['fields']);
+    }
+
+    public function testASubclassKeepsItsOwnIndexWhenItDeclaresOne(): void
+    {
+        self::assertSame('test_children', $this->reader->read(StubIndexedChildEntity::class)['index'] ?? null);
     }
 
     public function testReadReturnsIndexMetadata(): void
