@@ -76,6 +76,7 @@ class ManageSafetyCushionTool
 
         /** @var SafetyCushion $cushion */
         $stamped = $this->bus->dispatch(new UpdateSafetyCushionCommand(
+            userId: (string) $user->getId(),
             safetyCushionId: (string) $cushion->getId(),
             targetMonths: $targetMonths,
             monthlyNetIncomeCents: $monthlyNetIncomeCents,

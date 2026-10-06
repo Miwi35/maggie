@@ -67,6 +67,7 @@ final class ConfigureCushionController
 
         try {
             $this->bus->dispatch(new UpdateSafetyCushionCommand(
+                userId: (string) $user->getId(),
                 safetyCushionId: (string) $cushion->getId(),
                 targetMonths: $given['targetMonths'] ?? null,
                 monthlyNetIncomeCents: $given['monthlyNetIncomeCents'] ?? null,
