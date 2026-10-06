@@ -99,6 +99,22 @@ class ProductApiTest extends WebTestCase
         $this->assertElasticsearchIndexDispatched(Product::class);
     }
 
+    public function testPatchSendingBackTheIdAsAnIriAsTheAdminDoesSavesThePreferredStore(): void
+    {
+        $product = $this->load();
+        $halles = $this->getFixture('halles');
+
+        // react-admin's Hydra data provider replaces `id` by the IRI and adds `originId`.
+        $this->patch($product, [
+            'id' => '/api/products/'.$product->getId(),
+            'originId' => (string) $product->getId(),
+            'preferredStore' => '/api/stores/'.$halles->getId(),
+        ]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame((string) $halles->getId(), (string) $this->reload($product)->getPreferredStore()?->getId());
+    }
+
     public function testPatchWithNullPreferredStoreClearsItAndKeepsTheOthers(): void
     {
         $product = $this->load('product_with_stores');
