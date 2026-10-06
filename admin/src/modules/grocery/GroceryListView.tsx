@@ -633,10 +633,10 @@ export const GroceryListView = () => {
   const totalCount = todayItems.length
 
   return (
-    <Box sx={{ p: 2, maxWidth: 800, mx: 'auto' }}>
+    <Box sx={{ p: { xs: 1, md: 2 }, maxWidth: 800, mx: 'auto', width: '100%' }}>
       <Title title="Courses" />
 
-      <Paper sx={{ p: 2 }}>
+      <Paper sx={{ p: { xs: 1, md: 2 } }}>
         {loading && !groceryList && (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
@@ -645,17 +645,30 @@ export const GroceryListView = () => {
 
         {groceryList && (
           <>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {/* Wraps rather than overflows: the title and the two actions are
+                320px of content on a 393px screen once the padding is paid. */}
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 1,
+                mb: 2,
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
                 <ShoppingCartIcon color="primary" />
-                <Typography variant="h6">Ma liste de courses</Typography>
+                <Typography variant="h6" sx={{ fontSize: { xs: '1rem', md: '1.25rem' } }}>
+                  Ma liste de courses
+                </Typography>
                 <Chip
                   label={`${checkedCount}/${totalCount}`}
                   size="small"
                   color={checkedCount === totalCount && totalCount > 0 ? 'success' : 'default'}
                 />
               </Box>
-              <Box sx={{ display: 'flex', gap: 1 }}>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                 <Button startIcon={<AddIcon />} size="small" onClick={() => setAddDialogOpen(true)}>
                   Ajouter
                 </Button>

@@ -14,7 +14,9 @@ import ListItemText from '@mui/material/ListItemText'
 import ListSubheader from '@mui/material/ListSubheader'
 import Button from '@mui/material/Button'
 import CircularProgress from '@mui/material/CircularProgress'
+import IconButton from '@mui/material/IconButton'
 import SearchIcon from '@mui/icons-material/Search'
+import CloseIcon from '@mui/icons-material/Close'
 import EventIcon from '@mui/icons-material/Event'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import RestaurantIcon from '@mui/icons-material/Restaurant'
@@ -25,6 +27,7 @@ import DinnerDiningIcon from '@mui/icons-material/DinnerDining'
 import RepeatIcon from '@mui/icons-material/Repeat'
 import NotificationsIcon from '@mui/icons-material/Notifications'
 import PersonIcon from '@mui/icons-material/Person'
+import { useNarrowScreen } from '../../hooks/useNarrowScreen'
 import { useSearch, SEARCH_INDEX_CONFIG, getResultLabel, getResultHighlight, getResultPath } from './searchConfig'
 import type { SearchResult } from './searchConfig'
 
@@ -54,6 +57,13 @@ export function SearchBar() {
   const anchorRef = useRef<HTMLDivElement>(null)
   const [anchorEl, setAnchorEl] = useState<HTMLDivElement | null>(null)
   const [open, setOpen] = useState(false)
+  const isNarrow = useNarrowScreen()
+  // The field is a magnifier until asked for, below `md` (MAG-38): the app bar
+  // already carries a burger, a title, the dictation, the bell, the chat and
+  // the avatar, and a 400px search box on top of that pushed half of them off
+  // a 393px screen.
+  const [expanded, setExpanded] = useState(false)
+  const collapsed = isNarrow && !expanded
 
   // Sync ref to state so Popper reads it without accessing ref during render
   const anchorCallbackRef = useCallback((node: HTMLDivElement | null) => {
@@ -87,16 +97,24 @@ export function SearchBar() {
     }
   }, [data, query])
 
+  const collapse = () => {
+    setExpanded(false)
+    setOpen(false)
+    setQuery('')
+  }
+
   const handleResultClick = (result: SearchResult) => {
     navigate(getResultPath(result))
     setOpen(false)
     setQuery('')
+    setExpanded(false)
   }
 
   const handleViewAll = () => {
     navigate(`/search?q=${encodeURIComponent(query)}`)
     setOpen(false)
     setQuery('')
+    setExpanded(false)
   }
 
   // Group results by index
@@ -106,10 +124,24 @@ export function SearchBar() {
     return acc
   }, {})
 
+  if (collapsed) {
+    return (
+      <Box sx={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
+        <IconButton color="inherit" aria-label="Rechercher" onClick={() => setExpanded(true)}>
+          <SearchIcon />
+        </IconButton>
+      </Box>
+    )
+  }
+
   return (
     <ClickAwayListener onClickAway={() => setOpen(false)}>
-      <Box ref={anchorCallbackRef} sx={{ flex: 1, maxWidth: 400, mx: 1 }}>
+      <Box
+        ref={anchorCallbackRef}
+        sx={{ flex: 1, maxWidth: { xs: 'none', md: 400 }, mx: 1, display: 'flex', alignItems: 'center' }}
+      >
         <TextField
+          autoFocus={isNarrow && expanded}
           inputRef={inputRef}
           size="small"
           placeholder="Rechercher…"
@@ -126,7 +158,9 @@ export function SearchBar() {
                   {loading ? <CircularProgress size={18} color="inherit" /> : <SearchIcon sx={{ color: 'inherit', opacity: 0.7 }} />}
                 </InputAdornment>
               ),
-              endAdornment: (
+              // No keyboard, no shortcut to advertise — and 50px of hint is a
+              // tenth of a phone's app bar.
+              endAdornment: isNarrow ? undefined : (
                 <InputAdornment position="end">
                   <Typography
                     variant="caption"
@@ -158,6 +192,11 @@ export function SearchBar() {
             '& .MuiInputAdornment-root': { color: 'inherit' },
           }}
         />
+        {isNarrow && expanded && (
+          <IconButton color="inherit" aria-label="Fermer la recherche" onClick={collapse}>
+            <CloseIcon />
+          </IconButton>
+        )}
         <Popper
           open={open}
           anchorEl={anchorEl}

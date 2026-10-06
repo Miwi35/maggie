@@ -37,19 +37,25 @@ export class ChatPanel {
   /** The microphone. Its name flips to "Arrêter la dictée" while it records. */
   readonly dictateButton: Locator
   readonly stopDictationButton: Locator
+  /** The panel's own way out — the only one once it is a full-screen sheet. */
+  readonly closeButton: Locator
 
   constructor(private readonly page: Page) {
     this.panel = page.getByTestId('chat-panel')
     this.input = this.panel.getByPlaceholder('Demande à Maggie...')
     this.chatTab = this.panel.getByRole('tab', { name: 'Chat' })
     this.mindTab = this.panel.getByRole('tab', { name: 'Mind' })
+    this.closeButton = this.panel.getByRole('button', { name: 'Fermer la conversation' })
     this.contexts = this.panel.getByTestId('mind-contexts')
     this.activity = this.panel.getByTestId('mind-activity')
     this.dictateButton = this.panel.getByRole('button', { name: 'Dicter' })
     this.stopDictationButton = this.panel.getByRole('button', { name: 'Arrêter la dictée' })
   }
 
-  /** The panel opens with the shell; on a narrow viewport it may need the AppBar button. */
+  /**
+   * The panel opens with the shell above `md`; below it the app bar's button
+   * is what brings it in (MAG-38). Idempotent.
+   */
   async open(): Promise<void> {
     if (await this.input.isVisible()) {
       return
@@ -57,6 +63,19 @@ export class ChatPanel {
 
     await this.page.getByRole('banner').getByRole('button', { name: 'Chat avec Maggie' }).click()
     await expect(this.input).toBeVisible()
+  }
+
+  /**
+   * Puts it away again.
+   *
+   * Through the panel's own button rather than the app bar's: below `md` the
+   * panel is a modal sheet, so everything behind it — the app bar included —
+   * is `aria-hidden` and unreachable by role, for a journey exactly as for a
+   * screen reader.
+   */
+  async close(): Promise<void> {
+    await this.closeButton.click()
+    await expect(this.input).toBeHidden()
   }
 
   /** Switches to the Mind tab. The chat tab keeps its messages behind it. */

@@ -1,8 +1,8 @@
 import { HydraAdmin, fetchHydra, hydraDataProvider } from '@api-platform/admin'
 import { parseHydraDocumentation } from '@api-platform/api-doc-parser'
-import { radiantLightTheme, radiantDarkTheme } from 'react-admin'
 import polyglotI18nProvider from 'ra-i18n-polyglot'
 import { messages } from './i18n/messages'
+import { lightTheme, darkTheme } from './theme'
 import { Layout } from './components/layout/Layout'
 import { Dashboard } from './modules/dashboard'
 import { calendarResources } from './modules/calendar'
@@ -74,8 +74,8 @@ function App() {
       layout={Layout}
       dashboard={Dashboard}
       i18nProvider={i18nProvider}
-      theme={radiantLightTheme}
-      darkTheme={radiantDarkTheme}
+      theme={lightTheme}
+      darkTheme={darkTheme}
     >
       {calendarResources}
       {groceryResources}

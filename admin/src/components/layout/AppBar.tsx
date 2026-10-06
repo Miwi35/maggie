@@ -12,6 +12,7 @@ import { NotificationBell } from '../notifications/NotificationBell'
 import { SearchBar } from '../../modules/search/SearchBar'
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder'
 import { useTranscription } from '../../hooks/useTranscription'
+import { useNarrowScreen } from '../../hooks/useNarrowScreen'
 import { useChatContext } from './ChatContext'
 
 export const CustomAppBar = () => {
@@ -25,6 +26,7 @@ export const CustomAppBar = () => {
   } = useChatContext()
   const recorder = useVoiceRecorder()
   const transcription = useTranscription()
+  const isNarrow = useNarrowScreen()
 
   const handleMicClick = async () => {
     if (recorder.state === 'recording') {
@@ -50,6 +52,13 @@ export const CustomAppBar = () => {
 
   return (
     <RAAppBar
+      // The title is what gives way when the bar runs out of room. Flex gives
+      // a text item `min-width: auto` — its full unbroken width — so without
+      // this it refuses to shrink and the controls spill under the avatar,
+      // ellipsis or no ellipsis. The controls keep `min-width: auto` for the
+      // same reason, the other way round: they are six fixed 44px targets and
+      // there is nothing in them to give.
+      sx={{ '& .RaAppBar-title': { minWidth: 0 } }}
       toolbar={
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1 }}>
           <SearchBar />
@@ -67,11 +76,16 @@ export const CustomAppBar = () => {
             </span>
           </Tooltip>
           <NotificationBell />
-          <Tooltip title="Maggie's Mind">
-            <IconButton color="inherit" onClick={onMindToggle}>
-              <PsychologyIcon sx={{ color: chatOpen && sidebarTab === 'mind' ? '#ce93d8' : 'inherit' }} />
-            </IconButton>
-          </Tooltip>
+          {/* One shortcut too many for a phone's app bar: below `md` the Mind
+              tab inside the chat sheet is the way in, and dropping the button
+              is what leaves room for the rest (MAG-38). */}
+          {!isNarrow && (
+            <Tooltip title="Maggie's Mind">
+              <IconButton color="inherit" onClick={onMindToggle}>
+                <PsychologyIcon sx={{ color: chatOpen && sidebarTab === 'mind' ? '#ce93d8' : 'inherit' }} />
+              </IconButton>
+            </Tooltip>
+          )}
           {/* The only icon button in the bar with no name of its own — a
               screen reader announced it as "button", and a journey had no way
               to address it. Its neighbour gets one from its tooltip. */}

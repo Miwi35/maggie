@@ -2,6 +2,7 @@ import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MealsWeekView } from './MealsWeekView'
+import { PHONE_WIDTH, setViewportWidth, resetViewport } from '../../test/viewport'
 
 const mockGetList = vi.fn()
 const mockCreate = vi.fn()
@@ -214,5 +215,47 @@ describe('MealsWeekView — the day is the day', () => {
     await waitFor(() => expect(within(wednesdayLunch).getByText(/Tartiflette/)).toBeTruthy())
     // And nowhere else — the day before is the cell the bug used.
     expect(within(screen.getByTestId('meal-cell-lunch-1')).queryByText(/Tartiflette/)).toBeNull()
+  })
+})
+
+/**
+ * Seven columns across 393px give each day 42px, which is narrower than the
+ * chip holding a recipe's name. Below `md` the week reads downwards instead —
+ * one card per day, its two meals side by side (MAG-38).
+ */
+describe('MealsWeekView — the week on a phone', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockCreate.mockResolvedValue({ data: {} })
+    mockGetList.mockImplementation(answer(agendas))
+  })
+
+  afterEach(() => {
+    resetViewport()
+  })
+
+  test('keeps all fourteen cells, each addressable as before', async () => {
+    setViewportWidth(PHONE_WIDTH)
+
+    render(<MealsWeekView />)
+
+    await waitFor(() => expect(mockGetList).toHaveBeenCalledWith('meals', expect.any(Object)))
+    for (const slot of ['lunch', 'dinner']) {
+      for (let day = 0; day < 7; day++) {
+        expect(screen.getByTestId(`meal-cell-${slot}-${day}`)).toBeInTheDocument()
+      }
+    }
+    // Each day names itself, since there is no header row to read across.
+    expect(screen.getAllByText('Dimanche')).toHaveLength(1)
+    expect(screen.getAllByText('Déjeuner')).toHaveLength(7)
+  })
+
+  test('still opens the dialog on the day that was tapped', async () => {
+    setViewportWidth(PHONE_WIDTH)
+    const user = setupUser()
+
+    const dialog = await openDialogOnCell(user, 'meal-cell-dinner-3')
+
+    expect(dialog.getByText('Dîner')).toBeInTheDocument()
   })
 })

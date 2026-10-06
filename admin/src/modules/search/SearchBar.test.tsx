@@ -1,7 +1,8 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SearchBar } from './SearchBar'
+import { PHONE_WIDTH, setViewportWidth, resetViewport } from '../../test/viewport'
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', () => ({
@@ -144,5 +145,64 @@ describe('SearchBar', () => {
     await waitFor(() => {
       expect(screen.queryByText('Test result')).not.toBeInTheDocument()
     })
+  })
+})
+
+/**
+ * The app bar already carries a burger, a title, the dictation, the bell, the
+ * chat and the avatar. A 400px search field on top of that pushed half of them
+ * off a 393px screen, so below `md` the field is a magnifier until it is asked
+ * for (MAG-38).
+ */
+describe('SearchBar on a narrow window', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    mockNavigate.mockReset()
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(emptyResponse))
+    localStorage.setItem('token', 'test-jwt')
+    setViewportWidth(PHONE_WIDTH)
+  })
+
+  afterEach(() => {
+    resetViewport()
+  })
+
+  test('is a magnifier, not a field', () => {
+    render(<SearchBar />)
+
+    expect(screen.getByRole('button', { name: 'Rechercher' })).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('Rechercher…')).toBeNull()
+  })
+
+  test('opens the field when asked, and gives the bar back when dismissed', async () => {
+    render(<SearchBar />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Rechercher' }))
+    const field = screen.getByPlaceholderText('Rechercher…')
+    expect(field).toBeVisible()
+    expect(document.activeElement).toBe(field)
+    // No keyboard, no shortcut to advertise — and 50px of hint is a tenth of
+    // a phone's app bar.
+    expect(screen.queryByText('Ctrl+K')).toBeNull()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Fermer la recherche' }))
+    expect(screen.queryByPlaceholderText('Rechercher…')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Rechercher' })).toBeInTheDocument()
+  })
+
+  test('folds back once a result has been opened', async () => {
+    stubSearch([
+      { index: 'recipes', id: 'abc123', score: 1.5, data: { name: 'Pâtes carbonara' }, highlights: { name: ['<em>Pâtes</em>'] } },
+    ])
+
+    render(<SearchBar />)
+    await userEvent.click(screen.getByRole('button', { name: 'Rechercher' }))
+    await userEvent.type(screen.getByPlaceholderText('Rechercher…'), 'pates')
+
+    await waitFor(() => expect(screen.getByText('Pâtes carbonara')).toBeInTheDocument())
+    await userEvent.click(screen.getByText('Pâtes carbonara'))
+
+    expect(mockNavigate).toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Rechercher' })).toBeInTheDocument()
   })
 })
