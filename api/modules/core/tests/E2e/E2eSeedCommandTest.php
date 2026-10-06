@@ -205,10 +205,11 @@ final class E2eSeedCommandTest extends KernelTestCase
             array_map(static fn (AgendaCandidate $c) => $c->agenda->getName(), $camille->candidates),
         );
 
-        // And the two writes the older chat journeys make still go through without a
-        // question: 35-create-event.yaml and 36-create-event-retry.yaml both call
-        // `create_event` with no agenda at all, and a doubt there would fail them as
-        // « the tool errored » with nothing pointing at the fixture that caused it.
+        // And the three writes the older chat journeys make still go through without a
+        // question: 35-create-event.yaml, 36-create-event-retry.yaml and
+        // 38-create-event-timezone.yaml all call `create_event` with no agenda at all,
+        // and a doubt there would fail them as « the tool errored » with nothing
+        // pointing at the fixture that caused it.
         $dentist = $suggester->suggest($user, 'Dentiste');
         self::assertSame(AgendaChoiceKind::Deduced, $dentist->kind);
         self::assertSame('Perso', $dentist->agenda?->getName());
@@ -216,6 +217,10 @@ final class E2eSeedCommandTest extends KernelTestCase
         $wizards = $suggester->suggest($user, 'Black Wizards');
         self::assertSame(AgendaChoiceKind::Fallback, $wizards->kind);
         self::assertSame('Perso', $wizards->agenda?->getName());
+
+        $kevin = $suggester->suggest($user, 'Appeler Kévin');
+        self::assertNotSame(AgendaChoiceKind::Ambiguous, $kevin->kind);
+        self::assertSame('Perso', $kevin->agenda?->getName());
     }
 
     public function testRunningTwiceLeavesTheSameCounts(): void
