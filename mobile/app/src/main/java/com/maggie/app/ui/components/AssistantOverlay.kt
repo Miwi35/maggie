@@ -22,56 +22,37 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.maggie.app.ui.screens.chat.ChatViewModel
+import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.voice.ScreenContext
 import com.maggie.app.voice.VoiceManager
 import com.maggie.app.voice.VoiceState
 
 /**
- * [screenContext] is what the screen behind the overlay was showing when the
- * assistant was summoned (MAG-30). It rides along with the **first** thing said
- * and is then forgotten: « ajoute ça à mon agenda » is about the screen, the
- * follow-up question is about the answer.
- *
- * [invocation] counts the times the assistant was summoned, and is what re-arms
- * that « not used yet » state. Keying it on [screenContext] would not: two
- * invocations from the same screen carry an equal value, and the second
- * question would lose its context.
+ * [pendingContext] is what the screen behind the overlay was showing when the
+ * assistant was summoned (MAG-30), named on screen until it is used. [onVoiceResult]
+ * receives what the microphone heard: the activity, which starts the listening,
+ * hands it in, so the sentence goes where the listening was asked for.
  */
 @Composable
 fun AssistantOverlay(
     viewModel: ChatViewModel,
     voiceManager: VoiceManager,
     onDismiss: () -> Unit,
-    screenContext: ScreenContext? = null,
-    invocation: Int = 0,
+    pendingContext: ScreenContext? = null,
+    onVoiceResult: (String) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val voiceState by voiceManager.state.collectAsState()
     val listState = rememberLazyListState()
-    var pendingContext by remember(invocation) { mutableStateOf(screenContext) }
-
-    DisposableEffect(invocation) {
-        voiceManager.onFinalResult = { text ->
-            viewModel.sendMessage(text, pendingContext?.toPromptBlock())
-            pendingContext = null
-        }
-        // Handed back on the way out: the manager is a singleton, and a lambda
-        // left behind pins this activity's view model (and its context) for the
-        // life of the process.
-        onDispose { voiceManager.onFinalResult = null }
-    }
 
     SpokenReplies(viewModel, voiceManager)
 
@@ -84,6 +65,7 @@ fun AssistantOverlay(
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .uiTagRoot()
             .background(Color.Black.copy(alpha = 0.5f))
             .clickable(
                 indication = null,
@@ -162,7 +144,7 @@ fun AssistantOverlay(
                 }
 
                 // Voice control
-                VoiceControlBar(voiceManager = voiceManager)
+                VoiceControlBar(voiceManager = voiceManager, onResult = onVoiceResult)
             }
         }
     }

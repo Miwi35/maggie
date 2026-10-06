@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!--
+            The only way a Maestro flow can open the assistant overlay (MAG-217): the
+            assistant gesture and ACTION_ASSIST belong to the system. Its own scheme,
+            not `maggie-e2e`, which MainActivity already answers: two matches would
+            raise a chooser. The e2e flavor only, so no shipped build can be opened this way.
+        -->
+        <activity android:name=".voice.AssistantActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="maggie-e2e-assist" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
