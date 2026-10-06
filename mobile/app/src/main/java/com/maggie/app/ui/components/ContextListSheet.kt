@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Context
 import com.maggie.app.ui.screens.contexts.ContextUiState
 import com.maggie.app.ui.uiTagRoot
+import com.maggie.app.ui.theme.contextStateColor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -139,7 +140,6 @@ private fun statusIndicator(status: String): String = when (status) {
 
 @Composable
 private fun statusColor(status: String): Color = when (status) {
-    "active" -> Color(0xFF4CAF50)
-    "dormant" -> Color(0xFFFF9800)
+    "active", "dormant" -> contextStateColor(status)
     else -> MaterialTheme.colorScheme.onSurfaceVariant
 }

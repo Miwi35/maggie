@@ -1,6 +1,8 @@
 import { createTheme } from '@mui/material/styles'
 import { radiantDarkTheme, radiantLightTheme } from 'react-admin'
 import { NARROW_QUERY } from './breakpoints'
+import { TOKENS } from './design/tokens'
+import type { ThemeMode } from './design/tokens'
 import type { Theme, ThemeOptions } from '@mui/material/styles'
 
 /*
@@ -25,6 +27,62 @@ import type { Theme, ThemeOptions } from '@mui/material/styles'
 const TOUCH_TARGET = 44
 
 const narrow = (theme: Theme) => theme.breakpoints.down('md')
+
+/*
+ * The identity (MAG-39). Radiant already carried most of it — the violet and
+ * Gabarito are its own — so these options mostly *name* what was already on
+ * screen; `design/tokens.json` is where the names live, and the mobile theme
+ * reads the same file. Two values do change, both of them bugs:
+ * `index.html` loads `wght@400;500;600;700` while radiant asks `h4` for 800
+ * and `h5` for 900, so the browser synthesises those two.
+ */
+const paletteFor = (mode: ThemeMode): ThemeOptions['palette'] => {
+  const surface = TOKENS.surface[mode]
+
+  return {
+    mode,
+    primary: { main: TOKENS.brand.primary, contrastText: TOKENS.brand.onPrimary },
+    secondary: {
+      main: mode === 'light' ? TOKENS.brand.secondaryLight : TOKENS.brand.secondaryDark,
+    },
+    background: { default: surface.background, paper: surface.paper },
+    text: { primary: surface.text, secondary: surface.textMuted },
+    error: { main: TOKENS.feedback.error },
+    warning: { main: TOKENS.feedback.warning },
+    info: { main: TOKENS.feedback.info },
+    success: { main: TOKENS.feedback.success },
+  }
+}
+
+const { family, weight, size } = TOKENS.typography
+
+/** MUI sizes type in `rem` against a 16px root, which is what its own defaults are. */
+const rem = (px: number) => `${px / 16}rem`
+
+/*
+ * The six sizes onto the eight variants the admin uses — `body2` 85 times,
+ * `caption` 42, `subtitle2` 20, `h6` 13, `h5` 9, then `subtitle1`, `overline`
+ * and `body1`. Line heights are left to MUI: Material 3 ships its own, within
+ * a few percent, and overriding either would re-flow every screen for nothing.
+ */
+const TYPOGRAPHY: ThemeOptions['typography'] = {
+  fontFamily: family,
+  h4: { fontWeight: weight.bold },
+  h5: { fontSize: rem(size.xxl), fontWeight: weight.bold },
+  h6: { fontSize: rem(size.xl) },
+  subtitle1: { fontSize: rem(size.lg) },
+  subtitle2: { fontSize: rem(size.md), fontWeight: weight.medium },
+  body1: { fontSize: rem(size.lg) },
+  body2: { fontSize: rem(size.md) },
+  caption: { fontSize: rem(size.sm) },
+  overline: { fontSize: rem(size.sm) },
+}
+
+const identityOptions = (mode: ThemeMode): ThemeOptions => ({
+  palette: paletteFor(mode),
+  typography: TYPOGRAPHY,
+  shape: { borderRadius: TOKENS.radius.sm },
+})
 
 const responsiveOptions: ThemeOptions = {
   components: {
@@ -106,5 +164,5 @@ const responsiveOptions: ThemeOptions = {
   },
 }
 
-export const lightTheme = createTheme(radiantLightTheme, responsiveOptions)
-export const darkTheme = createTheme(radiantDarkTheme, responsiveOptions)
+export const lightTheme = createTheme(radiantLightTheme, identityOptions('light'), responsiveOptions)
+export const darkTheme = createTheme(radiantDarkTheme, identityOptions('dark'), responsiveOptions)
