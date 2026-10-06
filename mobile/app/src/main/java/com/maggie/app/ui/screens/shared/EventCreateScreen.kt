@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.EventCreateRequest
 import com.maggie.app.data.model.Agenda
+import com.maggie.app.data.model.EventReminders
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -52,6 +53,7 @@ fun EventCreateScreen(
     var endTime by remember { mutableStateOf("10:00") }
     var selectedAgendaIri by remember { mutableStateOf<String?>(agendas.find { it.isDefault }?.let { "/api/agendas/${it.id}" }) }
     var rrule by remember { mutableStateOf<String?>(null) }
+    var reminders by remember { mutableStateOf<EventReminders?>(null) }
 
     Scaffold(
         topBar = {
@@ -132,6 +134,8 @@ fun EventCreateScreen(
                 eventStartDate = try { LocalDate.parse(startDate) } catch (_: Exception) { null },
             )
 
+            ReminderPicker(value = reminders, onChange = { reminders = it })
+
             AgendaPickerField(
                 agendas = agendas,
                 selectedAgendaIri = selectedAgendaIri,
@@ -178,6 +182,7 @@ fun EventCreateScreen(
                             location = location.ifBlank { null },
                             agenda = selectedAgendaIri,
                             rrule = rrule,
+                            reminders = reminders,
                         ),
                     )
                 },

@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -100,6 +101,16 @@ fun EventDetailSheet(
                         text = RruleUtils.rruleToFrenchText(event.masterRrule),
                         style = MaterialTheme.typography.bodyMedium,
                     )
+                }
+            }
+
+            // Reminders — where the owner checks what he will be told, and when
+            val reminders = remindersText(event.reminders)
+            if (reminders != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.Notifications, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(text = reminders, style = MaterialTheme.typography.bodyMedium)
                 }
             }
 

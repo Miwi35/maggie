@@ -18,6 +18,7 @@ data class ExpandedEvent(
     val masterRrule: String? = null,
     val masterStartAt: String? = null,
     val originalStartAt: String? = null,
+    val reminders: EventReminders? = null,
     val agendaIri: String? = null,
     val agendaColor: String? = null,
     val agendaName: String? = null,

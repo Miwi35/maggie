@@ -7,6 +7,7 @@ import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.data.model.Context
 import com.maggie.app.data.model.CiqualFood
 import com.maggie.app.data.model.Event
+import com.maggie.app.data.model.EventReminders
 import com.maggie.app.data.model.GoogleCalendar
 import com.maggie.app.data.model.GroceryList
 import com.maggie.app.data.model.Ingredient
@@ -87,6 +88,7 @@ data class EventCreateRequest(
     val rrule: String? = null,
     val recurringEvent: String? = null,
     val originalStartAt: String? = null,
+    val reminders: EventReminders? = null,
     val status: String = "confirmed",
 )
 

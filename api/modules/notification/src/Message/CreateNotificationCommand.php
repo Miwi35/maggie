@@ -12,6 +12,8 @@ final readonly class CreateNotificationCommand
         public ?string $body = null,
         public ?string $relatedEntityIri = null,
         public ?string $userId = null,
+        /** Which occurrence of the related entity this is about — a reminder of a recurring event. */
+        public ?\DateTimeImmutable $occurrenceStartAt = null,
     ) {
     }
 }

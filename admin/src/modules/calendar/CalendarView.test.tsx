@@ -202,6 +202,41 @@ describe('CalendarView', () => {
       expect(mockUpdate).not.toHaveBeenCalled()
     })
 
+    /**
+     * The exception split off a series keeps the series' reminders (MAG-121).
+     *
+     * It is a brand-new row, so anything the form holds that the create payload
+     * does not name is gone — and a reminder lost that way is invisible until the
+     * day nobody is reminded.
+     */
+    test('an occurrence split off a series keeps its reminders', async () => {
+      const reminders = { useDefault: false, overrides: [{ method: 'popup', minutes: 30 }] }
+      serveEvents([
+        { id: '/api/events/ev2', summary: 'Sport', startAt, endAt, allDay: false, agenda: AGENDA, rrule: 'FREQ=WEEKLY', reminders },
+      ])
+      render(<CalendarView />)
+
+      const occurrences = await screen.findAllByText('Sport')
+      await userEvent.click(occurrences[0])
+      await userEvent.click(await screen.findByRole('button', { name: 'Modifier' }))
+
+      const edit = await screen.findByRole('dialog')
+      // The form opened on the series' reminder, untouched.
+      expect(within(edit).getByRole('combobox', { name: 'Rappel' })).toHaveTextContent('30 minutes avant')
+      await userEvent.click(within(edit).getByRole('button', { name: 'Enregistrer' }))
+
+      const confirm = await screen.findByRole('dialog')
+      await userEvent.click(within(confirm).getByLabelText('Cet événement'))
+      await userEvent.click(within(confirm).getByRole('button', { name: 'OK' }))
+
+      await waitFor(() =>
+        expect(mockCreate).toHaveBeenCalledWith(
+          'events',
+          expect.objectContaining({ data: expect.objectContaining({ reminders }) }),
+        ),
+      )
+    })
+
     const localInput = (d: Date) => {
       const pad = (n: number) => String(n).padStart(2, '0')
       return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`

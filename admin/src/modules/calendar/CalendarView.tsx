@@ -56,6 +56,7 @@ import { TaskEditDialog } from './TaskEditDialog'
 import { EventDetailPopover } from './EventDetailPopover'
 import { EventEditDialog } from './EventEditDialog'
 import type { EventEditValues } from './EventEditDialog'
+import type { EventReminders } from './ReminderPicker'
 import type { PopoverEvent } from './EventDetailPopover'
 import { getCalendarThemeSx, getEventTextColor } from './calendarTheme'
 import { addUntilToRrule, expandRrule } from './recurrenceUtils'
@@ -132,6 +133,7 @@ interface CalendarEvent {
   recurringEvent?: string
   originalStartAt?: string
   status?: string
+  reminders?: EventReminders | null
 }
 
 interface CalendarTask {
@@ -177,7 +179,12 @@ interface RecurrenceConfirm {
   newEnd?: string
   newAllDay?: boolean
   // Set when the change comes from the edit dialog (a drag changes times only)
-  edit?: { summary: string; description: string | null; location: string | null }
+  edit?: {
+    summary: string
+    description: string | null
+    location: string | null
+    reminders: EventReminders | null
+  }
 }
 
 interface EditingEvent {
@@ -194,6 +201,7 @@ interface EditingEvent {
     allDay: boolean
     description?: string
     location?: string
+    reminders?: EventReminders | null
   }
 }
 
@@ -805,6 +813,7 @@ export const CalendarView = () => {
               extendedProps: {
                 description: exception.description,
                 location: exception.location,
+                reminders: exception.reminders,
                 calendarId: excCalId,
                 calendarIri: exception.agenda,
                 isException: true,
@@ -828,6 +837,8 @@ export const CalendarView = () => {
               extendedProps: {
                 description: e.description,
                 location: e.location,
+                // A virtual occurrence has no row of its own: its reminders are the series'.
+                reminders: e.reminders,
                 calendarId: calId,
                 calendarIri: e.agenda,
                 rrule: e.rrule,
@@ -855,6 +866,7 @@ export const CalendarView = () => {
           extendedProps: {
             description: e.description,
             location: e.location,
+            reminders: e.reminders,
             calendarId: calId,
             calendarIri: e.agenda,
           },
@@ -986,6 +998,7 @@ export const CalendarView = () => {
         calendarName: calendarNameMap.get(calId) || '',
         description: fcEvent.extendedProps.description,
         location: fcEvent.extendedProps.location,
+        reminders: fcEvent.extendedProps.reminders,
         rrule: fcEvent.extendedProps.rrule,
         masterEventId: fcEvent.extendedProps.masterEventId,
         isVirtualOccurrence: fcEvent.extendedProps.isVirtualOccurrence,
@@ -1130,6 +1143,7 @@ export const CalendarView = () => {
           allDay: current.allDay,
           description: current.description,
           location: current.location,
+          reminders: current.reminders ?? null,
         },
       })
     },
@@ -1157,7 +1171,12 @@ export const CalendarView = () => {
           newStart: values.startAt,
           newEnd: values.endAt,
           newAllDay: values.allDay,
-          edit: { summary: values.summary, description: values.description, location: values.location },
+          edit: {
+            summary: values.summary,
+            description: values.description,
+            location: values.location,
+            reminders: values.reminders,
+          },
         })
         return
       }
@@ -1273,7 +1292,11 @@ export const CalendarView = () => {
       } else {
         // type === 'update'
         const { newStart, newEnd, newAllDay, edit } = recurrenceConfirm
-        const editFields = edit ? { description: edit.description, location: edit.location } : {}
+        const editFields = edit
+          ? { description: edit.description, location: edit.location, reminders: edit.reminders }
+          // A drag changes times only, and the exception or new series it writes is
+          // a fresh row: without this it would be the one occurrence with no reminder.
+          : { reminders: rawEvents.find((e) => e.id === masterEventId)?.reminders ?? null }
 
         if (action === 'this') {
           // Create exception instance with new times
@@ -1432,6 +1455,8 @@ export const CalendarView = () => {
               calendarName: calendarNameMap.get(calId) || '',
               description: event.description,
               location: event.location,
+              // The edit form reads them off this card: dropped here, cleared on the next save.
+              reminders: event.reminders,
               rrule: event.rrule,
               calendarIri: event.agenda,
             })

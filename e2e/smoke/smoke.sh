@@ -586,9 +586,10 @@ assert_eq 0 "$(printf '%s' "$evening" | jq -r '[.conflicts[]?] | length')" \
 # ---------------------------------------------------------------------------
 step "11. A due reminder becomes a notification"
 # ---------------------------------------------------------------------------
-# The reminder chain has no browser surface at all — nothing in the admin sets a
-# reminder, and the only producer is a cron the browser cannot run. So it is here,
-# where `docker compose exec` can, like the two sync steps above.
+# The admin sets reminders since MAG-121, and `tests/agenda-events.spec.ts` drives
+# that. What is still only reachable from here is the other half: the producer is a
+# cron, and no browser can run one. So the firing is proved here, where
+# `docker compose exec` can, like the two sync steps above.
 #
 # The event is created against the stack's clock rather than taken from the seed
 # (`E2E_NOW`, else the real one — never the host's `date` under a pinned stack,
@@ -607,29 +608,29 @@ fi
 now_epoch="$("$REPO_ROOT/e2e/clock.sh" epoch)"
 now_epoch="${now_epoch:-$(date +%s)}"
 reminder_title="Rappel smoke $(date -u -d "@$now_epoch" +%H%M%S)"
+# One request, reminders included: POST used to drop them in silence — the command
+# carried none — and PATCH was the only way in (MAG-121). Google's own shape,
+# `{useDefault, overrides: [{method, minutes}]}`, which is what the cron reads; a
+# bare list is no reminder at all, and the API now refuses it rather than storing
+# something nothing fires on.
 reminder_event="$(curl -sS -X POST "${AUTH[@]}" \
   -H 'Content-Type: application/ld+json' -H 'Accept: application/ld+json' \
   -d "$(jq -nc --arg s "$reminder_title" --arg a "$reminder_agenda" \
     --arg start "$(date -u -d "@$((now_epoch + 2400))" +%FT%T+00:00)" \
     --arg finish "$(date -u -d "@$((now_epoch + 4200))" +%FT%T+00:00)" \
-    '{summary: $s, startAt: $start, endAt: $finish, agenda: $a}')" \
+    '{summary: $s, startAt: $start, endAt: $finish, agenda: $a,
+      reminders: {useDefault: false, overrides: [{method: "popup", minutes: 60}]}}')" \
   "$BASE_URL/api/events")"
 reminder_event_id="$(printf '%s' "$reminder_event" | jq -r '.id // empty')"
 if [ -n "$reminder_event_id" ]; then
-  pass "the event the reminder hangs off was created"
+  pass "the event was created with its reminder, in one request"
 else
   fail "could not create the event — response: $(printf '%s' "$reminder_event" | head -c 300)"
 fi
 
-# A second request, because `CreateEventCommand` carries no reminders: POST drops
-# them in silence and PATCH is the only way in. Google's own shape —
-# `{useDefault, overrides: [{method, minutes}]}` — which is what the command reads;
-# a bare list is no reminder at all, and nothing says so.
-reminder_patch="$(status_of -X PATCH "${AUTH[@]}" \
-  -H 'Content-Type: application/merge-patch+json' \
-  -d '{"reminders":{"useDefault":false,"overrides":[{"method":"popup","minutes":60}]}}' \
-  "$BASE_URL/api/events/$reminder_event_id")"
-assert_eq 200 "$reminder_patch" "the reminder was set on the event"
+assert_eq 60 \
+  "$(printf '%s' "$reminder_event" | jq -r '.reminders.overrides[0].minutes // empty')" \
+  "the reminder POST sent is the reminder the API serves back"
 
 # The cron reads Doctrine, so it sees the event the moment the PATCH returns; the
 # notification it writes is read back from Elasticsearch, which is what the wait
@@ -677,6 +678,50 @@ assert_eq "/api/events/$reminder_event_id" \
 "${COMPOSE[@]}" exec -T php bin/console --env=e2e maggie:notification:check-reminders >/dev/null
 sleep 5
 assert_eq 1 "$(reminders_of | jq -r 'length')" "a second run of the cron reminds nobody twice"
+
+# The same thing for a recurring event, which is the half that was broken: a series
+# is one row whose start is its first occurrence, so the cron reminded the owner of
+# the first standup and of nothing after it (MAG-121).
+#
+# A weekly series that started a week ago at the slot forty minutes from now, with
+# a reminder a day before — so the occurrence coming up is inside the horizon and
+# its trigger is well behind us, whatever hour the run starts at. Expanded on UTC
+# and counted in seconds: `recurr` steps on the event's own wall clock, and in
+# Paris a week is 167 or 169 hours across the change of clocks.
+recurring_title="Rappel récurrent smoke $(date -u -d "@$now_epoch" +%H%M%S)"
+recurring_event="$(curl -sS -X POST "${AUTH[@]}" \
+  -H 'Content-Type: application/ld+json' -H 'Accept: application/ld+json' \
+  -d "$(jq -nc --arg s "$recurring_title" --arg a "$reminder_agenda" \
+    --arg start "$(date -u -d "@$((now_epoch + 2400 - 604800))" +%FT%T+00:00)" \
+    --arg finish "$(date -u -d "@$((now_epoch + 4200 - 604800))" +%FT%T+00:00)" \
+    '{summary: $s, startAt: $start, endAt: $finish, agenda: $a, timeZone: "UTC",
+      rrule: "FREQ=WEEKLY",
+      reminders: {useDefault: false, overrides: [{method: "popup", minutes: 1440}]}}')" \
+  "$BASE_URL/api/events")"
+if [ -n "$(printf '%s' "$recurring_event" | jq -r '.id // empty')" ]; then
+  pass "the recurring event the reminder hangs off was created"
+else
+  fail "could not create the recurring event — response: $(printf '%s' "$recurring_event" | head -c 300)"
+fi
+
+"${COMPOSE[@]}" exec -T php bin/console --env=e2e maggie:notification:check-reminders >/dev/null
+
+recurring_notified=""
+for _ in $(seq 1 60); do
+  if [ "$(curl -sS "${AUTH[@]}" -H 'Accept: application/ld+json' \
+    "$BASE_URL/api/notifications?itemsPerPage=100" \
+    | jq -r --arg t "$recurring_title" '[.member[] | select(.title == $t)] | length')" -gt 0 ]; then
+    recurring_notified=yes
+    break
+  fi
+  sleep 1
+done
+
+if [ -n "$recurring_notified" ]; then
+  pass "the occurrence coming up produced a reminder, not just the series' first"
+else
+  fail "the cron wrote no notification for '$recurring_title' — is the series still expanded?"
+fi
 
 # ---------------------------------------------------------------------------
 step "12. A bank consent runs from the picker to the callback"

@@ -1,9 +1,12 @@
 package com.maggie.app.ui.screens.shared
 
 import com.maggie.app.data.api.EventCreateRequest
+import com.maggie.app.data.model.EventReminders
 import com.maggie.app.data.model.ExpandedEvent
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.util.RruleUtils
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -58,6 +61,9 @@ class RecurringEventEditor(private val eventRepository: EventRepository) {
         location = data.string("location"),
         timeZone = event.timeZone,
         agenda = data.string("agenda") ?: event.agendaIri,
+        // The exception the owner is about to create keeps the reminders he left
+        // on the form, which may be none — the series' are not inherited.
+        reminders = data.reminders(event.reminders),
     )
 
     // Every occurrence moves with the edited one: shift the master by the same delta
@@ -85,4 +91,15 @@ class RecurringEventEditor(private val eventRepository: EventRepository) {
     }
 
     private fun JsonObject.string(key: String): String? = this[key]?.jsonPrimitive?.contentOrNull
+
+    /** The form's reminders. Absent means "unchanged", null means "none left". */
+    private fun JsonObject.reminders(fallback: EventReminders?): EventReminders? {
+        val value = this["reminders"] ?: return fallback
+
+        return if (value is JsonNull) null else JSON.decodeFromJsonElement(EventReminders.serializer(), value)
+    }
+
+    private companion object {
+        private val JSON = Json { ignoreUnknownKeys = true }
+    }
 }

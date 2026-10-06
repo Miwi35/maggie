@@ -5,6 +5,7 @@ namespace Maggie\Calendar\Mcp\Tool;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Message\UpdateEventCommand;
 use Maggie\Calendar\Service\AgendaResolver;
+use Maggie\Calendar\Service\EventReminders;
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
@@ -12,7 +13,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'update_event', description: 'Update an existing calendar event. Only provided fields will be updated. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes. To empty an optional field, list its name in clear (description, location, rrule). Use agenda_id to move the event to another agenda: pass its name as the user said it (e.g. "Concerts", case and accents do not matter) or its id — no need to call manage_agendas first. An unknown or ambiguous name returns an error listing the user\'s agendas.')]
+#[McpTool(name: 'update_event', description: 'Update an existing calendar event. Only provided fields will be updated. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes. To empty an optional field, list its name in clear (description, location, rrule, reminders). Use agenda_id to move the event to another agenda: pass its name as the user said it (e.g. "Concerts", case and accents do not matter) or its id — no need to call manage_agendas first. An unknown or ambiguous name returns an error listing the user\'s agendas. Use reminders to replace the whole set of reminders: a list of delays in minutes before the start, e.g. [60] or [10, 1440]; it replaces what the event had, so pass every reminder the user wants to keep, and clear "reminders" to leave none.')]
 class UpdateEventTool
 {
     public function __construct(
@@ -22,7 +23,10 @@ class UpdateEventTool
     ) {
     }
 
-    /** @param list<string>|null $clear */
+    /**
+     * @param list<string>|null $clear
+     * @param list<int>|null    $reminders minutes before the start, e.g. [60] for "une heure avant"
+     */
     public function __invoke(
         string $id,
         ?string $title = null,
@@ -33,6 +37,7 @@ class UpdateEventTool
         ?string $location = null,
         ?array $clear = null,
         ?string $agenda_id = null,
+        ?array $reminders = null,
     ): string {
         try {
             if (null !== $agenda_id) {
@@ -58,6 +63,21 @@ class UpdateEventTool
                 $endAt = null; // handled below
             }
 
+            $clearFields = array_values(array_intersect(
+                $clear ?? [],
+                ['description', 'location', 'rrule', 'reminders'],
+            ));
+
+            $newReminders = null;
+            if (null !== $reminders) {
+                $newReminders = EventReminders::fromMinutes(array_map('intval', $reminders));
+                // `reminders: []` asks for no reminder left. Said that way it is the
+                // same order as `clear`, from the field the user was talking about.
+                if (null === $newReminders && !\in_array('reminders', $clearFields, true)) {
+                    $clearFields[] = 'reminders';
+                }
+            }
+
             $envelope = $this->bus->dispatch(new UpdateEventCommand(
                 eventId: $id,
                 summary: $title,
@@ -66,7 +86,8 @@ class UpdateEventTool
                 description: $description,
                 location: $location,
                 agendaId: $agenda_id,
-                clearFields: array_values(array_intersect($clear ?? [], ['description', 'location', 'rrule'])),
+                reminders: $newReminders,
+                clearFields: $clearFields,
             ));
 
             /** @var Event $event */
@@ -80,6 +101,7 @@ class UpdateEventTool
                     'startAt' => $event->getStartAt()->format('c'),
                     'endAt' => $event->getEndAt()->format('c'),
                     'agenda' => $event->getAgenda()->getName(),
+                    'reminders' => EventReminders::toMinutes($event->getReminders()),
                 ],
             ], JSON_THROW_ON_ERROR);
         } catch (MissingMcpUserException|\DomainException $e) {

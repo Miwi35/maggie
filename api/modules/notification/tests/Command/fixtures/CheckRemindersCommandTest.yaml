@@ -115,3 +115,42 @@ Maggie\Calendar\Entity\Event:
       overrides:
         - { method: 'popup', minutes: 15 }
     agenda: '@own_agenda'
+
+  # A weekly series whose first occurrence is a week behind us and whose next one
+  # is six hours ahead, reminded a day before. The row the cron reads starts in
+  # the past, so reading the rows alone sent this reminder once — for the first
+  # standup — and never again (MAG-121).
+  #
+  # Written in hours and expanded on UTC, both on purpose. `recurr` steps on the
+  # event's own wall clock, so a weekly series in Paris is 167 or 169 hours long
+  # across the week the clocks change, and `-7 days` on a Paris instant is not
+  # -168 hours in that same week either. In UTC, and counted in hours, the
+  # occurrence this aims at lands exactly six hours from now whatever the date —
+  # which is what lets the test below name it.
+  recurring_due_event:
+    summary: Point hebdomadaire
+    startAt: '<(new \DateTimeImmutable("-162 hours"))>'
+    endAt: '<(new \DateTimeImmutable("-161 hours"))>'
+    timeZone: UTC
+    rrule: 'FREQ=WEEKLY'
+    reminders:
+      useDefault: false
+      overrides:
+        - { method: 'popup', minutes: 1440 }
+    agenda: '@own_agenda'
+
+  # Same shape, reminded an hour before: the next occurrence is six hours out, so
+  # the trigger is five hours ahead and nothing may fire yet. Without it, a
+  # command that reminded of every occurrence it found in the window — rather
+  # than of the ones whose trigger has passed — would still be green.
+  recurring_not_yet_event:
+    summary: Cours de piano
+    startAt: '<(new \DateTimeImmutable("-162 hours"))>'
+    endAt: '<(new \DateTimeImmutable("-161 hours"))>'
+    timeZone: UTC
+    rrule: 'FREQ=WEEKLY'
+    reminders:
+      useDefault: false
+      overrides:
+        - { method: 'popup', minutes: 60 }
+    agenda: '@own_agenda'

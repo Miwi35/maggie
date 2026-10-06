@@ -28,7 +28,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Agenda
+import com.maggie.app.data.model.EventReminders
 import com.maggie.app.data.model.ExpandedEvent
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -59,6 +62,7 @@ fun EventEditScreen(
     var endDate by remember { mutableStateOf(endZdt.toLocalDate().toString()) }
     var endTime by remember { mutableStateOf(endZdt.toLocalTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))) }
     var selectedAgendaIri by remember { mutableStateOf(event.agendaIri) }
+    var reminders by remember { mutableStateOf<EventReminders?>(event.reminders) }
 
     Scaffold(
         topBar = {
@@ -133,6 +137,8 @@ fun EventEditScreen(
                 )
             }
 
+            ReminderPicker(value = reminders, onChange = { reminders = it })
+
             AgendaPickerField(
                 agendas = agendas,
                 selectedAgendaIri = selectedAgendaIri,
@@ -176,6 +182,12 @@ fun EventEditScreen(
                         put("description", description.ifBlank { null })
                         put("location", location.ifBlank { null })
                         put("agenda", selectedAgendaIri)
+                        // Null is how the API clears the field, so a form left
+                        // without a reminder removes the ones the event had.
+                        put(
+                            "reminders",
+                            reminders?.let { Json.encodeToJsonElement(EventReminders.serializer(), it) } ?: JsonNull,
+                        )
                     })
                 },
                 enabled = summary.isNotBlank(),

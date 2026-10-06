@@ -6,6 +6,7 @@ use ApiPlatform\Doctrine\Orm\Filter\DateFilter;
 use ApiPlatform\Doctrine\Orm\Filter\ExistsFilter;
 use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
 use ApiPlatform\Metadata\ApiFilter;
+use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
@@ -57,6 +58,12 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
 
     /** The column's default, and what a time zone nobody can resolve falls back on. */
     public const FALLBACK_TIME_ZONE = 'Europe/Paris';
+
+    /** As many reminders as Google accepts on one event. */
+    public const int MAX_REMINDERS = 5;
+
+    /** Four weeks before the start, Google's own ceiling. */
+    public const int MAX_REMINDER_MINUTES = 40320;
 
     public static function getOwnerRelation(): string
     {
@@ -121,9 +128,41 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
     /**
      * Reminders as JSON: {useDefault: bool, overrides: [{method: "popup"|"email", minutes: int}]}
      *
+     * Google's shape, and the only one anything reads: `CheckRemindersCommand`
+     * looks under `overrides`, so a bare list is no reminder at all and nothing
+     * says so — the e2e seed shipped that shape for a while and the whole chain
+     * was silently dead. The web, the mobile app and Maggie all write this field
+     * now (MAG-121), so it is checked on the way in rather than discovered by a
+     * reminder nobody received.
+     *
      * @var array<string, mixed>|null
      */
     #[ORM\Column(type: Types::JSON, nullable: true)]
+    // The constraints below let API Platform describe the keys, but they also make
+    // it drop the null — and null is how a client says "no reminder left".
+    #[ApiProperty(openapiContext: ['type' => ['object', 'null']])]
+    #[Assert\Collection(fields: [
+        'useDefault' => new Assert\Optional([new Assert\Type('bool')]),
+        'overrides' => new Assert\Optional([new Assert\Sequentially([
+            new Assert\Type('array'),
+            new Assert\Count(max: self::MAX_REMINDERS),
+            new Assert\All([new Assert\Sequentially([
+                new Assert\Type('array'),
+                new Assert\Collection(fields: [
+                    // `sms` only to let an old imported row through; nothing of ours writes it.
+                    'method' => new Assert\Required([new Assert\Choice(choices: ['popup', 'email', 'sms'])]),
+                    'minutes' => new Assert\Required([
+                        new Assert\Type('int'),
+                        // Zero only because Google writes it for "au moment de l'événement",
+                        // and the validator reads the whole stored value at every PATCH:
+                        // refusing it would make an imported event uneditable. The cron
+                        // skips it and `EventReminders` refuses it, so we never promise one.
+                        new Assert\Range(min: 0, max: self::MAX_REMINDER_MINUTES),
+                    ]),
+                ]),
+            ])]),
+        ])]),
+    ])]
     private ?array $reminders = null;
 
     #[ORM\ManyToOne(targetEntity: Agenda::class, inversedBy: 'events')]
