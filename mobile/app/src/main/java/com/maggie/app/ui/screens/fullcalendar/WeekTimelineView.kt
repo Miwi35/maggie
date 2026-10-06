@@ -25,7 +25,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
@@ -35,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import com.maggie.app.data.model.ExpandedEvent
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.screens.dashboard.parseColor
+import com.maggie.app.ui.theme.readableTextOn
 import com.maggie.app.util.DateRanges
 import java.time.DayOfWeek
 import java.time.Instant
@@ -318,7 +318,7 @@ private fun SpanningEventBar(
             text = event.summary,
             fontSize = 10.sp,
             lineHeight = 12.sp,
-            color = Color.White,
+            color = readableTextOn(color),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier

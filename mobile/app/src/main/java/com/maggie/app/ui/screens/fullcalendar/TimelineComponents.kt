@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.maggie.app.data.model.ExpandedEvent
 import com.maggie.app.ui.screens.dashboard.parseColor
+import com.maggie.app.ui.theme.readableTextOn
 import com.maggie.app.util.DateRanges
 import java.time.Instant
 import java.time.LocalDate
@@ -101,7 +102,7 @@ fun EventBlock(
         Text(
             text = event.summary,
             style = MaterialTheme.typography.labelSmall,
-            color = Color.White,
+            color = readableTextOn(bgColor),
             maxLines = if (height > 30.dp) 2 else 1,
             overflow = TextOverflow.Ellipsis,
             lineHeight = 14.sp,
@@ -157,7 +158,7 @@ fun AllDayRow(
                 Text(
                     text = event.summary,
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color.White,
+                    color = readableTextOn(bgColor),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
