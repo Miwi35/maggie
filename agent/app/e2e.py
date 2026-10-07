@@ -10,6 +10,7 @@ import hmac
 from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, status
 
 from app.config import settings
+from app.llm.fake import images_received, reset_images_received
 from app.llm.transcription import cleanup_requests, reset_cleanup_requests
 from app.tts.synthesis import fake_synthesis_requests, reset_fake_synthesis_requests
 
@@ -47,6 +48,18 @@ async def transcription_cleanups() -> dict[str, int]:
 @router.delete("/transcription/cleanups")
 async def reset_transcription_cleanups() -> dict[str, int]:
     reset_cleanup_requests()
+    return {"count": 0}
+
+
+@router.get("/llm/images")
+async def llm_images() -> dict[str, int]:
+    """How many questions reached the fake model with a picture since the last reset (MAG-214)."""
+    return {"count": images_received()}
+
+
+@router.delete("/llm/images")
+async def reset_llm_images() -> dict[str, int]:
+    reset_images_received()
     return {"count": 0}
 
 

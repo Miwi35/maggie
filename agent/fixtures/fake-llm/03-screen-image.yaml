@@ -1,0 +1,12 @@
+name: screen-image
+description: >
+  Any question that comes with a screenshot (MAG-214) — the voice overlay sends the screen
+  it was summoned over. Before every chat scenario, so the dictated sentence of the voice
+  journey is answered by what the picture shows, not by its grocery scenario.
+  Counted by `GET /agent/e2e/llm/images`.
+
+match:
+  user_has_image: true
+
+turns:
+  - text: "Sur votre écran, je vois une cafetière italienne."

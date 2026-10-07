@@ -272,6 +272,31 @@ describe('ChatWidget', () => {
     })
   })
 
+  // The screenshot is never stored (MAG-214): the bubble says one was there.
+  describe('a question asked over a screenshot', () => {
+    test('says the capture was not kept, then shows the question', async () => {
+      vi.stubGlobal(
+        'fetch',
+        mockFetch({
+          '/agent/messages': [
+            { id: 'm-1', role: 'user', content: "C'est quoi ce produit ?", hasImage: true, createdAt: '2026-10-07T10:00:00Z' },
+            { id: 'm-2', role: 'user', content: 'Et sans image ?', hasImage: false, createdAt: '2026-10-07T10:01:00Z' },
+          ],
+        }),
+      )
+
+      render(<ChatWidget {...defaultProps} />)
+
+      await waitFor(() => {
+        expect(screen.getByText("C'est quoi ce produit ?")).toBeInTheDocument()
+      })
+      expect(screen.getAllByText("Capture d'écran (non conservée)")).toHaveLength(1)
+      expect(screen.getByText("C'est quoi ce produit ?").closest('[id="msg-m-1"]')).toHaveTextContent(
+        "Capture d'écran (non conservée)",
+      )
+    })
+  })
+
   // A streamed exchange is published too, so a second tab or the phone sees it
   // (MAG-109). The tab that streamed it gets the echo back, in either order
   // relative to the end of its own stream, and must show it once.

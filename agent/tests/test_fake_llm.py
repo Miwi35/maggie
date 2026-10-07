@@ -1254,3 +1254,78 @@ class TestTheShippedFixtures:
             system=f"Tu es Maggie.{HEADER}\n- Tutoie-moi et évite les emojis",
         )
         assert "[fake-llm]" not in text_of(with_preference)
+
+
+PICTURE = {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": "/9j/AAAA"}}
+
+
+def with_picture(text: str) -> dict:
+    return {"role": "user", "content": [PICTURE, {"type": "text", "text": text}]}
+
+
+class TestAQuestionWithAPicture:
+    """The turn the overlay sends over a screenshot is a list, image then text (MAG-214)."""
+
+    def test_its_text_is_what_the_user_said(self):
+        assert last_user_text([with_picture("c'est quoi ce produit ?")]) == "c'est quoi ce produit ?"
+
+    def test_it_is_not_a_tool_round(self):
+        assert turn_index([with_picture("c'est quoi ?")]) == 0
+        assert (
+            turn_index(
+                [
+                    with_picture("c'est quoi ?"),
+                    {"role": "assistant", "content": [{"type": "tool_use"}]},
+                    {"role": "user", "content": [{"type": "tool_result", "content": "{}"}]},
+                ]
+            )
+            == 1
+        )
+
+    def test_the_picture_bytes_are_not_history_text(self):
+        messages = [with_picture("c'est quoi ?"), {"role": "user", "content": "et le prix ?"}]
+
+        assert "/9j/AAAA" not in history_text(messages)
+
+    async def test_user_has_image_matches_only_a_turn_with_one(self, fixtures_dir):
+        write_scenario(
+            fixtures_dir, "03-image.yaml", {"match": {"user_has_image": True}, "turns": [{"text": "une cafetière"}]}
+        )
+        write_scenario(fixtures_dir, "20-chat.yaml", {"match": {"user_contains": "produit"}, "turns": [{"text": "texte"}]})
+        client = build_client(fixtures_dir)
+
+        seen = await client.messages.create(model="fake", messages=[with_picture("c'est quoi ce produit ?")])
+        unseen = await ask(client, "c'est quoi ce produit ?")
+
+        assert text_of(seen) == "une cafetière"
+        assert text_of(unseen) == "texte"
+
+    async def test_each_question_with_a_picture_is_counted_once(self, fixtures_dir):
+        """The journey's proof that the picture reached the model — tool rounds resend it."""
+        write_scenario(fixtures_dir, "03-image.yaml", {"match": {"user_has_image": True}, "turns": [{"text": "vu"}]})
+        client = build_client(fixtures_dir)
+        fake_module.reset_images_received()
+
+        await client.messages.create(model="fake", messages=[with_picture("c'est quoi ?")])
+        await client.messages.create(
+            model="fake",
+            messages=[
+                with_picture("c'est quoi ?"),
+                {"role": "assistant", "content": [{"type": "tool_use"}]},
+                {"role": "user", "content": [{"type": "tool_result", "content": "{}"}]},
+            ],
+        )
+        await ask(client, "sans image")
+
+        assert fake_module.images_received() == 1
+        fake_module.reset_images_received()
+
+    async def test_the_shipped_scenario_answers_whatever_was_dictated(self):
+        """The voice journey's stubbed Whisper says « tomates »; with a picture, the picture wins."""
+        client = build_client(DEFAULT_FIXTURES_DIR)
+
+        answer = await client.messages.create(
+            model="fake", messages=[with_picture("Ajoute des tomates à la liste de courses.")]
+        )
+
+        assert text_of(answer) == "Sur votre écran, je vois une cafetière italienne."
