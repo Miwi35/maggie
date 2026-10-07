@@ -1,7 +1,6 @@
 import { Edit, SimpleForm, TextInput, NumberInput, SelectInput, required } from 'react-admin'
 import Box from '@mui/material/Box'
 import { CiqualFoodAutocomplete, CiqualAutoFill } from './CiqualFoodAutocomplete'
-import { PackagingInputs } from '../grocery/PackagingInputs'
 
 const categoryChoices = [
   { id: 'produce', name: 'Fruits & Légumes' },
@@ -50,7 +49,6 @@ export const IngredientEdit = () => (
         <NumberInput source="carbsPer100g" label="Glucides/100g" />
         <NumberInput source="fatPer100g" label="Lipides/100g" />
       </Box>
-      <PackagingInputs />
     </SimpleForm>
   </Edit>
 )
