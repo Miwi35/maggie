@@ -78,7 +78,7 @@ async def run_tool_loop(
 
         if response.stop_reason != "tool_use":
             text_response = "".join(block.text for block in response.content if hasattr(block, "text"))
-            verdict = guard.review(text_response, can_retry=iteration < max_iterations - 1)
+            verdict = guard.review(text_response, can_retry=iteration < max_iterations - 2)
             if verdict is Verdict.RETRY:
                 logger.warning("Reminder announced without schedule_proaction: sending the model back")
                 messages.append({"role": "assistant", "content": response.content})
@@ -100,7 +100,7 @@ async def run_tool_loop(
                     block.name, block.input, user_id=user_id, source=source, context_id=context_id
                 )
                 tool_calls_made.append({"name": block.name, "input": block.input, "result": result})
-                guard.record(block.name, result)
+                guard.record(block.name, result, block.input)
                 tool_results.append({"type": "tool_result", "tool_use_id": block.id, "content": result})
 
         messages.append({"role": "user", "content": tool_results})

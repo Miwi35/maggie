@@ -270,7 +270,7 @@ class StreamingGateway:
                                     "result": result,
                                 }
                             )
-                            guard.record(tool_name, result)
+                            guard.record(tool_name, result, tool_input)
 
                             # Log to context if we have one
                             if current_context_id:
@@ -318,7 +318,7 @@ class StreamingGateway:
                     # Continue loop for more iterations
                     continue
 
-                verdict = guard.review(step_text, can_retry=iteration < max_iterations - 1)
+                verdict = guard.review(answer, can_retry=iteration < max_iterations - 2)
                 if verdict is Verdict.RETRY:
                     logger.warning("Reminder announced without schedule_proaction: sending the model back")
                     messages.append({"role": "assistant", "content": response_content})
@@ -350,6 +350,15 @@ class StreamingGateway:
                 answer = "Désolé, une erreur est survenue. Réessaie."
                 yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": answer}
                 break
+        else:
+            # The budget ran out on a tool call, so the answer is an earlier step's text that
+            # nobody reviewed: a reminder it announces is checked here, with no relaunch left.
+            if guard.review(answer, can_retry=False) is Verdict.GIVE_UP:
+                logger.warning("Reminder announced, never scheduled, out of iterations: answering it is not")
+                answer = NOT_SCHEDULED_MESSAGE
+                yield {"type": "TEXT_MESSAGE_START", "messageId": msg_id, "role": "assistant"}
+                text_started = True
+                yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": answer}
 
         # End the single text message of the run
         if text_started:

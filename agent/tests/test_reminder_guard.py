@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from zoneinfo import ZoneInfo
 
 import pytest
+import yaml
 
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.reminder_guard import (
@@ -47,6 +48,10 @@ class TestTheClaim:
             "J'ai programmé un rappel à 18h.",
             "Je t'enverrai un rappel ce soir.",
             "Je vous préviendrai à 9h.",
+            "Je te préviendrai demain matin.",
+            "Je vous rappelle à 16h05.",
+            "Je vous préviens dans 5 minutes.",
+            "Rappel enregistré pour 16h05.",
         ],
     )
     def test_an_announced_reminder_is_a_claim(self, text):
@@ -62,6 +67,9 @@ class TestTheClaim:
             "Le rappel est déjà programmé pour 16h05.",
             "À quelle heure voulez-vous ce rappel ?",
             "Vous avez un déjeuner avec Alex à midi.",
+            "Je te préviendrai si la météo change.",
+            "Je vous rappelle que la réunion est demain à 9h.",
+            "Je te préviens, la réunion est à 9h.",
         ],
     )
     def test_anything_else_is_not(self, text):
@@ -97,6 +105,32 @@ class TestTheGuard:
     def test_another_tool_does_not_count(self):
         guard = ReminderGuard(OFFERED)
         guard.record("date_time", '{"result": {"iso": "2026-10-07T16:05+02:00"}}')
+
+        assert guard.review(FALSE_CLAIM) is Verdict.RETRY
+
+    def test_an_event_with_reminders_backs_the_claim(self):
+        # « préviens-moi une heure avant » is create_event's job (its `reminders`), not a proaction.
+        guard = ReminderGuard(OFFERED)
+        guard.record("create_event", '{"event": {"id": "e-1"}}', {"title": "Dentiste", "reminders": [60]})
+
+        assert guard.review("C'est noté, je vous préviendrai à 9h, une heure avant.") is Verdict.ACCEPT
+
+    def test_an_event_without_reminders_does_not(self):
+        guard = ReminderGuard(OFFERED)
+        guard.record("create_event", '{"event": {"id": "e-1"}}', {"title": "Dentiste"})
+
+        assert guard.review(FALSE_CLAIM) is Verdict.RETRY
+
+    def test_a_pending_reminder_from_an_earlier_turn_backs_the_claim(self):
+        guard = ReminderGuard(OFFERED)
+        guard.record("list_proactions", json.dumps([{"id": "pro-1", "status": "pending"}]))
+
+        assert guard.review("Oui, je vous rappellerai à 16h05.") is Verdict.ACCEPT
+
+    @pytest.mark.parametrize("listed", [[], [{"id": "pro-1", "status": "completed"}]])
+    def test_no_pending_reminder_listed_does_not(self, listed):
+        guard = ReminderGuard(OFFERED)
+        guard.record("list_proactions", json.dumps(listed))
 
         assert guard.review(FALSE_CLAIM) is Verdict.RETRY
 
@@ -292,3 +326,56 @@ class TestTheStreamedPath:
         types = [event["type"] for event in events]
         assert types.count("TEXT_MESSAGE_END") == 1
         assert types[-1] == "RUN_FINISHED"
+
+    @staticmethod
+    def _scripted(tmp_path, turns: list[dict]) -> FakeAnthropicClient:
+        directory = tmp_path / "fake-llm"
+        directory.mkdir()
+        router = {"match": {"system_contains": "routeur de contexte"}, "turns": [{"text": '{"context_id": null}'}]}
+        chat = {"match": {"user_contains": "boire de l'eau"}, "turns": turns}
+        (directory / "10-router.yaml").write_text(yaml.safe_dump(router, allow_unicode=True))
+        (directory / "20-chat.yaml").write_text(yaml.safe_dump(chat, allow_unicode=True))
+        return FakeAnthropicClient(fixtures_dir=directory)
+
+    async def test_a_reminder_scheduled_first_time_is_not_relaunched(self, tmp_path, proactions):
+        client = self._scripted(
+            tmp_path,
+            [
+                {"tools": [{"name": "date_time", "input": {"action": "add", "minutes": 1}}]},
+                {"tools": [{"name": SCHEDULE_TOOL, "input": {"prompt": "Eau", "scheduled_at": "2099-10-07T16:05:00+02:00"}}]},
+                {"text": SCHEDULED_ANSWER},
+            ],
+        )
+
+        events, saved = await self._stream(client, WATER)
+
+        proactions.create.assert_awaited_once()
+        assert [message["content"] for message in saved] == [SCHEDULED_ANSWER]
+        assert the_bubble(events) == SCHEDULED_ANSWER
+
+    async def test_a_claim_made_before_a_tool_call_is_reviewed(self, tmp_path, proactions):
+        # The last step says nothing, so the stored answer is the claim an earlier step made.
+        client = self._scripted(
+            tmp_path,
+            [
+                {"text": FALSE_CLAIM, "tools": [{"name": "date_time", "input": {"action": "add", "minutes": 1}}]},
+                {"text": "  "},
+                {"text": "  "},
+            ],
+        )
+
+        events, saved = await self._stream(client, WATER)
+
+        proactions.create.assert_not_awaited()
+        assert [message["content"] for message in saved] == [NOT_SCHEDULED_MESSAGE]
+        assert the_bubble(events) == NOT_SCHEDULED_MESSAGE
+
+    async def test_a_claim_left_when_the_iterations_run_out_is_reviewed(self, tmp_path, proactions):
+        lookup = {"tools": [{"name": "date_time", "input": {"action": "now"}}]}
+        client = self._scripted(tmp_path, [{"text": FALSE_CLAIM, **lookup}, lookup, lookup, lookup, lookup])
+
+        events, saved = await self._stream(client, WATER)
+
+        assert [message["content"] for message in saved] == [NOT_SCHEDULED_MESSAGE]
+        assert the_bubble(events) == NOT_SCHEDULED_MESSAGE
+        assert [event["type"] for event in events].count("TEXT_MESSAGE_END") == 1

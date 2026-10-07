@@ -8,7 +8,8 @@ the check that does not depend on the model reading it.
 Both tool loops — `run_tool_loop` and the streamed `chat_stream` — hold one guard per
 turn. They report every tool result to it, and ask it about the answer the model ends on:
 
-- no reminder announced, or `schedule_proaction` went through this turn → `ACCEPT`;
+- no reminder announced, or a tool backing it went through this turn (`schedule_proaction`,
+  an event with reminders, a pending reminder listed) → `ACCEPT`;
 - a reminder announced without it → `RETRY` once: the loop sends the model `nudge()`,
   so it calls the tool or takes the promise back;
 - announced again → `GIVE_UP`: the loop replaces the answer with `NOT_SCHEDULED_MESSAGE`.
@@ -24,14 +25,27 @@ from enum import Enum
 SCHEDULE_TOOL = "schedule_proaction"
 
 # Case-insensitive, and only the affirmative forms: « je ne vous rappellerai pas » and
-# « le rappel n'a pas été programmé » are honest, and must not trigger a relaunch.
+# « le rappel n'a pas été programmé » are honest, and must not trigger a relaunch. « Je vous
+# préviendrai » needs a time after it — « si la météo change » is not a reminder — and « je
+# vous rappelle », « je vous préviens » one right after, so that « je vous rappelle que … »
+# and « je te préviens, … » stay out.
+_TIME_ANCHOR = r"[^.!?\n]{0,40}?(?:\bà\b|\bdans\b|\bvers\b|\bdemain\b|\bce\s+soir\b|\d)"
 _CLAIM = re.compile(
     r"\bje\s+(?:vous\s+|te\s+|t['\u2019]\s*)(?:l[ea]\s+|les\s+|l['\u2019]\s*)?"
-    r"(?:rapp?ell?erai|rappelle\s+dans|préviendrai|enverrai\s+un\s+rappel)"
+    r"(?:rapp?ell?erai|enverrai\s+un\s+rappel|rappelle\s+(?:dans|à|vers|demain|ce\s+soir)\b"
+    r"|préviens\s+(?:dans|à|vers|demain|ce\s+soir)\b|préviendrai" + _TIME_ANCHOR + r")"
     r"|\brappel\s+(?:est\s+|bien\s+)*(?:programmé|planifié|enregistré)"
     r"|\b(?:j['\u2019]ai|c['\u2019]est)\s+(?:bien\s+)?(?:programmé|planifié)\s+(?:un|le|votre|ton|ce)\s+rappel",
     re.IGNORECASE,
 )
+
+# Other tools that back an announced reminder:
+# - an event created or updated with `reminders` — « préviens-moi une heure avant » is that
+#   tool's job, and its confirmation reads like a proaction's;
+# - `list_proactions` showing a pending one — « tu me rappelles bien ? » is answered by a
+#   reminder scheduled in an earlier turn.
+EVENT_TOOLS = ("create_event", "update_event")
+LIST_TOOL = "list_proactions"
 
 NUDGE = (
     "[Contrôle automatique] Ta réponse annonce un rappel, mais aucun appel à schedule_proaction "
@@ -70,6 +84,14 @@ def _went_through(result: str) -> bool:
     return isinstance(data, dict) and "error" not in data
 
 
+def _lists_a_pending_one(result: str) -> bool:
+    try:
+        data = json.loads(result)
+    except (json.JSONDecodeError, TypeError):
+        return False
+    return isinstance(data, list) and any(isinstance(p, dict) and p.get("status") == "pending" for p in data)
+
+
 class ReminderGuard:
     """One per turn: what was scheduled, and whether the model was already sent back once."""
 
@@ -78,15 +100,21 @@ class ReminderGuard:
         self.scheduled = False
         self.nudged = False
 
-    def record(self, tool_name: str, result: str) -> None:
-        if tool_name == SCHEDULE_TOOL and _went_through(result):
-            self.scheduled = True
+    def record(self, tool_name: str, result: str, arguments: dict | None = None) -> None:
+        if tool_name == LIST_TOOL:
+            backs = _lists_a_pending_one(result)
+        elif tool_name in EVENT_TOOLS:
+            backs = bool((arguments or {}).get("reminders")) and _went_through(result)
+        else:
+            backs = tool_name == SCHEDULE_TOOL and _went_through(result)
+        self.scheduled = self.scheduled or backs
 
     def review(self, answer: str, *, can_retry: bool = True) -> Verdict:
         """What to do with the answer the model ends its turn on.
 
-        `can_retry` is false on the loop's last iteration: a relaunch would have no room
-        to run, so an unbacked announcement is replaced straight away.
+        `can_retry` is false when the loop has fewer than two iterations left: a relaunch
+        needs one to call the tool and one to confirm, so without them an unbacked
+        announcement is replaced straight away.
         """
         if not self.active or self.scheduled:
             return Verdict.ACCEPT
