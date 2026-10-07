@@ -7,6 +7,7 @@ use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Grocery\Entity\GroceryItem;
+use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Entity\Store;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -59,6 +60,8 @@ class EditGroceryItemControllerTest extends WebTestCase
         yield 'zero' => [0];
         yield 'negative' => [-2];
         yield 'text' => ['beaucoup'];
+        yield 'empty' => [''];
+        yield 'infinite' => ['1e999'];
     }
 
     #[\PHPUnit\Framework\Attributes\DataProvider('invalidQuantities')]
@@ -102,6 +105,7 @@ class EditGroceryItemControllerTest extends WebTestCase
         self::assertSame($unit, $item->getUnit());
 
         $this->assertMercureUpdatePublished('/grocery_lists/');
+        $this->assertElasticsearchIndexDispatched(GroceryList::class);
     }
 
     public function testUpdateQuantityAndUnit(): void
