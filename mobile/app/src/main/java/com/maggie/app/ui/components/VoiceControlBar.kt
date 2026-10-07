@@ -1,5 +1,6 @@
 package com.maggie.app.ui.components
 
+import android.util.Log
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -46,6 +47,8 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.ui.UiTags
 import com.maggie.app.voice.VoiceManager
 import com.maggie.app.voice.VoiceState
+
+private const val TAG = "VoiceControlBar"
 
 private val MIC_SIZE = 64.dp
 
@@ -141,6 +144,7 @@ fun VoiceControlBar(
                             val bounds = Rect(Offset.Zero, Size(size.width.toFloat(), size.height.toFloat()))
                                 .inflate(slideOutMargin)
                             var slidOut = false
+                            var ended = "lost pointer"
                             while (true) {
                                 val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
                                 // Ours until it lifts: a sheet or a list around the button
@@ -148,10 +152,15 @@ fun VoiceControlBar(
                                 change.consume()
                                 if (!bounds.contains(change.position)) {
                                     slidOut = true
+                                    ended = "slid out"
                                     break
                                 }
-                                if (!change.pressed) break
+                                if (!change.pressed) {
+                                    ended = "finger up"
+                                    break
+                                }
                             }
+                            Log.i(TAG, "Mic press ended: $ended")
                             if (slidOut) voiceManager.pressCancel() else voiceManager.pressRelease()
                         }
                     },

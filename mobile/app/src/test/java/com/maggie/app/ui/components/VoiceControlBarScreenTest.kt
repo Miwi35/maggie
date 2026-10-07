@@ -178,6 +178,21 @@ class VoiceControlBarScreenTest {
         assertEquals(listOf("ajoute du lait"), sent)
     }
 
+    @Test
+    fun `the cancel margin is 48 dp past the edge`() {
+        show()
+
+        mic().performTouchInput { down(center) }
+        settle(800)
+        mic().performTouchInput { moveTo(Offset(width + 40.dp.toPx(), center.y)) }
+        compose.mainClock.advanceTimeByFrame()
+        assertEquals(VoiceState.LISTENING, voiceManager.state.value)
+
+        mic().performTouchInput { moveTo(Offset(width + 60.dp.toPx(), center.y)) }
+        compose.mainClock.advanceTimeByFrame()
+        assertEquals(VoiceState.IDLE, voiceManager.state.value)
+    }
+
     /** Pulsing under a held finger moved the edge of the hit area; releasing there sent nothing. */
     @Test
     fun `lifting the finger just past the edge still sends`() {

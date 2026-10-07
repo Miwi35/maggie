@@ -164,6 +164,21 @@ class VoiceManagerTest {
     }
 
     @Test
+    fun `a reply arriving while the button is held does not cut the listening`() {
+        var sent: String? = null
+        voiceManager.pressDown { sent = it }
+        advance(600)
+
+        voiceManager.speak("Voici votre liste")
+        testScope.runCurrent()
+
+        assertEquals(VoiceState.LISTENING, voiceManager.state.value)
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+        assertEquals("bonjour Maggie", sent)
+    }
+
+    @Test
     fun `the result goes to whoever started the listening, however many came before`() {
         var chat: String? = null
         var overlay: String? = null
