@@ -16,8 +16,9 @@ turns:
       - name: create_event
         input:
           title: "Déjeuner avec Camille"
-          date: "2099-11-14"
-          time: "12:30"
-          duration: 60
+          start_date: "2099-11-14"
+          start_time: "12:30"
+          end_date: "2099-11-14"
+          end_time: "13:30"
           agenda_id: "Boulot"
   - text: "C'est noté : déjeuner avec Camille le 14 novembre 2099 à 12 h 30, dans l'agenda Boulot."

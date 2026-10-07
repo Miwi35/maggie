@@ -25,7 +25,8 @@ turns:
       - name: create_event
         input:
           title: "Concert de Stromae"
-          date: "2099-11-12"
-          time: "20:00"
-          duration: 120
+          start_date: "2099-11-12"
+          start_time: "20:00"
+          end_date: "2099-11-12"
+          end_time: "22:00"
   - text: "C'est noté : Stromae le 12 novembre 2099 à 20 h, rangé dans l'agenda Concerts."

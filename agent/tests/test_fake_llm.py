@@ -1002,7 +1002,25 @@ class TestTheShippedFixtures:
         # Read by the chat journey to find what Maggie wrote, so the two have to
         # agree: a title edited here and not there fails on an empty collection.
         assert booked.input["title"] == "Dentiste"
-        assert booked.input["date"].startswith("2099-")
+        assert booked.input["start_date"].startswith("2099-")
+
+    async def test_shifting_an_evening_sends_the_whole_schedule_and_the_captured_id(self):
+        client = build_client(DEFAULT_FIXTURES_DIR)
+        event_id = "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+
+        answer = await ask(client, f"Décale la soirée à jeudi ({event_id})")
+
+        assert answer.stop_reason == "tool_use"
+        call = next(block for block in answer.content if isinstance(block, FakeToolUseBlock))
+        assert call.name == "update_event"
+        # A start and an end, in full, and no duration: the contract of MAG-321.
+        assert call.input == {
+            "id": event_id,
+            "start_date": "2098-03-20",
+            "start_time": "19:00",
+            "end_date": "2098-03-21",
+            "end_time": "00:00",
+        }
 
     async def test_a_call_across_timezones_converts_with_date_time_before_booking(self):
         client = build_client(DEFAULT_FIXTURES_DIR)
@@ -1019,7 +1037,7 @@ class TestTheShippedFixtures:
         converted = run_date_time(call.input, ZoneInfo("Europe/Paris"))
         assert converted["target"]["iso"] == "2099-07-14T16:00+02:00"
         booking = yaml.safe_load((DEFAULT_FIXTURES_DIR / "38-create-event-timezone.yaml").read_text())["turns"][1]
-        assert booking["tools"][0]["input"]["time"] == "16:00"
+        assert booking["tools"][0]["input"]["start_time"] == "16:00"
 
     async def test_a_proaction_prompt_has_something_to_say(self):
         # `POST /agent/proaction` runs the tool loop with no conversation history

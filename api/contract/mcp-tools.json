@@ -135,16 +135,40 @@
                 "title": {
                     "type": "string"
                 },
-                "date": {
-                    "type": "string"
+                "start_date": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
                 },
-                "time": {
-                    "type": "string",
-                    "default": "09:00"
+                "start_time": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
                 },
-                "duration": {
-                    "type": "integer",
-                    "default": 60
+                "end_date": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "end_time": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "all_day": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ],
+                    "default": null
                 },
                 "description": {
                     "type": [
@@ -184,11 +208,10 @@
                 }
             },
             "required": [
-                "title",
-                "date"
+                "title"
             ]
         },
-        "description": "Create a new calendar event. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes (default 60). Pass agenda_id whenever the user said or implied where the event belongs — its name as they said it (\"Concerts\", \"au boulot\": case, accents and approximations do not matter) or its id, with no manage_agendas call first. Omit it when they said nothing about the agenda: the tool then works it out from the event itself, from the agendas' names and descriptions, and from the agenda the user filed similar events in before. Two agendas fitting equally well, or a name matching none, returns an error naming the plausible agendas and creates nothing — ask the user which one they mean and retry, never pick one yourself. Tell the user which agenda the event went to: it is in event.agenda. Use reminders for \"préviens-moi une heure avant\": a list of delays in minutes before the start, e.g. [60] or [10, 1440]; omit it when the user asked for nothing. Use rrule for a repeating event, RFC 5545 without the RRULE: prefix — \"FREQ=WEEKLY;BYDAY=MO\", \"FREQ=DAILY;COUNT=10\", \"FREQ=MONTHLY;INTERVAL=2\". The date and time given are the first occurrence, and reminders then fire for every occurrence."
+        "description": "Create a new calendar event. Always give the whole schedule — a start and an end, never a duration, nothing is assumed: start_date (YYYY-MM-DD) + start_time (HH:MM) + end_date + end_time, or for a whole-day event all_day true + start_date + end_date (the last day included; the same day for a single day). An event running past midnight has an end_date the day after. An incomplete schedule, or an end that is not after the start, creates nothing and returns an error. The result gives the schedule that was saved, in the event's own time zone (event.startAt, event.endAt, event.allDay; startDate and endDate for a whole-day event): announce exactly that to the user, not what you meant to do. Pass agenda_id whenever the user said or implied where the event belongs — its name as they said it (\"Concerts\", \"au boulot\": case, accents and approximations do not matter) or its id, with no manage_agendas call first. Omit it when they said nothing about the agenda: the tool then works it out from the event itself, from the agendas' names and descriptions, and from the agenda the user filed similar events in before. Two agendas fitting equally well, or a name matching none, returns an error naming the plausible agendas and creates nothing — ask the user which one they mean and retry, never pick one yourself. Tell the user which agenda the event went to: it is in event.agenda. Use reminders for \"préviens-moi une heure avant\": a list of delays in minutes before the start, e.g. [60] or [10, 1440]; omit it when the user asked for nothing. Use rrule for a repeating event, RFC 5545 without the RRULE: prefix — \"FREQ=WEEKLY;BYDAY=MO\", \"FREQ=DAILY;COUNT=10\", \"FREQ=MONTHLY;INTERVAL=2\". The start given is the first occurrence, and reminders then fire for every occurrence."
     },
     "create_recipe": {
         "name": "create_recipe",
@@ -1773,24 +1796,38 @@
                     ],
                     "default": null
                 },
-                "date": {
+                "start_date": {
                     "type": [
                         "null",
                         "string"
                     ],
                     "default": null
                 },
-                "time": {
+                "start_time": {
                     "type": [
                         "null",
                         "string"
                     ],
                     "default": null
                 },
-                "duration": {
+                "end_date": {
                     "type": [
                         "null",
-                        "integer"
+                        "string"
+                    ],
+                    "default": null
+                },
+                "end_time": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "all_day": {
+                    "type": [
+                        "null",
+                        "boolean"
                     ],
                     "default": null
                 },
@@ -1835,7 +1872,7 @@
                 "id"
             ]
         },
-        "description": "Update an existing calendar event. Only provided fields will be updated. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes. To empty an optional field, list its name in clear (description, location, rrule, reminders). Use agenda_id to move the event to another agenda: pass its name as the user said it (e.g. \"Concerts\", case and accents do not matter) or its id — no need to call manage_agendas first. An unknown or ambiguous name returns an error listing the user's agendas. Use reminders to replace the whole set of reminders: a list of delays in minutes before the start, e.g. [60] or [10, 1440]; it replaces what the event had, so pass every reminder the user wants to keep, and clear \"reminders\" to leave none."
+        "description": "Update an existing calendar event. Only provided fields will be updated. To change when it happens, always give the whole schedule — a start and an end, never a duration: start_date (YYYY-MM-DD) + start_time (HH:MM) + end_date + end_time, or for a whole-day event all_day true + start_date + end_date (the last day included). Nothing is deduced from the current schedule: moving an event to another day means giving its start and its end again. An incomplete schedule, or an end that is not after the start, changes nothing and returns an error with currentSchedule, the schedule the event has now — complete it from there instead of guessing. The result gives the schedule that was saved, in the event's own time zone (event.startAt, event.endAt, event.allDay; startDate and endDate for a whole-day event): announce exactly that to the user, not what you meant to do. Title, location, description, agenda and reminders change on their own, without touching the schedule. To empty an optional field, list its name in clear (description, location, rrule, reminders). Use agenda_id to move the event to another agenda: pass its name as the user said it (e.g. \"Concerts\", case and accents do not matter) or its id — no need to call manage_agendas first. An unknown or ambiguous name returns an error listing the user's agendas. Use reminders to replace the whole set of reminders: a list of delays in minutes before the start, e.g. [60] or [10, 1440]; it replaces what the event had, so pass every reminder the user wants to keep, and clear \"reminders\" to leave none."
     },
     "update_recipe": {
         "name": "update_recipe",

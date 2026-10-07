@@ -19,16 +19,18 @@ turns:
       - name: create_event
         input:
           title: "Black Wizards"
-          date: "2099-11-03"
-          time: "19:00"
-          duration: 120
+          start_date: "2099-11-03"
+          start_time: "19:00"
+          end_date: "2099-11-03"
+          end_time: "21:00"
           agenda_id: "00000000000000000000000000"
   - text: "Il y a un souci technique avec l'identifiant de votre agenda."
     tools:
       - name: create_event
         input:
           title: "Black Wizards"
-          date: "2099-11-03"
-          time: "19:00"
-          duration: 120
+          start_date: "2099-11-03"
+          start_time: "19:00"
+          end_date: "2099-11-03"
+          end_time: "21:00"
   - text: "C'est noté : les Black Wizards en concert le 3 novembre 2099 à 19h, pour deux heures."

@@ -147,6 +147,10 @@ class GetTasksTool
 }
 ```
 
+## Calendar schedule contract (MAG-321)
+
+`create_event` and `update_event` take a start and an end, never a duration, in one of two complete forms: `start_date` + `start_time` + `end_date` + `end_time`, or `all_day: true` + `start_date` + `end_date` (last day included). Nothing is deduced: an incomplete schedule, or an end not after the start, is refused with nothing written, and `update_event` then returns `currentSchedule`. The schedule is parsed by `EventSchedule`, and the result carries `EventSchedule::describe()` — start, end and `allDay` in the event's own zone — so Maggie announces what was stored. A tool that gives Maggie an input to deduce from "now" or from the stored value will announce what she meant, not what happened: ask for the whole value.
+
 ## New Entity Checklist
 
 When adding a new entity to the API:

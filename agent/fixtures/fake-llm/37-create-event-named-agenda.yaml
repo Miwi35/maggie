@@ -15,9 +15,10 @@ turns:
       - name: create_event
         input:
           title: "Concert des Mouettes"
-          date: "2099-11-02"
-          time: "19:00"
-          duration: 120
+          start_date: "2099-11-02"
+          start_time: "19:00"
+          end_date: "2099-11-02"
+          end_time: "21:00"
           location: "UBU"
           agenda_id: "famille"
   - text: "C'est noté : les Mouettes à l'UBU le 2 novembre 2099 à 19h, dans l'agenda Famille."

@@ -1,0 +1,173 @@
+<?php
+
+namespace Maggie\Calendar\Mcp;
+
+use Maggie\Calendar\Entity\Event;
+
+/**
+ * The schedule of an event as `create_event` and `update_event` take it (MAG-321): a start and
+ * an end, never a duration, in one of two complete forms.
+ *
+ * - timed: `start_date` + `start_time` + `end_date` + `end_time`;
+ * - all day: `all_day: true` + `start_date` + `end_date`, the last day included.
+ *
+ * Nothing is deduced from the event or from "now": a part left out is refused, so that what
+ * Maggie announces is what she asked for.
+ */
+final readonly class EventSchedule
+{
+    private function __construct(
+        public \DateTimeImmutable $startAt,
+        public \DateTimeImmutable $endAt,
+        public bool $allDay,
+    ) {
+    }
+
+    /**
+     * @return self|null null when the caller did not touch the schedule at all
+     *
+     * @throws \DomainException when the schedule is incomplete, malformed or ends before it starts
+     */
+    public static function fromParts(
+        ?string $startDate,
+        ?string $startTime,
+        ?string $endDate,
+        ?string $endTime,
+        ?bool $allDay,
+        \DateTimeZone $zone,
+    ): ?self {
+        [$startDate, $startTime, $endDate, $endTime] = array_map(
+            static fn (?string $part) => null === $part || '' === trim($part) ? null : trim($part),
+            [$startDate, $startTime, $endDate, $endTime],
+        );
+
+        $touched = null !== $startDate || null !== $startTime || null !== $endDate || null !== $endTime || true === $allDay;
+        if (!$touched) {
+            return null;
+        }
+
+        if (true === $allDay) {
+            if (null !== $startTime || null !== $endTime) {
+                throw new \DomainException('An all-day event has no start_time or end_time: pass all_day true with start_date and end_date only, or drop all_day and give the four of start_date, start_time, end_date and end_time. Nothing was saved.');
+            }
+            self::requireParts(['start_date' => $startDate, 'end_date' => $endDate]);
+
+            $first = self::day($startDate, 'start_date', $zone);
+            $last = self::day($endDate, 'end_date', $zone);
+            if ($last < $first) {
+                throw new \DomainException("The last day must be on or after start_date, got {$startDate} → {$endDate}. Nothing was saved.");
+            }
+
+            // The end of an all-day event is the midnight after its last day, as the calendar
+            // views and Google read it.
+            return new self($first, $last->modify('+1 day'), true);
+        }
+
+        self::requireParts([
+            'start_date' => $startDate,
+            'start_time' => $startTime,
+            'end_date' => $endDate,
+            'end_time' => $endTime,
+        ]);
+
+        $startAt = self::moment($startDate, $startTime, 'start', $zone);
+        $endAt = self::moment($endDate, $endTime, 'end', $zone);
+        if ($endAt <= $startAt) {
+            throw new \DomainException(sprintf('The end must be after the start, got %s → %s. Nothing was saved.', $startAt->format('Y-m-d H:i'), $endAt->format('Y-m-d H:i')));
+        }
+
+        return new self($startAt, $endAt, false);
+    }
+
+    /**
+     * The same, for a caller that has to give a schedule: giving none is an incomplete one.
+     *
+     * @throws \DomainException
+     */
+    public static function required(
+        ?string $startDate,
+        ?string $startTime,
+        ?string $endDate,
+        ?string $endTime,
+        ?bool $allDay,
+        \DateTimeZone $zone,
+    ): self {
+        $schedule = self::fromParts($startDate, $startTime, $endDate, $endTime, $allDay, $zone);
+        if (null === $schedule) {
+            self::requireParts(['start_date' => null, 'start_time' => null, 'end_date' => null, 'end_time' => null]);
+        }
+
+        return $schedule;
+    }
+
+    /**
+     * The schedule as the owner reads it — the event's own zone, not the database's — so Maggie
+     * announces what was saved and not what she meant to save.
+     *
+     * @return array<string, mixed>
+     */
+    public static function describe(Event $event): array
+    {
+        $zone = self::zoneOf($event);
+        $startAt = $event->getStartAt()->setTimezone($zone);
+        $endAt = $event->getEndAt()->setTimezone($zone);
+
+        $described = [
+            'allDay' => $event->isAllDay(),
+            'startAt' => $startAt->format('c'),
+            'endAt' => $endAt->format('c'),
+            'timeZone' => $zone->getName(),
+        ];
+
+        if ($event->isAllDay()) {
+            // `endAt` is the midnight after the last day: the day to announce is the one before.
+            $described['startDate'] = $startAt->format('Y-m-d');
+            $described['endDate'] = ($endAt > $startAt ? $endAt->modify('-1 day') : $endAt)->format('Y-m-d');
+        }
+
+        return $described;
+    }
+
+    /** The zone the event is read in: its own, or the default one when the row holds a name nobody can resolve. */
+    public static function zoneOf(Event $event): \DateTimeZone
+    {
+        try {
+            return new \DateTimeZone($event->getTimeZone());
+        } catch (\Exception) {
+            return new \DateTimeZone(Event::FALLBACK_TIME_ZONE);
+        }
+    }
+
+    /** @param array<string, string|null> $parts */
+    private static function requireParts(array $parts): void
+    {
+        $missing = array_keys(array_filter($parts, static fn (?string $part) => null === $part));
+        if ([] === $missing) {
+            return;
+        }
+
+        throw new \DomainException(sprintf('The schedule is incomplete, missing: %s. Give a start and an end — start_date, start_time, end_date and end_time, or all_day true with start_date and end_date (the last day included) — never a duration. Nothing was saved.', implode(', ', $missing)));
+    }
+
+    private static function day(string $value, string $name, \DateTimeZone $zone): \DateTimeImmutable
+    {
+        $day = \DateTimeImmutable::createFromFormat('!Y-m-d', $value, $zone);
+        if (false === $day || 0 !== (\DateTimeImmutable::getLastErrors()['warning_count'] ?? 0) || $day->format('Y-m-d') !== $value) {
+            throw new \DomainException("{$name} must be a date as YYYY-MM-DD, got \"{$value}\". Nothing was saved.");
+        }
+
+        return $day;
+    }
+
+    private static function moment(string $date, string $time, string $side, \DateTimeZone $zone): \DateTimeImmutable
+    {
+        $day = self::day($date, "{$side}_date", $zone);
+
+        $parsed = \DateTimeImmutable::createFromFormat('!H:i', $time, $zone);
+        if (false === $parsed || 0 !== (\DateTimeImmutable::getLastErrors()['warning_count'] ?? 0) || $parsed->format('H:i') !== $time) {
+            throw new \DomainException("{$side}_time must be a time as HH:MM, got \"{$time}\". Nothing was saved.");
+        }
+
+        return $day->setTime((int) $parsed->format('H'), (int) $parsed->format('i'));
+    }
+}
