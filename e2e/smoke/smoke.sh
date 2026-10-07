@@ -845,6 +845,28 @@ sleep 5
 assert_eq 1 "$(csv_count)" "and stores no movement twice"
 
 # ---------------------------------------------------------------------------
+step "14. The phone registers its push token, and forgets it at logout"
+
+# The body MaggieApiService.registerFcmToken posts (MAG-26).
+push_token="smoke-fcm-token-$$"
+device_count() {
+  "${COMPOSE[@]}" exec -T database psql -U maggie -d maggie_e2e -t -A \
+    -c "SELECT count(*) FROM device_token WHERE token = '$push_token'"
+}
+
+assert_eq 401 "$(status_of -X POST -H 'Content-Type: application/json' \
+  -d "{\"token\":\"$push_token\"}" "$BASE_URL/api/fcm_tokens")" "no token is registered without a login"
+assert_eq 204 "$(status_of -X POST "${AUTH[@]}" -H 'Content-Type: application/json' \
+  -d "{\"token\":\"$push_token\",\"deviceName\":\"Smoke\"}" "$BASE_URL/api/fcm_tokens")" "the app registers its token"
+assert_eq 1 "$(device_count)" "the device is stored once"
+assert_eq 204 "$(status_of -X POST "${AUTH[@]}" -H 'Content-Type: application/json' \
+  -d "{\"token\":\"$push_token\"}" "$BASE_URL/api/fcm_tokens")" "registering it again is harmless"
+assert_eq 1 "$(device_count)" "and stores no second row"
+assert_eq 204 "$(status_of -X DELETE "${AUTH[@]}" -H 'Content-Type: application/json' \
+  -d "{\"token\":\"$push_token\"}" "$BASE_URL/api/fcm_tokens")" "logging out unregisters it"
+assert_eq 0 "$(device_count)" "the device is gone"
+
+# ---------------------------------------------------------------------------
 printf '\n\033[1mSmoke journey: %d passed, %d failed\033[0m\n' "$passed" "$failed"
 
 if [ "$failed" -gt 0 ]; then

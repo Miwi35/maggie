@@ -9,8 +9,11 @@ use Maggie\Core\Repository\UserRepository;
 use Maggie\Notification\Entity\Notification;
 use Maggie\Notification\Enum\NotificationType;
 use Maggie\Notification\Message\CreateNotificationCommand;
+use Maggie\Notification\Message\SendPushNotificationCommand;
 use Maggie\Notification\UseCase\CreateNotification;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\DispatchAfterCurrentBusStamp;
 
 #[AsMessageHandler]
 class CreateNotificationHandler
@@ -19,6 +22,7 @@ class CreateNotificationHandler
         private readonly CreateNotification $createNotification,
         private readonly UserRepository $userRepository,
         private readonly UserPreferenceRepository $preferenceRepository,
+        private readonly MessageBusInterface $bus,
     ) {
     }
 
@@ -48,6 +52,16 @@ class CreateNotificationHandler
         $notification->setRelatedEntityIri($command->relatedEntityIri);
         $notification->setOccurrenceStartAt($command->occurrenceStartAt);
 
-        return $this->createNotification->execute($notification);
+        $notification = $this->createNotification->execute($notification);
+
+        // Every producer goes through here, so every notification reaches the
+        // user's devices (MAG-26). Queued only once this command has succeeded,
+        // and sent by the worker.
+        $this->bus->dispatch(
+            new SendPushNotificationCommand((string) $notification->getId()),
+            [new DispatchAfterCurrentBusStamp()],
+        );
+
+        return $notification;
     }
 }

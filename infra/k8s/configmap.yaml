@@ -30,3 +30,7 @@ data:
   ENABLE_BANKING_PRIVATE_KEY: "%kernel.project_dir%/config/bank/enablebanking.pem"
   ENABLE_BANKING_BASE_URL: https://api.enablebanking.com
   BANK_CALLBACK_URL: https://maggieai.fr/api/finance/bank-callback
+  # Push through FCM HTTP v1 (MAG-26). The service account key is mounted from
+  # the fcm-credentials secret, which no deploy touches.
+  FCM_CREDENTIALS_PATH: /run/secrets/fcm/credentials.json
+  FCM_PROJECT_ID: maggie-487318

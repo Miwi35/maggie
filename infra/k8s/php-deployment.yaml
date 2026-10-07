@@ -33,6 +33,10 @@ spec:
             - name: bank-keys
               mountPath: /var/www/api/config/bank
               readOnly: true
+            # FCM service account key: the API reads it to push (MAG-26).
+            - name: fcm-credentials
+              mountPath: /run/secrets/fcm
+              readOnly: true
           readinessProbe:
             tcpSocket:
               port: 9000
@@ -54,4 +58,9 @@ spec:
             secretName: bank-keys
             # Absent on a cluster that has not connected a bank yet: the app
             # starts anyway and the bank screen says it is unavailable.
+            optional: true
+        - name: fcm-credentials
+          secret:
+            secretName: fcm-credentials
+            # Absent: the app starts anyway and simply sends no push.
             optional: true
