@@ -16,6 +16,8 @@ import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useUserPreferences } from '../../hooks/useUserPreferences'
+import { THEME_CHOICE_KEY } from '../../components/layout/ThemePreferenceSync'
+import type { ThemeChoice } from '../../components/layout/ThemePreferenceSync'
 import { useMercure } from '../../hooks/useMercure'
 
 interface Agenda {
@@ -33,7 +35,7 @@ export const UserPreferenceSettings = () => {
   const dataProvider = useDataProvider()
   const { preferences, updatePreference, loading, refresh } = useUserPreferences()
   const [agendas, setAgendas] = useState<Agenda[]>([])
-  const [, setRaTheme] = useStore('RaStore.theme', 'light')
+  const [, setThemeChoice] = useStore<ThemeChoice>(THEME_CHOICE_KEY, 'system')
   const [city, setCity] = useState('')
 
   const savedCity = preferences?.defaultCity ?? ''
@@ -54,13 +56,13 @@ export const UserPreferenceSettings = () => {
 
   useMercure(MERCURE_TOPICS, handleMercure)
 
-  const handleThemeChange = async (theme: string) => {
-    await updatePreference({ theme })
-    // Sync react-admin theme
-    if (theme === 'dark') setRaTheme('dark')
-    else if (theme === 'light') setRaTheme('light')
-    else setRaTheme(window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-    notify('Thème mis à jour', { type: 'success' })
+  const handleThemeChange = async (theme: ThemeChoice) => {
+    if (await updatePreference({ theme })) {
+      setThemeChoice(theme)
+      notify('Thème mis à jour', { type: 'success' })
+    } else {
+      notify('Impossible de mettre à jour le thème', { type: 'error' })
+    }
   }
 
   const handleTimezoneChange = async (tz: string | null) => {
@@ -123,7 +125,7 @@ export const UserPreferenceSettings = () => {
             select
             label="Thème"
             value={preferences.theme}
-            onChange={(e) => handleThemeChange(e.target.value)}
+            onChange={(e) => handleThemeChange(e.target.value as ThemeChoice)}
             size="small"
             fullWidth
           >

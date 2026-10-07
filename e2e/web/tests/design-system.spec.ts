@@ -1,8 +1,7 @@
-import { readFileSync, statSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
 import { test, expect } from '../fixtures/index.js'
 import type { Locator } from '@playwright/test'
 import { DashboardPage } from '../pages/DashboardPage.js'
+import { TOKENS } from '../helpers/tokens.js'
 
 /**
  * The app's identity, in the browser (MAG-39).
@@ -25,34 +24,6 @@ import { DashboardPage } from '../pages/DashboardPage.js'
  * 700, and the browser synthesised the difference on every page title in the
  * admin.
  */
-
-interface Tokens {
-  surface: { light: { background: string; text: string } }
-  typography: { family: string; weight: Record<string, number> }
-}
-
-/** `design/tokens.json`, from `/e2e` in the container or from the checkout. */
-function readTokens(): Tokens {
-  let candidate = resolve(process.cwd())
-  for (;;) {
-    const file = join(candidate, 'design', 'tokens.json')
-    try {
-      statSync(file)
-
-      return JSON.parse(readFileSync(file, 'utf8')) as Tokens
-    } catch {
-      const parent = dirname(candidate)
-      if (parent === candidate) break
-      candidate = parent
-    }
-  }
-  throw new Error(
-    `No design/tokens.json found above ${process.cwd()}. docker-compose.e2e.yml mounts it ` +
-      'at /design for the journeys — a failure here means the mount is gone.',
-  )
-}
-
-const TOKENS = readTokens()
 
 /**
  * `rgb(26, 26, 46)` as `#1A1A2E`, so a failure prints the token, not three

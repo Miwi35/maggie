@@ -3,6 +3,7 @@ import { Layout as RALayout, LayoutProps } from 'react-admin'
 import Box from '@mui/material/Box'
 import { ChatWidget, ChatWidgetRef } from '../chat/ChatWidget'
 import { CustomAppBar } from './AppBar'
+import { ThemePreferenceSync } from './ThemePreferenceSync'
 import { CustomMenu } from './Menu'
 import { CustomSidebar } from './Sidebar'
 import { ChatContext } from './ChatContext'
@@ -111,6 +112,7 @@ export const Layout = (props: LayoutProps) => {
 
   return (
     <ChatContext.Provider value={chatContext}>
+      <ThemePreferenceSync />
       <RALayout {...props} menu={CustomMenu} appBar={CustomAppBar} sidebar={CustomSidebar}>
         <Box sx={{ display: 'flex', flex: 1, minHeight: 0 }}>
           {/* `page-content` and the chat panel's `chat-panel` are the two
