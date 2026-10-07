@@ -44,8 +44,9 @@ class UpdateTransactionHandler
             $transaction->setAmountCents($command->amountCents);
         }
         if (null !== $command->label) {
-            // The counterparty follows the label only while it was read from it:
-            // one the bank named stays, whatever the label becomes.
+            // The counterparty follows the label while it equals what the label
+            // yields. A bank name that differs from it stays; one that happens
+            // to equal it (a label that was the creditor) cannot be told apart.
             $followsLabel = $transaction->getCounterpartyName() === MerchantExtractor::extract($transaction->getLabel());
             $transaction->setLabel($command->label);
             if ($followsLabel) {

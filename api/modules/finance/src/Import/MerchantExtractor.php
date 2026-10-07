@@ -74,6 +74,11 @@ final class MerchantExtractor
     {
         $value = preg_replace('/\s+/u', ' ', trim($label)) ?? $label;
 
+        // The placeholder an empty label is given names no one.
+        if ('Sans libellé' === $value) {
+            return null;
+        }
+
         foreach (self::SELF_NAMING as $pattern => $name) {
             if (1 === preg_match($pattern, $value)) {
                 return $name;
