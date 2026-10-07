@@ -49,14 +49,31 @@ fun EventDetailSheet(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    EventDetailContent(event = event, onEdit = onEdit, onDelete = onDelete) { body ->
+        ModalBottomSheet(onDismissRequest = onDismiss) { body() }
+    }
+}
+
+/**
+ * The detail of an event. [frame] wraps it: the sheet puts it in a modal, the default
+ * draws it in place, which is what the detail pane beside the calendar wants (MAG-263).
+ */
+@Composable
+fun EventDetailContent(
+    event: ExpandedEvent,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
+    frame: @Composable (body: @Composable () -> Unit) -> Unit = { body -> body() },
+) {
     val zone = ZoneId.of(event.timeZone)
     val startZdt = Instant.parse(event.startAt).atZone(zone)
     val endZdt = Instant.parse(event.endAt).atZone(zone)
     val agendaColor = event.agendaColor?.let { parseColor(it) }
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    frame {
         Column(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),

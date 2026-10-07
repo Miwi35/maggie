@@ -47,8 +47,29 @@ fun ItemDetailSheet(
     onSave: (label: String, quantity: Float?, unit: String?, storeId: String?, storeName: String?, category: String?) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ItemDetailContent(item = item, products = products, stores = stores, onSave = onSave) { body ->
+        ModalBottomSheet(
+            onDismissRequest = onDismiss,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) { body() }
+    }
+}
 
+/**
+ * The form of a grocery item. [frame] wraps it: the sheet puts it in a modal, the default
+ * draws it in place, which is what the detail pane beside the list wants (MAG-263).
+ * The fields remember what was typed, so a pane showing another item needs `key(item.id)`.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ItemDetailContent(
+    item: GroceryItem,
+    products: List<Product>,
+    stores: List<Store>,
+    onSave: (label: String, quantity: Float?, unit: String?, storeId: String?, storeName: String?, category: String?) -> Unit,
+    modifier: Modifier = Modifier,
+    frame: @Composable (body: @Composable () -> Unit) -> Unit = { body -> body() },
+) {
     var label by remember { mutableStateOf(item.label) }
     var quantityText by remember { mutableStateOf(item.quantity?.toString() ?: "") }
     var selectedUnit by remember { mutableStateOf(item.unit) }
@@ -67,12 +88,9 @@ fun ItemDetailSheet(
         disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
     )
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-    ) {
+    frame {
         Column(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
                 .padding(bottom = 32.dp),

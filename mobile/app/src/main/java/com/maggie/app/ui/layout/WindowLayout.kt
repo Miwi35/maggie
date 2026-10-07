@@ -35,6 +35,15 @@ data class AppLayout(
      * le header et le chat de maggie, on n'a que très peu d'espace pour le contenu ».
      */
     val denseTopBar: Boolean,
+    /**
+     * Room for a list and its detail side by side (MAG-263): what is left of the window
+     * after the rail and the conversation panel is at least two [PANE_MIN_WIDTH]s.
+     *
+     * Not a size class — the classes alone cannot say it. A tablet in portrait is 800 dp:
+     * 800 − 80 = 720, two panes of 360. A foldable opened flat is 674 dp, and 594 dp would
+     * make two panes of 297, narrower than the phone the lists were drawn for.
+     */
+    val detailPaneFits: Boolean,
 )
 
 /** The Material 3 width breakpoints: compact < 600 ≤ medium < 840 ≤ expanded. */
@@ -103,6 +112,9 @@ val RAIL_WIDTH = 80.dp
 /** The permanent conversation panel. A narrower column truncates every bubble. */
 val CHAT_PANEL_WIDTH = 360.dp
 
+/** The narrowest a list or a detail can be drawn: the width of the phone the lists were designed for. */
+val PANE_MIN_WIDTH = 360.dp
+
 /** What the app draws in a window of `widthDp` × `heightDp`. */
 fun appLayoutFor(widthDp: Int, heightDp: Int): AppLayout {
     val width = WindowWidth.of(widthDp)
@@ -129,12 +141,18 @@ fun appLayoutFor(widthDp: Int, heightDp: Int): AppLayout {
         else -> ChatEntry.BOTTOM_BAR
     }
 
+    // Integer dp, so that the edges (799/800, 1159/1160) are exact — Dp comparisons are not.
+    val railDp = if (navigation == NavigationKind.RAIL) RAIL_WIDTH.value.toInt() else 0
+    val panelDp = if (chatEntry == ChatEntry.PANEL) CHAT_PANEL_WIDTH.value.toInt() else 0
+    val detailPaneFits = widthDp - railDp - panelDp >= 2 * PANE_MIN_WIDTH.value.toInt()
+
     return AppLayout(
         width = width,
         height = height,
         navigation = navigation,
         chatEntry = chatEntry,
         denseTopBar = height == WindowHeight.COMPACT,
+        detailPaneFits = detailPaneFits,
     )
 }
 

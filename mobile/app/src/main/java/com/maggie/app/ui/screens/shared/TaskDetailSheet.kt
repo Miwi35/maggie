@@ -43,9 +43,24 @@ fun TaskDetailSheet(
     onDelete: () -> Unit,
     onToggleDone: (Boolean) -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    TaskDetailContent(task = task, onEdit = onEdit, onDelete = onDelete, onToggleDone = onToggleDone) { body ->
+        ModalBottomSheet(onDismissRequest = onDismiss) { body() }
+    }
+}
+
+/** The detail of a task; [frame] wraps it as in [EventDetailContent]. */
+@Composable
+fun TaskDetailContent(
+    task: Task,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onToggleDone: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    frame: @Composable (body: @Composable () -> Unit) -> Unit = { body -> body() },
+) {
+    frame {
         Column(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),

@@ -61,7 +61,7 @@ import kotlin.math.roundToInt
 fun TransactionListScreen(
     viewModel: TransactionViewModel,
     accountName: String,
-    onBack: () -> Unit,
+    onBack: (() -> Unit)?,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -79,8 +79,11 @@ fun TransactionListScreen(
             TopAppBar(
                 title = { Text(accountName) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                    // No arrow in the detail pane beside the accounts (MAG-263): the list is still there.
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        }
                     }
                 },
             )

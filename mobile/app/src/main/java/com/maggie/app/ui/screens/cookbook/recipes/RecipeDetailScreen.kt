@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,6 +28,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -85,13 +87,17 @@ fun recipeDeletionBody(impact: RecipeDeletionImpact?): String {
         "\n\nCes repas seront supprimés avec elle, de l’agenda comme de la liste de courses. Cette action est définitive."
 }
 
+/**
+ * A `null` [onBack] is the recipe drawn in the detail pane beside the list (MAG-263):
+ * no back arrow, and no status-bar inset, the shell's own top bar being right above.
+ */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun RecipeDetailScreen(
     recipeId: String,
     recipeRepository: RecipeRepository,
     viewModel: RecipeDetailViewModel,
-    onBack: () -> Unit,
+    onBack: (() -> Unit)?,
     onEdit: (String) -> Unit,
     onDelete: (String) -> Unit,
 ) {
@@ -119,10 +125,13 @@ fun RecipeDetailScreen(
             TopAppBar(
                 title = { Text(recipe?.name ?: "Recette") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        }
                     }
                 },
+                windowInsets = if (onBack != null) TopAppBarDefaults.windowInsets else WindowInsets(0),
                 actions = {
                     IconButton(onClick = { onEdit(recipeId) }) {
                         Icon(Icons.Default.Edit, contentDescription = "Modifier")
