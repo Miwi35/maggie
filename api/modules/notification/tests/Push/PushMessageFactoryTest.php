@@ -55,12 +55,27 @@ final class PushMessageFactoryTest extends TestCase
         self::assertSame('Dans 15 min', $message['data']['body']);
     }
 
-    public function testALongTextIsCutToFitFcmsSizeLimit(): void
+    public function testALongMessageIsCutToFitFcmsSizeLimit(): void
     {
-        $message = (new PushMessageFactory())->build($this->notification(NotificationType::Proaction, 'Long', str_repeat('é', 5000)), 't');
+        // Two- and four-byte characters: FCM counts bytes, not characters.
+        $message = (new PushMessageFactory())->build($this->notification(
+            NotificationType::Proaction,
+            str_repeat('é', 255),
+            str_repeat('é😀', 2000),
+            '/api/events/01JABCDEF0123456789ABCDEFG',
+        ), str_repeat('t', 163));
 
-        self::assertSame(1000, mb_strlen($message['notification']['body']));
+        self::assertLessThan(4096, \strlen(json_encode($message, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)));
         self::assertStringEndsWith('…', $message['data']['body']);
+        self::assertStringEndsWith('…', $message['notification']['title']);
+        self::assertTrue(mb_check_encoding($message['data']['body'], 'UTF-8'));
+    }
+
+    public function testAShortMessageIsLeftWhole(): void
+    {
+        $message = (new PushMessageFactory())->build($this->notification(NotificationType::Proaction, 'Café prêt', 'À toi de jouer'), 't');
+
+        self::assertSame(['title' => 'Café prêt', 'body' => 'À toi de jouer'], $message['notification']);
     }
 
     public function testTheLinkUsesTheSchemeOfTheBuild(): void

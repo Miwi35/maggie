@@ -25,7 +25,12 @@ class PushMessageFactory
     public const CHANNEL_APPROVALS = 'approvals';
     public const CHANNEL_FINANCE = 'finance';
 
-    private const MAX_TEXT_LENGTH = 1000;
+    /**
+     * FCM refuses a message over 4096 bytes, and title and text travel twice
+     * (both blocks): 2 × (400 + 1200) leaves room for the rest of the data.
+     */
+    private const MAX_TITLE_BYTES = 400;
+    private const MAX_TEXT_BYTES = 1200;
 
     /** The finance screens the app opens from a link (mobile `DeepLinks`). */
     private const FINANCE_PATHS = ['', 'accounts', 'budgets', 'categories', 'rules', 'rule-suggestions', 'banks', 'cushion', 'loans', 'review'];
@@ -48,6 +53,7 @@ class PushMessageFactory
     public function build(Notification $notification, string $deviceToken): array
     {
         $id = (string) $notification->getId();
+        $title = self::cut($notification->getTitle(), self::MAX_TITLE_BYTES);
         $text = $this->text($notification);
         $action = $this->action($notification->getRelatedEntityIri());
 
@@ -55,7 +61,7 @@ class PushMessageFactory
         $data = array_filter([
             'notificationId' => $id,
             'type' => $notification->getType()->value,
-            'title' => $notification->getTitle(),
+            'title' => $title,
             'body' => $text,
             'link' => $action['link'] ?? null,
             'actionLabel' => $action['label'] ?? null,
@@ -64,7 +70,7 @@ class PushMessageFactory
         return [
             'token' => $deviceToken,
             'notification' => array_filter([
-                'title' => $notification->getTitle(),
+                'title' => $title,
                 'body' => $text,
             ], static fn (?string $value) => null !== $value && '' !== $value),
             'data' => $data,
@@ -83,10 +89,8 @@ class PushMessageFactory
     private function text(Notification $notification): ?string
     {
         $body = $notification->getBody();
-
-        // The text travels in both blocks and FCM refuses a message over 4 KB.
-        if (null !== $body && mb_strlen($body) > self::MAX_TEXT_LENGTH) {
-            $body = mb_substr($body, 0, self::MAX_TEXT_LENGTH - 1).'…';
+        if (null !== $body) {
+            $body = self::cut($body, self::MAX_TEXT_BYTES);
         }
 
         // A reminder stores how many minutes ahead it fires, not a sentence.
@@ -95,6 +99,17 @@ class PushMessageFactory
         }
 
         return $body;
+    }
+
+    /** At most $maxBytes bytes of UTF-8, never splitting a character. */
+    private static function cut(string $text, int $maxBytes): string
+    {
+        if (\strlen($text) <= $maxBytes) {
+            return $text;
+        }
+
+        // `…` takes three bytes.
+        return mb_strcut($text, 0, $maxBytes - 3, 'UTF-8').'…';
     }
 
     private function channel(NotificationType $type): string
