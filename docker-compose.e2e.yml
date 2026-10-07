@@ -285,7 +285,9 @@ services:
           echo "admin bundle restored from cache, build skipped"
           exit 0
         fi
-        if [ ! -d node_modules ] || [ package-lock.json -nt node_modules ]; then
+        # The marker, not the directory: `e2e:up` and `wt:*` create an empty
+        # node_modules as the host user, and it would look installed (MAG-287).
+        if [ ! -f node_modules/.package-lock.json ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then
           npm ci
         fi
         npm run build
