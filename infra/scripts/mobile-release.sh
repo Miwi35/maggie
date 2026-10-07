@@ -39,7 +39,8 @@ case "${1:-}" in
     else
       compare="$base"
     fi
-    if git diff --name-only "$compare" "$head" | grep -q '^mobile/'; then changed=true; else changed=false; fi
+    files=$(git diff --name-only "$compare" "$head")
+    if grep -q '^mobile/' <<<"$files"; then changed=true; else changed=false; fi
     echo "mobile_base=$base"
     echo "mobile=$changed"
     ;;

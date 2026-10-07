@@ -176,7 +176,9 @@ jobs:
       # not publish the app again. The base is the tag of the last publication.
       - name: Does the app need a new publication
         id: mobile
-        run: bash infra/scripts/mobile-release.sh range "$RELEASE_SHA" | tee -a "$GITHUB_OUTPUT"
+        run: |
+          set -o pipefail
+          bash infra/scripts/mobile-release.sh range "$RELEASE_SHA" | tee -a "$GITHUB_OUTPUT"
 
   # ===========================================================================
   # Build PHP image (needed by nginx build)
@@ -599,7 +601,9 @@ jobs:
 
       # The titles of the PRs that touched mobile/ since the last publication.
       - name: Write the release notes
-        run: bash infra/scripts/mobile-release.sh notes "$RELEASE_SHA" "$MOBILE_BASE" | tee "$RUNNER_TEMP/release-notes.txt"
+        run: |
+          set -o pipefail
+          bash infra/scripts/mobile-release.sh notes "$RELEASE_SHA" "$MOBILE_BASE" | tee "$RUNNER_TEMP/release-notes.txt"
 
       - name: Distribute through Firebase App Distribution
         env:
