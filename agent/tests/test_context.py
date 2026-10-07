@@ -356,7 +356,7 @@ class TestStreamRoute:
         fake_msg.id = "msg-1"
         mock_msg_repo.create = AsyncMock(return_value=fake_msg)
 
-        async def fake_stream(message, user_id, user_msg_id):
+        async def fake_stream(message, user_id, user_msg_id, **_kwargs):
             yield {"type": "RUN_STARTED", "runId": "run-1"}
             yield {"type": "TEXT_MESSAGE_START", "messageId": "m1", "role": "assistant"}
             yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": "m1", "delta": "Hello!"}
@@ -393,7 +393,7 @@ class TestStreamRoute:
         fake_msg.id = "msg-1"
         mock_msg_repo.create = AsyncMock(return_value=fake_msg)
 
-        async def fake_stream(message, user_id, user_msg_id):
+        async def fake_stream(message, user_id, user_msg_id, **_kwargs):
             yield {"type": "RUN_STARTED", "runId": "run-1"}
             yield {"type": "RUN_FINISHED", "runId": "run-1"}
 

@@ -36,6 +36,22 @@ class MaggieApiServiceTest {
         val request = AgentChatRequest(message = "Hello")
         assertEquals("Hello", request.message)
         assertEquals("default", request.user_id)
+        assertNull(request.screen_context)
+    }
+
+    @Test
+    fun `AgentChatRequest carries the screen context beside the message, not inside it`() {
+        // Glued to the message, the block was stored as the message and came back in the
+        // user's bubble on every client (MAG-30, refused recette). The agent reads this
+        // field, keeps it out of the history, and hands it to the model alone.
+        val block = "[Contexte de l'écran]\nPage : https://dice.fm/event/x"
+        val body = Json.encodeToString(
+            AgentChatRequest.serializer(),
+            AgentChatRequest(message = "De quoi parle cette page ?", screen_context = block),
+        )
+
+        assertTrue(body.contains("\"screen_context\""))
+        assertTrue(body.contains("\"message\":\"De quoi parle cette page ?\""))
     }
 
     @Test

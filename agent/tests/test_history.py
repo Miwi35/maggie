@@ -359,3 +359,59 @@ class TestWhenTheDatabaseWillNotAnswer:
 
         assert turns[0]["content"] == "Où en est mon budget ?"
         assert turns[2]["content"] == "[autre fil] Ajoute du beurre"
+
+
+SCREEN = "[Contexte de l'écran]\nApplication : Chrome (com.android.chrome)\nPage : https://dice.fm/event/x"
+
+
+class TestTheScreenTheAssistantWasSummonedFrom:
+    """The model reads the screen; the conversation does not keep it (MAG-30).
+
+    Recette refused the first delivery, where the block was stored inside the user's
+    message: every reader of the history then showed the page instead of the question.
+    It is put back here, on the one turn it was attached to.
+    """
+
+    async def test_the_block_comes_back_on_the_turn_being_answered(self, say, thread):
+        sorties = await thread("Sorties")
+        asked = await say("user", "De quoi parle cette page ?", context=sorties.id, minutes=1)
+
+        turns = await build_history(
+            OWNER, context_id=sorties.id, current_message_id=asked.id, screen_context=SCREEN
+        )
+
+        assert turns == [{"role": "user", "content": f"{SCREEN}\n\nDe quoi parle cette page ?"}]
+
+    async def test_the_earlier_turns_keep_only_what_was_said(self, say, thread):
+        """« ajoute ça à mon agenda » was about the screen; the follow-up is about the answer."""
+        sorties = await thread("Sorties")
+        await say("user", "C'est quoi ce produit ?", context=sorties.id, minutes=1)
+        await say("assistant", "Un billet de concert.", context=sorties.id, minutes=2)
+        asked = await say("user", "Et le prix ?", context=sorties.id, minutes=3)
+
+        turns = await build_history(
+            OWNER, context_id=sorties.id, current_message_id=asked.id, screen_context=SCREEN
+        )
+
+        assert turns[0]["content"] == "C'est quoi ce produit ?"
+        assert turns[2]["content"] == f"{SCREEN}\n\nEt le prix ?"
+
+    async def test_no_context_leaves_the_conversation_untouched(self, say, thread):
+        sorties = await thread("Sorties")
+        asked = await say("user", "De quoi parle cette page ?", context=sorties.id, minutes=1)
+
+        turns = await build_history(OWNER, context_id=sorties.id, current_message_id=asked.id)
+
+        assert turns == [{"role": "user", "content": "De quoi parle cette page ?"}]
+
+    async def test_a_history_that_would_not_load_still_sends_the_screen(self):
+        """The fallback is the whole conversation then — without the block the model is blind."""
+        with patch("app.llm.history.message_repo") as repo:
+            repo.find_by_context = AsyncMock(return_value=[])
+            repo.find_recent = AsyncMock(side_effect=RuntimeError("no database"))
+
+            turns = await build_history(
+                OWNER, context_id="ctx-1", fallback_message="De quoi parle cette page ?", screen_context=SCREEN
+            )
+
+        assert turns == [{"role": "user", "content": f"{SCREEN}\n\nDe quoi parle cette page ?"}]

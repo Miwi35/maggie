@@ -28,6 +28,7 @@ from app.db.user_setting_repository import user_setting_repo
 from app.llm.context_summary import context_summarizer
 from app.llm.gateway import LLMGateway
 from app.llm.runner import run_tool_loop
+from app.llm.screen_context import split as split_screen_context
 from app.llm.streaming import StreamingGateway
 from app.llm.transcription import CLEANUP_MODES, transcribe_audio
 from app.queue.proaction_consumer import execute_proaction
@@ -48,6 +49,11 @@ class ChatRequest(BaseModel):
     # refuses a conversation whose only turn is an empty string — a 422 naming the field
     # beats « Désolé, une erreur est survenue » (MAG-13).
     message: str = Field(min_length=1)
+
+    # What the screen behind the assistant overlay was showing (MAG-30). Its own field,
+    # not a block glued to `message`: what is stored is what is displayed, by every
+    # client, so a block inside the message is a bubble full of the page it was about.
+    screen_context: str | None = None
 
 
 class ChatResponse(BaseModel):
@@ -90,11 +96,12 @@ async def health():
 @router.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest, user_id: str = Depends(get_current_user_id)):
     """Send a message to the AI agent and get a response."""
-    logger.info(f"Chat request from user {user_id}: {request.message[:100]}")
+    said, screen = split_screen_context(request.message, request.screen_context)
+    logger.info(f"Chat request from user {user_id}: {said[:100]}")
 
-    user_msg = await message_repo.create(user_id=user_id, role="user", content=request.message)
+    user_msg = await message_repo.create(user_id=user_id, role="user", content=said)
 
-    result = await llm_gateway.chat(request.message, user_id, exclude_message_id=user_msg.id)
+    result = await llm_gateway.chat(said, user_id, exclude_message_id=user_msg.id, screen_context=screen)
 
     # Both halves in the thread the question was routed into (MAG-13), and the thread
     # re-summarized — the same two sinks as `POST /agent/proaction` below. Before this,
@@ -120,12 +127,15 @@ async def chat(request: ChatRequest, user_id: str = Depends(get_current_user_id)
 @router.post("/chat/stream")
 async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_user_id)):
     """Stream a chat response using AG-UI protocol (Server-Sent Events)."""
-    logger.info(f"Stream chat request from user {user_id}: {request.message[:100]}")
+    # The screen the assistant was summoned from reaches the model, not the message that
+    # is stored and published — this is the route the overlay streams on (MAG-30).
+    said, screen = split_screen_context(request.message, request.screen_context)
+    logger.info(f"Stream chat request from user {user_id}: {said[:100]}")
 
-    user_msg = await message_repo.create(user_id=user_id, role="user", content=request.message)
+    user_msg = await message_repo.create(user_id=user_id, role="user", content=said)
 
     async def generate():
-        async for event in streaming_gateway.chat_stream(request.message, user_id, user_msg.id):
+        async for event in streaming_gateway.chat_stream(said, user_id, user_msg.id, screen_context=screen):
             yield f"data: {json.dumps(event)}\n\n"
 
     return StreamingResponse(
