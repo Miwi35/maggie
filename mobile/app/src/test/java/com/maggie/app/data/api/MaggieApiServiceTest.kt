@@ -14,6 +14,7 @@ import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.utils.io.ByteReadChannel
+import com.maggie.app.data.model.ChatMessage
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.junit.Assert.*
@@ -63,6 +64,40 @@ class MaggieApiServiceTest {
         )
 
         assertTrue(body.contains("\"idempotency_key\":\"k-1\""))
+    }
+
+    @Test
+    fun `the stream request carries the screenshot as media type and base64 data`() = runBlocking {
+        var capturedBody: String? = null
+        val client = HttpClient(
+            MockEngine { request ->
+                capturedBody = (request.body as TextContent).text
+                respond(content = ByteReadChannel(""), status = HttpStatusCode.OK)
+            },
+        ) {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true; isLenient = true }) }
+        }
+
+        MaggieApiService(client)
+            .sendChatStream("c'est quoi ?", image = ChatImage.jpeg(byteArrayOf(1, 2, 3)))
+            .collect {}
+
+        assertTrue(capturedBody!!.contains("\"image\":{\"media_type\":\"image/jpeg\",\"data\":\"AQID\"}"))
+    }
+
+    @Test
+    fun `a request without a screenshot has no image field at all`() {
+        val body = Json.encodeToString(AgentChatRequest.serializer(), AgentChatRequest(message = "bonjour"))
+
+        assertFalse(body.contains("image"))
+    }
+
+    @Test
+    fun `ChatMessage reads hasImage, and defaults it to false when absent`() {
+        val json = Json { ignoreUnknownKeys = true }
+
+        assertTrue(json.decodeFromString<ChatMessage>("""{"id":"u-1","role":"user","content":"x","hasImage":true}""").hasImage)
+        assertFalse(json.decodeFromString<ChatMessage>("""{"id":"u-1","role":"user","content":"x"}""").hasImage)
     }
 
     @Test

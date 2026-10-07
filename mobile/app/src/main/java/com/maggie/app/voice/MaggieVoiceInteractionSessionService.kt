@@ -82,9 +82,31 @@ private class MaggieVoiceInteractionSession(
         )
     }
 
+    /**
+     * Encoded and written off the main thread (MAG-214): the coordinator keeps the
+     * overlay waiting for it, under the same 1.2 s timeout as the rest. A file and
+     * not an extra, because a screenshot does not fit in an intent.
+     */
     override fun onHandleScreenshot(screenshot: Bitmap?) {
         super.onHandleScreenshot(screenshot)
-        coordinator.onScreenshot(available = screenshot != null)
+        if (screenshot == null) {
+            coordinator.onScreenshot(path = null)
+            return
+        }
+        val file = ScreenshotEncoder.file(service)
+        Thread {
+            val path = try {
+                file.parentFile?.mkdirs()
+                file.writeBytes(ScreenshotEncoder.encode(screenshot))
+                file.absolutePath
+            } catch (e: Exception) {
+                Log.w(TAG, "Screenshot not kept", e)
+                null
+            }
+            handler.post {
+                if (!coordinator.onScreenshot(path) && path != null) file.delete()
+            }
+        }.start()
     }
 
     /**
@@ -95,6 +117,7 @@ private class MaggieVoiceInteractionSession(
      */
     override fun onHide() {
         handler.removeCallbacks(giveUp)
+        if (!coordinator.hasLaunched) ScreenshotEncoder.file(service).delete()
         coordinator.onDismissed()
         super.onHide()
     }

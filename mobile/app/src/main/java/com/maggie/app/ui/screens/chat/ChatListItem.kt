@@ -8,6 +8,8 @@ sealed class ChatListItem {
     data class MessageItem(
         val message: ChatMessage,
         val isHighlighted: Boolean = false,
+        /** The screenshot sent with it from this device, as JPEG bytes (MAG-214). */
+        val thumbnail: ByteArray? = null,
     ) : ChatListItem()
     data class StreamingMessage(val text: String) : ChatListItem()
     data object LoadingIndicator : ChatListItem()

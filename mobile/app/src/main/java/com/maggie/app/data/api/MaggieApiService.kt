@@ -164,7 +164,20 @@ data class AgentChatRequest(
      * carries the same key, so the agent that already received it answers once.
      */
     val idempotency_key: String? = null,
+    /** The assist screenshot, for this turn only (MAG-214). Omitted when null: defaults are not encoded. */
+    val image: ChatImage? = null,
 )
+
+/** An image as the agent takes it: standard base64, no `data:` prefix. */
+@Serializable
+data class ChatImage(
+    val media_type: String,
+    val data: String,
+) {
+    companion object {
+        fun jpeg(bytes: ByteArray) = ChatImage("image/jpeg", java.util.Base64.getEncoder().encodeToString(bytes))
+    }
+}
 
 @Serializable
 data class InterruptChatRequest(
@@ -643,11 +656,12 @@ class MaggieApiService(
         message: String,
         screenContext: String? = null,
         userId: String = "default",
+        image: ChatImage? = null,
     ): AgentChatResponse {
         return client.post("$baseUrl/agent/chat") {
             waitForAgentReply()
             contentType(ContentType.Application.Json)
-            setBody(AgentChatRequest(message = message, user_id = userId, screen_context = screenContext))
+            setBody(AgentChatRequest(message = message, user_id = userId, screen_context = screenContext, image = image))
         }.body()
     }
 
@@ -707,6 +721,7 @@ class MaggieApiService(
         message: String,
         screenContext: String? = null,
         idempotencyKey: String = java.util.UUID.randomUUID().toString(),
+        image: ChatImage? = null,
     ): Flow<AgUiEvent> = kotlinx.coroutines.flow.flow {
         try {
             val response = client.post("$baseUrl/agent/chat/stream") {
@@ -717,6 +732,7 @@ class MaggieApiService(
                         message = message,
                         screen_context = screenContext,
                         idempotency_key = idempotencyKey,
+                        image = image,
                     ),
                 )
             }
