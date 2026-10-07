@@ -14,6 +14,9 @@ import { TOKENS } from '../helpers/tokens.js'
  * account a dark interface would repaint every parallel journey.
  */
 
+// One mutable preference on one account: the journeys take turns.
+test.describe.configure({ mode: 'serial' })
+
 const MERGE_PATCH = { 'Content-Type': 'application/merge-patch+json' }
 
 async function saveTheme(api: APIRequestContext, theme: Theme): Promise<void> {

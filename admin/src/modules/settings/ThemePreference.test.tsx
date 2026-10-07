@@ -143,6 +143,7 @@ describe('Apparence — thème', () => {
     const first = renderShell(store)
     await waitFor(() => expect(painted()).toBe('dark'))
     first.unmount()
+    expect(window.localStorage.getItem('RaStore.maggie.themeChoice')).toBe('"dark"')
 
     vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})))
     renderShell(store)
