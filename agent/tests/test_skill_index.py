@@ -369,3 +369,38 @@ class TestCreateSkillToolValidation:
 
         assert "error" in json.loads(result)
         assert index.entries[0].tags == ["t"]
+
+
+async def test_a_skill_created_by_another_process_reaches_the_next_prompt():
+    """7 Oct.: the agent runs two worker processes, each with its own index. A skill created
+    through one was missing from the prompts the other built, until a restart."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.skills.index import SkillIndex
+
+    stored = []
+    repo = MagicMock()
+    repo.list_all = AsyncMock(side_effect=lambda: list(stored))
+    this_process = SkillIndex(repo=repo)
+    await this_process.rebuild()
+    assert this_process.get_skills_index() == ""
+
+    stored.append(MagicMock(description="Quand un rappel arrive", tags=[]))
+    stored[0].name = "delivrer-un-rappel"
+    await this_process.refresh()
+
+    assert "delivrer-un-rappel" in this_process.get_skills_index()
+
+
+async def test_a_failed_refresh_keeps_the_last_index():
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.skills.index import SkillEntry, SkillIndex
+
+    repo = MagicMock()
+    repo.list_all = AsyncMock(side_effect=OSError("database unreachable"))
+    index = SkillIndex(repo=repo, entries=[SkillEntry(name="delivrer-un-rappel", description="Quand un rappel arrive", tags=[])])
+
+    await index.refresh()
+
+    assert "delivrer-un-rappel" in index.get_skills_index()
