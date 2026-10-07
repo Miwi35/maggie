@@ -134,6 +134,20 @@ Maggie\Calendar\Entity\Event:
     status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
     agenda: '@e2e_agenda_shared'
 
+  # An all-day weekly series ended by a *date* UNTIL (MAG-288). lib-recur on the phone
+  # refused it against the absolute start it was given, and the exception took the
+  # calendar screen down. Starts today so it is always in the week the journey opens;
+  # UNTIL is two weeks out and read in Paris: its day is the last occurrence.
+  e2e_event_all_day_series:
+    summary: Stage de voile MAG-288
+    allDay: true
+    startAt: '<e2eDate("00:00")>'
+    endAt: '<e2eDate("+1 day 00:00")>'
+    timeZone: 'Europe/Paris'
+    rrule: 'FREQ=WEEKLY;UNTIL=<e2eDateString("+14 days", "Ymd")>'
+    status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
+    agenda: '@e2e_agenda_shared'
+
   # A timed event that crosses midnight, so "an event shows on every day it
   # spans" has something to assert in the week and day views. Not all-day: the
   # mobile regressions behind 76017dd and dfad086 were about a *range* check

@@ -31,5 +31,5 @@
 # stops holding two others), 08 + 09 = 143 s, 01 + 04 + 05 = 143 s. When a flow is
 # added, re-read the figures from the latest run and move it where the sum is lowest.
 1: 02-voice-overlay
-2: 08-grocery-realtime 09-finance-banks
+2: 08-grocery-realtime 09-finance-banks 11-calendar-all-day-series
 3: 01-login-chat 04-calendar-import 05-deep-links

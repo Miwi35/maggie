@@ -26,8 +26,15 @@ data class AppLayout(
     val height: WindowHeight,
     /** A rail, or the burger and the modal drawer the phone has always had. */
     val navigation: NavigationKind,
-    /** The conversation has room to stay on screen beside the content. */
-    val chatPanelFits: Boolean,
+    /** Where the conversation is reached from in this window. */
+    val chatEntry: ChatEntry,
+    /**
+     * A window too short to spend 64 dp on a title: the top bar is drawn at 48 dp.
+     *
+     * The recette of MAG-35 was refused on this — « en mode paysage sur mobile, entre
+     * le header et le chat de maggie, on n'a que très peu d'espace pour le contenu ».
+     */
+    val denseTopBar: Boolean,
 )
 
 /** The Material 3 width breakpoints: compact < 600 ≤ medium < 840 ≤ expanded. */
@@ -70,6 +77,26 @@ enum class NavigationKind {
     RAIL,
 }
 
+/**
+ * The way into the conversation, which is a question of height as much as of width.
+ *
+ * A tall window can afford a band at the bottom of the content; a phone in landscape
+ * cannot — 411 dp minus a top bar minus that band left 275 dp of content, and the
+ * recette of MAG-35 was refused for it. A short window already has the rail, which is
+ * the one piece of chrome that costs no height at all, so the conversation is reached
+ * from there.
+ */
+enum class ChatEntry {
+    /** The collapsed « Demander à Maggie… » band under the content. */
+    BOTTOM_BAR,
+
+    /** The same three buttons, at the top of the rail — no band, no height spent. */
+    RAIL,
+
+    /** The conversation itself, beside the content. */
+    PANEL,
+}
+
 /** The rail: icons and short labels, no more. Material's own `NavigationRail` width. */
 val RAIL_WIDTH = 80.dp
 
@@ -87,16 +114,27 @@ fun appLayoutFor(widthDp: Int, heightDp: Int): AppLayout {
         NavigationKind.RAIL
     }
 
-    // A conversation in a 360 dp column needs vertical room to be worth the width:
-    // on a phone in landscape (891 × 411) it would be a header, two bubbles and an
-    // input, where the collapsed bar costs nothing and opens the full-height sheet.
-    val chatPanelFits = width == WindowWidth.EXPANDED && height != WindowHeight.COMPACT
+    val chatEntry = when {
+        // A conversation in a 360 dp column needs vertical room to be worth the width:
+        // on a phone in landscape (891 × 411) it would be a header, two bubbles and an
+        // input, where a collapsed entry point opens the full-height sheet.
+        width == WindowWidth.EXPANDED && height != WindowHeight.COMPACT -> ChatEntry.PANEL
+
+        // Short and railed — the phone in landscape. The band at the bottom is the
+        // chrome this window cannot pay for, and the rail has the room for free.
+        height == WindowHeight.COMPACT && navigation == NavigationKind.RAIL -> ChatEntry.RAIL
+
+        // Tall enough for the band, or too narrow for a rail to host anything: the
+        // phone in portrait and the cover screen of a Flip, both unchanged.
+        else -> ChatEntry.BOTTOM_BAR
+    }
 
     return AppLayout(
         width = width,
         height = height,
         navigation = navigation,
-        chatPanelFits = chatPanelFits,
+        chatEntry = chatEntry,
+        denseTopBar = height == WindowHeight.COMPACT,
     )
 }
 

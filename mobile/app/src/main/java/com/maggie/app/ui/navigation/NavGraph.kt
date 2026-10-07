@@ -60,12 +60,14 @@ import com.maggie.app.ui.components.AppDrawerContent
 import com.maggie.app.data.model.Context
 import com.maggie.app.ui.components.ChatBottomBar
 import com.maggie.app.ui.components.ChatPanel
+import com.maggie.app.ui.components.ChatRailActions
 import com.maggie.app.ui.components.ChatSheet
 import com.maggie.app.ui.components.ContextListSheet
 import com.maggie.app.ui.components.MaggieNavigationRail
 import com.maggie.app.ui.components.MaggieTopBar
 import com.maggie.app.ui.layout.AppLayout
 import com.maggie.app.ui.layout.AppShell
+import com.maggie.app.ui.layout.ChatEntry
 import com.maggie.app.ui.layout.NavigationKind
 import com.maggie.app.ui.layout.rememberAppLayout
 import com.maggie.app.ui.screens.contexts.ContextViewModel
@@ -184,7 +186,7 @@ private val MAIN_SCREENS = setOf(
     Screen.Grocery.route,
 )
 
-// The full-screen chat has its own input: the bottom bar would duplicate it
+// The full-screen chat has its own input: a second way in would duplicate it
 internal fun showsChatBottomBar(route: String?): Boolean = route in MAIN_SCREENS && route != Screen.Chat.route
 
 /** Which parts of the frame this window and this route call for (MAG-35). */
@@ -192,6 +194,10 @@ internal data class Chrome(
     val showsRail: Boolean,
     val showsChatPanel: Boolean,
     val showsChatBar: Boolean,
+    /** The conversation is reached from the rail's header, the window being too short for a bar. */
+    val showsChatInRail: Boolean,
+    /** A 48 dp top bar instead of 64 — every dp a short window can give the content. */
+    val denseTopBar: Boolean,
 )
 
 /**
@@ -203,14 +209,19 @@ internal data class Chrome(
  * something to reproduce by resizing an emulator.
  */
 internal fun chromeFor(layout: AppLayout, route: String?): Chrome {
-    val chatPanel = layout.chatPanelFits && showsChatBottomBar(route)
+    // Where this route offers the conversation at all: not on the chat screen, which is it.
+    val chatReachable = showsChatBottomBar(route)
     return Chrome(
         // The rail serves the drawer's destinations, so it appears where the drawer
         // did: on the main screens. A detail route keeps the whole width, as today.
         showsRail = layout.navigation == NavigationKind.RAIL && route in MAIN_SCREENS,
-        showsChatPanel = chatPanel,
-        // The panel *is* the conversation; the collapsed bar would be a second way in.
-        showsChatBar = showsChatBottomBar(route) && !chatPanel,
+        // Exactly one of the three, and the window says which: the panel *is* the
+        // conversation, and the rail's header is where a window too short for a band
+        // under the content puts the band's three buttons.
+        showsChatPanel = chatReachable && layout.chatEntry == ChatEntry.PANEL,
+        showsChatBar = chatReachable && layout.chatEntry == ChatEntry.BOTTOM_BAR,
+        showsChatInRail = chatReachable && layout.chatEntry == ChatEntry.RAIL,
+        denseTopBar = layout.denseTopBar,
     )
 }
 
@@ -418,7 +429,24 @@ fun NavGraph() {
             )
         },
         rail = if (chrome.showsRail) {
-            { MaggieNavigationRail(currentRoute = currentRoute, onNavigate = ::navigateTo) }
+            {
+                MaggieNavigationRail(
+                    currentRoute = currentRoute,
+                    onNavigate = ::navigateTo,
+                    chatAction = if (chrome.showsChatInRail) {
+                        {
+                            ChatRailActions(
+                                onOpenChat = { showChatSheet = true },
+                                onMicClick = ::startVoiceMode,
+                                onBrainClick = { showContextSheet = true },
+                                activeContextCount = contextUiState.activeCount,
+                            )
+                        }
+                    } else {
+                        null
+                    },
+                )
+            }
         } else {
             null
         },
@@ -437,6 +465,12 @@ fun NavGraph() {
     ) {
         Scaffold(
             modifier = Modifier.weight(1f),
+            // Still nothing from here, band or no band: each piece pays its own inset
+            // (`ChatBottomBar`, `ChatPanel`, `ChatScreen`), and the screens that nest a
+            // `Scaffold` of their own — Cuisine, Calendrier — already get `safeDrawing`
+            // from it. Material 3 1.3 does not consume `contentWindowInsets` for the
+            // body, so handing one down here would pay the gesture bar twice on exactly
+            // the screens this ticket is giving height back to.
             contentWindowInsets = WindowInsets(0),
             topBar = {
                 if (isMainScreen) {
@@ -450,6 +484,7 @@ fun NavGraph() {
                         unreadCount = notificationUiState.unreadCount,
                         onNotificationsClick = { navigateTo(Screen.Notifications.route) },
                         onSearchClick = { navigateTo(Screen.Search.route) },
+                        dense = chrome.denseTopBar,
                     )
                 }
             },

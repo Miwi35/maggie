@@ -1,6 +1,7 @@
 package com.maggie.app.ui.components
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
@@ -86,14 +87,20 @@ fun AppDrawerContent(
  * itself would scroll the top inset away with the entries — on the short window
  * where the rail actually scrolls — and padding the rail from outside would stop
  * its container colour short of the edges.
+ *
+ * @param chatAction the rail's header, drawn above the destinations and outside the
+ *   scroll: on a window too short for a band under the content, the conversation is
+ *   reached from here ([com.maggie.app.ui.components.ChatRailActions]). `null`
+ *   everywhere else, which is every window that still has that band.
  */
 @Composable
 fun MaggieNavigationRail(
     currentRoute: String?,
     onNavigate: (String) -> Unit,
     modifier: Modifier = Modifier,
+    chatAction: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
-    NavigationRail(modifier = modifier.fillMaxHeight().testTag(UiTags.NAV_RAIL)) {
+    NavigationRail(modifier = modifier.fillMaxHeight().testTag(UiTags.NAV_RAIL), header = chatAction) {
         Column(
             modifier = Modifier.verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,

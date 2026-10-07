@@ -125,6 +125,55 @@ class RecurrenceServiceTest extends TestCase
         );
     }
 
+    /**
+     * MAG-288: the same rules and the same expected occurrences as the mobile
+     * `RruleUtilsExpandTest`, so that the clients and the API agree on the last occurrence.
+     *
+     * @return iterable<string, array{string, string, string, list<string>}>
+     */
+    public static function untilRules(): iterable
+    {
+        yield 'all-day, absolute UNTIL far away' => [
+            'FREQ=WEEKLY;UNTIL=20361231T120000Z', '2026-10-05T00:00:00Z', '2026-11-01',
+            ['2026-10-05', '2026-10-12', '2026-10-19', '2026-10-26'],
+        ];
+        yield 'all-day, absolute UNTIL keeps its last day' => [
+            'FREQ=DAILY;UNTIL=20261231T225959Z', '2026-12-29T00:00:00Z', '2027-02-01',
+            ['2026-12-29', '2026-12-30', '2026-12-31'],
+        ];
+        yield 'all-day, date UNTIL keeps its last day' => [
+            'FREQ=DAILY;UNTIL=20261126', '2026-11-24T00:00:00Z', '2026-12-31',
+            ['2026-11-24', '2026-11-25', '2026-11-26'],
+        ];
+    }
+
+    /**
+     * @param list<string> $expectedDays
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('untilRules')]
+    public function testAllDaySeriesStopsAfterTheLastOccurrenceOfItsUntil(string $rrule, string $start, string $rangeTo, array $expectedDays): void
+    {
+        $event = new Event();
+        $event->setSummary('Journée entière');
+        $event->setAllDay(true);
+        $event->setTimeZone('Europe/Paris');
+        $event->setStartAt(new \DateTimeImmutable($start));
+        $event->setEndAt(new \DateTimeImmutable($start)->modify('+1 day'));
+        $event->setRrule($rrule);
+        $this->eventRepository->method('findExceptionsForRecurringEvent')->willReturn([]);
+
+        $result = $this->recurrenceService->expandOccurrences(
+            $event,
+            new \DateTimeImmutable('2026-10-01T00:00:00Z'),
+            new \DateTimeImmutable($rangeTo.'T00:00:00Z'),
+        );
+
+        self::assertSame(
+            $expectedDays,
+            array_map(fn (Event $occurrence) => $occurrence->getStartAt()->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d'), $result),
+        );
+    }
+
     public function testCancelledExceptionOnTheDayClocksGoBackRemovesThatOccurrence(): void
     {
         $event = $this->weeklyLessonInParis();
