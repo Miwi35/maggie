@@ -1,21 +1,66 @@
 package com.maggie.app.data.mercure
 
+import io.ktor.client.plugins.sse.sse
 import io.ktor.http.Url
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.net.ServerSocket
+import java.net.Socket
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
 
 class MercureServiceTest {
 
     @Test
-    fun `the hub client lets every open screen hold its stream at once`() {
-        // OkHttp queues a sixth call to one host: the stream of a recipe sheet opened on top of
-        // chat, approvals, contexts and the dashboard would never connect.
-        val dispatcher = MercureService.hubClient().dispatcher
+    fun `the default client holds more than five streams to one host at once`() = runBlocking {
+        val streams = 8
+        val connected = CountDownLatch(streams)
+        val sockets = mutableListOf<Socket>()
+        val server = ServerSocket(0)
+        val accepting = thread(isDaemon = true) {
+            while (!server.isClosed) {
+                val socket = try { server.accept() } catch (e: Exception) { return@thread }
+                synchronized(sockets) { sockets += socket }
+                socket.getInputStream().let { input ->
+                    val buffer = ByteArray(4096)
+                    input.read(buffer)
+                }
+                socket.getOutputStream().apply {
+                    write("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\r\n: hello\n\n".toByteArray())
+                    flush()
+                }
+            }
+        }
+        val client = MercureService.defaultClient()
 
-        assertTrue(dispatcher.maxRequestsPerHost >= 20)
-        assertTrue(dispatcher.maxRequests >= dispatcher.maxRequestsPerHost)
+        try {
+            val jobs = List(streams) {
+                launch(Dispatchers.IO) {
+                    client.sse("http://127.0.0.1:${server.localPort}/hub") {
+                        connected.countDown()
+                        incoming.collect { }
+                    }
+                }
+            }
+
+            assertTrue(
+                "only ${streams - connected.count} of $streams streams connected",
+                withContext(Dispatchers.IO) { connected.await(10, TimeUnit.SECONDS) },
+            )
+            jobs.forEach { it.cancel() }
+        } finally {
+            client.close()
+            server.close()
+            synchronized(sockets) { sockets.forEach { it.close() } }
+            accepting.join(1000)
+        }
     }
 
     @Test

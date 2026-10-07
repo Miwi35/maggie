@@ -15,7 +15,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.isActive
 import okhttp3.Dispatcher
-import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration
 
@@ -69,26 +68,23 @@ class MercureService(
     companion object {
         private const val TAG = "MercureService"
 
-        // Each stream holds a call open for good, and OkHttp queues any beyond 5 per host.
-        fun hubClient(): OkHttpClient = OkHttpClient.Builder()
-            .readTimeout(0, TimeUnit.SECONDS)
-            .callTimeout(0, TimeUnit.SECONDS)
-            .dispatcher(Dispatcher().apply {
-                maxRequests = 64
-                maxRequestsPerHost = 32
-            })
-            .build()
-
-        fun defaultClient(): HttpClient {
-            val okhttp = hubClient()
-
-            return HttpClient(OkHttp) {
-                engine {
-                    preconfigured = okhttp
+        fun defaultClient(): HttpClient = HttpClient(OkHttp) {
+            engine {
+                // Ktor puts a fresh Dispatcher on the builder before this block runs, so the limits
+                // must be set here. Each open stream holds a call for good and OkHttp queues any
+                // beyond 5 per host: a recipe sheet opened over chat, approvals, contexts and the
+                // dashboard would never connect.
+                config {
+                    readTimeout(0, TimeUnit.SECONDS)
+                    callTimeout(0, TimeUnit.SECONDS)
+                    dispatcher(Dispatcher().apply {
+                        maxRequests = 64
+                        maxRequestsPerHost = 32
+                    })
                 }
-                install(SSE) {
-                    reconnectionTime = Duration.parse("3s")
-                }
+            }
+            install(SSE) {
+                reconnectionTime = Duration.parse("3s")
             }
         }
 
