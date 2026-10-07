@@ -37,19 +37,19 @@ tags:
 # the old answer is asserted on screen, so there really was something to re-speak.
 #
 # The flow also holds the mic to talk (MAG-221): holding the mic, then letting
-# go, sends what was said. The emulator has no sound card, so the `e2e` flavor records
-# placeholder bytes (`src/e2e/.../AudioRecorderProvider.kt`) and Whisper, simulated by
-# WireMock, hears one fixed sentence; it is sent like a typed message. It runs right
-# after the synthesis check, so the messages it adds cannot push the old answer out of
-# the overlay before that check.
+# go, sends what was said. The emulator records silence and carries no Google engine,
+# and a hold with no voice in it is sent nowhere (MAG-222), so the `e2e` flavor's
+# speech engine is scripted, like the agent's fake LLM: `ScriptedDeviceSpeech` hears one
+# fixed sentence (`src/e2e/.../ScriptedDeviceSpeech.kt`), and it is sent like a typed
+# message. It runs right after the synthesis check, so the messages it adds cannot push
+# the old answer out of the overlay before that check.
 #
 # Since MAG-222 that sentence arrives *uncleaned*: a message on its way to Maggie no
 # longer pays for a second model call, only the rule that drops « euh ». The flow
 # asserts the absence the same way it asserts the silence above — by asking the agent,
 # through `GET /agent/e2e/transcription/cleanups`, how many cleanups the model was
-# asked for. The other half of the chain, « the phone's own engine first », cannot be
-# driven in CI: the emulator carries no Google engine (`src/e2e/` returns
-# `NoDeviceSpeech`), so it is verified in recette on the owner's phone.
+# asked for. The real engine, « the phone's own first », is verified in recette on the
+# owner's phone; the Whisper leg by the smoke journey and `chat.spec.ts`.
 #
 # What MAG-222's retour de recette added, and where each half is proved. « Thank you
 # for watching » appeared in the chat without the owner saying a word — Whisper
@@ -60,16 +60,14 @@ tags:
 #     with no text at all »), through the real route, against a WireMock mapping that
 #     answers the hallucination for a marked clip. It cannot be driven from here: the
 #     emulator has no sound card, so `src/e2e/` records placeholder bytes it cannot
-#     choose. The phone's own half — the hold that is sent nowhere, « Je n'ai rien
-#     entendu » under the button — is `SpeechPresenceTest` and `VoiceManagerTest`.
+#     choose, and real sound injected into the emulator was ruled out as too heavy
+#     and fragile for CI (owner, 7 Oct.). The phone's own half — the hold that is
+#     sent nowhere, « Je n'ai rien entendu » under the button — is
+#     `SpeechPresenceTest` and `VoiceManagerTest`.
 #   - *Held means held.* `SegmentedDeviceSpeech` restarts the engine at every segment
 #     it closes by itself and joins the pieces; the engine is not drivable in CI, so it
 #     is `SegmentedDeviceSpeechTest` plus the two `VoiceManagerTest` cases, and the
 #     owner's own « phrase with a three-second pause » in recette.
-#
-# The step below still proves the chain it always did, and now also that the gate lets
-# real speech through: the stub answers `verbose_json`, and a build that mis-reads that
-# shape drops the sentence and fails here.
 #
 # Needs `E2E_BASE_URL` and `E2E_LOGIN_TOKEN`, which `run.sh` passes with `-e`.
 #
@@ -236,7 +234,7 @@ tags:
 # ---------------------------------------------------------------------------
 # Hold to talk (MAG-221): hold the mic, let go, and the dictated sentence is sent.
 # `longPressOn` holds for a few seconds, well past the 300 ms below which a press is
-# taken for a mistake. The sentence is what the stubbed Whisper clip says, minus its
+# taken for a mistake. The sentence is what `ScriptedDeviceSpeech` hears, minus its
 # « euh » — the rule, not the model (MAG-222); the answer is the scripted one
 # (`41-grocery-add-dictated.yaml`), which proves the text really went through the chat
 # and not just onto the screen.

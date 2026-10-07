@@ -241,9 +241,12 @@ Everything else of `02`, and all of `01`, `04`, `05`, `08`, stayed.
   it root, and is on Paris time anyway).
 - **No sound card in CI.** The emulator runs with `-noaudio`, so a real recording
   fails. The `e2e` flavor therefore records placeholder bytes
-  (`src/e2e/.../AudioRecorderProvider.kt`, MAG-221) and WireMock's Whisper answers
-  one fixed sentence: `02-voice-overlay.yaml` ends by holding `voice_mic`
-  (`longPressOn`) and expects that sentence, cleaned, and the scripted answer.
+  (`src/e2e/.../AudioRecorderProvider.kt`, MAG-221), and since a hold with no
+  voice in it is sent nowhere (MAG-222), its speech engine is scripted too:
+  `ScriptedDeviceSpeech` hears one fixed sentence. `02-voice-overlay.yaml` ends by
+  holding `voice_mic` (`longPressOn`) and expects that sentence, minus its « euh »,
+  and the scripted answer. No real sound is injected into the emulator: too heavy
+  and fragile for CI (owner, 7 Oct.); the silence is unit-tested instead.
 
 - **Proving an absence is harder than it looks — ask the server, not the screen**
   (MAG-205). « No TTS started when the overlay opens » cannot be asserted on screen:
