@@ -360,8 +360,12 @@ def system_text(system: Any) -> str:
     return "\n".join(parts)
 
 
-def _is_tool_results(content: Any) -> bool:
-    return isinstance(content, list) and any(_block_type(block) == "tool_result" for block in content)
+def _is_loop_round(content: Any) -> bool:
+    """A list is a round of the loop (tool results, a guard's relaunch) unless it carries a picture.
+
+    The user's question is a string, or a list when it came with an image (MAG-214).
+    """
+    return isinstance(content, list) and not any(_block_type(block) == "image" for block in content)
 
 
 def _block_type(block: Any) -> str | None:
@@ -371,7 +375,7 @@ def _block_type(block: Any) -> str | None:
 def _last_question(messages: list[dict] | None) -> Any:
     """The content of the last user turn that is not a batch of tool results."""
     for message in reversed(messages or []):
-        if message.get("role") == "user" and not _is_tool_results(message.get("content")):
+        if message.get("role") == "user" and not _is_loop_round(message.get("content")):
             return message.get("content")
     return None
 
@@ -454,8 +458,7 @@ def turn_index(messages: list[dict] | None) -> int:
     for message in reversed(messages or []):
         if message.get("role") != "user":
             continue
-        content = message.get("content")
-        if not isinstance(content, list) or any(_block_type(block) == "image" for block in content):
+        if not _is_loop_round(message.get("content")):
             break
         rounds += 1
     return rounds
