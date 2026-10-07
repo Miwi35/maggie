@@ -91,6 +91,17 @@ class TestTheGuard:
 
         assert guard.review(FALSE_CLAIM) is Verdict.ACCEPT
 
+    def test_a_real_proaction_with_an_empty_error_field_backs_the_claim(self):
+        # Production, 7 Oct.: the stored proaction carries `"error": null`, and the guard took
+        # the key for a failure, so a reminder that was scheduled was told it was not.
+        guard = ReminderGuard(OFFERED)
+        guard.record(
+            SCHEDULE_TOOL,
+            json.dumps({"id": "p-1", "status": "pending", "response": None, "error": None, "scheduledAtLocal": "18h00"}),
+        )
+
+        assert guard.review(FALSE_CLAIM) is Verdict.ACCEPT
+
     def test_a_reminder_held_for_approval_is_not_scheduled_twice(self):
         guard = ReminderGuard(OFFERED)
         guard.record(SCHEDULE_TOOL, json.dumps({"status": "pending_approval", "approval_id": "a-1"}))
