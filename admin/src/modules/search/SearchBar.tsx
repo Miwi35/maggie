@@ -181,16 +181,13 @@ export function SearchBar() {
               ),
             },
           }}
-          sx={{
+          sx={(theme) => ({
             '& .MuiOutlinedInput-root': {
-              backgroundColor: 'rgba(255,255,255,0.12)',
+              backgroundColor: theme.palette.veilleuse.raised,
               color: 'inherit',
-              '& fieldset': { borderColor: 'rgba(255,255,255,0.25)' },
-              '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.4)' },
-              '&.Mui-focused fieldset': { borderColor: 'rgba(255,255,255,0.6)' },
             },
             '& .MuiInputAdornment-root': { color: 'inherit' },
-          }}
+          })}
         />
         {isNarrow && expanded && (
           <IconButton color="inherit" aria-label="Fermer la recherche" onClick={collapse}>

@@ -78,6 +78,13 @@ export class ChatPanel {
     await expect(this.input).toBeHidden()
   }
 
+  /** Closed whatever its state at the start: open with the shell above `md`, away below it. Idempotent. */
+  async ensureClosed(): Promise<void> {
+    if (await this.input.isVisible()) {
+      await this.close()
+    }
+  }
+
   /** Switches to the Mind tab. The chat tab keeps its messages behind it. */
   async openMind(): Promise<void> {
     await this.open()

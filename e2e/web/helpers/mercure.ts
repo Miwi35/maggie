@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto'
 import { expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 
@@ -279,4 +280,65 @@ function safeParse(data: string): Record<string, unknown> | null {
   } catch {
     return null
   }
+}
+
+/** The e2e hub's key — `MERCURE_PUBLISHER_JWT_KEY` in `docker-compose.e2e.yml`. Not a secret: the stack is throw-away. */
+const E2E_HUB_KEY = 'e2e-mercure-secret-at-least-32-bytes-long'
+
+const base64url = (input: Buffer | string): string => Buffer.from(input).toString('base64url')
+
+/**
+ * The hub's own name for itself (`resource_identifier`): the host-side URL of the
+ * stack, which the journeys' container reaches as `http://localhost` and so cannot
+ * derive. The subscriber token the login left in the browser carries it as `aud`.
+ */
+async function hubAudience(page: Page): Promise<string> {
+  const cookie = (await page.context().cookies()).find((c) => c.name === 'mercureAuthorization')
+  expect(cookie, 'no mercureAuthorization cookie — the page is not signed in').toBeDefined()
+  const claims = JSON.parse(Buffer.from(cookie!.value.split('.')[1], 'base64url').toString()) as { aud: string }
+
+  return claims.aud
+}
+
+/**
+ * Publishes one private update on the e2e hub, the way the agent's
+ * `MercurePublisher` does: an RFC 9068 access token whose `aud` is the hub's
+ * public URL and whose `authorization_details` name the topic.
+ *
+ * For what no public route of the stack emits on its own — a scheduled
+ * proaction completing on `/proactions/{userId}` has no HTTP trigger a
+ * journey may call without the owner's `ROLE_PROACTION_TRIGGER` and a model
+ * scenario that schedules one. The delivery under test is the admin's.
+ */
+export async function publishOnHub(page: Page, topic: string, data: Record<string, unknown>): Promise<void> {
+  const hubUrl = new URL(MERCURE_PATH, page.url()).toString()
+  const audience = await hubAudience(page)
+  const now = Math.floor(Date.now() / 1000)
+  const header = base64url(JSON.stringify({ alg: 'HS256', typ: 'at+jwt' }))
+  const payload = base64url(
+    JSON.stringify({
+      iss: 'maggie',
+      sub: 'e2e-journey',
+      client_id: 'maggie',
+      aud: audience,
+      iat: now,
+      exp: now + 300,
+      jti: `urn:uuid:${crypto.randomUUID()}`,
+      authorization_details: [
+        {
+          type: 'https://mercure.rocks/authorization-detail',
+          actions: ['publish'],
+          topics: [{ match: topic }],
+        },
+      ],
+    }),
+  )
+  const signature = createHmac('sha256', E2E_HUB_KEY).update(`${header}.${payload}`).digest('base64url')
+
+  const response = await fetch(hubUrl, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${header}.${payload}.${signature}` },
+    body: new URLSearchParams({ topic, data: JSON.stringify(data), private: 'on' }),
+  })
+  expect(response.status, `the hub refused the update: ${await response.text()}`).toBe(200)
 }

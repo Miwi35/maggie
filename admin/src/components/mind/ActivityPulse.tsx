@@ -11,7 +11,7 @@ export const ActivityPulse = ({ state }: ActivityPulseProps) => {
 
   // Thinking is Maggie herself, so it is her violet; working is a tool running,
   // which is the signal the rest of the app uses for « in progress » (MAG-39).
-  const color = state === 'thinking' ? TOKENS.brand.primary : TOKENS.signal.warning
+  const color = state === 'thinking' ? 'primary.main' : TOKENS.signal.warning
   const speed = state === 'thinking' ? '2s' : '1s'
 
   return (

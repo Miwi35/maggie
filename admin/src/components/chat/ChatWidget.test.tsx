@@ -1,7 +1,9 @@
 import { describe, test, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, screen, waitFor } from '@testing-library/react'
+import { renderWithTheme } from '../../test/renderWithTheme'
 import userEvent from '@testing-library/user-event'
 import { ChatWidget } from './ChatWidget'
+import { veilleuseDarkTheme, veilleuseLightTheme } from '../../theme'
 
 // Mock voice hooks to avoid MediaRecorder issues in tests
 vi.mock('../../hooks/useVoiceRecorder', () => ({
@@ -93,7 +95,7 @@ describe('ChatWidget', () => {
 
   test('renders tabs and input when open', () => {
     vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
-    render(<ChatWidget {...defaultProps} />)
+    renderWithTheme(<ChatWidget {...defaultProps} />)
 
     expect(screen.getByRole('tab', { name: /Chat/i })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /Mind/i })).toBeInTheDocument()
@@ -105,7 +107,7 @@ describe('ChatWidget', () => {
   // reachable by a screen reader or by the chat journey (MAG-99).
   test('names the dictation and send buttons', () => {
     vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
-    render(<ChatWidget {...defaultProps} />)
+    renderWithTheme(<ChatWidget {...defaultProps} />)
 
     expect(screen.getByRole('button', { name: 'Dicter' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Envoyer' })).toBeInTheDocument()
@@ -116,7 +118,7 @@ describe('ChatWidget', () => {
     localStorage.setItem('user', JSON.stringify({ id: 'user-1' }))
 
     try {
-      render(<ChatWidget {...defaultProps} />)
+      renderWithTheme(<ChatWidget {...defaultProps} />)
     } finally {
       localStorage.removeItem('user')
     }
@@ -134,7 +136,7 @@ describe('ChatWidget', () => {
     vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
     localStorage.removeItem('user')
 
-    render(<ChatWidget {...defaultProps} />)
+    renderWithTheme(<ChatWidget {...defaultProps} />)
 
     expect(MockEventSource.instances).toEqual([])
   })
@@ -167,7 +169,7 @@ describe('ChatWidget', () => {
 
     test('flags a proactive message as unread when the panel is closed', async () => {
       vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
-      render(<ChatWidget {...defaultProps} open={false} />)
+      renderWithTheme(<ChatWidget {...defaultProps} open={false} />)
 
       const message = {
         id: 'proaction-1',
@@ -183,7 +185,7 @@ describe('ChatWidget', () => {
 
     test('appends a proactive message to an open chat, without duplicating a replay', async () => {
       vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
-      render(<ChatWidget {...defaultProps} />)
+      renderWithTheme(<ChatWidget {...defaultProps} />)
 
       const message = {
         id: 'proaction-1',
@@ -236,7 +238,7 @@ describe('ChatWidget', () => {
         }),
       )
 
-      render(<ChatWidget {...defaultProps} />)
+      renderWithTheme(<ChatWidget {...defaultProps} />)
 
       await waitFor(() => {
         expect(screen.getByText('De quoi parle cette page ?')).toBeInTheDocument()
@@ -247,7 +249,7 @@ describe('ChatWidget', () => {
 
     test('shows only what was said when the block arrives by Mercure', async () => {
       vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
-      render(<ChatWidget {...defaultProps} />)
+      renderWithTheme(<ChatWidget {...defaultProps} />)
 
       const source = MockEventSource.instances.find(
         (es) => new URL(es.url, 'http://localhost').searchParams.get('match') === '/chat/user-1',
@@ -308,7 +310,7 @@ describe('ChatWidget', () => {
     })
 
     test('is shown once when it arrives after the stream ended', async () => {
-      render(<ChatWidget {...defaultProps} />)
+      renderWithTheme(<ChatWidget {...defaultProps} />)
 
       streamAnswer(answer.id, answer.content)
       publish(answer)
@@ -317,7 +319,7 @@ describe('ChatWidget', () => {
     })
 
     test('is shown once when it arrives before the stream ended', async () => {
-      render(<ChatWidget {...defaultProps} />)
+      renderWithTheme(<ChatWidget {...defaultProps} />)
 
       publish(answer)
       streamAnswer(answer.id, answer.content)
@@ -326,7 +328,7 @@ describe('ChatWidget', () => {
     })
 
     test('does not hide a later answer that happens to read the same', async () => {
-      render(<ChatWidget {...defaultProps} />)
+      renderWithTheme(<ChatWidget {...defaultProps} />)
 
       publish(answer)
       streamAnswer('m-43', answer.content)
@@ -335,7 +337,7 @@ describe('ChatWidget', () => {
     })
 
     test('keeps the question this tab sent once, under the id the agent stored it with', async () => {
-      render(<ChatWidget {...defaultProps} />)
+      renderWithTheme(<ChatWidget {...defaultProps} />)
       const user = userEvent.setup()
 
       await user.type(screen.getByPlaceholderText('Demande à Maggie...'), 'Bonjour Maggie')
@@ -380,7 +382,7 @@ describe('ChatWidget', () => {
         }),
       )
 
-      render(<ChatWidget {...defaultProps} />)
+      renderWithTheme(<ChatWidget {...defaultProps} />)
 
       await waitFor(() => {
         expect(defaultProps.onContextsChange).toHaveBeenCalledWith([
@@ -399,7 +401,7 @@ describe('ChatWidget', () => {
     // that is already open (MAG-11).
     test('reaches an open panel over Mercure', async () => {
       vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [], '/agent/contexts': [] }))
-      render(<ChatWidget {...defaultProps} />)
+      renderWithTheme(<ChatWidget {...defaultProps} />)
 
       act(() => {
         contextSource().onmessage?.({
@@ -427,7 +429,7 @@ describe('ChatWidget', () => {
     ]
     vi.stubGlobal('fetch', mockFetch({ '/agent/messages': historyMessages }))
 
-    render(<ChatWidget {...defaultProps} />)
+    renderWithTheme(<ChatWidget {...defaultProps} />)
 
     await waitFor(() => {
       expect(screen.getByText('Hello')).toBeInTheDocument()
@@ -439,7 +441,7 @@ describe('ChatWidget', () => {
     vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
 
     const user = userEvent.setup()
-    render(<ChatWidget {...defaultProps} />)
+    renderWithTheme(<ChatWidget {...defaultProps} />)
 
     const input = screen.getByPlaceholderText('Demande à Maggie...')
     await user.type(input, 'Hello Maggie')
@@ -462,7 +464,7 @@ describe('ChatWidget', () => {
     ]
     vi.stubGlobal('fetch', mockFetch({ '/agent/messages': historyMessages }))
 
-    render(<ChatWidget {...defaultProps} />)
+    renderWithTheme(<ChatWidget {...defaultProps} />)
 
     await waitFor(() => {
       expect(screen.getByText('Unique message')).toBeInTheDocument()
@@ -476,7 +478,7 @@ describe('ChatWidget', () => {
   test('shows search input when search icon clicked', async () => {
     vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
     const user = userEvent.setup()
-    render(<ChatWidget {...defaultProps} />)
+    renderWithTheme(<ChatWidget {...defaultProps} />)
 
     const searchButton = screen.getByTestId('SearchIcon').closest('button')!
     await user.click(searchButton)
@@ -497,7 +499,7 @@ describe('ChatWidget', () => {
     )
 
     const user = userEvent.setup()
-    render(<ChatWidget {...defaultProps} />)
+    renderWithTheme(<ChatWidget {...defaultProps} />)
 
     // Open search
     const searchButton = screen.getByTestId('SearchIcon').closest('button')!
@@ -525,7 +527,7 @@ describe('ChatWidget', () => {
     ]
     vi.stubGlobal('fetch', mockFetch({ '/agent/messages': historyMessages }))
 
-    render(<ChatWidget {...defaultProps} />)
+    renderWithTheme(<ChatWidget {...defaultProps} />)
 
     await waitFor(() => {
       expect(screen.getByText('First day message')).toBeInTheDocument()
@@ -546,7 +548,7 @@ describe('ChatWidget', () => {
     ]
     vi.stubGlobal('fetch', mockFetch({ '/agent/messages': historyMessages }))
 
-    render(<ChatWidget {...defaultProps} />)
+    renderWithTheme(<ChatWidget {...defaultProps} />)
 
     await waitFor(() => {
       expect(screen.getByText('Messages non lus')).toBeInTheDocument()
@@ -566,7 +568,7 @@ describe('ChatWidget', () => {
     ]
     vi.stubGlobal('fetch', mockFetch({ '/agent/messages': historyMessages }))
 
-    render(<ChatWidget {...defaultProps} />)
+    renderWithTheme(<ChatWidget {...defaultProps} />)
 
     await waitFor(() => {
       expect(screen.getByText('Last message')).toBeInTheDocument()
@@ -585,7 +587,7 @@ describe('ChatWidget', () => {
     )
 
     const user = userEvent.setup()
-    render(<ChatWidget {...defaultProps} />)
+    renderWithTheme(<ChatWidget {...defaultProps} />)
 
     // Open search and type
     const searchButton = screen.getByTestId('SearchIcon').closest('button')!
@@ -600,5 +602,47 @@ describe('ChatWidget', () => {
       },
       { timeout: 1000 },
     )
+  })
+
+  describe.each([
+    ['dark', veilleuseDarkTheme],
+    ['light', veilleuseLightTheme],
+  ])('in the %s Veilleuse theme', (_mode, theme) => {
+    const history = [
+      { id: 'msg-1', role: 'user', content: 'Ajoute du parmesan', createdAt: '2026-01-01T10:00:00Z' },
+      { id: 'msg-2', role: 'assistant', content: 'C’est fait.', createdAt: '2026-01-01T10:00:01Z' },
+    ]
+
+    test('draws the panel and the bubbles with the theme surfaces', async () => {
+      vi.stubGlobal('fetch', mockFetch({ '/agent/messages': history }))
+      renderWithTheme(<ChatWidget {...defaultProps} />, theme)
+
+      const reply = (await screen.findByText('C’est fait.')) as HTMLElement
+      const question = screen.getByText('Ajoute du parmesan')
+      expect(reply).toHaveStyle({ backgroundColor: theme.palette.maggie.reply })
+      expect(reply).toHaveStyle({ borderRadius: '22px 22px 22px 6px' })
+      expect(question).toHaveStyle({ borderRadius: '22px 22px 6px 22px' })
+      expect(getComputedStyle(question).backgroundColor).not.toBe(getComputedStyle(reply).backgroundColor)
+      expect(screen.getByTestId('chat-panel').firstElementChild).toHaveStyle({
+        backgroundColor: theme.palette.maggie.panel,
+      })
+    })
+
+    test('shows Maggie, her avatar and the state in the header', () => {
+      vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
+      renderWithTheme(<ChatWidget {...defaultProps} />, theme)
+
+      expect(screen.getByTestId('maggie-avatar')).toBeInTheDocument()
+      expect(screen.getByText('Maggie')).toBeInTheDocument()
+      expect(screen.getByText('En ligne')).toBeInTheDocument()
+      expect(screen.getByTestId('chat-status-dot')).toHaveStyle({ backgroundColor: theme.palette.success.main })
+    })
+
+    test('says what Maggie is doing in the header', () => {
+      vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
+      renderWithTheme(<ChatWidget {...defaultProps} agentState="acting" />, theme)
+
+      expect(screen.getByText('Agit…')).toBeInTheDocument()
+    })
   })
 })

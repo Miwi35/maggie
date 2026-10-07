@@ -105,3 +105,23 @@ describe('UserPreferenceSettings — default city', () => {
     expect(field).toHaveValue('Rennes')
   })
 })
+
+describe('UserPreferenceSettings — interruption sound', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  test('is on by default and the switch mutes it for this browser only', async () => {
+    const fetchMock = stubApi({})
+    render(<UserPreferenceSettings />)
+
+    const toggle = await screen.findByRole('switch', { name: 'Son des interruptions de Maggie' })
+    expect(toggle).toBeChecked()
+
+    await userEvent.click(toggle)
+
+    expect(toggle).not.toBeChecked()
+    expect(localStorage.getItem('maggie.sound')).toBe('off')
+    expect(patches(fetchMock)).toEqual([])
+  })
+})

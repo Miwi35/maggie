@@ -1,5 +1,6 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
+import { renderWithTheme } from '../../test/renderWithTheme'
 import userEvent from '@testing-library/user-event'
 import { ChatWidget } from './ChatWidget'
 import { PHONE_WIDTH, TABLET_WIDTH, DESKTOP_WIDTH, setViewportWidth, resetViewport } from '../../test/viewport'
@@ -72,7 +73,7 @@ describe('ChatWidget across widths', () => {
   ])('shows nothing of the conversation while it is shut on %s', (_label, width) => {
     setViewportWidth(width)
 
-    render(<ChatWidget {...props} open={false} />)
+    renderWithTheme(<ChatWidget {...props} open={false} />)
 
     expect(input()).toBeNull()
     expect(screen.queryByTestId('chat-panel')).toBeNull()
@@ -84,7 +85,7 @@ describe('ChatWidget across widths', () => {
   ])('opens over the whole window on %s', (_label, width) => {
     setViewportWidth(width)
 
-    render(<ChatWidget {...props} open />)
+    renderWithTheme(<ChatWidget {...props} open />)
 
     const panel = screen.getByTestId('chat-panel')
     expect(input()).toBeVisible()
@@ -98,7 +99,7 @@ describe('ChatWidget across widths', () => {
     setViewportWidth(PHONE_WIDTH)
     const user = userEvent.setup()
 
-    render(<ChatWidget {...props} open />)
+    renderWithTheme(<ChatWidget {...props} open />)
     await user.keyboard('{Escape}')
 
     expect(onClose).toHaveBeenCalled()
@@ -107,7 +108,7 @@ describe('ChatWidget across widths', () => {
   test('stays the column beside the page on a desk', () => {
     setViewportWidth(DESKTOP_WIDTH)
 
-    render(<ChatWidget {...props} open />)
+    renderWithTheme(<ChatWidget {...props} open />)
 
     expect(screen.getByTestId('chat-panel').closest('.MuiModal-root')).toBeNull()
     expect(input()).toBeVisible()

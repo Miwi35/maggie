@@ -69,14 +69,14 @@ describe('the design tokens', () => {
   })
 
   it('ask only for font weights admin/index.html loads', () => {
-    // The link element loads `wght@400;500;600;700`. A weight outside that set
+    // The link element loads `Geist:wght@300;400;500;600`. A weight outside that set
     // is synthesised by the browser — which is what made `h5` faux-bold until
     // MAG-39 — so the token file may not hold one either.
     // Vitest runs from `admin/` — the checkout's, or `/app` under `task wt:test:admin`.
     const link = readFileSync(join(process.cwd(), 'index.html'), 'utf8')
-    const loaded = /Gabarito:wght@([\d;]+)/.exec(link)?.[1].split(';').map(Number)
+    const loaded = /family=Geist:wght@([\d;]+)/.exec(link)?.[1].split(';').map(Number)
 
-    expect(loaded, 'admin/index.html no longer loads Gabarito by weight').toBeDefined()
+    expect(loaded, 'admin/index.html no longer loads Geist by weight').toBeDefined()
     expect(loaded).toEqual(Object.values(TOKENS.typography.weight))
   })
 })

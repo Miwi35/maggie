@@ -10,44 +10,28 @@ import androidx.compose.runtime.Composable
 
 /**
  * The app's theme, derived from `design/tokens.json` — the same file the admin
- * reads (MAG-39).
+ * reads (MAG-39), in the « Veilleuse » identity (MAG-311).
  *
- * What changed when the tokens arrived: the scheme was six roles out of
- * Material's twenty-nine, so almost everything was Material's own baseline and
- * had nothing to do with Maggie. The **seventeen roles set below** are the
- * admin's values now, to the hex — the accent and its container pair, the
- * secondary pair, `background`, `surface`, `surfaceVariant` and their `on`
- * colours, `outline`, and `error` / `onError`. Three of them are a visible
- * change on the phone, all three deliberate:
+ * One accent, no second colour: the secondary roles repeat the primary ones.
+ * The accent is per mode — `primaryLight` on white-ish surfaces, `primary` on
+ * the dark ones — and so is `error`, read from the mode's own feedback set.
  *
- *  - the **dark** mode's `primary` was the pale lavender `#E8DEFF` with dark
- *    text on it, Material's convention for a dark scheme. It is the brand violet
- *    in both modes now, as it is on the web: one identity, one accent;
- *  - the surfaces move from Material's near-white and near-black to radiant's
- *    `#F0F1F6` / `#110E1C`;
- *  - `error` is the admin's pink rather than Material's red.
+ * Not covered: the roles left on Material's baseline — `surfaceContainer*`,
+ * `surfaceBright`, `surfaceDim`, `outlineVariant`, `tertiary*` and
+ * `errorContainer`. Live screens read some of them; naming them is MAG-90's
+ * module-by-module audit, not a guess made here.
  *
- * What is **not** covered: the roles left on Material's baseline —
- * `surfaceContainer`, `surfaceContainerLow/High/Highest`, `surfaceBright`,
- * `surfaceDim`, `outlineVariant`, the `tertiary*` family and `errorContainer`.
- * Live screens read some of them: `GroceryListsScreen` takes a dragged row from
- * `surfaceContainerHighest`, and `BudgetScreen`, `FinanceDashboardScreen`,
- * `CushionScreen` and `VoiceControlBar` use `tertiary` / `errorContainer` as
- * status colours — which is a signal wearing a Material role. Naming them is
- * MAG-90's module-by-module audit, screen by screen, not a guess made here.
- *
- * The typeface is not here: Gabarito has to be bundled in `res/font/`, with its
- * licence, and that is a ticket of its own — the colours and the shapes are what
- * this one declares. Until it lands the app writes in Roboto at Material's sizes,
- * which `typography.size` in the token file already names.
+ * The typeface is not here: Geist has to be bundled in `res/font/`, with its
+ * licence, and that is a ticket of its own. Until then the app writes in Roboto
+ * at Material's sizes, which `typography.size` already names.
  */
 internal val MaggieLightColorScheme = lightColorScheme(
-    primary = MaggieTokens.Brand.primary,
-    onPrimary = MaggieTokens.Brand.onPrimary,
+    primary = MaggieTokens.Brand.primaryLight,
+    onPrimary = MaggieTokens.Brand.onPrimaryLight,
     primaryContainer = MaggieTokens.Brand.containerLight,
     onPrimaryContainer = MaggieTokens.Brand.onContainerLight,
-    secondary = MaggieTokens.Brand.secondaryLight,
-    onSecondary = MaggieTokens.Brand.onPrimary,
+    secondary = MaggieTokens.Brand.primaryLight,
+    onSecondary = MaggieTokens.Brand.onPrimaryLight,
     secondaryContainer = MaggieTokens.Brand.containerLight,
     onSecondaryContainer = MaggieTokens.Brand.onContainerLight,
     background = MaggieTokens.surfaceLight.background,
@@ -57,8 +41,8 @@ internal val MaggieLightColorScheme = lightColorScheme(
     surfaceVariant = MaggieTokens.surfaceLight.background,
     onSurfaceVariant = MaggieTokens.surfaceLight.textMuted,
     outline = MaggieTokens.surfaceLight.textMuted,
-    error = MaggieTokens.Feedback.error,
-    onError = MaggieTokens.Brand.onPrimary,
+    error = MaggieTokens.feedbackLight.error,
+    onError = MaggieTokens.Brand.onPrimaryLight,
 )
 
 internal val MaggieDarkColorScheme = darkColorScheme(
@@ -66,9 +50,8 @@ internal val MaggieDarkColorScheme = darkColorScheme(
     onPrimary = MaggieTokens.Brand.onPrimary,
     primaryContainer = MaggieTokens.Brand.containerDark,
     onPrimaryContainer = MaggieTokens.Brand.onContainerDark,
-    secondary = MaggieTokens.Brand.secondaryDark,
-    // Not white: `#FF83F6` is a light pink, and white on it is a contrast of 2.14.
-    onSecondary = MaggieTokens.surfaceDark.background,
+    secondary = MaggieTokens.Brand.primary,
+    onSecondary = MaggieTokens.Brand.onPrimary,
     secondaryContainer = MaggieTokens.Brand.containerDark,
     onSecondaryContainer = MaggieTokens.Brand.onContainerDark,
     background = MaggieTokens.surfaceDark.background,
@@ -78,11 +61,11 @@ internal val MaggieDarkColorScheme = darkColorScheme(
     surfaceVariant = MaggieTokens.surfaceDark.paper,
     onSurfaceVariant = MaggieTokens.surfaceDark.textMuted,
     outline = MaggieTokens.surfaceDark.textMuted,
-    error = MaggieTokens.Feedback.error,
+    error = MaggieTokens.feedbackDark.error,
     onError = MaggieTokens.Brand.onPrimary,
 )
 
-/** Material's five shape roles over the shared radii — `small` is radiant's 6 dp. */
+/** Material's five shape roles over the shared radii. */
 val MaggieShapes = Shapes(
     extraSmall = RoundedCornerShape(MaggieTokens.Radius.xs),
     small = RoundedCornerShape(MaggieTokens.Radius.sm),

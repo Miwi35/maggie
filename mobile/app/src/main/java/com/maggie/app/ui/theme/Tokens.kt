@@ -20,35 +20,60 @@ import androidx.compose.ui.unit.sp
 object MaggieTokens {
 
     object Brand {
-        val primary = Color(0xFF9055FD)
-        val onPrimary = Color(0xFFFFFFFF)
-        val secondaryLight = Color(0xFFA270FF)
-        val secondaryDark = Color(0xFFFF83F6)
+        /** The accent on the dark mode, and the text drawn on it. */
+        val primary = Color(0xFFA68BFF)
+        val primaryHover = Color(0xFFC7B5FF)
+        val onPrimary = Color(0xFF0F0E17)
+
+        /** The accent on the light mode — a deeper violet, so white text reads on it. */
+        val primaryLight = Color(0xFF6B4BD6)
+        val primaryHoverLight = Color(0xFF5636B8)
+        val onPrimaryLight = Color(0xFFFFFFFF)
 
         /** Material 3's container roles, per mode. MUI has none, so the admin declares
          * them and does not read them. */
-        val containerLight = Color(0xFFE8DEFF)
-        val onContainerLight = Color(0xFF21005D)
-        val containerDark = Color(0xFF6200EE)
-        val onContainerDark = Color(0xFFE8DEFF)
+        val containerLight = Color(0xFFE6DEFB)
+        val onContainerLight = Color(0xFF24105F)
+        val containerDark = Color(0xFF3A2E6E)
+        val onContainerDark = Color(0xFFE7DEFF)
     }
 
     /** One per mode, and the same two the admin is drawn on. */
-    data class Surface(val background: Color, val paper: Color, val text: Color, val textMuted: Color)
+    data class Surface(
+        val background: Color,
+        val paper: Color,
+        val raised: Color,
+        val track: Color,
+        val text: Color,
+        val textMuted: Color,
+        val caption: Color,
+    )
 
     val surfaceLight = Surface(
-        background = Color(0xFFF0F1F6),
+        background = Color(0xFFF7F4FA),
         paper = Color(0xFFFFFFFF),
-        text = Color(0xFF544F5A),
-        textMuted = Color(0xFF89868D),
+        raised = Color(0xFFEFEBF6),
+        track = Color(0xFFE3DEEC),
+        text = Color(0xFF1B1826),
+        textMuted = Color(0xFF585468),
+        caption = Color(0xFF6A6679),
     )
 
     val surfaceDark = Surface(
-        background = Color(0xFF110E1C),
-        paper = Color(0xFF151221),
-        text = Color(0xFFFFFFFF),
-        textMuted = Color(0xFFB8B7BB),
+        background = Color(0xFF0F0E17),
+        paper = Color(0xFF1A1824),
+        raised = Color(0xFF25222F),
+        track = Color(0xFF282534),
+        text = Color(0xFFF3F1F8),
+        textMuted = Color(0xFFABA6B8),
+        caption = Color(0xFF8E899C),
     )
+
+    /** The opacity of a hairline — the text colour at this alpha — per mode. */
+    object Divider {
+        const val LIGHT = 0.08f
+        const val DARK = 0.06f
+    }
 
     /** The sign-in, loading and lock screens, and the splash — mode or no mode. */
     object Night {
@@ -62,11 +87,37 @@ object MaggieTokens {
     }
 
     /** Feedback about *this* interaction — Material's `error` role, and the admin's alerts. */
-    object Feedback {
-        val error = Color(0xFFDB488B)
-        val warning = Color(0xFFF2E963)
-        val info = Color(0xFF3ED0EB)
-        val success = Color(0xFF0FBF9F)
+    data class Feedback(val error: Color, val warning: Color, val info: Color, val success: Color)
+
+    val feedbackLight = Feedback(
+        error = Color(0xFFB3261E),
+        warning = Color(0xFF8A5F00),
+        info = Color(0xFF2F62B8),
+        success = Color(0xFF1E7A3E),
+    )
+
+    val feedbackDark = Feedback(
+        error = Color(0xFFF4766E),
+        warning = Color(0xFFF2C65A),
+        info = Color(0xFF8FB8FF),
+        success = Color(0xFF6FCF8E),
+    )
+
+    /** One hue per module, as (light, dark). */
+    object Module {
+        val cuisine = Color(0xFF2F62B8) to Color(0xFF8FB8FF)
+        val comptes = Color(0xFF1B7352) to Color(0xFF7FD1AE)
+        val sport = Color(0xFFBF372D) to Color(0xFFFF8A80)
+        val travail = Color(0xFF4F7011) to Color(0xFFB8DE6F)
+    }
+
+    /** Maggie's own surfaces in the conversation; the pairs are (light, dark). */
+    object Maggie {
+        val avatarFrom = Color(0xFFC7B5FF)
+        val avatarTo = Color(0xFF6E55D9)
+        val bubble = Color(0xFFFFFFFF) to Color(0xFF1F1B2C)
+        val panel = Color(0xFFFBF9FE) to Color(0xFF17151F)
+        val reply = Color(0xFFEFEBF6) to Color(0xFF221F2D)
     }
 
     /** Labels on *data* — a criticality, a thread's state, an item just ticked off. */
@@ -87,15 +138,15 @@ object MaggieTokens {
 
     /**
      * The scale, mirrored for the contract test and read by the admin. The
-     * Compose typography that uses it comes with the Gabarito ticket; until then
+     * Compose typography that uses it comes with the Geist ticket; until then
      * Material's own defaults *are* these sizes, which is why nothing re-flows
      * when it lands.
      */
     object Typography {
+        const val LIGHT = 300
         const val REGULAR = 400
         const val MEDIUM = 500
         const val SEMIBOLD = 600
-        const val BOLD = 700
 
         val xs = 11.sp
         val sm = 12.sp
@@ -108,10 +159,11 @@ object MaggieTokens {
 
     object Radius {
         val xs = 4.dp
-        val sm = 6.dp
+        val sm = 8.dp
         val md = 12.dp
         val lg = 16.dp
-        val xl = 28.dp
+        val xl = 20.dp
+        val pill = 999.dp
     }
 
     /** The 4-dp grid, shared with the admin. */
@@ -122,6 +174,14 @@ object MaggieTokens {
         val lg: Dp = 16.dp
         val xl: Dp = 24.dp
         val xxl: Dp = 32.dp
+    }
+
+    /** Durations in milliseconds; the spring is Compose's `spring(stiffness, dampingRatio)` input. */
+    object Motion {
+        const val SPRING_STIFFNESS = 300f
+        const val SPRING_DAMPING = 30f
+        const val FAST_MS = 180
+        const val BASE_MS = 320
     }
 
     /**

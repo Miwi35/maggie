@@ -34,6 +34,10 @@ docker:
   traefik-routing:
     description: Traefik edge router with Docker label-based path routing
 
+frontend:
+  veilleuse:
+    description: Veilleuse, the admin's identity — one accent, pills, Geist with tabular figures, contrast tested, radiant merge pitfalls, Maggie's interruption and the chat
+
 global:
   agent-guard-rails:
     description: What an agent may merge alone — needs-human triggers, diff size limit, two red CIs, AGENT_ENABLED emergency stop, task guard:*

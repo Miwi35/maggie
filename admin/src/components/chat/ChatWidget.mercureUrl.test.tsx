@@ -1,5 +1,6 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, waitFor } from '@testing-library/react'
+import { waitFor } from '@testing-library/react'
+import { renderWithTheme } from '../../test/renderWithTheme'
 
 /**
  * Regression test for b16916d, found a second time by the Playwright socle
@@ -81,7 +82,7 @@ describe('ChatWidget with a relative Mercure URL', () => {
     vi.resetModules()
 
     const { ChatWidget } = await import('./ChatWidget')
-    render(<ChatWidget {...defaultProps} />)
+    renderWithTheme(<ChatWidget {...defaultProps} />)
 
     await waitFor(() => expect(subscriptions.length).toBeGreaterThan(0))
 
@@ -95,7 +96,7 @@ describe('ChatWidget with a relative Mercure URL', () => {
     vi.resetModules()
 
     const { ChatWidget } = await import('./ChatWidget')
-    render(<ChatWidget {...defaultProps} />)
+    renderWithTheme(<ChatWidget {...defaultProps} />)
 
     await waitFor(() => expect(subscriptions.length).toBeGreaterThanOrEqual(2))
 
