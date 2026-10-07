@@ -20,9 +20,12 @@ Agents take tickets unattended and merging deploys to production. These rails de
 
 Before turning on auto-merge: `task guard:check -- <pr>`. Anything but exit 0 → no `--auto`, add `needs-human`, say why on the ticket. Never skip the hooks, never disable a test to get green: fix it or ask.
 
-## Two red CI runs in a row
+## Red CI
 
-The `Two red runs in a row` job of `ci.yml` (it runs last and counts its own run as the red it is about to be) counts the CI verdicts of an agent branch (`cyrus/*`), one per commit, cancelled runs ignored (`scripts/agent-guard/ci-streak.sh`). Two reds: auto-merge off, `needs-human`, a PR comment. The session stops and comments the failure on the ticket.
+No job of `ci.yml` gives up on a red PR any more (the « two reds » streak was removed on 7 Oct.): it counted a
+flaky test or a run still queued as a failure of the code, and never took its `needs-human` back once the PR was
+green. The merge train decides: two real repairs (a new head each, the failure the branch's), one automatic re-run of
+a red job per head for flaky tests, then the owner.
 
 ## Emergency stop
 
@@ -35,4 +38,4 @@ Repo variable `AGENT_ENABLED`. Missing or anything but `false` = on.
 
 ## Tests
 
-`infra/scripts/tests/agent-guard.test.sh`, `agent-guard-streak.test.sh` and `agent-guard-emergency.test.sh`, run by the `Infra scripts and workflows` job. A new rule comes with a case that trips it and a case that must not.
+`infra/scripts/tests/agent-guard.test.sh` and `agent-guard-emergency.test.sh`, run by the `Infra scripts and workflows` job. A new rule comes with a case that trips it and a case that must not.

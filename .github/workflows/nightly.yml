@@ -55,7 +55,7 @@ jobs:
     if: github.event_name == 'schedule' || inputs.what != 'eval'
     uses: ./.github/workflows/ci.yml
     # The ceiling of the pull-request-only jobs the called file also holds
-    # (guard, streak): a called workflow may not ask for more than its caller.
+    # (guard): a called workflow may not ask for more than its caller.
     permissions:
       contents: read
       packages: write

@@ -1,7 +1,7 @@
 name: Agent guard
 
 # The trusted copy of the guard rails (MAG-128), run only when auto-merge is
-# switched on. The everyday guard and the two-reds streak are jobs of the pull
+# switched on. The everyday guard is a job of the pull
 # request pipeline (ci.yml, MAG-244): one line per push instead of three.
 # Nothing here is a required check: a pull request that trips a rail is not
 # blocked, it is handed to a human — labelled `needs-human`, auto-merge switched
