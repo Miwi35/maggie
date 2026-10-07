@@ -45,6 +45,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.maggie.app.ui.UiTags
+import com.maggie.app.voice.VoiceHint
 import com.maggie.app.voice.VoiceManager
 import com.maggie.app.voice.VoiceState
 
@@ -66,7 +67,7 @@ fun VoiceControlBar(
     val duration by voiceManager.duration.collectAsState()
     val errorMessage by voiceManager.errorMessage.collectAsState()
     val handsFree by voiceManager.handsFree.collectAsState()
-    val holdHint by voiceManager.holdHint.collectAsState()
+    val hint by voiceManager.hint.collectAsState()
     val partialText by voiceManager.partialText.collectAsState()
 
     val isListening = voiceState == VoiceState.LISTENING
@@ -91,7 +92,12 @@ fun VoiceControlBar(
     )
 
     val stateLabel = when (voiceState) {
-        VoiceState.IDLE -> if (holdHint) "Maintenez le bouton pour parler" else "Maintenez pour parler"
+        VoiceState.IDLE -> when (hint) {
+            VoiceHint.HOLD_LONGER -> "Maintenez le bouton pour parler"
+            // Nothing was sent, on purpose: the hold held no voice (MAG-222).
+            VoiceHint.NOTHING_HEARD -> "Je n'ai rien entendu"
+            null -> "Maintenez pour parler"
+        }
         VoiceState.LISTENING -> if (handsFree) {
             "Je vous écoute... ${duration}s"
         } else {

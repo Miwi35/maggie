@@ -1,6 +1,7 @@
 package com.maggie.app.voice
 
 import android.content.Context
+import android.util.Log
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.api.TranscriptCleanup
 import com.maggie.app.data.repository.UserPreferenceRepository
@@ -8,10 +9,13 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -30,10 +34,23 @@ private class FakeRecorder : AudioRecorder {
     var pcmSink: OutputStream? = null
     override var engineGaps = 0
 
+    /**
+     * How loud the hold was, replayed to whoever asks for levels when [start] is
+     * called. Null — the default — is a recorder that cannot measure, like the e2e
+     * flavor's placeholder.
+     */
+    var levels: List<Float>? = null
+    private var levelListener: ((Float, Long) -> Unit)? = null
+
+    override fun setLevelListener(listener: ((level: Float, durationMs: Long) -> Unit)?) {
+        levelListener = listener
+    }
+
     override fun start(file: File, pcmSink: OutputStream?) {
         started = true
         this.pcmSink = pcmSink
         file.writeText("audio")
+        levels?.forEach { levelListener?.invoke(it, 64L) }
     }
 
     override fun stop() {
@@ -88,12 +105,16 @@ private class FakeDeviceSpeech(
         heardTheEndFirst = sink.closed
         stopped = true
         if (!answers) return
-        resultOnStop?.let { listener?.onResult(it) } ?: listener?.onUnavailable("no match")
+        resultOnStop?.let { listener?.onResult(it) } ?: listener?.onUnavailable("no match", false)
     }
 
     override fun destroy() {
         destroyed = true
     }
+
+    /** The engine closing its sentence on a silence, with the button still held. */
+    fun closesEarlyWith(text: String, confidence: Float? = 0.9f) =
+        listener?.onResult(DeviceSpeechResult(text, confidence))
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -111,6 +132,11 @@ class VoiceManagerTest {
 
     @Before
     fun setup() {
+        mockkStatic(Log::class)
+        every { Log.i(any<String>(), any<String>()) } returns 0
+        every { Log.i(any<String>(), any<String>(), any()) } returns 0
+        every { Log.w(any<String>(), any<String>(), any()) } returns 0
+        every { Log.e(any<String>(), any<String>(), any()) } returns 0
         cacheDir = Files.createTempDirectory("voice-test").toFile()
         context = mockk(relaxed = true)
         every { context.cacheDir } returns cacheDir
@@ -119,8 +145,16 @@ class VoiceManagerTest {
         userPreferenceRepository = mockk(relaxed = true)
         testScope = TestScope()
         recorder = FakeRecorder()
+        // Loud enough to be a voice, long enough to be a sentence: the presence gate
+        // (MAG-222) is exercised by its own tests below, not by every one of these.
+        recorder.levels = List(16) { 0.12f }
         now = 0L
         voiceManager = managerWith(NoDeviceSpeech)
+    }
+
+    @After
+    fun tearDown() {
+        unmockkStatic(Log::class)
     }
 
     /** A manager whose phone recognition is [engine] — none of it, by default. */
@@ -219,7 +253,7 @@ class VoiceManagerTest {
 
         assertEquals(VoiceState.IDLE, voiceManager.state.value)
         assertNull(sent)
-        assertTrue(voiceManager.holdHint.value)
+        assertEquals(VoiceHint.HOLD_LONGER, voiceManager.hint.value)
         coVerify(exactly = 0) { apiService.transcribe(any(), any()) }
         assertTrue(recorder.released)
     }
@@ -229,11 +263,11 @@ class VoiceManagerTest {
         voiceManager.pressDown {}
         advance(100)
         voiceManager.pressRelease()
-        assertTrue(voiceManager.holdHint.value)
+        assertEquals(VoiceHint.HOLD_LONGER, voiceManager.hint.value)
 
         advance(3000)
 
-        assertFalse(voiceManager.holdHint.value)
+        assertNull(voiceManager.hint.value)
     }
 
     @Test
@@ -246,7 +280,7 @@ class VoiceManagerTest {
 
         assertEquals(VoiceState.IDLE, voiceManager.state.value)
         assertNull(sent)
-        assertFalse(voiceManager.holdHint.value)
+        assertNull(voiceManager.hint.value)
         coVerify(exactly = 0) { apiService.transcribe(any(), any()) }
         assertEquals(0, cacheDir.listFiles()?.size ?: 0)
     }
@@ -451,7 +485,7 @@ class VoiceManagerTest {
 
         voiceManager.pressDown { sent = it }
         advance(1000)
-        engine.listener?.onUnavailable("error 7")
+        engine.listener?.onUnavailable("error 7", fatal = false)
         advance(5000)
         voiceManager.pressRelease()
         testScope.runCurrent()
@@ -538,6 +572,197 @@ class VoiceManagerTest {
 
         assertTrue(engine.destroyed)
         coVerify(exactly = 0) { apiService.transcribe(any(), any()) }
+    }
+
+    // --- Nothing said, nothing sent (retour de recette MAG-222) ---
+
+    @Test
+    fun `a silent hold sends nothing and says so`() {
+        // The refused bug: « Thank you for watching » appeared in the chat. Whisper
+        // never gets this clip, so it never gets the chance to invent over it.
+        recorder.levels = List(48) { 0.0008f }
+        var sent: String? = null
+
+        voiceManager.pressDown { sent = it }
+        advance(3_000)
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        assertNull(sent)
+        assertEquals(VoiceState.IDLE, voiceManager.state.value)
+        assertEquals(VoiceHint.NOTHING_HEARD, voiceManager.hint.value)
+        coVerify(exactly = 0) { apiService.transcribe(any(), any()) }
+        assertEquals("the clip must not be left behind", 0, cacheDir.listFiles()?.size ?: 0)
+    }
+
+    @Test
+    fun `a hold of plain noise sends nothing`() {
+        recorder.levels = List(60) { 0.009f }
+        var sent: String? = null
+
+        voiceManager.pressDown { sent = it }
+        advance(4_000)
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        assertNull(sent)
+        assertEquals(VoiceHint.NOTHING_HEARD, voiceManager.hint.value)
+        coVerify(exactly = 0) { apiService.transcribe(any(), any()) }
+    }
+
+    @Test
+    fun `a silent hold the engine heard nothing in releases it and sends nothing`() {
+        // The engine heard no more than the microphone did, so nothing outranks the
+        // loudness gate: the clip goes nowhere rather than to Whisper, which answers
+        // a silence with the credits it was trained on.
+        recorder.levels = List(48) { 0.0008f }
+        val engine = FakeDeviceSpeech(resultOnStop = null)
+        voiceManager = managerWith(engine)
+        var sent: String? = null
+
+        voiceManager.pressDown { sent = it }
+        advance(3_000)
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        assertNull(sent)
+        assertEquals(VoiceHint.NOTHING_HEARD, voiceManager.hint.value)
+        coVerify(exactly = 0) { apiService.transcribe(any(), any()) }
+        assertTrue(engine.destroyed)
+    }
+
+    @Test
+    fun `an unrated text from a hold with no voice in it is not trusted`() {
+        // Most engines report no confidence at all, and a silent hold has no voiced
+        // span either — so the quality judge has nothing left to compare and would take
+        // any text as good. A sentence on a clip of silence is the thing being
+        // refused, so it takes a rating to outrank the meter.
+        recorder.levels = List(48) { 0.0008f }
+        val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("Thank you for watching", null))
+        voiceManager = managerWith(engine)
+        var sent: String? = null
+
+        voiceManager.pressDown { sent = it }
+        advance(3_000)
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        assertNull(sent)
+        assertEquals(VoiceHint.NOTHING_HEARD, voiceManager.hint.value)
+        coVerify(exactly = 0) { apiService.transcribe(any(), any()) }
+    }
+
+    @Test
+    fun `an unrated text is trusted as soon as a voice was heard`() {
+        // The common case on a phone that reports no confidence: the meter heard the
+        // voice, so the engine's word is all the chain needs.
+        val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("ajoute des tomates", null))
+        voiceManager = managerWith(engine)
+        var sent: String? = null
+
+        voiceManager.pressDown { sent = it }
+        advance(2_000)
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        assertEquals("ajoute des tomates", sent)
+        coVerify(exactly = 0) { apiService.transcribe(any(), any()) }
+    }
+
+    @Test
+    fun `a sentence the phone transcribed survives a hold too quiet to measure`() {
+        // Recette step 6: he whispers, close to the phone. VOICE_RECOGNITION applies
+        // no automatic gain, so every buffer sits under the loudness gate — while the
+        // engine had the sentence all along. A result it is confident about is proof
+        // someone spoke, and it outranks an estimate made from loudness alone; the
+        // gate guards the Whisper leg, which is where the invention came from.
+        recorder.levels = List(48) { 0.004f }
+        val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("ajoute des tomates", 0.9f))
+        voiceManager = managerWith(engine)
+        var sent: String? = null
+
+        voiceManager.pressDown { sent = it }
+        advance(3_000)
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        assertEquals("ajoute des tomates", sent)
+        assertNull("nothing was lost, so there is nothing to apologise for", voiceManager.hint.value)
+        coVerify(exactly = 0) { apiService.transcribe(any(), any()) }
+        assertEquals("the clip must not be left behind", 0, cacheDir.listFiles()?.size ?: 0)
+    }
+
+    @Test
+    fun `a transcript the server refused is reported as nothing heard`() {
+        // The server's own gate found no speech behind the clip and answered empty
+        // (agent/app/llm/transcription.py). Nothing is sent, and the owner is told.
+        coEvery { apiService.transcribe(any(), any()) } returns ""
+        var sent: String? = null
+
+        voiceManager.pressDown { sent = it }
+        advance(2_000)
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        assertNull(sent)
+        assertEquals(VoiceState.IDLE, voiceManager.state.value)
+        assertEquals(VoiceHint.NOTHING_HEARD, voiceManager.hint.value)
+    }
+
+    @Test
+    fun `a recorder that cannot measure is still allowed to send`() {
+        // The e2e flavor's placeholder, and any device whose capture cannot be read:
+        // refusing what was never measured would silence the voice path entirely.
+        recorder.levels = null
+
+        voiceManager.pressDown {}
+        advance(2_000)
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        coVerify(exactly = 1) { apiService.transcribe(any(), any()) }
+    }
+
+    // --- Held means held (retour de recette MAG-222) ---
+
+    @Test
+    fun `a sentence the engine cut on a pause arrives whole`() {
+        // The second refused bug: Google closes its sentence on a silence, button
+        // still down, and what came after the pause was lost.
+        val first = FakeDeviceSpeech()
+        val second = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("et aussi du pain", 0.9f))
+        val engines = ArrayDeque(listOf(first, second))
+        voiceManager = managerWith(SegmentedDeviceSpeech { engines.removeFirst() })
+        var sent: String? = null
+
+        voiceManager.pressDown { sent = it }
+        advance(2_000)
+        first.closesEarlyWith("ajoute des tomates")
+        assertNull("the hold is not over until the button comes up", sent)
+
+        advance(3_000) // the pause, then the rest of the sentence
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        assertEquals("ajoute des tomates et aussi du pain", sent)
+        coVerify(exactly = 0) { apiService.transcribe(any(), any()) }
+    }
+
+    @Test
+    fun `the audio follows the engine across a pause`() {
+        val first = FakeDeviceSpeech()
+        val second = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("du pain", 0.9f))
+        val engines = ArrayDeque(listOf(first, second))
+        voiceManager = managerWith(SegmentedDeviceSpeech { engines.removeFirst() })
+
+        voiceManager.pressDown {}
+        val sink = recorder.pcmSink!!
+        sink.write("un".toByteArray())
+        first.closesEarlyWith("ajoute")
+        sink.write("deux".toByteArray())
+
+        assertEquals("un", first.sink.toString())
+        assertEquals("deux", second.sink.toString())
     }
 
     @Test

@@ -5,11 +5,25 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.llm.transcription import (
+    WhisperTranscript,
     needs_cleanup,
     reset_cleanup_requests,
     strip_hesitations,
     transcribe_audio,
 )
+
+
+def heard(text: str) -> WhisperTranscript:
+    """What Whisper hands back for a sentence someone really said.
+
+    The scores matter as much as the words since the retour de recette: a transcript
+    with no speech behind it never leaves the module (tests/test_transcription_silence.py).
+    """
+    return WhisperTranscript(
+        text=text,
+        duration=2.5,
+        segments=[{"no_speech_prob": 0.02, "avg_logprob": -0.3}],
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -25,7 +39,7 @@ class TestTranscriptionService:
     @patch("app.llm.transcription._whisper_transcribe", new_callable=AsyncMock)
     async def test_a_text_that_needs_it_is_cleaned(self, mock_whisper, mock_cleanup):
         """A hesitant dictation goes through Whisper then the cleanup."""
-        mock_whisper.return_value = "euh bonjour comment ça va"
+        mock_whisper.return_value = heard("euh bonjour comment ça va")
         mock_cleanup.return_value = "Bonjour, comment ça va ?"
 
         result = await transcribe_audio(b"audio-bytes", "test.webm")
@@ -40,7 +54,7 @@ class TestTranscriptionService:
     @patch("app.llm.transcription._whisper_transcribe", new_callable=AsyncMock)
     async def test_a_clean_text_is_not_sent_to_the_model(self, mock_whisper, mock_cleanup):
         """In « auto », a transcript with nothing to fix costs no call (MAG-222)."""
-        mock_whisper.return_value = "Ajoute des tomates à la liste de courses."
+        mock_whisper.return_value = heard("Ajoute des tomates à la liste de courses.")
 
         result = await transcribe_audio(b"audio-bytes", "test.webm", cleanup="auto")
 
@@ -52,7 +66,7 @@ class TestTranscriptionService:
     @patch("app.llm.transcription._whisper_transcribe", new_callable=AsyncMock)
     async def test_cleanup_none_never_calls_the_model(self, mock_whisper, mock_cleanup):
         """What a conversation with Maggie asks for: the rule, never the model."""
-        mock_whisper.return_value = "euh ajoute des tomates à la liste de courses"
+        mock_whisper.return_value = heard("euh ajoute des tomates à la liste de courses")
 
         result = await transcribe_audio(b"audio-bytes", "test.webm", cleanup="none")
 
@@ -64,7 +78,7 @@ class TestTranscriptionService:
     @patch("app.llm.transcription._whisper_transcribe", new_callable=AsyncMock)
     async def test_empty_transcript_skips_cleanup(self, mock_whisper):
         """When Whisper returns empty, cleanup is not called."""
-        mock_whisper.return_value = ""
+        mock_whisper.return_value = heard("")
 
         result = await transcribe_audio(b"audio-bytes", "test.webm")
 
@@ -83,11 +97,13 @@ class TestTranscriptionService:
 
         result = await _whisper_transcribe(b"audio-data", "recording.webm")
 
-        assert result == "Bonjour"
+        assert result.text == "Bonjour"
         mock_client.audio.transcriptions.create.assert_called_once_with(
             model="whisper-1",
             file=("recording.webm", b"audio-data"),
-            response_format="text",
+            # Not "text": the silence scores the judge needs come with this one alone
+            # (tests/test_transcription_silence.py).
+            response_format="verbose_json",
         )
 
     @pytest.mark.asyncio

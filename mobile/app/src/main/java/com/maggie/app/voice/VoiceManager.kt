@@ -28,6 +28,19 @@ enum class VoiceState {
     ERROR,
 }
 
+/** A word to the owner about the hold that just ended, shown for a moment under the button. */
+enum class VoiceHint {
+    /** The press was too short to be speech: hold it. */
+    HOLD_LONGER,
+
+    /**
+     * The recording held no voice, so nothing was sent. Rather than a transcript made
+     * up out of silence — Whisper answered « Thank you for watching » in the owner's
+     * chat (retour de recette MAG-222).
+     */
+    NOTHING_HEARD,
+}
+
 private const val DEFAULT_VOICE = "fr-FR-DeniseNeural"
 
 /**
@@ -40,6 +53,17 @@ private const val DEFAULT_VOICE = "fr-FR-DeniseNeural"
  * already on disk goes to Whisper and the owner never repeats himself. Nothing on
  * this path asks the model to tidy a transcript any more: Maggie reads through a
  * hesitation on her own, and the bubble gets [HesitationFilter].
+ *
+ * Two things the retour de recette of 7 October added, each the same principle — the
+ * owner's press is the only authority on the sentence:
+ *
+ *  - a hold that held no voice ([SpeechPresence]) and that the phone's own engine heard
+ *    nothing in is sent nowhere. Whisper does not answer nothing when given nothing, it
+ *    answers the subtitle boilerplate it was trained on, and « Thank you for watching »
+ *    landed in the chat. A sentence the engine did transcribe passes anyway: it is
+ *    proof someone spoke, which a loudness estimate can only guess at.
+ *  - the engine listens for as long as the button is down ([SegmentedDeviceSpeech]),
+ *    whatever it thinks of the pauses in between.
  */
 class VoiceManager(
     private val context: Context,
@@ -72,8 +96,8 @@ class VoiceManager(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
 
-    private val _holdHint = MutableStateFlow(false)
-    val holdHint: StateFlow<Boolean> = _holdHint
+    private val _hint = MutableStateFlow<VoiceHint?>(null)
+    val hint: StateFlow<VoiceHint?> = _hint
 
     /** What the phone's engine has heard so far, shown while the button is held. Empty when it is not listening. */
     private val _partialText = MutableStateFlow("")
@@ -88,6 +112,9 @@ class VoiceManager(
     private var audioFile: File? = null
     private var timerJob: Job? = null
     private var hintJob: Job? = null
+
+    /** Whether the hold being recorded actually has a voice in it, and for how long. */
+    private var presence = SpeechPresence()
 
     /**
      * One run of the phone's engine, owned by whoever started it. Held together rather
@@ -155,7 +182,7 @@ class VoiceManager(
         }
         if (clock() - recordingStartedAt < MIN_HOLD_MS) {
             cancelListening()
-            showHoldHint()
+            showHint(VoiceHint.HOLD_LONGER)
         } else {
             stopAndTranscribe()
         }
@@ -165,12 +192,12 @@ class VoiceManager(
         if (_state.value == VoiceState.LISTENING && !_handsFree.value) cancelListening()
     }
 
-    private fun showHoldHint() {
+    private fun showHint(hint: VoiceHint) {
         hintJob?.cancel()
-        _holdHint.value = true
+        _hint.value = hint
         hintJob = scope.launch {
             delay(HOLD_HINT_MS)
-            _holdHint.value = false
+            _hint.value = null
         }
     }
 
@@ -178,7 +205,7 @@ class VoiceManager(
         cancelListening()
         this.onResult = onResult
         hintJob?.cancel()
-        _holdHint.value = false
+        _hint.value = null
         _handsFree.value = handsFree
         recordingStartedAt = clock()
         _duration.value = 0
@@ -191,6 +218,8 @@ class VoiceManager(
 
         try {
             recorder = recorderFactory()
+            presence = SpeechPresence()
+            recorder?.setLevelListener(presence::feed)
             recorder?.start(file, startDeviceSpeech())
 
             timerJob = scope.launch {
@@ -229,7 +258,7 @@ class VoiceManager(
                         pending.complete(result.takeIf { session.sentenceOver })
                     }
 
-                    override fun onUnavailable(reason: String) {
+                    override fun onUnavailable(reason: String, fatal: Boolean) {
                         pending.complete(null)
                     }
                 },
@@ -258,7 +287,7 @@ class VoiceManager(
             return
         }
 
-        val spokenMillis = clock() - recordingStartedAt
+        val heldMillis = clock() - recordingStartedAt
 
         try {
             recorder?.stop()
@@ -278,6 +307,12 @@ class VoiceManager(
         // the sentence is over; asking it to stop after that is what makes it answer.
         session?.engine?.stopListening()
 
+        // Read after the recorder stopped, which joins the thread that fed it.
+        val heardAVoice = presence.heardSpeech
+        // How long the voice lasted, not how long the button was down: he holds it
+        // before he starts and after he stops, and the pause in the middle is his.
+        val spokenMillis = if (presence.measured) presence.spokenMs else heldMillis
+
         val file = audioFile ?: run {
             release(session)
             _state.value = VoiceState.ERROR
@@ -289,17 +324,39 @@ class VoiceManager(
         val callback = onResult
         onResult = null
         scope.launch {
+            // A hold the meter heard no voice in needs the engine to have *rated* what
+            // it transcribed, not merely produced it: with no confidence and no voiced
+            // span, [TranscriptionQuality] has nothing left to compare and would accept
+            // any text at all — which is the hole this whole gate exists to close.
             val heard = if (engineMissedAudio) {
                 release(session)
                 null
             } else {
-                awaitDeviceResult(session)
+                awaitDeviceResult(session)?.takeIf { heardAVoice || it.confidence != null }
             }
             if (heard != null && TranscriptionQuality.isGoodEnough(heard.text, heard.confidence, spokenMillis)) {
+                // Whatever the levels said. The engine having transcribed a sentence
+                // is proof someone spoke it, and it outranks an estimate made from
+                // loudness: `VOICE_RECOGNITION` applies no gain, so a whisper close to
+                // the phone never clears the gate below.
                 file.delete()
                 audioFile = null
                 _partialText.value = ""
                 deliver(callback, HesitationFilter.strip(heard.text))
+                return@launch
+            }
+
+            if (!heardAVoice) {
+                // Nothing was ever loud enough and the phone heard nothing either, so
+                // the only leg left is the one the invention came from: Whisper fills a
+                // silence with the credits it was trained on, and « Thank you for
+                // watching » reached the chat that way (retour de recette MAG-222).
+                Log.i(TAG, "The hold held no voice; nothing is sent")
+                file.delete()
+                audioFile = null
+                _partialText.value = ""
+                _state.value = VoiceState.IDLE
+                showHint(VoiceHint.NOTHING_HEARD)
                 return@launch
             }
 
@@ -313,7 +370,11 @@ class VoiceManager(
                 if (text.isNotBlank()) {
                     deliver(callback, text)
                 } else {
+                    // The server's own gate found no speech behind the clip and
+                    // refused the transcript (MAG-222). Say so rather than leave the
+                    // owner wondering where his sentence went.
                     _state.value = VoiceState.IDLE
+                    showHint(VoiceHint.NOTHING_HEARD)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Transcription failed", e)
@@ -419,6 +480,7 @@ class VoiceManager(
         try {
             recorder?.stop()
         } catch (_: Exception) { }
+        recorder?.setLevelListener(null)
         recorder?.release()
         recorder = null
         audioFile?.delete()
@@ -430,12 +492,16 @@ class VoiceManager(
 
     private fun release(session: DeviceSession?) {
         if (session == null) return
-        // Normally the recorder's stop closed it already; this covers the engine that
-        // was started and then never handed to a recorder at all.
+        // The engine first: it is the one holding the read end of the pipe, and letting
+        // go of it ends a write blocked on a full one instead of making this thread —
+        // the main one — wait for it. Nothing is lost by the order, since the
+        // end-of-sentence signal is the recorder's stop(), long before here.
+        session.engine.destroy()
+        // Normally the recorder's stop closed the sink already; this covers the engine
+        // that was started and then never handed to a recorder at all.
         try {
             session.sink?.close()
         } catch (_: Exception) { }
-        session.engine.destroy()
         // Anything still waiting on it gets « nothing heard » rather than a timeout.
         session.pending.complete(null)
     }

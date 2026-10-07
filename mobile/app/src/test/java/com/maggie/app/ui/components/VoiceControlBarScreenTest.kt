@@ -18,6 +18,7 @@ import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import com.maggie.app.voice.AudioRecorder
+import com.maggie.app.voice.VoiceHint
 import com.maggie.app.voice.VoiceManager
 import com.maggie.app.voice.VoiceState
 import io.mockk.coEvery
@@ -140,7 +141,7 @@ class VoiceControlBarScreenTest {
 
         assertTrue(sent.isEmpty())
         assertEquals(VoiceState.IDLE, voiceManager.state.value)
-        assertTrue(voiceManager.holdHint.value)
+        assertEquals(VoiceHint.HOLD_LONGER, voiceManager.hint.value)
     }
 
     @Test

@@ -50,4 +50,4 @@ class TestWhisperBaseUrl:
         factory, _ = openai_client_spy()
 
         with patch("app.llm.transcription.openai.AsyncOpenAI", factory):
-            assert await _whisper_transcribe(b"audio", "recording.webm") == "bonjour"
+            assert (await _whisper_transcribe(b"audio", "recording.webm")).text == "bonjour"

@@ -9,6 +9,14 @@ const TRANSCRIBE_URL = '/agent/transcribe'
  */
 export type CleanupMode = 'none' | 'auto'
 
+/**
+ * What the owner is told when the server found no speech behind the recording and
+ * refused its transcript. Whisper answers the subtitle boilerplate it was trained on
+ * when it is given silence — « Thank you for watching » reached the chat that way
+ * (retour de recette MAG-222) — so an empty answer is a result, not a failure.
+ */
+export const NOTHING_HEARD = "Je n'ai rien entendu"
+
 export function useTranscription() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -35,7 +43,11 @@ export function useTranscription() {
       }
 
       const data = await response.json()
-      return data.clean || data.raw || null
+      const text = data.clean || data.raw || null
+      if (!text) {
+        setError(NOTHING_HEARD)
+      }
+      return text
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erreur de transcription'
       setError(message)

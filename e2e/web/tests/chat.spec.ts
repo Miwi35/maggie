@@ -515,6 +515,45 @@ test('a dictated sentence reaches the input cleaned, and sending it writes to th
     .toBeGreaterThan(before)
 })
 
+/**
+ * A recording with no speech in it produces no text (retour de recette MAG-222).
+ *
+ * The owner saw « Thank you for watching » appear in his chat without having said a
+ * word: given silence, Whisper writes the subtitle boilerplate it was trained on. The
+ * refusal happens in the agent, which reads Whisper's own `no_speech_prob` and
+ * `avg_logprob` and filters the known credits, so the proof lives at the route — the
+ * same one the browser's « Dicter » and the phone both post to.
+ *
+ * Reproducible without a sound card, and without depending on the order the journeys
+ * run in: WireMock answers the hallucination for a clip whose bytes carry
+ * `MAGGIE_E2E_SILENCE` and the real sentence for everything else
+ * (`.docker/e2e/wiremock/mappings/openai.json`). Both are asserted here, so a mapping
+ * that stopped matching says which one.
+ */
+test('a clip with no speech in it comes back with no text at all', async ({ api }) => {
+  const transcribe = async (bytes: string) =>
+    api.post('/agent/transcribe', {
+      multipart: {
+        audio: { name: 'voice.wav', mimeType: 'audio/wav', buffer: Buffer.from(bytes) },
+        cleanup: 'none',
+      },
+    })
+
+  const silent = await transcribe('MAGGIE_E2E_SILENCE')
+  expect(silent.ok(), await silent.text()).toBeTruthy()
+  expect(await silent.json(), 'a transcript invented over silence must not reach the chat').toEqual({
+    raw: '',
+    clean: '',
+  })
+
+  const spoken = await transcribe('a clip with a voice in it')
+  expect(spoken.ok(), await spoken.text()).toBeTruthy()
+  const heard = await spoken.json()
+  expect(heard.raw, 'the gate must not refuse speech — is the stub still answering verbose JSON?').toContain(
+    'tomates',
+  )
+})
+
 interface AgentContext {
   label: string
   summary?: string | null

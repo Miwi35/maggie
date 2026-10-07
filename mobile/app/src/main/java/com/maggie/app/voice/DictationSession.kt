@@ -120,7 +120,7 @@ class DictationSession(
                         pending.complete(result)
                     }
 
-                    override fun onUnavailable(reason: String) {
+                    override fun onUnavailable(reason: String, fatal: Boolean) {
                         pending.complete(null)
                     }
                 },
@@ -217,11 +217,14 @@ class DictationSession(
             recorder.stop()
         } catch (_: Exception) { }
         recorder.release()
+        // The engine before the sink it reads, as in `VoiceManager.release()`: letting
+        // go of the pipe's read end is what ends a write blocked on a full one, where
+        // closing our end first would have to wait for it.
+        engine.destroy()
         try {
             sink?.close()
         } catch (_: Exception) { }
         sink = null
-        engine.destroy()
         pending.complete(null)
         file?.delete()
         file = null

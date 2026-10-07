@@ -57,9 +57,24 @@ class HesitationFilterTest {
 
     @Test
     fun `a filler glued to an accented letter is not a filler`() {
-        // What `(?U)` buys: without unicode word boundaries, "é" counts as a
-        // non-letter and "cléeuh" would come back as "clé".
+        // Without unicode word boundaries, "é" counts as a non-letter and "cléeuh"
+        // would come back as "clé".
         assertEquals("cléeuh", HesitationFilter.strip("cléeuh"))
+    }
+
+    @Test
+    fun `a filler glued to an accented letter after it is not a filler either`() {
+        assertEquals("euhé", HesitationFilter.strip("euhé"))
+    }
+
+    @Test
+    fun `the pattern carries no inline flag Android's regex engine rejects`() {
+        // The JVM accepts `(?U)`; Android's ICU engine throws on it, so the first
+        // sentence the phone's engine heard well crashed the app in `strip` — the
+        // 02-voice-overlay journey caught it on the emulator, which this JVM test runs
+        // nowhere near. Any inline flag group is refused: none is needed here.
+        val inlineFlag = Regex("""\(\?[a-zA-Z-]+[):]""")
+        assertEquals(null, inlineFlag.find(HesitationFilter.FILLER_PATTERN)?.value)
     }
 
     @Test

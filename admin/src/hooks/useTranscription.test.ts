@@ -1,6 +1,6 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { useTranscription } from './useTranscription'
+import { NOTHING_HEARD, useTranscription } from './useTranscription'
 
 describe('useTranscription', () => {
   beforeEach(() => {
@@ -95,5 +95,28 @@ describe('useTranscription', () => {
 
     expect(text).toBeNull()
     expect(result.current.error).toBe('Network error')
+  })
+
+  test('an empty transcript is « nothing heard », not a silent failure', async () => {
+    // The server refused the transcript because the clip held no speech — Whisper
+    // invents subtitle credits over silence (retour de recette MAG-222). The owner
+    // must be told rather than watch his dictation vanish.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ raw: '', clean: '' }),
+      }),
+    )
+
+    const { result } = renderHook(() => useTranscription())
+    let text: string | null = null
+
+    await act(async () => {
+      text = await result.current.transcribe(new Blob(['audio'], { type: 'audio/webm' }))
+    })
+
+    expect(text).toBeNull()
+    expect(result.current.error).toBe(NOTHING_HEARD)
   })
 })
