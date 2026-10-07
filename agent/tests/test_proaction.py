@@ -406,6 +406,7 @@ class TestADueReminderIsDelivered:
         preamble = gateway._build_system_prompt.await_args.kwargs["preamble"]
         assert "maintenant" in preamble
         assert "ne programme pas" in preamble.lower()
+        assert "get_skill" in preamble
 
     async def test_a_planning_run_keeps_its_prompt(self):
         _, content = await self._sent("Planifie la journée", silent=True)

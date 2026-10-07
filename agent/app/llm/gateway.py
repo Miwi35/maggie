@@ -38,6 +38,10 @@ EXECUTION_PREAMBLE = (
     "Le moment que tu avais programmé est arrivé : la tâche ci-dessous est due maintenant. "
     "Si c'est un rappel, délivre-le maintenant, directement (« Il est l'heure d'appeler votre mère. ») : "
     "ne programme pas un nouveau rappel et ne demande pas à quel moment le faire. "
+    # The skills index is in this prompt too, but nothing points to it at this moment: a
+    # skill taught for « when a reminder comes due » was never loaded (MAG-339).
+    "Avant de délivrer, regarde l'index de tes compétences : si l'une couvre ce moment "
+    "(un rappel qui arrive, une tâche due), charge-la avec get_skill et suis-la. "
     "Exécute la tâche demandée et rédige un message clair pour l'utilisateur. "
     "Ton message sera envoyé directement dans le chat. "
     "Ne demande pas de confirmation avant d'agir — agis directement. "
