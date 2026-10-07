@@ -31,6 +31,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -51,7 +52,6 @@ import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.auth.BiometricLockManager
 import com.maggie.app.ui.screens.lock.LockScreen
 import com.maggie.app.data.model.ExpandedEvent
-import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.MealRepository
@@ -239,6 +239,10 @@ private val DETAIL_ROUTE_LISTS = mapOf(
 internal fun foldsDetailRouteIntoPane(route: String?, showsDetailPane: Boolean): String? =
     if (showsDetailPane) DETAIL_ROUTE_LISTS[route] else null
 
+/** The dashboard keeps its own sheets: what a pane held while the window was wide must not open over it. */
+internal fun dropsPaneSelection(route: String?, detailPaneFits: Boolean): Boolean =
+    detailPaneFits && route == Screen.Dashboard.route
+
 /** [detail] leaves the back stack for [list], which is not duplicated when it is already underneath. */
 internal fun NavController.foldRouteInto(detail: String, list: String) {
     navigate(list) {
@@ -380,7 +384,9 @@ fun NavGraph() {
     var selectedAccount by remember { mutableStateOf<Pair<String, String>?>(null) }
     var detailRecipeId by remember { mutableStateOf<String?>(null) }
     var groceryItemToOpen by remember { mutableStateOf<String?>(null) }
-    var groceryPaneItem by remember { mutableStateOf<GroceryItem?>(null) }
+    var groceryPaneItemId by remember { mutableStateOf<String?>(null) }
+    // Read through a State: the NavHost graph is rebuilt when the builder's captures change.
+    val paneShown by rememberUpdatedState(chrome.showsDetailPane)
     var editRecipeId by remember { mutableStateOf<String?>(null) }
     var mealCreateState by remember { mutableStateOf<Pair<String, String>?>(null) }
 
@@ -500,6 +506,14 @@ fun NavGraph() {
             recipeRepository.deleteRecipe(recipeId)
             leaveDetail()
             recipeListViewModel.refresh()
+        }
+    }
+
+    // The pane's selection is not the dashboard's sheet: entering the dashboard on a wide window starts clean.
+    LaunchedEffect(currentRoute) {
+        if (dropsPaneSelection(currentRoute, layout.detailPaneFits)) {
+            selectedEvent = null
+            selectedTask = null
         }
     }
 
@@ -735,7 +749,7 @@ fun NavGraph() {
                     val event = selectedEvent
                     val task = selectedTask
                     ListDetailPane(
-                        showsDetailPane = chrome.showsDetailPane,
+                        showsDetailPane = paneShown,
                         list = {
                             FullCalendarScreen(
                                 viewModel = calendarViewModel,
@@ -878,14 +892,14 @@ fun NavGraph() {
                 composable(Screen.Cookbook.route) {
                     val paneRecipeId = detailRecipeId
                     ListDetailPane(
-                        showsDetailPane = chrome.showsDetailPane,
+                        showsDetailPane = paneShown,
                         list = {
                             CookbookScreen(
                                 recipeListViewModel = recipeListViewModel,
                                 mealsWeekViewModel = mealsWeekViewModel,
                                 onRecipeClick = { id ->
                                     detailRecipeId = id
-                                    if (!chrome.showsDetailPane) navController.navigate(Screen.RecipeDetail.route)
+                                    if (!paneShown) navController.navigate(Screen.RecipeDetail.route)
                                 },
                                 onCreateRecipe = {
                                     navController.navigate(Screen.RecipeCreate.route)
@@ -897,24 +911,29 @@ fun NavGraph() {
                         },
                         detail = paneRecipeId?.let { id ->
                             {
-                                RecipeDetailScreen(
-                                    recipeId = id,
-                                    recipeRepository = recipeRepository,
-                                    viewModel = koinViewModel<RecipeDetailViewModel>(key = id) { parametersOf(id) },
-                                    onBack = null,
-                                    onEdit = ::editRecipe,
-                                    onDelete = { recipeId -> deleteRecipe(recipeId) { detailRecipeId = null } },
-                                )
+                                key(id) {
+                                    RecipeDetailScreen(
+                                        recipeId = id,
+                                        recipeRepository = recipeRepository,
+                                        viewModel = koinViewModel<RecipeDetailViewModel>(key = id) { parametersOf(id) },
+                                        onBack = null,
+                                        onEdit = ::editRecipe,
+                                        onDelete = { recipeId -> deleteRecipe(recipeId) { detailRecipeId = null } },
+                                    )
+                                }
                             }
                         },
                         placeholder = "Touchez une recette pour la voir ici.",
                     )
                 }
                 composable(Screen.Grocery.route) {
-                    val paneItem = groceryPaneItem
                     val groceryState by groceryViewModel.uiState.collectAsState()
+                    // Resolved on every state: an item deleted or changed elsewhere is not edited from a stale copy.
+                    val paneItem = groceryPaneItemId?.let { id ->
+                        (groceryState.groceryList?.items.orEmpty() + groceryState.laterItems).firstOrNull { it.id == id }
+                    }
                     ListDetailPane(
-                        showsDetailPane = chrome.showsDetailPane,
+                        showsDetailPane = paneShown,
                         list = {
                             Box(Modifier.fillMaxSize().testTag(UiTags.GROCERY)) {
                                 GroceryScreen(
@@ -927,8 +946,8 @@ fun NavGraph() {
                                     onNavigateToStores = {
                                         navController.navigate(Screen.StoreList.route) { launchSingleTop = true }
                                     },
-                                    onOpenItemInPane = if (chrome.showsDetailPane) {
-                                        { groceryPaneItem = it }
+                                    onOpenItemInPane = if (paneShown) {
+                                        { groceryPaneItemId = it.id }
                                     } else {
                                         null
                                     },
@@ -947,7 +966,7 @@ fun NavGraph() {
                                             item.id?.let { id ->
                                                 groceryViewModel.updateItem(id, label, quantity, unit, storeId, storeName, category)
                                             }
-                                            groceryPaneItem = null
+                                            groceryPaneItemId = null
                                         },
                                         modifier = Modifier.verticalScroll(rememberScrollState()),
                                     )
@@ -975,14 +994,14 @@ fun NavGraph() {
                     val accountViewModel: AccountViewModel = koinViewModel()
                     val account = selectedAccount
                     ListDetailPane(
-                        showsDetailPane = chrome.showsDetailPane,
+                        showsDetailPane = paneShown,
                         list = {
                             AccountListScreen(
                                 viewModel = accountViewModel,
                                 onBack = { navController.backInFinance() },
                                 onOpenAccount = { accountId, accountName ->
                                     selectedAccount = accountId to accountName
-                                    if (!chrome.showsDetailPane) {
+                                    if (!paneShown) {
                                         navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
                                     }
                                 },
@@ -1081,7 +1100,12 @@ fun NavGraph() {
                             viewModel = koinViewModel<RecipeDetailViewModel>(key = id) { parametersOf(id) },
                             onBack = { navController.popBackStack() },
                             onEdit = ::editRecipe,
-                            onDelete = { recipeId -> deleteRecipe(recipeId) { navController.popBackStack() } },
+                            onDelete = { recipeId ->
+                                deleteRecipe(recipeId) {
+                                    navController.popBackStack()
+                                    detailRecipeId = null
+                                }
+                            },
                         )
                     }
                 }

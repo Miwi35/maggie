@@ -195,4 +195,12 @@ class AdaptiveNavigationTest {
         }
         assertNull(foldsDetailRouteIntoPane(null, true))
     }
+
+    @Test
+    fun `entering the dashboard on a wide window drops what a pane held`() {
+        assertTrue(dropsPaneSelection(Screen.Dashboard.route, true))
+        assertFalse("the phone's sheet is the dashboard's own", dropsPaneSelection(Screen.Dashboard.route, false))
+        assertFalse(dropsPaneSelection(Screen.Calendar.route, true))
+        assertFalse(dropsPaneSelection(null, true))
+    }
 }
