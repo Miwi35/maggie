@@ -120,4 +120,33 @@ describe('CalendarView deep link from the global search', () => {
     const update = mockSetSearchParams.mock.calls[0][0] as (prev: URLSearchParams) => URLSearchParams
     expect(update(new URLSearchParams({ mealId: 'x', other: 'y' })).toString()).toBe('other=y')
   })
+
+  test('cancels the pending popover when the screen is left before it opens', async () => {
+    currentParams = new URLSearchParams({ mealId: '/api/meals/01MEAL' })
+    mockGetOne.mockResolvedValue({ data: { id: '/api/meals/01MEAL', summary: 'Déjeuner', slot: 'lunch', date: '2026-10-14', recipes: [] } })
+    // A plain wrapper: Testing Library mistakes a vi.spyOn on setTimeout for fake timers and hangs.
+    const realSetTimeout = window.setTimeout
+    const realClearTimeout = window.clearTimeout
+    const openTimers: unknown[] = []
+    const cleared: unknown[] = []
+    window.setTimeout = ((fn: TimerHandler, delay?: number, ...args: unknown[]) => {
+      const id = realSetTimeout(fn, delay, ...args)
+      if (delay === 300) openTimers.push(id)
+      return id
+    }) as typeof window.setTimeout
+    window.clearTimeout = ((id?: number) => {
+      cleared.push(id)
+      realClearTimeout(id)
+    }) as typeof window.clearTimeout
+
+    const { unmount } = render(<CalendarView />)
+    await waitFor(() => expect(mockSetSearchParams).toHaveBeenCalled())
+    await waitFor(() => expect(openTimers).toHaveLength(1))
+
+    unmount()
+
+    window.setTimeout = realSetTimeout
+    window.clearTimeout = realClearTimeout
+    expect(cleared).toContain(openTimers[0])
+  })
 })

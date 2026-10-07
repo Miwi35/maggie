@@ -1413,6 +1413,15 @@ export const CalendarView = () => {
   useMercure(AGENDA_TOPICS, agendaMercureCallback)
 
   // --- Deep-link: open an event or a meal from search (?eventId=… / ?mealId=…) ---
+  const deepLinkTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const unmounted = useRef(false)
+  useEffect(() => {
+    unmounted.current = false
+    return () => {
+      unmounted.current = true
+      if (deepLinkTimer.current) clearTimeout(deepLinkTimer.current)
+    }
+  }, [])
   const deepLinkEventId = searchParams.get('eventId')
   const deepLinkMealId = searchParams.get('mealId')
   useEffect(() => {
@@ -1439,8 +1448,9 @@ export const CalendarView = () => {
           api.gotoDate(startAt)
         }
 
+        if (unmounted.current) return
         // Open the popover after a short delay to let the calendar render
-        setTimeout(() => {
+        deepLinkTimer.current = setTimeout(() => {
           if (deepLinkEventId) {
             const event = data as unknown as CalendarEvent
             const calId = typeof event.agenda === 'string' ? event.agenda : ''
