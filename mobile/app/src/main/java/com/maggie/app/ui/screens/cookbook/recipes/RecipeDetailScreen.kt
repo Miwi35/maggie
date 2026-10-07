@@ -36,10 +36,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.maggie.app.data.api.PlannedMealRef
+import com.maggie.app.data.api.RecipeDeletionImpact
 import com.maggie.app.data.model.Recipe
 import com.maggie.app.data.repository.RecipeRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
  * The question asked before a recipe goes. Deleting it also deletes the meals it
@@ -50,6 +55,34 @@ fun recipeDeletionTitle(name: String, mealCount: Int?): String = when {
     mealCount == null || mealCount <= 0 -> "Supprimer « $name » ?"
     mealCount == 1 -> "Supprimer « $name » et son repas planifié ?"
     else -> "Supprimer « $name » et ses $mealCount repas planifiés ?"
+}
+
+private const val LISTED_MEALS = 5
+
+private val dayFormat = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.FRANCE)
+
+private fun plannedMealLabel(meal: PlannedMealRef): String {
+    val day = runCatching { LocalDate.parse(meal.date).format(dayFormat) }.getOrDefault(meal.date)
+    return "$day, ${if (meal.slot == "lunch") "midi" else "soir"}"
+}
+
+/**
+ * What the owner reads under the question: the days he had planned this recipe
+ * and that the meals leave with it. `null` is an impact that could not be read.
+ */
+fun recipeDeletionBody(impact: RecipeDeletionImpact?): String {
+    if (impact == null) return "Les repas planifiés qui n’ont que cette recette seront supprimés avec elle."
+    if (impact.mealCount <= 0) {
+        return "Les repas qui n’ont que cette recette disparaissent de l’agenda et de la liste de courses. Cette action est définitive."
+    }
+
+    val listed = impact.meals.take(LISTED_MEALS)
+    val rest = impact.mealCount - listed.size
+    val lines = listed.map { "• ${plannedMealLabel(it)}" } +
+        listOfNotNull(if (rest > 0) (if (rest == 1) "• et 1 autre" else "• et $rest autres") else null)
+
+    return "Vous aviez prévu de cuisiner cette recette :\n" + lines.joinToString("\n") +
+        "\n\nCes repas seront supprimés avec elle, de l’agenda comme de la liste de courses. Cette action est définitive."
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -65,17 +98,17 @@ fun RecipeDetailScreen(
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var confirmingDelete by remember { mutableStateOf(false) }
-    var mealCount by remember { mutableStateOf<Int?>(null) }
-    var mealCountLoaded by remember { mutableStateOf(false) }
+    var impact by remember { mutableStateOf<RecipeDeletionImpact?>(null) }
+    var impactLoaded by remember { mutableStateOf(false) }
 
     LaunchedEffect(confirmingDelete) {
         if (confirmingDelete) {
-            mealCountLoaded = false
-            mealCount = null
-            mealCount = withContext(Dispatchers.IO) {
-                recipeRepository.getMealCountOfDeletion(recipeId).getOrNull()
+            impactLoaded = false
+            impact = null
+            impact = withContext(Dispatchers.IO) {
+                recipeRepository.getDeletionImpact(recipeId).getOrNull()
             }
-            mealCountLoaded = true
+            impactLoaded = true
         }
     }
 
@@ -114,17 +147,17 @@ fun RecipeDetailScreen(
         if (confirmingDelete) {
             AlertDialog(
                 onDismissRequest = { confirmingDelete = false },
-                title = { Text(recipeDeletionTitle(recipe?.name.orEmpty(), mealCount)) },
+                title = { Text(recipeDeletionTitle(recipe?.name.orEmpty(), impact?.mealCount)) },
                 text = {
-                    if (!mealCountLoaded) {
+                    if (!impactLoaded) {
                         CircularProgressIndicator()
                     } else {
-                        Text("Les repas qui n’ont que cette recette disparaissent de l’agenda et de la liste de courses. Cette action est définitive.")
+                        Text(recipeDeletionBody(impact))
                     }
                 },
                 confirmButton = {
                     TextButton(
-                        enabled = mealCountLoaded,
+                        enabled = impactLoaded,
                         onClick = {
                             confirmingDelete = false
                             onDelete(recipeId)

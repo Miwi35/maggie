@@ -36,7 +36,10 @@ const answerWith = (impact: Partial<Response> | Error) =>
     vi.fn(() => (impact instanceof Error ? Promise.reject(impact) : Promise.resolve(impact as Response))),
   )
 
-const mealCount = (count: number) => answerWith({ ok: true, json: () => Promise.resolve({ mealCount: count }) })
+type PlannedMeal = { date: string; slot: 'lunch' | 'dinner' }
+
+const mealCount = (count: number, meals: PlannedMeal[] = []) =>
+  answerWith({ ok: true, json: () => Promise.resolve({ mealCount: count, meals }) })
 
 describe('RecipeDeleteButton', { timeout: 30_000 }, () => {
   beforeEach(() => {
@@ -60,6 +63,37 @@ describe('RecipeDeleteButton', { timeout: 30_000 }, () => {
       '/api/recipes/01C/deletion-impact',
       expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer jwt' }) }),
     )
+  })
+
+  test('names the day and slot of each meal that leaves with the recipe', async () => {
+    const user = userEvent.setup()
+    mealCount(2, [
+      { date: '2030-01-14', slot: 'dinner' },
+      { date: '2030-01-17', slot: 'lunch' },
+    ])
+    renderButton(vi.fn())
+
+    await user.click(screen.getByRole('button', { name: 'Supprimer' }))
+
+    expect(await screen.findByText(/Vous aviez prévu de cuisiner cette recette/)).toBeInTheDocument()
+    expect(screen.getByText('lundi 14 janvier, soir')).toBeInTheDocument()
+    expect(screen.getByText('jeudi 17 janvier, midi')).toBeInTheDocument()
+    expect(screen.getByText(/Ces repas seront supprimés avec elle/)).toBeInTheDocument()
+  })
+
+  test('lists only the first meals and counts the rest', async () => {
+    const user = userEvent.setup()
+    const days = ['2030-01-14', '2030-01-15', '2030-01-16', '2030-01-17', '2030-01-18', '2030-01-19', '2030-01-20']
+    mealCount(
+      7,
+      days.map((date) => ({ date, slot: 'lunch' as const })),
+    )
+    renderButton(vi.fn())
+
+    await user.click(screen.getByRole('button', { name: 'Supprimer' }))
+
+    expect(await screen.findByText('et 2 autres')).toBeInTheDocument()
+    expect(screen.queryByText('samedi 19 janvier, midi')).not.toBeInTheDocument()
   })
 
   test('says « son repas » for a single meal', async () => {

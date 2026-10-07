@@ -1,6 +1,7 @@
 package com.maggie.app.data.repository
 
 import com.maggie.app.data.api.MaggieApiService
+import com.maggie.app.data.api.RecipeDeletionImpact
 import com.maggie.app.data.api.RecipeCreateRequest
 import com.maggie.app.data.local.dao.RecipeDao
 import com.maggie.app.data.local.entity.RecipeEntity
@@ -50,8 +51,8 @@ class RecipeRepository(
         recipe
     }
 
-    suspend fun getMealCountOfDeletion(id: String): Result<Int> = runCatching {
-        apiService.getRecipeDeletionImpact(id).mealCount
+    suspend fun getDeletionImpact(id: String): Result<RecipeDeletionImpact> = runCatching {
+        apiService.getRecipeDeletionImpact(id)
     }
 
     suspend fun deleteRecipe(id: String): Result<Unit> = runCatching {

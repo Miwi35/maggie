@@ -64,6 +64,12 @@ Maggie\Cookbook\Entity\Meal:
     date: '<(new \DateTimeImmutable("2030-01-14"))>'
     agenda: '@test_agenda'
     recipes: ['@couscous']
+  couscous_monday_lunch:
+    summary: 'Déjeuner : Couscous'
+    slot: '<(Maggie\Cookbook\Enum\MealSlot::Lunch)>'
+    date: '<(new \DateTimeImmutable("2030-01-14"))>'
+    agenda: '@test_agenda'
+    recipes: ['@couscous']
   couscous_tuesday:
     summary: 'Dîner : Couscous'
     slot: '<(Maggie\Cookbook\Enum\MealSlot::Dinner)>'
