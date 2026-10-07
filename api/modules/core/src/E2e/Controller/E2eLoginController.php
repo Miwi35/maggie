@@ -9,6 +9,7 @@ use Gesdinet\JWTRefreshTokenBundle\Model\RefreshTokenManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Maggie\Core\Mercure\MercureSubscriberTokenFactory;
 use Maggie\Core\Repository\UserRepository;
+use Maggie\Core\Security\RefreshTokenCookieFactory;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -40,6 +41,7 @@ final class E2eLoginController
         private readonly RefreshTokenGeneratorInterface $refreshTokenGenerator,
         private readonly RefreshTokenManagerInterface $refreshTokenManager,
         private readonly MercureSubscriberTokenFactory $mercureSubscriberTokenFactory,
+        private readonly RefreshTokenCookieFactory $refreshTokenCookieFactory,
         private readonly string $environment,
         private readonly string $e2eLoginToken,
         private readonly int $refreshTokenTtl,
@@ -94,6 +96,7 @@ final class E2eLoginController
         $response->headers->setCookie(
             $this->mercureSubscriberTokenFactory->createCookieForUser($user, $request->isSecure())
         );
+        $response->headers->setCookie($this->refreshTokenCookieFactory->create($refreshToken->getRefreshToken()));
 
         return $response;
     }

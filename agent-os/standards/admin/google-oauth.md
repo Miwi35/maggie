@@ -10,7 +10,7 @@ Google OAuth 2.0 (Authorization Code flow) for admin authentication. No local cr
 4. API exchanges code for `id_token` via `https://oauth2.googleapis.com/token`
 5. API validates token via `https://oauth2.googleapis.com/tokeninfo`, checks `aud` matches client ID
 6. API finds or creates `User` (matched by Google `sub` claim)
-7. API generates Lexik JWT and redirects to `ADMIN_URL?token=JWT&user=JSON`
+7. API generates Lexik JWT and redirects to `ADMIN_URL?token=JWT&user=JSON`, setting the `mercureAuthorization` and httpOnly `refresh_token` cookies
 8. `handleAuthCallback()` stores `token` and `user` in `localStorage`, cleans URL
 
 ## Key Files
@@ -19,6 +19,7 @@ Google OAuth 2.0 (Authorization Code flow) for admin authentication. No local cr
 |------|------|
 | `admin/src/auth/LoginPage.tsx` | Login UI — single Google button |
 | `admin/src/auth/authProvider.ts` | React-Admin auth provider + `handleAuthCallback()` |
+| `admin/src/auth/session.ts` | Refresh, 401 replay, renewal timer, restore at boot |
 | `admin/src/App.tsx` | Runs `handleAuthCallback()` before render, injects Bearer token |
 | `api/modules/core/src/Controller/GoogleAuthController.php` | Three endpoints: redirect, callback, mobile POST |
 | `api/modules/core/config/services.yaml` | Binds `$googleClientId`, `$googleClientSecret`, `$googleRedirectUri`, `$adminUrl` |
@@ -27,10 +28,10 @@ Google OAuth 2.0 (Authorization Code flow) for admin authentication. No local cr
 
 ```ts
 // authProvider.ts — React-Admin AuthProvider
-login()      → stores token + user in localStorage
-logout()     → removes token + user
-checkAuth()  → rejects if no token
-checkError() → clears auth on 401/403
+login()      → stores token + user in localStorage, starts the session keeper
+logout()     → POST /api/token/invalidate, then removes token + user
+checkAuth()  → expired token: tries the refresh cookie, rejects only if refused
+checkError() → clears auth on a 401/403 the replay could not fix (not while offline)
 getIdentity()→ returns {id, fullName, avatar} from stored user JSON
 ```
 
@@ -49,7 +50,23 @@ const httpClient = (url: URL, options: HttpClientOptions = {}) => {
 }
 ```
 
-Every API request includes `Authorization: Bearer <jwt>`.
+Every API request includes `Authorization: Bearer <jwt>`. `installAuthRefresh()` wraps `window.fetch` once, so a 401 on such a request is replayed with a renewed token — dataProvider, REST hooks and agent calls without touching their call sites.
+
+## Session renewal (MAG-37)
+
+The 24 h access token alone logged the wall tablet out daily. The Gesdinet refresh token (30 days, **single-use**) now rides an httpOnly cookie:
+
+| Cookie | Flags | Set by |
+|--------|-------|--------|
+| `refresh_token` | httpOnly, SameSite=Strict, path `/api/token`, Secure (off in e2e) | Google callback, e2e login, every refresh |
+| `mercureAuthorization` | path `/.well-known/mercure` | same, and `RenewMercureCookieOnRefreshListener` on every refresh |
+
+- `POST /api/token/refresh` (`credentials: 'include'`) returns `{token}` and rotates both cookies. `POST /api/token/invalidate` revokes the token (logout).
+- **One refresh at a time**, per tab (shared promise) and across tabs (`navigator.locks`): the token is single-use, a second concurrent call would sign the loser out.
+- `main.tsx` awaits `restoreSession()` before mounting: an expired token with a signed-in user is renewed at boot.
+- `startSessionKeeper()` renews 10 min before expiry and on `visibilitychange`/`online`/`focus`. A tab that slept past expiry reloads after renewing, because EventSource does not reconnect after a 401.
+- Network failure (fetch error, 5xx) keeps the session and retries a minute later; a 4xx clears it.
+- The refresh token is still in the JSON body (`remove_token_from_body: false`) for the mobile app.
 
 ## API Endpoints
 
@@ -90,5 +107,6 @@ On first login, `findOrCreateUser()` creates a `User` entity:
 
 - `/api/auth/*` routes are **public** (firewall `security: false`)
 - All other `/api/*` routes require JWT (`ROLE_USER`)
-- JWT TTL: 24 hours (Lexik config)
+- `/api/token/refresh` and `/api/token/invalidate` are public (firewall `token_refresh`)
+- JWT TTL: 24 hours (Lexik config); refresh token TTL: 30 days, rotated on use
 - Token audience validated against `GOOGLE_CLIENT_ID` to prevent token reuse from other apps

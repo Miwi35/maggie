@@ -9,6 +9,7 @@ use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\MercureSubscriberTokenFactory;
 use Maggie\Core\Repository\UserRepository;
+use Maggie\Core\Security\RefreshTokenCookieFactory;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -28,6 +29,7 @@ final class GoogleAuthController
         private readonly RefreshTokenGeneratorInterface $refreshTokenGenerator,
         private readonly RefreshTokenManagerInterface $refreshTokenManager,
         private readonly MercureSubscriberTokenFactory $mercureSubscriberTokenFactory,
+        private readonly RefreshTokenCookieFactory $refreshTokenCookieFactory,
         private readonly string $googleClientId,
         private readonly string $googleClientSecret,
         private readonly string $googleRedirectUri,
@@ -179,8 +181,14 @@ final class GoogleAuthController
             ]),
         ]);
 
+        // The admin keeps no refresh token of its own: this httpOnly cookie is
+        // what renews the 24 h access token without sending the user back to Google.
+        $refreshToken = $this->refreshTokenGenerator->createForUserWithTtl($user, $this->refreshTokenTtl);
+        $this->refreshTokenManager->save($refreshToken);
+
         $response = $this->adminRedirect($params);
         $response->headers->setCookie($this->mercureSubscriberTokenFactory->createCookieForUser($user));
+        $response->headers->setCookie($this->refreshTokenCookieFactory->create($refreshToken->getRefreshToken()));
 
         return $response;
     }

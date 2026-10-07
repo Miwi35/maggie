@@ -1,9 +1,21 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import App from './App'
+import { handleAuthCallback } from './auth/authProvider'
+import { restoreSession } from './auth/session'
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+// An expired access token is renewed from the refresh cookie before the router
+// reads the location: App sends a visitor with no valid session to the login
+// page when it loads, and a tablet that slept past 24 h is not that visitor.
+async function start() {
+  handleAuthCallback()
+  await restoreSession()
+  const { default: App } = await import('./App')
+
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  )
+}
+
+void start()

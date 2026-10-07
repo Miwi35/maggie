@@ -1,44 +1,49 @@
 import type { AuthProvider } from 'react-admin'
-
-function isTokenExpired(token: string): boolean {
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]))
-    return payload.exp ? payload.exp * 1000 < Date.now() : false
-  } catch {
-    return true
-  }
-}
-
-function clearSession() {
-  localStorage.removeItem('token')
-  localStorage.removeItem('user')
-}
+import {
+  clearSession,
+  endSession,
+  getToken,
+  isTokenExpired,
+  refreshSession,
+  sessionAwaitsNetwork,
+  startSessionKeeper,
+} from './session'
 
 export const authProvider: AuthProvider = {
   login: async ({ token, user }: { token: string; user: string }) => {
     localStorage.setItem('token', token)
     localStorage.setItem('user', user)
+    startSessionKeeper()
   },
 
   logout: async () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+    await endSession()
   },
 
   checkAuth: async () => {
-    const token = localStorage.getItem('token')
-    if (!token || isTokenExpired(token)) {
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      throw new Error('Not authenticated')
+    const token = getToken()
+    if (token && !isTokenExpired(token)) {
+      return
     }
+    // An expired token is not a signed-out user: the refresh cookie may still
+    // be good, and a tablet that slept past 24 h must wake up signed in.
+    const outcome = token || localStorage.getItem('user') ? await refreshSession() : 'rejected'
+    if (outcome === 'refreshed' || (outcome === 'unreachable' && sessionAwaitsNetwork())) {
+      return
+    }
+    clearSession()
+    throw new Error('Not authenticated')
   },
 
   checkError: async (error: { status?: number; statusCode?: number }) => {
     const status = error.status ?? error.statusCode
     if (status === 401 || status === 403) {
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
+      // The request was already replayed with a renewed token if one could be
+      // had. Without a network there is nothing to conclude about the session.
+      if (status === 401 && sessionAwaitsNetwork()) {
+        return
+      }
+      clearSession()
       throw new Error('Session expired')
     }
   },
@@ -68,8 +73,8 @@ export const authProvider: AuthProvider = {
  * page stays blank. Call this before the router reads the location.
  */
 export function routeVisitorWithoutSessionToLogin(): void {
-  const token = localStorage.getItem('token')
-  if (token && !isTokenExpired(token)) {
+  const token = getToken()
+  if (token && (!isTokenExpired(token) || sessionAwaitsNetwork())) {
     return
   }
   clearSession()

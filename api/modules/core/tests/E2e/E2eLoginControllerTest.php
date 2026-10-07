@@ -14,6 +14,7 @@ use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\MercureAccessToken;
 use Maggie\Core\Mercure\MercureSubscriberTokenFactory;
 use Maggie\Core\Repository\UserRepository;
+use Maggie\Core\Security\RefreshTokenCookieFactory;
 use Maggie\Core\Tests\Mercure\MercureAccessTokenTest;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -160,10 +161,33 @@ final class E2eLoginControllerTest extends KernelTestCase
         // the browser and every real-time assertion in a journey would fail.
         $response = $this->controller()($this->request(['email' => 'e2e@maggie.local']));
 
-        $cookies = $response->headers->getCookies();
-        self::assertCount(1, $cookies);
-        self::assertSame('mercureAuthorization', $cookies[0]->getName());
-        self::assertFalse($cookies[0]->isSecure());
+        $cookies = [];
+        foreach ($response->headers->getCookies() as $cookie) {
+            $cookies[$cookie->getName()] = $cookie;
+        }
+
+        self::assertSame(['mercureAuthorization', 'refresh_token'], array_keys($cookies));
+        self::assertFalse($cookies['mercureAuthorization']->isSecure());
+        self::assertFalse($cookies['refresh_token']->isSecure());
+    }
+
+    public function testRefreshTokenRidesAnHttpOnlyCookieScopedToTheTokenRoutes(): void
+    {
+        $response = $this->controller()($this->request(['email' => 'e2e@maggie.local']));
+        $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        $cookie = null;
+        foreach ($response->headers->getCookies() as $candidate) {
+            if ('refresh_token' === $candidate->getName()) {
+                $cookie = $candidate;
+            }
+        }
+
+        self::assertNotNull($cookie);
+        self::assertSame($payload['refreshToken'], $cookie->getValue());
+        self::assertTrue($cookie->isHttpOnly());
+        self::assertSame('/api/token', $cookie->getPath());
+        self::assertSame('strict', $cookie->getSameSite());
     }
 
     private function controller(string $environment = 'e2e', string $configuredToken = self::TOKEN): E2eLoginController
@@ -176,6 +200,11 @@ final class E2eLoginControllerTest extends KernelTestCase
             $container->get(RefreshTokenGeneratorInterface::class),
             $container->get(RefreshTokenManagerInterface::class),
             new MercureSubscriberTokenFactory(new MercureAccessToken('a-mercure-secret-of-at-least-32-bytes', 'http://localhost/.well-known/mercure')),
+            new RefreshTokenCookieFactory(
+                ['path' => '/api/token', 'same_site' => 'strict', 'http_only' => true, 'secure' => false],
+                2592000,
+                'refresh_token',
+            ),
             $environment,
             $configuredToken,
             2592000,
