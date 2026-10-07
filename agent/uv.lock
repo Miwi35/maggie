@@ -1040,7 +1040,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "respx", marker = "extra == 'dev'", specifier = ">=0.22.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.0" },
-    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.0" },
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.0,<2.1" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.34.0" },
 ]
 provides-extras = ["dev"]
