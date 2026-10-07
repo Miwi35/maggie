@@ -1,0 +1,51 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-controller-nature-test@example.com
+    googleId: google-finance-controller-nature-test
+    name: Finance Controller Nature Test User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+
+Maggie\Finance\Entity\Category:
+  leisure:
+    name: Loisirs
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+
+# Direction "any" is the default of a rule: it claims a refund as readily as a purchase.
+Maggie\Finance\Entity\CategorizationRule:
+  rule_cinema:
+    labelPattern: CINE
+    matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'
+    category: '@leisure'
+    direction: '<(Maggie\Finance\Enum\AmountDirection::Any)>'
+    priority: 10
+    isActive: true
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  cinema_refund:
+    account: '@checking'
+    amountCents: 1200
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-03"))>'
+    label: REMBOURSEMENT CINE
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  cinema_ticket:
+    account: '@checking'
+    amountCents: -1200
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-04"))>'
+    label: UGC CINE CITE
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'

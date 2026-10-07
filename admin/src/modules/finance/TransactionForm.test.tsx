@@ -276,4 +276,20 @@ describe('TransactionForm', () => {
     await waitFor(() => expect(create).toHaveBeenCalled())
     expect(create.mock.calls[0][1].data).toMatchObject({ amountCents: 4000, status: 'planned' })
   })
+
+  test('an income saved as Engagée before the rule still shows a status when edited', async () => {
+    renderEdit({
+      id: '/api/transactions/9',
+      account: '/api/accounts/1',
+      label: 'Ancienne prime',
+      amountCents: 30000,
+      bookedAt: '2026-07-01',
+      currency: 'EUR',
+      status: 'committed',
+      isExceptional: false,
+    })
+
+    await waitFor(() => expect(screen.getByLabelText(/Libellé/)).toHaveValue('Ancienne prime'))
+    expect(screen.getByRole('combobox', { name: /Statut/ })).toHaveTextContent('Attendue')
+  })
 })

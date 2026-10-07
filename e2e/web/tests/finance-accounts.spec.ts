@@ -273,6 +273,15 @@ test('choosing Recette offers income categories only, and files a positive trans
     })
     expect(category.status(), await category.text()).toBe(201)
   }
+  // The form reads its categories from the search index, which lags the write.
+  for (const name of [salary, subscription]) {
+    await waitForIndexed(
+      otherUser.api,
+      '/api/categories',
+      (candidate: { name?: string }) => candidate.name === name,
+      { what: `The category ${name}` },
+    )
+  }
 
   const account = await otherUser.api.post('/api/accounts', {
     headers: { 'Content-Type': 'application/ld+json' },

@@ -22,6 +22,16 @@ class TransactionNatureGuard
     ) {
     }
 
+    /** Whether a line of this amount may be filed under this category. */
+    public function isCompatible(int $amountCents, Category $category): bool
+    {
+        if (0 === $amountCents) {
+            return true;
+        }
+
+        return (ObligationFlag::Income === $category->getObligation()) === ($amountCents > 0);
+    }
+
     /** @throws IncompatibleCategoryException when the category contradicts the sign of the amount */
     public function assertCompatible(int $amountCents, ?Category $category): void
     {

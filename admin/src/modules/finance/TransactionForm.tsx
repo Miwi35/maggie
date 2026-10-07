@@ -24,6 +24,7 @@ import {
   STATUS_SECTION_TITLE,
   natureOfAmount,
   signedAmountCents,
+  statusLabel,
 } from './transactionStatuses'
 import type { RaRecord } from 'react-admin'
 import type { TransactionNature } from './transactionStatuses'
@@ -122,6 +123,7 @@ const NatureInput = ({ categories }: { categories: CategoryOption[] }) => {
 const TransactionFields = ({ withDefaults }: TransactionFormProps) => {
   const nature: TransactionNature = useWatch({ name: 'nature' }) ?? 'expense'
   const current = useWatch({ name: 'category' }) as string | null | undefined
+  const status = useWatch({ name: 'status' }) as string | undefined
   const { data: categories = [] } = useGetList<CategoryOption>('categories', {
     pagination: { page: 1, perPage: 200 },
     sort: { field: 'name', order: 'ASC' },
@@ -131,6 +133,12 @@ const TransactionFields = ({ withDefaults }: TransactionFormProps) => {
   // filter it offers. A category the line already carries stays in the list so
   // an old line, saved before the rule, does not show an empty field.
   const choices = categories.filter((c) => matchesNature(c, nature) || c.id === current)
+
+  // Same for a status the nature no longer offers: an income saved as
+  // "Engagée" before the form knew better must not open on a blank field.
+  const statusChoices = STATUS_CHOICES[nature].some((c) => c.id === status)
+    ? STATUS_CHOICES[nature]
+    : [...STATUS_CHOICES[nature], ...(status ? [{ id: status, name: statusLabel(status, nature === 'income' ? 1 : -1) }] : [])]
 
   return (
     <>
@@ -210,7 +218,7 @@ const TransactionFields = ({ withDefaults }: TransactionFormProps) => {
       <SelectInput
         source="status"
         label="Statut"
-        choices={STATUS_CHOICES[nature]}
+        choices={statusChoices}
         defaultValue={withDefaults ? 'spent' : undefined}
         validate={required()}
         fullWidth
