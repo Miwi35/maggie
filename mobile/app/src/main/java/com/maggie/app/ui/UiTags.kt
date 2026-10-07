@@ -138,6 +138,7 @@ object UiTags {
     const val APPROVAL_ALLOW_PREFIX = "approval_allow_"
     const val APPROVAL_DENY_PREFIX = "approval_deny_"
     const val APPROVAL_DISMISS_PREFIX = "approval_dismiss_"
+    const val APPROVAL_DETAILS_PREFIX = "approval_details_"
 
     fun approvalCard(id: String) = APPROVAL_CARD_PREFIX + id
 
@@ -146,6 +147,8 @@ object UiTags {
     fun approvalDeny(id: String) = APPROVAL_DENY_PREFIX + id
 
     fun approvalDismiss(id: String) = APPROVAL_DISMISS_PREFIX + id
+
+    fun approvalDetails(id: String) = APPROVAL_DETAILS_PREFIX + id
 
     fun drawerItem(route: String) = DRAWER_ITEM_PREFIX + route
 

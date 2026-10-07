@@ -6,6 +6,7 @@ from sqlalchemy import Column, DateTime, Enum, Index, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app.db.proaction_model import AgentBase
+from app.policy.summary import action_label
 
 # How long the user has to answer. After that the action is `expired` rather than
 # run: approving « supprime l'événement de demain » three days later would act on
@@ -49,6 +50,9 @@ class PendingAction(AgentBase):
         nullable=False,
         default=PendingActionStatus.PENDING,
     )
+    # What the card says, built when the action is held (`app.policy.summary`). Null on the
+    # actions held before MAG-7: they are served with the label of their action instead.
+    summary = Column(Text, nullable=True)
     result = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
     decided_at = Column(DateTime(timezone=True), nullable=True)
@@ -60,6 +64,7 @@ class PendingAction(AgentBase):
             "userId": self.user_id,
             "toolName": self.tool_name,
             "arguments": self.arguments,
+            "summary": self.summary or action_label(self.tool_name, self.arguments),
             "source": self.source,
             "contextId": self.context_id,
             "status": self.status.value if self.status else None,

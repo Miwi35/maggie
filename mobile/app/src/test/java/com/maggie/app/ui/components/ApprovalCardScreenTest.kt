@@ -25,10 +25,13 @@ class ApprovalCardScreenTest {
     @get:Rule
     val compose = ScreenRule()
 
+    private val ulid = "01KNZ8J6AGQ0K5D3WXYZ123456"
+
     private val approval = PendingApproval(
         id = "ap-1",
         toolName = "delete_event",
-        arguments = buildJsonObject { put("summary", "Dentiste") },
+        arguments = buildJsonObject { put("id", ulid) },
+        summary = "Supprimer l'événement « Test validation » — le 8 octobre à 10:00",
     )
 
     private fun show(
@@ -45,10 +48,45 @@ class ApprovalCardScreenTest {
         show(ApprovalItem(approval))
 
         compose.onNodeWithText("Maggie demande ton accord").assertIsDisplayed()
-        compose.onNodeWithText("Delete event").assertIsDisplayed()
-        compose.onNodeWithText("summary : Dentiste").assertIsDisplayed()
+        compose.onNodeWithText("Supprimer l'événement « Test validation » — le 8 octobre à 10:00").assertIsDisplayed()
         compose.onNodeWithTag(UiTags.approvalAllow("ap-1")).assertIsEnabled()
         compose.onNodeWithTag(UiTags.approvalDeny("ap-1")).assertIsEnabled()
+    }
+
+    @Test
+    fun `the card shows no tool name and no identifier until the details are opened`() {
+        show(ApprovalItem(approval))
+
+        compose.onNodeWithText("Delete event").assertDoesNotExist()
+        compose.onNodeWithText("delete_event", substring = true).assertDoesNotExist()
+        compose.onNodeWithText(ulid, substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the details fold the raw arguments behind a button`() {
+        show(ApprovalItem(approval))
+
+        compose.onNodeWithTag(UiTags.approvalDetails("ap-1")).performClick()
+        compose.onNodeWithText("id : $ulid").assertIsDisplayed()
+
+        compose.onNodeWithTag(UiTags.approvalDetails("ap-1")).performClick()
+        compose.onNodeWithText("id : $ulid").assertDoesNotExist()
+    }
+
+    @Test
+    fun `an approval without summary falls back to a generic sentence, never the tool name`() {
+        show(ApprovalItem(approval.copy(summary = null)))
+
+        compose.onNodeWithText("Action en attente de validation").assertIsDisplayed()
+        compose.onNodeWithText("Delete event").assertDoesNotExist()
+        compose.onNodeWithText(ulid, substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a blank summary is treated as no summary`() {
+        show(ApprovalItem(approval.copy(summary = "  ")))
+
+        compose.onNodeWithText("Action en attente de validation").assertIsDisplayed()
     }
 
     @Test

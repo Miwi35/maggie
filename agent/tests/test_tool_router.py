@@ -257,10 +257,12 @@ class TestThePolicyGuard:
             patch("app.llm.tools.pending_action_repo", repo),
             patch("app.llm.tools.mcp_client") as mcp,
             patch("app.llm.tools.memory_repo") as memory,
+            patch("app.llm.tools.build_summary", new_callable=AsyncMock) as summary,
         ):
+            summary.return_value = "Supprimer l'événement « Test validation »"
             mcp.call_tool = AsyncMock(return_value='{"deleted": true}')
             memory.delete = AsyncMock(return_value=True)
-            yield SimpleNamespace(repo=repo, mcp=mcp, memory=memory)
+            yield SimpleNamespace(repo=repo, mcp=mcp, memory=memory, summary=summary)
 
     async def test_an_ask_tool_is_not_routed(self, guard):
         await ToolRouter().call_tool("delete_event", {"eventId": "evt-1"}, user_id="user-1")
@@ -273,8 +275,26 @@ class TestThePolicyGuard:
         )
 
         guard.repo.create.assert_awaited_once_with(
-            "user-1", "delete_event", {"eventId": "evt-1"}, source="chat_stream", context_id="ctx-1"
+            "user-1",
+            "delete_event",
+            {"eventId": "evt-1"},
+            source="chat_stream",
+            context_id="ctx-1",
+            summary="Supprimer l'événement « Test validation »",
         )
+
+    async def test_the_held_action_carries_a_readable_summary_built_from_a_read_tool(self, guard):
+        await ToolRouter().call_tool("delete_event", {"id": "evt-1"}, user_id="user-1")
+
+        guard.summary.assert_awaited_once_with("delete_event", {"id": "evt-1"}, "user-1")
+
+    async def test_a_summary_that_cannot_be_built_never_stops_the_action_from_being_held(self, guard):
+        guard.summary.side_effect = RuntimeError("boom")
+
+        result = json.loads(await ToolRouter().call_tool("delete_event", {"id": "evt-1"}, user_id="user-1"))
+
+        assert result["status"] == "pending_approval"
+        assert guard.repo.create.await_args.kwargs["summary"] is None
 
     async def test_an_ask_tool_answers_the_model_with_the_approval_id_and_an_order_not_to_retry(self, guard):
         result = json.loads(await ToolRouter().call_tool("delete_event", {"eventId": "evt-1"}, user_id="user-1"))

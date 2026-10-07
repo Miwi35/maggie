@@ -268,6 +268,21 @@ class TestApprovals:
         assert response.json()[0]["toolName"] == "delete_event"
         mock_repo.find_pending.assert_awaited_once_with("test-user")
 
+    @patch("app.api.routes.pending_action_repo")
+    def test_list_serves_the_readable_summary_and_falls_back_to_the_action_label(self, mock_repo, authed_client):
+        mock_repo.find_pending = AsyncMock(
+            return_value=[
+                held_action(summary="Supprimer l'événement « Test validation » — le 8 octobre à 10:00"),
+                held_action(id="act-2", arguments={"id": "01KNZ8J6AGQ0K5D3WXYZ123456"}),
+            ]
+        )
+
+        body = authed_client.get("/approvals", params={"status": "pending"}).json()
+
+        assert body[0]["summary"] == "Supprimer l'événement « Test validation » — le 8 octobre à 10:00"
+        assert body[1]["summary"] == "Supprimer l'événement"
+        assert "01KNZ8J6AGQ0K5D3WXYZ123456" not in body[1]["summary"]
+
     def test_list_refuses_a_status_it_does_not_serve(self, authed_client):
         assert authed_client.get("/approvals", params={"status": "approved"}).status_code == 422
 

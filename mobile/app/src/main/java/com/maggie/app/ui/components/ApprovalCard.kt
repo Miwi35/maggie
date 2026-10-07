@@ -15,6 +15,10 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -44,6 +48,7 @@ fun ApprovalCard(
     val approval = item.approval
     val failed = approval.status == PendingApproval.STATUS_FAILED
     val inFlight = item.decision != null
+    var detailsOpen by rememberSaveable(approval.id) { mutableStateOf(false) }
 
     Card(
         modifier = modifier
@@ -65,9 +70,17 @@ fun ApprovalCard(
                 text = if (failed) "Action échouée" else "Maggie demande ton accord",
                 style = MaterialTheme.typography.labelMedium,
             )
-            Text(text = approvalTitle(approval.toolName), style = MaterialTheme.typography.titleSmall)
-            approvalArguments(approval).forEach { line ->
-                Text(text = line, style = MaterialTheme.typography.bodySmall)
+            Text(text = approvalTitle(approval), style = MaterialTheme.typography.titleSmall)
+            TextButton(
+                onClick = { detailsOpen = !detailsOpen },
+                modifier = Modifier.testTag(UiTags.approvalDetails(approval.id)),
+            ) {
+                Text(if (detailsOpen) "Masquer les détails" else "Détails")
+            }
+            if (detailsOpen) {
+                approvalArguments(approval).forEach { line ->
+                    Text(text = line, style = MaterialTheme.typography.bodySmall)
+                }
             }
 
             if (failed) {
@@ -132,9 +145,9 @@ private fun Spinner() {
     )
 }
 
-/** `delete_event` → « Delete event »: the agent's tool names are what there is to show. */
-internal fun approvalTitle(toolName: String): String =
-    toolName.replace('_', ' ').trim().replaceFirstChar { it.uppercase() }
+/** The agent's sentence; an approval held before it existed has none, and a tool name says nothing to the user. */
+internal fun approvalTitle(approval: PendingApproval): String =
+    approval.summary?.takeIf { it.isNotBlank() } ?: "Action en attente de validation"
 
 internal fun approvalArguments(approval: PendingApproval): List<String> =
     approval.arguments.map { (key, value) ->

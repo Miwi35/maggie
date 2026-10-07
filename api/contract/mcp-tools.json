@@ -382,6 +382,21 @@
         },
         "description": "Read the daily financial signal for a month (defaults to the current one): green, neutral, orange or red, with the reasons behind it. Red means the month's total budget is over, or a mandatory category is; orange means a non-mandatory category is over, or planned spending would take it over; green additionally requires a complete safety cushion and spending below the same month last year; neutral is everything else, including having no envelope at all. Reasons come as codes with amounts in cents (mandatory_category_exceeded, optional_category_exceeded, plans_exceed_category_budget, total_budget_exceeded, cushion_incomplete, below_last_year, above_last_year, no_budget) — phrase them for the user rather than reading them out."
     },
+    "get_event": {
+        "name": "get_event",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "id"
+            ]
+        },
+        "description": "Get one calendar event by its ID: summary, start, end, all-day flag and agenda. Works for past events too."
+    },
     "get_events_by_date": {
         "name": "get_events_by_date",
         "inputSchema": {

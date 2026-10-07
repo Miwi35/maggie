@@ -40,6 +40,7 @@ class PendingActionRepository:
         *,
         source: str,
         context_id: str | None = None,
+        summary: str | None = None,
     ) -> PendingAction:
         """Hold a call back, or hand back the identical one already waiting.
 
@@ -63,6 +64,7 @@ class PendingActionRepository:
                 arguments=arguments or {},
                 source=source,
                 context_id=context_id,
+                summary=summary,
             )
             session.add(action)
             await session.commit()
