@@ -26,11 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -232,21 +228,8 @@ fun ChatPanel(
                 viewModel = viewModel,
                 isSending = uiState.isLoading,
                 leading = {
-                    IconButton(
-                        onClick = onBrainClick,
-                        modifier = Modifier.testTag(UiTags.CHAT_CONTEXTS),
-                    ) {
-                        if (activeContextCount > 0) {
-                            BadgedBox(badge = { Badge { Text(activeContextCount.toString()) } }) {
-                                Icon(Icons.Default.Psychology, contentDescription = "Contextes")
-                            }
-                        } else {
-                            Icon(Icons.Default.Psychology, contentDescription = "Contextes")
-                        }
-                    }
-                    IconButton(onClick = onMicClick, modifier = Modifier.testTag(UiTags.CHAT_MIC)) {
-                        Icon(Icons.Default.Mic, contentDescription = "Micro")
-                    }
+                    ChatContextsButton(onBrainClick, activeContextCount)
+                    ChatMicButton(onMicClick)
                 },
             )
         }

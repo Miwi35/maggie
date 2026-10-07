@@ -17,6 +17,7 @@ import org.junit.Test
 class AdaptiveNavigationTest {
 
     private val phone = appLayoutFor(412, 1000)
+    private val phoneLandscape = appLayoutFor(891, 411)
     private val foldableOpen = appLayoutFor(674, 841)
     private val tabletPortrait = appLayoutFor(800, 1280)
     private val tabletLandscape = appLayoutFor(1280, 800)
@@ -28,6 +29,33 @@ class AdaptiveNavigationTest {
         assertFalse(chrome.showsRail)
         assertFalse(chrome.showsChatPanel)
         assertTrue(chrome.showsChatBar)
+        assertFalse(chrome.showsChatInRail)
+        assertFalse(chrome.denseTopBar)
+    }
+
+    /**
+     * The refused recette (MAG-35): a phone in landscape had a 64 dp top bar and a
+     * 72 dp band around 275 dp of content. The band's three buttons go to the rail,
+     * which costs no height, and the top bar is drawn dense.
+     */
+    @Test
+    fun `a phone in landscape reaches the chat from the rail and keeps no band`() {
+        val chrome = chromeFor(phoneLandscape, Screen.Grocery.route)
+
+        assertTrue(chrome.showsRail)
+        assertTrue(chrome.showsChatInRail)
+        assertFalse("the band is what the window has no height for", chrome.showsChatBar)
+        assertFalse(chrome.showsChatPanel)
+        assertTrue(chrome.denseTopBar)
+    }
+
+    @Test
+    fun `the chat screen in landscape gets no entry point of its own`() {
+        val chrome = chromeFor(phoneLandscape, Screen.Chat.route)
+
+        assertTrue(chrome.showsRail)
+        assertFalse("the screen is the conversation", chrome.showsChatInRail)
+        assertFalse(chrome.showsChatBar)
     }
 
     @Test
@@ -55,6 +83,7 @@ class AdaptiveNavigationTest {
         assertTrue(chrome.showsRail)
         assertTrue(chrome.showsChatPanel)
         assertFalse("the panel is the conversation; the bar would be a second way in", chrome.showsChatBar)
+        assertFalse("nor would a button in the rail", chrome.showsChatInRail)
     }
 
     @Test
@@ -80,6 +109,7 @@ class AdaptiveNavigationTest {
             assertFalse("$route should not keep the rail", chrome.showsRail)
             assertFalse("$route should not keep the panel", chrome.showsChatPanel)
             assertFalse("$route should not keep the bar", chrome.showsChatBar)
+            assertFalse("$route should not keep the rail actions", chrome.showsChatInRail)
         }
     }
 
