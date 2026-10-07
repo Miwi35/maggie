@@ -34,8 +34,32 @@ class GetEventToolTest extends KernelTestCase
 
         self::assertSame('Own event', $data['event']['summary']);
         self::assertSame('Own agenda', $data['event']['agenda']);
-        self::assertSame($event->getStartAt()->format('c'), $data['event']['startAt']);
         self::assertFalse($data['event']['allDay']);
+    }
+
+    public function testTheTimesAreInTheEventsOwnTimeZoneNotTheDatabaseSessions(): void
+    {
+        $this->loadFixtures('GetEventToolTest.yaml');
+        $this->loginFixtureUser();
+        self::getContainer()->get('doctrine.orm.entity_manager')->clear();
+
+        $data = $this->read((string) $this->getFixture('paris_event')->getId());
+
+        self::assertSame('Europe/Paris', $data['event']['timeZone']);
+        self::assertSame('2026-10-08T10:00:00+02:00', $data['event']['startAt']);
+        self::assertSame('2026-10-08T11:00:00+02:00', $data['event']['endAt']);
+    }
+
+    public function testAnAllDayEventKeepsItsDayInTheEventsTimeZone(): void
+    {
+        $this->loadFixtures('GetEventToolTest.yaml');
+        $this->loginFixtureUser();
+        self::getContainer()->get('doctrine.orm.entity_manager')->clear();
+
+        $data = $this->read((string) $this->getFixture('paris_all_day')->getId());
+
+        self::assertTrue($data['event']['allDay']);
+        self::assertStringStartsWith('2026-12-24T00:00:00', $data['event']['startAt']);
     }
 
     public function testAnotherUsersEventAnswersLikeAMissingOne(): void

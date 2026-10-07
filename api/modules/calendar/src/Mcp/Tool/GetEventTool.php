@@ -32,13 +32,18 @@ class GetEventTool
             return json_encode(['error' => "Event not found: {$id}"], JSON_THROW_ON_ERROR);
         }
 
+        // The database hands the instants back in its session zone; the event's own zone is the
+        // one its owner reads, and the one that keeps an all-day event on its day.
+        $zone = new \DateTimeZone($event->getTimeZone());
+
         return json_encode([
             'event' => [
                 'id' => (string) $event->getId(),
                 'summary' => $event->getSummary(),
                 'allDay' => $event->isAllDay(),
-                'startAt' => $event->getStartAt()->format('c'),
-                'endAt' => $event->getEndAt()->format('c'),
+                'startAt' => $event->getStartAt()->setTimezone($zone)->format('c'),
+                'endAt' => $event->getEndAt()->setTimezone($zone)->format('c'),
+                'timeZone' => $event->getTimeZone(),
                 'status' => $event->getStatus()->value,
                 'agenda' => $event->getAgenda()->getName(),
                 'recurring' => $event->isRecurring(),
