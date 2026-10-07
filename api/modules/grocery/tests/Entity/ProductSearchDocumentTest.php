@@ -54,7 +54,8 @@ class ProductSearchDocumentTest extends TestCase
             },
         );
 
-        $source = $product->toSearchDocument();
+        // Through JSON, as Elasticsearch hands it back: 500.0 comes back as 500.
+        $source = json_decode(json_encode($product->toSearchDocument(), JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
         $source['id'] = (string) $product->getId();
 
         $hydrated = (new ElasticsearchEntityHydrator($em))->hydrate($source, Product::class);
