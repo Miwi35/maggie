@@ -954,6 +954,62 @@ test('an event two agendas fit is not created until the owner says which one', a
   )
 })
 
+/**
+ * 39-update-event-shift.yaml — MAG-321: shifting an evening to the next day used to put it at
+ * midnight with no length. Wednesday 19:00–00:00 in Paris, then Thursday 19:00–00:00 (UTC+1).
+ * 2098, so the 2099 assertions above never see it.
+ */
+const SHIFT = {
+  title: 'Soirée avec Julie (MAG-321)',
+  before: { startAt: '2098-03-19T18:00:00.000Z', endAt: '2098-03-19T23:00:00.000Z' },
+  after: { startAt: '2098-03-20T18:00:00.000Z', endAt: '2098-03-20T23:00:00.000Z' },
+}
+
+test('"décale la soirée à jeudi" moves the evening to Thursday 19:00–00:00 and nothing stays on Wednesday', async ({
+  page,
+  api,
+}) => {
+  const created = await api.post('/api/events', {
+    headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },
+    data: {
+      summary: SHIFT.title,
+      startAt: SHIFT.before.startAt,
+      endAt: SHIFT.before.endAt,
+      agenda: `/api/agendas/${seedId('e2e_agenda_personal')}`,
+    },
+  })
+  expect(created.status()).toBe(201)
+  const eventId = ((await created.json()) as { id: string }).id
+
+  const dashboard = new DashboardPage(page)
+  await dashboard.open()
+
+  const chat = new ChatPanel(page)
+  const events = await chat.send(`décale la soirée à jeudi (${eventId})`)
+
+  expect(isUnscripted(assistantText(events)), `no scenario matched — Maggie said: ${assistantText(events)}`).toBe(false)
+  expect(toolResults(events)).toContainEqual({ toolName: 'update_event', status: 'success' })
+
+  // The data, not her wording: Thursday from 19:00, ending at midnight — a start and an end,
+  // with the length kept. Polled, because the search index follows the write.
+  const shifted = await waitForIndexed<SeededEvent & { endAt?: string }>(
+    api,
+    '/api/events?startAt%5Bafter%5D=2098-01-01&startAt%5Bbefore%5D=2098-12-31',
+    (event) => event.summary === SHIFT.title && new Date(String(event.startAt)).toISOString() === SHIFT.after.startAt,
+    { what: `The ${SHIFT.title} event, shifted to Thursday` },
+  )
+  expect(new Date(String(shifted.endAt)).toISOString()).toBe(SHIFT.after.endAt)
+
+  // And no longer on Wednesday: it is the same event, so one row carries the title.
+  const sameTitle = (await getCollection<SeededEvent>(api, '/api/events?startAt%5Bafter%5D=2098-01-01&startAt%5Bbefore%5D=2098-12-31')).filter(
+    (event) => event.summary === SHIFT.title,
+  )
+  expect(sameTitle).toHaveLength(1)
+
+  const calendar = new CalendarPage(page)
+  await calendar.goToEventDate(eventId, SHIFT.title)
+})
+
 /** 01 to 03-context-router-birthday-*.yaml and 90 to 92-birthday-*.yaml — one discussion (MAG-341). */
 const ONE_DISCUSSION = {
   first: "Je prépare l'anniversaire de Lucie samedi",

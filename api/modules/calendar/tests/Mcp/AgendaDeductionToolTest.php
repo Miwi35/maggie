@@ -40,7 +40,7 @@ class AgendaDeductionToolTest extends KernelTestCase
     {
         return json_decode(
             (self::getContainer()->get(CreateEventTool::class))(
-                $title, '2099-11-12', '20:00', 120, null, $location, $agenda,
+                $title, '2099-11-12', '20:00', '2099-11-12', '22:00', location: $location, agenda_id: $agenda,
             ),
             true,
             512,

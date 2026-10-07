@@ -22,7 +22,8 @@ turns:
       - name: create_event
         input:
           title: "Déjeuner avec Camille"
-          date: "2099-11-14"
-          time: "12:30"
-          duration: 60
+          start_date: "2099-11-14"
+          start_time: "12:30"
+          end_date: "2099-11-14"
+          end_time: "13:30"
   - text: "Deux agendas conviennent pour ce déjeuner : Boulot ou Famille ? Je n'ai rien enregistré pour l'instant."

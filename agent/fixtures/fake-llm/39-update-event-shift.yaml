@@ -1,0 +1,25 @@
+# "Décale la soirée à jeudi" — the whole schedule, never a date alone (MAG-321).
+#
+# `update_event` takes a start and an end in full: moving an evening from Wednesday
+# to Thursday means saying 19:00 Thursday to 00:00 Friday, not "the 8th". An event
+# was once moved to midnight, with no length, by a date given alone. The event's id
+# comes from the journey's sentence, as in 43-grocery-fallback.yaml.
+#
+# 2098, so that this event stays clear of the 2099 appointments the other
+# scenarios count. The 19th is a Wednesday, the 20th a Thursday.
+name: update-event-shift
+description: Shift an evening from Wednesday to Thursday, with its start and its end.
+
+match:
+  user_matches: 'décale la soirée à jeudi \(([0-9A-HJKMNP-TV-Z]{26})\)'
+
+turns:
+  - tools:
+      - name: update_event
+        input:
+          id: '\1'
+          start_date: "2098-03-20"
+          start_time: "19:00"
+          end_date: "2098-03-21"
+          end_time: "00:00"
+  - text: "C'est décalé : la soirée est jeudi 20 mars de 19 h à minuit."

@@ -189,7 +189,7 @@ class UserIsolationToolsTest extends KernelTestCase
         $this->loadFixtures('UserIsolationToolsTest.yaml');
         $this->loginFixtureUser();
 
-        $data = $this->decode((self::getContainer()->get(CreateEventTool::class))('Dentist', '2030-01-15', '09:00'));
+        $data = $this->decode((self::getContainer()->get(CreateEventTool::class))('Dentist', '2030-01-15', '09:00', '2030-01-15', '10:00'));
 
         self::assertTrue($data['success']);
         self::assertSame('Own agenda', $data['event']['agenda']);
@@ -209,7 +209,7 @@ class UserIsolationToolsTest extends KernelTestCase
         $em->flush();
         $this->loginFixtureUser();
 
-        $data = $this->decode((self::getContainer()->get(CreateEventTool::class))('Dentist', '2030-01-15', '09:00'));
+        $data = $this->decode((self::getContainer()->get(CreateEventTool::class))('Dentist', '2030-01-15', '09:00', '2030-01-15', '10:00'));
 
         self::assertStringContainsString('No default agenda', $data['error']);
         self::assertNull($em->getRepository(Event::class)->findOneBy(['summary' => 'Dentist']));
@@ -221,7 +221,7 @@ class UserIsolationToolsTest extends KernelTestCase
         $this->loginFixtureUser();
         $otherAgendaId = (string) $this->getFixture('other_agenda')->getId();
 
-        $data = $this->decode((self::getContainer()->get(CreateEventTool::class))('Dentist', '2030-01-15', '09:00', 60, null, null, $otherAgendaId));
+        $data = $this->decode((self::getContainer()->get(CreateEventTool::class))('Dentist', '2030-01-15', '09:00', '2030-01-15', '10:00', agenda_id: $otherAgendaId));
 
         self::assertStringContainsString('Own agenda', $data['error']);
         self::assertStringNotContainsString('Other agenda', $data['error']);
