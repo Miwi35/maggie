@@ -235,8 +235,11 @@ class GoogleTasksConnectApiTest extends WebTestCase
         self::assertSame(['googleTaskListId' => 'list-courses', 'title' => 'Courses'], $this->body());
         self::assertSame('list-courses', $this->reload($user)->getGoogleTaskListId());
 
-        // The full scoped topic, not a substring of it: an update published
-        // outside the user's scope would contain this one and pass (8380178).
+        // One update, and the full scoped topic rather than a substring of it:
+        // an update published outside the user's scope would contain this one
+        // and pass (8380178), and publishing twice — once scoped, once not —
+        // is the other half of that regression (c2d3758).
+        $this->assertMercureUpdateCount(1);
         self::assertSame(
             ['/users/'.$user->getId().'/api/users/'.$user->getId()],
             $this->getMercureHub()->getUpdates()[0]->getTopics(),
@@ -311,6 +314,7 @@ class GoogleTasksConnectApiTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame(['googleTaskListId' => null], $this->body());
         self::assertNull($this->reload($user)->getGoogleTaskListId());
+        $this->assertMercureUpdateCount(1);
         self::assertSame(
             ['/users/'.$user->getId().'/api/users/'.$user->getId()],
             $this->getMercureHub()->getUpdates()[0]->getTopics(),
@@ -323,6 +327,7 @@ class GoogleTasksConnectApiTest extends WebTestCase
             ),
             'the screens listening have to be told the choice is gone, not just that something moved',
         );
+        $this->assertNoElasticsearchIndexDispatched(User::class);
 
         // Kept on purpose: reconnecting the same list resumes on these rows
         // instead of pulling a second copy of every task.

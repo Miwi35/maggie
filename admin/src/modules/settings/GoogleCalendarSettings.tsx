@@ -74,6 +74,10 @@ export const GoogleCalendarSettings = () => {
         setGoogleTaskLists((await tlRes.json()) as GoogleTaskList[])
         setTaskListsLoaded(true)
       } else {
+        // Cleared like the 403 branch above: a second load that fails after a
+        // successful one would otherwise keep offering lists the screen has
+        // just decided it cannot vouch for.
+        setGoogleTaskLists([])
         setTaskListsLoaded(false)
         notify('Erreur lors du chargement des listes Google Tasks', { type: 'error' })
       }
@@ -185,14 +189,24 @@ export const GoogleCalendarSettings = () => {
                   La liste synchronisée n’existe plus sur Google. Choisissez-en une autre.
                 </Alert>
               )}
+              {!taskListsLoaded && (
+                <Alert severity="warning">
+                  Les listes Google Tasks n’ont pas pu être chargées : le nom de la liste
+                  synchronisée est indisponible.
+                </Alert>
+              )}
               {connectedTaskListId && !connectedTaskListMissing ? (
                 <Stack direction="row" alignItems="center" spacing={2}>
                   <Chip label="Synchronisée" color="success" size="small" />
                   <Typography variant="body2">
-                    {/* The stored identifier when the title is unknown — the
-                        lists did not load, and showing an empty pair of quotes
-                        would say less than Google's own id. */}
-                    Synchronisée avec «&nbsp;{connectedTaskList?.title ?? connectedTaskListId}&nbsp;»
+                    {/* Google's list ids are opaque, so an unknown title is
+                        said as such rather than shown raw — the warning above
+                        carries the reason. */}
+                    {connectedTaskList ? (
+                      <>Synchronisée avec «&nbsp;{connectedTaskList.title}&nbsp;»</>
+                    ) : (
+                      'Synchronisée avec une liste Google (nom indisponible)'
+                    )}
                   </Typography>
                   <Button
                     size="small"

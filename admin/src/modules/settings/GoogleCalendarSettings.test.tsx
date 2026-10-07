@@ -191,8 +191,12 @@ describe('GoogleCalendarSettings — the Google Tasks list', () => {
     stubApi({ taskListsStatus: 500, googleTaskListId: 'list-chores' })
     render(<GoogleCalendarSettings />)
 
-    expect(await screen.findByText(/Synchronisée avec\s*«\s*list-chores\s*»/)).toBeInTheDocument()
+    // The name is unknown, and said to be: Google's list ids are opaque, so
+    // showing `list-chores` as the list's name would be a worse answer.
+    expect(await screen.findByText(/Synchronisée avec une liste Google \(nom indisponible\)/)).toBeInTheDocument()
     expect(screen.queryByText(/n’existe plus sur Google/)).not.toBeInTheDocument()
+    expect(screen.getByText(/n’ont pas pu être chargées/)).toBeInTheDocument()
+    expect(screen.queryByText('list-chores')).not.toBeInTheDocument()
   })
 
   test('reports the error the API gives when connecting fails', async () => {

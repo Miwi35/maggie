@@ -82,7 +82,12 @@ async function forgetPulledTasks(api: APIRequestContext): Promise<void> {
 
   for (const task of pulled.filter((candidate) => candidate.title === PULLED_TASK)) {
     const response = await api.delete(`/api/tasks/${task.id}`)
-    expect(response.status(), `DELETE /api/tasks/${task.id} answered ${response.status()}`).toBe(204)
+    // 404 is a pass: the list is read from a lagging index, so it can hand
+    // back a row a previous teardown already took away — and failing in
+    // teardown on something no test asserts is the worse outcome.
+    expect([204, 404], `DELETE /api/tasks/${task.id} answered ${response.status()}`).toContain(
+      response.status(),
+    )
   }
 }
 
