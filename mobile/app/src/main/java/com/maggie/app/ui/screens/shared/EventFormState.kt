@@ -36,7 +36,20 @@ data class EventFormState(
 
     fun withEndTime(time: LocalTime) = copy(end = LocalDateTime.of(endDate, time))
 
-    fun withAllDay(value: Boolean) = copy(allDay = value)
+    /**
+     * Switching to all-day keeps the days (a 19:00–00:00 event is one day, not two);
+     * switching back never leaves a zero-length event.
+     */
+    fun withAllDay(value: Boolean): EventFormState {
+        if (value == allDay) return this
+        if (value) {
+            val lastDay = if (endTime == LocalTime.MIDNIGHT && endDate.isAfter(startDate)) endDate.minusDays(1) else endDate
+            return copy(allDay = true, end = LocalDateTime.of(lastDay, endTime))
+        }
+        if (end.isAfter(start)) return copy(allDay = false)
+        val newStart = LocalDateTime.of(startDate, LocalTime.of(9, 0))
+        return copy(allDay = false, start = newStart, end = newStart.plusHours(1))
+    }
 
     private fun withStart(newStart: LocalDateTime) =
         copy(start = newStart, end = newStart.plus(Duration.between(start, end)))

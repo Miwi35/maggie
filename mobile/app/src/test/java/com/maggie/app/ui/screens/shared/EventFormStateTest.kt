@@ -63,6 +63,23 @@ class EventFormStateTest {
     }
 
     @Test
+    fun `switching an evening event to all-day keeps it on one day`() {
+        val form = evening.withAllDay(true)
+
+        assertEquals(LocalDate.of(2026, 10, 7), form.startDate)
+        assertEquals(LocalDate.of(2026, 10, 7), form.endDate)
+        assertFalse(form.endsBeforeStart)
+    }
+
+    @Test
+    fun `switching a one-day all-day event back to timed never leaves it empty`() {
+        val form = evening.withAllDay(true).withAllDay(false)
+
+        assertEquals(LocalDateTime.of(2026, 10, 7, 9, 0), form.start)
+        assertEquals(LocalDateTime.of(2026, 10, 7, 10, 0), form.end)
+    }
+
+    @Test
     fun `a timed event is sent as its start and end in the zone of the user`() {
         // Paris is UTC+2 on 7 October.
         assertEquals("2026-10-07T17:00:00Z", evening.startAt(paris))
