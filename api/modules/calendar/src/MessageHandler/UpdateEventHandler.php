@@ -68,9 +68,15 @@ class UpdateEventHandler
         $fromAgenda ??= $event->getAgenda();
         $fromGoogleEventId = $event->getGoogleEventId();
         $agendaChanged = false;
-        if (null !== $command->agendaId) {
+        if (null !== $command->agendaId && $fromAgenda->isModule()) {
+            // What a module filed stays where it filed it — a meal moved to the
+            // default agenda would be sent to Google (MAG-324). Through the API the
+            // managed entity already carries the new agenda, so it is put back.
+            $event->setAgenda($fromAgenda);
+        } elseif (null !== $command->agendaId) {
             $agenda = $this->agendaRepository->find($command->agendaId);
-            if (null === $agenda || (string) $agenda->getUser()->getId() !== (string) $fromAgenda->getUser()->getId()) {
+            // A module's agenda is not one an ordinary event can be moved into (MAG-324).
+            if (null === $agenda || $agenda->isModule() || (string) $agenda->getUser()->getId() !== (string) $fromAgenda->getUser()->getId()) {
                 throw new \DomainException('No agenda found.');
             }
             $agendaChanged = (string) $agenda->getId() !== (string) $fromAgenda->getId();

@@ -349,4 +349,29 @@ class GoogleCalendarConnectApiTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(404);
     }
+
+    public function testAnAgendaAModuleKeepsForItselfIsNeverExportedToGoogle(): void
+    {
+        $user = $this->load();
+        $this->stubGoogle([]);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $moduleAgenda = (new Agenda())->setUser($user)->setName('Repas')->setModule('cookbook');
+        $em->persist($moduleAgenda);
+        $em->flush();
+
+        $this->client->request(
+            'POST',
+            '/api/calendar/google/export',
+            [],
+            [],
+            array_merge(['CONTENT_TYPE' => 'application/json'], $this->authHeaders()),
+            json_encode(['agendaId' => (string) $moduleAgenda->getId()], JSON_THROW_ON_ERROR),
+        );
+
+        self::assertResponseStatusCodeSame(409);
+        foreach ($this->agendasOf($user) as $agenda) {
+            self::assertNull($agenda->getGoogleCalendarId());
+        }
+    }
 }

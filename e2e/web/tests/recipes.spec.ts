@@ -172,15 +172,23 @@ test.describe('Recipes and meals', () => {
     const stored = (await getCollection<MealRow>(api, '/api/meals')).find((m) => String(m.summary).includes(recipeName))
     expect(stored, 'the meal is not in the API collection right after the screen showed it').toBeDefined()
 
-    // One of the caller's own agendas, read from the collection rather than
-    // named: the seed gives them none called "Repas", so today the week view
-    // falls back to the default one — but `MealsWeekView` prefers a "Repas"
-    // agenda when it can see one, and MAG-176 is about making the one the API
-    // creates visible. Pinning the personal agenda by name would turn this test
-    // red the day that lands, for a reason that has nothing to do with MAG-117.
-    const mine = (await getCollection<{ '@id': string }>(api, '/api/agendas')).map((agenda) => agenda['@id'])
-    expect(mine.length, 'the caller has no agenda at all — did the seed run?').toBeGreaterThan(0)
-    expect(mine.some((iri) => JSON.stringify(stored?.agenda).includes(iri))).toBe(true)
+    // MAG-324: the week view names no agenda, and the meal lands in the module
+    // agenda « Repas » — created on this first need, found by its attribute and
+    // not by its name. The seeded user has none called « Repas », and the
+    // default agenda (synced with Google) received nothing.
+    type AgendaRow = { '@id': string; module?: string | null; isDefault?: boolean }
+    await waitForIndexed<AgendaRow>(api, '/api/agendas', (agenda) => 'cookbook' === agenda.module, {
+      what: 'The module agenda the first meal creates',
+    })
+    const storedAgendas = await getCollection<AgendaRow>(api, '/api/agendas')
+    const moduleAgendas = storedAgendas.filter((agenda) => 'cookbook' === agenda.module)
+    expect(moduleAgendas, 'exactly one module agenda holds the meals').toHaveLength(1)
+    expect(moduleAgendas[0].isDefault).toBeFalsy()
+    expect(JSON.stringify(stored?.agenda)).toContain(moduleAgendas[0]['@id'])
+
+    const defaults = storedAgendas.filter((agenda) => agenda.isDefault)
+    expect(defaults.some((agenda) => JSON.stringify(stored?.agenda).includes(agenda['@id']))).toBe(false)
+    await expect(shell.content.locator('[data-testid^="meal-cell-"]').filter({ hasText: recipeName })).toHaveCount(1)
   })
 
   /**

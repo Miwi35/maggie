@@ -26,6 +26,10 @@ class UpdateAgendaHandler
             throw new \DomainException("Agenda not found: {$command->agendaId}");
         }
 
+        if (true === $command->isDefault && $agenda->isModule()) {
+            throw new \DomainException('An agenda a module keeps for itself cannot be the default agenda.');
+        }
+
         if (true === $command->isDefault) {
             // One default per user: the others lose it first, through the bus so
             // their screens and the search index follow (MAG-149).

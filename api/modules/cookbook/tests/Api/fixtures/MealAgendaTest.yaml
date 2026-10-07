@@ -1,0 +1,31 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: meal-agenda@example.com
+    googleId: google-meal-agenda
+    name: Meal Agenda User
+  other_user:
+    email: meal-agenda-other@example.com
+    googleId: google-meal-agenda-other
+    name: Someone Else
+
+Maggie\Calendar\Entity\Agenda:
+  default_agenda:
+    name: Défaut
+    isDefault: true
+    googleCalendarId: google-calendar-default
+    user: '@test_user'
+  # The user's own agenda that happens to be called "Repas": a name is not what
+  # makes an agenda the meals' one.
+  user_named_repas:
+    name: Repas
+    user: '@test_user'
+  other_module_agenda:
+    name: Repas
+    module: cookbook
+    user: '@other_user'
+
+Maggie\Cookbook\Entity\Recipe:
+  pasta:
+    name: Pâtes à la tomate
+    servings: 4
+    user: '@test_user'

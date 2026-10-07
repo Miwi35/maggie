@@ -214,6 +214,14 @@ $KUBECTL exec "deployment/php" -n "$NAMESPACE" -- bin/console app:calendar:dedup
 log "Phase 5b: Running migrations..."
 $KUBECTL exec "deployment/php" -n "$NAMESPACE" -- bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
 
+# Meals filed before the « Repas » module agenda existed move into it and lose
+# their Google copy (MAG-324). Needs the migration's `module` column, hence after
+# it; a no-op once every meal is filed, and safe to run again.
+log "Phase 5b2: Filing meals in the module agenda..."
+if ! $KUBECTL exec "deployment/php" -n "$NAMESPACE" -- bin/console app:cookbook:file-meals-in-module-agenda --no-interaction; then
+  warn "Filing meals failed (non-blocking). Run manually: kubectl exec deployment/php -n $NAMESPACE -- bin/console app:cookbook:file-meals-in-module-agenda"
+fi
+
 # No cache:clear here (MAG-146): the image ships a warmed cache, and deleting
 # var/cache/prod under a pod that is serving requests fails at random.
 

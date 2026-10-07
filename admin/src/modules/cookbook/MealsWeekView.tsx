@@ -75,13 +75,6 @@ interface Recipe {
   name: string
 }
 
-interface Agenda {
-  id: string
-  '@id'?: string
-  name: string
-  default?: boolean
-}
-
 interface Meal {
   id: string
   '@id': string
@@ -271,17 +264,6 @@ export const MealsWeekView = () => {
     setDialogOpen(true)
   }
 
-  const findMealAgendaIri = async (): Promise<string | null> => {
-    const { data } = await dataProvider.getList('agendas', {
-      pagination: { page: 1, perPage: 50 },
-      sort: { field: 'name', order: 'ASC' },
-      filter: {},
-    })
-    const agendas = data as Agenda[]
-    const agenda = agendas.find((a) => a.name === 'Repas') ?? agendas.find((a) => a.default) ?? agendas[0]
-    return agenda ? agenda['@id'] || `/api/agendas/${agenda.id}` : null
-  }
-
   const handleCreate = async () => {
     if (selectedRecipes.length === 0) {
       notify('Choisissez au moins une recette pour ce repas', { type: 'error' })
@@ -289,16 +271,12 @@ export const MealsWeekView = () => {
     }
 
     try {
-      const agendaIri = await findMealAgendaIri()
-      if (!agendaIri) {
-        notify('Aucun agenda disponible pour accueillir le repas', { type: 'error' })
-        return
-      }
       const recipeIris = selectedRecipes.map((r) => r['@id'] || `/api/recipes/${r.id}`)
       await dataProvider.create('meals', {
         data: {
           // The day and the slot, and nothing that looks like a time: the API
-          // derives the instants the agenda shows (MAG-251).
+          // derives the instants the agenda shows (MAG-251). No agenda either:
+          // the API files a meal in the « Repas » module agenda (MAG-324).
           date: dialogDate,
           slot: dialogSlot,
           summary:
@@ -306,7 +284,6 @@ export const MealsWeekView = () => {
             ' : ' +
             selectedRecipes.map((r) => r.name).join(', '),
           recipes: recipeIris,
-          agenda: agendaIri,
         },
       })
       setDialogOpen(false)

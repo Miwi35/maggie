@@ -7,6 +7,7 @@ Maggie\Core\Entity\User:
 Maggie\Calendar\Entity\Agenda:
   test_agenda:
     name: Repas
+    module: cookbook
     color: '#FF6B35'
     isDefault: true
     user: '@test_user'

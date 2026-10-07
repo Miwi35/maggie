@@ -45,7 +45,7 @@ class AgendaResolver
      */
     public function findExact(User $user, string $reference): ?Agenda
     {
-        $agendas = $this->agendaRepository->findByUser($user);
+        $agendas = $this->agendaRepository->findForEventsByUser($user);
         $reference = trim($reference);
 
         foreach ($agendas as $agenda) {
@@ -90,7 +90,7 @@ class AgendaResolver
      */
     public function describeFor(User $user): string
     {
-        return self::describe($this->agendaRepository->findByUser($user));
+        return self::describe($this->agendaRepository->findForEventsByUser($user));
     }
 
     /**

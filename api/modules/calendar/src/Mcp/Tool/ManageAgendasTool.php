@@ -58,7 +58,7 @@ class ManageAgendasTool
     {
         $user = $this->userContext->requireUser();
 
-        $agendas = $this->agendaRepository->findByUser($user);
+        $agendas = $this->agendaRepository->findForEventsByUser($user);
 
         return json_encode([
             'agendas' => array_map(fn (Agenda $a) => $this->serialize($a), $agendas),

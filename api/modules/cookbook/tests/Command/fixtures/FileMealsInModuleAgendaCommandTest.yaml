@@ -1,0 +1,48 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: file-meals@example.com
+    googleId: google-file-meals
+    name: File Meals User
+  other_user:
+    email: file-meals-other@example.com
+    googleId: google-file-meals-other
+    name: Someone Else
+
+Maggie\Calendar\Entity\Agenda:
+  default_agenda:
+    name: Défaut
+    isDefault: true
+    googleCalendarId: google-calendar-default
+    user: '@test_user'
+  other_default_agenda:
+    name: Défaut
+    isDefault: true
+    user: '@other_user'
+  other_module_agenda:
+    name: Mes repas
+    module: cookbook
+    user: '@other_user'
+
+Maggie\Cookbook\Entity\Meal:
+  pushed_meal:
+    summary: 'Déjeuner : Pâtes'
+    slot: '<(Maggie\Cookbook\Enum\MealSlot::Lunch)>'
+    date: '<(new \DateTimeImmutable("2030-01-14"))>'
+    agenda: '@default_agenda'
+    googleEventId: google-event-1
+    googleEtag: etag-1
+  local_meal:
+    summary: 'Dîner : Soupe'
+    slot: '<(Maggie\Cookbook\Enum\MealSlot::Dinner)>'
+    date: '<(new \DateTimeImmutable("2030-01-14"))>'
+    agenda: '@default_agenda'
+  already_filed_meal:
+    summary: 'Dîner : Gratin'
+    slot: '<(Maggie\Cookbook\Enum\MealSlot::Dinner)>'
+    date: '<(new \DateTimeImmutable("2030-01-15"))>'
+    agenda: '@other_module_agenda'
+  other_users_meal:
+    summary: 'Déjeuner : Salade'
+    slot: '<(Maggie\Cookbook\Enum\MealSlot::Lunch)>'
+    date: '<(new \DateTimeImmutable("2030-01-15"))>'
+    agenda: '@other_default_agenda'

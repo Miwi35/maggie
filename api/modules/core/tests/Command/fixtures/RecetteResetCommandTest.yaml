@@ -30,6 +30,7 @@ Maggie\Notification\Entity\Notification:
 Maggie\Calendar\Entity\Agenda:
   agenda_{recette, other}:
     name: Repas
+    module: cookbook
     color: '#FF6B35'
     user: '@user_<current()>'
 

@@ -45,6 +45,7 @@ Maggie\Cookbook\Entity\RecipeIngredient:
 Maggie\Calendar\Entity\Agenda:
   other_repas_agenda:
     name: Repas
+    module: cookbook
     color: '#FF6B35'
     user: '@other_user'
   own_agenda:

@@ -42,9 +42,34 @@ class AgendaRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * Whether the user has an agenda of their own. A module agenda made for them
+     * does not count: the first agenda they create is still their default
+     * (MAG-324).
+     */
     public function userHasAgenda(User $user): bool
     {
-        return null !== $this->findOneBy(['user' => $user]);
+        return null !== $this->findOneBy(['user' => $user, 'module' => null]);
+    }
+
+    /** The agenda a module keeps for the user, whatever its name has become. */
+    public function findOneByModule(User $user, string $module): ?Agenda
+    {
+        return $this->findOneBy(['user' => $user, 'module' => $module]);
+    }
+
+    /**
+     * The agendas an ordinary event can go in: everything but the ones a module
+     * keeps for itself, which Maggie never proposes (MAG-324).
+     *
+     * @return Agenda[]
+     */
+    public function findForEventsByUser(User $user): array
+    {
+        return array_values(array_filter(
+            $this->findByUser($user),
+            static fn (Agenda $agenda) => !$agenda->isModule(),
+        ));
     }
 
     /**

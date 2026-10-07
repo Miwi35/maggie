@@ -142,6 +142,13 @@ final class GoogleCalendarConnectController
             return new JsonResponse(['error' => 'Agenda not found.'], Response::HTTP_NOT_FOUND);
         }
 
+        if ($agenda->isModule()) {
+            return new JsonResponse(
+                ['error' => 'An agenda a module keeps for itself is never synced with Google Calendar.'],
+                Response::HTTP_CONFLICT,
+            );
+        }
+
         if (null !== $agenda->getGoogleCalendarId()) {
             return new JsonResponse(
                 ['error' => 'Agenda is already synced with Google Calendar.'],

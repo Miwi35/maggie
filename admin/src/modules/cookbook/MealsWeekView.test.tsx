@@ -93,40 +93,22 @@ describe('MealsWeekView', () => {
     mockGetList.mockImplementation(answer(agendas))
   })
 
-  test('creates the meal in a real agenda, never in the agendas collection', async () => {
+  test('sends no agenda: the API files the meal in the Repas module agenda', async () => {
     await createFirstEmptyMeal()
 
     await waitFor(() => expect(mockCreate).toHaveBeenCalled())
-    const { agenda } = mockCreate.mock.calls[0][1].data
-    expect(agenda).not.toBe('/api/agendas')
-    expect(agenda).toMatch(/^\/api\/agendas\/\w+$/)
+    expect(mockCreate.mock.calls[0][1].data).not.toHaveProperty('agenda')
+    expect(mockGetList).not.toHaveBeenCalledWith('agendas', expect.anything())
   })
 
-  test('prefers the agenda named Repas', async () => {
-    mockGetList.mockImplementation(
-      answer([...agendas, { id: '/api/agendas/01REPAS', '@id': '/api/agendas/01REPAS', name: 'Repas', default: false }]),
-    )
-
-    await createFirstEmptyMeal()
-
-    await waitFor(() => expect(mockCreate).toHaveBeenCalled())
-    expect(mockCreate.mock.calls[0][1].data.agenda).toBe('/api/agendas/01REPAS')
-  })
-
-  test('falls back to the default agenda', async () => {
-    await createFirstEmptyMeal()
-
-    await waitFor(() => expect(mockCreate).toHaveBeenCalled())
-    expect(mockCreate.mock.calls[0][1].data.agenda).toBe('/api/agendas/01PERSO')
-  })
-
-  test('tells the user instead of posting when there is no agenda', async () => {
+  test('creates the meal for a user who has no Repas agenda and no agenda at all', async () => {
     mockGetList.mockImplementation(answer([]))
 
     await createFirstEmptyMeal()
 
-    await waitFor(() => expect(mockNotify).toHaveBeenCalledWith(expect.stringMatching(/agenda/i), { type: 'error' }))
-    expect(mockCreate).not.toHaveBeenCalled()
+    await waitFor(() => expect(mockCreate).toHaveBeenCalled())
+    expect(mockNotify).toHaveBeenCalledWith('Repas créé', { type: 'success' })
+    expect(mockCreate.mock.calls[0][1].data).not.toHaveProperty('agenda')
   })
 
   test('plans the recipe that was picked', async () => {

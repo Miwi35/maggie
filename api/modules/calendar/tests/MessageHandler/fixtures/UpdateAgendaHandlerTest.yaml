@@ -11,6 +11,10 @@ Maggie\Calendar\Entity\Agenda:
     color: '#e91e63'
     isDefault: true
     user: '@test_user'
+  module_agenda:
+    name: Repas
+    module: cookbook
+    user: '@test_user'
 
 Maggie\Calendar\Entity\Event:
   event_full:
