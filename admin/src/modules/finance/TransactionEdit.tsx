@@ -1,8 +1,8 @@
 import { Edit } from 'react-admin'
-import { TransactionForm } from './TransactionForm'
+import { TransactionForm, toTransactionPayload } from './TransactionForm'
 
 export const TransactionEdit = () => (
-  <Edit title="Modifier l'opération">
+  <Edit title="Modifier la transaction" transform={toTransactionPayload}>
     <TransactionForm />
   </Edit>
 )

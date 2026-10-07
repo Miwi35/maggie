@@ -44,7 +44,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Category
+import com.maggie.app.data.model.TransactionNature
+import com.maggie.app.data.model.categoryMatchesNature
 import com.maggie.app.data.model.formatCents
+import com.maggie.app.data.model.signedAmountCents
+import com.maggie.app.data.model.statusForNature
+import com.maggie.app.data.model.transactionStatusCodes
 import com.maggie.app.data.model.transactionStatusLabel
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
@@ -83,7 +88,7 @@ fun TransactionListScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(onClick = { showCreateDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Nouvelle opération")
+                Icon(Icons.Default.Add, contentDescription = "Nouvelle transaction")
             }
         },
     ) { paddingValues ->
@@ -99,9 +104,9 @@ fun TransactionListScreen(
             uiState.transactions.isEmpty() -> {
                 EmptyState(
                     modifier = Modifier.padding(paddingValues),
-                    title = "Aucune opération sur ce compte",
+                    title = "Aucune transaction sur ce compte",
                     description = "Ajoutez vos dépenses et vos recettes pour suivre ce compte au fil du mois.",
-                    actionLabel = "Ajouter une opération",
+                    actionLabel = "Ajouter une transaction",
                     onAction = { showCreateDialog = true },
                 )
             }
@@ -127,7 +132,7 @@ fun TransactionListScreen(
                                     )
                                     val subtitle = buildString {
                                         transaction.bookedAt?.let { append(it).append(" · ") }
-                                        append(transactionStatusLabel(transaction.status))
+                                        append(transactionStatusLabel(transaction.status, transaction.amountCents))
                                     }
                                     Text(
                                         text = subtitle,
@@ -171,8 +176,6 @@ fun TransactionListScreen(
     }
 }
 
-private val TRANSACTION_STATUSES = listOf("spent", "committed", "planned", "to_arbitrate")
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TransactionCreateDialog(
@@ -182,22 +185,43 @@ private fun TransactionCreateDialog(
 ) {
     var label by remember { mutableStateOf("") }
     var amountText by remember { mutableStateOf("") }
-    var isExpense by remember { mutableStateOf(true) }
+    var nature by remember { mutableStateOf(TransactionNature.Expense) }
     var status by remember { mutableStateOf("spent") }
     var categoryId by remember { mutableStateOf<String?>(null) }
     var dateText by remember { mutableStateOf(LocalDate.now().toString()) }
 
     val dateValid = runCatching { LocalDate.parse(dateText) }.isSuccess
-    val canSubmit = label.isNotBlank() && amountText.toDoubleOrNull() != null && dateValid
+    val canSubmit = label.isNotBlank() &&
+        (amountText.toDoubleOrNull() ?: 0.0) != 0.0 &&
+        dateValid
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Nouvelle opération") },
+        title = { Text("Nouvelle transaction") },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(
+                        TransactionNature.Expense to "Dépense",
+                        TransactionNature.Income to "Recette",
+                    ).forEach { (option, name) ->
+                        FilterChip(
+                            selected = nature == option,
+                            onClick = {
+                                nature = option
+                                status = statusForNature(status, option)
+                                // A salary is not a dépense, a subscription is not a recette.
+                                if (categories.any { it.id == categoryId && !categoryMatchesNature(it, option) }) {
+                                    categoryId = null
+                                }
+                            },
+                            label = { Text(name) },
+                        )
+                    }
+                }
                 OutlinedTextField(
                     value = label,
                     onValueChange = { label = it },
@@ -213,18 +237,6 @@ private fun TransactionCreateDialog(
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
-                        selected = isExpense,
-                        onClick = { isExpense = true },
-                        label = { Text("Dépense") },
-                    )
-                    FilterChip(
-                        selected = !isExpense,
-                        onClick = { isExpense = false },
-                        label = { Text("Revenu") },
-                    )
-                }
                 OutlinedTextField(
                     value = dateText,
                     onValueChange = { dateText = it },
@@ -233,26 +245,30 @@ private fun TransactionCreateDialog(
                     singleLine = true,
                     isError = !dateValid,
                 )
-                Text("Statut", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    if (nature == TransactionNature.Income) "État de la recette" else "État de la dépense",
+                    style = MaterialTheme.typography.bodySmall,
+                )
                 Row(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    TRANSACTION_STATUSES.forEach { code ->
+                    transactionStatusCodes(nature).forEach { code ->
                         FilterChip(
                             selected = status == code,
                             onClick = { status = code },
-                            label = { Text(transactionStatusLabel(code)) },
+                            label = { Text(transactionStatusLabel(code, nature)) },
                         )
                     }
                 }
-                if (categories.isNotEmpty()) {
+                val offered = categories.filter { categoryMatchesNature(it, nature) }
+                if (offered.isNotEmpty()) {
                     Text("Catégorie", style = MaterialTheme.typography.bodySmall)
                     Row(
                         modifier = Modifier.horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        categories.forEach { category ->
+                        offered.forEach { category ->
                             FilterChip(
                                 selected = categoryId == category.id,
                                 onClick = { categoryId = if (categoryId == category.id) null else category.id },
@@ -267,7 +283,7 @@ private fun TransactionCreateDialog(
             TextButton(
                 onClick = {
                     val euros = amountText.toDoubleOrNull() ?: return@TextButton
-                    val cents = (euros * 100).roundToInt().let { if (isExpense) -it else it }
+                    val cents = signedAmountCents((euros * 100).roundToInt(), nature)
                     onConfirm(cents, label.trim(), status, categoryId, dateText)
                 },
                 enabled = canSubmit,

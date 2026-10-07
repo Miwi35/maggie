@@ -1,8 +1,8 @@
 import { Create } from 'react-admin'
-import { TransactionForm } from './TransactionForm'
+import { TransactionForm, toTransactionPayload } from './TransactionForm'
 
 export const TransactionCreate = () => (
-  <Create title="Nouvelle opération">
+  <Create title="Nouvelle transaction" transform={toTransactionPayload}>
     <TransactionForm withDefaults />
   </Create>
 )

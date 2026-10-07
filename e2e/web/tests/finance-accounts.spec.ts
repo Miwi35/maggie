@@ -7,7 +7,7 @@ import { FinanceBudgetPage } from '../pages/FinanceBudgetPage.js'
 import { FinanceCategoriesPage } from '../pages/FinanceCategoriesPage.js'
 
 /**
- * Accounts, and the operations that hang off them (MAG-102).
+ * Accounts, and the transactions that hang off them (MAG-102).
  *
  * The first two tests only read the owner's seeded world. Everything that
  * writes does so as the **neighbour**, for the same reason MAG-149's
@@ -72,7 +72,7 @@ test('the seeded accounts show the balance and the type they were given', async 
  * "the checking account's transactions are here" but "the savings account's
  * are not".
  */
-test("an account's operations are its own, and not another account's", async ({ page }) => {
+test("an account's transactions are its own, and not another account's", async ({ page }) => {
   const accounts = new FinanceAccountsPage(page)
   await accounts.openTransactions(seedId('e2e_account_checking'))
 
@@ -118,7 +118,7 @@ test('a finance module with nothing in it invites rather than breaks', async ({ 
   await expect(banks.content.getByText('Mock Bank')).toHaveCount(0)
 })
 
-test('a new account and its first operation are created from the screens that own them', async ({
+test('a new account and its first transaction are created from the screens that own them', async ({
   otherUser,
 }) => {
   const accounts = new FinanceAccountsPage(otherUser.page)
@@ -168,15 +168,15 @@ test('a new account and its first operation are created from the screens that ow
   const accountId = stored.id ?? ''
   await accounts.openTransactions(accountId)
   await expect(
-    accounts.content.getByText('Aucune opération sur ce compte'),
+    accounts.content.getByText('Aucune transaction sur ce compte'),
     'a brand new account has no movement, and says so',
   ).toBeVisible()
 
   // The empty state carries its own way in, with the account already chosen
-  // (MAG-245): the first operation is typed in by hand, not slipped in by API.
+  // (MAG-245): the first transaction is typed in by hand, not slipped in by API.
   await accounts.createTransaction({
     label,
-    amountEuros: -42.5,
+    amountEuros: 42.5,
     date: seedDate(),
   })
 
@@ -184,7 +184,7 @@ test('a new account and its first operation are created from the screens that ow
     otherUser.api,
     '/api/transactions',
     (candidate) => candidate.label === label,
-    { what: 'The operation created from the empty state' },
+    { what: 'The transaction created from the empty state' },
   )
 
   expect(transaction.amountCents).toBe(-4250)
@@ -195,7 +195,7 @@ test('a new account and its first operation are created from the screens that ow
   await accounts.openTransactions(accountId)
   await expect(accounts.row(label)).toContainText(euros(-4250))
   // "Dépensée" is the form's default status, and it is what makes the
-  // operation weigh on its category's envelope.
+  // transaction weigh on its category's envelope.
   await expect(accounts.row(label)).toContainText('Dépensée')
 
   // The neighbour's own list, and nothing of the owner's: the writes above went
@@ -215,14 +215,14 @@ test('a new account and its first operation are created from the screens that ow
 })
 
 /**
- * An account with no operation is not a dead end (MAG-245).
+ * An account with no transaction is not a dead end (MAG-245).
  *
  * React-admin renders a list's `empty` *instead of* the list — the toolbar
  * with it — so `AccountTransactionsView` gives the placeholder its own button.
  * Builds its own account rather than reusing the journey's above, so the test
  * does not depend on another one's state.
  */
-test('an account with no operation offers a way to add one', async ({ otherUser }) => {
+test('an account with no transaction offers a way to add one', async ({ otherUser }) => {
   const created = await otherUser.api.post('/api/accounts', {
     headers: { 'Content-Type': 'application/ld+json' },
     data: {
@@ -239,11 +239,95 @@ test('an account with no operation offers a way to add one', async ({ otherUser 
   await accounts.openTransactions(account.id ?? '')
 
   await expect(
-    accounts.content.getByText('Aucune opération sur ce compte'),
-    'the screen that asks for an operation',
+    accounts.content.getByText('Aucune transaction sur ce compte'),
+    'the screen that asks for a transaction',
   ).toBeVisible()
   await expect(
     accounts.addTransaction,
-    'the empty state asks for an operation and carries the button that adds one',
+    'the empty state asks for a transaction and carries the button that adds one',
   ).toBeVisible()
+})
+
+/**
+ * A recette is chosen first, and the form follows (MAG-301).
+ *
+ * Categories of its own, created through the API as the neighbour: the seeded
+ * "Salaire" belongs to the owner, and the neighbour's finance module starts
+ * empty. Suffixed with the attempt like the account of the first journey.
+ */
+test('choosing Recette offers income categories only, and files a positive transaction', async ({
+  otherUser,
+}) => {
+  const attempt = test.info().retry
+  const salary = `Salaire MAG-301, essai ${attempt}`
+  const subscription = `Netflix MAG-301, essai ${attempt}`
+  const label = `PAIE MAG-301, essai ${attempt}`
+
+  for (const [name, obligation] of [
+    [salary, 'income'],
+    [subscription, 'optional'],
+  ]) {
+    const category = await otherUser.api.post('/api/categories', {
+      headers: { 'Content-Type': 'application/ld+json' },
+      data: { name, obligation },
+    })
+    expect(category.status(), await category.text()).toBe(201)
+  }
+  // The form reads its categories from the search index, which lags the write.
+  for (const name of [salary, subscription]) {
+    await waitForIndexed(
+      otherUser.api,
+      '/api/categories',
+      (candidate: { name?: string }) => candidate.name === name,
+      { what: `The category ${name}` },
+    )
+  }
+
+  const account = await otherUser.api.post('/api/accounts', {
+    headers: { 'Content-Type': 'application/ld+json' },
+    data: {
+      name: `Compte recette MAG-301, essai ${attempt}`,
+      type: 'checking',
+      currency: 'EUR',
+      balanceCents: 0,
+    },
+  })
+  expect(account.status(), await account.text()).toBe(201)
+  const accountId = String(((await account.json()) as StoredAccount).id ?? '')
+
+  const accounts = new FinanceAccountsPage(otherUser.page)
+  await accounts.openTransactions(accountId)
+  await accounts.addTransaction.click()
+  await accounts.chooseNature('Recette')
+
+  const offered = await accounts.offeredCategories()
+  expect(offered, 'an income category is offered on a recette').toContain(salary)
+  expect(offered, 'an optional category is not').not.toContain(subscription)
+  await otherUser.page.keyboard.press('Escape')
+
+  // The form is already open, so it is filled here rather than through
+  // `createTransaction`, which opens it from the list.
+  await accounts.content.getByLabel('Libellé').fill(label)
+  await accounts.content.getByLabel('Montant (€)').fill('1500')
+  await accounts.content.getByLabel('Date').fill(seedDate())
+  await accounts.content.getByLabel('Catégorie').fill(salary)
+  await otherUser.page.getByRole('option', { name: salary, exact: true }).click()
+  await expect(
+    accounts.content.getByLabel('Statut'),
+    'a recette is received by default',
+  ).toHaveText('Reçue')
+  await accounts.save()
+
+  const stored = await waitForIndexed<StoredTransaction>(
+    otherUser.api,
+    '/api/transactions',
+    (candidate) => candidate.label === label,
+    { what: 'The recette created from the form' },
+  )
+  expect(stored.amountCents, 'typed without a sign, sent as an income').toBe(150000)
+
+  await accounts.openTransactions(accountId)
+  await expect(accounts.row(label)).toContainText(signedEuros(150000))
+  await expect(accounts.row(label)).toContainText('Reçue')
+  await expect(accounts.row(label)).not.toContainText('Dépensée')
 })

@@ -11,7 +11,7 @@ import {
   useListContext,
 } from 'react-admin'
 import { useMercure } from '../../hooks/useMercure'
-import { TRANSACTION_STATUS_LABELS } from './transactionStatuses'
+import { statusLabel } from './transactionStatuses'
 import { Amount } from './AmountField'
 import type { RaRecord } from 'react-admin'
 
@@ -44,7 +44,9 @@ const TransactionDatagrid = () => {
       </ReferenceField>
       <FunctionField
         label="Statut"
-        render={(record: RaRecord) => TRANSACTION_STATUS_LABELS[record.status as string] ?? record.status}
+        render={(record: RaRecord) =>
+          statusLabel(record.status as string, record.amountCents as number)
+        }
       />
       <BooleanField source="isExceptional" label="Exceptionnel" />
       <EditButton />

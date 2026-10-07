@@ -12,6 +12,7 @@ use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferSource;
 use Maggie\Finance\Message\CreateTransactionCommand;
 use Maggie\Finance\Service\OwnedReferenceResolver;
+use Maggie\Finance\Service\TransactionNatureGuard;
 use Maggie\Finance\UseCase\CategorizeTransaction;
 use Maggie\Finance\UseCase\CreateTransaction;
 use Maggie\Finance\UseCase\DetectInternalTransfers;
@@ -25,6 +26,7 @@ class CreateTransactionHandler
         private readonly CategorizeTransaction $categorizeTransaction,
         private readonly DetectInternalTransfers $detectInternalTransfers,
         private readonly OwnedReferenceResolver $references,
+        private readonly TransactionNatureGuard $natureGuard,
         private readonly UserRepository $userRepository,
         private readonly EntityBroadcaster $broadcaster,
     ) {
@@ -49,6 +51,7 @@ class CreateTransactionHandler
 
         if (null !== $command->categoryId) {
             $category = $this->references->category($command->categoryId, $user);
+            $this->natureGuard->assertCompatible($command->amountCents, $category);
             $transaction->assignCategory($category, CategorySource::Manual);
         } else {
             $this->categorizeTransaction->apply($transaction);

@@ -168,7 +168,7 @@ sealed class Screen(val route: String, val label: String) {
     data object LoanList : Screen("loans", "Prêts")
     data object MonthlyReview : Screen("monthly_review", "Revue mensuelle")
     data object FinanceDashboard : Screen("finance_dashboard", "Finance")
-    data object AccountTransactions : Screen("account_transactions", "Opérations")
+    data object AccountTransactions : Screen("account_transactions", "Transactions")
     data object RecipeDetail : Screen("recipe/detail", "Recette")
     data object RecipeCreate : Screen("recipe/create", "Nouvelle recette")
     data object RecipeEdit : Screen("recipe/edit", "Modifier la recette")

@@ -8,8 +8,12 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Transaction;
+use Maggie\Finance\Exception\IncompatibleCategoryException;
 use Maggie\Finance\Message\CreateTransactionCommand;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
@@ -27,7 +31,7 @@ class CreateTransactionProcessor implements ProcessorInterface
         /** @var User $user */
         $user = $this->security->getUser();
 
-        $envelope = $this->bus->dispatch(new CreateTransactionCommand(
+        $envelope = $this->dispatch(new CreateTransactionCommand(
             userId: (string) $user->getId(),
             accountId: (string) $data->getAccount()->getId(),
             amountCents: $data->getAmountCents(),
@@ -40,5 +44,19 @@ class CreateTransactionProcessor implements ProcessorInterface
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();
+    }
+
+    private function dispatch(object $command): Envelope
+    {
+        try {
+            return $this->bus->dispatch($command);
+        } catch (HandlerFailedException $e) {
+            $cause = $e->getPrevious();
+            if ($cause instanceof IncompatibleCategoryException) {
+                throw new BadRequestHttpException($cause->getMessage(), $e);
+            }
+
+            throw $e;
+        }
     }
 }
