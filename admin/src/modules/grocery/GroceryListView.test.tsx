@@ -373,7 +373,9 @@ describe('GroceryListView', () => {
       await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Supprimer' }))
 
       await waitFor(() => expect(mockNotify).toHaveBeenCalledWith(expect.stringContaining('Lait'), { type: 'error' }))
-      await waitFor(() => expect(screen.getByText('Lait')).toBeInTheDocument())
+      // A fading ghost of the removed line also shows « Lait », but disabled:
+      // only the restored line has an enabled delete button.
+      await waitFor(() => expect(deleteButton('Lait')).toBeEnabled())
     })
 
     test('the line comes back with an error when the request fails', async () => {
@@ -386,7 +388,9 @@ describe('GroceryListView', () => {
       await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Supprimer' }))
 
       await waitFor(() => expect(mockNotify).toHaveBeenCalledWith(expect.stringContaining('Lait'), { type: 'error' }))
-      await waitFor(() => expect(screen.getByText('Lait')).toBeInTheDocument())
+      // A fading ghost of the removed line also shows « Lait », but disabled:
+      // only the restored line has an enabled delete button.
+      await waitFor(() => expect(deleteButton('Lait')).toBeEnabled())
     })
 
     test('a line already deleted from another window is not brought back', async () => {

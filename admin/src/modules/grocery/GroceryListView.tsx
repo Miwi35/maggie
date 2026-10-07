@@ -224,6 +224,7 @@ export const GroceryListView = () => {
   const [endErrandDialogOpen, setEndErrandDialogOpen] = useState(false)
   const [uncheckedItems, setUncheckedItems] = useState<GroceryItem[]>([])
   const [itemToDelete, setItemToDelete] = useState<GroceryItem | null>(null)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const [newItemLabel, setNewItemLabel] = useState('')
   const [newItemQuantity, setNewItemQuantity] = useState('')
   const [newItemUnit, setNewItemUnit] = useState('')
@@ -537,8 +538,13 @@ export const GroceryListView = () => {
 
   // The line leaves at once; it comes back, with an error, if the API refuses.
   // A 404 means another window got there first: nothing to bring back.
+  const askDeleteItem = (item: GroceryItem) => {
+    setItemToDelete(item)
+    setDeleteOpen(true)
+  }
+
   const handleDeleteItem = async (item: GroceryItem) => {
-    setItemToDelete(null)
+    setDeleteOpen(false)
     setGroceryList((prev) => (prev ? { ...prev, items: prev.items.filter((i) => i.id !== item.id) } : prev))
     const restore = () =>
       setGroceryList((prev) =>
@@ -641,7 +647,9 @@ export const GroceryListView = () => {
   // Merge current items + ghost (removing) items for display
   const displayItems = useMemo(() => {
     const currentIds = new Set(todayItems.map((i) => i.id))
-    const ghosts = removingItems.filter((ri) => !currentIds.has(ri.id))
+    const today = localToday()
+    // A deferred line leaving « Plus tard » has no place in today's aisles to fade out of.
+    const ghosts = removingItems.filter((ri) => !currentIds.has(ri.id) && !isDeferred(ri, today))
     return [...todayItems, ...ghosts]
   }, [todayItems, removingItems])
 
@@ -774,7 +782,7 @@ export const GroceryListView = () => {
                               removingIds={removingIds}
                               onCheck={handleCheck}
                               onViewDetail={setDetailItem}
-                              onDelete={setItemToDelete}
+                              onDelete={askDeleteItem}
                               isDragDisabled={removingIds.size > 0 || addedIds.size > 0}
                             />
                           ))}
@@ -812,7 +820,7 @@ export const GroceryListView = () => {
                             size="small"
                             edge="end"
                             aria-label={`Supprimer ${item.label}`}
-                            onClick={() => setItemToDelete(item)}
+                            onClick={() => askDeleteItem(item)}
                           >
                             <DeleteOutlineIcon fontSize="small" />
                           </IconButton>
@@ -1075,7 +1083,13 @@ export const GroceryListView = () => {
       </Dialog>
 
       {/* Delete item confirmation */}
-      <Dialog open={itemToDelete !== null} onClose={() => setItemToDelete(null)} maxWidth="xs" fullWidth>
+      <Dialog
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        TransitionProps={{ onExited: () => setItemToDelete(null) }}
+        maxWidth="xs"
+        fullWidth
+      >
         <DialogTitle>Supprimer « {itemToDelete?.label} » ?</DialogTitle>
         <DialogContent>
           <Typography variant="body2">
@@ -1085,7 +1099,7 @@ export const GroceryListView = () => {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setItemToDelete(null)}>Annuler</Button>
+          <Button onClick={() => setDeleteOpen(false)}>Annuler</Button>
           <Button
             color="error"
             variant="contained"

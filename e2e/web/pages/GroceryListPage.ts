@@ -78,7 +78,7 @@ export class GroceryListPage extends AdminShell {
     const dialog = this.deleteDialog(label)
     await expect(dialog).toBeVisible()
     await dialog.getByRole('button', { name: 'Supprimer' }).click()
-    await expect(dialog).toBeHidden()
+    await expect(this.page.getByRole('dialog')).toBeHidden()
   }
 
   /** The aisle headings, in the order the page draws them. */
