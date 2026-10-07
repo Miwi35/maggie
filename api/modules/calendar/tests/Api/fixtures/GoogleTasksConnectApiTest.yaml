@@ -1,0 +1,25 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+    googleAccessToken: 'access-token'
+    googleRefreshToken: 'refresh-token'
+    googleTokenExpiresAt: '<(new \DateTimeImmutable("2099-01-01T00:00:00+00:00"))>'
+    googleTaskListId: 'list-chores'
+
+Maggie\Calendar\Entity\Task:
+  # Tracked on the list the user starts connected to: switching lists must let
+  # go of it, or the next push would address another list by this identifier.
+  task_from_chores:
+    title: Sortir les poubelles
+    user: '@test_user'
+    googleTaskId: 'g-task-chores-1'
+    googleTaskListId: 'list-chores'
+    googleTaskEtag: '"etag-1"'
+    googleTaskUpdatedAt: '<(new \DateTimeImmutable("2026-03-20T10:00:00+00:00"))>'
+
+  # Never synced: it has no Google identifier to lose.
+  task_local_only:
+    title: Trier les photos
+    user: '@test_user'

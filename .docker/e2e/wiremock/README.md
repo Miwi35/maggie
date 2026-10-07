@@ -38,6 +38,15 @@ both are load-bearing:
   so a constant would make a second event in the same connected agenda a
   constraint violation.
 
+The Google Tasks side answers **two** lists, `e2e-task-list` ("Mes tâches", the
+one the seed starts connected to) and `e2e-task-list-courses` ("Courses
+Google"). One would make MAG-118's journey meaningless: the settings screen
+states a single list instead of offering it, and the sync reading the chosen
+list rather than the first one can only be asserted where there is more than
+one. The tasks-in-a-list stub answers for any list id, so which list the stack
+asked for is the one thing that varies — and the journal is how the journey
+reads it.
+
 Two things are **not** here:
 
 - **Edge TTS.** `edge_tts` opens its own WebSocket to Microsoft, so no base URL

@@ -120,4 +120,26 @@ class TaskRepository extends ServiceEntityRepository
     {
         return $this->findBy(['user' => $user], ['dueDate' => 'ASC']);
     }
+
+    /**
+     * Tasks still tracked against a Google list the user no longer syncs with.
+     *
+     * Switching lists leaves them pointing at identifiers the new list has
+     * never heard of: a push would then update or delete someone else's task,
+     * and a pull of the new list would never see them to clean them up
+     * (MAG-118).
+     *
+     * @return Task[]
+     */
+    public function findTrackedOnAnotherGoogleList(User $user, string $taskListId): array
+    {
+        return $this->createQueryBuilder('t')
+            ->where('t.user = :user')
+            ->andWhere('t.googleTaskId IS NOT NULL')
+            ->andWhere('(t.googleTaskListId IS NULL OR t.googleTaskListId != :taskListId)')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('taskListId', $taskListId)
+            ->getQuery()
+            ->getResult();
+    }
 }

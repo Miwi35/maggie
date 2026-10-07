@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useGetIdentity, useNotify } from 'react-admin'
+import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
@@ -36,12 +37,25 @@ function authFetch(path: string, options: RequestInit = {}) {
   })
 }
 
+/**
+ * Which Google Tasks list Maggie syncs with (MAG-118).
+ *
+ * The three routes this screen calls did not exist until MAG-118, so the choice
+ * it offered went nowhere and the API synced whichever list Google returned
+ * first. They exist now, and the screen shows the choice as the account makes
+ * it: one list is stated, several are offered.
+ */
 export const GoogleCalendarSettings = () => {
   const { identity } = useGetIdentity()
   const notify = useNotify()
 
   const [googleTaskLists, setGoogleTaskLists] = useState<GoogleTaskList[]>([])
   const [connectedTaskListId, setConnectedTaskListId] = useState<string | null>(null)
+  const [googleAuthorized, setGoogleAuthorized] = useState(true)
+  // Whether the lists on screen are Google's answer. An empty list and a failed
+  // fetch look the same otherwise, and the screen would then tell the owner
+  // their list no longer exists because the API was briefly down.
+  const [taskListsLoaded, setTaskListsLoaded] = useState(false)
   const [loading, setLoading] = useState(true)
   const [connectingTasks, setConnectingTasks] = useState(false)
 
@@ -49,16 +63,28 @@ export const GoogleCalendarSettings = () => {
     if (!identity) return
     setLoading(true)
     try {
-      // Fetch Google Task Lists
       const tlRes = await authFetch('/calendar/google/task-lists')
-      if (tlRes.ok) {
-        setGoogleTaskLists(await tlRes.json())
+      if (tlRes.status === 403) {
+        // The account was never authorized, or the authorization was revoked.
+        setGoogleAuthorized(false)
+        setGoogleTaskLists([])
+        setTaskListsLoaded(false)
+      } else if (tlRes.ok) {
+        setGoogleAuthorized(true)
+        setGoogleTaskLists((await tlRes.json()) as GoogleTaskList[])
+        setTaskListsLoaded(true)
+      } else {
+        // Cleared like the 403 branch above: a second load that fails after a
+        // successful one would otherwise keep offering lists the screen has
+        // just decided it cannot vouch for.
+        setGoogleTaskLists([])
+        setTaskListsLoaded(false)
+        notify('Erreur lors du chargement des listes Google Tasks', { type: 'error' })
       }
 
-      // Check user's connected task list
       const meRes = await authFetch('/users/me')
       if (meRes.ok) {
-        const meData = await meRes.json()
+        const meData = (await meRes.json()) as { googleTaskListId?: string | null }
         setConnectedTaskListId(meData.googleTaskListId ?? null)
       }
     } catch {
@@ -80,10 +106,10 @@ export const GoogleCalendarSettings = () => {
         body: JSON.stringify({ googleTaskListId }),
       })
       if (res.ok) {
-        notify('Tâches connectées à Google Tasks', { type: 'success' })
+        notify('Tâches synchronisées avec Google Tasks', { type: 'success' })
         setConnectedTaskListId(googleTaskListId)
       } else {
-        const data = await res.json()
+        const data = (await res.json()) as { error?: string }
         notify(data.error || 'Erreur', { type: 'error' })
       }
     } catch {
@@ -103,7 +129,7 @@ export const GoogleCalendarSettings = () => {
         notify('Tâches déconnectées de Google Tasks', { type: 'success' })
         setConnectedTaskListId(null)
       } else {
-        const data = await res.json()
+        const data = (await res.json()) as { error?: string }
         notify(data.error || 'Erreur', { type: 'error' })
       }
     } catch {
@@ -121,6 +147,17 @@ export const GoogleCalendarSettings = () => {
     )
   }
 
+  const connectedTaskList = googleTaskLists.find((tl) => tl.id === connectedTaskListId)
+  // Chosen, and gone from the account since: Google no longer holds the list,
+  // or stopped sharing it. The sync drops the choice at its next run, but the
+  // owner is here now and can pick again straight away.
+  //
+  // Only ever said when Google really answered: a failed fetch leaves no list
+  // either, and claiming the owner's list is gone because the API hiccuped is
+  // a statement about their Google account that nothing checked.
+  const connectedTaskListMissing =
+    taskListsLoaded && null !== connectedTaskListId && undefined === connectedTaskList
+
   return (
     <Box maxWidth={800} mx="auto" mt={2}>
       <Typography variant="h5" mb={3}>
@@ -134,29 +171,61 @@ export const GoogleCalendarSettings = () => {
             Synchronisez vos tâches Maggie avec une liste Google Tasks.
           </Typography>
           <Divider sx={{ mb: 2 }} />
-          {connectedTaskListId ? (
-            <Stack direction="row" alignItems="center" spacing={2}>
-              <Chip label="Connecté" color="success" size="small" />
-              <Typography variant="body2">
-                {googleTaskLists.find((tl) => tl.id === connectedTaskListId)?.title ||
-                  connectedTaskListId}
-              </Typography>
-              <Button
-                size="small"
-                color="error"
-                startIcon={connectingTasks ? <CircularProgress size={16} /> : <LinkOffIcon />}
-                onClick={handleDisconnectTasks}
-                disabled={connectingTasks}
-              >
-                Déconnecter
-              </Button>
-            </Stack>
+          {!googleAuthorized ? (
+            <Alert severity="info">
+              Connectez votre compte Google pour synchroniser vos tâches.
+            </Alert>
+          ) : !taskListsLoaded && !connectedTaskListId ? (
+            // Google's lists never arrived, and there is no stored choice to
+            // fall back on: say so rather than "aucune liste sur ce compte",
+            // which is the one thing this screen cannot know right now.
+            <Alert severity="warning">
+              Les listes Google Tasks n’ont pas pu être chargées. Rechargez la page.
+            </Alert>
           ) : (
-            <TaskListConnect
-              taskLists={googleTaskLists}
-              loading={connectingTasks}
-              onConnect={handleConnectTasks}
-            />
+            <Stack spacing={2}>
+              {connectedTaskListMissing && (
+                <Alert severity="warning">
+                  La liste synchronisée n’existe plus sur Google. Choisissez-en une autre.
+                </Alert>
+              )}
+              {!taskListsLoaded && (
+                <Alert severity="warning">
+                  Les listes Google Tasks n’ont pas pu être chargées : le nom de la liste
+                  synchronisée est indisponible.
+                </Alert>
+              )}
+              {connectedTaskListId && !connectedTaskListMissing ? (
+                <Stack direction="row" alignItems="center" spacing={2}>
+                  <Chip label="Synchronisée" color="success" size="small" />
+                  <Typography variant="body2">
+                    {/* Google's list ids are opaque, so an unknown title is
+                        said as such rather than shown raw — the warning above
+                        carries the reason. */}
+                    {connectedTaskList ? (
+                      <>Synchronisée avec «&nbsp;{connectedTaskList.title}&nbsp;»</>
+                    ) : (
+                      'Synchronisée avec une liste Google (nom indisponible)'
+                    )}
+                  </Typography>
+                  <Button
+                    size="small"
+                    color="error"
+                    startIcon={connectingTasks ? <CircularProgress size={16} /> : <LinkOffIcon />}
+                    onClick={handleDisconnectTasks}
+                    disabled={connectingTasks}
+                  >
+                    Déconnecter
+                  </Button>
+                </Stack>
+              ) : (
+                <TaskListConnect
+                  taskLists={googleTaskLists}
+                  loading={connectingTasks}
+                  onConnect={handleConnectTasks}
+                />
+              )}
+            </Stack>
           )}
         </CardContent>
       </Card>
@@ -164,6 +233,13 @@ export const GoogleCalendarSettings = () => {
   )
 }
 
+/**
+ * Offers the lists left to choose from — a menu only when there is a choice.
+ *
+ * A Google account usually holds one list, and a select with a single option is
+ * a question with one answer. The owner asked for the single list to be stated
+ * rather than offered (MAG-118).
+ */
 function TaskListConnect({
   taskLists,
   loading,
@@ -173,29 +249,40 @@ function TaskListConnect({
   loading: boolean
   onConnect: (googleTaskListId: string) => void
 }) {
+  const onlyTaskList = taskLists.length === 1 ? taskLists[0] : undefined
   const [selected, setSelected] = useState('')
+  const chosen = onlyTaskList?.id ?? selected
+
+  if (taskLists.length === 0) {
+    return <Alert severity="info">Aucune liste Google Tasks sur ce compte.</Alert>
+  }
 
   return (
     <Stack direction="row" alignItems="center" spacing={2}>
-      <FormControl size="small" sx={{ minWidth: 200 }}>
-        <InputLabel>Liste Google Tasks</InputLabel>
-        <Select
-          value={selected}
-          label="Liste Google Tasks"
-          onChange={(e) => setSelected(e.target.value)}
-        >
-          {taskLists.map((tl) => (
-            <MenuItem key={tl.id} value={tl.id}>
-              {tl.title}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+      {onlyTaskList ? (
+        <Typography variant="body2">Liste Google Tasks : «&nbsp;{onlyTaskList.title}&nbsp;»</Typography>
+      ) : (
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel id="google-task-list-label">Liste Google Tasks</InputLabel>
+          <Select
+            labelId="google-task-list-label"
+            value={selected}
+            label="Liste Google Tasks"
+            onChange={(e) => setSelected(e.target.value)}
+          >
+            {taskLists.map((tl) => (
+              <MenuItem key={tl.id} value={tl.id}>
+                {tl.title}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      )}
       <Button
         size="small"
         startIcon={loading ? <CircularProgress size={16} /> : <LinkIcon />}
-        onClick={() => onConnect(selected)}
-        disabled={loading || !selected}
+        onClick={() => onConnect(chosen)}
+        disabled={loading || !chosen}
       >
         Connecter
       </Button>

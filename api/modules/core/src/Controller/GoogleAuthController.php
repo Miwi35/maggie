@@ -164,7 +164,10 @@ final class GoogleAuthController
         }
         $this->entityManager->flush();
 
-        // Auto-import Google Tasks (async — will auto-detect the default list)
+        // Refreshes the tasks of the list the owner chose in Paramètres ›
+        // Google. A first sign-in has chosen none, and the pull does nothing
+        // until it has: the list is the owner's to pick, never ours to adopt
+        // (MAG-118).
         $this->messageBus->dispatch(new \Maggie\Calendar\Message\PullTasksFromGoogleCommand(
             userId: (string) $user->getId(),
         ));

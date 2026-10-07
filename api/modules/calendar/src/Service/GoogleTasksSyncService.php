@@ -20,6 +20,7 @@ class GoogleTasksSyncService
         private readonly GoogleTasksApiClient $apiClient,
         private readonly GoogleTaskMapper $taskMapper,
         private readonly TaskRepository $taskRepository,
+        private readonly GoogleTaskListSelection $selection,
         private readonly EntityManagerInterface $entityManager,
         private readonly HubInterface $hub,
         private readonly MessageBusInterface $messageBus,
@@ -33,30 +34,30 @@ class GoogleTasksSyncService
             return;
         }
 
+        // The list is the owner's choice, made on the settings screen. It used
+        // to be whichever list Google returned first, which is what MAG-118
+        // reported: an account with several lists silently synced one of them.
         $taskListId = $user->getGoogleTaskListId();
         if (null === $taskListId) {
-            // Auto-detect: pick the first available task list
-            try {
-                $lists = $this->apiClient->listTaskLists($user);
-                if ([] === $lists) {
-                    return;
-                }
-                $taskListId = $lists[0]->getId();
-                $user->setGoogleTaskListId($taskListId);
-                $this->entityManager->flush();
-            } catch (\Throwable $e) {
-                $this->logger->error('Failed to auto-detect Google Task List: {error}', [
-                    'error' => $e->getMessage(),
-                    'userId' => (string) $user->getId(),
-                ]);
-
-                return;
-            }
+            return;
         }
 
         try {
             $googleTasks = $this->apiClient->listTasks($user, $taskListId);
         } catch (GoogleServiceException $e) {
+            // The list was deleted on Google, or shared and then revoked. The
+            // choice is dropped so the screen asks for a new one, rather than
+            // every sync failing on a list that is never coming back.
+            if (404 === $e->getCode() || 410 === $e->getCode()) {
+                $this->logger->warning('The chosen Google Tasks list is gone, forgetting it: {taskListId}', [
+                    'taskListId' => $taskListId,
+                    'userId' => (string) $user->getId(),
+                ]);
+                $this->selection->forget($user);
+
+                return;
+            }
+
             $this->logger->error('Failed to list Google Tasks: {error}', [
                 'error' => $e->getMessage(),
                 'userId' => (string) $user->getId(),
