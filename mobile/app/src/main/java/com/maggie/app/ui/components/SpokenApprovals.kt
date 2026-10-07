@@ -33,7 +33,7 @@ fun SpokenApprovals(viewModel: ChatViewModel, voiceManager: VoiceManager, onList
         .firstOrNull { it.approval.isPending && it.decision == null }
         ?.approval
     val nobodySpeaking = voiceState == VoiceState.IDLE ||
-        (voiceState == VoiceState.LISTENING && handsFree && duration == 0)
+        (voiceState == VoiceState.LISTENING && handsFree && duration <= UNSPOKEN_SECONDS)
     val quiet = nobodySpeaking && !uiState.isLoading && uiState.replyToSpeak == null
 
     LaunchedEffect(target?.id, quiet) {
@@ -53,3 +53,6 @@ fun SpokenApprovals(viewModel: ChatViewModel, voiceManager: VoiceManager, onList
         }
     }
 }
+
+// A hands-free listening that has run this long without a word is still the one the overlay opened with.
+private const val UNSPOKEN_SECONDS = 2

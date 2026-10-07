@@ -5,6 +5,7 @@ import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.PendingApproval
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
@@ -35,7 +36,13 @@ class ApprovalRepository(
     suspend fun describe(approval: PendingApproval): String? {
         if (approval.toolName != DELETE_EVENT) return null
         val id = (approval.arguments["id"] as? JsonPrimitive)?.content ?: return null
-        return runCatching { apiService.getEvent(id).summary }.getOrNull()?.takeIf { it.isNotBlank() }
+        return try {
+            apiService.getEvent(id).summary.takeIf { it.isNotBlank() }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            null
+        }
     }
 
     /**
