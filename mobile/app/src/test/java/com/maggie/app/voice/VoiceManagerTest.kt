@@ -28,6 +28,7 @@ private class FakeRecorder : AudioRecorder {
     var stopped = false
     var released = false
     var pcmSink: OutputStream? = null
+    override var engineGaps = 0
 
     override fun start(file: File, pcmSink: OutputStream?) {
         started = true
@@ -442,6 +443,39 @@ class VoiceManagerTest {
 
         coVerify(exactly = 1) { apiService.transcribe(any(), any()) }
         assertEquals("bonjour Maggie", sent)
+    }
+
+    @Test
+    fun `an engine too slow for fast speech has a gap in what it heard so Whisper reads the whole clip`() {
+        val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("ajoute du lait à la liste", 0.9f))
+        voiceManager = managerWith(engine)
+        var sent: String? = null
+
+        voiceManager.pressDown { sent = it }
+        advance(6000)
+        // The engine could not keep up: buffers were dropped for it, not for the clip.
+        recorder.engineGaps = 4
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        // Its confident, long-enough answer covers only part of the sentence.
+        coVerify(exactly = 1) { apiService.transcribe(any(), TranscriptCleanup.NONE) }
+        assertEquals("bonjour Maggie", sent)
+        assertTrue(engine.destroyed)
+    }
+
+    @Test
+    fun `a gap in what the engine heard does not wait for its answer`() {
+        val engine = FakeDeviceSpeech(resultOnStop = DeviceSpeechResult("ajoute", 0.9f), answers = false)
+        voiceManager = managerWith(engine)
+
+        voiceManager.pressDown {}
+        advance(6000)
+        recorder.engineGaps = 1
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        coVerify(exactly = 1) { apiService.transcribe(any(), any()) }
     }
 
     @Test

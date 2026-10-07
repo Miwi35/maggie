@@ -265,6 +265,9 @@ class VoiceManager(
         } catch (e: Exception) {
             Log.e(TAG, "Failed to stop recorder", e)
         }
+        // Speech faster than the engine reads leaves holes in what it heard — and it
+        // still answers, short and sure of itself. The clip on disk is whole.
+        val engineMissedAudio = (recorder?.engineGaps ?: 0) > 0
         recorder?.release()
         recorder = null
 
@@ -286,7 +289,12 @@ class VoiceManager(
         val callback = onResult
         onResult = null
         scope.launch {
-            val heard = awaitDeviceResult(session)
+            val heard = if (engineMissedAudio) {
+                release(session)
+                null
+            } else {
+                awaitDeviceResult(session)
+            }
             if (heard != null && TranscriptionQuality.isGoodEnough(heard.text, heard.confidence, spokenMillis)) {
                 file.delete()
                 audioFile = null
