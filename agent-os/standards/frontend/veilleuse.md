@@ -25,7 +25,9 @@ Un seul composant pour toute parole spontanée : `components/maggie/MaggieInterr
 - `role="alertdialog"`, focus sur l'action, **Esc = « Plus tard »**, ouvrir le chat la ferme ; « Plus tard » la ramène plus tard si rien n'a été fait.
 - Carillon : sinus 880 Hz puis 1318,5 Hz à 140 ms, fondu ~0,9 s ; coupé par le réglage « Son » des Préférences (`localStorage`, côté client).
 - `prefers-reduced-motion` : fondu simple, ni pop-in, ni halo, ni glissement.
-- Source : le flux Mercure `/proactions/{userId}` (statut `completed` avec réponse) ; aucun changement d'API.
+- **Sources** (MAG-311) : toute notification dont Maggie prend l'initiative (rappel, proaction, tâche échue — flux Mercure des notifications de l'utilisateur, tous types), toute demande qu'elle soumet (validation en attente : `/approvals/{userId}` + `GET /agent/approvals?status=pending` à l'ouverture), et une proaction terminée avec réponse (`/proactions/{userId}`). Un seul flux partagé (`hooks/agentFeed.ts`) ; aucun changement d'API.
+- **File d'attente** : une à la fois, la suivante après « Plus tard » ou l'action, jamais deux fois la même (dédoublonnage par source + id). Le chat ouvert ne masque que les proactions (il les affiche déjà).
+- **Action** : notification → ouvre son lien (écran admin) et la marque lue, sinon « Compris » ; validation → « Autoriser » / « Refuser » (le focus reste sur « Plus tard »).
 
 Le chat (`components/chat/ChatWidget`) porte le même habillage : panneau `maggie.panel`, bulles utilisateur accent 18 % et Maggie `maggie.reply`, mode vocal en orbe violette. Sa place ne change pas (à droite, tiroir sous `md`, MAG-38).
 

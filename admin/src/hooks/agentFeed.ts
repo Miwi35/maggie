@@ -4,6 +4,9 @@ import { mercureUrl } from './mercureUrl'
 // May be relative in production ('/.well-known/mercure'): mercureUrl() resolves it.
 const MERCURE_URL = import.meta.env.VITE_MERCURE_PUBLIC_URL || 'http://maggie.local/.well-known/mercure'
 
+/** The API's own topic, scoped to the user like `useMercure` does. */
+const NOTIFICATIONS_TOPIC = '/api/notifications/{id}'
+
 type Listener = (data: string) => void
 
 interface Feed {
@@ -14,18 +17,21 @@ interface Feed {
 const feeds = new Map<string, Feed>()
 
 /**
- * The agent's background streams — contexts and proactions — over one connection.
+ * What speaks to the user in the background — the agent's contexts, proactions and
+ * approvals, and the API's notifications — over one connection.
  *
  * Over plain HTTP/1.1 a browser holds six connections per origin and every
  * EventSource keeps one for good: a page already subscribed to five topics leaves
  * a single slot for all its requests, and a sixth stream starves them (the
- * « Créer » of an event never answered). The two share this feed; each listener
+ * « Créer » of an event never answered). They all share this feed; each listener
  * recognises its own payloads by their shape and ignores the rest.
  */
 export function subscribeAgentFeed(userId: string, listener: Listener): () => void {
   const url = mercureUrl(MERCURE_URL, [
     agentTopic(AGENT_STREAMS.contexts, userId),
     agentTopic(AGENT_STREAMS.proactions, userId),
+    agentTopic(AGENT_STREAMS.approvals, userId),
+    `/users/${userId}${NOTIFICATIONS_TOPIC}`,
   ]).toString()
 
   let feed = feeds.get(url)
