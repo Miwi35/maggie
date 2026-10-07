@@ -10,8 +10,10 @@ second one.**
 
 ## 1. Navigation — one entry per module, entered by its dashboard
 
-- **The main menu has one entry per module**: Accueil, Agenda, Cuisine, Courses,
-  Finance… (owner's rule of 1 Oct., in MAG-90 and MAG-196). Not one per resource.
+- **The main menu has one entry per module, in this order**: Accueil, Agenda,
+  Courses, Cuisine, Finance, then Maggie (her settings and, later, her memory)
+  (owner's rule of 1 Oct., MAG-90 and MAG-196; order decided on 7 Oct.). Not one
+  per resource.
   The module names are these, on both platforms (« Cuisine », not « Nutrition »). Settings, the contexts and the
   account are not modules: they sit at the bottom of the menu or behind the
   avatar.
@@ -27,7 +29,7 @@ second one.**
   arrow, not through the menu.
 - Deep links (notifications, Maggie, search results) open the item itself, with
   the module's dashboard as its back destination.
-- **The admin keeps its desk density** (MAG-311): a module is one collapsible
+- **The admin keeps its desk density** (MAG-311; owner, 7 Oct.): a module is one collapsible
   group whose header opens the module's dashboard and whose items are its parts,
   by frequency. No « Données brutes » group: a rare part sits at the end of its
   own module. A folded sidebar shows one icon per module, never fewer. Today's
@@ -79,6 +81,11 @@ second one.**
 | Error | what happened and what to do, with « Réessayer »; the technical message goes to the log, **never `e.message` on screen** | `useNotify` with a French message | `ui/components/ErrorSnackbar.kt` |
 | Success | a short confirmation of what changed, with « Annuler » when it can be undone | react-admin's default `mutationMode: 'undoable'` | snackbar with action |
 
+- **Destructive actions: do it, then « Annuler »** (owner, 7 Oct.). A deletion
+  happens at once and a snackbar offers « Annuler » for a few seconds — no
+  « Supprimer ? » box. A confirmation stays only when the action takes something
+  else with it, and it says what (« 3 repas planifiés seront supprimés »).
+
 - **A failure is never shown as empty**, nor swallowed in the console: a
   search that failed doesn't say « Aucun résultat », a dashboard that didn't
   load isn't blank.
@@ -86,7 +93,7 @@ second one.**
   names of generated screens and tab labels included (`i18n/messages.ts`).
   « Aucun résultat », not « No results found »; « Événements », not `Events`.
 - Short, direct, no jargon (`ULID`, `null`, `HTTP 500`), no exclamation marks.
-- **The interface says *vous*** — labels, helpers, buttons, cards, snackbars
+- **The interface says *vous*** (owner, 7 Oct.) — labels, helpers, buttons, cards, snackbars
   (« Vérifiez votre connexion », « Choisissez un compte »), as most screens
   already do. Only Maggie's own words in the conversation follow her register,
   which the owner sets (« tutoie-moi », MAG-22). A *tu* in the chrome is out
