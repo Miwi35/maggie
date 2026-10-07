@@ -71,6 +71,7 @@ fun RecipeDetailScreen(
     LaunchedEffect(confirmingDelete) {
         if (confirmingDelete) {
             mealCountLoaded = false
+            mealCount = null
             mealCount = withContext(Dispatchers.IO) {
                 recipeRepository.getMealCountOfDeletion(recipeId).getOrNull()
             }

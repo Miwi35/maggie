@@ -21,7 +21,7 @@ const RecipeDatagrid = () => {
   useMercure(RECIPE_TOPICS, () => { refetch() })
 
   return (
-    <Datagrid rowClick="edit">
+    <Datagrid rowClick="edit" bulkActionButtons={false}>
       <TextField source="name" label="Nom" />
       <NumberField source="servings" label="Portions" />
       <FunctionField

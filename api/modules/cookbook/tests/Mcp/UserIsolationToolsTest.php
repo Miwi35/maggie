@@ -133,6 +133,16 @@ class UserIsolationToolsTest extends KernelTestCase
         self::assertNotNull($this->em()->find(Meal::class, $otherMealId));
     }
 
+    public function testDeleteRecipeWithMalformedIdAnswersAnError(): void
+    {
+        $this->loadAndLogin();
+
+        $data = $this->decode((self::getContainer()->get(DeleteRecipeTool::class))('not-a-ulid'));
+
+        self::assertArrayHasKey('error', $data);
+        self::assertArrayNotHasKey('success', $data);
+    }
+
     public function testSearchRecipesByNameOnlyReturnsTheCallersRecipes(): void
     {
         $this->loadAndLogin();

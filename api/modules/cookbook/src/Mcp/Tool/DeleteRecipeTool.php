@@ -12,6 +12,7 @@ use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Uid\Ulid;
 
 #[McpTool(name: 'delete_recipe', description: 'Delete a recipe by ID. Meals that have no other recipe are deleted with it (their shopping leaves the grocery list); meals with other recipes keep them. Returns deletedMeals, the number of meals deleted.')]
 class DeleteRecipeTool
@@ -27,7 +28,8 @@ class DeleteRecipeTool
     public function __invoke(string $recipeId): string
     {
         try {
-            $recipe = $this->recipeRepository->findOneForUser($recipeId, $this->userContext->requireUser());
+            $user = $this->userContext->requireUser();
+            $recipe = Ulid::isValid($recipeId) ? $this->recipeRepository->findOneForUser($recipeId, $user) : null;
             if (null === $recipe) {
                 return json_encode(['error' => "Recipe not found: {$recipeId}"], JSON_THROW_ON_ERROR);
             }
