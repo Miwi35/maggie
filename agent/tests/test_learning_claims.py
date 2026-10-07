@@ -162,6 +162,10 @@ class TestTheClaim:
             "Je ne retiens rien de cette conversation.",
             "Je note que tu as trois rendez-vous demain.",
             "Veux-tu que je l'enregistre comme compétence ?",
+            "Veux-tu que je le note ?",
+            "Tu veux que je m'en note un ?",
+            "Tu veux que je retienne ça ?",
+            "J'ai retenu trois recettes pour la semaine.",
             "Tu as trois rendez-vous demain.",
         ],
     )
@@ -190,6 +194,14 @@ class TestTheGuard:
         guard.record(SCHEDULE_TOOL, json.dumps({"id": "p-1", "status": "pending", "error": None}))
 
         assert guard.review("C'est noté, je te rappellerai de boire de l'eau à 16h05.") is Verdict.ACCEPT
+
+    def test_a_pending_reminder_listed_backs_its_cest_note(self):
+        # « Tu me rappelles bien ? »: the reminder was scheduled in an earlier turn. A learning
+        # nudge here would offer schedule_proaction and book it a second time.
+        guard = ClaimGuard(LEARNING_OFFERED)
+        guard.record("list_proactions", json.dumps([{"id": "pro-1", "status": "pending"}]))
+
+        assert guard.review("Oui, c'est noté, je vous rappellerai à 16h05.") is Verdict.ACCEPT
 
     def test_another_write_backs_its_cest_note(self):
         # « C'est noté : dentiste le 12 mars » after create_event is true; a relaunch would book it twice.

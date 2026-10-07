@@ -71,14 +71,16 @@ _REMINDER = re.compile(
 # The same rule: only the affirmative forms. « Je n'ai rien enregistré », « je ne l'ai pas
 # encore enregistré » and « ce n'est pas noté » put a word between the subject and the
 # verb, so they stay out. « Je note » needs its object — « je le note », « je m'en note » —
-# so that « je note que tu as trois rendez-vous » stays a remark.
+# so that « je note que tu as trois rendez-vous » stays a remark. An offer is not a claim:
+# « veux-tu que je le note ? » asks first, which is what she should do when unsure.
 _OBJECT = r"(?:l[ea]\s+|les\s+|l['\u2019]\s*|m['\u2019]\s*en\s+)"
+_NOT_AN_OFFER = r"(?<!\bque\s)"
 _LEARNING = re.compile(
-    r"\bc['\u2019]est\s+(?:bien\s+)?(?:noté|enregistré|retenu)\b"
-    r"|\bj['\u2019]ai\s+(?:bien\s+)?(?:noté|enregistré|retenu)\b"
-    r"|\bje\s+" + _OBJECT + r"note(?:rai)?\b"
+    r"\bc['\u2019]est\s+(?:bien\s+)?(?:noté|enregistré)\b"
+    r"|\bj['\u2019]ai\s+(?:bien\s+)?(?:noté|enregistré)\b"
+    r"|" + _NOT_AN_OFFER + r"\bje\s+" + _OBJECT + r"note(?:rai)?\b"
     r"|\bj['\u2019]\s*en\s+prends\s+note\b"
-    r"|\bje\s+" + _OBJECT + r"?(?:retiens|retiendrai)\b"
+    r"|" + _NOT_AN_OFFER + r"\bje\s+" + _OBJECT + r"?(?:retiens|retiendrai)\b"
     r"|\bje\s+m['\u2019]\s*en\s+souviendrai\b",
     re.IGNORECASE,
 )
@@ -211,8 +213,18 @@ class ClaimGuard:
             self.backed.add(LEARNING.name)
 
     def _unbacked(self, answer: str) -> Claim | None:
+        # A « c'est noté » next to a reminder that is backed — scheduled now, or found pending
+        # by `list_proactions` — is about that reminder: the learning check stays out of it,
+        # or its nudge would offer `schedule_proaction` and book the reminder twice.
+        reminder_backed = REMINDER.name in self.backed and REMINDER.made_in(answer)
         return next(
-            (claim for claim in self.checked if claim.name not in self.backed and claim.made_in(answer)),
+            (
+                claim
+                for claim in self.checked
+                if claim.name not in self.backed
+                and not (claim is LEARNING and reminder_backed)
+                and claim.made_in(answer)
+            ),
             None,
         )
 
@@ -232,6 +244,8 @@ class ClaimGuard:
         claim = self._unbacked(answer)
         if claim is None:
             return Verdict.ACCEPT
+        # The honest answer follows the claim made last: a relaunched answer that drops the
+        # reminder and only says « c'est noté » is answered about what it says now.
         self._pending = claim
         if not self.nudged and can_retry:
             self.nudged = True
