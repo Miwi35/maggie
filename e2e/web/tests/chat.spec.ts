@@ -84,6 +84,15 @@ const TIMEZONE_CALL = {
   startsAt: '2099-07-14T14:00:00.000Z',
 }
 
+/** 35-create-event-several-days.yaml — « du X au Y » is one whole-day event, the last day included (MAG-317). */
+const HOLIDAY = {
+  question: 'Ajoute les vacances du 22 décembre 2099 au 3 janvier 2100',
+  title: "Vacances d'hiver",
+  // Midnight in Paris (UTC+1 in winter): the first day, and the midnight after the last one.
+  startsAt: '2099-12-21T23:00:00.000Z',
+  endsAt: '2100-01-03T23:00:00.000Z',
+}
+
 /**
  * 31 to 34-create-event-*.yaml — MAG-150: the agenda **nobody named**. Each question
  * sends `create_event` with no `agenda_id` at all, so where the event lands is the API's
@@ -299,6 +308,43 @@ test('a call for someone in another timezone is converted by the date_time tool,
   expect(new Date(String(booked.startAt)).toISOString()).toBe(TIMEZONE_CALL.startsAt)
 })
 
+test('a stretch of days asked for is one whole-day event, not a series', async ({ page, api }) => {
+  const dashboard = new DashboardPage(page)
+  await dashboard.open()
+
+  expect(await getCollection<SeededEvent>(api, APPOINTMENTS_URL)).not.toContainEqual(
+    expect.objectContaining({ summary: HOLIDAY.title }),
+  )
+
+  const chat = new ChatPanel(page)
+  const events = await chat.send(HOLIDAY.question)
+
+  // One call and it worked: no duration tried first, no recurrence to patch it up.
+  expect(calledTools(events).filter((tool) => tool === 'create_event')).toHaveLength(1)
+  expect(calledTools(events)).not.toContain('update_event')
+  expect(toolResults(events)).toContainEqual({ toolName: 'create_event', status: 'success' })
+
+  const booked = await waitForIndexed<SeededEvent & { allDay?: boolean; endAt?: string; rrule?: string | null }>(
+    api,
+    APPOINTMENTS_URL,
+    (event) => event.summary === HOLIDAY.title,
+    { what: `The ${HOLIDAY.title} Maggie booked` },
+  )
+  expect(booked.allDay).toBe(true)
+  expect(booked.rrule ?? null).toBeNull()
+  expect(new Date(String(booked.startAt)).toISOString()).toBe(HOLIDAY.startsAt)
+  expect(new Date(String(booked.endAt)).toISOString()).toBe(HOLIDAY.endsAt)
+
+  // Only one row: a daily series, or thirteen events, would be found here.
+  const sameTitle = (await getCollection<SeededEvent>(api, APPOINTMENTS_URL)).filter(
+    (event) => event.summary === HOLIDAY.title,
+  )
+  expect(sameTitle).toHaveLength(1)
+
+  const calendar = new CalendarPage(page)
+  await calendar.openEvent(String(booked.id), HOLIDAY.title)
+})
+
 test('changing the subject opens a second context', async ({ page }) => {
   const dashboard = new DashboardPage(page)
   await dashboard.open()
@@ -317,7 +363,7 @@ test('changing the subject opens a second context', async ({ page }) => {
   // Two, exactly. "More than one" would pass just as happily on the failure
   // 10-context-router-existing.yaml exists to prevent — a router that opens a
   // context per message — and by this point that would be five. The count is
-  // knowable: the first test opened one, the three after it joined it, this one
+  // knowable: the first test opened one, the four after it joined it, this one
   // opened the second.
   await expect(chat.contextItems).toHaveCount(2)
   await expect(chat.context('Budget e2e')).toBeVisible()

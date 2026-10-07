@@ -1004,6 +1004,22 @@ class TestTheShippedFixtures:
         assert booked.input["title"] == "Dentiste"
         assert booked.input["start_date"].startswith("2099-")
 
+    async def test_a_holiday_is_booked_as_one_whole_day_event_with_a_last_day(self):
+        client = build_client(DEFAULT_FIXTURES_DIR)
+
+        answer = await ask(client, "Ajoute les vacances du 22 décembre 2099 au 3 janvier 2100")
+
+        assert answer.stop_reason == "tool_use"
+        call = next(block for block in answer.content if isinstance(block, FakeToolUseBlock))
+        assert call.name == "create_event"
+        # Read by the chat journey: no duration, no recurrence, the last day included.
+        assert call.input == {
+            "title": "Vacances d'hiver",
+            "start_date": "2099-12-22",
+            "end_date": "2100-01-03",
+            "all_day": True,
+        }
+
     async def test_shifting_an_evening_sends_the_whole_schedule_and_the_captured_id(self):
         client = build_client(DEFAULT_FIXTURES_DIR)
         event_id = "01ARZ3NDEKTSV4RRFFQ69G5FAV"
