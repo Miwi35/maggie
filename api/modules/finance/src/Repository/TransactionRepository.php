@@ -153,13 +153,17 @@ class TransactionRepository extends ServiceEntityRepository
      * consumed, not paired yet and not judged by hand. Which one wins is the
      * use case's call; the order here only makes the result stable.
      *
+     * `$includeJudged` keeps the lines the owner already took out of the
+     * transfers: the detection must skip them, but the owner choosing a
+     * counterpart by hand may well want one back.
+     *
      * @return Transaction[]
      */
-    public function findTransferCandidates(Transaction $transaction, int $windowDays): array
+    public function findTransferCandidates(Transaction $transaction, int $windowDays, bool $includeJudged = false): array
     {
         $bookedAt = $transaction->getBookedAt();
 
-        return $this->createQueryBuilder('t')
+        $qb = $this->createQueryBuilder('t')
             ->innerJoin('t.account', 'a')
             ->andWhere('t.user = :user')
             ->andWhere('a.user = :user')
@@ -171,7 +175,6 @@ class TransactionRepository extends ServiceEntityRepository
             ->andWhere('t.bookedAt <= :until')
             ->andWhere('t.status IN (:consumed)')
             ->andWhere('t.counterpart IS NULL')
-            ->andWhere('t.transferSource != :manual')
             ->setParameter('user', $transaction->getUser()->getId(), 'ulid')
             ->setParameter('id', $transaction->getId(), 'ulid')
             ->setParameter('account', $transaction->getAccount()->getId(), 'ulid')
@@ -180,11 +183,15 @@ class TransactionRepository extends ServiceEntityRepository
             ->setParameter('from', $bookedAt->modify(sprintf('-%d days', $windowDays)))
             ->setParameter('until', $bookedAt->modify(sprintf('+%d days', $windowDays)))
             ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
-            ->setParameter('manual', TransferSource::Manual->value)
             ->orderBy('t.bookedAt', 'ASC')
-            ->addOrderBy('t.id', 'ASC')
-            ->getQuery()
-            ->getResult();
+            ->addOrderBy('t.id', 'ASC');
+
+        if (!$includeJudged) {
+            $qb->andWhere('t.transferSource != :manual')
+                ->setParameter('manual', TransferSource::Manual->value);
+        }
+
+        return $qb->getQuery()->getResult();
     }
 
     /**

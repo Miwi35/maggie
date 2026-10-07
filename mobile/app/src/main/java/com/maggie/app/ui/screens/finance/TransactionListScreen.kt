@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.finance
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -66,6 +67,30 @@ fun TransactionListScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var showCreateDialog by remember { mutableStateOf(false) }
+    var searchingCounterpart by remember { mutableStateOf(false) }
+
+    val detail = uiState.detail
+    if (detail != null) {
+        if (searchingCounterpart) {
+            CounterpartSearchScreen(
+                state = detail,
+                onLoad = viewModel::loadCandidates,
+                onPick = { leg ->
+                    viewModel.markAsTransfer(leg?.id)
+                    searchingCounterpart = false
+                },
+                onBack = { searchingCounterpart = false },
+            )
+        } else {
+            TransactionDetailScreen(
+                state = detail,
+                onBack = viewModel::closeDetail,
+                onSearchCounterpart = { searchingCounterpart = true },
+                onRelease = viewModel::releaseTransfer,
+            )
+        }
+        return
+    }
 
     ErrorSnackbar(
         error = uiState.error,
@@ -120,7 +145,7 @@ fun TransactionListScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(uiState.transactions, key = { it.id }) { transaction ->
-                        Card(modifier = Modifier.fillMaxWidth()) {
+                        Card(modifier = Modifier.fillMaxWidth().clickable { viewModel.openDetail(transaction.id) }) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -142,6 +167,7 @@ fun TransactionListScreen(
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
+                                    if (transaction.isInternalTransfer) TransferBadge()
                                 }
                                 Text(
                                     text = formatCents(transaction.amountCents, transaction.currency),

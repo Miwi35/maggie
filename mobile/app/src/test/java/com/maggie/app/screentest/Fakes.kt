@@ -18,6 +18,9 @@ import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.GroceryList
 import com.maggie.app.data.model.RuleSuggestion
 import com.maggie.app.data.model.Store
+import com.maggie.app.data.model.Transaction
+import com.maggie.app.data.model.TransferInfo
+import com.maggie.app.data.model.TransferLeg
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.BankConnectionRepository
 import com.maggie.app.data.repository.CategorizationRuleRepository
@@ -31,6 +34,7 @@ import com.maggie.app.data.repository.GroceryListRepository
 import com.maggie.app.data.repository.ProductRepository
 import com.maggie.app.data.repository.StoreRepository
 import com.maggie.app.data.repository.TaskRepository
+import com.maggie.app.data.repository.TransactionRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.screens.cookbook.grocery.GroceryViewModel
@@ -38,6 +42,7 @@ import com.maggie.app.ui.screens.finance.BankConnectionViewModel
 import com.maggie.app.ui.screens.finance.CategoryViewModel
 import com.maggie.app.ui.screens.finance.FinanceDashboardViewModel
 import com.maggie.app.ui.screens.finance.RuleSuggestionViewModel
+import com.maggie.app.ui.screens.finance.TransactionViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
 import io.mockk.coEvery
 import io.mockk.every
@@ -268,6 +273,68 @@ class FakeBankConnections(private val connections: List<BankConnection>) {
         val repository = mockk<BankConnectionRepository>()
         coEvery { repository.getConnections() } returns Result.success(connections)
         BankConnectionViewModel(repository)
+    }
+}
+
+/**
+ * One account's transactions, and the transfer endpoints over them (MAG-272).
+ *
+ * A small server rather than canned answers: marking or releasing a line is applied the
+ * way the API applies it — the line changes kind, and a released line frees its
+ * counterpart — so the screen has to show the new state it was handed, not the one
+ * it assumed. [marked] is what the fake was asked to write.
+ */
+class FakeTransactionTransfers(
+    transactions: List<Transaction> = listOf(Seed.transferOut, Seed.groceries),
+    private val counterpart: TransferLeg = Seed.transferIn,
+    private val candidates: List<TransferLeg> = listOf(Seed.transferIn),
+) {
+    private val lines = transactions.toMutableList()
+    private val paired = lines.filter { it.isInternalTransfer }.map { it.id }.toMutableSet()
+
+    /** The counterpart ids the screen asked to mark with, `null` for « none ». */
+    val marked = mutableListOf<String?>()
+    val released = mutableListOf<String>()
+
+    val viewModel: TransactionViewModel by lazy {
+        val repository = mockk<TransactionRepository>()
+        val categoryRepository = mockk<CategoryRepository>()
+        val (auth, mercure) = signedIn()
+
+        coEvery { categoryRepository.getCategories() } returns Result.success(emptyList())
+        coEvery { repository.getTransactions(any()) } answers { Result.success(lines.toList()) }
+        coEvery { repository.getTransfer(any()) } answers {
+            val line = lines.first { it.id == firstArg<String>() }
+            Result.success(
+                TransferInfo(
+                    transferKind = line.transferKind,
+                    transferSource = line.transferSource,
+                    counterpart = counterpart.takeIf { line.isInternalTransfer && line.id in paired },
+                ),
+            )
+        }
+        coEvery { repository.getTransferCandidates(any()) } returns Result.success(candidates)
+        coEvery { repository.setTransfer(any(), any(), any()) } answers {
+            val id = firstArg<String>()
+            val internal = secondArg<Boolean>()
+            val counterpartId = thirdArg<String?>()
+            if (internal) marked += counterpartId else released += id
+            if (internal && counterpartId != null) paired += id else paired -= id
+            val index = lines.indexOfFirst { it.id == id }
+            lines[index] = lines[index].copy(
+                transferKind = if (internal) "internal" else "none",
+                transferSource = "manual",
+            )
+            Result.success(
+                TransferInfo(
+                    transferKind = lines[index].transferKind,
+                    transferSource = "manual",
+                    counterpart = counterpart.takeIf { counterpartId != null && internal },
+                ),
+            )
+        }
+
+        TransactionViewModel(repository, categoryRepository, "acc-savings", mercure, auth)
     }
 }
 

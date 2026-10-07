@@ -48,6 +48,7 @@ object MercureTopics {
     const val NOTIFICATIONS = "notifications"
     const val RECIPES = "recipes"
     const val TASKS = "tasks"
+    const val TRANSACTIONS = "transactions"
     const val USER_PREFERENCES = "user_preferences"
 
     /**
@@ -63,6 +64,7 @@ object MercureTopics {
         NOTIFICATIONS,
         RECIPES,
         TASKS,
+        TRANSACTIONS,
         USER_PREFERENCES,
     )
 

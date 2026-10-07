@@ -7,6 +7,8 @@ import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.GroceryList
 import com.maggie.app.data.model.RuleSuggestion
 import com.maggie.app.data.model.Store
+import com.maggie.app.data.model.Transaction
+import com.maggie.app.data.model.TransferLeg
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
@@ -144,6 +146,33 @@ object Seed {
         direction = "debit",
         samples = listOf("LECLERC RENNES", "LECLERC RENNES", "LECLERC RENNES"),
     )
+
+    // ---------------------------------------------------------------------
+    // The internal transfer of 3 000 € (MAG-272)
+    // ---------------------------------------------------------------------
+
+    /** The debit on « Livret », already paired with [transferIn] by the detection. */
+    val transferOut = Transaction(
+        id = "tx-out",
+        label = "Virement vers Courant",
+        amountCents = -300000,
+        bookedAt = "2026-09-12",
+        transferKind = "internal",
+        transferSource = "auto",
+    )
+
+    /** The credit on « Courant », the other leg. */
+    val transferIn = TransferLeg(
+        id = "tx-in",
+        label = "Virement du Livret",
+        amountCents = 300000,
+        bookedAt = "2026-09-13",
+        accountId = "acc-checking",
+        accountName = "Courant",
+    )
+
+    /** An ordinary expense on the same account: no badge. */
+    val groceries = Transaction(id = "tx-groceries", label = "Supermarché", amountCents = -8000, bookedAt = "2026-09-14")
 
     // ---------------------------------------------------------------------
     // The conversation the chat surfaces draw (MAG-35)

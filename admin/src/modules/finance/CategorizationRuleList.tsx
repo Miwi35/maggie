@@ -18,6 +18,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import { useMercure } from '../../hooks/useMercure'
 import { ListEmpty } from '../../components/list/ListEmpty'
 import { MATCH_TYPE_LABELS, describeRuleScope } from './categorizationRules'
+import { DetectInternalTransfersButton } from './DetectInternalTransfersButton'
 import { useApplyCategorizationRules } from './useApplyCategorizationRules'
 import type { RaRecord } from 'react-admin'
 
@@ -84,6 +85,7 @@ const RuleDatagrid = () => {
 const RuleActions = () => (
   <TopToolbar>
     <ApplyRulesButton />
+    <DetectInternalTransfersButton />
     <CreateButton />
   </TopToolbar>
 )
@@ -95,6 +97,7 @@ export const CategorizationRuleList = () => (
         title="Aucune règle pour l'instant"
         description="Une règle classe toute seule les opérations dont le libellé correspond — une fois écrite, elle vaut pour tout l'historique."
         action="Écrire une règle"
+        secondaryAction={<DetectInternalTransfersButton />}
       />
     }
     resource="categorization_rules"

@@ -14,7 +14,50 @@ data class Transaction(
     // Serialised as "exceptional" by the API, for the same reason as
     // Account.isCushion.
     @SerialName("exceptional") val isExceptional: Boolean = false,
+    // "internal" when the line is one leg of a move between the owner's own accounts.
+    val transferKind: String = "none",
+    val transferSource: String = "auto",
+) {
+    val isInternalTransfer: Boolean get() = transferKind == "internal"
+}
+
+/** One leg of an internal transfer, with the account it sits on. */
+@Serializable
+data class TransferLeg(
+    val id: String,
+    val label: String,
+    val amountCents: Int = 0,
+    val currency: String = "EUR",
+    val bookedAt: String? = null,
+    val accountId: String? = null,
+    val accountName: String? = null,
 )
+
+/** What `GET /api/finance/transactions/{id}/transfer` says about a line. */
+@Serializable
+data class TransferInfo(
+    val transferKind: String = "none",
+    val transferSource: String = "auto",
+    val counterpart: TransferLeg? = null,
+)
+
+@Serializable
+data class TransferCandidates(
+    val candidates: List<TransferLeg> = emptyList(),
+)
+
+@Serializable
+data class TransferUpdateRequest(
+    val transferKind: String,
+    val counterpartId: String? = null,
+)
+
+/** « Courant · 2026-09-13 · Virement du Livret », the line the screens show under the badge. */
+fun transferLegSummary(leg: TransferLeg): String = listOfNotNull(
+    leg.accountName,
+    leg.bookedAt?.take(10),
+    leg.label,
+).joinToString(" · ")
 
 /**
  * A transaction is an expense or an income, and the sign of its amount says

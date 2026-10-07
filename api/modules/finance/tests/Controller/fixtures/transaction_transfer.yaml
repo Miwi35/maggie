@@ -1,0 +1,106 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: transaction-transfer-controller@example.com
+    googleId: google-transaction-transfer-controller
+    name: Transaction Transfer Controller User
+  other_user:
+    email: transaction-transfer-other@example.com
+    googleId: google-transaction-transfer-other
+    name: Transaction Transfer Other User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+  savings:
+    name: Livret
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 800000
+    isCushion: false
+    user: '@test_user'
+  stranger_account:
+    name: Compte d'un autre
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 1000
+    isCushion: false
+    user: '@other_user'
+
+Maggie\Finance\Entity\Transaction:
+  transfer_out:
+    account: '@savings'
+    amountCents: -300000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-01"))>'
+    label: Virement vers Courant
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  transfer_in_far:
+    account: '@checking'
+    amountCents: 300000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-10"))>'
+    label: Virement du Livret
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  too_far:
+    account: '@checking'
+    amountCents: 300000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-12-10"))>'
+    label: Autre virement lointain
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  same_account:
+    account: '@savings'
+    amountCents: 300000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-02"))>'
+    label: Remboursement sur le même compte
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  groceries:
+    account: '@checking'
+    amountCents: -8000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-03"))>'
+    label: Supermarché
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  stranger_line:
+    account: '@stranger_account'
+    amountCents: 300000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-02"))>'
+    label: Ligne d'un autre utilisateur
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@other_user'
+  close_out:
+    account: '@savings'
+    amountCents: -5000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-20"))>'
+    label: Petit virement vers Courant
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  close_in:
+    account: '@checking'
+    amountCents: 5000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-21"))>'
+    label: Petit virement du Livret
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
