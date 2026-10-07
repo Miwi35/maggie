@@ -12,6 +12,7 @@ import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import com.maggie.app.voice.VoiceManager
 import com.maggie.app.voice.VoiceState
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -91,8 +92,8 @@ class AssistantOverlayScreenTest {
         compose.onNodeWithTag(UiTags.approvalAllow("ap-1")).performClick()
         compose.waitForIdle()
 
-        assertEquals(listOf("approve:ap-1"), chat.decisions)
         awaitCardGone()
+        coVerify(exactly = 1) { chat.approvals.approve("ap-1") }
     }
 
     @Test
@@ -104,8 +105,8 @@ class AssistantOverlayScreenTest {
         compose.onNodeWithTag(UiTags.approvalDeny("ap-1")).performClick()
         compose.waitForIdle()
 
-        assertEquals(listOf("deny:ap-1"), chat.decisions)
         awaitCardGone()
+        coVerify(exactly = 1) { chat.approvals.deny("ap-1") }
     }
 
     @Test

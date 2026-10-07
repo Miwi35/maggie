@@ -355,10 +355,9 @@ class FakeChat(
     private val pending: List<PendingApproval> = emptyList(),
 ) {
     private val outgoing = mutableListOf<String>()
-    private val decided = mutableListOf<String>()
 
-    /** The answers given to held actions, as `approve:<id>` or `deny:<id>`, in order. */
-    val decisions: List<String> get() = decided.toList()
+    /** The repository the held actions are answered through: verify the calls it received. */
+    val approvals: ApprovalRepository by lazy { mockk<ApprovalRepository>() }
 
     /** What the panel asked the server to send, in order. */
     val sent: List<String> get() = outgoing.toList()
@@ -383,19 +382,15 @@ class FakeChat(
         coEvery { preferences.getLastReadMessageId() } returns null
         coEvery { preferences.saveLastReadMessageId(any()) } returns Unit
 
-        val approvals = mockk<ApprovalRepository>()
         coEvery { approvals.getPending() } returns Result.success(pending)
         every { approvals.observe() } returns emptyFlow()
         coEvery { approvals.describe(any()) } returns null
-        coEvery { approvals.approve(any()) } answers {
-            val id = firstArg<String>()
-            decided += "approve:$id"
-            Result.success(pending.first { it.id == id }.copy(status = PendingApproval.STATUS_APPROVED))
-        }
-        coEvery { approvals.deny(any()) } answers {
-            val id = firstArg<String>()
-            decided += "deny:$id"
-            Result.success(pending.first { it.id == id }.copy(status = PendingApproval.STATUS_DENIED))
+        // Result is a value class: `returns` is what mockk unwraps correctly, `answers` is not.
+        pending.forEach { held ->
+            coEvery { approvals.approve(held.id) } returns
+                Result.success(held.copy(status = PendingApproval.STATUS_APPROVED))
+            coEvery { approvals.deny(held.id) } returns
+                Result.success(held.copy(status = PendingApproval.STATUS_DENIED))
         }
 
         ChatViewModel(repository, mercure, preferences, auth, approvals)
