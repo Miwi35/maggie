@@ -8,7 +8,7 @@ import frenchMessages from 'ra-language-french'
 const resources = {
   accounts: { name: 'Compte |||| Comptes' },
   categories: { name: 'Catégorie |||| Catégories' },
-  transactions: { name: 'Opération |||| Opérations' },
+  transactions: { name: 'Transaction |||| Transactions' },
   envelopes: { name: 'Enveloppe |||| Enveloppes' },
   categorization_rules: { name: 'Règle |||| Règles' },
   loans: { name: 'Prêt |||| Prêts' },

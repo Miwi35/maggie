@@ -14,6 +14,7 @@ use Maggie\Finance\Enum\TransferSource;
 use Maggie\Finance\Message\UpdateTransactionCommand;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\Service\OwnedReferenceResolver;
+use Maggie\Finance\Service\TransactionNatureGuard;
 use Maggie\Finance\UseCase\UpdateTransaction;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -24,6 +25,7 @@ class UpdateTransactionHandler
         private readonly UpdateTransaction $updateTransaction,
         private readonly TransactionRepository $transactionRepository,
         private readonly OwnedReferenceResolver $references,
+        private readonly TransactionNatureGuard $natureGuard,
         private readonly EntityBroadcaster $broadcaster,
     ) {
     }
@@ -72,6 +74,8 @@ class UpdateTransactionHandler
         } elseif ($command->clears('categoryId')) {
             $transaction->assignCategory(null, CategorySource::None);
         }
+
+        $this->natureGuard->assertStillCompatible($transaction);
 
         // The middlewares publish and reindex the result only, so the other
         // legs a marking touched have to be broadcast by hand — a stale index

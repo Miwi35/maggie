@@ -16,7 +16,7 @@ import {
 import { useParams } from 'react-router-dom'
 import { useMercure } from '../../hooks/useMercure'
 import { Placeholder } from '../../components/list/ListEmpty'
-import { TRANSACTION_STATUS_LABELS } from './transactionStatuses'
+import { statusLabel } from './transactionStatuses'
 import { Amount } from './AmountField'
 import type { RaRecord } from 'react-admin'
 
@@ -46,7 +46,9 @@ const TransactionDatagrid = () => {
       </ReferenceField>
       <FunctionField
         label="Statut"
-        render={(record: RaRecord) => TRANSACTION_STATUS_LABELS[record.status as string] ?? record.status}
+        render={(record: RaRecord) =>
+          statusLabel(record.status as string, record.amountCents as number)
+        }
       />
       <EditButton />
       <DeleteButton />
@@ -57,7 +59,7 @@ const TransactionDatagrid = () => {
 const AddTransactionButton = ({ accountIri }: { accountIri: string }) => (
   <CreateButton
     resource="transactions"
-    label="Ajouter une opération"
+    label="Ajouter une transaction"
     state={{ record: { account: accountIri } }}
   />
 )
@@ -68,7 +70,7 @@ const AddTransactionButton = ({ accountIri }: { accountIri: string }) => (
  */
 export const AccountTransactionsEmpty = ({ accountIri }: { accountIri: string }) => (
   <Placeholder
-    title="Aucune opération sur ce compte"
+    title="Aucune transaction sur ce compte"
     description="Ajoutez-en une, ou attendez la prochaine synchronisation si ce compte est alimenté automatiquement."
     action={<AddTransactionButton accountIri={accountIri} />}
   />
@@ -97,7 +99,7 @@ export const AccountTransactionsView = () => {
 
   return (
     <>
-      <Title title={`Opérations — ${accountName}`} />
+      <Title title={`Transactions — ${accountName}`} />
       <List
         resource="transactions"
         filter={{ account: accountIri }}

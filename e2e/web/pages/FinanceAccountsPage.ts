@@ -13,7 +13,7 @@ import { ROUTES, accountTransactionsRoute } from './routes.js'
  */
 export class FinanceAccountsPage extends AdminShell {
   readonly createAccount: Locator
-  /** "Ajouter une opération", only on the account-scoped list. */
+  /** "Ajouter une transaction", only on the account-scoped list. */
   readonly addTransaction: Locator
 
   constructor(page: Page) {
@@ -24,7 +24,7 @@ export class FinanceAccountsPage extends AdminShell {
     // invitation reads "Ajouter un compte". The journey presses the same
     // button either way.
     this.createAccount = this.content.getByRole('link', { name: /Créer|Ajouter un compte/ })
-    this.addTransaction = this.content.getByRole('link', { name: 'Ajouter une opération' })
+    this.addTransaction = this.content.getByRole('link', { name: 'Ajouter une transaction' })
   }
 
   /**
@@ -49,7 +49,7 @@ export class FinanceAccountsPage extends AdminShell {
    *
    * The wait allows for both outcomes. The collection is served from
    * Elasticsearch, and a react-admin list with an `empty` renders *only* that
-   * — toolbar included — so an account whose first operation is not indexed
+   * — toolbar included — so an account whose first transaction is not indexed
    * yet legitimately shows the invitation rather than a grid.
    */
   async openTransactions(accountId: string): Promise<void> {
@@ -57,7 +57,7 @@ export class FinanceAccountsPage extends AdminShell {
     await expect(
       this.content
         .getByRole('table')
-        .or(this.content.getByText('Aucune opération sur ce compte')),
+        .or(this.content.getByText('Aucune transaction sur ce compte')),
     ).toBeVisible()
   }
 
@@ -122,17 +122,23 @@ export class FinanceAccountsPage extends AdminShell {
    *
    * The account is pre-filled when the form was opened from an account's own
    * list — `CreateButton` passes it in the router state — so only the fields
-   * the caller names are touched.
+   * the caller names are touched. The amount is typed without a sign: the
+   * nature (a dépense unless the caller says otherwise) gives it its direction.
    */
   async createTransaction(options: {
     label: string
     amountEuros: number
     date: string
+    nature?: 'Dépense' | 'Recette'
     category?: string
     status?: string
   }): Promise<void> {
     await this.addTransaction.click()
     await expect(this.content.getByLabel('Libellé')).toBeVisible()
+
+    if (options.nature !== undefined) {
+      await this.chooseNature(options.nature)
+    }
 
     await this.content.getByLabel('Libellé').fill(options.label)
     await this.content.getByLabel('Montant (€)').fill(String(options.amountEuros))
@@ -152,6 +158,21 @@ export class FinanceAccountsPage extends AdminShell {
     await this.save()
   }
 
+  /** The Dépense / Recette choice at the top of the transaction form. */
+  async chooseNature(nature: 'Dépense' | 'Recette'): Promise<void> {
+    const button = this.content.getByRole('button', { name: nature, exact: true })
+    await button.click()
+    await expect(button).toHaveAttribute('aria-pressed', 'true')
+  }
+
+  /** The names offered by the category field, once it is open. */
+  async offeredCategories(): Promise<string[]> {
+    await this.content.getByLabel('Catégorie').click()
+    const options = this.page.getByRole('option')
+    await expect(options.first()).toBeVisible()
+    return options.allInnerTexts()
+  }
+
   /**
    * react-admin's own save button, and the wait for the form to have gone.
    *
@@ -161,7 +182,7 @@ export class FinanceAccountsPage extends AdminShell {
    * one, which renders no grid at all. The form having left is what says the
    * write went through; `waitForIndexed` is what says it landed.
    */
-  private async save(): Promise<void> {
+  async save(): Promise<void> {
     await this.content.getByRole('button', { name: 'Enregistrer' }).click()
     // The button is no signal: react-admin sends a create straight to the new
     // record's edit screen, which carries an "Enregistrer" of its own. The URL

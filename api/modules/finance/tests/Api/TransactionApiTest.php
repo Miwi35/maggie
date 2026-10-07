@@ -197,6 +197,124 @@ class TransactionApiTest extends WebTestCase
         self::assertSame('Alimentation', $refreshed->getCategory()?->getName());
     }
 
+    private function post(array $body): void
+    {
+        $this->client->request('POST', '/api/transactions', [], [], array_merge([
+            'CONTENT_TYPE' => 'application/ld+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode($body, JSON_THROW_ON_ERROR));
+    }
+
+    public function testCreateAnIncomeInAnIncomeCategoryIsStored(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->post([
+            'account' => '/api/accounts/'.$this->getFixture('checking')->getId(),
+            'category' => '/api/categories/'.$this->getFixture('paycheck')->getId(),
+            'amountCents' => 250000,
+            'label' => 'Salaire juillet',
+            'bookedAt' => '2026-07-31',
+            'status' => 'spent',
+        ]);
+
+        self::assertResponseStatusCodeSame(201);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $stored = $em->getRepository(Transaction::class)->findOneBy(['label' => 'Salaire juillet']);
+        self::assertSame(250000, $stored->getAmountCents());
+        self::assertSame('Salaire', $stored->getCategory()?->getName());
+        $this->assertMercureUpdatePublished('/transactions/');
+        $this->assertElasticsearchIndexDispatched(Transaction::class);
+    }
+
+    public function testCreateAnIncomeCategoryOnAnExpenseIsRefused(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->post([
+            'account' => '/api/accounts/'.$this->getFixture('checking')->getId(),
+            'category' => '/api/categories/'.$this->getFixture('paycheck')->getId(),
+            'amountCents' => -2500,
+            'label' => 'Mauvaise nature',
+            'bookedAt' => '2026-07-31',
+        ]);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertStringContainsString('income category', $this->client->getResponse()->getContent());
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        self::assertCount(1, $em->getRepository(Transaction::class)->findAll());
+    }
+
+    public function testCreateAnExpenseCategoryOnAnIncomeIsRefused(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->post([
+            'account' => '/api/accounts/'.$this->getFixture('checking')->getId(),
+            'category' => '/api/categories/'.$this->getFixture('food')->getId(),
+            'amountCents' => 2500,
+            'label' => 'Mauvaise nature',
+            'bookedAt' => '2026-07-31',
+        ]);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertStringContainsString('expense category', $this->client->getResponse()->getContent());
+    }
+
+    public function testPatchAnIncomeCategoryOntoAnExpenseIsRefused(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $transaction = $this->getFixture('groceries');
+
+        $this->patch((string) $transaction->getId(), ['category' => '/api/categories/'.$this->getFixture('paycheck')->getId()]);
+
+        self::assertResponseStatusCodeSame(400);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertSame('Alimentation', $em->find(Transaction::class, $transaction->getId())->getCategory()?->getName());
+    }
+
+    public function testPatchTheSignAgainstTheCategoryIsRefused(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $transaction = $this->getFixture('groceries');
+
+        $this->patch((string) $transaction->getId(), ['amountCents' => 4599]);
+
+        self::assertResponseStatusCodeSame(400);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertSame(-4599, $em->find(Transaction::class, $transaction->getId())->getAmountCents());
+    }
+
+    public function testAnOldInconsistentLineStaysReadableAndEditable(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $transaction = $this->getFixture('groceries');
+
+        // A line written before the rule existed: an expense in an income category.
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->find(Transaction::class, $transaction->getId())->setCategory($this->getFixture('paycheck'));
+        $em->flush();
+        $em->clear();
+
+        $this->client->request('GET', '/api/transactions/'.$transaction->getId(), [], [], array_merge(['HTTP_ACCEPT' => 'application/ld+json'], $this->authHeaders()));
+        self::assertResponseIsSuccessful();
+
+        $this->patch((string) $transaction->getId(), ['label' => 'Courses']);
+        self::assertResponseIsSuccessful();
+
+        $this->patch((string) $transaction->getId(), ['amountCents' => -1000]);
+        self::assertResponseIsSuccessful();
+    }
+
     public function testDeleteTransactionRemovesAndPublishes(): void
     {
         $this->loadFixtures('transaction.yaml');

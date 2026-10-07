@@ -18,6 +18,10 @@ Maggie\Finance\Entity\Category:
     name: Alimentation
     obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
     user: '@test_user'
+  paycheck:
+    name: Salaire
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    user: '@test_user'
 
 Maggie\Finance\Entity\Transaction:
   groceries:

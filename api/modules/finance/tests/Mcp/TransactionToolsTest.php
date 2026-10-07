@@ -78,7 +78,7 @@ class TransactionToolsTest extends KernelTestCase
         $this->loadFixtures('transaction.yaml');
         $this->loginFixtureUser();
         $transaction = $this->getFixture('salary');
-        $category = $this->getFixture('food');
+        $category = $this->getFixture('paycheck');
 
         $tool = self::getContainer()->get(ManageTransactionsTool::class);
         $result = $tool('categorize', transactionId: (string) $transaction->getId(), categoryId: (string) $category->getId());
@@ -493,5 +493,69 @@ class TransactionToolsTest extends KernelTestCase
         // Both legs changed, so both must reach the open screens and the index.
         $this->assertMercureUpdatePublished('/transactions/'.$out->getId());
         $this->assertElasticsearchIndexDispatched(Transaction::class);
+    }
+
+    public function testCreateAnIncomeInAnIncomeCategoryIsStored(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
+        $account = $this->getFixture('checking');
+        $paycheck = $this->getFixture('paycheck');
+
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+        $data = json_decode(
+            $tool('create', accountId: (string) $account->getId(), amountCents: 180000, label: 'Prime', bookedAt: '2026-07-20', categoryId: (string) $paycheck->getId()),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertTrue($data['success']);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $stored = $em->getRepository(Transaction::class)->findOneBy(['label' => 'Prime']);
+        self::assertSame('Salaire', $stored->getCategory()?->getName());
+        $this->assertMercureUpdatePublished('/transactions/');
+        $this->assertElasticsearchIndexDispatched(Transaction::class);
+    }
+
+    public function testCreateRefusesAnIncomeCategoryOnAnExpense(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
+        $account = $this->getFixture('checking');
+        $paycheck = $this->getFixture('paycheck');
+
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+        $data = json_decode(
+            $tool('create', accountId: (string) $account->getId(), amountCents: -500, label: 'Erreur', bookedAt: '2026-07-20', categoryId: (string) $paycheck->getId()),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertStringContainsString('income category', $data['error']);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        self::assertCount(2, $em->getRepository(Transaction::class)->findAll());
+    }
+
+    public function testUpdateAndCategorizeRefuseAnExpenseCategoryOnAnIncome(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
+        $salary = $this->getFixture('salary');
+        $food = $this->getFixture('food');
+
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+
+        $categorized = json_decode($tool('categorize', transactionId: (string) $salary->getId(), categoryId: (string) $food->getId()), true, 512, JSON_THROW_ON_ERROR);
+        self::assertStringContainsString('expense category', $categorized['error']);
+
+        $updated = json_decode($tool('update', transactionId: (string) $salary->getId(), categoryId: (string) $food->getId()), true, 512, JSON_THROW_ON_ERROR);
+        self::assertStringContainsString('expense category', $updated['error']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNull($em->find(Transaction::class, $salary->getId())->getCategory());
     }
 }
