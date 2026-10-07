@@ -61,11 +61,12 @@ class AuthRepository(
     }
 
     /** Persist rotated tokens after a refresh, leaving user/profile data untouched. */
-    suspend fun updateTokens(token: String, refreshToken: String?) {
+    suspend fun updateTokens(token: String, refreshToken: String?, mercureToken: String? = null) {
         migrateLegacyTokens()
         dataStore.edit { prefs ->
             prefs[Keys.TOKEN] = seal(token)
             refreshToken?.let { prefs[Keys.REFRESH_TOKEN] = seal(it) }
+            mercureToken?.let { prefs[Keys.MERCURE_TOKEN] = seal(it) }
         }
     }
 

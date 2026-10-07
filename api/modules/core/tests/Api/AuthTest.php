@@ -74,6 +74,27 @@ class AuthTest extends WebTestCase
         self::assertNotSame($refreshToken, $data['refresh_token']);
     }
 
+    public function testRefreshTokenReturnsFreshMercureToken(): void
+    {
+        $refreshToken = $this->createRefreshTokenForUser('mercure-refresh@example.com');
+
+        $this->client->request('POST', '/api/token/refresh', [], [], [
+            'CONTENT_TYPE' => 'application/json',
+        ], json_encode(['refresh_token' => $refreshToken], JSON_THROW_ON_ERROR));
+
+        self::assertResponseIsSuccessful();
+
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertArrayHasKey('mercureToken', $data, 'a refresh that does not renew the Mercure token silences real-time once the login one expires');
+
+        $claims = json_decode((string) base64_decode(strtr(explode('.', $data['mercureToken'])[1], '-_', '+/')), true, 512, JSON_THROW_ON_ERROR);
+        $user = self::getContainer()->get('doctrine.orm.entity_manager')
+            ->getRepository(User::class)->findOneBy(['email' => 'mercure-refresh@example.com']);
+        self::assertSame((string) $user->getId(), $claims['sub']);
+        self::assertGreaterThan(time() + 3600, $claims['exp']);
+        self::assertContains('/users/'.$user->getId().'/*', array_column($claims['authorization_details'][0]['topics'], 'match'));
+    }
+
     public function testRefreshTokenWithInvalidTokenReturns401(): void
     {
         $this->client->request('POST', '/api/token/refresh', [], [], [
@@ -83,13 +104,13 @@ class AuthTest extends WebTestCase
         self::assertResponseStatusCodeSame(401);
     }
 
-    private function createRefreshTokenForUser(): string
+    private function createRefreshTokenForUser(string $email = 'refresh@example.com'): string
     {
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
 
         $user = new User();
-        $user->setEmail('refresh@example.com');
-        $user->setGoogleId('google-refresh-id');
+        $user->setEmail($email);
+        $user->setGoogleId('google-'.$email);
         $user->setName('Refresh User');
         $em->persist($user);
         $em->flush();
