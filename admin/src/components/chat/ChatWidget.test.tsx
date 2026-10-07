@@ -285,7 +285,7 @@ describe('ChatWidget', () => {
         }),
       )
 
-      render(<ChatWidget {...defaultProps} />)
+      renderWithTheme(<ChatWidget {...defaultProps} />)
 
       await waitFor(() => {
         expect(screen.getByText("C'est quoi ce produit ?")).toBeInTheDocument()
