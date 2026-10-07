@@ -235,4 +235,63 @@ describe('MaggieInterruption', () => {
 
     expect(screen.getByTestId('maggie-avatar')).toHaveStyle({ width: '96px', height: '96px' })
   })
+
+  describe('with a headline and a question to answer', () => {
+    function setupQuestion(extra: { busy?: boolean; error?: string | null } = {}) {
+      const onAction = vi.fn()
+      const onSecondary = vi.fn()
+      const onLater = vi.fn()
+      render(
+        <ThemeProvider theme={veilleuseDarkTheme}>
+          <MaggieInterruption
+            open
+            id="approval:a1"
+            title="close 27"
+            message="Supprimer l'événement"
+            actionLabel="Autoriser"
+            onAction={onAction}
+            secondaryLabel="Refuser"
+            onSecondary={onSecondary}
+            onLater={onLater}
+            {...extra}
+          />
+        </ThemeProvider>,
+      )
+      return { onAction, onSecondary, onLater }
+    }
+
+    test('shows the headline above the message', () => {
+      setupQuestion()
+
+      expect(screen.getByText('close 27')).toBeInTheDocument()
+      expect(screen.getByRole('alertdialog')).toHaveAccessibleDescription("Supprimer l'événement")
+    })
+
+    test('offers « Autoriser », « Refuser » and « Plus tard », each doing its own thing', async () => {
+      const { onAction, onSecondary, onLater } = setupQuestion()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Autoriser' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Refuser' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Plus tard' }))
+
+      expect(onAction).toHaveBeenCalledTimes(1)
+      expect(onSecondary).toHaveBeenCalledTimes(1)
+      expect(onLater).toHaveBeenCalledTimes(1)
+    })
+
+    test('does not put the focus where a stray Enter would answer', () => {
+      setupQuestion()
+
+      expect(screen.getByRole('button', { name: 'Plus tard' })).toHaveFocus()
+    })
+
+    test('waits for the answer on its way, and says when it did not go', () => {
+      setupQuestion({ busy: true, error: "Ta réponse n'est pas partie." })
+
+      expect(screen.getByRole('button', { name: 'Autoriser' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Refuser' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Plus tard' })).toBeEnabled()
+      expect(screen.getByRole('alert')).toHaveTextContent("Ta réponse n'est pas partie.")
+    })
+  })
 })

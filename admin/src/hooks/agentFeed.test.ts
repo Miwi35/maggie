@@ -23,12 +23,13 @@ describe('subscribeAgentFeed', () => {
     vi.unstubAllGlobals()
   })
 
-  test('carries the contexts and proactions topics of the user, with credentials', () => {
+  test('carries the contexts, proactions, approvals and notifications topics of the user, with credentials', () => {
     const stop = subscribeAgentFeed('u1', vi.fn())
 
     const [source] = FakeEventSource.instances
-    const matches = new URL(source.url).searchParams.getAll('match')
-    expect(matches).toEqual(['/contexts/u1', '/proactions/u1'])
+    const params = new URL(source.url).searchParams
+    expect(params.getAll('match')).toEqual(['/contexts/u1', '/proactions/u1', '/approvals/u1'])
+    expect(params.getAll('match_urlpattern')).toEqual(['/users/u1/api/notifications/:id'])
     expect(source.init).toEqual({ withCredentials: true })
     stop()
   })
