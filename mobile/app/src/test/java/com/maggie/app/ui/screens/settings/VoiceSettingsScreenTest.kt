@@ -122,7 +122,7 @@ class VoiceSettingsScreenTest {
     fun `a device where Maggie holds the role and her service is active says she answers the long press`() {
         roleIsAvailable()
         shadowOf(roleManager()).addHeldRole(RoleManager.ROLE_ASSISTANT)
-        setVoiceInteractionService("com.maggie.app/.voice.MaggieVoiceInteractionService")
+        setVoiceInteractionService("${application().packageName}/com.maggie.app.voice.MaggieVoiceInteractionService")
 
         openVoiceSettings()
 
