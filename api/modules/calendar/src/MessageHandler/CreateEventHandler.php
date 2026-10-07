@@ -39,7 +39,8 @@ class CreateEventHandler
             throw new \DomainException('No default agenda is set: ask which agenda to use, or pass agenda_id (ids come from manage_agendas with action list).');
         }
 
-        if (null === $agenda || (null !== $command->userId && (string) $agenda->getUser()->getId() !== $command->userId)) {
+        // An agenda a module keeps for itself holds what that module files in it, nothing else (MAG-324).
+        if (null === $agenda || $agenda->isModule() || (null !== $command->userId && (string) $agenda->getUser()->getId() !== $command->userId)) {
             throw new \DomainException('No agenda found.');
         }
 

@@ -91,6 +91,20 @@ class FileMealsInModuleAgendaCommandTest extends KernelTestCase
         $this->assertElasticsearchIndexDispatchedFor(Agenda::class, (string) $userModule->getId());
     }
 
+    public function testAnAgendaCalledRepasBeforeTheAttributeExistedIsTakenOver(): void
+    {
+        $legacyId = (string) $this->getFixture('legacy_repas_agenda')->getId();
+
+        $this->tester->execute([]);
+
+        $this->tester->assertCommandIsSuccessful();
+        $agendas = $this->em()->getRepository(Agenda::class)->findBy(['user' => $this->getFixture('legacy_user')->getId()]);
+        self::assertCount(1, $agendas, 'No second « Repas » next to the one the user already had.');
+        self::assertSame($legacyId, (string) $agendas[0]->getId());
+        self::assertSame('cookbook', $agendas[0]->getModule());
+        self::assertSame($legacyId, (string) $this->meal((string) $this->getFixture('legacy_meal')->getId())->getAgenda()->getId());
+    }
+
     public function testRunningItAgainChangesNothing(): void
     {
         $this->tester->execute([]);

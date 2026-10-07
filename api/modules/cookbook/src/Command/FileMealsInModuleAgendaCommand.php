@@ -103,6 +103,10 @@ final class FileMealsInModuleAgendaCommand extends Command
                 }
             }
 
+            if ($meal->getAgenda() === $targets[$userId]) {
+                continue;
+            }
+
             $googleEventId = $meal->getGoogleEventId();
             if (null !== $googleEventId) {
                 $googleDeletions[] = new DeleteEventFromGoogleCommand(
@@ -122,20 +126,27 @@ final class FileMealsInModuleAgendaCommand extends Command
         if (!$dryRun) {
             $this->entityManager->flush();
 
-            foreach ($createdAgendas as $userId => $agenda) {
-                $this->messageBus->dispatch(new IndexDocumentCommand(entityClass: Agenda::class, entityId: (string) $agenda->getId()));
-                $this->publish(MercureTopic::collection($agenda), (string) $agenda->getId(), $userId, $agenda->toMercurePayload());
-            }
-
-            foreach ($misfiled as $meal) {
-                $userId = (string) $meal->getAgenda()->getUser()->getId();
-                $this->messageBus->dispatch(new IndexDocumentCommand(entityClass: Meal::class, entityId: (string) $meal->getId()));
-                $this->publish(MercureTopic::collection($meal), (string) $meal->getId(), $userId, $meal->toMercurePayload());
-            }
-
+            // First, and on their own: the Google ids are gone from the rows now, so a failure
+            // further down must not be able to lose them — a re-run finds nothing left to file.
             foreach ($googleDeletions as $deletion) {
                 // Queued, not attempted inline: one refusal from Google must not stop the run half-way.
                 $this->messageBus->dispatch($deletion, [new TransportNamesStamp(['async'])]);
+            }
+
+            // The announcements are best effort: the rows are right, the next reindex fixes the rest.
+            try {
+                foreach ($createdAgendas as $userId => $agenda) {
+                    $this->messageBus->dispatch(new IndexDocumentCommand(entityClass: Agenda::class, entityId: (string) $agenda->getId()));
+                    $this->publish(MercureTopic::collection($agenda), (string) $agenda->getId(), $userId, $agenda->toMercurePayload());
+                }
+
+                foreach ($misfiled as $meal) {
+                    $userId = (string) $meal->getAgenda()->getUser()->getId();
+                    $this->messageBus->dispatch(new IndexDocumentCommand(entityClass: Meal::class, entityId: (string) $meal->getId()));
+                    $this->publish(MercureTopic::collection($meal), (string) $meal->getId(), $userId, $meal->toMercurePayload());
+                }
+            } catch (\Throwable $e) {
+                $io->warning('Meals are filed, but announcing them failed: '.$e->getMessage().' Run app:elasticsearch:reindex --all.');
             }
         }
 

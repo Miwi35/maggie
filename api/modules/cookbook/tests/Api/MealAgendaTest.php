@@ -116,6 +116,42 @@ class MealAgendaTest extends WebTestCase
         self::assertSame((string) $module->getId(), (string) $this->storedMeal($second['id'])->getAgenda()->getId());
     }
 
+    public function testAnAgendaCalledRepasBeforeTheAttributeExistedIsTakenOverNotDuplicated(): void
+    {
+        $this->authenticateAsUser($this->getFixture('legacy_user'));
+        $legacy = $this->getFixture('legacy_repas_agenda');
+
+        $data = $this->postMeal([]);
+
+        self::assertResponseStatusCodeSame(201);
+        $moduleAgendas = $this->moduleAgendasOf('legacy_user');
+        self::assertCount(1, $moduleAgendas);
+        self::assertSame((string) $legacy->getId(), (string) $moduleAgendas[0]->getId());
+        self::assertSame((string) $legacy->getId(), (string) $this->storedMeal($data['id'])->getAgenda()->getId());
+        self::assertCount(1, $this->em()->getRepository(Agenda::class)->findBy([
+            'user' => $this->getFixture('legacy_user')->getId(),
+        ]), 'The user did not end up with two « Repas ».');
+    }
+
+    public function testAnOrdinaryEventCannotBeCreatedInTheModuleAgenda(): void
+    {
+        $created = $this->postMeal([]);
+        $moduleId = (string) $this->storedMeal($created['id'])->getAgenda()->getId();
+
+        $this->client->request('POST', '/api/events', [], [], array_merge([
+            'CONTENT_TYPE' => 'application/ld+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode([
+            'summary' => 'Dentiste',
+            'startAt' => '2026-10-08T09:00:00+00:00',
+            'endAt' => '2026-10-08T10:00:00+00:00',
+            'agenda' => '/api/agendas/'.$moduleId,
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertGreaterThanOrEqual(400, $this->client->getResponse()->getStatusCode());
+        self::assertCount(1, $this->eventsIn($this->moduleAgendasOf('test_user')[0]), 'Only the meal is in the module agenda.');
+    }
+
     public function testAnotherUsersModuleAgendaIsNeverUsed(): void
     {
         $data = $this->postMeal([]);

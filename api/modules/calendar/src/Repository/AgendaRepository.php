@@ -59,6 +59,16 @@ class AgendaRepository extends ServiceEntityRepository
     }
 
     /**
+     * An agenda the user already has under the module's name, made before the module
+     * kept one by attribute: neither the default nor synced with Google, so it can
+     * be taken over as is (MAG-324).
+     */
+    public function findOrdinaryNamed(User $user, string $name): ?Agenda
+    {
+        return $this->findOneBy(['user' => $user, 'name' => $name, 'module' => null, 'isDefault' => false, 'googleCalendarId' => null], ['id' => 'ASC']);
+    }
+
+    /**
      * The agendas an ordinary event can go in: everything but the ones a module
      * keeps for itself, which Maggie never proposes (MAG-324).
      *

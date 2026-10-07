@@ -3,12 +3,19 @@ Maggie\Core\Entity\User:
     email: file-meals@example.com
     googleId: google-file-meals
     name: File Meals User
+  legacy_user:
+    email: file-meals-legacy@example.com
+    googleId: google-file-meals-legacy
+    name: Legacy Repas User
   other_user:
     email: file-meals-other@example.com
     googleId: google-file-meals-other
     name: Someone Else
 
 Maggie\Calendar\Entity\Agenda:
+  legacy_repas_agenda:
+    name: Repas
+    user: '@legacy_user'
   default_agenda:
     name: Défaut
     isDefault: true
@@ -41,6 +48,11 @@ Maggie\Cookbook\Entity\Meal:
     slot: '<(Maggie\Cookbook\Enum\MealSlot::Dinner)>'
     date: '<(new \DateTimeImmutable("2030-01-15"))>'
     agenda: '@other_module_agenda'
+  legacy_meal:
+    summary: 'Déjeuner : Riz'
+    slot: '<(Maggie\Cookbook\Enum\MealSlot::Lunch)>'
+    date: '<(new \DateTimeImmutable("2030-01-16"))>'
+    agenda: '@legacy_repas_agenda'
   other_users_meal:
     summary: 'Déjeuner : Salade'
     slot: '<(Maggie\Cookbook\Enum\MealSlot::Lunch)>'
