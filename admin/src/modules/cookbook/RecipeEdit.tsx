@@ -50,12 +50,22 @@ const sameValue = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringi
 // published version of the ones that disagree.
 const RecipeLiveSync = () => {
   const record = useRecordContext<{ id: string }>()
-  const { getValues, reset } = useFormContext()
-  const { dirtyFields } = useFormState()
+  const { getValues, reset, setValue } = useFormContext()
+  const { dirtyFields, defaultValues } = useFormState()
   const dirty = useRef(dirtyFields)
+  const defaults = useRef(defaultValues)
   useEffect(() => {
     dirty.current = dirtyFields
-  }, [dirtyFields])
+    defaults.current = defaultValues
+  }, [dirtyFields, defaultValues])
+  // The typed values go back in once the form has drawn the published ones: a field array
+  // ignores a value set in the same pass as the reset.
+  const [typed, setTyped] = useState<Record<string, unknown> | null>(null)
+  useEffect(() => {
+    if (!typed) return
+    for (const field of Object.keys(typed)) setValue(field, typed[field], { shouldDirty: true })
+    setTyped(null)
+  }, [typed, setValue])
   const [elsewhere, setElsewhere] = useState<Record<string, unknown> | null>(null)
 
   // A saved or reloaded record is the new baseline: nothing is left to warn about.
@@ -81,13 +91,24 @@ const RecipeLiveSync = () => {
       }
       if (Object.keys(incoming).length === 0) return
 
-      reset({ ...getValues(), ...incoming }, { keepDirtyValues: true })
+      // A field with unsaved changes is kept whole (the ingredient list is one field, not one
+      // input per line): the form takes the published version as its saved state, then gets
+      // what was typed back on top of it.
+      const typedValues: Record<string, unknown> = {}
+      const values = { ...getValues(), ...incoming }
+      for (const field of LIVE_FIELDS) {
+        if (!dirty.current[field]) continue
+        typedValues[field] = structuredClone(getValues(field))
+        if (!(field in incoming)) values[field] = defaults.current?.[field]
+      }
+      reset(values)
+      setTyped(typedValues)
       setElsewhere((previous) => {
         const next = { ...previous, ...kept }
         return Object.keys(next).length > 0 ? next : null
       })
     },
-    [record, getValues, reset],
+    [record, getValues, reset, setValue],
   )
   useMercure(RECIPE_TOPICS, onMessage)
 

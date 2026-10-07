@@ -211,6 +211,25 @@ describe('RecipeEdit', { timeout: 30_000 }, () => {
       expect(screen.queryByText(/modifiée ailleurs/)).not.toBeInTheDocument()
     })
 
+    test('keeps the whole ingredient list being edited when the list changes elsewhere', async () => {
+      const user = userEvent.setup()
+      renderEdit(vi.fn())
+      const quantity = await screen.findByLabelText(/Quantité/)
+      await user.clear(quantity)
+      await user.type(quantity, '120')
+
+      publish({ ingredients: [line(350), { ...line(3), id: '01L2', unit: 'piece' }] })
+
+      expect(await screen.findByText(/modifiée ailleurs/)).toBeInTheDocument()
+      expect(screen.getAllByLabelText(/Quantité/)).toHaveLength(1)
+      expect(screen.getByLabelText(/Quantité/)).toHaveValue(120)
+
+      await user.click(screen.getByRole('button', { name: 'Recharger' }))
+
+      await waitFor(() => expect(screen.getAllByLabelText(/Quantité/)).toHaveLength(2))
+      expect(screen.getAllByLabelText(/Quantité/)[0]).toHaveValue(350)
+    })
+
     test('sends what the sheet shows, not the version it opened with', async () => {
       const user = userEvent.setup()
       const update = vi.fn().mockResolvedValue({ data: recipe })

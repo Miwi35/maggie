@@ -29,6 +29,9 @@ class RecipeDetailViewModel(
     private val _uiState = MutableStateFlow(RecipeDetailUiState())
     val uiState: StateFlow<RecipeDetailUiState> = _uiState
 
+    // A change published while the first fetch was in flight may be newer than its answer.
+    private var changedBeforeLoad = false
+
     init {
         load()
         subscribeToMercure()
@@ -36,7 +39,12 @@ class RecipeDetailViewModel(
 
     private fun load() {
         viewModelScope.launch {
-            recipeRepository.getRecipe(recipeId)
+            var result = recipeRepository.getRecipe(recipeId)
+            if (changedBeforeLoad) {
+                changedBeforeLoad = false
+                result = recipeRepository.getRecipe(recipeId)
+            }
+            result
                 .onSuccess { _uiState.value = RecipeDetailUiState(recipe = it, isLoading = false) }
                 .onFailure { _uiState.value = RecipeDetailUiState(isLoading = false, error = it.message) }
         }
@@ -59,7 +67,7 @@ class RecipeDetailViewModel(
                 .onSuccess { _uiState.value = RecipeDetailUiState(recipe = it, isLoading = false) }
             is RecipeMessage.Changed -> _uiState.value.recipe?.let { current ->
                 _uiState.value = _uiState.value.copy(recipe = message.patch.applyTo(current))
-            }
+            } ?: run { changedBeforeLoad = true }
         }
     }
 }

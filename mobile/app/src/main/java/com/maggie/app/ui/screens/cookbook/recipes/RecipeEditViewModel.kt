@@ -90,6 +90,9 @@ class RecipeEditViewModel(
     // What the server last said: a field differing from it is being edited.
     private var recipe: Recipe? = null
 
+    // A change published while the first fetch was in flight may be newer than its answer.
+    private var changedBeforeLoad = false
+
     init {
         load()
         subscribeToMercure()
@@ -114,6 +117,10 @@ class RecipeEditViewModel(
     private fun load() {
         viewModelScope.launch {
             recipeRepository.getRecipe(recipeId).onSuccess { show(it) }
+            if (changedBeforeLoad) {
+                changedBeforeLoad = false
+                recipeRepository.getRecipe(recipeId).onSuccess { show(it) }
+            }
             _uiState.value = _uiState.value.copy(isLoading = false)
         }
     }
@@ -136,7 +143,7 @@ class RecipeEditViewModel(
         when (val message = parseRecipeMessage(data, recipeId)) {
             RecipeMessage.Elsewhere, RecipeMessage.Deleted -> Unit
             RecipeMessage.Unreadable -> recipeRepository.getRecipe(recipeId).onSuccess { merge(it) }
-            is RecipeMessage.Changed -> recipe?.let { merge(message.patch.applyTo(it)) }
+            is RecipeMessage.Changed -> recipe?.let { merge(message.patch.applyTo(it)) } ?: run { changedBeforeLoad = true }
         }
     }
 
@@ -153,11 +160,14 @@ class RecipeEditViewModel(
             notes = if (form.notes == before.notes) now.notes else form.notes,
             ingredients = if (form.ingredients == before.ingredients) now.ingredients else form.ingredients,
         )
+        // Only a field edited here AND changed there, to something else, is worth a warning.
+        val conflict = (form.name != before.name && now.name != before.name && form.name != now.name) ||
+            (form.servings != before.servings && now.servings != before.servings && form.servings != now.servings) ||
+            (form.tagsText != before.tagsText && now.tagsText != before.tagsText && form.tagsText != now.tagsText) ||
+            (form.notes != before.notes && now.notes != before.notes && form.notes != now.notes) ||
+            (form.ingredients != before.ingredients && now.ingredients != before.ingredients && form.ingredients != now.ingredients)
 
         recipe = incoming
-        _uiState.value = _uiState.value.copy(
-            form = merged,
-            changedElsewhere = _uiState.value.changedElsewhere || merged != now,
-        )
+        _uiState.value = _uiState.value.copy(form = merged, changedElsewhere = _uiState.value.changedElsewhere || conflict)
     }
 }

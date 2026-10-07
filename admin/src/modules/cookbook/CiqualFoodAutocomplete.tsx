@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Autocomplete from '@mui/material/Autocomplete'
 import TextField from '@mui/material/TextField'
 import { useFormContext } from 'react-hook-form'
@@ -25,6 +25,7 @@ export const CiqualFoodAutocomplete = ({ source = 'ciqualAlimCode' }: { source?:
   const [inputValue, setInputValue] = useState('')
   const [loading, setLoading] = useState(false)
   const [selected, setSelected] = useState<CiqualFood | null>(null)
+  const fetchedCode = useRef<string | null>(null)
 
   const searchFoods = useCallback(async (query: string) => {
     if (query.length < 2) {
@@ -55,7 +56,9 @@ export const CiqualFoodAutocomplete = ({ source = 'ciqualAlimCode' }: { source?:
   // Load the selected food's name when the form holds a code the field is not showing: on first
   // render, and when another client changes the code under an open sheet.
   useEffect(() => {
-    if (currentValue && selected?.alim_code !== currentValue) {
+    if (selected?.alim_code === currentValue) fetchedCode.current = null
+    if (currentValue && selected?.alim_code !== currentValue && fetchedCode.current !== currentValue) {
+      fetchedCode.current = currentValue
       fetch(`${CIQUAL_BASE_URL}/foods/${currentValue}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((data: CiqualFood | null) => {

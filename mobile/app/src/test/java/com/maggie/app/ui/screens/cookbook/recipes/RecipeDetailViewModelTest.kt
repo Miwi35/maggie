@@ -9,6 +9,7 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -16,6 +17,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -134,5 +136,24 @@ class RecipeDetailViewModelTest {
 
         assertNull(viewModel.uiState.value.recipe)
         assertEquals("Cette recette a été supprimée.", viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `a change published while the first load is in flight is not lost`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        var calls = 0
+        coEvery { recipeRepository.getRecipe("recipe-1") } coAnswers {
+            gate.await()
+            Result.success(if (calls++ == 0) carbonara() else carbonara(500f))
+        }
+        val viewModel = RecipeDetailViewModel("recipe-1", recipeRepository, mercureService, authRepository)
+        runCurrent()
+
+        events.emit(MercureEvent(data = published(publishedLine(500))))
+        runCurrent()
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(viewModel.uiState.value.recipe!!.ingredients.single().quantity, 500f)
     }
 }

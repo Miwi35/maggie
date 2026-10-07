@@ -97,7 +97,21 @@ function patch(change) {
   }
 }
 
+function removeLeftovers() {
+  collection('/api/recipes?itemsPerPage=200')
+    .filter(function (row) { return row.name === RECIPE })
+    .forEach(function (row) {
+      http.request(base + row['@id'], { method: 'DELETE', headers: authorized() })
+    })
+  collection('/api/ingredients?itemsPerPage=200')
+    .filter(function (row) { return row.name === ingredientName })
+    .forEach(function (row) {
+      http.request(base + row['@id'], { method: 'DELETE', headers: authorized() })
+    })
+}
+
 if (ACTION === 'create') {
+  removeLeftovers() // a retried run starts from nothing
   const ingredient = http.post(base + '/api/ingredients', {
     headers: authorized(LD),
     body: JSON.stringify({ name: ingredientName, category: 'grain' }),
@@ -128,11 +142,7 @@ if (ACTION === 'create') {
   if (!response.ok) {
     fail('DELETE ' + recipe['@id'] + ' answered ' + response.status + ': ' + response.body)
   }
-  collection('/api/ingredients?itemsPerPage=200')
-    .filter(function (row) { return row.name === ingredientName })
-    .forEach(function (row) {
-      http.request(base + row['@id'], { method: 'DELETE', headers: authorized() })
-    })
+  removeLeftovers()
 } else if (ACTION === 'expect') {
   const states = {
     present: function (row) { return row !== undefined },

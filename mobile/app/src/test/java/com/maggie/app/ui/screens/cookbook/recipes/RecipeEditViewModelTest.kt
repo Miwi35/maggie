@@ -8,6 +8,7 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -15,6 +16,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -176,5 +178,36 @@ class RecipeEditViewModelTest {
 
         assertEquals(true, request.contains(""""quantity":350.0"""))
         assertEquals(true, request.contains(""""ciqualAlimCode":"9810""""))
+    }
+
+    @Test
+    fun `a change published while the first load is in flight is not lost`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        var calls = 0
+        coEvery { recipeRepository.getRecipe("recipe-1") } coAnswers {
+            gate.await()
+            Result.success(if (calls++ == 0) carbonara() else carbonara(500f))
+        }
+        val viewModel = RecipeEditViewModel("recipe-1", recipeRepository, mercureService, authRepository)
+        runCurrent()
+
+        events.emit(MercureEvent(data = published(publishedLine(500))))
+        runCurrent()
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(viewModel.uiState.value.form.ingredients.single().quantity.toFloat(), 500f)
+    }
+
+    @Test
+    fun `no banner when the field edited here is not the one changed there`() = runTest {
+        val viewModel = openSheet()
+        viewModel.onName("Ma carbonara")
+
+        receive(published(""""notes":"Version distante""""))
+
+        assertEquals("Ma carbonara", viewModel.uiState.value.form.name)
+        assertEquals("Version distante", viewModel.uiState.value.form.notes)
+        assertEquals(false, viewModel.uiState.value.changedElsewhere)
     }
 }
