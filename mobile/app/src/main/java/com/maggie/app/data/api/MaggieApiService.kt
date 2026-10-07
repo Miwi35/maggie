@@ -73,9 +73,13 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.io.File
 
+/** A meal that goes with the recipe: its day (`yyyy-MM-dd`) and slot (`lunch`/`dinner`). */
+@Serializable
+data class PlannedMealRef(val date: String, val slot: String)
+
 /** What deleting a recipe takes with it: the meals it is the only recipe of (MAG-289). */
 @Serializable
-data class RecipeDeletionImpact(val mealCount: Int = 0)
+data class RecipeDeletionImpact(val mealCount: Int = 0, val meals: List<PlannedMealRef> = emptyList())
 
 @Serializable
 data class ApiCollection<T>(val member: List<T> = emptyList())

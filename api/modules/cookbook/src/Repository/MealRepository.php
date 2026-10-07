@@ -65,15 +65,22 @@ class MealRepository extends ServiceEntityRepository
     }
 
     /**
-     * How many meals the recipe is the only one of: the meals deleting it
-     * takes with it.
+     * The meals the recipe is the only one of — the meals deleting it takes
+     * with it — oldest first.
+     *
+     * @return Meal[]
      */
-    public function countServedOnlyBy(Recipe $recipe): int
+    public function findServedOnlyBy(Recipe $recipe): array
     {
-        return \count(array_filter(
-            $this->byRecipe($recipe)->getQuery()->getResult(),
+        return array_values(array_filter(
+            $this->byRecipe($recipe)->addOrderBy('m.slot', 'ASC')->getQuery()->getResult(),
             static fn (Meal $meal) => 1 === $meal->getRecipes()->count(),
         ));
+    }
+
+    public function countServedOnlyBy(Recipe $recipe): int
+    {
+        return \count($this->findServedOnlyBy($recipe));
     }
 
     private function byRecipe(Recipe $recipe): QueryBuilder

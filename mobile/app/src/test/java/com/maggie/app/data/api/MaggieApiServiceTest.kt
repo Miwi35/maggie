@@ -370,7 +370,7 @@ class MaggieApiServiceTest {
                 capturedUrl = request.url.toString()
                 capturedMethod = request.method
                 respond(
-                    content = ByteReadChannel("""{"mealCount":3}"""),
+                    content = ByteReadChannel("""{"mealCount":1,"meals":[{"date":"2030-01-14","slot":"dinner"}]}"""),
                     status = HttpStatusCode.OK,
                     headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
                 )
@@ -383,7 +383,8 @@ class MaggieApiServiceTest {
 
         val impact = MaggieApiService(client).getRecipeDeletionImpact("01C")
 
-        assertEquals(3, impact.mealCount)
+        assertEquals(1, impact.mealCount)
+        assertEquals(listOf(PlannedMealRef("2030-01-14", "dinner")), impact.meals)
         assertEquals(HttpMethod.Get, capturedMethod)
         assertTrue(capturedUrl!!.endsWith("/api/recipes/01C/deletion-impact"))
     }
