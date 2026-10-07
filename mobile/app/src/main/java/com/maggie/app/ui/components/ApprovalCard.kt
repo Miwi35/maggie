@@ -184,7 +184,9 @@ internal fun approvalQuestion(approval: PendingApproval, resolvedLabel: String? 
     return if (verb != null && noun != null) {
         listOfNotNull(verb, noun, label).joinToString(" ") + " ?"
     } else {
-        "Maggie demande ton accord pour ${approvalTitle(approval.toolName)}" + (label?.let { " $it" } ?: "") + ". Tu autorises ?"
+        val named = approval.summary?.takeIf { it.isNotBlank() }
+            ?: approval.toolName.replace('_', ' ').trim().replaceFirstChar { it.uppercase() }
+        "Maggie demande ton accord pour $named" + (label?.let { " $it" } ?: "") + ". Tu autorises ?"
     }
 }
 

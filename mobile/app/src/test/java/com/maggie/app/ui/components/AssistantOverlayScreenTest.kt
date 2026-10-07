@@ -1,10 +1,11 @@
 package com.maggie.app.ui.components
 
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.screentest.FakeChat
@@ -64,13 +65,16 @@ class AssistantOverlayScreenTest {
         )
     }
 
-    // The answer comes back from the repository on the view model's own coroutine: pump the
-    // main looper until the card is gone instead of asserting right after the click.
-    private fun awaitCardGone() {
+    // The sheet is one clickable surface, so the card's own node is merged away: the Autoriser
+    // button, which keeps its own node, is what tells the card is still on screen. The sheet sits
+    // at the bottom of a window Robolectric makes too small for a touch to reach it, hence the
+    // click as a semantic action; the view model's answer arrives on its own coroutine, so wait
+    // for the card to leave.
+    private fun answer(tag: String) {
+        compose.onNodeWithTag(tag).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitUntil(timeoutMillis = 5_000) {
-            compose.onAllNodesWithTag(UiTags.approvalCard("ap-1")).fetchSemanticsNodes().isEmpty()
+            compose.onAllNodesWithTag(UiTags.approvalAllow("ap-1")).fetchSemanticsNodes().isEmpty()
         }
-        compose.onNodeWithTag(UiTags.approvalCard("ap-1")).assertDoesNotExist()
     }
 
     @Test
@@ -89,10 +93,7 @@ class AssistantOverlayScreenTest {
         show(chat, Voice())
         compose.waitForIdle()
 
-        compose.onNodeWithTag(UiTags.approvalAllow("ap-1")).performClick()
-        compose.waitForIdle()
-
-        awaitCardGone()
+        answer(UiTags.approvalAllow("ap-1"))
         coVerify(exactly = 1) { chat.approvals.approve("ap-1") }
     }
 
@@ -102,10 +103,7 @@ class AssistantOverlayScreenTest {
         show(chat, Voice())
         compose.waitForIdle()
 
-        compose.onNodeWithTag(UiTags.approvalDeny("ap-1")).performClick()
-        compose.waitForIdle()
-
-        awaitCardGone()
+        answer(UiTags.approvalDeny("ap-1"))
         coVerify(exactly = 1) { chat.approvals.deny("ap-1") }
     }
 
