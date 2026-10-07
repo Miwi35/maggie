@@ -60,6 +60,13 @@ class AssistantRoleHelperTest {
         assertTrue(AssistantRoleHelper.isMaggieService(full, "com.maggie.app"))
         assertFalse(AssistantRoleHelper.isMaggieService("com.maggie.app", "com.maggie.app"))
         assertFalse(AssistantRoleHelper.isMaggieService(null, "com.maggie.app"))
+        assertTrue(
+            AssistantRoleHelper.isMaggieService(
+                "com.maggie.app.dev/com.maggie.app.voice.MaggieVoiceInteractionService",
+                "com.maggie.app.dev",
+            ),
+        )
+        assertFalse(AssistantRoleHelper.isMaggieService(full, "com.other.app"))
     }
 
     @Test

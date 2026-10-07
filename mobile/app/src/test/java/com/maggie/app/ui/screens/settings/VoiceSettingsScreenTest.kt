@@ -46,9 +46,9 @@ import org.robolectric.Shadows.shadowOf
  * would turn a required check red for a reason that has nothing to do with the
  * app. Here the device's answer is set, so each state is asserted as itself.
  *
- * What is still out of reach, and stays in Recette: tapping the row opens a system
- * dialog, and accepting it makes Maggie the assistant. That is the owner's, on his
- * phone.
+ * What is still out of reach, and stays in Recette: choosing Maggie in the system's
+ * « Assistant numérique » screen, and Android keeping her service afterwards. That is
+ * the owner's, on his phone.
  */
 @RunWith(AndroidJUnit4::class)
 class VoiceSettingsScreenTest {
