@@ -1,0 +1,50 @@
+Maggie\Core\Entity\User:
+  owner:
+    email: backfill-owner@example.com
+    googleId: google-backfill-owner
+    name: Backfill Owner
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    bank: Crédit Agricole
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 0
+    isCushion: false
+    user: '@owner'
+
+Maggie\Finance\Entity\Transaction:
+  netflix_october:
+    account: '@checking'
+    amountCents: -1349
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-12"))>'
+    label: PRLV SEPA NETFLIX.COM 12/10
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    user: '@owner'
+  netflix_november:
+    account: '@checking'
+    amountCents: -1349
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-11-12"))>'
+    label: PRLV SEPA NETFLIX.COM 12/11
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    user: '@owner'
+  nameless:
+    account: '@checking'
+    amountCents: -500
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-13"))>'
+    label: '12345678'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    user: '@owner'
+  spotify_named_by_the_bank:
+    account: '@checking'
+    amountCents: -990
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-02"))>'
+    label: PRLV SEPA SPOTIFY 02/09
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    counterpartyName: SPOTIFY AB
+    user: '@owner'

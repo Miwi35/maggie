@@ -11,6 +11,7 @@ use Maggie\Finance\Enum\RetrospectVerdict;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Enum\TransferSource;
+use Maggie\Finance\Import\MerchantExtractor;
 use Maggie\Finance\Message\UpdateTransactionCommand;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\Service\OwnedReferenceResolver;
@@ -43,7 +44,14 @@ class UpdateTransactionHandler
             $transaction->setAmountCents($command->amountCents);
         }
         if (null !== $command->label) {
+            // The counterparty follows the label while it equals what the label
+            // yields. A bank name that differs from it stays; one that happens
+            // to equal it (a label that was the creditor) cannot be told apart.
+            $followsLabel = $transaction->getCounterpartyName() === MerchantExtractor::extract($transaction->getLabel());
             $transaction->setLabel($command->label);
+            if ($followsLabel) {
+                $transaction->setCounterpartyName(MerchantExtractor::extract($command->label));
+            }
         }
         if (null !== $command->bookedAt) {
             $transaction->setBookedAt(new \DateTimeImmutable($command->bookedAt));

@@ -17,6 +17,15 @@ final readonly class StatementRow
         public string $currency,
         /** The line as it stood in the file, for error reporting. */
         public int $lineNumber,
+        /** Who the bank says the other party is; null when the export only has a label. */
+        public ?string $counterpartyName = null,
+        /**
+         * Labels an earlier sync stored this same movement under, so a change
+         * in how the label is built does not read as a new movement.
+         *
+         * @var list<string>
+         */
+        public array $knownAs = [],
     ) {
     }
 

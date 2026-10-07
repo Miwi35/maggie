@@ -83,6 +83,31 @@ class TransactionApiTest extends WebTestCase
         $this->assertElasticsearchIndexDispatched(Transaction::class);
     }
 
+    public function testTheCounterpartyIsDerivedAndNotWritableOverRest(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $account = $this->getFixture('checking');
+
+        $this->client->request('POST', '/api/transactions', [], [], array_merge([
+            'CONTENT_TYPE' => 'application/ld+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode([
+            'account' => '/api/accounts/'.$account->getId(),
+            'amountCents' => -1349,
+            'label' => 'PRLV SEPA NETFLIX.COM 12/10',
+            'bookedAt' => '2026-10-12',
+            'counterpartyName' => 'SOMEONE ELSE',
+            'counterpartyKey' => 'forged',
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseStatusCodeSame(201);
+
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('PRLV SEPA NETFLIX.COM', $data['counterpartyName']);
+        self::assertSame('prlv sepa netflixcom', $data['counterpartyKey']);
+    }
+
     public function testCreateTransactionValidationError(): void
     {
         $this->loadFixtures('transaction.yaml');

@@ -14494,6 +14494,22 @@
                     "label": {
                         "type": "string"
                     },
+                    "counterpartyName": {
+                        "readOnly": true,
+                        "description": "Who the money came from or went to, kept apart from the label: the bank\nrewrites the label every month, never the creditor. Not the same thing\nas `counterpart`, the opposite leg of an internal transfer.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "counterpartyKey": {
+                        "readOnly": true,
+                        "description": "The name folded so two spellings of one payee group together.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "status": {
                         "default": "spent",
                         "type": "string",
@@ -14625,6 +14641,22 @@
                     },
                     "label": {
                         "type": "string"
+                    },
+                    "counterpartyName": {
+                        "readOnly": true,
+                        "description": "Who the money came from or went to, kept apart from the label: the bank\nrewrites the label every month, never the creditor. Not the same thing\nas `counterpart`, the opposite leg of an internal transfer.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "counterpartyKey": {
+                        "readOnly": true,
+                        "description": "The name folded so two spellings of one payee group together.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     },
                     "status": {
                         "default": "spent",
@@ -14758,6 +14790,22 @@
                     "label": {
                         "type": "string"
                     },
+                    "counterpartyName": {
+                        "readOnly": true,
+                        "description": "Who the money came from or went to, kept apart from the label: the bank\nrewrites the label every month, never the creditor. Not the same thing\nas `counterpart`, the opposite leg of an internal transfer.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "counterpartyKey": {
+                        "readOnly": true,
+                        "description": "The name folded so two spellings of one payee group together.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "status": {
                         "default": "spent",
                         "type": "string",
@@ -14883,6 +14931,22 @@
                             },
                             "label": {
                                 "type": "string"
+                            },
+                            "counterpartyName": {
+                                "readOnly": true,
+                                "description": "Who the money came from or went to, kept apart from the label: the bank\nrewrites the label every month, never the creditor. Not the same thing\nas `counterpart`, the opposite leg of an internal transfer.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "counterpartyKey": {
+                                "readOnly": true,
+                                "description": "The name folded so two spellings of one payee group together.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
                             },
                             "status": {
                                 "default": "spent",
