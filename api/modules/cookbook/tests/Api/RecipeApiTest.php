@@ -159,6 +159,18 @@ class RecipeApiTest extends WebTestCase
         self::assertSame(['Pâtes' => [300.0, 'g'], 'Tomate' => [3.0, 'piece']], $this->lines($pasta));
         $this->assertMercureUpdatePublished('/recipes/');
         $this->assertElasticsearchIndexDispatched(Recipe::class);
+        // The open sheets are told the new quantity, in the shape they read it. Read before the
+        // next request: it boots a kernel of its own, and a hub with nothing in it.
+        $published = null;
+        foreach ($this->getMercureHub()->getUpdates() as $update) {
+            if (str_ends_with($update->getTopics()[0], '/api/recipes/'.$pasta->getId())) {
+                $published = json_decode($update->getData(), true, 512, JSON_THROW_ON_ERROR);
+            }
+        }
+        self::assertNotNull($published);
+        $byName = array_column($published['ingredients'], null, 'ingredientName');
+        self::assertEquals(300, $byName['Pâtes']['quantity']);
+        self::assertEquals(3, $byName['Tomate']['quantity']);
         self::assertEquals(300, $this->readLines($pasta)[0]['quantity']);
     }
 

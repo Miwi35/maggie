@@ -89,6 +89,30 @@ class RecipeIngredient
         return $this->ingredient->getCiqualAlimCode();
     }
 
+    /**
+     * The line as the API serves it, so a client can swap it in and send it back.
+     *
+     * @return array<string, mixed>
+     */
+    public function toMercurePayload(): array
+    {
+        $ingredient = (string) $this->ingredient->getId();
+
+        return [
+            'id' => (string) $this->id,
+            'ingredient' => [
+                '@id' => '/api/ingredients/'.$ingredient,
+                'id' => $ingredient,
+                'name' => $this->ingredient->getName(),
+                'ciqualAlimCode' => $this->ingredient->getCiqualAlimCode(),
+            ],
+            'ingredientName' => $this->ingredient->getName(),
+            'ciqualAlimCode' => $this->ingredient->getCiqualAlimCode(),
+            'quantity' => $this->quantity,
+            'unit' => $this->unit->value,
+        ];
+    }
+
     public function getUnit(): Unit
     {
         return $this->unit;

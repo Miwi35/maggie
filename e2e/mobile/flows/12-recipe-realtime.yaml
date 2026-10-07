@@ -1,0 +1,83 @@
+appId: com.maggie.app.e2e
+name: 12-recipe-realtime
+tags:
+  - cookbook
+  - realtime
+---
+# An open recipe sheet follows the recipe, with no refresh (MAG-330): the quantity
+# and the notes changed from another device or by Maggie arrive on the phone as
+# the server publishes them. What it holds is the half a JVM test cannot see — the
+# payload the API really publishes (`notes` and the ingredient lines) read by the
+# phone's own subscription, on the topic the phone really opens. The app is never
+# relaunched nor pulled to refresh between the first screen and the last assertion.
+#
+# **The « other device » is a script, not a browser** (see `08`): `scripts/recipe-api.js`
+# sends the requests the admin sends. The admin's own rendering of a change made on
+# the phone is `e2e/web/tests/recipes.spec.ts`. The recipe is this flow's own and is
+# deleted at the end.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runScript:
+    file: ../scripts/recipe-api.js
+    env:
+      ACTION: create
+      RECIPE: Salade d'orge MAG-330
+      QUANTITY: "400"
+
+- tapOn:
+    id: "nav_menu"
+- tapOn:
+    id: "drawer_cookbook"
+- extendedWaitUntil:
+    visible: ".*Salade d'orge MAG-330.*"
+    timeout: 30000
+- tapOn: ".*Salade d'orge MAG-330.*"
+
+- extendedWaitUntil:
+    visible: ".*400.* g"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: "Notes de départ"
+    timeout: 20000
+
+# The quantity changes elsewhere. The pause lets the sheet's Mercure subscription
+# be established: a hub does not replay what was published before a subscriber
+# arrived.
+- runScript:
+    file: ../scripts/recipe-api.js
+    env:
+      ACTION: set-quantity
+      RECIPE: Salade d'orge MAG-330
+      QUANTITY: "650"
+      WAIT_MS: "3000"
+- extendedWaitUntil:
+    visible: ".*650.* g"
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible: ".*400.* g"
+    timeout: 10000
+
+# So do the notes, and the rest of the sheet stays.
+- runScript:
+    file: ../scripts/recipe-api.js
+    env:
+      ACTION: set-notes
+      RECIPE: Salade d'orge MAG-330
+      NOTES: Notes de l'autre appareil
+- extendedWaitUntil:
+    visible: "Notes de l'autre appareil"
+    timeout: 30000
+- assertVisible: ".*650.* g"
+
+# Left as found.
+- runScript:
+    file: ../scripts/recipe-api.js
+    env:
+      ACTION: remove
+      RECIPE: Salade d'orge MAG-330

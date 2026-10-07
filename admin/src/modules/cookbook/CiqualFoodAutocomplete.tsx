@@ -52,9 +52,10 @@ export const CiqualFoodAutocomplete = ({ source = 'ciqualAlimCode' }: { source?:
     return () => clearTimeout(timeout)
   }, [inputValue, searchFoods])
 
-  // Load selected food name on initial render if we have an alim code
+  // Load the selected food's name when the form holds a code the field is not showing: on first
+  // render, and when another client changes the code under an open sheet.
   useEffect(() => {
-    if (currentValue && !selected) {
+    if (currentValue && selected?.alim_code !== currentValue) {
       fetch(`${CIQUAL_BASE_URL}/foods/${currentValue}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((data: CiqualFood | null) => {

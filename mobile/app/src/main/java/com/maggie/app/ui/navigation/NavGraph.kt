@@ -106,6 +106,8 @@ import com.maggie.app.ui.screens.cookbook.meals.MealsWeekViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeCreateScreen
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeDetailScreen
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeEditScreen
+import com.maggie.app.ui.screens.cookbook.recipes.RecipeDetailViewModel
+import com.maggie.app.ui.screens.cookbook.recipes.RecipeEditViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeListViewModel
 import com.maggie.app.ui.screens.dashboard.DashboardScreen
 import com.maggie.app.ui.screens.dashboard.DashboardViewModel
@@ -873,6 +875,7 @@ fun NavGraph() {
                         RecipeDetailScreen(
                             recipeId = id,
                             recipeRepository = recipeRepository,
+                            viewModel = koinViewModel<RecipeDetailViewModel>(key = id) { parametersOf(id) },
                             onBack = { navController.popBackStack() },
                             onEdit = { recipeId ->
                                 editRecipeId = recipeId
@@ -906,7 +909,7 @@ fun NavGraph() {
                     if (id != null) {
                         RecipeEditScreen(
                             recipeId = id,
-                            recipeRepository = recipeRepository,
+                            viewModel = koinViewModel<RecipeEditViewModel>(key = id) { parametersOf(id) },
                             onConfirm = { recipeId, data ->
                                 scope.launch {
                                     recipeRepository.updateRecipe(recipeId, data)

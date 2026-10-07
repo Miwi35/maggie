@@ -29,6 +29,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,7 +39,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.PlannedMealRef
 import com.maggie.app.data.api.RecipeDeletionImpact
-import com.maggie.app.data.model.Recipe
 import com.maggie.app.data.repository.RecipeRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -90,13 +90,15 @@ fun recipeDeletionBody(impact: RecipeDeletionImpact?): String {
 fun RecipeDetailScreen(
     recipeId: String,
     recipeRepository: RecipeRepository,
+    viewModel: RecipeDetailViewModel,
     onBack: () -> Unit,
     onEdit: (String) -> Unit,
     onDelete: (String) -> Unit,
 ) {
-    var recipe by remember { mutableStateOf<Recipe?>(null) }
-    var isLoading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
+    val state by viewModel.uiState.collectAsState()
+    val recipe = state.recipe
+    val isLoading = state.isLoading
+    val error = state.error
     var confirmingDelete by remember { mutableStateOf(false) }
     var impact by remember { mutableStateOf<RecipeDeletionImpact?>(null) }
     var impactLoaded by remember { mutableStateOf(false) }
@@ -110,18 +112,6 @@ fun RecipeDetailScreen(
             }
             impactLoaded = true
         }
-    }
-
-    LaunchedEffect(recipeId) {
-        isLoading = true
-        try {
-            recipe = withContext(Dispatchers.IO) {
-                recipeRepository.getRecipe(recipeId).getOrThrow()
-            }
-        } catch (e: Exception) {
-            error = e.message
-        }
-        isLoading = false
     }
 
     Scaffold(
@@ -184,11 +174,11 @@ fun RecipeDetailScreen(
                     modifier = Modifier.fillMaxSize().padding(paddingValues),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(error!!, color = MaterialTheme.colorScheme.error)
+                    Text(error, color = MaterialTheme.colorScheme.error)
                 }
             }
             recipe != null -> {
-                val r = recipe!!
+                val r = recipe
                 Column(
                     modifier = Modifier.fillMaxSize().padding(paddingValues)
                         .verticalScroll(rememberScrollState())

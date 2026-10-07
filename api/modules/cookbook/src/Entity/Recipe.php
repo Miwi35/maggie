@@ -232,12 +232,26 @@ class Recipe implements MercurePublishable, OwnedByUserInterface, IndexableInter
         ];
     }
 
+    /**
+     * What an open recipe sheet needs to redraw itself. One key per part of the
+     * sheet, named as the API serves it: a part added to the sheet (steps,
+     * utensils) is one more key here, and the differential filter keeps it
+     * out of the updates that do not touch it.
+     */
     public function toMercurePayload(?array $changedProperties = null): array
     {
         return self::filterPayload([
             'name' => $this->name,
             'servings' => $this->servings,
             'tags' => $this->tags,
+            'notes' => $this->notes,
+            'ingredients' => $this->ingredientsPayload(),
         ], $changedProperties);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function ingredientsPayload(): array
+    {
+        return array_values($this->ingredients->map(static fn (RecipeIngredient $line) => $line->toMercurePayload())->toArray());
     }
 }
