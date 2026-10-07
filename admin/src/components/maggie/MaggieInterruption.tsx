@@ -1,9 +1,10 @@
-import { useEffect, useId, useRef } from 'react'
-import type { KeyboardEvent } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef } from 'react'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
+import Modal from '@mui/material/Modal'
 import Typography from '@mui/material/Typography'
 import { alpha, keyframes } from '@mui/material/styles'
+import { TOKENS } from '../../design/tokens'
 import { useNarrowScreen } from '../../hooks/useNarrowScreen'
 import { MaggieAvatar } from './MaggieAvatar'
 import { playChime } from './chime'
@@ -17,10 +18,13 @@ const slideIn = keyframes`
   to { opacity: 1; transform: translateX(0); }
 `
 
-const FOCUSABLE = 'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+/** The veil is the night of the dark theme in both modes: Maggie speaks over a dimmed screen. */
+const NIGHT = TOKENS.surface.dark.background
 
 interface MaggieInterruptionProps {
   open: boolean
+  /** Which interruption is shown: a new one replacing the current rings and takes the focus again. */
+  id?: string
   message: string
   actionLabel: string
   onAction: () => void
@@ -31,57 +35,67 @@ interface MaggieInterruptionProps {
  * Maggie speaking unprompted (MAG-311): a dark veil, her face and a bubble
  * with the one action she proposes. Presentational — what triggers it and
  * what « Plus tard » means live in `useMaggieInterruption`.
+ *
+ * A MUI `Modal` carries the focus trap and the stacking: the last modal
+ * mounted — this one, over any open dialog — owns Tab and Escape.
  */
-export const MaggieInterruption = ({ open, message, actionLabel, onAction, onLater }: MaggieInterruptionProps) => {
+export const MaggieInterruption = ({ open, id = '', message, actionLabel, onAction, onLater }: MaggieInterruptionProps) => {
   const narrow = useNarrowScreen()
   const titleId = useId()
   const messageId = useId()
-  const rootRef = useRef<HTMLDivElement>(null)
   const actionRef = useRef<HTMLButtonElement>(null)
+  const previousFocus = useRef<HTMLElement | null>(null)
+  const actedOn = useRef(false)
+  const chimedFor = useRef<string | null>(null)
 
-  useEffect(() => {
+  // Taken before the modal moves the focus; given back only when it was put off.
+  // Opening the chat is not that: the chat's own input wants the focus.
+  useLayoutEffect(() => {
     if (!open) return
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    actionRef.current?.focus()
-    playChime()
-    return () => previous?.focus()
+    previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    actedOn.current = false
+    return () => {
+      if (!actedOn.current) previousFocus.current?.focus()
+      previousFocus.current = null
+    }
   }, [open])
 
-  if (!open) return null
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Escape') {
-      event.stopPropagation()
-      onLater()
+  // Each interruption rings once and takes the focus — the next one replacing
+  // this one included, and StrictMode's second run excluded.
+  useEffect(() => {
+    if (!open) {
+      chimedFor.current = null
       return
     }
-    if (event.key !== 'Tab') return
-    const focusable = Array.from(rootRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])
-    if (focusable.length === 0) return
-    const first = focusable[0]
-    const last = focusable[focusable.length - 1]
-    const active = document.activeElement
-    if (event.shiftKey && (active === first || !rootRef.current?.contains(active))) {
-      event.preventDefault()
-      last.focus()
-    } else if (!event.shiftKey && (active === last || !rootRef.current?.contains(active))) {
-      event.preventDefault()
-      first.focus()
-    }
+    actionRef.current?.focus()
+    if (chimedFor.current === id) return
+    chimedFor.current = id
+    playChime()
+  }, [open, id])
+
+  const handleAction = () => {
+    actedOn.current = true
+    onAction()
   }
 
   return (
+    <Modal
+      open={open}
+      hideBackdrop
+      disableRestoreFocus
+      onClose={(_event, reason) => {
+        if (reason === 'escapeKeyDown') onLater()
+      }}
+    >
     <Box
-      ref={rootRef}
       role="alertdialog"
       aria-modal="true"
       aria-labelledby={titleId}
       aria-describedby={messageId}
-      onKeyDown={handleKeyDown}
-      sx={(theme) => ({
+      sx={{
         position: 'fixed',
         inset: 0,
-        zIndex: theme.zIndex.modal + 1,
+        outline: 'none',
         display: 'flex',
         alignItems: narrow ? 'flex-end' : 'center',
         justifyContent: 'center',
@@ -89,9 +103,9 @@ export const MaggieInterruption = ({ open, message, actionLabel, onAction, onLat
         overflowX: 'hidden',
         boxSizing: 'border-box',
         padding: narrow ? '16px' : '32px',
-        background: `radial-gradient(ellipse at center, ${alpha('#05030f', 0.62)} 0%, ${alpha('#05030f', 0.88)} 100%)`,
+        background: `radial-gradient(ellipse at center, ${alpha(NIGHT, 0.62)} 0%, ${alpha(NIGHT, 0.88)} 100%)`,
         animation: `${fadeIn} 500ms ease-out both`,
-      })}
+      }}
     >
       <Box
         sx={{
@@ -148,9 +162,10 @@ export const MaggieInterruption = ({ open, message, actionLabel, onAction, onLat
           <Box sx={{ display: 'flex', flexDirection: narrow ? 'column' : 'row', flexWrap: 'wrap', gap: '12px' }}>
             <Button
               ref={actionRef}
+              autoFocus
               variant="contained"
               color="primary"
-              onClick={onAction}
+              onClick={handleAction}
               sx={{ borderRadius: 999, minHeight: 44, px: 3 }}
             >
               {actionLabel}
@@ -162,5 +177,6 @@ export const MaggieInterruption = ({ open, message, actionLabel, onAction, onLat
         </Box>
       </Box>
     </Box>
+    </Modal>
   )
 }

@@ -162,8 +162,13 @@ const componentsFor = (mode: ThemeMode): ThemeOptions['components'] => {
   const divider = dividerOf(mode)
   const ink = alpha(surface.text, 0.08)
   const inkHover = alpha(surface.text, 0.14)
-  const popoverShadow =
-    mode === 'dark' ? '0 12px 32px rgba(0, 0, 0, 0.45)' : '0 12px 32px rgba(27, 24, 38, 0.16)'
+  // The shadow is the night itself on the dark, the ink on ivory.
+  const popoverShadow = `0 12px 32px ${
+    mode === 'dark' ? alpha(TOKENS.surface.dark.background, 0.6) : alpha(surface.text, 0.16)
+  }`
+  // On ivory the accent at 16 % is 4.3:1 against itself: the label of what sits on
+  // that tint takes the container ink, as the active menu entry does.
+  const onTint = mode === 'dark' ? accent : TOKENS.brand.onContainerLight
 
   return {
     MuiCssBaseline: {
@@ -267,7 +272,7 @@ const componentsFor = (mode: ThemeMode): ThemeOptions['components'] => {
           backgroundColor: ink,
           '&:hover': { border: 'none', backgroundColor: inkHover },
         },
-        textPrimary: { '&:hover': { backgroundColor: alpha(accent, 0.16) } },
+        textPrimary: { '&:hover': { backgroundColor: alpha(accent, 0.16), color: onTint } },
       },
     },
     MuiIconButton: {
@@ -281,9 +286,9 @@ const componentsFor = (mode: ThemeMode): ThemeOptions['components'] => {
         filled: { '&.MuiChip-colorDefault': { backgroundColor: surface.raised } },
       },
     },
+    // Tabs keep radiant's / MUI's height; only the phone gets its 44px target.
     MuiTabs: {
       styleOverrides: {
-        root: { minHeight: 36 },
         flexContainer: { gap: TOKENS.space.xs },
         indicator: { display: 'none' },
       },
@@ -291,11 +296,10 @@ const componentsFor = (mode: ThemeMode): ThemeOptions['components'] => {
     MuiTab: {
       styleOverrides: {
         root: {
-          minHeight: 36,
           borderRadius: radius.pill,
           textTransform: 'none',
           fontWeight: weight.medium,
-          '&.Mui-selected': { backgroundColor: alpha(accent, 0.16), color: accent },
+          '&.Mui-selected': { backgroundColor: alpha(accent, 0.16), color: onTint },
           [NARROW]: { minHeight: TOUCH_TARGET },
         },
       },
@@ -305,7 +309,8 @@ const componentsFor = (mode: ThemeMode): ThemeOptions['components'] => {
         root: {
           borderRadius: radius.md,
           backgroundColor: surface.raised,
-          '& .MuiOutlinedInput-notchedOutline': { borderColor: divider },
+          // A field's edge is a boundary (WCAG 1.4.11, 3:1): on ivory the hairline is 1.1:1.
+          '& .MuiOutlinedInput-notchedOutline': { borderColor: mode === 'dark' ? divider : alpha(surface.text, 0.5) },
           '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: surface.caption },
           '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: accent, borderWidth: 2 },
         },
@@ -350,9 +355,8 @@ const componentsFor = (mode: ThemeMode): ThemeOptions['components'] => {
             backgroundImage: 'none',
             backgroundColor: alpha(accent, 0.16),
             boxShadow: 'none',
-            // On ivory the accent at 16 % is 4.3:1 against itself; the label
-            // takes the container ink, the icon keeps the accent.
-            color: mode === 'dark' ? accent : TOKENS.brand.onContainerLight,
+            // The label takes the container ink on ivory, the icon keeps the accent.
+            color: onTint,
             '& .MuiListItemIcon-root > .MuiSvgIcon-root': { fill: accent },
           },
         },

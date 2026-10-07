@@ -27,6 +27,11 @@ export function useMaggieInterruption({ chatOpen, onOpenChat }: Options) {
   const [queue, setQueue] = useState<Interruption[]>([])
   const seen = useRef(new Set<string>())
   const timers = useRef(new Set<number>())
+  // Read by the stream handler, which outlives any one render.
+  const chatOpenRef = useRef(chatOpen)
+  useEffect(() => {
+    chatOpenRef.current = chatOpen
+  }, [chatOpen])
 
   const clearTimers = useCallback(() => {
     timers.current.forEach((timer) => window.clearTimeout(timer))
@@ -45,6 +50,8 @@ export function useMaggieInterruption({ chatOpen, onOpenChat }: Options) {
         if (data.status !== 'completed' || typeof data.response !== 'string' || !data.response.trim()) return
         if (!data.id || seen.current.has(data.id)) return
         seen.current.add(data.id)
+        // The open chat already shows it: nothing to interrupt, nothing to queue.
+        if (chatOpenRef.current) return
         setQueue((prev) => [...prev, { id: data.id, message: data.response }])
       } catch {
         // Ignore malformed messages

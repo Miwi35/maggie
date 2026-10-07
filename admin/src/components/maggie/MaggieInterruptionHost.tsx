@@ -12,6 +12,7 @@ export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterrupt
   return (
     <MaggieInterruption
       open={current !== null}
+      id={current?.id}
       message={current?.message ?? ''}
       actionLabel="Ouvrir le chat"
       onAction={openChat}

@@ -161,4 +161,27 @@ describe('useMaggieInterruption', () => {
     act(() => vi.advanceTimersByTime(LATER_DELAY_MS * 2))
     expect(result.current.current).toBeNull()
   })
+
+  test('a proaction arriving while the chat is open does not queue behind it', () => {
+    const { result, rerender } = setup(true)
+
+    stream().emit(proaction())
+    expect(result.current.current).toBeNull()
+
+    rerender({ chatOpen: false })
+
+    expect(result.current.current).toBeNull()
+    // …and it is not shown later either: the chat already had it.
+    stream().emit(proaction())
+    expect(result.current.current).toBeNull()
+  })
+
+  test('a proaction arriving once the chat is closed again interrupts', () => {
+    const { result, rerender } = setup(true)
+    rerender({ chatOpen: false })
+
+    stream().emit(proaction({ id: 'late' }))
+
+    expect(result.current.current?.id).toBe('late')
+  })
 })

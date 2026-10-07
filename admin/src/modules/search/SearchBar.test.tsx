@@ -1,7 +1,10 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { ThemeProvider } from '@mui/material/styles'
 import { SearchBar } from './SearchBar'
+import { veilleuseDarkTheme, veilleuseLightTheme } from '../../theme'
+import { TOKENS } from '../../design/tokens'
 import { PHONE_WIDTH, setViewportWidth, resetViewport } from '../../test/viewport'
 
 const mockNavigate = vi.fn()
@@ -28,6 +31,14 @@ function stubSearch(corpus: Array<{ index: string; id: string; score: number; da
   )
 }
 
+/** The bar reads the Veilleuse palette, so it is always drawn under a theme. */
+const renderBar = (theme = veilleuseDarkTheme) =>
+  render(
+    <ThemeProvider theme={theme}>
+      <SearchBar />
+    </ThemeProvider>,
+  )
+
 describe('SearchBar', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
@@ -37,17 +48,37 @@ describe('SearchBar', () => {
   })
 
   test('renders search input', () => {
-    render(<SearchBar />)
+    renderBar()
     expect(screen.getByPlaceholderText('Rechercher…')).toBeInTheDocument()
   })
 
+  test.each([
+    ['light', veilleuseLightTheme],
+    ['dark', veilleuseDarkTheme],
+  ] as const)('draws its field from the %s theme, never in white', (name, theme) => {
+    renderBar(theme)
+    const field = screen.getByPlaceholderText('Rechercher…').closest('.MuiTextField-root') as HTMLElement
+    const emotionClass = Array.from(field.classList).find((c) => c.startsWith('css-'))!
+    // jsdom does not cascade nested selectors: read what the field's own rules say.
+    const css = Array.from(document.querySelectorAll('style'))
+      .map((style) => style.textContent ?? '')
+      .join('\n')
+      .split('}')
+      .filter((rule) => rule.includes(`.${emotionClass}`))
+      .join('}')
+
+    expect(css.toLowerCase()).toContain('.muioutlinedinput-root')
+    expect(css.toLowerCase()).toContain(TOKENS.surface[name].raised.toLowerCase())
+    if (name === 'light') expect(css.replace(/\s/g, '')).not.toMatch(/rgba?\(255,255,255/)
+  })
+
   test('renders Ctrl+K hint', () => {
-    render(<SearchBar />)
+    renderBar()
     expect(screen.getByText('Ctrl+K')).toBeInTheDocument()
   })
 
   test('Ctrl+K focuses the input', async () => {
-    render(<SearchBar />)
+    renderBar()
     const input = screen.getByPlaceholderText('Rechercher…')
     expect(document.activeElement).not.toBe(input)
 
@@ -60,7 +91,7 @@ describe('SearchBar', () => {
       { index: 'recipes', id: 'abc123', score: 1.5, data: { name: 'Pâtes carbonara' }, highlights: { name: ['<em>Pâtes</em> carbonara'] } },
     ])
 
-    render(<SearchBar />)
+    renderBar()
     await userEvent.type(screen.getByPlaceholderText('Rechercher…'), 'pâtes')
 
     await waitFor(() => {
@@ -75,7 +106,7 @@ describe('SearchBar', () => {
       { index: 'recipes', id: 'abc123', score: 1.5, data: { name: 'Pâtes carbonara' }, highlights: { name: ['<em>Pâtes</em> carbo'] } },
     ])
 
-    render(<SearchBar />)
+    renderBar()
     await userEvent.type(screen.getByPlaceholderText('Rechercher…'), 'pâtes')
 
     await waitFor(() => {
@@ -91,7 +122,7 @@ describe('SearchBar', () => {
       { index: 'events', id: 'evt123', score: 1.5, data: { summary: 'Réunion hebdo' }, highlights: { summary: ['<em>Réunion</em> hebdo'] } },
     ])
 
-    render(<SearchBar />)
+    renderBar()
     await userEvent.type(screen.getByPlaceholderText('Rechercher…'), 'réunion')
 
     await waitFor(() => {
@@ -119,7 +150,7 @@ describe('SearchBar', () => {
     ]
     stubSearch(corpus)
 
-    render(<SearchBar />)
+    renderBar()
     await userEvent.type(screen.getByPlaceholderText('Rechercher…'), 'pâtes')
 
     expect(await screen.findByText('Recettes')).toBeInTheDocument()
@@ -133,7 +164,7 @@ describe('SearchBar', () => {
       { index: 'recipes', id: 'abc123', score: 1.5, data: { name: 'Test result' }, highlights: { name: ['<em>Test</em> match'] } },
     ])
 
-    render(<SearchBar />)
+    renderBar()
     await userEvent.type(screen.getByPlaceholderText('Rechercher…'), 'test')
 
     await waitFor(() => {
@@ -168,14 +199,14 @@ describe('SearchBar on a narrow window', () => {
   })
 
   test('is a magnifier, not a field', () => {
-    render(<SearchBar />)
+    renderBar()
 
     expect(screen.getByRole('button', { name: 'Rechercher' })).toBeInTheDocument()
     expect(screen.queryByPlaceholderText('Rechercher…')).toBeNull()
   })
 
   test('opens the field when asked, and gives the bar back when dismissed', async () => {
-    render(<SearchBar />)
+    renderBar()
 
     await userEvent.click(screen.getByRole('button', { name: 'Rechercher' }))
     const field = screen.getByPlaceholderText('Rechercher…')
@@ -195,7 +226,7 @@ describe('SearchBar on a narrow window', () => {
       { index: 'recipes', id: 'abc123', score: 1.5, data: { name: 'Pâtes carbonara' }, highlights: { name: ['<em>Pâtes</em>'] } },
     ])
 
-    render(<SearchBar />)
+    renderBar()
     await userEvent.click(screen.getByRole('button', { name: 'Rechercher' }))
     await userEvent.type(screen.getByPlaceholderText('Rechercher…'), 'pates')
 

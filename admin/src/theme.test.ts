@@ -2,6 +2,8 @@ import { describe, test, expect } from 'vitest'
 import { alpha } from '@mui/material/styles'
 import { NARROW_QUERY } from './breakpoints'
 import { TOKENS } from './design/tokens'
+import { createTheme } from '@mui/material/styles'
+import { radiantDarkTheme, radiantLightTheme } from 'react-admin'
 import { veilleuseDarkTheme, veilleuseLightTheme } from './theme'
 
 import type { Theme } from '@mui/material/styles'
@@ -61,23 +63,71 @@ describe('the admin theme', () => {
     })
   })
 
+  const SLOTS = [
+    'MuiPaper',
+    'MuiAppBar',
+    'MuiButton',
+    'MuiTableCell',
+    'MuiTableRow',
+    'RaDatagrid',
+    'RaFilterForm',
+    'RaMenuItemLink',
+    'RaToolbar',
+    'RaBulkActionsToolbar',
+    'RaLayout',
+  ] as const
+
+  const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+    typeof value === 'object' && value !== null && !Array.isArray(value)
+
+  const overridesOf = (theme: Theme, slot: string) =>
+    (theme.components as Record<string, { styleOverrides?: Record<string, unknown> } | undefined> | undefined)?.[slot]
+      ?.styleOverrides
+
   test.each(MODES)('styles radiant’s slots with objects, never a function (%s)', (_name, theme) => {
-    const slots = [
-      'MuiPaper',
-      'MuiAppBar',
-      'MuiTableCell',
-      'RaDatagrid',
-      'RaMenuItemLink',
-      'RaToolbar',
-      'RaLayout',
-    ] as const
-    for (const slot of slots) {
-      const overrides = theme.components?.[slot]?.styleOverrides as Record<string, unknown> | undefined
-      expect(overrides, slot).toBeDefined()
-      for (const [key, rule] of Object.entries(overrides!)) {
+    for (const slot of SLOTS) {
+      const overrides = overridesOf(theme, slot)
+      // Not every listed slot is styled by every radiant version: the ones we style must be objects.
+      if (!overrides) continue
+      for (const [key, rule] of Object.entries(overrides)) {
         expect(typeof rule, `${slot}.${key}`).not.toBe('function')
       }
     }
+    for (const slot of ['MuiPaper', 'MuiAppBar', 'MuiTableCell', 'RaDatagrid', 'RaMenuItemLink', 'RaToolbar', 'RaLayout']) {
+      expect(overridesOf(theme, slot), slot).toBeDefined()
+    }
+  })
+
+  test.each([
+    ['light', veilleuseLightTheme, radiantLightTheme],
+    ['dark', veilleuseDarkTheme, radiantDarkTheme],
+  ] as const)('keeps every rule radiant has on those slots, nested ones included (%s)', (_name, ours, radiant) => {
+    const base = createTheme(radiant)
+    let compared = 0
+    for (const slot of SLOTS) {
+      const theirs = overridesOf(base, slot)
+      if (!theirs) continue
+      const mine = overridesOf(ours, slot)
+      for (const [key, rule] of Object.entries(theirs)) {
+        expect(mine, `${slot}.${key}`).toHaveProperty([key])
+        compared += 1
+        if (isPlainObject(rule) && isPlainObject(mine?.[key])) {
+          for (const nested of Object.keys(rule)) {
+            expect(Object.keys(mine[key] as object), `${slot}.${key} › ${nested}`).toContain(nested)
+            compared += 1
+          }
+        }
+      }
+    }
+    // Radiant does style these slots: an empty comparison would prove nothing.
+    expect(compared).toBeGreaterThan(10)
+  })
+
+  test.each(MODES)('keeps radiant’s density: no fixed tab height of our own (%s)', (_name, theme) => {
+    const tab = overridesOf(theme, 'MuiTab')?.root as Record<string, unknown>
+    expect(tab.minHeight).toBeUndefined()
+    expect(overridesOf(theme, 'MuiTabs')?.root).toBeUndefined()
+    expect(tab[`@media ${NARROW_QUERY}`]).toMatchObject({ minHeight: 44 })
   })
 })
 
@@ -187,6 +237,35 @@ describe('contrast', () => {
       )['&.RaMenuItemLink-active']
       expect(contrast(active.color as string, tint)).toBeGreaterThanOrEqual(AA)
       expect(contrast(accent, tint)).toBeGreaterThanOrEqual(3)
+    })
+
+    test('the selected tab — the accent at 16 % over the page or a card — reads', () => {
+      const selected = (
+        theme.components?.MuiTab?.styleOverrides?.root as Record<string, Record<string, unknown>>
+      )['&.Mui-selected']
+      for (const ground of [surface.background, surface.paper]) {
+        const tint = over(alpha(accent, 0.16), ground)
+        expect(contrast(selected.color as string, tint)).toBeGreaterThanOrEqual(AA)
+      }
+    })
+
+    test('a hovered text button — the accent at 16 % behind its label — reads', () => {
+      const hover = (
+        theme.components?.MuiButton?.styleOverrides?.textPrimary as Record<string, Record<string, unknown>>
+      )['&:hover']
+      for (const ground of [surface.background, surface.paper]) {
+        const tint = over(hover.backgroundColor as string, ground)
+        expect(contrast((hover.color as string | undefined) ?? accent, tint)).toBeGreaterThanOrEqual(AA)
+      }
+    })
+
+    test('a field’s border at rest is a visible edge (3:1) — in the light, where a hairline was 1.1:1', () => {
+      if (name === 'dark') return
+      const input = theme.components?.MuiOutlinedInput?.styleOverrides?.root as Record<string, Record<string, string>>
+      const border = input['& .MuiOutlinedInput-notchedOutline'].borderColor
+      for (const ground of [surface.raised, surface.paper, surface.background]) {
+        expect(contrast(over(border, surface.raised), ground)).toBeGreaterThanOrEqual(3)
+      }
     })
 
     test('Maggie’s bubble and the chat reply read', () => {

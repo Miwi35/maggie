@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { Fragment, StrictMode } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
 import { ThemeProvider } from '@mui/material/styles'
 import { MaggieInterruption } from './MaggieInterruption'
 import { veilleuseDarkTheme, veilleuseLightTheme } from '../../theme'
@@ -11,13 +14,16 @@ vi.mock('./chime', () => ({ playChime: vi.fn() }))
 
 const MESSAGE = 'Ton rendez-vous de 15 h a été déplacé à 16 h.'
 
-function setup(theme = veilleuseDarkTheme, open = true) {
+function setup(theme = veilleuseDarkTheme, open = true, strict = false) {
   const onAction = vi.fn()
   const onLater = vi.fn()
-  const view = (isOpen: boolean) => (
+  const Wrapper = strict ? StrictMode : Fragment
+  const view = (isOpen: boolean, id = 'p1') => (
+    <Wrapper>
     <ThemeProvider theme={theme}>
       <button>Avant</button>
       <MaggieInterruption
+        id={id}
         open={isOpen}
         message={MESSAGE}
         actionLabel="Ouvrir le chat"
@@ -25,9 +31,10 @@ function setup(theme = veilleuseDarkTheme, open = true) {
         onLater={onLater}
       />
     </ThemeProvider>
+    </Wrapper>
   )
   const utils = render(view(open))
-  return { onAction, onLater, rerender: (isOpen: boolean) => utils.rerender(view(isOpen)) }
+  return { onAction, onLater, rerender: (isOpen: boolean, id?: string) => utils.rerender(view(isOpen, id)) }
 }
 
 describe('MaggieInterruption', () => {
@@ -109,6 +116,80 @@ describe('MaggieInterruption', () => {
     rerender(false)
 
     expect(before).toHaveFocus()
+    before.remove()
+  })
+
+  test('Escape still puts it off after a click on the veil or on her words', async () => {
+    const { onLater } = setup()
+
+    await userEvent.click(screen.getByRole('alertdialog'))
+    await userEvent.keyboard('{Escape}')
+    await userEvent.click(screen.getByText(MESSAGE))
+    await userEvent.keyboard('{Escape}')
+
+    expect(onLater).toHaveBeenCalledTimes(2)
+  })
+
+  test('Tab stays inside after a click on her words', async () => {
+    setup()
+
+    await userEvent.click(screen.getByText(MESSAGE))
+    await userEvent.tab()
+
+    expect(screen.getByRole('alertdialog')).toContainElement(document.activeElement as HTMLElement)
+  })
+
+  test('over an open dialog, it takes the focus and Escape closes only the interruption', async () => {
+    const onDialogClose = vi.fn()
+    const onLater = vi.fn()
+    const view = (open: boolean) => (
+      <ThemeProvider theme={veilleuseDarkTheme}>
+        <Dialog open onClose={onDialogClose}>
+          <DialogTitle>Formulaire</DialogTitle>
+          <input aria-label="Champ" />
+        </Dialog>
+        <MaggieInterruption open={open} id="p1" message={MESSAGE} actionLabel="Ouvrir le chat" onAction={vi.fn()} onLater={onLater} />
+      </ThemeProvider>
+    )
+    const { rerender } = render(view(false))
+    await userEvent.click(screen.getByLabelText('Champ'))
+
+    rerender(view(true))
+
+    expect(screen.getByRole('button', { name: 'Ouvrir le chat' })).toHaveFocus()
+    await userEvent.keyboard('{Escape}')
+    expect(onLater).toHaveBeenCalledTimes(1)
+    expect(onDialogClose).not.toHaveBeenCalled()
+  })
+
+  test('the next interruption replacing this one rings again and takes the focus back', async () => {
+    const { rerender } = setup()
+    await userEvent.tab()
+    expect(screen.getByRole('button', { name: 'Plus tard' })).toHaveFocus()
+
+    rerender(true, 'p2')
+
+    expect(playChime).toHaveBeenCalledTimes(2)
+    expect(screen.getByRole('button', { name: 'Ouvrir le chat' })).toHaveFocus()
+  })
+
+  test('rings once per interruption, even under StrictMode', () => {
+    setup(veilleuseDarkTheme, true, true)
+
+    expect(playChime).toHaveBeenCalledTimes(1)
+  })
+
+  test('opening the chat from it does not give the focus back to what had it', async () => {
+    const before = document.createElement('button')
+    document.body.appendChild(before)
+    before.focus()
+    const { rerender } = setup(veilleuseDarkTheme, false)
+    rerender(true)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Ouvrir le chat' }))
+    rerender(false)
+
+    expect(before).not.toHaveFocus()
     before.remove()
   })
 
