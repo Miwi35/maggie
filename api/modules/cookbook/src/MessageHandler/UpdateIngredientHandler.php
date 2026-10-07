@@ -62,6 +62,22 @@ class UpdateIngredientHandler
         } elseif ($command->clears('fatPer100g')) {
             $ingredient->setFatPer100g(null);
         }
+        if (null !== $command->packagingUnit) {
+            $ingredient->setPackagingUnit(Unit::from($command->packagingUnit));
+        } elseif ($command->clears('packagingUnit')) {
+            $ingredient->setPackagingUnit(null);
+        }
+        if (null !== $command->packagingSize) {
+            $ingredient->setPackagingSize($command->packagingSize);
+        } elseif ($command->clears('packagingSize')) {
+            $ingredient->setPackagingSize(null);
+        }
+        if (null !== $command->packagingSizeUnit) {
+            $ingredient->setPackagingSizeUnit(Unit::from($command->packagingSizeUnit));
+        } elseif ($command->clears('packagingSizeUnit')) {
+            $ingredient->setPackagingSizeUnit(null);
+        }
+        $ingredient->assertPackagingIsConsistent();
 
         $this->updateProduct->execute($ingredient);
 

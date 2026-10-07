@@ -173,4 +173,62 @@ class ProductToolsTest extends KernelTestCase
 
         self::assertArrayHasKey('error', $data);
     }
+
+    public function testCreateIngredientWithItsPackaging(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(($this->manageIngredients())('create', name: 'Riz', category: 'grain', defaultUnit: 'g', packagingUnit: 'pack', packagingSize: 500, packagingSizeUnit: 'g'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
+        self::assertSame('pack', $data['ingredient']['packagingUnit']);
+        self::assertEquals(500, $data['ingredient']['packagingSize']);
+        self::assertSame('g', $data['ingredient']['packagingSizeUnit']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $stored = $em->find(Ingredient::class, $data['ingredient']['id']);
+        self::assertSame('pack', $stored->getPackagingUnit()?->value);
+        self::assertSame(500.0, $stored->getPackagingSize());
+        self::assertSame('g', $stored->getPackagingSizeUnit()?->value);
+
+        $this->assertMercureUpdatePublished('/ingredients/');
+        $this->assertElasticsearchIndexDispatched(Ingredient::class);
+    }
+
+    public function testCreateIngredientRefusesASizeWithoutItsUnit(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(($this->manageIngredients())('create', name: 'Riz', category: 'grain', packagingUnit: 'pack', packagingSize: 500), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
+        self::assertSame([], self::getContainer()->get('doctrine.orm.entity_manager')->getRepository(Ingredient::class)->findAll());
+    }
+
+    public function testUpdateIngredientSetsThenClearsThePackaging(): void
+    {
+        $this->loadFixtures('ingredient_nutrition.yaml');
+        $this->loginFixtureUser();
+        $id = (string) $this->getFixture('tomato')->getId();
+
+        $data = json_decode(($this->manageIngredients())('update', ingredientId: $id, packagingUnit: 'can', packagingSize: 400, packagingSizeUnit: 'g'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame('can', $data['ingredient']['packagingUnit']);
+        self::assertEquals(400, $data['ingredient']['packagingSize']);
+        $this->assertMercureUpdatePublished('/ingredients/');
+        $this->assertElasticsearchIndexDispatched(Ingredient::class);
+
+        $data = json_decode(($this->manageIngredients())('update', ingredientId: $id, clear: ['packagingUnit', 'packagingSize', 'packagingSizeUnit']), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $stored = $em->find(Ingredient::class, $id);
+        self::assertNull($stored->getPackagingUnit());
+        self::assertNull($stored->getPackagingSize());
+        self::assertNull($stored->getPackagingSizeUnit());
+    }
 }

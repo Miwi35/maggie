@@ -55,6 +55,22 @@ class UpdateProductHandler
         } elseif ($command->clears('shelfLifeDays')) {
             $product->setShelfLifeDays(null);
         }
+        if (null !== $command->packagingUnit) {
+            $product->setPackagingUnit(Unit::from($command->packagingUnit));
+        } elseif ($command->clears('packagingUnit')) {
+            $product->setPackagingUnit(null);
+        }
+        if (null !== $command->packagingSize) {
+            $product->setPackagingSize($command->packagingSize);
+        } elseif ($command->clears('packagingSize')) {
+            $product->setPackagingSize(null);
+        }
+        if (null !== $command->packagingSizeUnit) {
+            $product->setPackagingSizeUnit(Unit::from($command->packagingSizeUnit));
+        } elseif ($command->clears('packagingSizeUnit')) {
+            $product->setPackagingSizeUnit(null);
+        }
+        $product->assertPackagingIsConsistent();
 
         return $this->updateProduct->execute($product);
     }

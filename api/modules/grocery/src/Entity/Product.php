@@ -26,6 +26,7 @@ use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Grocery\Enum\ProductCategory;
 use Maggie\Grocery\Enum\Unit;
+use Maggie\Grocery\Exception\InvalidPackagingException;
 use Maggie\Grocery\Repository\ProductRepository;
 use Maggie\Grocery\State\CreateProductProcessor;
 use Maggie\Grocery\State\DeleteProductProcessor;
@@ -103,6 +104,17 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
 
     #[ORM\Column(type: 'integer', nullable: true)]
     private ?int $shelfLifeDays = null;
+
+    // What the product is bought in: « paquet de 500 g » is (pack, 500, g),
+    // « bocal » is (jar, null, null). Size and size unit go together.
+    #[ORM\Column(length: 20, nullable: true, enumType: Unit::class)]
+    private ?Unit $packagingUnit = null;
+
+    #[ORM\Column(type: 'float', nullable: true)]
+    private ?float $packagingSize = null;
+
+    #[ORM\Column(length: 20, nullable: true, enumType: Unit::class)]
+    private ?Unit $packagingSizeUnit = null;
 
     public function __construct()
     {
@@ -258,6 +270,61 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
         return $this;
     }
 
+    public function getPackagingUnit(): ?Unit
+    {
+        return $this->packagingUnit;
+    }
+
+    public function setPackagingUnit(?Unit $packagingUnit): static
+    {
+        $this->packagingUnit = $packagingUnit;
+
+        return $this;
+    }
+
+    public function getPackagingSize(): ?float
+    {
+        return $this->packagingSize;
+    }
+
+    public function setPackagingSize(?float $packagingSize): static
+    {
+        $this->packagingSize = $packagingSize;
+
+        return $this;
+    }
+
+    public function getPackagingSizeUnit(): ?Unit
+    {
+        return $this->packagingSizeUnit;
+    }
+
+    public function setPackagingSizeUnit(?Unit $packagingSizeUnit): static
+    {
+        $this->packagingSizeUnit = $packagingSizeUnit;
+
+        return $this;
+    }
+
+    /**
+     * The handlers call this once every field is applied: the API and the
+     * MCP tools share the rule, and a PATCH may set the fields one by one.
+     *
+     * @throws InvalidPackagingException
+     */
+    public function assertPackagingIsConsistent(): void
+    {
+        if (null !== $this->packagingSize && $this->packagingSize <= 0) {
+            throw new InvalidPackagingException('packagingSize must be greater than 0.');
+        }
+        if ((null === $this->packagingSize) !== (null === $this->packagingSizeUnit)) {
+            throw new InvalidPackagingException('packagingSize and packagingSizeUnit go together: set both or neither.');
+        }
+        if (null !== $this->packagingSize && null === $this->packagingUnit) {
+            throw new InvalidPackagingException('packagingSize needs a packagingUnit: say what the size is the content of.');
+        }
+    }
+
     /** @return array<string, mixed> */
     public function toSearchDocument(): array
     {
@@ -274,6 +341,9 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
             'preferredStoreId' => null !== $this->preferredStore ? (string) $this->preferredStore->getId() : null,
             'fallbackStoreId' => null !== $this->fallbackStore ? (string) $this->fallbackStore->getId() : null,
             'shelfLifeDays' => $this->shelfLifeDays,
+            'packagingUnit' => $this->packagingUnit?->value,
+            'packagingSize' => $this->packagingSize,
+            'packagingSizeUnit' => $this->packagingSizeUnit?->value,
         ];
     }
 
@@ -289,6 +359,9 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
             'preferredStoreId' => null !== $this->preferredStore ? (string) $this->preferredStore->getId() : null,
             'fallbackStoreId' => null !== $this->fallbackStore ? (string) $this->fallbackStore->getId() : null,
             'shelfLifeDays' => $this->shelfLifeDays,
+            'packagingUnit' => $this->packagingUnit?->value,
+            'packagingSize' => $this->packagingSize,
+            'packagingSizeUnit' => $this->packagingSizeUnit?->value,
         ], $changedProperties, ['preferredStore' => 'preferredStoreId', 'fallbackStore' => 'fallbackStoreId']);
     }
 }

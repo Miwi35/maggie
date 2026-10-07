@@ -16,6 +16,7 @@ enum class CookbookUnit {
     @SerialName("bottle") BOTTLE,
     @SerialName("pack") PACK,
     @SerialName("sachet") SACHET,
+    @SerialName("jar") JAR,
 }
 
 @Serializable

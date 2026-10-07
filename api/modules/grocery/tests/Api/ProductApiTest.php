@@ -188,6 +188,138 @@ class ProductApiTest extends WebTestCase
         self::assertSame('kg', $reloaded->getDefaultUnit()?->value);
     }
 
+    public function testPatchSetsThePackaging(): void
+    {
+        $product = $this->load();
+
+        $this->patch($product, ['packagingUnit' => 'pack', 'packagingSize' => 500, 'packagingSizeUnit' => 'g']);
+
+        self::assertResponseIsSuccessful();
+        $reloaded = $this->reload($product);
+        self::assertSame('pack', $reloaded->getPackagingUnit()?->value);
+        self::assertSame(500.0, $reloaded->getPackagingSize());
+        self::assertSame('g', $reloaded->getPackagingSizeUnit()?->value);
+        self::assertSame('Riz', $reloaded->getName());
+        $this->assertMercureUpdatePublished('/products/');
+        $updates = $this->getMercureHub()->getUpdates();
+        $data = json_decode(end($updates)->getData(), true);
+        self::assertEquals(
+            ['pack', 500, 'g'],
+            [$data['packagingUnit'] ?? null, $data['packagingSize'] ?? null, $data['packagingSizeUnit'] ?? null],
+            'A second tab sees the packaging arrive',
+        );
+        $this->assertElasticsearchIndexDispatched(Product::class);
+    }
+
+    public function testPatchSetsAJarWithoutContent(): void
+    {
+        $product = $this->load();
+
+        $this->patch($product, ['packagingUnit' => 'jar']);
+
+        self::assertResponseIsSuccessful();
+        $reloaded = $this->reload($product);
+        self::assertSame('jar', $reloaded->getPackagingUnit()?->value);
+        self::assertNull($reloaded->getPackagingSize());
+        self::assertNull($reloaded->getPackagingSizeUnit());
+    }
+
+    /** @return iterable<string, array{array<string, mixed>}> */
+    public static function invalidPackagings(): iterable
+    {
+        yield 'a size without its unit' => [['packagingUnit' => 'pack', 'packagingSize' => 500]];
+        yield 'a size unit without a size' => [['packagingUnit' => 'pack', 'packagingSizeUnit' => 'g']];
+        yield 'a size of zero' => [['packagingUnit' => 'pack', 'packagingSize' => 0, 'packagingSizeUnit' => 'g']];
+        yield 'a negative size' => [['packagingUnit' => 'pack', 'packagingSize' => -1, 'packagingSizeUnit' => 'g']];
+        yield 'a size without a packaging unit' => [['packagingSize' => 500, 'packagingSizeUnit' => 'g']];
+    }
+
+    /** @param array<string, mixed> $payload */
+    #[\PHPUnit\Framework\Attributes\DataProvider('invalidPackagings')]
+    public function testPatchRefusesAPackagingThatCannotBeComputed(array $payload): void
+    {
+        $product = $this->load();
+
+        $this->patch($product, $payload);
+
+        self::assertResponseStatusCodeSame(400);
+        $reloaded = $this->reload($product);
+        self::assertNull($reloaded->getPackagingUnit());
+        self::assertNull($reloaded->getPackagingSize());
+        self::assertNull($reloaded->getPackagingSizeUnit());
+    }
+
+    public function testPatchWithNullPackagingClearsIt(): void
+    {
+        $product = $this->load('product_with_packaging');
+
+        $this->patch($product, ['packagingUnit' => null, 'packagingSize' => null, 'packagingSizeUnit' => null]);
+
+        self::assertResponseIsSuccessful();
+        $reloaded = $this->reload($product);
+        self::assertNull($reloaded->getPackagingUnit());
+        self::assertNull($reloaded->getPackagingSize());
+        self::assertNull($reloaded->getPackagingSizeUnit());
+        $this->assertMercureUpdatePublished('/products/');
+        $this->assertElasticsearchIndexDispatched(Product::class);
+    }
+
+    public function testPatchRefusesToClearOnlyTheSizeUnit(): void
+    {
+        $product = $this->load('product_with_packaging');
+
+        $this->patch($product, ['packagingSizeUnit' => null]);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame('g', $this->reload($product)->getPackagingSizeUnit()?->value);
+    }
+
+    public function testPostCreatesAProductWithItsPackaging(): void
+    {
+        $this->load();
+
+        $this->client->request('POST', '/api/products', [], [], array_merge([
+            'CONTENT_TYPE' => 'application/ld+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode([
+            'name' => 'Pâtes',
+            'category' => 'other',
+            'packagingUnit' => 'pack',
+            'packagingSize' => 1,
+            'packagingSizeUnit' => 'kg',
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseStatusCodeSame(201);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $created = $em->getRepository(Product::class)->findOneBy(['name' => 'Pâtes']);
+        self::assertSame('pack', $created?->getPackagingUnit()?->value);
+        self::assertSame(1.0, $created?->getPackagingSize());
+        self::assertSame('kg', $created?->getPackagingSizeUnit()?->value);
+        $this->assertMercureUpdatePublished('/products/');
+        $this->assertElasticsearchIndexDispatched(Product::class);
+    }
+
+    public function testPostRefusesASizeWithoutItsUnit(): void
+    {
+        $this->load();
+
+        $this->client->request('POST', '/api/products', [], [], array_merge([
+            'CONTENT_TYPE' => 'application/ld+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode([
+            'name' => 'Pâtes',
+            'category' => 'other',
+            'packagingUnit' => 'pack',
+            'packagingSize' => 500,
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseStatusCodeSame(400);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNull($em->getRepository(Product::class)->findOneBy(['name' => 'Pâtes']));
+    }
+
     private function deleteProduct(Product $product, bool $authenticated = true): void
     {
         $this->client->request('DELETE', '/api/products/'.$product->getId(), [], [], $authenticated ? $this->authHeaders() : []);

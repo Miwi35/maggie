@@ -1,6 +1,7 @@
 import { Create, SimpleForm, TextInput, NumberInput, SelectInput, required } from 'react-admin'
 import Box from '@mui/material/Box'
 import { CiqualFoodAutocomplete, CiqualAutoFill } from './CiqualFoodAutocomplete'
+import { PackagingInputs } from '../grocery/PackagingInputs'
 
 const categoryChoices = [
   { id: 'produce', name: 'Fruits & Légumes' },
@@ -27,6 +28,7 @@ const unitChoices = [
   { id: 'bottle', name: 'bouteille' },
   { id: 'pack', name: 'paquet' },
   { id: 'sachet', name: 'sachet' },
+  { id: 'jar', name: 'bocal' },
 ]
 
 export const IngredientCreate = () => (
@@ -48,6 +50,7 @@ export const IngredientCreate = () => (
         <NumberInput source="carbsPer100g" label="Glucides/100g" />
         <NumberInput source="fatPer100g" label="Lipides/100g" />
       </Box>
+      <PackagingInputs />
     </SimpleForm>
   </Create>
 )

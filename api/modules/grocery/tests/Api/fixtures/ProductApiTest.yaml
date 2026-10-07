@@ -35,6 +35,13 @@ Maggie\Grocery\Entity\Product:
     preferredStore: '@halles'
     fallbackStore: '@bio'
     shelfLifeDays: 30
+  product_with_packaging:
+    name: Farine
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Other)>'
+    user: '@test_user'
+    packagingUnit: '<(Maggie\Grocery\Enum\Unit::Pack)>'
+    packagingSize: 1000
+    packagingSizeUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
   product_in_lists:
     name: Lentilles
     category: '<(Maggie\Grocery\Enum\ProductCategory::Other)>'

@@ -851,6 +851,7 @@ export const GroceryListView = () => {
                 <MenuItem value="bottle">bouteille</MenuItem>
                 <MenuItem value="pack">paquet</MenuItem>
                 <MenuItem value="sachet">sachet</MenuItem>
+                <MenuItem value="jar">bocal</MenuItem>
               </Select>
             </FormControl>
             <FormControl>
@@ -963,6 +964,7 @@ export const GroceryListView = () => {
                 <MenuItem value="bottle">bouteille</MenuItem>
                 <MenuItem value="pack">paquet</MenuItem>
                 <MenuItem value="sachet">sachet</MenuItem>
+                <MenuItem value="jar">bocal</MenuItem>
               </Select>
             </FormControl>
             <FormControl>

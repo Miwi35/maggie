@@ -10,6 +10,7 @@ import {
 import Box from '@mui/material/Box'
 import { FormSection } from '../../components/form/FormSection'
 import { CATEGORY_CHOICES, UNIT_CHOICES } from './productChoices'
+import { PackagingInputs } from './PackagingInputs'
 
 const formSx = { maxWidth: 680 }
 const rowSx = { display: 'flex', gap: 2, flexWrap: 'wrap', width: '100%' }
@@ -48,6 +49,8 @@ export const ProductForm = () => (
         helperText="Proposée à la saisie ; modifiable à chaque ajout."
       />
     </Box>
+
+    <PackagingInputs />
 
     <FormSection
       title="Où l'acheter"

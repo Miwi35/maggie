@@ -16,6 +16,8 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
 /** @implements ProcessorInterface<Product, Product> */
 class CreateProductProcessor implements ProcessorInterface
 {
+    use DispatchesProductCommandTrait;
+
     public function __construct(
         private readonly MessageBusInterface $bus,
         private readonly Security $security,
@@ -27,7 +29,7 @@ class CreateProductProcessor implements ProcessorInterface
         /** @var User $user */
         $user = $this->security->getUser();
 
-        $envelope = $this->bus->dispatch(new CreateProductCommand(
+        $envelope = $this->dispatchProductCommand(new CreateProductCommand(
             userId: (string) $user->getId(),
             name: $data->getName(),
             category: $data->getCategory()->value,
@@ -35,6 +37,9 @@ class CreateProductProcessor implements ProcessorInterface
             preferredStoreId: null !== $data->getPreferredStore() ? (string) $data->getPreferredStore()->getId() : null,
             fallbackStoreId: null !== $data->getFallbackStore() ? (string) $data->getFallbackStore()->getId() : null,
             shelfLifeDays: $data->getShelfLifeDays(),
+            packagingUnit: $data->getPackagingUnit()?->value,
+            packagingSize: $data->getPackagingSize(),
+            packagingSizeUnit: $data->getPackagingSizeUnit()?->value,
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();

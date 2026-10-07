@@ -3,6 +3,7 @@ import {
   Datagrid,
   TextField,
   NumberField,
+  FunctionField,
   ReferenceField,
   EditButton,
   DeleteButton,
@@ -10,6 +11,7 @@ import {
 } from 'react-admin'
 import { ListEmpty } from '../../components/list/ListEmpty'
 import { useMercure } from '../../hooks/useMercure'
+import { packagingLabel } from './packaging'
 
 const PRODUCT_TOPICS = ['/api/products/{id}']
 
@@ -22,6 +24,12 @@ const ProductDatagrid = () => {
       <TextField source="name" label="Nom" />
       <TextField source="category" label="Catégorie" />
       <TextField source="defaultUnit" label="Unité" />
+      <FunctionField
+        label="Conditionnement"
+        render={(record: { packagingUnit?: string | null; packagingSize?: number | null; packagingSizeUnit?: string | null }) =>
+          packagingLabel(record.packagingUnit, record.packagingSize, record.packagingSizeUnit) ?? ''
+        }
+      />
       <NumberField source="shelfLifeDays" label="Conservation (jours)" />
       <ReferenceField source="preferredStore" reference="stores" label="Magasin préféré" link={false}>
         <TextField source="name" />

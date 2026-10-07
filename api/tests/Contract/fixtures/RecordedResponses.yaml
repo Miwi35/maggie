@@ -121,6 +121,9 @@ Maggie\Grocery\Entity\Product:
     preferredStore: '@recorded_store'
     fallbackStore: '@recorded_fallback_store'
     shelfLifeDays: 5
+    packagingUnit: '<(Maggie\Grocery\Enum\Unit::Pack)>'
+    packagingSize: 500
+    packagingSizeUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
     kcalPer100g: 52.0
     proteinPer100g: 0.3
     carbsPer100g: 14.0

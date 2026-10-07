@@ -93,4 +93,67 @@ class IngredientApiTest extends WebTestCase
         self::assertSame('Tomate', $reloaded->getName());
         self::assertSame(18.0, $reloaded->getKcalPer100g());
     }
+
+    public function testPatchSetsThePackaging(): void
+    {
+        $tomato = $this->loadTomato();
+
+        $this->patchIngredient($tomato, ['packagingUnit' => 'can', 'packagingSize' => 400, 'packagingSizeUnit' => 'g']);
+
+        self::assertResponseIsSuccessful();
+        $reloaded = $this->reload($tomato);
+        self::assertSame(Unit::Can, $reloaded->getPackagingUnit());
+        self::assertSame(400.0, $reloaded->getPackagingSize());
+        self::assertSame(Unit::Gram, $reloaded->getPackagingSizeUnit());
+        self::assertSame(18.0, $reloaded->getKcalPer100g(), 'Fields left out of the payload are untouched');
+        $this->assertMercureUpdatePublished('/ingredients/');
+        $this->assertElasticsearchIndexDispatched(Ingredient::class);
+    }
+
+    public function testPatchWithNullPackagingClearsIt(): void
+    {
+        $tomato = $this->loadTomato();
+        $this->patchIngredient($tomato, ['packagingUnit' => 'can', 'packagingSize' => 400, 'packagingSizeUnit' => 'g']);
+        self::assertResponseIsSuccessful();
+
+        $this->patchIngredient($tomato, ['packagingUnit' => null, 'packagingSize' => null, 'packagingSizeUnit' => null]);
+
+        self::assertResponseIsSuccessful();
+        $reloaded = $this->reload($tomato);
+        self::assertNull($reloaded->getPackagingUnit());
+        self::assertNull($reloaded->getPackagingSize());
+        self::assertNull($reloaded->getPackagingSizeUnit());
+    }
+
+    public function testPatchRefusesToClearOnlyTheSizeUnit(): void
+    {
+        $tomato = $this->loadTomato();
+        $this->patchIngredient($tomato, ['packagingUnit' => 'can', 'packagingSize' => 400, 'packagingSizeUnit' => 'g']);
+        self::assertResponseIsSuccessful();
+
+        $this->patchIngredient($tomato, ['packagingSizeUnit' => null]);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame(Unit::Gram, $this->reload($tomato)->getPackagingSizeUnit());
+    }
+
+    public function testPostRefusesASizeWithoutItsUnit(): void
+    {
+        $this->loadTomato();
+
+        $this->client->request('POST', '/api/ingredients', [], [], array_merge([
+            'CONTENT_TYPE' => 'application/ld+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode([
+            'name' => 'Riz',
+            'category' => 'grain',
+            'packagingUnit' => 'pack',
+            'packagingSize' => 500,
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseStatusCodeSame(400);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNull($em->getRepository(Ingredient::class)->findOneBy(['name' => 'Riz']));
+    }
 }
