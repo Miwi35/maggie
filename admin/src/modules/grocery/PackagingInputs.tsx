@@ -33,7 +33,7 @@ const PackagingPreview = () => {
   )
 }
 
-/** The « Comment on l'achète » section of a product or ingredient form. */
+/** The « Comment on l'achète » section of the product form (Courses only: the cookbook never shows it). */
 export const PackagingInputs = () => (
   <>
     <FormSection

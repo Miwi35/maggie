@@ -92,3 +92,36 @@ test('the packaging chosen in the product form is saved, read back, and seen liv
     await api.delete(iri)
   }
 })
+
+test('an ingredient shows no packaging in the cookbook, and the same product shows it in Courses', async ({
+  page,
+  api,
+}) => {
+  // Recette MAG-292: the packaging is a shopping matter. The ingredient form of
+  // the cookbook never shows it; the product form of Courses does.
+  const name = `Riz MAG-292 cuisine ${Date.now()}`
+  const created = await api.post('/api/ingredients', {
+    headers: LD,
+    data: { name, category: 'grain', packagingUnit: 'pack', packagingSize: 500, packagingSizeUnit: 'g' },
+  })
+  expect(created.status(), `the API refused the ingredient: ${await created.text()}`).toBe(201)
+  const iri = ((await created.json()) as { '@id': string })['@id']
+  const productIri = iri.replace('/api/ingredients/', '/api/products/')
+  const shell = new AdminShell(page)
+
+  try {
+    await waitForIndexed<ProductRow>(api, '/api/products?itemsPerPage=200', (row) => row.name === name, {
+      what: 'The new ingredient',
+    })
+
+    await shell.goto(`${ROUTES.ingredients}/${encodeURIComponent(iri)}`)
+    await expect(shell.content.getByLabel('Nom', { exact: false })).toHaveValue(name)
+    await expect(shell.content.getByText("Comment on l'achète")).toHaveCount(0)
+    await expect(shell.content.getByText(/paquet de 500 g/)).toHaveCount(0)
+
+    await shell.goto(`${ROUTES.products}/${encodeURIComponent(productIri)}`)
+    await expect(shell.content.getByText("On l'achète en : paquet de 500 g")).toBeVisible()
+  } finally {
+    await api.delete(iri)
+  }
+})
