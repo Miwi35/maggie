@@ -7,7 +7,7 @@
 // lines planned from it move.
 //
 // Parameters (flow `env:`, plus E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
-//   ACTION    create | set-quantity | set-notes | remove | expect
+//   ACTION    create (sets output.recipeId) | set-quantity | set-notes | remove | expect
 //   RECIPE    the recipe's name
 //   QUANTITY  create, set-quantity: grams of the recipe's single line
 //   NOTES     set-notes: the notes
@@ -132,6 +132,7 @@ if (ACTION === 'create') {
     fail('POST /api/recipes answered ' + response.status + ': ' + response.body)
   }
   waitFor(function (row) { return row !== undefined }, 'the created recipe never became findable')
+  output.recipeId = JSON.parse(response.body).id
 } else if (ACTION === 'set-quantity') {
   patch(function (record) { record.ingredients[0].quantity = Number(QUANTITY) })
 } else if (ACTION === 'set-notes') {

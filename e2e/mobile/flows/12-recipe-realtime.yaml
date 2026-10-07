@@ -30,14 +30,9 @@ tags:
       RECIPE: Salade d'orge MAG-330
       QUANTITY: "400"
 
-- tapOn:
-    id: "nav_menu"
-- tapOn:
-    id: "drawer_cookbook"
-- extendedWaitUntil:
-    visible: ".*Salade d'orge MAG-330.*"
-    timeout: 30000
-- tapOn: ".*Salade d'orge MAG-330.*"
+# Opened by its link: the cookbook list shows a page of the recipes of the whole
+# test database, and a flow cannot scroll to a recipe it does not know the place of.
+- openLink: "maggie-e2e://recipe/${output.recipeId}"
 
 - extendedWaitUntil:
     visible: ".*400.* g"
