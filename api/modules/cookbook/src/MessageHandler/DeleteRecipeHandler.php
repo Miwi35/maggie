@@ -6,6 +6,7 @@ namespace Maggie\Cookbook\MessageHandler;
 
 use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Entity\Recipe;
+use Maggie\Cookbook\Message\DeleteMealCommand;
 use Maggie\Cookbook\Message\DeleteRecipeCommand;
 use Maggie\Cookbook\Message\UpdateMealCommand;
 use Maggie\Cookbook\Repository\MealRepository;
@@ -31,21 +32,38 @@ class DeleteRecipeHandler
         $recipe = $this->recipeRepository->find($command->recipeId)
             ?? throw new \DomainException("Recipe not found: {$command->recipeId}");
 
-        // A deleted recipe leaves the meals that served it, and the shopping it
-        // asked for leaves the list (MAG-167). Upcoming meals go through the
-        // ordinary meal update — it syncs the list, rewrites the summary and
-        // publishes and reindexes the meal — with the recipe taken out.
+        // A meal whose only recipe this is has nothing left to serve: it goes
+        // the way a cancelled meal does, past or upcoming — the shopping it
+        // asked for leaves the list, the agenda and the search index forget it.
+        // The other upcoming meals go through the ordinary meal update, with
+        // the recipe taken out (MAG-167): it syncs the list, rewrites the
+        // summary and publishes and reindexes the meal.
         foreach ($this->mealRepository->findUpcomingByRecipe($recipe) as $meal) {
+            if (1 === $meal->getRecipes()->count()) {
+                $this->bus->dispatch(new DeleteMealCommand(mealId: (string) $meal->getId()));
+
+                continue;
+            }
+
             $this->bus->dispatch(new UpdateMealCommand(
                 mealId: (string) $meal->getId(),
                 recipeIds: $this->otherRecipeIds($meal, $recipe),
             ));
         }
 
-        // Past meals are shopping already done: the join rows cascade with the
-        // recipe, the list is left alone, and only the search document needs
-        // to forget the recipe.
-        $past = $this->mealRepository->findPastByRecipe($recipe);
+        // Past meals that keep other recipes are shopping already done: the
+        // join rows cascade with the recipe, the list is left alone, and only
+        // the search document needs to forget the recipe.
+        $past = [];
+        foreach ($this->mealRepository->findPastByRecipe($recipe) as $meal) {
+            if (1 === $meal->getRecipes()->count()) {
+                $this->bus->dispatch(new DeleteMealCommand(mealId: (string) $meal->getId()));
+
+                continue;
+            }
+
+            $past[] = $meal;
+        }
 
         $this->deleteRecipe->execute($recipe);
 

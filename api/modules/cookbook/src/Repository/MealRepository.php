@@ -50,7 +50,7 @@ class MealRepository extends ServiceEntityRepository
      */
     public function findUpcomingByRecipe(Recipe $recipe): array
     {
-        return $this->byRecipe($recipe)->andWhere('m.date >= :today')->getQuery()->getResult();
+        return $this->byRecipe($recipe)->andWhere('m.date >= :today')->setParameter('today', $this->today(), Types::DATE_IMMUTABLE)->getQuery()->getResult();
     }
 
     /**
@@ -61,21 +61,35 @@ class MealRepository extends ServiceEntityRepository
      */
     public function findPastByRecipe(Recipe $recipe): array
     {
-        return $this->byRecipe($recipe)->andWhere('m.date < :today')->getQuery()->getResult();
+        return $this->byRecipe($recipe)->andWhere('m.date < :today')->setParameter('today', $this->today(), Types::DATE_IMMUTABLE)->getQuery()->getResult();
+    }
+
+    /**
+     * How many meals the recipe is the only one of: the meals deleting it
+     * takes with it.
+     */
+    public function countServedOnlyBy(Recipe $recipe): int
+    {
+        return \count(array_filter(
+            $this->byRecipe($recipe)->getQuery()->getResult(),
+            static fn (Meal $meal) => 1 === $meal->getRecipes()->count(),
+        ));
     }
 
     private function byRecipe(Recipe $recipe): QueryBuilder
     {
-        // Today where the owner lives, not where the server runs: between
-        // midnight and 02:00 in Paris, UTC is still the day before, and today's
-        // meals would count as past.
-        $today = new \DateTimeImmutable((new \DateTimeImmutable('now', new \DateTimeZone('Europe/Paris')))->format('Y-m-d'), new \DateTimeZone('UTC'));
-
         return $this->createQueryBuilder('m')
             ->join('m.recipes', 'r')
             ->where('r = :recipe')
             ->setParameter('recipe', $recipe->getId(), 'ulid')
-            ->setParameter('today', $today, Types::DATE_IMMUTABLE)
             ->orderBy('m.date', 'ASC');
+    }
+
+    private function today(): \DateTimeImmutable
+    {
+        // Today where the owner lives, not where the server runs: between
+        // midnight and 02:00 in Paris, UTC is still the day before, and today's
+        // meals would count as past.
+        return new \DateTimeImmutable((new \DateTimeImmutable('now', new \DateTimeZone('Europe/Paris')))->format('Y-m-d'), new \DateTimeZone('UTC'));
     }
 }

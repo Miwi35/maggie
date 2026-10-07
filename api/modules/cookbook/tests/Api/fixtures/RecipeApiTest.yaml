@@ -3,6 +3,10 @@ Maggie\Core\Entity\User:
     email: cookbook-test@example.com
     googleId: google-cookbook-test
     name: Cookbook Test User
+  other_user:
+    email: cookbook-other@example.com
+    googleId: google-cookbook-other
+    name: Cookbook Other User
 
 Maggie\Cookbook\Entity\Ingredient:
   pasta_food:
@@ -37,3 +41,38 @@ Maggie\Cookbook\Entity\Recipe:
     tags: ['pasta', 'italian']
     notes: Ajouter du basilic
     user: '@test_user'
+  # Planned: two meals only it feeds, and one it shares with the pasta.
+  couscous:
+    name: Couscous
+    servings: 4
+    user: '@test_user'
+  other_recipe:
+    name: Tarte de l'autre
+    servings: 4
+    user: '@other_user'
+
+Maggie\Calendar\Entity\Agenda:
+  test_agenda:
+    name: Repas
+    color: '#FF6B35'
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\Meal:
+  couscous_monday:
+    summary: 'Dîner : Couscous'
+    slot: '<(Maggie\Cookbook\Enum\MealSlot::Dinner)>'
+    date: '<(new \DateTimeImmutable("2030-01-14"))>'
+    agenda: '@test_agenda'
+    recipes: ['@couscous']
+  couscous_tuesday:
+    summary: 'Dîner : Couscous'
+    slot: '<(Maggie\Cookbook\Enum\MealSlot::Dinner)>'
+    date: '<(new \DateTimeImmutable("2020-01-14"))>'
+    agenda: '@test_agenda'
+    recipes: ['@couscous']
+  couscous_and_pasta:
+    summary: 'Déjeuner : Couscous, Pâtes à la tomate'
+    slot: '<(Maggie\Cookbook\Enum\MealSlot::Lunch)>'
+    date: '<(new \DateTimeImmutable("2030-01-15"))>'
+    agenda: '@test_agenda'
+    recipes: ['@couscous', '@pasta']

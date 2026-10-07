@@ -359,4 +359,32 @@ class MaggieApiServiceTest {
         assertTrue(error is ApprovalDecisionException)
         assertFalse((error as ApprovalDecisionException).isFinal)
     }
+
+    @Test
+    fun `the deletion impact of a recipe is read from its own endpoint`() = runBlocking {
+        var capturedUrl: String? = null
+        var capturedMethod: HttpMethod? = null
+
+        val client = HttpClient(
+            MockEngine { request ->
+                capturedUrl = request.url.toString()
+                capturedMethod = request.method
+                respond(
+                    content = ByteReadChannel("""{"mealCount":3}"""),
+                    status = HttpStatusCode.OK,
+                    headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
+                )
+            },
+        ) {
+            install(ContentNegotiation) {
+                json(Json { ignoreUnknownKeys = true; isLenient = true })
+            }
+        }
+
+        val impact = MaggieApiService(client).getRecipeDeletionImpact("01C")
+
+        assertEquals(3, impact.mealCount)
+        assertEquals(HttpMethod.Get, capturedMethod)
+        assertTrue(capturedUrl!!.endsWith("/api/recipes/01C/deletion-impact"))
+    }
 }
