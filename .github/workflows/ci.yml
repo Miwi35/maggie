@@ -9,7 +9,7 @@ name: Pull request
 # `main.yml` (a merge) and `nightly.yml` call it with `workflow_call`: the night
 # runs every job, a merge applies the path filters, and neither runs the jobs that
 # only mean something on a pull request (guard, Incident gate, streak).
-# A draft's run says so (` · draft`): its `PR checks passed` is red by design, and the
+# A draft's run says so (` · draft`): every job is skipped, nothing turns red, and the
 # streak job must not count it as a failure of the code (scripts/agent-guard/ci-streak.sh).
 run-name: >-
   ${{ github.event_name == 'pull_request'
@@ -1246,7 +1246,7 @@ jobs:
   # required check as green, so a draft run, a run cancelled by a newer one or a
   # job skipped because its `needs` failed all looked like a pass, and an armed
   # auto-merge merged pull requests no test had run on. `if: always()` makes this
-  # job run on a draft too, and infra/scripts/pr-checks-gate.sh turns every skip
+  # job run on every ready pull request, and infra/scripts/pr-checks-gate.sh turns every skip
   # that `Detect changes` did not decide into red. Pull requests only: a merge or
   # the nightly run has no branch protection to satisfy.
   #
@@ -1255,7 +1255,10 @@ jobs:
   pr-checks:
     name: PR checks passed
     needs: [changes, api-lint, agent-lint, ciqual-lint, admin-lint, api-test, agent-test, ciqual-test, admin-test, mobile-unit, e2e-stack, e2e-mobile, cron-image, infra-scripts, incident-gate]
-    if: always() && github.event_name == 'pull_request'
+    # Not on a draft (owner's decision, 7 Oct.): GitHub never merges a draft, so its skipped aggregator lets nothing
+    # through, while the red one it used to post was noise — and, read back by the merge train, it spent repairs on
+    # PRs whose real run had not even started. The real run starts when the PR is marked ready, on its final head.
+    if: always() && github.event_name == 'pull_request' && !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
