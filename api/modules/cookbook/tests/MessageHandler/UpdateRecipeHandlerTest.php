@@ -98,4 +98,71 @@ class UpdateRecipeHandlerTest extends KernelTestCase
         $this->assertElasticsearchIndexDispatched(Ingredient::class);
         $this->assertMercureUpdatePublished('/ingredients/'.$courgette->getId());
     }
+
+    /** @return array<string, mixed> the last update published for the recipe */
+    private function lastPublishedRecipe(): array
+    {
+        $topic = '/api/recipes/'.$this->id();
+        foreach (array_reverse($this->getMercureHub()->getUpdates()) as $update) {
+            if (str_ends_with($update->getTopics()[0], $topic)) {
+                return json_decode($update->getData(), true, 512, JSON_THROW_ON_ERROR);
+            }
+        }
+
+        self::fail('No Mercure update published for the recipe.');
+    }
+
+    public function testChangingAQuantityPublishesTheRecipeWithItsIngredients(): void
+    {
+        $pastaId = (string) $this->getFixture('pasta_food')->getId();
+        $this->dispatch(new UpdateRecipeCommand(
+            recipeId: $this->id(),
+            ingredients: [['ingredientId' => $pastaId, 'quantity' => 350.0, 'unit' => 'g']],
+        ));
+
+        $payload = $this->lastPublishedRecipe();
+        self::assertCount(1, $payload['ingredients']);
+        $line = $payload['ingredients'][0];
+        self::assertSame(350.0, (float) $line['quantity']);
+        self::assertSame('g', $line['unit']);
+        self::assertSame('Pâtes', $line['ingredientName']);
+        self::assertSame('9810', $line['ciqualAlimCode']);
+        self::assertSame('/api/ingredients/'.$pastaId, $line['ingredient']['@id']);
+        self::assertSame($pastaId, $line['ingredient']['id']);
+        self::assertArrayNotHasKey('name', $payload);
+    }
+
+    public function testRemovingEveryIngredientPublishesAnEmptyList(): void
+    {
+        $this->dispatch(new UpdateRecipeCommand(recipeId: $this->id(), ingredients: []));
+
+        self::assertSame([], $this->lastPublishedRecipe()['ingredients']);
+    }
+
+    public function testChangingTheNotesPublishesThemAlone(): void
+    {
+        $this->dispatch(new UpdateRecipeCommand(recipeId: $this->id(), notes: 'Ajouter du parmesan'));
+
+        $payload = $this->lastPublishedRecipe();
+        self::assertSame('Ajouter du parmesan', $payload['notes']);
+        self::assertArrayNotHasKey('ingredients', $payload);
+    }
+
+    public function testClearingTheNotesPublishesANullValue(): void
+    {
+        $this->dispatch(new UpdateRecipeCommand(recipeId: $this->id(), clearFields: ['notes']));
+
+        $payload = $this->lastPublishedRecipe();
+        self::assertArrayHasKey('notes', $payload);
+        self::assertNull($payload['notes']);
+    }
+
+    public function testChangingTheTagsPublishesThemAlone(): void
+    {
+        $this->dispatch(new UpdateRecipeCommand(recipeId: $this->id(), tags: ['pasta', 'quick']));
+
+        $payload = $this->lastPublishedRecipe();
+        self::assertSame(['pasta', 'quick'], $payload['tags']);
+        self::assertArrayNotHasKey('notes', $payload);
+    }
 }

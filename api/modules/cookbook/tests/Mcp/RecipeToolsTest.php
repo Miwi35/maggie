@@ -168,6 +168,30 @@ class RecipeToolsTest extends KernelTestCase
         $this->assertElasticsearchIndexDispatched(Recipe::class);
     }
 
+    public function testMaggieChangingAnIngredientQuantityReachesTheOpenRecipe(): void
+    {
+        $this->loadFixtures('recipe.yaml');
+        $this->loginFixtureUser();
+
+        $recipe = $this->getFixture('pasta');
+        $tomato = $this->getFixture('tomato');
+
+        $tool = self::getContainer()->get(UpdateRecipeTool::class);
+        $tool((string) $recipe->getId(), ingredients: json_encode([
+            ['ingredientId' => (string) $tomato->getId(), 'quantity' => 750, 'unit' => 'g'],
+        ], JSON_THROW_ON_ERROR));
+
+        $published = null;
+        foreach ($this->getMercureHub()->getUpdates() as $update) {
+            if (str_ends_with($update->getTopics()[0], '/api/recipes/'.$recipe->getId())) {
+                $published = json_decode($update->getData(), true, 512, JSON_THROW_ON_ERROR);
+            }
+        }
+        self::assertNotNull($published, 'No Mercure update published for the recipe.');
+        self::assertSame('Tomate', $published['ingredients'][0]['ingredientName']);
+        self::assertEquals(750, $published['ingredients'][0]['quantity']);
+    }
+
     public function testDeleteRecipeRemovesAndPublishes(): void
     {
         $this->loadFixtures('recipe.yaml');

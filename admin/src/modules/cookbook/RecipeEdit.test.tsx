@@ -1,11 +1,23 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AdminContext, Notification, ResourceContextProvider, testDataProvider } from 'react-admin'
 import polyglotI18nProvider from 'ra-i18n-polyglot'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { messages } from '../../i18n/messages'
 import { RecipeEdit } from './RecipeEdit'
+
+// The hub is not under test here: the hook is replaced by one that hands the test the callback
+// the sheet registered, so a test can play what the hub would deliver.
+let deliver: (data?: string) => void = () => {}
+vi.mock('../../hooks/useMercure', () => ({
+  useMercure: (_topics: string[], onMessage: (data?: string) => void) => {
+    deliver = onMessage
+  },
+}))
+
+const publish = (payload: Record<string, unknown>) =>
+  act(() => deliver(JSON.stringify({ '@id': '/api/recipes/01R', ...payload })))
 
 /**
  * MAG-255: the quantity of an ingredient already in a recipe could not be changed.
@@ -45,11 +57,11 @@ const recipe = {
 
 const i18nProvider = polyglotI18nProvider(() => messages, 'fr')
 
-const renderEdit = (update: ReturnType<typeof vi.fn>) => {
+const renderEdit = (update: ReturnType<typeof vi.fn>, record: typeof recipe = recipe) => {
   render(
-    <MemoryRouter initialEntries={['/recipes/01R']}>
+    <MemoryRouter initialEntries={[`/recipes/${encodeURIComponent(record.id)}`]}>
       <AdminContext
-        dataProvider={testDataProvider({ getOne: vi.fn().mockResolvedValue({ data: recipe }), update })}
+        dataProvider={testDataProvider({ getOne: vi.fn().mockResolvedValue({ data: record }), update })}
         i18nProvider={i18nProvider}
       >
         <Routes>
@@ -128,5 +140,129 @@ describe('RecipeEdit', { timeout: 30_000 }, () => {
 
     expect(await screen.findByText(/greater than 0/)).toBeInTheDocument()
     expect(screen.getByLabelText(/Quantité/)).toHaveValue(300)
+  })
+
+  describe('when the recipe changes elsewhere', () => {
+    const line = (quantity: number) => ({
+      id: '01L1',
+      ingredient: { '@id': '/api/ingredients/01I1', id: '01I1', name: 'Pâtes', ciqualAlimCode: '9810' },
+      ingredientName: 'Pâtes',
+      ciqualAlimCode: '9810',
+      quantity,
+      unit: 'g',
+    })
+
+    test('shows the new quantity without a reload', async () => {
+      renderEdit(vi.fn())
+      expect(await screen.findByLabelText(/Quantité/)).toHaveValue(200)
+
+      publish({ ingredients: [line(350)] })
+
+      await waitFor(() => expect(screen.getByLabelText(/Quantité/)).toHaveValue(350))
+      expect(screen.queryByText(/modifiée ailleurs/)).not.toBeInTheDocument()
+    })
+
+    test('follows a recipe whose id is its IRI, as the API serves it to the admin', async () => {
+      renderEdit(vi.fn(), { ...recipe, id: '/api/recipes/01R' })
+      expect(await screen.findByLabelText(/Quantité/)).toHaveValue(200)
+
+      publish({ ingredients: [line(350)] })
+
+      await waitFor(() => expect(screen.getByLabelText(/Quantité/)).toHaveValue(350))
+    })
+
+    test('shows new notes, tags and name, and a line added', async () => {
+      renderEdit(vi.fn())
+      await screen.findByLabelText(/Quantité/)
+
+      publish({
+        name: 'Pâtes bolognaise',
+        notes: 'Ajouter du basilic',
+        tags: ['pasta', 'rapide'],
+        ingredients: [line(200), { ...line(3), id: '01L2', unit: 'piece' }],
+      })
+
+      await waitFor(() => expect(screen.getByLabelText('Nom *')).toHaveValue('Pâtes bolognaise'))
+      expect(screen.getByLabelText('Notes')).toHaveValue('Ajouter du basilic')
+      expect(screen.getByLabelText(/Tags/)).toHaveValue('pasta, rapide')
+      expect(screen.getAllByLabelText(/Quantité/)).toHaveLength(2)
+    })
+
+    test('does not overwrite the field being edited, updates the others, and offers to reload', async () => {
+      const user = userEvent.setup()
+      renderEdit(vi.fn())
+      const name = await screen.findByLabelText('Nom *')
+      await user.clear(name)
+      await user.type(name, 'Mes pâtes')
+
+      publish({ name: 'Pâtes bolognaise', notes: 'Ajouter du basilic' })
+
+      expect(await screen.findByText(/modifiée ailleurs/)).toBeInTheDocument()
+      expect(screen.getByLabelText('Nom *')).toHaveValue('Mes pâtes')
+      expect(screen.getByLabelText('Notes')).toHaveValue('Ajouter du basilic')
+
+      await user.click(screen.getByRole('button', { name: 'Recharger' }))
+
+      expect(screen.getByLabelText('Nom *')).toHaveValue('Pâtes bolognaise')
+      expect(screen.queryByText(/modifiée ailleurs/)).not.toBeInTheDocument()
+    })
+
+    test('does not warn when the published value is the one being typed', async () => {
+      const user = userEvent.setup()
+      renderEdit(vi.fn())
+      const name = await screen.findByLabelText('Nom *')
+      await user.clear(name)
+      await user.type(name, 'Pâtes bolognaise')
+
+      publish({ name: 'Pâtes bolognaise' })
+
+      expect(screen.getByLabelText('Nom *')).toHaveValue('Pâtes bolognaise')
+      expect(screen.queryByText(/modifiée ailleurs/)).not.toBeInTheDocument()
+    })
+
+    test('keeps the whole ingredient list being edited when the list changes elsewhere', async () => {
+      const user = userEvent.setup()
+      renderEdit(vi.fn())
+      const quantity = await screen.findByLabelText(/Quantité/)
+      await user.clear(quantity)
+      await user.type(quantity, '120')
+
+      publish({ ingredients: [line(350), { ...line(3), id: '01L2', unit: 'piece' }] })
+
+      expect(await screen.findByText(/modifiée ailleurs/)).toBeInTheDocument()
+      expect(screen.getAllByLabelText(/Quantité/)).toHaveLength(1)
+      expect(screen.getByLabelText(/Quantité/)).toHaveValue(120)
+
+      await user.click(screen.getByRole('button', { name: 'Recharger' }))
+
+      await waitFor(() => expect(screen.getAllByLabelText(/Quantité/)).toHaveLength(2))
+      expect(screen.getAllByLabelText(/Quantité/)[0]).toHaveValue(350)
+    })
+
+    test('sends what the sheet shows, not the version it opened with', async () => {
+      const user = userEvent.setup()
+      const update = vi.fn().mockResolvedValue({ data: recipe })
+      renderEdit(update)
+      await screen.findByLabelText(/Quantité/)
+
+      publish({ ingredients: [line(350)] })
+      await waitFor(() => expect(screen.getByLabelText(/Quantité/)).toHaveValue(350))
+      await user.type(screen.getByLabelText('Notes'), 'Sans sel')
+      await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+      await waitFor(() => expect(update).toHaveBeenCalled())
+      expect(update.mock.calls[0][1].data.ingredients[0]).toMatchObject({ ciqualAlimCode: '9810', quantity: 350 })
+    })
+
+    test('ignores the update of another recipe and the deletion message', async () => {
+      renderEdit(vi.fn())
+      await screen.findByLabelText(/Quantité/)
+
+      act(() => deliver(JSON.stringify({ '@id': '/api/recipes/01OTHER', name: 'Tarte' })))
+      publish({ deleted: true })
+      act(() => deliver('not json'))
+
+      expect(screen.getByLabelText('Nom *')).toHaveValue('Pâtes à la tomate')
+    })
   })
 })

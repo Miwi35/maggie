@@ -1,6 +1,7 @@
 import { test, expect, parisDay, seedDate, seedId } from '../fixtures/index.js'
 import type { Page } from '@playwright/test'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
+import { expectRealtimeSync, openSubscribed, userTopic } from '../helpers/mercure.js'
 import { AdminShell } from '../pages/AdminShell.js'
 import { ROUTES } from '../pages/routes.js'
 
@@ -457,5 +458,69 @@ test.describe('Recipes and meals', () => {
     // Same line, not a second one beside it. Counted on this journey's own
     // label: the list is shared with the other workers, so its total moves.
     expect(linesOf(after), 'the recipe edit added a second line instead of updating the first').toHaveLength(1)
+  })
+
+  test('an open recipe sheet shows the quantity and the notes changed elsewhere, and keeps the field being typed — MAG-330', async ({
+    page,
+    api,
+    session,
+  }) => {
+    // Given a recipe with a line of 400 g, open in the admin.
+    const headers = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
+    const ingredient = await api.post('/api/ingredients', { headers, data: { name: `Orge MAG-330 ${Date.now()}`, category: 'grain' } })
+    expect(ingredient.status()).toBe(201)
+    const ingredientIri = ((await ingredient.json()) as { '@id': string })['@id']
+
+    const created = await api.post('/api/recipes', {
+      headers,
+      data: { name: `Salade d'orge MAG-330 ${Date.now()}`, servings: 2, ingredients: [{ ingredient: ingredientIri, quantity: 400, unit: 'g' }] },
+    })
+    expect(created.status()).toBe(201)
+    const iri = ((await created.json()) as { '@id': string })['@id']
+
+    // What another device, or Maggie, would send: the recipe as the GET returns
+    // it, with one part changed.
+    const change = async (edit: (record: { ingredients: Array<{ quantity: number }>; notes?: string }) => void): Promise<void> => {
+      const read = await api.get(iri, { headers: { Accept: 'application/ld+json' } })
+      expect(read.ok()).toBeTruthy()
+      const record = (await read.json()) as { ingredients: Array<{ quantity: number }>; notes?: string }
+      edit(record)
+      const updated = await api.patch(iri, {
+        headers: { 'Content-Type': 'application/merge-patch+json', Accept: 'application/ld+json' },
+        data: record,
+      })
+      expect(updated.ok(), `PATCH answered ${updated.status()}: ${await updated.text()}`).toBeTruthy()
+    }
+
+    const shell = new AdminShell(page)
+    await openSubscribed(page, () => shell.goto(`${ROUTES.recipes}/${encodeURIComponent(iri)}`), userTopic(session.user.id, '/api/recipes/{id}'))
+    await expect(shell.content.getByLabel(/Quantité/)).toHaveValue('400')
+
+    // When the quantity changes elsewhere, the sheet shows it with no reload.
+    await expectRealtimeSync(
+      page,
+      () => change((record) => { record.ingredients[0].quantity = 600 }),
+      async (observer) => {
+        await expect(observer.getByLabel(/Quantité/)).toHaveValue('600', { timeout: 10_000 })
+      },
+    )
+
+    // And when I am typing the notes while they change elsewhere, my text stays,
+    // the other fields follow, and the sheet says the recipe changed.
+    await shell.content.getByLabel('Notes').fill('Ma version des notes')
+    await expectRealtimeSync(
+      page,
+      () => change((record) => { record.notes = 'Notes de l’autre appareil'; record.ingredients[0].quantity = 750 }),
+      async (observer) => {
+        await expect(observer.getByLabel(/Quantité/)).toHaveValue('750', { timeout: 10_000 })
+      },
+    )
+    await expect(shell.content.getByLabel('Notes')).toHaveValue('Ma version des notes')
+    await expect(page.getByText(/modifiée ailleurs/)).toBeVisible()
+
+    // « Recharger » takes what the other device wrote.
+    await page.getByRole('button', { name: 'Recharger' }).click()
+    await expect(shell.content.getByLabel('Notes')).toHaveValue('Notes de l’autre appareil')
+    await expect(page.getByText(/modifiée ailleurs/)).toHaveCount(0)
   })
 })
