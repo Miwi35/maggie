@@ -33,6 +33,7 @@ import Collapse from '@mui/material/Collapse'
 import IconButton from '@mui/material/IconButton'
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart'
 import AddIcon from '@mui/icons-material/Add'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import ExpandLess from '@mui/icons-material/ExpandLess'
 import ExpandMore from '@mui/icons-material/ExpandMore'
 import DoneAllIcon from '@mui/icons-material/DoneAll'
@@ -120,6 +121,7 @@ function SortableGroceryItem({
   removingIds,
   onCheck,
   onViewDetail,
+  onDelete,
   isDragDisabled,
 }: {
   item: GroceryItem
@@ -127,6 +129,7 @@ function SortableGroceryItem({
   removingIds: Set<string>
   onCheck: (item: GroceryItem) => void
   onViewDetail: (item: GroceryItem) => void
+  onDelete: (item: GroceryItem) => void
   isDragDisabled: boolean
 }) {
   const isRemoving = removingIds.has(item.id)
@@ -196,6 +199,15 @@ function SortableGroceryItem({
           sx={{ ml: 1 }}
         />
       </ListItemButton>
+      <IconButton
+        size="small"
+        aria-label={`Supprimer ${label}`}
+        disabled={isRemoving}
+        onClick={() => onDelete(item)}
+        sx={{ mx: 0.5 }}
+      >
+        <DeleteOutlineIcon fontSize="small" />
+      </IconButton>
     </ListItem>
   )
 }
@@ -211,6 +223,7 @@ export const GroceryListView = () => {
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [endErrandDialogOpen, setEndErrandDialogOpen] = useState(false)
   const [uncheckedItems, setUncheckedItems] = useState<GroceryItem[]>([])
+  const [itemToDelete, setItemToDelete] = useState<GroceryItem | null>(null)
   const [newItemLabel, setNewItemLabel] = useState('')
   const [newItemQuantity, setNewItemQuantity] = useState('')
   const [newItemUnit, setNewItemUnit] = useState('')
@@ -522,6 +535,33 @@ export const GroceryListView = () => {
     }
   }
 
+  // The line leaves at once; it comes back, with an error, if the API refuses.
+  // A 404 means another window got there first: nothing to bring back.
+  const handleDeleteItem = async (item: GroceryItem) => {
+    setItemToDelete(null)
+    setGroceryList((prev) => (prev ? { ...prev, items: prev.items.filter((i) => i.id !== item.id) } : prev))
+    const restore = () =>
+      setGroceryList((prev) =>
+        prev && !prev.items.some((i) => i.id === item.id) ? { ...prev, items: [...prev.items, item] } : prev,
+      )
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(itemUrl(item), {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!response.ok && response.status !== 404) {
+        restore()
+        notify(`Erreur : « ${item.label} » n'a pas été supprimé`, { type: 'error' })
+        return
+      }
+      notify('Article supprimé', { type: 'success' })
+    } catch {
+      restore()
+      notify(`Erreur : « ${item.label} » n'a pas été supprimé`, { type: 'error' })
+    }
+  }
+
   const toggleStoreCollapse = (storeKey: string) => {
     setCollapsedStores((prev) => {
       const next = new Set(prev)
@@ -734,6 +774,7 @@ export const GroceryListView = () => {
                               removingIds={removingIds}
                               onCheck={handleCheck}
                               onViewDetail={setDetailItem}
+                              onDelete={setItemToDelete}
                               isDragDisabled={removingIds.size > 0 || addedIds.size > 0}
                             />
                           ))}
@@ -763,7 +804,20 @@ export const GroceryListView = () => {
                   </ListItemButton>
                   <Collapse in={laterOpen} unmountOnExit>
                     {laterItems.map((item) => (
-                      <ListItem key={item.id} data-testid="grocery-later-item">
+                      <ListItem
+                        key={item.id}
+                        data-testid="grocery-later-item"
+                        secondaryAction={
+                          <IconButton
+                            size="small"
+                            edge="end"
+                            aria-label={`Supprimer ${item.label}`}
+                            onClick={() => setItemToDelete(item)}
+                          >
+                            <DeleteOutlineIcon fontSize="small" />
+                          </IconButton>
+                        }
+                      >
                         <ListItemText
                           primary={item.label}
                           secondary={`À acheter à partir du ${formatBuyAfter(item.buyAfter ?? '')}`}
@@ -1016,6 +1070,28 @@ export const GroceryListView = () => {
           <Button onClick={() => setDetailItem(null)}>Annuler</Button>
           <Button onClick={handleEditItem} variant="contained" disabled={!editLabel}>
             Enregistrer
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete item confirmation */}
+      <Dialog open={itemToDelete !== null} onClose={() => setItemToDelete(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Supprimer « {itemToDelete?.label} » ?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            {itemToDelete?.source === 'recipe'
+              ? 'Cet article vient d’un repas planifié. Il est retiré de la liste, mais il y revient si ce repas est modifié ou si la liste est régénérée depuis les repas.'
+              : 'L’article est retiré de la liste.'}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setItemToDelete(null)}>Annuler</Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={() => itemToDelete && handleDeleteItem(itemToDelete)}
+          >
+            Supprimer
           </Button>
         </DialogActions>
       </Dialog>

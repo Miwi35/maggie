@@ -14,11 +14,11 @@ vi.stubGlobal('EventSource', MockEventSource)
 const mockGetList = vi.fn()
 const mockGetOne = vi.fn()
 const mockNotify = vi.fn()
+// One object for every render, like react-admin's: a fresh one each time would
+// make `fetchList` change and the view re-read the list after every state change.
+let dataProviderMock: { getList: typeof mockGetList; getOne: typeof mockGetOne } | undefined
 vi.mock('react-admin', () => ({
-  useDataProvider: () => ({
-    getList: mockGetList,
-    getOne: mockGetOne,
-  }),
+  useDataProvider: () => (dataProviderMock ??= { getList: mockGetList, getOne: mockGetOne }),
   useNotify: () => mockNotify,
   Title: ({ title }: { title: string }) => <span>{title}</span>,
 }))
@@ -303,6 +303,149 @@ describe('GroceryListView', () => {
 
       await waitFor(() => expect(mockNotify).toHaveBeenCalledWith(expect.any(String), { type: 'error' }))
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('deleting a line (MAG-283)', () => {
+    const lineOf = (label: string) => screen.getByText(label).closest('[data-testid="grocery-item"]') as HTMLElement
+    const deleteButton = (label: string) => within(lineOf(label)).getByRole('button', { name: `Supprimer ${label}` })
+
+    const mockFetch = (response: { ok: boolean; status: number }) => {
+      const fetchMock = vi.fn().mockResolvedValue({ ...response, json: () => Promise.resolve({}) })
+      vi.stubGlobal('fetch', fetchMock)
+      return fetchMock
+    }
+    const deleteCalls = (fetchMock: ReturnType<typeof vi.fn>) =>
+      fetchMock.mock.calls.filter(([, init]) => init?.method === 'DELETE').map(([url]) => String(url))
+
+    beforeEach(() => mockNotify.mockClear())
+
+    test('every line has a delete button named after it', async () => {
+      render(<GroceryListView />)
+      await waitFor(() => expect(screen.getByText('Lait')).toBeInTheDocument())
+
+      for (const label of ['Tomates', 'Lait', 'Pommes']) {
+        expect(deleteButton(label)).toBeInTheDocument()
+      }
+    })
+
+    test('asks first, in the page, and deletes nothing until confirmed', async () => {
+      const fetchMock = mockFetch({ ok: true, status: 200 })
+      render(<GroceryListView />)
+      await waitFor(() => expect(screen.getByText('Lait')).toBeInTheDocument())
+
+      const user = userEvent.setup()
+      await user.click(deleteButton('Lait'))
+      const dialog = await screen.findByRole('dialog')
+      expect(within(dialog).getByText('Supprimer « Lait » ?')).toBeInTheDocument()
+      expect(deleteCalls(fetchMock)).toHaveLength(0)
+
+      await user.click(within(dialog).getByRole('button', { name: 'Annuler' }))
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      expect(deleteCalls(fetchMock)).toHaveLength(0)
+      expect(screen.getByText('Lait')).toBeInTheDocument()
+    })
+
+    test('confirming deletes the line at /api/grocery_items/{id} and removes it from the list', async () => {
+      const fetchMock = mockFetch({ ok: true, status: 200 })
+      render(<GroceryListView />)
+      await waitFor(() => expect(screen.getByText('Lait')).toBeInTheDocument())
+
+      const user = userEvent.setup()
+      await user.click(deleteButton('Lait'))
+      await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Supprimer' }))
+
+      await waitFor(() => expect(deleteCalls(fetchMock)).toHaveLength(1))
+      expect(deleteCalls(fetchMock)[0]).toMatch(/\/api\/grocery_items\/item-b$/)
+      await waitFor(() => expect(screen.queryByText('Lait')).not.toBeInTheDocument())
+      expect(screen.getByText('Tomates')).toBeInTheDocument()
+      expect(mockNotify).toHaveBeenCalledWith('Article supprimé', { type: 'success' })
+    })
+
+    test('the line comes back with an error when the API refuses', async () => {
+      mockFetch({ ok: false, status: 403 })
+      render(<GroceryListView />)
+      await waitFor(() => expect(screen.getByText('Lait')).toBeInTheDocument())
+
+      const user = userEvent.setup()
+      await user.click(deleteButton('Lait'))
+      await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Supprimer' }))
+
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith(expect.stringContaining('Lait'), { type: 'error' }))
+      await waitFor(() => expect(screen.getByText('Lait')).toBeInTheDocument())
+    })
+
+    test('the line comes back with an error when the request fails', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
+      render(<GroceryListView />)
+      await waitFor(() => expect(screen.getByText('Lait')).toBeInTheDocument())
+
+      const user = userEvent.setup()
+      await user.click(deleteButton('Lait'))
+      await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Supprimer' }))
+
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith(expect.stringContaining('Lait'), { type: 'error' }))
+      await waitFor(() => expect(screen.getByText('Lait')).toBeInTheDocument())
+    })
+
+    test('a line already deleted from another window is not brought back', async () => {
+      mockFetch({ ok: false, status: 404 })
+      render(<GroceryListView />)
+      await waitFor(() => expect(screen.getByText('Lait')).toBeInTheDocument())
+
+      const user = userEvent.setup()
+      await user.click(deleteButton('Lait'))
+      await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Supprimer' }))
+
+      await waitFor(() => expect(screen.queryByText('Lait')).not.toBeInTheDocument())
+      expect(mockNotify).not.toHaveBeenCalledWith(expect.anything(), { type: 'error' })
+    })
+
+    test('a line that came from a meal says it returns if the meal changes', async () => {
+      render(<GroceryListView />)
+      await waitFor(() => expect(screen.getByText('Pommes')).toBeInTheDocument())
+
+      await userEvent.setup().click(deleteButton('Pommes'))
+
+      const dialog = await screen.findByRole('dialog')
+      expect(within(dialog).getByText(/vient d’un repas planifié/)).toBeInTheDocument()
+      expect(within(dialog).getByText(/revient si ce repas est modifié/)).toBeInTheDocument()
+    })
+
+    test('a hand-written line does not mention meals', async () => {
+      render(<GroceryListView />)
+      await waitFor(() => expect(screen.getByText('Lait')).toBeInTheDocument())
+
+      await userEvent.setup().click(deleteButton('Lait'))
+
+      expect(within(await screen.findByRole('dialog')).queryByText(/repas/)).not.toBeInTheDocument()
+    })
+
+    test('a line waiting in « Plus tard » can be deleted too', async () => {
+      const later = new Date()
+      later.setDate(later.getDate() + 5)
+      const pad = (n: number) => String(n).padStart(2, '0')
+      const buyAfter = `${later.getFullYear()}-${pad(later.getMonth() + 1)}-${pad(later.getDate())}`
+      const withLater = {
+        ...sampleList,
+        items: [
+          ...sampleList.items,
+          { id: 'item-d', '@id': '/api/grocery_items/item-d', label: 'Poireaux', checked: false, source: 'recipe', position: 3, buyAfter },
+        ],
+      }
+      mockGetList.mockResolvedValue({ data: [withLater], total: 1 })
+      mockGetOne.mockResolvedValue({ data: withLater })
+      const fetchMock = mockFetch({ ok: true, status: 200 })
+      render(<GroceryListView />)
+      const user = userEvent.setup()
+      await user.click(await screen.findByText(/Plus tard/))
+
+      await user.click(await screen.findByRole('button', { name: 'Supprimer Poireaux' }))
+      await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Supprimer' }))
+
+      await waitFor(() => expect(deleteCalls(fetchMock)[0]).toMatch(/\/api\/grocery_items\/item-d$/))
+      await waitFor(() => expect(screen.queryByText('Poireaux')).not.toBeInTheDocument())
     })
   })
 
