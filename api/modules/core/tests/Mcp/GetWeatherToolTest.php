@@ -227,6 +227,40 @@ class GetWeatherToolTest extends KernelTestCase
         self::assertSame('No place found for "Zzzzqx".', $result['error']);
     }
 
+    /** @return iterable<string, array{string}> */
+    public static function addressLikeCities(): iterable
+    {
+        yield 'with a postcode' => ['Rennes 35000'];
+        yield 'postcode first' => ['35000 Rennes'];
+        yield 'with a department in brackets' => ['Rennes (35)'];
+        yield 'with a region' => ['Rennes, Ille-et-Vilaine'];
+    }
+
+    /** Open-Meteo's geocoder matches a bare place name only: a postcode or a bracket finds nothing. */
+    #[DataProvider('addressLikeCities')]
+    public function testACityWrittenLikeAnAddressStillFindsItsForecast(string $city): void
+    {
+        $this->loggedInWithCity($city);
+        $openMeteo = $this->openMeteo();
+
+        $tool = $this->tool(function (string $method, string $url) use ($openMeteo): ResponseInterface {
+            if (str_contains($url, '/search')) {
+                parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+                if ('Rennes' !== $query['name']) {
+                    return self::json(['generationtime_ms' => 0.4]);
+                }
+            }
+
+            return $openMeteo($method, $url);
+        });
+
+        $result = $this->call($tool);
+
+        self::assertArrayNotHasKey('error', $result);
+        self::assertSame('Rennes', $result['location']['name']);
+        self::assertCount(2, $result['days']);
+    }
+
     public function testAnOpenMeteoOutageGivesAClearErrorInsteadOfThrowing(): void
     {
         $this->loggedInWithCity('Rennes');
