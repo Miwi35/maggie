@@ -122,7 +122,7 @@ class SyncBankAccounts
     /**
      * @param array<string, string> $psuHeaders
      *
-     * @return array{imported: int, skipped: int, categorized: int, pages: int, calls: int, from: string, balanceCents: ?int}
+     * @return array{imported: int, skipped: int, categorized: int, counterpartiesCompleted: int, pages: int, calls: int, from: string, balanceCents: ?int}
      */
     private function syncAccount(
         BankConnection $connection,
@@ -171,6 +171,7 @@ class SyncBankAccounts
             'imported' => $result['imported'],
             'skipped' => $result['skipped'],
             'categorized' => $result['categorized'],
+            'counterpartiesCompleted' => $result['counterpartiesCompleted'],
             'pages' => $pages,
             'calls' => $pages + 1,
             'from' => $from->format('Y-m-d'),
@@ -287,33 +288,86 @@ class SyncBankAccounts
             return null;
         }
 
+        // The other party, not the account holder: a debit names its creditor,
+        // a credit its debtor.
+        $counterparty = $this->readName($remote[$cents < 0 ? 'creditor' : 'debtor'] ?? null);
+        $label = $this->readLabel($remote, $counterparty);
+        $previousLabel = $this->readPreviousLabel($remote);
+
         return new StatementRow(
             bookedAt: $bookedAt,
-            label: $this->readLabel($remote),
+            label: $label,
             amountCents: $cents,
             currency: \is_string($currency) ? $currency : $fallbackCurrency,
             lineNumber: 0,
+            counterpartyName: $counterparty,
+            knownAs: $previousLabel === $label ? [] : [$previousLabel],
         );
     }
 
-    /** @param array<string, mixed> $remote */
-    private function readLabel(array $remote): string
+    private function readName(mixed $party): ?string
     {
-        $candidates = [
+        $name = \is_array($party) ? ($party['name'] ?? null) : null;
+
+        return \is_string($name) && '' !== trim($name) ? $this->squash($name) : null;
+    }
+
+    private function squash(string $value): string
+    {
+        return trim(preg_replace('/\s+/u', ' ', $value) ?? $value);
+    }
+
+    /**
+     * What the movement says about itself. The counterparty only stands in for
+     * it when the bank gave nothing else: it lives in its own field now, and
+     * the label is what the bank rewrites every month.
+     *
+     * @param array<string, mixed> $remote
+     */
+    private function readLabel(array $remote, ?string $counterparty): string
+    {
+        return $this->firstFilled([
+            $this->readRemittance($remote),
+            $counterparty,
             $remote['creditor']['name'] ?? null,
             $remote['debtor']['name'] ?? null,
-            \is_array($remote['remittance_information'] ?? null)
-                ? implode(' ', $remote['remittance_information'])
-                : ($remote['remittance_information'] ?? null),
             $remote['merchant_category_code'] ?? null,
-        ];
+        ]);
+    }
 
+    /**
+     * The label syncs wrote before the counterparty had a field of its own:
+     * the party's name first, the remittance only after.
+     *
+     * @param array<string, mixed> $remote
+     */
+    private function readPreviousLabel(array $remote): string
+    {
+        return $this->firstFilled([
+            $remote['creditor']['name'] ?? null,
+            $remote['debtor']['name'] ?? null,
+            $this->readRemittance($remote),
+            $remote['merchant_category_code'] ?? null,
+        ]);
+    }
+
+    /** @param list<mixed> $candidates */
+    private function firstFilled(array $candidates): string
+    {
         foreach ($candidates as $candidate) {
             if (\is_string($candidate) && '' !== trim($candidate)) {
-                return trim(preg_replace('/\s+/u', ' ', $candidate) ?? $candidate);
+                return $this->squash($candidate);
             }
         }
 
         return 'Sans libellé';
+    }
+
+    /** @param array<string, mixed> $remote */
+    private function readRemittance(array $remote): ?string
+    {
+        $remittance = $remote['remittance_information'] ?? null;
+
+        return \is_array($remittance) ? implode(' ', array_filter($remittance, 'is_string')) : (\is_string($remittance) ? $remittance : null);
     }
 }

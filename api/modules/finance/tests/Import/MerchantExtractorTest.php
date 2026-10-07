@@ -108,4 +108,9 @@ class MerchantExtractorTest extends TestCase
             MerchantExtractor::key('CAFE ETOILE'),
         );
     }
+
+    public function testThePlaceholderOfAnEmptyLabelNamesNoOne(): void
+    {
+        self::assertNull(MerchantExtractor::extract('Sans libellé'));
+    }
 }

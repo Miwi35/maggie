@@ -183,6 +183,7 @@ class ManageTransactionsTool
         return [
             'id' => (string) $transaction->getId(),
             'label' => $transaction->getLabel(),
+            'counterpartyName' => $transaction->getCounterpartyName(),
             'amountCents' => $transaction->getAmountCents(),
             'currency' => $transaction->getCurrency(),
             'bookedAt' => $transaction->getBookedAt()->format('Y-m-d'),
