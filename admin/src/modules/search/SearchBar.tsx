@@ -185,9 +185,6 @@ export function SearchBar() {
             '& .MuiOutlinedInput-root': {
               backgroundColor: theme.palette.veilleuse.raised,
               color: 'inherit',
-              '& fieldset': { borderColor: theme.palette.divider },
-              '&:hover fieldset': { borderColor: theme.palette.text.secondary },
-              '&.Mui-focused fieldset': { borderColor: theme.palette.primary.main },
             },
             '& .MuiInputAdornment-root': { color: 'inherit' },
           })}
