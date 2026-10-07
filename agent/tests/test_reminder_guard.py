@@ -28,6 +28,7 @@ from app.llm.tools import ToolRouter
 
 WATER = "Rappelle-moi de boire de l'eau dans 1 minute"
 PLANTS = "Rappelle-moi d'arroser les plantes dans 1 minute"
+MOTHER = "Rappelle-moi d'appeler ma mère dans 5 minutes"
 SCHEDULED_ANSWER = "C'est programmé, monsieur : je vous rappellerai de boire de l'eau à 16h05."
 FALSE_CLAIM = "C'est noté, monsieur. Je vous rappellerai de boire de l'eau à 16h05."
 
@@ -54,6 +55,15 @@ class TestTheClaim:
             "Rappel enregistré pour 16h05.",
             "Je te préviendrai une heure avant.",
             "Je vous préviendrai lundi.",
+            "Je t'enverrai une notification à 20h44 pour appeler ta mère.",
+            "Je vous enverrai une notification à 20h43.",
+            "Je t\u2019enverrai une alerte dans 4 minutes.",
+            "Je vous enverrai un message à 9h pour sortir le linge.",
+            "Je te notifierai à 20h44.",
+            "Je vous notifierai dans 5 minutes.",
+            "Je te ferai signe à 16h05.",
+            "Tu recevras une notification à 20h44.",
+            "Vous recevrez un rappel à 16h05.",
         ],
     )
     def test_an_announced_reminder_is_a_claim(self, text):
@@ -72,6 +82,10 @@ class TestTheClaim:
             "Je te préviendrai si la météo change.",
             "Je vous rappelle que la réunion est demain à 9h.",
             "Je te préviens, la réunion est à 9h.",
+            "Je ne t'enverrai pas de notification, il manque l'heure.",
+            "Je t'enverrai le résumé de la réunion.",
+            "Vous recevrez le devis par courriel.",
+            "Je te ferai signe si j'ai du nouveau.",
         ],
     )
     def test_anything_else_is_not(self, text):
@@ -237,6 +251,13 @@ class TestTheToolLoop:
         # The relaunch went out as a round of the loop, after the claim it corrects.
         assert messages[4] == ReminderGuard.nudge()
         assert messages[3]["role"] == "assistant"
+
+    async def test_a_notification_promise_without_the_tool_is_relaunched(self, fake_client, proactions):
+        result, _ = await self._run(fake_client, MOTHER)
+
+        assert [call["name"] for call in result["tool_calls"]] == ["date_time", SCHEDULE_TOOL]
+        proactions.create.assert_awaited_once()
+        assert result["response"] == "C'est programmé : je t'enverrai une notification à 16h05 pour appeler ta mère."
 
     async def test_two_forgotten_reminders_end_on_the_truth(self, fake_client, proactions):
         result, _ = await self._run(fake_client, PLANTS)
