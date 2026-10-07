@@ -390,10 +390,18 @@ class TestAnExplicitRequestChangesTheThread:
 
         assert resolution["action"] == "created"
 
-    async def test_autre_chose_in_the_middle_of_a_sentence_is_not_a_request(self):
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "tu peux ajouter autre chose ?",
+            "il n'y a rien à voir dans mon agenda ?",
+            "c'est un autre sujet qui me tracasse, la farine",
+        ],
+    )
+    async def test_the_words_in_the_middle_of_a_sentence_are_not_a_request(self, text):
         client = _answering('{"context_id": "ctx-courses"}')
 
-        resolution, _ = await _route(client, "tu peux ajouter autre chose ?", [_previous("ctx-courses", 1)])
+        resolution, _ = await _route(client, text, [_previous("ctx-courses", 1)])
 
         assert resolution["id"] == "ctx-courses"
 

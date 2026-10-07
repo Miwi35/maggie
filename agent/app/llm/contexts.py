@@ -68,14 +68,14 @@ CONTINUITY_EXCERPT_MESSAGES = 4
 CONTINUITY_EXCERPT_CHARS = 200
 
 # The user saying, in so many words, that the subject changes. Matched on the message
-# lowercased and stripped of accents. « autre chose » only counts at the start: in the
-# middle of a sentence it is « tu peux ajouter autre chose ? », not a change of subject.
+# lowercased and stripped of accents. « autre chose », « autre sujet » and « rien à voir »
+# only count at the start: mid-sentence they are « tu peux ajouter autre chose ? » or « il
+# n'y a rien à voir dans mon agenda ? », not a change of subject — and in doubt, it stays.
 _EXPLICIT_SWITCH = re.compile(
     r"\bchang(?:e|er|eons|ez)\b(?:\s+\w+)?\s+de\s+sujet\b"
-    r"|\b(?:nouveau|autre)\s+sujet\b"
+    r"|\bnouveau\s+sujet\b"
     r"|\bparlons\s+d'autre\s+chose\b"
-    r"|\brien\s+a\s+voir\b"
-    r"|^\W*(?:bon,?\s+|sinon,?\s+)?autre\s+chose\b"
+    r"|^\W*(?:(?:bon|sinon|alors|ok),?\s+)?(?:autre\s+chose|autre\s+sujet|rien\s+a\s+voir)\b"
 )
 
 # The same router while a discussion is going on (MAG-341). Same answer format — the
@@ -281,9 +281,14 @@ async def _ask_router(client, system: str, prompt: str) -> dict:
     return result
 
 
-async def _matched(existing, reason: str) -> dict:
-    """The message goes in a thread that is already open: wake it, and say so."""
-    logger.info(f"Context routing: stayed in '{existing.label}' ({existing.id}) — {reason}")
+async def _matched(existing, reason: str, *, moved: bool = False) -> dict:
+    """The message goes in a thread that is already open: wake it, and say so.
+
+    `moved` is a thread other than the one the conversation was in — the log says so, since
+    whether the routing stayed or changed is the first thing a diagnosis asks (MAG-341).
+    """
+    verb = "moved to" if moved else "stayed in"
+    logger.info(f"Context routing: {verb} '{existing.label}' ({existing.id}) — {reason}")
     # What keeps a thread from going dormant, and what wakes one that has (MAG-12).
     # Best-effort like the rest: the thread is resolved either way.
     try:
@@ -370,7 +375,7 @@ async def _route_freely(client, text: str, user_id: str, contexts: list) -> dict
         # from another user's thread — is a new topic (MAG-203).
         existing = _own(contexts, result.get("context_id"))
         if existing is not None:
-            return await _matched(existing, "the router tied it to this thread")
+            return await _matched(existing, "no discussion in progress, the router tied it to this thread", moved=True)
         return await _created(user_id, result.get("label") or text[:60], "the router saw a new subject")
     except Exception as e:
         logger.warning(f"Context resolution failed, continuing without context: {e}")
@@ -388,14 +393,15 @@ async def _route_within(client, text: str, user_id: str, contexts: list, discuss
     try:
         result = await _ask_router(client, CONTINUITY_SYSTEM_PROMPT, prompt)
     except Exception as e:
-        return await _matched(current, f"discussion in progress, the router failed ({e})")
+        logger.warning(f"Context router failed during a discussion, keeping its thread: {e}")
+        return await _matched(current, "discussion in progress, the router failed")
 
     context_id = result.get("context_id")
     if context_id is not None and str(context_id) == str(current.id):
         return await _matched(current, "discussion in progress, the router tied it to it")
     existing = _own(contexts, context_id)
     if existing is not None:
-        return await _matched(existing, "the router tied it to another open thread")
+        return await _matched(existing, "the router tied it to another open thread", moved=True)
     if context_id is None and result.get("label"):
         return await _created(user_id, result["label"], "the router found no link with the discussion")
     # An unknown id, or a new subject with no name: nothing settled, so nothing moves.
@@ -415,7 +421,7 @@ async def _route_away(client, text: str, user_id: str, contexts: list, discussio
 
     existing = _own(others, result.get("context_id"))
     if existing is not None:
-        return await _matched(existing, "the user asked to change subject, back to an open thread")
+        return await _matched(existing, "the user asked to change subject, back to an open thread", moved=True)
     return await _created(user_id, result.get("label") or text[:60], "the user asked to change subject")
 
 
