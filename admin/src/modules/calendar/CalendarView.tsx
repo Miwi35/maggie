@@ -445,6 +445,7 @@ export const CalendarView = () => {
   const calendarRef = useRef<FullCalendar>(null)
   const calendarBoxRef = useRef<HTMLDivElement>(null)
   const dateRangeRef = useRef<{ start: string; end: string } | null>(null)
+  const fetchSeqRef = useRef(0)
   const lastMouseYRef = useRef(0)
   const selectFiredRef = useRef(false)
   const lastSelectionRef = useRef<{ start: Date; end: Date } | null>(null)
@@ -671,6 +672,9 @@ export const CalendarView = () => {
   // --- Fetch events + tasks ---
   const fetchEvents = useCallback(
     (start: string, end: string) => {
+      // Answers come back in any order: only the newest request may fill the grid, or
+      // a slow reply for a range already left takes the task out from under the pencil.
+      const seq = ++fetchSeqRef.current
       const rangeEvents = dataProvider.getList('events', {
         pagination: { page: 1, perPage: 200 },
         sort: { field: 'startAt', order: 'ASC' },
@@ -709,6 +713,7 @@ export const CalendarView = () => {
 
       Promise.all([rangeEvents, recurringEvents, overlappingEvents, rangeTasks, rangeMeals])
         .then(([rangeResult, recurringResult, overlappingResult, tasksResult, mealsResult]) => {
+          if (seq !== fetchSeqRef.current) return
           const seen = new Set<string>()
           const merged: CalendarEvent[] = []
           for (const e of [...rangeResult.data, ...recurringResult.data, ...overlappingResult.data] as unknown as CalendarEvent[]) {
