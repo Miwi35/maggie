@@ -6,13 +6,15 @@ import kotlinx.serialization.json.JsonObject
 /**
  * A tool call the agent's policy holds back until the user answers it
  * (`agent/app/db/pending_action_model.py`). The arguments are frozen: what runs on
- * approval is what Maggie asked for.
+ * approval is what Maggie asked for. `summary` is the sentence the agent built when it held
+ * the action — « Supprimer l'événement « X » » — shown instead of the tool and its arguments.
  */
 @Serializable
 data class PendingApproval(
     val id: String,
     val toolName: String,
     val arguments: JsonObject = JsonObject(emptyMap()),
+    val summary: String? = null,
     val status: String = STATUS_PENDING,
     val result: String? = null,
     val contextId: String? = null,
