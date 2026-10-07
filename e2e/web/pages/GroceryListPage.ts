@@ -67,6 +67,20 @@ export class GroceryListPage extends AdminShell {
     return this.line(label).getByRole('checkbox')
   }
 
+  /** The confirmation behind a line's trash button. */
+  deleteDialog(label: string): Locator {
+    return this.page.getByRole('dialog').filter({ hasText: `Supprimer « ${label} » ?` })
+  }
+
+  /** Deletes a line the way the owner does: trash button, then confirm. */
+  async deleteLine(label: string): Promise<void> {
+    await this.line(label).getByRole('button', { name: `Supprimer ${label}` }).click()
+    const dialog = this.deleteDialog(label)
+    await expect(dialog).toBeVisible()
+    await dialog.getByRole('button', { name: 'Supprimer' }).click()
+    await expect(this.page.getByRole('dialog')).toBeHidden()
+  }
+
   /** The aisle headings, in the order the page draws them. */
   async storeOrder(): Promise<string[]> {
     return this.content.getByTestId('grocery-store-group').evaluateAll((groups) =>

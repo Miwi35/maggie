@@ -24,6 +24,7 @@ use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\RecurringGroceryItem;
 use Maggie\Grocery\Enum\GroceryItemSource;
 use Maggie\Grocery\Enum\Unit;
+use Maggie\Grocery\Message\RemoveGroceryItemCommand;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
@@ -479,6 +480,46 @@ class MealGrocerySyncTest extends KernelTestCase
         self::assertCount(1, $this->em()->getRepository(Meal::class)->find($pastId)->getRecipes());
         $this->assertMercureUpdatePublished('/api/meals/'.$upcomingId);
         $this->assertElasticsearchIndexDispatchedFor(Meal::class, $pastId);
+    }
+
+    public function testDeletingAMealLineByHandKeepsTheMealAndDropsOnlyThatContribution(): void
+    {
+        // MAG-283: the shopper deletes « Pâtes » from the list. The line goes
+        // with its contribution (no orphan row); the meal and the other line
+        // are untouched.
+        $mealId = $this->planMeal('pasta');
+        $pastaId = (string) $this->item('Pâtes')->getId();
+        self::assertSame(2, $this->contributionCount());
+
+        $this->bus()->dispatch(new RemoveGroceryItemCommand(
+            groceryItemId: $pastaId,
+            userId: (string) $this->user()->getId(),
+        ));
+
+        self::assertSame(['Tomate' => 4.0], $this->list());
+        self::assertSame(1, $this->contributionCount());
+        self::assertNotNull($this->em()->getRepository(Meal::class)->find($mealId));
+    }
+
+    public function testALineDeletedByHandComesBackWhenTheMealIsSyncedAgain(): void
+    {
+        // The behaviour the admin's confirmation explains (MAG-283): nothing
+        // remembers a deletion, so the meal's next sync puts the line back.
+        $mealId = $this->planMeal('pasta');
+        $this->bus()->dispatch(new RemoveGroceryItemCommand(
+            groceryItemId: (string) $this->item('Pâtes')->getId(),
+            userId: (string) $this->user()->getId(),
+        ));
+        self::assertSame(['Tomate' => 4.0], $this->list());
+
+        // Any update of the meal syncs it, and the meal still needs the pasta.
+        $this->bus()->dispatch(new UpdateMealCommand(
+            mealId: $mealId,
+            date: (new \DateTimeImmutable('+3 days', new \DateTimeZone('Europe/Paris')))->format('Y-m-d'),
+            slot: 'lunch',
+            recipeIds: null,
+        ));
+        self::assertSame(['Pâtes' => 400.0, 'Tomate' => 4.0], $this->list());
     }
 
     /**
