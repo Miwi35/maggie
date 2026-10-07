@@ -166,6 +166,100 @@ class MealApiTest extends WebTestCase
         $this->assertElasticsearchIndexDispatched(Meal::class);
     }
 
+    public function testAnonymousCannotMoveAMeal(): void
+    {
+        $this->loadFixtures('MealApiTest.yaml');
+
+        $this->client->request('PATCH', '/api/meals/01JZZZZZZZZZZZZZZZZZZZZZZZ', [], [], [
+            'CONTENT_TYPE' => 'application/merge-patch+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], json_encode(['date' => '2026-10-09', 'slot' => 'dinner'], JSON_THROW_ON_ERROR));
+
+        self::assertResponseStatusCodeSame(401);
+    }
+
+    /**
+     * Drag and drop in the week view (MAG-250): the body carries the day and the
+     * slot, and nothing else. Both change in one request, and the recipes — and
+     * the summary's list of them — come out the other side as they went in.
+     *
+     * An April day and a December one: the first is under summer time, where the
+     * hard-coded `+01:00` the view used to send put a meal on the day before.
+     *
+     * @return iterable<string, array{string, string}>
+     */
+    public static function movesAcrossTheYear(): iterable
+    {
+        yield 'summer time' => ['2026-04-14', '2026-04-16'];
+        yield 'winter time' => ['2026-12-08', '2026-12-10'];
+    }
+
+    #[DataProvider('movesAcrossTheYear')]
+    public function testMovingAMealToAnotherDayAndSlotKeepsItsRecipes(string $from, string $to): void
+    {
+        $this->authenticateFixtureUser();
+        $recipe = $this->getFixture('pasta');
+
+        $created = $this->postMeal([
+            'date' => $from,
+            'slot' => 'lunch',
+            'recipes' => ['/api/recipes/'.$recipe->getId()],
+        ]);
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $data = $this->patchMeal($created['id'], ['date' => $to, 'slot' => 'dinner']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame($to, $data['date']);
+        self::assertSame('dinner', $data['slot']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        /** @var Meal $stored */
+        $stored = $em->getRepository(Meal::class)->find($created['id']);
+        self::assertSame($to, $stored->getDate()->format('Y-m-d'));
+        self::assertSame('dinner', $stored->getSlot()->value);
+        // The agenda's own reading of the meal follows the day.
+        self::assertSame($to, $stored->getStartAt()->setTimezone(new \DateTimeZone('Europe/Paris'))->format('Y-m-d'));
+        self::assertSame(
+            [(string) $recipe->getId()],
+            $stored->getRecipes()->map(static fn ($r) => (string) $r->getId())->getValues(),
+        );
+        self::assertSame('Dîner : Pâtes à la tomate', $stored->getSummary());
+
+        $this->assertMercureUpdatePublished('/meals/');
+        $this->assertElasticsearchIndexDispatched(Meal::class);
+    }
+
+    public function testASlotThatDoesNotExistIsRefusedAndTheMealStays(): void
+    {
+        $this->authenticateFixtureUser();
+        $created = $this->postMeal(['date' => '2026-10-07', 'slot' => 'lunch']);
+        $this->resetMercure();
+
+        $this->patchMeal($created['id'], ['date' => '2026-10-09', 'slot' => 'brunch']);
+
+        self::assertResponseStatusCodeSame(400);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        /** @var Meal $stored */
+        $stored = $em->getRepository(Meal::class)->find($created['id']);
+        self::assertSame('2026-10-07', $stored->getDate()->format('Y-m-d'));
+        self::assertSame('lunch', $stored->getSlot()->value);
+    }
+
+    public function testADayWithATimeIsRefusedWhenMovingAMeal(): void
+    {
+        $this->authenticateFixtureUser();
+        $created = $this->postMeal(['date' => '2026-10-07', 'slot' => 'lunch']);
+
+        $this->patchMeal($created['id'], ['date' => '2026-10-09T00:00:00+01:00']);
+
+        self::assertResponseStatusCodeSame(400);
+    }
+
     /**
      * The week view asks for a day's worth of meals by day, not by instant:
      * `date[after]`/`date[before]` are what the clients send now.
@@ -298,6 +392,23 @@ class MealApiTest extends WebTestCase
 
         $this->client->request('POST', '/api/meals', [], [], array_merge([
             'CONTENT_TYPE' => 'application/ld+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode($body, JSON_THROW_ON_ERROR));
+
+        $decoded = json_decode((string) $this->client->getResponse()->getContent(), true);
+
+        return \is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * @param array<string, mixed> $body
+     *
+     * @return array<string, mixed>
+     */
+    private function patchMeal(string $id, array $body): array
+    {
+        $this->client->request('PATCH', '/api/meals/'.$id, [], [], array_merge([
+            'CONTENT_TYPE' => 'application/merge-patch+json',
             'HTTP_ACCEPT' => 'application/ld+json',
         ], $this->authHeaders()), json_encode($body, JSON_THROW_ON_ERROR));
 
