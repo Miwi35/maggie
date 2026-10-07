@@ -98,6 +98,10 @@ jobs:
               # would catch it is the one that is skipped.
               - 'api/contract/**'
               - 'agent/contract/**'
+              # tokens.contract.test.ts reads design/tokens.json. Edited with
+              # one mirror only, the other platform's contract test must still
+              # run, or the drift is the one change that merges green.
+              - 'design/**'
               - '.github/workflows/ci.yml'
             cron:
               - '.docker/php/**'
@@ -111,6 +115,8 @@ jobs:
               - 'ciqual/**'
               - '.docker/**'
               - 'e2e/**'
+              # design-system.spec.ts reads design/tokens.json (MAG-286).
+              - 'design/**'
               # The eval scenarios, whose only guard is the `e2e:eval:check`
               # step in this job. Without them here, a pull request touching
               # nothing else skips the job, a skipped job satisfies branch
@@ -129,6 +135,8 @@ jobs:
               - 'mobile/**'
               - 'api/contract/**'
               - 'agent/contract/**'
+              # TokensContractTest reads design/tokens.json (MAG-286).
+              - 'design/**'
               - '.github/actions/coverage/**'
               - '.github/workflows/ci.yml'
             # The emulator journeys (MAG-98). The app and the flows, obviously —

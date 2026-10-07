@@ -18,14 +18,6 @@ commit. The contract tests walk up the tree to find `design/tokens.json`, as the
 missing mount is a broken test, not a silent pass. `task wt:test:admin`,
 `docker-compose.e2e.yml` and the Gradle unit tests all see `design/`.
 
-> ⚠ **Until `design/**` is in `ci.yml`'s path filters, nothing enforces that.** A
-> commit touching `design/tokens.json` and one mirror runs only that mirror's
-> job; the other platform's contract test is *skipped*, and the drift merges
-> green. Edit the three files together, by hand. **MAG-286** closes it; until
-> it merges, this note is the only thing standing between you and a silent
-> drift. (The mechanism in full:
-> `agent-os/specs/2026-10-06-2240-design-system-tokens/shape.md`, Risks.)
-
 ## Two colour families, two jobs
 
 - **`feedback`** — the alert palette, one set per mode (`feedback.light`,

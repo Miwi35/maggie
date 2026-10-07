@@ -263,20 +263,5 @@ Everything else is the same pixels under a name. These are not:
   with. `ThemeTest` asserts every role against its token and the Robolectric
   screen tests render the real theme, but what a surface *looks* like is the
   recette's job.
-- **`design/**` is in no path filter of `ci.yml`, so a drift can merge green.**
-  The source now sits outside every component's directory, and the filters
-  (`admin`, `mobile_unit`, `e2e`, …) only list the components. The precedent for
-  the fix is right there: the `admin` filter lists `api/contract/**` and
-  `agent/contract/**` for exactly this reason — « a topic renamed there must run
-  the admin tests, or the one check that would catch it is the one that is
-  skipped ». The drift that merges: edit `design/tokens.json` and
-  `admin/src/design/tokens.ts`, forget `Tokens.kt`. The `admin` filter fires on
-  the `admin/**` change and passes — the web mirror does match the source —
-  while `mobile_unit` sees no `mobile/**` change and is **skipped**, so
-  `TokensContractTest`, the one net that would have caught it, never runs. Not
-  fixed here: the filters live under `.github/`, which the guard hands to a
-  human as `infra-path` (`agent-guard-rails.md`), and this PR is on the merge
-  train. **MAG-286** adds `design/**` to the `admin`, `mobile_unit` and
-  `e2e` filters — three lines, and a `.github/` PR is the owner's to merge
-  anyway. Until then the standard carries the warning: the three files travel in
-  one commit, and nothing but a reviewer enforces it.
+- ~~`design/**` was in no path filter of `ci.yml`~~ — closed by **MAG-286**, which
+  added it to the `admin`, `mobile_unit` and `e2e` filters.
