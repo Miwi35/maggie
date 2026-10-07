@@ -1,5 +1,7 @@
 package com.maggie.app.data.model
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 
 /**
@@ -11,15 +13,19 @@ import kotlinx.serialization.Serializable
  * [remindersOf] and [remindersFrom] are the two directions, and a delay in
  * minutes is what the screens speak.
  */
+// The app's Json does not encode defaults: without @EncodeDefault, `useDefault` and `method` never left the phone,
+// and the API refused the event (« reminders[overrides][0][method]: This field is missing », 7 Oct.).
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class EventReminders(
-    val useDefault: Boolean = false,
+    @EncodeDefault val useDefault: Boolean = false,
     val overrides: List<EventReminder> = emptyList(),
 )
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class EventReminder(
-    val method: String = "popup",
+    @EncodeDefault val method: String = "popup",
     val minutes: Int,
 )
 
