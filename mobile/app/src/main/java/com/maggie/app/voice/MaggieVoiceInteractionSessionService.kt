@@ -90,21 +90,21 @@ private class MaggieVoiceInteractionSession(
     override fun onHandleScreenshot(screenshot: Bitmap?) {
         super.onHandleScreenshot(screenshot)
         if (screenshot == null) {
-            coordinator.onScreenshot(path = null)
+            coordinator.onScreenshot(kept = false)
             return
         }
         val file = ScreenshotEncoder.file(service)
         Thread {
-            val path = try {
+            val kept = try {
                 file.parentFile?.mkdirs()
                 file.writeBytes(ScreenshotEncoder.encode(screenshot))
-                file.absolutePath
+                true
             } catch (e: Exception) {
                 Log.w(TAG, "Screenshot not kept", e)
-                null
+                false
             }
             handler.post {
-                if (!coordinator.onScreenshot(path) && path != null) file.delete()
+                if (!coordinator.onScreenshot(kept) && kept) file.delete()
             }
         }.start()
     }

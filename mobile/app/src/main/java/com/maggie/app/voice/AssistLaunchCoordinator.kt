@@ -57,14 +57,15 @@ class AssistLaunchCoordinator(private val onLaunch: (ScreenContext) -> Unit) {
     }
 
     /**
-     * [path] is the encoded screenshot, null when Android refused it — which
-     * still ends the wait. Returns false when the file was not taken (too late,
-     * or for a dismissed invocation): nothing will send it, so the caller deletes it.
+     * [kept] is whether the screenshot was written to [ScreenshotEncoder.file] —
+     * false when Android refused it, which still ends the wait. Returns false when
+     * the file was not taken (too late, or for a dismissed invocation): nothing will
+     * send it, so the caller deletes it.
      */
-    fun onScreenshot(path: String?): Boolean {
+    fun onScreenshot(kept: Boolean): Boolean {
         if (hasLaunched || !shown) return false
         screenshotReceived = true
-        context = context.copy(screenshotPath = context.screenshotPath ?: path)
+        context = context.copy(hasScreenshot = context.hasScreenshot || kept)
         launchIfReady()
         return true
     }

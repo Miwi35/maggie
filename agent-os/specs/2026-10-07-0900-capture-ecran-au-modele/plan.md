@@ -23,16 +23,19 @@ block + marker; fake LLM matching, text and turn index on an image turn.
 ## Task 3: The phone sends the screenshot
 
 - `onHandleScreenshot` keeps the bitmap: downscaled to 1568 px long side, JPEG 80, written
-  to `cacheDir/assist/`; `ScreenContext.screenshotPath` replaces `hasScreenshot`.
-- With a screenshot, `toPromptBlock()` carries the app and the domain only.
+  to `ScreenshotEncoder.file`; `ScreenContext.hasScreenshot` says so. Never a path in
+  the intent: the overlay is exported for `ACTION_ASSIST`, any app can start it.
+- With the image attached, `toPromptBlock()` carries the app and the domain only; a file
+  that could not be read falls back to the texts.
 - `ChatViewModel.sendMessage(text, screenContext, image)` → `sendChatStream(…, image)`;
-  the file is deleted once read, or when the overlay closes without sending.
+  the file is deleted once read, or when the overlay closes without sending
+  (`PendingScreenshot`).
 - Overlay shows the screenshot thumbnail under « Contexte » ; `MessageBubble` shows the
   thumbnail (session memory) or « Capture d'écran (non conservée) » from `hasImage`.
 - e2e flavor: `maggie-e2e-assist://overlay?screenshot=fixture` loads a bundled image.
 
 Tests it owes: `ScreenContextTest` (block without texts, intent round trip),
-`ScreenshotEncoder` (downscale, never upscale), `ChatViewModelTest` (image sent once,
+`ScreenshotEncoder` (downscale, never upscale), `PendingScreenshot` (read once, deleted), `ChatViewModelTest` (image sent once,
 thumbnail kept, pending matched), `MaggieApiServiceTest` (serialization), bubble render.
 
 ## Task 4: The web says a picture was there

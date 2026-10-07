@@ -16,7 +16,6 @@ import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.theme.MaggieTheme
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
-import java.io.File
 
 class AssistantActivity : ComponentActivity() {
 
@@ -31,22 +30,24 @@ class AssistantActivity : ComponentActivity() {
      */
     private var pendingContext by mutableStateOf<ScreenContext?>(null)
 
+    /** Always the session's own file: the intent only says whether there is one (MAG-214). */
+    private val screenshot by lazy { PendingScreenshot(ScreenshotEncoder.file(this)) }
+
     private val sendVoiceResult: (String) -> Unit = { text ->
         val screen = pendingContext
         // Read, then deleted: the screenshot goes with this sentence and nowhere else (MAG-214).
-        val takeImage = {
-            screen?.screenshotPath?.let { path ->
-                runCatching { File(path).readBytes() }.getOrNull().also { File(path).delete() }
-            }
-        }
+        val takeImage = { if (screen?.hasScreenshot == true) screenshot.take() else null }
         if (routeVoiceResult(text, chatViewModel, voiceManager, screen, takeImage)) {
             pendingContext = null
         }
     }
 
-    /** A screenshot the user did not send is not kept: replaced, or the overlay closed. */
+    /**
+     * A screenshot the user did not send is not kept: the overlay closed, or a new
+     * invocation without one. One that brings a screenshot has already overwritten it.
+     */
     private fun replaceContext(next: ScreenContext?) {
-        pendingContext?.screenshotPath?.takeIf { it != next?.screenshotPath }?.let { File(it).delete() }
+        if (pendingContext?.hasScreenshot == true && next?.hasScreenshot != true) screenshot.discard()
         pendingContext = next
     }
 
