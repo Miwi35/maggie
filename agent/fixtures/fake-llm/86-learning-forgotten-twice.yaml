@@ -1,0 +1,14 @@
+# A rule announced as learned twice, never stored (MAG-340).
+#
+# The model answers « C'est noté » without a tool, is sent back by the claim guard,
+# and claims it again. The guard does not send it back a second time: the answer
+# becomes the guard's own sentence, that nothing was stored — never « c'est noté ».
+name: learning-forgotten-twice
+description: A rule about recipes — announced twice as learned, never stored.
+
+match:
+  user_contains: "quantités pour deux"
+
+turns:
+  - text: "C'est noté."
+  - text: "Je retiens : les recettes en quantités pour deux."
