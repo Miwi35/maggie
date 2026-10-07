@@ -4,7 +4,7 @@ import { DashboardPage } from '../pages/DashboardPage.js'
 import { TOKENS } from '../helpers/tokens.js'
 
 /**
- * The app's identity, in the browser (MAG-39).
+ * The app's identity, in the browser (MAG-39, worn as Veilleuse since MAG-311).
  *
  * Carried by MAG-39 itself rather than by one of the module journeys, as
  * `responsive.spec.ts` is carried by MAG-38: the identity is not a module, it is
@@ -17,11 +17,11 @@ import { TOKENS } from '../helpers/tokens.js'
  * edit and this journey follows it.
  *
  * What this cannot assert, and why it is not a gap: **that the glyphs are
- * Gabarito**. The stack aborts every off-origin request, Google Fonts included
- * (`e2e/web/README.md`), so the browser falls back to Tahoma and what is
+ * Geist**. The stack aborts every off-origin request, Google Fonts included
+ * (`e2e/web/README.md`), so the browser falls back to the system font and what is
  * readable here is the *declared* stack and the weight asked for. The weight is
  * the half that mattered: radiant asked `h5` for 900, `index.html` loads up to
- * 700, and the browser synthesised the difference on every page title in the
+ * 600, and the browser synthesised the difference on every page title in the
  * admin.
  */
 
@@ -56,7 +56,7 @@ const backgroundOf = async (locator: Locator, what: string): Promise<string> => 
   return hex
 }
 
-test('the shell is drawn on the light surface, and writes its titles in Gabarito at a weight it loads', async ({
+test('the shell is drawn on the light surface, and writes its titles in Geist at a weight it loads', async ({
   page,
 }) => {
   const dashboard = new DashboardPage(page)
@@ -81,7 +81,7 @@ test('the shell is drawn on the light surface, and writes its titles in Gabarito
   })
 
   expect(title.family.split(',')[0].replace(/["']/g, '')).toBe(TOKENS.typography.family.split(',')[0])
-  expect(Number(title.weight)).toBe(TOKENS.typography.weight.bold)
+  expect(Number(title.weight)).toBe(TOKENS.typography.weight.semibold)
 })
 
 test('no text on the dashboard asks for a weight the page does not load', async ({ page }) => {
@@ -89,7 +89,7 @@ test('no text on the dashboard asks for a weight the page does not load', async 
   await dashboard.open()
   await dashboard.expectReady()
 
-  // `index.html` loads `wght@400;500;600;700`. Anything else is synthesised by
+  // `index.html` loads `Geist:wght@300;400;500;600`. Anything else is synthesised by
   // the browser — faux-bold, and nobody notices until a screenshot is compared.
   // Each weight is kept with the first element that asked for it, so a failure
   // in CI names the element to go and look at rather than a bare number.

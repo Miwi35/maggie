@@ -21,7 +21,7 @@ import SmartToyIcon from '@mui/icons-material/SmartToy'
 import ChatIcon from '@mui/icons-material/Chat'
 import PsychologyIcon from '@mui/icons-material/Psychology'
 import CircularProgress from '@mui/material/CircularProgress'
-import { TOKENS } from '../../design/tokens'
+import { alpha, keyframes } from '@mui/material/styles'
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder'
 import { useTranscription } from '../../hooks/useTranscription'
 import { useNarrowScreen } from '../../hooks/useNarrowScreen'
@@ -30,8 +30,12 @@ import { mercureUrl } from '../../hooks/mercureUrl'
 import { saidInMessage } from '../../screenContext'
 import { useAgUiStream } from '../../hooks/useAgUiStream'
 import { ActivityPulse } from '../mind/ActivityPulse'
+import { MaggieAvatar } from '../maggie/MaggieAvatar'
 import { ContextList } from '../mind/ContextList'
 import { ToolCallList } from '../mind/ToolCallList'
+import { ChatBubble } from './ChatBubble'
+import { VoiceOrb } from './VoiceOrb'
+import { NARROW_QUERY } from '../../breakpoints'
 import type { SxProps, Theme } from '@mui/material/styles'
 import type { SidebarTab } from '../layout/ChatContext'
 import type { AgentState, ContextState, ToolCallState } from '../mind/types'
@@ -50,6 +54,34 @@ const MESSAGES_URL = '/agent/messages'
 const MERCURE_URL = import.meta.env.VITE_MERCURE_PUBLIC_URL || 'http://maggie.local/.well-known/mercure'
 const SIDEBAR_WIDTH = 380
 const PAGE_SIZE = 20
+const PANEL_RADIUS = 20
+const REDUCED_MOTION = '@media (prefers-reduced-motion: reduce)'
+
+const panelIn = keyframes`
+  from { transform: translateX(32px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+`
+
+const pillFieldSx = (theme: Theme) => ({
+  borderRadius: '999px',
+  bgcolor: theme.palette.veilleuse.raised,
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'transparent' },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: alpha(theme.palette.primary.main, 0.3) },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: theme.palette.primary.main, borderWidth: 1 },
+})
+
+const STATE_LABELS = { idle: 'En ligne', thinking: 'Réfléchit…', acting: 'Agit…' } as const
+
+// Round, quiet buttons for the header and the input row; 44px under `md` for a finger.
+const roundButtonSx = (raised: boolean) => (theme: Theme) => ({
+  width: 36,
+  height: 36,
+  bgcolor: raised ? theme.palette.veilleuse.raised : 'transparent',
+  color: 'text.secondary',
+  '&:hover': { bgcolor: theme.palette.veilleuse.raised, color: 'text.primary' },
+  '&.Mui-disabled': { bgcolor: raised ? theme.palette.veilleuse.raised : 'transparent', opacity: 0.5 },
+  [`@media ${NARROW_QUERY}`]: { width: 44, height: 44 },
+})
 
 interface ChatWidgetProps {
   open: boolean
@@ -142,6 +174,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     const [isNearBottom, setIsNearBottom] = useState(true)
     const [unreadFromId, setUnreadFromId] = useState<string | null>(null)
     const [tappedId, setTappedId] = useState<string | null>(null)
+    const [streamedId, setStreamedId] = useState<string | null>(null)
 
     // Streaming state
     const [streamingText, setStreamingText] = useState('')
@@ -217,6 +250,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
         streamingTextRef.current = ''
         setStreamingText('')
         setStreamingMsgId(null)
+        setStreamedId(messageId)
       },
       onToolCallStart: (toolCallId, toolName) => {
         onAgentStateChange('acting')
@@ -667,108 +701,120 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
         }
 
     const innerSx: SxProps<Theme> = isNarrow
-      ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }
-      : {
+      ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', bgcolor: 'maggie.panel' }
+      : (theme: Theme) => ({
           width: SIDEBAR_WIDTH,
           position: 'fixed',
-          top: (theme: Theme) => theme.mixins.toolbar.minHeight,
+          top: theme.mixins.toolbar.minHeight,
           right: 0,
           bottom: 0,
           display: 'flex',
           flexDirection: 'column',
-          borderLeft: 1,
-          borderColor: 'divider',
-          bgcolor: 'background.paper',
+          overflow: 'hidden',
+          borderRadius: `${PANEL_RADIUS}px 0 0 ${PANEL_RADIUS}px`,
+          bgcolor: theme.palette.maggie.panel,
+          boxShadow: `inset 0 0 0 1px ${alpha(theme.palette.primary.main, 0.2)}`,
           transform: open ? 'translateX(0)' : `translateX(${SIDEBAR_WIDTH}px)`,
           visibility: open ? 'visible' : 'hidden',
           transition: open
             ? 'transform 225ms cubic-bezier(0, 0, 0.2, 1)'
             : 'transform 225ms cubic-bezier(0, 0, 0.2, 1), visibility 0s 225ms',
-        }
+          ...(open && { animation: `${panelIn} 460ms cubic-bezier(0.2, 0.9, 0.3, 1) both` }),
+          [REDUCED_MOTION]: { animation: 'none' },
+        })
 
     const panel = (
       <Box data-testid="chat-panel" sx={outerSx}>
         <Box sx={innerSx}>
           {/* Header */}
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              borderBottom: 1,
-              borderColor: 'divider',
-              bgcolor: 'primary.main',
-              color: 'primary.contrastText',
-            }}
-          >
-            {searchMode ? (
-              <TextField
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Rechercher..."
-                size="small"
-                autoFocus
-                fullWidth
-                sx={{ mx: 1 }}
-                slotProps={{
-                  htmlInput: { sx: { color: 'primary.contrastText', fontSize: 14 } },
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon sx={{ color: 'primary.contrastText', opacity: 0.7 }} />
-                      </InputAdornment>
-                    ),
-                    sx: {
-                      '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.3)' },
-                      '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.5)' },
-                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.7)' },
+          <Box sx={{ flexShrink: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: '12px', px: '16px', py: '12px' }}>
+              {searchMode ? (
+                <TextField
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Rechercher..."
+                  size="small"
+                  autoFocus
+                  fullWidth
+                  slotProps={{
+                    htmlInput: { sx: { fontSize: 14 } },
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon sx={{ color: 'text.secondary' }} />
+                        </InputAdornment>
+                      ),
+                      sx: pillFieldSx,
                     },
-                  },
-                }}
-              />
-            ) : (
+                  }}
+                />
+              ) : (
+                <>
+                  <MaggieAvatar size={36} />
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography component="span" sx={{ display: 'block', fontWeight: 600, lineHeight: 1.2 }}>
+                      Maggie
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Box
+                        data-testid="chat-status-dot"
+                        sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'success.main', flexShrink: 0 }}
+                      />
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                        {STATE_LABELS[agentState]}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </>
+              )}
+              <Box sx={{ display: 'flex', gap: '4px', ml: 'auto', flexShrink: 0 }}>
+                {/* Neither carried a name, so a screen reader announced them both
+                    as "button" — and once the panel is a full-screen sheet, its
+                    own close button is the only way back to the page. */}
+                {!searchMode && sidebarTab === 'chat' && (
+                  <IconButton
+                    size="small"
+                    aria-label="Rechercher dans la conversation"
+                    onClick={openSearch}
+                    sx={roundButtonSx(false)}
+                  >
+                    <SearchIcon />
+                  </IconButton>
+                )}
+                <IconButton
+                  size="small"
+                  aria-label={searchMode ? 'Fermer la recherche' : 'Fermer la conversation'}
+                  onClick={searchMode ? closeSearch : onClose}
+                  sx={roundButtonSx(false)}
+                >
+                  <CloseIcon />
+                </IconButton>
+              </Box>
+            </Box>
+            {!searchMode && (
               <Tabs
                 value={sidebarTab}
                 onChange={onTabChange}
                 sx={{
-                  flex: 1,
-                  minHeight: 42,
+                  minHeight: 44,
+                  px: '8px',
+                  borderBottom: 1,
+                  borderColor: 'divider',
                   '& .MuiTab-root': {
-                    minHeight: 42,
-                    color: 'rgba(255,255,255,0.7)',
+                    minHeight: 44,
+                    color: 'text.secondary',
                     fontSize: 13,
                     textTransform: 'none',
-                    '&.Mui-selected': { color: '#fff' },
+                    '&.Mui-selected': { color: 'text.primary' },
                   },
-                  '& .MuiTabs-indicator': { bgcolor: '#fff' },
+                  '& .MuiTabs-indicator': { bgcolor: 'primary.main', borderRadius: 2 },
                 }}
               >
                 <Tab value="chat" label="Chat" icon={<ChatIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
                 <Tab value="mind" label="Mind" icon={<PsychologyIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
               </Tabs>
             )}
-            <Box sx={{ display: 'flex', gap: 0.5, ml: 'auto', pr: 1 }}>
-              {/* Neither carried a name, so a screen reader announced them both
-                  as "button" — and once the panel is a full-screen sheet, its
-                  own close button is the only way back to the page. */}
-              {!searchMode && sidebarTab === 'chat' && (
-                <IconButton
-                  size="small"
-                  aria-label="Rechercher dans la conversation"
-                  onClick={openSearch}
-                  sx={{ color: 'inherit' }}
-                >
-                  <SearchIcon />
-                </IconButton>
-              )}
-              <IconButton
-                size="small"
-                aria-label={searchMode ? 'Fermer la recherche' : 'Fermer la conversation'}
-                onClick={searchMode ? closeSearch : onClose}
-                sx={{ color: 'inherit' }}
-              >
-                <CloseIcon />
-              </IconButton>
-            </Box>
           </Box>
 
           {/* Chat tab content */}
@@ -793,9 +839,9 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                         sx={{
                           p: 1.5,
                           mb: 1,
-                          borderRadius: 1,
+                          borderRadius: '16px',
                           cursor: 'pointer',
-                          bgcolor: 'action.hover',
+                          bgcolor: 'veilleuse.raised',
                           '&:hover': { bgcolor: 'action.selected' },
                           display: 'flex',
                           flexDirection: 'column',
@@ -889,54 +935,21 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                               {formatDayLabel(new Date(msg.createdAt)) + ' ' + formatTime(new Date(msg.createdAt))}
                             </Typography>
                           )}
-                          <Box
+                          <ChatBubble
                             id={`msg-${msg.id}`}
+                            role={msg.role}
+                            highlighted={highlightId === msg.id}
+                            animate={msg.id !== streamedId}
                             onClick={() => setTappedId((prev) => (prev === msg.id ? null : msg.id))}
-                            sx={{
-                              alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                              maxWidth: '85%',
-                              px: 1.5,
-                              py: 1,
-                              borderRadius: 2,
-                              bgcolor: msg.role === 'user' ? 'primary.main' : 'grey.800',
-                              color: msg.role === 'user' ? 'primary.contrastText' : 'grey.100',
-                              fontSize: 14,
-                              whiteSpace: 'pre-wrap',
-                              wordBreak: 'break-word',
-                              transition: 'box-shadow 0.3s ease',
-                              ...(highlightId === msg.id && {
-                                boxShadow: `0 0 0 2px ${TOKENS.signal.warning}`,
-                                animation: 'highlight-fade 2s ease-out',
-                                '@keyframes highlight-fade': {
-                                  '0%': { boxShadow: `0 0 0 3px ${TOKENS.signal.warning}` },
-                                  '100%': { boxShadow: '0 0 0 0px transparent' },
-                                },
-                              }),
-                            }}
                           >
                             {saidInMessage(msg.content)}
-                          </Box>
+                          </ChatBubble>
                         </Fragment>
                       )
                     })}
                     {/* Streaming bubble */}
                     {streamingMsgId && streamingText && (
-                      <Box
-                        sx={{
-                          alignSelf: 'flex-start',
-                          maxWidth: '85%',
-                          px: 1.5,
-                          py: 1,
-                          borderRadius: 2,
-                          bgcolor: 'grey.800',
-                          color: 'grey.100',
-                          fontSize: 14,
-                          whiteSpace: 'pre-wrap',
-                          wordBreak: 'break-word',
-                        }}
-                      >
-                        {streamingText}
-                      </Box>
+                      <ChatBubble role="assistant">{streamingText}</ChatBubble>
                     )}
                     {agentState !== 'idle' && !streamingText && (
                       <Box
@@ -964,7 +977,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                         left: '50%',
                         transform: 'translateX(-50%)',
                         zIndex: 1,
-                        bgcolor: 'background.paper',
+                        bgcolor: 'veilleuse.raised',
                         boxShadow: 2,
                       }}
                     />
@@ -972,46 +985,14 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                 </>
               )}
 
-              {/* Recording indicator */}
-              {recorder.state === 'recording' && (
-                <Box
-                  sx={{
-                    px: 1.5,
-                    py: 0.75,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    bgcolor: 'error.50',
-                    borderTop: 1,
-                    borderColor: 'divider',
-                  }}
-                >
-                  <Box
-                    sx={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: '50%',
-                      bgcolor: 'error.main',
-                      animation: 'pulse 1.5s ease-in-out infinite',
-                      '@keyframes pulse': {
-                        '0%, 100%': { opacity: 1 },
-                        '50%': { opacity: 0.3 },
-                      },
-                    }}
-                  />
-                  <Typography variant="caption" sx={{ flex: 1 }}>
-                    {recorder.duration}s
-                  </Typography>
-                  <Typography
-                    variant="caption"
-                    sx={{ cursor: 'pointer', color: 'error.main', fontWeight: 600 }}
-                    onClick={() => {
-                      recorder.cancelRecording()
-                    }}
-                  >
-                    Annuler
-                  </Typography>
-                </Box>
+              {/* Dictation: the orb takes the place of the old recording bar */}
+              {(recorder.state === 'recording' || isTranscribing) && (
+                <VoiceOrb
+                  phase={recorder.state === 'recording' ? 'listening' : 'transcribing'}
+                  duration={recorder.duration}
+                  onFinish={handleMicClick}
+                  onCancel={recorder.cancelRecording}
+                />
               )}
 
               {/* Voice error */}
@@ -1025,7 +1006,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
 
               {/* Input */}
               {!searchMode && (
-                <Box sx={{ p: 1.5, borderTop: 1, borderColor: 'divider', display: 'flex', gap: 1 }}>
+                <Box sx={{ px: '16px', py: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <TextField
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
@@ -1033,7 +1014,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                     placeholder="Demande à Maggie..."
                     size="small"
                     fullWidth
-                    slotProps={{ htmlInput: { sx: { fontSize: 14 } } }}
+                    slotProps={{ htmlInput: { sx: { fontSize: 14 } }, input: { sx: pillFieldSx } }}
                   />
                   <Tooltip title={recorder.state === 'recording' ? 'Arrêter la dictée' : 'Dicter'}>
                     <span>
@@ -1046,10 +1027,13 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                         aria-label={recorder.state === 'recording' ? 'Arrêter la dictée' : 'Dicter'}
                         onClick={handleMicClick}
                         disabled={isTranscribing || isLoading}
-                        color={recorder.state === 'recording' ? 'error' : 'default'}
+                        sx={[
+                          roundButtonSx(true),
+                          recorder.state === 'recording' && { color: 'error.main' },
+                        ]}
                       >
                         {isTranscribing ? (
-                          <CircularProgress size={24} />
+                          <CircularProgress size={20} />
                         ) : recorder.state === 'recording' ? (
                           <StopIcon />
                         ) : (
@@ -1060,11 +1044,17 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                   </Tooltip>
                   <IconButton
                     aria-label="Envoyer"
-                    color="primary"
                     onClick={sendMessage}
                     disabled={isLoading || !input.trim()}
+                    sx={(theme) => ({
+                      ...roundButtonSx(true)(theme),
+                      bgcolor: 'primary.main',
+                      color: 'primary.contrastText',
+                      '&:hover': { bgcolor: 'primary.light' },
+                      '&.Mui-disabled': { bgcolor: theme.palette.veilleuse.raised, color: 'text.disabled' },
+                    })}
                   >
-                    <SendIcon />
+                    <SendIcon sx={{ fontSize: 20 }} />
                   </IconButton>
                 </Box>
               )}
@@ -1116,7 +1106,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
         anchor="right"
         open={open}
         onClose={onClose}
-        slotProps={{ paper: { sx: { width: '100%' } } }}
+        slotProps={{ paper: { sx: { width: '100%', bgcolor: 'maggie.panel', backgroundImage: 'none' } } }}
       >
         {panel}
       </Drawer>

@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useMemo } from 'react'
 import { Layout as RALayout, LayoutProps } from 'react-admin'
 import Box from '@mui/material/Box'
 import { ChatWidget, ChatWidgetRef } from '../chat/ChatWidget'
+import { MaggieInterruptionHost } from '../maggie/MaggieInterruptionHost'
 import { CustomAppBar } from './AppBar'
 import { ThemePreferenceSync } from './ThemePreferenceSync'
 import { CustomMenu } from './Menu'
@@ -63,6 +64,13 @@ export const Layout = (props: LayoutProps) => {
     }
     triggerResize()
   }, [chatOpen, sidebarTab, triggerResize])
+
+  const handleOpenChatFromInterruption = useCallback(() => {
+    setChatOpen(true)
+    setSidebarTab('chat')
+    setUnreadChat(false)
+    triggerResize()
+  }, [triggerResize])
 
   const handleChatClose = useCallback(() => {
     setChatOpen(false)
@@ -154,6 +162,7 @@ export const Layout = (props: LayoutProps) => {
             toolCalls={toolCalls}
             onToolCallsChange={setToolCalls}
           />
+          <MaggieInterruptionHost chatOpen={chatOpen} onOpenChat={handleOpenChatFromInterruption} />
         </Box>
       </RALayout>
     </ChatContext.Provider>

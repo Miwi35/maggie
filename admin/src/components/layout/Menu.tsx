@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { ReactElement } from 'react'
 import { MenuItemLink, useSidebarState } from 'react-admin'
 import Box from '@mui/material/Box'
 import List from '@mui/material/List'
@@ -37,6 +38,10 @@ import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlin
 import CreditScoreIcon from '@mui/icons-material/CreditScore'
 import FactCheckIcon from '@mui/icons-material/FactCheck'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
+import { ModuleIcon } from './ModuleIcon'
+import type { ModuleName } from '../../theme'
+
+const tinted = (module: ModuleName, icon: ReactElement) => <ModuleIcon module={module}>{icon}</ModuleIcon>
 
 export const CustomMenu = () => {
   const [groceryOpen, setGroceryOpen] = useState(false)
@@ -64,7 +69,7 @@ export const CustomMenu = () => {
         <List component="nav" disablePadding>
           <ListItemButton onClick={() => setGroceryOpen(!groceryOpen)}>
             <ListItemIcon sx={{ minWidth: 40 }}>
-              <ShoppingCartIcon />
+              {tinted('cuisine', <ShoppingCartIcon />)}
             </ListItemIcon>
             <ListItemText
               primary="Courses"
@@ -78,19 +83,19 @@ export const CustomMenu = () => {
               <MenuItemLink
                 to="/grocery"
                 primaryText="Liste de courses"
-                leftIcon={<ReceiptLongIcon />}
+                leftIcon={tinted('cuisine', <ReceiptLongIcon />)}
                 sx={{ pl: 4 }}
               />
               <MenuItemLink
                 to="/products"
                 primaryText="Produits"
-                leftIcon={<CategoryIcon />}
+                leftIcon={tinted('cuisine', <CategoryIcon />)}
                 sx={{ pl: 4 }}
               />
               <MenuItemLink
                 to="/stores"
                 primaryText="Magasins"
-                leftIcon={<StorefrontIcon />}
+                leftIcon={tinted('cuisine', <StorefrontIcon />)}
                 sx={{ pl: 4 }}
               />
             </List>
@@ -98,7 +103,7 @@ export const CustomMenu = () => {
 
           <ListItemButton onClick={() => setNutritionOpen(!nutritionOpen)}>
             <ListItemIcon sx={{ minWidth: 40 }}>
-              <RestaurantMenuIcon />
+              {tinted('cuisine', <RestaurantMenuIcon />)}
             </ListItemIcon>
             <ListItemText
               primary="Nutrition"
@@ -112,20 +117,20 @@ export const CustomMenu = () => {
               <MenuItemLink
                 to="/recipes"
                 primaryText="Recettes"
-                leftIcon={<MenuBookIcon />}
+                leftIcon={tinted('cuisine', <MenuBookIcon />)}
                 sx={{ pl: 4 }}
               />
               <MenuItemLink
                 to="/meals"
                 primaryText="Repas de la semaine"
-                leftIcon={<RestaurantIcon />}
+                leftIcon={tinted('cuisine', <RestaurantIcon />)}
                 sx={{ pl: 4 }}
               />
             </List>
           </Collapse>
           <ListItemButton onClick={() => setFinanceOpen(!financeOpen)}>
             <ListItemIcon sx={{ minWidth: 40 }}>
-              <AccountBalanceWalletIcon />
+              {tinted('comptes', <AccountBalanceWalletIcon />)}
             </ListItemIcon>
             <ListItemText
               primary="Finance"
@@ -139,55 +144,55 @@ export const CustomMenu = () => {
               <MenuItemLink
                 to="/finance/dashboard"
                 primaryText="Vue d'ensemble"
-                leftIcon={<InsightsIcon />}
+                leftIcon={tinted('comptes', <InsightsIcon />)}
                 sx={{ pl: 4 }}
               />
               <MenuItemLink
                 to="/finance/banks"
                 primaryText="Banques"
-                leftIcon={<AccountBalanceOutlinedIcon />}
+                leftIcon={tinted('comptes', <AccountBalanceOutlinedIcon />)}
                 sx={{ pl: 4 }}
               />
               <MenuItemLink
                 to="/finance/import"
                 primaryText="Import de relevé"
-                leftIcon={<UploadFileIcon />}
+                leftIcon={tinted('comptes', <UploadFileIcon />)}
                 sx={{ pl: 4 }}
               />
               <MenuItemLink
                 to="/accounts"
                 primaryText="Comptes"
-                leftIcon={<AccountBalanceIcon />}
+                leftIcon={tinted('comptes', <AccountBalanceIcon />)}
                 sx={{ pl: 4 }}
               />
               <MenuItemLink
                 to="/categories"
                 primaryText="Catégories"
-                leftIcon={<CategoryIcon />}
+                leftIcon={tinted('comptes', <CategoryIcon />)}
                 sx={{ pl: 4 }}
               />
               <MenuItemLink
                 to="/envelopes"
                 primaryText="Budgets"
-                leftIcon={<SavingsIcon />}
+                leftIcon={tinted('comptes', <SavingsIcon />)}
                 sx={{ pl: 4 }}
               />
               <MenuItemLink
                 to="/finance/cushion"
                 primaryText="Matelas"
-                leftIcon={<ShieldIcon />}
+                leftIcon={tinted('comptes', <ShieldIcon />)}
                 sx={{ pl: 4 }}
               />
               <MenuItemLink
                 to="/loans"
                 primaryText="Prêts"
-                leftIcon={<CreditScoreIcon />}
+                leftIcon={tinted('comptes', <CreditScoreIcon />)}
                 sx={{ pl: 4 }}
               />
               <MenuItemLink
                 to="/finance/monthly-review"
                 primaryText="Revue mensuelle"
-                leftIcon={<FactCheckIcon />}
+                leftIcon={tinted('comptes', <FactCheckIcon />)}
                 sx={{ pl: 4 }}
               />
             </List>
@@ -251,7 +256,7 @@ export const CustomMenu = () => {
                 sx={{ pl: 4 }}
               >
                 <ListItemIcon sx={{ minWidth: 40 }}>
-                  <KitchenIcon />
+                  {tinted('cuisine', <KitchenIcon />)}
                 </ListItemIcon>
                 <ListItemText
                   primary="Cuisine"
@@ -268,13 +273,13 @@ export const CustomMenu = () => {
                   <MenuItemLink
                     to="/ingredients"
                     primaryText="Ingrédients"
-                    leftIcon={<EggIcon />}
+                    leftIcon={tinted('cuisine', <EggIcon />)}
                     sx={{ pl: 8 }}
                   />
                   <MenuItemLink
                     to="/recurring_grocery_items"
                     primaryText="Articles récurrents"
-                    leftIcon={<RepeatIcon />}
+                    leftIcon={tinted('cuisine', <RepeatIcon />)}
                     sx={{ pl: 8 }}
                   />
                 </List>

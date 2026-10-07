@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AdminContext, memoryStore, useSidebarState } from 'react-admin'
 import { CustomSidebar } from './Sidebar'
-import { lightTheme } from '../../theme'
+import { veilleuseLightTheme } from '../../theme'
 import { PHONE_WIDTH, TABLET_WIDTH, DESKTOP_WIDTH, setViewportWidth, resetViewport } from '../../test/viewport'
 
 /**
@@ -30,7 +30,7 @@ type Store = ReturnType<typeof memoryStore>
 
 /** A fresh element every call: `rerender` with the same one would bail out. */
 const shell = (store: Store) => (
-  <AdminContext theme={lightTheme} store={store}>
+  <AdminContext theme={veilleuseLightTheme} store={store}>
     <Burger />
     <CustomSidebar>
       <nav>

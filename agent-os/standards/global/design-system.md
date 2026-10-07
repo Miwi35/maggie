@@ -7,7 +7,7 @@ when a mirror drifts.
 | | |
 |---|---|
 | Source | `design/tokens.json` |
-| Web mirror | `admin/src/design/tokens.ts` → `admin/src/theme.ts` (MUI, merged onto radiant) |
+| Web mirror | `admin/src/design/tokens.ts` → `admin/src/theme.ts` (MUI, merged onto radiant as a base; the identity is Veilleuse, `frontend/veilleuse.md`) |
 | Mobile mirror | `mobile/app/src/main/java/com/maggie/app/ui/theme/Tokens.kt` → `Theme.kt` (Material 3) |
 | Journey | `e2e/web/tests/design-system.spec.ts` — reads the source, through the `design/` mount |
 | Nets | `admin/src/design/tokens.contract.test.ts`, `mobile/.../ui/theme/TokensContractTest.kt` |
@@ -28,13 +28,12 @@ missing mount is a broken test, not a silent pass. `task wt:test:admin`,
 
 ## Two colour families, two jobs
 
-- **`feedback`** — react-admin radiant's alert palette, wired into MUI's
-  `palette.error/warning/info/success` and into Compose's `error` role. It is
-  about *this interaction*: a field in error, an `Alert`, a snackbar. The web
-  already draws it; the token file pins it so a react-admin upgrade that changes
-  it fails a test instead of a screen — `admin/src/theme.test.ts` compares the
-  tokens against `radiantLightTheme` / `radiantDarkTheme` themselves, not just
-  against the theme they were merged onto.
+- **`feedback`** — the alert palette, one set per mode (`feedback.light`,
+  `feedback.dark`), wired into MUI's `palette.error/warning/info/success` and
+  into Compose's `error` role. It is about *this interaction*: a field in
+  error, an `Alert`, a snackbar. Each value reads at 4.5:1 on the page, the card
+  and the raised surface of its mode — `admin/src/theme.test.ts` computes it.
+  Since MAG-311 the values are Veilleuse's own, not radiant's.
 - **`signal`** — the Material hues the app labels *data* with: a task's
   criticality, a thread's state, an item just ticked off. They have to read as a
   chip, as a swipe background and as a 10 px dot, in both modes.
@@ -42,6 +41,13 @@ missing mount is a broken test, not a silent pass. `task wt:test:admin`,
 `criticality`, `contextState` and `source.done` hold the **name** of a signal
 entry, not a hex: the mapping is the design intent, and each mirror resolves it
 (`criticalityColor()`, `contextStateColor()`).
+
+## Groups added by Veilleuse (MAG-311)
+
+`surface.*.raised|track|caption`, `brand.primaryHover|container*`, `module`
+(one hue per module, per mode) and `maggie` (avatar gradient, bubble, panel,
+reply). `night`, `signal`, `source` and `chart` keep their values: they label
+data, not the identity.
 
 ## What is deliberately not a token
 
@@ -81,14 +87,14 @@ that was not declared yet.
 
 ## Typography
 
-Gabarito, 400 / 500 / 600 / 700, loaded from Google Fonts in
-`admin/index.html`. **Never ask for a weight that link does not load** — the
-browser synthesises it, which is what made the admin's `h5` faux-bold until
-MAG-39. `design/tokens.contract.test.ts` reads the link element and checks the
-token weights against it.
+Geist (300 / 400 / 500 / 600) and Geist Mono (400 / 500), loaded from Google
+Fonts in `admin/index.html`. **Never ask for a weight that link does not load** —
+the browser synthesises it, which is what made the admin's `h5` faux-bold until
+MAG-39. `tokens.contract.test.ts` reads the link element and checks the token
+weights against it. Tabular figures are on for the whole admin.
 
 The sizes map onto the eight MUI variants the admin uses; they are also
 Material 3's defaults for the nine roles the phone draws, which is what will
 make the Compose typography a no-reflow change. **Line heights are not tokens**
-(above), and **the phone still writes in Roboto**: Gabarito has to be bundled in
+(above), and **the phone still writes in Roboto**: Geist has to be bundled in
 `res/font/` with its licence, and that is a ticket of its own.

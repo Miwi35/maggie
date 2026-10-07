@@ -1,6 +1,7 @@
 package com.maggie.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import kotlinx.serialization.json.Json
@@ -46,19 +47,20 @@ class TokensContractTest {
 
     @Test
     fun `the mirror holds every token of design tokens json, and no other`() {
-        // `typography.family` is the one token with no Compose equivalent — a CSS
-        // stack is a string, a FontFamily is a resource — so it has its own test.
-        assertEquals(flatten(source) - "typography.family", mirror())
+        // `typography.family` and `typography.mono` have no Compose equivalent — a
+        // CSS stack is a string, a FontFamily is a resource — so the first has its
+        // own test and the second is not mirrored.
+        assertEquals(flatten(source) - "typography.family" - "typography.mono", mirror())
     }
 
     @Test
     fun `the typeface the token file names is the one the admin loads`() {
-        // The Compose typography that reads it comes with the Gabarito ticket —
+        // The Compose typography that reads it comes with the Geist ticket —
         // the font has to be bundled in res/font/ first. What holds here is that
-        // the shared stack says Gabarito, so both platforms start from one name.
+        // the shared stack says Geist, so both platforms start from one name.
         val stack = (source["typography"] as JsonObject)["family"]!!.jsonPrimitive.content
 
-        assertEquals("Gabarito", stack.substringBefore(',').trim())
+        assertEquals("Geist", stack.substringBefore(',').trim())
     }
 
     @Test
@@ -98,6 +100,14 @@ class TokensContractTest {
     }
 
     @Test
+    fun `the accent is lighter on the dark mode than on the light one`() {
+        // The two accents are not interchangeable: `primary` carries dark text on
+        // dark surfaces, `primaryLight` carries white on light ones.
+        assert(MaggieTokens.Brand.primary.luminance() > MaggieTokens.Brand.primaryLight.luminance())
+        assert(MaggieTokens.Brand.onPrimary.luminance() < MaggieTokens.Brand.onPrimaryLight.luminance())
+    }
+
+    @Test
     fun `the chart slots are numbered the way a legend numbers them`() {
         assertEquals(Color(0xFF2A78D6), chartColor(1, dark = false))
         assertEquals(Color(0xFFD95926), chartColor(2, dark = true))
@@ -105,7 +115,7 @@ class TokensContractTest {
 
     // ---------------------------------------------------------------------
 
-    /** `design/tokens.json`, flattened to dotted paths — `brand.primary` → `#9055FD`. */
+    /** `design/tokens.json`, flattened to dotted paths — `brand.primary` → `#A68BFF`. */
     private fun flatten(element: JsonElement, prefix: String = ""): Map<String, String> =
         when (element) {
             is JsonObject -> element.entries.flatMap { (key, value) ->
@@ -125,9 +135,11 @@ class TokensContractTest {
     private fun mirror(): Map<String, String> = buildMap {
         with(MaggieTokens.Brand) {
             put("brand.primary", primary.hex())
+            put("brand.primaryHover", primaryHover.hex())
             put("brand.onPrimary", onPrimary.hex())
-            put("brand.secondaryLight", secondaryLight.hex())
-            put("brand.secondaryDark", secondaryDark.hex())
+            put("brand.primaryLight", primaryLight.hex())
+            put("brand.primaryHoverLight", primaryHoverLight.hex())
+            put("brand.onPrimaryLight", onPrimaryLight.hex())
             put("brand.containerLight", containerLight.hex())
             put("brand.onContainerLight", onContainerLight.hex())
             put("brand.containerDark", containerDark.hex())
@@ -136,20 +148,39 @@ class TokensContractTest {
         for ((mode, surface) in listOf("light" to MaggieTokens.surfaceLight, "dark" to MaggieTokens.surfaceDark)) {
             put("surface.$mode.background", surface.background.hex())
             put("surface.$mode.paper", surface.paper.hex())
+            put("surface.$mode.raised", surface.raised.hex())
+            put("surface.$mode.track", surface.track.hex())
             put("surface.$mode.text", surface.text.hex())
             put("surface.$mode.textMuted", surface.textMuted.hex())
+            put("surface.$mode.caption", surface.caption.hex())
         }
+        put("divider.light", num(MaggieTokens.Divider.LIGHT))
+        put("divider.dark", num(MaggieTokens.Divider.DARK))
         with(MaggieTokens.Night) {
             put("night.background", background.hex())
             put("night.raised", raised.hex())
             put("night.text", text.hex())
             put("night.textMutedAlpha", num(TEXT_MUTED_ALPHA))
         }
-        with(MaggieTokens.Feedback) {
-            put("feedback.error", error.hex())
-            put("feedback.warning", warning.hex())
-            put("feedback.info", info.hex())
-            put("feedback.success", success.hex())
+        for ((mode, feedback) in listOf("light" to MaggieTokens.feedbackLight, "dark" to MaggieTokens.feedbackDark)) {
+            put("feedback.$mode.error", feedback.error.hex())
+            put("feedback.$mode.warning", feedback.warning.hex())
+            put("feedback.$mode.info", feedback.info.hex())
+            put("feedback.$mode.success", feedback.success.hex())
+        }
+        with(MaggieTokens.Module) {
+            for ((name, pair) in listOf("cuisine" to cuisine, "comptes" to comptes, "sport" to sport, "travail" to travail)) {
+                put("module.$name.light", pair.first.hex())
+                put("module.$name.dark", pair.second.hex())
+            }
+        }
+        with(MaggieTokens.Maggie) {
+            put("maggie.avatarFrom", avatarFrom.hex())
+            put("maggie.avatarTo", avatarTo.hex())
+            for ((name, pair) in listOf("bubble" to bubble, "panel" to panel, "reply" to reply)) {
+                put("maggie.$name.light", pair.first.hex())
+                put("maggie.$name.dark", pair.second.hex())
+            }
         }
         with(MaggieTokens.Signal) {
             put("signal.success", success.hex())
@@ -173,10 +204,10 @@ class TokensContractTest {
             put("chart.categorical.$index.dark", dark.hex())
         }
         with(MaggieTokens.Typography) {
+            put("typography.weight.light", LIGHT.toString())
             put("typography.weight.regular", REGULAR.toString())
             put("typography.weight.medium", MEDIUM.toString())
             put("typography.weight.semibold", SEMIBOLD.toString())
-            put("typography.weight.bold", BOLD.toString())
             put("typography.size.xs", num(xs))
             put("typography.size.sm", num(sm))
             put("typography.size.md", num(md))
@@ -191,6 +222,13 @@ class TokensContractTest {
             put("radius.md", num(md))
             put("radius.lg", num(lg))
             put("radius.xl", num(xl))
+            put("radius.pill", num(pill))
+        }
+        with(MaggieTokens.Motion) {
+            put("motion.springStiffness", num(SPRING_STIFFNESS))
+            put("motion.springDamping", num(SPRING_DAMPING))
+            put("motion.fastMs", FAST_MS.toString())
+            put("motion.baseMs", BASE_MS.toString())
         }
         with(MaggieTokens.Space) {
             put("space.xs", num(xs))

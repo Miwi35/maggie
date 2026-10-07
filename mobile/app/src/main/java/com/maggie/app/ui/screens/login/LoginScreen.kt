@@ -105,7 +105,7 @@ fun LoginScreen(viewModel: LoginViewModel) {
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = error,
-                color = MaggieTokens.Feedback.error,
+                color = MaggieTokens.feedbackDark.error,
                 fontSize = 12.sp,
             )
         }

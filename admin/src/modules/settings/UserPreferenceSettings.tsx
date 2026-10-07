@@ -19,6 +19,7 @@ import { useUserPreferences } from '../../hooks/useUserPreferences'
 import { THEME_CHOICE_KEY } from '../../components/layout/ThemePreferenceSync'
 import type { ThemeChoice } from '../../components/layout/ThemePreferenceSync'
 import { useMercure } from '../../hooks/useMercure'
+import { isSoundEnabled, setSoundEnabled } from '../../components/maggie/chime'
 
 interface Agenda {
   id: string
@@ -37,6 +38,7 @@ export const UserPreferenceSettings = () => {
   const [agendas, setAgendas] = useState<Agenda[]>([])
   const [, setThemeChoice] = useStore<ThemeChoice>(THEME_CHOICE_KEY, 'system')
   const [city, setCity] = useState('')
+  const [sound, setSound] = useState(isSoundEnabled)
 
   const savedCity = preferences?.defaultCity ?? ''
   useEffect(() => {
@@ -63,6 +65,11 @@ export const UserPreferenceSettings = () => {
     } else {
       notify('Impossible de mettre à jour le thème', { type: 'error' })
     }
+  }
+
+  const handleSoundChange = (enabled: boolean) => {
+    setSoundEnabled(enabled)
+    setSound(enabled)
   }
 
   const handleTimezoneChange = async (tz: string | null) => {
@@ -133,6 +140,11 @@ export const UserPreferenceSettings = () => {
             <MenuItem value="light">Clair</MenuItem>
             <MenuItem value="dark">Sombre</MenuItem>
           </TextField>
+          <FormControlLabel
+            sx={{ mt: 2, display: 'flex' }}
+            control={<Switch checked={sound} onChange={(e) => handleSoundChange(e.target.checked)} />}
+            label="Son des interruptions de Maggie"
+          />
         </CardContent>
       </Card>
 

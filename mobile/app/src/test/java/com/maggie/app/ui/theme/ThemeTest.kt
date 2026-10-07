@@ -11,19 +11,8 @@ import kotlin.math.min
 /**
  * WCAG's non-text minimum — the floor for an icon, a border or a glyph that
  * carries meaning without being prose (SC 1.4.11), and not 4.5, the body-text
- * figure. Four of the pairs below sit between the two, and they were **measured,
- * not missed**: they are radiant's own values, which this ticket exists to name
- * rather than to redraw.
- *
- *  - `primary` / `onPrimary`, both modes — white on the brand violet `#9055FD`:
- *    **4.28**;
- *  - `error` / `onError`, both modes — white on `#DB488B`: **3.95**;
- *  - light `secondary` / `onSecondary` — white on `#A270FF`: **3.33**;
- *  - light `surfaceVariant` / `onSurfaceVariant` — `#89868D` on `#F0F1F6`:
- *    **3.18**.
- *
- * Every other pair is between 5.9 and 19.0. Raising one of the four means
- * changing the web in the same breath, so it belongs to MAG-90's audit, not here.
+ * figure. It is the floor the « Veilleuse » palette is held to, whichever pair
+ * is read.
  */
 private const val MIN_CONTRAST = 3.0f
 
@@ -46,7 +35,7 @@ private fun contrastRatio(a: Color, b: Color): Float {
  * (`agent-os/standards/mobile/screen-tests.md`). What it is for is the half the
  * contract test cannot see: that the scheme and the shapes actually *read* the
  * tokens, rather than holding Material's baseline next to a token file nobody
- * consults. The typography joins them when Gabarito is bundled — its own ticket.
+ * consults. The typography joins them when Geist is bundled — its own ticket.
  *
  * Both modes, side by side: the dark scheme was six roles out of twenty-nine
  * and everything else was Material's own, which is how the phone ended up on a
@@ -60,12 +49,22 @@ class ThemeTest {
     )
 
     @Test
-    fun `both schemes take the brand violet as their accent`() {
-        // One accent, both modes, same as the admin's — not Material's
-        // convention of a pale tone on dark.
+    fun `each scheme takes the accent of its own mode`() {
+        // The light scheme reads `primaryLight` / `onPrimaryLight`, the dark one
+        // `primary` / `onPrimary` — the token names the dark accent plainly.
+        assertEquals(MaggieTokens.Brand.primaryLight, MaggieLightColorScheme.primary)
+        assertEquals(MaggieTokens.Brand.onPrimaryLight, MaggieLightColorScheme.onPrimary)
+        assertEquals(MaggieTokens.Brand.primary, MaggieDarkColorScheme.primary)
+        assertEquals(MaggieTokens.Brand.onPrimary, MaggieDarkColorScheme.onPrimary)
+    }
+
+    @Test
+    fun `the accent is the only colour, so the secondary roles repeat it`() {
         for ((mode, scheme) in modes) {
-            assertEquals(mode, MaggieTokens.Brand.primary, scheme.primary)
-            assertEquals(mode, MaggieTokens.Brand.onPrimary, scheme.onPrimary)
+            assertEquals(mode, scheme.primary, scheme.secondary)
+            assertEquals(mode, scheme.onPrimary, scheme.onSecondary)
+            assertEquals(mode, scheme.primaryContainer, scheme.secondaryContainer)
+            assertEquals(mode, scheme.onPrimaryContainer, scheme.onSecondaryContainer)
         }
     }
 
@@ -84,10 +83,9 @@ class ThemeTest {
     }
 
     @Test
-    fun `both schemes report an error in the colour the admin does`() {
-        for ((mode, scheme) in modes) {
-            assertEquals(mode, MaggieTokens.Feedback.error, scheme.error)
-        }
+    fun `each scheme reports an error in the colour its own mode's feedback names`() {
+        assertEquals(MaggieTokens.feedbackLight.error, MaggieLightColorScheme.error)
+        assertEquals(MaggieTokens.feedbackDark.error, MaggieDarkColorScheme.error)
     }
 
     @Test

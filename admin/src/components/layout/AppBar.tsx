@@ -84,7 +84,7 @@ export const CustomAppBar = () => {
             <Tooltip title="Maggie's Mind">
               <IconButton color="inherit" onClick={onMindToggle}>
                 <PsychologyIcon
-                  sx={{ color: chatOpen && sidebarTab === 'mind' ? TOKENS.brand.primary : 'inherit' }}
+                  sx={{ color: chatOpen && sidebarTab === 'mind' ? 'primary.main' : 'inherit' }}
                 />
               </IconButton>
             </Tooltip>
