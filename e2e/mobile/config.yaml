@@ -24,3 +24,4 @@ executionOrder:
     - 08-grocery-realtime
     - 09-finance-banks
     - 11-calendar-all-day-series
+    - 12-event-date-picker

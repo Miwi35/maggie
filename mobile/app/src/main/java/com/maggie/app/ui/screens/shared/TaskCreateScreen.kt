@@ -25,6 +25,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.TaskCreateRequest
+import com.maggie.app.ui.components.DateField
+import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,7 +38,7 @@ fun TaskCreateScreen(
     var description by remember { mutableStateOf("") }
     var priority by remember { mutableStateOf("medium") }
     var criticality by remember { mutableStateOf("low") }
-    var dueDate by remember { mutableStateOf("") }
+    var dueDate by remember { mutableStateOf<LocalDate?>(null) }
 
     Scaffold(
         topBar = {
@@ -88,30 +90,23 @@ fun TaskCreateScreen(
                 onValueChange = { criticality = it },
             )
 
-            OutlinedTextField(
+            DateField(
+                label = "Date d'échéance",
                 value = dueDate,
                 onValueChange = { dueDate = it },
-                label = { Text("Date d'échéance (YYYY-MM-DD)") },
-                singleLine = true,
+                onClear = { dueDate = null },
                 modifier = Modifier.fillMaxWidth(),
             )
 
             Button(
                 onClick = {
-                    val dueDateIso = if (dueDate.isNotBlank()) {
-                        try {
-                            java.time.LocalDate.parse(dueDate)
-                                .atStartOfDay(java.time.ZoneId.of("Europe/Paris"))
-                                .toInstant().toString()
-                        } catch (_: Exception) { null }
-                    } else null
                     onConfirm(
                         TaskCreateRequest(
                             title = title,
                             description = description.ifBlank { null },
                             priority = priority,
                             criticality = criticality,
-                            dueDate = dueDateIso,
+                            dueDate = TaskDueDate.toIso(dueDate),
                         ),
                     )
                 },

@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.maggie.app.ui.components.DateField
 import com.maggie.app.util.RruleUtils
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -215,6 +216,10 @@ fun RecurrencePicker(
                                 text = { Text(label) },
                                 onClick = {
                                     endType = value
+                                    // « Le » needs a day to end on: a month out, until the owner picks another.
+                                    if (value == "until" && until == null) {
+                                        until = (eventStartDate ?: LocalDate.now()).plusMonths(1)
+                                    }
                                     endExpanded = false
                                 },
                             )
@@ -232,6 +237,15 @@ fun RecurrencePicker(
                     )
                     Text("occurrences", style = MaterialTheme.typography.bodyMedium)
                 }
+            }
+
+            if (endType == "until") {
+                DateField(
+                    label = "Date de fin de répétition",
+                    value = until,
+                    onValueChange = { until = it },
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
 
             // Summary
