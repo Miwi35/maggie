@@ -395,7 +395,11 @@ assert_eq "$contexts_before" "$(curl -sS "${AUTH[@]}" "$BASE_URL/agent/contexts"
 #
 # Selected on the stub's URL rather than by index, so a second OpenAI stub cannot
 # silently retarget this.
-dictated="$(jq -r '.mappings[] | select(.request.urlPathPattern | test("transcriptions")) | .response.body' \
+# The catch-all stub (no body pattern): the other one answers only a clip carrying the silence marker. Since
+# MAG-222 the stub answers verbose_json, whose sentence is `.text`; `.body` kept for a plain-text stub.
+dictated="$(jq -r '.mappings[] | select((.request.urlPathPattern // "") | test("transcriptions"))
+  | select((.request.multipartPatterns // .request.bodyPatterns // []) | length == 0)
+  | (.response.jsonBody.text // .response.body)' \
   "$REPO_ROOT/.docker/e2e/wiremock/mappings/openai.json")"
 
 # Any non-empty bytes: the route refuses an empty upload, and WireMock answers
