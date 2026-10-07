@@ -5,14 +5,18 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +29,12 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.maggie.app.ui.UiTags
 
+/**
+ * The band under the content: the contexts, the mic, and the field that opens the
+ * conversation. Drawn on a window tall enough to pay 72 dp for it —
+ * [com.maggie.app.ui.layout.ChatEntry.BOTTOM_BAR]. A short window gets
+ * [ChatRailActions] instead.
+ */
 @Composable
 fun ChatBottomBar(
     onOpenChat: () -> Unit,
@@ -42,23 +52,9 @@ fun ChatBottomBar(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onBrainClick, modifier = Modifier.testTag(UiTags.CHAT_CONTEXTS)) {
-                if (activeContextCount > 0) {
-                    BadgedBox(
-                        badge = {
-                            Badge { Text(activeContextCount.toString()) }
-                        },
-                    ) {
-                        Icon(Icons.Default.Psychology, contentDescription = "Contextes")
-                    }
-                } else {
-                    Icon(Icons.Default.Psychology, contentDescription = "Contextes")
-                }
-            }
+            ChatContextsButton(onBrainClick, activeContextCount)
 
-            IconButton(onClick = onMicClick, modifier = Modifier.testTag(UiTags.CHAT_MIC)) {
-                Icon(Icons.Default.Mic, contentDescription = "Micro")
-            }
+            ChatMicButton(onMicClick)
 
             Spacer(modifier = Modifier.width(8.dp))
 
@@ -79,5 +75,62 @@ fun ChatBottomBar(
                 )
             }
         }
+    }
+}
+
+/**
+ * The same three ways into the conversation, at the top of the rail, for a window too
+ * short for a band under its content (MAG-35, recette return).
+ *
+ * The field becomes a `FloatingActionButton`, which is what the rail's header slot is
+ * for: « demander à Maggie » is the app's primary action, and a 360 dp placeholder
+ * would not fit in 80 dp of rail anyway. The tags are the bar's own, so a journey or a
+ * test that taps `chat_open` taps it in either layout.
+ */
+@Composable
+fun ChatRailActions(
+    onOpenChat: () -> Unit,
+    onMicClick: () -> Unit = {},
+    onBrainClick: () -> Unit = {},
+    activeContextCount: Int = 0,
+) {
+    Spacer(modifier = Modifier.height(8.dp))
+
+    FloatingActionButton(
+        onClick = onOpenChat,
+        modifier = Modifier.testTag(UiTags.CHAT_OPEN),
+        elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 0.dp),
+    ) {
+        Icon(Icons.Default.Chat, contentDescription = "Demander à Maggie")
+    }
+
+    ChatMicButton(onMicClick)
+
+    ChatContextsButton(onBrainClick, activeContextCount)
+}
+
+/** The brain, badged with how many contexts are active. Shared by the three surfaces. */
+@Composable
+internal fun ChatContextsButton(onClick: () -> Unit, activeContextCount: Int) {
+    IconButton(onClick = onClick, modifier = Modifier.testTag(UiTags.CHAT_CONTEXTS)) {
+        if (activeContextCount > 0) {
+            BadgedBox(
+                badge = {
+                    Badge { Text(activeContextCount.toString()) }
+                },
+            ) {
+                Icon(Icons.Default.Psychology, contentDescription = "Contextes")
+            }
+        } else {
+            Icon(Icons.Default.Psychology, contentDescription = "Contextes")
+        }
+    }
+}
+
+/** The mic, which opens the conversation in voice mode. Shared by the three surfaces. */
+@Composable
+internal fun ChatMicButton(onClick: () -> Unit) {
+    IconButton(onClick = onClick, modifier = Modifier.testTag(UiTags.CHAT_MIC)) {
+        Icon(Icons.Default.Mic, contentDescription = "Micro")
     }
 }

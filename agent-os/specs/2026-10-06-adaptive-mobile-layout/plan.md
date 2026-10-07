@@ -9,23 +9,47 @@ Shaping notes, decisions and what is out of scope: [shape.md](shape.md)
 The ticket's list, turned into the numbers every test and every preview names. A
 `widthDp`/`heightDp` pair, not a device: that is the whole point of the model.
 
-| Format | dp | Width class | Height class | Navigation | Chat |
-|---|---|---|---|---|---|
-| Téléphone 21:9 | 412 × 1000 | compact | expanded | burger + modal drawer | collapsed bar + sheet |
-| Pliable fermé | 374 × 840 | compact | medium | burger + modal drawer | collapsed bar + sheet |
-| Écran externe (Flip) | 280 × 290 | compact | compact | burger + modal drawer | collapsed bar + sheet |
-| Pliable ouvert | 674 × 841 | medium | medium | **rail** | collapsed bar + sheet |
-| Tablette portrait | 800 × 1280 | medium | expanded | **rail** | collapsed bar + sheet |
-| Tablette paysage | 1280 × 800 | expanded | medium | **rail** | **permanent panel** |
-| (Téléphone paysage) | 891 × 411 | expanded | compact | **rail** | collapsed bar + sheet |
+| Format | dp | Width class | Height class | Navigation | Chat | Top bar |
+|---|---|---|---|---|---|---|
+| Téléphone 21:9 | 412 × 1000 | compact | expanded | burger + modal drawer | collapsed bar + sheet | 64 dp |
+| Pliable fermé | 374 × 840 | compact | medium | burger + modal drawer | collapsed bar + sheet | 64 dp |
+| Écran externe (Flip) | 280 × 290 | compact | compact | burger + modal drawer | collapsed bar + sheet | **48 dp** |
+| Pliable ouvert | 674 × 841 | medium | medium | **rail** | collapsed bar + sheet | 64 dp |
+| Tablette portrait | 800 × 1280 | medium | expanded | **rail** | collapsed bar + sheet | 64 dp |
+| Tablette paysage | 1280 × 800 | expanded | medium | **rail** | **permanent panel** | 64 dp |
+| (Téléphone paysage) | 891 × 411 | expanded | compact | **rail** | **rail header** + sheet | **48 dp** |
 
 The last row is not in the ticket; it falls out of the same arithmetic and is
 asserted so that « expanded » never silently means « tablet ».
 
+## Retour de recette — la hauteur du contenu en paysage (2026-10-07)
+
+The owner refused the recette on that last row: « en mode paysage sur mobile, entre
+le header et le chat de maggie, on n'a que très peu d'espace pour le contenu ». He is
+right, and the number says so: 411 dp of window, minus a 64 dp top bar, minus the
+72 dp of the collapsed bar, left **275 dp** of content — two list rows between two
+bands of chrome.
+
+A short window (height class compact, < 480 dp) now spends nothing it does not have:
+
+- the three buttons of the collapsed bar — contexts, mic, « Demander à Maggie… » —
+  move to the **rail's header**, which is the one piece of chrome that costs no height
+  at all; the band is not drawn. `ChatEntry` is the new third answer of the model:
+  `BOTTOM_BAR`, `RAIL`, `PANEL`, exactly one per window;
+- the top bar is drawn at **48 dp** instead of 64 (`MaggieTopBar(dense = …)`): the
+  icons keep their 48 dp touch targets, only the empty band around the title goes.
+
+Content in landscape: **363 dp** instead of 275, asserted by measuring the node in
+`AppShellScreenTest` rather than by naming the components it no longer contains.
+
+A window that is short but too narrow for a rail — the cover screen of a Flip — keeps
+the collapsed bar: there is nowhere else to put it. It gains the dense top bar.
+
 ## Acceptance criteria
 
 1. A window under 600 dp wide is drawn exactly as today: `TopAppBar` with the
-   burger, `ModalNavigationDrawer`, collapsed chat bar, chat as a sheet. The
+   burger, `ModalNavigationDrawer`, collapsed chat bar, chat as a sheet — with a
+   48 dp top bar if it is also under 480 dp tall (the Flip's cover screen). The
    Maestro journeys keep passing unchanged.
 2. From 600 dp wide, the main screens show a `NavigationRail` carrying the same
    six destinations plus Paramètres, and the top bar has no burger. A route that
@@ -42,6 +66,10 @@ asserted so that « expanded » never silently means « tablet ».
    each a `@Preview` the owner can open in Android Studio.
 6. Voice, contexts, search, notifications and every existing route stay reachable
    in all six formats.
+7. On a window under 480 dp tall that has a rail — the phone in landscape — the
+   collapsed bar is not drawn and its three buttons are at the top of the rail,
+   under the same tags; the top bar is 48 dp; the content keeps at least 340 dp of
+   the 411 the window has (*retour de recette*, below).
 
 ## Task 1: Save spec documentation
 
@@ -121,10 +149,10 @@ neither needs a device.
 
 | Unit touched | Tests |
 |---|---|
-| `appLayoutFor` | `WindowLayoutTest` — one test per row of the table above, named by the format, asserting the classes, the navigation and the panel; plus the breakpoints themselves (599/600, 839/840, 479/480, 899/900) |
-| `chromeFor` | `AdaptiveNavigationTest` — compact → burger + bar, no rail; medium → rail + bar; expanded → rail + panel, no bar; the chat route gets no panel (it *is* the chat); a detail route gets no rail and no bar; no route yet gets nothing |
+| `appLayoutFor` | `WindowLayoutTest` — one test per row of the table above, named by the format, asserting the classes, the navigation, the `ChatEntry` and the dense top bar; plus the breakpoints themselves (599/600, 839/840, 479/480, 899/900) |
+| `chromeFor` | `AdaptiveNavigationTest` — compact → burger + bar, no rail; medium → rail + bar; expanded → rail + panel, no bar; **short + rail → rail header, no bar**; the chat route gets no entry point (it *is* the chat); a detail route gets no rail and no bar; no route yet gets nothing |
 | `showsChatSheet` | `AdaptiveNavigationTest` — not requested → no; requested on a phone → yes; requested with a panel → no; voice mode with a panel → yes |
-| `AppShell` + `MaggieNavigationRail` + `MaggieTopBar` | `AppShellScreenTest`, one `@Config` per format: 412×1000, 374×840 and 280×290 → `nav_menu` shown, `nav_rail` absent, chat bar shown. 674×841 and 800×1280 → rail shown, no burger, chat bar shown. 1280×800 → rail and `chat_panel` shown, chat bar absent. The content sits between the rail and the panel (`positionInRoot.x`). The rail carries `RAIL_DESTINATIONS` and a tap reports its route |
+| `AppShell` + `MaggieNavigationRail` + `MaggieTopBar` | `AppShellScreenTest`, one `@Config` per format: 412×1000, 374×840 and 280×290 → `nav_menu` shown, `nav_rail` absent, chat bar shown. 674×841 and 800×1280 → rail shown, no burger, chat bar shown. 1280×800 → rail and `chat_panel` shown, chat bar absent. 891×411 → **the content node measures ≥ 340 dp** (275 before the fix), and `chat_open` / `chat_mic` / `chat_contexts` are inside the rail (`positionInRoot.x`). The content sits between the rail and the panel. The rail carries `RAIL_DESTINATIONS` and a tap reports its route |
 | `UiTags` | `railItem("grocery") == "rail_grocery"` |
 
 Run from this worktree:

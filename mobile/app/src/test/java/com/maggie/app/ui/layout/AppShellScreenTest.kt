@@ -2,6 +2,7 @@ package com.maggie.app.ui.layout
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Scaffold
@@ -19,11 +20,13 @@ import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.AppDrawerContent
 import com.maggie.app.ui.components.ChatBottomBar
+import com.maggie.app.ui.components.ChatRailActions
 import com.maggie.app.ui.components.DRAWER_DESTINATIONS
 import com.maggie.app.ui.components.MaggieNavigationRail
 import com.maggie.app.ui.components.MaggieTopBar
 import com.maggie.app.ui.components.RAIL_DESTINATIONS
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -50,6 +53,10 @@ class AppShellScreenTest {
 
     private var navigatedTo: String? = null
 
+    private companion object {
+        const val CONTENT = "contenu"
+    }
+
     @Composable
     private fun Shell(route: String = "cookbook") {
         val layout = rememberAppLayout()
@@ -62,11 +69,21 @@ class AppShellScreenTest {
                 AppDrawerContent(currentRoute = route, onNavigate = {}, onCloseDrawer = {})
             },
             rail = if (hasRail) {
-                { MaggieNavigationRail(currentRoute = route, onNavigate = { navigatedTo = it }) }
+                {
+                    MaggieNavigationRail(
+                        currentRoute = route,
+                        onNavigate = { navigatedTo = it },
+                        chatAction = if (layout.chatEntry == ChatEntry.RAIL) {
+                            { ChatRailActions(onOpenChat = {}) }
+                        } else {
+                            null
+                        },
+                    )
+                }
             } else {
                 null
             },
-            chatPanel = if (layout.chatPanelFits) {
+            chatPanel = if (layout.chatEntry == ChatEntry.PANEL) {
                 { Box(Modifier.width(CHAT_PANEL_WIDTH).testTag(UiTags.CHAT_PANEL)) { Text("Maggie") } }
             } else {
                 null
@@ -75,13 +92,27 @@ class AppShellScreenTest {
             Scaffold(
                 modifier = Modifier.weight(1f),
                 topBar = {
-                    MaggieTopBar(title = "Cuisine", onMenuClick = if (hasRail) null else { {} })
+                    MaggieTopBar(
+                        title = "Cuisine",
+                        onMenuClick = if (hasRail) null else { {} },
+                        dense = layout.denseTopBar,
+                    )
                 },
-                bottomBar = { if (!layout.chatPanelFits) ChatBottomBar(onOpenChat = {}) },
-            ) {
-                Box(Modifier.fillMaxSize()) { Text("Chili sin carne") }
+                bottomBar = { if (layout.chatEntry == ChatEntry.BOTTOM_BAR) ChatBottomBar(onOpenChat = {}) },
+            ) { paddingValues ->
+                // Padded like `NavGraph` pads its `NavHost`: what is measured below is
+                // the room the chrome leaves, not the whole column.
+                Box(Modifier.padding(paddingValues).fillMaxSize().testTag(CONTENT)) {
+                    Text("Chili sin carne")
+                }
             }
         }
+    }
+
+    /** The height the content is actually given, in dp — what the chrome did not take. */
+    private fun contentHeightDp(): Int {
+        val heightPx = compose.onNodeWithTag(CONTENT).fetchSemanticsNode().size.height
+        return (heightPx / compose.density.density).toInt()
     }
 
     @Test
@@ -179,6 +210,55 @@ class AppShellScreenTest {
         }
         assertEquals(DRAWER_DESTINATIONS.size + 1, RAIL_DESTINATIONS.size)
         compose.onNodeWithTag(UiTags.railItem("settings")).assertExists()
+    }
+
+    /**
+     * What the recette refused (MAG-35): « en mode paysage sur mobile, entre le header
+     * et le chat de maggie, on n'a que très peu d'espace pour le contenu ».
+     *
+     * 411 dp of window, minus a 64 dp top bar, minus the 72 dp of the collapsed bar,
+     * left 275 dp — two list rows between two bands of chrome. A short window gets a
+     * dense top bar and no bar at the bottom instead, so what is asserted is the
+     * number the owner was complaining about.
+     */
+    @Test
+    @Config(qualifiers = "w891dp-h411dp-xhdpi")
+    fun `a phone in landscape keeps its height for the content`() {
+        compose.setContent { Shell() }
+
+        val height = contentHeightDp()
+        assertTrue(
+            "le contenu n'a que $height dp de haut sur les 411 de la fenêtre",
+            height >= 340,
+        )
+    }
+
+    /** The three buttons of the band are not lost with it: they move into the rail. */
+    @Test
+    @Config(qualifiers = "w891dp-h411dp-xhdpi")
+    fun `a phone in landscape reaches the conversation from the rail`() {
+        compose.setContent { Shell() }
+
+        compose.onNodeWithTag(UiTags.NAV_RAIL).assertExists()
+        compose.onNodeWithTag(UiTags.CHAT_OPEN).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.CHAT_MIC).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.CHAT_CONTEXTS).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.CHAT_PANEL).assertDoesNotExist()
+
+        val railX = compose.onNodeWithTag(UiTags.NAV_RAIL).fetchSemanticsNode().positionInRoot.x
+        val askX = compose.onNodeWithTag(UiTags.CHAT_OPEN).fetchSemanticsNode().positionInRoot.x
+        assertTrue("« Demander à Maggie » n'est pas dans le rail", askX >= railX)
+    }
+
+    /** A tall window keeps the band: the fix is for the windows that cannot pay for it. */
+    @Test
+    @Config(qualifiers = "w800dp-h1280dp-xhdpi")
+    fun `a tall window keeps the chat in the band under the content`() {
+        compose.setContent { Shell() }
+
+        val railWidth = compose.onNodeWithTag(UiTags.NAV_RAIL).fetchSemanticsNode().size.width
+        val askX = compose.onNodeWithTag(UiTags.CHAT_OPEN).fetchSemanticsNode().positionInRoot.x
+        assertTrue("« Demander à Maggie » est passé dans le rail", askX >= railWidth)
     }
 
     @Test

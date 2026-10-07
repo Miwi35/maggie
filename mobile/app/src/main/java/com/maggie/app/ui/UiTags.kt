@@ -36,7 +36,11 @@ object UiTags {
     /** Dashboard — the root, so a journey can wait for the screen itself. */
     const val DASHBOARD = "dashboard"
 
-    /** The collapsed chat bar, on every main screen. */
+    /**
+     * The way into the conversation, on every main screen: the collapsed bar under the
+     * content, or — on a window too short for it (MAG-35) — the button at the top of
+     * the rail. Same tag either way, so a journey taps it in both layouts.
+     */
     const val CHAT_OPEN = "chat_open"
 
     /** The microphone, which opens the chat sheet in voice mode. */

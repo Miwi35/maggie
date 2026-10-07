@@ -27,6 +27,8 @@ class WindowLayoutTest {
         assertEquals(WindowWidth.COMPACT, layout.width)
         assertEquals(WindowHeight.EXPANDED, layout.height)
         assertEquals(NavigationKind.MODAL_DRAWER, layout.navigation)
+        assertEquals(ChatEntry.BOTTOM_BAR, layout.chatEntry)
+        assertFalse("1000 dp of window can pay for a 64 dp top bar", layout.denseTopBar)
         assertFalse("a 412 dp window has no room beside its content", layout.chatPanelFits)
     }
 
@@ -37,6 +39,8 @@ class WindowLayoutTest {
         assertEquals(WindowWidth.COMPACT, layout.width)
         assertEquals(WindowHeight.MEDIUM, layout.height)
         assertEquals(NavigationKind.MODAL_DRAWER, layout.navigation)
+        assertEquals(ChatEntry.BOTTOM_BAR, layout.chatEntry)
+        assertFalse(layout.denseTopBar)
         assertFalse(layout.chatPanelFits)
     }
 
@@ -47,6 +51,12 @@ class WindowLayoutTest {
         assertEquals(WindowWidth.COMPACT, layout.width)
         assertEquals(WindowHeight.COMPACT, layout.height)
         assertEquals(NavigationKind.MODAL_DRAWER, layout.navigation)
+        assertEquals(
+            "no rail to carry the buttons, so the band stays — on 290 dp it is all there is",
+            ChatEntry.BOTTOM_BAR,
+            layout.chatEntry,
+        )
+        assertTrue(layout.denseTopBar)
         assertFalse(layout.chatPanelFits)
     }
 
@@ -57,6 +67,8 @@ class WindowLayoutTest {
         assertEquals(WindowWidth.MEDIUM, layout.width)
         assertEquals(WindowHeight.MEDIUM, layout.height)
         assertEquals(NavigationKind.RAIL, layout.navigation)
+        assertEquals(ChatEntry.BOTTOM_BAR, layout.chatEntry)
+        assertFalse(layout.denseTopBar)
         assertFalse(layout.chatPanelFits)
     }
 
@@ -67,6 +79,8 @@ class WindowLayoutTest {
         assertEquals(WindowWidth.MEDIUM, layout.width)
         assertEquals(WindowHeight.EXPANDED, layout.height)
         assertEquals(NavigationKind.RAIL, layout.navigation)
+        assertEquals(ChatEntry.BOTTOM_BAR, layout.chatEntry)
+        assertFalse(layout.denseTopBar)
         assertFalse("800 dp still belongs to the content", layout.chatPanelFits)
     }
 
@@ -77,21 +91,41 @@ class WindowLayoutTest {
         assertEquals(WindowWidth.EXPANDED, layout.width)
         assertEquals(WindowHeight.MEDIUM, layout.height)
         assertEquals(NavigationKind.RAIL, layout.navigation)
+        assertEquals(ChatEntry.PANEL, layout.chatEntry)
+        assertFalse(layout.denseTopBar)
         assertTrue(layout.chatPanelFits)
     }
 
     /**
      * Not in the ticket's list, and asserted so that « expanded » never silently
      * means « tablet »: a phone on its side is 891 dp wide and 411 dp tall.
+     *
+     * This is the format the recette refused — « entre le header et le chat de maggie,
+     * on n'a que très peu d'espace pour le contenu ». 411 dp cannot afford a 64 dp top
+     * bar *and* a 72 dp band under the content, so the band's buttons move into the
+     * rail, which costs no height, and the top bar is drawn dense.
      */
     @Test
-    fun `a phone in landscape is wide but too short for the panel`() {
+    fun `a phone in landscape spends none of its height on the chat`() {
         val layout = appLayoutFor(891, 411)
 
         assertEquals(WindowWidth.EXPANDED, layout.width)
         assertEquals(WindowHeight.COMPACT, layout.height)
         assertEquals(NavigationKind.RAIL, layout.navigation)
+        assertEquals(ChatEntry.RAIL, layout.chatEntry)
+        assertTrue(layout.denseTopBar)
         assertFalse("a conversation in a 411 dp column is a header and two bubbles", layout.chatPanelFits)
+    }
+
+    /** A railed window that is short gets the rail entry whatever its width class. */
+    @Test
+    fun `a foldable opened in landscape is short enough for the rail entry too`() {
+        val layout = appLayoutFor(841, 674)
+        assertEquals(ChatEntry.PANEL, layout.chatEntry)
+
+        val short = appLayoutFor(674, 411)
+        assertEquals(WindowWidth.MEDIUM, short.width)
+        assertEquals(ChatEntry.RAIL, short.chatEntry)
     }
 
     @Test
