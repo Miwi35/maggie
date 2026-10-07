@@ -3,7 +3,7 @@
 ## Phase 1: Foundation (MVP)
 
 - Symfony 7 API + API Platform with the Agenda business module
-- MCP Server 1 with agenda tools (events, conflicts, custody schedule)
+- MCP Server 1 with agenda tools (events, conflicts)
 - Agent Hub (Python) with basic LLM gateway, personality engine, and simple memory
 - Web app using API Platform Admin with agenda view + embedded chat widget
 - Basic native Android app with agenda view + chat

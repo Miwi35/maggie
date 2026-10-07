@@ -2,11 +2,11 @@
 
 ## Problem
 
-Managing daily life across multiple domains — meals & groceries, budget & investments, agenda & family planning (including child custody), and fitness — requires juggling many separate tools and mental overhead. There is no unified, intelligent assistant that ties these together, learns from the user over time, and proactively helps with planning and decision-making.
+Managing daily life across multiple domains — meals & groceries, budget & investments, agenda & family planning, and fitness — requires juggling many separate tools and mental overhead. There is no unified, intelligent assistant that ties these together, learns from the user over time, and proactively helps with planning and decision-making.
 
 ## Target Users
 
-Individual/family user managing daily life — someone who needs a single personal AI companion to handle meal planning, grocery lists, budget tracking, investment monitoring, calendar management with child custody scheduling, and fitness coaching.
+Individual/family user managing daily life — someone who needs a single personal AI companion to handle meal planning, grocery lists, budget tracking, investment monitoring, calendar management, and fitness coaching.
 
 ## Solution
 
