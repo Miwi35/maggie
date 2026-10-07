@@ -47,6 +47,8 @@ global:
     description: task wt:* — minimal one-shot containers for lint, PHPStan and tests in a worktree, load guard, lockfile-keyed shared dependency cache
   taskfile:
     description: Task runner rules — Docker-first enforcement, naming, quick reference
+  ux:
+    description: UX rules for every module, admin and mobile — one menu entry per module entered by its dashboard, frequency-of-use order, forms, French empty/loading/error states, 48 dp and thumb reach, phone/Z Flip/tablet formats, real-time signalling, Maggie in the interface, accessibility
   testing:
     description: Definition of done and cross-component testing strategy — required coverage per unit touched, mandatory e2e journey, red-first bug fixes, coverage ratchet (baseline.json, task coverage:ratchet), pyramid, run commands
 

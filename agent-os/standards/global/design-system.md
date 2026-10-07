@@ -55,8 +55,8 @@ entry, not a hex: the mapping is the design intent, and each mirror resolves it
   FullCalendar's today / now markers (`calendarTheme.ts`, `#1A73E8`, `#EA4335`)
   are recognisable *because* they are Google's.
 - **The Ciqual auto-fill link's `#1976D2`** (`CiqualFoodAutocomplete.tsx`) — a
-  link colour, the only one of its kind, waiting for MAG-90's rule on secondary
-  actions.
+  link colour, the only one of its kind, out of standard since `ux.md` §4: a
+  link is a text button in the theme's primary colour.
 - **Plain black, white and greys** (`#fff`, `#888`) — contrast, not identity.
   `readableTextOn` / `getEventTextColor` pick between the first two.
 - **`admin/src/auth/`** — the sign-in and loading screens are drawn on the night
