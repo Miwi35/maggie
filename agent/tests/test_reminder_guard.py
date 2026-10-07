@@ -355,7 +355,12 @@ async def stream_turn(client, question: str, offered: list[dict] = OFFERED) -> t
         patch("app.llm.contexts.context_repo") as context_repo,
         patch("app.llm.streaming.context_repo") as tool_log,
         patch("app.llm.streaming.record_llm_usage"),
+        patch("app.llm.streaming.skill_index") as prompt_skills,
     ):
+        # The prompt's skill index, not the one `create_skill` writes to (`app.llm.tools`).
+        prompt_skills.refresh = AsyncMock()
+        prompt_skills.get_skills_index.return_value = ""
+        prompt_skills.skills_for_moment.return_value = ""
         settings.anthropic_model = "fake"
         tool_log.append_tool_call = AsyncMock()
         persisted = MagicMock()
