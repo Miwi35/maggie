@@ -133,6 +133,8 @@ jobs:
       agent: ${{ steps.filter.outputs.agent }}
       ciqual: ${{ steps.filter.outputs.ciqual }}
       infra: ${{ steps.filter.outputs.infra }}
+      mobile: ${{ steps.mobile.outputs.mobile }}
+      mobile_base: ${{ steps.mobile.outputs.mobile_base }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -168,6 +170,13 @@ jobs:
           echo "agent=$(echo "$CHANGED" | grep -qE '^(agent/|\.docker/python/)' && echo true || echo false)" >> "$GITHUB_OUTPUT"
           echo "ciqual=$(echo "$CHANGED" | grep -qE '^(ciqual/|\.docker/ciqual/)' && echo true || echo false)" >> "$GITHUB_OUTPUT"
           echo "infra=$(echo "$CHANGED" | grep -qE '^(infra/(k8s|scripts)/|\.github/workflows/main\.yml)' && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      # Its own base, not the last deploy's (MAG-254): a merge that only touches
+      # mobile/ deploys nothing, and one that deploys without touching mobile/ must
+      # not publish the app again. The base is the tag of the last publication.
+      - name: Does the app need a new publication
+        id: mobile
+        run: bash infra/scripts/mobile-release.sh range "$RELEASE_SHA" | tee -a "$GITHUB_OUTPUT"
 
   # ===========================================================================
   # Build PHP image (needed by nginx build)
@@ -505,6 +514,132 @@ jobs:
           # deploy counts its range from.
           DEPLOY_TICKETS=$(bash infra/scripts/deploy-tickets.sh "$SHA" "$base") bash infra/scripts/release-emergency.sh \
             || echo "::warning::could not take the shipped tickets out of « Emergency »: move them by hand"
+
+  # ===========================================================================
+  # Publish the Android app to Firebase App Distribution (MAG-254)
+  #
+  # After the smoke test and the freeze lift, and only when the commit touched
+  # mobile/ since the last publication: App Tester on the owner's phone shows the
+  # new version, no cable. The signed `prodRelease` is the build the owner accepts
+  # in recette; its versionCode is the run number and its versionName ends with
+  # the short SHA, which Réglages shows too.
+  #
+  # A mobile-only merge deploys nothing, so smoke and lift-freeze are skipped and
+  # this job still runs; a red build, deploy or smoke (any ancestor) stops it.
+  # The tag `mobile-<versionCode>` is the record of a publication, created only
+  # once Firebase accepted the build: the next one starts from it.
+  #
+  # The repository is public and so are its logs: every secret is read from the
+  # environment of the step that needs it, written to a file under RUNNER_TEMP
+  # with a private mode, and removed at the end. Nothing is echoed.
+  # A failure here never turns the release red or rolls anything back: the
+  # server is fine, the phone is just not updated, and the next merge retries.
+  # ===========================================================================
+  publish-mobile:
+    name: Publish the mobile app
+    runs-on: ubuntu-latest
+    needs: [changes, lift-freeze]
+    if: >-
+      always() && !failure() && !cancelled() &&
+      needs.changes.result == 'success' && needs.changes.outputs.mobile == 'true'
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      VERSION_CODE: ${{ github.run_number }}
+      MOBILE_BASE: ${{ needs.changes.outputs.mobile_base }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Both files are ignored by git (.gitignore). google-services.json comes from
+      # a base64 secret because the repository is public.
+      - name: Rebuild the signing key and the Firebase config from the secrets
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          umask 077
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD GOOGLE_SERVICES_JSON; do
+            if [ -z "${!name}" ]; then echo "::error::the secret $name is not set"; exit 1; fi
+          done
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          printf '%s' "$GOOGLE_SERVICES_JSON" | base64 -d > mobile/app/google-services.json
+          {
+            echo "storeFile=$RUNNER_TEMP/release.keystore"
+            echo "storePassword=$ANDROID_KEYSTORE_PASSWORD"
+            echo "keyAlias=$ANDROID_KEY_ALIAS"
+            echo "keyPassword=$ANDROID_KEY_PASSWORD"
+          } > mobile/keystore.properties
+
+      - name: Build the signed prodRelease
+        working-directory: mobile
+        run: |
+          ./gradlew :app:assembleProdRelease --no-daemon \
+            -Dorg.gradle.java.home="$JAVA_HOME" \
+            -PVERSION_CODE="$VERSION_CODE" -PGIT_SHA="${RELEASE_SHA:0:7}"
+          # An unsigned build is named `-unsigned.apk`: finding this one means the key was used.
+          test -f app/build/outputs/apk/prod/release/app-prod-release.apk
+
+      # The titles of the PRs that touched mobile/ since the last publication.
+      - name: Write the release notes
+        run: bash infra/scripts/mobile-release.sh notes "$RELEASE_SHA" "$MOBILE_BASE" | tee "$RUNNER_TEMP/release-notes.txt"
+
+      - name: Distribute through Firebase App Distribution
+        env:
+          FIREBASE_APP_DISTRIBUTION_KEY: ${{ secrets.FIREBASE_APP_DISTRIBUTION_KEY }}
+          FIREBASE_ANDROID_APP_ID: ${{ vars.FIREBASE_ANDROID_APP_ID }}
+          FIREBASE_TESTERS: ${{ vars.FIREBASE_TESTERS }}
+          FIREBASE_TESTER_GROUPS: ${{ vars.FIREBASE_TESTER_GROUPS }}
+        run: |
+          if [ -z "$FIREBASE_APP_DISTRIBUTION_KEY" ] || [ -z "$FIREBASE_ANDROID_APP_ID" ]; then
+            echo "::error::FIREBASE_APP_DISTRIBUTION_KEY or FIREBASE_ANDROID_APP_ID is not set"; exit 1
+          fi
+          # Without a tester or a group the build is uploaded and nobody is told.
+          if [ -z "$FIREBASE_TESTERS" ] && [ -z "$FIREBASE_TESTER_GROUPS" ]; then
+            echo "::error::set the repository variable FIREBASE_TESTERS (e-mails, comma-separated) or FIREBASE_TESTER_GROUPS"; exit 1
+          fi
+          umask 077
+          printf '%s' "$FIREBASE_APP_DISTRIBUTION_KEY" > "$RUNNER_TEMP/firebase-key.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/firebase-key.json"
+          args=(--app "$FIREBASE_ANDROID_APP_ID" --release-notes-file "$RUNNER_TEMP/release-notes.txt")
+          [ -z "$FIREBASE_TESTERS" ] || args+=(--testers "$FIREBASE_TESTERS")
+          [ -z "$FIREBASE_TESTER_GROUPS" ] || args+=(--groups "$FIREBASE_TESTER_GROUPS")
+          npx --yes firebase-tools@13.29.1 appdistribution:distribute \
+            mobile/app/build/outputs/apk/prod/release/app-prod-release.apk "${args[@]}"
+
+      - name: Record the publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "mobile-$VERSION_CODE" --target "$RELEASE_SHA" --latest=false \
+            --title "Mobile $VERSION_CODE (${RELEASE_SHA:0:7})" --notes-file "$RUNNER_TEMP/release-notes.txt"
+          {
+            echo "## Mobile app published"
+            echo
+            echo "- versionCode: $VERSION_CODE"
+            echo "- commit: $RELEASE_SHA"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove the secrets from the runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.keystore" "$RUNNER_TEMP/firebase-key.json" mobile/keystore.properties mobile/app/google-services.json
 
   # ===========================================================================
   # Roll back, then report, when a build, the deploy or the smoke suite failed

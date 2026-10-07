@@ -15,6 +15,13 @@ if (file("google-services.json").exists()) {
     apply(plugin = "com.google.gms.google-services")
 }
 
+// Set by the CD for a build it publishes (MAG-254): the run number as versionCode
+// so every publication outranks the one before, and the short commit SHA, which
+// ends up in versionName (what App Tester lists) and in BuildConfig.GIT_SHA (what
+// Réglages shows). A local build keeps versionCode 1 and the SHA "local".
+val appVersion = "0.1.0"
+val gitSha = (project.findProperty("GIT_SHA") as String?)?.takeIf { it.isNotBlank() }
+
 val keystorePropertiesFile = rootProject.file("keystore.properties")
 val keystoreProperties = Properties().apply {
     if (keystorePropertiesFile.exists()) {
@@ -30,8 +37,9 @@ android {
         applicationId = "com.maggie.app"
         minSdk = 29
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = (project.findProperty("VERSION_CODE") as String?)?.toIntOrNull() ?: 1
+        versionName = if (gitSha != null) "$appVersion-$gitSha" else appVersion
+        buildConfigField("String", "GIT_SHA", "\"${gitSha ?: "local"}\"")
     }
 
     if (keystorePropertiesFile.exists()) {

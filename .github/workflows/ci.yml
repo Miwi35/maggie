@@ -1248,7 +1248,7 @@ jobs:
         run: |
           docker run --rm -v "$PWD":/mnt -w /mnt koalaman/shellcheck:stable -x --severity=warning \
             infra/scripts/*.sh infra/scripts/tests/*.sh scripts/agent-guard/*.sh scripts/coverage/*.sh e2e/*.sh e2e/mobile/*.sh
-      - name: Test the PR aggregator, the e2e reference clock, the smoke suite, the rollback, the failed-deploy report, the incident gate, the deploy gate, the skipped CI of main, the freeze lift and the agent guard rails
+      - name: Test the PR aggregator, the e2e reference clock, the smoke suite, the rollback, the failed-deploy report, the incident gate, the deploy gate, the skipped CI of main, the mobile publication range, the freeze lift and the agent guard rails
         run: |
           bash infra/scripts/tests/smoke-prod.test.sh
           bash infra/scripts/tests/rollback-k3s.test.sh
@@ -1260,6 +1260,7 @@ jobs:
           bash infra/scripts/tests/verify-digests.test.sh
           bash infra/scripts/tests/should-deploy.test.sh
           bash infra/scripts/tests/tested-tree.test.sh
+          bash infra/scripts/tests/mobile-release.test.sh
           bash infra/scripts/tests/cd-lift-freeze.test.sh
           bash infra/scripts/tests/agent-guard.test.sh
           bash infra/scripts/tests/agent-guard-batch.test.sh

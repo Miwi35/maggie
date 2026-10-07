@@ -204,6 +204,20 @@ The emulator journeys are the `E2E Mobile` jobs of `ci.yml` (see *Branch protect
 
 ---
 
+## Mobile publication (job `Publish the mobile app` of `main.yml`, MAG-254)
+
+Every merge on `main` that touches `mobile/` puts the signed `prodRelease` on the owner's phone, no cable: **Firebase App Distribution**, and the Firebase App Tester app notifies each new version (project `maggie-487318`, the Google sign-in one). A recette on the phone therefore runs on the version just deployed.
+
+- **When:** after smoke and `Lift the freeze`, in the same run. `Detect changes` computes `mobile` with `infra/scripts/mobile-release.sh range` (tested by `tests/mobile-release.test.sh`) against **the tag of the last publication**, not the last deploy: a mobile-only merge deploys nothing yet is published (smoke and the freeze lift are skipped, the job still runs), and a deploy that leaves `mobile/` alone publishes nothing. A red build, deploy or smoke (any ancestor) stops it.
+- **Build:** `./gradlew :app:assembleProdRelease -PVERSION_CODE=<run number> -PGIT_SHA=<short SHA>`. `versionCode` is the `main.yml` run number (it only grows); `versionName` is `0.1.0-<short SHA>`, and `BuildConfig.GIT_SHA` is shown in Réglages › À propos (`Commit <SHA>`). A local build keeps `versionCode 1` and the SHA `local`. The job fails if the APK is not the signed one.
+- **Release notes:** the title of every commit (= PR) that touched `mobile/` since the last publication.
+- **Record, and how a recette knows which version to expect:** once Firebase accepted the build, the job creates the GitHub release **`mobile-<versionCode>`** on the deployed commit (notes = the release notes, not the latest release, no APK attached). The newest `mobile-*` tag is the published version: `gh release list` / `git tag --list 'mobile-*' --sort=-version:refname`, its title carries the short SHA. A failed upload leaves no tag: the next merge that touches `mobile/` publishes the whole range again.
+- **Never turns a release red:** the job is not a dependency of `rollback`, `lift-freeze` or `release-gates`; a failure is a red job and nothing else.
+- **Secrets** (public repository, public logs): `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` (the release key, whose SHA-1 is registered with Google), `GOOGLE_SERVICES_JSON` (base64, rebuilt into `mobile/app/google-services.json`, git-ignored), `FIREBASE_APP_DISTRIBUTION_KEY` (service account JSON, the only role *Firebase App Distribution Admin*). Each one is read in the environment of the step that needs it, written to a file under `RUNNER_TEMP` with mode 600, deleted at the end of the job (`if: always()`), never echoed. Variables: `FIREBASE_ANDROID_APP_ID`, and **`FIREBASE_TESTERS`** (e-mails, comma-separated) and/or `FIREBASE_TESTER_GROUPS`: without one of them the build would be uploaded and nobody told, so the job fails instead.
+- **Without the pipeline:** `task mobile:install` still installs on a phone plugged in.
+
+---
+
 ## Nightly (`.github/workflows/nightly.yml`, MAG-96, MAG-244)
 
 **Trigger:** 02:43 UTC every day, and on demand (`what`: everything, ci or eval; `only`: one eval scenario). Two parallel jobs: `ci` calls `ci.yml` (every job, path filters bypassed, Mobile Unit Tests included) and `eval` runs the prompt-lab scenarios on the real model (formerly `eval.yml` at 03:17). A failure of the CI opens an issue labelled `nightly-failure`, or comments on the one already open; the eval is billed and judges tone, so it never alerts and is never a required check.
@@ -239,6 +253,11 @@ gh api repos/<owner>/<repo>/branches/main/protection/required_status_checks/cont
 | `VPS_USER` | Deploy user on VPS |
 | `VPS_SSH_KEY` | Private SSH key for deployment |
 | `GITHUB_TOKEN` | Auto-provided, used for GHCR login |
+| `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` | Release key of the Android app (mobile publication) |
+| `GOOGLE_SERVICES_JSON` | `google-services.json` of the Firebase app, base64 |
+| `FIREBASE_APP_DISTRIBUTION_KEY` | Service account key, role Firebase App Distribution Admin |
+
+Repository variables: `FIREBASE_ANDROID_APP_ID`, `FIREBASE_TESTERS` / `FIREBASE_TESTER_GROUPS`.
 
 ### GitHub Environment
 - Name: `production`
