@@ -84,7 +84,8 @@ def _went_through(result: str) -> bool:
         data = json.loads(result)
     except (json.JSONDecodeError, TypeError):
         return False
-    return isinstance(data, dict) and "error" not in data
+    # A stored proaction always carries `error`, null when nothing went wrong.
+    return isinstance(data, dict) and not data.get("error")
 
 
 def _lists_a_pending_one(result: str) -> bool:
