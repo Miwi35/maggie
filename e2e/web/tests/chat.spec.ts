@@ -686,6 +686,42 @@ test('a proaction is written from the thread in progress, and stored in it', asy
   expect(open.map((context) => context.id)).toContain(stored?.contextId)
 })
 
+/** 85-proaction-skill-applied.yaml — only answerable once the skill's own text is in the proaction's prompt. */
+const MOMENT_SKILL = {
+  name: 'delivrer-un-rappel-e2e',
+  description: 'Quand un rappel arrive',
+  tags: ['rappel', 'moment:proaction'],
+  content: 'Consigne e2e : une notification push et rien dans le chat.',
+  prompt: 'Rappel e2e à délivrer : appeler votre mère',
+  message: "Il est l'heure d'appeler votre mère, je vous l'envoie en notification.",
+}
+
+/**
+ * MAG-345: a skill learnt for « a reminder comes due » is given in full when one does.
+ *
+ * With its index line alone, Maggie loaded it two reminders out of five. The proof is
+ * a scenario that cannot match unless the skill's content is in the system prompt.
+ */
+test('a skill tagged for the proaction moment is in the proaction prompt in full', async ({ api }) => {
+  const { prompt, message, ...skill } = MOMENT_SKILL
+  const created = await api.post('/agent/skills', { data: skill })
+  expect(created.status(), `the skill was refused: ${await created.text()}`).toBe(201)
+
+  try {
+    const fired = await api.post('/agent/proaction', { data: { message: prompt } })
+    expect(fired.status(), `the proaction failed: ${await fired.text()}`).toBe(200)
+
+    const body = (await fired.json()) as { response: string }
+    expect(isUnscripted(body.response), `the skill never reached the proaction — Maggie said: ${body.response}`).toBe(
+      false,
+    )
+    expect(body.response).toContain(message)
+  } finally {
+    // Skills are global: one left behind would reach every later prompt of the run.
+    await api.delete(`/agent/skills/${skill.name}`)
+  }
+})
+
 /** 62-last-exchange-known.yaml — only answerable once the last conversation is in the system prompt. */
 const LAST_EXCHANGE = {
   question: "Combien de temps s'est écoulé depuis notre dernier échange ?",

@@ -15,7 +15,7 @@ from app.llm.runner import ITERATION_LIMIT_MESSAGE, run_tool_loop
 from app.llm.tools import ToolRouter
 from app.memory.agent_memory import AgentMemory
 from app.personality.engine import PersonalityEngine, current_datetime_line
-from app.skills.index import skill_index
+from app.skills.index import MOMENT_CHAT, MOMENT_PLANNING, MOMENT_PROACTION, skill_index
 from app.user_timezone import resolve_user_timezone
 
 logger = logging.getLogger(__name__)
@@ -66,8 +66,10 @@ class LLMGateway:
         *,
         exclude_message_id: str | None = None,
         current_context_id: str | None = None,
+        moment: str | None = None,
     ) -> list[dict]:
-        """Build the system blocks: cached prefix (personality + skills), then memory, directives, date, preamble."""
+        """Build the system blocks: cached prefix (personality + skills), the full skills of `moment`
+        (MAG-345), then memory, directives, date, preamble."""
         capabilities = generate_capability_summary(tools) if tools else ""
         base = await self.personality.get_system_prompt(user_id, capabilities=capabilities)
         await skill_index.refresh()
@@ -87,7 +89,8 @@ class LLMGateway:
         last_exchange = await last_exchange_section(user_id, exclude_message_id=exclude_message_id)
         now = current_datetime_line(tz=await resolve_user_timezone(user_id))
         volatile = f"{memory_context}{directives}{context_section}\n\n{now}{last_exchange}{preamble}"
-        return build_system(base + skill_context, volatile)
+        moment_skills = skill_index.skills_for_moment(moment) if moment else ""
+        return build_system(base + skill_context, volatile, moment_skills)
 
     async def proaction(self, prompt: str, user_id: str, *, silent: bool = False, dry_run: bool = False) -> dict:
         """Execute a proaction prompt, knowing what the open threads are about.
@@ -115,7 +118,9 @@ class LLMGateway:
 
         preamble = PLANNING_PREAMBLE if silent else EXECUTION_PREAMBLE
 
-        system_prompt = await self._build_system_prompt(user_id, tools=tools, preamble=preamble)
+        system_prompt = await self._build_system_prompt(
+            user_id, tools=tools, preamble=preamble, moment=MOMENT_PLANNING if silent else MOMENT_PROACTION
+        )
 
         content = prompt if silent else f"[Proaction due maintenant] {prompt}"
         messages = [{"role": "user", "content": content}]
@@ -234,6 +239,7 @@ class LLMGateway:
                 tools=tools,
                 exclude_message_id=exclude_message_id,
                 current_context_id=context_id,
+                moment=MOMENT_CHAT,
             )
             result = await run_tool_loop(
                 system_prompt,

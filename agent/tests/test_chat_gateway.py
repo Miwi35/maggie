@@ -51,7 +51,7 @@ def _stubs(run, history, *, resolution=ROUTED, threads=()):
             patch("app.llm.gateway.run_tool_loop", run),
             patch("app.llm.gateway.route_message", AsyncMock(return_value=resolution)),
             patch("app.llm.gateway.build_history", history),
-            patch("app.llm.gateway.skill_index", MagicMock(get_skills_index=MagicMock(return_value=""), refresh=AsyncMock())),
+            patch("app.llm.gateway.skill_index", MagicMock(get_skills_index=MagicMock(return_value=""), skills_for_moment=MagicMock(return_value=""), refresh=AsyncMock())),
             patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
             patch("app.llm.contexts.context_repo", MagicMock(find_active=AsyncMock(return_value=list(threads)))),
         ):
@@ -117,7 +117,7 @@ class TestTheHistoryFollowsTheThread:
             patch("app.llm.gateway.run_tool_loop", run),
             patch("app.llm.gateway.route_message", route),
             patch("app.llm.gateway.build_history", history),
-            patch("app.llm.gateway.skill_index", MagicMock(get_skills_index=MagicMock(return_value=""), refresh=AsyncMock())),
+            patch("app.llm.gateway.skill_index", MagicMock(get_skills_index=MagicMock(return_value=""), skills_for_moment=MagicMock(return_value=""), refresh=AsyncMock())),
             patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
             patch("app.llm.contexts.context_repo", MagicMock(find_active=AsyncMock(return_value=[]))),
         ):
@@ -179,7 +179,7 @@ class TestTheHistoryFollowsTheThread:
             patch("app.llm.gateway.run_tool_loop", run),
             patch("app.llm.gateway.route_message", AsyncMock(return_value=ROUTED)),
             patch("app.llm.gateway.build_history", history),
-            patch("app.llm.gateway.skill_index", MagicMock(get_skills_index=MagicMock(return_value=""), refresh=AsyncMock())),
+            patch("app.llm.gateway.skill_index", MagicMock(get_skills_index=MagicMock(return_value=""), skills_for_moment=MagicMock(return_value=""), refresh=AsyncMock())),
             patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
             patch("app.llm.contexts.context_repo", MagicMock(find_active=AsyncMock(return_value=[thread]))),
         ):
@@ -205,7 +205,7 @@ class TestWhenTheModelRefuses:
             patch("app.llm.gateway.run_tool_loop", AsyncMock(side_effect=self._api_error())),
             patch("app.llm.gateway.route_message", AsyncMock(return_value=ROUTED)),
             patch("app.llm.gateway.build_history", history),
-            patch("app.llm.gateway.skill_index", MagicMock(get_skills_index=MagicMock(return_value=""), refresh=AsyncMock())),
+            patch("app.llm.gateway.skill_index", MagicMock(get_skills_index=MagicMock(return_value=""), skills_for_moment=MagicMock(return_value=""), refresh=AsyncMock())),
             patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
             patch("app.llm.contexts.context_repo", MagicMock(find_active=AsyncMock(return_value=[]))),
         ):
@@ -231,7 +231,7 @@ class TestWhenTheModelRefuses:
             ),
             patch("app.llm.gateway.route_message", AsyncMock(return_value=ROUTED)),
             patch("app.llm.gateway.build_history", history),
-            patch("app.llm.gateway.skill_index", MagicMock(get_skills_index=MagicMock(return_value=""), refresh=AsyncMock())),
+            patch("app.llm.gateway.skill_index", MagicMock(get_skills_index=MagicMock(return_value=""), skills_for_moment=MagicMock(return_value=""), refresh=AsyncMock())),
             patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
             patch("app.llm.contexts.context_repo", MagicMock(find_active=AsyncMock(return_value=[]))),
         ):
