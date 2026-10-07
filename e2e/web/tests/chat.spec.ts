@@ -16,6 +16,7 @@ import { CalendarPage } from '../pages/CalendarPage.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
 import { DashboardPage } from '../pages/DashboardPage.js'
 import { GroceryListPage } from '../pages/GroceryListPage.js'
+import { adminUrl, ROUTES } from '../pages/routes.js'
 
 /**
  * Talking to Maggie from the browser (MAG-97, then MAG-99).
@@ -137,6 +138,13 @@ const PROACTION_RECALL = {
 const GREETING = {
   question: 'Bonjour Maggie',
   answer: "Bonjour ! Je suis là, dis-moi ce qu'il te faut.",
+}
+
+/** 85-learning-forgotten-once.yaml — a rule announced as learned before anything stored it. */
+const RULE = {
+  request: 'Quand je demande un rappel, je veux une notification',
+  skill: 'rappel-avec-notification',
+  answer: "C'est enregistré dans mes compétences",
 }
 
 /** 60-behavior-preference.yaml + 61-behavior-applied.yaml — a preference about how she answers. */
@@ -1083,6 +1091,43 @@ test('"décale la soirée à jeudi" moves the evening to Thursday 19:00–00:00 
 
   const calendar = new CalendarPage(page)
   await calendar.goToEventDate(eventId, SHIFT.title)
+})
+
+interface AgentSkill {
+  name: string
+}
+
+/**
+ * MAG-340, near the end so the counts above keep their twenty-message page. In
+ * production Maggie answered « C'est noté » to a rule and called nothing. The fixture
+ * scripts that answer; the claim guard sends it back, and only then does the fake call
+ * `create_skill`. So the assertion is the row and the admin tab, never her wording.
+ */
+test('a rule announced as learned without a tool is stored as a skill, and shown in the admin', async ({
+  page,
+  api,
+}) => {
+  const dashboard = new DashboardPage(page)
+  await dashboard.open()
+
+  const chat = new ChatPanel(page)
+  const taught = await chat.send(RULE.request)
+
+  expect(isUnscripted(assistantText(taught)), `no scenario matched — Maggie said: ${assistantText(taught)}`).toBe(
+    false,
+  )
+  expect(toolResults(taught)).toContainEqual({ toolName: 'create_skill', status: 'success' })
+  // The fixture's last turn, only reachable through the guard's relaunch.
+  expect(assistantText(taught)).toContain(RULE.answer)
+
+  const response = await api.get('/agent/skills')
+  expect(response.status(), 'the skills endpoint refused the journey').toBe(200)
+  const skills = (await response.json()) as AgentSkill[]
+  expect(skills.map((skill) => skill.name)).toContain(RULE.skill)
+
+  await page.goto(adminUrl(ROUTES.agentSettings))
+  await page.getByRole('tab', { name: 'Compétences' }).click()
+  await expect(page.getByText(RULE.skill)).toBeVisible()
 })
 
 /** 01 to 03-context-router-birthday-*.yaml and 90 to 92-birthday-*.yaml — one discussion (MAG-341). */

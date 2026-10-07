@@ -3,8 +3,8 @@ import time
 
 import anthropic
 
+from app.llm.claim_guard import ClaimGuard, Verdict
 from app.llm.prompt_cache import cache_tools
-from app.llm.reminder_guard import NOT_SCHEDULED_MESSAGE, ReminderGuard, Verdict
 from app.metrics import TOOL_CALLS, record_llm_usage, usage_kwargs
 
 logger = logging.getLogger(__name__)
@@ -38,12 +38,13 @@ async def run_tool_loop(
     `context_id` is the thread this turn belongs to; a call the policy holds back for the
     user's approval carries it, so the result is announced in the same conversation (MAG-4).
 
-    An answer announcing a reminder no `schedule_proaction` backed is sent back to the model
-    once, then replaced with the truth (MAG-339, `app.llm.reminder_guard`).
+    An answer announcing a reminder or something learned that no tool backed this turn is
+    sent back to the model once, then replaced with the truth (MAG-339, MAG-340,
+    `app.llm.claim_guard`).
     """
     tool_calls_made: list[dict] = []
     cached_tools = cache_tools(tools)
-    guard = ReminderGuard(tools)
+    guard = ClaimGuard(tools)
 
     for iteration in range(max_iterations):
         logger.info(f"Calling Claude with {len(tools or [])} tools, {len(messages)} messages")
@@ -80,12 +81,12 @@ async def run_tool_loop(
             text_response = "".join(block.text for block in response.content if hasattr(block, "text"))
             verdict = guard.review(text_response, can_retry=iteration < max_iterations - 2)
             if verdict is Verdict.RETRY:
-                logger.warning("Reminder announced without schedule_proaction: sending the model back")
+                logger.warning("Action announced, nothing backs it: sending the model back")
                 guard.send_back(messages, response.content)
                 continue
             if verdict is Verdict.GIVE_UP:
-                logger.warning("Reminder announced twice, never scheduled: answering it is not")
-                text_response = NOT_SCHEDULED_MESSAGE
+                logger.warning("Action announced twice, never done: answering it is not")
+                text_response = guard.honest_answer()
             return {"response": text_response, "tool_calls": tool_calls_made}
 
         messages.append({"role": "assistant", "content": response.content})
