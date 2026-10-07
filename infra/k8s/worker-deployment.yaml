@@ -28,6 +28,10 @@ spec:
             - name: jwt-keys
               mountPath: /var/www/api/config/jwt
               readOnly: true
+            # The push leaves from here: SendPushNotificationCommand is async (MAG-26).
+            - name: fcm-credentials
+              mountPath: /run/secrets/fcm
+              readOnly: true
           resources:
             requests:
               memory: 32Mi
@@ -39,3 +43,8 @@ spec:
         - name: jwt-keys
           secret:
             secretName: jwt-keys
+        - name: fcm-credentials
+          secret:
+            secretName: fcm-credentials
+            # Absent: the app starts anyway and simply sends no push.
+            optional: true

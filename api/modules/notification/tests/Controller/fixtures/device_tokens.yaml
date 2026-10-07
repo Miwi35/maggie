@@ -1,0 +1,19 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: fcm-test@example.com
+    googleId: google-fcm-test
+    name: FCM Test User
+  other_user:
+    email: fcm-other@example.com
+    googleId: google-fcm-other
+    name: FCM Other User
+
+Maggie\Notification\Entity\DeviceToken:
+  own_device:
+    user: '@test_user'
+    token: 'own-token'
+    deviceName: 'Pixel 8'
+    lastSeenAt: '<(new \DateTimeImmutable("2026-01-01 08:00"))>'
+  other_device:
+    user: '@other_user'
+    token: 'other-token'

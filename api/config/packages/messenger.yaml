@@ -34,6 +34,9 @@ framework:
             'Maggie\Notification\Message\CreateNotificationCommand': sync
             'Maggie\Notification\Message\MarkNotificationReadCommand': sync
             'Maggie\Notification\Message\DeleteNotificationCommand': sync
+            'Maggie\Notification\Message\RegisterDeviceTokenCommand': sync
+            'Maggie\Notification\Message\UnregisterDeviceTokenCommand': sync
+            'Maggie\Notification\Message\SendPushNotificationCommand': async
             'Maggie\Grocery\Message\CreateProductCommand': sync
             'Maggie\Grocery\Message\UpdateProductCommand': sync
             'Maggie\Grocery\Message\DeleteProductCommand': sync

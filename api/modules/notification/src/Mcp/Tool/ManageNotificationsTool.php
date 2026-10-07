@@ -7,14 +7,17 @@ namespace Maggie\Notification\Mcp\Tool;
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Notification\Entity\Notification;
+use Maggie\Notification\Enum\NotificationType;
+use Maggie\Notification\Message\CreateNotificationCommand;
 use Maggie\Notification\Message\DeleteNotificationCommand;
 use Maggie\Notification\Message\MarkNotificationReadCommand;
 use Maggie\Notification\Repository\NotificationRepository;
 use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_notifications', description: 'List, mark as read, or delete notifications. Notifications are raised by Maggie itself (event reminders for now); use unreadOnly to see what still needs attention.')]
+#[McpTool(name: 'manage_notifications', description: 'Create, list, mark as read, or delete notifications. Use create to reach the user on their own devices (push notification): a proaction you took or an approval you are waiting for — type is one of proaction, approval, reminder, task_due, grocery, finance; give a short title, an optional body, and relatedEntityIri (e.g. /api/events/{id}, /api/tasks/{id}, /finance/banks) so tapping it opens the right screen. Use unreadOnly to see what still needs attention.')]
 class ManageNotificationsTool
 {
     public function __construct(
@@ -29,13 +32,18 @@ class ManageNotificationsTool
         ?string $notificationId = null,
         bool $unreadOnly = false,
         int $limit = 50,
+        ?string $type = null,
+        ?string $title = null,
+        ?string $body = null,
+        ?string $relatedEntityIri = null,
     ): string {
         try {
             return match ($action) {
+                'create' => $this->create($type, $title, $body, $relatedEntityIri),
                 'list' => $this->list($unreadOnly, $limit),
                 'mark_read' => $this->markRead($notificationId),
                 'delete' => $this->delete($notificationId),
-                default => json_encode(['error' => "Unknown action: {$action}. Use list, mark_read, or delete."], JSON_THROW_ON_ERROR),
+                default => json_encode(['error' => "Unknown action: {$action}. Use create, list, mark_read, or delete."], JSON_THROW_ON_ERROR),
             };
         } catch (MissingMcpUserException $e) {
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
@@ -44,6 +52,46 @@ class ManageNotificationsTool
 
             return json_encode(['error' => $cause->getMessage()], JSON_THROW_ON_ERROR);
         }
+    }
+
+    private function create(?string $type, ?string $title, ?string $body, ?string $relatedEntityIri): string
+    {
+        $user = $this->userContext->requireUser();
+
+        // consent_expiring is raised by the bank cron, which knows when a consent ends.
+        $allowed = array_values(array_filter(
+            array_map(static fn (NotificationType $t) => $t->value, NotificationType::cases()),
+            static fn (string $value) => NotificationType::ConsentExpiring->value !== $value,
+        ));
+        if (null === $type || !\in_array($type, $allowed, true)) {
+            return json_encode(['error' => 'type is required for create, one of: '.implode(', ', $allowed).'.'], JSON_THROW_ON_ERROR);
+        }
+
+        $title = null === $title ? '' : trim($title);
+        if ('' === $title || mb_strlen($title) > 255) {
+            return json_encode(['error' => 'title is required for create (255 characters at most).'], JSON_THROW_ON_ERROR);
+        }
+
+        if (null !== $relatedEntityIri && mb_strlen($relatedEntityIri) > 500) {
+            return json_encode(['error' => 'relatedEntityIri is 500 characters at most.'], JSON_THROW_ON_ERROR);
+        }
+
+        $envelope = $this->bus->dispatch(new CreateNotificationCommand(
+            type: $type,
+            title: $title,
+            body: null === $body || '' === trim($body) ? null : trim($body),
+            relatedEntityIri: $relatedEntityIri,
+            userId: (string) $user->getId(),
+        ));
+
+        $notification = $envelope->last(HandledStamp::class)?->getResult();
+
+        // The user turned notifications off: nothing is stored, nothing is pushed.
+        if (!$notification instanceof Notification) {
+            return json_encode(['success' => true, 'created' => false, 'reason' => 'The user turned notifications off.'], JSON_THROW_ON_ERROR);
+        }
+
+        return json_encode(['success' => true, 'created' => true, 'notification' => $this->serialize($notification)], JSON_THROW_ON_ERROR);
     }
 
     private function list(bool $unreadOnly, int $limit): string

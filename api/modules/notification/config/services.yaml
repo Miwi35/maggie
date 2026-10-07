@@ -8,3 +8,12 @@ services:
         exclude:
             - '../src/Entity/'
             - '../src/MaggieNotificationBundle.php'
+
+    Maggie\Notification\Push\FcmClient:
+        arguments:
+            $credentialsPath: '%env(FCM_CREDENTIALS_PATH)%'
+            $projectId: '%env(FCM_PROJECT_ID)%'
+
+    Maggie\Notification\Push\PushMessageFactory:
+        arguments:
+            $deepLinkScheme: '%env(MOBILE_DEEP_LINK_SCHEME)%'

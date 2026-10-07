@@ -1,0 +1,41 @@
+Maggie\Core\Entity\User:
+  push_user:
+    email: push@example.com
+    googleId: google-push
+    name: Push User
+  other_user:
+    email: push-other@example.com
+    googleId: google-push-other
+    name: Other Push User
+  silent_user:
+    email: push-silent@example.com
+    googleId: google-push-silent
+    name: Silent Push User
+
+Maggie\Core\Entity\UserPreference:
+  silent_preference:
+    user: '@silent_user'
+    notificationsEnabled: false
+
+Maggie\Notification\Entity\DeviceToken:
+  phone:
+    user: '@push_user'
+    token: 'phone-token'
+  tablet:
+    user: '@push_user'
+    token: 'tablet-token'
+  someone_elses_phone:
+    user: '@other_user'
+    token: 'other-token'
+
+Maggie\Notification\Entity\Notification:
+  unread:
+    user: '@push_user'
+    type: '<(Maggie\Notification\Enum\NotificationType::Proaction)>'
+    title: 'J''ai déplacé ton rendez-vous'
+    relatedEntityIri: '/api/events/01JEVENT'
+  already_read:
+    user: '@push_user'
+    type: '<(Maggie\Notification\Enum\NotificationType::Proaction)>'
+    title: 'Déjà vue'
+    readAt: '<(new \DateTimeImmutable("2026-03-01 09:00"))>'
