@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import com.maggie.app.data.model.GroceryItem
+import com.maggie.app.ui.theme.MaggieTokens
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -454,14 +455,14 @@ private fun SwipeableGroceryItem(
 private fun SwipeBackground(targetValue: SwipeToDismissBoxValue, isChecked: Boolean) {
     val (color, icon, alignment) = when (targetValue) {
         SwipeToDismissBoxValue.StartToEnd -> Triple(
-            Color(0xFF4CAF50),
+            MaggieTokens.Signal.success,
             Icons.Default.Check,
             Alignment.CenterStart,
         )
         SwipeToDismissBoxValue.EndToStart -> if (isChecked) {
-            Triple(Color(0xFFFFA000), Icons.AutoMirrored.Filled.Undo, Alignment.CenterEnd)
+            Triple(MaggieTokens.Signal.warning, Icons.AutoMirrored.Filled.Undo, Alignment.CenterEnd)
         } else {
-            Triple(Color(0xFFF44336), Icons.Default.Delete, Alignment.CenterEnd)
+            Triple(MaggieTokens.Signal.danger, Icons.Default.Delete, Alignment.CenterEnd)
         }
         SwipeToDismissBoxValue.Settled -> Triple(Color.Transparent, Icons.Default.Check, Alignment.CenterStart)
     }
@@ -534,7 +535,7 @@ private fun GroceryItemRow(
             Icon(
                 imageVector = Icons.Default.CheckCircle,
                 contentDescription = null,
-                tint = Color(0xFF4CAF50),
+                tint = MaggieTokens.Signal.success,
                 modifier = Modifier.size(24.dp),
             )
         } else {

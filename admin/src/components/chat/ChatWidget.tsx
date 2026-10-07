@@ -21,6 +21,7 @@ import SmartToyIcon from '@mui/icons-material/SmartToy'
 import ChatIcon from '@mui/icons-material/Chat'
 import PsychologyIcon from '@mui/icons-material/Psychology'
 import CircularProgress from '@mui/material/CircularProgress'
+import { TOKENS } from '../../design/tokens'
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder'
 import { useTranscription } from '../../hooks/useTranscription'
 import { useNarrowScreen } from '../../hooks/useNarrowScreen'
@@ -903,10 +904,10 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                               wordBreak: 'break-word',
                               transition: 'box-shadow 0.3s ease',
                               ...(highlightId === msg.id && {
-                                boxShadow: '0 0 0 2px #ff9800',
+                                boxShadow: `0 0 0 2px ${TOKENS.signal.warning}`,
                                 animation: 'highlight-fade 2s ease-out',
                                 '@keyframes highlight-fade': {
-                                  '0%': { boxShadow: '0 0 0 3px #ff9800' },
+                                  '0%': { boxShadow: `0 0 0 3px ${TOKENS.signal.warning}` },
                                   '100%': { boxShadow: '0 0 0 0px transparent' },
                                 },
                               }),

@@ -6,6 +6,7 @@ namespace Maggie\Finance\Entity;
 
 use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
 use ApiPlatform\Metadata\ApiFilter;
+use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
@@ -27,6 +28,8 @@ use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\RetrospectVerdict;
 use Maggie\Finance\Enum\TransactionStatus;
+use Maggie\Finance\Enum\TransferKind;
+use Maggie\Finance\Enum\TransferSource;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\State\CreateTransactionProcessor;
 use Maggie\Finance\State\DeleteTransactionProcessor;
@@ -35,6 +38,7 @@ use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: TransactionRepository::class)]
+#[ORM\Index(columns: ['user_id', 'transfer_kind'], name: 'idx_transaction_user_transfer_kind')]
 #[ApiFilter(OrderFilter::class, properties: ['bookedAt'])]
 #[ApiFilter(UlidRelationFilter::class, properties: ['account'])]
 #[Indexed(index: 'transactions', module: 'finance')]
@@ -110,6 +114,38 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     #[IndexedField(type: 'date')]
     private ?\DateTimeImmutable $categorizedAt = null;
+
+    /**
+     * What kind of internal movement this is, if any. Anything but `None` is
+     * neither an expense nor an income, and leaves every aggregate.
+     *
+     * Read-only over REST, like the two fields below: a merge-patch cannot say
+     * whether a leg was left out or set to null, so it could unpair one side
+     * and leave the other pointing at it. The write paths are the detection,
+     * the catch-up endpoint and `manage_transactions`, which pair both legs.
+     */
+    #[ORM\Column(length: 20, enumType: TransferKind::class)]
+    #[ApiProperty(writable: false)]
+    #[Assert\NotNull]
+    #[IndexedField(type: 'keyword')]
+    private TransferKind $transferKind = TransferKind::None;
+
+    /** Who decided it: the detection, or the user by hand. */
+    #[ORM\Column(length: 20, enumType: TransferSource::class)]
+    #[ApiProperty(writable: false)]
+    #[Assert\NotNull]
+    #[IndexedField(type: 'keyword')]
+    private TransferSource $transferSource = TransferSource::Auto;
+
+    /**
+     * The other leg of the same movement. Null when only one of the two
+     * accounts is known — the normal case when a single bank is synced.
+     */
+    #[ORM\ManyToOne(targetEntity: self::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    #[ApiProperty(writable: false)]
+    #[IndexedRelation(targetEntity: self::class, sourceField: 'counterpartId')]
+    private ?self $counterpart = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
@@ -269,6 +305,103 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
         return $this;
     }
 
+    public function getTransferKind(): TransferKind
+    {
+        return $this->transferKind;
+    }
+
+    public function setTransferKind(TransferKind $transferKind): static
+    {
+        $this->transferKind = $transferKind;
+
+        return $this;
+    }
+
+    public function getTransferSource(): TransferSource
+    {
+        return $this->transferSource;
+    }
+
+    public function setTransferSource(TransferSource $transferSource): static
+    {
+        $this->transferSource = $transferSource;
+
+        return $this;
+    }
+
+    public function getCounterpart(): ?self
+    {
+        return $this->counterpart;
+    }
+
+    public function setCounterpart(?self $counterpart): static
+    {
+        $this->counterpart = $counterpart;
+
+        return $this;
+    }
+
+    /** Not serialized: `transferKind` is the one truth a client reads. */
+    #[ApiProperty(readable: false)]
+    public function isInternalTransfer(): bool
+    {
+        return TransferKind::None !== $this->transferKind;
+    }
+
+    /**
+     * Pairs the two legs of one movement, recording who decided it.
+     *
+     * Both sides carry the same judgement — a transfer is a single fact seen
+     * twice — and whatever either side pointed at before is freed: a third
+     * line left pointing at a line that disowns it would be excluded from
+     * every aggregate for good, with nothing to justify it.
+     */
+    public function markAsInternalTransfer(self $counterpart, TransferSource $source): static
+    {
+        $this->unpair();
+        $counterpart->unpair();
+
+        $this->transferKind = TransferKind::Internal;
+        $this->transferSource = $source;
+        $this->counterpart = $counterpart;
+
+        $counterpart->transferKind = TransferKind::Internal;
+        $counterpart->transferSource = $source;
+        $counterpart->counterpart = $this;
+
+        return $this;
+    }
+
+    /** Takes this line out of the transfers, with who decided that. */
+    public function releaseInternalTransfer(TransferSource $source): static
+    {
+        $this->unpair();
+        $this->transferSource = $source;
+
+        return $this;
+    }
+
+    /**
+     * Frees the leg this one pointed at, which goes back to `auto`.
+     *
+     * The pair cannot come back — the line the user judged is sealed `manual`
+     * and the detection skips it — but the leg in front may well belong to a
+     * third line, and sealing it too would hide that pairing for ever.
+     */
+    private function unpair(): void
+    {
+        $former = $this->counterpart;
+
+        $this->transferKind = TransferKind::None;
+        $this->counterpart = null;
+
+        if (null !== $former && $former->counterpart === $this) {
+            $former->transferKind = TransferKind::None;
+            $former->transferSource = TransferSource::Auto;
+            $former->counterpart = null;
+        }
+    }
+
     public function getUser(): User
     {
         return $this->user;
@@ -294,8 +427,11 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'categorySource' => $this->categorySource->value,
             'retrospect' => $this->retrospect->value,
             'categorizedAt' => $this->categorizedAt?->format(\DateTimeInterface::ATOM),
+            'transferKind' => $this->transferKind->value,
+            'transferSource' => $this->transferSource->value,
             'accountId' => (string) $this->account->getId(),
             'categoryId' => null !== $this->category ? (string) $this->category->getId() : null,
+            'counterpartId' => null !== $this->counterpart ? (string) $this->counterpart->getId() : null,
             'userId' => (string) $this->user->getId(),
         ];
     }
@@ -312,8 +448,15 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'isExceptional' => $this->isExceptional,
             'categorySource' => $this->categorySource->value,
             'retrospect' => $this->retrospect->value,
+            'transferKind' => $this->transferKind->value,
+            'transferSource' => $this->transferSource->value,
             'accountId' => (string) $this->account->getId(),
             'categoryId' => null !== $this->category ? (string) $this->category->getId() : null,
-        ], $changedProperties, ['account' => 'accountId', 'category' => 'categoryId']);
+            'counterpartId' => null !== $this->counterpart ? (string) $this->counterpart->getId() : null,
+        ], $changedProperties, [
+            'account' => 'accountId',
+            'category' => 'categoryId',
+            'counterpart' => 'counterpartId',
+        ]);
     }
 }

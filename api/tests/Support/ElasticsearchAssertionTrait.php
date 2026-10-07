@@ -42,6 +42,42 @@ trait ElasticsearchAssertionTrait
         ));
     }
 
+    /**
+     * One named entity was sent for reindexing.
+     *
+     * A change that touches two rows — the two legs of an internal transfer,
+     * say — passes `assertElasticsearchIndexDispatched()` on the first one
+     * while the second stays stale in the index, and the lists are served from
+     * the index.
+     */
+    protected function assertElasticsearchIndexDispatchedFor(string $entityClass, string $entityId): void
+    {
+        self::assertContains(
+            $entityId,
+            $this->reindexedIdsOf($entityClass),
+            sprintf('Expected %s %s to be sent for reindexing.', $entityClass, $entityId),
+        );
+    }
+
+    protected function assertNoElasticsearchIndexDispatched(string $entityClass): void
+    {
+        self::assertSame([], $this->reindexedIdsOf($entityClass), 'Nothing should have been reindexed.');
+    }
+
+    /** @return string[] */
+    protected function reindexedIdsOf(string $entityClass): array
+    {
+        $ids = [];
+        foreach ($this->getAsyncTransport()->getSent() as $envelope) {
+            $message = $envelope->getMessage();
+            if ($message instanceof IndexDocumentCommand && $message->entityClass === $entityClass) {
+                $ids[] = $message->entityId;
+            }
+        }
+
+        return $ids;
+    }
+
     protected function assertElasticsearchDeleteDispatched(?string $indexName = null): void
     {
         $sent = $this->getAsyncTransport()->getSent();
