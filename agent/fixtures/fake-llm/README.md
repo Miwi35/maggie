@@ -132,6 +132,8 @@ model announcing « je vous rappellerai » without calling `schedule_proaction`
 (MAG-339). The reminder guard sends it back once with a message of its own — a list
 of blocks, so it counts as a round and the next turn is read — and replaces a second
 announcement with the sentence that nothing was scheduled.
+`85-reminder-notification-forgotten.yaml` is the same failure worded « je t'enverrai une
+notification à … » — the phrasing the recette agent saw in production.
 
 The transcript cleanup pairs with the WireMock Whisper stub: that stub returns
 one fixed sentence, and `20-transcription-cleanup.yaml` returns it cleaned. Change
