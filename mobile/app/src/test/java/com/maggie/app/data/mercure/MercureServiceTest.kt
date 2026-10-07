@@ -9,6 +9,16 @@ import org.junit.Test
 class MercureServiceTest {
 
     @Test
+    fun `the hub client lets every open screen hold its stream at once`() {
+        // OkHttp queues a sixth call to one host: the stream of a recipe sheet opened on top of
+        // chat, approvals, contexts and the dashboard would never connect.
+        val dispatcher = MercureService.hubClient().dispatcher
+
+        assertTrue(dispatcher.maxRequestsPerHost >= 20)
+        assertTrue(dispatcher.maxRequests >= dispatcher.maxRequestsPerHost)
+    }
+
+    @Test
     fun `buildSubscriptionUrl subscribes a placeholder topic as a URL pattern`() {
         val url = MercureService.buildSubscriptionUrl(
             hubUrl = "http://maggie.local/.well-known/mercure",
