@@ -1,6 +1,7 @@
 package com.maggie.app.ui.components
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -62,6 +63,15 @@ class AssistantOverlayScreenTest {
         )
     }
 
+    // The answer comes back from the repository on the view model's own coroutine: pump the
+    // main looper until the card is gone instead of asserting right after the click.
+    private fun awaitCardGone() {
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithTag(UiTags.approvalCard("ap-1")).fetchSemanticsNodes().isEmpty()
+        }
+        compose.onNodeWithTag(UiTags.approvalCard("ap-1")).assertDoesNotExist()
+    }
+
     @Test
     fun `a pending action shows its card in the overlay`() {
         show(FakeChat(history = emptyList(), pending = listOf(approval)), Voice())
@@ -82,7 +92,7 @@ class AssistantOverlayScreenTest {
         compose.waitForIdle()
 
         assertEquals(listOf("approve:ap-1"), chat.decisions)
-        compose.onNodeWithTag(UiTags.approvalCard("ap-1")).assertDoesNotExist()
+        awaitCardGone()
     }
 
     @Test
@@ -95,7 +105,7 @@ class AssistantOverlayScreenTest {
         compose.waitForIdle()
 
         assertEquals(listOf("deny:ap-1"), chat.decisions)
-        compose.onNodeWithTag(UiTags.approvalCard("ap-1")).assertDoesNotExist()
+        awaitCardGone()
     }
 
     @Test
