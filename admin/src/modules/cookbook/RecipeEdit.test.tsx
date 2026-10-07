@@ -57,11 +57,11 @@ const recipe = {
 
 const i18nProvider = polyglotI18nProvider(() => messages, 'fr')
 
-const renderEdit = (update: ReturnType<typeof vi.fn>) => {
+const renderEdit = (update: ReturnType<typeof vi.fn>, record: typeof recipe = recipe) => {
   render(
-    <MemoryRouter initialEntries={['/recipes/01R']}>
+    <MemoryRouter initialEntries={[`/recipes/${encodeURIComponent(record.id)}`]}>
       <AdminContext
-        dataProvider={testDataProvider({ getOne: vi.fn().mockResolvedValue({ data: recipe }), update })}
+        dataProvider={testDataProvider({ getOne: vi.fn().mockResolvedValue({ data: record }), update })}
         i18nProvider={i18nProvider}
       >
         <Routes>
@@ -160,6 +160,15 @@ describe('RecipeEdit', { timeout: 30_000 }, () => {
 
       await waitFor(() => expect(screen.getByLabelText(/Quantité/)).toHaveValue(350))
       expect(screen.queryByText(/modifiée ailleurs/)).not.toBeInTheDocument()
+    })
+
+    test('follows a recipe whose id is its IRI, as the API serves it to the admin', async () => {
+      renderEdit(vi.fn(), { ...recipe, id: '/api/recipes/01R' })
+      expect(await screen.findByLabelText(/Quantité/)).toHaveValue(200)
+
+      publish({ ingredients: [line(350)] })
+
+      await waitFor(() => expect(screen.getByLabelText(/Quantité/)).toHaveValue(350))
     })
 
     test('shows new notes, tags and name, and a line added', async () => {

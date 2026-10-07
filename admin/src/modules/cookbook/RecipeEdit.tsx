@@ -48,6 +48,9 @@ const sameValue = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringi
 // Keeps the open sheet in step with what other clients and Maggie do to the recipe. A field with
 // unsaved changes keeps what the user typed; the others follow, and a banner offers to take the
 // published version of the ones that disagree.
+// The admin's record id is the recipe's IRI, the hub's `@id` is the same IRI: compare the ULIDs.
+const idOf = (value: unknown) => String(value).split('/').pop()
+
 const RecipeLiveSync = () => {
   const record = useRecordContext<{ id: string }>()
   const { getValues, reset, setValue } = useFormContext()
@@ -80,7 +83,7 @@ const RecipeLiveSync = () => {
       } catch {
         return
       }
-      if (payload['@id'] !== `/api/recipes/${record.id}` || payload.deleted) return
+      if (idOf(payload['@id']) !== idOf(record.id) || payload.deleted) return
 
       const incoming: Record<string, unknown> = {}
       const kept: Record<string, unknown> = {}
