@@ -2,23 +2,32 @@ package com.maggie.app.ui.screens.cookbook.grocery
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.maggie.app.data.model.CookbookUnit
+import com.maggie.app.data.model.GroceryItem
+import com.maggie.app.data.model.GroceryList
 import com.maggie.app.screentest.FakeGrocery
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.screentest.Seed
 import com.maggie.app.screentest.assertTopToBottom
 import com.maggie.app.screentest.tap
+import android.os.Looper
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Shadows.shadowOf
+import java.time.Duration
 
 /**
  * The errand on the phone, without a phone (MAG-242).
@@ -182,5 +191,81 @@ class GroceryScreenTest {
 
         compose.onNodeWithText("Aucun article dans la liste").assertIsDisplayed()
         compose.onNodeWithText("Liste de courses").assertIsDisplayed()
+    }
+
+    // --- MAG-291: − quantity + on the line ---
+
+    private val riceList = GroceryList(
+        id = "list-rice",
+        items = listOf(
+            GroceryItem(id = "item-riz", label = "Riz", customLabel = "Riz", quantity = 1f, unit = CookbookUnit.PACK, position = 0),
+            GroceryItem(id = "item-sel", label = "Sel", customLabel = "Sel", position = 1),
+        ),
+    )
+
+    // The save waits for the taps to stop; the main looper is paused here, so the delay is lived through explicitly.
+    private fun afterSaveDelay() {
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(QUANTITY_SAVE_DELAY_MS + 100))
+        compose.waitForIdle()
+    }
+
+    private fun quantityOfRice(fake: FakeGrocery) = fake.items.first { it.id == "item-riz" }.quantity
+
+    /** The journey of the ticket: Riz at 1 paquet, two taps on +, 3 paquets — on the screen and on the server. */
+    @Test
+    fun `two taps on plus show 3 paquets and save 3`() {
+        val fake = FakeGrocery(list = riceList)
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel) }
+
+        compose.onNodeWithText("1 paquet").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Augmenter la quantité de Riz").performClick()
+        compose.onNodeWithContentDescription("Augmenter la quantité de Riz").performClick()
+
+        compose.onNodeWithText("3 paquets").assertIsDisplayed()
+        afterSaveDelay()
+        assertEquals(3f, quantityOfRice(fake))
+    }
+
+    @Test
+    fun `minus is disabled at the minimum and the line stays`() {
+        val fake = FakeGrocery(list = riceList)
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel) }
+
+        compose.onNodeWithContentDescription("Diminuer la quantité de Riz").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Diminuer la quantité de Riz").performClick()
+
+        compose.onNodeWithText("1 paquet").assertIsDisplayed()
+        assertEquals(1f, quantityOfRice(fake))
+        assertEquals(2, fake.items.size)
+    }
+
+    @Test
+    fun `a quantity typed on the line is saved`() {
+        val fake = FakeGrocery(list = riceList)
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel) }
+
+        compose.onNodeWithContentDescription("Modifier la quantité de Riz").performClick()
+        compose.onNodeWithContentDescription("Quantité de Riz").performTextReplacement("7")
+        compose.onNodeWithContentDescription("Quantité de Riz").performImeAction()
+
+        compose.onNodeWithText("7 paquets").assertIsDisplayed()
+        afterSaveDelay()
+        assertEquals(7f, quantityOfRice(fake))
+    }
+
+    @Test
+    fun `an invalid typed quantity is refused with a message and nothing changes`() {
+        val fake = FakeGrocery(list = riceList)
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel) }
+
+        compose.onNodeWithContentDescription("Modifier la quantité de Riz").performClick()
+        compose.onNodeWithContentDescription("Quantité de Riz").performTextReplacement("0")
+        compose.onNodeWithContentDescription("Quantité de Riz").performImeAction()
+
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithText("Quantité invalide", substring = true).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("1 paquet").assertIsDisplayed()
+        assertEquals(1f, quantityOfRice(fake))
     }
 }

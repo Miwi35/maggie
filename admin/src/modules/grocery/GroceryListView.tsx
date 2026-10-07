@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useDataProvider, useNotify, Title } from 'react-admin'
 import { useMercure } from '../../hooks/useMercure'
 import { useItemTransitions, transitionSx } from '../../hooks/useItemTransitions'
@@ -37,6 +37,7 @@ import ExpandLess from '@mui/icons-material/ExpandLess'
 import ExpandMore from '@mui/icons-material/ExpandMore'
 import DoneAllIcon from '@mui/icons-material/DoneAll'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
+import { QuantityStepper } from './QuantityStepper'
 
 interface ProductOption {
   id: string
@@ -108,6 +109,9 @@ const formatBuyAfter = (buyAfter: string) => {
   return `${d}/${m}/${y}`
 }
 
+// Taps on − / + within this delay become one request.
+const QUANTITY_SAVE_DELAY_MS = 400
+
 const GROCERY_LIST_TOPICS = ['/api/grocery_lists/{id}']
 const entrypoint = import.meta.env.VITE_API_URL || 'http://localhost/api'
 
@@ -120,6 +124,8 @@ function SortableGroceryItem({
   removingIds,
   onCheck,
   onViewDetail,
+  onQuantityChange,
+  onQuantityInvalid,
   isDragDisabled,
 }: {
   item: GroceryItem
@@ -127,6 +133,8 @@ function SortableGroceryItem({
   removingIds: Set<string>
   onCheck: (item: GroceryItem) => void
   onViewDetail: (item: GroceryItem) => void
+  onQuantityChange: (item: GroceryItem, quantity: number) => void
+  onQuantityInvalid: () => void
   isDragDisabled: boolean
 }) {
   const isRemoving = removingIds.has(item.id)
@@ -141,7 +149,6 @@ function SortableGroceryItem({
   }
 
   const label = item.label
-  const detail = item.quantity != null ? `${item.quantity}${item.unit ? ' ' + item.unit : ''}` : ''
 
   return (
     // `data-testid` and `data-store`: MUI renders a store's ListSubheader as an
@@ -181,7 +188,6 @@ function SortableGroceryItem({
         </ListItemIcon>
         <ListItemText
           primary={label}
-          secondary={detail}
           sx={{
             textDecoration: item.checked ? 'line-through' : 'none',
             opacity: item.checked ? 0.5 : 1,
@@ -196,6 +202,14 @@ function SortableGroceryItem({
           sx={{ ml: 1 }}
         />
       </ListItemButton>
+      <QuantityStepper
+        label={label}
+        quantity={item.quantity}
+        unit={item.unit}
+        disabled={isRemoving}
+        onChange={(quantity) => onQuantityChange(item, quantity)}
+        onInvalid={onQuantityInvalid}
+      />
     </ListItem>
   )
 }
@@ -390,6 +404,83 @@ export const GroceryListView = () => {
       notify('Erreur', { type: 'error' })
     }
   }
+
+  // Quantities typed or tapped but not yet confirmed by the API, by item id: they
+  // are what the line shows, so a Mercure echo of an earlier save cannot flash an
+  // older value in the middle of a burst of taps.
+  const [pendingQuantities, setPendingQuantities] = useState<Record<string, number>>({})
+  const pendingRef = useRef<Record<string, number>>({})
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+  const saves = useRef(new Map<string, Promise<void>>())
+
+  useEffect(() => {
+    const pending = timers.current
+    return () => pending.forEach((timer) => clearTimeout(timer))
+  }, [])
+
+  const saveQuantity = useCallback(
+    async (item: GroceryItem, quantity: number) => {
+      let saved = false
+      try {
+        const token = localStorage.getItem('token')
+        const response = await fetch(`${entrypoint}/grocery/edit-item/${item.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ quantity }),
+        })
+        saved = response.ok
+      } catch {
+        saved = false
+      }
+      if (saved) {
+        setGroceryList((prev) =>
+          prev
+            ? { ...prev, items: prev.items.map((i) => (i.id === item.id ? { ...i, quantity } : i)) }
+            : prev,
+        )
+      } else {
+        notify(`Erreur : la quantité de « ${item.label} » n'a pas été modifiée`, { type: 'error' })
+      }
+      // A newer tap keeps its own value; only the one just settled is dropped,
+      // which on a refusal puts the previous quantity back on the line.
+      if (pendingRef.current[item.id] === quantity) {
+        const rest = { ...pendingRef.current }
+        delete rest[item.id]
+        pendingRef.current = rest
+        setPendingQuantities(rest)
+      }
+    },
+    [notify],
+  )
+
+  const handleQuantityChange = useCallback(
+    (item: GroceryItem, quantity: number) => {
+      pendingRef.current = { ...pendingRef.current, [item.id]: quantity }
+      setPendingQuantities(pendingRef.current)
+
+      clearTimeout(timers.current.get(item.id))
+      timers.current.set(
+        item.id,
+        setTimeout(() => {
+          timers.current.delete(item.id)
+          const last = pendingRef.current[item.id]
+          if (last === undefined) return
+          // One save at a time per line, in order.
+          const previous = saves.current.get(item.id) ?? Promise.resolve()
+          const next = previous.then(() => saveQuantity(item, last))
+          saves.current.set(item.id, next)
+          next.finally(() => {
+            if (saves.current.get(item.id) === next) saves.current.delete(item.id)
+          })
+        }, QUANTITY_SAVE_DELAY_MS),
+      )
+    },
+    [saveQuantity],
+  )
+
+  const handleQuantityInvalid = useCallback(() => {
+    notify('Quantité invalide : saisissez un nombre supérieur à 0', { type: 'warning' })
+  }, [notify])
 
   const handleEditItem = async () => {
     if (!groceryList || !detailItem || !editLabel) return
@@ -586,17 +677,25 @@ export const GroceryListView = () => {
   )
   const removingIds = useMemo(() => new Set(removingItems.map((i) => i.id)), [removingItems])
 
+  const withPendingQuantities = useCallback(
+    (items: GroceryItem[]) =>
+      items.map((item) =>
+        pendingQuantities[item.id] !== undefined ? { ...item, quantity: pendingQuantities[item.id] } : item,
+      ),
+    [pendingQuantities],
+  )
+
   // A line with a future `buyAfter` is not today's shopping: it waits in « Plus tard ».
   const { todayItems, laterItems } = useMemo(() => {
     const today = localToday()
-    const all = groceryList?.items ?? []
+    const all = withPendingQuantities(groceryList?.items ?? [])
     return {
       todayItems: all.filter((i) => !isDeferred(i, today)),
       laterItems: all
         .filter((i) => isDeferred(i, today))
         .sort((a, b) => (a.buyAfter ?? '').localeCompare(b.buyAfter ?? '') || a.label.localeCompare(b.label)),
     }
-  }, [groceryList?.items])
+  }, [groceryList?.items, withPendingQuantities])
 
   // Merge current items + ghost (removing) items for display
   const displayItems = useMemo(() => {
@@ -734,6 +833,8 @@ export const GroceryListView = () => {
                               removingIds={removingIds}
                               onCheck={handleCheck}
                               onViewDetail={setDetailItem}
+                              onQuantityChange={handleQuantityChange}
+                              onQuantityInvalid={handleQuantityInvalid}
                               isDragDisabled={removingIds.size > 0 || addedIds.size > 0}
                             />
                           ))}

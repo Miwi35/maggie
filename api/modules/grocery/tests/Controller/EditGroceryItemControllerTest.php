@@ -7,6 +7,7 @@ use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Grocery\Entity\GroceryItem;
+use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Entity\Store;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -49,6 +50,62 @@ class EditGroceryItemControllerTest extends WebTestCase
         ), json_encode(['label' => ''], JSON_THROW_ON_ERROR));
 
         self::assertResponseStatusCodeSame(400);
+    }
+
+    /**
+     * @return iterable<string, array{mixed}>
+     */
+    public static function invalidQuantities(): iterable
+    {
+        yield 'zero' => [0];
+        yield 'negative' => [-2];
+        yield 'text' => ['beaucoup'];
+        yield 'empty' => [''];
+        yield 'infinite' => ['1e999'];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('invalidQuantities')]
+    public function testInvalidQuantityReturns400AndChangesNothing(mixed $quantity): void
+    {
+        $this->loadFixtures('grocery_with_product.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $itemId = (string) $this->getFixture('item_bananes')->getId();
+        $before = $this->getFixture('item_bananes')->getQuantity();
+
+        $this->client->request('PATCH', "/api/grocery/edit-item/$itemId", [], [], array_merge(
+            ['CONTENT_TYPE' => 'application/json'],
+            $this->authHeaders(),
+        ), json_encode(['quantity' => $quantity], JSON_THROW_ON_ERROR));
+
+        self::assertResponseStatusCodeSame(400);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertSame($before, $em->getRepository(GroceryItem::class)->find($itemId)->getQuantity());
+    }
+
+    public function testQuantityAloneLeavesUnitAndProductUntouched(): void
+    {
+        $this->loadFixtures('grocery_with_product.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $itemId = (string) $this->getFixture('item_bananes')->getId();
+        $unit = $this->getFixture('item_bananes')->getUnit();
+
+        $this->client->request('PATCH', "/api/grocery/edit-item/$itemId", [], [], array_merge(
+            ['CONTENT_TYPE' => 'application/json'],
+            $this->authHeaders(),
+        ), json_encode(['quantity' => 2.5], JSON_THROW_ON_ERROR));
+
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $item = $em->getRepository(GroceryItem::class)->find($itemId);
+        self::assertSame(2.5, $item->getQuantity());
+        self::assertSame($unit, $item->getUnit());
+
+        $this->assertMercureUpdatePublished('/grocery_lists/');
+        $this->assertElasticsearchIndexDispatched(GroceryList::class);
     }
 
     public function testUpdateQuantityAndUnit(): void

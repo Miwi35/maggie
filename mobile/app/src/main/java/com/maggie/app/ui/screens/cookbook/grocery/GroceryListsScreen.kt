@@ -41,6 +41,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
@@ -96,7 +98,15 @@ fun GroceryScreen(
         }
     }
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(uiState.quantityMessage) {
+        val message = uiState.quantityMessage ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(message)
+        viewModel.dismissQuantityMessage()
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             if (!uiState.isSelecting) {
                 FloatingActionButton(onClick = { viewModel.showAddSheet() }) {
@@ -286,6 +296,9 @@ fun GroceryScreen(
                                                     detailItem = groceryItem
                                                 }
                                             },
+                                            onIncrement = { viewModel.incrementQuantity(groceryItem) },
+                                            onDecrement = { viewModel.decrementQuantity(groceryItem) },
+                                            onSetQuantity = { viewModel.setQuantity(groceryItem, it) },
                                             dragModifier = if (!uiState.isSelecting) {
                                                 Modifier.draggableHandle()
                                             } else {
@@ -412,10 +425,21 @@ private fun SwipeableGroceryItem(
     onSwipeLeft: () -> Unit,
     onLongPress: () -> Unit,
     onTap: () -> Unit,
+    onIncrement: () -> Unit,
+    onDecrement: () -> Unit,
+    onSetQuantity: (String) -> Unit,
     dragModifier: Modifier = Modifier,
 ) {
     val rowContent: @Composable () -> Unit = {
-        GroceryItemRow(item = item, isSelected = isSelected, isDragging = isDragging, dragModifier = dragModifier)
+        GroceryItemRow(
+            item = item,
+            isSelected = isSelected,
+            isDragging = isDragging,
+            onIncrement = onIncrement,
+            onDecrement = onDecrement,
+            onSetQuantity = onSetQuantity,
+            dragModifier = dragModifier,
+        )
     }
 
     val clickModifier = Modifier.combinedClickable(
@@ -509,6 +533,9 @@ private fun GroceryItemRow(
     item: GroceryItem,
     isSelected: Boolean = false,
     isDragging: Boolean = false,
+    onIncrement: () -> Unit,
+    onDecrement: () -> Unit,
+    onSetQuantity: (String) -> Unit,
     dragModifier: Modifier = Modifier,
 ) {
     val backgroundColor = when {
@@ -553,12 +580,12 @@ private fun GroceryItemRow(
                 },
             )
         }
-        item.quantity?.let { qty ->
-            val unitStr = item.unit?.name?.lowercase() ?: ""
-            Text(
-                text = "$qty $unitStr",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+        if (item.id != null) {
+            QuantityStepper(
+                item = item,
+                onIncrement = onIncrement,
+                onDecrement = onDecrement,
+                onSetQuantity = onSetQuantity,
             )
         }
     }

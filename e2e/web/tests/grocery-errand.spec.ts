@@ -114,6 +114,7 @@ const WRITES = {
   payload: 'Semoule MAG-101',
   observed: 'Levure MAG-101',
   posted: 'Pois chiches MAG-101',
+  stepped: 'Boulgour du placard',
   errandBought: 'Anchois MAG-101',
   errandKept: 'Olives MAG-101',
 }
@@ -406,6 +407,61 @@ test('a line written in one window appears in the other without a reload', async
       await expect(watching.line(label)).toHaveAttribute('data-store', SHOPS.market)
     },
   )
+})
+
+test('pressing + twice on a line makes it three, in the other window and after a reload — MAG-291', async ({
+  otherUser,
+}) => {
+  const label = WRITES.stepped
+  const { api } = otherUser
+  const observerPage = await otherUser.secondWindow()
+
+  const acting = new GroceryListPage(otherUser.page)
+  const watching = new GroceryListPage(observerPage)
+
+  await acting.open()
+  await acting.addItem(label, { quantity: 1, store: SHOPS.market })
+  await expect(acting.line(label)).toContainText('1')
+
+  await openSubscribed(
+    observerPage,
+    () => watching.open(),
+    userTopic(otherUser.session.user.id, GROCERY_TOPIC),
+  )
+
+  // Two quick taps are one write: the line shows 3 at once, and so does the
+  // other window, from Mercure alone.
+  await expectRealtimeSync(
+    observerPage,
+    async () => {
+      const plus = acting.line(label).getByRole('button', { name: `Augmenter la quantité de ${label}` })
+      await plus.click()
+      await plus.click()
+      await expect(acting.line(label)).toContainText('3')
+    },
+    async () => {
+      await expect(watching.line(label)).toContainText('3')
+    },
+  )
+
+  await expectLine(api, label, (line) => 3 === line?.quantity, 'the stored quantity is 3')
+
+  await acting.expectItemEventually(label)
+  await expect(acting.line(label)).toContainText('3')
+
+  // An empty entry is refused without sending anything.
+  const writes: string[] = []
+  otherUser.page.on('request', (request) => {
+    if ('POST' === request.method() || 'PATCH' === request.method()) {
+      writes.push(request.url())
+    }
+  })
+  await acting.line(label).getByRole('button', { name: `Modifier la quantité de ${label}` }).click()
+  const field = acting.line(label).getByLabel(`Quantité de ${label}`, { exact: true })
+  await field.fill('')
+  await field.press('Enter')
+  await expect(acting.line(label)).toContainText('3')
+  expect(writes, 'an empty quantity was sent to the API').toHaveLength(0)
 })
 
 test('adding a line goes through the endpoint the API really exposes', async ({ otherUser }) => {

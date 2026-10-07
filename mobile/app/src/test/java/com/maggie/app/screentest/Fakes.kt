@@ -125,8 +125,14 @@ class FakeGrocery(
             groceryListRepository.editItem(any(), any(), any(), any(), any(), any(), any())
         } answers {
             val itemId = firstArg<String>()
+            val quantity = arg<Float?>(2)
             val storeId = arg<String?>(4)
-            replace(itemId) { item -> item.copy(store = stores.firstOrNull { it.id == storeId } ?: item.store) }
+            replace(itemId) { item ->
+                item.copy(
+                    quantity = quantity ?: item.quantity,
+                    store = stores.firstOrNull { it.id == storeId } ?: item.store,
+                )
+            }
             Result.success(Unit)
         }
         // The server's own definition: what was ticked at this shop is bought and
