@@ -196,6 +196,7 @@ case "$command" in
         # Dockerfile catches a PHP bump or an extension change, either of
         # which can make a vendor tree installed under the old runtime wrong —
         # and does it without needing the image to exist yet.
+        "$REPO_ROOT/wt/mountpoints.sh" api/vendor
         runtime="$(hash_of "$REPO_ROOT/.docker/php/Dockerfile")"
         # composer.json is part of the key, not just the lockfile: the
         # generated autoloader is built from it, so adding a PSR-4 namespace
@@ -208,6 +209,7 @@ case "$command" in
         ;;
     admin)
         image="${2:?an image is required}"
+        "$REPO_ROOT/wt/mountpoints.sh" admin/node_modules
         node_tag="$(printf '%s' "$image" | tr -c 'a-zA-Z0-9' '-')"
         prepare admin "$node_tag-$(hash_of "$REPO_ROOT/admin/package-lock.json")" fill_admin "$image"
         ;;

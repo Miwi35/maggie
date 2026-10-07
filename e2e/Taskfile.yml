@@ -64,9 +64,12 @@ tasks:
       # (MAG-137). A no-op on CI.
       - '{{.ROOT_DIR}}/wt/guard.sh e2e'
       - task: keys
-      # Created here rather than left to Docker, which would make the bind
-      # mount itself, owned by root: the agent's uv cache (MAG-135).
-      - mkdir -p {{.ROOT_DIR}}/.e2e-cache/uv
+      # Created here rather than left to Docker, which makes a missing bind
+      # mount source itself, owned by root: the agent's uv cache (MAG-135), and
+      # api/vendor, which `wt:*` mounts a cache over in a fresh worktree and
+      # `e2e:install` then cannot write to (MAG-287). A leftover root-owned
+      # directory stops here with the command to remove it.
+      - '{{.ROOT_DIR}}/wt/mountpoints.sh api/vendor api/var admin/node_modules ciqual/db .e2e-cache/uv'
       # Traefik first and alone: its published port is what every other
       # service's public URLs are built from, and Docker only assigns it once
       # the container exists.
