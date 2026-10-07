@@ -4,14 +4,12 @@ import {
   DndContext,
   KeyboardSensor,
   PointerSensor,
-  closestCenter,
-  pointerWithin,
   useDraggable,
   useDroppable,
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
-import type { Announcements, CollisionDetection, DragEndEvent } from '@dnd-kit/core'
+import type { Announcements, DragEndEvent } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { useDataProvider, useNotify, Title } from 'react-admin'
 import Box from '@mui/material/Box'
@@ -40,7 +38,7 @@ import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import RestaurantIcon from '@mui/icons-material/Restaurant'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
-import { mealCellId, neighbourCellCoordinates, parseMealCellId } from './mealDragAndDrop'
+import { mealCellId, mealCollision, neighbourCellCoordinates, parseMealCellId } from './mealDragAndDrop'
 import type { KeyboardDrag } from './mealDragAndDrop'
 
 // How long a move we just made outranks what the list says. The list is served
@@ -106,14 +104,6 @@ function withPendingMoves(rows: Meal[], moves: PendingMoves): Meal[] {
     }
     return { ...meal, date: move.date, slot: move.slot }
   })
-}
-
-// The cell under the pointer when there is one — the dragged row is grabbed by
-// its handle, so its centre is nowhere near the pointer — and the nearest cell
-// to the dragged row for the keyboard, which has no pointer.
-const pointerOrCenter: CollisionDetection = (args) => {
-  const underPointer = pointerWithin(args)
-  return underPointer.length > 0 ? underPointer : closestCenter(args)
 }
 
 const slotLabel = (slot: string) => SLOTS.find((s) => s.value === slot)?.label ?? slot
@@ -353,7 +343,8 @@ export const MealsWeekView = () => {
     if (meal.date === date && meal.slot === slot) return
 
     setMealCell(meal.id, date, slot)
-    pendingMoves.current.set(meal.id, { date, slot, until: Date.now() + MOVE_GRACE_MS })
+    const move = { date, slot, until: Date.now() + MOVE_GRACE_MS }
+    pendingMoves.current.set(meal.id, move)
     try {
       const token = localStorage.getItem('token')
       const response = await fetch(meal['@id'] || `/api/meals/${meal.id}`, {
@@ -366,7 +357,10 @@ export const MealsWeekView = () => {
         body: JSON.stringify({ date, slot }),
       })
       if (!response.ok) throw new Error(`PATCH answered ${response.status}`)
+      move.until = Date.now() + MOVE_GRACE_MS
     } catch {
+      // A newer move of the same meal owns the cell now: leave it be.
+      if (pendingMoves.current.get(meal.id) !== move) return
       pendingMoves.current.delete(meal.id)
       setMealCell(meal.id, meal.date, meal.slot)
       notify('Le repas n’a pas pu être déplacé : il reste dans sa case d’origine', { type: 'error' })
@@ -492,7 +486,7 @@ export const MealsWeekView = () => {
         sensors={sensors}
         onDragEnd={handleDragEnd}
         onDragCancel={() => (keyboardDrag.current = null)}
-        collisionDetection={pointerOrCenter}
+        collisionDetection={mealCollision}
         accessibility={{ announcements, screenReaderInstructions: { draggable: DRAG_INSTRUCTIONS } }}
       >
       {isNarrow ? (

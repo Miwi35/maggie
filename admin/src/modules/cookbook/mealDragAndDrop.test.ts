@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest'
 import type { KeyboardCoordinateGetter } from '@dnd-kit/core'
-import { mealCellId, neighbourCellCoordinates, parseMealCellId } from './mealDragAndDrop'
+import { mealCellId, mealCollision, neighbourCellCoordinates, parseMealCellId } from './mealDragAndDrop'
 import type { KeyboardDrag } from './mealDragAndDrop'
 
 type Args = Parameters<KeyboardCoordinateGetter>
@@ -84,5 +84,35 @@ describe('cell ids', () => {
 
   test.each(['', 'dinner', 'dinner:7', '01MEAL'])('%j is not a cell', (id) => {
     expect(parseMealCellId(id)).toBeNull()
+  })
+})
+
+describe('mealCollision', () => {
+  const droppableContainers = cells.map((cell) => ({ id: mealCellId(cell), disabled: false, node: { current: null }, rect: { current: null }, data: { current: undefined } }))
+  const args = (pointerCoordinates: { x: number; y: number } | null, collisionRect = mealIn({ slot: 'lunch', dayIndex: 1 })) =>
+    ({
+      active: { id: 'meal' },
+      collisionRect: { ...collisionRect },
+      droppableRects: rects,
+      droppableContainers,
+      pointerCoordinates,
+    }) as unknown as Parameters<typeof mealCollision>[0]
+
+  test('a pointer over a cell drops in that cell', () => {
+    const over = mealCollision(args({ x: 350, y: 240 }))
+
+    expect(over.map((c) => c.id)).toEqual([mealCellId({ slot: 'dinner', dayIndex: 2 })])
+  })
+
+  test('a pointer released over no cell drops nowhere, however near a cell is', () => {
+    // Above the grid, and in the gap between two cells.
+    expect(mealCollision(args({ x: 350, y: 20 }))).toEqual([])
+    expect(mealCollision(args({ x: 350, y: 190 }))).toEqual([])
+  })
+
+  test('the keyboard, which has no pointer, takes the cell nearest to the meal', () => {
+    const over = mealCollision(args(null, mealIn({ slot: 'dinner', dayIndex: 3 })))
+
+    expect(over[0]?.id).toBe(mealCellId({ slot: 'dinner', dayIndex: 3 }))
   })
 })

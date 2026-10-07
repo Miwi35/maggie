@@ -106,11 +106,18 @@ test('the keyboard moves a meal: pick it up, an arrow per cell, drop — MAG-250
   await expect(shell.content.getByTestId('meal-cell-dinner-5')).toContainText(name)
 
   const handle = handleOf(page, name)
+  // dnd-kit measures the cells after each key: wait for what it announces
+  // before the next one, or a key lands on rects that are not there yet.
+  const announced = page.locator('[role="status"][aria-live="assertive"]')
   await handle.focus()
   await page.keyboard.press('Space')
+  await expect(announced).toContainText('saisi')
   await page.keyboard.press('ArrowRight') // Saturday → Sunday
+  await expect(announced).toContainText('dimanche, dîner')
   await page.keyboard.press('ArrowUp') // dinner → lunch
+  await expect(announced).toContainText('dimanche, déjeuner')
   await page.keyboard.press('Space')
+  await expect(announced).toContainText('Repas déposé : dimanche, déjeuner')
 
   await expect(shell.content.getByTestId('meal-cell-lunch-6')).toContainText(name)
   await expect(shell.content.getByTestId('meal-cell-dinner-5')).not.toContainText(name)

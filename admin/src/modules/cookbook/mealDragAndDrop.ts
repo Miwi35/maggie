@@ -1,5 +1,5 @@
-import { KeyboardCode } from '@dnd-kit/core'
-import type { KeyboardCoordinateGetter } from '@dnd-kit/core'
+import { KeyboardCode, closestCenter, pointerWithin } from '@dnd-kit/core'
+import type { CollisionDetection, KeyboardCoordinateGetter } from '@dnd-kit/core'
 
 export interface MealCellRef {
   slot: string
@@ -94,3 +94,10 @@ export const neighbourCellCoordinates =
 
     return { x: fromRect.left + offset.x, y: fromRect.top + offset.y }
   }
+
+/**
+ * The cell under the pointer, and nothing when it is over none: releasing a
+ * meal on the header or in the gap between two cells must not move it. The
+ * keyboard has no pointer, so it takes the cell nearest to the dragged row.
+ */
+export const mealCollision: CollisionDetection = (args) => (args.pointerCoordinates ? pointerWithin(args) : closestCenter(args))
