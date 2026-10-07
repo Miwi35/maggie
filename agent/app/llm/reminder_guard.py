@@ -29,20 +29,26 @@ SCHEDULE_TOOL = "schedule_proaction"
 # préviendrai » needs a time after it — « si la météo change » is not a reminder — and « je
 # vous rappelle », « je vous préviens » one right after, so that « je vous rappelle que … »
 # and « je te préviens, … » stay out. Maggie also promises a reminder as a notification
-# (« je t'enverrai une notification à 20h44 », MAG-339's second refusal): same rule.
+# (« je t'enverrai une notification à 20h44 », MAG-339's second refusal), and in the present
+# (« je te notifie à 23h47 », its third): same rule. The verbs keep changing, which is why
+# the check covers the family — notify, alert, warn, send — rather than one phrasing.
 _TIME_ANCHOR = (
     r"[^.!?\n]{0,40}?(?:\bà\b|\bdans\b|\bvers\b|\bavant\b|\bdemain\b|\bmatin\b|\bmidi\b|\bsoir\b"
     r"|\b(?:lun|mar|mercre|jeu|vendre|same)di\b|\bdimanche\b|\d)"
 )
 _CLAIM = re.compile(
     r"\bje\s+(?:vous\s+|te\s+|t['\u2019]\s*)(?:l[ea]\s+|les\s+|l['\u2019]\s*)?"
-    r"(?:rapp?ell?erai|enverrai\s+(?:un\s+rappel|une\s+(?:notification|alerte))"
+    r"(?:rapp?ell?erai|env(?:errai|oie)\s+(?:un\s+rappel|une\s+(?:notification|alerte))"
     r"|rappelle\s+(?:dans|à|vers|demain|ce\s+soir)\b"
     r"|préviens\s+(?:dans|à|vers|demain|ce\s+soir)\b"
-    r"|(?:préviendrai|notifierai|ferai\s+signe|enverrai\s+un\s+message)" + _TIME_ANCHOR + r")"
+    r"|(?:notifie|alerte|avertis)\s+(?:dans|à|vers|demain|ce\s+soir|\d)"
+    r"|(?:préviendrai|notifierai|alerterai|avertirai|ferai\s+signe"
+    r"|env(?:errai|oie)\s+un\s+message)" + _TIME_ANCHOR + r")"
     r"|\b(?:tu\s+recevras|vous\s+recevrez)\s+"
     r"(?:un\s+rappel|une\s+(?:notification|alerte)|un\s+message" + _TIME_ANCHOR + r")"
-    r"|\brappel\s+(?:est\s+|bien\s+)*(?:programmé|planifié|enregistré)"
+    r"|\b(?:tu\s+seras|vous\s+serez)\s+(?:notifié|prévenu|alerté|averti)(?:e)?s?"
+    + _TIME_ANCHOR
+    + r"|\b(?:rappel|notification)\s+(?:est\s+|bien\s+)*(?:programmée?|planifiée?|enregistrée?)"
     r"|\b(?:j['\u2019]ai|c['\u2019]est)\s+(?:bien\s+)?(?:programmé|planifié)\s+(?:un|le|votre|ton|ce)\s+rappel",
     re.IGNORECASE,
 )

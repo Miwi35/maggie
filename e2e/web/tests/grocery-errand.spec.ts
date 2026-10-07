@@ -116,6 +116,8 @@ const WRITES = {
   posted: 'Pois chiches MAG-101',
   errandBought: 'Anchois MAG-101',
   errandKept: 'Olives MAG-101',
+  deleted: 'Lait MAG-283',
+  kept: 'Pain MAG-283',
 }
 
 async function storedList(api: APIRequestContext): Promise<StoredList> {
@@ -603,6 +605,39 @@ test('asking Maggie to prepare the week puts the recurring items on the list, on
         timeout: 30_000,
       })
       .toBe(1)
+  } finally {
+    await probe.close()
+  }
+})
+
+test('the shopper deletes a line from the list, and it stays gone after a reload — MAG-283', async ({ otherUser }) => {
+  const { deleted, kept } = WRITES
+  const { api } = otherUser
+
+  const grocery = new GroceryListPage(otherUser.page)
+  await grocery.open()
+
+  const probe = await probeOn(otherUser.page, otherUser.session.user.id)
+
+  try {
+    await grocery.addItem(deleted, { quantity: 1, store: SHOPS.market })
+    await grocery.addItem(kept, { quantity: 1, store: SHOPS.market })
+    const deletedId = await idOf(api, deleted)
+    await expectLine(api, kept, (item) => undefined !== item, 'the line to keep on the list')
+
+    const afterDelete = await since(probe)
+    await grocery.deleteLine(deleted)
+
+    await expect(grocery.line(deleted)).toHaveCount(0)
+    await expect(grocery.line(kept)).toBeVisible()
+
+    // Other windows hear about it: one line's removal, not a silent write.
+    await afterDelete.action(removedLine(deletedId), 'deleting a line published nothing — afc1a70')
+    await expectLine(api, deleted, (item) => undefined === item, 'the deleted line gone from the database')
+    await expectLine(api, kept, (item) => undefined !== item, 'the other line still in the database')
+
+    await grocery.expectItemEventually(kept)
+    await expect(grocery.line(deleted)).toHaveCount(0)
   } finally {
     await probe.close()
   }

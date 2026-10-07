@@ -1,0 +1,24 @@
+# A reminder promised in the present, « je te notifie à … », without scheduling it (MAG-339).
+#
+# The recette agent's third production refusal, scripted: `date_time` computes the time,
+# then the model ends on « Je te notifie à 16h04 » — the present tense the guard did not
+# know. It is sent back once, and this time it schedules.
+#
+# Dated 2099, like 83: the fake cannot read the time `date_time` returned.
+name: reminder-notification-present
+description: Remind me to take the laundry out — promised as « je te notifie », then scheduled after the relaunch.
+
+match:
+  user_contains: "sortir le linge"
+
+turns:
+  - tools:
+      - name: date_time
+        input: {action: add, minutes: 4}
+  - text: "Je te notifie à 16h04 pour sortir le linge."
+  - tools:
+      - name: schedule_proaction
+        input:
+          prompt: "Rappelle à l'utilisateur de sortir le linge."
+          scheduled_at: "2099-10-07T16:04:00+02:00"
+  - text: "C'est programmé : je te notifie à 16h04 pour sortir le linge."
