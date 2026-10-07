@@ -1,0 +1,24 @@
+# A research question goes to the sub-agent, an action does not. « Un point
+# sur ma semaine » needs the agenda, the groceries and the budget read and
+# crossed: that is what `delegate` to the read-only `researcher` is for. Doing it
+# herself fills her context with raw lists; delegating a simple add would be the
+# opposite mistake, so the second step pins it.
+name: recherche-deleguee
+description: A multi-module research question is delegated; a simple action is done directly.
+channel: chat
+
+steps:
+  - user_message: "Fais-moi un point sur ma semaine : agenda, courses, budget."
+    expected_tools: [delegate]
+    expected_absent: ["je n'ai pas accès", "je ne peux pas accéder"]
+    expected_behavior: >
+      Elle rédige une synthèse de la semaine à partir de ce que le sous-agent a
+      rendu, en français, en couvrant l'agenda, les courses et le budget, sans
+      mentionner le sous-agent ni ses outils.
+
+  - user_message: "Ajoute du basilic à ma liste de courses"
+    expected_tools: [add_grocery_item]
+    forbidden_tools: [delegate]
+    expected_behavior: >
+      Elle ajoute le basilic elle-même et le confirme en une phrase : une action
+      simple ne se délègue pas.

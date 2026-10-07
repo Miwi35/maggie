@@ -16,14 +16,14 @@
 - Add Budget & Finance module (expenses, income, budgets, investments) — **in progress**: MVP foundation (Account, Category, Transaction) shipped full-stack in `api/modules/finance`; Envelope is the remaining slice. See [finance-roadmap](finance-roadmap.md) and the [finance-mvp spec](../specs/2026-07-07-finance-mvp/shape.md)
 - MCP Server 2 with scheduling and memory self-management tools
 - Scheduler with basic routines (weekly menu suggestion, shopping list reminder)
-- Confidence/autonomy system (Act / Propose / Silent levels)
+- Confidence/autonomy system (Act / Propose / Silent levels) — **started**: a tool policy (`agent/data/policy.yaml`) gives each call `allow` / `ask` / `deny`, and an `ask` waits for the user's answer as a pending action on web and mobile (Act and Propose; Silent and learned confidence remain). See [agent architecture](../standards/agent/architecture.md) and the [agent-skills-subagents-approvals spec](../specs/2026-09-30-1151-agent-skills-subagents-approvals/plan.md)
 - Mode Plan implementation (visible UI piloting) + Agent Front-End SDK
 
 ## Phase 3: Intelligence
 
 - Mem0 integration for advanced factual/episodic memory management
 - Two-tier event filtering (small model quick filter + large model full reasoning)
-- Specialist agents system (nutrition, budget, sport specialists as YAML configs)
+- Specialist agents system (nutrition, budget, sport specialists as YAML configs) — **started**: sub-agents are Markdown files (`agent/data/agents/*.md`) Maggie hands tasks to through `delegate`; one read-only `researcher` ships, the specialists themselves remain
 - Behavioral rules learning (auto-confidence adjustment from user feedback)
 - Agent dashboard (memory inspector, rules manager, activity log, personality settings)
 
