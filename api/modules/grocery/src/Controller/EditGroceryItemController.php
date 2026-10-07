@@ -35,6 +35,10 @@ final class EditGroceryItemController
             return new JsonResponse(['error' => 'Label must be a non-empty string'], Response::HTTP_BAD_REQUEST);
         }
 
+        if (isset($body['quantity']) && (!is_numeric($body['quantity']) || (float) $body['quantity'] <= 0)) {
+            return new JsonResponse(['error' => 'Quantity must be a positive number'], Response::HTTP_BAD_REQUEST);
+        }
+
         $this->messageBus->dispatch(new EditGroceryItemCommand(
             groceryItemId: $id,
             userId: (string) $user->getId(),
