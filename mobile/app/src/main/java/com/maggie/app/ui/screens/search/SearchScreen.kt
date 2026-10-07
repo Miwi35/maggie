@@ -1,5 +1,8 @@
 package com.maggie.app.ui.screens.search
 
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,7 +45,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.SearchResult
-import kotlinx.serialization.json.jsonPrimitive
 import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -138,16 +140,8 @@ private fun SearchResultCard(
     result: SearchResult,
     onClick: () -> Unit,
 ) {
-    val title = result.data?.let { data ->
-        data["name"]?.jsonPrimitive?.content
-            ?: data["summary"]?.jsonPrimitive?.content
-            ?: data["title"]?.jsonPrimitive?.content
-            ?: result.id
-    } ?: result.id
-
-    val highlightText = result.highlights?.entries?.firstOrNull()?.let { (_, value) ->
-        value.jsonPrimitive.content
-    }
+    val title = searchResultTitle(result)
+    val highlightText = searchResultHighlight(result)
 
     Card(
         onClick = onClick,
@@ -199,3 +193,24 @@ private fun indexIcon(index: String): ImageVector {
         else -> Icons.Default.Search
     }
 }
+
+/**
+ * A field of a search result as text: a string as is, a list by its first string (Elasticsearch sends each
+ * highlighted field as a list of fragments, MAG-337), anything else null — never an exception.
+ */
+internal fun searchText(element: JsonElement?): String? = when (element) {
+    is JsonPrimitive -> if (element.isString) element.content else null
+    is JsonArray -> element.firstNotNullOfOrNull { searchText(it) }
+    else -> null
+}
+
+private val HIGHLIGHT_TAGS = Regex("</?em>")
+
+/** The card's title: name, summary or title of the item, its id as a last resort. */
+internal fun searchResultTitle(result: SearchResult): String =
+    listOf("name", "summary", "title").firstNotNullOfOrNull { searchText(result.data?.get(it))?.takeIf(String::isNotBlank) }
+        ?: result.id
+
+/** The first highlighted fragment, without the highlighting tags, or null. */
+internal fun searchResultHighlight(result: SearchResult): String? =
+    result.highlights?.values?.firstNotNullOfOrNull { searchText(it) }?.replace(HIGHLIGHT_TAGS, "")
