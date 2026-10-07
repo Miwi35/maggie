@@ -31,10 +31,7 @@ class AssistantActivity : ComponentActivity() {
     private var pendingContext by mutableStateOf<ScreenContext?>(null)
 
     private val sendVoiceResult: (String) -> Unit = { text ->
-        // A clear yes or no to a held action is its answer, not a message: the screen
-        // context stays armed for the next sentence (MAG-310).
-        if (!chatViewModel.answerApprovalByVoice(text)) {
-            chatViewModel.sendMessage(text, pendingContext?.toPromptBlock())
+        if (routeVoiceResult(text, chatViewModel, voiceManager, pendingContext)) {
             pendingContext = null
         }
     }
@@ -65,6 +62,7 @@ class AssistantActivity : ComponentActivity() {
                     onDismiss = { finish() },
                     pendingContext = pendingContext,
                     onVoiceResult = sendVoiceResult,
+                    onListen = { requestMicAndListen() },
                 )
             }
         }

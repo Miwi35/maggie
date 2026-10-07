@@ -12,7 +12,7 @@ class SpokenApprovalAnswerTest {
 
     @Test
     fun `a clear yes authorizes`() {
-        listOf("oui", "Oui !", "ouais", "vas-y", "Vas-y.", "d'accord", "D’accord", "ok", "c'est bon", "bien sûr")
+        listOf("oui", "Oui !", "ouais", "vas-y", "Vas-y.", "d'accord", "D’accord", "ok", "bien sûr")
             .forEach { assertAnswer(ApprovalDecision.APPROVE, it) }
     }
 
@@ -50,6 +50,13 @@ class SpokenApprovalAnswerTest {
         assertAnswer(null, "   ")
         assertAnswer(null, "...")
         assertAnswer(null, "euh")
+    }
+
+    @Test
+    fun `words that only close a topic do not authorize`() {
+        assertAnswer(null, "parfait")
+        assertAnswer(null, "c'est bon")
+        assertAnswer(null, "exactement")
     }
 
     @Test

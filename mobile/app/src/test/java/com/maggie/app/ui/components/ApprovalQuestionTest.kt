@@ -27,6 +27,18 @@ class ApprovalQuestionTest {
     }
 
     @Test
+    fun `a resolved label names what an id alone could not`() {
+        val approval = PendingApproval(
+            id = "ap-1",
+            toolName = "delete_event",
+            arguments = buildJsonObject { put("id", "evt-1") },
+        )
+
+        assertEquals("Je supprime l'événement ?", approvalQuestion(approval))
+        assertEquals("Je supprime l'événement Test validation ?", approvalQuestion(approval, "Test validation"))
+    }
+
+    @Test
     fun `an unknown tool is named as it is and still asks`() {
         val approval = PendingApproval(id = "ap-1", toolName = "archive_widget")
 

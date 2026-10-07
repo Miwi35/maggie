@@ -911,6 +911,7 @@ class ChatViewModelTest {
             Result.success(approval("ap-1", status = PendingApproval.STATUS_APPROVED))
         viewModel = createViewModel()
         advanceUntilIdle()
+        viewModel.markApprovalAsked("ap-1")
 
         val taken = viewModel.answerApprovalByVoice("Oui, vas-y")
         advanceUntilIdle()
@@ -927,6 +928,7 @@ class ChatViewModelTest {
             Result.success(approval("ap-1", status = PendingApproval.STATUS_DENIED))
         viewModel = createViewModel()
         advanceUntilIdle()
+        viewModel.markApprovalAsked("ap-1")
 
         val taken = viewModel.answerApprovalByVoice("non merci")
         advanceUntilIdle()
@@ -942,6 +944,7 @@ class ChatViewModelTest {
         coEvery { approvalRepository.getPending() } returns Result.success(listOf(approval("ap-1")))
         viewModel = createViewModel()
         advanceUntilIdle()
+        viewModel.markApprovalAsked("ap-1")
 
         val taken = viewModel.answerApprovalByVoice("oui mais attends")
         advanceUntilIdle()
@@ -972,6 +975,7 @@ class ChatViewModelTest {
             Result.success(approval("ap-1", status = PendingApproval.STATUS_APPROVED))
         viewModel = createViewModel()
         advanceUntilIdle()
+        viewModel.markApprovalAsked("ap-1")
 
         viewModel.answerApprovalByVoice("d'accord")
         advanceUntilIdle()
@@ -990,6 +994,8 @@ class ChatViewModelTest {
         coEvery { approvalRepository.approve("ap-2") } coAnswers { answer.await() }
         viewModel = createViewModel()
         advanceUntilIdle()
+        viewModel.markApprovalAsked("ap-1")
+        viewModel.markApprovalAsked("ap-2")
 
         viewModel.answerApprovalByVoice("oui")
         runCurrent()
@@ -998,5 +1004,39 @@ class ChatViewModelTest {
 
         coVerify(exactly = 1) { approvalRepository.approve("ap-1") }
         coVerify(exactly = 1) { approvalRepository.approve("ap-2") }
+    }
+
+    @Test
+    fun `a yes to a card nobody read out is not an answer`() = runTest {
+        coEvery { approvalRepository.getPending() } returns Result.success(listOf(approval("ap-1")))
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.answerApprovalByVoice("oui"))
+        coVerify(exactly = 0) { approvalRepository.approve(any()) }
+        assertNull(viewModel.uiState.value.pendingApprovals.single().decision)
+    }
+
+    @Test
+    fun `a yes answers the card that was read out, never another one`() = runTest {
+        coEvery { approvalRepository.getPending() } returns Result.success(
+            listOf(approval("ap-1"), approval("ap-2", createdAt = "2026-10-06T11:00:00Z")),
+        )
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.markApprovalAsked("ap-2")
+
+        assertFalse(viewModel.answerApprovalByVoice("oui"))
+        coVerify(exactly = 0) { approvalRepository.approve(any()) }
+    }
+
+    @Test
+    fun `the question carries what the repository resolves behind the id`() = runTest {
+        val held = approval("ap-1")
+        coEvery { approvalRepository.describe(held) } returns "Test validation"
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertEquals("Je supprime l'événement Test validation ?", viewModel.questionFor(held))
     }
 }

@@ -170,14 +170,15 @@ private val SPOKEN_LABEL_KEYS = listOf("title", "name", "label", "summary")
 
 /**
  * What Maggie says out loud for a held action: « Je supprime l'événement Test validation ? ».
- * A tool the vocabulary above does not know is named as it is, so the question is always
- * asked, never swallowed.
+ * [resolvedLabel] is what the arguments cannot say (the title behind an id). A tool the
+ * vocabulary above does not know is named as it is, so the question is always asked,
+ * never swallowed.
  */
-internal fun approvalQuestion(approval: PendingApproval): String {
+internal fun approvalQuestion(approval: PendingApproval, resolvedLabel: String? = null): String {
     val words = approval.toolName.split('_').filter { it.isNotBlank() }
     val verb = SPOKEN_VERBS[words.firstOrNull()]
     val noun = words.drop(1).joinToString("_").let { SPOKEN_NOUNS[it] }
-    val label = SPOKEN_LABEL_KEYS.firstNotNullOfOrNull { key ->
+    val label = resolvedLabel?.takeIf { it.isNotBlank() } ?: SPOKEN_LABEL_KEYS.firstNotNullOfOrNull { key ->
         (approval.arguments[key] as? JsonPrimitive)?.content?.takeIf { it.isNotBlank() }
     }
     return if (verb != null && noun != null) {

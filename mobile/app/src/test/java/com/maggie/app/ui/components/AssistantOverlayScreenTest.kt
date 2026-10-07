@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -39,29 +40,31 @@ class AssistantOverlayScreenTest {
         createdAt = "2026-10-07T08:00:00Z",
     )
 
-    private fun voice(state: VoiceState = VoiceState.IDLE): VoiceManager {
-        val manager = mockk<VoiceManager>(relaxed = true)
-        every { manager.state } returns MutableStateFlow(state)
-        every { manager.duration } returns MutableStateFlow(0)
-        every { manager.errorMessage } returns MutableStateFlow(null)
-        every { manager.holdHint } returns MutableStateFlow(false)
-        every { manager.handsFree } returns MutableStateFlow(false)
-        every { manager.partialText } returns MutableStateFlow("")
-        return manager
+    private class Voice(state: VoiceState = VoiceState.IDLE, handsFree: Boolean = false) {
+        val state = MutableStateFlow(state)
+        val manager = mockk<VoiceManager>(relaxed = true).also { manager ->
+            every { manager.state } returns this.state
+            every { manager.duration } returns MutableStateFlow(0)
+            every { manager.errorMessage } returns MutableStateFlow(null)
+            every { manager.holdHint } returns MutableStateFlow(false)
+            every { manager.handsFree } returns MutableStateFlow(handsFree)
+            every { manager.partialText } returns MutableStateFlow("")
+        }
     }
 
-    private fun show(chat: FakeChat, voiceManager: VoiceManager) = compose.setContent {
+    private fun show(chat: FakeChat, voice: Voice, onListen: () -> Unit = {}) = compose.setContent {
         AssistantOverlay(
             viewModel = chat.viewModel,
-            voiceManager = voiceManager,
+            voiceManager = voice.manager,
             onDismiss = {},
             onVoiceResult = {},
+            onListen = onListen,
         )
     }
 
     @Test
     fun `a pending action shows its card in the overlay`() {
-        show(FakeChat(history = emptyList(), pending = listOf(approval)), voice())
+        show(FakeChat(history = emptyList(), pending = listOf(approval)), Voice())
         compose.waitForIdle()
 
         compose.onNodeWithText("Maggie demande ton accord").assertIsDisplayed()
@@ -72,7 +75,7 @@ class AssistantOverlayScreenTest {
     @Test
     fun `Autoriser answers the card and it leaves the overlay`() {
         val chat = FakeChat(history = emptyList(), pending = listOf(approval))
-        show(chat, voice())
+        show(chat, Voice())
         compose.waitForIdle()
 
         compose.onNodeWithTag(UiTags.approvalAllow("ap-1")).performClick()
@@ -85,7 +88,7 @@ class AssistantOverlayScreenTest {
     @Test
     fun `Refuser answers the card and it leaves the overlay`() {
         val chat = FakeChat(history = emptyList(), pending = listOf(approval))
-        show(chat, voice())
+        show(chat, Voice())
         compose.waitForIdle()
 
         compose.onNodeWithTag(UiTags.approvalDeny("ap-1")).performClick()
@@ -96,30 +99,61 @@ class AssistantOverlayScreenTest {
     }
 
     @Test
-    fun `Maggie asks the question aloud, once`() {
-        val manager = voice()
-        show(FakeChat(history = emptyList(), pending = listOf(approval)), manager)
+    fun `Maggie asks the question aloud, once, and marks the card as read out`() {
+        val voice = Voice()
+        val chat = FakeChat(history = emptyList(), pending = listOf(approval))
+        show(chat, voice)
         compose.waitForIdle()
 
-        verify(exactly = 1) { manager.speak("Je supprime l'événement Test validation ?") }
+        verify(exactly = 1) { voice.manager.speak("Je supprime l'événement Test validation ?") }
+        assertTrue(chat.viewModel.isApprovalAsked("ap-1"))
     }
 
     @Test
-    fun `Maggie does not talk over someone already speaking or listening`() {
-        val manager = voice(VoiceState.LISTENING)
-        show(FakeChat(history = emptyList(), pending = listOf(approval)), manager)
+    fun `the listening that opens with the overlay is cut for the question, then reopened`() {
+        val voice = Voice(VoiceState.LISTENING, handsFree = true)
+        var reopened = 0
+        show(FakeChat(history = emptyList(), pending = listOf(approval)), voice) { reopened++ }
         compose.waitForIdle()
 
-        verify(exactly = 0) { manager.speak(any()) }
+        verify(exactly = 1) { voice.manager.cancelListening() }
+        verify(exactly = 1) { voice.manager.speak("Je supprime l'événement Test validation ?") }
+        assertEquals(0, reopened)
+
+        voice.state.value = VoiceState.SPEAKING
+        compose.waitForIdle()
+        voice.state.value = VoiceState.IDLE
+        compose.waitForIdle()
+
+        assertEquals(1, reopened)
+    }
+
+    @Test
+    fun `Maggie does not cut someone who is holding the mic`() {
+        val voice = Voice(VoiceState.LISTENING, handsFree = false)
+        show(FakeChat(history = emptyList(), pending = listOf(approval)), voice)
+        compose.waitForIdle()
+
+        verify(exactly = 0) { voice.manager.speak(any()) }
+        verify(exactly = 0) { voice.manager.cancelListening() }
+    }
+
+    @Test
+    fun `Maggie does not talk over a reply being read`() {
+        val voice = Voice(VoiceState.SPEAKING)
+        show(FakeChat(history = emptyList(), pending = listOf(approval)), voice)
+        compose.waitForIdle()
+
+        verify(exactly = 0) { voice.manager.speak(any()) }
     }
 
     @Test
     fun `no pending action, no card and nothing to ask`() {
-        val manager = voice()
-        show(FakeChat(history = emptyList()), manager)
+        val voice = Voice()
+        show(FakeChat(history = emptyList()), voice)
         compose.waitForIdle()
 
         compose.onNodeWithText("Maggie demande ton accord").assertDoesNotExist()
-        verify(exactly = 0) { manager.speak(any()) }
+        verify(exactly = 0) { voice.manager.speak(any()) }
     }
 }

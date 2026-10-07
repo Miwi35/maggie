@@ -10,13 +10,13 @@ import java.text.Normalizer
  * The whole sentence has to be the answer. Anything else — « oui mais attends »,
  * « ajoute des tomates », two answers that disagree — is a normal message and returns
  * `null`: a wrong guess here would run or cancel an action nobody asked for. Politeness
- * around the answer (« non merci », « oui s'il te plaît ») does not change it.
+ * around the answer (« non merci », « oui s'il te plaît ») does not change it. Only words
+ * that plainly consent authorize: « parfait » or « c'est bon » may just close a topic.
  */
 object SpokenApprovalAnswer {
     private val YES = listOf(
-        "oui", "ouais", "ouai", "yes", "ok", "okay", "d accord", "vas y", "allez", "go",
-        "fais le", "c est bon", "bien sur", "avec plaisir", "parfait", "autorise", "j autorise",
-        "confirme", "je confirme", "exactement",
+        "oui", "ouais", "ouai", "yes", "ok", "okay", "d accord", "vas y", "fais le", "bien sur",
+        "autorise", "j autorise", "confirme", "je confirme",
     )
 
     private val NO = listOf(

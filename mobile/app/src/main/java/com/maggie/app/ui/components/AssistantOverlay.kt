@@ -40,7 +40,8 @@ import com.maggie.app.voice.VoiceState
  * [pendingContext] is what the screen behind the overlay was showing when the
  * assistant was summoned (MAG-30), named on screen until it is used. [onVoiceResult]
  * receives what the microphone heard: the activity, which starts the listening,
- * hands it in, so the sentence goes where the listening was asked for.
+ * hands it in, so the sentence goes where the listening was asked for. [onListen]
+ * reopens the microphone once a held action's question has been read, for its answer.
  */
 @Composable
 fun AssistantOverlay(
@@ -49,13 +50,14 @@ fun AssistantOverlay(
     onDismiss: () -> Unit,
     pendingContext: ScreenContext? = null,
     onVoiceResult: (String) -> Unit,
+    onListen: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val voiceState by voiceManager.state.collectAsState()
     val listState = rememberLazyListState()
 
     SpokenReplies(viewModel, voiceManager)
-    SpokenApprovals(viewModel, voiceManager)
+    SpokenApprovals(viewModel, voiceManager, onListen)
 
     LaunchedEffect(uiState.messages.size) {
         if (uiState.messages.isNotEmpty()) {

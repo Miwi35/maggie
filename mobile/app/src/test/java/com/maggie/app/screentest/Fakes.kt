@@ -386,6 +386,7 @@ class FakeChat(
         val approvals = mockk<ApprovalRepository>()
         coEvery { approvals.getPending() } returns Result.success(pending)
         every { approvals.observe() } returns emptyFlow()
+        coEvery { approvals.describe(any()) } returns null
         coEvery { approvals.approve(any()) } answers {
             val id = firstArg<String>()
             decided += "approve:$id"

@@ -13,6 +13,7 @@ import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.data.repository.ApprovalRepository
 import com.maggie.app.data.repository.ChatPreferencesRepository
 import com.maggie.app.data.repository.ChatRepository
+import com.maggie.app.ui.components.approvalQuestion
 import com.maggie.app.util.ChatDateFormatter
 import com.maggie.app.voice.ScreenContext
 import com.maggie.app.voice.SpokenApprovalAnswer
@@ -75,6 +76,7 @@ class ChatViewModel(
     private val approvalRepository: ApprovalRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ChatUiState())
+    private val askedApprovals = mutableSetOf<String>()
     val uiState: StateFlow<ChatUiState> = _uiState
 
     private val _contextUpdates = MutableSharedFlow<AgUiEvent.ContextUpdate>(extraBufferCapacity = 16)
@@ -533,9 +535,21 @@ class ChatViewModel(
     fun answerApprovalByVoice(text: String): Boolean {
         val target = _uiState.value.pendingApprovals
             .firstOrNull { it.approval.isPending && it.decision == null } ?: return false
+        // A « oui » answers a question that was heard: a card nobody read out yet is not it.
+        if (target.approval.id !in askedApprovals) return false
         val decision = SpokenApprovalAnswer.parse(text) ?: return false
         decide(target.approval.id, decision)
         return true
+    }
+
+    /** The question Maggie asks aloud for a held action, with what its arguments cannot say. */
+    suspend fun questionFor(approval: PendingApproval): String =
+        approvalQuestion(approval, approvalRepository.describe(approval))
+
+    fun isApprovalAsked(id: String): Boolean = id in askedApprovals
+
+    fun markApprovalAsked(id: String) {
+        askedApprovals += id
     }
 
     /** Drops a card that stays on screen once settled — a failed action — when the user closes it. */
