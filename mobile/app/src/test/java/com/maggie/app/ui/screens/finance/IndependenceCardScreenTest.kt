@@ -101,6 +101,14 @@ class IndependenceCardScreenTest {
         compose.onNodeWithText("Aucune catégorie déclarée comme rente")
             .performScrollTo()
             .assertIsDisplayed()
+        // The declaration is possible on the phone now (MAG-257): the hint
+        // points at the screen that does it, not at the admin or Maggie.
+        compose.onNodeWithText(
+            "Une rente se déclare sur une catégorie de recette — loyers perçus, " +
+                "dividendes — en créant la catégorie dans Finance › Catégories.",
+        )
+            .performScrollTo()
+            .assertIsDisplayed()
         compose.onNodeWithText("0 % du train de vie — il manque ${formatCents(0)} par mois")
             .assertDoesNotExist()
     }

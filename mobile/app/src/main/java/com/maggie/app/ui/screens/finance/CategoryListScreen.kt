@@ -3,12 +3,15 @@ package com.maggie.app.ui.screens.finance
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -27,6 +30,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -38,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.CategoryCreateRequest
 import com.maggie.app.data.model.categoryKindLabel
@@ -45,7 +50,7 @@ import com.maggie.app.data.model.obligationLabel
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
 
-private val OBLIGATIONS = listOf("mandatory", "optional", "saving", "investment", "debt")
+private val OBLIGATIONS = listOf("mandatory", "optional", "saving", "investment", "debt", "income")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -161,7 +166,7 @@ fun CategoryListScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun CategoryCreateDialog(
     onConfirm: (CategoryCreateRequest) -> Unit,
@@ -169,6 +174,7 @@ private fun CategoryCreateDialog(
 ) {
     var name by remember { mutableStateOf("") }
     var obligation by remember { mutableStateOf("optional") }
+    var passiveIncome by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -182,13 +188,43 @@ private fun CategoryCreateDialog(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     OBLIGATIONS.forEach { o ->
                         FilterChip(
                             selected = obligation == o,
-                            onClick = { obligation = o },
+                            onClick = {
+                                obligation = o
+                                // The API refuses the flag on anything but an income (422).
+                                if (o != "income") passiveIncome = false
+                            },
                             label = { Text(obligationLabel(o)) },
                         )
+                    }
+                }
+                if (obligation == "income") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .toggleable(
+                                value = passiveIncome,
+                                role = Role.Switch,
+                                onValueChange = { passiveIncome = it },
+                            ),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Rente")
+                            Text(
+                                text = "Loyers perçus, dividendes : compte dans l'indépendance financière.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(checked = passiveIncome, onCheckedChange = null)
                     }
                 }
             }
@@ -201,6 +237,7 @@ private fun CategoryCreateDialog(
                             CategoryCreateRequest(
                                 name = name.trim(),
                                 obligation = obligation,
+                                passiveIncome = passiveIncome,
                             ),
                         )
                     }
