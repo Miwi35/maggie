@@ -195,6 +195,7 @@ async def _system_blocks(contexts: list, current_context_id: str | None = None) 
     ):
         repo.find_active = AsyncMock(return_value=contexts)
         skills.get_skills_index.return_value = ""
+        skills.refresh = AsyncMock()
         gw = StreamingGateway()
         gw.personality = MagicMock()
         gw.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
@@ -291,6 +292,7 @@ class TestSummaryTrigger:
         ):
             contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""
+            skills.refresh = AsyncMock()
             messages.create = AsyncMock()
             summarizer.maybe_summarize = never_finishes
 
@@ -316,6 +318,7 @@ class TestSummaryTrigger:
         ):
             contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""
+            skills.refresh = AsyncMock()
             messages.create = AsyncMock()
             summarizer.maybe_summarize = AsyncMock(return_value=None)
 
@@ -349,6 +352,7 @@ class TestSummaryTrigger:
         ):
             contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""
+            skills.refresh = AsyncMock()
             messages.create = AsyncMock()
             summarizer.maybe_summarize = AsyncMock(return_value=None)
 
@@ -389,6 +393,7 @@ class TestSummaryTrigger:
         ):
             contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""
+            skills.refresh = AsyncMock()
             messages.create = AsyncMock()
             summarizer.maybe_summarize = AsyncMock(return_value=None)
 
@@ -409,6 +414,7 @@ class TestSummaryTrigger:
         ):
             contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""
+            skills.refresh = AsyncMock()
             messages.create = AsyncMock()
             summarizer.maybe_summarize = AsyncMock(return_value=None)
 
@@ -436,6 +442,7 @@ class TestStreamedExchangeReachesOtherDevices:
         ):
             contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""
+            skills.refresh = AsyncMock()
             summarizer.maybe_summarize = AsyncMock(return_value=None)
 
             gw = TestSummaryTrigger._gateway()

@@ -57,6 +57,15 @@ class SkillIndex:
         skills = await self.repo.list_all()
         self.entries = [SkillEntry(name=s.name, description=s.description, tags=list(s.tags or [])) for s in skills]
 
+    async def refresh(self) -> None:
+        """Reload before building a prompt. Each worker process holds its own copy, so a skill created
+        through another one is only seen after a reload. A failed reload keeps the last index: a passing
+        database hiccup must not take the chat down."""
+        try:
+            await self.rebuild()
+        except Exception as e:
+            logger.warning(f"Could not refresh the skill index, keeping the last one: {e}")
+
     async def import_legacy_files(self, directory: Path = LEGACY_SKILLS_DIR) -> int:
         """Move skill files left in the old container directory into the database, never overwriting a stored skill."""
         if not directory.is_dir():

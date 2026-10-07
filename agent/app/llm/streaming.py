@@ -82,6 +82,7 @@ class StreamingGateway:
         """Build the system blocks: cached prefix (personality + skills), then memory, directives, contexts, date."""
         capabilities = generate_capability_summary(tools) if tools else ""
         base = await self.personality.get_system_prompt(user_id, capabilities=capabilities)
+        await skill_index.refresh()
         skill_context = skill_index.get_skills_index()
         memory_context = await self.agent_memory.get_memory_context(user_id)
 

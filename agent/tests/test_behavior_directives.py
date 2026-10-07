@@ -80,6 +80,7 @@ class TestChatSystemPrompt:
         ):
             contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""
+            skills.refresh = AsyncMock()
             blocks = await _streaming_gateway()._build_system_prompt("user-1")
 
         assert TUTOIE in blocks[1]["text"]
@@ -93,6 +94,7 @@ class TestChatSystemPrompt:
         ):
             contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""
+            skills.refresh = AsyncMock()
             blocks = await _streaming_gateway()._build_system_prompt("user-1")
 
         assert PLANNING_RULE not in "".join(block["text"] for block in blocks)
@@ -107,6 +109,7 @@ class TestChatSystemPrompt:
         ):
             contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""
+            skills.refresh = AsyncMock()
             blocks = await _streaming_gateway()._build_system_prompt("user-1")
 
         assert blocks[0]["cache_control"] == {"type": "ephemeral"}
@@ -125,6 +128,7 @@ class TestProactionSystemPrompt:
         ):
             contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""
+            skills.refresh = AsyncMock()
             blocks = await _llm_gateway()._build_system_prompt("user-1", preamble="\n\nTu es en mode proaction.")
 
         assert TUTOIE in blocks[1]["text"]
@@ -137,6 +141,7 @@ class TestProactionSystemPrompt:
         ):
             contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""
+            skills.refresh = AsyncMock()
             blocks = await _llm_gateway()._build_system_prompt("user-1")
 
         assert "Préférences de l'utilisateur" not in blocks[1]["text"]

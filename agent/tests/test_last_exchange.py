@@ -151,6 +151,7 @@ class TestSystemPrompts:
         ):
             contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""
+            skills.refresh = AsyncMock()
             blocks = await _streaming_gateway()._build_system_prompt("user-1", exclude_message_id="current")
 
         assert "Dernière conversation : " in blocks[1]["text"]
@@ -168,6 +169,7 @@ class TestSystemPrompts:
         ):
             contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""
+            skills.refresh = AsyncMock()
             blocks = await _llm_gateway()._build_system_prompt("user-1", preamble="\n\nTu es en mode proaction.")
 
         assert "(il y a 10h)" in blocks[1]["text"]
