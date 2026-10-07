@@ -9,6 +9,7 @@ use Maggie\Calendar\Service\AgendaChoice;
 use Maggie\Calendar\Service\AgendaChoiceKind;
 use Maggie\Calendar\Service\AgendaResolver;
 use Maggie\Calendar\Service\AgendaSuggester;
+use Maggie\Calendar\Service\EventReminders;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
@@ -17,7 +18,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'create_event', description: 'Create a new calendar event. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes (default 60). Pass agenda_id whenever the user said or implied where the event belongs — its name as they said it ("Concerts", "au boulot": case, accents and approximations do not matter) or its id, with no manage_agendas call first. Omit it when they said nothing about the agenda: the tool then works it out from the event itself, from the agendas\' names and descriptions, and from the agenda the user filed similar events in before. Two agendas fitting equally well, or a name matching none, returns an error naming the plausible agendas and creates nothing — ask the user which one they mean and retry, never pick one yourself. Tell the user which agenda the event went to: it is in event.agenda.')]
+#[McpTool(name: 'create_event', description: 'Create a new calendar event. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes (default 60). Pass agenda_id whenever the user said or implied where the event belongs — its name as they said it ("Concerts", "au boulot": case, accents and approximations do not matter) or its id, with no manage_agendas call first. Omit it when they said nothing about the agenda: the tool then works it out from the event itself, from the agendas\' names and descriptions, and from the agenda the user filed similar events in before. Two agendas fitting equally well, or a name matching none, returns an error naming the plausible agendas and creates nothing — ask the user which one they mean and retry, never pick one yourself. Tell the user which agenda the event went to: it is in event.agenda. Use reminders for "préviens-moi une heure avant": a list of delays in minutes before the start, e.g. [60] or [10, 1440]; omit it when the user asked for nothing. Use rrule for a repeating event, RFC 5545 without the RRULE: prefix — "FREQ=WEEKLY;BYDAY=MO", "FREQ=DAILY;COUNT=10", "FREQ=MONTHLY;INTERVAL=2". The date and time given are the first occurrence, and reminders then fire for every occurrence.')]
 class CreateEventTool
 {
     public function __construct(
@@ -28,6 +29,7 @@ class CreateEventTool
     ) {
     }
 
+    /** @param list<int>|null $reminders minutes before the start, e.g. [60] for "une heure avant" */
     public function __invoke(
         string $title,
         string $date,
@@ -36,6 +38,8 @@ class CreateEventTool
         ?string $description = null,
         ?string $location = null,
         ?string $agenda_id = null,
+        ?array $reminders = null,
+        ?string $rrule = null,
     ): string {
         $startAt = new \DateTimeImmutable("{$date} {$time}", new \DateTimeZone('Europe/Paris'));
         $endAt = $startAt->modify("+{$duration} minutes");
@@ -60,6 +64,8 @@ class CreateEventTool
                 agendaId: null !== $choice?->agenda ? (string) $choice->agenda->getId() : null,
                 description: $description,
                 location: $location,
+                rrule: '' !== $rrule ? $rrule : null,
+                reminders: EventReminders::fromMinutes(array_map('intval', $reminders ?? [])),
                 userId: null !== $user ? (string) $user->getId() : null,
             ));
 
@@ -74,6 +80,8 @@ class CreateEventTool
                     'startAt' => $event->getStartAt()->format('c'),
                     'endAt' => $event->getEndAt()->format('c'),
                     'agenda' => $event->getAgenda()->getName(),
+                    'rrule' => $event->getRrule(),
+                    'reminders' => EventReminders::toMinutes($event->getReminders()),
                 ],
                 // How the agenda was settled, so the sentence the user reads says what
                 // actually happened instead of what the model assumes happened (MAG-150).

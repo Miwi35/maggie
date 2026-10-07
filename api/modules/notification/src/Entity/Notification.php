@@ -28,6 +28,7 @@ use Maggie\Notification\Enum\NotificationType;
 use Maggie\Notification\Repository\NotificationRepository;
 use Maggie\Notification\State\DeleteNotificationProcessor;
 use Maggie\Notification\State\MarkReadProcessor;
+use Symfony\Component\Serializer\Attribute\Ignore;
 use Symfony\Component\Uid\Ulid;
 
 #[ORM\Entity(repositoryClass: NotificationRepository::class)]
@@ -71,6 +72,20 @@ class Notification implements OwnedByUserInterface, MercurePublishable, Indexabl
 
     #[ORM\Column(length: 500, nullable: true)]
     private ?string $relatedEntityIri = null;
+
+    /**
+     * Which occurrence of the related entity this is about, for a reminder.
+     *
+     * A recurring event is one row whose `startAt` is its first occurrence, so
+     * `relatedEntityIri` alone cannot tell "the standup of the 7th" from "the
+     * standup of the 14th" — and the reminder cron dedupes on what it already
+     * sent. Without this it sent one reminder per series, ever (MAG-121).
+     *
+     * Bookkeeping, not something to read: kept out of the API surface and out of
+     * the index, like everything else only the cron needs.
+     */
+    #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $occurrenceStartAt = null;
 
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
     #[IndexedField(type: 'date')]
@@ -147,6 +162,19 @@ class Notification implements OwnedByUserInterface, MercurePublishable, Indexabl
     public function setRelatedEntityIri(?string $relatedEntityIri): static
     {
         $this->relatedEntityIri = $relatedEntityIri;
+
+        return $this;
+    }
+
+    #[Ignore]
+    public function getOccurrenceStartAt(): ?\DateTimeImmutable
+    {
+        return $this->occurrenceStartAt;
+    }
+
+    public function setOccurrenceStartAt(?\DateTimeImmutable $occurrenceStartAt): static
+    {
+        $this->occurrenceStartAt = $occurrenceStartAt;
 
         return $this;
     }

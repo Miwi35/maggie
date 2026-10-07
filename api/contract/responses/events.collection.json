@@ -16,6 +16,15 @@
             "endAt": "2026-03-15T11:00:00+00:00",
             "timeZone": "Europe/Paris",
             "status": "confirmed",
+            "reminders": {
+                "useDefault": false,
+                "overrides": [
+                    {
+                        "method": "popup",
+                        "minutes": 30
+                    }
+                ]
+            },
             "agenda": "/api/agendas/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "ownerRelation": "agenda",
             "recurring": false,

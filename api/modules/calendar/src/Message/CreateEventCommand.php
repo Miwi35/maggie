@@ -4,6 +4,7 @@ namespace Maggie\Calendar\Message;
 
 final readonly class CreateEventCommand
 {
+    /** @param array<string, mixed>|null $reminders Google's shape: {useDefault, overrides: [{method, minutes}]} */
     public function __construct(
         public string $summary,
         public \DateTimeImmutable $startAt,
@@ -17,6 +18,7 @@ final readonly class CreateEventCommand
         public ?string $recurringEventId = null,
         public ?\DateTimeImmutable $originalStartAt = null,
         public ?string $status = null,
+        public ?array $reminders = null,
         public ?string $userId = null,
     ) {
     }

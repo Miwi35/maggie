@@ -16,7 +16,10 @@ import com.maggie.app.data.local.entity.TaskEntity
 
 @Database(
     entities = [EventEntity::class, ChatMessageEntity::class, TaskEntity::class, AgendaEntity::class, RecipeEntity::class],
-    version = 7,
+    // 8: events carry their reminders (MAG-121). The database is a cache of the
+    // API and the builder falls back to a destructive migration, so a bump is all
+    // a new column needs.
+    version = 8,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

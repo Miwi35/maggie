@@ -81,4 +81,50 @@ class UpdateEventToolTest extends KernelTestCase
 
         self::assertArrayHasKey('error', $data);
     }
+
+    /**
+     * "Finalement, préviens-moi la veille" — the reminders are replaced, not added to.
+     *
+     * Replacing rather than merging is what the owner means when he names the
+     * reminders he wants, and it is the only reading that can ever remove one.
+     */
+    public function testRemindersReplaceWhatTheEventHad(): void
+    {
+        $data = json_decode(($this->tool())($this->id(), reminders: [1440]), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
+        self::assertSame([1440], $data['event']['reminders']);
+        self::assertSame(
+            ['useDefault' => false, 'overrides' => [['method' => 'popup', 'minutes' => 1440]]],
+            $this->reload()->getReminders(),
+        );
+    }
+
+    /** "Enlève le rappel" — said as `clear`, or as a list that came back empty. */
+    public function testRemindersAreClearedBothWays(): void
+    {
+        $data = json_decode(($this->tool())($this->id(), clear: ['reminders']), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
+        self::assertNull($this->reload()->getReminders());
+
+        $this->loadFixtures('UpdateEventToolTest.yaml');
+        $data = json_decode(($this->tool())($this->id(), reminders: []), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
+        self::assertSame([], $data['event']['reminders']);
+        self::assertNull($this->reload()->getReminders());
+    }
+
+    public function testAReminderOfZeroMinutesIsRefusedAndChangesNothing(): void
+    {
+        $data = json_decode(($this->tool())($this->id(), reminders: [0]), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayNotHasKey('success', $data);
+        self::assertStringContainsString('between 1 and', $data['error']);
+        self::assertSame(
+            ['useDefault' => false, 'overrides' => [['method' => 'popup', 'minutes' => 15]]],
+            $this->reload()->getReminders(),
+        );
+    }
 }

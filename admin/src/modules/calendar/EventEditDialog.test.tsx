@@ -39,7 +39,58 @@ describe('EventEditDialog', () => {
       allDay: false,
       description: 'Contrôle annuel',
       location: 'Cabinet',
+      reminders: null,
     })
+  })
+
+  /**
+   * The reminders the event holds are shown, changed and sent back (MAG-121).
+   *
+   * Prefilling them is what makes the field editable at all: a dialog that opened
+   * empty would silently drop every reminder the owner had — set from Maggie, or
+   * imported from Google — the next time he renamed the event.
+   */
+  test('pre-fills the reminders and submits the one chosen instead', async () => {
+    const onSubmit = vi.fn()
+    render(
+      <EventEditDialog
+        open
+        event={{ ...event, reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 30 }] } }}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    )
+
+    expect(screen.getByRole('combobox', { name: 'Rappel' })).toHaveTextContent('30 minutes avant')
+
+    await userEvent.click(screen.getByRole('combobox', { name: 'Rappel' }))
+    await userEvent.click(screen.getByRole('option', { name: '1 jour avant' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 1440 }] },
+      }),
+    )
+  })
+
+  /** Removing the last reminder sends null, which is what clears the field. */
+  test('removing the last reminder submits none', async () => {
+    const onSubmit = vi.fn()
+    render(
+      <EventEditDialog
+        open
+        event={{ ...event, reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 30 }] } }}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: 'Supprimer le rappel 30 minutes avant' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    expect(screen.getByText('Aucun rappel')).toBeInTheDocument()
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ reminders: null }))
   })
 
   test('sends blank optional fields as null', async () => {

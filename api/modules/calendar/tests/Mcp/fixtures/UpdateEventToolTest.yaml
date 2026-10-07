@@ -20,4 +20,8 @@ Maggie\Calendar\Entity\Event:
     rrule: FREQ=WEEKLY
     startAt: '<(new \DateTimeImmutable("2026-03-15 10:00"))>'
     endAt: '<(new \DateTimeImmutable("2026-03-15 11:00"))>'
+    reminders:
+      useDefault: false
+      overrides:
+        - { method: 'popup', minutes: 15 }
     agenda: '@test_agenda'
