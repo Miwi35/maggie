@@ -376,3 +376,38 @@ class TestProactionConsumer:
         consumed = await _consume({"response": "Pense au plombier.", "tool_calls": []})
 
         consumed.summarizer.maybe_summarize.assert_not_awaited()
+
+
+class TestADueReminderIsDelivered:
+    """7 Oct., 19:39 and 19:43: « Rappelle monsieur d'appeler sa mère » came due, and Maggie
+    answered « À quel moment souhaitez-vous que je vous le rappelle ? ». She read the stored
+    prompt as a new request to schedule, so a reminder that comes due must say so."""
+
+    @staticmethod
+    async def _sent(prompt: str, *, silent: bool = False):
+        gateway = _gateway()
+        gateway._build_system_prompt = AsyncMock(return_value=[])
+        loop = AsyncMock(return_value={"response": "C'est l'heure.", "tool_calls": []})
+        resolve = AsyncMock(return_value={"action": "matched", "id": "ctx-1", "label": "Rappels"})
+        with patch("app.llm.gateway.run_tool_loop", loop), patch("app.llm.gateway.resolve_context", resolve):
+            await gateway.proaction(prompt, "user-1", silent=silent)
+        return gateway, loop.await_args.args[1][0]["content"]
+
+    async def test_the_prompt_is_handed_over_as_due_now(self):
+        _, content = await self._sent("Rappelle monsieur d'appeler sa mère.")
+
+        assert "Rappelle monsieur d'appeler sa mère." in content
+        assert content != "Rappelle monsieur d'appeler sa mère."
+        assert "maintenant" in content
+
+    async def test_the_preamble_says_to_deliver_it_not_to_schedule_it(self):
+        gateway, _ = await self._sent("Rappelle monsieur d'appeler sa mère.")
+
+        preamble = gateway._build_system_prompt.await_args.kwargs["preamble"]
+        assert "maintenant" in preamble
+        assert "ne programme pas" in preamble.lower()
+
+    async def test_a_planning_run_keeps_its_prompt(self):
+        _, content = await self._sent("Planifie la journée", silent=True)
+
+        assert content == "Planifie la journée"
