@@ -1,0 +1,24 @@
+# A reminder promised as « je t'enverrai une notification » without scheduling it (MAG-339).
+#
+# The recette agent's production refusal, scripted: `date_time` computes the time, then the
+# model ends on « je t'enverrai une notification à 20h44 » — a wording the guard did not
+# know. It is sent back once, and this time it schedules.
+#
+# Dated 2099, like 83: the fake cannot read the time `date_time` returned.
+name: reminder-notification-forgotten
+description: Remind me to call my mother — promised as a notification, then scheduled after the relaunch.
+
+match:
+  user_contains: "appeler ma mère"
+
+turns:
+  - tools:
+      - name: date_time
+        input: {action: add, minutes: 5}
+  - text: "Je t'enverrai une notification à 16h05 pour appeler ta mère."
+  - tools:
+      - name: schedule_proaction
+        input:
+          prompt: "Rappelle à l'utilisateur d'appeler sa mère."
+          scheduled_at: "2099-10-07T16:05:00+02:00"
+  - text: "C'est programmé : je t'enverrai une notification à 16h05 pour appeler ta mère."
