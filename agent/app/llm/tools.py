@@ -13,6 +13,7 @@ from app.mcp.client import mcp_client
 
 # The policy module is where a `source` means something, so it owns the vocabulary.
 from app.policy.engine import A2A_SOURCE, Mode, policy_engine
+from app.policy.summary import build_summary
 from app.skills.index import skill_index
 
 logger = logging.getLogger(__name__)
@@ -681,8 +682,15 @@ class ToolRouter:
             return json.dumps({"error": "user_id required to request approval"})
 
         try:
+            summary = await build_summary(name, arguments or {}, user_id)
+        except Exception as e:
+            # The card is still worth showing without its sentence: it falls back to the label.
+            logger.warning(f"Could not build the summary of {name}: {e}")
+            summary = None
+
+        try:
             action = await pending_action_repo.create(
-                user_id, name, arguments or {}, source=source, context_id=context_id
+                user_id, name, arguments or {}, source=source, context_id=context_id, summary=summary
             )
         except Exception as e:
             # The action could not be stored, so nothing can approve it later: refusing

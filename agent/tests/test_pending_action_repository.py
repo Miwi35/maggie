@@ -25,6 +25,7 @@ async def hold(**overrides) -> PendingAction:
         overrides.pop("arguments", {"eventId": "evt-1"}),
         source=overrides.pop("source", "chat"),
         context_id=overrides.pop("context_id", None),
+        summary=overrides.pop("summary", None),
     )
 
 
@@ -85,6 +86,26 @@ class TestCreate:
         action = await hold()
 
         assert await pending_action_repo.get_for_user(USER, str(action.id)) is not None
+
+
+class TestTheReadableSummary:
+    """The card says « Supprimer l'événement « X » », never a tool name and an id (MAG-7)."""
+
+    async def test_the_summary_given_at_creation_is_stored_and_published(self, pending_db):
+        action = await hold(summary="Supprimer la recette « Couscous »")
+
+        stored = await pending_action_repo.get_for_user(USER, str(action.id))
+        assert stored is not None
+        assert stored.summary == "Supprimer la recette « Couscous »"
+        assert stored.to_dict()["summary"] == "Supprimer la recette « Couscous »"
+        payload = pending_db.published.await_args.args[1]
+        assert payload["summary"] == "Supprimer la recette « Couscous »"
+
+    async def test_an_action_without_summary_is_served_with_the_label_of_its_action(self, pending_db):
+        action = await hold(tool_name="delete_event", arguments={"id": "01KNZ8J6AGQ0K5D3WXYZ123456"})
+
+        assert action.summary is None
+        assert action.to_dict()["summary"] == "Supprimer l'événement"
 
 
 class TestDeduplication:

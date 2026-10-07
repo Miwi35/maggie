@@ -1,0 +1,26 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+
+Maggie\Calendar\Entity\Agenda:
+  own_agenda:
+    name: Own agenda
+    isDefault: true
+    user: '@test_user'
+
+Maggie\Calendar\Entity\Event:
+  paris_event:
+    summary: Test validation
+    timeZone: Europe/Paris
+    startAt: '<(new \DateTimeImmutable("2026-10-08 08:00:00", new \DateTimeZone("UTC")))>'
+    endAt: '<(new \DateTimeImmutable("2026-10-08 09:00:00", new \DateTimeZone("UTC")))>'
+    agenda: '@own_agenda'
+  paris_all_day:
+    summary: Vacances
+    allDay: true
+    timeZone: Europe/Paris
+    startAt: '<(new \DateTimeImmutable("2026-12-23 23:00:00", new \DateTimeZone("UTC")))>'
+    endAt: '<(new \DateTimeImmutable("2026-12-24 23:00:00", new \DateTimeZone("UTC")))>'
+    agenda: '@own_agenda'

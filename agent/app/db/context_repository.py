@@ -35,6 +35,8 @@ class ContextRepository:
             await conn.execute(
                 text("ALTER TABLE instruction ADD COLUMN IF NOT EXISTS kind VARCHAR(20) NOT NULL DEFAULT 'planning'")
             )
+            # MAG-7 — the readable sentence of a held action. Null on the older ones.
+            await conn.execute(text("ALTER TABLE agent_pending_action ADD COLUMN IF NOT EXISTS summary TEXT"))
 
     async def create(self, user_id: str, label: str) -> ConversationContext:
         async with agent_session() as session:

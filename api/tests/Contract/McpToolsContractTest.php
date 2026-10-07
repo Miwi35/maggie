@@ -7,6 +7,7 @@ namespace App\Tests\Contract;
 use Mcp\Capability\RegistryInterface;
 use Mcp\Schema\Tool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * The tool list the agent sees, frozen into contract/mcp-tools.json.
@@ -62,6 +63,25 @@ final class McpToolsContractTest extends KernelTestCase
                 $module,
             ));
         }
+    }
+
+    /**
+     * The MCP SDK pages tools/list at `pagination_limit` (50 by default) and
+     * hands back a nextCursor. The agent and the smoke journey read the first
+     * page only, so the tool past the limit vanishes without an error: Maggie
+     * simply cannot do something she could do before.
+     */
+    public function testTheWholeToolListFitsInOnePage(): void
+    {
+        $config = Yaml::parseFile(self::getContainer()->getParameter('kernel.project_dir').'/config/packages/mcp.yaml');
+        $limit = $config['mcp']['pagination_limit'] ?? 50;
+        $count = \count($this->tools());
+
+        self::assertGreaterThan($count, $limit, sprintf(
+            'mcp.pagination_limit is %d for %d tools: tools/list would split into pages and the agent only reads the first. Raise pagination_limit in config/packages/mcp.yaml.',
+            $limit,
+            $count,
+        ));
     }
 
     /**
