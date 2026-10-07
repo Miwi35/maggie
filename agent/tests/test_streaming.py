@@ -382,6 +382,7 @@ class TestSummaryTrigger:
             "fallback_message": "Il me faut de la farine",
             "current_message_id": "msg-1",
             "screen_context": None,
+            "image": None,
         }
 
     async def test_a_routing_failure_still_answers_from_the_global_window(self):

@@ -5,6 +5,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from app.db.models import Message
 from app.db.pending_action_model import PendingAction, PendingActionStatus
 
+SCREENSHOT = "/9j/4AAQSkZJRgABAQ=="
+
 
 class TestRoutes:
     def test_health_endpoint(self, client):
@@ -157,7 +159,7 @@ class TestRoutes:
 
         assert response.status_code == 200
         mock_msg_repo.create.assert_any_await(
-            user_id="test-user", role="user", content="De quoi parle cette page ?"
+            user_id="test-user", role="user", content="De quoi parle cette page ?", has_image=False
         )
         assert mock_gateway.chat.await_args.kwargs["screen_context"] == block
         assert mock_gateway.chat.await_args.args[0] == "De quoi parle cette page ?"
@@ -181,7 +183,7 @@ class TestRoutes:
             == 200
         )
 
-        mock_msg_repo.create.assert_any_await(user_id="test-user", role="user", content="ajoute ça à mon agenda")
+        mock_msg_repo.create.assert_any_await(user_id="test-user", role="user", content="ajoute ça à mon agenda", has_image=False)
         assert mock_gateway.chat.await_args.kwargs["screen_context"] == block
 
     @patch("app.api.routes.message_repo")
@@ -210,7 +212,71 @@ class TestRoutes:
         # Published as it is stored, so the Mercure echo the other clients draw is clean too.
         stored = mock_msg_repo.create.await_args.kwargs
         assert (stored["role"], stored["content"]) == ("user", "c'est quoi ce produit ?")
+        assert stored["has_image"] is False
         assert mock_streaming.chat_stream.call_args.kwargs["screen_context"] == block
+
+    @patch("app.api.routes.context_summarizer")
+    @patch("app.api.routes.message_repo")
+    @patch("app.api.routes.llm_gateway")
+    def test_a_screenshot_reaches_the_model_and_is_not_stored(
+        self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client
+    ):
+        """The picture lives for the turn (MAG-214): the stored row only says one was there."""
+        mock_gateway.chat = AsyncMock(return_value={"response": "Une cafetière.", "tool_calls": []})
+        stored = Message(id="msg-1", user_id="test-user", role="user", content="c'est quoi ?", has_image=True)
+        mock_msg_repo.create = AsyncMock(return_value=stored)
+        mock_summarizer.maybe_summarize = AsyncMock()
+
+        response = authed_client.post(
+            "/chat", json={"message": "c'est quoi ?", "image": {"media_type": "image/jpeg", "data": SCREENSHOT}}
+        )
+
+        assert response.status_code == 200
+        mock_msg_repo.create.assert_any_await(user_id="test-user", role="user", content="c'est quoi ?", has_image=True)
+        image = mock_gateway.chat.await_args.kwargs["image"]
+        assert (image.media_type, image.data) == ("image/jpeg", SCREENSHOT)
+        assert response.json()["messages"][0]["hasImage"] is True
+
+    @patch("app.api.routes.message_repo")
+    @patch("app.api.routes.streaming_gateway")
+    def test_the_streamed_route_takes_the_screenshot_too(self, mock_streaming, mock_msg_repo, authed_client):
+        async def no_events(*_args, **_kwargs):
+            if False:
+                yield {}
+
+        mock_streaming.chat_stream = MagicMock(side_effect=no_events)
+        mock_msg_repo.create = AsyncMock(
+            return_value=Message(id="msg-1", user_id="test-user", role="user", content="x")
+        )
+        body = {"message": "c'est quoi ?", "image": {"media_type": "image/png", "data": SCREENSHOT}}
+
+        with authed_client.stream("POST", "/chat/stream", json=body) as response:
+            assert response.status_code == 200
+            response.read()
+
+        stored = mock_msg_repo.create.await_args.kwargs
+        assert (stored["content"], stored["has_image"]) == ("c'est quoi ?", True)
+        assert mock_streaming.chat_stream.call_args.kwargs["image"].media_type == "image/png"
+
+    @patch("app.api.routes.message_repo")
+    def test_a_bad_screenshot_is_refused_before_anything_is_stored(self, mock_msg_repo, authed_client):
+        mock_msg_repo.create = AsyncMock()
+        bad = [
+            {"media_type": "image/gif", "data": SCREENSHOT},
+            {"media_type": "image/jpeg", "data": "pas du base64 !"},
+            {"media_type": "image/jpeg", "data": ""},
+        ]
+
+        for image in bad:
+            for url in ("/chat", "/chat/stream"):
+                assert authed_client.post(url, json={"message": "c'est quoi ?", "image": image}).status_code == 422
+
+        mock_msg_repo.create.assert_not_awaited()
+
+    def test_a_screenshot_needs_a_signed_in_user(self, client):
+        body = {"message": "c'est quoi ?", "image": {"media_type": "image/jpeg", "data": SCREENSHOT}}
+
+        assert client.post("/chat/stream", json=body).status_code in (401, 403)
 
     def test_proactions_endpoint_requires_auth(self, client):
         """GET /proactions without auth returns 401."""

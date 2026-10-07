@@ -22,6 +22,7 @@ from app.llm.context_summary import context_summarizer
 from app.llm.contexts import active_contexts_section, route_message
 from app.llm.directives import behavior_directives_section
 from app.llm.history import build_history, label_settled, strip_thread_label
+from app.llm.image import ChatImage
 from app.llm.last_exchange import last_exchange_section
 from app.llm.prompt_cache import build_system, cache_tools
 from app.llm.tool_blocks import record
@@ -117,13 +118,20 @@ class StreamingGateway:
         return build_system(base + skill_context, volatile, skill_index.skills_for_moment(MOMENT_CHAT))
 
     async def chat_stream(
-        self, message: str, user_id: str, user_msg_id: str, *, screen_context: str | None = None
+        self,
+        message: str,
+        user_id: str,
+        user_msg_id: str,
+        *,
+        screen_context: str | None = None,
+        image: ChatImage | None = None,
     ) -> AsyncGenerator[dict, None]:
         """Stream AG-UI events for a chat message.
 
         `screen_context` is what the screen behind the assistant overlay was showing
         (MAG-30). It joins the conversation in `build_history`, on the turn being answered,
-        and stays out of the stored message — which is what every client displays.
+        and stays out of the stored message — which is what every client displays. So does
+        `image`, the screenshot (MAG-214).
 
         Yields dicts representing AG-UI protocol events:
         - RUN_STARTED / RUN_FINISHED
@@ -162,6 +170,7 @@ class StreamingGateway:
             current_message_id=user_msg_id,
             screen_context=screen_context,
             tz=await resolve_user_timezone(user_id),
+            image=image,
         )
 
         # Get tools (contexts are managed by the gateway, not by Claude)

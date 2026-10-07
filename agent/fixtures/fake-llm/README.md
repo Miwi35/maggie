@@ -22,6 +22,7 @@ match:                       # every condition declared has to hold
   system_contains: "routeur de contexte"   # matched on the system prompt
   history_contains: "mon budget"   # matched on the conversation sent, minus the last message
   history_matches: 'id\W+(\w{26})'   # a regex on the same; its groups feed `\1` instead of user_matches
+  user_has_image: true       # the last user message came with a picture (MAG-214)
 
 turns:                       # one entry per model turn, in order
   - text: "Je regarde."      # optional: what she says this turn
