@@ -50,7 +50,7 @@ def tool_result_status(result: str) -> str:
         return "success"
     if data.get("status") == PENDING_APPROVAL_STATUS:
         return PENDING_APPROVAL_STATUS
-    return "error" if "error" in data else "success"
+    return "error" if data.get("error") else "success"
 
 
 class StreamingGateway:

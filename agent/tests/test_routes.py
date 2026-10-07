@@ -521,6 +521,30 @@ class TestApprovals:
     @patch("app.api.routes.run_tool_loop")
     @patch("app.api.routes.llm_gateway")
     @patch("app.api.routes.pending_action_repo")
+    def test_approve_keeps_the_action_approved_when_the_result_has_a_null_error(
+        self, mock_repo, mock_gateway, mock_loop, mock_msg_repo, authed_client
+    ):
+        # A stored proaction comes back with `"error": null` (MAG-339): the key is not a failure.
+        result = json.dumps({"id": "pro-1", "status": "pending", "error": None})
+        pending = held_action(context_id=None)
+        mock_repo.get_for_user = AsyncMock(return_value=pending)
+        mock_repo.decide = AsyncMock(return_value=answered(pending, PendingActionStatus.APPROVED))
+        mock_repo.settle = AsyncMock(return_value=answered(pending, PendingActionStatus.APPROVED, result))
+        mock_gateway.client = MagicMock()
+        mock_gateway.tool_router.call_tool = AsyncMock(return_value=result)
+        mock_gateway._build_system_prompt = AsyncMock(return_value=[])
+        mock_loop.return_value = {"response": "C'est programmé.", "tool_calls": []}
+        mock_msg_repo.create = AsyncMock()
+
+        response = authed_client.post("/approvals/act-1/approve")
+
+        assert response.json()["status"] == "approved"
+        mock_repo.settle.assert_awaited_once_with("act-1", PendingActionStatus.APPROVED, result)
+
+    @patch("app.api.routes.message_repo")
+    @patch("app.api.routes.run_tool_loop")
+    @patch("app.api.routes.llm_gateway")
+    @patch("app.api.routes.pending_action_repo")
     def test_approve_marks_the_action_failed_when_the_call_raises(
         self, mock_repo, mock_gateway, mock_loop, mock_msg_repo, authed_client
     ):

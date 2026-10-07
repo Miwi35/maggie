@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 import pytest
 import yaml
 
+from app.db.proaction_model import Proaction, ProactionStatus
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.reminder_guard import (
     NOT_SCHEDULED_MESSAGE,
@@ -32,7 +33,22 @@ SCHEDULED_ANSWER = "C'est programmé, monsieur : je vous rappellerai de boire de
 FALSE_CLAIM = "C'est noté, monsieur. Je vous rappellerai de boire de l'eau à 16h05."
 
 OFFERED = [{"name": "date_time", "input_schema": {}}, {"name": SCHEDULE_TOOL, "input_schema": {}}]
-SCHEDULED = json.dumps({"id": "pro-1", "status": "pending", "scheduledAt": "2099-10-07T14:05:00+00:00"})
+
+
+def a_stored_proaction() -> Proaction:
+    return Proaction(
+        id="pro-1",
+        user_id="user-1",
+        prompt="Boire de l'eau",
+        status=ProactionStatus.PENDING,
+        scheduled_at=datetime(2099, 10, 7, 14, 5, tzinfo=UTC),
+        created_at=datetime(2099, 10, 7, 14, 4, tzinfo=UTC),
+    )
+
+
+# What `schedule_proaction` really returns: the stored row's `to_dict()`, whose `error` key is
+# present and null on success — a guard testing for the key's absence read every success as a failure.
+SCHEDULED = json.dumps(a_stored_proaction().to_dict() | {"scheduledAtLocal": "mercredi 7 octobre 2099, 16h05"})
 
 
 class TestTheClaim:
@@ -96,6 +112,9 @@ class TestTheGuard:
         guard.record(SCHEDULE_TOOL, json.dumps({"status": "pending_approval", "approval_id": "a-1"}))
 
         assert guard.review(FALSE_CLAIM) is Verdict.ACCEPT
+
+    def test_a_successful_result_carries_a_null_error_key(self):
+        assert json.loads(SCHEDULED)["error"] is None
 
     @pytest.mark.parametrize("result", ['{"error": "Invalid datetime format: demain"}', "not json"])
     def test_a_failed_schedule_does_not_count(self, result):
@@ -187,8 +206,7 @@ def fake_client() -> FakeAnthropicClient:
 @pytest.fixture()
 def proactions():
     """The proaction table: the real `schedule_proaction` handler runs, only the repository is replaced."""
-    created = MagicMock()
-    created.to_dict.return_value = {"id": "pro-1", "status": "pending", "scheduledAt": "2099-10-07T14:05:00+00:00"}
+    created = a_stored_proaction()
     with (
         patch("app.llm.tools.proaction_repo") as repo,
         patch("app.llm.time_tool.resolve_user_timezone", AsyncMock(return_value=ZoneInfo("Europe/Paris"))),

@@ -515,6 +515,10 @@ class TestToolResultStatus:
     def test_a_result_is_a_success(self):
         assert tool_result_status(json.dumps({"deleted": True})) == "success"
 
+    def test_a_null_error_key_is_a_success(self):
+        # A stored proaction comes back with `"error": null` (MAG-339).
+        assert tool_result_status(json.dumps({"id": "pro-1", "status": "pending", "error": None})) == "success"
+
     def test_a_list_result_is_a_success(self):
         assert tool_result_status(json.dumps([{"id": "evt-1"}])) == "success"
 

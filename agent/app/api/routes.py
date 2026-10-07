@@ -207,7 +207,7 @@ def _is_error_result(result: str) -> bool:
         parsed = json.loads(result)
     except (TypeError, ValueError):
         return False
-    return isinstance(parsed, dict) and "error" in parsed
+    return isinstance(parsed, dict) and bool(parsed.get("error"))
 
 
 async def _pending_action_or_error(user_id: str, action_id: str) -> PendingAction:

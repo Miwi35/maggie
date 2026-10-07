@@ -76,7 +76,10 @@ def claims_reminder(text: str) -> bool:
 
 
 def _went_through(result: str) -> bool:
-    """A result without an error. `pending_approval` counts: the call is in front of the user.
+    """A result whose `error` is not set. `pending_approval` counts: the call is in front of the user.
+
+    A stored proaction comes back with `"error": null` — the key is there on success, so only
+    a filled one is a failure.
 
     Relaunching after a held call would only file a second request for the same reminder.
     """
@@ -84,7 +87,7 @@ def _went_through(result: str) -> bool:
         data = json.loads(result)
     except (json.JSONDecodeError, TypeError):
         return False
-    return isinstance(data, dict) and "error" not in data
+    return isinstance(data, dict) and not data.get("error")
 
 
 def _lists_a_pending_one(result: str) -> bool:
