@@ -52,6 +52,8 @@ class TestTheClaim:
             "Je vous rappelle à 16h05.",
             "Je vous préviens dans 5 minutes.",
             "Rappel enregistré pour 16h05.",
+            "Je te préviendrai une heure avant.",
+            "Je vous préviendrai lundi.",
         ],
     )
     def test_an_announced_reminder_is_a_claim(self, text):
@@ -153,6 +155,22 @@ class TestTheGuard:
 
     def test_no_relaunch_without_room_for_it(self):
         assert ReminderGuard(OFFERED).review(FALSE_CLAIM, can_retry=False) is Verdict.GIVE_UP
+
+    def test_the_refused_answer_is_sent_back_with_the_nudge(self):
+        messages: list = []
+        claim = [{"type": "text", "text": FALSE_CLAIM}]
+
+        ReminderGuard(OFFERED).send_back(messages, claim)
+
+        assert messages == [{"role": "assistant", "content": claim}, ReminderGuard.nudge()]
+
+    def test_a_blank_answer_is_not_sent_back(self):
+        # The API refuses an assistant message of blank text; the claim is in an earlier step.
+        messages: list = []
+
+        ReminderGuard(OFFERED).send_back(messages, [{"type": "text", "text": "  "}])
+
+        assert messages == [ReminderGuard.nudge()]
 
     def test_the_nudge_is_a_round_of_the_loop_not_a_user_message(self):
         nudge = ReminderGuard.nudge()

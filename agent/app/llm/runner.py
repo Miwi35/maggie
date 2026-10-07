@@ -81,8 +81,7 @@ async def run_tool_loop(
             verdict = guard.review(text_response, can_retry=iteration < max_iterations - 2)
             if verdict is Verdict.RETRY:
                 logger.warning("Reminder announced without schedule_proaction: sending the model back")
-                messages.append({"role": "assistant", "content": response.content})
-                messages.append(guard.nudge())
+                guard.send_back(messages, response.content)
                 continue
             if verdict is Verdict.GIVE_UP:
                 logger.warning("Reminder announced twice, never scheduled: answering it is not")

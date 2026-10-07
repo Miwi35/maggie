@@ -321,8 +321,7 @@ class StreamingGateway:
                 verdict = guard.review(answer, can_retry=iteration < max_iterations - 2)
                 if verdict is Verdict.RETRY:
                     logger.warning("Reminder announced without schedule_proaction: sending the model back")
-                    messages.append({"role": "assistant", "content": response_content})
-                    messages.append(guard.nudge())
+                    guard.send_back(messages, response_content)
                     continue
                 if verdict is Verdict.GIVE_UP:
                     logger.warning("Reminder announced twice, never scheduled: answering it is not")

@@ -29,7 +29,10 @@ SCHEDULE_TOOL = "schedule_proaction"
 # préviendrai » needs a time after it — « si la météo change » is not a reminder — and « je
 # vous rappelle », « je vous préviens » one right after, so that « je vous rappelle que … »
 # and « je te préviens, … » stay out.
-_TIME_ANCHOR = r"[^.!?\n]{0,40}?(?:\bà\b|\bdans\b|\bvers\b|\bdemain\b|\bce\s+soir\b|\d)"
+_TIME_ANCHOR = (
+    r"[^.!?\n]{0,40}?(?:\bà\b|\bdans\b|\bvers\b|\bavant\b|\bdemain\b|\bmatin\b|\bmidi\b|\bsoir\b"
+    r"|\b(?:lun|mar|mercre|jeu|vendre|same)di\b|\bdimanche\b|\d)"
+)
 _CLAIM = re.compile(
     r"\bje\s+(?:vous\s+|te\s+|t['\u2019]\s*)(?:l[ea]\s+|les\s+|l['\u2019]\s*)?"
     r"(?:rapp?ell?erai|enverrai\s+un\s+rappel|rappelle\s+(?:dans|à|vers|demain|ce\s+soir)\b"
@@ -138,3 +141,19 @@ class ReminderGuard:
         a list is a round of the loop.
         """
         return {"role": "user", "content": [{"type": "text", "text": NUDGE}]}
+
+    def send_back(self, messages: list, content: list) -> None:
+        """Append the answer being refused, then `nudge()`.
+
+        The answer is left out when it holds no text — the claim then came from an earlier
+        step, which is already in `messages` — because the API refuses an assistant message
+        made of blank text.
+        """
+        if any(_text_of(block).strip() for block in content or []):
+            messages.append({"role": "assistant", "content": content})
+        messages.append(self.nudge())
+
+
+def _text_of(block) -> str:
+    text = block.get("text") if isinstance(block, dict) else getattr(block, "text", None)
+    return text if isinstance(text, str) else ""
