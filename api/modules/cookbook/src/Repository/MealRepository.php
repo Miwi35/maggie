@@ -10,6 +10,7 @@ use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Entity\Recipe;
+use Maggie\Cookbook\Enum\MealSlot;
 use Maggie\Core\Entity\User;
 
 /** @extends ServiceEntityRepository<Meal> */
@@ -72,10 +73,15 @@ class MealRepository extends ServiceEntityRepository
      */
     public function findServedOnlyBy(Recipe $recipe): array
     {
-        return array_values(array_filter(
-            $this->byRecipe($recipe)->addOrderBy('m.slot', 'ASC')->getQuery()->getResult(),
+        $meals = array_values(array_filter(
+            $this->byRecipe($recipe)->getQuery()->getResult(),
             static fn (Meal $meal) => 1 === $meal->getRecipes()->count(),
         ));
+
+        // The slot is stored as text, where « dinner » sorts before « lunch ».
+        usort($meals, static fn (Meal $a, Meal $b) => [$a->getDate(), MealSlot::Lunch === $a->getSlot() ? 0 : 1] <=> [$b->getDate(), MealSlot::Lunch === $b->getSlot() ? 0 : 1]);
+
+        return $meals;
     }
 
     public function countServedOnlyBy(Recipe $recipe): int
