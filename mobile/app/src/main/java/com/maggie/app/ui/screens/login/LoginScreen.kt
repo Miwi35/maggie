@@ -31,9 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.maggie.app.R
 import com.maggie.app.ui.UiTags
-
-private val DarkBackground = Color(0xFF1A1A2E)
-private val SubtitleColor = Color(0x99FFFFFF)
+import com.maggie.app.ui.theme.MaggieTokens
 
 @Composable
 fun LoginScreen(viewModel: LoginViewModel) {
@@ -43,7 +41,7 @@ fun LoginScreen(viewModel: LoginViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(DarkBackground),
+            .background(MaggieTokens.Night.background),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -64,7 +62,7 @@ fun LoginScreen(viewModel: LoginViewModel) {
         Text(
             text = "Connectez-vous pour continuer",
             fontSize = 14.sp,
-            color = SubtitleColor,
+            color = MaggieTokens.Night.textMuted,
         )
         Spacer(modifier = Modifier.height(32.dp))
 
@@ -107,7 +105,7 @@ fun LoginScreen(viewModel: LoginViewModel) {
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = error,
-                color = Color(0xFFEF5350),
+                color = MaggieTokens.Feedback.error,
                 fontSize = 12.sp,
             )
         }
