@@ -230,7 +230,7 @@
       }
     },
     {
-      "name": "Task lists",
+      "name": "Task lists — two of them, so the choice of one is a real choice (MAG-118)",
       "request": {
         "method": "GET",
         "urlPathPattern": "/google/tasks/v1/users/@me/lists"
@@ -247,13 +247,18 @@
               "kind": "tasks#taskList",
               "id": "e2e-task-list",
               "title": "Mes tâches"
+            },
+            {
+              "kind": "tasks#taskList",
+              "id": "e2e-task-list-courses",
+              "title": "Courses Google"
             }
           ]
         }
       }
     },
     {
-      "name": "Tasks in a list",
+      "name": "Tasks in a list — any list, so the chosen one is the only thing that varies",
       "request": {
         "method": "GET",
         "urlPathPattern": "/google/tasks/v1/lists/[^/]+/tasks"

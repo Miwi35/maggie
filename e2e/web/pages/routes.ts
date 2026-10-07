@@ -27,6 +27,7 @@ export const ROUTES = {
   meals: '/meals',
   ingredients: '/ingredients',
   preferences: '/settings/preferences',
+  googleSettings: '/settings/google',
   // Finance (MAG-102). Four screens are react-admin resources and five are
   // custom routes; nothing on screen says which, so they sit together here.
   accounts: '/accounts',

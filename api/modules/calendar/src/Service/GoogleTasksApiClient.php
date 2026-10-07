@@ -38,8 +38,9 @@ class GoogleTasksApiClient
     {
         $service = $this->getTasksService($user);
         $taskLists = $service->tasklists->listTasklists();
+        $items = $taskLists->getItems();
 
-        return $taskLists->getItems();
+        return null === $items ? [] : $items;
     }
 
     /**

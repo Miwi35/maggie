@@ -3,9 +3,11 @@
 namespace Maggie\Calendar\Tests\Service;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Google\Service\Exception as GoogleServiceException;
 use Google\Service\Tasks\Task as GoogleTask;
 use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Repository\TaskRepository;
+use Maggie\Calendar\Service\GoogleTaskListSelection;
 use Maggie\Calendar\Service\GoogleTaskMapper;
 use Maggie\Calendar\Service\GoogleTasksApiClient;
 use Maggie\Calendar\Service\GoogleTasksSyncService;
@@ -30,6 +32,7 @@ class GoogleTasksSyncServiceTest extends TestCase
     private GoogleTasksApiClient $apiClient;
     private GoogleTaskMapper $taskMapper;
     private TaskRepository $taskRepository;
+    private GoogleTaskListSelection $selection;
     private EntityManagerInterface $entityManager;
 
     protected function setUp(): void
@@ -52,6 +55,7 @@ class GoogleTasksSyncServiceTest extends TestCase
         $this->apiClient = $this->createMock(GoogleTasksApiClient::class);
         $this->taskMapper = $this->createMock(GoogleTaskMapper::class);
         $this->taskRepository = $this->createMock(TaskRepository::class);
+        $this->selection = $this->createMock(GoogleTaskListSelection::class);
         $this->entityManager = $this->createMock(EntityManagerInterface::class);
     }
 
@@ -61,6 +65,7 @@ class GoogleTasksSyncServiceTest extends TestCase
             $this->apiClient,
             $this->taskMapper,
             $this->taskRepository,
+            $this->selection,
             $this->entityManager,
             $this->hub,
             $this->bus,
@@ -229,5 +234,60 @@ class GoogleTasksSyncServiceTest extends TestCase
             ['tasks', (string) $deletedOnGoogle->getId()],
             ['tasks', (string) $missingFromGoogle->getId()],
         ], $deleted);
+    }
+
+    /**
+     * Nothing syncs until the owner has chosen a list — MAG-118.
+     *
+     * The sync used to call `tasklists.list` and adopt the first answer, so an
+     * account with several lists silently synced one of them, and the choice the
+     * settings screen offered had nowhere to go.
+     */
+    public function testPullSyncsNothingUntilAListIsChosen(): void
+    {
+        $user = $this->createGoogleUser();
+        $user->setGoogleTaskListId(null);
+
+        $this->apiClient->expects(self::never())->method('listTaskLists');
+        $this->apiClient->expects(self::never())->method('listTasks');
+
+        $this->createService()->pullFromGoogle($user);
+
+        self::assertNull($user->getGoogleTaskListId(), 'no list may be adopted on the owner\'s behalf');
+        self::assertSame([], $this->publishedUpdates);
+    }
+
+    /**
+     * A list deleted on Google is forgotten, not retried forever.
+     *
+     * Left in place, every sync would fail on a list that is never coming back
+     * and the screen would keep claiming to be connected to it.
+     */
+    public function testPullForgetsAListGoogleNoLongerHas(): void
+    {
+        $user = $this->createGoogleUser();
+
+        $this->apiClient->method('listTasks')
+            ->willThrowException(new GoogleServiceException('Requested entity was not found.', 404));
+
+        $this->selection->expects(self::once())->method('forget')->with($user);
+
+        $this->createService()->pullFromGoogle($user);
+    }
+
+    public function testPullRethrowsAGoogleFailureThatIsNotAMissingList(): void
+    {
+        $user = $this->createGoogleUser();
+
+        $this->apiClient->method('listTasks')
+            ->willThrowException(new GoogleServiceException('Backend error', 500));
+
+        // Keeping the choice is the point: a transient failure must not look
+        // like a list the owner no longer has.
+        $this->selection->expects(self::never())->method('forget');
+
+        $this->expectException(GoogleServiceException::class);
+
+        $this->createService()->pullFromGoogle($user);
     }
 }
