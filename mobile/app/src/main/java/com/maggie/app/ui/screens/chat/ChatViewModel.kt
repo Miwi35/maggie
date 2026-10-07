@@ -15,6 +15,7 @@ import com.maggie.app.data.repository.ChatPreferencesRepository
 import com.maggie.app.data.repository.ChatRepository
 import com.maggie.app.util.ChatDateFormatter
 import com.maggie.app.voice.ScreenContext
+import com.maggie.app.voice.SpokenApprovalAnswer
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -522,6 +523,20 @@ class ChatViewModel(
     fun approve(id: String) = decide(id, ApprovalDecision.APPROVE)
 
     fun deny(id: String) = decide(id, ApprovalDecision.DENY)
+
+    /**
+     * What was said to the overlay while an action waits: a clear yes or no answers the
+     * oldest card still open (MAG-310), anything else is left to be a normal message.
+     * Returns whether the sentence was taken as an answer — the caller sends it to Maggie
+     * otherwise.
+     */
+    fun answerApprovalByVoice(text: String): Boolean {
+        val target = _uiState.value.pendingApprovals
+            .firstOrNull { it.approval.isPending && it.decision == null } ?: return false
+        val decision = SpokenApprovalAnswer.parse(text) ?: return false
+        decide(target.approval.id, decision)
+        return true
+    }
 
     /** Drops a card that stays on screen once settled — a failed action — when the user closes it. */
     fun dismissApproval(id: String) {

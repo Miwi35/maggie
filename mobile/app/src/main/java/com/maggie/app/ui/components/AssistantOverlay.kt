@@ -55,6 +55,7 @@ fun AssistantOverlay(
     val listState = rememberLazyListState()
 
     SpokenReplies(viewModel, voiceManager)
+    SpokenApprovals(viewModel, voiceManager)
 
     LaunchedEffect(uiState.messages.size) {
         if (uiState.messages.isNotEmpty()) {
@@ -127,6 +128,26 @@ fun AssistantOverlay(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(start = 8.dp),
+                            )
+                        }
+                    }
+                }
+
+                // Held actions stay in view whatever the conversation above scrolls to:
+                // they wait for an answer, by touch or by voice (MAG-310).
+                if (uiState.pendingApprovals.isNotEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        uiState.pendingApprovals.forEach { item ->
+                            ApprovalCard(
+                                item = item,
+                                onApprove = { viewModel.approve(item.approval.id) },
+                                onDeny = { viewModel.deny(item.approval.id) },
+                                onDismiss = { viewModel.dismissApproval(item.approval.id) },
                             )
                         }
                     }

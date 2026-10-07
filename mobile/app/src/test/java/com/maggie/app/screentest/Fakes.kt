@@ -16,6 +16,7 @@ import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.FinanceDashboard
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.GroceryList
+import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.data.model.RuleSuggestion
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.model.Transaction
@@ -349,8 +350,15 @@ class FakeTransactionTransfers(
  * What a sent message is read back through is [sent], not the screen: the panel's
  * send button is only right if it reaches the repository with what was typed.
  */
-class FakeChat(private val history: List<ChatMessage> = Seed.conversation) {
+class FakeChat(
+    private val history: List<ChatMessage> = Seed.conversation,
+    private val pending: List<PendingApproval> = emptyList(),
+) {
     private val outgoing = mutableListOf<String>()
+    private val decided = mutableListOf<String>()
+
+    /** The answers given to held actions, as `approve:<id>` or `deny:<id>`, in order. */
+    val decisions: List<String> get() = decided.toList()
 
     /** What the panel asked the server to send, in order. */
     val sent: List<String> get() = outgoing.toList()
@@ -376,8 +384,18 @@ class FakeChat(private val history: List<ChatMessage> = Seed.conversation) {
         coEvery { preferences.saveLastReadMessageId(any()) } returns Unit
 
         val approvals = mockk<ApprovalRepository>()
-        coEvery { approvals.getPending() } returns Result.success(emptyList())
+        coEvery { approvals.getPending() } returns Result.success(pending)
         every { approvals.observe() } returns emptyFlow()
+        coEvery { approvals.approve(any()) } answers {
+            val id = firstArg<String>()
+            decided += "approve:$id"
+            Result.success(pending.first { it.id == id }.copy(status = PendingApproval.STATUS_APPROVED))
+        }
+        coEvery { approvals.deny(any()) } answers {
+            val id = firstArg<String>()
+            decided += "deny:$id"
+            Result.success(pending.first { it.id == id }.copy(status = PendingApproval.STATUS_DENIED))
+        }
 
         ChatViewModel(repository, mercure, preferences, auth, approvals)
     }

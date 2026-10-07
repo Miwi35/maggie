@@ -31,8 +31,12 @@ class AssistantActivity : ComponentActivity() {
     private var pendingContext by mutableStateOf<ScreenContext?>(null)
 
     private val sendVoiceResult: (String) -> Unit = { text ->
-        chatViewModel.sendMessage(text, pendingContext?.toPromptBlock())
-        pendingContext = null
+        // A clear yes or no to a held action is its answer, not a message: the screen
+        // context stays armed for the next sentence (MAG-310).
+        if (!chatViewModel.answerApprovalByVoice(text)) {
+            chatViewModel.sendMessage(text, pendingContext?.toPromptBlock())
+            pendingContext = null
+        }
     }
 
     private val permissionLauncher = registerForActivityResult(

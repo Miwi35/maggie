@@ -260,6 +260,78 @@ tags:
 - evalScript: "${output.cleanups = json(http.get(E2E_BASE_URL + '/agent/e2e/transcription/cleanups', {headers: {'X-E2E-Token': E2E_LOGIN_TOKEN}}).body).count}"
 - assertTrue: "${output.cleanups == 0}"
 
+# ---------------------------------------------------------------------------
+# Held actions in the overlay (MAG-310). A deletion Maggie asks permission for shows
+# up as a card in the overlay — the one she is asked about in the chat, and the one
+# the overlay used to ignore, leaving the owner to open the app to answer. The
+# request is typed in the sheet (the fake model holds `delete_event`, as it does for
+# the real one, `73-delete-event-held.yaml`), then the overlay is opened: the card is
+# loaded with it, touched, and the event is gone from the database.
+#
+# What is *not* driven here: saying « oui ». The stubbed Whisper hears one fixed
+# sentence (« ajoute des tomates… »), so a spoken answer cannot be scripted without
+# a stateful stub that would make the clips above fragile. The recognition of
+# yes/no — « oui mais… », « non merci », silence — and its wiring to the card are
+# JVM tests: `SpokenApprovalAnswerTest`, `ChatViewModelTest`, and the overlay's
+# `AssistantOverlayScreenTest`. The card is answered by touch, which is the same
+# `approve` the voice calls.
+# ---------------------------------------------------------------------------
+- tapOn:
+    id: "chat_close"
+- extendedWaitUntil:
+    visible:
+      id: "dashboard"
+    timeout: 20000
+- runScript:
+    file: ../scripts/event-api.js
+    env:
+      ACTION: create
+      SUMMARY: Test validation MAG-310
+- tapOn:
+    id: "chat_open"
+- tapOn:
+    id: "chat_input"
+- inputText: "Supprime l'événement Test validation ${output.eventId}"
+- tapOn:
+    id: "chat_send"
+- extendedWaitUntil:
+    visible: ".*Je te demande ton accord pour supprimer.*"
+    timeout: 60000
+- tapOn:
+    id: "chat_close"
+- extendedWaitUntil:
+    visible:
+      id: "dashboard"
+    timeout: 20000
+
+# The card appears with the overlay, and the event is still there: nothing is done
+# before the owner's word.
+- openLink: "maggie-e2e-assist://overlay"
+- extendedWaitUntil:
+    visible: ".*Maggie demande ton accord.*"
+    timeout: 30000
+- runScript:
+    file: ../scripts/event-api.js
+    env:
+      ACTION: expect
+      STATE: present
+      EVENT_ID: ${output.eventId}
+
+- tapOn: "Autoriser"
+- extendedWaitUntil:
+    visible: ".*l'événement Test validation est supprimé.*"
+    timeout: 60000
+- extendedWaitUntil:
+    notVisible: ".*Maggie demande ton accord.*"
+    timeout: 30000
+- runScript:
+    file: ../scripts/event-api.js
+    env:
+      ACTION: expect
+      STATE: absent
+      EVENT_ID: ${output.eventId}
+- tapOn: "Fermer"
+
 # Settings > Voix used to end this flow — the assistant role row with its state,
 # reached by relaunching the app and walking the drawer, because a flow of its own
 # would have paid for a second sign-in. It is a screen reading a `RoleManager`, so

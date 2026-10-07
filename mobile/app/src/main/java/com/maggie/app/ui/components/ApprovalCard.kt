@@ -149,6 +149,44 @@ private fun Spinner() {
 internal fun approvalTitle(approval: PendingApproval): String =
     approval.summary?.takeIf { it.isNotBlank() } ?: "Action en attente de validation"
 
+private val SPOKEN_VERBS = mapOf(
+    "delete" to "Je supprime",
+    "create" to "Je crée",
+    "add" to "J'ajoute",
+    "update" to "Je modifie",
+)
+
+private val SPOKEN_NOUNS = mapOf(
+    "event" to "l'événement",
+    "task" to "la tâche",
+    "recipe" to "la recette",
+    "agenda" to "l'agenda",
+    "meal" to "le repas",
+    "transaction" to "la transaction",
+    "skill" to "la compétence",
+)
+
+private val SPOKEN_LABEL_KEYS = listOf("title", "name", "label", "summary")
+
+/**
+ * What Maggie says out loud for a held action: « Je supprime l'événement Test validation ? ».
+ * A tool the vocabulary above does not know is named as it is, so the question is always
+ * asked, never swallowed.
+ */
+internal fun approvalQuestion(approval: PendingApproval): String {
+    val words = approval.toolName.split('_').filter { it.isNotBlank() }
+    val verb = SPOKEN_VERBS[words.firstOrNull()]
+    val noun = words.drop(1).joinToString("_").let { SPOKEN_NOUNS[it] }
+    val label = SPOKEN_LABEL_KEYS.firstNotNullOfOrNull { key ->
+        (approval.arguments[key] as? JsonPrimitive)?.content?.takeIf { it.isNotBlank() }
+    }
+    return if (verb != null && noun != null) {
+        listOfNotNull(verb, noun, label).joinToString(" ") + " ?"
+    } else {
+        "Maggie demande ton accord pour ${approvalTitle(approval.toolName)}" + (label?.let { " $it" } ?: "") + ". Tu autorises ?"
+    }
+}
+
 internal fun approvalArguments(approval: PendingApproval): List<String> =
     approval.arguments.map { (key, value) ->
         val shown = if (value is JsonPrimitive) value.content else value.toString()
