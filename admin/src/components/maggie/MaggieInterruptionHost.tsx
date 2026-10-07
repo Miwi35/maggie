@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useDataProvider } from 'react-admin'
 import { useNavigate } from 'react-router-dom'
 import { MaggieInterruption } from './MaggieInterruption'
@@ -30,6 +30,10 @@ export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterrupt
 
   // A new interruption starts clean, whatever became of the one before.
   const currentId = current?.id
+  const currentIdRef = useRef(currentId)
+  useEffect(() => {
+    currentIdRef.current = currentId
+  }, [currentId])
   const [shownId, setShownId] = useState(currentId)
   if (shownId !== currentId) {
     setShownId(currentId)
@@ -42,16 +46,18 @@ export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterrupt
       if (current?.source !== 'approval') return
       setBusy(true)
       setError(null)
-      try {
-        if (await answerApproval(current.ref, decision)) {
-          dismiss(false)
-          return
-        }
+      const failed = () => {
+        // Overtaken meanwhile (answered elsewhere): the question now shown is not the one that failed.
+        if (currentIdRef.current !== current.id) return
         setError("Ta réponse n'est pas partie. Réessaie, ou garde-la pour plus tard.")
-      } catch {
-        setError("Ta réponse n'est pas partie. Réessaie, ou garde-la pour plus tard.")
+        setBusy(false)
       }
-      setBusy(false)
+      try {
+        if (await answerApproval(current.ref, decision)) dismiss(false)
+        else failed()
+      } catch {
+        failed()
+      }
     },
     [current, dismiss],
   )

@@ -298,6 +298,29 @@ describe('useMaggieInterruption', () => {
       expect(result.current.current).toBeNull()
     })
 
+    test('a notification read elsewhere is withdrawn, shown or still waiting', () => {
+      const { result } = setup()
+      stream().emit(notification({ '@id': '/api/notifications/a', title: 'Première' }))
+      stream().emit(notification({ '@id': '/api/notifications/b', title: 'Seconde' }))
+
+      stream().emit({ '@id': '/api/notifications/b', readAt: '2026-10-07T10:01:00+00:00' })
+      expect(result.current.current?.title).toBe('Première')
+      stream().emit({ '@id': '/api/notifications/a', deleted: true })
+
+      expect(result.current.current).toBeNull()
+    })
+
+    test('a notification put off does not come back once read elsewhere', () => {
+      const { result } = setup()
+      stream().emit(notification())
+      act(() => result.current.dismiss(true))
+
+      stream().emit({ '@id': '/api/notifications/n1', readAt: '2026-10-07T10:01:00+00:00' })
+      act(() => vi.advanceTimersByTime(LATER_DELAY_MS))
+
+      expect(result.current.current).toBeNull()
+    })
+
     test('the same notification twice interrupts once', () => {
       const { result } = setup()
 

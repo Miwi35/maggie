@@ -36,4 +36,13 @@ describe('readFeedMessage', () => {
 
     expect(event).toMatchObject({ kind: 'interrupt', interruption: { source: 'approval', message: 'delete_event' } })
   })
+
+  test.each([
+    ['read', { readAt: '2026-10-07T10:01:00+00:00' }],
+    ['deleted', { deleted: true }],
+  ])('a notification %s elsewhere is withdrawn', (_label, update) => {
+    const event = readFeedMessage(JSON.stringify({ '@id': '/api/notifications/n1', ...update }))
+
+    expect(event).toEqual({ kind: 'withdraw', id: 'notification:/api/notifications/n1' })
+  })
 })

@@ -102,11 +102,11 @@ export const MaggieInterruption = ({
   useEffect(() => {
     if (!open) return
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onLater()
+      if (event.key === 'Escape' && !busy) onLater()
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [open, onLater])
+  }, [open, busy, onLater])
 
   const handleAction = () => {
     // Opening something takes the focus with it; answering a question gives it back.
@@ -238,6 +238,7 @@ export const MaggieInterruption = ({
             <Button
               ref={laterRef}
               autoFocus={asksForAnswer}
+              disabled={busy}
               variant={asksForAnswer ? 'text' : 'outlined'}
               onClick={onLater}
               sx={{ borderRadius: 999, minHeight: 44, px: 3 }}

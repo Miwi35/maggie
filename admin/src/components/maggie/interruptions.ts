@@ -25,7 +25,7 @@ export type Interruption =
 /** What one message of the shared feed means for the interruption queue. */
 export type FeedEvent =
   | { kind: 'interrupt'; interruption: Interruption }
-  /** An approval answered elsewhere, or expired: it must not be asked any more. */
+  /** Answered, read or deleted elsewhere, or expired: it must not be said any more. */
   | { kind: 'withdraw'; id: string }
 
 const FINANCE_PATHS: Record<string, string> = {
@@ -112,7 +112,9 @@ export function readFeedMessage(raw: string): FeedEvent | null {
 
   const notificationRef = typeof data['@id'] === 'string' && data['@id'].startsWith('/api/notifications/') ? data['@id'] : null
   if (notificationRef) {
-    if (data.deleted || data.readAt || data.type === 'approval' || !isText(data.title)) return null
+    // Read or deleted elsewhere (the bell, the phone, another tab): not worth saying any more.
+    if (data.deleted || data.readAt) return { kind: 'withdraw', id: `notification:${notificationRef}` }
+    if (data.type === 'approval' || !isText(data.title)) return null
     const type = typeof data.type === 'string' ? data.type : ''
     return {
       kind: 'interrupt',

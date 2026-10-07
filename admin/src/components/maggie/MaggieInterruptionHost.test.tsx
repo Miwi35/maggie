@@ -171,4 +171,30 @@ describe('MaggieInterruptionHost', () => {
 
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
   })
+
+  test('« Plus tard » waits while the answer is on its way', async () => {
+    setup()
+    feed().emit(approval)
+    fetchMock.mockReturnValueOnce(new Promise(() => {}))
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Autoriser' }))
+
+    expect(screen.getByRole('button', { name: 'Plus tard' })).toBeDisabled()
+  })
+
+  test('a failure of an answer already overtaken does not blame the next question', async () => {
+    setup()
+    feed().emit(approval)
+    feed().emit({ ...approval, id: 'a2', summary: 'Supprimer « Dentiste »' })
+    let fail: (reason: Error) => void = () => {}
+    fetchMock.mockReturnValueOnce(new Promise((_resolve, reject) => (fail = reject)))
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Autoriser' }))
+    feed().emit({ ...approval, status: 'approved' })
+    expect(await screen.findByText('Supprimer « Dentiste »')).toBeInTheDocument()
+    await act(async () => fail(new Error('network')))
+
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Autoriser' })).toBeEnabled()
+  })
 })

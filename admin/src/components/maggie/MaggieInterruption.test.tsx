@@ -290,7 +290,7 @@ describe('MaggieInterruption', () => {
 
       expect(screen.getByRole('button', { name: 'Autoriser' })).toBeDisabled()
       expect(screen.getByRole('button', { name: 'Refuser' })).toBeDisabled()
-      expect(screen.getByRole('button', { name: 'Plus tard' })).toBeEnabled()
+      expect(screen.getByRole('button', { name: 'Plus tard' })).toBeDisabled()
       expect(screen.getByRole('alert')).toHaveTextContent("Ta réponse n'est pas partie.")
     })
   })
