@@ -1,5 +1,6 @@
 package com.maggie.app.ui.components
 
+import android.util.Log
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -46,6 +47,13 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.ui.UiTags
 import com.maggie.app.voice.VoiceManager
 import com.maggie.app.voice.VoiceState
+
+private const val TAG = "VoiceControlBar"
+
+private val MIC_SIZE = 64.dp
+
+/** How far past the button a held finger may drift before it counts as sliding away to cancel. */
+private val SLIDE_OUT_MARGIN = 48.dp
 
 @Composable
 fun VoiceControlBar(
@@ -114,42 +122,64 @@ fun VoiceControlBar(
                 strokeWidth = 4.dp,
             )
         } else {
+            // The touch target is the unscaled box: the pulse only moves what is drawn,
+            // so the edge of the hit area never swims under a held finger (MAG-221).
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(64.dp)
-                    .scale(if (isListening) pulseScale else 1f)
-                    .clip(CircleShape)
-                    .background(buttonColor)
+                    .size(MIC_SIZE)
                     .testTag(UiTags.VOICE_MIC)
                     .semantics {
                         role = Role.Button
                         contentDescription = stateLabel
                     }
                     .pointerInput(voiceManager) {
+                        val slideOutMargin = SLIDE_OUT_MARGIN.toPx()
                         awaitEachGesture {
                             val down = awaitFirstDown(requireUnconsumed = false)
+                            down.consume()
                             voiceManager.pressDown { currentOnResult(it) }
+                            // A finger is wider than the button and never keeps still:
+                            // only a deliberate slide, well past the edge, cancels.
                             val bounds = Rect(Offset.Zero, Size(size.width.toFloat(), size.height.toFloat()))
+                                .inflate(slideOutMargin)
                             var slidOut = false
+                            var ended = "lost pointer"
                             while (true) {
                                 val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                                // Ours until it lifts: a sheet or a list around the button
+                                // must not read the drift of a held finger as its own drag.
+                                change.consume()
                                 if (!bounds.contains(change.position)) {
                                     slidOut = true
+                                    ended = "slid out"
                                     break
                                 }
-                                if (!change.pressed) break
+                                if (!change.pressed) {
+                                    ended = "finger up"
+                                    break
+                                }
                             }
+                            Log.i(TAG, "Mic press ended: $ended")
                             if (slidOut) voiceManager.pressCancel() else voiceManager.pressRelease()
                         }
                     },
             ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(32.dp),
-                    tint = contentColorFor(buttonColor),
-                )
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(MIC_SIZE)
+                        .scale(if (isListening) pulseScale else 1f)
+                        .clip(CircleShape)
+                        .background(buttonColor),
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(32.dp),
+                        tint = contentColorFor(buttonColor),
+                    )
+                }
             }
         }
 

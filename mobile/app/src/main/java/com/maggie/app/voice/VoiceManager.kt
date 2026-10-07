@@ -349,6 +349,9 @@ class VoiceManager(
     }
 
     fun speak(text: String) {
+        // The owner is talking: a reply landing under the held button must not take the state
+        // away, or the release finds nothing to send (MAG-221).
+        if (_state.value == VoiceState.LISTENING) return
         _state.value = VoiceState.SPEAKING
         scope.launch(Dispatchers.IO) {
             var tempFile: File? = null
