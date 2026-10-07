@@ -52,14 +52,20 @@ class OpenMeteoClient
         return $this->cache->get($key, function (ItemInterface $item) use ($city): array {
             $item->expiresAfter(self::GEOCODING_TTL);
 
-            $data = $this->fetch($this->geocodingUrl, [
-                'name' => $city,
-                'count' => 1,
-                'language' => 'fr',
-                'format' => 'json',
-            ]);
+            $place = null;
+            foreach ($this->nameCandidates($city) as $name) {
+                $data = $this->fetch($this->geocodingUrl, [
+                    'name' => $name,
+                    'count' => 1,
+                    'language' => 'fr',
+                    'format' => 'json',
+                ]);
 
-            $place = $data['results'][0] ?? null;
+                $place = $data['results'][0] ?? null;
+                if (null !== $place) {
+                    break;
+                }
+            }
             if (null === $place) {
                 throw new LocationNotFoundException($city);
             }
@@ -74,6 +80,21 @@ class OpenMeteoClient
                 'longitude' => (float) $place['longitude'],
             ];
         });
+    }
+
+    /**
+     * The geocoder matches a bare place name: « Rennes 35000 » or « Rennes (35) » find nothing.
+     * The text as written goes first, then the same text without brackets, digits and what follows a comma.
+     *
+     * @return list<string>
+     */
+    private function nameCandidates(string $city): array
+    {
+        $first = trim(explode(',', $city)[0]);
+        $bare = trim((string) preg_replace('/\([^)]*\)|\d+/u', ' ', $first));
+        $bare = trim((string) preg_replace('/\s+/u', ' ', $bare));
+
+        return array_values(array_unique(array_filter([$city, $bare])));
     }
 
     /**
