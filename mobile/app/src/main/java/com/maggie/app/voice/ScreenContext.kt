@@ -10,10 +10,12 @@ import android.content.Intent
  * runs in a different process-local activity, so the pieces travel as intent
  * extras. [AssistLaunchCoordinator] assembles one instance per invocation.
  *
- * The chat API takes a single string ([com.maggie.app.data.api.MaggieApiService.sendChatStream]),
- * so the context reaches the model as a block prefixed to the message the user
- * dictated — see [toPromptBlock]. The bubble in the conversation still shows
- * only what was said.
+ * The context reaches the model as a block ([toPromptBlock]) sent in its own
+ * field beside the message. Prefixed to the message instead — how MAG-30 first
+ * shipped — it was what the agent stored, and every reader of the conversation
+ * then showed the page instead of the question: the mobile chat on reload, the
+ * Mercure echo, the web chat. The bubble shows what was said; the model reads
+ * the screen.
  *
  * [hasScreenshot] is deliberately a flag and not the image: nothing in the API
  * or the agent accepts one today, and telling the model « the screen is an image
@@ -95,11 +97,12 @@ data class ScreenContext(
          * What the user actually said, out of a message that carries a context
          * block.
          *
-         * The block travels *inside* the message, and the agent stores the
-         * message it receives word for word — so the history that comes back,
-         * and the copy the non-streaming fallback returns, both carry it. Taking
-         * it off on the way into the UI is what keeps the promise that a bubble
-         * shows what was said and nothing else (MAG-30).
+         * The block no longer travels inside the message — it has its own field
+         * on the chat routes, and the agent stores the question alone. What is
+         * left for this to catch are the exchanges recorded before that fix,
+         * which the history still returns word for word, and a message sent
+         * from a copy of the app that predates it. A bubble shows what was said
+         * and nothing else (MAG-30).
          *
          * A message that starts with the header but has no blank line after the
          * block is left alone: better an ugly bubble than an empty one.

@@ -367,7 +367,11 @@ class TestSummaryTrigger:
         assert gw._build_system_prompt.await_args.kwargs["current_context_id"] == "ctx-1"
         # And the message being answered is named, so a tag that could not be written does
         # not have Maggie reading the question as a neighbour thread's.
-        assert seen == {"fallback_message": "Il me faut de la farine", "current_message_id": "msg-1"}
+        assert seen == {
+            "fallback_message": "Il me faut de la farine",
+            "current_message_id": "msg-1",
+            "screen_context": None,
+        }
 
     async def test_a_routing_failure_still_answers_from_the_global_window(self):
         seen: list[str | None] = []
@@ -450,7 +454,7 @@ class TestStreamedExchangeReachesOtherDevices:
     def test_the_user_message_is_published_when_the_run_is_streamed(self, authed_client, chat_db):
         publish = AsyncMock()
 
-        async def empty_run(message, user_id, user_msg_id):
+        async def empty_run(message, user_id, user_msg_id, **_kwargs):
             yield {"type": "RUN_STARTED", "runId": "run-1"}
             yield {"type": "RUN_FINISHED", "runId": "run-1"}
 
@@ -466,6 +470,33 @@ class TestStreamedExchangeReachesOtherDevices:
         topic, payload = publish.await_args.args
         assert topic == "/chat/test-user"
         assert (payload["role"], payload["content"]) == ("user", "Bonjour Maggie")
+
+    def test_the_published_question_carries_no_screen_context(self, authed_client, chat_db):
+        """What goes out on the topic is what the other clients show (MAG-30).
+
+        The recette was refused on this very payload: the mobile chat and the web chat both
+        drew the user's bubble from it, block included.
+        """
+        publish = AsyncMock()
+
+        async def empty_run(message, user_id, user_msg_id, **_kwargs):
+            yield {"type": "RUN_FINISHED", "runId": "run-1"}
+
+        block = "[Contexte de l'écran]\nPage : https://dice.fm/event/x?utm_source=spam"
+
+        with (
+            patch("app.api.routes.streaming_gateway") as gateway,
+            patch("app.db.message_repository.message_repo.publisher.publish", new=publish),
+        ):
+            gateway.chat_stream = empty_run
+            response = authed_client.post(
+                "/chat/stream",
+                json={"message": "De quoi parle cette page ?", "screen_context": block},
+            )
+
+        assert response.status_code == 200
+        _topic, payload = publish.await_args.args
+        assert payload["content"] == "De quoi parle cette page ?"
 
 
 class TestToolResultStatus:

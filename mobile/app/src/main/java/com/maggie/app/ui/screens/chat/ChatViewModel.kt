@@ -129,10 +129,10 @@ class ChatViewModel(
 
     /**
      * What the user said, without the screen-context block the assistant may
-     * have attached to it (MAG-30). Applied wherever a message enters the UI,
-     * because the agent stores and returns the string it was POSTed: without
-     * this, « ajoute ça à mon agenda » comes back as a user bubble full of the
-     * shop page it was about.
+     * have attached to it (MAG-30). The agent no longer stores one — the
+     * context travels in its own field — but the exchanges recorded before
+     * that fix still carry it, and so would a message sent from a copy of the
+     * app that predates it. Applied wherever a message enters the UI.
      */
     private fun ChatMessage.asSaid(): ChatMessage =
         if (role == "user") copy(content = ScreenContext.withoutPromptBlock(content)) else this
@@ -178,9 +178,10 @@ class ChatViewModel(
 
     /**
      * [screenContext] is the block describing the screen the assistant was
-     * summoned from (MAG-30). It travels inside the message, because the chat
-     * endpoint takes a single string, but never inside the bubble: the
-     * conversation shows what the user said, not what Maggie was told about it.
+     * summoned from (MAG-30). It travels in its own field, beside the message:
+     * glued to it, it was what the agent stored, and the conversation then
+     * showed the page instead of the question — on reload, through Mercure and
+     * in the web chat alike. The model still gets it; nobody reads it.
      */
     fun sendMessage(text: String, screenContext: String? = null) {
         if (text.isBlank()) return
@@ -204,17 +205,17 @@ class ChatViewModel(
             rebuildDisplayItems()
             scrollToBottom(animate = true)
 
-            val payload = if (screenContext.isNullOrBlank()) text else "$screenContext\n\n$text"
+            val screen = screenContext?.takeIf { it.isNotBlank() }
 
             try {
-                repository.sendMessageStream(payload)
+                repository.sendMessageStream(text, screen)
                     .collect { event -> handleStreamEvent(event) }
                 if (awaitingReply) finishRequest()
             } catch (e: Exception) {
                 Log.w(TAG, "Stream failed, falling back to non-streaming: ${e.message}")
                 // Fallback to non-streaming
                 try {
-                    val newMessages = repository.sendMessage(payload).asSaid()
+                    val newMessages = repository.sendMessage(text, screen).asSaid()
                     if (newMessages.isNotEmpty()) {
                         // Replace optimistic user message with server response
                         val current = _uiState.value.messages.dropLast(1)

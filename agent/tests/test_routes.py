@@ -28,7 +28,7 @@ class TestRoutes:
         """POST /chat without ANTHROPIC_API_KEY returns a not-configured message."""
         mock_gateway.client = None
 
-        async def mock_chat(message, user_id, *, exclude_message_id=None):
+        async def mock_chat(message, user_id, *, exclude_message_id=None, **_kwargs):
             assert exclude_message_id == "test"
             return {"response": "AI service is not configured.", "tool_calls": []}
 
@@ -130,6 +130,85 @@ class TestRoutes:
         """
         assert authed_client.post("/chat", json={"message": ""}).status_code == 422
         assert authed_client.post("/chat/stream", json={"message": ""}).status_code == 422
+
+    @patch("app.api.routes.context_summarizer")
+    @patch("app.api.routes.message_repo")
+    @patch("app.api.routes.llm_gateway")
+    def test_the_screen_context_is_not_stored_in_the_question(
+        self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client
+    ):
+        """Recette refused the opposite: the shop page came back as the user's own bubble.
+
+        The stored message is what `GET /messages`, the Mercure echo and the web chat all
+        read, so the block has to stay out of it — and reach the model another way.
+        """
+        mock_gateway.chat = AsyncMock(return_value={"response": "C'est un concert.", "tool_calls": []})
+        mock_msg_repo.create = AsyncMock(
+            return_value=Message(id="msg-1", user_id="test-user", role="user", content="x")
+        )
+        mock_summarizer.maybe_summarize = AsyncMock()
+        block = "[Contexte de l'écran]\nPage : https://dice.fm/event/x?utm_source=spam"
+
+        response = authed_client.post(
+            "/chat",
+            json={"message": "De quoi parle cette page ?", "screen_context": block},
+        )
+
+        assert response.status_code == 200
+        mock_msg_repo.create.assert_any_await(
+            user_id="test-user", role="user", content="De quoi parle cette page ?"
+        )
+        assert mock_gateway.chat.await_args.kwargs["screen_context"] == block
+        assert mock_gateway.chat.await_args.args[0] == "De quoi parle cette page ?"
+
+    @patch("app.api.routes.context_summarizer")
+    @patch("app.api.routes.message_repo")
+    @patch("app.api.routes.llm_gateway")
+    def test_a_client_glueing_the_block_to_the_message_still_stores_the_question(
+        self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client
+    ):
+        """The installed app sends one string, and its copy must not dirty the history."""
+        mock_gateway.chat = AsyncMock(return_value={"response": "Ok.", "tool_calls": []})
+        mock_msg_repo.create = AsyncMock(
+            return_value=Message(id="msg-1", user_id="test-user", role="user", content="x")
+        )
+        mock_summarizer.maybe_summarize = AsyncMock()
+        block = "[Contexte de l'écran]\nApplication : Chrome (com.android.chrome)"
+
+        assert (
+            authed_client.post("/chat", json={"message": f"{block}\n\najoute ça à mon agenda"}).status_code
+            == 200
+        )
+
+        mock_msg_repo.create.assert_any_await(user_id="test-user", role="user", content="ajoute ça à mon agenda")
+        assert mock_gateway.chat.await_args.kwargs["screen_context"] == block
+
+    @patch("app.api.routes.message_repo")
+    @patch("app.api.routes.streaming_gateway")
+    def test_the_streamed_route_stores_the_question_alone_too(
+        self, mock_streaming, mock_msg_repo, authed_client
+    ):
+        """The overlay streams, so this is the route the refused bubble came from."""
+
+        async def no_events(*_args, **_kwargs):
+            if False:
+                yield {}
+
+        mock_streaming.chat_stream = MagicMock(side_effect=no_events)
+        mock_msg_repo.create = AsyncMock(
+            return_value=Message(id="msg-1", user_id="test-user", role="user", content="x")
+        )
+        block = "[Contexte de l'écran]\nPage : https://dice.fm/event/x?utm_source=spam"
+
+        with authed_client.stream(
+            "POST", "/chat/stream", json={"message": "c'est quoi ce produit ?", "screen_context": block}
+        ) as response:
+            assert response.status_code == 200
+            response.read()
+
+        # Published as it is stored, so the Mercure echo the other clients draw is clean too.
+        mock_msg_repo.create.assert_awaited_with(user_id="test-user", role="user", content="c'est quoi ce produit ?")
+        assert mock_streaming.chat_stream.call_args.kwargs["screen_context"] == block
 
     def test_proactions_endpoint_requires_auth(self, client):
         """GET /proactions without auth returns 401."""

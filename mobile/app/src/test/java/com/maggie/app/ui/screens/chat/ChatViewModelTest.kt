@@ -200,31 +200,33 @@ class ChatViewModelTest {
     }
 
     @Test
-    fun `the screen context travels inside the message, never inside the bubble`() = runTest {
+    fun `the screen context travels in its own field, never inside the message`() = runTest {
+        // Glued to the message it was stored as the message, and every reader of the
+        // history showed the page instead of the question — the refused recette.
         viewModel = createViewModel()
         advanceUntilIdle()
 
         val block = "[Contexte de l'écran]\nPage : https://boutique.example/cafe"
-        every { repository.sendMessageStream(any()) } returns flowOf(AgUiEvent.RunFinished(runId = "run-1"))
+        every { repository.sendMessageStream(any(), any()) } returns flowOf(AgUiEvent.RunFinished(runId = "run-1"))
 
         viewModel.sendMessage("ajoute ça à mon agenda", block)
         advanceUntilIdle()
 
-        verify { repository.sendMessageStream("$block\n\najoute ça à mon agenda") }
+        verify { repository.sendMessageStream("ajoute ça à mon agenda", block) }
         assertEquals("ajoute ça à mon agenda", viewModel.uiState.value.messages.last().content)
     }
 
     @Test
-    fun `no screen context means no prefix, not an empty one`() = runTest {
+    fun `no screen context means no field, not a blank one`() = runTest {
         viewModel = createViewModel()
         advanceUntilIdle()
 
-        every { repository.sendMessageStream(any()) } returns flowOf(AgUiEvent.RunFinished(runId = "run-1"))
+        every { repository.sendMessageStream(any(), any()) } returns flowOf(AgUiEvent.RunFinished(runId = "run-1"))
 
         viewModel.sendMessage("bonjour", screenContext = "   ")
         advanceUntilIdle()
 
-        verify { repository.sendMessageStream("bonjour") }
+        verify { repository.sendMessageStream("bonjour", null) }
     }
 
     @Test
@@ -233,13 +235,13 @@ class ChatViewModelTest {
         advanceUntilIdle()
 
         val block = "[Contexte de l'écran]\nApplication : Boutique (com.example.shop)"
-        every { repository.sendMessageStream(any()) } returns flow { throw RuntimeException("Stream failed") }
-        coEvery { repository.sendMessage(any()) } returns emptyList()
+        every { repository.sendMessageStream(any(), any()) } returns flow { throw RuntimeException("Stream failed") }
+        coEvery { repository.sendMessage(any(), any()) } returns emptyList()
 
         viewModel.sendMessage("c'est quoi ce produit ?", block)
         advanceUntilIdle()
 
-        coVerify { repository.sendMessage("$block\n\nc'est quoi ce produit ?") }
+        coVerify { repository.sendMessage("c'est quoi ce produit ?", block) }
     }
 
     @Test
@@ -265,8 +267,8 @@ class ChatViewModelTest {
         advanceUntilIdle()
 
         val block = "[Contexte de l'écran]\nApplication : Boutique (com.example.shop)"
-        every { repository.sendMessageStream(any()) } returns flow { throw RuntimeException("Stream failed") }
-        coEvery { repository.sendMessage(any()) } returns listOf(
+        every { repository.sendMessageStream(any(), any()) } returns flow { throw RuntimeException("Stream failed") }
+        coEvery { repository.sendMessage(any(), any()) } returns listOf(
             ChatMessage(
                 id = "u-1",
                 role = "user",
