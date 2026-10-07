@@ -28,6 +28,13 @@ interface AudioRecorder {
      */
     fun setLevelListener(listener: ((level: Float, durationMs: Long) -> Unit)?) = Unit
 
+    /**
+     * How many buffers of the last capture the engine was too slow to take. Above zero
+     * the engine heard a sentence with holes in it, whatever it answers — only the file
+     * is whole. Valid once [stop] has returned.
+     */
+    val engineGaps: Int get() = 0
+
     fun stop()
 
     fun release()
@@ -60,6 +67,9 @@ class PcmAudioRecorder : AudioRecorder {
     @Volatile
     private var recording = false
 
+    override var engineGaps = 0
+        private set
+
     override fun setLevelListener(listener: ((level: Float, durationMs: Long) -> Unit)?) {
         levelListener = listener
     }
@@ -89,6 +99,7 @@ class PcmAudioRecorder : AudioRecorder {
         }
 
         record = opened
+        engineGaps = 0
         tee = pcmSink?.let { PcmTee(it) }
         recording = true
         opened.startRecording()
@@ -128,6 +139,7 @@ class PcmAudioRecorder : AudioRecorder {
             // A gap in what the engine heard is the one way this design can put wrong
             // words in front of Maggie — a short, confident transcript the judge
             // accepts. Worth a line in logcat when a bug report comes back.
+            engineGaps = it.dropped
             if (it.dropped > 0) Log.w(TAG, "The engine was too slow for ${it.dropped} buffers")
         }
         tee = null
