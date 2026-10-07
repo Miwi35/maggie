@@ -16,5 +16,5 @@ fun fixtureScreenContext(context: Context, intent: Intent): ScreenContext? {
     context.assets.open("assist-screenshot.jpg").use { input ->
         file.outputStream().use { input.copyTo(it) }
     }
-    return ScreenContext(appLabel = "Boutique", screenshotPath = file.absolutePath)
+    return ScreenContext(appLabel = "Boutique", hasScreenshot = true)
 }

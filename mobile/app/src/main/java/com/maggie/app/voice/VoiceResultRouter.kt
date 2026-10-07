@@ -21,6 +21,7 @@ internal fun routeVoiceResult(
         voice.answerHandled()
         return false
     }
-    chat.sendMessage(text, screenContext?.toPromptBlock(), takeImage())
+    val image = takeImage()
+    chat.sendMessage(text, screenContext?.toPromptBlock(imageAttached = image != null), image)
     return true
 }
