@@ -4,8 +4,11 @@ import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.ExpandedEvent
 import java.time.Instant
+import java.util.logging.Level
+import java.util.logging.Logger
 
 object EventExpander {
+    private val logger = Logger.getLogger("EventExpander")
 
     /**
      * The event as stored, not one of its occurrences: a master keeps its own start, an exception
@@ -68,10 +71,22 @@ object EventExpander {
                 agendaMap[id]
             }
 
-            if (e.rrule != null) {
+            // One unreadable rule must never take the whole calendar down: that event is shown
+            // once, at its start, and flagged.
+            val occurrences = if (e.rrule != null) {
+                try {
+                    RruleUtils.expandRrule(e.rrule, Instant.parse(e.startAt), rangeStart, rangeEnd, e.timeZone)
+                } catch (ex: Exception) {
+                    logger.log(Level.WARNING, "recurrence_unreadable eventId=${e.id} rrule=${e.rrule}", ex)
+                    null
+                }
+            } else {
+                null
+            }
+
+            if (e.rrule != null && occurrences != null) {
                 val dtstart = Instant.parse(e.startAt)
                 val durationMs = Instant.parse(e.endAt).toEpochMilli() - dtstart.toEpochMilli()
-                val occurrences = RruleUtils.expandRrule(e.rrule, dtstart, rangeStart, rangeEnd)
                 val eventIri = "/api/events/${e.id}"
                 val exceptions = exceptionMap[eventIri]
 
@@ -151,6 +166,7 @@ object EventExpander {
                             agendaIri = e.agenda,
                             agendaColor = agenda?.color,
                             agendaName = agenda?.name,
+                            recurrenceUnreadable = e.rrule != null,
                         ),
                     )
                 }

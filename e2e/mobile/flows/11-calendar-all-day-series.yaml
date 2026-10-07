@@ -1,0 +1,32 @@
+appId: com.maggie.app.e2e
+name: 11-calendar-all-day-series
+tags:
+  - calendar
+---
+# An all-day recurring event whose rule ends on a date opens in the week view,
+# with no error (MAG-288). The regression it holds: `RruleUtils.expandRrule` handed
+# lib-recur an absolute start and a `UNTIL=YYYYMMDD`, which the library refuses
+# (« using floating start times with absolute until values »), and the exception
+# left `FullCalendarViewModel` and took the app down as soon as the calendar opened.
+#
+# The witness is « Stage de voile MAG-288 » (`api/fixtures/e2e/20-calendar.yaml`),
+# an all-day weekly series that starts today, so one of its occurrences is in the
+# week `open-calendar` leaves on screen. The bar is matched by its title, not by
+# its dates: which days it covers is the JVM's business (`RruleUtilsExpandTest`).
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow: ../subflows/open-calendar.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "calendar_span_.*"
+      text: ".*Stage de voile MAG-288.*"
+    timeout: 30000
+
+- assertNotVisible: ".*using floating start times.*"

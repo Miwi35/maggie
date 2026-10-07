@@ -4,23 +4,33 @@ import org.dmfs.rfc5545.DateTime
 import org.dmfs.rfc5545.recur.RecurrenceRule
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 import java.util.TimeZone
 
 object RruleUtils {
 
+    private val UNTIL_UTC_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'")
+    private val UNTIL_FLOATING_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss")
+
     /**
      * Expand an RRULE string into occurrence instants within a given range.
+     *
+     * lib-recur refuses a floating UNTIL (a date, or a date-time without `Z`) with the absolute
+     * start we give it, so UNTIL is first made absolute in [timeZone], the zone of the event.
+     * Throws when the rule cannot be read: the caller degrades, see [EventExpander].
      */
     fun expandRrule(
         rruleString: String,
         dtstart: Instant,
         rangeStart: Instant,
         rangeEnd: Instant,
+        timeZone: String = "UTC",
     ): List<Instant> {
-        val rule = RecurrenceRule(rruleString)
+        val rule = RecurrenceRule(withAbsoluteUntil(rruleString, resolveZone(timeZone)))
         val start = DateTime(TimeZone.getTimeZone("UTC"), dtstart.toEpochMilli())
         val iterator = rule.iterator(start)
         val results = mutableListOf<Instant>()
@@ -39,6 +49,35 @@ object RruleUtils {
         return results
     }
 
+    private fun resolveZone(timeZone: String): ZoneId =
+        try {
+            ZoneId.of(timeZone)
+        } catch (_: Exception) {
+            ZoneId.of("UTC")
+        }
+
+    /**
+     * A date UNTIL covers its whole day, so it becomes the last second of that day in [zone];
+     * a date-time UNTIL without `Z` is a wall-clock time in [zone]. An UNTIL already in UTC, or
+     * one that cannot be parsed (lib-recur then reports it), is left alone.
+     */
+    private fun withAbsoluteUntil(rruleString: String, zone: ZoneId): String =
+        rruleString.split(";").joinToString(";") { part ->
+            if (!part.startsWith("UNTIL=")) return@joinToString part
+            val value = part.removePrefix("UNTIL=")
+            val absolute = try {
+                when {
+                    value.endsWith("Z") -> return@joinToString part
+                    value.length == 8 -> LocalDate.parse(value, DateTimeFormatter.BASIC_ISO_DATE)
+                        .plusDays(1).atStartOfDay(zone).minusSeconds(1)
+                    else -> LocalDateTime.parse(value, UNTIL_FLOATING_FORMAT).atZone(zone)
+                }
+            } catch (_: DateTimeParseException) {
+                return@joinToString part
+            }
+            "UNTIL=${absolute.withZoneSameInstant(ZoneId.of("UTC")).format(UNTIL_UTC_FORMAT)}"
+        }
+
     private val FREQ_LABELS = mapOf(
         "DAILY" to ("jour" to "jours"),
         "WEEKLY" to ("semaine" to "semaines"),
@@ -55,10 +94,7 @@ object RruleUtils {
      * Convert an RRULE string to a human-readable French description.
      */
     fun rruleToFrenchText(rruleString: String): String {
-        val parts = rruleString.split(";").associate {
-            val (k, v) = it.split("=", limit = 2)
-            k to v
-        }
+        val parts = rruleString.split(";").associate { it.substringBefore("=") to it.substringAfter("=", "") }
 
         val freq = parts["FREQ"] ?: return rruleString
         val interval = parts["INTERVAL"]?.toIntOrNull() ?: 1
