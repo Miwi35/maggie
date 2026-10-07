@@ -25,6 +25,8 @@ class PushMessageFactory
     public const CHANNEL_APPROVALS = 'approvals';
     public const CHANNEL_FINANCE = 'finance';
 
+    private const MAX_TEXT_LENGTH = 1000;
+
     /** The finance screens the app opens from a link (mobile `DeepLinks`). */
     private const FINANCE_PATHS = ['', 'accounts', 'budgets', 'categories', 'rules', 'rule-suggestions', 'banks', 'cushion', 'loans', 'review'];
 
@@ -81,6 +83,11 @@ class PushMessageFactory
     private function text(Notification $notification): ?string
     {
         $body = $notification->getBody();
+
+        // The text travels in both blocks and FCM refuses a message over 4 KB.
+        if (null !== $body && mb_strlen($body) > self::MAX_TEXT_LENGTH) {
+            $body = mb_substr($body, 0, self::MAX_TEXT_LENGTH - 1).'…';
+        }
 
         // A reminder stores how many minutes ahead it fires, not a sentence.
         if (NotificationType::Reminder === $notification->getType() && null !== $body && ctype_digit($body)) {

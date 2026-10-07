@@ -79,7 +79,10 @@ class FcmClient
         // only its message tells it from a malformed payload.
         $malformedToken = 400 === $status && str_contains((string) ($error['message'] ?? ''), 'registration token');
 
-        if (404 === $status || 'UNREGISTERED' === $errorCode || $malformedToken) {
+        // Only FCM's own verdict on the token: a bare 404 (a wrong project id)
+        // would otherwise wipe every device. SENDER_ID_MISMATCH is a token
+        // issued for another Firebase project — never deliverable from here.
+        if (\in_array($errorCode, ['UNREGISTERED', 'SENDER_ID_MISMATCH'], true) || $malformedToken) {
             return FcmSendResult::UnknownToken;
         }
 

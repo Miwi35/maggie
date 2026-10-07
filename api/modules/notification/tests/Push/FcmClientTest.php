@@ -122,6 +122,25 @@ final class FcmClientTest extends TestCase
         self::assertSame(FcmSendResult::UnknownToken, $result);
     }
 
+    public function testATokenOfAnotherFirebaseProjectIsReportedAsUnknown(): void
+    {
+        $result = $this->client($this->fcmAnswering(403, [
+            'error' => ['code' => 403, 'status' => 'PERMISSION_DENIED', 'details' => [['errorCode' => 'SENDER_ID_MISMATCH']]],
+        ]))->send(['token' => 'foreign']);
+
+        self::assertSame(FcmSendResult::UnknownToken, $result);
+    }
+
+    public function testABare404KeepsTheToken(): void
+    {
+        // A wrong project id answers 404 for every device: none may be forgotten for it.
+        $result = $this->client($this->fcmAnswering(404, [
+            'error' => ['code' => 404, 'status' => 'NOT_FOUND', 'message' => 'Requested entity was not found.'],
+        ]))->send(['token' => 'device']);
+
+        self::assertSame(FcmSendResult::Rejected, $result);
+    }
+
     public function testAMalformedTokenIsReportedAsUnknown(): void
     {
         $result = $this->client($this->fcmAnswering(400, [

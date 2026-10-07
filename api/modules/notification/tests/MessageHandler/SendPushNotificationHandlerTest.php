@@ -90,6 +90,24 @@ final class SendPushNotificationHandlerTest extends KernelTestCase
         $this->assertElasticsearchIndexDispatched(Notification::class);
     }
 
+    public function testNoPushIsQueuedForAUserWhoTurnedNotificationsOff(): void
+    {
+        $user = $this->getFixture('silent_user');
+        \assert($user instanceof User);
+
+        self::getContainer()->get(MessageBusInterface::class)->dispatch(new CreateNotificationCommand(
+            type: 'proaction',
+            title: 'Muette',
+            userId: (string) $user->getId(),
+        ));
+
+        $pushes = array_filter(
+            $this->getAsyncTransport()->getSent(),
+            static fn ($envelope) => $envelope->getMessage() instanceof SendPushNotificationCommand,
+        );
+        self::assertSame([], $pushes);
+    }
+
     public function testEveryDeviceOfTheUserGetsThePush(): void
     {
         $this->handle('unread');
@@ -162,7 +180,12 @@ final class SendPushNotificationHandlerTest extends KernelTestCase
             $this->sent[] = $message;
             $status = $this->answers[$message['token']] ?? 200;
 
-            return new MockResponse(json_encode(200 === $status ? ['name' => 'm'] : ['error' => ['code' => $status]]), ['http_code' => $status]);
+            $error = ['code' => $status];
+            if (404 === $status) {
+                $error['details'] = [['errorCode' => 'UNREGISTERED']];
+            }
+
+            return new MockResponse(json_encode(200 === $status ? ['name' => 'm'] : ['error' => $error]), ['http_code' => $status]);
         });
 
         $container = self::getContainer();

@@ -55,6 +55,14 @@ final class PushMessageFactoryTest extends TestCase
         self::assertSame('Dans 15 min', $message['data']['body']);
     }
 
+    public function testALongTextIsCutToFitFcmsSizeLimit(): void
+    {
+        $message = (new PushMessageFactory())->build($this->notification(NotificationType::Proaction, 'Long', str_repeat('é', 5000)), 't');
+
+        self::assertSame(1000, mb_strlen($message['notification']['body']));
+        self::assertStringEndsWith('…', $message['data']['body']);
+    }
+
     public function testTheLinkUsesTheSchemeOfTheBuild(): void
     {
         $message = (new PushMessageFactory('maggie-dev'))->build($this->notification(NotificationType::TaskDue, 'Rendre le dossier', null, '/api/tasks/01JTASK'), 't');

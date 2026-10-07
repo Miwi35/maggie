@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maggie\Notification\Controller;
 
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Maggie\Core\Entity\User;
 use Maggie\Notification\Enum\DevicePlatform;
 use Maggie\Notification\Message\RegisterDeviceTokenCommand;
@@ -77,7 +78,17 @@ final class FcmTokenController
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
 
-            return new JsonResponse(['error' => $cause->getMessage()], Response::HTTP_BAD_REQUEST);
+            // Two registrations of the same token at once (login and refresh
+            // racing): the other one stored it, which is all that was asked.
+            if ($cause instanceof UniqueConstraintViolationException) {
+                return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+            }
+
+            if ($cause instanceof \DomainException) {
+                return new JsonResponse(['error' => $cause->getMessage()], Response::HTTP_BAD_REQUEST);
+            }
+
+            throw $e;
         }
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);

@@ -7,6 +7,15 @@ Maggie\Core\Entity\User:
     email: push-other@example.com
     googleId: google-push-other
     name: Other Push User
+  silent_user:
+    email: push-silent@example.com
+    googleId: google-push-silent
+    name: Silent Push User
+
+Maggie\Core\Entity\UserPreference:
+  silent_preference:
+    user: '@silent_user'
+    notificationsEnabled: false
 
 Maggie\Notification\Entity\DeviceToken:
   phone:
