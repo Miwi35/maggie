@@ -32,7 +32,7 @@ from tests.test_reminder_guard import stream_turn, the_bubble
 
 RULE = "Quand je demande un rappel, je veux une notification."
 RECIPES = "Quand je te demande une recette, donne-moi les quantités pour deux."
-TAUGHT = "C'est enregistré dans mes compétences : un rappel demandé arrivera en notification. Elle est visible dans Réglages › Agent › Compétences."
+TAUGHT = "J'ai créé la compétence « Rappel avec notification » : un rappel demandé arrivera en notification. Elle est visible dans Réglages › Agent › Compétences."
 
 LEARNING_OFFERED = [
     {"name": name, "input_schema": {}}
@@ -195,6 +195,21 @@ class TestTheGuard:
 
         assert guard.review("C'est noté, je te rappellerai de boire de l'eau à 16h05.") is Verdict.ACCEPT
 
+    @pytest.mark.parametrize(
+        ("tool", "answer"),
+        [
+            ("create_skill", "J'ai créé la compétence « Rappels par notification »."),
+            ("add_instruction", "J'ai ajouté une directive : je te tutoie."),
+            ("store_memory", "J'ai enregistré dans ma mémoire ton allergie aux fruits à coque."),
+        ],
+    )
+    def test_an_explicit_confirmation_after_the_tool_passes(self, tool, answer):
+        guard = ClaimGuard(LEARNING_OFFERED)
+        guard.record(tool, STORED)
+
+        assert guard.review(answer) is Verdict.ACCEPT
+        assert not guard.nudged
+
     def test_a_pending_reminder_listed_backs_its_cest_note(self):
         # « Tu me rappelles bien ? »: the reminder was scheduled in an earlier turn. A learning
         # nudge here would offer schedule_proaction and book it a second time.
@@ -288,6 +303,13 @@ class TestWhatTheModelIsTold:
         for tab in ("Instructions", "Compétences", "Proactions"):
             assert tab in prompt
         assert "ne dis jamais qu'aucun endroit" in prompt.lower()
+
+    async def test_the_prompt_asks_for_a_confirmation_that_names_the_action(self):
+        prompt = await shipped_prompt()
+
+        assert "une confirmation DIT L'ACTION FAITE" in prompt
+        assert "« J'ai créé la compétence « Rappels par notification » »" in prompt
+        assert "« C'est noté » seul n'est pas une confirmation" in prompt
 
     def test_create_skill_carries_the_owners_rule(self):
         description = next(tool["description"] for tool in SKILL_TOOLS if tool["name"] == "create_skill")

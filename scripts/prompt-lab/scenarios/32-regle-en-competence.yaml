@@ -14,8 +14,9 @@ steps:
     forbidden_tools: [schedule_proaction]
     expected_absent: ["pas encore enregistré"]
     expected_behavior: >
-      Elle confirme en une ou deux phrases naturelles en français qu'elle a enregistré
-      cette règle comme une compétence, sans programmer de rappel et sans parler d'outils.
+      Elle confirme en une ou deux phrases naturelles en français l'action faite, en
+      nommant la compétence qu'elle a créée (« J'ai créé la compétence … »), jamais par un
+      « c'est noté » vague, sans programmer de rappel et sans parler d'outils.
 
   - user_message: "Où est-ce que je peux voir ce que tu as appris ?"
     expected_contains: ["Réglages"]

@@ -65,7 +65,7 @@ const APPOINTMENTS_URL = '/api/events?startAt%5Bafter%5D=2099-01-01'
 /** 36-create-event-retry.yaml — three steps, the first tool call fails, only the last step is the answer. */
 const RETRY = {
   question: 'Note-moi le concert des Black Wizards le 3 novembre 2099 à 19h',
-  answer: "C'est noté : les Black Wizards en concert le 3 novembre 2099 à 19h, pour deux heures.",
+  answer: "J'ai ajouté le concert des Black Wizards le 3 novembre 2099 à 19h à votre agenda, pour deux heures.",
   announce: 'Je prends une durée standard de 2 heures.',
   excuse: "Il y a un souci technique avec l'identifiant de votre agenda.",
   title: 'Black Wizards',
@@ -144,7 +144,7 @@ const GREETING = {
 const RULE = {
   request: 'Quand je demande un rappel, je veux une notification',
   skill: 'rappel-avec-notification',
-  answer: "C'est enregistré dans mes compétences",
+  answer: "J'ai créé la compétence « Rappel avec notification »",
 }
 
 /** 60-behavior-preference.yaml + 61-behavior-applied.yaml — a preference about how she answers. */

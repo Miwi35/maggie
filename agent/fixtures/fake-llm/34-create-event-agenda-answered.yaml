@@ -21,4 +21,4 @@ turns:
           end_date: "2099-11-14"
           end_time: "13:30"
           agenda_id: "Boulot"
-  - text: "C'est noté : déjeuner avec Camille le 14 novembre 2099 à 12 h 30, dans l'agenda Boulot."
+  - text: "J'ai ajouté le déjeuner avec Camille le 14 novembre 2099 à 12 h 30 à votre agenda Boulot."

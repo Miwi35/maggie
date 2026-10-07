@@ -20,4 +20,4 @@ turns:
           description: Quand l'utilisateur demande un rappel, il arrive en notification
           tags: [rappel, notification]
           content: "Quand l'utilisateur demande un rappel, programme-le avec schedule_proaction : il lui arrive en notification sur son téléphone."
-  - text: "C'est enregistré dans mes compétences : un rappel demandé arrivera en notification. Elle est visible dans Réglages › Agent › Compétences."
+  - text: "J'ai créé la compétence « Rappel avec notification » : un rappel demandé arrivera en notification. Elle est visible dans Réglages › Agent › Compétences."

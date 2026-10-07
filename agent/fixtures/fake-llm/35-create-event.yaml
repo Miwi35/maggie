@@ -34,4 +34,4 @@ turns:
           start_time: "14:00"
           end_date: "2099-03-12"
           end_time: "14:30"
-  - text: "C'est noté : dentiste le 12 mars 2099 à 14h, pour une demi-heure."
+  - text: "J'ai ajouté le dentiste le 12 mars 2099 à 14h à votre agenda, pour une demi-heure."

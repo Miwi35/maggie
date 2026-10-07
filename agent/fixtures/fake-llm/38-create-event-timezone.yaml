@@ -31,4 +31,4 @@ turns:
           start_time: "16:00"
           end_date: "2099-07-14"
           end_time: "16:15"
-  - text: "C'est noté : appel à Kévin le 14 juillet 2099 à 16 h ici, soit 10 h chez lui à Fort-de-France."
+  - text: "J'ai ajouté l'appel à Kévin à votre agenda le 14 juillet 2099 à 16 h ici, soit 10 h chez lui à Fort-de-France."
