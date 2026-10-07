@@ -8,7 +8,7 @@ const notify = vi.fn()
 vi.mock('react-admin', () => ({
   useNotify: () => notify,
   useDataProvider: () => ({ getList: () => Promise.resolve({ data: [] }) }),
-  useStore: () => ['light', vi.fn()],
+  useStore: () => ['system', vi.fn()],
 }))
 
 vi.mock('../../hooks/useMercure', () => ({ useMercure: () => {} }))

@@ -157,8 +157,10 @@ test("the admin's own subscription is relative and user-scoped", async ({ page, 
   expect(topics.every((topic) => topic.startsWith(`/users/${session.user.id}/`))).toBe(true)
 })
 
+// « Clair » and « Système » both paint light in the headless browser. « Sombre »
+// would repaint the owner's account — and every parallel journey with it (MAG-315).
 function otherThan(current: string): Theme {
-  return current === 'dark' ? 'light' : 'dark'
+  return current === 'light' ? 'system' : 'light'
 }
 
 async function theme(api: APIRequestContext): Promise<string> {
