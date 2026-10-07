@@ -111,7 +111,7 @@ test('the keyboard moves a meal: pick it up, an arrow per cell, drop — MAG-250
   const announced = page.locator('[role="status"][aria-live="assertive"]')
   await handle.focus()
   await page.keyboard.press('Space')
-  await expect(announced).toContainText('saisi')
+  await expect(announced).toContainText('Au-dessus de la case samedi, dîner')
   await page.keyboard.press('ArrowRight') // Saturday → Sunday
   await expect(announced).toContainText('dimanche, dîner')
   await page.keyboard.press('ArrowUp') // dinner → lunch
