@@ -333,7 +333,23 @@ class RecipeApiTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
-        self::assertSame(2, $data['mealCount'], 'the meal shared with the pasta stays, so it is not counted');
+        self::assertSame(3, $data['mealCount'], 'the meal shared with the pasta stays, so it is not counted');
+    }
+
+    public function testDeletionImpactNamesTheDayAndSlotOfEachMealThatWouldGo(): void
+    {
+        $this->loadFixtures('RecipeApiTest.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->client->request('GET', '/api/recipes/'.$this->getFixture('couscous')->getId().'/deletion-impact', [], [], $this->authHeaders());
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(
+            [['date' => '2020-01-14', 'slot' => 'dinner'], ['date' => '2030-01-14', 'slot' => 'lunch'], ['date' => '2030-01-14', 'slot' => 'dinner']],
+            $data['meals'],
+            'oldest first, lunch before dinner of the same day, and the meal shared with the pasta is not listed',
+        );
     }
 
     private function reloadOrNull(Recipe $recipe): ?Recipe

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maggie\Cookbook\Controller;
 
+use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Repository\MealRepository;
 use Maggie\Cookbook\Repository\RecipeRepository;
 use Maggie\Core\Entity\User;
@@ -36,6 +37,14 @@ final class RecipeDeletionImpactController
             return new JsonResponse(['error' => 'Recipe not found'], Response::HTTP_NOT_FOUND);
         }
 
-        return new JsonResponse(['mealCount' => $this->mealRepository->countServedOnlyBy($recipe)]);
+        $meals = $this->mealRepository->findServedOnlyBy($recipe);
+
+        return new JsonResponse([
+            'mealCount' => \count($meals),
+            'meals' => array_map(
+                static fn (Meal $meal) => ['date' => $meal->getDate()?->format('Y-m-d'), 'slot' => $meal->getSlot()->value],
+                $meals,
+            ),
+        ]);
     }
 }

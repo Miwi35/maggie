@@ -372,6 +372,9 @@ test.describe('Recipes and meals', () => {
 
     const dialog = page.getByRole('dialog')
     await expect(dialog).toContainText(`Supprimer « ${name} » et ses 2 repas planifiés ?`)
+    await expect(dialog).toContainText('Vous aviez prévu de cuisiner cette recette')
+    await expect(dialog.getByRole('listitem')).toHaveCount(2)
+    await expect(dialog).toContainText('Ces repas seront supprimés avec elle')
     await dialog.getByRole('button', { name: 'Confirmer' }).click()
 
     await expect(row).toHaveCount(0)
