@@ -42,13 +42,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.CategoryCreateRequest
 import com.maggie.app.data.model.categoryKindLabel
 import com.maggie.app.data.model.obligationLabel
+import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
+import com.maggie.app.ui.uiTagRoot
 
 private val OBLIGATIONS = listOf("mandatory", "optional", "saving", "investment", "debt", "income")
 
@@ -180,7 +183,10 @@ private fun CategoryCreateDialog(
         onDismissRequest = onDismiss,
         title = { Text("Nouvelle catégorie") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier.uiTagRoot(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -208,6 +214,7 @@ private fun CategoryCreateDialog(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .testTag(UiTags.CATEGORY_PASSIVE_INCOME)
                             .toggleable(
                                 value = passiveIncome,
                                 role = Role.Switch,

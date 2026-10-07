@@ -87,6 +87,9 @@ object UiTags {
     /** The conversation kept on screen beside the content on a wide window (MAG-35). */
     const val CHAT_PANEL = "chat_panel"
 
+    /** Category dialog — the « Rente » switch, there only on a Recette (MAG-257). */
+    const val CATEGORY_PASSIVE_INCOME = "category_passive_income"
+
     /** Finance dashboard — one access per part of the module, suffixed by its route. */
     const val FINANCE_ACCESS_PREFIX = "finance_access_"
 

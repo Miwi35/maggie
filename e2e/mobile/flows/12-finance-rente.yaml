@@ -14,7 +14,10 @@ tags:
 # rente ». The e2e owner already has a rente in the seed, so the card never shows
 # that state on this account — `IndependenceCardScreenTest` draws it instead.
 #
-# The name carries the ticket so a re-run on the same server finds its own line.
+# The name carries the ticket so a re-run on the same server finds its own line, and
+# sorts after the seeded « Loyers perçus » (already a rente): the list is alphabetical,
+# so only the new row can be the « Recette · rente » below it. The box is addressed by
+# its tag — a toggleable row merges its texts, which no plain « Rente » would match.
 
 - launchApp:
     clearState: true
@@ -36,27 +39,30 @@ tags:
     timeout: 10000
 
 - tapOn: "Nom"
-- inputText: "Dividendes MAG-257"
+- inputText: "Redevances MAG-257"
 - hideKeyboard
 
 # The box is not there until the obligation is an income: the API refuses the
 # flag anywhere else.
-- assertNotVisible: "Rente"
+- assertNotVisible:
+    id: "category_passive_income"
 - tapOn: "Recette"
 
 - extendedWaitUntil:
-    visible: "Rente"
+    visible:
+      id: "category_passive_income"
     timeout: 10000
 
-- tapOn: "Rente"
+- tapOn:
+    id: "category_passive_income"
 - tapOn: "Créer"
 
 - extendedWaitUntil:
-    visible: "Dividendes MAG-257"
+    visible: "Redevances MAG-257"
     timeout: 30000
 
 - extendedWaitUntil:
     visible:
       text: "Recette · rente"
-      below: "Dividendes MAG-257"
+      below: "Redevances MAG-257"
     timeout: 30000
