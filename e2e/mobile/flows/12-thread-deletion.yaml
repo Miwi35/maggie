@@ -1,0 +1,98 @@
+appId: com.maggie.app.e2e
+name: 12-thread-deletion
+tags:
+  - chat
+---
+# Delete a thread, then a message, from the chat (MAG-342).
+#
+# Two discussions are started through the real chat, with scenarios the fake model
+# already has (`01-context-router-birthday-new` and `05-context-router-new-topic`
+# open « Anniversaire e2e » and « Budget e2e »). The thread list is reached by the
+# icon of the chat header, the thread is deleted after its confirmation, and the
+# chat drops its messages at once. Then a long press on a bubble deletes one message,
+# with no confirmation.
+#
+# The snackbar's « Annuler » is not tapped here: the undo and the deferred DELETE are
+# owned by the ViewModels, and `ContextViewModelTest` / `ChatViewModelTest` run them
+# on a controlled clock where a 6 s wait would only make this flow slow.
+#
+# Text selectors are regexes wrapped in `.*`, for the reason given in `01`.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+
+- runFlow: ../subflows/sign-in.yaml
+
+- tapOn:
+    id: "chat_open"
+- extendedWaitUntil:
+    visible:
+      id: "chat_input"
+    timeout: 20000
+
+# First discussion.
+- tapOn:
+    id: "chat_input"
+- inputText: "Je prépare l'anniversaire de Lucie"
+- tapOn:
+    id: "chat_send"
+- extendedWaitUntil:
+    visible: ".*on organise l'anniversaire de Lucie ensemble.*"
+    timeout: 60000
+
+# Second discussion: another subject, so the router opens a new thread.
+- tapOn:
+    id: "chat_input"
+- inputText: "Où en sont mes finances ?"
+- tapOn:
+    id: "chat_send"
+- extendedWaitUntil:
+    visible: ".*Votre budget tient la route ce mois-ci.*"
+    timeout: 60000
+- assertNotVisible: ".*aucun scénario.*"
+
+# The thread list, from the header's icon: no badge, no button in the bar.
+- tapOn:
+    id: "chat_threads"
+- extendedWaitUntil:
+    visible: ".*Budget e2e.*"
+    timeout: 20000
+
+# Delete « Budget e2e »: the confirmation names what goes with the thread.
+- tapOn: ".*Supprimer le fil Budget e2e.*"
+- extendedWaitUntil:
+    visible:
+      id: "thread_delete_confirm"
+    timeout: 10000
+- assertVisible: ".*Ce fil.*supprimé.*"
+- tapOn:
+    id: "thread_delete_confirm"
+
+# At once: the thread leaves the list, and the snackbar offers « Annuler ».
+- extendedWaitUntil:
+    visible: "Fil supprimé"
+    timeout: 10000
+- assertNotVisible: ".*Supprimer le fil Budget e2e.*"
+- assertVisible: ".*Supprimer le fil Anniversaire e2e.*"
+
+# Back to the chat: the deleted thread's messages are gone, the other's stay.
+- back
+- extendedWaitUntil:
+    notVisible: ".*Votre budget tient la route ce mois-ci.*"
+    timeout: 10000
+- assertVisible: ".*on organise l'anniversaire de Lucie ensemble.*"
+
+# One message: a long press opens « Supprimer », which acts without a question.
+- longPressOn: ".*on organise l'anniversaire de Lucie ensemble.*"
+- extendedWaitUntil:
+    visible:
+      id: "message_delete"
+    timeout: 10000
+- tapOn:
+    id: "message_delete"
+- extendedWaitUntil:
+    notVisible: ".*on organise l'anniversaire de Lucie ensemble.*"
+    timeout: 10000
+- assertVisible: "Message supprimé"

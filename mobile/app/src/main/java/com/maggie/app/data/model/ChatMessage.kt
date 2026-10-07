@@ -13,4 +13,6 @@ data class ChatMessage(
      * stored anywhere: after a reload the bubble can only say there was one.
      */
     val hasImage: Boolean = false,
+    /** The thread the message was filed in, `null` for one that belongs to none (MAG-342). */
+    val contextId: String? = null,
 )

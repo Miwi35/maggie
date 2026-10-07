@@ -32,3 +32,4 @@ executionOrder:
     - 13-meals-planning
     - 13-finance-category-edit
     - 14-rotation
+    - 12-thread-deletion

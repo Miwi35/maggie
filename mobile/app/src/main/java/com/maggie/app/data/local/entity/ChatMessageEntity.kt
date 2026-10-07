@@ -12,6 +12,7 @@ data class ChatMessageEntity(
     val content: String,
     val createdAt: String = "",
     val hasImage: Boolean = false,
+    val contextId: String? = null,
 ) {
     fun toModel(): ChatMessage = ChatMessage(
         id = id,
@@ -19,6 +20,7 @@ data class ChatMessageEntity(
         content = content,
         createdAt = createdAt,
         hasImage = hasImage,
+        contextId = contextId,
     )
 
     companion object {
@@ -29,6 +31,7 @@ data class ChatMessageEntity(
                 content = message.content,
                 createdAt = message.createdAt,
                 hasImage = message.hasImage,
+                contextId = message.contextId,
             )
     }
 }

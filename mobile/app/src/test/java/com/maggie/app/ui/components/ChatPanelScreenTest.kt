@@ -2,6 +2,7 @@ package com.maggie.app.ui.components
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -84,29 +85,29 @@ class ChatPanelScreenTest {
     }
 
     /**
-     * The panel replaces [ChatBottomBar], so it owes its two buttons. The mic is the
-     * one that matters: it is the only way into voice mode, and the panel is what a
+     * The panel replaces [ChatBottomBar], so it owes its mic, and the threads icon that the
+     * sheet's header has too (MAG-342). The mic is the one that matters: it is the only way into voice mode, and the panel is what a
      * tablet has instead of the bar.
      */
     @Test
-    fun `the mic and the contexts button are on the panel, and report their taps`() {
+    fun `the mic is on the panel, and the threads are an icon of its header beside the search`() {
         var micTaps = 0
-        var brainTaps = 0
+        var threadTaps = 0
         val chat = FakeChat()
         compose.setContent {
             ChatPanel(
                 viewModel = chat.viewModel,
                 onMicClick = { micTaps++ },
-                onBrainClick = { brainTaps++ },
-                activeContextCount = 3,
+                onOpenThreads = { threadTaps++ },
             )
         }
 
         compose.onNodeWithTag(UiTags.CHAT_MIC).performClick()
-        compose.onNodeWithTag(UiTags.CHAT_CONTEXTS).performClick()
+        compose.onNodeWithTag(UiTags.CHAT_THREADS).performClick()
 
         assertEquals(1, micTaps)
-        assertEquals(1, brainTaps)
-        compose.onNodeWithText("3").assertIsDisplayed()
+        assertEquals(1, threadTaps)
+        compose.onNodeWithContentDescription("Rechercher").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Fils de discussion").assertIsDisplayed()
     }
 }

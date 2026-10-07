@@ -46,8 +46,18 @@ object UiTags {
     /** The microphone, which opens the chat sheet in voice mode. */
     const val CHAT_MIC = "chat_mic"
 
-    /** The brain, which opens the context sheet. */
-    const val CHAT_CONTEXTS = "chat_contexts"
+    /**
+     * The icon beside the chat's search, which opens the threads sheet (MAG-342). Threads
+     * are how the one conversation is filed, so the way in is a discreet icon in its header
+     * and not a button of its own on the bar.
+     */
+    const val CHAT_THREADS = "chat_threads"
+
+    /** The « Supprimer » of the confirmation that a thread takes its messages with it. */
+    const val THREAD_DELETE_CONFIRM = "thread_delete_confirm"
+
+    /** The « Supprimer » of the menu a long press on a message opens. */
+    const val MESSAGE_DELETE = "message_delete"
 
     /** The chat sheet: its input and its two buttons. */
     const val CHAT_INPUT = "chat_input"
