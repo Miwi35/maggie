@@ -33,6 +33,11 @@ PLANNING_PREAMBLE = (
 )
 EXECUTION_PREAMBLE = (
     "\n\nTu es en mode proaction. "
+    # 7 Oct.: told « Rappelle monsieur d'appeler sa mère », the model read the stored
+    # prompt as a new request and asked when to schedule it (MAG-339).
+    "Le moment que tu avais programmé est arrivé : la tâche ci-dessous est due maintenant. "
+    "Si c'est un rappel, délivre-le maintenant, directement (« Il est l'heure d'appeler votre mère. ») : "
+    "ne programme pas un nouveau rappel et ne demande pas à quel moment le faire. "
     "Exécute la tâche demandée et rédige un message clair pour l'utilisateur. "
     "Ton message sera envoyé directement dans le chat. "
     "Ne demande pas de confirmation avant d'agir — agis directement. "
@@ -111,7 +116,8 @@ class LLMGateway:
 
         system_prompt = await self._build_system_prompt(user_id, tools=tools, preamble=preamble)
 
-        messages = [{"role": "user", "content": prompt}]
+        content = prompt if silent else f"[Proaction due maintenant] {prompt}"
+        messages = [{"role": "user", "content": content}]
         tool_router = DryRunToolRouter(self.tool_router) if dry_run else self.tool_router
 
         try:
