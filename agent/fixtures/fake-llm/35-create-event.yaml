@@ -30,7 +30,8 @@ turns:
       - name: create_event
         input:
           title: "Dentiste"
-          date: "2099-03-12"
-          time: "14:00"
-          duration: 30
+          start_date: "2099-03-12"
+          start_time: "14:00"
+          end_date: "2099-03-12"
+          end_time: "14:30"
   - text: "C'est noté : dentiste le 12 mars 2099 à 14h, pour une demi-heure."

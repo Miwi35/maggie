@@ -3,6 +3,7 @@
 namespace Maggie\Calendar\Mcp\Tool;
 
 use Maggie\Calendar\Entity\Event;
+use Maggie\Calendar\Mcp\EventSchedule;
 use Maggie\Calendar\Message\CreateEventCommand;
 use Maggie\Calendar\Service\AgendaCandidate;
 use Maggie\Calendar\Service\AgendaChoice;
@@ -18,7 +19,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'create_event', description: 'Create a new calendar event. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes (default 60). Pass agenda_id whenever the user said or implied where the event belongs — its name as they said it ("Concerts", "au boulot": case, accents and approximations do not matter) or its id, with no manage_agendas call first. Omit it when they said nothing about the agenda: the tool then works it out from the event itself, from the agendas\' names and descriptions, and from the agenda the user filed similar events in before. Two agendas fitting equally well, or a name matching none, returns an error naming the plausible agendas and creates nothing — ask the user which one they mean and retry, never pick one yourself. Tell the user which agenda the event went to: it is in event.agenda. Use reminders for "préviens-moi une heure avant": a list of delays in minutes before the start, e.g. [60] or [10, 1440]; omit it when the user asked for nothing. Use rrule for a repeating event, RFC 5545 without the RRULE: prefix — "FREQ=WEEKLY;BYDAY=MO", "FREQ=DAILY;COUNT=10", "FREQ=MONTHLY;INTERVAL=2". The date and time given are the first occurrence, and reminders then fire for every occurrence.')]
+#[McpTool(name: 'create_event', description: 'Create a new calendar event. Always give the whole schedule — a start and an end, never a duration, nothing is assumed: start_date (YYYY-MM-DD) + start_time (HH:MM) + end_date + end_time, or for a whole-day event all_day true + start_date + end_date (the last day included; the same day for a single day). An event running past midnight has an end_date the day after. An incomplete schedule, or an end that is not after the start, creates nothing and returns an error. The result gives the schedule that was saved, in the event\'s own time zone (event.startAt, event.endAt, event.allDay; startDate and endDate for a whole-day event): announce exactly that to the user, not what you meant to do. Pass agenda_id whenever the user said or implied where the event belongs — its name as they said it ("Concerts", "au boulot": case, accents and approximations do not matter) or its id, with no manage_agendas call first. Omit it when they said nothing about the agenda: the tool then works it out from the event itself, from the agendas\' names and descriptions, and from the agenda the user filed similar events in before. Two agendas fitting equally well, or a name matching none, returns an error naming the plausible agendas and creates nothing — ask the user which one they mean and retry, never pick one yourself. Tell the user which agenda the event went to: it is in event.agenda. Use reminders for "préviens-moi une heure avant": a list of delays in minutes before the start, e.g. [60] or [10, 1440]; omit it when the user asked for nothing. Use rrule for a repeating event, RFC 5545 without the RRULE: prefix — "FREQ=WEEKLY;BYDAY=MO", "FREQ=DAILY;COUNT=10", "FREQ=MONTHLY;INTERVAL=2". The start given is the first occurrence, and reminders then fire for every occurrence.')]
 class CreateEventTool
 {
     public function __construct(
@@ -32,20 +33,23 @@ class CreateEventTool
     /** @param list<int>|null $reminders minutes before the start, e.g. [60] for "une heure avant" */
     public function __invoke(
         string $title,
-        string $date,
-        string $time = '09:00',
-        int $duration = 60,
+        ?string $start_date = null,
+        ?string $start_time = null,
+        ?string $end_date = null,
+        ?string $end_time = null,
+        ?bool $all_day = null,
         ?string $description = null,
         ?string $location = null,
         ?string $agenda_id = null,
         ?array $reminders = null,
         ?string $rrule = null,
     ): string {
-        $startAt = new \DateTimeImmutable("{$date} {$time}", new \DateTimeZone('Europe/Paris'));
-        $endAt = $startAt->modify("+{$duration} minutes");
         $user = $this->userContext->getUser();
+        $zone = new \DateTimeZone(Event::FALLBACK_TIME_ZONE);
 
         try {
+            $schedule = EventSchedule::required($start_date, $start_time, $end_date, $end_time, $all_day, $zone);
+
             if (null === $user) {
                 // Nothing to deduce from and nobody to ask: naming an agenda is refused
                 // outright, and omitting one falls to the handler's own guard.
@@ -59,11 +63,13 @@ class CreateEventTool
 
             $envelope = $this->bus->dispatch(new CreateEventCommand(
                 summary: $title,
-                startAt: $startAt,
-                endAt: $endAt,
+                startAt: $schedule->startAt,
+                endAt: $schedule->endAt,
                 agendaId: null !== $choice?->agenda ? (string) $choice->agenda->getId() : null,
                 description: $description,
                 location: $location,
+                timeZone: $zone->getName(),
+                allDay: $schedule->allDay,
                 rrule: '' !== $rrule ? $rrule : null,
                 reminders: EventReminders::fromMinutes(array_map('intval', $reminders ?? [])),
                 userId: null !== $user ? (string) $user->getId() : null,
@@ -77,8 +83,7 @@ class CreateEventTool
                 'event' => [
                     'id' => (string) $event->getId(),
                     'summary' => $event->getSummary(),
-                    'startAt' => $event->getStartAt()->format('c'),
-                    'endAt' => $event->getEndAt()->format('c'),
+                    ...EventSchedule::describe($event),
                     'agenda' => $event->getAgenda()->getName(),
                     'rrule' => $event->getRrule(),
                     'reminders' => EventReminders::toMinutes($event->getReminders()),

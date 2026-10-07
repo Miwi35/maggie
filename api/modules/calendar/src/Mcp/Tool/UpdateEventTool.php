@@ -3,7 +3,9 @@
 namespace Maggie\Calendar\Mcp\Tool;
 
 use Maggie\Calendar\Entity\Event;
+use Maggie\Calendar\Mcp\EventSchedule;
 use Maggie\Calendar\Message\UpdateEventCommand;
+use Maggie\Calendar\Repository\EventRepository;
 use Maggie\Calendar\Service\AgendaResolver;
 use Maggie\Calendar\Service\EventReminders;
 use Maggie\Core\Mcp\McpUserContext;
@@ -12,14 +14,16 @@ use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
+use Symfony\Component\Uid\Ulid;
 
-#[McpTool(name: 'update_event', description: 'Update an existing calendar event. Only provided fields will be updated. Date format: YYYY-MM-DD. Time format: HH:MM. Duration in minutes. To empty an optional field, list its name in clear (description, location, rrule, reminders). Use agenda_id to move the event to another agenda: pass its name as the user said it (e.g. "Concerts", case and accents do not matter) or its id — no need to call manage_agendas first. An unknown or ambiguous name returns an error listing the user\'s agendas. Use reminders to replace the whole set of reminders: a list of delays in minutes before the start, e.g. [60] or [10, 1440]; it replaces what the event had, so pass every reminder the user wants to keep, and clear "reminders" to leave none.')]
+#[McpTool(name: 'update_event', description: 'Update an existing calendar event. Only provided fields will be updated. To change when it happens, always give the whole schedule — a start and an end, never a duration: start_date (YYYY-MM-DD) + start_time (HH:MM) + end_date + end_time, or for a whole-day event all_day true + start_date + end_date (the last day included). Nothing is deduced from the current schedule: moving an event to another day means giving its start and its end again. An incomplete schedule, or an end that is not after the start, changes nothing and returns an error with currentSchedule, the schedule the event has now — complete it from there instead of guessing. The result gives the schedule that was saved, in the event\'s own time zone (event.startAt, event.endAt, event.allDay; startDate and endDate for a whole-day event): announce exactly that to the user, not what you meant to do. Title, location, description, agenda and reminders change on their own, without touching the schedule. To empty an optional field, list its name in clear (description, location, rrule, reminders). Use agenda_id to move the event to another agenda: pass its name as the user said it (e.g. "Concerts", case and accents do not matter) or its id — no need to call manage_agendas first. An unknown or ambiguous name returns an error listing the user\'s agendas. Use reminders to replace the whole set of reminders: a list of delays in minutes before the start, e.g. [60] or [10, 1440]; it replaces what the event had, so pass every reminder the user wants to keep, and clear "reminders" to leave none.')]
 class UpdateEventTool
 {
     public function __construct(
         private readonly MessageBusInterface $bus,
         private readonly McpUserContext $userContext,
         private readonly AgendaResolver $agendaResolver,
+        private readonly EventRepository $eventRepository,
     ) {
     }
 
@@ -30,37 +34,43 @@ class UpdateEventTool
     public function __invoke(
         string $id,
         ?string $title = null,
-        ?string $date = null,
-        ?string $time = null,
-        ?int $duration = null,
+        ?string $start_date = null,
+        ?string $start_time = null,
+        ?string $end_date = null,
+        ?string $end_time = null,
+        ?bool $all_day = null,
         ?string $description = null,
         ?string $location = null,
         ?array $clear = null,
         ?string $agenda_id = null,
         ?array $reminders = null,
     ): string {
+        $current = null;
+
         try {
+            $user = $this->userContext->requireUser();
+
+            // Another user's event answers exactly like a missing one — and its schedule is
+            // never read back in an error.
+            $found = Ulid::isValid($id) ? $this->eventRepository->find($id) : null;
+            if (null === $found || (string) $found->getAgenda()->getUser()->getId() !== (string) $user->getId()) {
+                throw new \DomainException("Event not found: {$id}");
+            }
+            $current = $found;
+
+            $schedule = EventSchedule::fromParts(
+                $start_date,
+                $start_time,
+                $end_date,
+                $end_time,
+                $all_day,
+                EventSchedule::zoneOf($current),
+            );
+
             if (null !== $agenda_id) {
                 $agenda_id = (string) $this->agendaResolver
-                    ->resolve($this->userContext->requireUser(), $agenda_id)
+                    ->resolve($user, $agenda_id)
                     ->getId();
-            }
-
-            $startAt = null;
-            $endAt = null;
-
-            if (null !== $date || null !== $time) {
-                $tz = new \DateTimeZone('Europe/Paris');
-                $resolvedDate = $date ?? (new \DateTimeImmutable('now', $tz))->format('Y-m-d');
-                $resolvedTime = $time ?? '00:00';
-                $startAt = new \DateTimeImmutable("{$resolvedDate} {$resolvedTime}", $tz);
-
-                if (null !== $duration) {
-                    $endAt = $startAt->modify("+{$duration} minutes");
-                }
-            } elseif (null !== $duration) {
-                // Duration change only — handler will compute from current startAt
-                $endAt = null; // handled below
             }
 
             $clearFields = array_values(array_intersect(
@@ -81,10 +91,11 @@ class UpdateEventTool
             $envelope = $this->bus->dispatch(new UpdateEventCommand(
                 eventId: $id,
                 summary: $title,
-                startAt: $startAt,
-                endAt: $endAt,
+                startAt: $schedule?->startAt,
+                endAt: $schedule?->endAt,
                 description: $description,
                 location: $location,
+                allDay: $schedule?->allDay,
                 agendaId: $agenda_id,
                 reminders: $newReminders,
                 clearFields: $clearFields,
@@ -98,18 +109,28 @@ class UpdateEventTool
                 'event' => [
                     'id' => (string) $event->getId(),
                     'summary' => $event->getSummary(),
-                    'startAt' => $event->getStartAt()->format('c'),
-                    'endAt' => $event->getEndAt()->format('c'),
+                    ...EventSchedule::describe($event),
                     'agenda' => $event->getAgenda()->getName(),
                     'reminders' => EventReminders::toMinutes($event->getReminders()),
                 ],
             ], JSON_THROW_ON_ERROR);
         } catch (MissingMcpUserException|\DomainException $e) {
-            return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
+            return $this->error($e->getMessage(), $current);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
 
-            return json_encode(['error' => $cause->getMessage()], JSON_THROW_ON_ERROR);
+            return $this->error($cause->getMessage(), $current);
         }
+    }
+
+    /** The schedule the event has now rides along, so that Maggie completes it instead of guessing. */
+    private function error(string $message, ?Event $current): string
+    {
+        $error = ['error' => $message];
+        if (null !== $current) {
+            $error['currentSchedule'] = EventSchedule::describe($current);
+        }
+
+        return json_encode($error, JSON_THROW_ON_ERROR);
     }
 }

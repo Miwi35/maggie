@@ -36,7 +36,7 @@ class AgendaByNameToolsTest extends KernelTestCase
     {
         return json_decode(
             (self::getContainer()->get(CreateEventTool::class))(
-                'Black Wizards', '2026-11-02', '19:00', 120, null, 'UBU', $agenda,
+                'Black Wizards', '2026-11-02', '19:00', '2026-11-02', '21:00', location: 'UBU', agenda_id: $agenda,
             ),
             true,
             512,

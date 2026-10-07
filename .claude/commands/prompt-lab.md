@@ -93,7 +93,7 @@ silently asserting nothing.
 Subagents have Bash access and can call real MCP tools:
 ```bash
 scripts/prompt-lab/mcp-session.sh call get_upcoming_events '{"days": 7}'
-scripts/prompt-lab/mcp-session.sh call create_event '{"title":"Test","date":"2026-03-03"}'
+scripts/prompt-lab/mcp-session.sh call create_event '{"title":"Test","start_date":"2026-03-03","start_time":"10:00","end_date":"2026-03-03","end_time":"11:00"}'
 ```
 
 For automated tests, use `mock_tool_results` from the scenario file instead of live calls.

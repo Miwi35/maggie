@@ -36,7 +36,7 @@ class CreateEventToolTest extends KernelTestCase
 
         $tool = $this->getTool();
 
-        $result = $tool('Team standup', '2026-03-20', '09:30', 30, 'Daily sync', 'Room A');
+        $result = $tool('Team standup', '2026-03-20', '09:30', '2026-03-20', '10:00', description: 'Daily sync', location: 'Room A');
 
         $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
 
@@ -65,7 +65,7 @@ class CreateEventToolTest extends KernelTestCase
 
         $tool = $this->getTool();
 
-        $result = $tool('Event without calendar', '2026-03-20');
+        $result = $tool('Event without calendar', '2026-03-20', '10:00', '2026-03-20', '11:00');
 
         $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
 
@@ -83,7 +83,7 @@ class CreateEventToolTest extends KernelTestCase
         $em->getConnection()->executeStatement('UPDATE agenda SET is_default = false');
         $em->clear();
 
-        $data = json_decode(($this->getTool())('Dentist', '2026-03-20'), true, 512, JSON_THROW_ON_ERROR);
+        $data = json_decode(($this->getTool())('Dentist', '2026-03-20', '10:00', '2026-03-20', '11:00'), true, 512, JSON_THROW_ON_ERROR);
 
         self::assertArrayNotHasKey('success', $data);
         self::assertStringContainsString('No default agenda', $data['error']);
@@ -108,7 +108,7 @@ class CreateEventToolTest extends KernelTestCase
         $this->resetAsyncTransport();
 
         $tool = $this->getTool();
-        $result = $tool('Rock show', '2026-04-10', '20:00', 180, null, 'Venue', (string) $agenda->getId());
+        $result = $tool('Rock show', '2026-04-10', '20:00', '2026-04-10', '23:00', location: 'Venue', agenda_id: (string) $agenda->getId());
 
         $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
 
@@ -131,7 +131,7 @@ class CreateEventToolTest extends KernelTestCase
         $this->loginFixtureUser();
 
         $data = json_decode(
-            ($this->getTool())('Déjeuner avec Léa', '2026-03-20', '12:30', reminders: [1440, 60]),
+            ($this->getTool())('Déjeuner avec Léa', '2026-03-20', '12:30', '2026-03-20', '13:30', reminders: [1440, 60]),
             true,
             512,
             JSON_THROW_ON_ERROR,
@@ -154,7 +154,7 @@ class CreateEventToolTest extends KernelTestCase
         $this->loadFixtures('CreateEventToolTest.yaml');
         $this->loginFixtureUser();
 
-        $data = json_decode(($this->getTool())('Déjeuner seul', '2026-03-20'), true, 512, JSON_THROW_ON_ERROR);
+        $data = json_decode(($this->getTool())('Déjeuner seul', '2026-03-20', '12:30', '2026-03-20', '13:30'), true, 512, JSON_THROW_ON_ERROR);
 
         self::assertTrue($data['success']);
         self::assertSame([], $data['event']['reminders']);
@@ -173,7 +173,7 @@ class CreateEventToolTest extends KernelTestCase
         $this->loginFixtureUser();
 
         $data = json_decode(
-            ($this->getTool())('Rendez-vous sans délai', '2026-03-20', reminders: [0]),
+            ($this->getTool())('Rendez-vous sans délai', '2026-03-20', '10:00', '2026-03-20', '11:00', reminders: [0]),
             true,
             512,
             JSON_THROW_ON_ERROR,
@@ -197,7 +197,7 @@ class CreateEventToolTest extends KernelTestCase
         $this->loginFixtureUser();
 
         $data = json_decode(
-            ($this->getTool())('Point hebdomadaire', '2026-03-23', '09:00', rrule: 'FREQ=WEEKLY;BYDAY=MO'),
+            ($this->getTool())('Point hebdomadaire', '2026-03-23', '09:00', '2026-03-23', '10:00', rrule: 'FREQ=WEEKLY;BYDAY=MO'),
             true,
             512,
             JSON_THROW_ON_ERROR,
@@ -208,24 +208,95 @@ class CreateEventToolTest extends KernelTestCase
         self::assertSame('FREQ=WEEKLY;BYDAY=MO', $this->stored('Point hebdomadaire')->getRrule());
     }
 
-    public function testCreateEventUsesDefaultDuration(): void
+    /** MAG-321: the duration is derived from the start and the end, and told in the event's own zone. */
+    public function testCreateEventStoresTheScheduleItWasGivenAndAnswersInLocalTime(): void
     {
         $this->loadFixtures('CreateEventToolTest.yaml');
         $this->loginFixtureUser();
 
-        $tool = $this->getTool();
-
-        $result = $tool('Meeting', '2026-03-20', '10:00');
-
-        $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
+        $data = json_decode(
+            ($this->getTool())('Soirée', '2026-10-07', '19:00', '2026-10-08', '00:00'),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
 
         self::assertTrue($data['success']);
+        self::assertFalse($data['event']['allDay']);
+        self::assertSame('2026-10-07T19:00:00+02:00', $data['event']['startAt']);
+        self::assertSame('2026-10-08T00:00:00+02:00', $data['event']['endAt']);
 
-        // Default duration is 60 minutes
-        $start = new \DateTimeImmutable($data['event']['startAt']);
-        $end = new \DateTimeImmutable($data['event']['endAt']);
-        $diff = $start->diff($end);
-        self::assertSame(60, $diff->i + $diff->h * 60);
+        $stored = $this->stored('Soirée');
+        $zone = new \DateTimeZone('Europe/Paris');
+        self::assertSame('2026-10-07 19:00', $stored->getStartAt()->setTimezone($zone)->format('Y-m-d H:i'));
+        self::assertSame('2026-10-08 00:00', $stored->getEndAt()->setTimezone($zone)->format('Y-m-d H:i'));
+        $this->assertMercureUpdatePublished('/events/');
+        $this->assertElasticsearchIndexDispatched(Event::class);
+    }
+
+    public function testCreateAWholeDayEventOverSeveralDays(): void
+    {
+        $this->loadFixtures('CreateEventToolTest.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(
+            ($this->getTool())('Vacances', '2026-08-03', end_date: '2026-08-07', all_day: true),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertTrue($data['success']);
+        self::assertTrue($data['event']['allDay']);
+        self::assertSame('2026-08-03', $data['event']['startDate']);
+        self::assertSame('2026-08-07', $data['event']['endDate']);
+
+        $stored = $this->stored('Vacances');
+        $zone = new \DateTimeZone('Europe/Paris');
+        self::assertTrue($stored->isAllDay());
+        self::assertSame('2026-08-03 00:00', $stored->getStartAt()->setTimezone($zone)->format('Y-m-d H:i'));
+        self::assertSame('2026-08-08 00:00', $stored->getEndAt()->setTimezone($zone)->format('Y-m-d H:i'));
+    }
+
+    /** @return iterable<string, array{array<string, mixed>, string}> */
+    public static function refusedSchedules(): iterable
+    {
+        yield 'no schedule at all' => [[], 'incomplete'];
+        yield 'a start without an end' => [['start_date' => '2026-03-20', 'start_time' => '10:00'], 'end_date, end_time'];
+        yield 'a date without a time' => [['start_date' => '2026-03-20', 'end_date' => '2026-03-20'], 'start_time, end_time'];
+        yield 'the end is the start' => [['start_date' => '2026-03-20', 'start_time' => '10:00', 'end_date' => '2026-03-20', 'end_time' => '10:00'], 'after'];
+        yield 'the end is before the start' => [['start_date' => '2026-03-20', 'start_time' => '10:00', 'end_date' => '2026-03-19', 'end_time' => '11:00'], 'after'];
+        yield 'all day with a time' => [['all_day' => true, 'start_date' => '2026-03-20', 'end_date' => '2026-03-20', 'end_time' => '11:00'], 'no start_time or end_time'];
+        yield 'all day ending before it starts' => [['all_day' => true, 'start_date' => '2026-03-20', 'end_date' => '2026-03-19'], 'after'];
+    }
+
+    /** @param array<string, mixed> $schedule */
+    #[\PHPUnit\Framework\Attributes\DataProvider('refusedSchedules')]
+    public function testCreateEventRefusesAnIncompleteOrBackwardsScheduleAndWritesNothing(array $schedule, string $expected): void
+    {
+        $this->loadFixtures('CreateEventToolTest.yaml');
+        $this->loginFixtureUser();
+        $this->resetMercure();
+
+        $data = json_decode(($this->getTool())('Dentist', ...$schedule), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayNotHasKey('success', $data);
+        self::assertStringContainsString($expected, $data['error']);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        self::assertSame(0, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM event'));
+        $this->assertMercureUpdateCount(0);
+    }
+
+    public function testTheDurationParameterIsGone(): void
+    {
+        $parameters = array_map(
+            static fn (\ReflectionParameter $p) => $p->getName(),
+            (new \ReflectionMethod(CreateEventTool::class, '__invoke'))->getParameters(),
+        );
+
+        self::assertNotContains('duration', $parameters);
+        self::assertNotContains('date', $parameters);
+        self::assertNotContains('time', $parameters);
     }
 
     /** An event read back from the database, not from the response that claimed to write it. */
