@@ -1,4 +1,5 @@
 import { test, expect } from '../fixtures/index.js'
+import { ChatPanel } from '../pages/ChatPanel.js'
 import { DashboardPage } from '../pages/DashboardPage.js'
 import { openSubscribed, publishOnHub } from '../helpers/mercure.js'
 
@@ -27,13 +28,14 @@ const proaction = (userId: string, id: string) => ({
 
 test('a proaction that completes interrupts the open admin, and « Plus tard » closes it', async ({
   page,
-  baseURL,
   session,
 }) => {
   const dashboard = new DashboardPage(page)
   await openSubscribed(page, () => dashboard.open(), `/proactions/${session.user.id}`)
+  // An open conversation already shows what Maggie says: nothing to interrupt.
+  await new ChatPanel(page).ensureClosed()
 
-  await publishOnHub(baseURL!, `/proactions/${session.user.id}`, proaction(session.user.id, 'e2e-interruption-1'))
+  await publishOnHub(page, `/proactions/${session.user.id}`, proaction(session.user.id, 'e2e-interruption-1'))
 
   const interruption = page.getByRole('alertdialog')
   await expect(interruption).toBeVisible()
@@ -44,11 +46,13 @@ test('a proaction that completes interrupts the open admin, and « Plus tard » 
   await expect(interruption).toBeHidden()
 })
 
-test('Esc is « Plus tard »', async ({ page, baseURL, session }) => {
+test('Esc is « Plus tard »', async ({ page, session }) => {
   const dashboard = new DashboardPage(page)
   await openSubscribed(page, () => dashboard.open(), `/proactions/${session.user.id}`)
+  // An open conversation already shows what Maggie says: nothing to interrupt.
+  await new ChatPanel(page).ensureClosed()
 
-  await publishOnHub(baseURL!, `/proactions/${session.user.id}`, proaction(session.user.id, 'e2e-interruption-2'))
+  await publishOnHub(page, `/proactions/${session.user.id}`, proaction(session.user.id, 'e2e-interruption-2'))
 
   const interruption = page.getByRole('alertdialog')
   await expect(interruption).toBeVisible()

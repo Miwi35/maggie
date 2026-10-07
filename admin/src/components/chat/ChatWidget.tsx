@@ -25,6 +25,7 @@ import { alpha, keyframes } from '@mui/material/styles'
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder'
 import { useTranscription } from '../../hooks/useTranscription'
 import { useNarrowScreen } from '../../hooks/useNarrowScreen'
+import { subscribeAgentFeed } from '../../hooks/agentFeed'
 import { AGENT_STREAMS, agentTopic, getStoredUserId } from '../../hooks/agentTopics'
 import { mercureUrl } from '../../hooks/mercureUrl'
 import { saidInMessage } from '../../screenContext'
@@ -537,12 +538,10 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     useEffect(() => {
       const userId = getStoredUserId()
       if (!userId) return
-      const url = mercureUrl(MERCURE_URL, [agentTopic(AGENT_STREAMS.contexts, userId)])
 
-      const eventSource = new EventSource(url.toString(), { withCredentials: true })
-      eventSource.onmessage = (event) => {
+      return subscribeAgentFeed(userId, (raw) => {
         try {
-          const data = JSON.parse(event.data)
+          const data = JSON.parse(raw)
           if (data.id && data.label) {
             const ctx: ContextState = {
               id: data.id,
@@ -563,9 +562,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
         } catch {
           // Ignore malformed messages
         }
-      }
-
-      return () => eventSource.close()
+      })
     }, [onContextsChange])
 
     // --- Search ---

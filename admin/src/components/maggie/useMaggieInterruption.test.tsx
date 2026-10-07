@@ -55,6 +55,14 @@ describe('useMaggieInterruption', () => {
     expect(stream().init).toEqual({ withCredentials: true })
   })
 
+  test('ignores a context update arriving on the shared feed', () => {
+    const { result } = setup()
+
+    stream().emit({ id: 'c1', label: 'Courses', status: 'active', summary: null })
+
+    expect(result.current.current).toBeNull()
+  })
+
   test('does not subscribe without a signed-in user', () => {
     localStorage.clear()
 

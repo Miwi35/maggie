@@ -37,7 +37,7 @@ interface MaggieInterruptionProps {
  * what « Plus tard » means live in `useMaggieInterruption`.
  *
  * A MUI `Modal` carries the focus trap and the stacking: the last modal
- * mounted — this one, over any open dialog — owns Tab and Escape.
+ * mounted — this one, over any open dialog — owns Tab.
  */
 export const MaggieInterruption = ({ open, id = '', message, actionLabel, onAction, onLater }: MaggieInterruptionProps) => {
   const narrow = useNarrowScreen()
@@ -73,6 +73,17 @@ export const MaggieInterruption = ({ open, id = '', message, actionLabel, onActi
     playChime()
   }, [open, id])
 
+  // On the document, not on the modal: Escape is « Plus tard » even in the instant
+  // before the focus has reached the dialog, when the modal would not hear it.
+  useEffect(() => {
+    if (!open) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onLater()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [open, onLater])
+
   const handleAction = () => {
     actedOn.current = true
     onAction()
@@ -83,9 +94,7 @@ export const MaggieInterruption = ({ open, id = '', message, actionLabel, onActi
       open={open}
       hideBackdrop
       disableRestoreFocus
-      onClose={(_event, reason) => {
-        if (reason === 'escapeKeyDown') onLater()
-      }}
+      disableEscapeKeyDown
     >
     <Box
       role="alertdialog"

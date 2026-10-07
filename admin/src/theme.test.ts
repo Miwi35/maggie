@@ -166,6 +166,10 @@ describe('the Veilleuse identity', () => {
 
   test.each(MODES)('is set in Geist, with tabular figures, and never above semibold (%s)', (_name, theme) => {
     expect(theme.typography.fontFamily).toBe(TOKENS.typography.family)
+    // The base theme bakes its own family into each variant: every one must be Geist.
+    for (const variant of ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'subtitle1', 'subtitle2', 'body1', 'body2', 'caption', 'overline', 'button'] as const) {
+      expect(theme.typography[variant].fontFamily, variant).toBe(TOKENS.typography.family)
+    }
     const styles = theme.components?.MuiCssBaseline?.styleOverrides as Record<string, Record<string, string>>
     expect(styles.body.fontVariantNumeric).toBe('tabular-nums')
     const weights = Object.values(TOKENS.typography.weight)

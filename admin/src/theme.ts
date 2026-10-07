@@ -3,7 +3,7 @@ import { radiantDarkTheme, radiantLightTheme } from 'react-admin'
 import { NARROW_QUERY } from './breakpoints'
 import { TOKENS } from './design/tokens'
 import type { ThemeMode } from './design/tokens'
-import type { ThemeOptions } from '@mui/material/styles'
+import type { ThemeOptions, TypographyStyle } from '@mui/material/styles'
 
 /*
  * « Veilleuse » (MAG-311) — the identity of the activity screens, worn by a
@@ -124,33 +124,40 @@ const paletteFor = (mode: ThemeMode): ThemeOptions['palette'] => {
  * Geist is loaded at 300–600 and nothing asks for more (`h4` and `h5` were
  * synthesised bold under Gabarito, MAG-39).
  */
-const typographyFor = (mode: ThemeMode): ThemeOptions['typography'] => ({
-  fontFamily: family,
-  fontWeightLight: weight.light,
-  fontWeightRegular: weight.regular,
-  fontWeightMedium: weight.medium,
-  fontWeightBold: weight.semibold,
-  h1: { fontWeight: weight.semibold },
-  h2: { fontWeight: weight.semibold },
-  h3: { fontWeight: weight.semibold },
-  h4: { fontWeight: weight.semibold },
-  h5: { fontSize: rem(size.xxl), fontWeight: weight.semibold },
-  h6: { fontSize: rem(size.xl), fontWeight: weight.semibold },
-  subtitle1: { fontSize: rem(size.lg), fontWeight: weight.regular },
-  subtitle2: { fontSize: rem(size.md), fontWeight: weight.medium },
-  body1: { fontSize: rem(size.lg), fontWeight: weight.regular },
-  body2: { fontSize: rem(size.md), fontWeight: weight.regular },
-  caption: { fontSize: rem(size.sm), fontWeight: weight.regular },
-  // A section's legend: small, spaced capitals in the caption colour.
-  overline: {
-    fontSize: rem(size.sm),
-    fontWeight: weight.medium,
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
-    color: TOKENS.surface[mode].caption,
-  },
-  button: { fontWeight: weight.medium, textTransform: 'none' },
-})
+const typographyFor = (mode: ThemeMode): ThemeOptions['typography'] => {
+  // The base theme has already baked its own family (Gabarito) into every variant, and
+  // an option-level `fontFamily` only reaches the variants that have none: each variant
+  // names Geist itself.
+  const v = (style: TypographyStyle): TypographyStyle => ({ fontFamily: family, ...style })
+
+  return {
+    fontFamily: family,
+    fontWeightLight: weight.light,
+    fontWeightRegular: weight.regular,
+    fontWeightMedium: weight.medium,
+    fontWeightBold: weight.semibold,
+    h1: v({ fontWeight: weight.semibold }),
+    h2: v({ fontWeight: weight.semibold }),
+    h3: v({ fontWeight: weight.semibold }),
+    h4: v({ fontWeight: weight.semibold }),
+    h5: v({ fontSize: rem(size.xxl), fontWeight: weight.semibold }),
+    h6: v({ fontSize: rem(size.xl), fontWeight: weight.semibold }),
+    subtitle1: v({ fontSize: rem(size.lg), fontWeight: weight.regular }),
+    subtitle2: v({ fontSize: rem(size.md), fontWeight: weight.medium }),
+    body1: v({ fontSize: rem(size.lg), fontWeight: weight.regular }),
+    body2: v({ fontSize: rem(size.md), fontWeight: weight.regular }),
+    caption: v({ fontSize: rem(size.sm), fontWeight: weight.regular }),
+    // A section's legend: small, spaced capitals in the caption colour.
+    overline: v({
+      fontSize: rem(size.sm),
+      fontWeight: weight.medium,
+      letterSpacing: '0.08em',
+      textTransform: 'uppercase',
+      color: TOKENS.surface[mode].caption,
+    }),
+    button: v({ fontWeight: weight.medium, textTransform: 'none' }),
+  }
+}
 
 /** `0 0 0 2px` of the page, then `0 0 0 4px` of the accent. */
 const focusRing = (mode: ThemeMode) =>

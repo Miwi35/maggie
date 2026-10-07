@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AGENT_STREAMS, agentTopic, getStoredUserId } from '../../hooks/agentTopics'
-import { mercureUrl } from '../../hooks/mercureUrl'
-
-// May be relative in production ('/.well-known/mercure'): mercureUrl() resolves it.
-const MERCURE_URL = import.meta.env.VITE_MERCURE_PUBLIC_URL || 'http://maggie.local/.well-known/mercure'
+import { subscribeAgentFeed } from '../../hooks/agentFeed'
+import { getStoredUserId } from '../../hooks/agentTopics'
 
 /** How long « Plus tard » waits before Maggie speaks again. */
 export const LATER_DELAY_MS = 10 * 60 * 1000
@@ -41,12 +38,10 @@ export function useMaggieInterruption({ chatOpen, onOpenChat }: Options) {
   useEffect(() => {
     const userId = getStoredUserId()
     if (!userId) return
-    const url = mercureUrl(MERCURE_URL, [agentTopic(AGENT_STREAMS.proactions, userId)])
 
-    const eventSource = new EventSource(url.toString(), { withCredentials: true })
-    eventSource.onmessage = (event) => {
+    return subscribeAgentFeed(userId, (raw) => {
       try {
-        const data = JSON.parse(event.data)
+        const data = JSON.parse(raw)
         if (data.status !== 'completed' || typeof data.response !== 'string' || !data.response.trim()) return
         if (!data.id || seen.current.has(data.id)) return
         seen.current.add(data.id)
@@ -56,9 +51,7 @@ export function useMaggieInterruption({ chatOpen, onOpenChat }: Options) {
       } catch {
         // Ignore malformed messages
       }
-    }
-
-    return () => eventSource.close()
+    })
   }, [])
 
   // The chat opening by itself answers every pending interruption. Adjusted
