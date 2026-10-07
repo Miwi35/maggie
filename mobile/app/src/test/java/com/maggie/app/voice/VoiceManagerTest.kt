@@ -485,7 +485,7 @@ class VoiceManagerTest {
 
         voiceManager.pressDown { sent = it }
         advance(1000)
-        engine.listener?.onUnavailable("error 7")
+        engine.listener?.onUnavailable("error 7", fatal = false)
         advance(5000)
         voiceManager.pressRelease()
         testScope.runCurrent()
