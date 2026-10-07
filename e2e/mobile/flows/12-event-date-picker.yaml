@@ -58,10 +58,11 @@ tags:
 - tapOn:
     id: "picker_confirm"
 
-# Start and end both read the 8th: the end followed the start.
+# Start and end both read the 8th: the end followed the start. A field's value is on its
+# overlay's description (« Date de début, ven. 8 nov. 2030 »), hence the `.*`.
 - extendedWaitUntil:
     visible:
-      text: "[a-zéû]{3}\\. 8 [a-zéû]+\\.? 20[0-9]{2}"
+      text: ".*[a-zéû]{3}\\. 8 [a-zéû]+\\.? 20[0-9]{2}.*"
     timeout: 20000
 
 - tapOn:

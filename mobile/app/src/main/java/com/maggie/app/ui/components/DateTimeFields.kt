@@ -33,6 +33,8 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.uiTagRoot
@@ -103,6 +105,9 @@ private fun PickerField(
             modifier = Modifier
                 .matchParentSize()
                 .let { if (tag != null) it.testTag(tag) else it }
+                // The overlay is the node the system sees: it carries the shown value, or no
+                // service (TalkBack, Maestro) would ever read it.
+                .semantics { contentDescription = if (text.isEmpty()) label else "$label, $text" }
                 .clickable(onClickLabel = "Choisir : $label", role = Role.Button, onClick = onClick),
         )
         if (onClear != null && text.isNotEmpty()) {
