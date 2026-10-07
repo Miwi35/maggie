@@ -159,9 +159,20 @@ class LLMGateway:
         return resolution["id"] if resolution else None
 
     async def chat(
-        self, message: str, user_id: str, *, source: str = "chat", exclude_message_id: str | None = None
+        self,
+        message: str,
+        user_id: str,
+        *,
+        source: str = "chat",
+        exclude_message_id: str | None = None,
+        screen_context: str | None = None,
     ) -> dict:
         """Process a chat message through Claude with MCP tool support.
+
+        `screen_context` is what the screen behind the assistant overlay was showing
+        (MAG-30). It reaches the model through the history, on the turn being answered, and
+        never through `message`: what is stored is what every client displays. The routing
+        reads `message` alone — a thread named after a shop page is not a thread.
 
         `exclude_message_id` is the user's message when the caller has already stored it.
         It decides two things at once: that the « last conversation » line must skip it
@@ -203,6 +214,7 @@ class LLMGateway:
             pending_message=None if exclude_message_id else message,
             fallback_message=message if exclude_message_id else None,
             current_message_id=exclude_message_id,
+            screen_context=screen_context,
         )
 
         # Get all tools including proaction tools (so user can schedule reminders from chat);

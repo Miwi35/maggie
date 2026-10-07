@@ -31,6 +31,7 @@ from app.config import settings
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
 from app.db.models import Message
+from app.llm.screen_context import attach
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,7 @@ async def build_history(
     pending_message: str | None = None,
     fallback_message: str | None = None,
     current_message_id: str | None = None,
+    screen_context: str | None = None,
 ) -> list[dict]:
     """The `messages` list to send, for a message already routed into `context_id`.
 
@@ -72,6 +74,11 @@ async def build_history(
     written leaves it untagged, and it would then come in through the global window and be
     announced as another thread's — Maggie reading the question she is answering as a
     neighbour's.
+
+    `screen_context` is the screen the assistant was summoned from (MAG-30), and this is
+    where it rejoins the conversation: on the turn being answered, and on that one only.
+    It is deliberately not stored — the message is what every client displays — so this
+    function is the single place the model's copy differs from the user's.
     """
     try:
         rows = await _rows(user_id, context_id)
@@ -90,11 +97,13 @@ async def build_history(
         except Exception as exc:
             logger.warning(f"Could not name the threads the history borrows from: {exc}")
 
-    turns = _turns(rows, context_id, labels, current_message_id)
+    turns = _turns(rows, context_id, labels, current_message_id, screen_context)
     if pending_message:
         _append_user(turns, pending_message)
+    # The floor under a history that would not load is then the whole conversation, so the
+    # screen has to come with it: without this the one turn the model gets is blind.
     if not turns and fallback_message:
-        _append_user(turns, fallback_message)
+        _append_user(turns, attach(fallback_message, screen_context))
 
     logger.info(f"History: {len(turns)} turns from {len(rows)} messages (thread {context_id})")
     return turns
@@ -158,7 +167,11 @@ async def _labels(user_id: str) -> dict[str, str]:
 
 
 def _turns(
-    rows: list[Message], context_id: str | None, labels: dict[str, str], current_message_id: str | None
+    rows: list[Message],
+    context_id: str | None,
+    labels: dict[str, str],
+    current_message_id: str | None,
+    screen_context: str | None = None,
 ) -> list[dict]:
     """The rows as Anthropic turns: labelled, merged, and starting on the user."""
     turns: list[dict] = []
@@ -169,6 +182,10 @@ def _turns(
         content = row.content
         if _is_foreign(row, context_id, current_message_id):
             content = _prefix(labels.get(str(row.context_id))) + content
+        # Only the turn being answered: the screen was there when that one was dictated,
+        # and the follow-up question is about the answer, not about the page.
+        if screen_context and current_message_id is not None and str(row.id) == str(current_message_id):
+            content = attach(content, screen_context)
 
         # The API refuses two turns of the same role in a row, and a thread does get them:
         # a proaction arrives unprompted between two of Maggie's answers, and a user sends

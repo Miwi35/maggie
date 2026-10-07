@@ -101,8 +101,14 @@ class StreamingGateway:
         volatile = f"{memory_context}{directives}{context_section}\n\n{date_line}{last_exchange}"
         return build_system(base + skill_context, volatile)
 
-    async def chat_stream(self, message: str, user_id: str, user_msg_id: str) -> AsyncGenerator[dict, None]:
+    async def chat_stream(
+        self, message: str, user_id: str, user_msg_id: str, *, screen_context: str | None = None
+    ) -> AsyncGenerator[dict, None]:
         """Stream AG-UI events for a chat message.
+
+        `screen_context` is what the screen behind the assistant overlay was showing
+        (MAG-30). It joins the conversation in `build_history`, on the turn being answered,
+        and stays out of the stored message — which is what every client displays.
 
         Yields dicts representing AG-UI protocol events:
         - RUN_STARTED / RUN_FINISHED
@@ -139,6 +145,7 @@ class StreamingGateway:
             context_id=current_context_id,
             fallback_message=message,
             current_message_id=user_msg_id,
+            screen_context=screen_context,
         )
 
         # Get tools (contexts are managed by the gateway, not by Claude)

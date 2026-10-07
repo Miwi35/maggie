@@ -201,6 +201,75 @@ describe('ChatWidget', () => {
     })
   })
 
+  // The conversations are synchronised, so a question asked from the phone's
+  // assistant overlay lands here too. The screen it was asked about went to the
+  // model; it must not be the bubble (MAG-30, refused recette).
+  describe('a question asked with a screen context', () => {
+    const block = [
+      "[Contexte de l'écran]",
+      'Application : Chrome (com.android.chrome)',
+      'Page : https://dice.fm/event/x?utm_source=spam',
+      "Texte à l'écran :",
+      '- Concert ce soir',
+    ].join('\n')
+
+    beforeEach(() => {
+      localStorage.setItem('user', JSON.stringify({ id: 'user-1' }))
+    })
+
+    afterEach(() => {
+      localStorage.removeItem('user')
+    })
+
+    test('shows only what was said when the history carries the block', async () => {
+      vi.stubGlobal(
+        'fetch',
+        mockFetch({
+          '/agent/messages': [
+            {
+              id: 'm-1',
+              role: 'user',
+              content: `${block}\n\nDe quoi parle cette page ?`,
+              createdAt: '2026-10-06T10:00:00Z',
+            },
+          ],
+        }),
+      )
+
+      render(<ChatWidget {...defaultProps} />)
+
+      await waitFor(() => {
+        expect(screen.getByText('De quoi parle cette page ?')).toBeInTheDocument()
+      })
+      expect(screen.queryByText(/Contexte de l'écran/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/utm_source/)).not.toBeInTheDocument()
+    })
+
+    test('shows only what was said when the block arrives by Mercure', async () => {
+      vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
+      render(<ChatWidget {...defaultProps} />)
+
+      const source = MockEventSource.instances.find(
+        (es) => new URL(es.url, 'http://localhost').searchParams.get('match') === '/chat/user-1',
+      )
+      act(() => {
+        source?.onmessage?.({
+          data: JSON.stringify({
+            id: 'm-2',
+            role: 'user',
+            content: `${block}\n\najoute ça à mon agenda`,
+            createdAt: '2026-10-06T10:01:00Z',
+          }),
+        } as MessageEvent)
+      })
+
+      await waitFor(() => {
+        expect(screen.getByText('ajoute ça à mon agenda')).toBeInTheDocument()
+      })
+      expect(screen.queryByText(/Contexte de l'écran/)).not.toBeInTheDocument()
+    })
+  })
+
   // A streamed exchange is published too, so a second tab or the phone sees it
   // (MAG-109). The tab that streamed it gets the echo back, in either order
   // relative to the end of its own stream, and must show it once.

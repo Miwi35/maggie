@@ -124,6 +124,14 @@ data class MessageContextResponse(val messages: List<ChatMessage> = emptyList())
 data class AgentChatRequest(
     val message: String,
     val user_id: String = "default",
+    /**
+     * What the screen behind the assistant overlay was showing (MAG-30).
+     *
+     * Beside the message, not inside it: the agent stores and publishes `message`, and
+     * that is what every client draws the user's bubble from — a block glued to the
+     * question is a bubble full of the page it was about.
+     */
+    val screen_context: String? = null,
 )
 
 @Serializable
@@ -571,10 +579,14 @@ class MaggieApiService(
         }.body()
     }
 
-    suspend fun sendChat(message: String, userId: String = "default"): AgentChatResponse {
+    suspend fun sendChat(
+        message: String,
+        screenContext: String? = null,
+        userId: String = "default",
+    ): AgentChatResponse {
         return client.post("$baseUrl/agent/chat") {
             contentType(ContentType.Application.Json)
-            setBody(AgentChatRequest(message = message, user_id = userId))
+            setBody(AgentChatRequest(message = message, user_id = userId, screen_context = screenContext))
         }.body()
     }
 
@@ -618,11 +630,11 @@ class MaggieApiService(
     }
 
     // Chat streaming — AG-UI SSE endpoint
-    fun sendChatStream(message: String): Flow<AgUiEvent> = kotlinx.coroutines.flow.flow {
+    fun sendChatStream(message: String, screenContext: String? = null): Flow<AgUiEvent> = kotlinx.coroutines.flow.flow {
         try {
             val response = client.post("$baseUrl/agent/chat/stream") {
                 contentType(ContentType.Application.Json)
-                setBody(AgentChatRequest(message = message))
+                setBody(AgentChatRequest(message = message, screen_context = screenContext))
             }
             val status = response.status.value
             if (status != 200) {

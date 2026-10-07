@@ -27,6 +27,7 @@ import { useTranscription } from '../../hooks/useTranscription'
 import { useNarrowScreen } from '../../hooks/useNarrowScreen'
 import { AGENT_STREAMS, agentTopic, getStoredUserId } from '../../hooks/agentTopics'
 import { mercureUrl } from '../../hooks/mercureUrl'
+import { saidInMessage } from '../../screenContext'
 import { useAgUiStream } from '../../hooks/useAgUiStream'
 import { ActivityPulse } from '../mind/ActivityPulse'
 import { ContextList } from '../mind/ContextList'
@@ -821,7 +822,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                             WebkitBoxOrient: 'vertical',
                           }}
                           dangerouslySetInnerHTML={{
-                            __html: highlightSearchTerm(result.content, searchQuery),
+                            __html: highlightSearchTerm(saidInMessage(result.content), searchQuery),
                           }}
                         />
                       </Box>
@@ -913,7 +914,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                               }),
                             }}
                           >
-                            {msg.content}
+                            {saidInMessage(msg.content)}
                           </Box>
                         </Fragment>
                       )
