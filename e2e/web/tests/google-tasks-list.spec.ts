@@ -1,5 +1,6 @@
 import { test, expect } from '../fixtures/index.js'
 import type { APIRequestContext } from '@playwright/test'
+import { getCollection } from '../helpers/api.js'
 import { openWiremockJournal } from '../helpers/wiremock.js'
 import { GoogleSettingsPage } from '../pages/GoogleSettingsPage.js'
 
@@ -58,10 +59,38 @@ async function disconnect(api: APIRequestContext): Promise<void> {
   expect(response.ok(), `POST disconnect-tasks answered ${response.status()}`).toBe(true)
 }
 
+/** The one task `mappings/google.json` puts in every list it is asked for. */
+const PULLED_TASK = 'Tâche importée de Google'
+
+/**
+ * Takes away the copies switching lists leaves behind.
+ *
+ * The stub answers the same task whatever list is asked for, so a pull of the
+ * second list creates a local row for it — and connecting the seeded list again
+ * detaches that row rather than deleting it, since its Google id belongs to the
+ * list being left. Without this, each run would add one orphan « Tâche importée
+ * de Google » to a database the whole suite shares, and the first journey to
+ * count tasks by title would fail on the residue rather than on its own subject.
+ *
+ * Run before the list is connected back, so the pull that follows recreates
+ * exactly one tracked copy. The task list is served from Elasticsearch, so a
+ * row the index has not caught up with yet survives this — hygiene, not a
+ * guarantee, and not worth a 30-second wait on a cleanup nothing asserts.
+ */
+async function forgetPulledTasks(api: APIRequestContext): Promise<void> {
+  const pulled = await getCollection<{ id?: string; title?: string }>(api, '/api/tasks?itemsPerPage=100')
+
+  for (const task of pulled.filter((candidate) => candidate.title === PULLED_TASK)) {
+    const response = await api.delete(`/api/tasks/${task.id}`)
+    expect(response.status(), `DELETE /api/tasks/${task.id} answered ${response.status()}`).toBe(204)
+  }
+}
+
 test.describe('The Google Tasks list', () => {
   test.describe.configure({ mode: 'serial' })
 
   test.afterEach(async ({ api }) => {
+    await forgetPulledTasks(api)
     await connect(api, SEEDED_LIST.id)
   })
 

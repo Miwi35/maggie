@@ -235,7 +235,12 @@ class GoogleTasksConnectApiTest extends WebTestCase
         self::assertSame(['googleTaskListId' => 'list-courses', 'title' => 'Courses'], $this->body());
         self::assertSame('list-courses', $this->reload($user)->getGoogleTaskListId());
 
-        $this->assertMercureUpdatePublished('/api/users/'.$user->getId());
+        // The full scoped topic, not a substring of it: an update published
+        // outside the user's scope would contain this one and pass (8380178).
+        self::assertSame(
+            ['/users/'.$user->getId().'/api/users/'.$user->getId()],
+            $this->getMercureHub()->getUpdates()[0]->getTopics(),
+        );
         self::assertSame(
             ['googleTaskListId' => 'list-courses'],
             array_diff_key(
@@ -243,6 +248,10 @@ class GoogleTasksConnectApiTest extends WebTestCase
                 ['@id' => true],
             ),
         );
+
+        // Nothing to reindex: `User::toSearchDocument()` does not carry the
+        // chosen list, so the standard's index assertion is N/A here.
+        $this->assertNoElasticsearchIndexDispatched(User::class);
 
         $pulls = array_filter(
             array_map(
@@ -302,7 +311,18 @@ class GoogleTasksConnectApiTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame(['googleTaskListId' => null], $this->body());
         self::assertNull($this->reload($user)->getGoogleTaskListId());
-        $this->assertMercureUpdatePublished('/api/users/'.$user->getId());
+        self::assertSame(
+            ['/users/'.$user->getId().'/api/users/'.$user->getId()],
+            $this->getMercureHub()->getUpdates()[0]->getTopics(),
+        );
+        self::assertSame(
+            ['googleTaskListId' => null],
+            array_diff_key(
+                json_decode($this->getMercureHub()->getUpdates()[0]->getData(), true, 512, JSON_THROW_ON_ERROR),
+                ['@id' => true],
+            ),
+            'the screens listening have to be told the choice is gone, not just that something moved',
+        );
 
         // Kept on purpose: reconnecting the same list resumes on these rows
         // instead of pulling a second copy of every task.

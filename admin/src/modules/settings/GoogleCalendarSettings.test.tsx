@@ -170,6 +170,31 @@ describe('GoogleCalendarSettings — the Google Tasks list', () => {
     expect(screen.queryByRole('button', { name: 'Connecter' })).not.toBeInTheDocument()
   })
 
+  /**
+   * A failed fetch is not an empty account, and not a deleted list.
+   *
+   * Both wrong statements come from the same place: no list on screen. The
+   * screen says what it knows instead — the lists did not load.
+   */
+  test('says the lists did not load rather than inventing an empty account', async () => {
+    stubApi({ taskListsStatus: 500 })
+    render(<GoogleCalendarSettings />)
+
+    expect(await screen.findByText(/n’ont pas pu être chargées/)).toBeInTheDocument()
+    expect(screen.queryByText(/Aucune liste Google Tasks/)).not.toBeInTheDocument()
+    expect(notify).toHaveBeenCalledWith('Erreur lors du chargement des listes Google Tasks', {
+      type: 'error',
+    })
+  })
+
+  test('never claims a stored list is gone when the lists did not load', async () => {
+    stubApi({ taskListsStatus: 500, googleTaskListId: 'list-chores' })
+    render(<GoogleCalendarSettings />)
+
+    expect(await screen.findByText(/Synchronisée avec\s*«\s*list-chores\s*»/)).toBeInTheDocument()
+    expect(screen.queryByText(/n’existe plus sur Google/)).not.toBeInTheDocument()
+  })
+
   test('reports the error the API gives when connecting fails', async () => {
     stubApi({ taskLists: ONE_LIST, connectStatus: 404 })
     render(<GoogleCalendarSettings />)

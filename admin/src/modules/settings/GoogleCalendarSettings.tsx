@@ -52,6 +52,10 @@ export const GoogleCalendarSettings = () => {
   const [googleTaskLists, setGoogleTaskLists] = useState<GoogleTaskList[]>([])
   const [connectedTaskListId, setConnectedTaskListId] = useState<string | null>(null)
   const [googleAuthorized, setGoogleAuthorized] = useState(true)
+  // Whether the lists on screen are Google's answer. An empty list and a failed
+  // fetch look the same otherwise, and the screen would then tell the owner
+  // their list no longer exists because the API was briefly down.
+  const [taskListsLoaded, setTaskListsLoaded] = useState(false)
   const [loading, setLoading] = useState(true)
   const [connectingTasks, setConnectingTasks] = useState(false)
 
@@ -64,10 +68,13 @@ export const GoogleCalendarSettings = () => {
         // The account was never authorized, or the authorization was revoked.
         setGoogleAuthorized(false)
         setGoogleTaskLists([])
+        setTaskListsLoaded(false)
       } else if (tlRes.ok) {
         setGoogleAuthorized(true)
         setGoogleTaskLists((await tlRes.json()) as GoogleTaskList[])
+        setTaskListsLoaded(true)
       } else {
+        setTaskListsLoaded(false)
         notify('Erreur lors du chargement des listes Google Tasks', { type: 'error' })
       }
 
@@ -140,7 +147,12 @@ export const GoogleCalendarSettings = () => {
   // Chosen, and gone from the account since: Google no longer holds the list,
   // or stopped sharing it. The sync drops the choice at its next run, but the
   // owner is here now and can pick again straight away.
-  const connectedTaskListMissing = null !== connectedTaskListId && undefined === connectedTaskList
+  //
+  // Only ever said when Google really answered: a failed fetch leaves no list
+  // either, and claiming the owner's list is gone because the API hiccuped is
+  // a statement about their Google account that nothing checked.
+  const connectedTaskListMissing =
+    taskListsLoaded && null !== connectedTaskListId && undefined === connectedTaskList
 
   return (
     <Box maxWidth={800} mx="auto" mt={2}>
@@ -159,6 +171,13 @@ export const GoogleCalendarSettings = () => {
             <Alert severity="info">
               Connectez votre compte Google pour synchroniser vos tâches.
             </Alert>
+          ) : !taskListsLoaded && !connectedTaskListId ? (
+            // Google's lists never arrived, and there is no stored choice to
+            // fall back on: say so rather than "aucune liste sur ce compte",
+            // which is the one thing this screen cannot know right now.
+            <Alert severity="warning">
+              Les listes Google Tasks n’ont pas pu être chargées. Rechargez la page.
+            </Alert>
           ) : (
             <Stack spacing={2}>
               {connectedTaskListMissing && (
@@ -170,7 +189,10 @@ export const GoogleCalendarSettings = () => {
                 <Stack direction="row" alignItems="center" spacing={2}>
                   <Chip label="Synchronisée" color="success" size="small" />
                   <Typography variant="body2">
-                    Synchronisée avec «&nbsp;{connectedTaskList?.title}&nbsp;»
+                    {/* The stored identifier when the title is unknown — the
+                        lists did not load, and showing an empty pair of quotes
+                        would say less than Google's own id. */}
+                    Synchronisée avec «&nbsp;{connectedTaskList?.title ?? connectedTaskListId}&nbsp;»
                   </Typography>
                   <Button
                     size="small"
