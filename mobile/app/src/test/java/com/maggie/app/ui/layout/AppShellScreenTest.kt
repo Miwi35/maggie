@@ -2,10 +2,7 @@ package com.maggie.app.ui.layout
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.DrawerValue
@@ -96,15 +93,10 @@ class AppShellScreenTest {
         ) {
             Scaffold(
                 modifier = Modifier.weight(1f),
-                // The same insets `NavGraph` gives its own Scaffold: without the band
-                // under the content nothing else consumes the bottom one. Under
-                // Robolectric they measure zero, so what the assertions read is the
-                // chrome's height — but the frame has to be the real one to read it.
-                contentWindowInsets = if (layout.chatEntry == ChatEntry.RAIL) {
-                    WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)
-                } else {
-                    WindowInsets(0)
-                },
+                // The insets `NavGraph` gives its own Scaffold — none, each piece pays its
+                // own. They measure zero under Robolectric anyway; what the assertions
+                // read is the chrome's height, and for that the frame must be the real one.
+                contentWindowInsets = WindowInsets(0),
                 topBar = {
                     MaggieTopBar(
                         title = "Cuisine",

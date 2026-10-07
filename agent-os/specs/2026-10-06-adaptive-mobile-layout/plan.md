@@ -45,17 +45,24 @@ Content in landscape: **363 dp** instead of 275, asserted by measuring the node 
 A window that is short but too narrow for a rail — the cover screen of a Flip — keeps
 the collapsed bar: there is nowhere else to put it. It gains the dense top bar.
 
-**Known limit:** `dense` only reaches the shell's own top bar. A detail screen —
+**Known limits.** `dense` only reaches the shell's own top bar: a detail screen —
 recipe, account transactions… — builds its own `TopAppBar` and still spends 64 dp in
-landscape. Out of scope for this recette return.
+landscape. And the shell still hands **no window inset** to the content, band or no
+band: each piece pays its own (`ChatBottomBar`, `ChatPanel`, `ChatScreen`), and the
+main screens that nest a `Scaffold` — Cuisine, Calendrier — get `safeDrawing` from it.
+Material 3 1.3 does not consume `contentWindowInsets` for the body, so handing one down
+from the shell would pay the gesture bar twice on exactly the screens this gives height
+back to. What is left: on a screen with no `Scaffold` of its own (Tableau de bord), a
+list scrolls under the gesture bar in landscape — the standard edge-to-edge behaviour,
+and the last row is reachable by scrolling. Both out of scope for this recette return.
 
 **E2E: N/A — no landscape journey can run.** The Maestro flows drive a phone AVD in
 **portrait** and no flow rotates the device, so the format the owner refused is covered
 by the JVM screen tests (891 × 411 in `AppShellScreenTest`) and by the « Téléphone
 paysage » preview. The day an emulator profile lands (MAG-264), the journey to write is:
 *Given* the phone in landscape on the Courses screen *When* the owner taps « Demander à
-Maggie » in the rail *Then* the conversation opens and the grocery list keeps its full
-height under the top bar.
+Maggie » in the rail *Then* the conversation opens, the grocery list keeps its full
+height under the top bar, and its last row stays above the gesture bar.
 
 ## Acceptance criteria
 
