@@ -35,10 +35,7 @@ data class AppLayout(
      * le header et le chat de maggie, on n'a que très peu d'espace pour le contenu ».
      */
     val denseTopBar: Boolean,
-) {
-    /** The conversation has room to stay on screen beside the content. */
-    val chatPanelFits: Boolean get() = chatEntry == ChatEntry.PANEL
-}
+)
 
 /** The Material 3 width breakpoints: compact < 600 ≤ medium < 840 ≤ expanded. */
 enum class WindowWidth {

@@ -1,7 +1,11 @@
 package com.maggie.app.ui.layout
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.DrawerValue
@@ -15,6 +19,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
@@ -91,6 +96,15 @@ class AppShellScreenTest {
         ) {
             Scaffold(
                 modifier = Modifier.weight(1f),
+                // The same insets `NavGraph` gives its own Scaffold: without the band
+                // under the content nothing else consumes the bottom one. Under
+                // Robolectric they measure zero, so what the assertions read is the
+                // chrome's height — but the frame has to be the real one to read it.
+                contentWindowInsets = if (layout.chatEntry == ChatEntry.RAIL) {
+                    WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)
+                } else {
+                    WindowInsets(0)
+                },
                 topBar = {
                     MaggieTopBar(
                         title = "Cuisine",
@@ -113,6 +127,18 @@ class AppShellScreenTest {
     private fun contentHeightDp(): Int {
         val heightPx = compose.onNodeWithTag(CONTENT).fetchSemanticsNode().size.height
         return (heightPx / compose.density.density).toInt()
+    }
+
+    /**
+     * Where the content starts, in dp — which *is* the top bar's height.
+     *
+     * The system insets measure zero under Robolectric and the `Scaffold`'s top bar is
+     * the only thing above the content, so the offset of the content node is the bar,
+     * measured without a test tag inside `MaggieTopBar`.
+     */
+    private fun contentTopDp(): Int {
+        val topPx = compose.onNodeWithTag(CONTENT).fetchSemanticsNode().positionInRoot.y
+        return (topPx / compose.density.density).toInt()
     }
 
     @Test
@@ -229,8 +255,22 @@ class AppShellScreenTest {
         val height = contentHeightDp()
         assertTrue(
             "le contenu n'a que $height dp de haut sur les 411 de la fenêtre",
-            height >= 340,
+            height >= 355,
         )
+        assertEquals(
+            "la top bar dense est ce qui est mesuré : le contenu commence trop bas",
+            48,
+            contentTopDp(),
+        )
+    }
+
+    /** The other half of the fix is the bar a tall window still pays for in full. */
+    @Test
+    @Config(qualifiers = "w412dp-h1000dp-xhdpi")
+    fun `a tall window keeps a full height top bar`() {
+        compose.setContent { Shell() }
+
+        assertEquals("1000 dp de fenêtre paie une top bar de 64 dp", 64, contentTopDp())
     }
 
     /** The three buttons of the band are not lost with it: they move into the rail. */
@@ -245,9 +285,14 @@ class AppShellScreenTest {
         compose.onNodeWithTag(UiTags.CHAT_CONTEXTS).assertIsDisplayed()
         compose.onNodeWithTag(UiTags.CHAT_PANEL).assertDoesNotExist()
 
-        val railX = compose.onNodeWithTag(UiTags.NAV_RAIL).fetchSemanticsNode().positionInRoot.x
-        val askX = compose.onNodeWithTag(UiTags.CHAT_OPEN).fetchSemanticsNode().positionInRoot.x
-        assertTrue("« Demander à Maggie » n'est pas dans le rail", askX >= railX)
+        // Inside the rail, not merely right of its left edge: the rail is the Row's
+        // first child, so « x ≥ the rail's x » holds for the whole window.
+        val rail = compose.onNodeWithTag(UiTags.NAV_RAIL).fetchSemanticsNode()
+        val railRight = rail.positionInRoot.x + rail.size.width
+        listOf(UiTags.CHAT_OPEN, UiTags.CHAT_MIC, UiTags.CHAT_CONTEXTS).forEach { tag ->
+            val x = compose.onNodeWithTag(tag).fetchSemanticsNode().positionInRoot.x
+            assertTrue("$tag n'est pas dans le rail", x < railRight)
+        }
     }
 
     /** A tall window keeps the band: the fix is for the windows that cannot pay for it. */
@@ -269,5 +314,21 @@ class AppShellScreenTest {
         compose.onNodeWithTag(UiTags.railItem("grocery")).performClick()
 
         assertEquals("grocery", navigatedTo)
+    }
+
+    /**
+     * Criterion 6 in the format the recette refused: the three buttons at the top of
+     * the rail push the destinations down, and the last one must still be reachable —
+     * the rail scrolls, so « exists » would pass on a window where nothing can be
+     * tapped.
+     */
+    @Test
+    @Config(qualifiers = "w891dp-h411dp-xhdpi")
+    fun `a phone in landscape still reaches the last rail destination`() {
+        compose.setContent { Shell() }
+
+        compose.onNodeWithTag(UiTags.railItem("settings")).performScrollTo().performClick()
+
+        assertEquals("settings", navigatedTo)
     }
 }

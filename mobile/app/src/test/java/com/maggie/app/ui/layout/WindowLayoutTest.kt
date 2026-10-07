@@ -27,9 +27,12 @@ class WindowLayoutTest {
         assertEquals(WindowWidth.COMPACT, layout.width)
         assertEquals(WindowHeight.EXPANDED, layout.height)
         assertEquals(NavigationKind.MODAL_DRAWER, layout.navigation)
-        assertEquals(ChatEntry.BOTTOM_BAR, layout.chatEntry)
+        assertEquals(
+            "a 412 dp window has no room beside its content",
+            ChatEntry.BOTTOM_BAR,
+            layout.chatEntry,
+        )
         assertFalse("1000 dp of window can pay for a 64 dp top bar", layout.denseTopBar)
-        assertFalse("a 412 dp window has no room beside its content", layout.chatPanelFits)
     }
 
     @Test
@@ -41,7 +44,6 @@ class WindowLayoutTest {
         assertEquals(NavigationKind.MODAL_DRAWER, layout.navigation)
         assertEquals(ChatEntry.BOTTOM_BAR, layout.chatEntry)
         assertFalse(layout.denseTopBar)
-        assertFalse(layout.chatPanelFits)
     }
 
     @Test
@@ -57,7 +59,6 @@ class WindowLayoutTest {
             layout.chatEntry,
         )
         assertTrue(layout.denseTopBar)
-        assertFalse(layout.chatPanelFits)
     }
 
     @Test
@@ -69,7 +70,6 @@ class WindowLayoutTest {
         assertEquals(NavigationKind.RAIL, layout.navigation)
         assertEquals(ChatEntry.BOTTOM_BAR, layout.chatEntry)
         assertFalse(layout.denseTopBar)
-        assertFalse(layout.chatPanelFits)
     }
 
     @Test
@@ -79,9 +79,8 @@ class WindowLayoutTest {
         assertEquals(WindowWidth.MEDIUM, layout.width)
         assertEquals(WindowHeight.EXPANDED, layout.height)
         assertEquals(NavigationKind.RAIL, layout.navigation)
-        assertEquals(ChatEntry.BOTTOM_BAR, layout.chatEntry)
+        assertEquals("800 dp still belongs to the content", ChatEntry.BOTTOM_BAR, layout.chatEntry)
         assertFalse(layout.denseTopBar)
-        assertFalse("800 dp still belongs to the content", layout.chatPanelFits)
     }
 
     @Test
@@ -93,7 +92,6 @@ class WindowLayoutTest {
         assertEquals(NavigationKind.RAIL, layout.navigation)
         assertEquals(ChatEntry.PANEL, layout.chatEntry)
         assertFalse(layout.denseTopBar)
-        assertTrue(layout.chatPanelFits)
     }
 
     /**
@@ -112,18 +110,19 @@ class WindowLayoutTest {
         assertEquals(WindowWidth.EXPANDED, layout.width)
         assertEquals(WindowHeight.COMPACT, layout.height)
         assertEquals(NavigationKind.RAIL, layout.navigation)
-        assertEquals(ChatEntry.RAIL, layout.chatEntry)
+        assertEquals(
+            "a conversation in a 411 dp column is a header and two bubbles",
+            ChatEntry.RAIL,
+            layout.chatEntry,
+        )
         assertTrue(layout.denseTopBar)
-        assertFalse("a conversation in a 411 dp column is a header and two bubbles", layout.chatPanelFits)
     }
 
     /** A railed window that is short gets the rail entry whatever its width class. */
     @Test
-    fun `a foldable opened in landscape is short enough for the rail entry too`() {
-        val layout = appLayoutFor(841, 674)
-        assertEquals(ChatEntry.PANEL, layout.chatEntry)
-
+    fun `a short window of medium width takes the rail entry too`() {
         val short = appLayoutFor(674, 411)
+
         assertEquals(WindowWidth.MEDIUM, short.width)
         assertEquals(ChatEntry.RAIL, short.chatEntry)
     }

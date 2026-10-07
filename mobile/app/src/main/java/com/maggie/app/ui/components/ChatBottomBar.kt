@@ -15,11 +15,11 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -82,10 +82,12 @@ fun ChatBottomBar(
  * The same three ways into the conversation, at the top of the rail, for a window too
  * short for a band under its content (MAG-35, recette return).
  *
- * The field becomes a `FloatingActionButton`, which is what the rail's header slot is
- * for: « demander à Maggie » is the app's primary action, and a 360 dp placeholder
- * would not fit in 80 dp of rail anyway. The tags are the bar's own, so a journey or a
- * test that taps `chat_open` taps it in either layout.
+ * The field becomes a `SmallFloatingActionButton`, which is what the rail's header slot
+ * is for: « demander à Maggie » is the app's primary action, and a 360 dp placeholder
+ * would not fit in 80 dp of rail anyway. Small and not full size — 40 dp instead of 56 —
+ * because the header already costs the seven destinations ~160 dp of a 411 dp window.
+ * The tags are the bar's own, so a journey or a test that taps `chat_open` taps it in
+ * either layout.
  */
 @Composable
 fun ChatRailActions(
@@ -96,7 +98,7 @@ fun ChatRailActions(
 ) {
     Spacer(modifier = Modifier.height(8.dp))
 
-    FloatingActionButton(
+    SmallFloatingActionButton(
         onClick = onOpenChat,
         modifier = Modifier.testTag(UiTags.CHAT_OPEN),
         elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 0.dp),

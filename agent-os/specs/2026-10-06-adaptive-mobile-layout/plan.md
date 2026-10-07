@@ -45,6 +45,18 @@ Content in landscape: **363 dp** instead of 275, asserted by measuring the node 
 A window that is short but too narrow for a rail — the cover screen of a Flip — keeps
 the collapsed bar: there is nowhere else to put it. It gains the dense top bar.
 
+**Known limit:** `dense` only reaches the shell's own top bar. A detail screen —
+recipe, account transactions… — builds its own `TopAppBar` and still spends 64 dp in
+landscape. Out of scope for this recette return.
+
+**E2E: N/A — no landscape journey can run.** The Maestro flows drive a phone AVD in
+**portrait** and no flow rotates the device, so the format the owner refused is covered
+by the JVM screen tests (891 × 411 in `AppShellScreenTest`) and by the « Téléphone
+paysage » preview. The day an emulator profile lands (MAG-264), the journey to write is:
+*Given* the phone in landscape on the Courses screen *When* the owner taps « Demander à
+Maggie » in the rail *Then* the conversation opens and the grocery list keeps its full
+height under the top bar.
+
 ## Acceptance criteria
 
 1. A window under 600 dp wide is drawn exactly as today: `TopAppBar` with the
@@ -68,8 +80,9 @@ the collapsed bar: there is nowhere else to put it. It gains the dense top bar.
    in all six formats.
 7. On a window under 480 dp tall that has a rail — the phone in landscape — the
    collapsed bar is not drawn and its three buttons are at the top of the rail,
-   under the same tags; the top bar is 48 dp; the content keeps at least 340 dp of
-   the 411 the window has (*retour de recette*, below).
+   under the same tags; the top bar is 48 dp; the content keeps at least 355 dp of
+   the 411 the window has — measured on the JVM, where the system insets are zero; on
+   the device the status bar takes ~24 of them (*retour de recette*, below).
 
 ## Task 1: Save spec documentation
 
@@ -82,7 +95,8 @@ This folder: `plan.md`, `shape.md`.
 - `WindowWidth` / `WindowHeight` enums with the Material 3 breakpoints
   (600/840 and 480/900) and an `of(dp)` factory.
 - `NavigationKind` — `MODAL_DRAWER`, `RAIL`.
-- `AppLayout(width, height, navigation, chatPanelFits)`.
+- `AppLayout(width, height, navigation, chatEntry, denseTopBar)` — the last two are
+  the *retour de recette* below; the first delivery had a single `chatPanelFits`.
 - `appLayoutFor(widthDp, heightDp)` — the pure decision.
 - `rememberAppLayout()` — the same over `LocalConfiguration`.
 - `RAIL_WIDTH`, `CHAT_PANEL_WIDTH`.
@@ -152,7 +166,7 @@ neither needs a device.
 | `appLayoutFor` | `WindowLayoutTest` — one test per row of the table above, named by the format, asserting the classes, the navigation, the `ChatEntry` and the dense top bar; plus the breakpoints themselves (599/600, 839/840, 479/480, 899/900) |
 | `chromeFor` | `AdaptiveNavigationTest` — compact → burger + bar, no rail; medium → rail + bar; expanded → rail + panel, no bar; **short + rail → rail header, no bar**; the chat route gets no entry point (it *is* the chat); a detail route gets no rail and no bar; no route yet gets nothing |
 | `showsChatSheet` | `AdaptiveNavigationTest` — not requested → no; requested on a phone → yes; requested with a panel → no; voice mode with a panel → yes |
-| `AppShell` + `MaggieNavigationRail` + `MaggieTopBar` | `AppShellScreenTest`, one `@Config` per format: 412×1000, 374×840 and 280×290 → `nav_menu` shown, `nav_rail` absent, chat bar shown. 674×841 and 800×1280 → rail shown, no burger, chat bar shown. 1280×800 → rail and `chat_panel` shown, chat bar absent. 891×411 → **the content node measures ≥ 340 dp** (275 before the fix), and `chat_open` / `chat_mic` / `chat_contexts` are inside the rail (`positionInRoot.x`). The content sits between the rail and the panel. The rail carries `RAIL_DESTINATIONS` and a tap reports its route |
+| `AppShell` + `MaggieNavigationRail` + `MaggieTopBar` | `AppShellScreenTest`, one `@Config` per format: 412×1000, 374×840 and 280×290 → `nav_menu` shown, `nav_rail` absent, chat bar shown. 674×841 and 800×1280 → rail shown, no burger, chat bar shown. 1280×800 → rail and `chat_panel` shown, chat bar absent. 891×411 → **the content node measures ≥ 355 dp** (275 before the fix) and starts at 48 dp (the dense bar; a 412×1000 window starts at 64), `chat_open` / `chat_mic` / `chat_contexts` are inside the rail (`positionInRoot.x` under the rail's right edge), and the last rail destination is still tappable after a scroll. The content sits between the rail and the panel. The rail carries `RAIL_DESTINATIONS` and a tap reports its route |
 | `UiTags` | `railItem("grocery") == "rail_grocery"` |
 
 Run from this worktree:

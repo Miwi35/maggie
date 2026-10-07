@@ -13,7 +13,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -465,7 +468,16 @@ fun NavGraph() {
     ) {
         Scaffold(
             modifier = Modifier.weight(1f),
-            contentWindowInsets = WindowInsets(0),
+            // The bottom inset is normally consumed by `ChatBottomBar`'s own
+            // `navigationBarsPadding()`; with the band moved into the rail nothing does,
+            // and a list's last row slides under the gesture bar. The condition is
+            // `showsChatInRail` and not « no band »: it is false on the full-screen chat
+            // and on every detail route, which pad themselves and would double the margin.
+            contentWindowInsets = if (chrome.showsChatInRail) {
+                WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)
+            } else {
+                WindowInsets(0)
+            },
             topBar = {
                 if (isMainScreen) {
                     MaggieTopBar(
