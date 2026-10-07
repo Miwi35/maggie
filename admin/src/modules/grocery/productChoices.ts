@@ -26,4 +26,5 @@ export const UNIT_CHOICES = [
   { id: 'bottle', name: 'bouteille' },
   { id: 'pack', name: 'paquet' },
   { id: 'sachet', name: 'sachet' },
+  { id: 'jar', name: 'bocal' },
 ]

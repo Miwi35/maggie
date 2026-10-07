@@ -26,6 +26,7 @@ const unitChoices = [
   { id: 'bottle', name: 'bouteille' },
   { id: 'pack', name: 'paquet' },
   { id: 'sachet', name: 'sachet' },
+  { id: 'jar', name: 'bocal' },
 ]
 
 const positive = (value?: number | null) =>

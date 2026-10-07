@@ -14,6 +14,8 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
 /** @implements ProcessorInterface<Product, Product> */
 class UpdateProductProcessor implements ProcessorInterface
 {
+    use DispatchesProductCommandTrait;
+
     public function __construct(
         private readonly MessageBusInterface $bus,
     ) {
@@ -38,8 +40,19 @@ class UpdateProductProcessor implements ProcessorInterface
         if (null !== $previous && null === $data->getShelfLifeDays() && null !== $previous->getShelfLifeDays()) {
             $clearFields[] = 'shelfLifeDays';
         }
+        if (null !== $previous) {
+            foreach ([
+                'packagingUnit' => 'getPackagingUnit',
+                'packagingSize' => 'getPackagingSize',
+                'packagingSizeUnit' => 'getPackagingSizeUnit',
+            ] as $field => $getter) {
+                if (null === $data->$getter() && null !== $previous->$getter()) {
+                    $clearFields[] = $field;
+                }
+            }
+        }
 
-        $envelope = $this->bus->dispatch(new UpdateProductCommand(
+        $envelope = $this->dispatchProductCommand(new UpdateProductCommand(
             productId: (string) $data->getId(),
             name: $data->getName(),
             category: $data->getCategory()->value,
@@ -47,6 +60,9 @@ class UpdateProductProcessor implements ProcessorInterface
             preferredStoreId: null !== $data->getPreferredStore() ? (string) $data->getPreferredStore()->getId() : null,
             fallbackStoreId: null !== $data->getFallbackStore() ? (string) $data->getFallbackStore()->getId() : null,
             shelfLifeDays: $data->getShelfLifeDays(),
+            packagingUnit: $data->getPackagingUnit()?->value,
+            packagingSize: $data->getPackagingSize(),
+            packagingSizeUnit: $data->getPackagingSizeUnit()?->value,
             clearFields: $clearFields,
         ));
 

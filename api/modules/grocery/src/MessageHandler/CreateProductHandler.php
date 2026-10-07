@@ -45,6 +45,10 @@ class CreateProductHandler
             $product->setFallbackStore($this->ownedStore($command->fallbackStoreId, $command->userId));
         }
         $product->setShelfLifeDays($command->shelfLifeDays);
+        $product->setPackagingUnit(null !== $command->packagingUnit ? Unit::from($command->packagingUnit) : null);
+        $product->setPackagingSize($command->packagingSize);
+        $product->setPackagingSizeUnit(null !== $command->packagingSizeUnit ? Unit::from($command->packagingSizeUnit) : null);
+        $product->assertPackagingIsConsistent();
 
         return $this->createProduct->execute($product);
     }

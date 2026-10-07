@@ -15,4 +15,8 @@ data class Product(
     val preferredStore: String? = null,
     val fallbackStore: String? = null,
     val shelfLifeDays: Int? = null,
+    // What the product is bought in: « paquet de 500 g » is (PACK, 500, G).
+    val packagingUnit: CookbookUnit? = null,
+    val packagingSize: Float? = null,
+    val packagingSizeUnit: CookbookUnit? = null,
 )

@@ -8,6 +8,7 @@ use Maggie\Core\Entity\User;
 use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Entity\Store;
 use Maggie\Grocery\Enum\ProductCategory;
+use Maggie\Grocery\Enum\Unit;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -79,5 +80,27 @@ class ProductSearchDocumentTest extends TestCase
 
         self::assertNull($hydrated->getPreferredStore());
         self::assertNull($hydrated->getFallbackStore());
+    }
+
+    public function testThePackagingSurvivesTheRoundTripThroughElasticsearch(): void
+    {
+        $this->product->setPackagingUnit(Unit::Pack)->setPackagingSize(500)->setPackagingSizeUnit(Unit::Gram);
+
+        $hydrated = $this->hydrate($this->product);
+
+        self::assertSame(Unit::Pack, $hydrated->getPackagingUnit());
+        self::assertSame(500.0, $hydrated->getPackagingSize());
+        self::assertSame(Unit::Gram, $hydrated->getPackagingSizeUnit());
+    }
+
+    public function testTheMercurePayloadCarriesThePackaging(): void
+    {
+        $this->product->setPackagingUnit(Unit::Jar);
+
+        $payload = $this->product->toMercurePayload();
+
+        self::assertSame('jar', $payload['packagingUnit']);
+        self::assertNull($payload['packagingSize']);
+        self::assertNull($payload['packagingSizeUnit']);
     }
 }

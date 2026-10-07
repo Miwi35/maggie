@@ -205,4 +205,74 @@ class ProductToolsTest extends KernelTestCase
 
         self::assertArrayHasKey('error', $data);
     }
+
+    public function testCreateProductWithItsPackagingPersistsPublishesAndIndexes(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(($this->manageProducts())('create', name: 'Lessive', category: 'cleaning', packagingUnit: 'bottle', packagingSize: 1.5, packagingSizeUnit: 'l'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
+        self::assertSame('bottle', $data['product']['packagingUnit']);
+        self::assertSame(1.5, $data['product']['packagingSize']);
+        self::assertSame('l', $data['product']['packagingSizeUnit']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $stored = $em->getRepository(Product::class)->find($data['product']['id']);
+        self::assertSame('bottle', $stored->getPackagingUnit()?->value);
+        self::assertSame(1.5, $stored->getPackagingSize());
+        self::assertSame('l', $stored->getPackagingSizeUnit()?->value);
+
+        $this->assertMercureUpdatePublished('/products/');
+        $this->assertElasticsearchIndexDispatched(Product::class);
+    }
+
+    public function testCreateProductRefusesASizeWithoutItsUnit(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(($this->manageProducts())('create', name: 'Lessive', category: 'cleaning', packagingUnit: 'bottle', packagingSize: 1.5), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
+        self::assertStringContainsString('packagingSizeUnit', $data['error']);
+        self::assertSame([], self::getContainer()->get('doctrine.orm.entity_manager')->getRepository(Product::class)->findAll());
+    }
+
+    public function testUpdateProductSetsAJarThenClearsThePackaging(): void
+    {
+        $this->loadFixtures('product.yaml');
+        $this->loginFixtureUser();
+        $id = (string) $this->getFixture('product_bananes')->getId();
+
+        $data = json_decode(($this->manageProducts())('update', productId: $id, packagingUnit: 'jar'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame('jar', $data['product']['packagingUnit']);
+        self::assertNull($data['product']['packagingSize']);
+        $this->assertMercureUpdatePublished('/products/');
+        $this->assertElasticsearchIndexDispatched(Product::class);
+
+        $data = json_decode(($this->manageProducts())('update', productId: $id, clear: ['packagingUnit']), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNull($em->find(Product::class, $id)->getPackagingUnit());
+    }
+
+    public function testUpdateProductRefusesToClearOnlyTheSizeUnit(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
+        $created = json_decode(($this->manageProducts())('create', name: 'Riz', category: 'other', packagingUnit: 'pack', packagingSize: 500, packagingSizeUnit: 'g'), true, 512, JSON_THROW_ON_ERROR);
+
+        $data = json_decode(($this->manageProducts())('update', productId: $created['product']['id'], clear: ['packagingSizeUnit']), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertSame('g', $em->find(Product::class, $created['product']['id'])->getPackagingSizeUnit()?->value);
+    }
 }

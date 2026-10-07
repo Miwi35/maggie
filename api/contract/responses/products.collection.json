@@ -18,7 +18,10 @@
             "fatPer100g": 0.2,
             "preferredStore": "/api/stores/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "fallbackStore": "/api/stores/01ARZ3NDEKTSV4RRFFQ69G5FAV",
-            "shelfLifeDays": 5
+            "shelfLifeDays": 5,
+            "packagingUnit": "pack",
+            "packagingSize": 500,
+            "packagingSizeUnit": "g"
         },
         {
             "@id": "/api/ingredients/01ARZ3NDEKTSV4RRFFQ69G5FAV",

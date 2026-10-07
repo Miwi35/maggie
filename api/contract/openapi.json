@@ -10305,6 +10305,7 @@
                             "bottle",
                             "pack",
                             "sachet",
+                            "jar",
                             null
                         ]
                     },
@@ -10395,6 +10396,7 @@
                             "bottle",
                             "pack",
                             "sachet",
+                            "jar",
                             null
                         ]
                     },
@@ -10485,6 +10487,7 @@
                             "bottle",
                             "pack",
                             "sachet",
+                            "jar",
                             null
                         ]
                     },
@@ -10785,6 +10788,7 @@
                             "bottle",
                             "pack",
                             "sachet",
+                            "jar",
                             null
                         ]
                     },
@@ -10861,6 +10865,54 @@
                         "type": [
                             "integer",
                             "null"
+                        ]
+                    },
+                    "packagingUnit": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "g",
+                            "kg",
+                            "ml",
+                            "l",
+                            "cl",
+                            "piece",
+                            "bunch",
+                            "can",
+                            "bottle",
+                            "pack",
+                            "sachet",
+                            "jar",
+                            null
+                        ]
+                    },
+                    "packagingSize": {
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "packagingSizeUnit": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "g",
+                            "kg",
+                            "ml",
+                            "l",
+                            "cl",
+                            "piece",
+                            "bunch",
+                            "can",
+                            "bottle",
+                            "pack",
+                            "sachet",
+                            "jar",
+                            null
                         ]
                     }
                 },
@@ -10897,6 +10949,7 @@
                             "bottle",
                             "pack",
                             "sachet",
+                            "jar",
                             null
                         ]
                     },
@@ -10973,6 +11026,54 @@
                         "type": [
                             "integer",
                             "null"
+                        ]
+                    },
+                    "packagingUnit": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "g",
+                            "kg",
+                            "ml",
+                            "l",
+                            "cl",
+                            "piece",
+                            "bunch",
+                            "can",
+                            "bottle",
+                            "pack",
+                            "sachet",
+                            "jar",
+                            null
+                        ]
+                    },
+                    "packagingSize": {
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "packagingSizeUnit": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "g",
+                            "kg",
+                            "ml",
+                            "l",
+                            "cl",
+                            "piece",
+                            "bunch",
+                            "can",
+                            "bottle",
+                            "pack",
+                            "sachet",
+                            "jar",
+                            null
                         ]
                     }
                 },
@@ -11009,6 +11110,7 @@
                             "bottle",
                             "pack",
                             "sachet",
+                            "jar",
                             null
                         ]
                     },
@@ -11085,6 +11187,54 @@
                         "type": [
                             "integer",
                             "null"
+                        ]
+                    },
+                    "packagingUnit": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "g",
+                            "kg",
+                            "ml",
+                            "l",
+                            "cl",
+                            "piece",
+                            "bunch",
+                            "can",
+                            "bottle",
+                            "pack",
+                            "sachet",
+                            "jar",
+                            null
+                        ]
+                    },
+                    "packagingSize": {
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "packagingSizeUnit": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "g",
+                            "kg",
+                            "ml",
+                            "l",
+                            "cl",
+                            "piece",
+                            "bunch",
+                            "can",
+                            "bottle",
+                            "pack",
+                            "sachet",
+                            "jar",
+                            null
                         ]
                     }
                 }
@@ -11122,6 +11272,7 @@
                                     "bottle",
                                     "pack",
                                     "sachet",
+                                    "jar",
                                     null
                                 ]
                             },
@@ -11198,6 +11349,54 @@
                                 "type": [
                                     "integer",
                                     "null"
+                                ]
+                            },
+                            "packagingUnit": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "enum": [
+                                    "g",
+                                    "kg",
+                                    "ml",
+                                    "l",
+                                    "cl",
+                                    "piece",
+                                    "bunch",
+                                    "can",
+                                    "bottle",
+                                    "pack",
+                                    "sachet",
+                                    "jar",
+                                    null
+                                ]
+                            },
+                            "packagingSize": {
+                                "type": [
+                                    "number",
+                                    "null"
+                                ]
+                            },
+                            "packagingSizeUnit": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "enum": [
+                                    "g",
+                                    "kg",
+                                    "ml",
+                                    "l",
+                                    "cl",
+                                    "piece",
+                                    "bunch",
+                                    "can",
+                                    "bottle",
+                                    "pack",
+                                    "sachet",
+                                    "jar",
+                                    null
                                 ]
                             }
                         },
@@ -12262,6 +12461,7 @@
                             "bottle",
                             "pack",
                             "sachet",
+                            "jar",
                             null
                         ]
                     },
@@ -12338,6 +12538,54 @@
                         "type": [
                             "integer",
                             "null"
+                        ]
+                    },
+                    "packagingUnit": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "g",
+                            "kg",
+                            "ml",
+                            "l",
+                            "cl",
+                            "piece",
+                            "bunch",
+                            "can",
+                            "bottle",
+                            "pack",
+                            "sachet",
+                            "jar",
+                            null
+                        ]
+                    },
+                    "packagingSize": {
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "packagingSizeUnit": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "g",
+                            "kg",
+                            "ml",
+                            "l",
+                            "cl",
+                            "piece",
+                            "bunch",
+                            "can",
+                            "bottle",
+                            "pack",
+                            "sachet",
+                            "jar",
+                            null
                         ]
                     }
                 },
@@ -12374,6 +12622,7 @@
                             "bottle",
                             "pack",
                             "sachet",
+                            "jar",
                             null
                         ]
                     },
@@ -12450,6 +12699,54 @@
                         "type": [
                             "integer",
                             "null"
+                        ]
+                    },
+                    "packagingUnit": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "g",
+                            "kg",
+                            "ml",
+                            "l",
+                            "cl",
+                            "piece",
+                            "bunch",
+                            "can",
+                            "bottle",
+                            "pack",
+                            "sachet",
+                            "jar",
+                            null
+                        ]
+                    },
+                    "packagingSize": {
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "packagingSizeUnit": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "g",
+                            "kg",
+                            "ml",
+                            "l",
+                            "cl",
+                            "piece",
+                            "bunch",
+                            "can",
+                            "bottle",
+                            "pack",
+                            "sachet",
+                            "jar",
+                            null
                         ]
                     }
                 },
@@ -12486,6 +12783,7 @@
                             "bottle",
                             "pack",
                             "sachet",
+                            "jar",
                             null
                         ]
                     },
@@ -12562,6 +12860,54 @@
                         "type": [
                             "integer",
                             "null"
+                        ]
+                    },
+                    "packagingUnit": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "g",
+                            "kg",
+                            "ml",
+                            "l",
+                            "cl",
+                            "piece",
+                            "bunch",
+                            "can",
+                            "bottle",
+                            "pack",
+                            "sachet",
+                            "jar",
+                            null
+                        ]
+                    },
+                    "packagingSize": {
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "packagingSizeUnit": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "g",
+                            "kg",
+                            "ml",
+                            "l",
+                            "cl",
+                            "piece",
+                            "bunch",
+                            "can",
+                            "bottle",
+                            "pack",
+                            "sachet",
+                            "jar",
+                            null
                         ]
                     }
                 }
@@ -12599,6 +12945,7 @@
                                     "bottle",
                                     "pack",
                                     "sachet",
+                                    "jar",
                                     null
                                 ]
                             },
@@ -12675,6 +13022,54 @@
                                 "type": [
                                     "integer",
                                     "null"
+                                ]
+                            },
+                            "packagingUnit": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "enum": [
+                                    "g",
+                                    "kg",
+                                    "ml",
+                                    "l",
+                                    "cl",
+                                    "piece",
+                                    "bunch",
+                                    "can",
+                                    "bottle",
+                                    "pack",
+                                    "sachet",
+                                    "jar",
+                                    null
+                                ]
+                            },
+                            "packagingSize": {
+                                "type": [
+                                    "number",
+                                    "null"
+                                ]
+                            },
+                            "packagingSizeUnit": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "enum": [
+                                    "g",
+                                    "kg",
+                                    "ml",
+                                    "l",
+                                    "cl",
+                                    "piece",
+                                    "bunch",
+                                    "can",
+                                    "bottle",
+                                    "pack",
+                                    "sachet",
+                                    "jar",
+                                    null
                                 ]
                             }
                         },
@@ -12941,7 +13336,8 @@
                             "can",
                             "bottle",
                             "pack",
-                            "sachet"
+                            "sachet",
+                            "jar"
                         ]
                     },
                     "ingredientName": {
@@ -12997,7 +13393,8 @@
                             "can",
                             "bottle",
                             "pack",
-                            "sachet"
+                            "sachet",
+                            "jar"
                         ]
                     },
                     "ingredientName": {
@@ -13053,7 +13450,8 @@
                             "can",
                             "bottle",
                             "pack",
-                            "sachet"
+                            "sachet",
+                            "jar"
                         ]
                     },
                     "ingredientName": {
@@ -13118,6 +13516,7 @@
                             "bottle",
                             "pack",
                             "sachet",
+                            "jar",
                             null
                         ]
                     },
@@ -13194,6 +13593,7 @@
                             "bottle",
                             "pack",
                             "sachet",
+                            "jar",
                             null
                         ]
                     },
@@ -13270,6 +13670,7 @@
                             "bottle",
                             "pack",
                             "sachet",
+                            "jar",
                             null
                         ]
                     },
@@ -13351,6 +13752,7 @@
                                     "bottle",
                                     "pack",
                                     "sachet",
+                                    "jar",
                                     null
                                 ]
                             },

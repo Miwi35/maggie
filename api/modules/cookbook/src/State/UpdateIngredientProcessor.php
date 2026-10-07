@@ -8,12 +8,15 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Maggie\Cookbook\Entity\Ingredient;
 use Maggie\Cookbook\Message\UpdateIngredientCommand;
+use Maggie\Grocery\State\DispatchesProductCommandTrait;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
 /** @implements ProcessorInterface<Ingredient, Ingredient> */
 class UpdateIngredientProcessor implements ProcessorInterface
 {
+    use DispatchesProductCommandTrait;
+
     public function __construct(
         private readonly MessageBusInterface $bus,
     ) {
@@ -34,6 +37,9 @@ class UpdateIngredientProcessor implements ProcessorInterface
                 'proteinPer100g' => 'getProteinPer100g',
                 'carbsPer100g' => 'getCarbsPer100g',
                 'fatPer100g' => 'getFatPer100g',
+                'packagingUnit' => 'getPackagingUnit',
+                'packagingSize' => 'getPackagingSize',
+                'packagingSizeUnit' => 'getPackagingSizeUnit',
             ] as $field => $getter) {
                 if (null === $data->$getter() && null !== $previous->$getter()) {
                     $clearFields[] = $field;
@@ -41,7 +47,7 @@ class UpdateIngredientProcessor implements ProcessorInterface
             }
         }
 
-        $envelope = $this->bus->dispatch(new UpdateIngredientCommand(
+        $envelope = $this->dispatchProductCommand(new UpdateIngredientCommand(
             ingredientId: (string) $data->getId(),
             name: $data->getName(),
             category: $data->getCategory()->value,
@@ -51,6 +57,9 @@ class UpdateIngredientProcessor implements ProcessorInterface
             proteinPer100g: $data->getProteinPer100g(),
             carbsPer100g: $data->getCarbsPer100g(),
             fatPer100g: $data->getFatPer100g(),
+            packagingUnit: $data->getPackagingUnit()?->value,
+            packagingSize: $data->getPackagingSize(),
+            packagingSizeUnit: $data->getPackagingSizeUnit()?->value,
             clearFields: $clearFields,
         ));
 

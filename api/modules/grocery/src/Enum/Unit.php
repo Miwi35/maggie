@@ -17,4 +17,5 @@ enum Unit: string
     case Bottle = 'bottle';
     case Pack = 'pack';
     case Sachet = 'sachet';
+    case Jar = 'jar';
 }

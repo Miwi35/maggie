@@ -42,6 +42,10 @@ class CreateIngredientHandler
         $ingredient->setProteinPer100g($command->proteinPer100g);
         $ingredient->setCarbsPer100g($command->carbsPer100g);
         $ingredient->setFatPer100g($command->fatPer100g);
+        $ingredient->setPackagingUnit(null !== $command->packagingUnit ? Unit::from($command->packagingUnit) : null);
+        $ingredient->setPackagingSize($command->packagingSize);
+        $ingredient->setPackagingSizeUnit(null !== $command->packagingSizeUnit ? Unit::from($command->packagingSizeUnit) : null);
+        $ingredient->assertPackagingIsConsistent();
 
         $this->createProduct->execute($ingredient);
 

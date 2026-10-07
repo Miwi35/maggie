@@ -17,13 +17,13 @@ const product = {
   shelfLifeDays: 30,
 }
 
-const renderEdit = (update = vi.fn().mockResolvedValue({ data: product })) => {
+const renderEdit = (update = vi.fn().mockResolvedValue({ data: product }), record: Record<string, unknown> = product) => {
   const stores = [halles, primeur]
   render(
     <MemoryRouter initialEntries={['/products/' + encodeURIComponent(product.id)]}>
       <AdminContext
         dataProvider={testDataProvider({
-          getOne: vi.fn().mockResolvedValue({ data: product }),
+          getOne: vi.fn().mockResolvedValue({ data: record }),
           getList: vi.fn().mockResolvedValue({ data: stores, total: stores.length }),
           getMany: vi.fn().mockImplementation((_resource: string, { ids }: { ids: string[] }) =>
             Promise.resolve({ data: stores.filter((s) => ids.includes(s.id)) }),
@@ -83,5 +83,53 @@ describe('ProductForm', () => {
     const data = update.mock.calls[0][1].data
     expect(data.preferredStore).toBeNull()
     expect(data.fallbackStore).toBe(primeur.id)
+  })
+
+  test('shows the packaging the product already has, as a sentence', async () => {
+    renderEdit(undefined, { ...product, packagingUnit: 'pack', packagingSize: 500, packagingSizeUnit: 'g' })
+
+    expect(await screen.findByText("On l'achète en : paquet de 500 g")).toBeInTheDocument()
+  })
+
+  test('says the recipe unit is kept when the product has no packaging', async () => {
+    renderEdit()
+
+    expect(await screen.findByText(/Pas de conditionnement/)).toBeInTheDocument()
+  })
+
+  test('saves the packaging typed in, and the preview follows the input', async () => {
+    const user = userEvent.setup()
+    const update = renderEdit()
+
+    await screen.findByDisplayValue('Halles du voisin')
+    await user.click(screen.getByLabelText('Conditionnement'))
+    await user.click(await screen.findByRole('option', { name: 'paquet' }))
+    await user.type(screen.getByLabelText('Contenu'), '500')
+    await user.click(screen.getByLabelText('Unité du contenu'))
+    await user.click(await screen.findByRole('option', { name: 'g' }))
+
+    expect(screen.getByTestId('packaging-preview')).toHaveTextContent("On l'achète en : paquet de 500 g")
+
+    await user.click(screen.getByRole('button', { name: /enregistrer|save/i }))
+
+    await waitFor(() => expect(update).toHaveBeenCalled())
+    const data = update.mock.calls[0][1].data
+    expect(data.packagingUnit).toBe('pack')
+    expect(data.packagingSize).toBe(500)
+    expect(data.packagingSizeUnit).toBe('g')
+  })
+
+  test('refuses a content without its unit, as the API does', async () => {
+    const user = userEvent.setup()
+    const update = renderEdit()
+
+    await screen.findByDisplayValue('Halles du voisin')
+    await user.click(screen.getByLabelText('Conditionnement'))
+    await user.click(await screen.findByRole('option', { name: 'paquet' }))
+    await user.type(screen.getByLabelText('Contenu'), '500')
+    await user.click(screen.getByRole('button', { name: /enregistrer|save/i }))
+
+    expect((await screen.findAllByText('La quantité et son unité vont ensemble.')).length).toBeGreaterThan(0)
+    expect(update).not.toHaveBeenCalled()
   })
 })
