@@ -128,8 +128,8 @@ Expose the Symfony API as MCP tools consumable by any MCP-compatible agent (the 
 **Agenda Tools:**
 - `get_upcoming_events(days?: int)` — List upcoming events
 - `get_events_by_date(date: string)` — Events for a specific date
-- `create_event(title, date, time, duration?, description?)` — Create an event
-- `update_event(id, ...)` — Modify an event
+- `create_event(title, start_date, start_time, end_date, end_time, description?)` — Create an event (or `all_day: true` + `start_date` + `end_date`)
+- `update_event(id, ...)` — Modify an event; a schedule change gives the whole start and end
 - `delete_event(id)` — Remove an event
 - `check_conflicts(date, time, duration)` — Detect scheduling conflicts
 - `get_custody_schedule(week?: int)` — Get custody information
