@@ -1,0 +1,20 @@
+# Unreachable unless a skill learnt for « a reminder comes due » is in the
+# proaction's prompt in full (MAG-345).
+#
+# Only its index line used to be there, and the content only when the model
+# thought of calling get_skill: two reminders out of five went to the chat
+# instead of a push notification. `system_contains` is matched on the system
+# prompt `LLMGateway._build_system_prompt` actually sends, so this file answers
+# only once the skill's own text is in it — a skill left in the index fails
+# the journey on the `[fake-llm] aucun scénario…` sentence.
+name: proaction-skill-applied
+description: A reminder delivered the way the skill tagged moment:proaction says.
+
+match:
+  user_contains: "rappel e2e à délivrer"
+  system_contains:
+    - "compétences à appliquer maintenant"
+    - "consigne e2e : une notification push et rien dans le chat"
+
+turns:
+  - text: "Il est l'heure d'appeler votre mère, je vous l'envoie en notification."

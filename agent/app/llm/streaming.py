@@ -26,7 +26,7 @@ from app.llm.tools import ToolRouter
 from app.memory.agent_memory import AgentMemory
 from app.metrics import TOOL_CALLS, record_llm_usage, usage_kwargs
 from app.personality.engine import PersonalityEngine, current_datetime_line
-from app.skills.index import skill_index
+from app.skills.index import MOMENT_CHAT, skill_index
 from app.user_timezone import resolve_user_timezone
 
 logger = logging.getLogger(__name__)
@@ -101,7 +101,8 @@ class StreamingGateway:
 
         date_line = current_datetime_line(tz=await resolve_user_timezone(user_id))
         volatile = f"{memory_context}{directives}{context_section}\n\n{date_line}{last_exchange}"
-        return build_system(base + skill_context, volatile)
+        # The skills learnt for the chat, in full (MAG-345).
+        return build_system(base + skill_context, volatile, skill_index.skills_for_moment(MOMENT_CHAT))
 
     async def chat_stream(
         self, message: str, user_id: str, user_msg_id: str, *, screen_context: str | None = None

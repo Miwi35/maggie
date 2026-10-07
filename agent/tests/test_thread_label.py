@@ -104,6 +104,7 @@ async def _stream(answer: str) -> tuple[list[dict], AsyncMock]:
     ):
         contexts.find_active = AsyncMock(return_value=[])
         skills.get_skills_index.return_value = ""
+        skills.skills_for_moment.return_value = ""
         skills.refresh = AsyncMock()
         messages.create = AsyncMock()
         summarizer.maybe_summarize = AsyncMock(return_value=None)
@@ -154,7 +155,7 @@ class TestThePlainChatCarriesNoLabel:
             patch("app.llm.gateway.run_tool_loop", AsyncMock(return_value={"response": COPIED, "tool_calls": []})),
             patch("app.llm.gateway.route_message", AsyncMock(return_value=None)),
             patch("app.llm.gateway.build_history", AsyncMock(return_value=[{"role": "user", "content": "Où ?"}])),
-            patch("app.llm.gateway.skill_index", MagicMock(get_skills_index=MagicMock(return_value=""), refresh=AsyncMock())),
+            patch("app.llm.gateway.skill_index", MagicMock(get_skills_index=MagicMock(return_value=""), skills_for_moment=MagicMock(return_value=""), refresh=AsyncMock())),
             patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
             patch("app.llm.contexts.context_repo", MagicMock(find_active=AsyncMock(return_value=[]))),
         ):

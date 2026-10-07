@@ -14,12 +14,23 @@ logger = logging.getLogger(__name__)
 
 LEGACY_SKILLS_DIR = Path("/app/data/skills")
 
+# When a skill applies, as its tags say (MAG-345): `moment:chat`, `moment:proaction`, `moment:planification`.
+# The skills of the moment a prompt is built for are given in full; the others stay in the index.
+MOMENT_TAG_PREFIX = "moment:"
+MOMENT_CHAT = "chat"
+MOMENT_PROACTION = "proaction"
+MOMENT_PLANNING = "planification"
+# Room the full skills of one moment may take in a prompt (~2k tokens). A skill that does
+# not fit any more stays in the index, to be loaded with get_skill.
+MOMENT_SKILLS_MAX_CHARS = 8000
+
 
 @dataclass
 class SkillEntry:
     name: str
     description: str
     tags: list[str]
+    content: str = field(default="", repr=False, compare=False)
 
 
 def render_markdown(name: str, description: str, tags: list[str], content: str) -> str:
@@ -55,7 +66,7 @@ class SkillIndex:
     async def rebuild(self) -> None:
         """Reload the index from the database. Errors propagate: an unreadable store must not look like no skills."""
         skills = await self.repo.list_all()
-        self.entries = [SkillEntry(name=s.name, description=s.description, tags=list(s.tags or [])) for s in skills]
+        self.entries = [_entry(s) for s in skills]
 
     async def refresh(self) -> None:
         """Reload before building a prompt. Each worker process holds its own copy, so a skill created
@@ -109,7 +120,7 @@ class SkillIndex:
     async def create(self, name: str, description: str, tags: list[str], content: str, user_id: str) -> SkillEntry:
         """Store a skill (replacing one of the same name), update the index, publish to Mercure."""
         skill = await self.repo.upsert(name, description, tags, content)
-        entry = SkillEntry(name=skill.name, description=skill.description, tags=list(skill.tags or []))
+        entry = _entry(skill)
         self._remember(entry)
         await self._publish(user_id, {"name": entry.name, "description": entry.description, "tags": entry.tags})
         return entry
@@ -125,7 +136,7 @@ class SkillIndex:
         skill = await self.repo.update(name, description=description, tags=tags, content=content)
         if skill is None:
             return None
-        entry = SkillEntry(name=skill.name, description=skill.description, tags=list(skill.tags or []))
+        entry = _entry(skill)
         self._remember(entry)
         await self._publish(user_id, {"name": entry.name, "description": entry.description, "tags": entry.tags})
         return entry
@@ -145,6 +156,36 @@ class SkillIndex:
         for entry in sorted(self.entries, key=lambda e: e.name):
             lines.append(f"- {entry.name}: {entry.description}")
         return "\n".join(lines)
+
+    def skills_for_moment(self, moment: str) -> str:
+        """The full content of the skills tagged `moment:<moment>`, sorted by name, as a prompt section.
+
+        Read from the entries `refresh()` just loaded. A skill that would take the section past
+        MOMENT_SKILLS_MAX_CHARS is left out: it is still in the index, to be loaded with get_skill.
+        Empty when no skill is tagged for the moment.
+        """
+        tag = f"{MOMENT_TAG_PREFIX}{moment}"
+        header = "Compétences à appliquer maintenant (déjà chargées, inutile d'appeler get_skill) :"
+        sections: list[str] = []
+        size = len(header)
+        for entry in sorted(self.entries, key=lambda e: e.name):
+            if tag not in entry.tags:
+                continue
+            section = f"\n\n## {entry.name}\n{entry.content.strip()}"
+            if size + len(section) > MOMENT_SKILLS_MAX_CHARS:
+                logger.warning(f"Skill {entry.name} left out of the {moment} prompt: over the size cap")
+                continue
+            sections.append(section)
+            size += len(section)
+        if not sections:
+            return ""
+        return header + "".join(sections)
+
+
+def _entry(skill: Skill) -> SkillEntry:
+    return SkillEntry(
+        name=skill.name, description=skill.description, tags=list(skill.tags or []), content=skill.content or ""
+    )
 
 
 skill_index = SkillIndex()

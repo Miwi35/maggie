@@ -211,7 +211,11 @@ SKILL_TOOLS = [
         "description": (
             "Create a new skill file. Skills teach Maggie HOW to perform specific tasks "
             "(e.g. 'when adding a concert, search for the event webpage'). "
-            "Skills are listed by name and description in the system prompt and loaded on demand with get_skill."
+            "Skills are listed by name and description in the system prompt and loaded on demand with get_skill. "
+            "Tag the moment the skill applies, deduced from what the user said: 'moment:chat' (when they ask "
+            "you something), 'moment:proaction' (when a reminder or a proaction comes due), "
+            "'moment:planification' (the daily planning). A skill tagged with a moment is put in full in the "
+            "prompt at that moment; one without stays in the index only."
         ),
         "input_schema": {
             "type": "object",
@@ -227,7 +231,10 @@ SKILL_TOOLS = [
                 "tags": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Keywords describing the skill (e.g. ['concert', 'calendrier', 'lien'])",
+                    "description": (
+                        "Keywords describing the skill, plus the moment it applies "
+                        "(e.g. ['rappel', 'notification', 'moment:proaction'])"
+                    ),
                 },
                 "content": {
                     "type": "string",
@@ -264,7 +271,11 @@ SKILL_TOOLS = [
     },
     {
         "name": "update_skill",
-        "description": "Update an existing skill's content, description, or tags.",
+        "description": (
+            "Update an existing skill's content, description, or tags. Tags replace the old ones: keep them, "
+            "and add or fix the moment the skill applies ('moment:chat', 'moment:proaction', "
+            "'moment:planification') when the user says when it should be applied."
+        ),
         "input_schema": {
             "type": "object",
             "properties": {
@@ -283,7 +294,7 @@ SKILL_TOOLS = [
                 "tags": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "New tags (optional)",
+                    "description": "New tags, moment tags included (optional; they replace the old ones)",
                 },
             },
             "required": ["name"],

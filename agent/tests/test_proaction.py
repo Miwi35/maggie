@@ -147,6 +147,7 @@ class TestProactionHistory:
         ):
             repo.find_active = AsyncMock(return_value=contexts)
             skills.get_skills_index.return_value = ""
+            skills.skills_for_moment.return_value = ""
             skills.refresh = AsyncMock()
             blocks = await _gateway()._build_system_prompt("user-1", preamble="\n\nTu es en mode proaction.")
         return blocks[1]["text"]
@@ -177,6 +178,7 @@ class TestProactionHistory:
         ):
             repo.find_active = AsyncMock(return_value=[self._context("Courses", "Deux kilos de farine.")])
             skills.get_skills_index.return_value = ""
+            skills.skills_for_moment.return_value = ""
             skills.refresh = AsyncMock()
             blocks = await _gateway()._build_system_prompt("user-1")
 
