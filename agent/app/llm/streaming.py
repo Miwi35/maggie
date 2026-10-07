@@ -18,7 +18,7 @@ from app.llm.client import create_llm_client, llm_configured
 from app.llm.context_summary import context_summarizer
 from app.llm.contexts import active_contexts_section, route_message
 from app.llm.directives import behavior_directives_section
-from app.llm.history import build_history
+from app.llm.history import build_history, label_settled, strip_thread_label
 from app.llm.last_exchange import last_exchange_section
 from app.llm.prompt_cache import build_system, cache_tools
 from app.llm.reminder_guard import NOT_SCHEDULED_MESSAGE, ReminderGuard, Verdict
@@ -212,14 +212,16 @@ class StreamingGateway:
                             if hasattr(event.delta, "text"):
                                 delta = event.delta.text
                                 step_text += delta
-                                if not step_shown and step_text.strip():
+                                # Held back until its head is known not to be a thread label:
+                                # once shown, a delta cannot be taken out of the bubble (MAG-341).
+                                if not step_shown and label_settled(step_text):
                                     # A new TEXT_MESSAGE_START on the same id empties the bubble on
                                     # both clients: whatever an earlier step showed gives way to this
                                     # one, so the intermediate text is only ever a passing state.
                                     yield {"type": "TEXT_MESSAGE_START", "messageId": msg_id, "role": "assistant"}
                                     text_started = True
                                     step_shown = True
-                                    delta = step_text.lstrip()
+                                    delta = strip_thread_label(step_text).lstrip()
                                 if step_shown:
                                     yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": delta}
 
@@ -239,8 +241,14 @@ class StreamingGateway:
                         **usage_kwargs(response.usage),
                     )
 
+                step_text = strip_thread_label(step_text)
                 if step_text.strip():
                     answer = step_text.strip()
+                    if not step_shown:
+                        # A step too short to settle its head (a label and a word) is shown whole now.
+                        yield {"type": "TEXT_MESSAGE_START", "messageId": msg_id, "role": "assistant"}
+                        yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": answer}
+                        text_started = True
 
                 # Process tool calls if stop_reason is tool_use
                 if stop_reason == "tool_use":

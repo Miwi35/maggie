@@ -1,0 +1,14 @@
+# The context router, on the first message of the one-discussion journey (MAG-341).
+#
+# Opens a thread of its own, so the journey knows which thread the two follow-ups have to
+# stay in. Numbered 01: the message is sent while another discussion is in progress, and
+# 02-context-router-birthday-follow-up.yaml would otherwise keep it there.
+name: context-router-birthday-new
+description: Open the « Anniversaire e2e » thread for the first message of the discussion.
+
+match:
+  system_contains: "routeur de contexte"
+  user_matches: "Message : Je prépare l.anniversaire de Lucie"
+
+turns:
+  - text: '{"context_id": null, "label": "Anniversaire e2e"}'

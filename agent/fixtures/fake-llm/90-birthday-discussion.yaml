@@ -1,0 +1,10 @@
+# The first answer of the one-discussion journey (MAG-341). The third, the one that proves
+# something, is 92-birthday-recall.yaml.
+name: birthday-discussion
+description: Answer the first message of the discussion about Lucie's birthday.
+
+match:
+  user_contains: "Je prépare l'anniversaire de Lucie"
+
+turns:
+  - text: "Avec plaisir ! Samedi, c'est noté : on organise l'anniversaire de Lucie ensemble."

@@ -953,3 +953,44 @@ test('an event two agendas fit is not created until the owner says which one', a
     `/api/agendas/${seedId(DEDUCED.ambiguous.agenda)}`,
   )
 })
+
+/** 01 to 03-context-router-birthday-*.yaml and 90 to 92-birthday-*.yaml — one discussion (MAG-341). */
+const ONE_DISCUSSION = {
+  first: "Je prépare l'anniversaire de Lucie samedi",
+  followUps: ['et du coup, on commence par quoi ?', "tu te souviens pour qui c'était ?"],
+  thread: 'Anniversaire e2e',
+  recall: "Bien sûr : c'est pour l'anniversaire de Lucie, samedi.",
+}
+
+/**
+ * MAG-341: on 7 Oct. one discussion was split into five threads in nine minutes, and Maggie
+ * forgot what she had been told a minute before.
+ *
+ * Three linked messages, sent back to back. The two follow-ups name no subject, so the router
+ * can only keep them in the discussion if it is shown that discussion:
+ * 02-context-router-birthday-follow-up.yaml answers only then, and
+ * 03-context-router-birthday-lost.yaml otherwise opens « Sujet perdu e2e », as the model did
+ * that evening. And the third answer, 92-birthday-recall.yaml, needs the first message in its
+ * history — out of reach of `RECENT_HISTORY_MESSAGES=2` unless all three share a thread.
+ * Last in the file: it opens a thread, and the tests above count them.
+ */
+test('three linked messages stay in one thread, and the third is answered from the first', async ({ page }) => {
+  const dashboard = new DashboardPage(page)
+  await dashboard.open()
+
+  const chat = new ChatPanel(page)
+  const opened = await chat.send(ONE_DISCUSSION.first)
+  expect(contextAction(opened)).toBe('created')
+  expect(contextLabel(opened)).toBe(ONE_DISCUSSION.thread)
+
+  let answer = ''
+  for (const followUp of ONE_DISCUSSION.followUps) {
+    const events = await chat.send(followUp)
+    expect(contextAction(events), `« ${followUp} » left the discussion`).toBe('matched')
+    expect(contextLabel(events)).toBe(ONE_DISCUSSION.thread)
+    answer = assistantText(events)
+  }
+
+  expect(isUnscripted(answer), `the first message never reached the third answer — Maggie said: ${answer}`).toBe(false)
+  expect(answer).toBe(ONE_DISCUSSION.recall)
+})

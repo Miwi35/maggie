@@ -99,6 +99,16 @@ condition deliberately ignores the message being answered: `user_contains` alrea
 covers that one, and counting it would let a scenario "prove" the history carried a
 sentence the user had just typed.
 
+**One discussion, one thread** (MAG-341). Within 15 minutes of the previous message the
+router is asked with another system prompt — it still contains « routeur de contexte », and
+« Une discussion est en cours » on top — and its message quotes the last exchanges, with the
+thread in progress marked `← fil en cours`. `02-context-router-birthday-follow-up.yaml`
+matches only on that, `03-context-router-birthday-lost.yaml` answers otherwise with a new
+thread per message, as the model did on 7 Oct., and `92-birthday-recall.yaml` can only answer
+the third message of the discussion if the first is in its history. A router scenario matched
+with `user_contains` now also sees the quoted exchanges: anchor it on `Message : …` with
+`user_matches` when only the message itself must count, as `05` and `01` do.
+
 A behaviour preference (`add_instruction` with `kind: behavior`, MAG-22) is
 stored and injected the same way, and is proved the same way:
 `60-behavior-preference.yaml` stores « Tutoie-moi et évite les emojis » and
