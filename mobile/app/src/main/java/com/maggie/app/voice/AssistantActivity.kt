@@ -16,6 +16,7 @@ import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.theme.MaggieTheme
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
+import java.io.File
 
 class AssistantActivity : ComponentActivity() {
 
@@ -31,9 +32,22 @@ class AssistantActivity : ComponentActivity() {
     private var pendingContext by mutableStateOf<ScreenContext?>(null)
 
     private val sendVoiceResult: (String) -> Unit = { text ->
-        if (routeVoiceResult(text, chatViewModel, voiceManager, pendingContext)) {
+        val screen = pendingContext
+        // Read, then deleted: the screenshot goes with this sentence and nowhere else (MAG-214).
+        val takeImage = {
+            screen?.screenshotPath?.let { path ->
+                runCatching { File(path).readBytes() }.getOrNull().also { File(path).delete() }
+            }
+        }
+        if (routeVoiceResult(text, chatViewModel, voiceManager, screen, takeImage)) {
             pendingContext = null
         }
+    }
+
+    /** A screenshot the user did not send is not kept: replaced, or the overlay closed. */
+    private fun replaceContext(next: ScreenContext?) {
+        pendingContext?.screenshotPath?.takeIf { it != next?.screenshotPath }?.let { File(it).delete() }
+        pendingContext = next
     }
 
     private val permissionLauncher = registerForActivityResult(
@@ -53,7 +67,7 @@ class AssistantActivity : ComponentActivity() {
         // not a new invocation: the screen the context described is long gone,
         // and reviving it would attach the whole block to the next sentence as
         // if it had never been used.
-        pendingContext = if (savedInstanceState == null) ScreenContext.fromIntent(intent) else null
+        pendingContext = if (savedInstanceState == null) contextOf(intent) else null
         setContent {
             MaggieTheme {
                 AssistantOverlay(
@@ -81,7 +95,7 @@ class AssistantActivity : ComponentActivity() {
         setIntent(intent)
         // Replaced, not merged: an invocation that brings no context — a plain
         // `ACTION_ASSIST` — is not about the previous screen.
-        pendingContext = ScreenContext.fromIntent(intent)
+        replaceContext(contextOf(intent))
         voiceManager.stopSpeaking()
         requestMicAndListen()
     }
@@ -96,7 +110,12 @@ class AssistantActivity : ComponentActivity() {
         }
     }
 
+    /** The e2e flavor can also stage a screenshot from its own link; other builds never do. */
+    private fun contextOf(intent: Intent): ScreenContext? =
+        ScreenContext.fromIntent(intent) ?: fixtureScreenContext(this, intent)
+
     override fun onDestroy() {
+        replaceContext(null)
         isShowing = false
         voiceManager.cancelListening()
         voiceManager.stopSpeaking()

@@ -36,21 +36,33 @@ class ScreenContextTest {
     }
 
     @Test
-    fun `a screenshot alone is still a context, so Maggie can say she cannot read it`() {
-        val screen = ScreenContext(hasScreenshot = true)
+    fun `with a screenshot the block names the app and the domain, and leaves the content to the image`() {
+        val screen = ScreenContext(
+            appPackage = "com.example.shop",
+            appLabel = "Boutique",
+            webUri = "https://www.boutique.example/cafe?ref=42",
+            texts = listOf("Café moulu 250 g", "4,90 €"),
+            screenshotPath = "/cache/assist/screenshot.jpg",
+        )
 
-        assertFalse(screen.isEmpty)
-        val block = screen.toPromptBlock()!!
-        assertTrue(block.contains("seule une image est disponible"))
-        assertTrue(block.contains("Ne devine pas"))
+        assertEquals(
+            """
+            [Contexte de l'écran]
+            Application : Boutique (com.example.shop)
+            Page : boutique.example
+            L'image jointe est une capture de cet écran.
+            """.trimIndent(),
+            screen.toPromptBlock(),
+        )
     }
 
     @Test
-    fun `the screenshot warning disappears as soon as there is text to read`() {
-        val screen = ScreenContext(texts = listOf("Café moulu 250 g"), hasScreenshot = true)
+    fun `a screenshot alone is still a context, and nothing says Maggie cannot read it`() {
+        val screen = ScreenContext(screenshotPath = "/cache/assist/screenshot.jpg")
 
+        assertFalse(screen.isEmpty)
         val block = screen.toPromptBlock()!!
-        assertTrue(block.contains("- Café moulu 250 g"))
+        assertFalse(block.contains("je ne sais pas"))
         assertFalse(block.contains("seule une image"))
     }
 
@@ -133,7 +145,6 @@ class ScreenContextTest {
         val intent = mockk<Intent>()
         every { intent.getStringExtra(any()) } returns null
         every { intent.getStringArrayListExtra(any()) } returns null
-        every { intent.getBooleanExtra(any(), any()) } returns false
 
         assertNull(ScreenContext.fromIntent(intent))
     }
@@ -145,7 +156,7 @@ class ScreenContextTest {
             appLabel = "Boutique",
             webUri = "https://boutique.example/cafe",
             texts = listOf("Café moulu 250 g"),
-            hasScreenshot = true,
+            screenshotPath = "/cache/assist/screenshot.jpg",
         )
 
         val outgoing = mockk<Intent>(relaxed = true)
@@ -154,14 +165,14 @@ class ScreenContextTest {
         verify { outgoing.putExtra(ScreenContext.EXTRA_LABEL, "Boutique") }
         verify { outgoing.putExtra(ScreenContext.EXTRA_WEB_URI, "https://boutique.example/cafe") }
         verify { outgoing.putStringArrayListExtra(ScreenContext.EXTRA_TEXTS, arrayListOf("Café moulu 250 g")) }
-        verify { outgoing.putExtra(ScreenContext.EXTRA_SCREENSHOT, true) }
+        verify { outgoing.putExtra(ScreenContext.EXTRA_SCREENSHOT, "/cache/assist/screenshot.jpg") }
 
         val incoming = mockk<Intent>()
         every { incoming.getStringExtra(ScreenContext.EXTRA_PACKAGE) } returns "com.example.shop"
         every { incoming.getStringExtra(ScreenContext.EXTRA_LABEL) } returns "Boutique"
         every { incoming.getStringExtra(ScreenContext.EXTRA_WEB_URI) } returns "https://boutique.example/cafe"
         every { incoming.getStringArrayListExtra(ScreenContext.EXTRA_TEXTS) } returns arrayListOf("Café moulu 250 g")
-        every { incoming.getBooleanExtra(ScreenContext.EXTRA_SCREENSHOT, false) } returns true
+        every { incoming.getStringExtra(ScreenContext.EXTRA_SCREENSHOT) } returns "/cache/assist/screenshot.jpg"
 
         assertEquals(sent, ScreenContext.fromIntent(incoming))
     }

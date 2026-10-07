@@ -150,6 +150,7 @@ fun ChatMessageList(
                                 message = item.message,
                                 onClick = { onMessageTapped(item.message.id) },
                                 isHighlighted = item.isHighlighted,
+                                thumbnail = item.thumbnail,
                             )
                         }
                         is ChatListItem.StreamingMessage -> {

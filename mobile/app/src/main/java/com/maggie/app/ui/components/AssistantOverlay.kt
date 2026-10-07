@@ -29,12 +29,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.voice.ScreenContext
+import com.maggie.app.voice.ScreenshotEncoder
 import com.maggie.app.voice.VoiceManager
 import com.maggie.app.voice.VoiceState
+import java.io.File
 
 /**
  * [pendingContext] is what the screen behind the overlay was showing when the
@@ -110,6 +113,19 @@ fun AssistantOverlay(
                             .padding(horizontal = 24.dp, vertical = 4.dp),
                     )
                 }
+                pendingContext?.screenshotPath?.let { path ->
+                    val image = remember(path) {
+                        runCatching { ScreenshotEncoder.decodeThumbnail(File(path).readBytes()) }
+                            .getOrNull()?.asImageBitmap()
+                    }
+                    if (image != null) {
+                        ScreenshotImage(
+                            image,
+                            contentDescription = "Capture d'écran à envoyer",
+                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+                        )
+                    }
+                }
 
                 // Messages
                 LazyColumn(
@@ -121,7 +137,7 @@ fun AssistantOverlay(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(uiState.messages) { message ->
-                        MessageBubble(message)
+                        MessageBubble(message, thumbnail = uiState.thumbnails[message.id])
                     }
                     if (uiState.isLoading) {
                         item {

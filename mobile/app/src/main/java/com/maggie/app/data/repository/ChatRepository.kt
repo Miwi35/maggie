@@ -1,6 +1,7 @@
 package com.maggie.app.data.repository
 
 import android.util.Log
+import com.maggie.app.data.api.ChatImage
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.local.dao.ChatMessageDao
 import com.maggie.app.data.local.entity.ChatMessageEntity
@@ -36,10 +37,11 @@ class ChatRepository(
      * Send a user message to the agent. Returns the persisted messages (user + assistant).
      *
      * [screenContext] is the screen the assistant was summoned from (MAG-30): it goes in
-     * its own field, so what the agent stores and returns is the question alone.
+     * its own field, so what the agent stores and returns is the question alone. [image]
+     * is the screenshot that goes with it, for this turn only (MAG-214).
      */
-    suspend fun sendMessage(content: String, screenContext: String? = null): List<ChatMessage> {
-        val response = apiService.sendChat(message = content, screenContext = screenContext)
+    suspend fun sendMessage(content: String, screenContext: String? = null, image: ChatImage? = null): List<ChatMessage> {
+        val response = apiService.sendChat(message = content, screenContext = screenContext, image = image)
         if (response.messages.isNotEmpty()) {
             chatMessageDao.upsertAll(response.messages.map { ChatMessageEntity.fromModel(it) })
         }
@@ -124,8 +126,8 @@ class ChatRepository(
     }
 
     /** Send a user message via AG-UI streaming. Returns a flow of AG-UI events. */
-    fun sendMessageStream(content: String, screenContext: String? = null): Flow<AgUiEvent> {
-        return apiService.sendChatStream(message = content, screenContext = screenContext)
+    fun sendMessageStream(content: String, screenContext: String? = null, image: ChatImage? = null): Flow<AgUiEvent> {
+        return apiService.sendChatStream(message = content, screenContext = screenContext, image = image)
     }
 
     /** Persist a completed assistant message to Room. */

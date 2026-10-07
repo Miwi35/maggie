@@ -350,6 +350,35 @@ tags:
       EVENT_ID: ${output.eventId}
 - tapOn: "Fermer"
 
+# ---------------------------------------------------------------------------
+# Maggie looks at the screen (MAG-214): the screenshot rides with the next sentence.
+# The assistant gesture is out of reach, so the e2e flavor's link stages one
+# (`src/e2e/.../AssistFixture.kt`) where `onHandleScreenshot` would have written it.
+# The agent's fake model answers `03-screen-image.yaml` only on a turn carrying an
+# image, and `GET /agent/e2e/llm/images` counts the image turns it was given: the
+# answer proves the picture reached the model, the count that it went once.
+# ---------------------------------------------------------------------------
+- evalScript: "${output.images = json(http.delete(E2E_BASE_URL + '/agent/e2e/llm/images', {headers: {'X-E2E-Token': E2E_LOGIN_TOKEN}}).body).count}"
+- assertTrue: "${output.images == 0}"
+
+- openLink: "maggie-e2e-assist://overlay?screenshot=fixture"
+- extendedWaitUntil:
+    visible: ".*Je vous écoute.*"
+    timeout: 20000
+
+- longPressOn:
+    id: "voice_mic"
+
+- extendedWaitUntil:
+    visible: ".*je vois une cafetière italienne.*"
+    timeout: 60000
+
+- evalScript: "${output.images = json(http.get(E2E_BASE_URL + '/agent/e2e/llm/images', {headers: {'X-E2E-Token': E2E_LOGIN_TOKEN}}).body).count}"
+- assertTrue: "${output.images == 1}"
+
+# The question's bubble shows the picture it was sent with, from memory.
+- assertVisible: "Capture d'écran"
+
 # Settings > Voix used to end this flow — the assistant role row with its state,
 # reached by relaunching the app and walking the drawer, because a flow of its own
 # would have paid for a second sign-in. It is a screen reading a `RoleManager`, so
@@ -360,5 +389,7 @@ tags:
 # What is still nobody's test is the tap: it opens a system dialog outside this
 # harness, and accepting it would make Maggie the emulator's assistant for the rest
 # of the run. That one is the owner's, on his phone, in Recette. The screen context
-# (`onHandleAssist`) is out of reach for the same reason and has its own unit tests:
-# `AssistTextCollectorTest`, `ScreenContextTest`, `AssistLaunchCoordinatorTest`.
+# (`onHandleAssist`, `onHandleScreenshot`) is out of reach for the same reason — the
+# section above stages its screenshot by link — and has its own unit tests:
+# `AssistTextCollectorTest`, `ScreenContextTest`, `AssistLaunchCoordinatorTest`,
+# `ScreenshotEncoderTest`.

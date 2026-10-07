@@ -11,12 +11,14 @@ data class ChatMessageEntity(
     val role: String,
     val content: String,
     val createdAt: String = "",
+    val hasImage: Boolean = false,
 ) {
     fun toModel(): ChatMessage = ChatMessage(
         id = id,
         role = role,
         content = content,
         createdAt = createdAt,
+        hasImage = hasImage,
     )
 
     companion object {
@@ -26,6 +28,7 @@ data class ChatMessageEntity(
                 role = message.role,
                 content = message.content,
                 createdAt = message.createdAt,
+                hasImage = message.hasImage,
             )
     }
 }

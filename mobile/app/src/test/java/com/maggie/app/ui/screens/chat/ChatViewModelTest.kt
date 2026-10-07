@@ -3,6 +3,7 @@ package com.maggie.app.ui.screens.chat
 import android.util.Log
 import app.cash.turbine.test
 import com.maggie.app.data.api.ApprovalDecisionException
+import com.maggie.app.data.api.ChatImage
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
@@ -663,6 +664,104 @@ class ChatViewModelTest {
         advanceUntilIdle()
 
         assertEquals(1, viewModel.uiState.value.messages.count { it.content == "Depuis le web" })
+    }
+
+    // --- MAG-214: the screenshot goes with the sentence, the thumbnail stays in memory ---
+
+    private val jpeg = byteArrayOf(-1, -40, -1, -32, 1, 2, 3)
+
+    @Test
+    fun `the screenshot is sent with the message as base64 JPEG`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream(any(), any(), any()) } returns flowOf(AgUiEvent.RunFinished(runId = "run-1"))
+
+        viewModel.sendMessage("c'est quoi ce produit ?", "[Contexte de l'écran]", jpeg)
+        advanceUntilIdle()
+
+        verify {
+            repository.sendMessageStream(
+                "c'est quoi ce produit ?",
+                "[Contexte de l'écran]",
+                ChatImage("image/jpeg", java.util.Base64.getEncoder().encodeToString(jpeg)),
+            )
+        }
+    }
+
+    @Test
+    fun `the pending bubble keeps its thumbnail, and the echo carries it over`() = runTest {
+        val topic = chatTopic()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        coEvery { repository.handleMercureMessage(any()) } returns Unit
+        var pendingThumbnail: ByteArray? = null
+        every { repository.sendMessageStream(any(), any(), any()) } returns flow {
+            val pending = viewModel.uiState.value.messages.last()
+            pendingThumbnail = viewModel.uiState.value.thumbnails[pending.id]
+            topic.tryEmit(
+                MercureEvent(
+                    data = """{"id":"u-9","role":"user","content":"c'est quoi ?","createdAt":"2026-02-15T11:00:00Z","hasImage":true}""",
+                ),
+            )
+            yield()
+            emit(AgUiEvent.RunFinished(runId = "run-1"))
+        }
+
+        viewModel.sendMessage("c'est quoi ?", null, jpeg)
+        advanceUntilIdle()
+
+        assertTrue(pendingThumbnail.contentEquals(jpeg))
+        val state = viewModel.uiState.value
+        val sent = state.messages.single { it.content == "c'est quoi ?" }
+        assertEquals("u-9", sent.id)
+        assertTrue(sent.hasImage)
+        assertEquals(setOf("u-9"), state.thumbnails.keys)
+        val item = state.displayItems.filterIsInstance<ChatListItem.MessageItem>().single { it.message.id == "u-9" }
+        assertTrue(item.thumbnail.contentEquals(jpeg))
+    }
+
+    @Test
+    fun `the fallback's stored question takes the thumbnail too`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream(any(), any(), any()) } returns flow { throw RuntimeException("Stream failed") }
+        coEvery { repository.sendMessage(any(), any(), any()) } returns listOf(
+            ChatMessage(id = "u-1", role = "user", content = "c'est quoi ?", hasImage = true),
+            ChatMessage(id = "a-1", role = "assistant", content = "Une cafetière."),
+        )
+
+        viewModel.sendMessage("c'est quoi ?", null, jpeg)
+        advanceUntilIdle()
+
+        assertEquals(setOf("u-1"), viewModel.uiState.value.thumbnails.keys)
+    }
+
+    @Test
+    fun `a message from history that had a screenshot has no bytes to show`() = runTest {
+        coEvery { repository.loadRecentMessages(any()) } returns listOf(
+            ChatMessage(id = "msg-1", role = "user", content = "c'est quoi ?", hasImage = true),
+        )
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val item = viewModel.uiState.value.displayItems.filterIsInstance<ChatListItem.MessageItem>().single()
+        assertTrue(item.message.hasImage)
+        assertNull(item.thumbnail)
+    }
+
+    @Test
+    fun `a message without a screenshot sends no image`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream(any(), any(), any()) } returns flowOf(AgUiEvent.RunFinished(runId = "run-1"))
+
+        viewModel.sendMessage("bonjour")
+        advanceUntilIdle()
+
+        verify { repository.sendMessageStream("bonjour", null, null) }
+        assertFalse(viewModel.uiState.value.messages.last().hasImage)
+        assertTrue(viewModel.uiState.value.thumbnails.isEmpty())
     }
 
     // --- Approvals (MAG-7) ---

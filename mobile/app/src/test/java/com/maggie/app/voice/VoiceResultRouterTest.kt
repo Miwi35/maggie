@@ -17,11 +17,14 @@ class VoiceResultRouterTest {
     fun `a spoken answer decides the card, frees the microphone and sends nothing`() {
         every { chat.answerApprovalByVoice("oui") } returns true
 
-        val contextUsed = routeVoiceResult("oui", chat, voice, null)
+        var taken = false
+
+        val contextUsed = routeVoiceResult("oui", chat, voice, null) { taken = true; null }
 
         assertFalse(contextUsed)
+        assertFalse("the screenshot waits for the next sentence (MAG-214)", taken)
         verify(exactly = 1) { voice.answerHandled() }
-        verify(exactly = 0) { chat.sendMessage(any(), any()) }
+        verify(exactly = 0) { chat.sendMessage(any(), any(), any()) }
     }
 
     @Test
@@ -33,5 +36,15 @@ class VoiceResultRouterTest {
         assertTrue(contextUsed)
         verify(exactly = 1) { chat.sendMessage("oui mais attends", null) }
         verify(exactly = 0) { voice.answerHandled() }
+    }
+
+    @Test
+    fun `the screenshot goes with the message`() {
+        every { chat.answerApprovalByVoice("c'est quoi ?") } returns false
+        val image = byteArrayOf(1, 2, 3)
+
+        routeVoiceResult("c'est quoi ?", chat, voice, null) { image }
+
+        verify(exactly = 1) { chat.sendMessage("c'est quoi ?", null, image) }
     }
 }

@@ -56,12 +56,17 @@ class AssistLaunchCoordinator(private val onLaunch: (ScreenContext) -> Unit) {
         launchIfReady()
     }
 
-    /** Android calls back with no bitmap when the screenshot is refused; that still ends the wait. */
-    fun onScreenshot(available: Boolean) {
-        if (hasLaunched || !shown) return
+    /**
+     * [path] is the encoded screenshot, null when Android refused it — which
+     * still ends the wait. Returns false when the file was not taken (too late,
+     * or for a dismissed invocation): nothing will send it, so the caller deletes it.
+     */
+    fun onScreenshot(path: String?): Boolean {
+        if (hasLaunched || !shown) return false
         screenshotReceived = true
-        context = context.copy(hasScreenshot = context.hasScreenshot || available)
+        context = context.copy(screenshotPath = context.screenshotPath ?: path)
         launchIfReady()
+        return true
     }
 
     fun onTimeout() {

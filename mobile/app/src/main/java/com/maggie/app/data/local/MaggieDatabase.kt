@@ -18,8 +18,8 @@ import com.maggie.app.data.local.entity.TaskEntity
     entities = [EventEntity::class, ChatMessageEntity::class, TaskEntity::class, AgendaEntity::class, RecipeEntity::class],
     // 8: events carry their reminders (MAG-121). The database is a cache of the
     // API and the builder falls back to a destructive migration, so a bump is all
-    // a new column needs.
-    version = 8,
+    // a new column needs. 9: chat messages say whether a screenshot went with them (MAG-214).
+    version = 9,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
