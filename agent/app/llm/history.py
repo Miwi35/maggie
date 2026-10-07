@@ -14,9 +14,12 @@ Three things reach the model, and the split is deliberate:
   - **the thread's own messages**, verbatim and in full (up to
     `context_history_messages`). This is the conversation.
   - **a short global window** (`recent_history_messages`), so « et ça aussi » said a minute
-    ago in a neighbouring thread is still there. A message that comes in this way and
+    ago in a neighbouring thread is still there. A user message that comes in this way and
     belongs elsewhere is prefixed with its thread's label: unmarked, it is the very
-    confusion this ticket exists to remove.
+    confusion this ticket exists to remove. Maggie's answers never are — she copied the
+    label into her own (MAG-341). This window is also what keeps a change of thread from
+    being amnesia: right after one, it still holds the last exchanges of the thread just
+    left (`recent_history_messages`: 8 messages, the new one and the seven before it).
   - **nothing of the other threads but their summary**, and that lives in the system prompt
     where MAG-11 put it (`active_contexts_section`). A summary is written *about* a
     conversation, not *in* it, so it is not a turn anyone took.
@@ -26,6 +29,7 @@ must not cost the user the answer.
 """
 
 import logging
+import re
 
 from app.config import settings
 from app.db.context_repository import context_repo
@@ -40,9 +44,44 @@ logger = logging.getLogger(__name__)
 # the one thing that matters — this was not said here.
 UNKNOWN_THREAD = "[autre fil] "
 
+# What a label looks like at the head of an answer, should the model copy one anyway: the
+# two forms above, any number of them, and the spaces after (MAG-341).
+_LEADING_LABELS = re.compile(r"^\s*(?:\[(?:fil «[^»\]\n]*»|autre fil)\]\s*)+")
+
+# The longest a leading label can be before it is closed — a thread label is a few words.
+# A streamed answer that starts with « [ » is held back this long at most.
+MAX_LABEL_CHARS = 120
+
 
 def _prefix(label: str | None) -> str:
     return f"[fil « {label} »] " if label else UNKNOWN_THREAD
+
+
+def strip_thread_label(text: str) -> str:
+    """`text` without the thread labels a model may have copied at its head (MAG-341).
+
+    The labels are bookkeeping on the messages the history borrows from other threads. On
+    7 Oct. they were on Maggie's own past answers too, and she took the pattern for hers:
+    « [fil « Où noter l'information »] Ah, d'accord monsieur… ». The history no longer
+    labels her answers; this is the net under an answer that copies one all the same.
+    """
+    return _LEADING_LABELS.sub("", text, count=1)
+
+
+def label_settled(text: str) -> bool:
+    """Whether the head of a streamed answer is known to be — or not to be — a thread label.
+
+    Until it is, the stream holds the text back: once a delta is shown it cannot be taken
+    out of the bubble. Settled as soon as the text does not open on « [ », once a « ] » has
+    closed it, or past the length no label reaches.
+    """
+    if len(text.lstrip()) > MAX_LABEL_CHARS:
+        return True
+    rest = strip_thread_label(text).lstrip()
+    if not rest:
+        return False
+    # Opening on « [ » and not yet closed may still become a label; closed, it was not one.
+    return not rest.startswith("[") or "]" in rest
 
 
 async def build_history(
@@ -180,7 +219,10 @@ def _turns(
             continue
 
         content = row.content
-        if _is_foreign(row, context_id, current_message_id):
+        # Only the user's side is labelled. Maggie's own answers, labelled, read to her as
+        # the way she writes — and she wrote « [fil « … »] » at the head of hers (MAG-341).
+        # The question just before an answer already says which thread the exchange was in.
+        if row.role == "user" and _is_foreign(row, context_id, current_message_id):
             content = _prefix(labels.get(str(row.context_id))) + content
         # Only the turn being answered: the screen was there when that one was dictated,
         # and the follow-up question is about the answer, not about the page.

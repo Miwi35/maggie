@@ -1,0 +1,16 @@
+# Unreachable unless the third message of the discussion is answered with the first one in
+# its history (MAG-341).
+#
+# The e2e stack runs with `RECENT_HISTORY_MESSAGES=2`: the global window holds the second
+# exchange and nothing more, so « anniversaire de Lucie » — said in the first message only —
+# can be in the history only if all three messages are in the same thread. Split, as the
+# router did on 7 Oct., the third answer is `[fake-llm] aucun scénario…`.
+name: birthday-recall
+description: Answer from the first message of the discussion, two messages later.
+
+match:
+  user_contains: "tu te souviens pour qui"
+  history_contains: "anniversaire de Lucie"
+
+turns:
+  - text: "Bien sûr : c'est pour l'anniversaire de Lucie, samedi."

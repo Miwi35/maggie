@@ -1,0 +1,16 @@
+# The context router as it answered on 7 Oct., shown a follow-up without the discussion it
+# follows (MAG-341): a new thread, every time.
+#
+# Reachable only if 02-context-router-birthday-follow-up.yaml did not match, which is to say
+# only if the router was not shown the discussion in progress. That is the regression the
+# one-discussion journey guards against, and this is how it fails: on a thread labelled
+# « Sujet perdu e2e ».
+name: context-router-birthday-lost
+description: Split a follow-up into a new thread, as the router did when it saw the message alone.
+
+match:
+  system_contains: "routeur de contexte"
+  user_matches: "Message : (et du coup, on commence par quoi|tu te souviens pour qui)"
+
+turns:
+  - text: '{"context_id": null, "label": "Sujet perdu e2e"}'

@@ -1,0 +1,20 @@
+# The context router, on a follow-up of the one-discussion journey (MAG-341).
+#
+# « et du coup, on commence par quoi ? » names no subject: a router can only tie it to the
+# discussion if it is shown that discussion. This scenario answers only when it is — the
+# continuity prompt, with the last exchanges quoting « anniversaire de Lucie » and the thread
+# in progress marked — and then keeps the message in that thread, like the real model does.
+#
+# Shown the message alone, as the router was before MAG-341, it does not match, and
+# 03-context-router-birthday-lost.yaml answers instead with what the model did on 7 Oct.:
+# a new thread per message. The journey then fails on the thread label.
+name: context-router-birthday-follow-up
+description: Keep a follow-up in the discussion it follows, when the router is shown that discussion.
+
+match:
+  system_contains: "Une discussion est en cours"
+  user_contains: "anniversaire de Lucie"
+  user_matches: 'id="([0-9a-f]{32})"[^\n]*← fil en cours'
+
+turns:
+  - text: '{"context_id": "\1"}'

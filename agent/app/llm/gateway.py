@@ -8,7 +8,7 @@ from app.llm.client import create_llm_client, llm_configured
 from app.llm.contexts import active_contexts_section, resolve_context, route_message
 from app.llm.directives import behavior_directives_section
 from app.llm.dry_run import DryRunToolRouter
-from app.llm.history import build_history
+from app.llm.history import build_history, strip_thread_label
 from app.llm.last_exchange import last_exchange_section
 from app.llm.prompt_cache import build_system
 from app.llm.runner import ITERATION_LIMIT_MESSAGE, run_tool_loop
@@ -240,6 +240,8 @@ class LLMGateway:
                 source=source,
                 context_id=context_id,
             )
+            # A thread label copied from the history is bookkeeping, not an answer (MAG-341).
+            result["response"] = strip_thread_label(result["response"])
         except anthropic.APIStatusError as e:
             # The API's own wording stays in the log. It used to be the answer, and since
             # that answer is now stored in the thread it would be read back verbatim by

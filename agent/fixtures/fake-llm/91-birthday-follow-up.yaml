@@ -1,0 +1,9 @@
+# The second answer of the one-discussion journey (MAG-341).
+name: birthday-follow-up
+description: Answer the follow-up that names no subject.
+
+match:
+  user_contains: "et du coup, on commence par quoi"
+
+turns:
+  - text: "On commence par la liste des invités."

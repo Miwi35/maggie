@@ -18,8 +18,9 @@ description: Route a message back into the « Budget e2e » thread, whatever its
 
 match:
   system_contains: "routeur de contexte"
-  user_contains: "reprends le fil de mon budget"
-  user_matches: 'id="([0-9a-f]{32})" label="Budget e2e"'
+  # Anchored on the message itself: since MAG-341 the router is also shown the last
+  # exchanges, and the next messages would otherwise match on the quoted sentence.
+  user_matches: '(?s)id="([0-9a-f]{32})" label="Budget e2e".*Message : reprends le fil de mon budget'
 
 turns:
   - text: '{"context_id": "\1"}'
