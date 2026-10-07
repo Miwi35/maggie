@@ -2,15 +2,14 @@ name: Pull request
 
 # One line per push on a pull request (MAG-244): this workflow is the whole
 # pipeline of a PR — path detection, the agent guard, the CI jobs, the mobile
-# unit tests, the incident gate and the two-reds streak. A job that has nothing to
+# unit tests and the incident gate. A job that has nothing to
 # do is skipped, not a workflow. Job names are the required checks, so they do
 # not change when a job moves here.
 #
 # `main.yml` (a merge) and `nightly.yml` call it with `workflow_call`: the night
 # runs every job, a merge applies the path filters, and neither runs the jobs that
-# only mean something on a pull request (guard, Incident gate, streak).
-# A draft's run says so (` · draft`): every job is skipped, nothing turns red, and the
-# streak job must not count it as a failure of the code (scripts/agent-guard/ci-streak.sh).
+# only mean something on a pull request (guard, Incident gate).
+# A draft's run says so (` · draft`): every job is skipped, nothing turns red.
 run-name: >-
   ${{ github.event_name == 'pull_request'
       && format('PR #{0} · {1}{2}', github.event.pull_request.number, github.event.pull_request.title, github.event.pull_request.draft && ' · draft' || '')
@@ -1178,46 +1177,6 @@ jobs:
             sed 's/^/- /' reasons.txt
           } | scripts/agent-guard/hand-over.sh "$PR" guard
 
-  # Two red runs in a row on an agent branch, or on a batch of the merge train
-  # (`train/batch-<n>`, MAG-262): the agent gives up (MAG-128). Runs once every
-  # other job has ended, so the run in progress counts as the red it is about to
-  # be; the earlier runs come from the API.
-  streak:
-    name: Two red runs in a row
-    needs: [changes, api-lint, agent-lint, ciqual-lint, admin-lint, api-test, agent-test, ciqual-test, admin-test, mobile-unit, e2e-stack, e2e-mobile, cron-image, infra-scripts]
-    if: >-
-      always() && github.event_name == 'pull_request' && !github.event.pull_request.draft
-      && (startsWith(github.head_ref, 'cyrus/') || startsWith(github.head_ref, 'train/batch-'))
-      && contains(needs.*.result, 'failure')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: read
-      pull-requests: write
-      issues: write
-    env:
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
-      PR: ${{ github.event.pull_request.number }}
-      BRANCH: ${{ github.head_ref }}
-      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-      RUN_ID: ${{ github.run_id }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Give up after the second red run
-        run: |
-          [ "$(gh pr view "$PR" --json state -q .state)" = OPEN ] || exit 0
-          runs="$(gh run list --workflow ci.yml --branch "$BRANCH" --event pull_request --limit 20 --json conclusion,headSha,databaseId,displayTitle \
-            | jq -c --arg sha "$HEAD_SHA" --argjson id "$RUN_ID" '[{conclusion: "failure", headSha: $sha}] + map(select(.databaseId != $id))')"
-          status=0
-          shas="$(scripts/agent-guard/ci-streak.sh <<< "$runs")" || status=$?
-          [ "$status" -eq 10 ] || exit "$status"
-          {
-            echo "CI was red twice in a row (${shas//$'\n'/, }): the agent gives up, a human takes over."
-            echo "Failing job logs: \`gh run view --log-failed\`."
-          } | scripts/agent-guard/hand-over.sh "$PR" ci-streak
-
   # While production is frozen (MAG-184) — a ticket in « Emergency » after a
   # failed deploy, or an open `incident` ticket — only the PR that carries one
   # of those keys may merge. A required check; it fails closed when Linear does
@@ -1304,7 +1263,6 @@ jobs:
           bash infra/scripts/tests/cd-lift-freeze.test.sh
           bash infra/scripts/tests/agent-guard.test.sh
           bash infra/scripts/tests/agent-guard-batch.test.sh
-          bash infra/scripts/tests/agent-guard-streak.test.sh
           bash infra/scripts/tests/agent-guard-emergency.test.sh
           bash infra/scripts/tests/merge-ready.test.sh
           bash infra/scripts/tests/coverage.test.sh

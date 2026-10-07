@@ -69,7 +69,7 @@ jobs:
   # The whole suite of a pull request, whatever changed except what the path
   # filters skip on a push (`github.event_name` is `push` in the called workflow,
   # as it was when CI ran on main by itself). The write permissions are the
-  # ceiling of the pull-request-only jobs (guard, streak) the file also holds: a
+  # ceiling of the pull-request-only jobs (guard) the file also holds: a
   # called workflow may not ask for more than its caller, even for a job it skips.
   # `always()`: a `tested` job that dies runs the suite rather than skip it.
   ci:
