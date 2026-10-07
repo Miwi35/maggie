@@ -117,6 +117,12 @@ proaction at all.
 `82-greeting.yaml` answers « Bonjour Maggie » and nothing else: the two-window chat
 journey sends it from one window to see the exchange reach the other (MAG-109).
 
+`83-reminder-forgotten-once.yaml` and `84-reminder-forgotten-twice.yaml` script a
+model announcing « je vous rappellerai » without calling `schedule_proaction`
+(MAG-339). The reminder guard sends it back once with a message of its own — a list
+of blocks, so it counts as a round and the next turn is read — and replaces a second
+announcement with the sentence that nothing was scheduled.
+
 The transcript cleanup pairs with the WireMock Whisper stub: that stub returns
 one fixed sentence, and `20-transcription-cleanup.yaml` returns it cleaned. Change
 one and change the other.

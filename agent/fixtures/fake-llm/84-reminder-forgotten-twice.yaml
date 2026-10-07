@@ -1,0 +1,18 @@
+# A reminder announced twice without being scheduled (MAG-339).
+#
+# The model ends on « je vous rappellerai » after `date_time`, is sent back by the
+# reminder guard, and announces it again. The guard does not send it back a second
+# time: the answer becomes the guard's own sentence, that the reminder was not
+# scheduled — never « c'est noté ».
+name: reminder-forgotten-twice
+description: Remind me to water the plants — announced twice, never scheduled.
+
+match:
+  user_contains: "arroser les plantes"
+
+turns:
+  - tools:
+      - name: date_time
+        input: {action: add, minutes: 1}
+  - text: "C'est noté. Je vous rappellerai d'arroser les plantes à 16h05."
+  - text: "Bien sûr, je vous rappellerai d'arroser les plantes à 16h05."

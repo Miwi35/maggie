@@ -49,7 +49,8 @@ DATE_TIME_TOOLS = [
             "('Fort-de-France', 'New York', 'Europe/Paris'); omit them for the user's own timezone. "
             "A 'datetime' without offset is read as local time in 'timezone'; omit it for the current instant. "
             "Every result carries an 'iso' value with its offset, ready to pass as 'scheduled_at' to "
-            "schedule_proaction or to build an event. Calendar units (years, months, weeks, days) keep the wall-clock "
+            "schedule_proaction or to build an event. This tool only computes: it schedules nothing, so a reminder "
+            "still needs the schedule_proaction call. Calendar units (years, months, weeks, days) keep the wall-clock "
             "time across a clock change; clock units (hours, minutes, seconds) are real elapsed time."
         ),
         "input_schema": {
@@ -105,6 +106,11 @@ def _describe(local: datetime) -> dict:
         "dst": bool(local.dst()),
         "utc": local.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
+
+
+def spoken_local_time(instant: datetime, tz: ZoneInfo) -> str:
+    """An instant as the user says it in their own timezone: « mercredi 7 octobre 2026, 16h05 »."""
+    return _describe(instant.astimezone(tz))["local"]
 
 
 def _hours(later: timedelta | None, earlier: timedelta | None) -> float:

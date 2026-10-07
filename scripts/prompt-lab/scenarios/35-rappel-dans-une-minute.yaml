@@ -1,0 +1,17 @@
+# « Rappelle-moi … dans 1 minute » is a proaction to schedule, not a time to compute
+# (MAG-339). In production the model called date_time, then answered « C'est noté, je
+# vous rappellerai à 16h05 » and nothing was scheduled. The reminder guard now sends it
+# back, but what is judged here is whether the prompt and the tool descriptions get the
+# real model to schedule on its own — the guard catching it is a fallback, not the plan.
+name: rappel-dans-une-minute
+description: A reminder in one minute is scheduled with schedule_proaction, and the time quoted is local.
+channel: stream
+
+steps:
+  - user_message: "Rappelle-moi de boire de l'eau dans 1 minute"
+    expected_tools: [schedule_proaction]
+    expected_absent: ["n'a pas été programmé", "je n'ai pas accès"]
+    expected_behavior: >
+      Elle confirme en une phrase naturelle en français que le rappel de boire de
+      l'eau est programmé, en citant l'heure locale à laquelle il arrivera (une
+      minute après maintenant), sans parler d'outils.
