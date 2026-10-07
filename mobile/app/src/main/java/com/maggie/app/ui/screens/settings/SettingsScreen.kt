@@ -65,8 +65,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -707,14 +705,9 @@ private fun VoiceSection(
     val context = LocalContext.current
     var roleState by remember { mutableStateOf(AssistantRoleHelper.state(context)) }
 
-    // The role dialog answers with a result; the system settings list, which is
-    // where an OEM build without that dialog sends the user, does not. So the
-    // state is read again on both — and on every resume, because the role can
-    // also change from outside the app.
-    val roleLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult(),
-    ) { roleState = AssistantRoleHelper.state(context) }
-
+    // The role is chosen in the system settings, which answer with no result:
+    // the state is read again on every resume, which also catches a change made
+    // from outside the app.
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -754,19 +747,14 @@ private fun VoiceSection(
                     .fillMaxWidth()
                     .testTag(UiTags.SETTINGS_ASSISTANT_ROLE)
                     .clickable(enabled = roleState.canRequest) {
-                        // `launch` starts the activity inline, so a build that
-                        // answers neither intent throws here rather than later —
-                        // and a row that does nothing when tapped is worse than
-                        // one that opens the system list. Hence both attempts
-                        // guarded, the second one included.
-                        val request = AssistantRoleHelper.createRoleRequestIntent(context)
-                        val opened = request != null && runCatching { roleLauncher.launch(request) }
-                            .onFailure { Log.w("SettingsScreen", "Role request refused", it) }
-                            .isSuccess
-                        if (!opened) {
-                            runCatching { roleLauncher.launch(AssistantRoleHelper.voiceInputSettingsIntent()) }
-                                .onFailure { Log.w("SettingsScreen", "No voice input settings either", it) }
-                        }
+                        // Android refuses an app's request for the assistant role
+                        // (not « requestable »), so the row opens the system's own
+                        // choice. A build with neither screen opens nothing, hence
+                        // the help sentence under the row.
+                        val opened = AssistantRoleHelper.settingsIntent(context)
+                            ?.let { runCatching { context.startActivity(it) }.isSuccess }
+                            ?: false
+                        if (!opened) Log.w("SettingsScreen", "No system screen to choose the assistant")
                     },
             ) {
                 Column(modifier = Modifier.weight(1f)) {
@@ -793,6 +781,14 @@ private fun VoiceSection(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+            }
+
+            if (roleState.canRequest) {
+                Text(
+                    AssistantRoleHelper.HELP,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
             Text(

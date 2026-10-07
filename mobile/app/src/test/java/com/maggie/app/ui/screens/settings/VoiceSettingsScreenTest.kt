@@ -2,6 +2,10 @@ package com.maggie.app.ui.screens.settings
 
 import android.app.Application
 import android.app.role.RoleManager
+import android.content.Intent
+import android.content.pm.ActivityInfo
+import android.content.pm.ResolveInfo
+import android.provider.Settings
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onAllNodesWithText
@@ -13,10 +17,13 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
+import com.maggie.app.voice.AssistantRoleHelper
 import com.maggie.app.voice.AssistantRoleState
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableStateFlow
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -112,13 +119,74 @@ class VoiceSettingsScreenTest {
     }
 
     @Test
-    fun `a device where Maggie holds the role says she answers the long press`() {
+    fun `a device where Maggie holds the role and her service is active says she answers the long press`() {
+        roleIsAvailable()
+        shadowOf(roleManager()).addHeldRole(RoleManager.ROLE_ASSISTANT)
+        setVoiceInteractionService("com.maggie.app/.voice.MaggieVoiceInteractionService")
+
+        openVoiceSettings()
+
+        compose.onNodeWithText(AssistantRoleState.HELD.label).assertIsDisplayed()
+    }
+
+    @Test
+    fun `a role held with no active service is not shown as done`() {
         roleIsAvailable()
         shadowOf(roleManager()).addHeldRole(RoleManager.ROLE_ASSISTANT)
 
         openVoiceSettings()
 
-        compose.onNodeWithText(AssistantRoleState.HELD.label).assertIsDisplayed()
+        compose.onNodeWithText(AssistantRoleState.PARTIAL.label).assertIsDisplayed()
+        compose.onNodeWithText(AssistantRoleHelper.HELP).assertIsDisplayed()
+    }
+
+    @Test
+    fun `tapping the row opens the voice input settings`() {
+        roleIsAvailable()
+        resolvable(Settings.ACTION_VOICE_INPUT_SETTINGS, Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+
+        openVoiceSettings()
+        compose.onNodeWithTag(UiTags.SETTINGS_ASSISTANT_ROLE).performClick()
+
+        assertEquals(Settings.ACTION_VOICE_INPUT_SETTINGS, shadowOf(application()).nextStartedActivity.action)
+    }
+
+    @Test
+    fun `tapping the row falls back on the default apps list`() {
+        roleIsAvailable()
+        resolvable(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+
+        openVoiceSettings()
+        compose.onNodeWithTag(UiTags.SETTINGS_ASSISTANT_ROLE).performClick()
+
+        assertEquals(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS, shadowOf(application()).nextStartedActivity.action)
+    }
+
+    @Test
+    fun `tapping the row on a build with neither screen opens nothing and does not crash`() {
+        roleIsAvailable()
+
+        openVoiceSettings()
+        compose.onNodeWithTag(UiTags.SETTINGS_ASSISTANT_ROLE).performClick()
+
+        assertNull(shadowOf(application()).nextStartedActivity)
+        compose.onNodeWithText(AssistantRoleHelper.HELP).assertIsDisplayed()
+    }
+
+    private fun application() = ApplicationProvider.getApplicationContext<Application>()
+
+    private fun setVoiceInteractionService(value: String) {
+        Settings.Secure.putString(application().contentResolver, "voice_interaction_service", value)
+    }
+
+    private fun resolvable(vararg actions: String) {
+        val pm = shadowOf(application().packageManager)
+        actions.forEach {
+            pm.addResolveInfoForIntent(
+                Intent(it),
+                ResolveInfo().apply { activityInfo = ActivityInfo().apply { packageName = "com.android.settings"; name = "Screen" } },
+            )
+        }
     }
 
     private fun roleIsAvailable() {
