@@ -22,4 +22,5 @@ data class ExpandedEvent(
     val agendaIri: String? = null,
     val agendaColor: String? = null,
     val agendaName: String? = null,
+    val recurrenceUnreadable: Boolean = false,
 )
