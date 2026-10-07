@@ -42,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.maggie.app.ui.components.DateField
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Category
@@ -217,12 +218,10 @@ private fun TransactionCreateDialog(
     var nature by remember { mutableStateOf(TransactionNature.Expense) }
     var status by remember { mutableStateOf("spent") }
     var categoryId by remember { mutableStateOf<String?>(null) }
-    var dateText by remember { mutableStateOf(LocalDate.now().toString()) }
+    var date by remember { mutableStateOf(LocalDate.now()) }
 
-    val dateValid = runCatching { LocalDate.parse(dateText) }.isSuccess
     val canSubmit = label.isNotBlank() &&
-        (amountText.toDoubleOrNull() ?: 0.0) != 0.0 &&
-        dateValid
+        (amountText.toDoubleOrNull() ?: 0.0) != 0.0
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -266,13 +265,11 @@ private fun TransactionCreateDialog(
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 )
-                OutlinedTextField(
-                    value = dateText,
-                    onValueChange = { dateText = it },
-                    label = { Text("Date (AAAA-MM-JJ)") },
+                DateField(
+                    label = "Date",
+                    value = date,
+                    onValueChange = { date = it },
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    isError = !dateValid,
                 )
                 Text(
                     if (nature == TransactionNature.Income) "État de la recette" else "État de la dépense",
@@ -313,7 +310,7 @@ private fun TransactionCreateDialog(
                 onClick = {
                     val euros = amountText.toDoubleOrNull() ?: return@TextButton
                     val cents = signedAmountCents((euros * 100).roundToInt(), nature)
-                    onConfirm(cents, label.trim(), status, categoryId, dateText)
+                    onConfirm(cents, label.trim(), status, categoryId, date.toString())
                 },
                 enabled = canSubmit,
             ) {

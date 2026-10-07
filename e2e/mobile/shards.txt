@@ -30,6 +30,6 @@
 # Split by greedy balance: 02 alone (121 s, and the flow that hung once for 17 minutes
 # stops holding two others), 08 + 09 = 143 s, 01 + 04 + 05 = 143 s. When a flow is
 # added, re-read the figures from the latest run and move it where the sum is lowest.
-1: 02-voice-overlay
+1: 02-voice-overlay 12-event-date-picker
 2: 08-grocery-realtime 09-finance-banks 11-calendar-all-day-series 12-finance-rente
 3: 01-login-chat 04-calendar-import 05-deep-links 12-recipe-realtime

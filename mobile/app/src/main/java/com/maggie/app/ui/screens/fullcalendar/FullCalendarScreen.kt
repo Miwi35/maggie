@@ -189,6 +189,7 @@ fun FullCalendarScreen(
                         modifier = Modifier.uiTagRoot(),
                     ) {
                         DropdownMenuItem(
+                            modifier = Modifier.testTag(UiTags.CALENDAR_CREATE_EVENT),
                             text = { Text("Événement") },
                             onClick = {
                                 fabExpanded = false
@@ -205,6 +206,7 @@ fun FullCalendarScreen(
                     }
                     FloatingActionButton(
                         onClick = { fabExpanded = !fabExpanded },
+                        modifier = Modifier.testTag(UiTags.CALENDAR_CREATE),
                     ) {
                         Icon(Icons.Default.Add, contentDescription = "Créer")
                     }

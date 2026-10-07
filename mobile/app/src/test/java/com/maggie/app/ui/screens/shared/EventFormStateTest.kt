@@ -1,0 +1,113 @@
+package com.maggie.app.ui.screens.shared
+
+import com.maggie.app.data.model.ExpandedEvent
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.time.ZoneId
+
+class EventFormStateTest {
+    private val paris = ZoneId.of("Europe/Paris")
+
+    // The evening of the owner's example: 19:00 to midnight, the next day's 00:00.
+    private val evening = EventFormState(
+        allDay = false,
+        start = LocalDateTime.of(2026, 10, 7, 19, 0),
+        end = LocalDateTime.of(2026, 10, 8, 0, 0),
+    )
+
+    @Test
+    fun `a new event starts at 09h and ends at 10h on the day it was opened from`() {
+        val form = EventFormState.forNewEvent(LocalDate.of(2026, 10, 7))
+
+        assertEquals(LocalDateTime.of(2026, 10, 7, 9, 0), form.start)
+        assertEquals(LocalDateTime.of(2026, 10, 7, 10, 0), form.end)
+        assertFalse(form.allDay)
+    }
+
+    @Test
+    fun `moving the start date keeps the duration`() {
+        val moved = evening.withStartDate(LocalDate.of(2026, 10, 8))
+
+        assertEquals(LocalDateTime.of(2026, 10, 8, 19, 0), moved.start)
+        assertEquals(LocalDateTime.of(2026, 10, 9, 0, 0), moved.end)
+    }
+
+    @Test
+    fun `moving the start time keeps the duration`() {
+        val moved = evening.withStartTime(LocalTime.of(20, 30))
+
+        assertEquals(LocalDateTime.of(2026, 10, 7, 20, 30), moved.start)
+        assertEquals(LocalDateTime.of(2026, 10, 8, 1, 30), moved.end)
+    }
+
+    @Test
+    fun `moving the end changes the duration and leaves the start`() {
+        val moved = evening.withEndDate(LocalDate.of(2026, 10, 9)).withEndTime(LocalTime.of(2, 0))
+
+        assertEquals(evening.start, moved.start)
+        assertEquals(LocalDateTime.of(2026, 10, 9, 2, 0), moved.end)
+    }
+
+    @Test
+    fun `an end before the start is flagged, an end on the start is not for an all-day event`() {
+        assertTrue(evening.withEndDate(LocalDate.of(2026, 10, 6)).endsBeforeStart)
+        assertFalse(evening.endsBeforeStart)
+
+        val allDay = evening.withAllDay(true).withEndDate(LocalDate.of(2026, 10, 7)).withEndTime(LocalTime.of(8, 0))
+        assertFalse(allDay.endsBeforeStart)
+    }
+
+    @Test
+    fun `a timed event is sent as its start and end in the zone of the user`() {
+        // Paris is UTC+2 on 7 October.
+        assertEquals("2026-10-07T17:00:00Z", evening.startAt(paris))
+        assertEquals("2026-10-07T22:00:00Z", evening.endAt(paris))
+    }
+
+    @Test
+    fun `an all-day event is sent from midnight to the midnight after its last day`() {
+        val form = evening.withAllDay(true).withEndDate(LocalDate.of(2026, 10, 7))
+
+        assertEquals("2026-10-06T22:00:00Z", form.startAt(paris))
+        assertEquals("2026-10-07T22:00:00Z", form.endAt(paris))
+    }
+
+    @Test
+    fun `an all-day event opens on its last day, not on the exclusive end the API stores`() {
+        val form = EventFormState.fromEvent(
+            ExpandedEvent(
+                id = "e1",
+                summary = "Anniversaire",
+                allDay = true,
+                startAt = "2026-10-15T22:00:00Z",
+                endAt = "2026-10-16T22:00:00Z",
+                timeZone = "Europe/Paris",
+            ),
+        )
+
+        assertEquals(LocalDate.of(2026, 10, 16), form.startDate)
+        assertEquals(LocalDate.of(2026, 10, 16), form.endDate)
+        assertEquals("2026-10-16T22:00:00Z", form.endAt(paris))
+    }
+
+    @Test
+    fun `a timed event opens in its own zone`() {
+        val form = EventFormState.fromEvent(
+            ExpandedEvent(
+                id = "e1",
+                summary = "Dîner",
+                startAt = "2026-10-07T17:00:00Z",
+                endAt = "2026-10-07T22:00:00Z",
+                timeZone = "Europe/Paris",
+            ),
+        )
+
+        assertEquals(evening.start, form.start)
+        assertEquals(evening.end, form.end)
+    }
+}
