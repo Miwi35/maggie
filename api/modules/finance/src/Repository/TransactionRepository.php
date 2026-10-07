@@ -450,20 +450,55 @@ class TransactionRepository extends ServiceEntityRepository
      * this one. Counting matters: two identical coffees on the same day are
      * two real movements, not a duplicate — only the count above what is
      * already stored should be imported.
+     *
+     * @param list<string> $alternativeLabels other labels the same movement may
+     *                                        have been stored under
      */
-    public function countMatching(Account $account, \DateTimeImmutable $bookedAt, int $amountCents, string $label): int
+    public function countMatching(Account $account, \DateTimeImmutable $bookedAt, int $amountCents, string $label, array $alternativeLabels = []): int
     {
-        return (int) $this->createQueryBuilder('t')
-            ->select('COUNT(t.id)')
+        return \count($this->findMatching($account, $bookedAt, $amountCents, $label, $alternativeLabels));
+    }
+
+    /**
+     * The movements `countMatching` counts, in a stable order so the nth
+     * occurrence in a file is always the nth stored line.
+     *
+     * @param list<string> $alternativeLabels
+     *
+     * @return Transaction[]
+     */
+    public function findMatching(Account $account, \DateTimeImmutable $bookedAt, int $amountCents, string $label, array $alternativeLabels = []): array
+    {
+        $labels = array_values(array_unique(array_map(
+            static fn (string $candidate) => mb_strtolower(trim($candidate)),
+            [$label, ...$alternativeLabels],
+        )));
+
+        return $this->createQueryBuilder('t')
             ->andWhere('t.account = :account')
             ->andWhere('t.bookedAt = :bookedAt')
             ->andWhere('t.amountCents = :amountCents')
-            ->andWhere('LOWER(t.label) = :label')
+            ->andWhere('LOWER(t.label) IN (:labels)')
             ->setParameter('account', $account->getId(), 'ulid')
             ->setParameter('bookedAt', $bookedAt)
             ->setParameter('amountCents', $amountCents)
-            ->setParameter('label', mb_strtolower(trim($label)))
+            ->setParameter('labels', $labels)
+            ->orderBy('t.id', 'ASC')
             ->getQuery()
-            ->getSingleScalarResult();
+            ->getResult();
+    }
+
+    /**
+     * Transactions that have no counterparty yet, oldest first.
+     *
+     * @return iterable<Transaction>
+     */
+    public function iterateWithoutCounterparty(): iterable
+    {
+        return $this->createQueryBuilder('t')
+            ->andWhere('t.counterpartyKey IS NULL')
+            ->orderBy('t.id', 'ASC')
+            ->getQuery()
+            ->toIterable();
     }
 }

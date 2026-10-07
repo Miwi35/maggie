@@ -30,6 +30,7 @@ use Maggie\Finance\Enum\RetrospectVerdict;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Enum\TransferSource;
+use Maggie\Finance\Import\MerchantExtractor;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\State\CreateTransactionProcessor;
 use Maggie\Finance\State\DeleteTransactionProcessor;
@@ -39,6 +40,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: TransactionRepository::class)]
 #[ORM\Index(columns: ['user_id', 'transfer_kind'], name: 'idx_transaction_user_transfer_kind')]
+#[ORM\Index(columns: ['user_id', 'counterparty_key'], name: 'idx_transaction_user_counterparty_key')]
 #[ApiFilter(OrderFilter::class, properties: ['bookedAt'])]
 #[ApiFilter(UlidRelationFilter::class, properties: ['account'])]
 #[Indexed(index: 'transactions', module: 'finance')]
@@ -89,6 +91,25 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
     #[Assert\NotBlank]
     #[IndexedField(type: 'text', boost: 2.0, keyword: true)]
     private string $label;
+
+    /**
+     * Who the money came from or went to, kept apart from the label: the bank
+     * rewrites the label every month, never the creditor. Not the same thing
+     * as `counterpart`, the opposite leg of an internal transfer.
+     *
+     * Read-only over REST: it is derived (`setCounterpartyName` computes the
+     * key), so a client patching one without the other would split a payee in two.
+     */
+    #[ORM\Column(length: 255, nullable: true)]
+    #[ApiProperty(writable: false)]
+    #[IndexedField(type: 'text', keyword: true)]
+    private ?string $counterpartyName = null;
+
+    /** The name folded so two spellings of one payee group together. */
+    #[ORM\Column(length: 255, nullable: true)]
+    #[ApiProperty(writable: false)]
+    #[IndexedField(type: 'keyword')]
+    private ?string $counterpartyKey = null;
 
     #[ORM\Column(length: 20, enumType: TransactionStatus::class)]
     #[Assert\NotNull]
@@ -231,6 +252,39 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
     public function setLabel(string $label): static
     {
         $this->label = $label;
+
+        return $this;
+    }
+
+    public function getCounterpartyName(): ?string
+    {
+        return $this->counterpartyName;
+    }
+
+    public function getCounterpartyKey(): ?string
+    {
+        return $this->counterpartyKey;
+    }
+
+    /**
+     * The one place the key is computed, so every writer — sync, import,
+     * manual entry, backfill — groups a payee the same way.
+     */
+    public function setCounterpartyName(?string $name): static
+    {
+        $name = null === $name ? '' : mb_substr(trim(preg_replace('/\s+/u', ' ', $name) ?? $name), 0, 255);
+
+        if ('' === $name) {
+            $this->counterpartyName = null;
+            $this->counterpartyKey = null;
+
+            return $this;
+        }
+
+        $key = MerchantExtractor::key($name);
+
+        $this->counterpartyName = $name;
+        $this->counterpartyKey = '' === $key ? null : $key;
 
         return $this;
     }
@@ -419,6 +473,8 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
     {
         return [
             'label' => $this->label,
+            'counterpartyName' => $this->counterpartyName,
+            'counterpartyKey' => $this->counterpartyKey,
             'amountCents' => $this->amountCents,
             'currency' => $this->currency,
             'bookedAt' => $this->bookedAt->format('Y-m-d'),
@@ -441,6 +497,8 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
     {
         return self::filterPayload([
             'label' => $this->label,
+            'counterpartyName' => $this->counterpartyName,
+            'counterpartyKey' => $this->counterpartyKey,
             'amountCents' => $this->amountCents,
             'currency' => $this->currency,
             'bookedAt' => $this->bookedAt->format('Y-m-d'),

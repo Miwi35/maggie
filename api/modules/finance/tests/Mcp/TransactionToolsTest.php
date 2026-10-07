@@ -114,6 +114,76 @@ class TransactionToolsTest extends KernelTestCase
         $this->assertElasticsearchIndexDispatched(Transaction::class);
     }
 
+    public function testCreateReadsTheCounterpartyFromTheLabelAndExposesIt(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
+        $account = $this->getFixture('checking');
+
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+        $created = json_decode(
+            $tool('create', accountId: (string) $account->getId(), amountCents: -1349, label: 'PRLV SEPA NETFLIX.COM 12/10', bookedAt: '2026-10-12'),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertSame('PRLV SEPA NETFLIX.COM', $created['transaction']['counterpartyName']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $stored = $em->find(Transaction::class, $created['transaction']['id']);
+        self::assertSame('prlv sepa netflixcom', $stored->getCounterpartyKey());
+
+        $listed = json_decode($tool('list'), true, 512, JSON_THROW_ON_ERROR);
+        $names = array_column($listed['transactions'], 'counterpartyName');
+        self::assertContains('PRLV SEPA NETFLIX.COM', $names);
+    }
+
+    public function testRewritingTheLabelOfAReadCounterpartyFollowsIt(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
+        $account = $this->getFixture('checking');
+
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+        $created = json_decode(
+            $tool('create', accountId: (string) $account->getId(), amountCents: -1349, label: 'PRLV SEPA NETFLIX.COM 12/10', bookedAt: '2026-10-12'),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        $updated = json_decode(
+            $tool('update', transactionId: $created['transaction']['id'], label: 'PRLV SEPA SPOTIFY 12/10'),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertSame('PRLV SEPA SPOTIFY', $updated['transaction']['counterpartyName']);
+    }
+
+    public function testRewritingTheLabelKeepsAPayeeTheBankNamed(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
+        $transaction = $this->getFixture('groceries');
+        $transaction->setCounterpartyName('CARREFOUR MARKET');
+        self::getContainer()->get('doctrine.orm.entity_manager')->flush();
+
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+        $updated = json_decode(
+            $tool('update', transactionId: (string) $transaction->getId(), label: 'Courses du samedi'),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertSame('Courses du samedi', $updated['transaction']['label']);
+        self::assertSame('CARREFOUR MARKET', $updated['transaction']['counterpartyName']);
+    }
+
     public function testClearRemovesTheCategory(): void
     {
         $this->loadFixtures('transaction.yaml');

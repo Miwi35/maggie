@@ -4,6 +4,7 @@ namespace Maggie\Finance\Tests\Bank;
 
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
+use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Finance\Bank\EnableBanking\EnableBankingClient;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\BankConnection;
@@ -25,12 +26,14 @@ class SyncBankAccountsTest extends KernelTestCase
 {
     use FixtureLoaderTrait;
     use ElasticsearchAssertionTrait;
+    use MercureAssertionTrait;
 
     private string $keyPath;
 
     protected function setUp(): void
     {
         self::bootKernel();
+        $this->resetMercure();
         $this->resetAsyncTransport();
 
         $this->keyPath = tempnam(sys_get_temp_dir(), 'eb-key-');
@@ -185,6 +188,185 @@ class SyncBankAccountsTest extends KernelTestCase
 
         self::assertSame(0, $second['imported']);
         self::assertSame(1, $second['skipped']);
+    }
+
+    /**
+     * @param array<string, mixed> $extra
+     *
+     * @return array<string, mixed>
+     */
+    private function bankLine(string $date, string $amount, string $indicator, array $extra): array
+    {
+        return [
+            'booking_date' => $date,
+            'transaction_amount' => ['amount' => $amount, 'currency' => 'EUR'],
+            'credit_debit_indicator' => $indicator,
+        ] + $extra;
+    }
+
+    private function transactionLabelled(string $label): Transaction
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+
+        return $em->getRepository(Transaction::class)->findOneBy(['label' => $label])
+            ?? self::fail(sprintf('no transaction labelled "%s"', $label));
+    }
+
+    public function testADebitKeepsItsCreditorApartFromALabelTheBankRewritesEveryMonth(): void
+    {
+        $this->loadFixtures('account.yaml');
+        $this->connectAccount();
+
+        $http = $this->provider([$this->page([
+            $this->bankLine('2026-08-12', '13.49', 'DBIT', [
+                'creditor' => ['name' => 'NETFLIX INTERNATIONAL'],
+                'remittance_information' => ['PRLV SEPA NETFLIX 12/08 REF 884'],
+            ]),
+            $this->bankLine('2026-09-12', '13.49', 'DBIT', [
+                'creditor' => ['name' => 'NETFLIX INTERNATIONAL'],
+                'remittance_information' => ['PRLV SEPA NETFLIX 12/09 REF 991'],
+            ]),
+        ])]);
+
+        $result = $this->sync($http)->execute($this->getFixture('test_user'));
+
+        self::assertSame(2, $result['imported']);
+
+        $august = $this->transactionLabelled('PRLV SEPA NETFLIX 12/08 REF 884');
+        $september = $this->transactionLabelled('PRLV SEPA NETFLIX 12/09 REF 991');
+
+        // The label no longer swallows the creditor, and the key does not move.
+        self::assertSame('NETFLIX INTERNATIONAL', $august->getCounterpartyName());
+        self::assertSame('netflix international', $august->getCounterpartyKey());
+        self::assertSame($august->getCounterpartyKey(), $september->getCounterpartyKey());
+
+        $this->assertMercureUpdatePublished('/api/transactions/');
+        $this->assertElasticsearchIndexDispatched(Transaction::class);
+    }
+
+    public function testACreditTakesItsDebtorNotTheAccountHolderListedAsCreditor(): void
+    {
+        $this->loadFixtures('account.yaml');
+        $this->connectAccount();
+
+        $http = $this->provider([$this->page([
+            $this->bankLine('2026-09-28', '3500.00', 'CRDT', [
+                'debtor' => ['name' => 'ACME SAS'],
+                'creditor' => ['name' => 'MEVEN'],
+                'remittance_information' => ['SALAIRE SEPTEMBRE'],
+            ]),
+        ])]);
+
+        $this->sync($http)->execute($this->getFixture('test_user'));
+
+        $salary = $this->transactionLabelled('SALAIRE SEPTEMBRE');
+        self::assertSame('ACME SAS', $salary->getCounterpartyName());
+        self::assertSame('acme sas', $salary->getCounterpartyKey());
+    }
+
+    public function testAnEmptyRemittanceKeepsTheCounterpartyAsLabel(): void
+    {
+        $this->loadFixtures('account.yaml');
+        $this->connectAccount();
+
+        $http = $this->provider([$this->page([
+            $this->bankLine('2026-09-02', '8.00', 'DBIT', [
+                'creditor' => ['name' => 'BOULANGERIE DU COIN'],
+                'remittance_information' => ['  '],
+            ]),
+        ])]);
+
+        $this->sync($http)->execute($this->getFixture('test_user'));
+
+        $bakery = $this->transactionLabelled('BOULANGERIE DU COIN');
+        self::assertSame('BOULANGERIE DU COIN', $bakery->getCounterpartyName());
+    }
+
+    public function testALineWithNoPartyFallsBackOnItsLabelForTheCounterparty(): void
+    {
+        $this->loadFixtures('account.yaml');
+        $this->connectAccount();
+
+        $http = $this->provider([$this->page([
+            $this->bankLine('2026-09-02', '9.90', 'DBIT', [
+                'remittance_information' => ['PRLV SEPA SPOTIFY 02/09'],
+            ]),
+        ])]);
+
+        $this->sync($http)->execute($this->getFixture('test_user'));
+
+        $line = $this->transactionLabelled('PRLV SEPA SPOTIFY 02/09');
+        self::assertSame('PRLV SEPA SPOTIFY', $line->getCounterpartyName());
+    }
+
+    public function testTheNextSyncCompletesALineStoredBeforeTheCounterpartyExistedWithoutDuplicatingIt(): void
+    {
+        $this->loadFixtures('account.yaml');
+        $this->connectAccount();
+
+        // Stored by an earlier sync: the creditor had been folded into the label.
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $legacy = (new Transaction())
+            ->setUser($this->getFixture('test_user'))
+            ->setAccount($this->getFixture('checking'))
+            ->setLabel('NETFLIX INTERNATIONAL')
+            ->setAmountCents(-1349)
+            ->setBookedAt(new \DateTimeImmutable('2026-09-12'));
+        $em->persist($legacy);
+        $em->flush();
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $http = $this->provider([$this->page([
+            $this->bankLine('2026-09-12', '13.49', 'DBIT', [
+                'creditor' => ['name' => 'NETFLIX INTERNATIONAL'],
+                'remittance_information' => ['PRLV SEPA NETFLIX 12/09 REF 991'],
+            ]),
+        ])]);
+
+        $result = $this->sync($http)->execute($this->getFixture('test_user'));
+
+        self::assertSame(0, $result['imported'], 'the same movement under its new label is not a new one');
+        self::assertSame(1, $result['skipped']);
+        self::assertSame(1, $result['accounts'][0]['counterpartiesCompleted']);
+
+        $em->clear();
+        $stored = $em->getRepository(Transaction::class)->findAll();
+        self::assertCount(1, $stored);
+        self::assertSame('NETFLIX INTERNATIONAL', $stored[0]->getCounterpartyName());
+        self::assertSame('netflix international', $stored[0]->getCounterpartyKey());
+
+        $this->assertMercureUpdatePublished('/api/transactions/');
+        $this->assertElasticsearchIndexDispatched(Transaction::class);
+
+        // A third pass has nothing left to complete.
+        $third = $this->sync($http)->execute($this->getFixture('test_user'));
+        self::assertSame(0, $third['accounts'][0]['counterpartiesCompleted']);
+    }
+
+    public function testARehearsalDoesNotCompleteStoredLines(): void
+    {
+        $this->loadFixtures('account.yaml');
+        $this->connectAccount();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->persist((new Transaction())
+            ->setUser($this->getFixture('test_user'))
+            ->setAccount($this->getFixture('checking'))
+            ->setLabel('NETFLIX INTERNATIONAL')
+            ->setAmountCents(-1349)
+            ->setBookedAt(new \DateTimeImmutable('2026-09-12')));
+        $em->flush();
+
+        $http = $this->provider([$this->page([
+            $this->bankLine('2026-09-12', '13.49', 'DBIT', ['creditor' => ['name' => 'NETFLIX INTERNATIONAL']]),
+        ])]);
+
+        $this->sync($http)->execute($this->getFixture('test_user'), dryRun: true);
+
+        $em->clear();
+        self::assertNull($em->getRepository(Transaction::class)->findAll()[0]->getCounterpartyName());
     }
 
     public function testAFirstSyncReachesBackThreeMonthsAndLaterOnesOnlySinceTheLast(): void

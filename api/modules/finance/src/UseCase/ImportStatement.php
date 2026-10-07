@@ -9,6 +9,7 @@ use Maggie\Core\Mercure\EntityBroadcaster;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\TransactionStatus;
+use Maggie\Finance\Import\MerchantExtractor;
 use Maggie\Finance\Import\StatementRow;
 use Maggie\Finance\Repository\TransactionRepository;
 
@@ -38,7 +39,7 @@ class ImportStatement
     /**
      * @param list<StatementRow> $rows
      *
-     * @return array{imported: int, skipped: int, categorized: int, first: ?string, last: ?string, totalCents: int, rows: list<array{line: int, bookedAt: string, label: string, amountCents: int, currency: string, duplicate: bool, categoryName: ?string}>}
+     * @return array{imported: int, skipped: int, categorized: int, counterpartiesCompleted: int, first: ?string, last: ?string, totalCents: int, rows: list<array{line: int, bookedAt: string, label: string, amountCents: int, currency: string, duplicate: bool, categoryName: ?string}>}
      */
     public function execute(Account $account, array $rows, bool $dryRun = false): array
     {
@@ -52,6 +53,7 @@ class ImportStatement
         $imported = 0;
         $skipped = 0;
         $categorized = 0;
+        $completed = 0;
         $totalCents = 0;
         $dates = [];
 
@@ -59,16 +61,28 @@ class ImportStatement
             $key = $row->fingerprint();
             $seenInFile[$key] = ($seenInFile[$key] ?? 0) + 1;
 
-            $alreadyStored = $this->transactionRepository->countMatching(
+            $stored = $this->transactionRepository->findMatching(
                 $account,
                 $row->bookedAt,
                 $row->amountCents,
                 $row->label,
+                $row->knownAs,
             );
 
-            if ($seenInFile[$key] <= $alreadyStored) {
+            if ($seenInFile[$key] <= \count($stored)) {
                 ++$skipped;
                 $report[] = $this->describe($row, true, null);
+
+                // A line stored before the counterparty had a field of its own
+                // learns it when the bank re-sends it.
+                $existing = $stored[$seenInFile[$key] - 1];
+                if (!$dryRun && null === $existing->getCounterpartyKey() && null !== $row->counterpartyName) {
+                    if (null !== $existing->setCounterpartyName($row->counterpartyName)->getCounterpartyKey()) {
+                        $this->em->flush();
+                        $this->broadcaster->broadcast($existing);
+                        ++$completed;
+                    }
+                }
                 continue;
             }
 
@@ -80,6 +94,7 @@ class ImportStatement
             $transaction->setCurrency($row->currency);
             $transaction->setBookedAt($row->bookedAt);
             $transaction->setStatus(TransactionStatus::Spent);
+            $transaction->setCounterpartyName($row->counterpartyName ?? MerchantExtractor::extract($row->label));
 
             // The rules the user already wrote apply to the history too.
             if ($this->categorizeTransaction->apply($transaction)) {
@@ -115,6 +130,7 @@ class ImportStatement
             'imported' => $imported,
             'skipped' => $skipped,
             'categorized' => $categorized,
+            'counterpartiesCompleted' => $completed,
             'first' => [] === $dates ? null : $dates[0]->format('Y-m-d'),
             'last' => [] === $dates ? null : end($dates)->format('Y-m-d'),
             'totalCents' => $totalCents,

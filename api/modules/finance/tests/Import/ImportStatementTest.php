@@ -8,6 +8,8 @@ use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Import\CsvStatementParser;
+use Maggie\Finance\Import\MerchantExtractor;
+use Maggie\Finance\Import\StatementRow;
 use Maggie\Finance\UseCase\ImportStatement;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -133,6 +135,59 @@ class ImportStatementTest extends KernelTestCase
         $again = $this->import($twoCoffees);
         self::assertSame(0, $again['imported']);
         self::assertSame(2, $again['skipped']);
+    }
+
+    public function testACsvLineKeepsItsMerchantAsCounterpartyWhateverTheDate(): void
+    {
+        $this->loadFixtures('categorization_rule.yaml');
+
+        $this->import(<<<'CSV'
+            Date;Libellé;Montant
+            12/10/2026;PRLV SEPA NETFLIX.COM 12/10;-13,49
+            12/11/2026;PRLV SEPA NETFLIX.COM 12/11;-13,49
+            CSV);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $october = $em->getRepository(Transaction::class)->findOneBy(['label' => 'PRLV SEPA NETFLIX.COM 12/10']);
+        $november = $em->getRepository(Transaction::class)->findOneBy(['label' => 'PRLV SEPA NETFLIX.COM 12/11']);
+
+        self::assertSame('PRLV SEPA NETFLIX.COM', $october->getCounterpartyName());
+        self::assertSame('prlv sepa netflixcom', $october->getCounterpartyKey());
+        self::assertSame($october->getCounterpartyKey(), $november->getCounterpartyKey());
+        self::assertSame(MerchantExtractor::key('PRLV SEPA NETFLIX.COM'), $october->getCounterpartyKey());
+    }
+
+    public function testALabelNamingNoOneLeavesTheCounterpartyEmpty(): void
+    {
+        $this->loadFixtures('categorization_rule.yaml');
+
+        $this->import(<<<'CSV'
+            Date;Libellé;Montant
+            12/10/2026;12345678;-5,00
+            CSV);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $line = $em->getRepository(Transaction::class)->findOneBy(['label' => '12345678']);
+
+        self::assertNull($line->getCounterpartyName());
+        self::assertNull($line->getCounterpartyKey());
+    }
+
+    public function testARehearsalLeavesStoredLinesWithoutCounterpartyAlone(): void
+    {
+        $this->loadFixtures('categorization_rule.yaml');
+
+        $parser = self::getContainer()->get(CsvStatementParser::class);
+        $rows = $parser->parse("Date;Libellé;Montant\n01/09/2026;CARREFOUR MARKET 4412;-45,99")['rows'];
+        $named = [new StatementRow($rows[0]->bookedAt, $rows[0]->label, $rows[0]->amountCents, $rows[0]->currency, 2, 'CARREFOUR MARKET')];
+
+        $result = self::getContainer()->get(ImportStatement::class)->execute($this->getFixture('checking'), $named, true);
+
+        self::assertSame(1, $result['skipped']);
+        self::assertSame(0, $result['counterpartiesCompleted']);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNull($em->getRepository(Transaction::class)->findOneBy(['label' => 'CARREFOUR MARKET 4412'])->getCounterpartyName());
     }
 
     public function testARehearsalReportsWithoutWritingAnything(): void

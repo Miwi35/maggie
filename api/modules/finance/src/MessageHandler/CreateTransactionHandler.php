@@ -10,6 +10,7 @@ use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferSource;
+use Maggie\Finance\Import\MerchantExtractor;
 use Maggie\Finance\Message\CreateTransactionCommand;
 use Maggie\Finance\Service\OwnedReferenceResolver;
 use Maggie\Finance\Service\TransactionNatureGuard;
@@ -44,6 +45,7 @@ class CreateTransactionHandler
         $transaction->setAccount($account);
         $transaction->setAmountCents($command->amountCents);
         $transaction->setLabel($command->label);
+        $transaction->setCounterpartyName(MerchantExtractor::extract($command->label));
         $transaction->setBookedAt(new \DateTimeImmutable($command->bookedAt));
         $transaction->setStatus(TransactionStatus::from($command->status));
         $transaction->setCurrency($command->currency);
