@@ -8,6 +8,8 @@ import Tooltip from '@mui/material/Tooltip'
 import InputAdornment from '@mui/material/InputAdornment'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
+import Portal from '@mui/material/Portal'
+import Snackbar from '@mui/material/Snackbar'
 import Divider from '@mui/material/Divider'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
@@ -16,6 +18,7 @@ import CloseIcon from '@mui/icons-material/Close'
 import MicIcon from '@mui/icons-material/Mic'
 import StopIcon from '@mui/icons-material/Stop'
 import SearchIcon from '@mui/icons-material/Search'
+import ForumOutlinedIcon from '@mui/icons-material/ForumOutlined'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import PersonIcon from '@mui/icons-material/Person'
 import SmartToyIcon from '@mui/icons-material/SmartToy'
@@ -34,9 +37,9 @@ import { useAgUiStream } from '../../hooks/useAgUiStream'
 import { newMessageKey } from '../../hooks/messageKey'
 import { ActivityPulse } from '../mind/ActivityPulse'
 import { MaggieAvatar } from '../maggie/MaggieAvatar'
-import { ContextList } from '../mind/ContextList'
 import { ToolCallList } from '../mind/ToolCallList'
 import { ChatBubble } from './ChatBubble'
+import { ThreadsDialog } from './ThreadsDialog'
 import { VoiceOrb } from './VoiceOrb'
 import { NARROW_QUERY } from '../../breakpoints'
 import type { SxProps, Theme } from '@mui/material/styles'
@@ -48,7 +51,23 @@ interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   createdAt: string
+  /** The thread it belongs to — what a thread's deletion takes out of the chat (MAG-342). */
+  contextId?: string | null
 }
+
+/** A deletion the owner can still take back: nothing is sent to the server before the delay is over. */
+type PendingDeletion =
+  | { kind: 'thread'; context: ContextState; index: number; messages: ChatMessage[]; timer: ReturnType<typeof setTimeout> }
+  | { kind: 'message'; message: ChatMessage; timer: ReturnType<typeof setTimeout> }
+
+interface Notice {
+  text: string
+  /** True while « Annuler » is on offer, i.e. while a deletion is pending. */
+  undo: boolean
+}
+
+const UNDO_DELAY_MS = 6000
+const DELETE_FAILED = 'La suppression a échoué. Réessayez.'
 
 const MESSAGES_URL = '/agent/messages'
 // May be relative in production ('/.well-known/mercure'): mercureUrl() resolves
@@ -102,6 +121,25 @@ interface ChatWidgetProps {
 
 export interface ChatWidgetRef {
   sendMessage: (text: string) => void
+}
+
+/** Messages back in their place, whatever arrived meanwhile; each id once. */
+function mergeMessages(current: ChatMessage[], restored: ChatMessage[]): ChatMessage[] {
+  const known = new Set(current.map((m) => m.id))
+  const missing = restored.filter((m) => !known.has(m.id))
+  if (missing.length === 0) return current
+  return [...current, ...missing].sort((a, b) => {
+    const delta = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    return Number.isNaN(delta) ? 0 : delta
+  })
+}
+
+/** A thread updated: its position and its message count are kept, the rest is replaced. */
+function upsertContext(list: ContextState[], ctx: ContextState): ContextState[] {
+  const previous = list.find((c) => c.id === ctx.id)
+  if (!previous) return [ctx, ...list]
+  // Updates published over Mercure and the stream carry no count; the one fetched stays.
+  return list.map((c) => (c.id === ctx.id ? { ...ctx, messageCount: ctx.messageCount ?? previous.messageCount } : c))
 }
 
 function getAuthHeaders(): Record<string, string> {
@@ -185,6 +223,11 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     const [tappedId, setTappedId] = useState<string | null>(null)
     const [streamedId, setStreamedId] = useState<string | null>(null)
 
+    // Threads list and deferred deletions (MAG-342)
+    const [threadsOpen, setThreadsOpen] = useState(false)
+    const [notice, setNotice] = useState<Notice | null>(null)
+    const pendingRef = useRef<PendingDeletion | null>(null)
+
     // Streaming state
     const [streamingText, setStreamingText] = useState('')
     const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null)
@@ -223,9 +266,13 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     // AG-UI stream callbacks
     const toolCallsRef = useRef<ToolCallState[]>([])
     const contextsRef = useRef<ContextState[]>([])
+    // The thread the run in progress was routed to: what the messages it produces belong
+    // to, which the history only says after a reload (MAG-342).
+    const runContextIdRef = useRef<string | null>(null)
 
     const agUiStream = useAgUiStream({
       onRunStarted: () => {
+        runContextIdRef.current = null
         onAgentStateChange('thinking')
         // Keep last 10 completed tool calls as activity history
         const recent = toolCallsRef.current
@@ -265,6 +312,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                     role: 'assistant',
                     content: finalText,
                     createdAt: new Date().toISOString(),
+                    contextId: runContextIdRef.current,
                   },
                 ],
           )
@@ -295,6 +343,16 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
         onToolCallsChange(toolCallsRef.current)
       },
       onContextUpdate: (value) => {
+        // The question just sent was stored before it was routed, so nothing has told this
+        // tab which thread it joined — and a thread's deletion has to take it out.
+        const routedTo = (value.id as string | undefined) ?? null
+        runContextIdRef.current = routedTo
+        if (routedTo) {
+          setMessages((prev) => {
+            const at = prev.findLastIndex((m) => m.role === 'user' && !m.contextId)
+            return at === -1 ? prev : prev.map((m, i) => (i === at ? { ...m, contextId: routedTo } : m))
+          })
+        }
         const ctx: ContextState = {
           id: value.id as string,
           label: value.label as string,
@@ -304,12 +362,10 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
           // panel is showing (MAG-11).
           summary: (value.summary as string | null) ?? null,
         }
-        const exists = contextsRef.current.some((c) => c.id === ctx.id)
-        if (exists) {
-          contextsRef.current = contextsRef.current.map((c) => (c.id === ctx.id ? ctx : c))
-        } else {
-          contextsRef.current = [ctx, ...contextsRef.current]
-        }
+        // A thread whose deletion is waiting for its delay stays out of the list.
+        const pending = pendingRef.current
+        if (pending?.kind === 'thread' && pending.context.id === ctx.id) return
+        contextsRef.current = upsertContext(contextsRef.current, ctx)
         onContextsChange([...contextsRef.current])
       },
       onError: (message) => {
@@ -321,29 +377,36 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
 
     // --- Fetch contexts on mount ---
 
-    useEffect(() => {
-      const loadContexts = async () => {
-        try {
-          const res = await fetch('/agent/contexts', { headers: getAuthHeaders() })
-          if (res.ok) {
-            const data = await res.json()
-            const mapped: ContextState[] = data.map(
-              (c: { id: string; label: string; status: string; summary?: string | null }) => ({
+    // Closed threads included: without them there would be no way to clean one up.
+    const loadContexts = useCallback(async () => {
+      try {
+        const res = await fetch('/agent/contexts?includeClosed=true', { headers: getAuthHeaders() })
+        if (res.ok) {
+          const data = await res.json()
+          const pending = pendingRef.current
+          const waiting = pending?.kind === 'thread' ? pending.context.id : null
+          const mapped: ContextState[] = data
+            .map(
+              (c: { id: string; label: string; status: string; summary?: string | null; messageCount?: number }) => ({
                 id: c.id,
                 label: c.label,
                 status: c.status as ContextState['status'],
                 summary: c.summary ?? null,
+                messageCount: c.messageCount,
               }),
             )
-            contextsRef.current = mapped
-            onContextsChange(mapped)
-          }
-        } catch (e) {
-          console.error('Failed to load contexts:', e)
+            .filter((c: ContextState) => c.id !== waiting)
+          contextsRef.current = mapped
+          onContextsChange(mapped)
         }
+      } catch (e) {
+        console.error('Failed to load contexts:', e)
       }
-      loadContexts()
     }, [onContextsChange])
+
+    useEffect(() => {
+      loadContexts()
+    }, [loadContexts])
 
     // --- Fetch helpers ---
 
@@ -556,10 +619,26 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
       eventSource.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)
+          if (data.deleted) {
+            // A deletion made here, on the phone or by a clean-up: the optimistic removal
+            // of our own already took them out, so this is a no-op for it.
+            const ids: string[] = Array.isArray(data.messageIds) ? data.messageIds : []
+            const contextId: string | null = data.contextId ?? null
+            setMessages((prev) => {
+              const kept = prev.filter((m) => !ids.includes(m.id) && !(contextId && m.contextId === contextId))
+              return kept.length === prev.length ? prev : kept
+            })
+            return
+          }
           if (data.id && data.content) {
             setMessages((prev) => {
-              // Dedup: skip if already in list by real ID
-              if (prev.some((m) => m.id === data.id)) return prev
+              // Dedup: skip if already in list by real ID. A message this tab streamed
+              // learns its thread from the echo, which is what a thread's deletion needs.
+              const known = prev.findIndex((m) => m.id === data.id)
+              if (known !== -1) {
+                if (prev[known].contextId || !data.contextId) return prev
+                return prev.map((m, i) => (i === known ? { ...m, contextId: data.contextId } : m))
+              }
               // An answer streamed here carries its stored id already; only the question
               // this tab sent holds a temp id (tmp-*) until its echo gives it the real one.
               const tempIdx =
@@ -568,7 +647,9 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                   : -1
               if (tempIdx !== -1) {
                 // Replace the temp id with the real persisted id
-                return prev.map((m, i) => (i === tempIdx ? { ...m, id: data.id } : m))
+                return prev.map((m, i) =>
+                  i === tempIdx ? { ...m, id: data.id, contextId: data.contextId ?? m.contextId ?? null } : m,
+                )
               }
               // Genuinely new message (other device or proactive agent)
               return [
@@ -578,6 +659,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                   role: data.role || 'assistant',
                   content: data.content,
                   createdAt: data.createdAt || new Date().toISOString(),
+                  contextId: data.contextId ?? null,
                 },
               ]
             })
@@ -602,6 +684,13 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
       return subscribeAgentFeed(userId, (raw) => {
         try {
           const data = JSON.parse(raw)
+          if (data.deleted && data.id) {
+            if (contextsRef.current.some((c) => c.id === data.id)) {
+              contextsRef.current = contextsRef.current.filter((c) => c.id !== data.id)
+              onContextsChange([...contextsRef.current])
+            }
+            return
+          }
           if (data.id && data.label) {
             const ctx: ContextState = {
               id: data.id,
@@ -611,12 +700,9 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
               // this is the only path that ever brings one to an open panel (MAG-11).
               summary: data.summary ?? null,
             }
-            const exists = contextsRef.current.some((c) => c.id === ctx.id)
-            if (exists) {
-              contextsRef.current = contextsRef.current.map((c) => (c.id === ctx.id ? ctx : c))
-            } else {
-              contextsRef.current = [ctx, ...contextsRef.current]
-            }
+            const pending = pendingRef.current
+            if (pending?.kind === 'thread' && pending.context.id === ctx.id) return
+            contextsRef.current = upsertContext(contextsRef.current, ctx)
             onContextsChange([...contextsRef.current])
           }
         } catch {
@@ -624,6 +710,98 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
         }
       })
     }, [onContextsChange])
+
+    // --- Deleting a thread or a message, undoable (MAG-342) ---
+    //
+    // The row leaves the screen at once and « Annuler » stays on offer for a few seconds;
+    // only when that delay is over is the DELETE sent (react-admin's undoable mode). One
+    // deletion waits at a time: starting another sends the previous one first.
+
+    const restorePending = useCallback(
+      (pending: PendingDeletion) => {
+        if (pending.kind === 'thread') {
+          if (!contextsRef.current.some((c) => c.id === pending.context.id)) {
+            const next = [...contextsRef.current]
+            next.splice(Math.min(pending.index, next.length), 0, pending.context)
+            contextsRef.current = next
+            onContextsChange([...next])
+          }
+          setMessages((prev) => mergeMessages(prev, pending.messages))
+        } else {
+          setMessages((prev) => mergeMessages(prev, [pending.message]))
+        }
+      },
+      [onContextsChange],
+    )
+
+    const commitPending = useCallback(async () => {
+      const pending = pendingRef.current
+      if (!pending) return
+      pendingRef.current = null
+      clearTimeout(pending.timer)
+      setNotice((current) => (current?.undo ? null : current))
+
+      const path =
+        pending.kind === 'thread'
+          ? `/agent/contexts/${encodeURIComponent(pending.context.id)}`
+          : `/agent/messages/${encodeURIComponent(pending.message.id)}`
+      try {
+        const res = await fetch(path, { method: 'DELETE', headers: getAuthHeaders() })
+        // 404: already gone — deleted from another device in the meantime.
+        if (!res.ok && res.status !== 404) throw new Error(`HTTP ${res.status}`)
+      } catch (e) {
+        console.error('Failed to delete', path, e)
+        restorePending(pending)
+        setNotice({ text: DELETE_FAILED, undo: false })
+      }
+    }, [restorePending])
+
+    const commitPendingRef = useRef(commitPending)
+    useEffect(() => {
+      commitPendingRef.current = commitPending
+    }, [commitPending])
+
+    // Leaving the page must not drop a deletion the owner asked for.
+    useEffect(() => () => void commitPendingRef.current(), [])
+
+    const scheduleDeletion = (
+      draft: { kind: 'thread'; context: ContextState; index: number; messages: ChatMessage[] } | { kind: 'message'; message: ChatMessage },
+      text: string,
+    ) => {
+      void commitPending()
+      const timer = setTimeout(() => void commitPending(), UNDO_DELAY_MS)
+      pendingRef.current = { ...draft, timer }
+      setNotice({ text, undo: true })
+    }
+
+    const undoDeletion = () => {
+      const pending = pendingRef.current
+      if (!pending) return
+      pendingRef.current = null
+      clearTimeout(pending.timer)
+      restorePending(pending)
+      setNotice(null)
+    }
+
+    const deleteThread = (context: ContextState) => {
+      const index = contextsRef.current.findIndex((c) => c.id === context.id)
+      const removed = messages.filter((m) => m.contextId === context.id)
+      contextsRef.current = contextsRef.current.filter((c) => c.id !== context.id)
+      onContextsChange([...contextsRef.current])
+      setMessages((prev) => prev.filter((m) => m.contextId !== context.id))
+      scheduleDeletion({ kind: 'thread', context, index: Math.max(index, 0), messages: removed }, 'Fil supprimé')
+    }
+
+    const deleteMessage = (message: ChatMessage) => {
+      setMessages((prev) => prev.filter((m) => m.id !== message.id))
+      scheduleDeletion({ kind: 'message', message }, 'Message supprimé')
+    }
+
+    const openThreads = () => {
+      setThreadsOpen(true)
+      // The counts the confirmation quotes have to be fresh: Mercure updates carry none.
+      void loadContexts()
+    }
 
     // --- Search ---
 
@@ -843,6 +1021,16 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                 {!searchMode && sidebarTab === 'chat' && (
                   <IconButton
                     size="small"
+                    aria-label="Fils de discussion"
+                    onClick={openThreads}
+                    sx={roundButtonSx(false)}
+                  >
+                    <ForumOutlinedIcon />
+                  </IconButton>
+                )}
+                {!searchMode && sidebarTab === 'chat' && (
+                  <IconButton
+                    size="small"
                     aria-label="Rechercher dans la conversation"
                     onClick={openSearch}
                     sx={roundButtonSx(false)}
@@ -1009,6 +1197,13 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                             highlighted={highlightId === msg.id}
                             animate={msg.id !== streamedId}
                             onClick={() => setTappedId((prev) => (prev === msg.id ? null : msg.id))}
+                            // A message the server does not know yet (sent from here, echo not
+                            // back) or one made up by the panel has nothing to delete.
+                            onDelete={
+                              msg.id.startsWith('tmp-') || msg.id.startsWith('err-')
+                                ? undefined
+                                : () => deleteMessage(msg)
+                            }
                           >
                             {saidInMessage(msg.content)}
                           </ChatBubble>
@@ -1152,16 +1347,6 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                   </Typography>
                 </Box>
               )}
-              <Box sx={{ py: 1 }}>
-                <Typography
-                  variant="overline"
-                  sx={{ px: 2, color: 'text.secondary', fontSize: 10, letterSpacing: 1 }}
-                >
-                  Contextes
-                </Typography>
-                <ContextList contexts={contexts} />
-              </Box>
-              <Divider />
               <Box sx={{ py: 1, flex: 1 }}>
                 <Typography
                   variant="overline"
@@ -1177,19 +1362,60 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
       </Box>
     )
 
+    // Beside the panel rather than inside it: both are modal layers of their own, and
+    // under `md` the panel is itself a drawer.
+    const overlays = (
+      <>
+        <ThreadsDialog
+          open={threadsOpen}
+          onClose={() => setThreadsOpen(false)}
+          contexts={contexts}
+          onDelete={deleteThread}
+        />
+        {/* Portaled: a modal marks everything already beside it aria-hidden, and « Annuler »
+            has to stay reachable while the threads dialog is open. */}
+        <Portal>
+          <Snackbar
+            open={notice !== null}
+            message={notice?.text}
+            autoHideDuration={notice?.undo ? null : UNDO_DELAY_MS}
+            onClose={(_event, reason) => {
+              // « Annuler » stays until the delay is over, however the snackbar is poked.
+              if (reason === 'timeout') setNotice(null)
+            }}
+            action={
+              notice?.undo ? (
+                <Button color="primary" size="small" onClick={undoDeletion}>
+                  Annuler
+                </Button>
+              ) : undefined
+            }
+          />
+        </Portal>
+      </>
+    )
+
     if (!isNarrow) {
-      return panel
+      return (
+        <>
+          {panel}
+          {overlays}
+        </>
+      )
     }
 
     return (
-      <Drawer
-        anchor="right"
-        open={open}
-        onClose={onClose}
-        slotProps={{ paper: { sx: { width: '100%', bgcolor: 'maggie.panel', backgroundImage: 'none' } } }}
-      >
-        {panel}
-      </Drawer>
+      <>
+        <Drawer
+          anchor="right"
+          open={open}
+          onClose={onClose}
+          slotProps={{ paper: { sx: { width: '100%', bgcolor: 'maggie.panel', backgroundImage: 'none' } } }}
+        >
+          {panel}
+        </Drawer>
+        {overlays}
+      </>
     )
   },
 )

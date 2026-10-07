@@ -69,7 +69,7 @@ internal fun AppShellPreview() {
                         currentRoute = "cookbook",
                         onNavigate = {},
                         chatAction = if (layout.chatEntry == ChatEntry.RAIL) {
-                            { ChatRailActions(onOpenChat = {}, activeContextCount = 1) }
+                            { ChatRailActions(onOpenChat = {}) }
                         } else {
                             null
                         },
@@ -96,7 +96,7 @@ internal fun AppShellPreview() {
                 },
                 bottomBar = {
                     if (layout.chatEntry == ChatEntry.BOTTOM_BAR) {
-                        ChatBottomBar(onOpenChat = {}, activeContextCount = 1)
+                        ChatBottomBar(onOpenChat = {})
                     }
                 },
             ) { paddingValues ->

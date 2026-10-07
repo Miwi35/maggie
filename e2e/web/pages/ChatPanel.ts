@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test'
-import type { Locator, Page } from '@playwright/test'
+import type { Locator, Page, Response } from '@playwright/test'
 import { parseAgUiStream } from '../helpers/agui.js'
 import { withChatLock } from '../helpers/chatLock.js'
 import type { AgUiEvent } from '../helpers/agui.js'
@@ -19,18 +19,24 @@ import type { AgUiEvent } from '../helpers/agui.js'
  * — only the model is scripted.
  *
  * The panel has two tabs. "Chat" is the conversation; "Mind" is what Maggie is
- * holding — the contexts she has open and the tools she has just run. Both are
- * fed by the same stream, so the Mind assertions are the visible half of what
- * {@link send} returns, and worth making: the state behind them lives in
- * `Layout`, above the widget, and a re-render that dropped it would leave the
- * events perfectly correct and the panel empty.
+ * doing — the tools she has just run. The threads she files the conversation into
+ * (« fils ») are not a tab any more: an icon next to the search, in the chat header,
+ * opens them in a dialog (MAG-342) — {@link openThreads}. Both are fed by the same
+ * stream, so those assertions are the visible half of what {@link send} returns, and
+ * worth making: the state behind them lives in `Layout`, above the widget, and a
+ * re-render that dropped it would leave the events perfectly correct and the panel
+ * empty.
  */
 export class ChatPanel {
   readonly panel: Locator
   readonly input: Locator
   readonly chatTab: Locator
   readonly mindTab: Locator
-  /** The Mind panel's "Contextes" section — present even while it is empty. */
+  /** The icon next to the search, in the chat header. */
+  readonly threadsButton: Locator
+  /** The dialog the icon opens. It is a modal layer of its own, outside the panel's DOM. */
+  readonly threadsDialog: Locator
+  /** The list of threads — present even while it is empty. */
   readonly contexts: Locator
   /** The Mind panel's "Activité" section. */
   readonly activity: Locator
@@ -46,7 +52,9 @@ export class ChatPanel {
     this.chatTab = this.panel.getByRole('tab', { name: 'Chat' })
     this.mindTab = this.panel.getByRole('tab', { name: 'Mind' })
     this.closeButton = this.panel.getByRole('button', { name: 'Fermer la conversation' })
-    this.contexts = this.panel.getByTestId('mind-contexts')
+    this.threadsButton = this.panel.getByRole('button', { name: 'Fils de discussion' })
+    this.threadsDialog = page.getByRole('dialog', { name: 'Fils de discussion' })
+    this.contexts = this.threadsDialog.getByTestId('mind-contexts')
     this.activity = this.panel.getByTestId('mind-activity')
     this.dictateButton = this.panel.getByRole('button', { name: 'Dicter' })
     this.stopDictationButton = this.panel.getByRole('button', { name: 'Arrêter la dictée' })
@@ -85,11 +93,51 @@ export class ChatPanel {
     }
   }
 
-  /** Switches to the Mind tab. The chat tab keeps its messages behind it. */
+  /** Switches to the Mind tab — the tools just run. The chat tab keeps its messages behind it. */
   async openMind(): Promise<void> {
     await this.open()
     await this.mindTab.click()
+    await expect(this.activity).toBeVisible()
+  }
+
+  /**
+   * Opens the threads through the icon next to the search (MAG-342).
+   *
+   * The list is fetched when the dialog opens, so the counts it shows are fresh: wait
+   * for it rather than for the dialog alone. Close it with {@link closeThreads} before
+   * talking to Maggie again — the dialog is modal and the input is behind it.
+   */
+  async openThreads(): Promise<void> {
+    await this.open()
+    await this.threadsButton.click()
+    await expect(this.threadsDialog).toBeVisible()
     await expect(this.contexts).toBeVisible()
+  }
+
+  async closeThreads(): Promise<void> {
+    await this.threadsDialog.getByRole('button', { name: 'Fermer' }).click()
+    await expect(this.threadsDialog).toBeHidden()
+  }
+
+  /**
+   * Deletes a thread from the open list, through its « Supprimer » and the confirmation,
+   * and returns the `DELETE /agent/contexts/{id}` response.
+   *
+   * That request leaves only once the « Annuler » delay is over (~6 s), so the response
+   * is what proves the deletion reached the server; the line leaving the list does not.
+   */
+  async deleteThread(label: string): Promise<Response> {
+    await this.threadsDialog.getByRole('button', { name: `Supprimer le fil « ${label} »` }).click()
+
+    const confirmation = this.page.getByRole('dialog', { name: `Supprimer le fil « ${label} » ?` })
+    const sent = this.page.waitForResponse(
+      (response) => /\/agent\/contexts\/[^/?]+$/.test(response.url()) && response.request().method() === 'DELETE',
+      { timeout: 30_000 },
+    )
+    await confirmation.getByRole('button', { name: 'Supprimer' }).click()
+    await expect(confirmation).toBeHidden()
+
+    return sent
   }
 
   /** Back to the conversation. */
@@ -194,12 +242,12 @@ export class ChatPanel {
     return this.panel.getByText(text, { exact: true })
   }
 
-  /** Every context line in the Mind panel — the locator to count. */
+  /** Every thread in the open list — the locator to count. */
   get contextItems(): Locator {
-    return this.panel.getByTestId('mind-context')
+    return this.threadsDialog.getByTestId('mind-context')
   }
 
-  /** A context line in the Mind panel, by its label. */
+  /** A thread in the open list, by its label. */
   context(label: string): Locator {
     return this.contextItems.filter({ hasText: label })
   }
@@ -211,7 +259,7 @@ export class ChatPanel {
    * a journey tells "the summary was written" from "the panel rendered".
    */
   get contextSummaries(): Locator {
-    return this.panel.getByTestId('mind-context-summary')
+    return this.threadsDialog.getByTestId('mind-context-summary')
   }
 
   /** A tool call in the Mind panel, by name. `data-status` carries its outcome. */

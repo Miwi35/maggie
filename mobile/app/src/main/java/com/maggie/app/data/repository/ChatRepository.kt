@@ -137,6 +137,18 @@ class ChatRepository(
         chatMessageDao.upsert(ChatMessageEntity.fromModel(message))
     }
 
+    /** Delete one message on the server, then from the local copy. */
+    suspend fun deleteMessage(id: String): Result<Unit> = runCatching {
+        apiService.deleteMessage(id)
+        chatMessageDao.deleteByIds(listOf(id))
+    }
+
+    /** The server removed these messages (a thread, or one message): drop the local copy too. */
+    suspend fun forgetMessages(ids: List<String>, contextId: String? = null) {
+        if (ids.isNotEmpty()) chatMessageDao.deleteByIds(ids)
+        if (contextId != null) chatMessageDao.deleteByContextId(contextId)
+    }
+
     /** Clear all chat history. */
     suspend fun clearHistory() {
         chatMessageDao.deleteAll()

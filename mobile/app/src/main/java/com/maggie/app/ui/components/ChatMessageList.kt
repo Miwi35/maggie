@@ -47,6 +47,7 @@ fun ChatMessageList(
     onApprove: (String) -> Unit = {},
     onDeny: (String) -> Unit = {},
     onDismissApproval: (String) -> Unit = {},
+    onDeleteMessage: (String) -> Unit = {},
 ) {
     val lazy = listState.lazy
     val scope = rememberCoroutineScope()
@@ -152,6 +153,7 @@ fun ChatMessageList(
                                 message = item.message,
                                 onClick = { onMessageTapped(item.message.id) },
                                 isHighlighted = item.isHighlighted,
+                                onDelete = { onDeleteMessage(item.message.id) },
                             )
                         }
                         is ChatListItem.StreamingMessage -> {

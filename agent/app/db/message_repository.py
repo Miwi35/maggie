@@ -191,6 +191,33 @@ class MessageRepository:
             await session.commit()
             return result.rowcount
 
+    async def delete_for_user(self, message_id: str, user_id: str) -> bool:
+        """Remove one of the user's messages, tell the chat stream; `False` if not theirs or absent (MAG-342)."""
+        async with agent_session() as session:
+            result = await session.execute(delete(Message).where(Message.id == message_id, Message.user_id == user_id))
+            await session.commit()
+            if not result.rowcount:
+                return False
+
+        try:
+            await self.publisher.publish(
+                topics.for_user(topics.CHAT, user_id), {"deleted": True, "contextId": None, "messageIds": [message_id]}
+            )
+        except Exception as e:
+            logger.warning(f"Failed to publish message deletion to Mercure: {e}")
+
+        return True
+
+    async def count_by_user_contexts(self, user_id: str) -> dict[str, int]:
+        """How many messages each of the user's threads holds, by context id — what a thread's deletion takes away."""
+        async with agent_session() as session:
+            result = await session.execute(
+                select(Message.context_id, func.count())
+                .where(Message.user_id == user_id, Message.context_id.is_not(None))
+                .group_by(Message.context_id)
+            )
+            return {context_id: int(count) for context_id, count in result.all()}
+
     async def find_last(self, user_id: str, exclude_id: str | None = None) -> Message | None:
         """The newest message of the user, whatever its role — `exclude_id` skips the one being answered (MAG-10)."""
         async with agent_session() as session:

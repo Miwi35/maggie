@@ -9,4 +9,6 @@ data class Context(
     val status: String = "active",
     val createdAt: String? = null,
     val updatedAt: String? = null,
+    /** What deleting the thread takes away with it (MAG-342). */
+    val messageCount: Int = 0,
 )
