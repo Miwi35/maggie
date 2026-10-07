@@ -140,7 +140,7 @@ const GREETING = {
   answer: "Bonjour ! Je suis là, dis-moi ce qu'il te faut.",
 }
 
-/** 85-learning-forgotten-once.yaml — a rule announced as learned before anything stored it. */
+/** 87-learning-forgotten-once.yaml — a rule announced as learned before anything stored it. */
 const RULE = {
   request: 'Quand je demande un rappel, je veux une notification',
   skill: 'rappel-avec-notification',

@@ -135,7 +135,7 @@ announcement with the sentence that nothing was scheduled.
 `85-reminder-notification-forgotten.yaml` is the same failure worded « je t'enverrai une
 notification à … » — the phrasing the recette agent saw in production.
 
-`85-learning-forgotten-once.yaml` and `86-learning-forgotten-twice.yaml` do the same
+`87-learning-forgotten-once.yaml` and `88-learning-forgotten-twice.yaml` do the same
 for « c'est noté » with nothing stored (MAG-340): the claim guard sends it back once, the
 model then calls `create_skill`, and a second unbacked « je retiens » becomes the
 sentence that nothing was stored.
