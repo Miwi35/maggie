@@ -390,20 +390,45 @@ class MealGrocerySyncTest extends KernelTestCase
         self::assertSame(0, $this->groceryUpdateCount());
     }
 
-    public function testDeletingARecipeTakesItsShareOffTheListOfUpcomingMeals(): void
+    public function testDeletingARecipeDeletesTheMealItWasTheOnlyRecipeOfAndTakesItsShareOffTheList(): void
     {
-        $this->planMeal('pasta');
+        $pastaMealId = $this->planMeal('pasta');
         $gratinMealId = $this->planMeal('gratin');
         $this->resetMercure();
+        $this->resetAsyncTransport();
 
         $this->bus()->dispatch(new DeleteRecipeCommand(recipeId: (string) $this->getFixture('pasta')->getId()));
 
-        // The meal stays, without the recipe; the gratin keeps its own share.
+        // The pasta meal goes the way a cancelled meal does; the gratin keeps its own share.
         self::assertSame(['Parmesan' => 80.0, 'Tomate' => 2.0], $this->list());
         self::assertSame(2, $this->contributionCount());
         self::assertSame(1, $this->groceryUpdateCount());
+        self::assertNull($this->em()->getRepository(Meal::class)->find($pastaMealId));
         self::assertNotNull($this->em()->getRepository(Meal::class)->find($gratinMealId));
         self::assertNull($this->em()->getRepository(Recipe::class)->find($this->getFixture('pasta')->getId()));
+
+        $this->assertMercureUpdatePublished('/api/meals/'.$pastaMealId);
+        $this->assertElasticsearchDeleteDispatched('meals');
+    }
+
+    public function testDeletingARecipeKeepsAMealThatHasOtherRecipesAndRecomputesItsShare(): void
+    {
+        $mealId = $this->planMeal('pasta');
+        $this->replaceRecipes($mealId, 'pasta', 'gratin');
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        self::assertSame(['Parmesan' => 80.0, 'Pâtes' => 400.0, 'Tomate' => 6.0], $this->list());
+
+        $this->bus()->dispatch(new DeleteRecipeCommand(recipeId: (string) $this->getFixture('pasta')->getId()));
+
+        self::assertSame(['Parmesan' => 80.0, 'Tomate' => 2.0], $this->list());
+
+        $meal = $this->em()->getRepository(Meal::class)->find($mealId);
+        self::assertNotNull($meal);
+        self::assertSame(['Gratin de tomates'], $meal->getRecipes()->map(static fn (Recipe $r) => $r->getName())->getValues());
+        $this->assertMercureUpdatePublished('/api/meals/'.$mealId);
+        $this->assertElasticsearchIndexDispatched(Meal::class);
     }
 
     public function testEditingARecipeAlsoUpdatesTodaysMeal(): void
@@ -417,7 +442,7 @@ class MealGrocerySyncTest extends KernelTestCase
         self::assertSame(['Pâtes' => 600.0, 'Tomate' => 4.0], $this->list());
     }
 
-    public function testDeletingARecipeRewritesTheMealsItLeavesAndKeepsPastShoppingAlone(): void
+    public function testDeletingARecipeDeletesItsPastMealsToo(): void
     {
         $upcomingId = $this->planMeal('pasta');
         $pastId = $this->planMealOn('pasta', '-3 days');
@@ -426,19 +451,34 @@ class MealGrocerySyncTest extends KernelTestCase
 
         $this->bus()->dispatch(new DeleteRecipeCommand(recipeId: (string) $this->getFixture('pasta')->getId()));
 
-        // The upcoming meal's 400 g / 4 tomatoes go; the past meal's stay —
-        // that shopping was done.
-        self::assertSame(['Pâtes' => 400.0, 'Tomate' => 4.0], $this->list());
-        self::assertSame(2, $this->contributionCount());
-
-        $upcoming = $this->em()->getRepository(Meal::class)->find($upcomingId);
-        self::assertCount(0, $upcoming->getRecipes());
-        self::assertSame('Dîner', $upcoming->getSummary());
-        self::assertCount(0, $this->em()->getRepository(Meal::class)->find($pastId)->getRecipes());
-
-        // Both meals changed on screen and in search, not only the list.
+        // Past or upcoming, a meal that only had this recipe is cancelled, and
+        // its shopping with it — as when the owner deletes the meal by hand.
+        self::assertNull($this->em()->getRepository(Meal::class)->find($upcomingId));
+        self::assertNull($this->em()->getRepository(Meal::class)->find($pastId));
+        self::assertSame([], $this->list());
+        self::assertSame(0, $this->contributionCount());
         $this->assertMercureUpdatePublished('/api/meals/'.$upcomingId);
-        $this->assertElasticsearchIndexDispatched(Meal::class);
+        $this->assertMercureUpdatePublished('/api/meals/'.$pastId);
+    }
+
+    public function testDeletingARecipeLeavesThePastShoppingOfAMealThatKeepsOtherRecipes(): void
+    {
+        $upcomingId = $this->planMeal('pasta');
+        $pastId = $this->planMealOn('pasta', '-3 days');
+        $this->replaceRecipes($upcomingId, 'pasta', 'gratin');
+        $this->replaceRecipes($pastId, 'pasta', 'gratin');
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $this->bus()->dispatch(new DeleteRecipeCommand(recipeId: (string) $this->getFixture('pasta')->getId()));
+
+        // The upcoming meal's pasta share goes; the past meal's stays — that
+        // shopping was done.
+        self::assertSame(['Parmesan' => 160.0, 'Pâtes' => 400.0, 'Tomate' => 8.0], $this->list());
+        self::assertCount(1, $this->em()->getRepository(Meal::class)->find($upcomingId)->getRecipes());
+        self::assertCount(1, $this->em()->getRepository(Meal::class)->find($pastId)->getRecipes());
+        $this->assertMercureUpdatePublished('/api/meals/'.$upcomingId);
+        $this->assertElasticsearchIndexDispatchedFor(Meal::class, $pastId);
     }
 
     /**

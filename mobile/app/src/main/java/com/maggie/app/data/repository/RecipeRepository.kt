@@ -50,6 +50,10 @@ class RecipeRepository(
         recipe
     }
 
+    suspend fun getMealCountOfDeletion(id: String): Result<Int> = runCatching {
+        apiService.getRecipeDeletionImpact(id).mealCount
+    }
+
     suspend fun deleteRecipe(id: String): Result<Unit> = runCatching {
         apiService.deleteRecipe(id)
         recipeDao.deleteById(id)

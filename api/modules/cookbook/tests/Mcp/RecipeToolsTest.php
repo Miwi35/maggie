@@ -181,6 +181,7 @@ class RecipeToolsTest extends KernelTestCase
 
         $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
         self::assertTrue($data['success']);
+        self::assertSame(0, $data['deletedMeals']);
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $em->clear();

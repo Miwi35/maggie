@@ -292,7 +292,7 @@
                 "recipeId"
             ]
         },
-        "description": "Delete a recipe by ID."
+        "description": "Delete a recipe by ID. Meals that have no other recipe are deleted with it (their shopping leaves the grocery list); meals with other recipes keep them. Returns deletedMeals, the number of meals deleted."
     },
     "delete_task": {
         "name": "delete_task",

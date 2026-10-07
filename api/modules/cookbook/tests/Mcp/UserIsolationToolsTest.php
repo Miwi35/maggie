@@ -9,6 +9,8 @@ use App\Tests\Support\SecurityTokenTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Cookbook\Entity\Meal;
+use Maggie\Cookbook\Entity\Recipe;
+use Maggie\Cookbook\Mcp\Tool\DeleteRecipeTool;
 use Maggie\Cookbook\Mcp\Tool\GenerateGroceryListTool;
 use Maggie\Cookbook\Mcp\Tool\GetRecipeTool;
 use Maggie\Cookbook\Mcp\Tool\ManageMealsTool;
@@ -99,6 +101,36 @@ class UserIsolationToolsTest extends KernelTestCase
 
         self::assertSame(MissingMcpUserException::MESSAGE, $data['error']);
         self::assertArrayNotHasKey('recipe', $data);
+    }
+
+    public function testDeleteRecipeTakesItsOnlyMealsWithItAndSaysHowMany(): void
+    {
+        $this->loadAndLogin();
+        $ownMealId = (string) $this->getFixture('own_meal')->getId();
+
+        $data = $this->decode((self::getContainer()->get(DeleteRecipeTool::class))($this->ids['own_recipe']));
+
+        self::assertTrue($data['success']);
+        self::assertSame(1, $data['deletedMeals']);
+        $this->em()->clear();
+        self::assertNull($this->em()->find(Recipe::class, $this->ids['own_recipe']));
+        self::assertNull($this->em()->find(Meal::class, $ownMealId));
+        $this->assertMercureUpdatePublished('/meals/'.$ownMealId);
+        $this->assertElasticsearchDeleteDispatched('meals');
+    }
+
+    public function testDeleteRecipeRefusesAnotherUsersRecipe(): void
+    {
+        $this->loadAndLogin();
+        $otherMealId = (string) $this->getFixture('other_meal')->getId();
+
+        $data = $this->decode((self::getContainer()->get(DeleteRecipeTool::class))($this->ids['other_recipe']));
+
+        self::assertArrayHasKey('error', $data);
+        self::assertArrayNotHasKey('success', $data);
+        $this->em()->clear();
+        self::assertNotNull($this->em()->find(Recipe::class, $this->ids['other_recipe']));
+        self::assertNotNull($this->em()->find(Meal::class, $otherMealId));
     }
 
     public function testSearchRecipesByNameOnlyReturnsTheCallersRecipes(): void

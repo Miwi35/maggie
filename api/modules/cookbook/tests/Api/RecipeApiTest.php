@@ -6,9 +6,11 @@ use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
+use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Entity\Recipe;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\Uid\Ulid;
 
 class RecipeApiTest extends WebTestCase
 {
@@ -244,5 +246,101 @@ class RecipeApiTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(400);
         self::assertSame(['Pâtes' => [200.0, 'g'], 'Tomate' => [3.0, 'piece']], $this->lines($pasta));
+    }
+
+    public function testDeleteRecipeRequiresAuthentication(): void
+    {
+        $this->loadFixtures('RecipeApiTest.yaml');
+
+        $this->client->request('DELETE', '/api/recipes/'.$this->getFixture('couscous')->getId());
+
+        self::assertResponseStatusCodeSame(401);
+        self::assertNotNull($this->reloadOrNull($this->getFixture('couscous')));
+    }
+
+    public function testDeleteAnotherUsersRecipeIsNotFound(): void
+    {
+        $this->loadFixtures('RecipeApiTest.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->client->request('DELETE', '/api/recipes/'.$this->getFixture('other_recipe')->getId(), [], [], $this->authHeaders());
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertNotNull($this->reloadOrNull($this->getFixture('other_recipe')));
+    }
+
+    public function testDeletingARecipeDeletesTheMealsItWasTheOnlyRecipeOf(): void
+    {
+        $this->loadFixtures('RecipeApiTest.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $couscousId = (string) $this->getFixture('couscous')->getId();
+        $mondayId = (string) $this->getFixture('couscous_monday')->getId();
+        $pastId = (string) $this->getFixture('couscous_tuesday')->getId();
+        $sharedId = (string) $this->getFixture('couscous_and_pasta')->getId();
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $this->client->request('DELETE', '/api/recipes/'.$couscousId, [], [], $this->authHeaders());
+
+        self::assertResponseStatusCodeSame(204);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNull($em->find(Recipe::class, $couscousId));
+        self::assertNull($em->find(Meal::class, $mondayId), 'an upcoming meal of that recipe alone goes');
+        self::assertNull($em->find(Meal::class, $pastId), 'a past meal of that recipe alone goes too');
+
+        $shared = $em->find(Meal::class, $sharedId);
+        self::assertNotNull($shared, 'a meal with another recipe stays');
+        self::assertSame(['Pâtes à la tomate'], $shared->getRecipes()->map(static fn (Recipe $r) => $r->getName())->getValues());
+
+        $links = $em->getConnection()->fetchFirstColumn('SELECT recipe_id FROM meal_recipe WHERE recipe_id = ?', [(new Ulid($couscousId))->toRfc4122()]);
+        self::assertSame([], $links);
+
+        $this->assertMercureUpdatePublished('/meals/'.$mondayId);
+        $this->assertMercureUpdatePublished('/meals/'.$pastId);
+        $this->assertMercureUpdatePublished('/meals/'.$sharedId);
+        $this->assertMercureUpdatePublished('/recipes/'.$couscousId);
+        $this->assertElasticsearchDeleteDispatched('meals');
+        $this->assertElasticsearchDeleteDispatched('recipes');
+    }
+
+    public function testDeletionImpactRequiresAuthentication(): void
+    {
+        $this->loadFixtures('RecipeApiTest.yaml');
+
+        $this->client->request('GET', '/api/recipes/'.$this->getFixture('couscous')->getId().'/deletion-impact');
+
+        self::assertResponseStatusCodeSame(401);
+    }
+
+    public function testDeletionImpactOfAnotherUsersRecipeIsNotFound(): void
+    {
+        $this->loadFixtures('RecipeApiTest.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->client->request('GET', '/api/recipes/'.$this->getFixture('other_recipe')->getId().'/deletion-impact', [], [], $this->authHeaders());
+
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    public function testDeletionImpactCountsTheMealsThatWouldGo(): void
+    {
+        $this->loadFixtures('RecipeApiTest.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->client->request('GET', '/api/recipes/'.$this->getFixture('couscous')->getId().'/deletion-impact', [], [], $this->authHeaders());
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(2, $data['mealCount'], 'the meal shared with the pasta stays, so it is not counted');
+    }
+
+    private function reloadOrNull(Recipe $recipe): ?Recipe
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+
+        return $em->getRepository(Recipe::class)->find($recipe->getId());
     }
 }

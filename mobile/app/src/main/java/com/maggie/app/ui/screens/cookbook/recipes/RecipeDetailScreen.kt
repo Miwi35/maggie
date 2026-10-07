@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -24,6 +25,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -39,6 +41,17 @@ import com.maggie.app.data.repository.RecipeRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+/**
+ * The question asked before a recipe goes. Deleting it also deletes the meals it
+ * was the only recipe of (MAG-289), so the count is part of the question; `null`
+ * is a count that could not be read, and asks the plain question.
+ */
+fun recipeDeletionTitle(name: String, mealCount: Int?): String = when {
+    mealCount == null || mealCount <= 0 -> "Supprimer « $name » ?"
+    mealCount == 1 -> "Supprimer « $name » et son repas planifié ?"
+    else -> "Supprimer « $name » et ses $mealCount repas planifiés ?"
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun RecipeDetailScreen(
@@ -51,6 +64,19 @@ fun RecipeDetailScreen(
     var recipe by remember { mutableStateOf<Recipe?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
+    var confirmingDelete by remember { mutableStateOf(false) }
+    var mealCount by remember { mutableStateOf<Int?>(null) }
+    var mealCountLoaded by remember { mutableStateOf(false) }
+
+    LaunchedEffect(confirmingDelete) {
+        if (confirmingDelete) {
+            mealCountLoaded = false
+            mealCount = withContext(Dispatchers.IO) {
+                recipeRepository.getMealCountOfDeletion(recipeId).getOrNull()
+            }
+            mealCountLoaded = true
+        }
+    }
 
     LaunchedEffect(recipeId) {
         isLoading = true
@@ -77,13 +103,39 @@ fun RecipeDetailScreen(
                     IconButton(onClick = { onEdit(recipeId) }) {
                         Icon(Icons.Default.Edit, contentDescription = "Modifier")
                     }
-                    IconButton(onClick = { onDelete(recipeId) }) {
+                    IconButton(onClick = { confirmingDelete = true }) {
                         Icon(Icons.Default.Delete, contentDescription = "Supprimer")
                     }
                 },
             )
         },
     ) { paddingValues ->
+        if (confirmingDelete) {
+            AlertDialog(
+                onDismissRequest = { confirmingDelete = false },
+                title = { Text(recipeDeletionTitle(recipe?.name.orEmpty(), mealCount)) },
+                text = {
+                    if (!mealCountLoaded) {
+                        CircularProgressIndicator()
+                    } else {
+                        Text("Les repas qui n’ont que cette recette disparaissent de l’agenda et de la liste de courses. Cette action est définitive.")
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = mealCountLoaded,
+                        onClick = {
+                            confirmingDelete = false
+                            onDelete(recipeId)
+                        },
+                    ) { Text("Supprimer") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { confirmingDelete = false }) { Text("Annuler") }
+                },
+            )
+        }
+
         when {
             isLoading -> {
                 Box(

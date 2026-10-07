@@ -73,6 +73,10 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.io.File
 
+/** What deleting a recipe takes with it: the meals it is the only recipe of (MAG-289). */
+@Serializable
+data class RecipeDeletionImpact(val mealCount: Int = 0)
+
 @Serializable
 data class ApiCollection<T>(val member: List<T> = emptyList())
 
@@ -711,6 +715,12 @@ class MaggieApiService(
             contentType(MERGE_PATCH)
             accept(ContentType("application", "ld+json"))
             setBody(data)
+        }.body()
+    }
+
+    suspend fun getRecipeDeletionImpact(id: String): RecipeDeletionImpact {
+        return client.get("$baseUrl/api/recipes/$id/deletion-impact") {
+            accept(ContentType.Application.Json)
         }.body()
     }
 

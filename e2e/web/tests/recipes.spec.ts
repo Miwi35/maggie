@@ -1,4 +1,5 @@
 import { test, expect, parisDay, seedDate, seedId } from '../fixtures/index.js'
+import type { Page } from '@playwright/test'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { AdminShell } from '../pages/AdminShell.js'
 import { ROUTES } from '../pages/routes.js'
@@ -84,8 +85,8 @@ test.describe('Recipes and meals', () => {
    * the deploy back. Asserted on a list loaded afresh, which is the index's word.
    */
   for (const kind of [
-    { label: 'recipe', index: 'recipes', route: ROUTES.recipes, path: '/api/recipes', data: (name: string) => ({ name, servings: 2 }) },
-    { label: 'ingredient', index: 'products', route: ROUTES.ingredients, path: '/api/ingredients', data: (name: string) => ({ name, category: 'grain' }) },
+    { label: 'recipe', index: 'recipes', route: ROUTES.recipes, path: '/api/recipes', data: (name: string) => ({ name, servings: 2 }), confirm: (page: Page) => page.getByRole('dialog').getByRole('button', { name: 'Confirmer' }).click() },
+    { label: 'ingredient', index: 'products', route: ROUTES.ingredients, path: '/api/ingredients', data: (name: string) => ({ name, category: 'grain' }), confirm: async () => {} },
   ]) {
     test(`a deleted ${kind.label} leaves the list, and stays gone after a reload`, async ({ page, api }) => {
       const name = `Suppression MAG-266 ${kind.label} ${Date.now()}`
@@ -119,6 +120,8 @@ test.describe('Recipes and meals', () => {
       await expect(row).toBeVisible()
 
       await row.getByRole('button', { name: 'Supprimer' }).click()
+      // A recipe asks first, since its planned meals go with it (MAG-289).
+      await kind.confirm(page)
       await expect(row).toHaveCount(0)
 
       // The screen forgets the row at once and sends the delete after the undo
@@ -304,6 +307,82 @@ test.describe('Recipes and meals', () => {
     expect(remaining).toContain(seedId('e2e_ingredient_tomato'))
     expect(remaining).toContain(seedId('e2e_ingredient_pasta'))
     expect(remaining).toContain('Pile LR03')
+  })
+
+  /**
+   * MAG-289: deleting a recipe left its planned meals behind, drawn in the week
+   * with a recipe that no longer exists and still shopping for it. The
+   * confirmation now counts them, and the delete takes them — and their share
+   * of the list — with it.
+   *
+   * Friday and Saturday lunch, and an ingredient of its own: the other journeys
+   * of this file plan Monday to Thursday, and the grocery list is shared, so
+   * the line asserted on is this journey's and nobody else's.
+   */
+  test('deleting a recipe deletes its planned meals and takes their ingredients off the list — MAG-289', async ({
+    page,
+    api,
+  }) => {
+    const headers = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
+    const suffix = `${Date.now()}`
+    const ingredientName = `Semoule MAG-289 ${suffix}`
+    const name = `Couscous MAG-289 ${suffix}`
+
+    const ingredient = await api.post('/api/ingredients', { headers, data: { name: ingredientName, category: 'grain' } })
+    expect(ingredient.status()).toBe(201)
+    const ingredientIri = ((await ingredient.json()) as { '@id': string })['@id']
+
+    const recipe = await api.post('/api/recipes', {
+      headers,
+      data: { name, servings: 2, ingredients: [{ ingredient: ingredientIri, quantity: 300, unit: 'g' }] },
+    })
+    expect(recipe.status()).toBe(201)
+    const recipeIri = ((await recipe.json()) as { '@id': string })['@id']
+
+    for (const date of [dayOfThisWeek(4), dayOfThisWeek(5)]) {
+      const meal = await api.post('/api/meals', {
+        headers,
+        data: {
+          summary: 'Déjeuner',
+          date,
+          slot: 'lunch',
+          agenda: `/api/agendas/${seedId('e2e_agenda_personal')}`,
+          recipes: [recipeIri],
+        },
+      })
+      expect(meal.status(), `POST /api/meals answered ${meal.status()}: ${await meal.text()}`).toBe(201)
+    }
+
+    const onList = (list: GroceryListRow): boolean => JSON.stringify(list.items).includes(ingredientName)
+    await waitForIndexed<GroceryListRow>(api, '/api/grocery_lists', onList, { what: 'The couscous’s semolina' })
+    await waitForIndexed<RecipeRow>(api, '/api/recipes', (r) => r.name === name, { what: 'The recipe this journey deletes' })
+
+    const mealsOf = async (): Promise<MealRow[]> =>
+      (await getCollection<MealRow>(api, '/api/meals?itemsPerPage=200')).filter((m) => String(m.summary).includes(name))
+    await expect.poll(async () => (await mealsOf()).length, { timeout: 30_000, message: 'The two meals were never indexed' }).toBe(2)
+
+    const shell = new AdminShell(page)
+    await shell.goto('/meals')
+    const week = shell.content.locator('[data-testid^="meal-cell-"]').filter({ hasText: name })
+    await expect(week).toHaveCount(2)
+
+    await shell.goto(`${ROUTES.recipes}?sort=id&order=DESC&perPage=50`)
+    const row = shell.content.getByRole('row').filter({ hasText: name })
+    await row.getByRole('button', { name: 'Supprimer' }).click()
+
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toContainText(`Supprimer « ${name} » et ses 2 repas planifiés ?`)
+    await dialog.getByRole('button', { name: 'Confirmer' }).click()
+
+    await expect(row).toHaveCount(0)
+    await expect.poll(async () => (await mealsOf()).length, { timeout: 30_000, message: 'The recipe’s meals are still planned' }).toBe(0)
+    await waitForIndexed<GroceryListRow>(api, '/api/grocery_lists', (list) => !onList(list), {
+      what: 'A grocery list without the deleted recipe’s semolina',
+    })
+
+    await shell.goto('/meals')
+    await expect(shell.content.getByTestId('meal-cell-lunch-4')).toBeVisible()
+    await expect(shell.content.locator('[data-testid^="meal-cell-"]').filter({ hasText: name })).toHaveCount(0)
   })
 
   test('editing a recipe updates the grocery line of the meals already planned with it', async ({ api }) => {
