@@ -2,6 +2,7 @@ mcp:
     app: 'maggie-mcp'
     version: '1.0.0'
     description: 'Maggie AI Agent MCP Server — calendar, cookbook, grocery, finance and notification tools'
+    pagination_limit: 500
     instructions: |
         This MCP server exposes Maggie's business modules: calendar (events, tasks,
         conflict detection, RRULE recurrence), cookbook (recipes, meals, ingredients),
