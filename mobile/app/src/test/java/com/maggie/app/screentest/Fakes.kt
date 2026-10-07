@@ -14,6 +14,7 @@ import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.FinanceDashboard
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.GroceryList
+import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.data.model.RuleSuggestion
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.repository.AgendaRepository
@@ -262,8 +263,14 @@ class FakeRuleSuggestions(
  * What a sent message is read back through is [sent], not the screen: the panel's
  * send button is only right if it reaches the repository with what was typed.
  */
-class FakeChat(private val history: List<ChatMessage> = Seed.conversation) {
+class FakeChat(
+    private val history: List<ChatMessage> = Seed.conversation,
+    private val pending: List<PendingApproval> = emptyList(),
+) {
     private val outgoing = mutableListOf<String>()
+
+    /** The repository the held actions are answered through: verify the calls it received. */
+    val approvals: ApprovalRepository by lazy { mockk<ApprovalRepository>() }
 
     /** What the panel asked the server to send, in order. */
     val sent: List<String> get() = outgoing.toList()
@@ -288,9 +295,16 @@ class FakeChat(private val history: List<ChatMessage> = Seed.conversation) {
         coEvery { preferences.getLastReadMessageId() } returns null
         coEvery { preferences.saveLastReadMessageId(any()) } returns Unit
 
-        val approvals = mockk<ApprovalRepository>()
-        coEvery { approvals.getPending() } returns Result.success(emptyList())
+        coEvery { approvals.getPending() } returns Result.success(pending)
         every { approvals.observe() } returns emptyFlow()
+        coEvery { approvals.describe(any()) } returns null
+        // Result is a value class: `returns` is what mockk unwraps correctly, `answers` is not.
+        pending.forEach { held ->
+            coEvery { approvals.approve(held.id) } returns
+                Result.success(held.copy(status = PendingApproval.STATUS_APPROVED))
+            coEvery { approvals.deny(held.id) } returns
+                Result.success(held.copy(status = PendingApproval.STATUS_DENIED))
+        }
 
         ChatViewModel(repository, mercure, preferences, auth, approvals)
     }

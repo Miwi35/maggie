@@ -1,0 +1,12 @@
+# What Maggie says once the user has authorized a held action: the agent re-prompts her
+# with « L'utilisateur a validé <tool>(<args>). Résultat : … Annonce-le brièvement »
+# (`announce_approved_action`, agent/app/api/routes.py), and the answer is stored in the
+# conversation and published on the chat topic.
+name: delete-event-approved
+description: Announce that the deleted event is gone, after the user authorized it.
+
+match:
+  user_contains: "a validé delete_event"
+
+turns:
+  - text: "C'est fait : l'événement Test validation est supprimé."

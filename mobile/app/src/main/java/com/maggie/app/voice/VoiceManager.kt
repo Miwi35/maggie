@@ -327,8 +327,18 @@ class VoiceManager(
     }
 
     private fun deliver(callback: ((String) -> Unit)?, text: String) {
-        callback?.invoke(text)
+        // Before the callback: a receiver that handles the sentence on the spot, without
+        // a model call, says so with [answerHandled] and must not be overwritten after.
         _state.value = VoiceState.PROCESSING
+        callback?.invoke(text)
+    }
+
+    /**
+     * The sentence just delivered was answered by the app itself, so no reply is on its
+     * way to be read: free the microphone, which only a spoken reply used to do.
+     */
+    fun answerHandled() {
+        if (_state.value == VoiceState.PROCESSING) _state.value = VoiceState.IDLE
     }
 
     /** The engine's last word, or null when there is no engine, it gave up, or it took too long. */
