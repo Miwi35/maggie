@@ -7,8 +7,10 @@ namespace Maggie\Finance\Service;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Category;
+use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Repository\AccountRepository;
 use Maggie\Finance\Repository\CategoryRepository;
+use Maggie\Finance\Repository\TransactionRepository;
 
 /**
  * Resolves the entities a command points to by id, only when they belong to
@@ -20,6 +22,7 @@ class OwnedReferenceResolver
     public function __construct(
         private readonly AccountRepository $accountRepository,
         private readonly CategoryRepository $categoryRepository,
+        private readonly TransactionRepository $transactionRepository,
     ) {
     }
 
@@ -32,6 +35,17 @@ class OwnedReferenceResolver
         }
 
         return $account;
+    }
+
+    public function transaction(string $id, User $owner, string $label = 'Transaction'): Transaction
+    {
+        $transaction = $this->transactionRepository->find($id);
+
+        if (!$transaction instanceof Transaction || !$transaction->getUser()->getId()->equals($owner->getId())) {
+            throw new \DomainException("{$label} not found: {$id}");
+        }
+
+        return $transaction;
     }
 
     public function category(string $id, User $owner, string $label = 'Category'): Category

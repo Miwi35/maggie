@@ -1,0 +1,81 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: internal-transfers-mcp@example.com
+    googleId: google-internal-transfers-mcp
+    name: Internal Transfers Mcp User
+  other_user:
+    email: internal-transfers-mcp-other@example.com
+    googleId: google-internal-transfers-mcp-other
+    name: Someone Else
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+  savings:
+    name: Livret
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 800000
+    isCushion: false
+    user: '@test_user'
+  other_checking:
+    name: Courant de l'autre
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 50000
+    isCushion: false
+    user: '@other_user'
+
+Maggie\Finance\Entity\Transaction:
+  transfer_out:
+    account: '@savings'
+    amountCents: -300000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-12"))>'
+    label: Virement vers Courant
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  transfer_in:
+    account: '@checking'
+    amountCents: 300000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-13"))>'
+    label: Virement du Livret
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  # A second debit on the Livret, the same amount: a plausible but wrong
+  # counterpart for the credit.
+  other_savings_debit:
+    account: '@savings'
+    amountCents: -300000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-20"))>'
+    label: Autre virement sortant
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  groceries:
+    account: '@checking'
+    amountCents: -8000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-14"))>'
+    label: Supermarché
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  someone_elses_credit:
+    account: '@other_checking'
+    amountCents: 300000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-13"))>'
+    label: Crédit de quelqu'un d'autre
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@other_user'

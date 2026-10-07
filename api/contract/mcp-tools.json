@@ -309,6 +309,29 @@
         },
         "description": "Delete a task by its ID. Returns confirmation of deletion."
     },
+    "detect_internal_transfers": {
+        "name": "detect_internal_transfers",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "limitDays": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "dryRun": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ],
+                    "default": null
+                }
+            }
+        },
+        "description": "Pair the movements that went from one of the user's accounts to another, over his history. A transfer between two of his own accounts is neither an expense nor an income, so both legs leave every figure: the lifestyle measured, the saving capacity, the monthly review and the day-over-year comparison of the score. Two lines pair when they are on two different accounts of his, carry exactly opposite amounts in the same currency, are booked four days apart at most, and are already spent or committed. limitDays narrows the pass to the last days (the whole history by default), dryRun reports the pairs it would write without writing any of them — use it first and tell the user which lines would be paired. A line he marked by hand is never requalified. To mark or unmark one line, use manage_transactions with action update, transferKind and counterpartId."
+    },
     "end_errand": {
         "name": "end_errand",
         "inputSchema": {
@@ -1413,6 +1436,20 @@
                     ],
                     "default": null
                 },
+                "transferKind": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "counterpartId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
                 "clear": {
                     "type": [
                         "array",
@@ -1425,7 +1462,7 @@
                 "action"
             ]
         },
-        "description": "List, create, update, delete, or categorize transactions. Amounts are signed integer cents: negative = expense/debit, positive = income/credit. bookedAt is an ISO date (defaults to today). status is one of spent, committed, planned, to_arbitrate. On update, only provided fields change; to remove the category, list categoryId in clear."
+        "description": "List, create, update, delete, or categorize transactions. Amounts are signed integer cents: negative = expense/debit, positive = income/credit. bookedAt is an ISO date (defaults to today). status is one of spent, committed, planned, to_arbitrate. On update, only provided fields change; to remove the category, list categoryId in clear. transferKind says whether the line is a movement between two of the user's own accounts: internal, with counterpartId naming the other leg (omit it when only one of the two accounts is known), or none to take it back out of the transfers — list transferKind in clear for the same effect. An internal transfer counts neither as an expense nor as an income, and a marking made here is recorded as the user's own decision, which the detection never overwrites; detect_internal_transfers is what pairs a whole history."
     },
     "monthly_review": {
         "name": "monthly_review",
