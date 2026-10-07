@@ -1,0 +1,26 @@
+# A reminder the model announces before scheduling it (MAG-339).
+#
+# The production failure, scripted: `date_time` computes the time, then the model ends
+# its turn on « je vous rappellerai » without calling `schedule_proaction`. The reminder
+# guard sends it back once, and this time it schedules — turn 3 is only reachable
+# through that relaunch, which the loop sends as a list of blocks so it counts as a round.
+#
+# Dated 2099: the fake cannot read the time `date_time` returned, and a reminder in the
+# past would fire as soon as the scheduler next ticks.
+name: reminder-forgotten-once
+description: Remind me to drink water — announced without scheduling, then scheduled after the relaunch.
+
+match:
+  user_contains: "boire de l'eau"
+
+turns:
+  - tools:
+      - name: date_time
+        input: {action: add, minutes: 1}
+  - text: "C'est noté, monsieur. Je vous rappellerai de boire de l'eau à 16h05."
+  - tools:
+      - name: schedule_proaction
+        input:
+          prompt: "Rappelle à l'utilisateur de boire de l'eau."
+          scheduled_at: "2099-10-07T16:05:00+02:00"
+  - text: "C'est programmé, monsieur : je vous rappellerai de boire de l'eau à 16h05."

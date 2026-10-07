@@ -8,13 +8,14 @@ from app.db.instruction_repository import instruction_repo
 from app.db.memory_repository import memory_repo
 from app.db.pending_action_repository import pending_action_repo
 from app.db.proaction_repository import proaction_repo
-from app.llm.time_tool import DATE_TIME_TOOLS, handle_date_time
+from app.llm.time_tool import DATE_TIME_TOOLS, handle_date_time, spoken_local_time
 from app.mcp.client import mcp_client
 
 # The policy module is where a `source` means something, so it owns the vocabulary.
 from app.policy.engine import A2A_SOURCE, Mode, policy_engine
 from app.policy.summary import build_summary
 from app.skills.index import skill_index
+from app.user_timezone import resolve_user_timezone
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +27,13 @@ PROACTION_TOOLS = [
     {
         "name": "schedule_proaction",
         "description": (
-            "Schedule a proaction (autonomous task) for later execution. "
-            "Provide a prompt that Maggie will execute at the scheduled time, "
-            "and the ISO 8601 datetime for when it should run."
+            "Schedule a proaction (autonomous task) for later execution — THE tool for every one-off reminder "
+            "or delayed message: « rappelle-moi … », « préviens-moi dans … », « dans X minutes, dis-moi … », "
+            "« n'oublie pas de me dire … ». Provide a prompt that Maggie will execute at the scheduled time, "
+            "and the ISO 8601 datetime for when it should run. Computing the time with date_time schedules "
+            "nothing: call date_time first if needed, then this tool with its 'iso' value. Until this tool "
+            "has succeeded, never tell the user the reminder is set. Once it has, quote the time from "
+            "'scheduledAtLocal' in the result — the user's local time."
         ),
         "input_schema": {
             "type": "object",
@@ -349,7 +354,13 @@ async def _handle_schedule_proaction(arguments: dict, user_id: str) -> str:
         return json.dumps({"error": f"Invalid datetime format: {scheduled_at_str}"})
 
     proaction = await proaction_repo.create(user_id=user_id, prompt=prompt, scheduled_at=scheduled_at)
-    return json.dumps(proaction.to_dict())
+    # The stored instant comes back in UTC. The confirmation quotes this instead, so the user
+    # hears 16h05 in their own timezone and not 14h05 (MAG-339).
+    tz = await resolve_user_timezone(user_id)
+    return json.dumps(
+        proaction.to_dict() | {"scheduledAtLocal": spoken_local_time(scheduled_at, tz), "timezone": tz.key},
+        ensure_ascii=False,
+    )
 
 
 async def _handle_list_proactions(arguments: dict, user_id: str) -> str:

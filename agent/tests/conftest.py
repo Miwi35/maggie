@@ -35,6 +35,8 @@ def paris_user_timezone():
     with (
         patch("app.llm.streaming.resolve_user_timezone", paris),
         patch("app.llm.gateway.resolve_user_timezone", paris),
+        # schedule_proaction quotes the time back in the user's timezone (MAG-339).
+        patch("app.llm.tools.resolve_user_timezone", paris),
     ):
         yield
 
