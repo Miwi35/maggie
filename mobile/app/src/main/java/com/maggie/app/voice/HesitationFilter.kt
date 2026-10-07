@@ -16,10 +16,16 @@ object HesitationFilter {
      */
     val HESITATIONS = listOf("euh", "euhh", "euheu", "heu", "hum", "humm", "hmm", "mmh", "ben", "bah")
 
-    // `(?U)` so a word boundary counts an accented letter as a letter, the way Python's
-    // `\b` does on the agent's side — without it, "clé" + "euh" glued together would
-    // lose its filler and "cléeuh" would come out as "clé".
-    private val filler = Regex("""(?U)\b(?:${HESITATIONS.joinToString("|")})\b""", RegexOption.IGNORE_CASE)
+    /**
+     * A filler with no letter, digit or underscore on either side — the way Python's
+     * `\b` reads it on the agent's side, accented letters included: "cléeuh" stays
+     * whole. Spelled out with lookarounds rather than `(?U)\b` because Android's ICU
+     * engine rejects that flag and the app crashed on the first sentence it filtered.
+     */
+    internal val FILLER_PATTERN =
+        """(?<![\p{L}\p{N}_])(?:${HESITATIONS.joinToString("|")})(?![\p{L}\p{N}_])"""
+
+    private val filler = Regex(FILLER_PATTERN, RegexOption.IGNORE_CASE)
 
     // The space a removal leaves in front of a comma or a period. Only those two:
     // French wants a space before « ; : ? ! », so closing it up there would break the
