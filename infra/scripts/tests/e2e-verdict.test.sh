@@ -141,6 +141,12 @@ cases='' status=0
 for flow in "$@"; do
   name="$(basename "$flow" .yaml)"
   case " ${HANG:-} " in *" $name "*) sleep 30 ;; esac
+  # FAIL_ONCE: red the first time this flow plays, green after.
+  mkdir -p "$E2E_ROOT/attempts"
+  echo x >>"$E2E_ROOT/attempts/$name"
+  case " ${FAIL_ONCE:-} " in
+    *" $name "*) [ "$(wc -l <"$E2E_ROOT/attempts/$name")" -gt 1 ] || { cases="$cases<testcase name=\"$name\" status=\"ERROR\"><failure>once</failure></testcase>"; status=1; continue; } ;;
+  esac
   case " ${FAIL:-} " in
     *" $name "*) cases="$cases<testcase name=\"$name\" status=\"ERROR\"><failure>no</failure></testcase>"; status=1 ;;
     *) cases="$cases<testcase name=\"$name\" status=\"SUCCESS\"/>" ;;
@@ -152,9 +158,9 @@ FAKE
 chmod +x "$work/fake-run"
 
 journeys() {
-  rm -f "$root/runs.log"
+  rm -rf "$root/runs.log" "$root/attempts" "$work/verdicts"
   OUT="$(E2E_MOBILE_RUN="$work/fake-run" E2E_MOBILE_FLOWS="flows/01-core.yaml flows/02-solid.yaml flows/05-shaky.yaml" \
-    E2E_QUARANTINE_TIMEOUT=2 E2E_VERDICT_DIR="$work/verdicts" "$JOURNEYS" 2>&1)"
+    E2E_QUARANTINE_TIMEOUT=2 E2E_VERDICT_DIR="$work/verdicts" E2E_VERDICT_LABEL="mobile phone 1/1" "$JOURNEYS" 2>&1)"
   STATUS=$?
 }
 
@@ -171,6 +177,23 @@ FAIL='02-solid' journeys
 
 HANG='05-shaky' journeys
 [ "$STATUS" -eq 0 ] && grep -q 'still running after 2s' <<<"$OUT" && ok "a flow in quarantine that hangs is stopped, and the lot passes" || bad "hang: exit $STATUS — $OUT"
+
+printf '\n\033[1mThe nightly retry (E2E_RETRY_FAILED=1)\033[0m\n'
+E2E_RETRY_FAILED=1 FAIL_ONCE='02-solid' journeys
+verdict_file="$work/verdicts/mobile-phone-1-1-journeys.json"
+[ "$STATUS" -eq 0 ] && ok "red, then green on the retry: the lot passes" || bad "exit $STATUS: $OUT"
+grep -qx 'flows/02-solid.yaml' "$root/runs.log" && ok "only the failed flow plays again" || bad "runs: $(cat "$root/runs.log")"
+jq -e '.status == "passed" and (.journeys[] | select(.id == "e2e/mobile/flows/02-solid.yaml") | .status == "flaky")' "$verdict_file" >/dev/null \
+  && ok "…and is flaky in the verdict file" || bad "verdict: $(cat "$verdict_file" 2>/dev/null)"
+grep -q 'candidate for the quarantine' <<<"$OUT" && ok "…and reported as a candidate for the quarantine" || bad "no flaky report: $OUT"
+[ "$(find "$work/verdicts" -name '*.json' | wc -l)" -eq 2 ] && ok "the retry folds into its run's verdict, no third file" || bad "verdicts: $(ls "$work/verdicts")"
+
+E2E_RETRY_FAILED=1 FAIL='02-solid' journeys
+[ "$STATUS" -ne 0 ] && [ "$(grep -c '02-solid' "$root/runs.log")" -eq 2 ] && ok "red twice: the lot fails, after one retry" || bad "exit $STATUS — runs: $(cat "$root/runs.log")"
+jq -e '.status == "failed"' "$work/verdicts/mobile-phone-1-1-journeys.json" >/dev/null && ok "…and the verdict file says failed" || bad "verdict: $(cat "$work/verdicts/mobile-phone-1-1-journeys.json")"
+
+FAIL_ONCE='02-solid' journeys
+[ "$STATUS" -ne 0 ] && [ "$(grep -c '02-solid' "$root/runs.log")" -eq 1 ] && ok "without E2E_RETRY_FAILED (a pull request), no retry" || bad "exit $STATUS — runs: $(cat "$root/runs.log")"
 
 printf '\n\033[1mThe real map\033[0m\n'
 unset E2E_ROOT

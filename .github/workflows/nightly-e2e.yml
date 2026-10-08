@@ -1,0 +1,135 @@
+name: Nightly e2e
+
+# Every e2e journey, once a night, on the head of main (owner's decision, 8 Oct.).
+# A pull request only plays the journeys its files touch (e2e/impact-map.yml);
+# this is where the rest is played: the whole Playwright suite and the whole
+# Maestro suite on the three formats, quarantine included. It deploys nothing.
+#
+# It calls ci.yml with `suite: e2e` (the e2e jobs alone — `nightly.yml` runs the
+# other half with `suite: no-e2e`) and `retry_failed_journeys`: a Maestro flow
+# that fails plays once more, and one that passes then is reported flaky, a
+# candidate for the quarantine (Playwright retries once on its own in CI).
+#
+# `report` then reads the verdict of every lot and says, for a red journey, its
+# area in the map and the last commit that touched that area. A red night opens
+# an issue labelled `nightly-e2e-failure`, or comments on the one already open —
+# GitHub notifies the owner, as `nightly.yml` does for the rest of the CI. A
+# green night writes its summary and nothing else.
+
+run-name: >-
+  ${{ github.event_name == 'schedule' && 'Nuit · e2e complets' || 'Nuit · e2e complets · manuel' }}
+
+on:
+  schedule:
+    # 03:07 in Paris all year: cron runs on UTC and Paris moves between UTC+2
+    # (summer) and UTC+1 (winter). Both lines fire every night; `when` keeps the
+    # one that is 03:07 in Paris today. Off the hour, so as not to queue behind
+    # everyone else's cron.
+    - cron: '7 1 * * *'
+    - cron: '7 2 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: nightly-e2e
+  cancel-in-progress: false
+
+# The ceiling of what the called ci.yml asks for (MAG-105): a called workflow may
+# not ask for more than its caller grants, even for a job it skips.
+permissions:
+  contents: read
+  packages: write
+  actions: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  when:
+    name: 3 a.m. in Paris
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+    steps:
+      - name: Keep the cron line that is 03:07 in Paris today
+        id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          SCHEDULE: ${{ github.event.schedule }}
+        run: |
+          # Decided on the cron line that fired, not on the clock: a run GitHub
+          # starts late is still the night's run.
+          offset="$(TZ=Europe/Paris date +%z)"
+          case "$EVENT|$SCHEDULE|$offset" in
+            workflow_dispatch*) run=true ;;
+            'schedule|7 1 * * *|+0200') run=true ;;
+            'schedule|7 2 * * *|+0100') run=true ;;
+            *) run=false ;;
+          esac
+          echo "event=$EVENT schedule='$SCHEDULE' Paris offset=$offset → run=$run"
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+
+  e2e:
+    name: E2E
+    needs: when
+    if: needs.when.outputs.run == 'true'
+    uses: ./.github/workflows/ci.yml
+    with:
+      suite: e2e
+      retry_failed_journeys: true
+    permissions:
+      contents: read
+      packages: write
+      actions: read
+      pull-requests: write
+      issues: write
+
+  report:
+    name: Nightly e2e report
+    needs: [when, e2e]
+    if: always() && needs.when.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      E2E_RESULT: ${{ needs.e2e.result }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The last commit of each area of a red journey.
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: e2e-verdict-*
+          path: verdicts
+
+      - name: Report
+        id: report
+        run: |
+          status=0
+          scripts/e2e/nightly-report.sh verdicts "$E2E_RESULT" > report.md || status=$?
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+          echo "red=$([ "$status" -eq 0 ] && echo false || echo true)" >> "$GITHUB_OUTPUT"
+
+      - name: Open or update the nightly e2e issue
+        if: steps.report.outputs.red == 'true'
+        run: |
+          gh label create nightly-e2e-failure --color B60205 --description "The nightly e2e suite failed" 2>/dev/null || true
+          { cat report.md; printf '\nRun: %s\n' "$RUN_URL"; } > body.md
+          open="$(gh issue list --label nightly-e2e-failure --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body-file body.md
+          else
+            gh issue create --label nightly-e2e-failure --title "Nightly e2e failed" --body-file body.md
+          fi
+
+      - name: Red
+        if: steps.report.outputs.red == 'true'
+        run: |
+          echo "::error::The nightly e2e suite is red — see the summary."
+          exit 1
