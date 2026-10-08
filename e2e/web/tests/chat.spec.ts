@@ -362,8 +362,8 @@ test('changing the subject opens a second context', async ({ page }) => {
 
   // Two, exactly. "More than one" would pass just as happily on the failure
   // 10-context-router-existing.yaml exists to prevent — a router that opens a
-  // context per message — and by this point that would be five. The count is
-  // knowable: the first test opened one, the four after it joined it, this one
+  // context per message — and by this point that would be seven. The count is
+  // knowable: the first test opened one, the five after it joined it, this one
   // opened the second.
   await expect(chat.contextItems).toHaveCount(2)
   await expect(chat.context('Budget e2e')).toBeVisible()
