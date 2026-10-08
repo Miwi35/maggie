@@ -6,8 +6,11 @@ use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
+use Maggie\Cookbook\Entity\Ingredient;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
+use Maggie\Grocery\Entity\Product;
+use Maggie\Grocery\Enum\ProductStockState;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
@@ -128,6 +131,119 @@ class EndErrandControllerTest extends WebTestCase
         self::assertNotNull($em->find(GroceryItem::class, $breadId));
 
         $this->assertMercureUpdatePublished('/grocery_lists/');
+        $this->assertElasticsearchIndexDispatched(GroceryList::class);
+    }
+
+    /** @return array<string, mixed> */
+    private function endErrand(array $body = []): array
+    {
+        $this->client->request('POST', '/api/grocery/end-errand', [], [], array_merge(
+            ['CONTENT_TYPE' => 'application/json'],
+            $this->authHeaders(),
+        ), json_encode($body, JSON_THROW_ON_ERROR));
+
+        self::assertResponseIsSuccessful();
+
+        return json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+    }
+
+    private function stateOf(string $productId): ProductStockState
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+
+        return $em->find(Product::class, $productId)->getStockState();
+    }
+
+    public function testCheckedLinesPutTheirProductsBackInStock(): void
+    {
+        $this->loadFixtures('end_errand_restock.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $riceId = (string) $this->getFixture('product_rice')->getId();
+        $pastaId = (string) $this->getFixture('product_pasta')->getId();
+        $flourId = (string) $this->getFixture('ingredient_flour')->getId();
+
+        $data = $this->endErrand();
+
+        // Sugar was already in stock: nothing changed, so nothing to announce.
+        self::assertSame(3, $data['restockedCount']);
+        $restocked = array_column($data['restockedProducts'], null, 'id');
+        self::assertSame(['Riz', 'in_stock'], [$restocked[$riceId]['name'], $restocked[$riceId]['stockState']]);
+        self::assertArrayHasKey($pastaId, $restocked);
+        self::assertArrayHasKey($flourId, $restocked);
+
+        self::assertSame(ProductStockState::InStock, $this->stateOf($riceId));
+        self::assertSame(ProductStockState::InStock, $this->stateOf($pastaId));
+        self::assertSame(ProductStockState::InStock, $this->stateOf($flourId));
+    }
+
+    public function testUncheckedLineLeavesItsProductState(): void
+    {
+        $this->loadFixtures('end_errand_restock.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $detergentId = (string) $this->getFixture('product_detergent')->getId();
+
+        $data = $this->endErrand();
+
+        self::assertNotContains($detergentId, array_column($data['restockedProducts'], 'id'));
+        self::assertSame(ProductStockState::Low, $this->stateOf($detergentId));
+    }
+
+    public function testLineWithoutProductRestocksNothing(): void
+    {
+        $this->loadFixtures('end_errand.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $data = $this->endErrand();
+
+        self::assertSame([], $data['restockedProducts']);
+        self::assertSame(0, $data['restockedCount']);
+    }
+
+    public function testEndingOneStoreOnlyRestocksItsProducts(): void
+    {
+        $this->loadFixtures('end_errand_restock.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $riceId = (string) $this->getFixture('product_rice')->getId();
+        $pastaId = (string) $this->getFixture('product_pasta')->getId();
+
+        $data = $this->endErrand(['storeId' => (string) $this->getFixture('store_lidl')->getId()]);
+
+        self::assertContains($riceId, array_column($data['restockedProducts'], 'id'));
+        self::assertNotContains($pastaId, array_column($data['restockedProducts'], 'id'));
+        self::assertSame(ProductStockState::InStock, $this->stateOf($riceId));
+        self::assertSame(ProductStockState::Low, $this->stateOf($pastaId));
+    }
+
+    public function testEachRestockedProductIsPublishedAndReindexed(): void
+    {
+        $this->loadFixtures('end_errand_restock.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $riceId = (string) $this->getFixture('product_rice')->getId();
+        $pastaId = (string) $this->getFixture('product_pasta')->getId();
+        $flourId = (string) $this->getFixture('ingredient_flour')->getId();
+        $detergentId = (string) $this->getFixture('product_detergent')->getId();
+
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+        $this->endErrand();
+
+        $topics = array_merge(...array_map(
+            static fn ($update) => $update->getTopics(),
+            $this->getMercureHub()->getUpdates(),
+        ));
+        foreach ([$riceId, $pastaId, $flourId] as $id) {
+            self::assertContains(sprintf('/users/%s/api/products/%s', (string) $this->getFixture('test_user')->getId(), $id), $topics);
+        }
+        self::assertNotContains(sprintf('/users/%s/api/products/%s', (string) $this->getFixture('test_user')->getId(), $detergentId), $topics);
+
+        $this->assertElasticsearchIndexDispatchedFor(Product::class, $riceId);
+        $this->assertElasticsearchIndexDispatchedFor(Product::class, $pastaId);
+        $this->assertElasticsearchIndexDispatchedFor(Ingredient::class, $flourId);
         $this->assertElasticsearchIndexDispatched(GroceryList::class);
     }
 }

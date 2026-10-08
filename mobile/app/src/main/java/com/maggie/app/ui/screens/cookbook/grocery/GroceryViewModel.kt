@@ -47,10 +47,21 @@ data class GroceryUiState(
     val isSelecting: Boolean = false,
     val pendingFinishStoreName: String? = null,
     val pendingFinishItems: List<EndErrandRemainingItem> = emptyList(),
+    /** Products the finished errand put back in stock, announced in the leftovers sheet. */
+    val pendingFinishRestockedCount: Int = 0,
+    /** The same announcement when there is no leftover to show it with; shown once, then consumed. */
+    val restockedToast: String? = null,
 ) {
     // Deferred items count in neither figure: they are not on today's list.
     val checkedCount: Int get() = storeGroups.sumOf { group -> group.items.count { it.checked } }
     val totalCount: Int get() = storeGroups.sumOf { it.items.size }
+}
+
+/** « 1 produit repassé en stock » / « 3 produits repassés en stock »; null when nothing was restocked. */
+fun restockedProductsMessage(count: Int): String? = when {
+    count <= 0 -> null
+    count == 1 -> "1 produit repassé en stock"
+    else -> "$count produits repassés en stock"
 }
 
 private val BUY_AFTER_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy")
@@ -420,10 +431,13 @@ class GroceryViewModel(
             _uiState.value = _uiState.value.copy(isLoading = true)
             groceryListRepository.endErrand(storeId)
                 .onSuccess { response ->
+                    val restocked = response.restockedProducts.size
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         pendingFinishStoreName = if (response.remainingItems.isNotEmpty()) storeName else null,
                         pendingFinishItems = response.remainingItems,
+                        pendingFinishRestockedCount = restocked,
+                        restockedToast = if (response.remainingItems.isEmpty()) restockedProductsMessage(restocked) else null,
                     )
                     refresh()
                 }
@@ -437,7 +451,12 @@ class GroceryViewModel(
         _uiState.value = _uiState.value.copy(
             pendingFinishStoreName = null,
             pendingFinishItems = emptyList(),
+            pendingFinishRestockedCount = 0,
         )
+    }
+
+    fun consumeRestockedToast() {
+        _uiState.value = _uiState.value.copy(restockedToast = null)
     }
 
     fun keepPendingItem(itemId: String) {
@@ -445,6 +464,7 @@ class GroceryViewModel(
         _uiState.value = _uiState.value.copy(
             pendingFinishItems = remaining,
             pendingFinishStoreName = if (remaining.isEmpty()) null else _uiState.value.pendingFinishStoreName,
+            pendingFinishRestockedCount = if (remaining.isEmpty()) 0 else _uiState.value.pendingFinishRestockedCount,
         )
     }
 

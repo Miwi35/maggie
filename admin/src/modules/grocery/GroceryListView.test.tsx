@@ -255,15 +255,43 @@ describe('GroceryListView', () => {
       expect(JSON.parse(patch.body as string)).toEqual({ checked: true })
     })
 
-    test('ending the errand deletes each ticked line at /api/grocery_items/{id}', async () => {
+    test('ending the errand posts to /api/grocery/end-errand and deletes no line itself', async () => {
       const mockFetch = mockApi()
       render(<GroceryListView />)
       await waitFor(() => expect(screen.getByText('Pommes')).toBeInTheDocument())
 
       await userEvent.setup().click(screen.getByRole('button', { name: 'Terminer les courses' }))
 
-      await waitFor(() => expect(callsTo(mockFetch, 'DELETE')).toHaveLength(1))
-      expect(callsTo(mockFetch, 'DELETE')[0].url).toMatch(/\/api\/grocery_items\/item-c$/)
+      await waitFor(() => expect(callsTo(mockFetch, 'POST')).toHaveLength(1))
+      expect(callsTo(mockFetch, 'POST')[0].url).toMatch(/\/api\/grocery\/end-errand$/)
+      expect(callsTo(mockFetch, 'DELETE')).toHaveLength(0)
+    })
+
+    test('ending the errand announces how many products are back in stock', async () => {
+      const mockFetch = mockApi()
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ restockedProducts: [{ id: 'p1', name: 'Riz', stockState: 'in_stock' }] }),
+      })
+      render(<GroceryListView />)
+      await waitFor(() => expect(screen.getByText('Pommes')).toBeInTheDocument())
+
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Terminer les courses' }))
+
+      const dialog = await screen.findByRole('dialog')
+      expect(within(dialog).getByText('1 produit repassé en stock')).toBeInTheDocument()
+    })
+
+    test('ending the errand announces nothing when no product was restocked', async () => {
+      mockApi()
+      render(<GroceryListView />)
+      await waitFor(() => expect(screen.getByText('Pommes')).toBeInTheDocument())
+
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Terminer les courses' }))
+
+      const dialog = await screen.findByRole('dialog')
+      expect(within(dialog).queryByText(/repassé/)).not.toBeInTheDocument()
     })
 
     test('dropping a line left over deletes it at /api/grocery_items/{id}', async () => {
@@ -274,11 +302,10 @@ describe('GroceryListView', () => {
       const user = userEvent.setup()
       await user.click(screen.getByRole('button', { name: 'Terminer les courses' }))
       const dialog = await screen.findByRole('dialog')
-      await waitFor(() => expect(callsTo(mockFetch, 'DELETE')).toHaveLength(1))
       await user.click(within(within(dialog).getByText('Lait').closest('li') as HTMLElement).getByRole('button', { name: 'Retirer' }))
 
-      await waitFor(() => expect(callsTo(mockFetch, 'DELETE')).toHaveLength(2))
-      expect(callsTo(mockFetch, 'DELETE')[1].url).toMatch(/\/api\/grocery_items\/item-b$/)
+      await waitFor(() => expect(callsTo(mockFetch, 'DELETE')).toHaveLength(1))
+      expect(callsTo(mockFetch, 'DELETE')[0].url).toMatch(/\/api\/grocery_items\/item-b$/)
     })
 
     test('an API refusal on ticking shows an error instead of passing silently', async () => {

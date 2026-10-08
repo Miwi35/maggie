@@ -406,10 +406,18 @@ data class EndErrandRemainingStore(
 )
 
 @Serializable
+data class EndErrandRestockedProduct(
+    val id: String,
+    val name: String,
+    val stockState: String? = null,
+)
+
+@Serializable
 data class EndErrandResponse(
     val success: Boolean,
     val remainingItems: List<EndErrandRemainingItem> = emptyList(),
     val remainingCount: Int = 0,
+    val restockedProducts: List<EndErrandRestockedProduct> = emptyList(),
 )
 
 /** The agent refused a decision: 404 (not yours), 409 (already decided) or 410 (expired) mean it can no longer be answered. */

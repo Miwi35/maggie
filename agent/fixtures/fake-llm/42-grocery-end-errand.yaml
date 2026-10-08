@@ -1,10 +1,9 @@
 # "I'm done shopping" — the end of the errand, asked out loud.
 #
-# `end_errand` has no screen of its own: the admin's own "Terminer les courses"
-# deletes the ticked lines one by one through `remove_grocery_item`, so this
-# tool is only ever reached by asking Maggie. Which makes it the one path the
-# e2e journey can take, and `afc1a70` — the middleware that published nothing
-# for an `End` command — the reason it is worth taking (MAG-101).
+# `end_errand` is the conversation's way to the same `End` command as the
+# admin's "Terminer les courses" button. `afc1a70` — the middleware that
+# published nothing for an `End` command — is the reason this path is worth
+# taking in a journey (MAG-101).
 #
 # It writes, so a journey asserts on the list afterwards rather than on the
 # sentence below: the fake does not read tool results, and a scripted answer

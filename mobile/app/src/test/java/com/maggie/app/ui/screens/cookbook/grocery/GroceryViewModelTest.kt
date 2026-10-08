@@ -1,5 +1,8 @@
 package com.maggie.app.ui.screens.cookbook.grocery
 
+import com.maggie.app.data.api.EndErrandRemainingItem
+import com.maggie.app.data.api.EndErrandResponse
+import com.maggie.app.data.api.EndErrandRestockedProduct
 import com.maggie.app.data.api.ReorderEntry
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureEvent
@@ -267,6 +270,86 @@ class GroceryViewModelTest {
         coVerify(atLeast = 2) { groceryListRepository.getGroceryList() }
         // After refresh, original items are restored
         assertEquals(3, viewModel.uiState.value.groceryList!!.items.size)
+    }
+
+    @Test
+    fun `finishing a store with leftovers announces the restocked products in the sheet`() = runTest {
+        coEvery { groceryListRepository.endErrand("store-1") } returns Result.success(
+            EndErrandResponse(
+                success = true,
+                remainingItems = listOf(EndErrandRemainingItem(id = "item-1", label = "Lait")),
+                remainingCount = 1,
+                restockedProducts = listOf(EndErrandRestockedProduct(id = "p1", name = "Riz", stockState = "in_stock")),
+            ),
+        )
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.finishStore("store-1", "Carrefour")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("Carrefour", state.pendingFinishStoreName)
+        assertEquals(1, state.pendingFinishRestockedCount)
+        assertEquals("1 produit repassé en stock", restockedProductsMessage(state.pendingFinishRestockedCount))
+        assertNull(state.restockedToast)
+    }
+
+    @Test
+    fun `finishing a store without leftovers announces the restocked products once`() = runTest {
+        coEvery { groceryListRepository.endErrand("store-1") } returns Result.success(
+            EndErrandResponse(
+                success = true,
+                restockedProducts = listOf(
+                    EndErrandRestockedProduct(id = "p1", name = "Riz"),
+                    EndErrandRestockedProduct(id = "p2", name = "Pâtes"),
+                ),
+            ),
+        )
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.finishStore("store-1", "Carrefour")
+        advanceUntilIdle()
+
+        assertEquals("2 produits repassés en stock", viewModel.uiState.value.restockedToast)
+        assertNull(viewModel.uiState.value.pendingFinishStoreName)
+
+        viewModel.consumeRestockedToast()
+        assertNull(viewModel.uiState.value.restockedToast)
+    }
+
+    @Test
+    fun `finishing a store that restocked nothing announces nothing`() = runTest {
+        coEvery { groceryListRepository.endErrand("store-1") } returns Result.success(EndErrandResponse(success = true))
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.finishStore("store-1", "Carrefour")
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.restockedToast)
+        assertEquals(0, viewModel.uiState.value.pendingFinishRestockedCount)
+        assertNull(restockedProductsMessage(0))
+    }
+
+    @Test
+    fun `dismissing the leftovers sheet clears the restocked count`() = runTest {
+        coEvery { groceryListRepository.endErrand("store-1") } returns Result.success(
+            EndErrandResponse(
+                success = true,
+                remainingItems = listOf(EndErrandRemainingItem(id = "item-1", label = "Lait")),
+                restockedProducts = listOf(EndErrandRestockedProduct(id = "p1", name = "Riz")),
+            ),
+        )
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.finishStore("store-1", "Carrefour")
+        advanceUntilIdle()
+
+        viewModel.dismissPendingFinish()
+
+        assertEquals(0, viewModel.uiState.value.pendingFinishRestockedCount)
     }
 
     @Test

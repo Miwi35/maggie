@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace Maggie\Grocery\MessageHandler;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Core\Mercure\EntityBroadcaster;
 use Maggie\Core\Repository\UserRepository;
 use Maggie\Grocery\Entity\GroceryItem;
-use Maggie\Grocery\Entity\GroceryList;
+use Maggie\Grocery\Entity\Product;
+use Maggie\Grocery\Enum\ProductStockState;
 use Maggie\Grocery\Message\EndErrandCommand;
+use Maggie\Grocery\Message\EndErrandResult;
 use Maggie\Grocery\Repository\GroceryListRepository;
+use Maggie\Grocery\Service\GroceryListBroadcaster;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -19,10 +23,12 @@ class EndErrandHandler
         private readonly EntityManagerInterface $em,
         private readonly GroceryListRepository $groceryListRepository,
         private readonly UserRepository $userRepository,
+        private readonly EntityBroadcaster $entityBroadcaster,
+        private readonly GroceryListBroadcaster $listBroadcaster,
     ) {
     }
 
-    public function __invoke(EndErrandCommand $command): GroceryList
+    public function __invoke(EndErrandCommand $command): EndErrandResult
     {
         $user = $this->userRepository->find($command->userId)
             ?? throw new \DomainException('User not found.');
@@ -34,6 +40,9 @@ class EndErrandHandler
         // causing it to report 0 elements even when the DB has rows.
         $items = $this->em->getRepository(GroceryItem::class)->findBy(['groceryList' => $list]);
 
+        /** @var array<string, Product> $restocked */
+        $restocked = [];
+
         foreach ($items as $item) {
             if (!$item->isChecked()) {
                 continue;
@@ -44,6 +53,15 @@ class EndErrandHandler
                     continue;
                 }
             }
+
+            // Only a bought line says something about the cupboard: removing a line
+            // from the list (RemoveGroceryItemHandler) never reaches this branch.
+            $product = $item->getProduct();
+            if (null !== $product && ProductStockState::InStock !== $product->getStockState()) {
+                $product->setStockState(ProductStockState::InStock);
+                $restocked[(string) $product->getId()] = $product;
+            }
+
             $list->removeItem($item);
             $this->em->remove($item);
         }
@@ -51,6 +69,13 @@ class EndErrandHandler
         $list->setUpdatedAt(new \DateTimeImmutable());
         $this->em->flush();
 
-        return $list;
+        // After the flush, so the indexer finds the rows. The handler returns a
+        // result object, not the list, so the middlewares publish nothing here.
+        $this->listBroadcaster->broadcast($list);
+        foreach ($restocked as $product) {
+            $this->entityBroadcaster->broadcast($product);
+        }
+
+        return new EndErrandResult($list, array_values($restocked));
     }
 }

@@ -8,6 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Entity\User;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Message\EndErrandCommand;
+use Maggie\Grocery\Message\EndErrandResult;
 use Maggie\Grocery\Repository\GroceryListRepository;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -15,6 +16,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Symfony\Component\Routing\Attribute\Route;
 
 final class EndErrandController
@@ -44,7 +46,7 @@ final class EndErrandController
         }
 
         try {
-            $this->messageBus->dispatch(new EndErrandCommand(
+            $envelope = $this->messageBus->dispatch(new EndErrandCommand(
                 userId: (string) $user->getId(),
                 storeId: $storeId,
             ));
@@ -53,6 +55,9 @@ final class EndErrandController
 
             return new JsonResponse(['error' => $cause->getMessage()], Response::HTTP_BAD_REQUEST);
         }
+
+        /** @var EndErrandResult $result */
+        $result = $envelope->last(HandledStamp::class)->getResult();
 
         // Re-fetch the list and its items via direct queries to avoid stale state
         // from the messenger handler's unit of work.
@@ -86,6 +91,12 @@ final class EndErrandController
             'success' => true,
             'remainingItems' => $remaining,
             'remainingCount' => \count($remaining),
+            'restockedProducts' => array_map(static fn ($product) => [
+                'id' => (string) $product->getId(),
+                'name' => $product->getName(),
+                'stockState' => $product->getStockState()->value,
+            ], $result->restockedProducts),
+            'restockedCount' => \count($result->restockedProducts),
         ]);
     }
 }
