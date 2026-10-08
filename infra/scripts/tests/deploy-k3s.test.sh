@@ -44,6 +44,7 @@ run_deploy() {
     FAKE_KUBECTL_DIR="$work/kube" KUBECTL="$HERE/fake-kubectl.sh" \
     MAGGIE_STATE_DIR="$work/state" MAGGIE_BACKUP_DIR="$work/backups" \
     MAGGIE_KUSTOMIZE_DIR="$work/k8s" MAGGIE_HEALTH_URL="http://127.0.0.1:9/" \
+    MAGGIE_POLL_SECONDS=0.1 MAGGIE_MIGRATE_TIMEOUT="${MIGRATE_TIMEOUT:-5}" \
     "$DEPLOY" "$1" 2>&1)"
   STATUS=$?
 }
@@ -82,14 +83,53 @@ TAGS_ON_GHCR="" run_deploy sha-abc
 grep -qE '^run migrate .*--image=ghcr.io/miwi35/maggie-php@sha256:aaaa ' "$work/kube/calls" \
   && ok "the migration pod uses the pinned digest" || bad "wrong migration image: $(grep '^run migrate' "$work/kube/calls")"
 
+printf '\n\033[1mThe migration pod is well formed\033[0m\n'
+fresh_world
+TAGS_ON_GHCR="sha-abc" run_deploy sha-abc
+overrides="$(grep '^run migrate ' "$work/kube/calls" | sed -n 's/.* --overrides=\(.*\) --command .*/\1/p')"
+printf '%s' "$overrides" | python3 -c '
+import json, sys
+spec = json.load(sys.stdin)["spec"]
+container = spec["containers"][0]
+assert container["name"] == "migrate", container["name"]
+assert spec["imagePullSecrets"] == [{"name": "ghcr-pull"}]
+refs = [e.get("secretRef", {}).get("name") for e in container["envFrom"]]
+assert "maggie-env" in refs, refs
+' && ok "valid overrides: container named like the pod, pull secret, maggie-env" || bad "bad overrides: $overrides"
+grep -qE '^run migrate -n maggie --restart=Never ' "$work/kube/calls" \
+  && ok "a plain pod, its phase is read afterwards" || bad "wrong run flags: $(grep '^run migrate' "$work/kube/calls")"
+[ -n "$(line_of '^delete pod migrate ')" ] && ok "the pod is removed once read" || bad "the migration pod is left behind"
+
+printf '\n\033[1mNo tag and no running digest: the php image is latest\033[0m\n'
+fresh_world
+TAGS_ON_GHCR="" run_deploy sha-abc
+grep -qE '^run migrate .*--image=ghcr.io/miwi35/maggie-php:latest ' "$work/kube/calls" \
+  && ok "the migration pod uses latest, as the manifests will" || bad "wrong migration image: $(grep '^run migrate' "$work/kube/calls")"
+
 printf '\n\033[1mA failed migration stops the deploy before anything changes\033[0m\n'
 fresh_world
-touch "$work/kube/fail-migrate"
+echo Failed > "$work/kube/migrate-phase"
 TAGS_ON_GHCR="sha-abc" run_deploy sha-abc
-[ "$STATUS" -ne 0 ] && ok "exits non-zero" || bad "exit 0 although the migration failed"
+[ "$STATUS" -ne 0 ] && ok "exits non-zero although kubectl run itself returned 0" || bad "exit 0 although the migration pod failed"
 [ -z "$(line_of '^apply -k')" ] && ok "the new pods are never rolled out" || bad "manifests applied after a failed migration"
 [ -e "$work/state/pre-deploy-revisions" ] \
   && bad "a rollback record was left for a deploy that changed nothing" || ok "no rollback record: nothing to undo"
+grep -qF 'migration output' <<<"$OUTPUT" && ok "the migration log is in the deploy log" || bad "the migration log is lost"
+
+printf '\n\033[1mA migration pod that cannot be created stops the deploy\033[0m\n'
+fresh_world
+touch "$work/kube/fail-run"
+TAGS_ON_GHCR="sha-abc" run_deploy sha-abc
+[ "$STATUS" -ne 0 ] && ok "exits non-zero" || bad "exit 0 although no migration ran"
+[ -z "$(line_of '^apply -k')" ] && ok "the new pods are never rolled out" || bad "manifests applied without migrating"
+
+printf '\n\033[1mA migration that never ends stops the deploy\033[0m\n'
+fresh_world
+echo Running > "$work/kube/migrate-phase"
+TAGS_ON_GHCR="sha-abc" MIGRATE_TIMEOUT=1 run_deploy sha-abc
+[ "$STATUS" -ne 0 ] && ok "exits non-zero after the timeout" || bad "exit 0 with a migration still running"
+[ -z "$(line_of '^apply -k')" ] && ok "the new pods are never rolled out" || bad "manifests applied with a migration still running"
+[ -n "$(line_of '^delete pod migrate ')" ] && ok "the pod is removed" || bad "the migration pod is left behind"
 
 [ "$failures" -eq 0 ] && printf '\n\033[32mAll good\033[0m\n' || printf '\n\033[31m%d failure(s)\033[0m\n' "$failures"
 exit "$((failures > 0))"

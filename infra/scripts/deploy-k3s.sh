@@ -186,12 +186,31 @@ log "Phase 3: Merging agendas that share a Google calendar..."
 $KUBECTL exec "deployment/php" -n "$NAMESPACE" -- bin/console app:calendar:dedupe-google-agendas --no-interaction
 
 log "Phase 3: Running migrations with $PHP_REF..."
-MIGRATE_OVERRIDES='{"spec":{"imagePullSecrets":[{"name":"ghcr-pull"}],"containers":[{"name":"migrate","image":"'"$PHP_REF"'","envFrom":[{"configMapRef":{"name":"maggie-config"}},{"secretRef":{"name":"maggie-env"}}]}]}}'
+MIGRATE_OVERRIDES='{"spec":{"imagePullSecrets":[{"name":"ghcr-pull"}],"containers":[{"name":"migrate","image":"'"$PHP_REF"'","envFrom":[{"configMapRef":{"name":"maggie-config"}},{"secretRef":{"name":"maggie-env"}}],"env":[{"name":"SENTRY_DSN","valueFrom":{"secretKeyRef":{"name":"glitchtip-dsn","key":"api","optional":true}}}]}]}}'
+MIGRATE_TIMEOUT="${MAGGIE_MIGRATE_TIMEOUT:-600}"
+MIGRATE_POLL="${MAGGIE_POLL_SECONDS:-3}"
+
+# The pod's own phase decides, not the exit code of `kubectl run -i`: attached
+# to a pod that already failed, kubectl may report success, and the rollout
+# would start on the old schema — the very thing this phase exists to prevent.
 $KUBECTL delete pod migrate -n "$NAMESPACE" --ignore-not-found >/dev/null
-$KUBECTL run migrate -n "$NAMESPACE" --rm -i --restart=Never --pod-running-timeout=3m \
+$KUBECTL run migrate -n "$NAMESPACE" --restart=Never \
   --image="$PHP_REF" --overrides="$MIGRATE_OVERRIDES" \
   --command -- bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration \
-  || fail "Migrations failed: nothing was deployed. Fix and deploy again."
+  || fail "Could not start the migration pod: nothing was deployed."
+
+phase=""
+deadline=$((SECONDS + MIGRATE_TIMEOUT))
+while [ "$SECONDS" -lt "$deadline" ]; do
+  phase=$($KUBECTL get pod migrate -n "$NAMESPACE" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+  case "$phase" in Succeeded|Failed) break ;; esac
+  sleep "$MIGRATE_POLL"
+done
+
+$KUBECTL logs migrate -n "$NAMESPACE" 2>&1 || true
+$KUBECTL delete pod migrate -n "$NAMESPACE" --ignore-not-found >/dev/null || true
+[ "$phase" = "Succeeded" ] \
+  || fail "Migrations did not succeed (pod phase: ${phase:-unknown}): nothing was deployed. Fix and deploy again."
 
 # === PHASE 4 : APPLY MANIFESTS ===
 # Revision of every deployment right before the apply. `rollout undo` alone
