@@ -56,6 +56,8 @@ describe('groceryQuantity', () => {
   test('units are named in French and agree with the quantity', () => {
     expect(unitLabel('pack', 1)).toBe('paquet')
     expect(unitLabel('pack', 2)).toBe('paquets')
+    expect(unitLabel('jar', 1)).toBe('bocal')
+    expect(unitLabel('jar', 3)).toBe('bocaux')
     expect(unitLabel('g', 500)).toBe('g')
     expect(unitLabel(undefined, 2)).toBe('')
     expect(formatQuantity(1.5)).toBe('1,5')

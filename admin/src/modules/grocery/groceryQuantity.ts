@@ -10,6 +10,7 @@ const UNIT_LABELS: Record<string, [string, string]> = {
   bottle: ['bouteille', 'bouteilles'],
   pack: ['paquet', 'paquets'],
   sachet: ['sachet', 'sachets'],
+  jar: ['bocal', 'bocaux'],
 }
 
 export const quantityStep = (unit?: string): number => (unit ? (STEPS[unit] ?? 1) : 1)

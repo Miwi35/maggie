@@ -53,5 +53,6 @@ fun unitLabel(unit: CookbookUnit?, quantity: Float): String {
         CookbookUnit.BOTTLE -> if (plural) "bouteilles" else "bouteille"
         CookbookUnit.PACK -> if (plural) "paquets" else "paquet"
         CookbookUnit.SACHET -> if (plural) "sachets" else "sachet"
+        CookbookUnit.JAR -> if (plural) "bocaux" else "bocal"
     }
 }
