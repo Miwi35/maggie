@@ -351,6 +351,8 @@ web:
     areas: [finance]
   e2e/web/tests/finance-internal-transfers.spec.ts:
     areas: [finance, realtime]
+  e2e/web/tests/finance-rejections.spec.ts:
+    areas: [finance]
   e2e/web/tests/finance-overview.spec.ts:
     areas: [finance]
   e2e/web/tests/finance-review.spec.ts:
