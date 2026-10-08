@@ -44,10 +44,24 @@ final class SyncBanksCommandTest extends TestCase
         self::assertStringContainsString('flush failed', $tester->getDisplay());
     }
 
-    public function testARateLimitedRunIsNotAGreenRun(): void
+    public function testARateLimitedRunStopsCleanlyAndIsNotAnError(): void
     {
         $sync = $this->createStub(SyncBankAccounts::class);
         $sync->method('execute')->willReturn($this->syncResult('rate_limited'));
+
+        $tester = $this->tester($sync, owners: [$this->user('a@example.com')]);
+        $tester->execute(['--write' => true]);
+
+        // supercronic reports every non-zero exit to GlitchTip: a refusal the
+        // next run resumes from (MAG-359) is a warning in the logs, not an error.
+        $tester->assertCommandIsSuccessful();
+        self::assertStringContainsString('N26 : x', $tester->getDisplay());
+    }
+
+    public function testAFailedAccountIsNotAGreenRun(): void
+    {
+        $sync = $this->createStub(SyncBankAccounts::class);
+        $sync->method('execute')->willReturn($this->syncResult('failed'));
 
         $tester = $this->tester($sync, owners: [$this->user('a@example.com')]);
         $tester->execute(['--write' => true]);
