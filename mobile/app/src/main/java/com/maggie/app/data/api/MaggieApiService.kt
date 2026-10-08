@@ -716,11 +716,23 @@ class MaggieApiService(
     }
 
     // FCM Token
+    // The client does not `expectSuccess`: a refused registration must still read as one,
+    // or the device looks registered and no push ever reaches it.
     suspend fun registerFcmToken(token: String, deviceName: String? = null) {
-        client.post("$baseUrl/api/fcm_tokens") {
+        val response = client.post("$baseUrl/api/fcm_tokens") {
             contentType(ContentType.Application.Json)
             setBody(FcmTokenRequest(token = token, deviceName = deviceName))
         }
+        if (!response.status.isSuccess()) throw IllegalStateException("HTTP ${response.status.value}")
+    }
+
+    // The token goes in the body, never in the path: a path lands in the access logs.
+    suspend fun unregisterFcmToken(token: String) {
+        val response = client.delete("$baseUrl/api/fcm_tokens") {
+            contentType(ContentType.Application.Json)
+            setBody(FcmTokenRequest(token = token))
+        }
+        if (!response.status.isSuccess()) throw IllegalStateException("HTTP ${response.status.value}")
     }
 
     // Recipes

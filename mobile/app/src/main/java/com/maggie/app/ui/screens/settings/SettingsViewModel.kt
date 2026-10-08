@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.auth.AuthRepository
+import com.maggie.app.data.fcm.PushTokenRegistrar
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.Agenda
@@ -39,6 +40,7 @@ class SettingsViewModel(
     private val agendaRepository: AgendaRepository,
     private val mercureService: MercureService,
     private val voiceManager: VoiceManager,
+    private val pushTokenRegistrar: PushTokenRegistrar,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -175,6 +177,8 @@ class SettingsViewModel(
 
     fun logout() {
         viewModelScope.launch {
+            // While the credentials still exist: the server takes the removal from the signed-in user only.
+            pushTokenRegistrar.unregister()
             authRepository.clear()
         }
     }

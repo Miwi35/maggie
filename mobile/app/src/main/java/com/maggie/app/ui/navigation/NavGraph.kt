@@ -60,6 +60,7 @@ import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.NotificationPermissionPrompt
 import com.maggie.app.ui.components.AppDrawerContent
 import com.maggie.app.data.model.Context
 import com.maggie.app.ui.components.ChatBottomBar
@@ -429,6 +430,9 @@ fun NavGraph() {
 
     // A link names an entity only once the user is signed in and unlocked.
     val linkReady = isAuthenticated == true && !isLocked
+
+    // Android 13+ shows nothing until it is asked: once, after the sign-in, with the reason.
+    if (linkReady) NotificationPermissionPrompt()
 
     val isMainScreen = currentRoute in MAIN_SCREENS
 

@@ -9,7 +9,11 @@ import com.maggie.app.data.auth.AuthManager
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.auth.BiometricLockManager
 import com.maggie.app.data.auth.signInStrategy
-import com.maggie.app.data.fcm.MaggieFcmService
+import com.maggie.app.data.fcm.FcmTokenSource
+import com.maggie.app.data.fcm.FirebaseTokenSource
+import com.maggie.app.data.fcm.PushActionHandler
+import com.maggie.app.data.fcm.PushChannels
+import com.maggie.app.data.fcm.PushTokenRegistrar
 import com.maggie.app.data.local.MaggieDatabase
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.repository.AgendaRepository
@@ -83,6 +87,10 @@ import io.ktor.http.ContentType
 import io.ktor.http.Url
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -199,6 +207,11 @@ class MaggieApp : Application() {
             single { MaggieApiService(get()) }
             single { MercureService(get()) }
 
+            // Push
+            single<FcmTokenSource> { FirebaseTokenSource() }
+            single { PushTokenRegistrar(get(), get()) }
+            single { PushActionHandler(get()) }
+
             // Repositories
             single { EventRepository(get(), get()) }
             single { TaskRepository(get(), get()) }
@@ -245,7 +258,7 @@ class MaggieApp : Application() {
             viewModel { FullCalendarViewModel(get(), get(), get(), get(), get(), get()) }
             viewModel { ChatViewModel(get(), get(), get(), get(), get()) }
             viewModel { ContextViewModel(get(), get(), get()) }
-            viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get()) }
+            viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get(), get()) }
             viewModel { NotificationViewModel(get(), get(), get()) }
             viewModel { SearchViewModel(get()) }
             viewModel { ProactionViewModel(get()) }
@@ -277,7 +290,13 @@ class MaggieApp : Application() {
         get<VoiceManager>().initialize()
         get<BiometricLockManager>().initialize()
 
-        MaggieFcmService.createNotificationChannels(this)
+        PushChannels.create(this)
+        // Sent at every start of a signed-in app, not only when Firebase rotates the token.
+        val registrar = get<PushTokenRegistrar>()
+        val authRepository = get<AuthRepository>()
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            registrar.keepRegistered(authRepository.isAuthenticated)
+        }
         removeListeningLeftovers()
     }
 

@@ -60,6 +60,11 @@
             </intent-filter>
         </service>
 
+        <!-- The buttons of a push notification, and the alarm that brings a postponed one back (MAG-29). Never exported: only the app's own PendingIntents reach it. -->
+        <receiver
+            android:name=".data.fcm.PushActionReceiver"
+            android:exported="false" />
+
         <service
             android:name=".voice.MaggieVoiceInteractionService"
             android:exported="true"

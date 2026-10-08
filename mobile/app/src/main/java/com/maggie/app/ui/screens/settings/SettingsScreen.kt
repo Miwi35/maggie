@@ -69,6 +69,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.maggie.app.BuildConfig
+import com.maggie.app.ui.components.NotificationsBlockedNotice
+import com.maggie.app.ui.components.rememberNotificationsAllowed
 import com.maggie.app.ui.UiTags
 import com.maggie.app.voice.AssistantRoleHelper
 import com.maggie.app.voice.AssistantRoleState
@@ -136,6 +138,7 @@ private fun SettingsList(
     onBack: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val notificationsAllowed by rememberNotificationsAllowed()
 
     Scaffold(
         topBar = {
@@ -196,8 +199,10 @@ private fun SettingsList(
             SettingsRow(
                 icon = Icons.Outlined.Notifications,
                 title = "Notifications",
-                subtitle = uiState.preferences?.let {
-                    if (it.notificationsEnabled) "Activées" else "Désactivées"
+                subtitle = if (!notificationsAllowed) {
+                    "Bloquées dans Android"
+                } else {
+                    uiState.preferences?.let { if (it.notificationsEnabled) "Activées" else "Désactivées" }
                 },
                 onClick = { onSectionClick(SettingsSection.NOTIFICATIONS) },
             )
@@ -578,6 +583,7 @@ private fun NotificationsSection(
     onBack: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val allowed by rememberNotificationsAllowed()
 
     Scaffold(
         topBar = {
@@ -598,6 +604,7 @@ private fun NotificationsSection(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            if (!allowed) NotificationsBlockedNotice()
             uiState.preferences?.let { prefs ->
                 Row(
                     verticalAlignment = Alignment.CenterVertically,

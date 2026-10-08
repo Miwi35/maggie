@@ -305,6 +305,36 @@ class MaggieApiServiceTest {
         """{"id":"ap-1","toolName":"delete_event","arguments":{"id":"evt-1"},"status":"pending","expiresAt":"2026-10-07T10:00:00Z"}"""
 
     @Test
+    fun `a refused FCM registration is an error, so the device does not look registered`() = runBlocking {
+        val client = approvalClient(status = HttpStatusCode.Unauthorized, body = "{}", seen = mutableListOf())
+
+        val error = runCatching { MaggieApiService(client).registerFcmToken("tok-1", "Pixel") }.exceptionOrNull()
+
+        assertTrue(error is IllegalStateException)
+    }
+
+    @Test
+    fun `an FCM token is removed with a DELETE that names it in the body, never in the path`() = runBlocking {
+        val seen = mutableListOf<Pair<HttpMethod, String>>()
+        var body: String? = null
+        val client = HttpClient(
+            MockEngine { request ->
+                seen += request.method to request.url.toString()
+                body = String(request.body.toByteArray())
+                respond(content = ByteReadChannel(""), status = HttpStatusCode.NoContent)
+            },
+        ) {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true; isLenient = true }) }
+        }
+
+        MaggieApiService(client).unregisterFcmToken("tok-secret")
+
+        assertEquals(HttpMethod.Delete, seen.single().first)
+        assertTrue(seen.single().second.endsWith("/api/fcm_tokens"))
+        assertTrue(body!!.contains("tok-secret"))
+    }
+
+    @Test
     fun `getPendingApprovals asks the agent for the pending ones`() = runBlocking {
         val seen = mutableListOf<Pair<HttpMethod, String>>()
         val client = approvalClient(body = "[$pendingJson]", seen = seen)
