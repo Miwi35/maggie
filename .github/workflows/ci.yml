@@ -51,8 +51,18 @@ jobs:
       agent: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.agent == 'true' }}
       ciqual: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.ciqual == 'true' }}
       admin: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.admin == 'true' }}
-      e2e: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.code.outputs.e2e == 'true' }}
-      mobile: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.code.outputs.mobile == 'true' }}
+      # The e2e journeys this change plays (owner's decision, 8 Oct.): the ones
+      # its files touch in e2e/impact-map.yml, plus the critical core of each
+      # platform that plays at all — every journey on the nightly run. `e2e` and
+      # `mobile` say whether a platform plays at all; the lots are the matrices of
+      # `e2e-shard` and `e2e-mobile-device`.
+      e2e: ${{ steps.select.outputs.e2e == 'true' }}
+      mobile: ${{ steps.select.outputs.mobile == 'true' }}
+      web_specs: ${{ steps.select.outputs.web_specs }}
+      web_lots: ${{ steps.select.outputs.web_lots }}
+      web_lot_count: ${{ steps.select.outputs.web_lot_count }}
+      mobile_lots: ${{ steps.select.outputs.mobile_lots }}
+      mobile_lot_count: ${{ steps.select.outputs.mobile_lot_count }}
       cron: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.cron == 'true' }}
       mobile_unit: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.mobile_unit == 'true' }}
       # The emulators the Maestro journeys run on (MAG-98). One phone on a pull
@@ -74,7 +84,7 @@ jobs:
         # everything (the outputs above).
         if: github.event_name == 'pull_request' || github.event_name == 'push'
         with:
-          # The files behind the `e2e` and `mobile` matches, for the step below.
+          # The files behind the `all` match, for the journey selection below.
           list-files: json
           filters: |
             api:
@@ -108,23 +118,6 @@ jobs:
               - 'infra/k8s/cron-deployment.yaml'
               - 'infra/scripts/tests/cron-image.test.sh'
               - '.github/workflows/ci.yml'
-            e2e:
-              - 'api/**'
-              - 'admin/**'
-              - 'agent/**'
-              - 'ciqual/**'
-              - '.docker/**'
-              - 'e2e/**'
-              # design-system.spec.ts reads design/tokens.json (MAG-286).
-              - 'design/**'
-              # The eval scenarios, whose only guard is the `e2e:eval:check`
-              # step in this job. Without them here, a pull request touching
-              # nothing else skips the job, a skipped job satisfies branch
-              # protection, and a typo'd expectation merges green — to surface
-              # as a red nightly at 03:17 that looks like a prompt regression.
-              - 'scripts/prompt-lab/**'
-              - 'docker-compose.e2e.yml'
-              - '.github/workflows/ci.yml'
             # The unit tests of the release variant (formerly mobile.yml). The DTO
             # and Mercure-topic contract tests read api/contract/ and
             # agent/contract/, which the API and agent suites generate: a change
@@ -139,41 +132,37 @@ jobs:
               - 'design/**'
               - '.github/actions/coverage/**'
               - '.github/workflows/ci.yml'
-            # The emulator journeys (MAG-98). The app and the flows, obviously —
-            # and the stack too, because what these catch is the app against a
-            # *running* API: MAG-93 counted seven past regressions reachable
-            # from nowhere else. Narrower than the `e2e` filter in one way (the
-            # admin cannot break the app) and wider in another (`mobile/**`).
-            mobile:
-              - 'mobile/**'
-              - 'e2e/mobile/**'
-              - 'api/**'
-              - 'agent/**'
-              - '.docker/**'
-              - 'docker-compose.e2e.yml'
-              - '.github/workflows/ci.yml'
+            # Every changed file, for the journey selection below: the `e2e` and
+            # `mobile` filters this list used to hold are e2e/impact-map.yml now.
+            all:
+              - '**'
 
-      # A pull request whose only files under `api/`, `admin/`, `e2e/`… are
-      # Markdown (a README, a module's notes) matches the filters above but
-      # changes nothing a stack could run: it must not start eleven containers
-      # (MAG-180). `e2e-stack` below still reports, green, whatever this says —
-      # a skipped job satisfies branch protection, and the aggregator tells a
-      # skip from a failure.
-      - name: Ignore changes that are only documentation
-        id: code
-        if: github.event_name == 'pull_request' || github.event_name == 'push'
+      # The journeys of this change (owner's decision, 8 Oct.), read off
+      # e2e/impact-map.yml by scripts/e2e/impacted.sh: the ones its files
+      # touch, plus the critical core of each platform that plays. A change that
+      # is only Markdown plays nothing (MAG-180) — it must not start eleven
+      # containers. A file the map does not know plays the suite of its platform;
+      # a transversal one (the core module, the contract, the config, auth, the
+      # stack, the harness, a lockfile, this workflow) plays everything. The
+      # eval scenarios are in the map too: `e2e:eval:check` in the first web lot
+      # is their only guard, and a typo'd expectation must not merge green. The
+      # nightly run has no base and plays every journey.
+      #
+      # `e2e-stack` and `e2e-mobile` still report, green, when nothing plays — a
+      # skipped job satisfies branch protection, and the aggregator tells a skip
+      # from a failure.
+      - name: Select the e2e journeys
+        id: select
         env:
-          E2E_FILES: ${{ steps.filter.outputs.e2e_files }}
-          MOBILE_FILES: ${{ steps.filter.outputs.mobile_files }}
+          FILES: ${{ steps.filter.outputs.all_files }}
+          EVENT: ${{ github.event_name }}
         run: |
-          for name in e2e mobile; do
-            var="${name^^}_FILES"
-            if [ "$(jq 'map(select(test("\\.md$") | not)) | length' <<<"${!var:-[]}")" -gt 0 ]; then
-              echo "$name=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "$name=false" >> "$GITHUB_OUTPUT"
-            fi
-          done
+          if [ "$EVENT" = pull_request ] || [ "$EVENT" = push ]; then
+            jq -r '.[]' <<<"${FILES:-[]}" | scripts/e2e/impacted.sh select --github-output > selection.json
+          else
+            scripts/e2e/impacted.sh select --all --github-output > selection.json
+          fi
+          jq -c 'del(.files)' selection.json
 
   api-lint:
     name: API Lint (PHPStan)
@@ -433,24 +422,29 @@ jobs:
           scripts/coverage/report.sh 'Coverage — API, agent, ciqual, admin, mobile' coverage-report-ci coverage-out | tee report.md >> "$GITHUB_STEP_SUMMARY"
           scripts/coverage/comment.sh "$PR" coverage-report-ci report.md
 
-  # The Playwright journeys in four shards (MAG-180), each on a stack of its own
+  # The Playwright journeys in up to four shards (MAG-180), each on a stack of its own
   # — a stack is ~1 min to start and the journeys 2.5 min to run, so four of
   # them in parallel beat one. Two workers per shard, not more: a 4-vCPU runner
   # already hosts the whole stack, and at four workers pages time out (see
   # e2e/web/playwright.config.ts).
   #
+  # Only the journeys `Detect changes` selected (e2e/impact-map.yml), in as many
+  # shards as they need: one per ten spec files, four at most — four on the
+  # nightly run. A journey in quarantine plays, but its failure only warns in the
+  # job summary (`scripts/e2e/verdict.sh`).
+  #
   # Not a required check, on purpose: the shards are named after their index.
-  # `e2e-stack` below carries the required name and waits for all four.
+  # `e2e-stack` below carries the required name and waits for all of them.
   e2e-shard:
-    name: E2E shard ${{ matrix.shard }}/4
+    name: E2E shard ${{ matrix.shard }}/${{ needs.changes.outputs.web_lot_count }}
     needs: changes
     if: needs.changes.outputs.e2e == 'true'
     runs-on: ubuntu-latest
     strategy:
-      # A red shard must not hide what the other three found.
+      # A red shard must not hide what the others found.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: ${{ fromJSON(needs.changes.outputs.web_lots) }}
     permissions:
       contents: read
       # The stack's images are pushed once per set of build inputs (MAG-135).
@@ -569,10 +563,11 @@ jobs:
       - name: Start the stack
         run: task e2e:up
 
-      # What follows up to the journeys runs in one shard only: none of it
-      # depends on how the Playwright tests are split.
+      # What follows up to the journeys runs in one shard only, the first — the
+      # one every selection has: none of it depends on how the Playwright tests
+      # are split.
       - name: Seed
-        if: matrix.shard == 2
+        if: matrix.shard == 1
         # No --now. The seed anchors on the containers' clock, which follows
         # `E2E_NOW` (pinned above): passing --now would move the seeded world away
         # from it, and every endpoint that derives its period from `new
@@ -583,23 +578,36 @@ jobs:
         run: task e2e:seed
 
       - name: Smoke journey
-        if: matrix.shard == 2
+        if: matrix.shard == 1
         run: task e2e:smoke
 
       - name: The web journeys lint and type-check
-        if: matrix.shard == 2
+        if: matrix.shard == 1
         # Seconds, in the container the journeys themselves run in, and it
         # catches a renamed page object or an `expect` nobody awaited before
         # eleven services have been driven through a browser to find out.
         run: task e2e:web:lint && task e2e:web:typecheck
 
       - name: Web journeys (Playwright)
+        id: web
         # Reseeds on its own — the smoke journey above writes, and these
-        # assert on the seeded world. This shard's share of the tests only.
-        run: task e2e:web -- --shard=${{ matrix.shard }}/4
+        # assert on the seeded world. This shard's share of the selected spec
+        # files only. Playwright's exit status is not the verdict: verdict.sh
+        # reads its JSON report and lets a journey in quarantine fail without
+        # failing the shard.
+        env:
+          SPECS: ${{ needs.changes.outputs.web_specs }}
+          SHARD: ${{ matrix.shard }}/${{ needs.changes.outputs.web_lot_count }}
+          E2E_VERDICT_LABEL: web shard ${{ matrix.shard }}/${{ needs.changes.outputs.web_lot_count }}
+          E2E_VERDICT_OUT: e2e/verdicts/web-${{ matrix.shard }}.json
+        run: |
+          status=0
+          # shellcheck disable=SC2086 # one argument per spec file
+          task e2e:web -- --shard="$SHARD" $SPECS || status=$?
+          scripts/e2e/verdict.sh web e2e/web/results/results.json "$status"
 
       - name: The eval scenarios parse
-        if: matrix.shard == 2
+        if: matrix.shard == 1
         # Cheap — no key, no model call — and the only place a scenario file
         # that went missing or grew a typo'd expectation fails loudly. Without
         # it the first symptom is the nightly going red at 03:17 for a reason
@@ -607,9 +615,11 @@ jobs:
         run: task e2e:eval:check
 
       - name: Playwright blob report
-        if: failure()
-        # This shard's half of the report, traces and videos included. The
-        # `e2e-report` job merges the four into the one artifact people open.
+        # Also when only a journey in quarantine failed: its trace is how it
+        # leaves quarantine.
+        if: failure() || steps.web.outputs.quarantine_failed == 'true'
+        # This shard's part of the report, traces and videos included. The
+        # `e2e-report` job merges the shards' into the one artifact people open.
         uses: actions/upload-artifact@v4
         with:
           name: blob-report-${{ matrix.shard }}
@@ -806,7 +816,10 @@ jobs:
   # The journeys are split in three shards (MAG-233, e2e/mobile/shards.txt), each
   # on its own emulator and its own stack, in parallel: nine flows in a row on one
   # emulator took 7.5 minutes. The nightly run multiplies that by the three
-  # formats.
+  # formats. A pull request plays only the flows `Detect changes` selected
+  # (e2e/impact-map.yml): a shard of shards.txt left with none is not started.
+  # The flows in quarantine play in a second run of their shard, under a time
+  # limit, and never fail it (scripts/e2e/mobile-journeys.sh).
   #
   # Not the required check, and not named `E2E Mobile (…)`: a job skipped by its
   # `if` never expands its matrix, so it reports the literal name
@@ -814,7 +827,7 @@ jobs:
   # (phone)` would wait forever on a PR that leaves the app alone (MAG-213).
   # `e2e-mobile` below is the required one.
   e2e-mobile-device:
-    name: E2E Mobile journeys (${{ matrix.device.name }} ${{ matrix.shard }}/3)
+    name: E2E Mobile journeys (${{ matrix.device.name }} ${{ matrix.lot.index }}/${{ needs.changes.outputs.mobile_lot_count }})
     needs: [changes, e2e-mobile-build]
     if: needs.changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
@@ -828,16 +841,16 @@ jobs:
       fail-fast: false
       matrix:
         device: ${{ fromJSON(needs.changes.outputs.mobile_devices) }}
-        # `run.sh` refuses a count that is not the number of lines in
-        # shards.txt, so a drift between the two fails loudly.
-        shard: [1, 2, 3]
+        # {index, flows}: the shards of shards.txt that kept a selected flow,
+        # numbered again from 1 (scripts/e2e/impacted.sh).
+        lot: ${{ fromJSON(needs.changes.outputs.mobile_lots) }}
     permissions:
       contents: read
       # Same as `e2e-stack`: the stack's images are pulled by hash, and pushed
       # when a build input moved (MAG-135).
       packages: write
     env:
-      COMPOSE_PROJECT_NAME: maggie-e2e-mobile-${{ matrix.device.name }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+      COMPOSE_PROJECT_NAME: maggie-e2e-mobile-${{ matrix.device.name }}-${{ matrix.lot.index }}-${{ github.run_id }}-${{ github.run_attempt }}
       E2E_LOGIN_TOKEN: ci-e2e-login-token
     steps:
       # lfs: true for the same reason as `e2e-stack`: `task e2e:up` builds the
@@ -982,7 +995,10 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         env:
           E2E_MOBILE_APK: ${{ github.workspace }}/e2e/mobile/apk/maggie-e2e.apk
-          E2E_MOBILE_SHARD: ${{ matrix.shard }}/3
+          # This lot's flows, the ones in quarantine last (scripts/e2e/impacted.sh).
+          E2E_MOBILE_FLOWS: ${{ matrix.lot.flows }}
+          E2E_VERDICT_LABEL: mobile ${{ matrix.device.name }} ${{ matrix.lot.index }}/${{ needs.changes.outputs.mobile_lot_count }}
+          E2E_VERDICT_DIR: ${{ github.workspace }}/e2e/verdicts
         with:
           api-level: 34
           target: google_apis
@@ -1003,7 +1019,9 @@ jobs:
           # MAG-205.
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none -timezone Europe/Paris -no-snapshot-save
           disable-animations: true
-          script: task e2e:mobile
+          # The blocking flows, then the ones in quarantine, each judged by
+          # scripts/e2e/verdict.sh: only the first run's verdict fails the job.
+          script: scripts/e2e/mobile-journeys.sh
 
       - name: Maestro report
         # Always, not only on failure (MAG-233): the junit.xml of a green shard says
@@ -1014,7 +1032,7 @@ jobs:
         # emulator nobody can attach to.
         uses: actions/upload-artifact@v4
         with:
-          name: maestro-report-${{ matrix.device.name }}-${{ matrix.shard }}-${{ github.run_id }}
+          name: maestro-report-${{ matrix.device.name }}-${{ matrix.lot.index }}-${{ github.run_id }}
           overwrite: true
           path: e2e/mobile/report
           retention-days: 7
@@ -1255,8 +1273,13 @@ jobs:
       - name: Lint shell scripts
         run: |
           docker run --rm -v "$PWD":/mnt -w /mnt koalaman/shellcheck:stable -x --severity=warning \
-            infra/scripts/*.sh infra/scripts/tests/*.sh scripts/agent-guard/*.sh scripts/coverage/*.sh e2e/*.sh e2e/mobile/*.sh
-      - name: Test the PR aggregator, the e2e reference clock, the smoke suite, the rollback, the failed-deploy report, the incident gate, the deploy gate, the skipped CI of main, the mobile publication range, the freeze lift and the agent guard rails
+            infra/scripts/*.sh infra/scripts/tests/*.sh scripts/agent-guard/*.sh scripts/coverage/*.sh scripts/e2e/*.sh \
+            e2e/*.sh e2e/mobile/*.sh
+      # Every journey of e2e/ is in e2e/impact-map.yml, and the map is sound: a
+      # journey forgotten there would only ever play on the nightly run.
+      - name: The e2e impact map covers every journey
+        run: scripts/e2e/impacted.sh check
+      - name: Test the PR aggregator, the e2e reference clock, the e2e journey selection and quarantine, the smoke suite, the rollback, the failed-deploy report, the incident gate, the deploy gate, the skipped CI of main, the mobile publication range, the freeze lift and the agent guard rails
         run: |
           bash infra/scripts/tests/smoke-prod.test.sh
           bash infra/scripts/tests/rollback-k3s.test.sh
@@ -1277,3 +1300,5 @@ jobs:
           bash infra/scripts/tests/coverage.test.sh
           bash infra/scripts/tests/pr-checks-gate.test.sh
           bash infra/scripts/tests/clock.test.sh
+          bash infra/scripts/tests/e2e-impacted.test.sh
+          bash infra/scripts/tests/e2e-verdict.test.sh

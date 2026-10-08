@@ -118,6 +118,7 @@ infra/k8s/secrets.yaml
 !/scripts/prompt-lab/
 !/scripts/agent-guard/
 !/scripts/coverage/
+!/scripts/e2e/
 # JWT cached by `mcp-session.sh login`
 /scripts/prompt-lab/.token
 
@@ -134,6 +135,10 @@ e2e/web/node_modules/
 e2e/web/playwright-report/
 e2e/web/blob-report/
 e2e/web/test-results/
+# The JSON report scripts/e2e/verdict.sh reads in CI.
+e2e/web/results/
+# The verdicts of the e2e lots (scripts/e2e/verdict.sh), uploaded by CI.
+e2e/verdicts/
 # The Maestro harness (MAG-98): the JUnit report and the screenshots of a failed
 # flow. CI uploads them too; the CLI itself lives under .e2e-cache/ below.
 e2e/mobile/report/

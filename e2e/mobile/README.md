@@ -14,7 +14,7 @@ task e2e:up                                 # the stack, once
 task e2e:mobile                             # reseed, install the e2e flavor, run every flow
 task e2e:mobile -- --include-tags voice     # one family
 task e2e:mobile -- flows/01-login-chat.yaml # one flow — paths are relative to e2e/mobile/
-E2E_MOBILE_SHARD=2/3 task e2e:mobile        # one shard of shards.txt, as CI runs it
+E2E_MOBILE_SHARD=2/3 task e2e:mobile        # one shard of shards.txt (CI passes the selected flows instead)
 E2E_MOBILE_APK=/path/app.apk task e2e:mobile # install this APK instead of building one
 task e2e:mobile:lint                        # no device, no stack; also in `task lint:all`
 task e2e:mobile:maestro                     # just download the pinned CLI
@@ -309,15 +309,19 @@ Everything else of `02`, and all of `01`, `04`, `05`, `08`, stayed.
 
 ## In CI
 
-`.github/workflows/ci.yml`, on every pull request touching the app, the flows or
-the stack (MAG-233 split what used to be one 15-minute job):
+`.github/workflows/ci.yml`, on every pull request that touches at least one flow in
+`e2e/impact-map.yml` (MAG-233 split what used to be one 15-minute job; the map,
+8 Oct., keeps only the flows a change touches, plus `01-login-chat`):
 
 - **`E2E Mobile APK`** builds the `e2e` flavor once (`build-apk.sh`) and uploads
   the APK as an artifact. **`E2E Mobile unit tests (e2e flavor)`** runs
   `E2eSignInTest` and the rest beside it.
-- **`E2E Mobile journeys (<device> <i>/3)`**, one job per shard of `shards.txt`,
+- **`E2E Mobile journeys (<device> <i>/<n>)`**, one job per shard of `shards.txt`
+  that kept a selected flow,
   each with its own stack and its own emulator, in parallel. It downloads the APK
-  (`E2E_MOBILE_APK`) and runs its flows (`E2E_MOBILE_SHARD=i/3`) with
+  (`E2E_MOBILE_APK`) and runs its flows (`scripts/e2e/mobile-journeys.sh`: the
+  blocking ones, then those in quarantine in a run of their own that never fails
+  the job) with
   `reactivecircus/android-emulator-runner` on API 34 `google_apis`. The booted
   emulator is cached as an **AVD snapshot** per device profile
   (`avd-v1-34-google_apis-x86_64-<profile>`), so a shard loads it in seconds

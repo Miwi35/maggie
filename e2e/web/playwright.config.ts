@@ -55,9 +55,15 @@ export default defineConfig({
 
   // In CI the journeys run in shards (MAG-180), each with a half-report of its
   // own: `blob` is what `playwright merge-reports` turns back into the one HTML
-  // report, traces and videos included.
+  // report, traces and videos included. `json` is what `scripts/e2e/verdict.sh`
+  // reads to tell a journey in quarantine from the others (e2e/impact-map.yml).
   reporter: process.env.CI
-    ? [['github'], ['list'], ['blob', { outputDir: './blob-report' }]]
+    ? [
+        ['github'],
+        ['list'],
+        ['blob', { outputDir: './blob-report' }],
+        ['json', { outputFile: './results/results.json' }],
+      ]
     : [['list'], ['html', { outputFolder: './playwright-report', open: 'never' }]],
 
   // The chat journey waits on a full AG-UI round trip through the agent, MCP
