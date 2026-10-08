@@ -258,6 +258,41 @@ class CreateEventToolTest extends KernelTestCase
         self::assertSame('2026-08-08 00:00', $stored->getEndAt()->setTimezone($zone)->format('Y-m-d H:i'));
     }
 
+    /** MAG-317: « du 22 décembre au 3 janvier » ended as a single day, then as a daily series. */
+    public function testAHolidayAcrossTheNewYearIsOneAllDayEventOfThirteenDays(): void
+    {
+        $this->loadFixtures('CreateEventToolTest.yaml');
+        $this->loginFixtureUser();
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $data = json_decode(
+            ($this->getTool())('Vacances de Noël', start_date: '2026-12-22', end_date: '2027-01-03', all_day: true),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertTrue($data['success']);
+        self::assertTrue($data['event']['allDay']);
+        self::assertSame('2026-12-22', $data['event']['startDate']);
+        self::assertSame('2027-01-03', $data['event']['endDate']);
+        self::assertNull($data['event']['rrule']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        self::assertSame(1, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM event'));
+
+        $stored = $this->stored('Vacances de Noël');
+        $zone = new \DateTimeZone('Europe/Paris');
+        self::assertTrue($stored->isAllDay());
+        self::assertNull($stored->getRrule());
+        self::assertSame('2026-12-22 00:00', $stored->getStartAt()->setTimezone($zone)->format('Y-m-d H:i'));
+        self::assertSame('2027-01-04 00:00', $stored->getEndAt()->setTimezone($zone)->format('Y-m-d H:i'));
+        self::assertSame(13, (int) $stored->getStartAt()->setTimezone($zone)->diff($stored->getEndAt()->setTimezone($zone))->days);
+        $this->assertMercureUpdatePublished('/events/');
+        $this->assertElasticsearchIndexDispatched(Event::class);
+    }
+
     /** @return iterable<string, array{array<string, mixed>, string}> */
     public static function refusedSchedules(): iterable
     {

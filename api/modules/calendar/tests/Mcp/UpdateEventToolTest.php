@@ -167,6 +167,36 @@ class UpdateEventToolTest extends KernelTestCase
         self::assertArrayNotHasKey('startDate', $data['event']);
     }
 
+    /** MAG-317: the owner's holiday was fixed by hand, from a timed event to a whole-day range. */
+    public function testATimedEventBecomesAnAllDayRangeOverSeveralDays(): void
+    {
+        $this->resetAsyncTransport();
+
+        $data = $this->call('event_evening', all_day: true, start_date: '2026-12-22', end_date: '2027-01-03');
+
+        self::assertTrue($data['success']);
+        self::assertTrue($data['event']['allDay']);
+        self::assertSame('2026-12-22', $data['event']['startDate']);
+        self::assertSame('2027-01-03', $data['event']['endDate']);
+        self::assertTrue($this->reload('event_evening')->isAllDay());
+        self::assertSame('2026-12-22 00:00 → 2027-01-04 00:00', $this->span('event_evening'));
+        $this->assertMercureUpdatePublished('/events/');
+        $this->assertElasticsearchIndexDispatched(Event::class);
+    }
+
+    public function testAllDayEndingBeforeItStartsLeavesTheTimedEventAsItWas(): void
+    {
+        $before = $this->span('event_evening');
+
+        $data = $this->call('event_evening', all_day: true, start_date: '2027-01-03', end_date: '2026-12-22');
+
+        self::assertArrayNotHasKey('success', $data);
+        self::assertStringContainsString('on or after start_date', $data['error']);
+        self::assertFalse($this->reload('event_evening')->isAllDay());
+        self::assertSame($before, $this->span('event_evening'));
+        $this->assertMercureUpdateCount(0);
+    }
+
     public function testAnAllDayEventShiftedByADayStaysAllDayOnTheNewDay(): void
     {
         $data = $this->call('event_all_day', all_day: true, start_date: '2026-10-11', end_date: '2026-10-11');
