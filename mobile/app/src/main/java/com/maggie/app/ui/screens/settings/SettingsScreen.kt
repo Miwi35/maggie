@@ -54,6 +54,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -71,7 +72,9 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.maggie.app.BuildConfig
 import com.maggie.app.ui.components.NotificationsBlockedNotice
 import com.maggie.app.ui.components.rememberNotificationsAllowed
+import com.maggie.app.data.interruption.InterruptionPreferences
 import com.maggie.app.ui.UiTags
+import kotlinx.coroutines.launch
 import com.maggie.app.voice.AssistantRoleHelper
 import com.maggie.app.voice.AssistantRoleState
 import org.koin.androidx.compose.koinViewModel
@@ -618,7 +621,36 @@ private fun NotificationsSection(
                     )
                 }
             }
+            InterruptionSoundSwitch()
         }
+    }
+}
+
+/** The chime and vibration with which Maggie interrupts while the app is open (MAG-314). */
+@Composable
+private fun InterruptionSoundSwitch() {
+    val context = LocalContext.current
+    val preferences = remember(context) { InterruptionPreferences(context.applicationContext) }
+    val enabled by preferences.soundEnabled.collectAsState(initial = true)
+    val scope = rememberCoroutineScope()
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Son et vibration à l'ouverture", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "Quand Maggie te parle, l'application ouverte.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(
+            checked = enabled,
+            onCheckedChange = { scope.launch { preferences.setSoundEnabled(it) } },
+            modifier = Modifier.testTag(UiTags.SETTINGS_INTERRUPTION_SOUND),
+        )
     }
 }
 
