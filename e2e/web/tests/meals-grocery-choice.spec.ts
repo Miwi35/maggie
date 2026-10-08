@@ -244,8 +244,8 @@ test('planning a meal opens the choice of ingredients: the low ones ticked, the 
     // Given the grocery list open in a second window.
     await openSubscribed(observer, () => watching.open())
 
-    // When I plan « Riz au curry » on Tuesday evening…
-    await planRecipe(acting, 'meal-cell-dinner-1', recipeName)
+    // When I plan « Riz au curry » on a lunch (the seed's meals are dinners, so the cell is free)…
+    await planRecipe(acting, 'meal-cell-lunch-5', recipeName)
 
     // …then the choice opens: « Riz » ticked, « 1 paquet », « Rupture »; the
     // vegetables not ticked, « 1 bocal ».
@@ -289,7 +289,7 @@ test('planning a meal opens the choice of ingredients: the low ones ticked, the 
       what: 'The planned meal',
     })
     cleanup.push(meal['@id'])
-    await expect(acting.content.getByTestId('meal-cell-dinner-1')).toContainText(recipeName)
+    await expect(acting.content.getByTestId('meal-cell-lunch-5')).toContainText(recipeName)
   } finally {
     for (const iri of [...cleanup, recipe['@id'], rice['@id'], vegetables['@id']]) await api.delete(iri)
   }
@@ -305,7 +305,7 @@ test('« Plus tard » closes the choice: the meal stays in the week and nothing 
   })
 
   try {
-    await planRecipe(acting, 'meal-cell-dinner-2', recipeName)
+    await planRecipe(acting, 'meal-cell-lunch-0', recipeName)
 
     const dialog = page.getByRole('dialog')
     await expect(dialog.getByText('Courses du repas')).toBeVisible()
@@ -314,7 +314,7 @@ test('« Plus tard » closes the choice: the meal stays in the week and nothing 
     await expect(dialog).toBeHidden()
 
     // The meal is in the week, and the API never heard of a choice.
-    await expect(acting.content.getByTestId('meal-cell-dinner-2')).toContainText(recipeName)
+    await expect(acting.content.getByTestId('meal-cell-lunch-0')).toContainText(recipeName)
     const meal = await waitForIndexed<MealRow>(api, '/api/meals?itemsPerPage=200', (m) => String(m.summary).includes(recipeName), {
       what: 'The planned meal',
     })

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNotify } from 'react-admin'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
@@ -103,12 +103,23 @@ export const MealGroceryChoice = ({ mealIri, onDone }: { mealIri: string; onDone
   const [sending, setSending] = useState(false)
   const [notAdded, setNotAdded] = useState<string | null>(null)
 
+  const mounted = useRef(true)
+
+  useEffect(() => {
+    mounted.current = true
+
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+
   const load = useCallback(async () => {
     setLoadFailed(false)
     try {
       const response = await fetch(`${mealIri}/grocery_preview`, { headers: { Accept: 'application/json', ...authHeaders() } })
       if (!response.ok) throw new Error(`grocery_preview answered ${response.status}`)
       const loaded = rowsOf(((await response.json()) as Preview).ingredients)
+      if (!mounted.current) return
 
       if (loaded.length === 0) {
         onDone()
@@ -149,7 +160,7 @@ export const MealGroceryChoice = ({ mealIri, onDone }: { mealIri: string; onDone
         throw new Error(reason)
       }
       notify('Ingrédients ajoutés à la liste de courses', { type: 'success' })
-      onDone()
+      if (mounted.current) onDone()
     } catch (error) {
       const reason = error instanceof Error && error.message ? ` (${error.message})` : ''
       const what = tickedRows.length > 0 ? tickedRows.map((row) => row.name).join(', ') : 'les ingrédients cochés'
