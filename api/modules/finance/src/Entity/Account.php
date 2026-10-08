@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\Entity;
 
+use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
@@ -30,6 +31,7 @@ use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: AccountRepository::class)]
+#[ORM\Index(columns: ['user_id', 'external_key'], name: 'idx_account_user_external_key')]
 #[Indexed(index: 'accounts', module: 'finance')]
 #[ApiResource(operations: [
     new GetCollection(provider: ElasticsearchCollectionProvider::class),
@@ -75,8 +77,25 @@ class Account implements MercurePublishable, OwnedByUserInterface, IndexableInte
     #[IndexedField(type: 'boolean')]
     private bool $isCushion = false;
 
+    /**
+     * The provider's id for this account in the current session. It changes
+     * with every consent: never what tells two accounts apart (MAG-351).
+     */
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $externalAccountId = null;
+
+    /**
+     * What identifies the real account across sessions: Enable Banking's
+     * `identification_hash`, or a hash of the IBAN when it gives none.
+     */
+    #[ORM\Column(length: 128, nullable: true)]
+    #[ApiProperty(writable: false)]
+    private ?string $externalKey = null;
+
+    /** Set when the bank stopped listing the account: kept, not deleted. */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    #[ApiProperty(writable: false)]
+    private ?\DateTimeImmutable $closedAt = null;
 
     /** The live bank link this account came from, when it was not typed in. */
     #[ORM\ManyToOne(targetEntity: BankConnection::class)]
@@ -180,6 +199,35 @@ class Account implements MercurePublishable, OwnedByUserInterface, IndexableInte
         $this->externalAccountId = $externalAccountId;
 
         return $this;
+    }
+
+    public function getExternalKey(): ?string
+    {
+        return $this->externalKey;
+    }
+
+    public function setExternalKey(?string $externalKey): static
+    {
+        $this->externalKey = $externalKey;
+
+        return $this;
+    }
+
+    public function getClosedAt(): ?\DateTimeImmutable
+    {
+        return $this->closedAt;
+    }
+
+    public function setClosedAt(?\DateTimeImmutable $closedAt): static
+    {
+        $this->closedAt = $closedAt;
+
+        return $this;
+    }
+
+    public function isClosed(): bool
+    {
+        return null !== $this->closedAt;
     }
 
     public function getBankConnection(): ?BankConnection

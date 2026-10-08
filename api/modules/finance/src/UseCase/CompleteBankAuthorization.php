@@ -20,7 +20,9 @@ use Symfony\Component\Messenger\MessageBusInterface;
  * into a session, and brings the accounts it grants access to.
  *
  * An account the user already typed in is matched rather than duplicated —
- * people connect a bank they have been tracking by hand for months.
+ * people connect a bank they have been tracking by hand for months. So is an
+ * account a previous consent brought: the provider names it with a new uid in
+ * every session, so it is recognised by its identification instead (MAG-351).
  */
 class CompleteBankAuthorization
 {
@@ -57,6 +59,7 @@ class CompleteBankAuthorization
         $linked = 0;
         $created = 0;
         $touched = [];
+        $claimed = [];
 
         foreach ($this->readAccounts($session) as $remote) {
             $externalId = $this->readExternalId($remote);
@@ -64,7 +67,8 @@ class CompleteBankAuthorization
                 continue;
             }
 
-            $account = $this->matchExistingAccount($connection, $remote, $externalId);
+            $externalKey = EnableBankingClient::accountKey($remote);
+            $account = $this->matchExistingAccount($connection, $remote, $externalId, $externalKey, $claimed);
 
             if (null === $account) {
                 $account = new Account();
@@ -80,7 +84,25 @@ class CompleteBankAuthorization
             }
 
             $account->setExternalAccountId($externalId);
+            if (null !== $externalKey) {
+                $account->setExternalKey($externalKey);
+            }
+            $account->setClosedAt(null);
             $account->setBankConnection($connection);
+            $claimed[(string) $account->getId()] = true;
+            $touched[] = $account;
+        }
+
+        // What the bank no longer lists is closed, not deleted: its movements
+        // stay in the history, and it reopens if the bank lists it again.
+        foreach ($this->accountRepository->findByUser($connection->getUser()) as $account) {
+            if (isset($claimed[(string) $account->getId()]) || $account->isClosed()) {
+                continue;
+            }
+            if (!$account->getBankConnection()?->getId()?->equals($connection->getId())) {
+                continue;
+            }
+            $account->setClosedAt(new \DateTimeImmutable());
             $touched[] = $account;
         }
 
@@ -99,14 +121,28 @@ class CompleteBankAuthorization
     }
 
     /**
-     * An account already tracked by hand: same external id if it was linked
-     * before, otherwise the same name at the same bank.
+     * The account this remote one already is, in order of certainty: the same
+     * identification at the bank, the same uid, then — for an account linked
+     * before identifications were kept — the only one of this connection with
+     * the same name and currency, and last an account typed in by hand.
      *
      * @param array<string, mixed> $remote
+     * @param array<string, true>  $claimed accounts already matched in this session
      */
-    private function matchExistingAccount(BankConnection $connection, array $remote, string $externalId): ?Account
+    private function matchExistingAccount(BankConnection $connection, array $remote, string $externalId, ?string $externalKey, array $claimed): ?Account
     {
-        $accounts = $this->accountRepository->findByUser($connection->getUser());
+        $accounts = array_values(array_filter(
+            $this->accountRepository->findByUser($connection->getUser()),
+            static fn (Account $account) => !isset($claimed[(string) $account->getId()]),
+        ));
+
+        if (null !== $externalKey) {
+            foreach ($accounts as $account) {
+                if ($account->getExternalKey() === $externalKey) {
+                    return $account;
+                }
+            }
+        }
 
         foreach ($accounts as $account) {
             if ($account->getExternalAccountId() === $externalId) {
@@ -115,6 +151,22 @@ class CompleteBankAuthorization
         }
 
         $name = mb_strtolower($this->readName($remote, $connection->getBankName()));
+        $currency = $this->readCurrency($remote);
+
+        $legacy = array_values(array_filter(
+            $accounts,
+            static fn (Account $account) => null === $account->getExternalKey()
+                && null !== $account->getExternalAccountId()
+                && true === $account->getBankConnection()?->getId()?->equals($connection->getId())
+                && mb_strtolower($account->getName()) === $name
+                && $account->getCurrency() === $currency,
+        ));
+
+        // Two of them is the duplication itself, or two real accounts of the
+        // same name: guessing would be worse than one more copy to merge.
+        if (1 === \count($legacy)) {
+            return $legacy[0];
+        }
 
         foreach ($accounts as $account) {
             if (null !== $account->getExternalAccountId()) {

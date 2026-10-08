@@ -63,10 +63,12 @@ class BankReconnectionTest extends KernelTestCase
      * whatever uid asks for them.
      *
      * @param array<string, list<array<string, mixed>>> $accountsBySession
+     * @param array<string, string>                      $edfLabelBySession how the bank spells
+     *                                                                      the EDF debit in each session
      */
-    private function bank(array $accountsBySession, string &$session): MockHttpClient
+    private function bank(array $accountsBySession, string &$session, array $edfLabelBySession = []): MockHttpClient
     {
-        return new MockHttpClient(function (string $method, string $url) use ($accountsBySession, &$session) {
+        return new MockHttpClient(function (string $method, string $url) use ($accountsBySession, &$session, $edfLabelBySession) {
             $path = (string) parse_url($url, PHP_URL_PATH);
 
             return match (true) {
@@ -93,7 +95,7 @@ class BankReconnectionTest extends KernelTestCase
                             'booking_date' => '2026-10-05',
                             'transaction_amount' => ['amount' => '206.00', 'currency' => 'EUR'],
                             'credit_debit_indicator' => 'DBIT',
-                            'remittance_information' => ['PRELEVEMENT ELECTRICITE DE FRANCE'],
+                            'remittance_information' => [$edfLabelBySession[$session] ?? 'PRELEVEMENT ELECTRICITE DE FRANCE'],
                         ],
                         [
                             'entry_reference' => 'bank-tx-salary',
@@ -156,15 +158,33 @@ class BankReconnectionTest extends KernelTestCase
     }
 
     /** @return array<string, mixed> */
-    private function remoteAccount(string $uid): array
+    private function remoteAccount(string $uid, string $hash = 'hash-of-the-current-account', string $iban = self::IBAN, string $name = 'M. CADARE MEVEN'): array
     {
         return [
             'uid' => $uid,
-            'identification_hash' => 'hash-of-the-current-account',
-            'account_id' => ['iban' => self::IBAN],
-            'name' => 'M. CADARE MEVEN',
+            'identification_hash' => $hash,
+            'account_id' => ['iban' => $iban],
+            'name' => $name,
             'currency' => 'EUR',
         ];
+    }
+
+    /** An account linked before identifications were kept: a uid, no key. */
+    private function legacyAccount(BankConnection $connection, string $uid, string $name): Account
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+
+        $account = (new Account())
+            ->setUser($this->user())
+            ->setName($name)
+            ->setBank($connection->getBankName())
+            ->setCurrency('EUR')
+            ->setExternalAccountId($uid)
+            ->setBankConnection($connection);
+        $em->persist($account);
+        $em->flush();
+
+        return $account;
     }
 
     /** @return list<Account> */
@@ -222,5 +242,135 @@ class BankReconnectionTest extends KernelTestCase
 
         self::assertCount($transactionsBefore, $em->getRepository(Transaction::class)->findAll(), 'the movements read again are recognised');
         self::assertSame($totalBefore, $this->monthTotal(), "the month's figures do not move with a reconnection");
+    }
+
+    public function testTheReconnectionIsPublishedAndReindexed(): void
+    {
+        $this->loadFixtures('account.yaml');
+
+        $session = 'session-1';
+        $http = $this->bank([
+            'session-1' => [$this->remoteAccount('uid-first-session')],
+            'session-2' => [$this->remoteAccount('uid-second-session')],
+        ], $session);
+
+        $this->connect($http);
+        $this->sync($http);
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $session = 'session-2';
+        $this->connect($http);
+        $account = $this->bankAccounts()[0];
+
+        // The list of accounts reads Elasticsearch: the account it holds is
+        // reindexed with its new uid, and no second one appears.
+        $this->assertElasticsearchIndexDispatchedFor(Account::class, (string) $account->getId());
+        self::assertSame([(string) $account->getId()], array_values(array_unique($this->reindexedIdsOf(Account::class))));
+    }
+
+    public function testAnAccountTheBankNoLongerListsIsClosedNotDeleted(): void
+    {
+        $this->loadFixtures('account.yaml');
+
+        $session = 'session-1';
+        $http = $this->bank([
+            'session-1' => [$this->remoteAccount('uid-1'), $this->remoteAccount('uid-livret', 'hash-livret', 'FR7630001007940000000000001', 'Livret A')],
+            'session-2' => [$this->remoteAccount('uid-2')],
+            'session-3' => [$this->remoteAccount('uid-3'), $this->remoteAccount('uid-livret-3', 'hash-livret', 'FR7630001007940000000000001', 'Livret A')],
+        ], $session);
+
+        $this->connect($http);
+        $this->sync($http);
+
+        $session = 'session-2';
+        $this->connect($http);
+
+        $livret = array_values(array_filter($this->bankAccounts(), static fn (Account $a) => 'Livret A' === $a->getName()));
+        self::assertCount(1, $livret, 'a closed account is kept, with its history');
+        self::assertTrue($livret[0]->isClosed());
+
+        // A closed account is not asked for: its uid would only earn a refusal.
+        $asked = [];
+        $session = 'session-2';
+        $spy = new MockHttpClient(function (string $method, string $url, array $options) use ($http, &$asked) {
+            $asked[] = (string) parse_url($url, PHP_URL_PATH);
+
+            return $http->request($method, $url, $options);
+        });
+        $this->sync($spy);
+        self::assertSame([], array_filter($asked, static fn (string $path) => str_contains($path, 'uid-livret')));
+
+        // Listed again later: the same account, open again.
+        $session = 'session-3';
+        $this->connect($http);
+
+        $accounts = $this->bankAccounts();
+        self::assertCount(2, $accounts);
+        $reopened = array_values(array_filter($accounts, static fn (Account $a) => 'Livret A' === $a->getName()))[0];
+        self::assertTrue($reopened->getId()->equals($livret[0]->getId()));
+        self::assertFalse($reopened->isClosed());
+    }
+
+    public function testAnAccountLinkedBeforeKeysWereKeptIsAdoptedByItsName(): void
+    {
+        $this->loadFixtures('account.yaml');
+
+        $session = 'session-1';
+        $http = $this->bank(['session-1' => [], 'session-2' => [$this->remoteAccount('uid-new')]], $session);
+        $connection = $this->connect($http);
+        $legacy = $this->legacyAccount($connection, 'uid-old', 'M. CADARE MEVEN');
+
+        $session = 'session-2';
+        $this->connect($http);
+
+        $accounts = $this->bankAccounts();
+        self::assertCount(1, $accounts);
+        self::assertTrue($legacy->getId()->equals($accounts[0]->getId()));
+        self::assertSame('hash-of-the-current-account', $accounts[0]->getExternalKey(), 'it learns its key on the way');
+    }
+
+    public function testTwoUnkeyedAccountsOfTheSameNameAreNotGuessedBetween(): void
+    {
+        $this->loadFixtures('account.yaml');
+
+        $session = 'session-1';
+        $http = $this->bank(['session-1' => [], 'session-2' => [$this->remoteAccount('uid-new', name: 'Meven Cadare')]], $session);
+        $connection = $this->connect($http);
+        $this->legacyAccount($connection, 'uid-a', 'Meven Cadare');
+        $this->legacyAccount($connection, 'uid-b', 'Meven Cadare');
+
+        $session = 'session-2';
+        $this->connect($http);
+
+        // Picking one would risk pouring one real account into another: the
+        // new one stands apart, and the catch-up command merges what is a copy.
+        $accounts = $this->bankAccounts();
+        self::assertCount(3, $accounts);
+        self::assertCount(1, array_filter($accounts, static fn (Account $a) => 'uid-new' === $a->getExternalAccountId()));
+    }
+
+    public function testTheBankReferenceRecognisesAMovementWhoseLabelChanged(): void
+    {
+        $this->loadFixtures('account.yaml');
+
+        $session = 'session-1';
+        $http = $this->bank(
+            ['session-1' => [$this->remoteAccount('uid-1')], 'session-2' => [$this->remoteAccount('uid-2')]],
+            $session,
+            ['session-2' => 'PRLV SEPA EDF CLIENTS PARTICULIERS'],
+        );
+
+        $this->connect($http);
+        $this->sync($http);
+
+        $session = 'session-2';
+        $this->connect($http);
+        $this->sync($http);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $stored = $em->getRepository(Transaction::class)->findBy(['externalId' => 'bank-tx-edf']);
+        self::assertCount(1, $stored, 'one movement, whatever the bank calls it this time');
+        self::assertSame(2, \count($em->getRepository(Transaction::class)->findAll()));
     }
 }

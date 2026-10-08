@@ -41,6 +41,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Entity(repositoryClass: TransactionRepository::class)]
 #[ORM\Index(columns: ['user_id', 'transfer_kind'], name: 'idx_transaction_user_transfer_kind')]
 #[ORM\Index(columns: ['user_id', 'counterparty_key'], name: 'idx_transaction_user_counterparty_key')]
+#[ORM\Index(columns: ['account_id', 'external_id'], name: 'idx_transaction_account_external_id')]
 #[ApiFilter(OrderFilter::class, properties: ['bookedAt'])]
 #[ApiFilter(UlidRelationFilter::class, properties: ['account'])]
 #[Indexed(index: 'transactions', module: 'finance')]
@@ -104,6 +105,14 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
     #[ApiProperty(writable: false)]
     #[IndexedField(type: 'text', keyword: true)]
     private ?string $counterpartyName = null;
+
+    /**
+     * The bank's own reference for the movement (`entry_reference`), when it
+     * gives one: the same movement read twice, whatever its label became.
+     */
+    #[ORM\Column(length: 255, nullable: true)]
+    #[ApiProperty(writable: false)]
+    private ?string $externalId = null;
 
     /** The name folded so two spellings of one payee group together. */
     #[ORM\Column(length: 255, nullable: true)]
@@ -285,6 +294,18 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
 
         $this->counterpartyName = $name;
         $this->counterpartyKey = '' === $key ? null : $key;
+
+        return $this;
+    }
+
+    public function getExternalId(): ?string
+    {
+        return $this->externalId;
+    }
+
+    public function setExternalId(?string $externalId): static
+    {
+        $this->externalId = $externalId;
 
         return $this;
     }

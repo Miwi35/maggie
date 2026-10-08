@@ -257,8 +257,11 @@ class SyncBankAccounts
     {
         return array_values(array_filter(
             $this->accountRepository->findByUser($connection->getUser()),
+            // A closed account is one the bank no longer lists: its uid would
+            // only earn a refusal.
             static fn (Account $account) => $account->getBankConnection()?->getId()?->equals($connection->getId())
-                && null !== $account->getExternalAccountId(),
+                && null !== $account->getExternalAccountId()
+                && !$account->isClosed(),
         ));
     }
 
@@ -302,7 +305,26 @@ class SyncBankAccounts
             lineNumber: 0,
             counterpartyName: $counterparty,
             knownAs: $previousLabel === $label ? [] : [$previousLabel],
+            externalId: $this->readReference($remote),
         );
+    }
+
+    /**
+     * The bank's reference for the movement. `entry_reference` is the one
+     * banks keep from one read to the next; `transaction_id` stands in for it.
+     *
+     * @param array<string, mixed> $remote
+     */
+    private function readReference(array $remote): ?string
+    {
+        foreach (['entry_reference', 'transaction_id'] as $key) {
+            $value = $remote[$key] ?? null;
+            if (\is_string($value) && '' !== trim($value)) {
+                return trim($value);
+            }
+        }
+
+        return null;
     }
 
     private function readName(mixed $party): ?string
