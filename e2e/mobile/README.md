@@ -126,6 +126,13 @@ against an app nobody launched.
    `launchApp` comes after all of `MaggieApp.onCreate`, and the first HTTP call
    pays for Ktor and OkHttp being class-loaded; the 20–60 s here are not
    generosity, they are a CI failure that already happened.
+   **A timeout is counted from the last interaction, not from the wait** (MAG-346):
+   Maestro deducts the time since the last launch, tap or script from every
+   `extendedWaitUntil` and every `when: visible`; an assertion or a failed `retry`
+   attempt does not reset that clock. A `retry` around a wait therefore starts with
+   `- evalScript: ${0}` (a no-op that counts as an interaction), or its second to
+   last attempts run on a budget of zero and fail at once — `task e2e:mobile:lint`
+   checks it.
 6. **Dates come from `run.sh`, as `-e` variables** — `TODAY`, computed in the
    seed's time zone. A flow cannot compute a date and one typed into it is wrong by
    tomorrow; a seed offset (`+5 days`) belongs in `run.sh`, next to it. Some ids are
@@ -339,7 +346,8 @@ emulator makes the Pixel Launcher (also the taskbar on tablets and foldables) hi
 ANR, and its dialog covers the app, so a flow fails on a screen it never reached.
 It does not always hold (MAG-236: the window still came up, on a run whose clock was
 not pinned, so the clock is not the cause), hence `subflows/dismiss-system-anr.yaml`:
-`sign-in.yaml` runs it before each of its waits, it taps « Wait » on a « … isn't
+`sign-in.yaml` runs it before each of its waits (inside a `retry` whose attempts each
+get their full timeout, see « Wait with `extendedWaitUntil` » above), it taps « Wait » on a « … isn't
 responding » window that does not name Maggie and keeps a screenshot of it, and fails
 the flow on one that does. A failed run also writes `report/anr.txt`, the ANR lines of
 the whole logcat. A flow that waits long somewhere else than at sign-in runs the same
