@@ -392,3 +392,6 @@ mobile:
     areas: [finance]
   e2e/mobile/flows/12-recipe-realtime.yaml:
     areas: [cookbook, realtime]
+  e2e/mobile/flows/13-chat-opens-on-latest.yaml:
+    areas: [chat, voice]
+    paths: [e2e/mobile/scripts/chat-api.js]
