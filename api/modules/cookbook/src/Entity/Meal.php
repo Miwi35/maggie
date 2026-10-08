@@ -329,7 +329,7 @@ class Meal extends Event implements MercurePublishable
         $doc = parent::toSearchDocument();
         $doc['date'] = $this->date?->format('Y-m-d');
         $doc['slot'] = $this->slot->value;
-        $doc['recipeIds'] = $this->recipes->map(fn (Recipe $r) => (string) $r->getId())->toArray();
+        $doc['recipeIds'] = $this->recipes->map(fn (Recipe $r) => (string) $r->getId())->getValues();
 
         return $doc;
     }
@@ -345,7 +345,7 @@ class Meal extends Event implements MercurePublishable
             'recipes' => $this->recipes->map(fn (Recipe $r) => [
                 'id' => (string) $r->getId(),
                 'name' => $r->getName(),
-            ])->toArray(),
+            ])->getValues(),
         ], $changedProperties);
     }
 }

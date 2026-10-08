@@ -1,7 +1,8 @@
-import { test, expect, parisDay, seedDate, seedId } from '../fixtures/index.js'
+import { test, expect, seedDate, seedId } from '../fixtures/index.js'
 import type { Page } from '@playwright/test'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { expectRealtimeSync, openSubscribed, userTopic } from '../helpers/mercure.js'
+import { dayOfThisWeek } from '../helpers/week.js'
 import { AdminShell } from '../pages/AdminShell.js'
 import { ROUTES } from '../pages/routes.js'
 
@@ -33,22 +34,6 @@ interface MealRow {
  */
 function recipeName(retry: number): string {
   return `Blanquette MAG-251${0 === retry ? '' : ` essai ${retry}`}`
-}
-
-/**
- * A day of the week the week view is showing, Monday being 0.
- *
- * Read off the Paris day, which is the day the browser is on
- * (`playwright.config.ts` pins the time zone) and so the day `getMonday(new
- * Date())` lands on inside the view.
- */
-function dayOfThisWeek(index: number): string {
-  const midnightUtc = new Date(`${parisDay()}T00:00:00Z`)
-  const weekday = midnightUtc.getUTCDay()
-
-  midnightUtc.setUTCDate(midnightUtc.getUTCDate() - (0 === weekday ? 6 : weekday - 1) + index)
-
-  return midnightUtc.toISOString().slice(0, 10)
 }
 
 interface GroceryListRow {
@@ -293,7 +278,7 @@ test.describe('Recipes and meals', () => {
     // (MAG-166). The day is a day now (MAG-251), so the cell is addressable.
     const planned = cell.filter({ hasText: 'Gratin de courgettes' })
     await expect(planned).toBeVisible()
-    await planned.getByRole('button').first().click()
+    await planned.getByRole('button', { name: /^Supprimer le repas / }).click()
 
     const after = await waitForIndexed<GroceryListRow>(
       api,

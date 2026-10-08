@@ -1,4 +1,16 @@
-import { Fragment, useState, useEffect, useCallback, useMemo } from 'react'
+import { Fragment, useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import type { ReactNode } from 'react'
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import type { Announcements, DragEndEvent } from '@dnd-kit/core'
+import { CSS } from '@dnd-kit/utilities'
 import { useDataProvider, useNotify, Title } from 'react-admin'
 import Box from '@mui/material/Box'
 import { localDay } from '../../dates'
@@ -25,7 +37,14 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import RestaurantIcon from '@mui/icons-material/Restaurant'
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
+import { mealCellId, mealCollision, neighbourCellCoordinates, parseMealCellId } from './mealDragAndDrop'
+import type { KeyboardDrag } from './mealDragAndDrop'
 
+// How long a move we just made outranks what the list says. The list is served
+// from Elasticsearch, which can still answer with the meal in its old cell for
+// a moment after the PATCH — and a Mercure message makes us read it right then.
+const MOVE_GRACE_MS = 5000
 const MEAL_TOPICS = ['/api/meals/{id}']
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
 const SLOTS = [
@@ -73,6 +92,115 @@ interface Meal {
   recipes: Recipe[]
 }
 
+type PendingMoves = Map<string, { date: string; slot: string; until: number }>
+
+function withPendingMoves(rows: Meal[], moves: PendingMoves): Meal[] {
+  return rows.map((meal) => {
+    const move = moves.get(meal.id)
+    if (!move) return meal
+    if (move.until < Date.now() || (meal.date === move.date && meal.slot === move.slot)) {
+      moves.delete(meal.id)
+      return meal
+    }
+    return { ...meal, date: move.date, slot: move.slot }
+  })
+}
+
+const slotLabel = (slot: string) => SLOTS.find((s) => s.value === slot)?.label ?? slot
+
+const cellLabel = (id: unknown): string | null => {
+  const cell = parseMealCellId(id)
+  return cell ? `${DAYS[cell.dayIndex].toLowerCase()}, ${slotLabel(cell.slot).toLowerCase()}` : null
+}
+
+const DRAG_INSTRUCTIONS =
+  'Pour déplacer ce repas : Espace pour le saisir, les flèches pour choisir une autre case, Espace pour le déposer, Échap pour annuler.'
+
+function DropCell({ slot, dayIndex, onClick, children }: { slot: string; dayIndex: number; onClick: () => void; children: ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: mealCellId({ slot, dayIndex }) })
+
+  return (
+    <Paper
+      ref={setNodeRef}
+      data-testid={`meal-cell-${slot}-${dayIndex}`}
+      variant="outlined"
+      sx={{
+        p: 1,
+        minHeight: 80,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 0.5,
+        cursor: 'pointer',
+        '&:hover': { bgcolor: 'action.hover' },
+        ...(isOver && { bgcolor: 'action.selected', borderColor: 'primary.main' }),
+      }}
+      onClick={onClick}
+    >
+      {children}
+    </Paper>
+  )
+}
+
+function MealItem({ meal, disabled, onDelete, sx }: { meal: Meal; disabled: boolean; onDelete: (meal: Meal) => void; sx: ReturnType<typeof transitionSx> }) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, isDragging } = useDraggable({
+    id: meal.id,
+    disabled,
+    attributes: { roleDescription: 'repas déplaçable' },
+  })
+
+  return (
+    <Box
+      ref={setNodeRef}
+      data-testid={`meal-${meal.id}`}
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 0.5,
+        borderRadius: 1,
+        position: 'relative',
+        ...(sx ?? {}),
+        ...(isDragging && { zIndex: 10, bgcolor: 'background.paper', boxShadow: 3, opacity: 0.95 }),
+      }}
+      style={{ transform: CSS.Translate.toString(transform) }}
+    >
+      {/* The handle, not the whole row: the row holds a delete button, and a
+          touch on the text must still scroll the page. */}
+      <IconButton
+        size="small"
+        ref={setActivatorNodeRef}
+        {...attributes}
+        {...listeners}
+        aria-label={`Déplacer le repas ${meal.summary}`}
+        onClick={(e) => e.stopPropagation()}
+        sx={{ cursor: disabled ? 'default' : 'grab', touchAction: 'none', p: 0.25 }}
+      >
+        <DragIndicatorIcon sx={{ fontSize: 16 }} />
+      </IconButton>
+      <RestaurantIcon sx={{ fontSize: 14, color: 'primary.main' }} />
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        {meal.recipes?.map((r: Recipe) => (
+          <Chip key={r.id || r.name} label={r.name} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
+        ))}
+        {(!meal.recipes || meal.recipes.length === 0) && (
+          <Typography variant="caption" color="text.secondary">
+            {meal.summary}
+          </Typography>
+        )}
+      </Box>
+      <IconButton
+        size="small"
+        aria-label={`Supprimer le repas ${meal.summary}`}
+        onClick={(e) => {
+          e.stopPropagation()
+          onDelete(meal)
+        }}
+      >
+        <DeleteIcon fontSize="small" />
+      </IconButton>
+    </Box>
+  )
+}
+
 export const MealsWeekView = () => {
   const dataProvider = useDataProvider()
   const notify = useNotify()
@@ -85,6 +213,7 @@ export const MealsWeekView = () => {
   const [dialogSlot, setDialogSlot] = useState('lunch')
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [selectedRecipes, setSelectedRecipes] = useState<Recipe[]>([])
+  const pendingMoves = useRef<PendingMoves>(new Map())
 
   const fetchMeals = useCallback(async () => {
     setLoading(true)
@@ -98,7 +227,7 @@ export const MealsWeekView = () => {
           'date[before]': formatDate(addDays(weekStart, 6)),
         },
       })
-      setMeals(data as Meal[])
+      setMeals(withPendingMoves(data as Meal[], pendingMoves.current))
     } catch {
       notify('Erreur lors du chargement des repas', { type: 'error' })
     } finally {
@@ -198,6 +327,63 @@ export const MealsWeekView = () => {
     }
   }
 
+  // Mouse, touch and pen through one sensor, and the keyboard: the admin is
+  // used on a tablet, and a drag must never be the only way to move a meal.
+  const keyboardDrag = useRef<KeyboardDrag | null>(null)
+  const coordinateGetter = useMemo(() => neighbourCellCoordinates(keyboardDrag), [])
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter }),
+  )
+
+  const setMealCell = (id: string, date: string, slot: string) =>
+    setMeals((current) => current.map((m) => (m.id === id ? { ...m, date, slot } : m)))
+
+  // Only the day and the slot travel: the recipes stay where they are.
+  const moveMeal = async (meal: Meal, date: string, slot: string) => {
+    if (meal.date === date && meal.slot === slot) return
+
+    setMealCell(meal.id, date, slot)
+    const move = { date, slot, until: Date.now() + MOVE_GRACE_MS }
+    pendingMoves.current.set(meal.id, move)
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(meal['@id'] || `/api/meals/${meal.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/merge-patch+json',
+          Accept: 'application/ld+json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ date, slot }),
+      })
+      if (!response.ok) throw new Error(`PATCH answered ${response.status}`)
+      move.until = Date.now() + MOVE_GRACE_MS
+    } catch {
+      // A newer move of the same meal owns the cell now: leave it be.
+      if (pendingMoves.current.get(meal.id) !== move) return
+      pendingMoves.current.delete(meal.id)
+      setMealCell(meal.id, meal.date, meal.slot)
+      notify('Le repas n’a pas pu être déplacé : il reste dans sa case d’origine', { type: 'error' })
+    }
+  }
+
+  const handleDragEnd = ({ active, over }: DragEndEvent) => {
+    keyboardDrag.current = null
+    const cell = parseMealCellId(over?.id)
+    const meal = meals.find((m) => m.id === active.id)
+    if (!cell || !meal) return
+
+    moveMeal(meal, formatDate(addDays(weekStart, cell.dayIndex)), cell.slot)
+  }
+
+  const announcements: Announcements = {
+    onDragStart: ({ active }) => `Repas ${meals.find((m) => m.id === active.id)?.summary ?? ''} saisi.`,
+    onDragOver: ({ over }) => (cellLabel(over?.id) ? `Au-dessus de la case ${cellLabel(over?.id)}.` : undefined),
+    onDragEnd: ({ over }) => (cellLabel(over?.id) ? `Repas déposé : ${cellLabel(over?.id)}.` : 'Repas relâché hors d’une case.'),
+    onDragCancel: () => 'Déplacement annulé : le repas reste dans sa case.',
+  }
+
   const getMealsForCell = useCallback(
     (dayIndex: number, slot: string): Meal[] => {
       const date = formatDate(addDays(weekStart, dayIndex))
@@ -215,50 +401,22 @@ export const MealsWeekView = () => {
     const cellMeals = getMealsForCell(dayIndex, slot)
 
     return (
-      <Paper
-        data-testid={`meal-cell-${slot}-${dayIndex}`}
-        variant="outlined"
-        sx={{
-          p: 1,
-          minHeight: 80,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 0.5,
-          cursor: 'pointer',
-          '&:hover': { bgcolor: 'action.hover' },
-        }}
-        onClick={() => cellMeals.length === 0 && openCreateDialog(dayIndex, slot)}
-      >
+      <DropCell slot={slot} dayIndex={dayIndex} onClick={() => cellMeals.length === 0 && openCreateDialog(dayIndex, slot)}>
         {cellMeals.map((meal) => (
-          <Box key={meal.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, borderRadius: 1, ...transitionSx(meal.id, addedIds, removingIds) }}>
-            <RestaurantIcon sx={{ fontSize: 14, color: 'primary.main' }} />
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              {meal.recipes?.map((r: Recipe) => (
-                <Chip key={r.id || r.name} label={r.name} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
-              ))}
-              {(!meal.recipes || meal.recipes.length === 0) && (
-                <Typography variant="caption" color="text.secondary">
-                  {meal.summary}
-                </Typography>
-              )}
-            </Box>
-            <IconButton
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation()
-                handleDelete(meal)
-              }}
-            >
-              <DeleteIcon fontSize="small" />
-            </IconButton>
-          </Box>
+          <MealItem
+            key={meal.id}
+            meal={meal}
+            disabled={removingIds.has(meal.id)}
+            onDelete={handleDelete}
+            sx={transitionSx(meal.id, addedIds, removingIds)}
+          />
         ))}
         {cellMeals.length === 0 && (
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, opacity: 0.3 }}>
             <AddIcon />
           </Box>
         )}
-      </Paper>
+      </DropCell>
     )
   }
 
@@ -325,6 +483,13 @@ export const MealsWeekView = () => {
           give each day 42px — a chip with a recipe name in it has nowhere to
           go. Below `md` the week reads downwards instead: one card per day,
           its two meals side by side. Same cells, same handles. */}
+      <DndContext
+        sensors={sensors}
+        onDragEnd={handleDragEnd}
+        onDragCancel={() => (keyboardDrag.current = null)}
+        collisionDetection={mealCollision}
+        accessibility={{ announcements, screenReaderInstructions: { draggable: DRAG_INSTRUCTIONS } }}
+      >
       {isNarrow ? (
         <Box
           sx={{
@@ -378,6 +543,7 @@ export const MealsWeekView = () => {
           ))}
         </Box>
       )}
+      </DndContext>
 
       {/* Create meal dialog */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
