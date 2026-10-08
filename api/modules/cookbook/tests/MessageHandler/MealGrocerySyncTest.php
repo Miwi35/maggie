@@ -9,9 +9,11 @@ use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
 use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Cookbook\Entity\Ingredient;
 use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Entity\MealGroceryContribution;
 use Maggie\Cookbook\Entity\Recipe;
+use Maggie\Cookbook\Message\ChooseMealGroceriesCommand;
 use Maggie\Cookbook\Message\CreateMealCommand;
 use Maggie\Cookbook\Message\DeleteMealCommand;
 use Maggie\Cookbook\Message\DeleteRecipeCommand;
@@ -520,6 +522,132 @@ class MealGrocerySyncTest extends KernelTestCase
             recipeIds: null,
         ));
         self::assertSame(['Pâtes' => 400.0, 'Tomate' => 4.0], $this->list());
+    }
+
+    public function testAMealThatHasChosenIsNotDerivedAgainWhenItsRecipesChange(): void
+    {
+        // MAG-295: the chosen line is in packs, the recipe asks grams. A sync
+        // deriving from the recipe would never want the pack, and would take
+        // it back in silence.
+        $mealId = $this->planChosenPasta();
+
+        $this->replaceRecipes($mealId, 'pasta', 'gratin');
+
+        self::assertSame(['Pâtes 1 pack'], $this->unitList());
+    }
+
+    public function testAMealThatHasChosenIsNotDerivedAgainWhenOneOfItsRecipesIsEdited(): void
+    {
+        $this->planChosenPasta();
+        $this->resetMercure();
+
+        $this->editRecipe('pasta', [['pasta_product', 600, 'g'], ['tomato', 4, 'piece'], ['parmesan', 50, 'g']]);
+
+        self::assertSame(['Pâtes 1 pack'], $this->unitList());
+        self::assertSame(0, $this->groceryUpdateCount(), 'nothing moved, nothing to publish');
+    }
+
+    public function testAMealThatHasChosenIsNotDerivedAgainByGeneration(): void
+    {
+        $this->planChosenPasta();
+
+        $this->generate();
+
+        self::assertSame(['Lait 1 l', 'Pâtes 1 pack'], $this->unitList());
+    }
+
+    public function testPlanningAnotherMealLeavesTheChosenLinesAlone(): void
+    {
+        $this->planChosenPasta();
+
+        // A meal that has not chosen still derives, on lines of its own: grams
+        // do not join a line in packs.
+        $this->planMeal('pasta');
+
+        self::assertSame(['Pâtes 1 pack', 'Pâtes 400 g', 'Tomate 4 piece'], $this->unitList());
+        self::assertSame(3, $this->contributionCount());
+    }
+
+    public function testMovingAMealThatHasChosenMovesTheBuyAfterOfItsLinesAndNotTheirQuantity(): void
+    {
+        $this->givePackaging('fish', 400);
+        $mealId = $this->planMealOn('fish_dish', '+10 days');
+        $this->chooseAll($mealId, 'fish');
+        self::assertSame(['Cabillaud 1 pack'], $this->unitList());
+        self::assertSame($this->day('+8 days'), $this->item('Cabillaud')->getBuyAfter()?->format('Y-m-d'));
+
+        $this->bus()->dispatch(new UpdateMealCommand(mealId: $mealId, date: $this->day('+13 days'), slot: null, recipeIds: null));
+
+        // Three days later, bought three days later — still one pack.
+        self::assertSame(['Cabillaud 1 pack'], $this->unitList());
+        self::assertSame($this->day('+11 days'), $this->item('Cabillaud')->getBuyAfter()?->format('Y-m-d'));
+        $this->assertMercureUpdatePublished(self::GROCERY_TOPIC);
+    }
+
+    public function testCancellingAMealThatHasChosenStillTakesItsLinesBack(): void
+    {
+        $mealId = $this->planChosenPasta();
+
+        $this->bus()->dispatch(new DeleteMealCommand(mealId: $mealId));
+
+        self::assertSame([], $this->list());
+        self::assertSame(0, $this->contributionCount());
+    }
+
+    /** Plans tomorrow's pasta, then chooses only the pasta — 400 g, 1 pack of 500 g. */
+    private function planChosenPasta(): string
+    {
+        $this->givePackaging('pasta_product', 500);
+        $mealId = $this->planMeal('pasta');
+        $this->chooseAll($mealId, 'pasta_product');
+        self::assertSame(['Pâtes 1 pack'], $this->unitList());
+
+        return $mealId;
+    }
+
+    private function givePackaging(string $ingredientRef, float $grams): void
+    {
+        $ingredient = $this->em()->find(Ingredient::class, $this->getFixture($ingredientRef)->getId())
+            ?? throw new \LogicException("No ingredient {$ingredientRef}.");
+        $ingredient->setPackagingUnit(Unit::Pack);
+        $ingredient->setPackagingSize($grams);
+        $ingredient->setPackagingSizeUnit(Unit::Gram);
+        $this->em()->flush();
+        $this->em()->clear();
+    }
+
+    private function chooseAll(string $mealId, string ...$ingredientRefs): void
+    {
+        $this->bus()->dispatch(new ChooseMealGroceriesCommand(
+            mealId: $mealId,
+            userId: (string) $this->user()->getId(),
+            chosen: array_fill_keys(array_map(fn (string $ref) => (string) $this->getFixture($ref)->getId(), $ingredientRefs), null),
+        ));
+        $this->em()->clear();
+    }
+
+    private function day(string $when): string
+    {
+        return (new \DateTimeImmutable($when, new \DateTimeZone('Europe/Paris')))->format('Y-m-d');
+    }
+
+    /**
+     * The list as « label quantity unit », sorted — the unit is what tells a
+     * chosen line from a derived one.
+     *
+     * @return list<string>
+     */
+    private function unitList(): array
+    {
+        $this->em()->clear();
+
+        $lines = [];
+        foreach ($this->groceryList()->getItems() as $item) {
+            $lines[] = $item->getLabel().' '.$item->getQuantity().' '.$item->getUnit()?->value;
+        }
+        sort($lines);
+
+        return $lines;
     }
 
     /**

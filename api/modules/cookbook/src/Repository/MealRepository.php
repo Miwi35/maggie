@@ -13,6 +13,7 @@ use Maggie\Cookbook\Entity\Recipe;
 use Maggie\Cookbook\Enum\MealSlot;
 use Maggie\Core\Entity\User;
 use Maggie\Grocery\Entity\Product;
+use Symfony\Component\Uid\Ulid;
 
 /** @extends ServiceEntityRepository<Meal> */
 class MealRepository extends ServiceEntityRepository
@@ -43,6 +44,23 @@ class MealRepository extends ServiceEntityRepository
             ->addOrderBy('m.slot', 'ASC')
             ->getQuery()
             ->getResult();
+    }
+
+    /** The meal, if it is the user's: another user's meal is not found. */
+    public function findOneForUser(string $id, User $user): ?Meal
+    {
+        if (!Ulid::isValid($id)) {
+            return null;
+        }
+
+        return $this->createQueryBuilder('m')
+            ->join('m.agenda', 'a')
+            ->where('m.id = :id')
+            ->andWhere('a.user = :user')
+            ->setParameter('id', Ulid::fromString($id), 'ulid')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 
     /**

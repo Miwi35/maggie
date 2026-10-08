@@ -49,6 +49,7 @@ framework:
             'Maggie\Cookbook\Message\CreateMealCommand': sync
             'Maggie\Cookbook\Message\UpdateMealCommand': sync
             'Maggie\Cookbook\Message\DeleteMealCommand': sync
+            'Maggie\Cookbook\Message\ChooseMealGroceriesCommand': sync
             'Maggie\Cookbook\Message\GenerateGroceryListCommand': sync
             'Maggie\Grocery\Message\AddGroceryItemCommand': sync
             'Maggie\Grocery\Message\RestockProductCommand': sync

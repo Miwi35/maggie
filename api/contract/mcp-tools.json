@@ -1158,6 +1158,35 @@
         },
         "description": "List, create, update or delete loans being repaid, and read the debt timeline. A loan is described by its remaining capital, its monthly payment and its annual rate in BASIS POINTS (350 = 3.50 %); the end date is never given, it is computed from those three. A payment that does not cover the monthly interest is refused, since such a loan would never be repaid. The timeline action amortises every loan month by month over a horizon (60 months by default) and reports when each one frees up, how much monthly payment that releases, and the net saving capacity — reference income minus loan payments minus the lifestyle measured over the last three months. All amounts are integer cents. On update, only provided fields change; to empty the optional lender, list it in clear."
     },
+    "manage_meal_groceries": {
+        "name": "manage_meal_groceries",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "mealId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "ingredientIds": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "Choose which ingredients of a planned meal go on the grocery list. preview lists the meal's ingredients with the quantity to buy in packagings (toBuy), the product's stock state (in_stock, low, out) and suggested=true when it is low or out: tell the owner which ones are running low and ask which to add. add puts only the chosen ones on the list, in packagings, and replaces what the meal had put there before: ingredientIds is a comma-separated list of ingredientId from preview, empty to add nothing."
+    },
     "manage_meals": {
         "name": "manage_meals",
         "inputSchema": {
@@ -1213,7 +1242,7 @@
                 "action"
             ]
         },
-        "description": "List, plan, update, or delete meals. A meal is a day and a slot, never a time: date, fromDate and toDate are YYYY-MM-DD with no hour, slot is lunch or dinner, and recipeIds is a comma-separated list. List needs fromDate and toDate."
+        "description": "List, plan, update, or delete meals. A meal is a day and a slot, never a time: date, fromDate and toDate are YYYY-MM-DD with no hour, slot is lunch or dinner, and recipeIds is a comma-separated list. List needs fromDate and toDate. create answers groceryPreview: the meal's ingredients with their stock, to choose from with manage_meal_groceries add."
     },
     "manage_notifications": {
         "name": "manage_notifications",

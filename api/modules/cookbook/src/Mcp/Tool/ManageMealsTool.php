@@ -9,6 +9,7 @@ use Maggie\Cookbook\Message\CreateMealCommand;
 use Maggie\Cookbook\Message\DeleteMealCommand;
 use Maggie\Cookbook\Message\UpdateMealCommand;
 use Maggie\Cookbook\Repository\MealRepository;
+use Maggie\Cookbook\Service\MealGroceryChoice;
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
@@ -16,13 +17,14 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_meals', description: 'List, plan, update, or delete meals. A meal is a day and a slot, never a time: date, fromDate and toDate are YYYY-MM-DD with no hour, slot is lunch or dinner, and recipeIds is a comma-separated list. List needs fromDate and toDate.')]
+#[McpTool(name: 'manage_meals', description: 'List, plan, update, or delete meals. A meal is a day and a slot, never a time: date, fromDate and toDate are YYYY-MM-DD with no hour, slot is lunch or dinner, and recipeIds is a comma-separated list. List needs fromDate and toDate. create answers groceryPreview: the meal\'s ingredients with their stock, to choose from with manage_meal_groceries add.')]
 class ManageMealsTool
 {
     public function __construct(
         private readonly MessageBusInterface $bus,
         private readonly MealRepository $mealRepository,
         private readonly McpUserContext $userContext,
+        private readonly MealGroceryChoice $choice,
     ) {
     }
 
@@ -94,7 +96,13 @@ class ManageMealsTool
         /** @var Meal $meal */
         $meal = $envelope->last(HandledStamp::class)->getResult();
 
-        return json_encode(['success' => true, 'meal' => $this->serialize($meal)], JSON_THROW_ON_ERROR);
+        // The preview rides along, so Maggie can go straight on to asking which
+        // ingredients to buy (manage_meal_groceries add) without another call.
+        return json_encode([
+            'success' => true,
+            'meal' => $this->serialize($meal),
+            'groceryPreview' => $this->choice->preview($meal),
+        ], JSON_THROW_ON_ERROR);
     }
 
     private function update(?string $mealId, ?string $date, ?string $slot, ?string $recipeIds): string
