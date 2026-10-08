@@ -55,6 +55,16 @@ class MaggieApiServiceTest {
     }
 
     @Test
+    fun `AgentChatRequest carries the idempotency key the agent deduplicates a resent message on`() {
+        val body = Json.encodeToString(
+            AgentChatRequest.serializer(),
+            AgentChatRequest(message = "Bonjour", idempotency_key = "k-1"),
+        )
+
+        assertTrue(body.contains("\"idempotency_key\":\"k-1\""))
+    }
+
+    @Test
     fun `FcmTokenRequest serializes correctly`() {
         val request = FcmTokenRequest(token = "abc123", deviceName = "Pixel 8")
         assertEquals("abc123", request.token)

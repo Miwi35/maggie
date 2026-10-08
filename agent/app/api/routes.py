@@ -8,6 +8,7 @@ import openai
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import IntegrityError
 
 from app.auth import (
     get_current_user_id,
@@ -31,6 +32,7 @@ from app.llm.runner import run_tool_loop
 from app.llm.screen_context import split as split_screen_context
 from app.llm.streaming import StreamingGateway
 from app.llm.transcription import CLEANUP_MODES, transcribe_audio
+from app.llm.turns import lease_deadline, turn_runner
 from app.queue.proaction_consumer import execute_proaction
 from app.queue.scheduler import generate_proactions
 from app.skills.index import render_markdown, skill_index
@@ -54,6 +56,11 @@ class ChatRequest(BaseModel):
     # not a block glued to `message`: what is stored is what is displayed, by every
     # client, so a block inside the message is a bubble full of the page it was about.
     screen_context: str | None = None
+
+    # One per message the client composes, kept for every retry of it (MAG-344): a request
+    # that failed on the way back may have been received, and sending it again must not
+    # make a second message — or a second answer.
+    idempotency_key: str | None = Field(default=None, min_length=1, max_length=64)
 
 
 class ChatResponse(BaseModel):
@@ -126,17 +133,44 @@ async def chat(request: ChatRequest, user_id: str = Depends(get_current_user_id)
 
 @router.post("/chat/stream")
 async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_user_id)):
-    """Stream a chat response using AG-UI protocol (Server-Sent Events)."""
+    """Stream a chat response using AG-UI protocol (Server-Sent Events).
+
+    The turn runs in the background and this response only follows it: a client that
+    leaves does not cancel the answer, which is stored and published all the same (MAG-344).
+    """
     # The screen the assistant was summoned from reaches the model, not the message that
     # is stored and published — this is the route the overlay streams on (MAG-30).
     said, screen = split_screen_context(request.message, request.screen_context)
     logger.info(f"Stream chat request from user {user_id}: {said[:100]}")
 
-    user_msg = await message_repo.create(user_id=user_id, role="user", content=said)
+    key = request.idempotency_key
+    received = await message_repo.find_by_client_key(user_id, key) if key else None
+    if received is None:
+        try:
+            user_msg = await message_repo.create(
+                user_id=user_id,
+                role="user",
+                content=said,
+                client_key=key,
+                turn_lease_until=lease_deadline(),
+                turn_screen_context=screen,
+            )
+        except IntegrityError:
+            # The same key, twice at once: the other request won, and owns the turn.
+            received = await message_repo.find_by_client_key(user_id, key) if key else None
+            if received is None:
+                raise
+        else:
+            events = turn_runner.start(
+                streaming_gateway, user_id=user_id, message_id=user_msg.id, message=said, screen_context=screen
+            )
+    if received is not None:
+        logger.info(f"Message {received.id} already received under key {key}: not answered twice")
+        events = turn_runner.replay(user_id, received)
 
     async def generate():
-        async for event in streaming_gateway.chat_stream(said, user_id, user_msg.id, screen_context=screen):
-            yield f"data: {json.dumps(event)}\n\n"
+        async for event in events:
+            yield ": keep-alive\n\n" if event is None else f"data: {json.dumps(event)}\n\n"
 
     return StreamingResponse(
         generate(),

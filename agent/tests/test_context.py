@@ -400,4 +400,6 @@ class TestStreamRoute:
         mock_gateway.chat_stream = fake_stream
 
         authed_client.post("/chat/stream", json={"message": "Test message"})
-        mock_msg_repo.create.assert_called_once_with(user_id="test-user", role="user", content="Test message")
+        mock_msg_repo.create.assert_called_once()
+        stored = mock_msg_repo.create.call_args.kwargs
+        assert (stored["user_id"], stored["role"], stored["content"]) == ("test-user", "user", "Test message")

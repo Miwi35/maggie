@@ -80,6 +80,10 @@ class Settings(BaseSettings):
     # model as their summary, in the system prompt, never as raw messages.
     context_history_messages: int = 40
     recent_history_messages: int = 8
+    # How long a message left without an answer (the agent restarted mid-turn) is still
+    # answered when the agent comes back. Past it, the request is stale — « rappelle-moi
+    # dans 1 min » said hours ago — and is marked unanswered instead (MAG-344).
+    turn_resume_minutes: int = 5
     # How many messages a conversation context has to gain before its summary is
     # rewritten (MAG-11). Low enough that a thread is summarized within a sitting,
     # high enough that a Haiku call is not made on every other message.

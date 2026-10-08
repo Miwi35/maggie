@@ -7,6 +7,13 @@ function getAuthHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
+// `crypto.randomUUID` only exists in a secure context; the key only has to be unique.
+function newMessageKey(): string {
+  return typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
+}
+
 interface AgUiCallbacks {
   onRunStarted?: () => void
   onRunFinished?: () => void
@@ -37,7 +44,7 @@ export function useAgUiStream(callbacks: AgUiCallbacks): UseAgUiStreamReturn {
       const response = await fetch(STREAM_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, idempotency_key: newMessageKey() }),
       })
 
       if (!response.ok) {
