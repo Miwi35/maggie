@@ -1,0 +1,14 @@
+# An agenda question answered from memory twice (MAG-349).
+#
+# The model cites a date without reading the agenda, is sent back by the claim guard,
+# and cites one again. The guard does not send it back a second time: the answer becomes
+# its own sentence, that the agenda was not read — never a date from memory.
+name: agenda-unread-twice
+description: A date cited twice with no agenda reading — replaced by the guard's sentence.
+
+match:
+  user_matches: "je revois Julie"
+
+turns:
+  - text: "Demain, vendredi 3 octobre, de 19 h à minuit à Rennes."
+  - text: "Ce serait demain à 19 h, je crois."

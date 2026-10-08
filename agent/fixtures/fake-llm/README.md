@@ -140,6 +140,11 @@ for « c'est noté » with nothing stored (MAG-340): the claim guard sends it ba
 model then calls `create_skill`, and a second unbacked « je retiens » becomes the
 sentence that nothing was stored.
 
+`89-agenda-unread-once.yaml` and `89-agenda-unread-twice.yaml` script an answer that cites a
+date or an hour to an agenda question (« quand est-ce que je vois Julie ? ») with no agenda tool
+called (MAG-349). The claim guard sends it back once; the model then calls `get_upcoming_events`,
+and a second answer from memory becomes the sentence that the agenda could not be read.
+
 The transcript cleanup pairs with the WireMock Whisper stub: that stub returns
 one fixed sentence, and `20-transcription-cleanup.yaml` returns it cleaned. Change
 one and change the other.
