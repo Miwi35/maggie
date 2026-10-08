@@ -7,6 +7,7 @@ use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Finance\Entity\Transaction;
+use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Enum\TransferSource;
 use Maggie\Finance\Mcp\Tool\ManageTransactionsTool;
@@ -627,5 +628,130 @@ class TransactionToolsTest extends KernelTestCase
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $em->clear();
         self::assertNull($em->find(Transaction::class, $salary->getId())->getCategory());
+    }
+
+    /** @return array<string, mixed> */
+    private function listed(ManageTransactionsTool $tool, mixed ...$arguments): array
+    {
+        return json_decode($tool('list', ...$arguments), true, 512, JSON_THROW_ON_ERROR);
+    }
+
+    private function seedHistory(int $count): void
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $account = $this->getFixture('checking');
+        $user = $this->getFixture('test_user');
+
+        for ($i = 0; $i < $count; ++$i) {
+            $transaction = (new Transaction())
+                ->setUser($user)
+                ->setAccount($account)
+                ->setAmountCents(-1000 - $i)
+                ->setCurrency('EUR')
+                ->setBookedAt((new \DateTimeImmutable('2026-06-30'))->modify("-{$i} days"))
+                ->setLabel(sprintf('Ligne %03d', $i))
+                ->setStatus(TransactionStatus::Spent);
+            $em->persist($transaction);
+        }
+        $em->flush();
+    }
+
+    public function testListIsBoundedAndSaysHowManyMoreThereAre(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
+        $this->seedHistory(300);
+
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+        $data = $this->listed($tool);
+
+        self::assertCount(30, $data['transactions']);
+        self::assertSame(302, $data['total']);
+        self::assertSame('Salaire', $data['transactions'][0]['label'], 'newest first');
+        self::assertSame('2026-07-05', $data['transactions'][0]['bookedAt']);
+    }
+
+    public function testListLimitIsHonouredAndCappedAtOneHundred(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
+        $this->seedHistory(300);
+
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+
+        self::assertCount(5, $this->listed($tool, limit: 5)['transactions']);
+        self::assertCount(100, $this->listed($tool, limit: 5000)['transactions']);
+        self::assertCount(30, $this->listed($tool, limit: 0)['transactions']);
+    }
+
+    public function testListFiltersByDirectionDatesAccountAndText(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
+        $account = $this->getFixture('checking');
+
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+        $tool('create', accountId: (string) $account->getId(), amountCents: -1349, label: 'PRLV SEPA NETFLIX.COM 12/10', bookedAt: '2026-10-12');
+
+        $expenses = $this->listed($tool, direction: 'expense');
+        self::assertSame(2, $expenses['total']);
+        self::assertSame(['PRLV SEPA NETFLIX.COM 12/10', 'Supermarché'], array_column($expenses['transactions'], 'label'));
+
+        $incomes = $this->listed($tool, direction: 'income');
+        self::assertSame(['Salaire'], array_column($incomes['transactions'], 'label'));
+
+        $july = $this->listed($tool, fromDate: '2026-07-01', toDate: '2026-07-31');
+        self::assertSame(2, $july['total']);
+
+        $byText = $this->listed($tool, query: 'netflix');
+        self::assertSame(1, $byText['total']);
+        self::assertSame('PRLV SEPA NETFLIX.COM 12/10', $byText['transactions'][0]['label']);
+
+        $onAccount = $this->listed($tool, accountId: (string) $account->getId());
+        self::assertSame(3, $onAccount['total']);
+        self::assertSame(0, $this->listed($tool, accountId: '01ARZ3NDEKTSV4RRFFQ69G5FAV')['total']);
+    }
+
+    public function testListTextAlsoMatchesTheCounterpartyAndTreatsWildcardsLiterally(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $groceries = $this->getFixture('groceries');
+        $groceries->setCounterpartyName('CARREFOUR MARKET');
+        $em->flush();
+
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+
+        self::assertSame(['Supermarché'], array_column($this->listed($tool, query: 'carrefour')['transactions'], 'label'));
+        self::assertSame(0, $this->listed($tool, query: '%')['total']);
+    }
+
+    public function testListRefusesAMalformedFilter(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
+
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+
+        self::assertArrayHasKey('error', $this->listed($tool, fromDate: 'hier'));
+        self::assertArrayHasKey('error', $this->listed($tool, toDate: '2026-13-45'));
+        self::assertArrayHasKey('error', $this->listed($tool, direction: 'sideways'));
+    }
+
+    public function testListNeverShowsAnotherUsersTransactions(): void
+    {
+        $this->loadFixtures('internal_transfers.yaml');
+        $this->loginFixtureUser();
+
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+        $data = $this->listed($tool, limit: 100, query: 'crédit');
+
+        self::assertSame(0, $data['total']);
+        self::assertSame([], $data['transactions']);
+        self::assertSame(
+            0,
+            $this->listed($tool, accountId: (string) $this->getFixture('other_checking')->getId())['total'],
+        );
     }
 }
