@@ -8,6 +8,7 @@ import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.AcceptRuleSuggestionsRequest
 import com.maggie.app.data.model.AcceptRuleSuggestionsResult
 import com.maggie.app.data.model.AcceptedRuleSuggestion
+import com.maggie.app.data.model.BankConnection
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.data.model.Event
@@ -17,6 +18,7 @@ import com.maggie.app.data.model.GroceryList
 import com.maggie.app.data.model.RuleSuggestion
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.repository.AgendaRepository
+import com.maggie.app.data.repository.BankConnectionRepository
 import com.maggie.app.data.repository.CategorizationRuleRepository
 import com.maggie.app.data.repository.ApprovalRepository
 import com.maggie.app.data.repository.CategoryRepository
@@ -31,6 +33,7 @@ import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.screens.cookbook.grocery.GroceryViewModel
+import com.maggie.app.ui.screens.finance.BankConnectionViewModel
 import com.maggie.app.ui.screens.finance.FinanceDashboardViewModel
 import com.maggie.app.ui.screens.finance.RuleSuggestionViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
@@ -248,6 +251,21 @@ class FakeRuleSuggestions(
         }
 
         RuleSuggestionViewModel(ruleRepository, categoryRepository)
+    }
+}
+
+/**
+ * The bank screen over the links the server holds (MAG-45, retour de recette).
+ *
+ * Canned answers are enough here: the screen test asserts how one frozen list
+ * is drawn — whether a working link reads as working — and the fetch and the
+ * reconnection are `BankConnectionViewModelTest`'s.
+ */
+class FakeBankConnections(private val connections: List<BankConnection>) {
+    val viewModel: BankConnectionViewModel by lazy {
+        val repository = mockk<BankConnectionRepository>()
+        coEvery { repository.getConnections() } returns Result.success(connections)
+        BankConnectionViewModel(repository)
     }
 }
 

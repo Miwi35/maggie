@@ -63,6 +63,23 @@ fun bankConnectionStatusLabel(status: String): String = when (status) {
     else -> status
 }
 
+/**
+ * What the card says about a link. The stored status stays `active` after the
+ * consent runs out — only a new journey changes it — so the API's verdict comes
+ * first: a bank that will not answer must not read « Connectée ».
+ */
+fun bankConnectionStatusLabel(connection: BankConnection): String =
+    if (connection.needsReconnecting) "À reconnecter" else bankConnectionStatusLabel(connection.status)
+
+/** How the status is coloured: working, waiting on the user, or neither. */
+enum class BankConnectionTone { CONNECTED, NEEDS_ACTION, NEUTRAL }
+
+fun bankConnectionTone(connection: BankConnection): BankConnectionTone = when {
+    bankConnectionNeedsAction(connection) -> BankConnectionTone.NEEDS_ACTION
+    connection.status == "active" -> BankConnectionTone.CONNECTED
+    else -> BankConnectionTone.NEUTRAL
+}
+
 /** Where this link stands, said plainly, and what it asks of the user. */
 fun bankConnectionNotice(connection: BankConnection): String? = when {
     connection.status == "pending" ->
@@ -83,6 +100,15 @@ fun bankReconnectLabel(connection: BankConnection): String =
 
 fun bankConnectionNeedsAction(connection: BankConnection): Boolean =
     connection.status == "pending" || connection.needsReconnecting
+
+/**
+ * Whether the card offers to go back to the bank. Not on a link that works and
+ * has time left: reconnecting starts a new consent at once, and a button on every
+ * card reads as « every bank is disconnected ». A consent in its last week is
+ * offered ahead, as its notice asks.
+ */
+fun bankConnectionOffersReconnect(connection: BankConnection): Boolean =
+    bankConnectionNeedsAction(connection) || bankConnectionNotice(connection) != null
 
 private val SYNC_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
 

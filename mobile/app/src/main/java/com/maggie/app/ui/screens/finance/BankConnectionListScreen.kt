@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -26,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -41,14 +41,18 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.BankConnection
+import com.maggie.app.data.model.BankConnectionTone
 import com.maggie.app.data.model.bankConnectionNeedsAction
 import com.maggie.app.data.model.bankConnectionNotice
+import com.maggie.app.data.model.bankConnectionOffersReconnect
 import com.maggie.app.data.model.bankConnectionStatusLabel
+import com.maggie.app.data.model.bankConnectionTone
 import com.maggie.app.data.model.bankReconnectLabel
 import com.maggie.app.data.model.lastSyncLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
+import com.maggie.app.ui.theme.MaggieTokens
 
 /**
  * The banks Maggie reads, and the one button that reads them.
@@ -177,11 +181,7 @@ private fun ConnectionCard(
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.weight(1f),
                 )
-                AssistChip(
-                    onClick = {},
-                    enabled = false,
-                    label = { Text(bankConnectionStatusLabel(connection.status)) },
-                )
+                StatusLabel(connection)
             }
 
             Text(
@@ -202,17 +202,45 @@ private fun ConnectionCard(
                 )
             }
 
-            Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-                if (bankConnectionNeedsAction(connection)) {
-                    Button(onClick = onReconnect, enabled = !busy) {
-                        Text(bankReconnectLabel(connection))
-                    }
-                } else {
-                    TextButton(onClick = onReconnect, enabled = !busy) {
-                        Text(bankReconnectLabel(connection))
+            if (bankConnectionOffersReconnect(connection)) {
+                Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                    if (bankConnectionNeedsAction(connection)) {
+                        Button(onClick = onReconnect, enabled = !busy) {
+                            Text(bankReconnectLabel(connection))
+                        }
+                    } else {
+                        TextButton(onClick = onReconnect, enabled = !busy) {
+                            Text(bankReconnectLabel(connection))
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+/**
+ * The status, as a coloured label and not a chip: a disabled chip is drawn
+ * faded, and « Connectée » faded read as a bank switched off (MAG-45, retour de
+ * recette). Nothing to tap, so no button role either.
+ */
+@Composable
+private fun StatusLabel(connection: BankConnection) {
+    val color = when (bankConnectionTone(connection)) {
+        BankConnectionTone.CONNECTED -> MaggieTokens.Signal.success
+        BankConnectionTone.NEEDS_ACTION -> MaggieTokens.Signal.warning
+        BankConnectionTone.NEUTRAL -> MaterialTheme.colorScheme.outline
+    }
+
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color = color.copy(alpha = 0.12f),
+        contentColor = color,
+    ) {
+        Text(
+            text = bankConnectionStatusLabel(connection),
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+        )
     }
 }

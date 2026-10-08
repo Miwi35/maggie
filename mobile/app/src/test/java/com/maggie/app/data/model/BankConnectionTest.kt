@@ -40,6 +40,36 @@ class BankConnectionTest {
     }
 
     @Test
+    fun `a link whose consent ran out reads « À reconnecter » whatever its stored status`() {
+        val lapsed = connection(status = "active", needsReconnecting = true)
+
+        assertEquals("À reconnecter", bankConnectionStatusLabel(lapsed))
+        assertEquals(BankConnectionTone.NEEDS_ACTION, bankConnectionTone(lapsed))
+        assertTrue(bankConnectionOffersReconnect(lapsed))
+    }
+
+    @Test
+    fun `a working link reads « Connectée », in the working colour, with nothing to tap`() {
+        val healthy = connection(daysBeforeExpiry = 42)
+
+        assertEquals("Connectée", bankConnectionStatusLabel(healthy))
+        assertEquals(BankConnectionTone.CONNECTED, bankConnectionTone(healthy))
+        assertFalse(bankConnectionOffersReconnect(healthy))
+        assertFalse(bankConnectionOffersReconnect(connection()))
+    }
+
+    @Test
+    fun `a consent in its last week is offered for renewal ahead`() {
+        assertTrue(bankConnectionOffersReconnect(connection(daysBeforeExpiry = 3)))
+    }
+
+    @Test
+    fun `a pending journey asks to be resumed, an unknown status is neither`() {
+        assertEquals(BankConnectionTone.NEEDS_ACTION, bankConnectionTone(connection(status = "pending")))
+        assertEquals(BankConnectionTone.NEUTRAL, bankConnectionTone(connection(status = "suspended")))
+    }
+
+    @Test
     fun `an unfinished authorization asks to be resumed`() {
         val pending = connection(status = "pending")
 
