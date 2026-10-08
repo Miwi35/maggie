@@ -65,26 +65,20 @@ transversal:
   - api/public/**
   - api/migrations/**
   - api/fixtures/e2e/10-core.yaml
-  # Authentication, wherever it lives.
-  - admin/src/auth/**
+  # Authentication on the API and the agent; each client's own login is in its
+  # platform's list below: a change to the app's login cannot break the admin.
   - agent/app/auth.py
-  - mobile/app/src/main/java/com/maggie/app/data/auth/**
-  - mobile/app/src/main/java/com/maggie/app/ui/navigation/AuthRedirect.kt
-  - mobile/app/src/main/java/com/maggie/app/ui/screens/{login,lock}/**
-  - mobile/app/src/main/java/com/maggie/app/data/model/User.kt
   # The stack and the harness.
   - docker-compose.e2e.yml
   - .docker/**
-  - '**/Taskfile*.yml'
+  - Taskfile.yml
+  - '{api,agent,ciqual,e2e,wt}/Taskfile.yml'
   - scripts/e2e/**
   - .github/workflows/ci.yml
-  # Lockfiles and dependencies.
+  # Dependencies of the API and the agent, which both clients use. Those of one
+  # client (npm, Gradle) are in its platform's list below.
   - '**/composer.{json,lock}'
-  - '**/package{,-lock}.json'
   - '**/{pyproject.toml,uv.lock}'
-  - '**/*.gradle.kts'
-  - mobile/gradle/**
-  - mobile/gradle.properties
 
 # What every admin screen goes through.
 transversal_web:
@@ -97,6 +91,9 @@ transversal_web:
   - admin/public/**
   - 'admin/vite.config.*'
   - 'admin/tsconfig*.json'
+  - admin/src/auth/**
+  - admin/Taskfile.yml
+  - '{admin,e2e/web}/package{,-lock}.json'
 
 # What every screen of the app goes through, and the e2e flavor itself.
 transversal_mobile:
@@ -113,6 +110,14 @@ transversal_mobile:
   - mobile/app/src/main/AndroidManifest.xml
   - mobile/app/src/{e2e,debug,google}/**
   - mobile/app/proguard-rules.pro
+  - mobile/app/src/main/java/com/maggie/app/data/auth/**
+  - mobile/app/src/main/java/com/maggie/app/ui/navigation/AuthRedirect.kt
+  - mobile/app/src/main/java/com/maggie/app/ui/screens/{login,lock}/**
+  - mobile/app/src/main/java/com/maggie/app/data/model/User.kt
+  - mobile/Taskfile.yml
+  - '**/*.gradle.kts'
+  - mobile/gradle/**
+  - mobile/gradle.properties
 
 only:
   web:

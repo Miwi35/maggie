@@ -59,9 +59,9 @@ select_files api/modules/core/src/Security/UserProvider.php
 jq -e '.full.web and .full.mobile' >/dev/null <<<"$SEL" && ok "says it is the full suite" || bad "full: $(jq -c .full <<<"$SEL")"
 
 printf '\n\033[1mThe safety rule: transversal changes play everything\033[0m\n'
-for file in api/contract/openapi.json api/config/packages/security.yaml admin/src/auth/authProvider.ts \
-  docker-compose.e2e.yml Taskfile.yml e2e/Taskfile.yml admin/package-lock.json agent/uv.lock api/composer.lock \
-  mobile/gradle/libs.versions.toml .github/workflows/ci.yml e2e/clock.sh scripts/e2e/impacted.sh .docker/php/Dockerfile; do
+for file in api/contract/openapi.json api/config/packages/security.yaml \
+  docker-compose.e2e.yml Taskfile.yml e2e/Taskfile.yml agent/uv.lock api/composer.lock \
+  .github/workflows/ci.yml e2e/clock.sh scripts/e2e/impacted.sh .docker/php/Dockerfile; do
   select_files "$file"
   [ "$(count web)" -eq "$on_disk_web" ] && [ "$(count mobile)" -eq "$on_disk_mobile" ] \
     && ok "$file" || bad "$file: $(count web) web, $(count mobile) mobile"
@@ -74,6 +74,16 @@ select_files e2e/mobile/subflows/sign-in.yaml
 [ "$(count mobile)" -eq "$on_disk_mobile" ] && [ "$(count web)" -eq 0 ] && ok "the shared sign-in subflow: every flow, no web journey" || bad "sign-in subflow: $(count web) web, $(count mobile) mobile"
 select_files admin/src/App.tsx
 [ "$(count web)" -eq "$on_disk_web" ] && [ "$(count mobile)" -eq 0 ] && ok "the admin shell: every web journey" || bad "App.tsx: $(count web) web, $(count mobile) mobile"
+# A client's own dependencies and login play that client only (8 Oct.).
+for file in admin/package-lock.json e2e/web/package.json admin/src/auth/authProvider.ts admin/Taskfile.yml; do
+  select_files "$file"
+  [ "$(count web)" -eq "$on_disk_web" ] && [ "$(count mobile)" -eq 0 ] && ok "$file: every web journey, no flow" || bad "$file: $(count web) web, $(count mobile) mobile"
+done
+for file in mobile/gradle/libs.versions.toml mobile/app/build.gradle.kts mobile/gradle.properties mobile/Taskfile.yml \
+  mobile/app/src/main/java/com/maggie/app/ui/screens/login/LoginScreen.kt; do
+  select_files "$file"
+  [ "$(count mobile)" -eq "$on_disk_mobile" ] && [ "$(count web)" -eq 0 ] && ok "$file: every flow, no web journey" || bad "$file: $(count web) web, $(count mobile) mobile"
+done
 
 printf '\n\033[1mA mobile finance screen plays the finance flows and the core, quarantine last\033[0m\n'
 select_files mobile/app/src/main/java/com/maggie/app/ui/screens/finance/BudgetScreen.kt

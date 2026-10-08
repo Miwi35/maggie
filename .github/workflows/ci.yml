@@ -841,7 +841,7 @@ jobs:
   # three of them in parallel. The cost is a second stack; the stacks are
   # isolated by `COMPOSE_PROJECT_NAME`, so they do not collide.
   #
-  # The journeys are split in three shards (MAG-233, e2e/mobile/shards.txt), each
+  # The journeys are split in five shards (MAG-233, rebalanced 8 Oct.: e2e/mobile/shards.txt), each
   # on its own emulator and its own stack, in parallel: nine flows in a row on one
   # emulator took 7.5 minutes. The nightly run multiplies that by the three
   # formats. A pull request plays only the flows `Detect changes` selected
