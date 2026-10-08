@@ -24,6 +24,15 @@ spec:
           image: ghcr.io/miwi35/maggie-agent:latest
           ports:
             - containerPort: 8001
+          # GlitchTip DSN (Sentry SDK). The secret is optional: without it the
+          # variable is unset and the SDK sends nothing.
+          env:
+            - name: SENTRY_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: sentry-dsn
+                  key: agent
+                  optional: true
           envFrom:
             - configMapRef:
                 name: maggie-config

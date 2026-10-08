@@ -19,6 +19,15 @@ spec:
         - name: worker
           image: ghcr.io/miwi35/maggie-php:latest
           command: ["php", "bin/console", "messenger:consume", "async", "--time-limit=3600", "--memory-limit=128M"]
+          # GlitchTip DSN (Sentry SDK). The secret is optional: without it the
+          # variable is unset and the SDK sends nothing.
+          env:
+            - name: SENTRY_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: sentry-dsn
+                  key: api
+                  optional: true
           envFrom:
             - configMapRef:
                 name: maggie-config
