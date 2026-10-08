@@ -45,11 +45,12 @@ class DetectRejections
     /** How a French bank words a payment it gives back, label folded to upper case without accents. */
     private const string REJECTION_LABEL = '/^(REJET|IMPAYE|RETOUR (PRLV|PRELEVEMENT|VIR|VIREMENT))\b/';
 
-    /** Operation wording: names no payee, so it says nothing about who was rejected. */
+    /** Operation wording and words many payees share: they say nothing about who was rejected. */
     private const array GENERIC_WORDS = [
         'REJET', 'IMPAYE', 'RETOUR', 'PRLV', 'PRELEVEMENT', 'SEPA', 'VIR', 'VIREMENT', 'WEB', 'INST',
         'INSTANTANE', 'VERS', 'EMIS', 'RECU', 'FAVEUR', 'VOTRE', 'POUR', 'DES', 'LES', 'AUX', 'MOTIF',
-        'REF', 'ECHEANCE', 'MANDAT', 'CARTE', 'PAIEMENT', 'EUR',
+        'REF', 'ECHEANCE', 'MANDAT', 'CARTE', 'PAIEMENT', 'EUR', 'FRANCE', 'ASSURANCE', 'ASSURANCES',
+        'FACTURE', 'ABONNEMENT', 'CLIENT', 'CLIENTS', 'SARL', 'SAS',
     ];
 
     private const array CONSUMED = [TransactionStatus::Spent, TransactionStatus::Committed];

@@ -11,6 +11,8 @@ use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Enum\TransferSource;
 use Maggie\Finance\Mcp\Tool\ManageTransactionsTool;
+use Maggie\Notification\Entity\Notification;
+use Maggie\Notification\Enum\NotificationType;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 class TransactionToolsTest extends KernelTestCase
@@ -598,6 +600,33 @@ class TransactionToolsTest extends KernelTestCase
 
         $this->assertMercureUpdatePublished('/transactions/'.$out->getId());
         $this->assertElasticsearchIndexDispatchedFor(Transaction::class, (string) $out->getId());
+    }
+
+    public function testCreatingARecentRejectionRaisesOneNotification(): void
+    {
+        $this->loadFixtures('internal_transfers.yaml');
+        $this->loginFixtureUser();
+
+        $checking = (string) $this->getFixture('checking')->getId();
+        $day = new \DateTimeImmutable('-3 days');
+
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+        $tool('create', accountId: $checking, amountCents: -9988, label: 'PRELEVEMENT EURO-ASSURANCE', bookedAt: $day->modify('-1 day')->format('Y-m-d'));
+        $data = json_decode(
+            $tool('create', accountId: $checking, amountCents: 9988, label: 'REJET PRLV EURO-ASSURANCE', bookedAt: $day->format('Y-m-d')),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertSame('rejected', $data['transaction']['transferKind']);
+
+        $notifications = self::getContainer()->get('doctrine.orm.entity_manager')
+            ->getRepository(Notification::class)
+            ->findBy(['relatedEntityIri' => '/api/transactions/'.$data['transaction']['id']]);
+        self::assertCount(1, $notifications);
+        self::assertSame(NotificationType::Finance, $notifications[0]->getType());
+        self::assertStringStartsWith('Prélèvement EURO-ASSURANCE de 99,88 € rejeté le ', $notifications[0]->getTitle());
     }
 
     public function testMarkingARejectionByHandSaysRejectedOnThePayment(): void

@@ -416,7 +416,8 @@ class MergeDuplicateAccounts
 
         $leg = $copy->getCounterpart();
         if ($copy->isInternalTransfer() && !$twin->isInternalTransfer() && null !== $leg && $leg !== $twin) {
-            $twin->markAsInternalTransfer($leg, $copy->getTransferSource());
+            // The kind travels too: a rejection stays a rejection, never a transfer.
+            $twin->pairWith($leg, $copy->getTransferKind(), $copy->getTransferSource());
             $touched[(string) $leg->getId()] = $leg;
             $changed = true;
         } elseif (null !== $leg && $leg->getCounterpart() === $copy) {

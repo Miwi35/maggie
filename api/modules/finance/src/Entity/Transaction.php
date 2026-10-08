@@ -147,8 +147,8 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
 
     /**
      * What kind of neutral movement this is — an internal transfer, a rejected
-     * payment — if any. Anything but `None` is
-     * neither an expense nor an income, and leaves every aggregate.
+     * payment — if any. Anything but `None` is neither an expense nor an
+     * income, and leaves every aggregate.
      *
      * Read-only over REST, like the two fields below: a merge-patch cannot say
      * whether a leg was left out or set to null, so it could unpair one side

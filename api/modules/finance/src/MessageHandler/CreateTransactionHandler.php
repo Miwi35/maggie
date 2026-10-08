@@ -62,7 +62,9 @@ class CreateTransactionHandler
         }
 
         // A rejected payment first: its credit is the exact opposite of the
-        // debit it gives back, and must never be taken for a transfer.
+        // debit it gives back, and must never be taken for a transfer. Only a
+        // new credit is matched — a debit created after its rejection waits
+        // for the next sync or for `app:finance:detect-rejections`.
         $rejected = $this->detectRejections->detectFor($transaction);
         if (null !== $rejected) {
             $rejected->markAsRejection($transaction, TransferSource::Auto);
