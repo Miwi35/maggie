@@ -449,6 +449,19 @@ tasks:
           sh -c '{{.COMMAND}}'
 
   # ===========================================================================
+  # Mobile — JVM unit tests only, one Gradle at a time on the machine
+  # ===========================================================================
+  test:mobile:
+    desc: Mobile JVM unit tests on this worktree, one Gradle build at a time (task wt:test:mobile -- --tests 'com.maggie.app.…')
+    # On the host, not in a container: the build needs the Android SDK and
+    # Android Studio's JDK, as `task mobile:install` does. No `deps: [guard]`:
+    # wt/gradle.sh takes the machine-wide Gradle lock first and runs the guard
+    # once it holds it, so the guard measures a machine no other Gradle is on.
+    # The only local Gradle build: APK, lint and Maestro run on CI.
+    cmds:
+      - WT_SELF_PROJECT='{{.WT_PROJECT}}' '{{.ROOT_DIR}}/wt/gradle.sh' {{.CLI_ARGS}}
+
+  # ===========================================================================
   # Cache housekeeping
   # ===========================================================================
   cache:prune:
