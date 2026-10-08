@@ -3,6 +3,7 @@ package com.maggie.app.ui.screens.fullcalendar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,6 +24,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -34,6 +37,7 @@ import com.kizitonwose.calendar.core.CalendarDay
 import com.kizitonwose.calendar.core.DayPosition
 import com.kizitonwose.calendar.core.daysOfWeek
 import com.maggie.app.data.model.ExpandedEvent
+import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.screens.dashboard.parseColor
 import com.maggie.app.ui.theme.readableTextOn
 import com.maggie.app.util.DateRanges
@@ -46,8 +50,12 @@ import java.time.ZonedDateTime
 import java.time.format.TextStyle as JavaTextStyle
 import java.util.Locale
 
-private const val MAX_VISIBLE_SLOTS = 3
 private val SLOT_HEIGHT = 15.dp
+
+/** The day number's row — the same on every day, so the slots below line up from one column to the next. */
+private val DAY_NUMBER_HEIGHT = 20.dp
+private val DAY_NUMBER_TOP_PADDING = 1.dp
+private val COUNTER_LINE_HEIGHT = 10.sp
 
 /** Pre-computed position for one event on one day. */
 private data class EventSlot(
@@ -68,6 +76,7 @@ fun MonthCalendarView(
     onDateSelected: (LocalDate) -> Unit,
     onEventClick: (ExpandedEvent) -> Unit = {},
     onMonthChange: (YearMonth) -> Unit = {},
+    today: LocalDate = DateRanges.todayDate(),
 ) {
     val latestDate by rememberUpdatedState(currentDate)
     val zone = ZoneId.of("Europe/Paris")
@@ -102,6 +111,7 @@ fun MonthCalendarView(
             FullMonthDayCell(
                 day = day,
                 slots = slots,
+                isToday = day.date == today,
                 onEventClick = onEventClick,
                 onDayClick = { onDateSelected(day.date) },
             )
@@ -246,15 +256,16 @@ private fun DaysOfWeekHeader(daysOfWeek: List<DayOfWeek>) {
 private fun FullMonthDayCell(
     day: CalendarDay,
     slots: List<EventSlot>,
+    isToday: Boolean,
     onEventClick: (ExpandedEvent) -> Unit,
     onDayClick: () -> Unit,
 ) {
     val isCurrentMonth = day.position == DayPosition.MonthDate
-    val isToday = day.date == DateRanges.todayDate()
 
-    Column(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
+            .testTag(UiTags.calendarMonthDay(day.date))
             .clickable(enabled = isCurrentMonth) { onDayClick() }
             .then(
                 if (!isCurrentMonth)
@@ -262,61 +273,77 @@ private fun FullMonthDayCell(
                 else Modifier
             ),
     ) {
-        // Day number
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .padding(top = 1.dp)
-                .then(
-                    if (isToday) Modifier
-                        .size(20.dp)
-                        .background(MaterialTheme.colorScheme.primary, CircleShape)
-                    else Modifier
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = day.date.dayOfMonth.toString(),
-                fontSize = 11.sp,
-                color = when {
-                    isToday -> MaterialTheme.colorScheme.onPrimary
-                    !isCurrentMonth -> MaterialTheme.colorScheme.outline
-                    else -> MaterialTheme.colorScheme.onSurface
-                },
-            )
-        }
+        val cellHeight = maxHeight
+        val counterHeight = with(LocalDensity.current) { COUNTER_LINE_HEIGHT.toDp() }
 
-        if (!isCurrentMonth) return@Column
-
-        // Render slots in order — empty spacers keep alignment across days
-        val maxSlot = slots.maxOfOrNull { it.slot } ?: -1
-        val visibleMax = minOf(maxSlot, MAX_VISIBLE_SLOTS - 1)
-
-        for (slotIndex in 0..visibleMax) {
-            val entry = slots.find { it.slot == slotIndex }
-            if (entry != null) {
-                ContinuousEventChip(
-                    event = entry.event,
-                    isStart = entry.isStart,
-                    isEnd = entry.isEnd,
-                    onClick = { onEventClick(entry.event) },
+        Column(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(top = DAY_NUMBER_TOP_PADDING)
+                    .height(DAY_NUMBER_HEIGHT)
+                    .then(
+                        if (isToday) Modifier
+                            .size(DAY_NUMBER_HEIGHT)
+                            .background(MaterialTheme.colorScheme.primary, CircleShape)
+                        else Modifier
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = day.date.dayOfMonth.toString(),
+                    fontSize = 11.sp,
+                    color = when {
+                        isToday -> MaterialTheme.colorScheme.onPrimary
+                        !isCurrentMonth -> MaterialTheme.colorScheme.outline
+                        else -> MaterialTheme.colorScheme.onSurface
+                    },
                 )
-            } else {
-                Spacer(modifier = Modifier
-                    .fillMaxWidth()
-                    .height(SLOT_HEIGHT))
             }
-        }
 
-        // Overflow count
-        val hiddenCount = slots.count { it.slot >= MAX_VISIBLE_SLOTS }
-        if (hiddenCount > 0) {
-            Text(
-                text = "+$hiddenCount",
-                fontSize = 9.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 2.dp),
-            )
+            if (!isCurrentMonth) return@Column
+
+            // As many slots as the cell holds; « +N » takes its own line only when something is left out.
+            val room = cellHeight - DAY_NUMBER_TOP_PADDING - DAY_NUMBER_HEIGHT
+            val needed = (slots.maxOfOrNull { it.slot } ?: -1) + 1
+            val visibleCount =
+                if (SLOT_HEIGHT * needed <= room) needed
+                else ((room - counterHeight) / SLOT_HEIGHT).toInt().coerceAtLeast(0)
+
+            // Empty spacers keep alignment across days
+            for (slotIndex in 0 until visibleCount) {
+                val entry = slots.find { it.slot == slotIndex }
+                if (entry != null) {
+                    ContinuousEventChip(
+                        event = entry.event,
+                        isStart = entry.isStart,
+                        isEnd = entry.isEnd,
+                        onClick = { onEventClick(entry.event) },
+                        modifier = Modifier.testTag(UiTags.calendarMonthSlot(day.date, slotIndex)),
+                    )
+                } else {
+                    Spacer(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(SLOT_HEIGHT)
+                            .testTag(UiTags.calendarMonthSlot(day.date, slotIndex)),
+                    )
+                }
+            }
+
+            val hiddenCount = slots.count { it.slot >= visibleCount }
+            if (hiddenCount > 0) {
+                Text(
+                    text = "+$hiddenCount",
+                    fontSize = 9.sp,
+                    lineHeight = COUNTER_LINE_HEIGHT,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .padding(start = 2.dp)
+                        .height(counterHeight)
+                        .testTag(UiTags.calendarMonthMore(day.date)),
+                )
+            }
         }
     }
 }
@@ -327,6 +354,7 @@ private fun ContinuousEventChip(
     isStart: Boolean,
     isEnd: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val color = event.agendaColor?.let { parseColor(it) } ?: MaterialTheme.colorScheme.primary
 
@@ -338,7 +366,7 @@ private fun ContinuousEventChip(
     )
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(
                 start = if (isStart) 1.dp else 0.dp,
