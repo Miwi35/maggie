@@ -11,8 +11,18 @@ export interface TransferLeg {
   accountName: string
 }
 
+/**
+ * `internal`: money moved between two of the owner's accounts. `rejected`: a
+ * payment the bank refused and the credit that gave it back, on one account.
+ * Both keep the line out of every figure.
+ */
+export type TransferKind = 'none' | 'internal' | 'rejected'
+
+/** The two markings the owner can put on a line by hand. */
+export type MarkKind = Exclude<TransferKind, 'none'>
+
 export interface TransferState {
-  transferKind: 'none' | 'internal'
+  transferKind: TransferKind
   transferSource: 'auto' | 'manual'
   counterpart: TransferLeg | null
 }
@@ -71,10 +81,13 @@ export function useTransactionTransfer(transactionId: string | undefined) {
     void load()
   }, [load])
 
-  const loadCandidates = useCallback(async (): Promise<TransferLeg[] | null> => {
+  /** `rejected` lists the lines of the same account instead of the other accounts. */
+  const loadCandidates = useCallback(async (kind: MarkKind = 'internal'): Promise<TransferLeg[] | null> => {
     if (id === undefined) return null
+    setCandidates(null)
     try {
-      const res = await request(`/api/finance/transactions/${id}/transfer-candidates`)
+      const query = kind === 'rejected' ? '?kind=rejected' : ''
+      const res = await request(`/api/finance/transactions/${id}/transfer-candidates${query}`)
       if (!res.ok) {
         setError('Impossible de lister les contreparties possibles')
         return null
@@ -91,7 +104,7 @@ export function useTransactionTransfer(transactionId: string | undefined) {
   }, [id])
 
   const write = useCallback(
-    async (body: { transferKind: 'internal' | 'none'; counterpartId?: string }): Promise<boolean> => {
+    async (body: { transferKind: TransferKind; counterpartId?: string }): Promise<boolean> => {
       if (id === undefined) return false
       setSaving(true)
       try {
@@ -118,9 +131,13 @@ export function useTransactionTransfer(transactionId: string | undefined) {
     [id],
   )
 
-  /** `counterpartId` omitted marks a single leg: the other account is not synced. */
+  /**
+   * `counterpartId` omitted marks a single leg: the other account is not
+   * synced, or the rejected payment is older than the history.
+   */
   const mark = useCallback(
-    (counterpartId?: string) => write({ transferKind: 'internal', ...(counterpartId ? { counterpartId } : {}) }),
+    (counterpartId?: string, kind: MarkKind = 'internal') =>
+      write({ transferKind: kind, ...(counterpartId ? { counterpartId } : {}) }),
     [write],
   )
 

@@ -153,6 +153,108 @@ describe('TransferPanel', () => {
     expect(screen.getByText('Détecté automatiquement')).toBeInTheDocument()
   })
 
+  describe('rejections', () => {
+    const CREDIT = { ...LEG, id: '01BACK', label: 'Rejet virement Courant', accountId: '01LIV', accountName: 'Livret' }
+    const REJECTED = { transferKind: 'rejected', transferSource: 'manual', counterpart: CREDIT }
+
+    test('a rejected payment shows its badge, who decided, what gave it back, and offers to release it', async () => {
+      fetchMock.mockImplementation((_url: string, init?: RequestInit) =>
+        init?.method === 'PUT'
+          ? respond(200, { success: true, transferKind: 'none', transferSource: 'manual', counterpart: null })
+          : respond(200, REJECTED),
+      )
+
+      renderPanel()
+
+      expect(await screen.findByText('Rejeté', { selector: '.MuiChip-label' })).toBeInTheDocument()
+      expect(screen.getByText('Marqué à la main')).toBeInTheDocument()
+      expect(screen.getByText(/Rendu par :/)).toBeInTheDocument()
+      expect(screen.getByText(/Livret · 13\/09\/2026 · Rejet virement Courant/)).toBeInTheDocument()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Ce n’est pas un rejet' }))
+
+      expect(await screen.findByRole('button', { name: 'C’est un rejet' })).toBeInTheDocument()
+      expect(bodiesOf('PUT')).toEqual([
+        { url: '/api/finance/transactions/01OUT/transfer', body: { transferKind: 'none' } },
+      ])
+      expect(await screen.findByText('Ce n’est plus un rejet')).toBeInTheDocument()
+    })
+
+    test('« C’est un rejet » offers the lines of the same account and sends the one chosen', async () => {
+      fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+        if (init?.method === 'PUT') return respond(200, { success: true, ...REJECTED })
+        if (url.endsWith('/transfer-candidates?kind=rejected')) return respond(200, { candidates: [CREDIT] })
+        return respond(200, NONE)
+      })
+
+      renderPanel()
+      await userEvent.click(await screen.findByRole('button', { name: 'C’est un rejet' }))
+
+      const dialog = await screen.findByRole('dialog')
+      expect(await within(dialog).findByText('Les lignes du même compte, au montant opposé, à quinze jours près.')).toBeInTheDocument()
+      expect(within(dialog).getByRole('radio', { name: 'Aucune contrepartie : le paiement rejeté n’est pas ici' })).toBeInTheDocument()
+      await userEvent.click(within(dialog).getByRole('radio', { name: /Rejet virement Courant/ }))
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Marquer comme rejet' }))
+
+      await waitFor(() =>
+        expect(bodiesOf('PUT')).toEqual([
+          {
+            url: '/api/finance/transactions/01OUT/transfer',
+            body: { transferKind: 'rejected', counterpartId: '01BACK' },
+          },
+        ]),
+      )
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/finance/transactions/01OUT/transfer-candidates?kind=rejected',
+        expect.anything(),
+      )
+      expect(await screen.findByText('Marqué comme rejet')).toBeInTheDocument()
+      expect(screen.getByText('Rejeté', { selector: '.MuiChip-label' })).toBeInTheDocument()
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+
+    test('with no line to pair, a rejection can still be marked alone', async () => {
+      fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+        if (init?.method === 'PUT') {
+          return respond(200, { success: true, transferKind: 'rejected', transferSource: 'manual', counterpart: null })
+        }
+        if (url.endsWith('/transfer-candidates?kind=rejected')) return respond(200, { candidates: [] })
+        return respond(200, NONE)
+      })
+
+      renderPanel()
+      await userEvent.click(await screen.findByRole('button', { name: 'C’est un rejet' }))
+
+      const dialog = await screen.findByRole('dialog')
+      expect(
+        await within(dialog).findByText('Aucune ligne du même compte ne correspond (montant opposé, dans les quinze jours).'),
+      ).toBeInTheDocument()
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Marquer comme rejet' }))
+
+      await waitFor(() => expect(bodiesOf('PUT')[0].body).toEqual({ transferKind: 'rejected' }))
+      expect(await screen.findByText('Sans contrepartie')).toBeInTheDocument()
+    })
+
+    test('a refused rejection is shown and the dialog stays open', async () => {
+      fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+        if (init?.method === 'PUT') return respond(400, { error: 'A rejection stays on one account.' })
+        if (url.endsWith('/transfer-candidates?kind=rejected')) return respond(200, { candidates: [CREDIT] })
+        return respond(200, NONE)
+      })
+
+      renderPanel()
+      await userEvent.click(await screen.findByRole('button', { name: 'C’est un rejet' }))
+
+      const dialog = await screen.findByRole('dialog')
+      await userEvent.click(await within(dialog).findByRole('radio', { name: /Rejet virement Courant/ }))
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Marquer comme rejet' }))
+
+      expect(await screen.findByText('A rejection stays on one account.')).toBeInTheDocument()
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      expect(screen.queryByText('Rejeté', { selector: '.MuiChip-label' })).not.toBeInTheDocument()
+    })
+  })
+
   test('a failing read says so instead of showing a wrong state', async () => {
     fetchMock.mockImplementation(() => respond(500, {}))
 

@@ -119,20 +119,21 @@ describe('AccountTransactionsView', () => {
         counterpart: null,
       },
     ]
-    const provider = testDataProvider({
-      getList: (() => Promise.resolve({ data: rows, total: rows.length })) as unknown as DataProvider['getList'],
-      getOne: (() =>
-        Promise.resolve({ data: { id: ACCOUNT_IRI, name: 'Livret' } })) as unknown as DataProvider['getOne'],
-    })
+    const providerOf = (data: typeof rows) =>
+      testDataProvider({
+        getList: (() => Promise.resolve({ data, total: data.length })) as unknown as DataProvider['getList'],
+        getOne: (() =>
+          Promise.resolve({ data: { id: ACCOUNT_IRI, name: 'Livret' } })) as unknown as DataProvider['getOne'],
+      })
 
     afterEach(() => {
       vi.unstubAllGlobals()
     })
 
-    const renderView = () =>
+    const renderView = (data = rows) =>
       render(
         <MemoryRouter initialEntries={['/accounts/01ABC/transactions']}>
-          <AdminContext dataProvider={provider}>
+          <AdminContext dataProvider={providerOf(data)}>
             <Routes>
               <Route path="/accounts/:id/transactions" element={<AccountTransactionsView />} />
             </Routes>
@@ -185,6 +186,35 @@ describe('AccountTransactionsView', () => {
 
       const marked = (await screen.findByText('Virement vers Courant')).closest('tr')!
       expect(await within(marked).findByText(/Sans contrepartie/)).toBeInTheDocument()
+    })
+
+    test('a rejected payment reads « Rejeté » and names the credit that gave it back', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({
+            transferKind: 'rejected',
+            transferSource: 'auto',
+            counterpart: {
+              id: '01BACK',
+              label: 'Rejet virement Courant',
+              amountCents: 300000,
+              currency: 'EUR',
+              bookedAt: '2026-09-15',
+              accountId: '01ABC',
+              accountName: 'Livret',
+            },
+          }),
+        }),
+      )
+
+      renderView([{ ...rows[0], transferKind: 'rejected', counterpart: '/api/transactions/01BACK' }])
+
+      const rejected = (await screen.findByText('Virement vers Courant')).closest('tr')!
+      expect(within(rejected).getByText('Rejeté')).toBeInTheDocument()
+      expect(await within(rejected).findByText(/Rendu par :/)).toBeInTheDocument()
+      expect(within(rejected).queryByText('Virement interne')).not.toBeInTheDocument()
     })
   })
 })

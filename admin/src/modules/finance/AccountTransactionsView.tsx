@@ -36,9 +36,15 @@ const TransactionDatagrid = () => {
         render={(record: RaRecord) => (
           <>
             <span>{record.label as string}</span>
-            <TransferBadge transferKind={record.transferKind as string | undefined} />
-            {record.transferKind === 'internal' && (
-              <TransferCounterpart transactionId={transactionIdOf(record.id as string)} />
+            <TransferBadge
+              transferKind={record.transferKind as string | undefined}
+              amountCents={record.amountCents as number}
+            />
+            {(record.transferKind === 'internal' || record.transferKind === 'rejected') && (
+              <TransferCounterpart
+                transactionId={transactionIdOf(record.id as string)}
+                amountCents={record.amountCents as number}
+              />
             )}
           </>
         )}
