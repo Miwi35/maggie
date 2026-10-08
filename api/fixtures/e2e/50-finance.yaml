@@ -161,6 +161,40 @@ Maggie\Finance\Entity\Transaction:
     categorySource: '<(Maggie\Finance\Enum\CategorySource::None)>'
     user: '@e2e_user'
 
+  # The one rule the statement implies: a shop that comes back, never filed, and
+  # no dictionary entry or rule names it — so its suggestion arrives with no
+  # heading. Five years back, out of every window a figure or a review reads.
+  # 18,50 + 22,00 + 26,50 = 67,00 €.
+  e2e_transaction_cheese_1:
+    account: '@e2e_account_checking'
+    amountCents: -1850
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month -5 years +3 days")>'
+    label: 'FROMAGERIE DES LICES'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::None)>'
+    user: '@e2e_user'
+
+  e2e_transaction_cheese_2:
+    account: '@e2e_account_checking'
+    amountCents: -2200
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month -5 years +10 days")>'
+    label: 'FROMAGERIE DES LICES'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::None)>'
+    user: '@e2e_user'
+
+  e2e_transaction_cheese_3:
+    account: '@e2e_account_checking'
+    amountCents: -2650
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month -5 years +17 days")>'
+    label: 'FROMAGERIE DES LICES'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::None)>'
+    user: '@e2e_user'
+
   e2e_transaction_to_arbitrate:
     account: '@e2e_account_checking'
     amountCents: -8900
