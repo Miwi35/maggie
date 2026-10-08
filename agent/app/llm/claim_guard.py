@@ -42,6 +42,7 @@ import re
 from dataclasses import dataclass
 from enum import Enum
 
+from app.error_tracking import CLAIM_GUARD_RETRY, capture_signal
 from app.llm.dry_run import is_read_only
 from app.llm.screen_context import split
 
@@ -373,6 +374,7 @@ class ClaimGuard:
         self._pending = claim
         if not self.nudged and can_retry:
             self.nudged = True
+            capture_signal(CLAIM_GUARD_RETRY, claim=claim.name)
             return Verdict.RETRY
         return Verdict.GIVE_UP
 

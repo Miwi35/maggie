@@ -1,3 +1,4 @@
+import com.android.build.api.variant.BuildConfigField
 import java.util.Properties
 
 plugins {
@@ -21,6 +22,12 @@ if (file("google-services.json").exists()) {
 // Réglages shows). A local build keeps versionCode 1 and the SHA "local".
 val appVersion = "0.1.0"
 val gitSha = (project.findProperty("GIT_SHA") as String?)?.takeIf { it.isNotBlank() }
+
+// Where crashes and ANRs go (GlitchTip, Sentry-compatible). Passed by the CD to
+// the build it publishes (-PSENTRY_DSN=…) and baked into the prod release only:
+// debug builds, the dev flavor and the e2e flavor get an empty DSN, and an empty
+// DSN means the SDK is never started — nothing leaves the phone (SentrySetup).
+val sentryDsn = (project.findProperty("SENTRY_DSN") as String?)?.trim().orEmpty()
 
 val keystorePropertiesFile = rootProject.file("keystore.properties")
 val keystoreProperties = Properties().apply {
@@ -152,6 +159,18 @@ android {
     }
 }
 
+// SENTRY_DSN exists in every variant's BuildConfig, so the code compiles the
+// same everywhere, but only prodRelease carries a value.
+androidComponents {
+    onVariants { variant ->
+        val dsn = if (variant.flavorName == "prod" && variant.buildType == "release") sentryDsn else ""
+        variant.buildConfigFields.put(
+            "SENTRY_DSN",
+            BuildConfigField("String", "\"$dsn\"", "GlitchTip DSN; empty = crash reporting off"),
+        )
+    }
+}
+
 // Line coverage of the unit tests (MAG-105), read by scripts/coverage/. Generated
 // code is left out: nobody writes a test for it and it would only dilute the figure.
 kover {
@@ -230,6 +249,9 @@ dependencies {
     implementation(libs.activity.compose)
     implementation(libs.core.ktx)
     implementation(libs.splashscreen)
+
+    // Crash and ANR reports (GlitchTip) — started only with a DSN, see SentrySetup
+    implementation(libs.sentry.android)
 
     // Testing
     testImplementation(libs.junit)

@@ -21,6 +21,7 @@ dependencies = [
     "openai>=1.30.0",
     "edge-tts>=7.0.0",
     "prometheus_client>=0.21.0",
+    "sentry-sdk[fastapi]>=2.20.0",
 ]
 
 [project.optional-dependencies]

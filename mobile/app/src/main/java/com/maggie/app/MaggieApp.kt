@@ -66,6 +66,7 @@ import com.maggie.app.ui.screens.notifications.NotificationViewModel
 import com.maggie.app.ui.screens.proactions.ProactionViewModel
 import com.maggie.app.ui.screens.search.SearchViewModel
 import com.maggie.app.ui.screens.settings.SettingsViewModel
+import com.maggie.app.util.SentrySetup
 import com.maggie.app.voice.VoiceManager
 import com.maggie.app.voice.audioRecorderFactory
 import com.maggie.app.voice.deviceSpeechFactory
@@ -105,6 +106,11 @@ private data class RefreshResponse(
 class MaggieApp : Application() {
     override fun onCreate() {
         super.onCreate()
+
+        // Crash and ANR reports (prod release only: elsewhere the DSN is empty and
+        // nothing starts). Before the handler below, so that one wraps Sentry's:
+        // the swallowed Ktor NPE never reaches Sentry as a crash.
+        SentrySetup.init(this, BuildConfig.SENTRY_DSN, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
 
         // Swallow a known Ktor 3.0.2 crash where OkHttpSSESession.onFailure
         // dereferences a null CompletableDeferred when the SSE connection

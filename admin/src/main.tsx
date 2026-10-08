@@ -2,6 +2,10 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { handleAuthCallback } from './auth/authProvider'
 import { restoreSession } from './auth/session'
+import { initSentry } from './observability/sentry'
+
+// First, so an error during the session restore is reported too.
+initSentry()
 
 // An expired access token is renewed from the refresh cookie before the router
 // reads the location: App sends a visitor with no valid session to the login

@@ -31,6 +31,12 @@ COPY admin/ .
 ARG MERCURE_PUBLIC_URL=/.well-known/mercure
 ENV VITE_API_URL=/api
 ENV VITE_MERCURE_PUBLIC_URL=${MERCURE_PUBLIC_URL}
+# GlitchTip (Sentry SDK): an empty DSN builds an admin that sends nothing. The
+# DSN of a browser app is public by design — it ships in the bundle.
+ARG SENTRY_DSN=
+ARG SENTRY_RELEASE=
+ENV VITE_SENTRY_DSN=${SENTRY_DSN}
+ENV VITE_SENTRY_RELEASE=${SENTRY_RELEASE}
 RUN npm run build
 
 # =============================================================================

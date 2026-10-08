@@ -87,6 +87,10 @@
                 <action android:name="android.speech.RecognitionService" />
             </intent-filter>
         </service>
+
+        <!-- Sentry would start itself from a ContentProvider; MaggieApp starts it
+             instead, and only when the build carries a DSN (SentrySetup). -->
+        <meta-data android:name="io.sentry.auto-init" android:value="false" />
     </application>
 
 </manifest>

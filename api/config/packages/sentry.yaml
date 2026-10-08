@@ -1,0 +1,29 @@
+# Production errors go to GlitchTip (Sentry-compatible, glitchtip.meven.fr).
+#
+# SENTRY_DSN empty = nothing is sent: it is set only in prod (k8s secret
+# sentry-dsn, key api), never in dev, test or e2e. SENTRY_RELEASE is the
+# deployed commit, baked into the prod image at build (.docker/php/Dockerfile).
+sentry:
+    dsn: '%env(default::SENTRY_DSN)%'
+    options:
+        environment: '%env(default:sentry_environment:SENTRY_ENVIRONMENT)%'
+        release: '%env(default::SENTRY_RELEASE)%'
+        # The Linear bridge files each problem by component.
+        tags:
+            component: api
+        # Only the user id travels, through SentryUserListener: never the
+        # e-mail, the IP, cookies or bodies.
+        send_default_pii: false
+        max_request_body_size: never
+        # 4xx are answers, not failures: only 5xx and unhandled errors go out.
+        before_send: Maggie\Core\Observability\SentryEventFilter
+    # Errors only: no performance tracing.
+    tracing:
+        enabled: false
+    messenger:
+        enabled: true
+        # A message that will be retried is not a failure yet.
+        capture_soft_fails: false
+
+parameters:
+    sentry_environment: prod
