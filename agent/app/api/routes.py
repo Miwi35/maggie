@@ -148,7 +148,12 @@ async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_u
     if received is None:
         try:
             user_msg = await message_repo.create(
-                user_id=user_id, role="user", content=said, client_key=key, turn_lease_until=lease_deadline()
+                user_id=user_id,
+                role="user",
+                content=said,
+                client_key=key,
+                turn_lease_until=lease_deadline(),
+                turn_screen_context=screen,
             )
         except IntegrityError:
             # The same key, twice at once: the other request won, and owns the turn.

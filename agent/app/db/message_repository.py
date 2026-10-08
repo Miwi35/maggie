@@ -38,6 +38,7 @@ class MessageRepository:
         message_id: str | None = None,
         client_key: str | None = None,
         turn_lease_until: datetime | None = None,
+        turn_screen_context: str | None = None,
     ) -> Message:
         """Store a message and publish it on the user's chat topic.
 
@@ -53,6 +54,7 @@ class MessageRepository:
             if turn_lease_until is not None:
                 msg.turn_status = TURN_RUNNING
                 msg.turn_lease_until = turn_lease_until
+                msg.turn_screen_context = turn_screen_context
             if message_id:
                 msg.id = message_id
             session.add(msg)
@@ -85,7 +87,7 @@ class MessageRepository:
             await session.execute(
                 update(Message)
                 .where(Message.id == message_id, Message.turn_status == TURN_RUNNING)
-                .values(turn_status=None, turn_lease_until=None)
+                .values(turn_status=None, turn_lease_until=None, turn_screen_context=None)
             )
             await session.commit()
 
@@ -120,7 +122,7 @@ class MessageRepository:
                     Message.created_at < older_than,
                     or_(Message.turn_lease_until.is_(None), Message.turn_lease_until < datetime.now(UTC)),
                 )
-                .values(turn_status=TURN_EXPIRED, turn_lease_until=None)
+                .values(turn_status=TURN_EXPIRED, turn_lease_until=None, turn_screen_context=None)
             )
             await session.commit()
             return result.rowcount

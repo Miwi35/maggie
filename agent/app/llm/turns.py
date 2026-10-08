@@ -157,6 +157,7 @@ class TurnRunner:
                 user_id=message.user_id,
                 message_id=message.id,
                 message=message.content,
+                screen_context=message.turn_screen_context,
                 follow=False,
             )
             resumed += 1

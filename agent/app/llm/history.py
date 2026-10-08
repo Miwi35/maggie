@@ -214,6 +214,13 @@ def _turns(
     screen_context: str | None = None,
 ) -> list[dict]:
     """The rows as Anthropic turns: labelled, merged, and starting on the user."""
+    # A turn taken up again after a restart may have been overtaken: the user retyped the
+    # request and it was answered. Its history stops at its own message, or the model would
+    # be sent a conversation ending on its own answer (MAG-344).
+    if current_message_id is not None:
+        own = next((i for i, row in enumerate(rows) if str(row.id) == str(current_message_id)), None)
+        if own is not None and any(row.role == "assistant" for row in rows[own + 1 :]):
+            rows = rows[: own + 1]
     turns: list[dict] = []
     for row in rows:
         if row.role not in ("user", "assistant") or not row.content:

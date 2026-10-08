@@ -33,6 +33,9 @@ class Message(AgentBase):
     # turn whose lease has lapsed belongs to a process that is gone.
     turn_status = Column(String(16), nullable=True)
     turn_lease_until = Column(DateTime(timezone=True), nullable=True)
+    # The screen the assistant was summoned from, kept only while the turn runs: a turn taken
+    # up again after a restart needs it, and the message itself must stay clean (MAG-30).
+    turn_screen_context = Column(Text, nullable=True)
 
     def to_dict(self) -> dict:
         return {

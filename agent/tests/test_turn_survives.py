@@ -77,9 +77,11 @@ class RecordingGateway:
 
     def __init__(self):
         self.asked: list[str] = []
+        self.screens: list[str | None] = []
 
-    async def chat_stream(self, message, user_id, user_msg_id, **_kwargs):
+    async def chat_stream(self, message, user_id, user_msg_id, screen_context=None, **_kwargs):
         self.asked.append(message)
+        self.screens.append(screen_context)
         yield {"type": "RUN_STARTED", "runId": "run-1"}
         await message_repo.create(
             user_id=user_id, role="assistant", content="C'est fait.", message_id=answer_message_id(user_msg_id)
@@ -152,6 +154,23 @@ class TestAnAgentThatRestarts:
         assert gateway.asked == []
 
 
+    @pytest.mark.asyncio
+    async def test_a_resumed_turn_gets_back_the_screen_it_was_summoned_from(self, chat_db):
+        lost = await orphan(chat_db, content="résume cette page", age=timedelta(minutes=1))
+        async with chat_db.session() as session:
+            stored = (await session.execute(select(Message).where(Message.id == lost.id))).scalar_one()
+            stored.turn_screen_context = "[Contexte de l'écran]\nPage : https://exemple.fr"
+            await session.commit()
+        gateway = RecordingGateway()
+        runner = TurnRunner()
+
+        await runner.resume_lost_turns(gateway)
+        await runner.idle()
+
+        assert gateway.screens == ["[Contexte de l'écran]\nPage : https://exemple.fr"]
+        assert (await message_repo.get(lost.id)).turn_screen_context is None
+
+
 class TestTheHistoryDoesNotReplayAnOrphan:
     @pytest.mark.asyncio
     async def test_neither_an_expired_request_nor_one_awaiting_pickup_is_sent_to_the_model(self, chat_db):
@@ -163,6 +182,19 @@ class TestTheHistoryDoesNotReplayAnOrphan:
         turns = await build_history("user-1")
 
         assert turns == [{"role": "user", "content": "en cours\ndéjà répondu"}]
+
+
+    @pytest.mark.asyncio
+    async def test_a_resumed_turn_is_not_sent_the_answer_to_the_request_retyped_after_it(self, chat_db):
+        lost = await orphan(chat_db, content="rappelle-moi le café", age=timedelta(minutes=2))
+        retyped = await message_repo.create(user_id="user-1", role="user", content="rappelle-moi le café !")
+        await message_repo.create(user_id="user-1", role="assistant", content="C'est noté.")
+
+        turns = await build_history("user-1", current_message_id=lost.id)
+
+        assert retyped.id != lost.id
+        assert turns[-1]["role"] == "user"
+        assert turns == [{"role": "user", "content": "rappelle-moi le café"}]
 
 
 class TestTheSameMessageSentTwice:
