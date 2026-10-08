@@ -4,6 +4,7 @@ import Box from '@mui/material/Box'
 import { ChatWidget, ChatWidgetRef } from '../chat/ChatWidget'
 import { MaggieInterruptionHost } from '../maggie/MaggieInterruptionHost'
 import { CustomAppBar } from './AppBar'
+import { Breadcrumbs } from './Breadcrumbs'
 import { ThemePreferenceSync } from './ThemePreferenceSync'
 import { CustomMenu } from './Menu'
 import { CustomSidebar } from './Sidebar'
@@ -123,30 +124,36 @@ export const Layout = (props: LayoutProps) => {
       <ThemePreferenceSync />
       <RALayout {...props} menu={CustomMenu} appBar={CustomAppBar} sidebar={CustomSidebar}>
         <Box sx={{ display: 'flex', flex: 1, minHeight: 0 }}>
-          {/* `page-content` and the chat panel's `chat-panel` are the two
-              handles the e2e journeys scope their locators to (MAG-97).
-              React-admin puts the sidebar, the page and the chat side by side
-              inside one <main>, so the landmark alone cannot tell them apart —
-              and Maggie's answers quote the page's own wording often enough
-              that an unscoped getByText matches twice. */}
-          <Box
-            data-testid="page-content"
-            sx={(theme) => ({
-              flex: 1,
-              minWidth: 0,
-              overflow: 'hidden',
-              display: 'flex',
-              flexDirection: 'column',
-              // A datagrid is wider than a phone and there is no honest way to
-              // make a twelve-column table narrow. Below `md` the page carries
-              // the sideways scroll itself, instead of clipping the table
-              // (`overflow: hidden`) or dragging the whole frame — app bar
-              // included — out of the viewport (MAG-38, with `RaLayout` in
-              // `src/theme.ts`).
-              [theme.breakpoints.down('md')]: { overflowX: 'auto' },
-            })}
-          >
-            {props.children}
+          {/* The breadcrumb sits above `page-content`, not in it: the journeys
+              scope their text locators to the page, and a trail repeating the
+              page's own title would match twice (MAG-352). */}
+          <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+            <Breadcrumbs />
+            {/* `page-content` and the chat panel's `chat-panel` are the two
+                handles the e2e journeys scope their locators to (MAG-97).
+                React-admin puts the sidebar, the page and the chat side by side
+                inside one <main>, so the landmark alone cannot tell them apart —
+                and Maggie's answers quote the page's own wording often enough
+                that an unscoped getByText matches twice. */}
+            <Box
+              data-testid="page-content"
+              sx={(theme) => ({
+                flex: 1,
+                minWidth: 0,
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+                // A datagrid is wider than a phone and there is no honest way to
+                // make a twelve-column table narrow. Below `md` the page carries
+                // the sideways scroll itself, instead of clipping the table
+                // (`overflow: hidden`) or dragging the whole frame — app bar
+                // included — out of the viewport (MAG-38, with `RaLayout` in
+                // `src/theme.ts`).
+                [theme.breakpoints.down('md')]: { overflowX: 'auto' },
+              })}
+            >
+              {props.children}
+            </Box>
           </Box>
           <ChatWidget
             ref={chatRef}
