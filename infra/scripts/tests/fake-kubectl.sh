@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # A kubectl that knows just enough about deployment revisions for
-# rollback-k3s.test.sh. State lives in $FAKE_KUBECTL_DIR: one `rev-<deployment>`
+# rollback-k3s.test.sh (and the order of the calls of deploy-k3s.test.sh). State lives in $FAKE_KUBECTL_DIR: one `rev-<deployment>`
 # file per deployment, and a `calls` log.
 set -euo pipefail
 
@@ -53,5 +53,17 @@ case "$1 $2" in
     echo $(( $(cat "$dir/rev-$name") + 10 )) > "$dir/rev-$name"
     ;;
   "rollout status") ;;
+  "get nodes") ;;
+  "get deployment") echo 1 ;;
+  "apply -k") ;;
+  "delete pod") ;;
+  "exec deployment/"*) ;;
+  "run migrate")
+    # The one-shot migration pod: fails when `fail-migrate` exists.
+    if [ -f "$dir/fail-migrate" ]; then
+      echo "migration failed" >&2
+      exit 1
+    fi
+    ;;
   *) echo "fake-kubectl: unexpected call: $*" >&2; exit 2 ;;
 esac
