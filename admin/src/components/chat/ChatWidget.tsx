@@ -195,7 +195,14 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     const [searchResults, setSearchResults] = useState<ChatMessage[]>([])
     const [searchLoading, setSearchLoading] = useState(false)
 
-    const messagesContainerRef = useRef<HTMLDivElement>(null)
+    const messagesContainerRef = useRef<HTMLDivElement | null>(null)
+    // The list can mount after the panel does (a narrow screen's Drawer mounts its
+    // content a render late), so the effects below also wait for the node itself.
+    const [listNode, setListNode] = useState<HTMLDivElement | null>(null)
+    const attachList = useCallback((node: HTMLDivElement | null) => {
+      messagesContainerRef.current = node
+      setListNode(node)
+    }, [])
     const historyLoadedRef = useRef(false)
     const lastScrollRef = useRef({ top: 0, height: 0 })
     const skipOpenPinRef = useRef(false)
@@ -397,7 +404,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
       }
       setFollowing(true)
       pinToBottom()
-    }, [open, sidebarTab, searchMode, pinToBottom, setFollowing])
+    }, [open, sidebarTab, searchMode, listNode, pinToBottom, setFollowing])
 
     // Whatever grows the list — a message, the answer line by line, the history —
     // keeps the end in view while the user has not scrolled up. Instant, never smooth:
@@ -409,14 +416,14 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
 
     // A keyboard, a card or a resized window changes the height without any message.
     useEffect(() => {
-      const container = messagesContainerRef.current
+      const container = listNode
       if (!container || typeof ResizeObserver === 'undefined') return
       const observer = new ResizeObserver(() => {
         if (followingRef.current) pinToBottom()
       })
       observer.observe(container)
       return () => observer.disconnect()
-    }, [open, sidebarTab, searchMode, pinToBottom])
+    }, [open, sidebarTab, searchMode, listNode, pinToBottom])
 
     // --- Infinite scroll: load older messages ---
 
@@ -914,7 +921,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                 <>
                   {/* Messages */}
                   <Box
-                    ref={messagesContainerRef}
+                    ref={attachList}
                     onScroll={handleScroll}
                     sx={{
                       flex: 1,

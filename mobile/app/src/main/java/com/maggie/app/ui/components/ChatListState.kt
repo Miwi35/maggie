@@ -61,6 +61,7 @@ class ChatListState internal constructor(val lazy: LazyListState) {
 
     /** To a message the user asked for (a search result): the list stops following unless it landed on the end. */
     suspend fun scrollToIndex(index: Int) {
+        following = false
         lazy.scrollToItem(index)
         following = isAtBottom()
     }
@@ -90,13 +91,18 @@ fun rememberChatListState(viewModel: ChatViewModel): ChatListState {
 
     LaunchedEffect(uiState.scrollToIndex, uiState.scrollBehavior) {
         val index = uiState.scrollToIndex ?: return@LaunchedEffect
-        when (uiState.scrollBehavior) {
-            ScrollBehavior.ANIMATE_TO_BOTTOM -> state.scrollToLatest(animate = true)
-            ScrollBehavior.INSTANT_TO_INDEX ->
-                if (index >= lazy.layoutInfo.totalItemsCount - 1) state.scrollToLatest(animate = false) else state.scrollToIndex(index)
-            ScrollBehavior.NONE -> {}
+        // Consumed even when a newer scroll preempts this one: a command left in the
+        // state would be replayed by the next surface that opens.
+        try {
+            when (uiState.scrollBehavior) {
+                ScrollBehavior.ANIMATE_TO_BOTTOM -> state.scrollToLatest(animate = true)
+                ScrollBehavior.INSTANT_TO_INDEX ->
+                    if (index >= lazy.layoutInfo.totalItemsCount - 1) state.scrollToLatest(animate = false) else state.scrollToIndex(index)
+                ScrollBehavior.NONE -> {}
+            }
+        } finally {
+            viewModel.consumeScroll()
         }
-        viewModel.consumeScroll()
     }
 
     LaunchedEffect(state) {

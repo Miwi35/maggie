@@ -28,6 +28,9 @@ vi.mock('../../hooks/useAgUiStream', () => ({
   },
 }))
 
+const screen_ = vi.hoisted(() => ({ narrow: false }))
+vi.mock('../../hooks/useNarrowScreen', () => ({ useNarrowScreen: () => screen_.narrow }))
+
 class MockEventSource {
   close = vi.fn()
   onmessage: ((event: MessageEvent) => void) | null = null
@@ -89,6 +92,7 @@ describe('ChatWidget scroll (MAG-348)', () => {
     })
     Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get: () => VIEWPORT })
     localStorage.removeItem('chat_lastReadMessageId')
+    screen_.narrow = false
   })
 
   afterEach(() => {
@@ -131,6 +135,18 @@ describe('ChatWidget scroll (MAG-348)', () => {
     scroller().scrollTop = 0
 
     update({ open: true })
+
+    expect(atBottom()).toBe(true)
+  })
+
+  test('on a narrow screen, where the drawer unmounts the list, reopening lands on the last message', async () => {
+    screen_.narrow = true
+    const { update } = await opened()
+    update({ open: false })
+    await waitFor(() => expect(screen.queryByText('Message 30')).not.toBeInTheDocument())
+
+    update({ open: true })
+    await screen.findByText('Message 30')
 
     expect(atBottom()).toBe(true)
   })
