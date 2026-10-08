@@ -94,8 +94,10 @@ class CompleteBankAuthorization
         }
 
         // What the bank no longer lists is closed, not deleted: its movements
-        // stay in the history, and it reopens if the bank lists it again.
-        foreach ($this->accountRepository->findByUser($connection->getUser()) as $account) {
+        // stay in the history, and it reopens if the bank lists it again. A
+        // session that lists nothing readable closes nothing: that is an
+        // answer gone wrong, not every account gone.
+        foreach ([] === $claimed ? [] : $this->accountRepository->findByUser($connection->getUser()) as $account) {
             if (isset($claimed[(string) $account->getId()]) || $account->isClosed()) {
                 continue;
             }

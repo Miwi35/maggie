@@ -808,7 +808,11 @@ renewed_location="$(curl -sS -o /dev/null -w '%{redirect_url}' \
   "$BASE_URL/api/finance/bank-callback?state=$renewed_state&code=e2e-renewed-code")"
 assert_contains "$renewed_location" 'outcome=connected' "the renewed consent is accepted"
 
-"${COMPOSE[@]}" exec -T php bin/console --env=e2e app:finance:sync "$SEED_EMAIL" --write >/dev/null 2>&1 || true
+if "${COMPOSE[@]}" exec -T php bin/console --env=e2e app:finance:sync "$SEED_EMAIL" --write >/dev/null 2>&1; then
+  pass "the sync runs on the renewed session"
+else
+  fail "the sync failed on the renewed session — the figures below would prove nothing"
+fi
 
 assert_eq "$figures_before" "$(bank_figures)" \
   "accounts, movements and the month's total (count|count|cents) are the same after the reconnection"

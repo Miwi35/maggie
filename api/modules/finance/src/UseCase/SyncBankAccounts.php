@@ -310,21 +310,17 @@ class SyncBankAccounts
     }
 
     /**
-     * The bank's reference for the movement. `entry_reference` is the one
-     * banks keep from one read to the next; `transaction_id` stands in for it.
+     * The bank's reference for the movement: `entry_reference`, the one banks
+     * keep from one read to the next. `transaction_id` is no stand-in — it is
+     * a handle issued anew with each read, and would make every read new.
      *
      * @param array<string, mixed> $remote
      */
     private function readReference(array $remote): ?string
     {
-        foreach (['entry_reference', 'transaction_id'] as $key) {
-            $value = $remote[$key] ?? null;
-            if (\is_string($value) && '' !== trim($value)) {
-                return trim($value);
-            }
-        }
+        $value = $remote['entry_reference'] ?? null;
 
-        return null;
+        return \is_string($value) && '' !== trim($value) ? trim($value) : null;
     }
 
     private function readName(mixed $party): ?string

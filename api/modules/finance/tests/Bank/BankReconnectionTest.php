@@ -65,10 +65,12 @@ class BankReconnectionTest extends KernelTestCase
      * @param array<string, list<array<string, mixed>>> $accountsBySession
      * @param array<string, string>                     $edfLabelBySession how the bank spells
      *                                                                     the EDF debit in each session
+     * @param bool                                      $handlesOnly       a bank that gives no `entry_reference`,
+     *                                                                     only a `transaction_id` of the session
      */
-    private function bank(array $accountsBySession, string &$session, array $edfLabelBySession = []): MockHttpClient
+    private function bank(array $accountsBySession, string &$session, array $edfLabelBySession = [], bool $handlesOnly = false): MockHttpClient
     {
-        return new MockHttpClient(function (string $method, string $url) use ($accountsBySession, &$session, $edfLabelBySession) {
+        return new MockHttpClient(function (string $method, string $url) use ($accountsBySession, &$session, $edfLabelBySession, $handlesOnly) {
             $path = (string) parse_url($url, PHP_URL_PATH);
 
             return match (true) {
@@ -89,22 +91,24 @@ class BankReconnectionTest extends KernelTestCase
                     'balances' => [['balance_type' => 'CLBD', 'balance_amount' => ['amount' => '-201.67', 'currency' => 'EUR']]],
                 ])),
                 str_ends_with($path, '/transactions') => new MockResponse(json_encode([
-                    'transactions' => [
-                        [
-                            'entry_reference' => 'bank-tx-edf',
-                            'booking_date' => '2026-10-05',
-                            'transaction_amount' => ['amount' => '206.00', 'currency' => 'EUR'],
-                            'credit_debit_indicator' => 'DBIT',
-                            'remittance_information' => [$edfLabelBySession[$session] ?? 'PRELEVEMENT ELECTRICITE DE FRANCE'],
-                        ],
-                        [
-                            'entry_reference' => 'bank-tx-salary',
-                            'booking_date' => '2026-10-01',
-                            'transaction_amount' => ['amount' => '2350.00', 'currency' => 'EUR'],
-                            'credit_debit_indicator' => 'CRDT',
-                            'remittance_information' => ['VIREMENT SALAIRE'],
-                        ],
-                    ],
+                    'transactions' => array_map(static fn (array $movement) => $handlesOnly
+                        ? ['transaction_id' => $movement['entry_reference'].'@'.$session] + array_diff_key($movement, ['entry_reference' => true])
+                        : $movement, [
+                            [
+                                'entry_reference' => 'bank-tx-edf',
+                                'booking_date' => '2026-10-05',
+                                'transaction_amount' => ['amount' => '206.00', 'currency' => 'EUR'],
+                                'credit_debit_indicator' => 'DBIT',
+                                'remittance_information' => [$edfLabelBySession[$session] ?? 'PRELEVEMENT ELECTRICITE DE FRANCE'],
+                            ],
+                            [
+                                'entry_reference' => 'bank-tx-salary',
+                                'booking_date' => '2026-10-01',
+                                'transaction_amount' => ['amount' => '2350.00', 'currency' => 'EUR'],
+                                'credit_debit_indicator' => 'CRDT',
+                                'remittance_information' => ['VIREMENT SALAIRE'],
+                            ],
+                        ]),
                 ])),
                 default => new MockResponse('{}', ['http_code' => 404]),
             };
@@ -372,5 +376,29 @@ class BankReconnectionTest extends KernelTestCase
         $stored = $em->getRepository(Transaction::class)->findBy(['externalId' => 'bank-tx-edf']);
         self::assertCount(1, $stored, 'one movement, whatever the bank calls it this time');
         self::assertSame(2, \count($em->getRepository(Transaction::class)->findAll()));
+    }
+
+    public function testATransactionIdThatChangesWithTheSessionIsNotTakenForAReference(): void
+    {
+        $this->loadFixtures('account.yaml');
+
+        // `transaction_id` is a handle for fetching details, issued anew with
+        // each read: only `entry_reference` says which movement it is.
+        $session = 'session-1';
+        $http = $this->bank(
+            ['session-1' => [$this->remoteAccount('uid-1')], 'session-2' => [$this->remoteAccount('uid-2')]],
+            $session,
+            handlesOnly: true,
+        );
+
+        $this->connect($http);
+        $this->sync($http);
+
+        $session = 'session-2';
+        $this->connect($http);
+        $this->sync($http);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        self::assertCount(2, $em->getRepository(Transaction::class)->findAll(), 'the second read adds nothing');
     }
 }
