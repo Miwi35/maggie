@@ -98,6 +98,7 @@ object UiTags {
     const val CATEGORY_PASSIVE_INCOME = "category_passive_income"
 
     /** Category screen — the parent field, the search it opens, and the deletion at the bottom (MAG-353). */
+    const val CATEGORY_NAME = "category_name"
     const val CATEGORY_PARENT = "category_parent"
     const val CATEGORY_PARENT_SEARCH = "category_parent_search"
     const val CATEGORY_DELETE = "category_delete"

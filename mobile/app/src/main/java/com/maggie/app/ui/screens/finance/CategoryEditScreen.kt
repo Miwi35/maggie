@@ -124,7 +124,7 @@ fun categoryDeletionBody(impact: CategoryDeletionImpact?): String {
     val lines = buildList {
         when (impact.transactions) {
             null -> add("Les transactions rattachées perdront leur catégorie.")
-            0 -> {}
+            0 -> add("Aucune transaction n'est rattachée.")
             1 -> add("1 transaction perdra sa catégorie.")
             else -> add("${impact.transactions} transactions perdront leur catégorie.")
         }
@@ -307,7 +307,7 @@ internal fun CategoryFormFields(
                 value = form.name,
                 onValueChange = { form.name = it },
                 label = { Text("Nom") },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag(UiTags.CATEGORY_NAME),
                 singleLine = true,
                 isError = form.nameError != null,
             )

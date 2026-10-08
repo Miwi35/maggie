@@ -609,4 +609,30 @@ class MaggieApiServiceTest {
 
         assertEquals(0, service.countTransactionsOfCategory("cat-1"))
     }
+    @Test
+    fun `countCategorizationRulesOf reads the category as the API spells it, an IRI`() = runBlocking {
+        val service = MaggieApiService(
+            categoryClient {
+                """{"member":[
+                    {"id":"r1","labelPattern":"LECLERC","category":"/api/categories/cat-1"},
+                    {"id":"r2","labelPattern":"NETFLIX","category":"/api/categories/cat-2"},
+                    {"id":"r3","labelPattern":"CARREFOUR","category":"/api/categories/cat-3"}
+                ],"totalItems":3}"""
+            },
+        )
+
+        assertEquals(2, service.countCategorizationRulesOf(setOf("cat-1", "cat-3")))
+        assertEquals(0, service.countCategorizationRulesOf(setOf("cat-9")))
+    }
+
+    @Test
+    fun `countCategorizationRulesOf gives no number when the page is not the whole list`() = runBlocking {
+        val service = MaggieApiService(
+            categoryClient {
+                """{"member":[{"id":"r1","labelPattern":"LECLERC","category":"/api/categories/cat-1"}],"totalItems":31}"""
+            },
+        )
+
+        assertNull(service.countCategorizationRulesOf(setOf("cat-1")))
+    }
 }

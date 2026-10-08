@@ -13,7 +13,14 @@ data class CategorizationRule(
     val priority: Int = 0,
     val isActive: Boolean = true,
     val categoryId: String? = null,
+    // What the API actually sends for the category: an IRI ("/api/categories/01H…").
+    // `categoryId` is the spelling of the search index and of Mercure payloads.
+    val category: String? = null,
 )
+
+/** Whether the rule files its matches under the category [id], whichever spelling it came in. */
+fun CategorizationRule.targetsCategory(id: String): Boolean =
+    categoryId == id || category?.substringAfterLast('/') == id
 
 @Serializable
 data class ApplyRulesResult(

@@ -30,6 +30,7 @@ import com.maggie.app.data.model.BankConnectionsResponse
 import com.maggie.app.data.model.BankSyncResult
 import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.CategorizationRule
+import com.maggie.app.data.model.targetsCategory
 import com.maggie.app.data.model.RuleSuggestion
 import com.maggie.app.data.model.RuleSuggestionsResponse
 import com.maggie.app.data.model.CushionStatus
@@ -1140,6 +1141,18 @@ class MaggieApiService(
         return client.get("$baseUrl/api/categorization_rules") {
             accept(ContentType("application", "ld+json"))
         }.body<ApiCollection<CategorizationRule>>().member
+    }
+
+    /**
+     * How many rules file under any of [categoryIds], or `null` when the first page does
+     * not hold them all — a wrong number in a deletion's warning is worse than none.
+     */
+    suspend fun countCategorizationRulesOf(categoryIds: Set<String>): Int? {
+        val page = client.get("$baseUrl/api/categorization_rules") {
+            accept(ContentType("application", "ld+json"))
+        }.body<ApiCollection<CategorizationRule>>()
+        if ((page.totalItems ?: page.member.size) > page.member.size) return null
+        return page.member.count { rule -> categoryIds.any(rule::targetsCategory) }
     }
 
     suspend fun createCategorizationRule(request: CategorizationRuleCreateRequest): CategorizationRule {

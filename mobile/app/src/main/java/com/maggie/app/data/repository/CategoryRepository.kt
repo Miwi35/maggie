@@ -20,6 +20,10 @@ class CategoryRepository(
         apiService.updateCategory(id, changes)
     }
 
+    suspend fun countRules(ids: Set<String>): Result<Int?> = runCatching {
+        apiService.countCategorizationRulesOf(ids)
+    }
+
     suspend fun countTransactions(id: String): Result<Int> = runCatching {
         apiService.countTransactionsOfCategory(id)
     }
