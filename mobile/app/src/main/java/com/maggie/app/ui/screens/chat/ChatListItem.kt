@@ -11,4 +11,5 @@ sealed class ChatListItem {
     ) : ChatListItem()
     data class StreamingMessage(val text: String) : ChatListItem()
     data object LoadingIndicator : ChatListItem()
+    data class Failure(val text: String) : ChatListItem()
 }

@@ -154,6 +154,16 @@ object UiTags {
     /** Day view — a timed event block, suffixed by the ISO date of the day shown. */
     const val CALENDAR_EVENT_PREFIX = "calendar_event_"
 
+    /**
+     * Month view — a day's cell, one slot of its column (a bar or the blank that keeps
+     * the bars of its neighbours aligned) and its « +N » counter, suffixed by the ISO
+     * date (and `_<slot>` for a slot). Read by screen tests only: the position of the
+     * same slot in two columns is what makes a multi-day bar look continuous (MAG-335).
+     */
+    const val CALENDAR_MONTH_DAY_PREFIX = "calendar_month_day_"
+    const val CALENDAR_MONTH_SLOT_PREFIX = "calendar_month_slot_"
+    const val CALENDAR_MONTH_MORE_PREFIX = "calendar_month_more_"
+
     /** Chat — a held action's card and its buttons, suffixed by the approval's id (MAG-7). */
     const val APPROVAL_CARD_PREFIX = "approval_card_"
     const val APPROVAL_ALLOW_PREFIX = "approval_allow_"
@@ -184,6 +194,12 @@ object UiTags {
     fun calendarSpan(first: LocalDate, last: LocalDate) = "$CALENDAR_SPAN_PREFIX${first}_$last"
 
     fun calendarEvent(date: LocalDate) = CALENDAR_EVENT_PREFIX + date
+
+    fun calendarMonthDay(date: LocalDate) = CALENDAR_MONTH_DAY_PREFIX + date
+
+    fun calendarMonthSlot(date: LocalDate, slot: Int) = "$CALENDAR_MONTH_SLOT_PREFIX${date}_$slot"
+
+    fun calendarMonthMore(date: LocalDate) = CALENDAR_MONTH_MORE_PREFIX + date
 
     /**
      * The drawer entry the grocery journeys open. Covered by [DRAWER_ITEM_PREFIX]
