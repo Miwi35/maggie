@@ -129,6 +129,15 @@ class ChatViewModel(
      */
     private val hiddenContextIds = mutableSetOf<String>()
 
+    /**
+     * The thread the router chose for the run in flight, and the messages of that run
+     * (MAG-342). The agent files them under it, but the stream carries no thread on a
+     * message: without this, the current exchange has no `contextId` until a reload and
+     * deleting its thread would neither hide it nor bring it back with « Annuler ».
+     */
+    private var runContextId: String? = null
+    private val runMessageIds = mutableSetOf<String>()
+
     companion object {
         /** How long « Message supprimé · Annuler » stays, and so how long the server hears nothing. */
         const val UNDO_WINDOW_MS = 6_000L
@@ -240,6 +249,9 @@ class ChatViewModel(
                 createdAt = java.time.Instant.now().toString(),
             )
             val anchor = _uiState.value.messages.lastOrNull { !it.id.startsWith(PENDING_PREFIX) }?.createdAt
+            runContextId = null
+            runMessageIds.clear()
+            runMessageIds += userMessage.id
             _uiState.value = _uiState.value.copy(
                 messages = _uiState.value.messages + userMessage,
                 failure = null,
@@ -402,7 +414,9 @@ class ChatViewModel(
                     role = "assistant",
                     content = finalText,
                     createdAt = java.time.Instant.now().toString(),
+                    contextId = runContextId,
                 )
+                runMessageIds += messageId
                 // Persist to Room
                 repository.persistMessage(assistantMessage)
                 // The agent stores the answer under the id it streamed it with, so its
@@ -421,6 +435,7 @@ class ChatViewModel(
             }
             is AgUiEvent.ContextUpdate -> {
                 _contextUpdates.tryEmit(event)
+                fileRunUnder(event.id)
             }
             is AgUiEvent.Error -> {
                 // Not the end of the request: the answer may be stored, see [recoverReply].
@@ -433,6 +448,25 @@ class ChatViewModel(
                 // Acknowledged but no UI action in v1
             }
         }
+    }
+
+    /**
+     * The router filed this run under [contextId]: the question and the answer already
+     * on screen, and those still to come, belong to it. The local copy is told too, so a
+     * restart does not forget it.
+     */
+    private suspend fun fileRunUnder(contextId: String) {
+        runContextId = contextId
+        val filed = _uiState.value.messages.filter { it.id in runMessageIds && it.contextId == null }
+        if (filed.isEmpty()) return
+        _uiState.value = _uiState.value.copy(
+            messages = _uiState.value.messages.map {
+                if (it.id in runMessageIds && it.contextId == null) it.copy(contextId = contextId) else it
+            },
+        )
+        rebuildDisplayItems()
+        filed.filterNot { it.id.startsWith(PENDING_PREFIX) }
+            .forEach { repository.persistMessage(it.copy(contextId = contextId)) }
     }
 
     /** The request is over: its answer, if any, is now the thing to read aloud. */
@@ -907,7 +941,8 @@ class ChatViewModel(
                         repository.handleMercureMessage(message)
                         // Append to in-memory list if not already present
                         val current = _uiState.value.messages
-                        if (current.none { it.id == message.id }) {
+                        val known = current.firstOrNull { it.id == message.id }
+                        if (known == null) {
                             // The question this device just sent comes back with its stored id:
                             // it is that bubble, not a new one.
                             val pendingIndex = if (message.role == "user") {
@@ -917,10 +952,20 @@ class ChatViewModel(
                             }
                             _uiState.value = _uiState.value.copy(
                                 messages = if (pendingIndex >= 0) {
-                                    current.mapIndexed { i, m -> if (i == pendingIndex) m.copy(id = message.id) else m }
+                                    if (current[pendingIndex].id in runMessageIds) runMessageIds += message.id
+                                    current.mapIndexed { i, m ->
+                                        // The echo's thread wins; the run's is what the bubble had.
+                                        if (i == pendingIndex) m.copy(id = message.id, contextId = message.contextId ?: m.contextId) else m
+                                    }
                                 } else {
                                     current + message
                                 },
+                            )
+                            rebuildDisplayItems()
+                        } else if (message.contextId != null && known.contextId != message.contextId) {
+                            // Streamed without a thread, echoed with one.
+                            _uiState.value = _uiState.value.copy(
+                                messages = current.map { if (it.id == message.id) it.copy(contextId = message.contextId) else it },
                             )
                             rebuildDisplayItems()
                         }

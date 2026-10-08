@@ -77,11 +77,14 @@ tags:
 - assertNotVisible: ".*Supprimer le fil Budget e2e.*"
 - assertVisible: ".*Supprimer le fil Anniversaire e2e.*"
 
-# Back to the chat: the deleted thread's messages are gone, the other's stay.
+# Back to the chat: the deleted thread's messages are gone, the other's stay. Waited
+# for less than the 6 s undo window (the DELETE is only sent at its end, and the
+# Mercure echo of it later still): what passes here is the immediate hiding, not
+# the server's word.
 - back
 - extendedWaitUntil:
     notVisible: ".*Votre budget tient la route ce mois-ci.*"
-    timeout: 10000
+    timeout: 4000
 - assertVisible: ".*on organise l'anniversaire de Lucie ensemble.*"
 
 # One message: a long press opens « Supprimer », which acts without a question.
@@ -94,5 +97,5 @@ tags:
     id: "message_delete"
 - extendedWaitUntil:
     notVisible: ".*on organise l'anniversaire de Lucie ensemble.*"
-    timeout: 10000
+    timeout: 4000
 - assertVisible: "Message supprimé"

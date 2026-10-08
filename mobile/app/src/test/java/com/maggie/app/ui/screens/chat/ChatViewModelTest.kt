@@ -1181,6 +1181,64 @@ class ChatViewModelTest {
         coVerify { repository.forgetMessages(emptyList(), "ctx-b") }
     }
 
+    private fun echoIn(id: String, role: String, content: String, contextId: String) = MercureEvent(
+        data = """{"id":"$id","role":"$role","content":"$content","createdAt":"2026-02-15T11:00:00Z","contextId":"$contextId"}""",
+    )
+
+    @Test
+    fun `the messages of the current run, by the stream and by the echo, leave and come back with their thread`() = runTest {
+        val topic = chatTopic()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream(any()) } returns flow {
+            emit(AgUiEvent.RunStarted(runId = "run-1"))
+            emit(AgUiEvent.ContextUpdate(id = "ctx-1", label = "Courses", status = "active", action = "created"))
+            emit(AgUiEvent.TextMessageStart(messageId = "resp-1"))
+            emit(AgUiEvent.TextMessageContent(messageId = "resp-1", delta = "Salut !"))
+            emit(AgUiEvent.TextMessageEnd(messageId = "resp-1"))
+            // The echoes come last: the question's carries no thread, the answer's does, and
+            // the answer is already there, streamed without one.
+            topic.tryEmit(echo("u-9", "user", "Bonjour"))
+            topic.tryEmit(echoIn("resp-1", "assistant", "Salut !", "ctx-1"))
+            yield()
+            emit(AgUiEvent.RunFinished(runId = "run-1"))
+        }
+        coEvery { repository.handleMercureMessage(any()) } returns Unit
+        coEvery { repository.persistMessage(any()) } returns Unit
+
+        val run = setOf("u-9", "resp-1")
+        viewModel.sendMessage("Bonjour")
+        advanceUntilIdle()
+        assertEquals(listOf("u-9", "resp-1"), shownIds().filter { it in run })
+
+        viewModel.onThreadEvent(ThreadEvent.Hidden("ctx-1"))
+        assertTrue(shownIds().none { it in run })
+        // Hidden, not forgotten: « Annuler » needs them.
+        assertTrue(viewModel.uiState.value.messages.map { it.id }.containsAll(run))
+
+        viewModel.onThreadEvent(ThreadEvent.Restored("ctx-1"))
+        assertEquals(listOf("u-9", "resp-1"), shownIds().filter { it in run })
+    }
+
+    @Test
+    fun `the echo of the question brings its thread to the pending bubble it replaces`() = runTest {
+        val topic = chatTopic()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream(any()) } returns flow {
+            emit(AgUiEvent.RunStarted(runId = "run-1"))
+            topic.tryEmit(echoIn("u-9", "user", "Bonjour", "ctx-1"))
+            yield()
+            emit(AgUiEvent.RunFinished(runId = "run-1"))
+        }
+        coEvery { repository.handleMercureMessage(any()) } returns Unit
+
+        viewModel.sendMessage("Bonjour")
+        advanceUntilIdle()
+
+        assertEquals("ctx-1", viewModel.uiState.value.messages.single { it.id == "u-9" }.contextId)
+    }
+
     @Test
     fun `deleting the only thread leaves the empty chat`() = runTest {
         coEvery { repository.loadRecentMessages(any()) } returns threadMessages.take(2)
