@@ -1,6 +1,7 @@
 """Tests for StreamingGateway AG-UI event emission."""
 
 import asyncio
+from zoneinfo import ZoneInfo
 import json
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -375,6 +376,8 @@ class TestSummaryTrigger:
         assert gw._build_system_prompt.await_args.kwargs["current_context_id"] == "ctx-1"
         # And the message being answered is named, so a tag that could not be written does
         # not have Maggie reading the question as a neighbour thread's.
+        # The user's timezone dates the days of the history (MAG-349).
+        assert isinstance(seen.pop("tz"), ZoneInfo)
         assert seen == {
             "fallback_message": "Il me faut de la farine",
             "current_message_id": "msg-1",

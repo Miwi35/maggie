@@ -3,7 +3,7 @@ import time
 
 import anthropic
 
-from app.llm.claim_guard import ClaimGuard, Verdict
+from app.llm.claim_guard import ClaimGuard, Verdict, question_of
 from app.llm.prompt_cache import cache_tools
 from app.metrics import TOOL_CALLS, record_llm_usage, usage_kwargs
 
@@ -38,13 +38,13 @@ async def run_tool_loop(
     `context_id` is the thread this turn belongs to; a call the policy holds back for the
     user's approval carries it, so the result is announced in the same conversation (MAG-4).
 
-    An answer announcing a reminder or something learned that no tool backed this turn is
-    sent back to the model once, then replaced with the truth (MAG-339, MAG-340,
-    `app.llm.claim_guard`).
+    An answer announcing a reminder or something learned that no tool backed this turn, or
+    giving a date to a question about the agenda that no reading backed, is sent back to the
+    model once, then replaced with the truth (MAG-339, MAG-340, MAG-349, `app.llm.claim_guard`).
     """
     tool_calls_made: list[dict] = []
     cached_tools = cache_tools(tools)
-    guard = ClaimGuard(tools)
+    guard = ClaimGuard(tools, question_of(messages))
 
     for iteration in range(max_iterations):
         logger.info(f"Calling Claude with {len(tools or [])} tools, {len(messages)} messages")

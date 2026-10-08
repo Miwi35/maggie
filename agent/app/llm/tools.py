@@ -110,14 +110,15 @@ MEMORY_TOOLS = [
         "name": "update_memory",
         "description": (
             "Update an existing memory. Use this when a factual memory has changed "
-            "(e.g. new job, new address) instead of creating a duplicate."
+            "(e.g. new job, new address) instead of creating a duplicate. The memory_id is the id "
+            "returned by search_memory or store_memory: never invent one, search first."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "memory_id": {
                     "type": "string",
-                    "description": "The ID of the memory to update",
+                    "description": "A memory id from search_memory or store_memory (not a name or a slug)",
                 },
                 "content": {
                     "type": "string",
@@ -129,13 +130,13 @@ MEMORY_TOOLS = [
     },
     {
         "name": "delete_memory",
-        "description": "Delete a memory by its ID.",
+        "description": "Delete a memory by its ID, as returned by search_memory (never invent one).",
         "input_schema": {
             "type": "object",
             "properties": {
                 "memory_id": {
                     "type": "string",
-                    "description": "The ID of the memory to delete",
+                    "description": "The id field of a memory returned by search_memory (not a name or a slug)",
                 },
             },
             "required": ["memory_id"],
@@ -407,6 +408,18 @@ async def _handle_search_memory(arguments: dict, user_id: str) -> str:
     return json.dumps([m.to_dict() for m in memories])
 
 
+def _memory_not_found(memory_id: str) -> str:
+    return json.dumps(
+        {
+            "error": (
+                f"Memory '{memory_id}' not found: nothing was changed. A memory_id is the id returned by "
+                "search_memory or store_memory, never a name or a slug you made up. Call search_memory first, "
+                "or store_memory to create a new one."
+            )
+        }
+    )
+
+
 async def _handle_update_memory(arguments: dict, user_id: str) -> str:
     memory_id = arguments.get("memory_id", "")
     content = arguments.get("content", "")
@@ -416,7 +429,7 @@ async def _handle_update_memory(arguments: dict, user_id: str) -> str:
 
     memory = await memory_repo.update(user_id, memory_id, content)
     if memory is None:
-        return json.dumps({"error": f"Memory '{memory_id}' not found"})
+        return _memory_not_found(memory_id)
     return json.dumps(memory.to_dict())
 
 
@@ -428,7 +441,7 @@ async def _handle_delete_memory(arguments: dict, user_id: str) -> str:
 
     deleted = await memory_repo.delete(user_id, memory_id)
     if not deleted:
-        return json.dumps({"error": f"Memory '{memory_id}' not found"})
+        return _memory_not_found(memory_id)
     return json.dumps({"deleted": True, "id": memory_id})
 
 

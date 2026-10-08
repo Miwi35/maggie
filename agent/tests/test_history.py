@@ -21,6 +21,13 @@ NEIGHBOUR = "user-2"
 BASE = datetime(2026, 10, 1, 9, 0, tzinfo=UTC)
 
 
+@pytest.fixture(autouse=True)
+def _it_is_the_first_of_october():
+    """The day the messages below are written: nothing in them is « from another day » unless a test says so."""
+    with patch("app.llm.history._now", return_value=BASE + timedelta(hours=3)):
+        yield
+
+
 @pytest.fixture()
 def say(chat_db):
     """Store a message at `BASE + minutes`, through the repository the code under test uses."""
@@ -415,3 +422,130 @@ class TestTheScreenTheAssistantWasSummonedFrom:
             )
 
         assert turns == [{"role": "user", "content": f"{SCREEN}\n\nDe quoi parle cette page ?"}]
+
+
+DAY = timedelta(days=1)
+THURSDAY_8 = datetime(2026, 10, 8, 11, 45, tzinfo=UTC)
+
+
+class TestEveryPastDayIsDated:
+    """8 Oct. (MAG-349): « demain vendredi 3 octobre », written on the 2nd, was read on the 8th as tomorrow.
+
+    A message from another day carries its date, so a « demain » or a « mercredi » in it
+    cannot be mistaken for the present's.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _it_is_the_8th(self):
+        with patch("app.llm.history._now", return_value=THURSDAY_8):
+            yield
+
+    async def test_a_past_day_opens_with_its_date(self, say):
+        await say("user", "Quand est-ce que je vois Julie ?", minutes=0)
+        turns = await build_history(OWNER)
+
+        assert turns[0]["content"].startswith("— le jeudi 1er octobre —\n")
+        assert turns[0]["content"].endswith("Quand est-ce que je vois Julie ?")
+
+    async def test_the_answers_are_not_dated(self, say):
+        """She would copy it, the way she copied the thread label (MAG-341)."""
+        await say("user", "Mon agenda demain ?", minutes=0)
+        await say("assistant", "Demain vendredi 2 octobre : rien.", minutes=1)
+
+        turns = await build_history(OWNER)
+
+        assert turns[1] == {"role": "assistant", "content": "Demain vendredi 2 octobre : rien."}
+
+    async def test_a_day_is_announced_once(self, say):
+        await say("user", "Premier message", minutes=0)
+        await say("assistant", "Réponse", minutes=1)
+        await say("user", "Second message", minutes=2)
+
+        turns = await build_history(OWNER)
+
+        assert [t["content"].count("— le jeudi 1er octobre —") for t in turns] == [1, 0, 0]
+
+    async def test_a_new_day_is_announced_again_and_today_is_named(self, say):
+        await say("user", "Hier soir", minutes=0)
+        await say("assistant", "Réponse d'hier", minutes=1)
+        await say("user", "Deux jours plus tard", minutes=2 * 24 * 60)
+        await say("assistant", "Réponse", minutes=2 * 24 * 60 + 1)
+        await say("user", "Aujourd'hui", minutes=7 * 24 * 60 + 60)
+
+        turns = await build_history(OWNER)
+        users = [t["content"] for t in turns if t["role"] == "user"]
+
+        assert users == [
+            "— le jeudi 1er octobre —\nHier soir",
+            "— le samedi 3 octobre —\nDeux jours plus tard",
+            "— aujourd'hui, jeudi 8 octobre —\nAujourd'hui",
+        ]
+
+    async def test_a_history_of_today_is_left_as_it_was(self, say):
+        await say("user", "Bonjour", minutes=7 * 24 * 60 + 60)
+        await say("assistant", "Bonjour monsieur.", minutes=7 * 24 * 60 + 61)
+
+        turns = await build_history(OWNER)
+
+        assert turns == [
+            {"role": "user", "content": "Bonjour"},
+            {"role": "assistant", "content": "Bonjour monsieur."},
+        ]
+
+    async def test_the_day_is_the_users_not_utc(self, say):
+        """22h30 UTC on the 1st is half past midnight on the 2nd in Paris."""
+        await say("user", "Tard le soir", minutes=13 * 60 + 30)
+
+        turns = await build_history(OWNER)
+
+        assert turns[0]["content"].startswith("— le vendredi 2 octobre —\n")
+
+    async def test_the_users_timezone_decides(self, say):
+        from zoneinfo import ZoneInfo
+
+        await say("user", "Tard le soir", minutes=13 * 60 + 30)
+
+        turns = await build_history(OWNER, tz=ZoneInfo("America/Martinique"))
+
+        assert turns[0]["content"].startswith("— le jeudi 1er octobre —\n")
+
+    async def test_the_message_of_another_thread_keeps_its_label_after_the_date(self, say, thread):
+        budget = await thread("Budget")
+        courses = await thread("Courses")
+        await say("user", "Ajoute du beurre", context=courses.id, minutes=0)
+        await say("user", "Où en est mon budget ?", context=budget.id, minutes=7 * 24 * 60 + 60)
+
+        turns = await build_history(OWNER, context_id=budget.id)
+
+        assert turns == [
+            {
+                "role": "user",
+                "content": "— le jeudi 1er octobre —\n[fil « Courses »] Ajoute du beurre\n"
+                "— aujourd'hui, jeudi 8 octobre —\nOù en est mon budget ?",
+            }
+        ]
+
+    async def test_another_year_says_so(self, say):
+        await say("user", "Un an plus tôt", minutes=-365 * 24 * 60)
+
+        turns = await build_history(OWNER)
+
+        assert turns[0]["content"].startswith("— le mercredi 1er octobre 2025 —\n")
+
+    async def test_the_reproduction_a_tomorrow_written_on_the_2nd(self, say):
+        """The incident: the history says « demain vendredi 3 octobre » and the question is « quel jour sommes-nous »."""
+        await say("user", "Quand est-ce que je vois Julie ?", minutes=24 * 60 + 60)
+        await say("assistant", "Demain, vendredi 3 octobre, de 19 h à minuit.", minutes=24 * 60 + 61)
+        asked = await say("user", "Quel jour sommes-nous ?", minutes=7 * 24 * 60 + 60)
+
+        turns = await build_history(OWNER, current_message_id=asked.id)
+
+        assert turns[0]["content"].startswith("— le vendredi 2 octobre —\n")
+        assert turns[2]["content"] == "— aujourd'hui, jeudi 8 octobre —\nQuel jour sommes-nous ?"
+
+    async def test_a_pending_message_after_a_past_day_is_today(self, say):
+        await say("user", "Il y a une semaine", minutes=0)
+
+        turns = await build_history(OWNER, pending_message="Et maintenant ?")
+
+        assert turns[-1]["content"].endswith("— aujourd'hui, jeudi 8 octobre —\nEt maintenant ?")
