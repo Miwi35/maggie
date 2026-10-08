@@ -18,6 +18,8 @@ import { useMercure } from '../../hooks/useMercure'
 import { Placeholder } from '../../components/list/ListEmpty'
 import { statusLabel } from './transactionStatuses'
 import { Amount } from './AmountField'
+import { TransferBadge, TransferCounterpart } from './TransferBadge'
+import { transactionIdOf } from './useTransactionTransfer'
 import type { RaRecord } from 'react-admin'
 
 const TRANSACTION_TOPICS = ['/api/transactions/{id}']
@@ -29,7 +31,18 @@ const TransactionDatagrid = () => {
   return (
     <Datagrid rowClick="edit">
       <DateField source="bookedAt" label="Date" />
-      <TextField source="label" label="Libellé" />
+      <FunctionField
+        label="Libellé"
+        render={(record: RaRecord) => (
+          <>
+            <span>{record.label as string}</span>
+            <TransferBadge transferKind={record.transferKind as string | undefined} />
+            {record.transferKind === 'internal' && (
+              <TransferCounterpart transactionId={transactionIdOf(record.id as string)} />
+            )}
+          </>
+        )}
+      />
       <FunctionField
         label="Montant"
         textAlign="right"

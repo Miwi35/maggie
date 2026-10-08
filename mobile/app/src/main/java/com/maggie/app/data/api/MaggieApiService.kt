@@ -40,6 +40,10 @@ import com.maggie.app.data.model.Store
 import com.maggie.app.data.model.Envelope
 import com.maggie.app.data.model.RollOverResult
 import com.maggie.app.data.model.Transaction
+import com.maggie.app.data.model.TransferCandidates
+import com.maggie.app.data.model.TransferInfo
+import com.maggie.app.data.model.TransferLeg
+import com.maggie.app.data.model.TransferUpdateRequest
 import com.maggie.app.data.model.TtsVoice
 import com.maggie.app.data.model.RecurringGroceryItem
 import com.maggie.app.data.model.SearchResponse
@@ -923,6 +927,23 @@ class MaggieApiService(
 
     suspend fun deleteTransaction(id: String) {
         client.delete("$baseUrl/api/transactions/$id")
+    }
+
+    suspend fun getTransactionTransfer(id: String): TransferInfo {
+        return client.get("$baseUrl/api/finance/transactions/$id/transfer").body()
+    }
+
+    suspend fun getTransferCandidates(id: String): List<TransferLeg> {
+        return client.get("$baseUrl/api/finance/transactions/$id/transfer-candidates")
+            .body<TransferCandidates>().candidates
+    }
+
+    /** Marks (counterpartId optional) or releases a line; the API answers with the new state. */
+    suspend fun setTransactionTransfer(id: String, request: TransferUpdateRequest): TransferInfo {
+        return client.put("$baseUrl/api/finance/transactions/$id/transfer") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.body()
     }
 
     // Finance — Envelopes (budgets)

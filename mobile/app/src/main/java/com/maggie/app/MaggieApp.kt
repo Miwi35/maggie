@@ -258,7 +258,7 @@ class MaggieApp : Application() {
             viewModel { LoanViewModel(get()) }
             viewModel { MonthlyReviewViewModel(get()) }
             viewModel { FinanceDashboardViewModel(get()) }
-            viewModel { (accountId: String) -> TransactionViewModel(get(), get(), accountId) }
+            viewModel { (accountId: String) -> TransactionViewModel(get(), get(), accountId, get(), get()) }
         }
 
         startKoin {

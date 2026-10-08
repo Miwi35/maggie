@@ -182,4 +182,13 @@ object UiTags {
 
     /** The search field of the product picker, a window of its own. */
     const val PRODUCT_SEARCH = "product_search"
+
+    /** A transaction line's « Virement interne » badge, in the list and on the detail screen. */
+    const val TRANSFER_BADGE = "transfer_badge"
+
+    /** The detail screen's toggle: « C'est un virement interne » or « Ce n'est pas… ». */
+    const val TRANSFER_TOGGLE = "transfer_toggle"
+
+    /** The search field of the counterpart picker, a screen of its own. */
+    const val TRANSFER_SEARCH = "transfer_search"
 }
