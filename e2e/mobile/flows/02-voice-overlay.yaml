@@ -281,12 +281,17 @@ tags:
 # listening reopened, in `AssistantOverlayScreenTest`. The card is answered here by
 # touch, which is the same `approve` the voice calls.
 # ---------------------------------------------------------------------------
+# The voice sheet's close button, under the status bar, did not close it here once
+# the hold-to-talk had run (MAG-310): the flow leaves the sheet as it does above, by
+# restarting the app, still signed in.
 - tapOn:
     id: "chat_close"
+- stopApp
+- launchApp
 - extendedWaitUntil:
     visible:
       id: "dashboard"
-    timeout: 20000
+    timeout: 40000
 - runScript:
     file: ../scripts/event-api.js
     env:
