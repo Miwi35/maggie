@@ -130,8 +130,10 @@ against an app nobody launched.
    Maestro deducts the time since the last launch, tap or script from every
    `extendedWaitUntil` and every `when: visible`; an assertion or a failed `retry`
    attempt does not reset that clock. A `retry` around a wait therefore starts with
-   `- evalScript: ${0}` (a no-op that counts as an interaction), or its second to
-   last attempts run on a budget of zero and fail at once — `task e2e:mobile:lint`
+   `- evalScript: ${0}` (a no-op that counts as an interaction), or its second and
+   later attempts run on a budget of zero and fail at once; so does a
+   `runFlow` with a `when:` (the ANR check burns ~7 s even when it skips), hence a
+   second `evalScript` right before the wait — `task e2e:mobile:lint`
    checks it.
 6. **Dates come from `run.sh`, as `-e` variables** — `TODAY`, computed in the
    seed's time zone. A flow cannot compute a date and one typed into it is wrong by
