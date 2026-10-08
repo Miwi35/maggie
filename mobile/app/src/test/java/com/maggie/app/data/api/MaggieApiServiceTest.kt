@@ -1,5 +1,6 @@
 package com.maggie.app.data.api
 
+import com.maggie.app.data.model.toBuyLabel
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -428,5 +429,84 @@ class MaggieApiServiceTest {
         assertEquals(listOf(PlannedMealRef("2030-01-14", "dinner")), impact.meals)
         assertEquals(HttpMethod.Get, capturedMethod)
         assertTrue(capturedUrl!!.endsWith("/api/recipes/01C/deletion-impact"))
+    }
+
+    private val previewJson = """{"mealId":"m1","groceryChoiceMadeAt":null,"ingredients":[
+        {"ingredientId":"rice","name":"Riz","quantity":300,"unit":"g",
+         "packaging":{"unit":"pack","size":500,"sizeUnit":"g"},"packagedQuantity":1,
+         "toBuy":{"quantity":1,"unit":"pack"},"converted":true,"stockState":"out","suggested":true},
+        {"ingredientId":"veg","name":"Légumes pour couscous","quantity":1,"unit":"jar",
+         "packaging":{"unit":"jar","size":null,"sizeUnit":null},"packagedQuantity":1,
+         "toBuy":{"quantity":1,"unit":"jar"},"converted":true,"stockState":"in_stock","suggested":false}]}"""
+
+    /**
+     * `grocery_preview` and `grocery_items` are controllers of their own, not API Platform
+     * operations, so no recorded response of `api/contract/` covers them: this is the
+     * shape the app reads and the request it sends. The live round trip is
+     * `10-meal-ingredient-choice`.
+     */
+    @Test
+    fun `the grocery preview of a meal is read from its own endpoint`() = runBlocking {
+        var capturedUrl: String? = null
+        var capturedMethod: HttpMethod? = null
+
+        val client = HttpClient(
+            MockEngine { request ->
+                capturedUrl = request.url.toString()
+                capturedMethod = request.method
+                respond(
+                    content = ByteReadChannel(previewJson),
+                    status = HttpStatusCode.OK,
+                    headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
+                )
+            },
+        ) {
+            install(ContentNegotiation) {
+                json(Json { ignoreUnknownKeys = true; isLenient = true })
+            }
+        }
+
+        val preview = MaggieApiService(client).getMealGroceryPreview("m1")
+
+        assertEquals(HttpMethod.Get, capturedMethod)
+        assertTrue(capturedUrl!!.endsWith("/api/meals/m1/grocery_preview"))
+        assertEquals(listOf("Riz", "Légumes pour couscous"), preview.ingredients.map { it.name })
+        assertEquals(listOf(true, false), preview.ingredients.map { it.suggested })
+        assertEquals("1 paquet (500 g)", preview.ingredients[0].toBuyLabel())
+        assertEquals("1 bocal", preview.ingredients[1].toBuyLabel())
+    }
+
+    @Test
+    fun `the chosen ingredients are posted to the meal and the preview read back`() = runBlocking {
+        var capturedUrl: String? = null
+        var capturedMethod: HttpMethod? = null
+        var capturedBody: String? = null
+
+        val client = HttpClient(
+            MockEngine { request ->
+                capturedUrl = request.url.toString()
+                capturedMethod = request.method
+                capturedBody = (request.body as TextContent).text
+                respond(
+                    content = ByteReadChannel(previewJson.replace("\"groceryChoiceMadeAt\":null", "\"groceryChoiceMadeAt\":\"2030-01-01T10:00:00+00:00\"")),
+                    status = HttpStatusCode.OK,
+                    headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
+                )
+            },
+        ) {
+            install(ContentNegotiation) {
+                json(Json { ignoreUnknownKeys = true; isLenient = true })
+            }
+        }
+
+        val preview = MaggieApiService(client).addMealGroceryItems(
+            "m1",
+            MealGroceryItemsRequest(listOf(MealGroceryItemChoice("veg"))),
+        )
+
+        assertEquals(HttpMethod.Post, capturedMethod)
+        assertTrue(capturedUrl!!.endsWith("/api/meals/m1/grocery_items"))
+        assertEquals("""{"ingredients":[{"ingredientId":"veg"}]}""", capturedBody)
+        assertNotNull(preview.groceryChoiceMadeAt)
     }
 }

@@ -16,7 +16,13 @@ import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.FinanceDashboard
 import com.maggie.app.data.model.GroceryItem
+import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.GroceryList
+import com.maggie.app.data.model.MealGroceryIngredient
+import com.maggie.app.data.model.MealGroceryPackaging
+import com.maggie.app.data.model.MealGroceryPreview
+import com.maggie.app.data.model.MealGroceryToBuy
+import com.maggie.app.data.model.ProductStockState
 import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.data.model.RuleSuggestion
 import com.maggie.app.data.model.Store
@@ -33,6 +39,7 @@ import com.maggie.app.data.repository.ChatRepository
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.FinanceDashboardRepository
 import com.maggie.app.data.repository.GroceryListRepository
+import com.maggie.app.data.repository.MealRepository
 import com.maggie.app.data.repository.ProductRepository
 import com.maggie.app.data.repository.StoreRepository
 import com.maggie.app.data.repository.TaskRepository
@@ -40,6 +47,7 @@ import com.maggie.app.data.repository.TransactionRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.screens.cookbook.grocery.GroceryViewModel
+import com.maggie.app.ui.screens.cookbook.meals.MealIngredientChoiceViewModel
 import com.maggie.app.ui.screens.finance.BankConnectionViewModel
 import com.maggie.app.ui.screens.finance.CategoryViewModel
 import com.maggie.app.ui.screens.finance.FinanceDashboardViewModel
@@ -446,5 +454,67 @@ class FakeCategories(initial: List<Category> = Seed.financeCategories) {
             Result.success(category)
         }
         CategoryViewModel(repository)
+    }
+}
+
+/**
+ * The ingredients of « Riz au curry » as the server previews them (MAG-297): the rice
+ * out of stock, bought by the 500 g pack, and the vegetables in the cupboard.
+ *
+ * [refuse] makes the API turn the send down.
+ */
+class FakeMealIngredientChoice(private val refuse: Boolean = false) {
+
+    /** What the fake server was asked to put on the list, one entry per send. */
+    val sent = mutableListOf<List<String>>()
+
+    val viewModel: MealIngredientChoiceViewModel by lazy {
+        val mealRepository = mockk<MealRepository>()
+        coEvery { mealRepository.groceryPreview(MEAL_ID) } returns Result.success(preview)
+        coEvery { mealRepository.addToGroceries(MEAL_ID, any()) } answers {
+            sent += secondArg<List<String>>()
+            if (refuse) Result.failure(RuntimeException("400")) else Result.success(preview)
+        }
+
+        MealIngredientChoiceViewModel(MEAL_ID, mealRepository)
+    }
+
+    companion object {
+        const val MEAL_ID = "meal-curry"
+
+        val rice = MealGroceryIngredient(
+            ingredientId = "rice",
+            name = "Riz",
+            quantity = 300f,
+            unit = CookbookUnit.G,
+            packaging = MealGroceryPackaging(CookbookUnit.PACK, 500f, CookbookUnit.G),
+            toBuy = MealGroceryToBuy(1f, CookbookUnit.PACK),
+            stockState = ProductStockState.OUT,
+            suggested = true,
+        )
+
+        val vegetables = MealGroceryIngredient(
+            ingredientId = "vegetables",
+            name = "Légumes pour couscous",
+            quantity = 1f,
+            unit = CookbookUnit.JAR,
+            packaging = MealGroceryPackaging(CookbookUnit.JAR),
+            toBuy = MealGroceryToBuy(1f, CookbookUnit.JAR),
+            stockState = ProductStockState.IN_STOCK,
+            suggested = false,
+        )
+
+        val flour = MealGroceryIngredient(
+            ingredientId = "flour",
+            name = "Farine",
+            quantity = 600f,
+            unit = CookbookUnit.G,
+            packaging = MealGroceryPackaging(CookbookUnit.PACK, 500f, CookbookUnit.G),
+            toBuy = MealGroceryToBuy(2f, CookbookUnit.PACK),
+            stockState = ProductStockState.LOW,
+            suggested = true,
+        )
+
+        val preview = MealGroceryPreview(MEAL_ID, null, listOf(rice, flour, vegetables))
     }
 }

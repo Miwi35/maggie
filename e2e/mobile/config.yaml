@@ -23,6 +23,7 @@ executionOrder:
     - 05-deep-links
     - 08-grocery-realtime
     - 09-finance-banks
+    - 10-meal-ingredient-choice
     - 11-calendar-all-day-series
     - 12-recipe-realtime
     - 12-finance-rente

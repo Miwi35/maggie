@@ -109,6 +109,8 @@ import com.maggie.app.ui.screens.grocery.ProductViewModel
 import com.maggie.app.ui.screens.grocery.StoreListScreen
 import com.maggie.app.ui.screens.grocery.StoreViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealCreateDialog
+import com.maggie.app.ui.screens.cookbook.meals.MealIngredientChoiceScreen
+import com.maggie.app.ui.screens.cookbook.meals.MealIngredientChoiceViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealsWeekViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeCreateScreen
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeDetailScreen
@@ -184,6 +186,7 @@ sealed class Screen(val route: String, val label: String) {
     data object RecipeCreate : Screen("recipe/create", "Nouvelle recette")
     data object RecipeEdit : Screen("recipe/edit", "Modifier la recette")
     data object MealCreate : Screen("meal/create", "Nouveau repas")
+    data object MealIngredientChoice : Screen("meal/ingredients", "Ingrédients du repas")
 }
 
 private const val LINK_NOT_FOUND = "Cet élément n'existe plus."
@@ -390,6 +393,7 @@ fun NavGraph() {
     val paneShown by rememberUpdatedState(chrome.showsDetailPane)
     var editRecipeId by remember { mutableStateOf<String?>(null) }
     var mealCreateState by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var mealToChooseIngredientsOf by remember { mutableStateOf<String?>(null) }
 
     val calendarUiState by calendarViewModel.uiState.collectAsState()
     val agendas = calendarUiState.agendas
@@ -1126,6 +1130,19 @@ fun NavGraph() {
                         onSearchCiqual = { query -> apiService.searchCiqualFoods(query) },
                     )
                 }
+                composable(Screen.MealIngredientChoice.route) {
+                    val id = mealToChooseIngredientsOf
+                    if (id != null) {
+                        MealIngredientChoiceScreen(
+                            viewModel = koinViewModel<MealIngredientChoiceViewModel>(key = id) { parametersOf(id) },
+                            onLater = { navController.popBackStack() },
+                            onDone = {
+                                navController.popBackStack()
+                                groceryViewModel.refresh()
+                            },
+                        )
+                    }
+                }
                 composable(Screen.RecipeEdit.route) {
                     val id = editRecipeId
                     if (id != null) {
@@ -1160,9 +1177,14 @@ fun NavGraph() {
             recipeListViewModel = recipeListViewModel,
             onConfirm = { request ->
                 scope.launch {
-                    mealRepository.createMeal(request)
+                    val created = mealRepository.createMeal(request).getOrNull()
                     mealCreateState = null
                     mealsWeekViewModel.refresh()
+                    // A meal with no recipe has no ingredient to choose from.
+                    if (created != null && request.recipes.isNotEmpty()) {
+                        mealToChooseIngredientsOf = created.id
+                        navController.navigate(Screen.MealIngredientChoice.route)
+                    }
                 }
             },
             onDismiss = { mealCreateState = null },

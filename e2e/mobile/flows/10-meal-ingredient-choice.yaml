@@ -1,0 +1,101 @@
+appId: com.maggie.app.e2e
+name: 10-meal-ingredient-choice
+tags:
+  - cookbook
+  - grocery
+---
+# Planning a meal opens the choice of what to buy (MAG-297, extends MAG-101): a
+# full screen listing the ingredients, with the ones out or low on stock ticked,
+# and what the owner validates is what reaches the grocery list. What it holds is
+# the half no JVM test sees: the requests the phone really sends
+# (`GET /api/meals/{id}/grocery_preview`, `POST …/grocery_items`) answered by the
+# real API, and the list that follows.
+#
+# Given « Riz » out of stock, bought by the 500 g pack, and « Légumes pour couscous »
+# in the cupboard, bought by the jar — both in one recipe, created by
+# `scripts/meal-api.js` (no seed holds a stock or a packaging). The list after the
+# meal is created holds what the recipe derives; the choice replaces it, so the rice
+# the owner unticked must be gone, not just absent. The real-time side of the list
+# is `08-grocery-realtime`'s; the web's own screen is `e2e/web/tests/meals-grocery-choice.spec.ts`.
+#
+# Everything is the journey's own and deleted at the end, the meal and its lines with it.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runScript:
+    file: ../scripts/meal-api.js
+    env:
+      ACTION: create
+
+# When I plan the meal from the week: the first free slot, the recipe, « Créer ».
+- tapOn:
+    id: "nav_menu"
+- tapOn:
+    id: "drawer_cookbook"
+- tapOn: "Repas"
+- extendedWaitUntil:
+    visible: "Déjeuner"
+    timeout: 20000
+- tapOn:
+    text: "\\+"
+    index: 0
+- extendedWaitUntil:
+    visible: "Riz au curry MAG-297"
+    timeout: 20000
+- tapOn: "Riz au curry MAG-297"
+- tapOn: "Créer"
+
+# Then the choice opens, not a dialog: only the rice, out of stock, is ticked.
+- extendedWaitUntil:
+    visible: "Ingrédients du repas"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Riz MAG-297.*"
+    timeout: 20000
+- assertVisible: "Légumes pour couscous MAG-297.*"
+- extendedWaitUntil:
+    visible: "1 article à ajouter"
+    timeout: 10000
+
+# I untick the rice and tick the vegetables: the counter follows.
+- tapOn: "Riz MAG-297.*"
+- extendedWaitUntil:
+    visible: "0 article à ajouter"
+    timeout: 10000
+- tapOn: "Légumes pour couscous MAG-297.*"
+- extendedWaitUntil:
+    visible: "1 article à ajouter"
+    timeout: 10000
+
+- tapOn: "Ajouter aux courses"
+
+# The list holds the vegetables by the jar and nothing for the rice. The phone sent
+# the choice: the meal says so in the database.
+- runScript:
+    file: ../scripts/meal-api.js
+    env:
+      ACTION: expect-chosen
+- tapOn:
+    id: "nav_menu"
+- tapOn:
+    id: "drawer_grocery"
+- extendedWaitUntil:
+    visible:
+      id: "grocery"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: ".*Légumes pour couscous MAG-297.*"
+    timeout: 30000
+- assertVisible: ".*1(\\.0)? (jar|bocal).*"
+- assertNotVisible: ".*Riz MAG-297.*"
+
+# Left as found.
+- runScript:
+    file: ../scripts/meal-api.js
+    env:
+      ACTION: remove
