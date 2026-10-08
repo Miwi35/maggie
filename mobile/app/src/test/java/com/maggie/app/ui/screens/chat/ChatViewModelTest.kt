@@ -20,6 +20,8 @@ import io.mockk.mockkStatic
 import io.mockk.verify
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.emptyFlow
@@ -390,13 +392,14 @@ class ChatViewModelTest {
             emit(AgUiEvent.RunStarted(runId = "run-1"))
             emit(AgUiEvent.TextMessageStart(messageId = "resp-1"))
             emit(AgUiEvent.TextMessageContent(messageId = "resp-1", delta = "Partial"))
-            // Don't send end — simulate mid-stream state
+            // Don't send end — the stream stays open, mid-stream state
+            awaitCancellation()
         }
         every { repository.sendMessageStream("Test") } returns streamEvents
         coEvery { repository.persistMessage(any()) } returns Unit
 
         viewModel.sendMessage("Test")
-        advanceUntilIdle()
+        runCurrent()
 
         val state = viewModel.uiState.value
         assertEquals("Partial", state.streamingText)
@@ -1038,5 +1041,160 @@ class ChatViewModelTest {
         advanceUntilIdle()
 
         assertEquals("Je supprime l'événement Test validation ?", viewModel.questionFor(held))
+    }
+
+    // --- MAG-319: an answer that is slow or lost by the call still reaches the screen ---
+
+    private val sentQuestion = ChatMessage(id = "u-9", role = "user", content = "Quel temps demain ?", createdAt = "2026-02-15T11:00:00Z")
+    private val storedAnswer = ChatMessage(id = "a-9", role = "assistant", content = "Grand soleil.", createdAt = "2026-02-15T11:00:12Z")
+
+    @Test
+    fun `an answer that takes 15 s is shown and offered to be read aloud`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream("Quel temps demain ?") } returns flow {
+            delay(15_000)
+            streamedAnswer("resp-1", "Grand soleil.").collect { emit(it) }
+        }
+        coEvery { repository.persistMessage(any()) } returns Unit
+
+        viewModel.sendMessage("Quel temps demain ?")
+        advanceTimeBy(14_000)
+        runCurrent()
+        assertTrue(viewModel.uiState.value.isLoading)
+
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isLoading)
+        assertNull(state.failure)
+        assertEquals("Grand soleil.", state.messages.last().content)
+        assertEquals("Grand soleil.", state.replyToSpeak?.content)
+    }
+
+    @Test
+    fun `a stream cut after the question was sent fetches the stored answer instead of sending it again`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream("Quel temps demain ?") } returns flowOf(AgUiEvent.Error("SocketTimeoutException: timeout"))
+        coEvery { repository.fetchMessagesAfter("2026-02-15T10:00:05Z") } returns listOf(sentQuestion, storedAnswer)
+
+        viewModel.sendMessage("Quel temps demain ?")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isLoading)
+        assertNull(state.failure)
+        assertEquals(listOf("msg-1", "msg-2", "u-9", "a-9"), state.messages.map { it.id })
+        assertEquals("Grand soleil.", state.replyToSpeak?.content)
+        coVerify(exactly = 0) { repository.sendMessage(any(), any()) }
+    }
+
+    @Test
+    fun `an answer stored a few seconds after the stream was cut is waited for`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream("Quel temps demain ?") } returns flowOf(AgUiEvent.Error("SocketTimeoutException: timeout"))
+        var fetches = 0
+        coEvery { repository.fetchMessagesAfter(any()) } coAnswers {
+            if (++fetches < 3) listOf(sentQuestion) else listOf(sentQuestion, storedAnswer)
+        }
+
+        viewModel.sendMessage("Quel temps demain ?")
+        advanceUntilIdle()
+
+        assertEquals(3, fetches)
+        assertEquals("Grand soleil.", viewModel.uiState.value.replyToSpeak?.content)
+        assertNull(viewModel.uiState.value.failure)
+    }
+
+    @Test
+    fun `an answer that reaches Mercure while the app is looking for it ends the wait`() = runTest {
+        val chat = MutableSharedFlow<MercureEvent>(extraBufferCapacity = 4)
+        every { mercureService.subscribe(any()) } returns chat
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream("Quel temps demain ?") } returns flowOf(AgUiEvent.Error("SocketTimeoutException: timeout"))
+        coEvery { repository.fetchMessagesAfter(any()) } returns emptyList()
+        coEvery { repository.handleMercureMessage(any()) } returns Unit
+
+        viewModel.sendMessage("Quel temps demain ?")
+        advanceTimeBy(4_000)
+        runCurrent()
+        assertTrue(viewModel.uiState.value.isLoading)
+
+        chat.emit(
+            MercureEvent(data = """{"id":"a-9","role":"assistant","content":"Grand soleil.","createdAt":"2026-02-15T11:00:12Z"}"""),
+        )
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.isLoading)
+        assertNull(viewModel.uiState.value.failure)
+        assertEquals("Grand soleil.", viewModel.uiState.value.replyToSpeak?.content)
+    }
+
+    @Test
+    fun `no answer anywhere ends in an error in the thread, not in silence`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream("Quel temps demain ?") } returns flowOf(AgUiEvent.Error("HTTP 502"))
+        coEvery { repository.fetchMessagesAfter(any()) } returns listOf(sentQuestion)
+
+        viewModel.sendMessage("Quel temps demain ?")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isLoading)
+        assertNull(state.replyToSpeak)
+        assertTrue(state.failure != null)
+        assertTrue(state.displayItems.any { it is ChatListItem.Failure })
+    }
+
+    @Test
+    fun `a request that fails both ways shows the error`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream("Hello") } returns flow { throw RuntimeException("Stream error") }
+        coEvery { repository.sendMessage("Hello") } throws RuntimeException("Network error")
+        coEvery { repository.fetchMessagesAfter(any()) } throws RuntimeException("Network error")
+
+        viewModel.sendMessage("Hello")
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.displayItems.any { it is ChatListItem.Failure })
+        assertFalse(viewModel.uiState.value.isLoading)
+    }
+
+    @Test
+    fun `an answer lost by the fallback call is picked up from the server`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream("Quel temps demain ?") } returns flow { throw java.net.ConnectException("refused") }
+        coEvery { repository.sendMessage("Quel temps demain ?") } throws RuntimeException("timeout")
+        coEvery { repository.fetchMessagesAfter(any()) } returns listOf(sentQuestion, storedAnswer)
+
+        viewModel.sendMessage("Quel temps demain ?")
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.failure)
+        assertEquals("Grand soleil.", viewModel.uiState.value.replyToSpeak?.content)
+    }
+
+    @Test
+    fun `the next question clears the error of the last one`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream("Hello") } returns flowOf(AgUiEvent.Error("HTTP 502"))
+        coEvery { repository.fetchMessagesAfter(any()) } returns emptyList()
+        viewModel.sendMessage("Hello")
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.failure != null)
+
+        every { repository.sendMessageStream("Encore") } returns streamedAnswer("resp-2", "Oui.")
+        coEvery { repository.persistMessage(any()) } returns Unit
+        viewModel.sendMessage("Encore")
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.failure)
     }
 }

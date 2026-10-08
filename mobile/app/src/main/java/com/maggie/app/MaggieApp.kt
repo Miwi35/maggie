@@ -4,6 +4,7 @@ import android.app.Application
 import android.app.NotificationManager
 import androidx.room.Room
 import com.maggie.app.data.api.MaggieApiService
+import com.maggie.app.data.api.installApiTimeouts
 import com.maggie.app.data.auth.AuthManager
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.auth.BiometricLockManager
@@ -147,6 +148,7 @@ class MaggieApp : Application() {
                 val authRepository: AuthRepository = get()
                 val apiHost = Url(BuildConfig.API_BASE_URL).host
                 HttpClient(OkHttp) {
+                    installApiTimeouts()
                     install(ContentNegotiation) {
                         json(Json {
                             ignoreUnknownKeys = true

@@ -17,6 +17,7 @@ import com.maggie.app.ui.components.approvalQuestion
 import com.maggie.app.util.ChatDateFormatter
 import com.maggie.app.voice.ScreenContext
 import com.maggie.app.voice.SpokenApprovalAnswer
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -65,6 +66,8 @@ data class ChatUiState(
     val replyToSpeak: ChatMessage? = null,
     /** Actions Maggie holds until the user answers, oldest first (MAG-4). */
     val pendingApprovals: List<ApprovalItem> = emptyList(),
+    /** Why the last question got no answer: shown in the thread, never left as a silence. */
+    val failure: String? = null,
 )
 
 @OptIn(FlowPreview::class)
@@ -98,6 +101,9 @@ class ChatViewModel(
         private const val PAGE_SIZE = 20
         private const val TAG = "ChatViewModel"
         private const val PENDING_PREFIX = "pending_"
+        private const val RECOVERY_WINDOW_MS = 60_000L
+        private const val RECOVERY_POLL_MS = 3_000L
+        private const val NO_ANSWER = "Maggie n'a pas pu répondre. Vérifiez votre connexion et réessayez."
     }
 
     init {
@@ -198,8 +204,10 @@ class ChatViewModel(
                 content = text,
                 createdAt = java.time.Instant.now().toString(),
             )
+            val anchor = _uiState.value.messages.lastOrNull { !it.id.startsWith(PENDING_PREFIX) }?.createdAt
             _uiState.value = _uiState.value.copy(
                 messages = _uiState.value.messages + userMessage,
+                failure = null,
                 isLoading = true,
                 streamingText = "",
                 streamingMessageId = null,
@@ -211,11 +219,20 @@ class ChatViewModel(
             val screen = screenContext?.takeIf { it.isNotBlank() }
 
             try {
+                var streamError: String? = null
                 repository.sendMessageStream(text, screen)
-                    .collect { event -> handleStreamEvent(event) }
-                if (awaitingReply) finishRequest()
+                    .collect { event ->
+                        if (event is AgUiEvent.Error) streamError = event.message
+                        handleStreamEvent(event)
+                    }
+                if (awaitingReply) {
+                    val answered = _uiState.value.messages.lastOrNull()?.role == "assistant"
+                    if (answered && streamError == null) finishRequest() else recoverReply(anchor, RECOVERY_WINDOW_MS)
+                }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                Log.w(TAG, "Stream failed, falling back to non-streaming: ${e.message}")
+                Log.w(TAG, "Stream failed, falling back to non-streaming: ${e::class.simpleName}: ${e.message}")
                 // Fallback to non-streaming
                 try {
                     val newMessages = repository.sendMessage(text, screen).asSaid()
@@ -231,23 +248,75 @@ class ChatViewModel(
                         rebuildDisplayItems()
                         scrollToBottom(animate = true)
                     } else {
-                        awaitingReply = false
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            streamingText = "",
-                            streamingMessageId = null,
-                        )
+                        fail()
                     }
-                } catch (_: Exception) {
-                    awaitingReply = false
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        streamingText = "",
-                        streamingMessageId = null,
-                    )
+                } catch (e2: CancellationException) {
+                    throw e2
+                } catch (e2: Exception) {
+                    Log.w(TAG, "Non-streaming send failed: ${e2::class.simpleName}: ${e2.message}")
+                    // The call may have been cut after the agent stored its answer: look once before giving up.
+                    recoverReply(anchor, 0)
                 }
             }
         }
+    }
+
+    /**
+     * The call that carried the question is gone, but the agent stores its answer whether or not
+     * the phone was still listening: ask the server for it until [window] has passed, then say so.
+     */
+    private suspend fun recoverReply(anchor: String?, window: Long) {
+        _uiState.value = _uiState.value.copy(streamingText = "", streamingMessageId = null)
+        var waited = 0L
+        while (true) {
+            try {
+                mergeStored(repository.fetchMessagesAfter(anchor).asSaid())
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not fetch the answer: ${e::class.simpleName}: ${e.message}")
+            }
+            if (_uiState.value.messages.lastOrNull()?.role == "assistant") {
+                finishRequest()
+                rebuildDisplayItems()
+                scrollToBottom(animate = true)
+                return
+            }
+            if (waited >= window) break
+            delay(RECOVERY_POLL_MS)
+            waited += RECOVERY_POLL_MS
+        }
+        fail()
+    }
+
+    private fun mergeStored(stored: List<ChatMessage>) {
+        var messages = _uiState.value.messages
+        for (message in stored) {
+            if (messages.any { it.id == message.id }) continue
+            val pendingIndex = if (message.role == "user") {
+                messages.indexOfFirst { it.id.startsWith(PENDING_PREFIX) && it.content == message.content }
+            } else {
+                -1
+            }
+            messages = if (pendingIndex >= 0) {
+                messages.mapIndexed { i, m -> if (i == pendingIndex) message else m }
+            } else {
+                messages + message
+            }
+        }
+        _uiState.value = _uiState.value.copy(messages = messages)
+        rebuildDisplayItems()
+    }
+
+    private fun fail() {
+        awaitingReply = false
+        _uiState.value = _uiState.value.copy(
+            isLoading = false,
+            streamingText = "",
+            streamingMessageId = null,
+            failure = NO_ANSWER,
+        )
+        rebuildDisplayItems()
     }
 
     private suspend fun handleStreamEvent(event: AgUiEvent) {
@@ -297,14 +366,8 @@ class ChatViewModel(
                 _contextUpdates.tryEmit(event)
             }
             is AgUiEvent.Error -> {
+                // Not the end of the request: the answer may be stored, see [recoverReply].
                 Log.w(TAG, "Stream error: ${event.message}")
-                awaitingReply = false
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    streamingText = "",
-                    streamingMessageId = null,
-                )
-                rebuildDisplayItems()
             }
             is AgUiEvent.RunStarted,
             is AgUiEvent.ToolCallStart,
@@ -517,6 +580,7 @@ class ChatViewModel(
         } else if (state.isLoading) {
             items.add(ChatListItem.LoadingIndicator)
         }
+        state.failure?.let { items.add(ChatListItem.Failure(it)) }
 
         _uiState.value = _uiState.value.copy(displayItems = items)
     }
@@ -668,7 +732,7 @@ class ChatViewModel(
                         }
                         // Clear loading when we receive an assistant/system message
                         if (message.role != "user") {
-                            _uiState.value = _uiState.value.copy(isLoading = false)
+                            _uiState.value = _uiState.value.copy(isLoading = false, failure = null)
                             rebuildDisplayItems()
                             scrollToBottom(animate = true)
                         }

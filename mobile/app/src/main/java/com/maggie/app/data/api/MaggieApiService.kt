@@ -52,6 +52,7 @@ import com.maggie.app.data.model.User
 import com.maggie.app.data.model.UserPreference
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.network.sockets.ConnectTimeoutException
 import io.ktor.client.request.accept
 import io.ktor.client.request.delete
 import io.ktor.client.request.forms.formData
@@ -69,6 +70,7 @@ import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.utils.io.readRemaining
+import kotlinx.coroutines.CancellationException
 import kotlinx.io.readByteArray
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.Serializable
@@ -76,6 +78,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.io.File
+import java.net.ConnectException
+import java.net.UnknownHostException
 
 /** A meal that goes with the recipe: its day (`yyyy-MM-dd`) and slot (`lunch`/`dinner`). */
 @Serializable
@@ -605,6 +609,7 @@ class MaggieApiService(
         userId: String = "default",
     ): AgentChatResponse {
         return client.post("$baseUrl/agent/chat") {
+            waitForAgentReply()
             contentType(ContentType.Application.Json)
             setBody(AgentChatRequest(message = message, user_id = userId, screen_context = screenContext))
         }.body()
@@ -654,6 +659,7 @@ class MaggieApiService(
         val idempotencyKey = java.util.UUID.randomUUID().toString()
         try {
             val response = client.post("$baseUrl/agent/chat/stream") {
+                waitForAgentStream()
                 contentType(ContentType.Application.Json)
                 setBody(
                     AgentChatRequest(
@@ -670,8 +676,13 @@ class MaggieApiService(
                 val channel = response.bodyAsChannel()
                 AgUiStreamParser.parseStream(channel).collect { emit(it) }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            emit(AgUiEvent.Error(e.message ?: "Stream error"))
+            // The question never left the phone: the caller may send it again, nothing was stored.
+            if (e is ConnectException || e is UnknownHostException || e is ConnectTimeoutException) throw e
+            // Anything later may have reached the agent, which stores the question before it answers.
+            emit(AgUiEvent.Error("${e::class.simpleName}: ${e.message ?: "Stream error"}"))
         }
     }
 
