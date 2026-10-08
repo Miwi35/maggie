@@ -15,6 +15,7 @@ the dev stack and with other agents.
 | `task wt:fix:admin` / `task wt:lint:admin` / `task wt:test:admin` | one Node container |
 | `task wt:fix:agent` / `task wt:lint:agent` / `task wt:test:agent` | one uv container |
 | `task wt:fix:ciqual` / `task wt:lint:ciqual` / `task wt:test:ciqual` | one uv container |
+| `task wt:test:mobile -- --tests …` | the host's Gradle (Android SDK, Android Studio's JDK), one build at a time on the machine |
 | `task wt:guard` | the load check the others run first |
 | `task wt:cache:prune` | housekeeping |
 
@@ -55,6 +56,53 @@ task wt:down                                 # the moment verification is over, 
   same hash (`ghcr.io/miwi35/maggie-e2e-php:<hash>`) is pulled first. `task
   wt:image` on an unchanged tree runs `docker image inspect` and nothing else.
   `task wt:cache:prune` drops the old per-worktree tags.
+
+## Mobile: one Gradle build at a time
+
+On 8 Oct. 2026 `systemd-oomd` killed Cyrus eight times in a day: several
+sessions ran Gradle at once (unit tests, `assemble`, Maestro), each leaving a
+Gradle and a Kotlin daemon of 2 to 4 GB, on top of the e2e stacks. Since then:
+
+**Locally, mobile = `task wt:test:mobile -- --tests …` only.** Never `./gradlew`
+by hand, never `assemble*` or `lint*`, never Maestro or an emulator — except
+`task e2e:mobile` to write or debug a journey. CI builds the APK, runs the lint,
+the `prodRelease` unit tests and the journeys on every PR.
+
+```
+task wt:test:mobile -- --tests 'com.maggie.app.ui.screens.search.SearchResultTextTest'
+task wt:test:mobile -- --tests 'com.maggie.app.ui.screens.chat.*'
+```
+
+What `wt/gradle.sh` does:
+
+- **Only `:app:testProdDebugUnitTest`.** Arguments are options (`--tests`,
+  `--rerun`, `--info`); a bare word — a Gradle task — is refused (exit 64).
+  Without arguments it runs every unit test: allowed, but name a class.
+- **A machine-wide lock**: `flock` on `$XDG_RUNTIME_DIR/maggie-gradle.lock`,
+  every worktree included. The second caller prints « Gradle occupé par un autre
+  build, attente… » and waits up to `WT_GRADLE_LOCK_WAIT_MINUTES` (30), then
+  exits 75: push and let CI run it. The guard runs once the lock is held, with
+  `WT_MOBILE_MIN_AVAILABLE_MB` (4 GB).
+- **Warm but bounded daemons**: the Gradle daemon is kept between runs
+  (1.5 GB heap, leaves after 30 idle minutes), the Kotlin daemon gets 1 GB, the
+  test JVM its 2 GB from `app/build.gradle.kts`. Passed on the command line
+  (`WT_GRADLE_JVMARGS`, `WT_KOTLIN_DAEMON_JVMARGS` in `wt/limits.env`), because a
+  `~/.gradle/gradle.properties` wins over `mobile/gradle.properties`; and since a
+  daemon is reused only by a build asking for the same options, every run shares
+  one.
+- **No cold build.** `org.gradle.caching=true` (`mobile/gradle.properties`): the
+  local build cache, `~/.gradle/caches/build-cache-1`, is per user, so a worktree
+  loads what another one compiled. And a fresh worktree — no `mobile/app/build`,
+  no `mobile/.gradle` — is first seeded from the checkout whose `prodDebug`
+  classes were compiled last (`rsync`, ~90 MB, outputs/reports/test results
+  left out): Kotlin's incremental caches come with it, so a change recompiles
+  incrementally instead of from scratch. Safe because Gradle decides from the
+  inputs: a task whose sources or classpath differ runs again. `WT_MOBILE_SEED=0`
+  skips it.
+
+Measured on the reference machine, `SearchResultTextTest`, warm daemon: a fresh
+worktree on unchanged code 5 s (build cache), with one class changed 57 s
+unseeded, 37 s seeded; a second run 5 s.
 
 ## Memory budget of the stacks
 

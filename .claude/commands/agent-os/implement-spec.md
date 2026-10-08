@@ -111,7 +111,7 @@ per-task loop.
 | `api/` | `task api:lint` | `task api:test -- --testsuite <Module>` |
 | `agent/` | `task agent:lint` + `task agent:format:check` | `task agent:test` |
 | `admin/` | `task admin:lint` + `task admin:typecheck` | `task admin:test` |
-| `mobile/` | CI only (local `lintProdRelease` hits a known AGP/K2 bug) | `cd mobile && ./gradlew testProdReleaseUnitTest` |
+| `mobile/` | CI only | `task wt:test:mobile -- --tests '<class or package>'` |
 
 `<Module>` is the PHPUnit testsuite — the module directory capitalised:
 `Calendar`, `Core`, `Cookbook`, `Grocery`, `Notification`, `Finance`.

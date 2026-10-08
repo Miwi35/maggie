@@ -23,6 +23,7 @@ Kotlin + Jetpack Compose + Material 3.
 - Google OAuth credentials only work with the release signing key
 - **Always build `prodRelease`** for device testing: `task mobile:install` (checks a phone is connected, then an incremental `./gradlew installProdRelease` — never `clean`)
 - Do NOT use `devDebug` or `prodDebug` — the debug keystore SHA1 is not registered in GCP
+- That is the owner's phone. Agents build no APK locally: their one Gradle build is `task wt:test:mobile -- --tests …` (JVM unit tests on `prodDebug`, no signing involved); CI builds the APKs (`agent-os/standards/global/worktree-checks.md`)
 
 ## The `e2e` flavor (MAG-98)
 

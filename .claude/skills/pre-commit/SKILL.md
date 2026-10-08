@@ -15,7 +15,7 @@ user-invocable: false
 | API | `task api:lint` | `task api:test` |
 | Agent | `task agent:lint && task agent:format:check` | `task agent:test` |
 | Admin | `task admin:lint && task admin:typecheck` | `task admin:test` |
-| Mobile | CI only (local `lintProdRelease` crashes on a known AGP/K2 bug) | `cd mobile && ./gradlew testProdReleaseUnitTest` |
+| Mobile | CI only | `task wt:test:mobile -- --tests '<class or package>'` — the only local Gradle build |
 
 ## Multi-Component Shortcut
 
