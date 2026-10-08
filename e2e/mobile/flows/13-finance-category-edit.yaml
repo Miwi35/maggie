@@ -1,0 +1,74 @@
+appId: com.maggie.app.e2e
+name: 13-finance-category-edit
+tags:
+  - finance
+---
+# Editing a category from the phone (MAG-353, extends MAG-102).
+#
+# A row opens the category on a screen of its own, with the admin's fields; renaming
+# « Courses » sends the name alone, the list shows the new one, and it is still there
+# after the app is stopped and started again — what came back is the server's, not a
+# screen that kept its own edit. The same rename over the admin is the web suite's.
+#
+# The name goes back at the end so the seeded server is left as found: a re-run on the
+# same server, and the flows of the other shards, still meet « Courses ».
+#
+# What is not here: the deletion's confirmation and the transaction count it cites.
+# The question is a dialog and the count is the API's filter — `CategoryViewModelTest`,
+# `CategoryListScreenTest` and `TransactionCategoryFilterTest` check them, and a delete
+# on the shared seed would take the owner's groceries with it.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+
+- runFlow: ../subflows/sign-in.yaml
+
+- openLink: "maggie-e2e://finance/categories"
+
+- extendedWaitUntil:
+    visible: "Catégories"
+    timeout: 20000
+
+- tapOn: "Courses"
+
+- extendedWaitUntil:
+    visible: "Modifier la catégorie"
+    timeout: 10000
+
+- tapOn: "Nom"
+- eraseText
+- inputText: "Courses alimentaires"
+- hideKeyboard
+- tapOn: "Enregistrer"
+
+- extendedWaitUntil:
+    visible: "Courses alimentaires"
+    timeout: 30000
+
+# Stopped, then started on the stored session: the list is read from the server again.
+- stopApp
+- launchApp
+- openLink: "maggie-e2e://finance/categories"
+
+- extendedWaitUntil:
+    visible: "Courses alimentaires"
+    timeout: 30000
+
+# Put it back.
+- tapOn: "Courses alimentaires"
+
+- extendedWaitUntil:
+    visible: "Modifier la catégorie"
+    timeout: 10000
+
+- tapOn: "Nom"
+- eraseText
+- inputText: "Courses"
+- hideKeyboard
+- tapOn: "Enregistrer"
+
+- extendedWaitUntil:
+    visible: "Courses"
+    timeout: 30000

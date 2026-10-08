@@ -95,6 +95,7 @@ final class QueryParameterContractTest extends WebTestCase
         ],
         '/api/transactions' => [
             'account' => 'mobile getTransactions, narrowing to one account',
+            'category' => 'mobile countTransactionsOfCategory, the weight of a deletion',
             'order[bookedAt]' => 'mobile getTransactions',
         ],
         '/api/grocery_lists' => [
@@ -424,6 +425,13 @@ final class QueryParameterContractTest extends WebTestCase
             ['On account A'],
             ['On account B'],
         ];
+
+        // How many transactions a category deletion would uncategorise.
+        yield 'transactions of one category' => [
+            '/api/transactions', 'category=IRI:filter_category', 'label',
+            ['On account A'],
+            ['On account B'],
+        ];
     }
 
     /** @return iterable<string, array{string, string, string, list<string>}> */
@@ -468,7 +476,9 @@ final class QueryParameterContractTest extends WebTestCase
         if (str_contains($uri, 'IRI:')) {
             $uri = (string) preg_replace_callback(
                 '/IRI:([a-z_]+)/',
-                fn (array $m): string => rawurlencode('/api/accounts/'.$this->getFixture($m[1])->getId()),
+                fn (array $m): string => rawurlencode(
+                    (str_starts_with($m[1], 'filter_category') ? '/api/categories/' : '/api/accounts/').$this->getFixture($m[1])->getId(),
+                ),
                 $uri,
             );
         }

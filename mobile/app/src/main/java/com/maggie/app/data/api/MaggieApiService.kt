@@ -94,7 +94,7 @@ data class PlannedMealRef(val date: String, val slot: String)
 data class RecipeDeletionImpact(val mealCount: Int = 0, val meals: List<PlannedMealRef> = emptyList())
 
 @Serializable
-data class ApiCollection<T>(val member: List<T> = emptyList())
+data class ApiCollection<T>(val member: List<T> = emptyList(), val totalItems: Int? = null)
 
 /**
  * A timed event sends [startAt]/[endAt], an all-day one [startDate]/[endDate]
@@ -1023,8 +1023,26 @@ class MaggieApiService(
         }.body()
     }
 
+    suspend fun updateCategory(id: String, data: JsonObject): Category {
+        return client.patch("$baseUrl/api/categories/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(data)
+        }.body()
+    }
+
     suspend fun deleteCategory(id: String) {
         client.delete("$baseUrl/api/categories/$id")
+    }
+
+    // One row asked for: the page is not wanted, only the collection's total.
+    suspend fun countTransactionsOfCategory(categoryId: String): Int {
+        val page = client.get("$baseUrl/api/transactions") {
+            accept(ContentType("application", "ld+json"))
+            url.parameters.append("category", "/api/categories/$categoryId")
+            url.parameters.append("itemsPerPage", "1")
+        }.body<ApiCollection<Transaction>>()
+        return page.totalItems ?: page.member.size
     }
 
     // Finance — Transactions
