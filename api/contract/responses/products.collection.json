@@ -23,6 +23,7 @@
             "packagingSize": 500,
             "packagingSizeUnit": "g",
             "stockState": "in_stock",
+            "restockQuantity": 2,
             "autoRestock": false
         },
         {
