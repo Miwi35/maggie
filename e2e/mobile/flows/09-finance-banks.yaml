@@ -18,8 +18,9 @@ tags:
 #
 # The suggestions come first on purpose: the fetch below imports two movements of
 # its own, and the single deterministic suggestion of the pristine seed —
-# « LECLERC RENNES », three debits no rule spells that way — is what makes the
-# acceptance assertable.
+# « FROMAGERIE DES LICES », three debits nothing has filed yet — is what makes
+# the acceptance assertable. Not « LECLERC RENNES »: the « LECLERC » rule filed
+# those already, and a line already filed is not suggested (MAG-45).
 
 - launchApp:
     clearState: true
@@ -39,7 +40,7 @@ tags:
 - tapOn: "Suggestions"
 
 - extendedWaitUntil:
-    visible: "LECLERC RENNES"
+    visible: "FROMAGERIE DES LICES"
     timeout: 20000
 
 # The count is what decides whether a merchant is a habit worth a rule, so it is
@@ -47,8 +48,8 @@ tags:
 - assertVisible: ".*3 fois.*"
 
 # Nothing is chosen while the heading is a question, so there is nothing to
-# create yet: `MerchantDictionary` files LECLERC under « Nourriture », which no
-# seeded category is named, so the suggestion arrives with no `categoryId`.
+# create yet: no rule, no filed line and no `MerchantDictionary` entry names the
+# shop, so the suggestion arrives with no `categoryId`.
 #
 # Addressed by its tag and not by its label: a `Button`'s text is a node of its
 # own in the hierarchy, and a `Text` is always `enabled: true` — so the pair

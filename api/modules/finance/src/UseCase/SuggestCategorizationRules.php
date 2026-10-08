@@ -17,6 +17,7 @@ use Maggie\Finance\Import\MerchantExtractor;
 use Maggie\Finance\Repository\CategorizationRuleRepository;
 use Maggie\Finance\Repository\CategoryRepository;
 use Maggie\Finance\Repository\TransactionRepository;
+use Maggie\Finance\Service\TransactionNatureGuard;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Uid\Ulid;
 
@@ -41,6 +42,7 @@ class SuggestCategorizationRules
         private readonly CategoryRepository $categoryRepository,
         private readonly EntityManagerInterface $em,
         private readonly MessageBusInterface $bus,
+        private readonly TransactionNatureGuard $natureGuard,
     ) {
     }
 
@@ -63,10 +65,13 @@ class SuggestCategorizationRules
         }
 
         $groups = [];
+        /** @var array<string, array<string, array{category: Category, lines: int}>> $filed */
+        $filed = [];
 
         foreach ($this->transactionRepository->findByUser($user) as $transaction) {
-            // A category set by hand is an answer already given.
-            if (CategorySource::Manual === $transaction->getCategorySource()) {
+            // Money moved between one's own accounts is neither spent nor
+            // earned: a heading for it would count it twice.
+            if ($transaction->isInternalTransfer()) {
                 continue;
             }
 
@@ -76,7 +81,23 @@ class SuggestCategorizationRules
             }
 
             $key = MerchantExtractor::key($merchant);
-            if ('' === $key || isset($covered[$key])) {
+            if ('' === $key) {
+                continue;
+            }
+
+            // A line already filed — by hand, or by a broader rule — needs no
+            // rule of its own; it only tells where the merchant's next lines go.
+            $category = $transaction->getCategory();
+            if (null !== $category) {
+                $id = (string) $category->getId();
+                $filed[$key][$id] ??= ['category' => $category, 'lines' => 0];
+                ++$filed[$key][$id]['lines'];
+
+                continue;
+            }
+
+            // A category removed by hand is an answer too: leave it alone.
+            if (CategorySource::Manual === $transaction->getCategorySource() || isset($covered[$key])) {
                 continue;
             }
 
@@ -102,17 +123,20 @@ class SuggestCategorizationRules
 
         $suggestions = [];
 
-        foreach ($groups as $group) {
+        foreach ($groups as $key => $group) {
             if ($group['occurrences'] < $minOccurrences) {
                 continue;
             }
 
             $direction = $this->directionOf($group['debits'], $group['credits']);
-            $guess = MerchantDictionary::categoryFor(
-                $group['pattern'],
-                AmountDirection::Credit === $direction,
-            );
-            $category = null === $guess ? null : ($categoriesByName[mb_strtolower($guess)] ?? null);
+            $category = $this->headingAlreadyGiven($filed[$key] ?? [], $group['totalCents']);
+            if (null === $category) {
+                $guess = MerchantDictionary::categoryFor(
+                    $group['pattern'],
+                    AmountDirection::Credit === $direction,
+                );
+                $category = null === $guess ? null : ($categoriesByName[mb_strtolower($guess)] ?? null);
+            }
 
             $suggestions[] = [
                 'pattern' => $group['pattern'],
@@ -187,6 +211,33 @@ class SuggestCategorizationRules
                 $created,
             ),
         ];
+    }
+
+    /**
+     * The heading the user's history already gives this merchant, the most
+     * used one when it has several. It beats any dictionary: it is their answer.
+     *
+     * Only a heading that fits the money still to file counts: the shop's
+     * purchases sit under an expense, its refunds cannot, and a rule proposing
+     * that heading for them would never file a single line.
+     *
+     * @param array<string, array{category: Category, lines: int}> $headings
+     */
+    private function headingAlreadyGiven(array $headings, int $totalCents): ?Category
+    {
+        $best = null;
+
+        foreach ($headings as $heading) {
+            if (!$this->natureGuard->isCompatible($totalCents, $heading['category'])) {
+                continue;
+            }
+
+            if (null === $best || $heading['lines'] > $best['lines']) {
+                $best = $heading;
+            }
+        }
+
+        return $best['category'] ?? null;
     }
 
     /** A merchant only ever paid is a debit rule; one that also refunds is not. */

@@ -1,0 +1,156 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-suggestions-noise-test@example.com
+    googleId: google-finance-suggestions-noise-test
+    name: Finance Suggestions Noise Test User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+  savings:
+    name: Livret A
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 500000
+    isCushion: true
+    user: '@test_user'
+
+Maggie\Finance\Entity\Category:
+  food:
+    name: Nourriture
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  streaming:
+    name: TV & streaming
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+
+Maggie\Finance\Entity\CategorizationRule:
+  rule_lidl:
+    labelPattern: LIDL
+    matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'
+    category: '@food'
+    direction: '<(Maggie\Finance\Enum\AmountDirection::Debit)>'
+    priority: 4
+    isActive: true
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  # Filed by the "LIDL" rule already, under a longer merchant name.
+  lidl_1:
+    label: 'PAIEMENT PAR CARTE X9633 LIDL RENNES 01/08'
+    amountCents: -3120
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-08-01"))>'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    category: '@food'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Rule)>'
+    account: '@checking'
+    user: '@test_user'
+  lidl_2:
+    label: 'PAIEMENT PAR CARTE X9633 LIDL RENNES 08/08'
+    amountCents: -2875
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-08-08"))>'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    category: '@food'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Rule)>'
+    account: '@checking'
+    user: '@test_user'
+  # Two monthly savings transfers, each recognised as an internal transfer.
+  saving_out_1:
+    label: 'VIREMENT EMIS WEB LIVRET A'
+    amountCents: -20000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-05"))>'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    transferKind: '<(Maggie\Finance\Enum\TransferKind::Internal)>'
+    account: '@checking'
+    user: '@test_user'
+  saving_out_2:
+    label: 'VIREMENT EMIS WEB LIVRET A'
+    amountCents: -20000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-08-05"))>'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    transferKind: '<(Maggie\Finance\Enum\TransferKind::Internal)>'
+    account: '@checking'
+    user: '@test_user'
+  # Nothing files it yet: the one rule worth proposing.
+  netflix_1:
+    label: 'PAIEMENT PAR CARTE X9633 NETFLIX.COM 12/07'
+    amountCents: -1399
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-12"))>'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    account: '@checking'
+    user: '@test_user'
+  netflix_2:
+    label: 'PAIEMENT PAR CARTE X9633 NETFLIX.COM 12/08'
+    amountCents: -1399
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-08-12"))>'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    account: '@checking'
+    user: '@test_user'
+  # Filed by hand once under a heading no dictionary would guess, then back
+  # twice unfiled: the owner has already said where it goes.
+  bakery_filed:
+    label: 'PAIEMENT PAR CARTE X9633 LE FOURNIL JANZE 02/07'
+    amountCents: -640
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-02"))>'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    category: '@food'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    account: '@checking'
+    user: '@test_user'
+  bakery_1:
+    label: 'PAIEMENT PAR CARTE X9633 LE FOURNIL JANZE 09/07'
+    amountCents: -520
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-09"))>'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    account: '@checking'
+    user: '@test_user'
+  bakery_2:
+    label: 'PAIEMENT PAR CARTE X9633 LE FOURNIL JANZE 16/07'
+    amountCents: -710
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-16"))>'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    account: '@checking'
+    user: '@test_user'
+  # A farm shop filed by hand under an expense, then two refunds from it
+  # left to file: money coming back cannot go under that heading.
+  farm_filed:
+    label: 'PAIEMENT PAR CARTE X9633 LA FERME DU COIN 01/07'
+    amountCents: -2400
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-01"))>'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    category: '@food'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    account: '@checking'
+    user: '@test_user'
+  farm_refund_1:
+    label: 'AVOIR LA FERME DU COIN 03/07'
+    amountCents: 450
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-03"))>'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    account: '@checking'
+    user: '@test_user'
+  farm_refund_2:
+    label: 'AVOIR LA FERME DU COIN 10/07'
+    amountCents: 299
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-10"))>'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    account: '@checking'
+    user: '@test_user'

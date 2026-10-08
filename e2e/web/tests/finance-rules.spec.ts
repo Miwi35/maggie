@@ -147,11 +147,11 @@ test.describe('Filing the history', () => {
   /**
    * The rules the statement already implies.
    *
-   * The seed holds three "LECLERC RENNES" debits whose category came from a rule
-   * or from nowhere — never by hand — and the active rule's pattern is the
-   * shorter "LECLERC", so the merchant is not covered yet. That is exactly the
-   * case `SuggestCategorizationRules` is for: a shop that comes back, and no
-   * rule spelling it the way the bank does.
+   * The seed holds three "FROMAGERIE DES LICES" debits nothing has filed, and no
+   * rule or dictionary entry names the shop. That is exactly the case
+   * `SuggestCategorizationRules` is for: a shop that comes back, still to file.
+   * The "LECLERC RENNES" debits are not one: a broader rule filed them already,
+   * and a line already filed needs no rule of its own (MAG-45).
    *
    * Accepting it must *remove* it from the tab, because the rule it created now
    * covers the merchant. A suggestion that survives its own acceptance is how
@@ -162,13 +162,13 @@ test.describe('Filing the history', () => {
     await categories.open()
     await categories.openTab('Suggestions')
 
-    const suggestion = categories.suggestion('LECLERC RENNES')
+    const suggestion = categories.suggestion('FROMAGERIE DES LICES')
     // The count against its own cell: `toContainText('3')` on the row would be
     // just as happy with 13, 23 or 30 — and the occurrence count is what
     // decides whether a merchant is a habit worth a rule.
     await expect(suggestion.getByRole('cell', { name: '3', exact: true })).toBeVisible()
-    await expect(suggestion, 'three debits of 45,00 €, 32,00 € and 380,00 €').toContainText(
-      euros(-45700),
+    await expect(suggestion, 'three debits of 18,50 €, 22,00 € and 26,50 €').toContainText(
+      euros(-6700),
     )
 
     // Nothing is ticked while the heading is a question: the button has nothing
@@ -177,29 +177,29 @@ test.describe('Filing the history', () => {
       categories.content.getByText('Choisissez une catégorie pour au moins une ligne.'),
     ).toBeVisible()
 
-    await categories.chooseSuggestionCategory('LECLERC RENNES', 'Courses')
+    await categories.chooseSuggestionCategory('FROMAGERIE DES LICES', 'Courses')
     await categories.createSuggestedRules.click()
 
     const created = await waitForIndexed<StoredRule>(
       api,
       '/api/categorization_rules',
-      (rule) => rule.labelPattern === 'LECLERC RENNES',
+      (rule) => rule.labelPattern === 'FROMAGERIE DES LICES',
       { what: 'The rule the accepted suggestion wrote' },
     )
 
     expect(created.category).toBe(`/api/categories/${seedId('e2e_category_groceries')}`)
     expect(created.active).toBe(true)
-    // Priority is the pattern's length, so the specific spelling is read before
-    // the generic one: "LECLERC RENNES" (14) before "LECLERC" (10).
-    expect(created.priority).toBe('LECLERC RENNES'.length)
+    // Priority is the pattern's length, so a specific spelling is read before a
+    // generic one.
+    expect(created.priority).toBe('FROMAGERIE DES LICES'.length)
 
     await categories.open()
     await categories.openTab('Règles de catégorisation')
-    await expect(categories.row('LECLERC RENNES')).toContainText('Courses')
+    await expect(categories.row('FROMAGERIE DES LICES')).toContainText('Courses')
 
     await categories.openTab('Suggestions')
     await expect(
-      categories.suggestion('LECLERC RENNES'),
+      categories.suggestion('FROMAGERIE DES LICES'),
       'the merchant is covered now, so it is not a question any more',
     ).toHaveCount(0)
   })

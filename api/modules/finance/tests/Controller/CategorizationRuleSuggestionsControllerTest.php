@@ -42,6 +42,15 @@ class CategorizationRuleSuggestionsControllerTest extends WebTestCase
         return json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR)['suggestions'];
     }
 
+    /** @return list<string> */
+    private function patternsMentioning(string $word): array
+    {
+        return array_values(array_filter(
+            array_column($this->suggestions(), 'pattern'),
+            static fn (string $pattern) => str_contains($pattern, $word),
+        ));
+    }
+
     /** @param list<array<string, mixed>> $rules */
     private function accept(array $rules): array
     {
@@ -176,6 +185,62 @@ class CategorizationRuleSuggestionsControllerTest extends WebTestCase
         ]]);
 
         self::assertNotContains('CARREFOUR DAC VL', array_column($this->suggestions(), 'pattern'));
+    }
+
+    public function testAMerchantWhoseLinesAreAlreadyFiledIsNotSuggested(): void
+    {
+        $this->loadFixtures('rule_suggestions_noise.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        // The "LIDL" rule already files them: a second rule would change nothing.
+        self::assertSame([], $this->patternsMentioning('LIDL'));
+    }
+
+    public function testMoneyMovedBetweenOwnAccountsIsNotSuggested(): void
+    {
+        $this->loadFixtures('rule_suggestions_noise.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        // Saving is not spending: a heading for it would count it twice.
+        self::assertSame([], $this->patternsMentioning('LIVRET'));
+    }
+
+    public function testOnlyTheMerchantsStillToFileAreSuggested(): void
+    {
+        $this->loadFixtures('rule_suggestions_noise.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $suggestions = array_column($this->suggestions(), null, 'pattern');
+
+        self::assertEqualsCanonicalizing(['NETFLIX.COM', 'LE FOURNIL JANZE', 'LA FERME DU COIN'], array_keys($suggestions));
+        self::assertSame('TV & streaming', $suggestions['NETFLIX.COM']['categoryName']);
+    }
+
+    public function testTheHeadingAlreadyGivenToAMerchantIsTheOneProposed(): void
+    {
+        $this->loadFixtures('rule_suggestions_noise.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $bakery = array_column($this->suggestions(), null, 'pattern')['LE FOURNIL JANZE'];
+
+        // No dictionary knows this shop; the owner's own answer does.
+        self::assertSame('Nourriture', $bakery['categoryName']);
+        // Only the lines still to file are counted.
+        self::assertSame(2, $bakery['occurrences']);
+        self::assertSame(-1230, $bakery['totalCents']);
+    }
+
+    public function testAHeadingThatCannotHoldTheMoneyIsNotProposed(): void
+    {
+        $this->loadFixtures('rule_suggestions_noise.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $refunds = array_column($this->suggestions(), null, 'pattern')['LA FERME DU COIN'];
+
+        // The purchases went under an expense; a rule filing refunds there
+        // would be refused on every line.
+        self::assertSame('credit', $refunds['direction']);
+        self::assertNull($refunds['categoryName']);
     }
 
     public function testAnEmptyAcceptanceIsRefused(): void

@@ -21,6 +21,7 @@ use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Envelope;
 use Maggie\Finance\Entity\Transaction;
+use Maggie\Finance\UseCase\SuggestCategorizationRules;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\RecurringGroceryItem;
@@ -107,8 +108,9 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertSame(2, $this->rowsOf(Account::class));
         // Thirteen and not twelve since MAG-46: the rent received last month is
         // what the independence counter reads as a rente, and the journey
-        // asserts the 60 % it makes of the measured train de vie.
-        self::assertSame(13, $this->rowsOf(Transaction::class));
+        // asserts the 60 % it makes of the measured train de vie. Sixteen since
+        // MAG-45: three unfiled cheese-shop debits are the one rule suggestion.
+        self::assertSame(16, $this->rowsOf(Transaction::class));
         self::assertSame(2, $this->rowsOf(Envelope::class));
         self::assertSame(2, $this->rowsOf(Notification::class));
     }
@@ -127,7 +129,7 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertSame(3, $this->rowsOf(Task::class, ['user' => $user]));
         self::assertSame(2, $this->rowsOf(Recipe::class, ['user' => $user]));
         self::assertSame(2, $this->rowsOf(Account::class, ['user' => $user]));
-        self::assertSame(13, $this->rowsOf(Transaction::class, ['user' => $user]));
+        self::assertSame(16, $this->rowsOf(Transaction::class, ['user' => $user]));
         self::assertSame(2, $this->rowsOf(Notification::class, ['user' => $user]));
     }
 
@@ -226,6 +228,25 @@ final class E2eSeedCommandTest extends KernelTestCase
         $kevin = $suggester->suggest($user, 'Appeler Kévin');
         self::assertNotSame(AgendaChoiceKind::Ambiguous, $kevin->kind);
         self::assertSame('Perso', $kevin->agenda?->getName());
+    }
+
+    public function testTheSeedImpliesExactlyTheRuleTheJourneysAccept(): void
+    {
+        // finance-rules.spec.ts and 09-finance-banks.yaml both accept one suggestion
+        // and then expect none left: a second one, or a heading already chosen,
+        // fails them on CI far from the fixture that caused it.
+        $this->seed();
+
+        $user = $this->repository(User::class)->findOneBy(['email' => 'e2e@maggie.local']);
+        self::assertNotNull($user);
+
+        $suggestions = self::getContainer()->get(SuggestCategorizationRules::class)->suggest($user);
+
+        self::assertCount(1, $suggestions);
+        self::assertSame('FROMAGERIE DES LICES', $suggestions[0]['pattern']);
+        self::assertSame(3, $suggestions[0]['occurrences']);
+        self::assertSame(-6700, $suggestions[0]['totalCents']);
+        self::assertNull($suggestions[0]['categoryId']);
     }
 
     public function testRunningTwiceLeavesTheSameCounts(): void
