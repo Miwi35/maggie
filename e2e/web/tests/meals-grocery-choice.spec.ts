@@ -230,99 +230,106 @@ async function planRecipe(shell: AdminShell, cell: string, recipeName: string): 
   await dialog.getByRole('button', { name: 'Créer' }).click()
 }
 
-test('planning a meal opens the choice of ingredients: the low ones ticked, the rest not, and only the ticked ones reach the list — MAG-296', async ({
-  twoWindows,
-  api,
-}) => {
-  const { actor, observer } = twoWindows
-  const acting = new AdminShell(actor)
-  const watching = new GroceryListPage(observer)
-  const { riceName, vegetablesName, recipeName, rice, vegetables, recipe } = await riceAndVegetables(api, 'MAG-296')
-  const cleanup: string[] = []
+// Monday lunch is the one cell no other journey plans on (the seed's meals are
+// dinners, recipes.spec and meals-move.spec take the other lunches): the two
+// journeys share it, so they run one after the other.
+test.describe('Choosing the ingredients of a new meal', () => {
+  test.describe.configure({ mode: 'serial' })
 
-  try {
-    // Given the grocery list open in a second window.
-    await openSubscribed(observer, () => watching.open())
+  test('planning a meal opens the choice of ingredients: the low ones ticked, the rest not, and only the ticked ones reach the list — MAG-296', async ({
+    twoWindows,
+    api,
+  }) => {
+    const { actor, observer } = twoWindows
+    const acting = new AdminShell(actor)
+    const watching = new GroceryListPage(observer)
+    const { riceName, vegetablesName, recipeName, rice, vegetables, recipe } = await riceAndVegetables(api, 'MAG-296')
+    const cleanup: string[] = []
 
-    // When I plan « Riz au curry » on a lunch (the seed's meals are dinners, so the cell is free)…
-    await planRecipe(acting, 'meal-cell-lunch-5', recipeName)
+    try {
+      // Given the grocery list open in a second window.
+      await openSubscribed(observer, () => watching.open())
 
-    // …then the choice opens: « Riz » ticked, « 1 paquet », « Rupture »; the
-    // vegetables not ticked, « 1 bocal ».
-    const dialog = actor.getByRole('dialog')
-    await expect(dialog.getByRole('checkbox', { name: riceName })).toBeChecked()
-    await expect(dialog.getByRole('checkbox', { name: vegetablesName })).not.toBeChecked()
-    const riceRow = dialog.getByRole('listitem').filter({ hasText: riceName })
-    await expect(riceRow).toContainText('1 paquet (500 g)')
-    await expect(riceRow).toContainText('Rupture')
-    await expect(dialog.getByRole('listitem').filter({ hasText: vegetablesName })).toContainText('1 bocal')
+      // When I plan « Riz au curry » on Monday lunch…
+      await planRecipe(acting, 'meal-cell-lunch-0', recipeName)
 
-    // When I validate « Ajouter aux courses »…
-    await expectRealtimeSync(
-      observer,
-      async () => {
-        const posted = actor.waitForResponse(
-          (response) => response.url().endsWith('/grocery_items') && response.request().method() === 'POST',
-        )
-        await dialog.getByRole('button', { name: 'Ajouter aux courses' }).click()
-        const response = await posted
-        expect(response.status(), `the API refused the choice: ${await response.text()}`).toBe(200)
-        expect(response.request().postDataJSON()).toEqual({ ingredients: [{ ingredientId: rice.id }] })
-        await expect(dialog).toBeHidden()
+      // …then the choice opens: « Riz » ticked, « 1 paquet », « Rupture »; the
+      // vegetables not ticked, « 1 bocal ».
+      const dialog = actor.getByRole('dialog')
+      await expect(dialog.getByRole('checkbox', { name: riceName })).toBeChecked()
+      await expect(dialog.getByRole('checkbox', { name: vegetablesName })).not.toBeChecked()
+      const riceRow = dialog.getByRole('listitem').filter({ hasText: riceName })
+      await expect(riceRow).toContainText('1 paquet (500 g)')
+      await expect(riceRow).toContainText('Rupture')
+      await expect(dialog.getByRole('listitem').filter({ hasText: vegetablesName })).toContainText('1 bocal')
 
-        // …then the list holds « Riz — 1 paquet » (the index catches up first).
-        await waitForIndexed<GroceryListRow>(api, '/api/grocery_lists', (list) => isOnePack(list, riceName), {
-          what: 'A single « Riz — 1 paquet » line',
-        })
-      },
-      // …and the second window sees the line, and nothing for the vegetables,
-      // without reloading.
-      async () => {
-        await expect(watching.line(riceName).filter({ hasText: '300' })).toHaveCount(0)
-        await expect(watching.line(riceName)).toHaveCount(1)
-        await expect(watching.line(riceName)).toContainText('1 pack')
-        await expect(watching.line(vegetablesName)).toHaveCount(0)
-      },
-    )
+      // When I validate « Ajouter aux courses »…
+      await expectRealtimeSync(
+        observer,
+        async () => {
+          const posted = actor.waitForResponse(
+            (response) => response.url().endsWith('/grocery_items') && response.request().method() === 'POST',
+          )
+          await dialog.getByRole('button', { name: 'Ajouter aux courses' }).click()
+          const response = await posted
+          expect(response.status(), `the API refused the choice: ${await response.text()}`).toBe(200)
+          expect(response.request().postDataJSON()).toEqual({ ingredients: [{ ingredientId: rice.id }] })
+          await expect(dialog).toBeHidden()
 
-    const meal = await waitForIndexed<MealRow>(api, '/api/meals?itemsPerPage=200', (m) => String(m.summary).includes(recipeName), {
-      what: 'The planned meal',
-    })
-    cleanup.push(meal['@id'])
-    await expect(acting.content.getByTestId('meal-cell-lunch-5')).toContainText(recipeName)
-  } finally {
-    for (const iri of [...cleanup, recipe['@id'], rice['@id'], vegetables['@id']]) await api.delete(iri)
-  }
-})
+          // …then the list holds « Riz — 1 paquet » (the index catches up first).
+          await waitForIndexed<GroceryListRow>(api, '/api/grocery_lists', (list) => isOnePack(list, riceName), {
+            what: 'A single « Riz — 1 paquet » line',
+          })
+        },
+        // …and the second window sees the line, and nothing for the vegetables,
+        // without reloading.
+        async () => {
+          await expect(watching.line(riceName).filter({ hasText: '300' })).toHaveCount(0)
+          await expect(watching.line(riceName)).toHaveCount(1)
+          await expect(watching.line(riceName)).toContainText('1 pack')
+          await expect(watching.line(vegetablesName)).toHaveCount(0)
+        },
+      )
 
-test('« Plus tard » closes the choice: the meal stays in the week and nothing was chosen — MAG-296', async ({ page, api }) => {
-  const acting = new AdminShell(page)
-  const { recipeName, riceName, rice, vegetables, recipe } = await riceAndVegetables(api, 'MAG-296 plus tard')
-  const cleanup: string[] = []
-  const added: string[] = []
-  page.on('request', (request) => {
-    if (request.method() === 'POST' && request.url().endsWith('/grocery_items')) added.push(request.url())
+      const meal = await waitForIndexed<MealRow>(api, '/api/meals?itemsPerPage=200', (m) => String(m.summary).includes(recipeName), {
+        what: 'The planned meal',
+      })
+      cleanup.push(meal['@id'])
+      await expect(acting.content.getByTestId('meal-cell-lunch-0')).toContainText(recipeName)
+    } finally {
+      for (const iri of [...cleanup, recipe['@id'], rice['@id'], vegetables['@id']]) await api.delete(iri)
+    }
   })
 
-  try {
-    await planRecipe(acting, 'meal-cell-lunch-0', recipeName)
-
-    const dialog = page.getByRole('dialog')
-    await expect(dialog.getByText('Courses du repas')).toBeVisible()
-    await expect(dialog.getByRole('checkbox', { name: riceName })).toBeVisible()
-    await dialog.getByRole('button', { name: 'Plus tard' }).click()
-    await expect(dialog).toBeHidden()
-
-    // The meal is in the week, and the API never heard of a choice.
-    await expect(acting.content.getByTestId('meal-cell-lunch-0')).toContainText(recipeName)
-    const meal = await waitForIndexed<MealRow>(api, '/api/meals?itemsPerPage=200', (m) => String(m.summary).includes(recipeName), {
-      what: 'The planned meal',
+  test('« Plus tard » closes the choice: the meal stays in the week and nothing was chosen — MAG-296', async ({ page, api }) => {
+    const acting = new AdminShell(page)
+    const { recipeName, riceName, rice, vegetables, recipe } = await riceAndVegetables(api, 'MAG-296 plus tard')
+    const cleanup: string[] = []
+    const added: string[] = []
+    page.on('request', (request) => {
+      if (request.method() === 'POST' && request.url().endsWith('/grocery_items')) added.push(request.url())
     })
-    cleanup.push(meal['@id'])
-    const preview = (await (await api.get(`/api/meals/${meal.id}/grocery_preview`, { headers: { Accept: 'application/json' } })).json()) as Preview
-    expect(preview.groceryChoiceMadeAt).toBeNull()
-    expect(added).toEqual([])
-  } finally {
-    for (const iri of [...cleanup, recipe['@id'], rice['@id'], vegetables['@id']]) await api.delete(iri)
-  }
+
+    try {
+      await planRecipe(acting, 'meal-cell-lunch-0', recipeName)
+
+      const dialog = page.getByRole('dialog')
+      await expect(dialog.getByText('Courses du repas')).toBeVisible()
+      await expect(dialog.getByRole('checkbox', { name: riceName })).toBeVisible()
+      await dialog.getByRole('button', { name: 'Plus tard' }).click()
+      await expect(dialog).toBeHidden()
+
+      // The meal is in the week, and the API never heard of a choice.
+      await expect(acting.content.getByTestId('meal-cell-lunch-0')).toContainText(recipeName)
+      const meal = await waitForIndexed<MealRow>(api, '/api/meals?itemsPerPage=200', (m) => String(m.summary).includes(recipeName), {
+        what: 'The planned meal',
+      })
+      cleanup.push(meal['@id'])
+      const preview = (await (await api.get(`/api/meals/${meal.id}/grocery_preview`, { headers: { Accept: 'application/json' } })).json()) as Preview
+      expect(preview.groceryChoiceMadeAt).toBeNull()
+      expect(added).toEqual([])
+    } finally {
+      for (const iri of [...cleanup, recipe['@id'], rice['@id'], vegetables['@id']]) await api.delete(iri)
+    }
+  })
 })
