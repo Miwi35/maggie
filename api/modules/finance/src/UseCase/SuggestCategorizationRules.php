@@ -17,6 +17,7 @@ use Maggie\Finance\Import\MerchantExtractor;
 use Maggie\Finance\Repository\CategorizationRuleRepository;
 use Maggie\Finance\Repository\CategoryRepository;
 use Maggie\Finance\Repository\TransactionRepository;
+use Maggie\Finance\Service\TransactionNatureGuard;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Uid\Ulid;
 
@@ -41,6 +42,7 @@ class SuggestCategorizationRules
         private readonly CategoryRepository $categoryRepository,
         private readonly EntityManagerInterface $em,
         private readonly MessageBusInterface $bus,
+        private readonly TransactionNatureGuard $natureGuard,
     ) {
     }
 
@@ -74,8 +76,12 @@ class SuggestCategorizationRules
             }
 
             $merchant = MerchantExtractor::extract($transaction->getLabel());
-            $key = null === $merchant ? '' : MerchantExtractor::key($merchant);
-            if (null === $merchant || '' === $key) {
+            if (null === $merchant) {
+                continue;
+            }
+
+            $key = MerchantExtractor::key($merchant);
+            if ('' === $key) {
                 continue;
             }
 
@@ -123,7 +129,7 @@ class SuggestCategorizationRules
             }
 
             $direction = $this->directionOf($group['debits'], $group['credits']);
-            $category = $this->headingAlreadyGiven($filed[$key] ?? []);
+            $category = $this->headingAlreadyGiven($filed[$key] ?? [], $group['totalCents']);
             if (null === $category) {
                 $guess = MerchantDictionary::categoryFor(
                     $group['pattern'],
@@ -211,13 +217,21 @@ class SuggestCategorizationRules
      * The heading the user's history already gives this merchant, the most
      * used one when it has several. It beats any dictionary: it is their answer.
      *
+     * Only a heading that fits the money still to file counts: the shop's
+     * purchases sit under an expense, its refunds cannot, and a rule proposing
+     * that heading for them would never file a single line.
+     *
      * @param array<string, array{category: Category, lines: int}> $headings
      */
-    private function headingAlreadyGiven(array $headings): ?Category
+    private function headingAlreadyGiven(array $headings, int $totalCents): ?Category
     {
         $best = null;
 
         foreach ($headings as $heading) {
+            if (!$this->natureGuard->isCompatible($totalCents, $heading['category'])) {
+                continue;
+            }
+
             if (null === $best || $heading['lines'] > $best['lines']) {
                 $best = $heading;
             }

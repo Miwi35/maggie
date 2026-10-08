@@ -212,7 +212,7 @@ class CategorizationRuleSuggestionsControllerTest extends WebTestCase
 
         $suggestions = array_column($this->suggestions(), null, 'pattern');
 
-        self::assertEqualsCanonicalizing(['NETFLIX.COM', 'LE FOURNIL JANZE'], array_keys($suggestions));
+        self::assertEqualsCanonicalizing(['NETFLIX.COM', 'LE FOURNIL JANZE', 'LA FERME DU COIN'], array_keys($suggestions));
         self::assertSame('TV & streaming', $suggestions['NETFLIX.COM']['categoryName']);
     }
 
@@ -228,6 +228,19 @@ class CategorizationRuleSuggestionsControllerTest extends WebTestCase
         // Only the lines still to file are counted.
         self::assertSame(2, $bakery['occurrences']);
         self::assertSame(-1230, $bakery['totalCents']);
+    }
+
+    public function testAHeadingThatCannotHoldTheMoneyIsNotProposed(): void
+    {
+        $this->loadFixtures('rule_suggestions_noise.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $refunds = array_column($this->suggestions(), null, 'pattern')['LA FERME DU COIN'];
+
+        // The purchases went under an expense; a rule filing refunds there
+        // would be refused on every line.
+        self::assertSame('credit', $refunds['direction']);
+        self::assertNull($refunds['categoryName']);
     }
 
     public function testAnEmptyAcceptanceIsRefused(): void

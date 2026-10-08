@@ -126,3 +126,31 @@ Maggie\Finance\Entity\Transaction:
     status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
     account: '@checking'
     user: '@test_user'
+  # A farm shop filed by hand under an expense, then two refunds from it
+  # left to file: money coming back cannot go under that heading.
+  farm_filed:
+    label: 'PAIEMENT PAR CARTE X9633 LA FERME DU COIN 01/07'
+    amountCents: -2400
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-01"))>'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    category: '@food'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    account: '@checking'
+    user: '@test_user'
+  farm_refund_1:
+    label: 'AVOIR LA FERME DU COIN 03/07'
+    amountCents: 450
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-03"))>'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    account: '@checking'
+    user: '@test_user'
+  farm_refund_2:
+    label: 'AVOIR LA FERME DU COIN 10/07'
+    amountCents: 299
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-10"))>'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    account: '@checking'
+    user: '@test_user'
