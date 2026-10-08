@@ -281,6 +281,10 @@ class CategoryListScreenTest {
             categoryDeletionBody(CategoryDeletionImpact(transactions = 1, rules = 0, subCategories = 0)),
         )
         assertEquals(
+            "Aucune transaction n'est rattachée.\nCette action est définitive.",
+            categoryDeletionBody(CategoryDeletionImpact(transactions = 0, rules = 0, subCategories = 0)),
+        )
+        assertEquals(
             "Les transactions rattachées perdront leur catégorie.\n" +
                 "Les règles de catégorisation rattachées seront supprimées.\n" +
                 "Cette action est définitive.",

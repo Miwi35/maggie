@@ -5,9 +5,7 @@ import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
-import com.maggie.app.data.model.CategorizationRule
 import com.maggie.app.data.model.Category
-import com.maggie.app.data.repository.CategorizationRuleRepository
 import com.maggie.app.data.repository.CategoryRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -38,7 +36,6 @@ class CategoryViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var categoryRepository: CategoryRepository
-    private lateinit var ruleRepository: CategorizationRuleRepository
     private lateinit var mercureService: MercureService
     private lateinit var authRepository: AuthRepository
     private lateinit var viewModel: CategoryViewModel
@@ -54,11 +51,11 @@ class CategoryViewModelTest {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         categoryRepository = mockk()
-        ruleRepository = mockk()
         mercureService = mockk()
         authRepository = mockk()
         coEvery { categoryRepository.getCategories() } returns Result.success(sampleCategories)
-        coEvery { ruleRepository.getRules() } returns Result.success(emptyList())
+        coEvery { categoryRepository.countRules(any()) } returns Result.success(0)
+        coEvery { categoryRepository.countTransactions(any()) } returns Result.success(0)
         coEvery { authRepository.getUserId() } returns "user-1"
         every { mercureService.subscribe(any()) } returns mercureEvents
     }
@@ -68,7 +65,7 @@ class CategoryViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel() = CategoryViewModel(categoryRepository, ruleRepository, mercureService, authRepository)
+    private fun viewModel() = CategoryViewModel(categoryRepository, mercureService, authRepository)
         .also { viewModel = it }
 
     @Test
@@ -204,14 +201,10 @@ class CategoryViewModelTest {
     }
 
     @Test
-    fun `askDelete counts what the deletion takes`() = runTest {
+    fun `askDelete counts what the deletion takes, sub-categories included`() = runTest {
         coEvery { categoryRepository.countTransactions("cat-1") } returns Result.success(12)
-        coEvery { ruleRepository.getRules() } returns Result.success(
-            listOf(
-                CategorizationRule(id = "r1", labelPattern = "LECLERC", categoryId = "cat-1"),
-                CategorizationRule(id = "r2", labelPattern = "NETFLIX", categoryId = "cat-2"),
-            ),
-        )
+        coEvery { categoryRepository.countTransactions("cat-3") } returns Result.success(5)
+        coEvery { categoryRepository.countRules(setOf("cat-1", "cat-3")) } returns Result.success(2)
         viewModel()
         advanceUntilIdle()
         viewModel.startEditing("cat-1")
@@ -222,12 +215,13 @@ class CategoryViewModelTest {
 
         val deletion = viewModel.uiState.value.deletion
         assertEquals("cat-1", deletion?.category?.id)
-        assertEquals(CategoryDeletionImpact(transactions = 12, rules = 1, subCategories = 1), deletion?.impact)
+        assertEquals(CategoryDeletionImpact(transactions = 17, rules = 2, subCategories = 1), deletion?.impact)
     }
 
     @Test
     fun `askDelete says so when a count could not be read`() = runTest {
         coEvery { categoryRepository.countTransactions(any()) } returns Result.failure(RuntimeException("offline"))
+        coEvery { categoryRepository.countRules(any()) } returns Result.success(null)
         viewModel()
         advanceUntilIdle()
         viewModel.startEditing("cat-2")
@@ -236,7 +230,7 @@ class CategoryViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            CategoryDeletionImpact(transactions = null, rules = 0, subCategories = 0),
+            CategoryDeletionImpact(transactions = null, rules = null, subCategories = 0),
             viewModel.uiState.value.deletion?.impact,
         )
     }
@@ -274,6 +268,22 @@ class CategoryViewModelTest {
         assertEquals(listOf("cat-2"), state.categories.map { it.id })
         assertNull(state.editing)
         assertNull(state.deletion)
+    }
+
+    @Test
+    fun `a second tap on the confirmation deletes nothing more`() = runTest {
+        coEvery { categoryRepository.deleteCategory("cat-2") } returns Result.success(Unit)
+        viewModel()
+        advanceUntilIdle()
+        viewModel.startEditing("cat-2")
+        viewModel.askDelete()
+        advanceUntilIdle()
+
+        viewModel.confirmDelete()
+        viewModel.confirmDelete()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { categoryRepository.deleteCategory("cat-2") }
     }
 
     @Test

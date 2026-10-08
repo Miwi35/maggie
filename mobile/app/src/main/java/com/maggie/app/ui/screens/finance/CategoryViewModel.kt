@@ -7,7 +7,6 @@ import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.Category
-import com.maggie.app.data.repository.CategorizationRuleRepository
 import com.maggie.app.data.repository.CategoryRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -48,7 +47,6 @@ fun categoryIri(id: String): String = "/api/categories/$id"
 
 class CategoryViewModel(
     private val categoryRepository: CategoryRepository,
-    private val ruleRepository: CategorizationRuleRepository,
     private val mercureService: MercureService,
     private val authRepository: AuthRepository,
 ) : ViewModel() {
@@ -140,13 +138,17 @@ class CategoryViewModel(
         val category = _uiState.value.editing?.category ?: return
         _uiState.value = _uiState.value.copy(deletion = CategoryDeletion(category))
         viewModelScope.launch {
-            val transactions = categoryRepository.countTransactions(category.id).getOrNull()
-            val rules = ruleRepository.getRules().getOrNull()?.count { it.categoryId == category.id }
-            val subCategories = _uiState.value.categories.count { it.parent == categoryIri(category.id) }
+            // The database takes the sub-categories down with it, and their transactions
+            // and rules with them: all of it counts.
+            val children = _uiState.value.categories.filter { it.parent == categoryIri(category.id) }
+            val ids = (listOf(category) + children).map { it.id }
+            val counts = ids.map { categoryRepository.countTransactions(it).getOrNull() }
+            val transactions = if (counts.any { it == null }) null else counts.sumOf { it ?: 0 }
+            val rules = categoryRepository.countRules(ids.toSet()).getOrNull()
             val pending = _uiState.value.deletion
             if (pending?.category?.id == category.id) {
                 _uiState.value = _uiState.value.copy(
-                    deletion = pending.copy(impact = CategoryDeletionImpact(transactions, rules, subCategories)),
+                    deletion = pending.copy(impact = CategoryDeletionImpact(transactions, rules, children.size)),
                 )
             }
         }
@@ -158,6 +160,8 @@ class CategoryViewModel(
 
     fun confirmDelete() {
         val id = _uiState.value.deletion?.category?.id ?: return
+        // The question is closed first: a second tap finds nothing to confirm.
+        _uiState.value = _uiState.value.copy(deletion = null)
         viewModelScope.launch {
             try {
                 categoryRepository.deleteCategory(id).getOrThrow()
@@ -165,10 +169,9 @@ class CategoryViewModel(
                     // The database takes the sub-categories down with it.
                     categories = _uiState.value.categories.filter { it.id != id && it.parent != categoryIri(id) },
                     editing = null,
-                    deletion = null,
                 )
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(deletion = null, error = e.message)
+                _uiState.value = _uiState.value.copy(error = e.message)
             }
         }
     }

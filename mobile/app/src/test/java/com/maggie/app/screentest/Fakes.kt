@@ -11,7 +11,6 @@ import com.maggie.app.data.model.AcceptRuleSuggestionsResult
 import com.maggie.app.data.model.AcceptedRuleSuggestion
 import com.maggie.app.data.model.AgUiEvent
 import com.maggie.app.data.model.BankConnection
-import com.maggie.app.data.model.CategorizationRule
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.data.model.Event
@@ -481,7 +480,7 @@ class FakeLoadedFinanceDashboard(private val dashboard: FinanceDashboard) {
 class FakeCategories(
     initial: List<Category> = Seed.financeCategories,
     private val transactionsOf: Map<String, Int> = emptyMap(),
-    private val rules: List<CategorizationRule> = emptyList(),
+    private val rulesCount: Int = 0,
 ) {
     private val stored = initial.toMutableList()
 
@@ -496,7 +495,6 @@ class FakeCategories(
 
     val viewModel: CategoryViewModel by lazy {
         val repository = mockk<CategoryRepository>()
-        val ruleRepository = mockk<CategorizationRuleRepository>()
         val (auth, mercure) = signedIn()
         coEvery { repository.getCategories() } answers { Result.success(stored.toList()) }
         coEvery { repository.createCategory(any()) } answers {
@@ -536,8 +534,8 @@ class FakeCategories(
             stored.removeAll { it.id == id }
             Result.success(Unit)
         }
-        coEvery { ruleRepository.getRules() } returns Result.success(rules)
-        CategoryViewModel(repository, ruleRepository, mercure, auth)
+        coEvery { repository.countRules(any()) } returns Result.success(rulesCount)
+        CategoryViewModel(repository, mercure, auth)
     }
 }
 

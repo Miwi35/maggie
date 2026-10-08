@@ -37,12 +37,18 @@ tags:
     visible: "Modifier la catégorie"
     timeout: 10000
 
-- tapOn: "Nom"
+- tapOn:
+    id: "category_name"
 - eraseText
 - inputText: "Courses alimentaires"
 - hideKeyboard
 - tapOn: "Enregistrer"
 
+# The editor closes once the server has answered: « Catégories » is the list again, and
+# only then is the new name the list's own — the field the user typed it in held it too.
+- extendedWaitUntil:
+    visible: "Catégories"
+    timeout: 30000
 - extendedWaitUntil:
     visible: "Courses alimentaires"
     timeout: 30000
@@ -63,12 +69,16 @@ tags:
     visible: "Modifier la catégorie"
     timeout: 10000
 
-- tapOn: "Nom"
+- tapOn:
+    id: "category_name"
 - eraseText
 - inputText: "Courses"
 - hideKeyboard
 - tapOn: "Enregistrer"
 
+- extendedWaitUntil:
+    visible: "Catégories"
+    timeout: 30000
 - extendedWaitUntil:
     visible: "Courses"
     timeout: 30000
