@@ -12,7 +12,7 @@ Agents take tickets unattended and merging deploys to production. These rails de
 | `infra-path` | touches `infra/` or `.github/` (anything not above) |
 | `permissions` | changes a workflow's token rights (`permissions:`, `: write`), or touches the auth files (`security.yaml`, JWT config, Google OAuth controller, MCP access listener, `Voter`s, `admin/src/auth`, `agent/app/auth.py`, mobile `data/auth`), or adds/removes an access rule (`IsGranted`, `access_control`, `ROLE_`, `security:`) outside tests |
 | `destructive-migration` | has an `up()` that drops a table or column, truncates, or deletes rows (the `down()` of a new table drops it: ignored) |
-| `oversize` | changes more than 800 lines outside tests, lockfiles, `api/contract/` and `agent-os/specs/` (`AGENT_MAX_DIFF_LINES`) — split the ticket |
+| `oversize` | **off by default since 8 Oct. (owner)**: a large PR is reviewed, not split by rule. `AGENT_MAX_DIFF_LINES` > 0 turns it back on (lines outside tests, lockfiles, `api/contract/` and `agent-os/specs/`) |
 | `disabled-test` | adds a skipped, fixme'd, quarantined or xfail test |
 | `no-verify` | adds `--no-verify` or `--no-gpg-sign` outside Markdown |
 
