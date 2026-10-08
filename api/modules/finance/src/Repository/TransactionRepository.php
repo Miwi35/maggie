@@ -207,15 +207,18 @@ class TransactionRepository extends ServiceEntityRepository
      * Same user, two accounts of his that are not the same one, exactly
      * opposite amounts in the same currency, booked within the window, already
      * consumed, not paired yet and not judged by hand. Which one wins is the
-     * use case's call; the order here only makes the result stable.
+     * use case's call; the order here only makes the result stable. A line
+     * left a rejection — even one whose other leg was deleted — is not a
+     * transfer, whoever asks.
      *
      * `$includeJudged` keeps the lines the owner already took out of the
      * transfers: the detection must skip them, but the owner choosing a
-     * counterpart by hand may well want one back.
+     * counterpart by hand may well want one back. `$sameAccount` looks on the
+     * line's own account instead, where a rejected payment is given back.
      *
      * @return Transaction[]
      */
-    public function findTransferCandidates(Transaction $transaction, int $windowDays, bool $includeJudged = false): array
+    public function findTransferCandidates(Transaction $transaction, int $windowDays, bool $includeJudged = false, bool $sameAccount = false): array
     {
         $bookedAt = $transaction->getBookedAt();
 
@@ -224,22 +227,105 @@ class TransactionRepository extends ServiceEntityRepository
             ->andWhere('t.user = :user')
             ->andWhere('a.user = :user')
             ->andWhere('t.id != :id')
-            ->andWhere('t.account != :account')
+            ->andWhere($sameAccount ? 't.account = :account' : 't.account != :account')
             ->andWhere('t.amountCents = :opposite')
             ->andWhere('t.currency = :currency')
             ->andWhere('t.bookedAt >= :from')
             ->andWhere('t.bookedAt <= :until')
             ->andWhere('t.status IN (:consumed)')
             ->andWhere('t.counterpart IS NULL')
+            ->andWhere('t.transferKind != :rejected')
             ->setParameter('user', $transaction->getUser()->getId(), 'ulid')
             ->setParameter('id', $transaction->getId(), 'ulid')
             ->setParameter('account', $transaction->getAccount()->getId(), 'ulid')
+            ->setParameter('rejected', TransferKind::Rejected->value)
             ->setParameter('opposite', -$transaction->getAmountCents())
             ->setParameter('currency', $transaction->getCurrency())
             ->setParameter('from', $bookedAt->modify(sprintf('-%d days', $windowDays)))
             ->setParameter('until', $bookedAt->modify(sprintf('+%d days', $windowDays)))
             ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
             ->orderBy('t.bookedAt', 'ASC')
+            ->addOrderBy('t.id', 'ASC');
+
+        if (!$includeJudged) {
+            $qb->andWhere('t.transferSource != :manual')
+                ->setParameter('manual', TransferSource::Manual->value);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * The credits of one user that may still cancel a rejected payment,
+     * oldest first: unpaired, consumed, not judged by hand. Which of them read
+     * as a rejection is the use case's call, on the label.
+     *
+     * @param \DateTimeImmutable|null $since how far back to look, or null for everything
+     *
+     * @return Transaction[]
+     */
+    public function findUnpairedCreditsForUser(User $user, ?\DateTimeImmutable $since = null): array
+    {
+        $qb = $this->createQueryBuilder('t')
+            ->innerJoin('t.account', 'a')
+            ->andWhere('t.user = :user')
+            ->andWhere('a.user = :user')
+            ->andWhere('t.amountCents > 0')
+            ->andWhere('t.counterpart IS NULL')
+            ->andWhere('t.transferKind = :none')
+            ->andWhere('t.transferSource != :manual')
+            ->andWhere('t.status IN (:consumed)')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('none', TransferKind::None->value)
+            ->setParameter('manual', TransferSource::Manual->value)
+            ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
+            ->orderBy('t.bookedAt', 'ASC')
+            ->addOrderBy('t.id', 'ASC');
+
+        if (null !== $since) {
+            $qb->andWhere('t.bookedAt >= :since')->setParameter('since', $since);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * The debits a rejection credit may cancel: the same account, the exact
+     * opposite amount in the same currency, booked on the credit's day or in
+     * the days before it, consumed, still an ordinary line and not judged by
+     * hand. Whether the payee matches is the use case's call.
+     *
+     * `$includeJudged` keeps the lines the owner took out by hand, for the
+     * owner choosing the rejected payment himself.
+     *
+     * @return Transaction[]
+     */
+    public function findRejectedDebitCandidates(Transaction $credit, int $windowDays, bool $includeJudged = false): array
+    {
+        $bookedAt = $credit->getBookedAt();
+
+        $qb = $this->createQueryBuilder('t')
+            ->andWhere('t.user = :user')
+            ->andWhere('t.id != :id')
+            ->andWhere('t.account = :account')
+            ->andWhere('t.amountCents = :opposite')
+            ->andWhere('t.amountCents < 0')
+            ->andWhere('t.currency = :currency')
+            ->andWhere('t.bookedAt >= :from')
+            ->andWhere('t.bookedAt <= :until')
+            ->andWhere('t.status IN (:consumed)')
+            ->andWhere('t.counterpart IS NULL')
+            ->andWhere('t.transferKind = :none')
+            ->setParameter('user', $credit->getUser()->getId(), 'ulid')
+            ->setParameter('id', $credit->getId(), 'ulid')
+            ->setParameter('account', $credit->getAccount()->getId(), 'ulid')
+            ->setParameter('opposite', -$credit->getAmountCents())
+            ->setParameter('currency', $credit->getCurrency())
+            ->setParameter('from', $bookedAt->modify(sprintf('-%d days', $windowDays)))
+            ->setParameter('until', $bookedAt)
+            ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
+            ->setParameter('none', TransferKind::None->value)
+            ->orderBy('t.bookedAt', 'DESC')
             ->addOrderBy('t.id', 'ASC');
 
         if (!$includeJudged) {

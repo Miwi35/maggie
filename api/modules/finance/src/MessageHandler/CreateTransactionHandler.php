@@ -17,6 +17,7 @@ use Maggie\Finance\Service\TransactionNatureGuard;
 use Maggie\Finance\UseCase\CategorizeTransaction;
 use Maggie\Finance\UseCase\CreateTransaction;
 use Maggie\Finance\UseCase\DetectInternalTransfers;
+use Maggie\Finance\UseCase\DetectRejections;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -26,6 +27,7 @@ class CreateTransactionHandler
         private readonly CreateTransaction $createTransaction,
         private readonly CategorizeTransaction $categorizeTransaction,
         private readonly DetectInternalTransfers $detectInternalTransfers,
+        private readonly DetectRejections $detectRejections,
         private readonly OwnedReferenceResolver $references,
         private readonly TransactionNatureGuard $natureGuard,
         private readonly UserRepository $userRepository,
@@ -59,15 +61,27 @@ class CreateTransactionHandler
             $this->categorizeTransaction->apply($transaction);
         }
 
+        // A rejected payment first: its credit is the exact opposite of the
+        // debit it gives back, and must never be taken for a transfer.
+        $rejected = $this->detectRejections->detectFor($transaction);
+        if (null !== $rejected) {
+            $rejected->markAsRejection($transaction, TransferSource::Auto);
+        }
+
         // A movement between two of the owner's own accounts is recognised as
         // it lands, like a rule claiming a category: the second leg of a
         // transfer is often imported minutes after the first.
-        $counterpart = $this->detectInternalTransfers->detectFor($transaction);
-        if (null !== $counterpart) {
-            $transaction->markAsInternalTransfer($counterpart, TransferSource::Auto);
+        $counterpart = $rejected;
+        if (null === $rejected) {
+            $counterpart = $this->detectInternalTransfers->detectFor($transaction);
+            $counterpart?->markAsInternalTransfer($transaction, TransferSource::Auto);
         }
 
         $transaction = $this->createTransaction->execute($transaction);
+
+        if (null !== $rejected) {
+            $this->detectRejections->notify($rejected, $transaction);
+        }
 
         // The other leg changed too, and the middlewares only ever see the
         // result: without this the search index — which is what the

@@ -7,6 +7,7 @@ use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
+use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Import\CsvStatementParser;
 use Maggie\Finance\Import\MerchantExtractor;
 use Maggie\Finance\Import\StatementRow;
@@ -67,6 +68,30 @@ class ImportStatementTest extends KernelTestCase
         self::assertSame('2026-09-04', $result['last']);
         self::assertSame(-5239, $result['totalCents']);
         self::assertSame($before + 2, $this->countTransactions());
+    }
+
+    public function testARejectionArrivingWithTheStatementIsPairedWithThePaymentItGivesBack(): void
+    {
+        $this->loadFixtures('categorization_rule.yaml');
+
+        $this->import(<<<'CSV'
+            Date;Libellé;Montant
+            05/10/2026;PRELEVEMENT ELECTRICITE DE FRANCE;-206,00
+            06/10/2026;REJET PRLV ELECTRICITE DE FRANCE;206,00
+            CSV);
+
+        $lines = self::getContainer()->get('doctrine.orm.entity_manager')
+            ->getRepository(Transaction::class)
+            ->findBy(['account' => $this->getFixture('checking')], ['bookedAt' => 'ASC']);
+        $lines = array_values(array_filter($lines, static fn (Transaction $t) => str_contains($t->getLabel(), 'ELECTRICITE')));
+
+        self::assertCount(2, $lines);
+        [$debit, $credit] = $lines;
+        self::assertSame(TransferKind::Rejected, $debit->getTransferKind());
+        self::assertSame(TransferKind::Rejected, $credit->getTransferKind());
+        self::assertSame((string) $credit->getId(), (string) $debit->getCounterpart()?->getId());
+        $this->assertMercureUpdatePublished((string) $debit->getId());
+        $this->assertElasticsearchIndexDispatchedFor(Transaction::class, (string) $debit->getId());
     }
 
     public function testTheRulesAlreadyWrittenApplyToTheImportedHistory(): void
