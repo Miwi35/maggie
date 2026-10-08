@@ -2,7 +2,6 @@ package com.maggie.app.ui.screens.shared
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -16,7 +15,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -24,16 +22,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.EventCreateRequest
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.EventReminders
+import com.maggie.app.ui.UiTags
 import java.time.LocalDate
-import java.time.LocalTime
 import java.time.ZoneId
-import java.time.ZonedDateTime
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,11 +43,7 @@ fun EventCreateScreen(
     var summary by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var location by remember { mutableStateOf("") }
-    var allDay by remember { mutableStateOf(false) }
-    var startDate by remember { mutableStateOf(initialDate?.toString() ?: LocalDate.now().toString()) }
-    var startTime by remember { mutableStateOf("09:00") }
-    var endDate by remember { mutableStateOf(initialDate?.toString() ?: LocalDate.now().toString()) }
-    var endTime by remember { mutableStateOf("10:00") }
+    var dates by remember { mutableStateOf(EventFormState.forNewEvent(initialDate ?: LocalDate.now())) }
     var selectedAgendaIri by remember { mutableStateOf<String?>(agendas.find { it.isDefault }?.let { "/api/agendas/${it.id}" }) }
     var rrule by remember { mutableStateOf<String?>(null) }
     var reminders by remember { mutableStateOf<EventReminders?>(null) }
@@ -80,58 +73,15 @@ fun EventCreateScreen(
                 onValueChange = { summary = it },
                 label = { Text("Titre *") },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag(UiTags.EVENT_TITLE),
             )
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Toute la journée")
-                Switch(checked = allDay, onCheckedChange = { allDay = it })
-            }
-
-            OutlinedTextField(
-                value = startDate,
-                onValueChange = { startDate = it },
-                label = { Text("Date de début") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            if (!allDay) {
-                OutlinedTextField(
-                    value = startTime,
-                    onValueChange = { startTime = it },
-                    label = { Text("Heure de début") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-
-            OutlinedTextField(
-                value = endDate,
-                onValueChange = { endDate = it },
-                label = { Text("Date de fin") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            if (!allDay) {
-                OutlinedTextField(
-                    value = endTime,
-                    onValueChange = { endTime = it },
-                    label = { Text("Heure de fin") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+            EventDateFields(form = dates, onChange = { dates = it })
 
             RecurrencePicker(
                 value = rrule,
                 onChange = { rrule = it },
-                eventStartDate = try { LocalDate.parse(startDate) } catch (_: Exception) { null },
+                eventStartDate = dates.startDate,
             )
 
             ReminderPicker(value = reminders, onChange = { reminders = it })
@@ -162,22 +112,12 @@ fun EventCreateScreen(
             Button(
                 onClick = {
                     val zone = ZoneId.of("Europe/Paris")
-                    val startAt = if (allDay) {
-                        LocalDate.parse(startDate).atStartOfDay(zone).toInstant().toString()
-                    } else {
-                        ZonedDateTime.of(LocalDate.parse(startDate), LocalTime.parse(startTime), zone).toInstant().toString()
-                    }
-                    val endAt = if (allDay) {
-                        LocalDate.parse(endDate).plusDays(1).atStartOfDay(zone).toInstant().toString()
-                    } else {
-                        ZonedDateTime.of(LocalDate.parse(endDate), LocalTime.parse(endTime), zone).toInstant().toString()
-                    }
                     onConfirm(
                         EventCreateRequest(
                             summary = summary,
-                            startAt = startAt,
-                            endAt = endAt,
-                            allDay = allDay,
+                            startAt = dates.startAt(zone),
+                            endAt = dates.endAt(zone),
+                            allDay = dates.allDay,
                             description = description.ifBlank { null },
                             location = location.ifBlank { null },
                             agenda = selectedAgendaIri,
@@ -186,8 +126,8 @@ fun EventCreateScreen(
                         ),
                     )
                 },
-                enabled = summary.isNotBlank(),
-                modifier = Modifier.fillMaxWidth(),
+                enabled = summary.isNotBlank() && !dates.endsBeforeStart,
+                modifier = Modifier.fillMaxWidth().testTag(UiTags.EVENT_SAVE),
             ) {
                 Text("Créer")
             }

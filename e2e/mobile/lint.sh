@@ -186,7 +186,7 @@ code_of() {
 # is not counted as a call. Without both, a screen with four dialog helpers would
 # demand four roots the day a journey tags it, and the cheap way out would be
 # decorative `uiTagRoot()` calls that devalue this check.
-WINDOW_RE='(^|[^A-Za-z0-9_.])(ModalBottomSheet|AlertDialog|BasicAlertDialog|Dialog|Popup|DropdownMenu|ExposedDropdownMenu)\('
+WINDOW_RE='(^|[^A-Za-z0-9_.])(ModalBottomSheet|AlertDialog|BasicAlertDialog|DatePickerDialog|Dialog|Popup|DropdownMenu|ExposedDropdownMenu)\('
 
 mapfile -t sources < <(find "$SRC_DIR" -name '*.kt' | sort)
 for file in "${sources[@]}"; do

@@ -1,0 +1,93 @@
+appId: com.maggie.app.e2e
+name: 12-event-date-picker
+tags:
+  - calendar
+---
+# A date is chosen in a calendar, never typed (MAG-322). From « Nouvel événement »
+# the owner taps the start date, taps the 8th, confirms: the field reads it in
+# French, the end date moved with it, and the saved event is in the month, on the 8th.
+#
+# The picker opens on today's month, so « the 8th » is a day of the month on screen
+# whatever day the suite runs; the month view is where it is read back, because the
+# week the calendar opens on may not contain the 8th. Day cells are named by their
+# full date, « jeudi 8 octobre 2026 » — the regex wants the long weekday so the
+# short one of the picker's header (« jeu. 8 oct. ») is never the match.
+#
+# The time picker is only confirmed: its dial is not something a flow can aim at
+# reliably, and the JVM tests (`DateTimeFieldsScreenTest`, `EventFormStateTest`)
+# own « the duration survives a change of start ».
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow: ../subflows/open-calendar.yaml
+
+- tapOn:
+    id: "calendar_create"
+
+- tapOn:
+    id: "calendar_create_event"
+
+- extendedWaitUntil:
+    visible:
+      id: "event_title"
+    timeout: 20000
+
+- tapOn:
+    id: "event_title"
+
+- inputText: "Rendez-vous MAG-322"
+
+- hideKeyboard
+
+- tapOn:
+    id: "event_start_date"
+
+- extendedWaitUntil:
+    visible:
+      text: "[a-zéû]{5,} 8 [a-zéû]{3,} 20[0-9]{2}.*"
+    timeout: 20000
+
+- tapOn:
+    text: "[a-zéû]{5,} 8 [a-zéû]{3,} 20[0-9]{2}.*"
+
+- tapOn:
+    id: "picker_confirm"
+
+# Start and end both read the 8th: the end followed the start. A field's value is on its
+# overlay's description (« Date de début, ven. 8 nov. 2030 »), hence the `.*`.
+- extendedWaitUntil:
+    visible:
+      text: ".*[a-zéû]{3}\\. 8 [a-zéû]+\\.? 20[0-9]{2}.*"
+    timeout: 20000
+
+- tapOn:
+    id: "event_start_time"
+
+- tapOn:
+    id: "picker_confirm"
+
+# The button closes a form taller than the screen: Maestro does not scroll for a tap.
+- scrollUntilVisible:
+    element:
+      id: "event_save"
+
+- tapOn:
+    id: "event_save"
+
+- extendedWaitUntil:
+    visible:
+      id: "calendar_view_week"
+    timeout: 20000
+
+- tapOn:
+    text: "Mois"
+
+- extendedWaitUntil:
+    visible:
+      text: ".*Rendez-vous MAG-322.*"
+    timeout: 20000

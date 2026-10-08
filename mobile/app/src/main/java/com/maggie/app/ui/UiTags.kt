@@ -114,6 +114,20 @@ object UiTags {
      */
     const val SUGGESTION_ACCEPT = "suggestion_accept"
 
+    /** Calendar — the « + » button and its « Événement » entry. */
+    const val CALENDAR_CREATE = "calendar_create"
+    const val CALENDAR_CREATE_EVENT = "calendar_create_event"
+
+    /** The new event form (MAG-322) — its title, its date and time fields, its button. */
+    const val EVENT_TITLE = "event_title"
+    const val EVENT_START_DATE = "event_start_date"
+    const val EVENT_START_TIME = "event_start_time"
+    const val EVENT_END_DATE = "event_end_date"
+    const val EVENT_SAVE = "event_save"
+
+    /** The « OK » of the date and time pickers — a window of their own. */
+    const val PICKER_CONFIRM = "picker_confirm"
+
     /** Calendar toolbar — the « next » arrow and the Semaine switch. */
     const val CALENDAR_NEXT = "calendar_next"
     const val CALENDAR_VIEW_WEEK = "calendar_view_week"
