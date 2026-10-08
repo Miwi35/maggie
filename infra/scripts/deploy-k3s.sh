@@ -9,7 +9,8 @@ set -euo pipefail
 # Philosophy mirrored from hilo/scripts/deploy-k3s.sh:
 #   1. Preflight   — shared services up
 #   2. Backup      — pg_dump of both databases (API + agent) before any change
-#   3. Apply       — bump image tags in kustomization, kubectl apply -k
+#   3. Apply       — bump image tags in kustomization, migrate the database
+#                    with the new image, then kubectl apply -k
 #   4. Wait        — rollout status on every Maggie deployment
 #   5. Post-deploy — data repairs, migrations, ES mapping + reindex
 #   6. Verify      — pod list + healthcheck
@@ -155,6 +156,16 @@ for image in "${IMAGES[@]}"; do
   fi
 done
 
+# Migrate before any pod runs the new image (MAG-360): `Meal` extends `Event`,
+# so the cron and the API read the `meal` table on every event query, and new
+# code on the old schema fails with an undefined column. Nothing is recorded yet
+# for the rollback: a failure here leaves the cluster untouched. A php image not
+# rebuilt by this deploy brings no new migration.
+if image_tag_exists "ghcr.io/miwi35/maggie-php" "$TAG"; then
+  log "Phase 3b: Migrating the database before the rollout..."
+  bash "$(dirname "${BASH_SOURCE[0]}")/migrate-k3s.sh" "ghcr.io/miwi35/maggie-php:$TAG" || fail "Migration failed — nothing was rolled out"
+fi
+
 # Revision of every deployment right before the apply. `rollout undo` alone
 # would be wrong: a deployment this deploy did not touch has no new revision, so
 # undoing it would send it back to an older release than the one it serves.
@@ -199,6 +210,8 @@ fi
 log "All rollouts complete."
 
 # === PHASE 5 : POST-DEPLOY TASKS ===
+# The migrations already ran before the rollout (phase 3b); 5a and 5b below are
+# a safety net and normally do nothing.
 # Must run before the migrations: the unique index on (user_id,
 # google_calendar_id) cannot be created while a user still holds two agendas
 # for the same Google calendar (MAG-148). A no-op once that index exists, and

@@ -1,0 +1,49 @@
+# One-shot database migration (MAG-360). Not part of kustomization.yaml: it is
+# applied by scripts/migrate-k3s.sh, which fills in the image, before the
+# deployments roll to it.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate
+  namespace: maggie
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: ghcr-pull
+      containers:
+        - name: migrate
+          image: __IMAGE__
+          # The dedupe must precede the migrations: the unique index on
+          # (user_id, google_calendar_id) cannot be created while a user holds
+          # two agendas for the same Google calendar (MAG-148).
+          command:
+            - sh
+            - -c
+            - bin/console app:calendar:dedupe-google-agendas --no-interaction && bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+          securityContext:
+            runAsUser: 1000
+            runAsNonRoot: true
+          envFrom:
+            - configMapRef:
+                name: maggie-config
+            - secretRef:
+                name: maggie-env
+          volumeMounts:
+            - name: jwt-keys
+              mountPath: /var/www/api/config/jwt
+              readOnly: true
+          resources:
+            requests:
+              memory: 64Mi
+              cpu: 10m
+            limits:
+              memory: 384Mi
+              cpu: 300m
+      volumes:
+        - name: jwt-keys
+          secret:
+            secretName: jwt-keys
