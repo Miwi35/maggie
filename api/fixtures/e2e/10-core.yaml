@@ -73,6 +73,16 @@ Maggie\Core\Entity\User:
         googleId: 'e2e-other-google-id'
         name: 'Dominique Voisin'
 
+    # Maggie's interruptions (MAG-311). One covers the whole screen of every
+    # window its user has open, and the journey publishes it to the user rather
+    # than to a test: on an account another file drives at the same time, it
+    # pops over that file's clicks. So this account is for that journey alone,
+    # and owns nothing else.
+    e2e_interrupt_user:
+        email: 'e2e-interrupt@maggie.local'
+        googleId: 'e2e-interrupt-google-id'
+        name: 'Alix Veilleuse'
+
 Maggie\Core\Entity\UserPreference:
     e2e_user_preference:
         user: '@e2e_user'
@@ -88,6 +98,14 @@ Maggie\Core\Entity\UserPreference:
     # on a preference the API would have to create on first write.
     e2e_other_user_preference:
         user: '@e2e_other_user'
+        theme: 'light'
+        locale: 'fr'
+        timezone: 'Europe/Paris'
+        defaultCalendarView: 'month'
+        notificationsEnabled: true
+
+    e2e_interrupt_user_preference:
+        user: '@e2e_interrupt_user'
         theme: 'light'
         locale: 'fr'
         timezone: 'Europe/Paris'
