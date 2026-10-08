@@ -47,8 +47,9 @@ class RecurrenceSchedule
 
     /**
      * The occurrence a day belongs to: the nearest one, the earlier on a tie —
-     * the first one for a day before the anchor. Null only when the series
-     * has none at all. How far is too far is the caller's tolerance.
+     * the first one for a day before the anchor. Null when the series has
+     * none near that day: none at all, or the day lies more than a step
+     * past its end. How far is too far is the caller's tolerance.
      */
     public function occurrenceFor(RecurringOperation $operation, \DateTimeInterface $day): ?\DateTimeImmutable
     {
