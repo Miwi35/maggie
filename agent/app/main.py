@@ -8,7 +8,7 @@ from starlette.responses import Response
 
 from app.a2a import setup_a2a
 from app.agents.registry import subagent_registry
-from app.api.routes import router
+from app.api.routes import router, streaming_gateway
 from app.db.context_model import ConversationContext  # noqa: F401 — register model with AgentBase before create_all
 from app.db.context_repository import context_repo
 from app.db.instruction_model import Instruction  # noqa: F401 — register model with AgentBase before create_all
@@ -20,6 +20,7 @@ from app.db.proaction_repository import proaction_repo
 from app.db.skill_model import Skill  # noqa: F401 — register model with AgentBase before create_all
 from app.db.user_setting_model import UserSetting  # noqa: F401 — register model with AgentBase before create_all
 from app.e2e import setup_e2e
+from app.llm.turns import turn_runner
 from app.mcp.client import mcp_client
 from app.queue import connection as queue_connection
 from app.queue.proaction_consumer import start_consumer
@@ -89,9 +90,15 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Could not start proaction consumer/scheduler: {e}")
 
+    # A turn lost with the previous process is answered (or given up on) now, and again
+    # every half-minute for the ones a process shutting down hands over later.
+    turn_runner.start_sweeper(streaming_gateway)
+
     yield
 
     # Shutdown
+    with contextlib.suppress(Exception):
+        await turn_runner.shutdown()
     with contextlib.suppress(Exception):
         await queue_connection.disconnect()
     with contextlib.suppress(Exception):

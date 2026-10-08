@@ -37,6 +37,16 @@ class ContextRepository:
             )
             # MAG-7 — the readable sentence of a held action. Null on the older ones.
             await conn.execute(text("ALTER TABLE agent_pending_action ADD COLUMN IF NOT EXISTS summary TEXT"))
+            # MAG-344 — the idempotency key of a message, and the turn answering it.
+            await conn.execute(text("ALTER TABLE agent_message ADD COLUMN IF NOT EXISTS client_key VARCHAR(64)"))
+            await conn.execute(text("ALTER TABLE agent_message ADD COLUMN IF NOT EXISTS turn_status VARCHAR(16)"))
+            await conn.execute(text("ALTER TABLE agent_message ADD COLUMN IF NOT EXISTS turn_lease_until TIMESTAMPTZ"))
+            await conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_message_client_key "
+                    "ON agent_message (user_id, client_key)"
+                )
+            )
 
     async def create(self, user_id: str, label: str) -> ConversationContext:
         async with agent_session() as session:

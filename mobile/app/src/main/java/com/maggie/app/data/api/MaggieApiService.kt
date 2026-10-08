@@ -144,6 +144,11 @@ data class AgentChatRequest(
      * question is a bubble full of the page it was about.
      */
     val screen_context: String? = null,
+    /**
+     * One per message composed (MAG-344): a request sent again after a connection error
+     * carries the same key, so the agent that already received it answers once.
+     */
+    val idempotency_key: String? = null,
 )
 
 @Serializable
@@ -646,10 +651,17 @@ class MaggieApiService(
 
     // Chat streaming — AG-UI SSE endpoint
     fun sendChatStream(message: String, screenContext: String? = null): Flow<AgUiEvent> = kotlinx.coroutines.flow.flow {
+        val idempotencyKey = java.util.UUID.randomUUID().toString()
         try {
             val response = client.post("$baseUrl/agent/chat/stream") {
                 contentType(ContentType.Application.Json)
-                setBody(AgentChatRequest(message = message, screen_context = screenContext))
+                setBody(
+                    AgentChatRequest(
+                        message = message,
+                        screen_context = screenContext,
+                        idempotency_key = idempotencyKey,
+                    ),
+                )
             }
             val status = response.status.value
             if (status != 200) {

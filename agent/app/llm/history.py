@@ -30,11 +30,12 @@ must not cost the user the answer.
 
 import logging
 import re
+from datetime import UTC, datetime
 
 from app.config import settings
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
-from app.db.models import Message
+from app.db.models import TURN_EXPIRED, TURN_RUNNING, Message
 from app.llm.screen_context import attach
 
 logger = logging.getLogger(__name__)
@@ -217,6 +218,8 @@ def _turns(
     for row in rows:
         if row.role not in ("user", "assistant") or not row.content:
             continue
+        if _is_orphan(row, current_message_id):
+            continue
 
         content = row.content
         # Only the user's side is labelled. Maggie's own answers, labelled, read to her as
@@ -244,6 +247,30 @@ def _turns(
         turns.pop(0)
 
     return turns
+
+
+def _is_orphan(row: Message, current_message_id: str | None) -> bool:
+    """Whether this user message is a request nobody is answering, which the model must not pick up (MAG-344).
+
+    On 7 Oct. a message left without an answer was read back from the history as if it were
+    pending, and executed hours later: a reminder nobody wanted. A message too old to be
+    answered is never part of the conversation again; one whose turn was lost and not yet
+    taken up is left to the turn that will answer it, or this one would answer it too. A turn
+    that is running is the conversation, as before: « et du pain » sent while the first is
+    still being answered.
+    """
+    if row.role != "user" or (current_message_id is not None and str(row.id) == str(current_message_id)):
+        return False
+    if row.turn_status == TURN_EXPIRED:
+        return True
+    if row.turn_status != TURN_RUNNING:
+        return False
+    lease = row.turn_lease_until
+    if lease is None:
+        return True
+    if lease.tzinfo is None:
+        lease = lease.replace(tzinfo=UTC)
+    return lease < datetime.now(UTC)
 
 
 def _append_user(turns: list[dict], message: str) -> None:
