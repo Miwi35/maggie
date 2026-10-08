@@ -44,6 +44,9 @@ fi
 # What the report says, as [{id, status}]; `null` when there is no report to read.
 journeys='null'
 if [ "$platform" = web ]; then
+  # `skipped` counts as passed: Playwright marks so a test it never started, which
+  # is safe only while the config sets no `maxFailures` nor `globalTimeout` — with
+  # either, a failure in quarantine could stop a run before the tests that block.
   if [ -s "$report" ] && jq -e . "$report" >/dev/null 2>&1; then
     journeys="$(jq -c '
       . as $report

@@ -109,6 +109,23 @@ select_files api/modules/newmodule/src/Thing.php
 select_files admin/src/modules/newmodule/Thing.tsx
 [ "$(count web)" -eq "$on_disk_web" ] && [ "$(count mobile)" -eq 0 ] && ok "a new admin module: every web journey" || bad "new admin module: $(count web) web, $(count mobile) mobile"
 
+printf '\n\033[1mA file of one platform that only the other platform maps is unknown to it\033[0m\n'
+M=mobile/app/src/main/java/com/maggie/app
+select_files "$M/ui/theme/Color.kt"
+[ "$(count mobile)" -eq "$on_disk_mobile" ] && [ "$(count web)" -eq 0 ] && ok "the app's theme: every flow" || bad "theme: $(count web) web, $(count mobile) mobile"
+select_files "$M/ui/screens/settings/SettingsScreen.kt"
+[ "$(count mobile)" -eq "$on_disk_mobile" ] && ok "an Android screen no flow maps (settings): every flow, never nothing" || bad "settings screen: $(count web) web, $(count mobile) mobile"
+select_files admin/src/hooks/useVoiceRecorder.ts
+grep -q 'chat.spec.ts' <<<"$(names web)" && grep -q 'chat-client-leaves.spec.ts' <<<"$(names web)" && [ "$(count mobile)" -eq 0 ] \
+  && ok "the admin's dictation: the chat journeys" || bad "useVoiceRecorder: $(names web) / $(names mobile)"
+
+printf '\n\033[1mA lot of flows in quarantine alone joins another lot\033[0m\n'
+select_files agent/app/llm/streaming.py
+lots="$(jq -c '.mobile_lots' <<<"$SEL")"
+jq -e 'all(.[]; .flows | split(" ") | any(. != "flows/02-voice-overlay.yaml" and . != "flows/05-deep-links.yaml" and . != "flows/11-calendar-all-day-series.yaml"))' >/dev/null <<<"$lots" \
+  && ok "every lot holds a flow that can block ($lots)" || bad "a quarantine-only lot: $lots"
+grep -q '02-voice-overlay' <<<"$lots" && ok "02-voice-overlay still plays" || bad "02 dropped: $lots"
+
 printf '\n\033[1mThe night plays everything\033[0m\n'
 SEL="$("$IMPACTED" select --all </dev/null)"
 [ "$(count web)" -eq "$on_disk_web" ] && [ "$(count mobile)" -eq "$on_disk_mobile" ] && ok "--all" || bad "--all: $(count web) web, $(count mobile) mobile"

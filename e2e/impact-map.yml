@@ -102,7 +102,7 @@ transversal_web:
 transversal_mobile:
   - mobile/app/src/main/java/com/maggie/app/{MainActivity,MaggieApp}.kt
   - mobile/app/src/main/java/com/maggie/app/ui/UiTagRoot.kt
-  - mobile/app/src/main/java/com/maggie/app/ui/layout/**
+  - mobile/app/src/main/java/com/maggie/app/ui/{layout,theme}/**
   - mobile/app/src/main/java/com/maggie/app/ui/navigation/NavGraph.kt
   - mobile/app/src/main/java/com/maggie/app/ui/components/{AppDrawer,EmptyState,ErrorSnackbar,MaggieTopBar}.kt
   - mobile/app/src/main/java/com/maggie/app/ui/screens/loading/**
@@ -152,7 +152,8 @@ areas:
   chat:
     - agent/**
     - admin/src/components/{chat,mind}/**
-    - admin/src/hooks/{useAgUiStream,agentFeed,agentTopics}.ts
+    # The chat's dictation in the admin records and transcribes through these.
+    - admin/src/hooks/{useAgUiStream,agentFeed,agentTopics,useVoiceRecorder,useTranscription}.ts
     - admin/src/screenContext.ts
     - mobile/app/src/main/java/com/maggie/app/ui/screens/{chat,contexts}/**
     - mobile/app/src/main/java/com/maggie/app/ui/components/{ApprovalCard,ChatBottomBar,ChatMessageList,ChatSheet,ContextListSheet,MessageBubble}.kt
@@ -163,7 +164,6 @@ areas:
     - e2e/web/pages/ChatPanel.ts
     - e2e/web/helpers/{agui,chatLock}.ts
   voice:
-    - admin/src/hooks/{useVoiceRecorder,useTranscription}.ts
     - mobile/app/src/main/java/com/maggie/app/voice/**
     - mobile/app/src/main/java/com/maggie/app/ui/components/{AssistantOverlay,SpokenApprovals,SpokenReplies,VoiceControlBar}.kt
     - mobile/app/src/main/java/com/maggie/app/data/model/TtsVoice.kt
@@ -250,7 +250,6 @@ areas:
     - design/**
     - admin/src/design/**
     - admin/src/theme.ts
-    - mobile/app/src/main/java/com/maggie/app/ui/theme/**
     - e2e/web/helpers/tokens.ts
 
 web:
@@ -274,13 +273,13 @@ web:
   e2e/web/tests/notifications-bell.spec.ts:
     areas: [notification, realtime]
   e2e/web/tests/mercure.spec.ts:
-    areas: [realtime, grocery, calendar]
+    areas: [realtime, grocery, calendar, settings]
   e2e/web/tests/design-system.spec.ts:
     areas: [design, dashboard]
   e2e/web/tests/theme-preference.spec.ts:
     areas: [design, settings]
   e2e/web/tests/search.spec.ts:
-    areas: [search, calendar, cookbook]
+    areas: [search, calendar, cookbook, realtime]
   e2e/web/tests/mag-130-controls.spec.ts:
     areas: [calendar]
 

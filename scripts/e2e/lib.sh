@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2034 # E2E_JQ_DEFS is read by the scripts that source this file
 #
-# Shared by impacted.sh, verdict.sh and nightly-report.sh: where the map is, how
+# Shared by impacted.sh, verdict.sh and mobile-journeys.sh: where the map is, how
 # it is read, and the glob syntax it is written in.
 
 E2E_ROOT="${E2E_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"

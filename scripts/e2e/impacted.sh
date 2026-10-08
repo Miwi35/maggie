@@ -111,9 +111,17 @@ cmd_select() {
         | {id: ., platform: plat(.), critical: false, forgotten: true, areas: [], paths: []}]
        | map(select(.id as $i | $disk | index($i)))) as $js
     | ($js | map(. + {res: (globs_of($map) | map(glob2re))})) as $js
-    # An area only the core uses claims nothing for `unmapped`: the core plays anyway.
-    | ([$js[] | select(.critical | not) | .areas[]] | unique) as $shared_areas
-    | ([$js[] | .id, .paths[]] + [$shared_areas[] as $a | ($map.areas[$a] // [])[]] | map(glob2re)) as $claims
+    # What claims a file for `unmapped`: the own file and paths of a journey, and
+    # the areas a journey outside the core uses — an area only the core uses
+    # claims nothing, the core plays anyway. A file of one platform only (`only`)
+    # is claimed by the journeys of that platform alone: an Android screen that
+    # only a web journey maps is still unknown to the Maestro flows.
+    | def claims($js):
+        ([$js[] | select(.critical | not) | .areas[]] | unique) as $areas
+        | [$js[] | .id, .paths[]] + [$areas[] as $a | ($map.areas[$a] // [])[]] | map(glob2re);
+    claims($js) as $claims_any
+    | {web: claims([$js[] | select(.platform == "web")]), mobile: claims([$js[] | select(.platform == "mobile")])} as $claims
+    | (res($map.only.web) + res($map.only.mobile)) as $only_any
     | res($map.ignored) as $ignored
     | res($map.transversal) as $all_re
     | res($map.transversal_web) as $web_re
@@ -127,13 +135,16 @@ cmd_select() {
         | if matches($all_re) then {file: $f, web: "all", mobile: "all", why: "transversal"}
           else
             ([$js[] | select(. as $j | ($f | matches($other_only[$j.platform]) | not) and ($f | matches($j.res))) | .id]) as $hit
-            | (matches($claims)) as $claimed
+            | (if matches($only_any) then {web: matches($claims.web), mobile: matches($claims.mobile)}
+               else matches($claims_any) as $c | {web: $c, mobile: $c} end) as $claimed
+            | (($claimed.web | not) and (matches($u_all) or matches($u_web))) as $unknown_web
+            | (($claimed.mobile | not) and (matches($u_all) or matches($u_mobile))) as $unknown_mobile
             | {file: $f,
-               web: (if matches($web_re) then "all" elif ($claimed | not) and (matches($u_all) or matches($u_web)) then "all" else null end),
-               mobile: (if matches($mobile_re) then "all" elif ($claimed | not) and (matches($u_all) or matches($u_mobile)) then "all" else null end),
+               web: (if matches($web_re) or $unknown_web then "all" else null end),
+               mobile: (if matches($mobile_re) or $unknown_mobile then "all" else null end),
                journeys: $hit,
                why: (if matches($web_re) then "transversal_web" elif matches($mobile_re) then "transversal_mobile"
-                     elif ($claimed | not) and (matches($u_all) or matches($u_web) or matches($u_mobile)) then "unmapped"
+                     elif $unknown_web or $unknown_mobile then "unmapped"
                      elif ($hit | length) > 0 then "journeys" else "nothing" end)}
           end ] as $per_file
 
@@ -157,8 +168,14 @@ cmd_select() {
     | ($mobile | map(ltrimstr("e2e/mobile/"))) as $flows
     | [ ($shards[] | [.names[] | "flows/\(.).yaml" | select(. as $f | $flows | index($f))]),
         [$flows[] | . as $f | select([$shards[].names[] | "flows/\(.).yaml"] | index($f) | not)]
-      | select(length > 0)
-      | sort_by(("e2e/mobile/" + .) as $id | $quarantine | index($id) != null) ] as $mobile_lots
+      | select(length > 0) ] as $shard_lots
+    # A lot of journeys in quarantine alone could never block: its flows join the
+    # last lot that can, rather than hold an emulator and a stack of their own.
+    | def blocking: any(.[]; ("e2e/mobile/" + .) as $id | $quarantine | index($id) | not);
+    ([$shard_lots[] | select(blocking)]) as $real
+    | ([$shard_lots[] | select(blocking | not) | .[]]) as $stray
+    | (if ($real | length) > 0 and ($stray | length) > 0 then $real[:-1] + [$real[-1] + $stray] else $shard_lots end)
+    | [.[] | sort_by(("e2e/mobile/" + .) as $id | $quarantine | index($id) != null)] as $mobile_lots
     | {
         full: {web: ($all or any($per_file[]; .web == "all")), mobile: ($all or any($per_file[]; .mobile == "all"))},
         web: $web,
