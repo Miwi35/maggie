@@ -452,6 +452,12 @@ relationship to it, not of Maestro:
    runs `fullyParallel`, so another file is writing to the same user's data at
    the same time. CI retries once *without* reseeding, so the label carries the
    attempt number (`perAttempt()` in several files).
+7. **It is in `e2e/impact-map.yml`**, with the areas and paths it depends on. A
+   pull request plays only the journeys its files touch (plus the critical core),
+   the whole suite plays at night, and `Infra scripts and workflows` fails on a
+   journey the map does not list. A journey that turns flaky gets
+   `quarantine: {since, reason}` there: it keeps playing, and its failure only
+   warns. The core (`critical: true`) can never be quarantined.
 
 ### A journey asserting a *publication* needs data it owns (MAG-101)
 

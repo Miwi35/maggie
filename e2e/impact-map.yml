@@ -1,0 +1,394 @@
+# What each e2e journey depends on — the one map the pull request, the night and
+# the quarantine read (owner's decision, 8 Oct.).
+#
+# A pull request plays the journeys its changed files touch, plus the critical
+# core of each platform that plays at all; the night plays everything. Read by
+# `scripts/e2e/impacted.sh` (selection, and `check` in CI) and
+# `scripts/e2e/verdict.sh` (quarantine). The rules, in the order they apply to
+# each changed file:
+#
+#   1. `ignored` — selects nothing (docs, unit tests, this map).
+#   2. `transversal` — the whole suite, web and mobile; `transversal_web` /
+#      `transversal_mobile` — every journey of that platform.
+#   3. a journey's own file, its `paths` and the globs of its `areas` — that journey,
+#      unless the file is `only` the other platform's (an admin screen never
+#      selects a Maestro flow, an Android screen never a Playwright file).
+#   4. `unmapped` — a file under one of these roots that nothing above claims
+#      plays every journey of the platforms listed: a file the map forgot runs
+#      too much, never too little. So a file of `e2e/` no journey claims (a
+#      fixture, a page object used everywhere, a runner) plays the suite of its
+#      platform, and `e2e/` outside `web/` and `mobile/` plays both. An area that
+#      only the core uses (`stack`) claims nothing here: the core plays anyway,
+#      and a new module must not hide behind it.
+#
+# Globs: `**` crosses directories, `*` and `?` do not, `{a,b}` is either.
+#
+# A journey:
+#   areas       named sets of globs below; the night reports a red journey by its
+#               area and the last commit that touched it.
+#   paths       extra globs that only this journey depends on.
+#   critical    the small core always played beside whatever else its platform
+#               plays: sign-in, the basic chat, the smoke. Never in quarantine
+#               (`impacted.sh check` refuses it). Keep it small.
+#   quarantine  {since: YYYY-MM-DD, reason: …} — still played everywhere, but its
+#               failure only warns in the job summary. Lift it once the night has
+#               been green on it for a week.
+#
+# Every journey on disk must be listed here, and every journey listed must exist:
+# `impacted.sh check` fails the `Infra scripts and workflows` job otherwise.
+
+ignored:
+  - '**/*.md'
+  - e2e/impact-map.yml
+  - 'admin/src/**/*.test.{ts,tsx}'
+  - admin/src/test/**
+  - admin/eslint.config.js
+  - api/modules/*/tests/**
+  - api/tests/**
+  - 'api/phpstan*'
+  - api/phpunit.dist.xml
+  - agent/tests/**
+  - agent/conftest.py
+  - ciqual/tests/**
+  - mobile/app/src/test/**
+  - mobile/app/src/testProd/**
+
+# The safety rule: these play everything.
+transversal:
+  # The shared API: the kernel, the core module (users, auth, search index, the
+  # e2e seed), its configuration, its contract with the clients.
+  - api/modules/core/**
+  - api/contract/**
+  - api/config/**
+  - api/src/**
+  - api/bin/**
+  - api/public/**
+  - api/migrations/**
+  - api/fixtures/e2e/10-core.yaml
+  # Authentication, wherever it lives.
+  - admin/src/auth/**
+  - agent/app/auth.py
+  - mobile/app/src/main/java/com/maggie/app/data/auth/**
+  - mobile/app/src/main/java/com/maggie/app/ui/navigation/AuthRedirect.kt
+  - mobile/app/src/main/java/com/maggie/app/ui/screens/{login,lock}/**
+  - mobile/app/src/main/java/com/maggie/app/data/model/User.kt
+  # The stack and the harness.
+  - docker-compose.e2e.yml
+  - .docker/**
+  - '**/Taskfile*.yml'
+  - scripts/e2e/**
+  - .github/workflows/ci.yml
+  # Lockfiles and dependencies.
+  - '**/composer.{json,lock}'
+  - '**/package{,-lock}.json'
+  - '**/{pyproject.toml,uv.lock}'
+  - '**/*.gradle.kts'
+  - mobile/gradle/**
+  - mobile/gradle.properties
+
+# What every admin screen goes through.
+transversal_web:
+  - admin/src/{App,main}.tsx
+  - admin/src/{breakpoints,dates}.ts
+  - admin/src/components/{layout,form,list}/**
+  - admin/src/i18n/**
+  - admin/src/hooks/{useItemTransitions,useNarrowScreen}.ts
+  - admin/index.html
+  - admin/public/**
+  - 'admin/vite.config.*'
+  - 'admin/tsconfig*.json'
+
+# What every screen of the app goes through, and the e2e flavor itself.
+transversal_mobile:
+  - mobile/app/src/main/java/com/maggie/app/{MainActivity,MaggieApp}.kt
+  - mobile/app/src/main/java/com/maggie/app/ui/UiTagRoot.kt
+  - mobile/app/src/main/java/com/maggie/app/ui/{layout,theme}/**
+  - mobile/app/src/main/java/com/maggie/app/ui/navigation/NavGraph.kt
+  - mobile/app/src/main/java/com/maggie/app/ui/components/{AppDrawer,EmptyState,ErrorSnackbar,MaggieTopBar}.kt
+  - mobile/app/src/main/java/com/maggie/app/ui/screens/loading/**
+  - mobile/app/src/main/java/com/maggie/app/data/api/MaggieApiService.kt
+  - mobile/app/src/main/java/com/maggie/app/data/local/**
+  - mobile/app/src/main/java/com/maggie/app/util/ResultExt.kt
+  - mobile/app/src/main/res/**
+  - mobile/app/src/main/AndroidManifest.xml
+  - mobile/app/src/{e2e,debug,google}/**
+  - mobile/app/proguard-rules.pro
+
+only:
+  web:
+    - admin/**
+    - e2e/web/**
+  mobile:
+    - mobile/**
+    - e2e/mobile/**
+
+unmapped:
+  all:
+    - api/**
+    - agent/**
+    - ciqual/**
+    - design/**
+    - scripts/prompt-lab/**
+    # e2e/ outside web/ and mobile/: the clock, the images, the smoke suite.
+    - e2e/*
+    - e2e/smoke/**
+  web:
+    - admin/**
+    - e2e/web/**
+  mobile:
+    - mobile/**
+    - e2e/mobile/**
+
+areas:
+  # Anything the stack runs: the smoke journey stands for it.
+  stack:
+    - api/**
+    - admin/**
+    - agent/**
+    - ciqual/**
+    - design/**
+    # `e2e:eval:check` runs beside the smoke journey: a typo in a scenario fails there.
+    - scripts/prompt-lab/**
+  chat:
+    - agent/**
+    - admin/src/components/{chat,mind}/**
+    # The chat's dictation in the admin records and transcribes through these.
+    - admin/src/hooks/{useAgUiStream,agentFeed,agentTopics,useVoiceRecorder,useTranscription}.ts
+    - admin/src/screenContext.ts
+    - mobile/app/src/main/java/com/maggie/app/ui/screens/{chat,contexts}/**
+    - mobile/app/src/main/java/com/maggie/app/ui/components/{ApprovalCard,ChatBottomBar,ChatMessageList,ChatSheet,ContextListSheet,MessageBubble}.kt
+    - mobile/app/src/main/java/com/maggie/app/data/api/AgUiStreamParser.kt
+    - mobile/app/src/main/java/com/maggie/app/data/repository/{Approval,Chat,ChatPreferences,Context}Repository.kt
+    - mobile/app/src/main/java/com/maggie/app/data/model/{AgUiEvent,ChatMessage,Context,PendingApproval}.kt
+    - mobile/app/src/main/java/com/maggie/app/util/ChatDateFormatter.kt
+    - e2e/web/pages/ChatPanel.ts
+    - e2e/web/helpers/{agui,chatLock}.ts
+  voice:
+    - mobile/app/src/main/java/com/maggie/app/voice/**
+    - mobile/app/src/main/java/com/maggie/app/ui/components/{AssistantOverlay,SpokenApprovals,SpokenReplies,VoiceControlBar}.kt
+    - mobile/app/src/main/java/com/maggie/app/data/model/TtsVoice.kt
+    - e2e/mobile/scripts/event-api.js
+  interruptions:
+    - admin/src/components/maggie/**
+  realtime:
+    - admin/src/hooks/{useMercure,mercureUrl}.ts
+    - mobile/app/src/main/java/com/maggie/app/data/mercure/**
+    - e2e/web/helpers/mercure.ts
+  dashboard:
+    - admin/src/modules/dashboard/**
+    - mobile/app/src/main/java/com/maggie/app/ui/screens/dashboard/**
+    - e2e/web/pages/DashboardPage.ts
+  calendar:
+    - api/modules/calendar/**
+    - api/fixtures/e2e/20-calendar.yaml
+    - admin/src/modules/calendar/**
+    - mobile/app/src/main/java/com/maggie/app/ui/screens/{fullcalendar,shared}/**
+    - mobile/app/src/main/java/com/maggie/app/ui/components/DateTimeFields.kt
+    - mobile/app/src/main/java/com/maggie/app/util/{DateRanges,EventExpander,RruleUtils}.kt
+    - mobile/app/src/main/java/com/maggie/app/data/repository/{Agenda,Event,Task}Repository.kt
+    - mobile/app/src/main/java/com/maggie/app/data/model/{Agenda,Event,EventReminders,ExpandedEvent,GoogleCalendar,Task}.kt
+    - e2e/web/pages/CalendarPage.ts
+    - e2e/mobile/subflows/open-calendar.yaml
+  google:
+    - admin/src/modules/settings/GoogleCalendarSettings.tsx
+    - e2e/web/helpers/wiremock.ts
+    - e2e/web/pages/GoogleSettingsPage.ts
+  grocery:
+    - api/modules/grocery/**
+    - api/fixtures/e2e/30-grocery.yaml
+    - admin/src/modules/grocery/**
+    - mobile/app/src/main/java/com/maggie/app/ui/screens/cookbook/grocery/**
+    - mobile/app/src/main/java/com/maggie/app/data/repository/{GroceryList,Product,Store}Repository.kt
+    - mobile/app/src/main/java/com/maggie/app/data/model/{GroceryItem,GroceryList,Packaging,Product,RecurringGroceryItem,Store}.kt
+    - e2e/web/pages/GroceryListPage.ts
+    - e2e/mobile/scripts/grocery-api.js
+  cookbook:
+    - api/modules/cookbook/**
+    - api/fixtures/e2e/40-cookbook.yaml
+    - admin/src/modules/cookbook/**
+    - ciqual/**
+    - mobile/app/src/main/java/com/maggie/app/ui/screens/cookbook/CookbookScreen.kt
+    - mobile/app/src/main/java/com/maggie/app/ui/screens/cookbook/{meals,recipes}/**
+    - mobile/app/src/main/java/com/maggie/app/data/repository/{Ingredient,Meal,Recipe}Repository.kt
+    - mobile/app/src/main/java/com/maggie/app/data/model/{CiqualFood,CookbookEnums,Ingredient,Meal,Recipe,RecipeIngredient}.kt
+    - e2e/web/helpers/week.ts
+    - e2e/mobile/scripts/recipe-api.js
+  finance:
+    - api/modules/finance/**
+    - api/fixtures/e2e/50-finance.yaml
+    - admin/src/modules/finance/**
+    - mobile/app/src/main/java/com/maggie/app/ui/screens/finance/**
+    - mobile/app/src/main/java/com/maggie/app/ui/navigation/FinanceNavigation.kt
+    - mobile/app/src/main/java/com/maggie/app/data/repository/{Account,BankConnection,Budget,CategorizationRule,Category,Cushion,FinanceDashboard,Loan,MonthlyReview,Transaction}Repository.kt
+    - mobile/app/src/main/java/com/maggie/app/data/model/{Account,BankConnection,CategorizationRule,Category,DailyScore,Envelope,Loan,MonthlyReview,RuleSuggestion,SafetyCushion,Transaction}.kt
+    - 'e2e/web/pages/{Finance*,financeLabels}.ts'
+    - e2e/web/helpers/money.ts
+  notification:
+    - api/modules/notification/**
+    - api/fixtures/e2e/60-notification.yaml
+    - admin/src/components/notifications/**
+    - mobile/app/src/main/java/com/maggie/app/ui/screens/{notifications,proactions}/**
+    - mobile/app/src/main/java/com/maggie/app/data/fcm/**
+    - mobile/app/src/main/java/com/maggie/app/data/repository/{Notification,Proaction}Repository.kt
+    - mobile/app/src/main/java/com/maggie/app/data/model/{Notification,Proaction}.kt
+    - e2e/web/pages/NotificationBell.ts
+    - e2e/web/helpers/mcp.ts
+  search:
+    - admin/src/modules/search/**
+    - mobile/app/src/main/java/com/maggie/app/ui/screens/search/**
+    - mobile/app/src/main/java/com/maggie/app/data/repository/SearchRepository.kt
+    - mobile/app/src/main/java/com/maggie/app/data/model/SearchResult.kt
+    - e2e/web/pages/GlobalSearch.ts
+  settings:
+    - admin/src/modules/settings/**
+    - admin/src/hooks/useUserPreferences.ts
+    - mobile/app/src/main/java/com/maggie/app/ui/screens/settings/**
+    - mobile/app/src/main/java/com/maggie/app/data/repository/UserPreferenceRepository.kt
+    - mobile/app/src/main/java/com/maggie/app/data/model/UserPreference.kt
+    - e2e/web/pages/PreferencesPage.ts
+  design:
+    - design/**
+    - admin/src/design/**
+    - admin/src/theme.ts
+    - e2e/web/helpers/tokens.ts
+
+web:
+  # The critical core.
+  e2e/web/tests/smoke.spec.ts:
+    critical: true
+    areas: [stack, dashboard]
+  e2e/web/tests/auth.spec.ts:
+    critical: true
+    areas: [dashboard]
+  e2e/web/tests/chat.spec.ts:
+    critical: true
+    areas: [chat, realtime, dashboard]
+
+  e2e/web/tests/chat-client-leaves.spec.ts:
+    areas: [chat, dashboard]
+  e2e/web/tests/maggie-interruption.spec.ts:
+    areas: [chat, interruptions, notification, realtime, dashboard]
+  e2e/web/tests/responsive.spec.ts:
+    areas: [chat, dashboard, finance, grocery, cookbook, design]
+  e2e/web/tests/notifications-bell.spec.ts:
+    areas: [notification, realtime]
+  e2e/web/tests/mercure.spec.ts:
+    areas: [realtime, grocery, calendar, settings]
+  e2e/web/tests/design-system.spec.ts:
+    areas: [design, dashboard]
+  e2e/web/tests/theme-preference.spec.ts:
+    areas: [design, settings]
+  e2e/web/tests/search.spec.ts:
+    areas: [search, calendar, cookbook, realtime]
+  e2e/web/tests/mag-130-controls.spec.ts:
+    areas: [calendar]
+
+  e2e/web/tests/agenda-contrast.spec.ts:
+    areas: [calendar]
+  e2e/web/tests/agenda-default.spec.ts:
+    areas: [calendar]
+  e2e/web/tests/agenda-delete.spec.ts:
+    areas: [calendar, search]
+  e2e/web/tests/agenda-events.spec.ts:
+    areas: [calendar, realtime]
+  e2e/web/tests/agenda-google.spec.ts:
+    areas: [calendar, google]
+  e2e/web/tests/agenda-isolation.spec.ts:
+    areas: [calendar, dashboard]
+  e2e/web/tests/agenda-recurrence.spec.ts:
+    areas: [calendar]
+  e2e/web/tests/agenda-tasks.spec.ts:
+    areas: [calendar, dashboard]
+  e2e/web/tests/calendar-preferences.spec.ts:
+    areas: [calendar, settings]
+  e2e/web/tests/google-tasks-list.spec.ts:
+    areas: [google, settings, calendar]
+
+  e2e/web/tests/grocery-errand.spec.ts:
+    areas: [grocery, chat, realtime]
+  e2e/web/tests/grocery-list.spec.ts:
+    areas: [grocery]
+  e2e/web/tests/grocery-product-store.spec.ts:
+    areas: [grocery]
+  e2e/web/tests/grocery-stock.spec.ts:
+    areas: [grocery, cookbook, realtime]
+
+  e2e/web/tests/recipes.spec.ts:
+    areas: [cookbook, realtime]
+  e2e/web/tests/recipes-ciqual.spec.ts:
+    areas: [cookbook, chat]
+  e2e/web/tests/cookbook-isolation.spec.ts:
+    areas: [cookbook, grocery]
+  e2e/web/tests/meals-move.spec.ts:
+    areas: [cookbook]
+  e2e/web/tests/meals-grocery.spec.ts:
+    areas: [cookbook, grocery, calendar, chat]
+
+  e2e/web/tests/finance-accounts.spec.ts:
+    areas: [finance]
+  e2e/web/tests/finance-annual-plan.spec.ts:
+    areas: [finance, chat, dashboard]
+  e2e/web/tests/finance-bank.spec.ts:
+    areas: [finance]
+  e2e/web/tests/finance-budget.spec.ts:
+    areas: [finance]
+  e2e/web/tests/finance-cushion.spec.ts:
+    areas: [finance]
+  e2e/web/tests/finance-import.spec.ts:
+    areas: [finance]
+  e2e/web/tests/finance-independence.spec.ts:
+    areas: [finance]
+  e2e/web/tests/finance-internal-transfers.spec.ts:
+    areas: [finance, realtime]
+  e2e/web/tests/finance-overview.spec.ts:
+    areas: [finance]
+  e2e/web/tests/finance-review.spec.ts:
+    areas: [finance]
+  e2e/web/tests/finance-rules.spec.ts:
+    areas: [finance]
+
+mobile:
+  # The critical core: sign in, read the dashboard, get an answer from Maggie.
+  e2e/mobile/flows/01-login-chat.yaml:
+    critical: true
+    areas: [chat, dashboard]
+    paths:
+      # The e2e flavor's sign-in test runs beside the APK this journey installs.
+      - mobile/app/src/testE2e/**
+      # Lists every flow reads but no flow's behaviour hangs on: a tag added for
+      # a new screen, a flow added to a shard. `e2e/mobile/lint.sh`, in the
+      # `E2E Mobile APK` job that playing any flow starts, checks every flow
+      # against them — a renamed tag fails there, not in a full run.
+      - mobile/app/src/main/java/com/maggie/app/ui/UiTags.kt
+      - e2e/mobile/{config.yaml,shards.txt}
+
+  e2e/mobile/flows/02-voice-overlay.yaml:
+    areas: [chat, voice, dashboard]
+    quarantine:
+      since: 2026-10-08
+      reason: >-
+        Red then green on a re-run with no change (7-8 Oct.); hung 17 minutes once
+        on a CI emulator before passing.
+  e2e/mobile/flows/04-calendar-import.yaml:
+    areas: [calendar, google, realtime]
+  e2e/mobile/flows/05-deep-links.yaml:
+    areas: [calendar, chat, finance, cookbook]
+    paths: [mobile/app/src/main/java/com/maggie/app/ui/navigation/DeepLinks.kt]
+    quarantine:
+      since: 2026-10-08
+      reason: Red then green on a re-run with no change (7-8 Oct.).
+  e2e/mobile/flows/08-grocery-realtime.yaml:
+    areas: [grocery, realtime]
+  e2e/mobile/flows/09-finance-banks.yaml:
+    areas: [finance]
+  e2e/mobile/flows/11-calendar-all-day-series.yaml:
+    areas: [calendar]
+    quarantine:
+      since: 2026-10-08
+      reason: Red then green on a re-run with no change (7-8 Oct.).
+  e2e/mobile/flows/12-event-date-picker.yaml:
+    areas: [calendar]
+  e2e/mobile/flows/12-finance-rente.yaml:
+    areas: [finance]
+  e2e/mobile/flows/12-recipe-realtime.yaml:
+    areas: [cookbook, realtime]
