@@ -189,6 +189,7 @@ function MealItem({ meal, disabled, onDelete, sx }: { meal: Meal; disabled: bool
       </Box>
       <IconButton
         size="small"
+        aria-label={`Supprimer le repas ${meal.summary}`}
         onClick={(e) => {
           e.stopPropagation()
           onDelete(meal)

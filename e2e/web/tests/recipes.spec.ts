@@ -278,7 +278,7 @@ test.describe('Recipes and meals', () => {
     // (MAG-166). The day is a day now (MAG-251), so the cell is addressable.
     const planned = cell.filter({ hasText: 'Gratin de courgettes' })
     await expect(planned).toBeVisible()
-    await planned.getByRole('button').first().click()
+    await planned.getByRole('button', { name: /^Supprimer le repas / }).click()
 
     const after = await waitForIndexed<GroceryListRow>(
       api,
