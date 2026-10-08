@@ -12,7 +12,8 @@ import org.junit.Test
 /** What Maggie says while the app is open: one at a time, validations first, never twice (MAG-314). */
 class InterruptionCenterTest {
 
-    private val center = InterruptionCenter()
+    private var clock = 1_000L
+    private val center = InterruptionCenter { clock }
 
     private fun message(id: String, type: String = "proaction", interaction: String? = null) = PushPayload.from(
         buildMap {
@@ -138,8 +139,57 @@ class InterruptionCenterTest {
 
         assertEquals("b", shown())
         center.close("b")
+        assertTrue(center.offer(message("a"), reshow = true))
+        assertEquals("a", shown())
+    }
+
+    @Test
+    fun `a postponed message is not brought back by a feed before its time`() {
+        center.offer(message("a"))
+        center.postpone("a", delayMs = 600_000)
+
+        assertFalse("the feed re-offers what is pending each time the app opens", center.offer(message("a")))
+        clock += 599_999
+        assertFalse(center.offer(message("a")))
+        assertNull(shown())
+
+        clock += 1
         assertTrue(center.offer(message("a")))
         assertEquals("a", shown())
+    }
+
+    @Test
+    fun `the alarm of a postponed message brings it back whatever the time`() {
+        center.offer(message("a"))
+        center.postpone("a", delayMs = 600_000)
+
+        assertTrue(center.offer(message("a"), reshow = true))
+        assertEquals("a", shown())
+        assertFalse("and it is not shown twice", center.offer(message("a")))
+    }
+
+    @Test
+    fun `signing out forgets everything said to the account`() {
+        center.offer(message("a"))
+        center.offer(message("b"))
+        center.postpone("b")
+        center.announce("a")
+
+        center.clear()
+
+        assertNull(shown())
+        assertTrue(center.announce("a"))
+        assertTrue(center.offer(message("a")))
+        assertTrue(center.offer(message("b")))
+        center.close("a")
+        assertEquals("b", shown())
+    }
+
+    @Test
+    fun `an interruption is announced once whichever screen shows it`() {
+        assertTrue(center.announce("a"))
+        assertFalse(center.announce("a"))
+        assertTrue(center.announce("b"))
     }
 
     @Test

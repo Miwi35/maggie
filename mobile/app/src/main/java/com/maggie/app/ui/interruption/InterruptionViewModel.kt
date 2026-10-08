@@ -46,12 +46,13 @@ sealed interface InterruptionEvent {
 class InterruptionViewModel(
     private val center: InterruptionCenter,
     private val handler: PushActionHandler,
+    /** Takes down the system notification a push left in the tray before the app was opened. */
+    private val dismiss: (PushPayload) -> Unit = {},
     private val postpone: (PushPayload) -> Unit,
 ) : ViewModel() {
 
     private val busy = MutableStateFlow<String?>(null)
     private val failure = MutableStateFlow<Pair<String, String>?>(null)
-    private val announced = HashSet<String>()
     private val _events = Channel<InterruptionEvent>(Channel.UNLIMITED)
 
     val events: Flow<InterruptionEvent> = _events.receiveAsFlow()
@@ -64,8 +65,8 @@ class InterruptionViewModel(
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, InterruptionUiState())
 
-    /** True once per interruption: coming back to the app with it still on screen must not ring again. */
-    fun announce(key: String): Boolean = announced.add(key)
+    /** True once per interruption, across screens: coming back to the app with it still on screen must not ring again. */
+    fun announce(key: String): Boolean = center.announce(key)
 
     fun answer(kind: PushActionKind) {
         val payload = center.current.value ?: return
@@ -75,14 +76,17 @@ class InterruptionViewModel(
         when (kind) {
             PushActionKind.LATER -> {
                 postpone(payload)
+                dismiss(payload)
                 center.postpone(key)
             }
             PushActionKind.GO -> {
                 center.close(key)
+                dismiss(payload)
                 _events.trySend(InterruptionEvent.OpenLink(payload))
             }
             PushActionKind.REPLY -> {
                 center.close(key)
+                dismiss(payload)
                 _events.trySend(InterruptionEvent.OpenChat)
             }
             else -> viewModelScope.launch {
@@ -91,7 +95,10 @@ class InterruptionViewModel(
                 try {
                     when (val outcome = handler.handle(kind, payload)) {
                         is PushOutcome.Retry -> failure.value = key to outcome.message
-                        PushOutcome.Closed, PushOutcome.Postponed, is PushOutcome.Settled -> center.close(key)
+                        PushOutcome.Closed, PushOutcome.Postponed, is PushOutcome.Settled -> {
+                            center.close(key)
+                            dismiss(payload)
+                        }
                     }
                 } finally {
                     busy.value = null

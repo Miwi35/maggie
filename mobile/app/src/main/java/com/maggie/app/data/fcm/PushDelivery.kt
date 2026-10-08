@@ -15,8 +15,9 @@ class PushDelivery(
     private val isForeground: () -> Boolean = ::appIsForeground,
 ) {
 
-    fun deliver(payload: PushPayload) {
-        if (isForeground()) center.offer(payload) else notifier().show(payload)
+    /** [reshow]: the alarm of a « Plus tard » coming back, so the postponement is over. */
+    fun deliver(payload: PushPayload, reshow: Boolean = false) {
+        if (isForeground()) center.offer(payload, reshow) else notifier().show(payload)
     }
 
     private companion object {
