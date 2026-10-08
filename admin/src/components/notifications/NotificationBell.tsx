@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useGetList, useDataProvider, useRedirect } from 'react-admin'
 import IconButton from '@mui/material/IconButton'
 import Badge from '@mui/material/Badge'
@@ -25,6 +25,17 @@ interface Notification {
   createdAt: string
 }
 
+/** What Mercure last told us about each notification, by IRI; `null` is a deletion. */
+type Overlay = Record<string, Notification | null>
+
+const PER_PAGE = 20
+
+/** The IRI: the `id` react-admin's Hydra provider gives a record, and the `@id` of a Mercure payload. */
+function iriOf(payload: Record<string, unknown>): string | null {
+  if (typeof payload['@id'] === 'string') return payload['@id']
+  return typeof payload.id === 'string' && payload.id.startsWith('/') ? payload.id : null
+}
+
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
   const minutes = Math.floor(diff / 60000)
@@ -42,13 +53,61 @@ export const NotificationBell = () => {
   const redirect = useRedirect()
 
   // Use react-admin hook so 401 triggers checkError → auto logout
-  const { data: notifications = [], refetch } = useGetList<Notification>('notifications', {
-    pagination: { page: 1, perPage: 20 },
+  const { data: listed = [], refetch } = useGetList<Notification>('notifications', {
+    pagination: { page: 1, perPage: PER_PAGE },
     sort: { field: 'createdAt', order: 'DESC' },
   })
 
+  // The list is served from Elasticsearch, indexed after the write: a read made
+  // when the Mercure event arrives can still miss the change. What the events
+  // said wins over the list, which stays the source at load and as a fallback.
+  const [overlay, setOverlay] = useState<Overlay>({})
+  const overlayRef = useRef(overlay)
+  const listedRef = useRef(listed)
+  useEffect(() => {
+    listedRef.current = listed
+  })
+
+  // Returns false when the payload cannot stand alone (a differential update of a
+  // notification we have never seen): the caller then falls back to the list.
+  const apply = useCallback((payload: Record<string, unknown>): boolean => {
+    const iri = iriOf(payload)
+    if (!iri) return false
+
+    let next: Notification | null
+    if (payload.deleted === true) {
+      next = null
+    } else {
+      const known = iri in overlayRef.current ? overlayRef.current[iri] : listedRef.current.find((n) => n.id === iri)
+      const merged = { ...known, ...payload, id: iri } as Partial<Notification>
+      if (typeof merged.title !== 'string' || typeof merged.createdAt !== 'string') return false
+      next = merged as Notification
+    }
+
+    overlayRef.current = { ...overlayRef.current, [iri]: next }
+    setOverlay(overlayRef.current)
+    return true
+  }, [])
+
   // Mercure subscription for real-time updates
-  useMercure(NOTIFICATION_TOPICS, () => { refetch() })
+  useMercure(NOTIFICATION_TOPICS, (data) => {
+    try {
+      const payload = JSON.parse(data ?? '')
+      if (payload && typeof payload === 'object' && apply(payload)) return
+    } catch {
+      // Not an event we can read: let the list say.
+    }
+    refetch()
+  })
+
+  const notifications = useMemo(() => {
+    const byId = new Map(listed.map((n) => [n.id, n]))
+    for (const [id, n] of Object.entries(overlay)) {
+      if (n === null) byId.delete(id)
+      else byId.set(id, n)
+    }
+    return [...byId.values()].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0, PER_PAGE)
+  }, [listed, overlay])
 
   const unreadCount = notifications.filter((n) => !n.readAt).length
 
@@ -64,12 +123,12 @@ export const NotificationBell = () => {
     async (notification: Notification) => {
       if (!notification.readAt) {
         try {
-          await dataProvider.update('notifications', {
+          const { data } = await dataProvider.update('notifications', {
             id: notification.id,
             data: { readAt: new Date().toISOString() },
             previousData: notification,
           })
-          refetch()
+          apply(data)
         } catch {
           // Ignore
         }
@@ -80,30 +139,30 @@ export const NotificationBell = () => {
         redirect(notification.relatedEntityIri)
       }
     },
-    [dataProvider, redirect, refetch],
+    [apply, dataProvider, redirect],
   )
 
   const handleMarkAllRead = useCallback(async () => {
     const unread = notifications.filter((n) => !n.readAt)
     for (const n of unread) {
       try {
-        await dataProvider.update('notifications', {
+        const { data } = await dataProvider.update('notifications', {
           id: n.id,
           data: { readAt: new Date().toISOString() },
           previousData: n,
         })
+        apply(data)
       } catch {
         // Ignore
       }
     }
-    refetch()
-  }, [dataProvider, notifications, refetch])
+  }, [apply, dataProvider, notifications])
 
   const open = Boolean(anchorEl)
 
   return (
     <>
-      <IconButton color="inherit" onClick={handleClick}>
+      <IconButton color="inherit" aria-label="Notifications" onClick={handleClick}>
         <Badge badgeContent={unreadCount} color="error">
           <NotificationsIcon />
         </Badge>
