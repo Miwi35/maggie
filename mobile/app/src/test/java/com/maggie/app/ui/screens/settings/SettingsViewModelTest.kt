@@ -2,6 +2,7 @@ package com.maggie.app.ui.screens.settings
 
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.auth.AuthRepository
+import com.maggie.app.data.fcm.PushTokenRegistrar
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
@@ -13,6 +14,7 @@ import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.voice.VoiceManager
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
@@ -41,6 +43,7 @@ class SettingsViewModelTest {
     private lateinit var userPreferenceRepository: UserPreferenceRepository
     private lateinit var agendaRepository: AgendaRepository
     private lateinit var mercureService: MercureService
+    private lateinit var pushTokenRegistrar: PushTokenRegistrar
 
     private val perso = Agenda(id = "a1", name = "Perso", isDefault = true)
     private val concerts = Agenda(id = "a2", name = "Concerts")
@@ -53,6 +56,7 @@ class SettingsViewModelTest {
         userPreferenceRepository = mockk()
         agendaRepository = mockk()
         mercureService = mockk()
+        pushTokenRegistrar = mockk(relaxed = true)
 
         coEvery { apiService.getMe() } returns User(id = "u1")
         coEvery { apiService.getTtsVoices() } returns emptyList()
@@ -76,6 +80,7 @@ class SettingsViewModelTest {
         agendaRepository,
         mercureService,
         mockk<VoiceManager>(relaxed = true),
+        pushTokenRegistrar,
     )
 
     @Test
@@ -145,5 +150,20 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         assertNotNull(viewModel.uiState.value.agendas.firstOrNull { it.isDefault && it.name == "Perso" })
+    }
+
+    @Test
+    fun `logging out removes the push token before the credentials are cleared`() = runTest {
+        coEvery { authRepository.clear() } returns Unit
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.logout()
+        advanceUntilIdle()
+
+        coVerifyOrder {
+            pushTokenRegistrar.unregister()
+            authRepository.clear()
+        }
     }
 }

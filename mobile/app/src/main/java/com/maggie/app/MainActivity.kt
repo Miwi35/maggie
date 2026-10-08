@@ -1,5 +1,6 @@
 package com.maggie.app
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -10,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.fragment.app.FragmentActivity
+import com.maggie.app.data.fcm.PushIntents
 import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.ui.navigation.NavGraph
 import com.maggie.app.ui.theme.MaggieTheme
@@ -22,6 +24,8 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+        openedByPush(intent)
+        intent = PushIntents.withLink(intent)
         enableEdgeToEdge()
         setContent {
             val preference by userPreferenceRepository.preference.collectAsState()
@@ -39,4 +43,13 @@ class MainActivity : FragmentActivity() {
             }
         }
     }
+
+    // Android's own notification fires an intent with the message's data as extras and no
+    // link: it gets one here, so the navigation graph opens the screen the push points at.
+    override fun onNewIntent(intent: Intent) {
+        openedByPush(intent)
+        super.onNewIntent(PushIntents.withLink(intent))
+    }
+
+    private fun openedByPush(intent: Intent) = PushIntents.closeNotificationOf(this, intent)
 }
