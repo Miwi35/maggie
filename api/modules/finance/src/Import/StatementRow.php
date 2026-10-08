@@ -26,6 +26,8 @@ final readonly class StatementRow
          * @var list<string>
          */
         public array $knownAs = [],
+        /** The bank's own reference for the movement, when it gives one (MAG-351). */
+        public ?string $externalId = null,
     ) {
     }
 

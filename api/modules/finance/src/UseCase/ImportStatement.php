@@ -57,26 +57,40 @@ class ImportStatement
         $totalCents = 0;
         $dates = [];
 
+        $referencesInFile = [];
+
         foreach ($rows as $row) {
-            $key = $row->fingerprint();
-            $seenInFile[$key] = ($seenInFile[$key] ?? 0) + 1;
+            // A bank that repeats a reference within one answer repeats the
+            // movement, not a second one.
+            if (null !== $row->externalId && isset($referencesInFile[$row->externalId])) {
+                ++$skipped;
+                $report[] = $this->describe($row, true, null);
+                continue;
+            }
+            if (null !== $row->externalId) {
+                $referencesInFile[$row->externalId] = true;
+            }
 
-            $stored = $this->transactionRepository->findMatching(
-                $account,
-                $row->bookedAt,
-                $row->amountCents,
-                $row->label,
-                $row->knownAs,
-            );
+            $existing = $this->findStored($account, $row, $seenInFile);
 
-            if ($seenInFile[$key] <= \count($stored)) {
+            if (null !== $existing) {
                 ++$skipped;
                 $report[] = $this->describe($row, true, null);
 
+                if ($dryRun) {
+                    continue;
+                }
+
+                // A line stored before the bank's reference was kept learns
+                // it, so the next read recognises it whatever its label says.
+                if (null === $existing->getExternalId() && null !== $row->externalId) {
+                    $existing->setExternalId($row->externalId);
+                    $this->em->flush();
+                }
+
                 // A line stored before the counterparty had a field of its own
                 // learns it when the bank re-sends it.
-                $existing = $stored[$seenInFile[$key] - 1];
-                if (!$dryRun && null === $existing->getCounterpartyKey() && null !== $row->counterpartyName) {
+                if (null === $existing->getCounterpartyKey() && null !== $row->counterpartyName) {
                     if (null !== $existing->setCounterpartyName($row->counterpartyName)->getCounterpartyKey()) {
                         $this->em->flush();
                         $this->broadcaster->broadcast($existing);
@@ -94,6 +108,7 @@ class ImportStatement
             $transaction->setCurrency($row->currency);
             $transaction->setBookedAt($row->bookedAt);
             $transaction->setStatus(TransactionStatus::Spent);
+            $transaction->setExternalId($row->externalId);
             $transaction->setCounterpartyName($row->counterpartyName ?? MerchantExtractor::extract($row->label));
 
             // The rules the user already wrote apply to the history too.
@@ -136,6 +151,44 @@ class ImportStatement
             'totalCents' => $totalCents,
             'rows' => $report,
         ];
+    }
+
+    /**
+     * The stored movement this row is, if any.
+     *
+     * The bank's reference settles it when both sides carry one. Otherwise the
+     * row is matched on date, amount and label, counting: the n-th identical
+     * row of a file is the n-th identical movement stored. A row with a
+     * reference only claims a stored movement that has none — one that has
+     * another is a different movement that happens to look the same.
+     *
+     * @param array<string, int> $seenInFile
+     */
+    private function findStored(Account $account, StatementRow $row, array &$seenInFile): ?Transaction
+    {
+        if (null !== $row->externalId) {
+            $known = $this->transactionRepository->findOneByExternalId($account, $row->externalId);
+            if (null !== $known) {
+                return $known;
+            }
+        }
+
+        $stored = $this->transactionRepository->findMatching(
+            $account,
+            $row->bookedAt,
+            $row->amountCents,
+            $row->label,
+            $row->knownAs,
+        );
+
+        if (null !== $row->externalId) {
+            $stored = array_values(array_filter($stored, static fn (Transaction $t) => null === $t->getExternalId()));
+        }
+
+        $key = $row->fingerprint().(null !== $row->externalId ? '|referenced' : '');
+        $seenInFile[$key] = ($seenInFile[$key] ?? 0) + 1;
+
+        return $stored[$seenInFile[$key] - 1] ?? null;
     }
 
     /**

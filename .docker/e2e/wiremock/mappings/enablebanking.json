@@ -95,10 +95,57 @@
       }
     },
     {
+      "name": "Exchange a renewed consent's code — the same accounts under new uids (MAG-351)",
+      "request": {
+        "method": "POST",
+        "urlPathPattern": "/enablebanking/sessions",
+        "bodyPatterns": [
+          {
+            "matchesJsonPath": "$[?(@.code == 'e2e-renewed-code')]"
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "session_id": "e2e-session-renewed",
+          "access": {
+            "valid_until": "2099-01-01T00:00:00Z"
+          },
+          "accounts": [
+            {
+              "uid": "e2e-account-checking-renewed",
+              "identification_hash": "e2e-hash-checking",
+              "account_id": {
+                "iban": "FR7630001007941234567890185"
+              },
+              "name": "Compte courant Mock",
+              "currency": "EUR",
+              "cash_account_type": "CACC"
+            },
+            {
+              "uid": "e2e-account-savings-renewed",
+              "identification_hash": "e2e-hash-savings",
+              "account_id": {
+                "iban": "FR7630001007941234567890186"
+              },
+              "name": "Livret Mock",
+              "currency": "EUR",
+              "cash_account_type": "SVGS"
+            }
+          ]
+        }
+      },
+      "priority": 1
+    },
+    {
       "name": "Balances for the checking account",
       "request": {
         "method": "GET",
-        "urlPathPattern": "/enablebanking/accounts/e2e-account-checking/balances"
+        "urlPathPattern": "/enablebanking/accounts/e2e-account-checking(-renewed)?/balances"
       },
       "response": {
         "status": 200,
@@ -123,7 +170,7 @@
       "name": "Transactions for the checking account",
       "request": {
         "method": "GET",
-        "urlPathPattern": "/enablebanking/accounts/e2e-account-checking/transactions"
+        "urlPathPattern": "/enablebanking/accounts/e2e-account-checking(-renewed)?/transactions"
       },
       "response": {
         "status": 200,
@@ -183,7 +230,7 @@
       "name": "Balances for the savings account",
       "request": {
         "method": "GET",
-        "urlPathPattern": "/enablebanking/accounts/e2e-account-savings/balances"
+        "urlPathPattern": "/enablebanking/accounts/e2e-account-savings(-renewed)?/balances"
       },
       "response": {
         "status": 200,
@@ -208,7 +255,7 @@
       "name": "Transactions for the savings account — empty, a real case",
       "request": {
         "method": "GET",
-        "urlPathPattern": "/enablebanking/accounts/e2e-account-savings/transactions"
+        "urlPathPattern": "/enablebanking/accounts/e2e-account-savings(-renewed)?/transactions"
       },
       "response": {
         "status": 200,

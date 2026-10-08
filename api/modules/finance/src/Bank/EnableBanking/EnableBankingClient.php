@@ -64,6 +64,29 @@ class EnableBankingClient
         return $this->request('POST', '/sessions', ['json' => ['code' => $code]]);
     }
 
+    /**
+     * What identifies an account at the bank whatever the session: the uid
+     * changes with every consent, this does not (MAG-351). The provider's
+     * identification hash, else a hash of the IBAN — never the IBAN itself,
+     * which has no use here beyond telling accounts apart.
+     *
+     * @param array<string, mixed> $account an entry of a session's accounts
+     */
+    public static function accountKey(array $account): ?string
+    {
+        $hash = $account['identification_hash'] ?? null;
+        if (\is_string($hash) && '' !== trim($hash)) {
+            return trim($hash);
+        }
+
+        $iban = $account['account_id']['iban'] ?? null;
+        if (\is_string($iban) && '' !== trim($iban)) {
+            return 'iban:'.hash('sha256', strtoupper((string) preg_replace('/\s+/', '', $iban)));
+        }
+
+        return null;
+    }
+
     /** @return array<string, mixed> */
     public function getSession(string $sessionId): array
     {

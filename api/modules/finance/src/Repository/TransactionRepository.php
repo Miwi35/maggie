@@ -551,6 +551,19 @@ class TransactionRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /** The movement the bank already sent under this reference, on this account. */
+    public function findOneByExternalId(Account $account, string $externalId): ?Transaction
+    {
+        return $this->createQueryBuilder('t')
+            ->andWhere('t.account = :account')
+            ->andWhere('t.externalId = :externalId')
+            ->setParameter('account', $account->getId(), 'ulid')
+            ->setParameter('externalId', $externalId)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     /**
      * Transactions that have no counterparty yet, oldest first.
      *

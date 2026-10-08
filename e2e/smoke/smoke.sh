@@ -782,6 +782,46 @@ replayed="$(curl -sS -o /dev/null -w '%{redirect_url}' \
 assert_contains "$replayed" 'outcome=unknown' "the same authorization cannot be used twice"
 
 # ---------------------------------------------------------------------------
+step "12b. A renewed consent brings back the same accounts, not copies"
+# ---------------------------------------------------------------------------
+# MAG-351. Enable Banking names the accounts with new uids in every session,
+# and each one used to become a second account holding every movement again.
+# WireMock answers the code `e2e-renewed-code` with the same accounts — same
+# identification, same IBAN — under new uids.
+bank_figures() {
+  "${COMPOSE[@]}" exec -T database psql -U maggie -d maggie_e2e -t -A -c "
+    SELECT (SELECT COUNT(*) FROM account a JOIN \"user\" u ON u.id = a.user_id WHERE u.email = '$SEED_EMAIL'),
+           (SELECT COUNT(*) FROM transaction t JOIN \"user\" u ON u.id = t.user_id WHERE u.email = '$SEED_EMAIL'),
+           (SELECT COALESCE(SUM(t.amount_cents), 0) FROM transaction t JOIN \"user\" u ON u.id = t.user_id
+             WHERE u.email = '$SEED_EMAIL' AND t.booked_at >= '2026-03-01' AND t.booked_at < '2026-04-01')"
+}
+
+"${COMPOSE[@]}" exec -T php bin/console --env=e2e app:finance:sync "$SEED_EMAIL" --write >/dev/null 2>&1 || true
+figures_before="$(bank_figures)"
+
+curl -sS -o /dev/null -X POST "${AUTH[@]}" -H 'Content-Type: application/json' \
+  -d '{"bankName":"Other Mock Bank","country":"FR"}' \
+  "$BASE_URL/api/finance/bank-connections/start"
+renewed_state="$("${COMPOSE[@]}" exec -T database psql -U maggie -d maggie_e2e -t -A \
+  -c "SELECT state FROM bank_connection WHERE bank_name = 'Other Mock Bank' ORDER BY created_at DESC LIMIT 1")"
+renewed_location="$(curl -sS -o /dev/null -w '%{redirect_url}' \
+  "$BASE_URL/api/finance/bank-callback?state=$renewed_state&code=e2e-renewed-code")"
+assert_contains "$renewed_location" 'outcome=connected' "the renewed consent is accepted"
+
+if "${COMPOSE[@]}" exec -T php bin/console --env=e2e app:finance:sync "$SEED_EMAIL" --write >/dev/null 2>&1; then
+  pass "the sync runs on the renewed session"
+else
+  fail "the sync failed on the renewed session — the figures below would prove nothing"
+fi
+
+assert_eq "$figures_before" "$(bank_figures)" \
+  "accounts, movements and the month's total (count|count|cents) are the same after the reconnection"
+assert_eq 'e2e-account-checking-renewed' \
+  "$("${COMPOSE[@]}" exec -T database psql -U maggie -d maggie_e2e -t -A \
+    -c "SELECT external_account_id FROM account WHERE external_key = 'e2e-hash-checking'")" \
+  "the account kept follows the new session"
+
+# ---------------------------------------------------------------------------
 step "13. A CSV statement is imported, and importing it again changes nothing"
 # ---------------------------------------------------------------------------
 # MAG-102. The import has no admin surface yet — MAG-44 is what will give it one
