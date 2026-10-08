@@ -404,7 +404,13 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
       }
       setFollowing(true)
       pinToBottom()
-    }, [open, sidebarTab, searchMode, listNode, pinToBottom, setFollowing])
+    }, [open, sidebarTab, searchMode, pinToBottom, setFollowing])
+
+    // A list that mounts after the open-pin ran (a narrow screen's Drawer) still gets
+    // its pin, unless the user is not following: a jump to a quoted message is not.
+    useLayoutEffect(() => {
+      if (listNode && followingRef.current && !searchMode) pinToBottom()
+    }, [listNode, searchMode, pinToBottom])
 
     // Whatever grows the list — a message, the answer line by line, the history —
     // keeps the end in view while the user has not scrolled up. Instant, never smooth:

@@ -1,5 +1,6 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '@mui/material/styles'
 import type { ComponentProps } from 'react'
 import { ChatWidget } from './ChatWidget'
@@ -149,6 +150,31 @@ describe('ChatWidget scroll (MAG-348)', () => {
     await screen.findByText('Message 30')
 
     expect(atBottom()).toBe(true)
+  })
+
+  test('jumping to a quoted message from the search does not pin the list to the bottom', async () => {
+    const scrollIntoView = vi.fn()
+    Element.prototype.scrollIntoView = scrollIntoView
+    const answer = (body: unknown) => Promise.resolve({ ok: true, json: () => Promise.resolve(body) })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        if (url.includes('/messages/context')) return answer({ messages: thirtyMessages })
+        if (url.includes('/messages/search')) return answer([thirtyMessages[4]])
+        return answer(thirtyMessages)
+      }),
+    )
+    const user = userEvent.setup()
+    await opened()
+
+    await user.click(screen.getByTestId('SearchIcon').closest('button')!)
+    await user.type(screen.getByPlaceholderText('Rechercher...'), 'Message')
+    await waitFor(() => expect(document.querySelector('mark')).not.toBeNull(), { timeout: 2000 })
+    await user.click(document.querySelector('mark')!)
+
+    await screen.findByText('Message 30')
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalled())
+    expect(atBottom()).toBe(false)
   })
 
   test('coming back from Mind lands on the last message', async () => {
