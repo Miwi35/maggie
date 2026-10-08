@@ -7,6 +7,7 @@ namespace Maggie\Cookbook\MessageHandler;
 use Maggie\Cookbook\Entity\Ingredient;
 use Maggie\Cookbook\Message\UpdateIngredientCommand;
 use Maggie\Cookbook\Repository\IngredientRepository;
+use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Enum\ProductCategory;
 use Maggie\Grocery\Enum\Unit;
 use Maggie\Grocery\UseCase\UpdateProduct;
@@ -78,6 +79,18 @@ class UpdateIngredientHandler
             $ingredient->setPackagingSizeUnit(null);
         }
         $ingredient->assertPackagingIsConsistent();
+        if (null !== $command->stockState) {
+            $ingredient->setStockState(Product::parseStockState($command->stockState));
+        }
+        if (null !== $command->restockQuantity) {
+            $ingredient->setRestockQuantity($command->restockQuantity);
+        } elseif ($command->clears('restockQuantity')) {
+            $ingredient->setRestockQuantity(null);
+        }
+        if (null !== $command->autoRestock) {
+            $ingredient->setAutoRestock($command->autoRestock);
+        }
+        $ingredient->assertRestockQuantityIsValid();
 
         $this->updateProduct->execute($ingredient);
 

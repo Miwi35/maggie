@@ -275,4 +275,87 @@ class ProductToolsTest extends KernelTestCase
         $em->clear();
         self::assertSame('g', $em->find(Product::class, $created['product']['id'])->getPackagingSizeUnit()?->value);
     }
+
+    public function testCreateProductIsInStockByDefault(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(($this->manageProducts())('create', name: 'Lessive', category: 'cleaning'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame('in_stock', $data['product']['stockState']);
+        self::assertNull($data['product']['restockQuantity']);
+        self::assertFalse($data['product']['autoRestock']);
+    }
+
+    public function testCreateProductWithItsStockPersistsPublishesAndIndexes(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(($this->manageProducts())('create', name: 'Lessive', category: 'cleaning', stockState: 'low', restockQuantity: 2, autoRestock: true), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(['low', 2, true], [$data['product']['stockState'], $data['product']['restockQuantity'], $data['product']['autoRestock']]);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $stored = $em->getRepository(Product::class)->find($data['product']['id']);
+        self::assertSame(['low', 2, true], [$stored->getStockState()->value, $stored->getRestockQuantity(), $stored->isAutoRestock()]);
+        $this->assertMercureUpdatePublished('/products/');
+        $this->assertElasticsearchIndexDispatched(Product::class);
+    }
+
+    public function testUpdateProductMovesTheStateAndKeepsTheRest(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
+        $created = json_decode(($this->manageProducts())('create', name: 'Riz', category: 'other', restockQuantity: 2, autoRestock: true), true, 512, JSON_THROW_ON_ERROR);
+
+        foreach (['low', 'out', 'in_stock'] as $state) {
+            $data = json_decode(($this->manageProducts())('update', productId: $created['product']['id'], stockState: $state), true, 512, JSON_THROW_ON_ERROR);
+            self::assertSame($state, $data['product']['stockState']);
+            self::assertSame(2, $data['product']['restockQuantity']);
+            self::assertTrue($data['product']['autoRestock']);
+        }
+
+        $this->assertMercureUpdatePublished('/products/');
+        $this->assertElasticsearchIndexDispatched(Product::class);
+    }
+
+    public function testUpdateProductClearEmptiesTheRestockQuantity(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
+        $created = json_decode(($this->manageProducts())('create', name: 'Riz', category: 'other', restockQuantity: 2), true, 512, JSON_THROW_ON_ERROR);
+
+        $data = json_decode(($this->manageProducts())('update', productId: $created['product']['id'], clear: ['restockQuantity']), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNull($em->find(Product::class, $created['product']['id'])->getRestockQuantity());
+    }
+
+    public function testUpdateProductSwitchesTheAutomaticRestockOff(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
+        $created = json_decode(($this->manageProducts())('create', name: 'Riz', category: 'other', autoRestock: true), true, 512, JSON_THROW_ON_ERROR);
+
+        $data = json_decode(($this->manageProducts())('update', productId: $created['product']['id'], autoRestock: false), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertFalse($data['product']['autoRestock']);
+    }
+
+    public function testProductRefusesAnUnknownStateAndANegativeRestockQuantity(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
+
+        $unknown = json_decode(($this->manageProducts())('create', name: 'Riz', category: 'other', stockState: 'plenty'), true, 512, JSON_THROW_ON_ERROR);
+        $negative = json_decode(($this->manageProducts())('create', name: 'Riz', category: 'other', restockQuantity: -1), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertStringContainsString('stock state', $unknown['error']);
+        self::assertStringContainsString('restockQuantity', $negative['error']);
+        self::assertSame([], self::getContainer()->get('doctrine.orm.entity_manager')->getRepository(Product::class)->findAll());
+    }
 }

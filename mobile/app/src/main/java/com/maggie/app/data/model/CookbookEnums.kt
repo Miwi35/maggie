@@ -36,6 +36,14 @@ enum class ProductCategory {
     @SerialName("other") OTHER,
 }
 
+/** What is left of a product at home (MAG-293). */
+@Serializable
+enum class ProductStockState {
+    @SerialName("in_stock") IN_STOCK,
+    @SerialName("low") LOW,
+    @SerialName("out") OUT,
+}
+
 @Serializable
 enum class MealSlot {
     @SerialName("lunch") LUNCH,

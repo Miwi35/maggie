@@ -10,7 +10,7 @@ final readonly class UpdateIngredientCommand
 {
     use ClearsFieldsTrait;
 
-    /** @param list<'defaultUnit'|'ciqualAlimCode'|'kcalPer100g'|'proteinPer100g'|'carbsPer100g'|'fatPer100g'|'packagingUnit'|'packagingSize'|'packagingSizeUnit'> $clearFields */
+    /** @param list<'defaultUnit'|'ciqualAlimCode'|'kcalPer100g'|'proteinPer100g'|'carbsPer100g'|'fatPer100g'|'packagingUnit'|'packagingSize'|'packagingSizeUnit'|'restockQuantity'> $clearFields */
     public function __construct(
         public string $ingredientId,
         public ?string $name = null,
@@ -24,6 +24,9 @@ final readonly class UpdateIngredientCommand
         public ?string $packagingUnit = null,
         public ?float $packagingSize = null,
         public ?string $packagingSizeUnit = null,
+        public ?string $stockState = null,
+        public ?int $restockQuantity = null,
+        public ?bool $autoRestock = null,
         public array $clearFields = [],
     ) {
     }

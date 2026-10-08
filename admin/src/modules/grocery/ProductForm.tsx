@@ -2,6 +2,7 @@ import {
   SimpleForm,
   TextInput,
   NumberInput,
+  BooleanInput,
   SelectInput,
   ReferenceInput,
   AutocompleteInput,
@@ -9,7 +10,7 @@ import {
 } from 'react-admin'
 import Box from '@mui/material/Box'
 import { FormSection } from '../../components/form/FormSection'
-import { CATEGORY_CHOICES, UNIT_CHOICES } from './productChoices'
+import { CATEGORY_CHOICES, STOCK_STATE_CHOICES, UNIT_CHOICES } from './productChoices'
 import { PackagingInputs } from './PackagingInputs'
 
 const formSx = { maxWidth: 680 }
@@ -81,6 +82,37 @@ export const ProductForm = () => (
       label="Se garde (jours)"
       sx={halfSx}
       helperText="Facultatif — sert à proposer le réachat au bon moment."
+    />
+
+    <FormSection
+      title="Ce qu'il m'en reste"
+      description="Sert à ne racheter que ce qui manque vraiment."
+    />
+
+    <Box sx={rowSx}>
+      <SelectInput
+        source="stockState"
+        label="État du stock"
+        choices={STOCK_STATE_CHOICES}
+        defaultValue="in_stock"
+        validate={required()}
+        sx={halfSx}
+      />
+      <NumberInput
+        source="restockQuantity"
+        label="Quantité de réapprovisionnement"
+        min={0}
+        step={1}
+        sx={halfSx}
+        helperText="En conditionnements : 2 paquets de riz, pas 1 000 g."
+      />
+    </Box>
+
+    <BooleanInput
+      source="autoRestock"
+      label="Réapprovisionnement automatique"
+      defaultValue={false}
+      helperText="Quand il manque, il retourne sur la liste de courses sans que vous le demandiez."
     />
   </SimpleForm>
 )

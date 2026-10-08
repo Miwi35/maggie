@@ -19,4 +19,8 @@ data class Product(
     val packagingUnit: CookbookUnit? = null,
     val packagingSize: Float? = null,
     val packagingSizeUnit: CookbookUnit? = null,
+    // What is left at home; restockQuantity is in packagings (rice: 2 packs).
+    val stockState: ProductStockState = ProductStockState.IN_STOCK,
+    val restockQuantity: Int? = null,
+    val autoRestock: Boolean = false,
 )

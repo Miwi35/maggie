@@ -19,6 +19,9 @@ final readonly class CreateIngredientCommand
         public ?string $packagingUnit = null,
         public ?float $packagingSize = null,
         public ?string $packagingSizeUnit = null,
+        public ?string $stockState = null,
+        public ?int $restockQuantity = null,
+        public bool $autoRestock = false,
     ) {
     }
 }

@@ -25,8 +25,10 @@ use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Grocery\Enum\ProductCategory;
+use Maggie\Grocery\Enum\ProductStockState;
 use Maggie\Grocery\Enum\Unit;
 use Maggie\Grocery\Exception\InvalidPackagingException;
+use Maggie\Grocery\Exception\InvalidStockException;
 use Maggie\Grocery\Repository\ProductRepository;
 use Maggie\Grocery\State\CreateProductProcessor;
 use Maggie\Grocery\State\DeleteProductProcessor;
@@ -115,6 +117,29 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
 
     #[ORM\Column(length: 20, nullable: true, enumType: Unit::class)]
     private ?Unit $packagingSizeUnit = null;
+
+    // What is left of it at home. Never null: a product always has a state,
+    // « En stock » until someone says otherwise.
+    #[ORM\Column(length: 20, enumType: ProductStockState::class, options: ['default' => 'in_stock'])]
+    #[IndexedField(type: 'keyword')]
+    private ProductStockState $stockState = ProductStockState::InStock;
+
+    // How many packagings to buy when it runs out (rice: 2 packs).
+    #[ORM\Column(type: 'integer', nullable: true)]
+    #[IndexedField(type: 'integer')]
+    private ?int $restockQuantity = null;
+
+    /**
+     * Whether running out puts it back on the list by itself.
+     *
+     * Named without the `is` on purpose: Symfony serialises `isFoo()` as
+     * `foo`, so a field declared `isAutoRestock` would be `autoRestock` over
+     * REST and `isAutoRestock` on Mercure — the disagreement `isCushion`
+     * already pays for. One spelling, every channel.
+     */
+    #[ORM\Column(name: 'is_auto_restock', type: 'boolean', options: ['default' => false])]
+    #[IndexedField(type: 'boolean')]
+    private bool $autoRestock = false;
 
     public function __construct()
     {
@@ -306,6 +331,61 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
         return $this;
     }
 
+    public function getStockState(): ProductStockState
+    {
+        return $this->stockState;
+    }
+
+    public function setStockState(ProductStockState $stockState): static
+    {
+        $this->stockState = $stockState;
+
+        return $this;
+    }
+
+    /** @throws InvalidStockException */
+    public static function parseStockState(string $value): ProductStockState
+    {
+        return ProductStockState::tryFrom($value)
+            ?? throw new InvalidStockException(sprintf('Unknown stock state "%s". Use in_stock, low or out.', $value));
+    }
+
+    public function getRestockQuantity(): ?int
+    {
+        return $this->restockQuantity;
+    }
+
+    public function setRestockQuantity(?int $restockQuantity): static
+    {
+        $this->restockQuantity = $restockQuantity;
+
+        return $this;
+    }
+
+    public function isAutoRestock(): bool
+    {
+        return $this->autoRestock;
+    }
+
+    public function setAutoRestock(bool $autoRestock): static
+    {
+        $this->autoRestock = $autoRestock;
+
+        return $this;
+    }
+
+    /**
+     * Called by the handlers next to assertPackagingIsConsistent().
+     *
+     * @throws InvalidStockException
+     */
+    public function assertRestockQuantityIsValid(): void
+    {
+        if (null !== $this->restockQuantity && $this->restockQuantity < 0) {
+            throw new InvalidStockException('restockQuantity must not be negative.');
+        }
+    }
+
     /**
      * The handlers call this once every field is applied: the API and the
      * MCP tools share the rule, and a PATCH may set the fields one by one.
@@ -344,6 +424,9 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
             'packagingUnit' => $this->packagingUnit?->value,
             'packagingSize' => $this->packagingSize,
             'packagingSizeUnit' => $this->packagingSizeUnit?->value,
+            'stockState' => $this->stockState->value,
+            'restockQuantity' => $this->restockQuantity,
+            'autoRestock' => $this->autoRestock,
         ];
     }
 
@@ -362,6 +445,9 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
             'packagingUnit' => $this->packagingUnit?->value,
             'packagingSize' => $this->packagingSize,
             'packagingSizeUnit' => $this->packagingSizeUnit?->value,
+            'stockState' => $this->stockState->value,
+            'restockQuantity' => $this->restockQuantity,
+            'autoRestock' => $this->autoRestock,
         ], $changedProperties, ['preferredStore' => 'preferredStoreId', 'fallbackStore' => 'fallbackStoreId']);
     }
 }
