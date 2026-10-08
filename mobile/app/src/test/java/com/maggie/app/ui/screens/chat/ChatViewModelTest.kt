@@ -1144,6 +1144,7 @@ class ChatViewModelTest {
         advanceUntilIdle()
 
         assertEquals("Je supprime l'événement Test validation ?", viewModel.questionFor(held))
+    }
 
     // --- MAG-342: delete a message, and follow the deletion of a thread ---
 
