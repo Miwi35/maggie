@@ -1,10 +1,10 @@
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 
-from sqlalchemy import delete, func, select, text
+from sqlalchemy import delete, func, or_, select, text, update
 
 from app.db.agent_engine import agent_engine, agent_session
-from app.db.models import Message
+from app.db.models import TURN_EXPIRED, TURN_RUNNING, Message
 from app.db.proaction_model import AgentBase
 from app.mercure import topics
 from app.mercure.publisher import MercurePublisher
@@ -36,14 +36,25 @@ class MessageRepository:
         context_id: str | None = None,
         *,
         message_id: str | None = None,
+        client_key: str | None = None,
+        turn_lease_until: datetime | None = None,
+        turn_screen_context: str | None = None,
     ) -> Message:
         """Store a message and publish it on the user's chat topic.
 
         `message_id` lets a streamed answer be stored under the id its stream announced: the
         device that streamed it then recognises the Mercure echo of the same message.
+
+        A `turn_lease_until` says the message opens a turn that is running (MAG-344), and
+        until when its process holds it. `client_key` is the client's idempotency key: a
+        second message of the same user with the same key raises `IntegrityError`.
         """
         async with agent_session() as session:
-            msg = Message(user_id=user_id, role=role, content=content, context_id=context_id)
+            msg = Message(user_id=user_id, role=role, content=content, context_id=context_id, client_key=client_key)
+            if turn_lease_until is not None:
+                msg.turn_status = TURN_RUNNING
+                msg.turn_lease_until = turn_lease_until
+                msg.turn_screen_context = turn_screen_context
             if message_id:
                 msg.id = message_id
             session.add(msg)
@@ -56,6 +67,93 @@ class MessageRepository:
             logger.warning(f"Failed to publish message to Mercure: {e}")
 
         return msg
+
+    async def get(self, message_id: str) -> Message | None:
+        async with agent_session() as session:
+            result = await session.execute(select(Message).where(Message.id == message_id))
+            return result.scalar_one_or_none()
+
+    async def find_by_client_key(self, user_id: str, client_key: str) -> Message | None:
+        """The message this user already sent under this idempotency key, if any."""
+        async with agent_session() as session:
+            result = await session.execute(
+                select(Message).where(Message.user_id == user_id, Message.client_key == client_key)
+            )
+            return result.scalar_one_or_none()
+
+    async def finish_turn(self, message_id: str) -> None:
+        """The turn answering this message is over: it is a message like any other again."""
+        async with agent_session() as session:
+            await session.execute(
+                update(Message)
+                .where(Message.id == message_id, Message.turn_status == TURN_RUNNING)
+                .values(turn_status=None, turn_lease_until=None, turn_screen_context=None)
+            )
+            await session.commit()
+
+    async def extend_lease(self, message_id: str, until: datetime) -> None:
+        async with agent_session() as session:
+            await session.execute(
+                update(Message)
+                .where(Message.id == message_id, Message.turn_status == TURN_RUNNING)
+                .values(turn_lease_until=until)
+            )
+            await session.commit()
+
+    async def release_leases(self, message_ids: list[str]) -> None:
+        """Let go of turns this process was running, so another one takes them up at once."""
+        if not message_ids:
+            return
+        async with agent_session() as session:
+            await session.execute(
+                update(Message)
+                .where(Message.id.in_(message_ids), Message.turn_status == TURN_RUNNING)
+                .values(turn_lease_until=datetime.now(UTC))
+            )
+            await session.commit()
+
+    async def expire_stale_turns(self, older_than: datetime) -> int:
+        """Mark unanswered the messages whose turn was lost and that are too old to answer now."""
+        async with agent_session() as session:
+            result = await session.execute(
+                update(Message)
+                .where(
+                    Message.turn_status == TURN_RUNNING,
+                    Message.created_at < older_than,
+                    or_(Message.turn_lease_until.is_(None), Message.turn_lease_until < datetime.now(UTC)),
+                )
+                .values(turn_status=TURN_EXPIRED, turn_lease_until=None, turn_screen_context=None)
+            )
+            await session.commit()
+            return result.rowcount
+
+    async def claim_resumable_turns(self, since: datetime, lease_until: datetime, limit: int = 20) -> list[Message]:
+        """The messages whose turn was lost, no older than `since`, now leased to the caller.
+
+        Claimed one by one with a conditional update: two agent processes sweeping at the
+        same moment never both get the same message.
+        """
+        now = datetime.now(UTC)
+        lapsed = or_(Message.turn_lease_until.is_(None), Message.turn_lease_until < now)
+        claimed: list[Message] = []
+        async with agent_session() as session:
+            result = await session.execute(
+                select(Message)
+                .where(Message.turn_status == TURN_RUNNING, Message.created_at >= since, lapsed)
+                .order_by(Message.created_at.asc())
+                .limit(limit)
+            )
+            for msg in result.scalars().all():
+                won = await session.execute(
+                    update(Message)
+                    .where(Message.id == msg.id, Message.turn_status == TURN_RUNNING, lapsed)
+                    .values(turn_lease_until=lease_until)
+                    .execution_options(synchronize_session=False)
+                )
+                if won.rowcount:
+                    claimed.append(msg)
+            await session.commit()
+        return claimed
 
     async def find_recent(self, user_id: str, limit: int = 20) -> list[Message]:
         async with agent_session() as session:

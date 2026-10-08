@@ -207,7 +207,8 @@ class TestRoutes:
             response.read()
 
         # Published as it is stored, so the Mercure echo the other clients draw is clean too.
-        mock_msg_repo.create.assert_awaited_with(user_id="test-user", role="user", content="c'est quoi ce produit ?")
+        stored = mock_msg_repo.create.await_args.kwargs
+        assert (stored["role"], stored["content"]) == ("user", "c'est quoi ce produit ?")
         assert mock_streaming.chat_stream.call_args.kwargs["screen_context"] == block
 
     def test_proactions_endpoint_requires_auth(self, client):

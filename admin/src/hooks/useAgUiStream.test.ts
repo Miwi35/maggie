@@ -161,4 +161,21 @@ describe('useAgUiStream', () => {
 
     expect(onError).toHaveBeenCalledWith('Network error')
   })
+
+  test('each message is sent with its own idempotency key', async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => createMockResponse([{ type: 'RUN_FINISHED', runId: 'r1' }]))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => useAgUiStream({}))
+
+    await act(async () => {
+      await result.current.send('un')
+      await result.current.send('deux')
+    })
+
+    const keys = fetchMock.mock.calls.map(([, init]) => JSON.parse(init.body).idempotency_key)
+    expect(keys).toHaveLength(2)
+    expect(keys[0]).toBeTruthy()
+    expect(keys[0]).not.toBe(keys[1])
+  })
 })

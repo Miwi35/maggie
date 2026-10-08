@@ -1,6 +1,7 @@
 """AG-UI streaming gateway for token-by-token chat responses."""
 
 import asyncio
+import hashlib
 import json
 import logging
 import time
@@ -9,6 +10,7 @@ from collections.abc import AsyncGenerator, Coroutine
 from datetime import UTC, datetime
 
 import anthropic
+from sqlalchemy.exc import IntegrityError
 
 from app.config import settings
 from app.db.context_repository import context_repo
@@ -51,6 +53,15 @@ def tool_result_status(result: str) -> str:
     if data.get("status") == PENDING_APPROVAL_STATUS:
         return PENDING_APPROVAL_STATUS
     return "error" if "error" in data else "success"
+
+
+def answer_message_id(user_msg_id: str) -> str:
+    """The id of the answer to a user's message, fixed by the message alone (MAG-344).
+
+    A turn that is taken up again after a restart then stores its answer under the id the
+    first one would have used: the second insert is refused, and the answer exists once.
+    """
+    return hashlib.sha1(f"answer:{user_msg_id}".encode()).hexdigest()[:26]
 
 
 class StreamingGateway:
@@ -175,7 +186,7 @@ class StreamingGateway:
         max_iterations = 5
 
         # Single message ID across all iterations so the frontend sees one message bubble
-        msg_id = uuid.uuid4().hex[:16]
+        msg_id = answer_message_id(user_msg_id)
         text_started = False
 
         for iteration in range(max_iterations):
@@ -377,13 +388,19 @@ class StreamingGateway:
         # Persisted under the id the stream announced, and published like any message: the
         # device that streamed it recognises the echo by that id, the others learn of it.
         if answer:
-            await message_repo.create(
-                user_id=user_id,
-                role="assistant",
-                content=answer,
-                context_id=current_context_id,
-                message_id=msg_id,
-            )
+            try:
+                await message_repo.create(
+                    user_id=user_id,
+                    role="assistant",
+                    content=answer,
+                    context_id=current_context_id,
+                    message_id=msg_id,
+                )
+            except IntegrityError:
+                # A turn taken up again after the first one had already stored its answer.
+                logger.info(f"Answer to {user_msg_id} was already stored: not stored twice")
+                yield {"type": "RUN_FINISHED", "runId": run_id}
+                return
 
             # Both sides of the exchange are now in the database, so this is the one
             # moment the thread's message count is right. Not awaited: nobody is waiting

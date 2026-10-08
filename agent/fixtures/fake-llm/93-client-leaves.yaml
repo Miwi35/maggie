@@ -1,0 +1,16 @@
+# A question whose client leaves before the answer (MAG-344): one tool round, then an answer.
+#
+# The tool round is what gives the journey a window: the client drops the connection
+# after the first event and the answer must be there anyway, stored by the turn that
+# kept running without it.
+name: client-leaves
+description: Read the agenda, then answer a client that is no longer there.
+
+match:
+  user_contains: "je ferme l'app pendant que tu cherches"
+
+turns:
+  - tools:
+      - name: get_upcoming_events
+        input: {days: 7}
+  - text: "J'ai regardé ton agenda pendant que tu étais parti : rien d'urgent."

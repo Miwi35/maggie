@@ -30,11 +30,12 @@ must not cost the user the answer.
 
 import logging
 import re
+from datetime import UTC, datetime
 
 from app.config import settings
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
-from app.db.models import Message
+from app.db.models import TURN_EXPIRED, TURN_RUNNING, Message
 from app.llm.screen_context import attach
 
 logger = logging.getLogger(__name__)
@@ -213,9 +214,18 @@ def _turns(
     screen_context: str | None = None,
 ) -> list[dict]:
     """The rows as Anthropic turns: labelled, merged, and starting on the user."""
+    # A turn taken up again after a restart may have been overtaken: the user retyped the
+    # request and it was answered. Its history stops at its own message, or the model would
+    # be sent a conversation ending on its own answer (MAG-344).
+    if current_message_id is not None:
+        own = next((i for i, row in enumerate(rows) if str(row.id) == str(current_message_id)), None)
+        if own is not None and any(row.role == "assistant" for row in rows[own + 1 :]):
+            rows = rows[: own + 1]
     turns: list[dict] = []
     for row in rows:
         if row.role not in ("user", "assistant") or not row.content:
+            continue
+        if _is_orphan(row, current_message_id):
             continue
 
         content = row.content
@@ -244,6 +254,30 @@ def _turns(
         turns.pop(0)
 
     return turns
+
+
+def _is_orphan(row: Message, current_message_id: str | None) -> bool:
+    """Whether this user message is a request nobody is answering, which the model must not pick up (MAG-344).
+
+    On 7 Oct. a message left without an answer was read back from the history as if it were
+    pending, and executed hours later: a reminder nobody wanted. A message too old to be
+    answered is never part of the conversation again; one whose turn was lost and not yet
+    taken up is left to the turn that will answer it, or this one would answer it too. A turn
+    that is running is the conversation, as before: « et du pain » sent while the first is
+    still being answered.
+    """
+    if row.role != "user" or (current_message_id is not None and str(row.id) == str(current_message_id)):
+        return False
+    if row.turn_status == TURN_EXPIRED:
+        return True
+    if row.turn_status != TURN_RUNNING:
+        return False
+    lease = row.turn_lease_until
+    if lease is None:
+        return True
+    if lease.tzinfo is None:
+        lease = lease.replace(tzinfo=UTC)
+    return lease < datetime.now(UTC)
 
 
 def _append_user(turns: list[dict], message: str) -> None:
