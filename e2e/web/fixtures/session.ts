@@ -40,6 +40,13 @@ export const SEED_USER_EMAIL = 'e2e@maggie.local'
  */
 export const OTHER_USER_EMAIL = 'e2e-other@maggie.local'
 
+/**
+ * The third seeded account: the only one Maggie's interruptions are published
+ * to (MAG-311). An interruption covers every window its user has open, so it
+ * cannot share an account with a journey that clicks at the same time.
+ */
+export const INTERRUPTED_USER_EMAIL = 'e2e-interrupt@maggie.local'
+
 const LOGIN_TOKEN = process.env.E2E_LOGIN_TOKEN ?? 'e2e-login-token'
 
 export interface SeededUser {

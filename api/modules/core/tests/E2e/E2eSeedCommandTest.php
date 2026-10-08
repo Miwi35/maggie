@@ -74,15 +74,17 @@ final class E2eSeedCommandTest extends KernelTestCase
 
         $this->tester->assertCommandIsSuccessful();
 
-        // Two users, and only two. Journeys sign in as e2e@maggie.local; the
+        // Three users, and only three. Journeys sign in as e2e@maggie.local; the
         // second account exists so the web harness can prove a Mercure update
         // published for one user never reaches the other (MAG-97), and is also
         // the shopper of the grocery journeys, which need a list nobody else
-        // writes to (MAG-101 — see 10-core.yaml). A third would mean somebody
-        // added an account without saying why.
-        self::assertSame(2, $this->rowsOf(User::class));
+        // writes to (MAG-101 — see 10-core.yaml). The third is the only one
+        // Maggie's interruptions are published to (MAG-311). A fourth would
+        // mean somebody added an account without saying why.
+        self::assertSame(3, $this->rowsOf(User::class));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-other@maggie.local']));
+        self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-interrupt@maggie.local']));
 
         // Five: the signed-in user's four, and the neighbour's one. An event
         // belongs to a user through its agenda, so the neighbour needs one of
@@ -246,11 +248,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         $stray->setName('Stray');
         $this->entityManager()->persist($stray);
         $this->entityManager()->flush();
-        self::assertSame(3, $this->rowsOf(User::class));
+        self::assertSame(4, $this->rowsOf(User::class));
 
         $this->seed();
 
-        self::assertSame(2, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
+        self::assertSame(3, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
     }
 
     public function testDatesFollowTheAnchor(): void

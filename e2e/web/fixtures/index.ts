@@ -1,11 +1,18 @@
 import { test as base, expect } from '@playwright/test'
-import type { APIRequestContext, BrowserContext, Page } from '@playwright/test'
-import { OTHER_USER_EMAIL, SEED_USER_EMAIL, signIn, storageStateOf } from './session.js'
+import type {
+  APIRequestContext,
+  Browser,
+  BrowserContext,
+  BrowserContextOptions,
+  Page,
+  PlaywrightWorkerArgs,
+} from '@playwright/test'
+import { INTERRUPTED_USER_EMAIL, OTHER_USER_EMAIL, SEED_USER_EMAIL, signIn, storageStateOf } from './session.js'
 import type { Session } from './session.js'
 import { pinClock } from './clock.js'
 
 export { expect }
-export { SEED_USER_EMAIL, OTHER_USER_EMAIL } from './session.js'
+export { SEED_USER_EMAIL, OTHER_USER_EMAIL, INTERRUPTED_USER_EMAIL } from './session.js'
 export type { Session, SeededUser } from './session.js'
 export { e2eNow, parisDay, parisTime } from './clock.js'
 export { seedId, seedAnchorDate, seedDate, seedManifest } from './manifest.js'
@@ -68,6 +75,16 @@ export interface MaggieFixtures {
    */
   otherUser: OtherUser
   /**
+   * The third seeded account, which owns Maggie's interruptions (MAG-311).
+   *
+   * An interruption covers the whole screen of every window its user has open,
+   * and the deliveries the journey publishes are addressed to the user, not to
+   * a test. On any account another file drives at the same time, they pop over
+   * that file's clicks. So the interruption journeys sign in here, and nothing
+   * else does.
+   */
+  interruptedUser: OtherUser
+  /**
    * Two windows of the same signed-in user — the "two tabs" check.
    *
    * Two *windows*, not two tabs of one context, and the difference is not
@@ -126,6 +143,67 @@ async function isolateFromInternet(context: BrowserContext, baseURL: string): Pr
   await pinClock(context)
 }
 
+/** What a second account's fixture needs from Playwright. */
+interface UserDeps {
+  playwright: PlaywrightWorkerArgs['playwright']
+  browser: Browser
+  baseURL: string | undefined
+  contextOptions: BrowserContextOptions
+}
+
+async function useSignedInUser(
+  email: string,
+  { playwright, browser, baseURL, contextOptions }: UserDeps,
+  use: (user: OtherUser) => Promise<void>,
+): Promise<void> {
+  const url = requireBaseURL(baseURL)
+  const session = await sessionFor(url, email)
+
+  const signedIn = async (): Promise<BrowserContext> => {
+    // `contextOptions` carries the project's own settings — viewport, device,
+    // locale, timezone. A bare `browser.newContext()` would silently give
+    // this user a 1280x720 desktop on the `phone` project.
+    const context = await browser.newContext({
+      ...contextOptions,
+      storageState: storageStateOf(url, session),
+    })
+    await isolateFromInternet(context, url)
+
+    return context
+  }
+
+  const context = await signedIn()
+  const page = await context.newPage()
+  const api = await playwright.request.newContext({
+    baseURL,
+    extraHTTPHeaders: {
+      Authorization: `Bearer ${session.token}`,
+      Accept: 'application/ld+json',
+    },
+  })
+
+  // An array rather than a nullable, like `pageWithToken` below: TypeScript
+  // does not track an assignment made inside the closure, so a `let … | null`
+  // narrows to `never` at the teardown and will not compile.
+  const extra: BrowserContext[] = []
+  const windows: Page[] = []
+  const secondWindow = async (): Promise<Page> => {
+    if (0 === windows.length) {
+      const second = await signedIn()
+      extra.push(second)
+      windows.push(await second.newPage())
+    }
+
+    return windows[0]
+  }
+
+  await use({ session, context, page, api, secondWindow })
+
+  await api.dispose()
+  await Promise.all(extra.map((spare) => spare.close()))
+  await context.close()
+}
+
 export const test = base.extend<MaggieFixtures>({
   // Overrides Playwright's own option: every test starts signed in. A test that
   // wants the login page uses the `anonymousPage` fixture instead.
@@ -156,52 +234,11 @@ export const test = base.extend<MaggieFixtures>({
   },
 
   otherUser: async ({ playwright, browser, baseURL, contextOptions }, use) => {
-    const url = requireBaseURL(baseURL)
-    const session = await sessionFor(url, OTHER_USER_EMAIL)
+    await useSignedInUser(OTHER_USER_EMAIL, { playwright, browser, baseURL, contextOptions }, use)
+  },
 
-    const signedIn = async (): Promise<BrowserContext> => {
-      // `contextOptions` carries the project's own settings — viewport, device,
-      // locale, timezone. A bare `browser.newContext()` would silently give
-      // this user a 1280x720 desktop on the `phone` project.
-      const context = await browser.newContext({
-        ...contextOptions,
-        storageState: storageStateOf(url, session),
-      })
-      await isolateFromInternet(context, url)
-
-      return context
-    }
-
-    const context = await signedIn()
-    const page = await context.newPage()
-    const api = await playwright.request.newContext({
-      baseURL,
-      extraHTTPHeaders: {
-        Authorization: `Bearer ${session.token}`,
-        Accept: 'application/ld+json',
-      },
-    })
-
-    // An array rather than a nullable, like `pageWithToken` below: TypeScript
-    // does not track an assignment made inside the closure, so a `let … | null`
-    // narrows to `never` at the teardown and will not compile.
-    const extra: BrowserContext[] = []
-    const windows: Page[] = []
-    const secondWindow = async (): Promise<Page> => {
-      if (0 === windows.length) {
-        const second = await signedIn()
-        extra.push(second)
-        windows.push(await second.newPage())
-      }
-
-      return windows[0]
-    }
-
-    await use({ session, context, page, api, secondWindow })
-
-    await api.dispose()
-    await Promise.all(extra.map((spare) => spare.close()))
-    await context.close()
+  interruptedUser: async ({ playwright, browser, baseURL, contextOptions }, use) => {
+    await useSignedInUser(INTERRUPTED_USER_EMAIL, { playwright, browser, baseURL, contextOptions }, use)
   },
 
   twoWindows: async ({ browser, baseURL, contextOptions, page }, use) => {

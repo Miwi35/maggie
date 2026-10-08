@@ -13,10 +13,10 @@ import { openSubscribed, publishOnHub } from '../helpers/mercure.js'
  * API publish, sent here straight on the hub — the journey is about what the
  * admin does with them.
  *
- * It runs as the second account, serially. An interruption covers the whole
+ * It runs as the third account, serially. An interruption covers the whole
  * screen of every window the user has open, and these deliveries are published
- * to the user, not to a test: on the seeded owner's topics they would pop up
- * over the journeys running beside this file (and over each other).
+ * to the user, not to a test: on an account another file drives they would pop
+ * up over that file's clicks (and over each other's).
  */
 
 test.describe.configure({ mode: 'serial', retries: 0 })
@@ -35,8 +35,8 @@ const proaction = (userId: string, id: string) => ({
   completedAt: '2026-10-07T18:00:01+00:00',
 })
 
-test('a proaction that completes interrupts the open admin, and « Plus tard » closes it', async ({ otherUser }) => {
-  const { page, session } = otherUser
+test('a proaction that completes interrupts the open admin, and « Plus tard » closes it', async ({ interruptedUser }) => {
+  const { page, session } = interruptedUser
   const dashboard = new DashboardPage(page)
   await openSubscribed(page, () => dashboard.open(), `/proactions/${session.user.id}`)
   // An open conversation already shows what Maggie says: nothing to interrupt.
@@ -53,8 +53,8 @@ test('a proaction that completes interrupts the open admin, and « Plus tard » 
   await expect(interruption).toBeHidden()
 })
 
-test('Esc is « Plus tard »', async ({ otherUser }) => {
-  const { page, session } = otherUser
+test('Esc is « Plus tard »', async ({ interruptedUser }) => {
+  const { page, session } = interruptedUser
   const dashboard = new DashboardPage(page)
   await openSubscribed(page, () => dashboard.open(), `/proactions/${session.user.id}`)
   // An open conversation already shows what Maggie says: nothing to interrupt.
@@ -80,8 +80,8 @@ const notification = (id: string, title: string, overrides: Record<string, unkno
   ...overrides,
 })
 
-test('an event reminder interrupts the open admin, and « Plus tard » closes it', async ({ otherUser }) => {
-  const { page, session } = otherUser
+test('an event reminder interrupts the open admin, and « Plus tard » closes it', async ({ interruptedUser }) => {
+  const { page, session } = interruptedUser
   const dashboard = new DashboardPage(page)
   const topic = `/users/${session.user.id}/api/notifications/e2e-reminder-1`
   await openSubscribed(page, () => dashboard.open(), `/proactions/${session.user.id}`)
@@ -96,8 +96,8 @@ test('an event reminder interrupts the open admin, and « Plus tard » closes it
   await expect(interruption).toBeHidden()
 })
 
-test('a notification created by a proaction interrupts, even with the chat open', async ({ otherUser }) => {
-  const { page, session } = otherUser
+test('a notification created by a proaction interrupts, even with the chat open', async ({ interruptedUser }) => {
+  const { page, session } = interruptedUser
   const dashboard = new DashboardPage(page)
   await openSubscribed(page, () => dashboard.open(), `/proactions/${session.user.id}`)
   // The open chat shows messages, not notifications: it does not spare this one.
@@ -116,8 +116,8 @@ test('a notification created by a proaction interrupts, even with the chat open'
   await expect(interruption).toBeHidden()
 })
 
-test('three notifications arriving together pass one after the other, never twice', async ({ otherUser }) => {
-  const { page, session } = otherUser
+test('three notifications arriving together pass one after the other, never twice', async ({ interruptedUser }) => {
+  const { page, session } = interruptedUser
   const dashboard = new DashboardPage(page)
   await openSubscribed(page, () => dashboard.open(), `/proactions/${session.user.id}`)
   await new ChatPanel(page).ensureClosed()
@@ -140,8 +140,8 @@ test('three notifications arriving together pass one after the other, never twic
   await expect(interruption).toBeHidden()
 })
 
-test('an action waiting for the user is asked with Autoriser and Refuser', async ({ otherUser }) => {
-  const { page, session } = otherUser
+test('an action waiting for the user is asked with Autoriser and Refuser', async ({ interruptedUser }) => {
+  const { page, session } = interruptedUser
   const dashboard = new DashboardPage(page)
   await page.route('**/agent/approvals/e2e-approval-1/approve', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }),
