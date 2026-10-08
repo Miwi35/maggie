@@ -464,6 +464,7 @@ class GroceryViewModel(
         _uiState.value = _uiState.value.copy(
             pendingFinishItems = remaining,
             pendingFinishStoreName = if (remaining.isEmpty()) null else _uiState.value.pendingFinishStoreName,
+            pendingFinishRestockedCount = if (remaining.isEmpty()) 0 else _uiState.value.pendingFinishRestockedCount,
         )
     }
 
