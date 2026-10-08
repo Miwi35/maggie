@@ -1,0 +1,22 @@
+# Today's date comes from the prompt, not from the history (MAG-349). On 8 Oct. Maggie answered
+# « jeudi 2 octobre » because the date line was ISO and an older message in the history said
+# « demain, jeudi 2 octobre ». The line now reads « Nous sommes le jeudi 8 octobre 2026 … » and
+# past days are dated in the history; this is what would catch the real model drifting again.
+name: quel-jour-sommes-nous
+description: Today's date is the one of the prompt, then an agenda question goes through the agenda.
+channel: chat
+
+steps:
+  - user_message: "Quel jour sommes-nous ?"
+    forbidden_tools: [create_event]
+    expected_behavior: >
+      Elle donne le jour de la semaine, le quantième et le mois du jour courant tels
+      qu'ils figurent dans la ligne de date du prompt, en une phrase, sans les
+      contredire et sans reprendre une date citée plus tôt dans la conversation.
+
+  - user_message: "Et quand est-ce que je vois Alex ?"
+    expected_tools: [get_upcoming_events]
+    expected_absent: ["je n'ai pas accès", "je ne peux pas accéder"]
+    expected_behavior: >
+      Elle consulte l'agenda avant de répondre, puis donne le jour et l'heure du
+      prochain rendez-vous avec Alex d'après ce que l'agenda a renvoyé, pas de mémoire.

@@ -227,6 +227,7 @@ class LLMGateway:
             fallback_message=message if exclude_message_id else None,
             current_message_id=exclude_message_id,
             screen_context=screen_context,
+            tz=await resolve_user_timezone(user_id),
         )
 
         # Get all tools including proaction tools (so user can schedule reminders from chat);

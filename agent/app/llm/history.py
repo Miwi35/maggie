@@ -31,12 +31,14 @@ must not cost the user the answer.
 import logging
 import re
 from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
 
 from app.config import settings
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
 from app.db.models import TURN_EXPIRED, TURN_RUNNING, Message
 from app.llm.screen_context import attach
+from app.personality.engine import TZ_PARIS, french_date
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +58,22 @@ MAX_LABEL_CHARS = 120
 
 def _prefix(label: str | None) -> str:
     return f"[fil « {label} »] " if label else UNKNOWN_THREAD
+
+
+def _now(tz: ZoneInfo) -> datetime:
+    return datetime.now(tz)
+
+
+def _day_marker(day: datetime, today: datetime) -> str:
+    """The line that dates the messages after it (MAG-349): « — le mardi 6 octobre — ».
+
+    On 8 Oct. Maggie read « demain vendredi 3 octobre », written on the 2nd, as tomorrow.
+    Back on today after a past day, it says so: the messages that follow are not under the
+    date above them any more.
+    """
+    if day.date() == today.date():
+        return f"— aujourd'hui, {french_date(day, with_year=False)} —\n"
+    return f"— le {french_date(day, with_year=day.year != today.year)} —\n"
 
 
 def strip_thread_label(text: str) -> str:
@@ -93,6 +111,7 @@ async def build_history(
     fallback_message: str | None = None,
     current_message_id: str | None = None,
     screen_context: str | None = None,
+    tz: ZoneInfo | None = None,
 ) -> list[dict]:
     """The `messages` list to send, for a message already routed into `context_id`.
 
@@ -119,6 +138,9 @@ async def build_history(
     where it rejoins the conversation: on the turn being answered, and on that one only.
     It is deliberately not stored — the message is what every client displays — so this
     function is the single place the model's copy differs from the user's.
+
+    `tz` is the user's timezone: a user message written on another day than today's opens
+    with that day's date (MAG-349), counted in it. Paris when not given.
     """
     try:
         rows = await _rows(user_id, context_id)
@@ -137,9 +159,9 @@ async def build_history(
         except Exception as exc:
             logger.warning(f"Could not name the threads the history borrows from: {exc}")
 
-    turns = _turns(rows, context_id, labels, current_message_id, screen_context)
+    turns = _turns(rows, context_id, labels, current_message_id, screen_context, tz or TZ_PARIS)
     if pending_message:
-        _append_user(turns, pending_message)
+        _append_user(turns, _dated_today(rows, pending_message, tz or TZ_PARIS))
     # The floor under a history that would not load is then the whole conversation, so the
     # screen has to come with it: without this the one turn the model gets is blind.
     if not turns and fallback_message:
@@ -212,8 +234,9 @@ def _turns(
     labels: dict[str, str],
     current_message_id: str | None,
     screen_context: str | None = None,
+    tz: ZoneInfo = TZ_PARIS,
 ) -> list[dict]:
-    """The rows as Anthropic turns: labelled, merged, and starting on the user."""
+    """The rows as Anthropic turns: dated, labelled, merged, and starting on the user."""
     # A turn taken up again after a restart may have been overtaken: the user retyped the
     # request and it was answered. Its history stops at its own message, or the model would
     # be sent a conversation ending on its own answer (MAG-344).
@@ -222,6 +245,8 @@ def _turns(
         if own is not None and any(row.role == "assistant" for row in rows[own + 1 :]):
             rows = rows[: own + 1]
     turns: list[dict] = []
+    today = _now(tz)
+    announced: datetime | None = None
     for row in rows:
         if row.role not in ("user", "assistant") or not row.content:
             continue
@@ -238,6 +263,15 @@ def _turns(
         # and the follow-up question is about the answer, not about the page.
         if screen_context and current_message_id is not None and str(row.id) == str(current_message_id):
             content = attach(content, screen_context)
+        # Only the user's side again: an answer opening on « — le mardi 6 octobre — » would
+        # be copied the way the thread label was. The question that opens the day dates it.
+        if row.role == "user":
+            day = _local(row.created_at, tz)
+            if (announced is None and day.date() != today.date()) or (
+                announced is not None and day.date() != announced.date()
+            ):
+                content = _day_marker(day, today) + content
+            announced = day
 
         # The API refuses two turns of the same role in a row, and a thread does get them:
         # a proaction arrives unprompted between two of Maggie's answers, and a user sends
@@ -254,6 +288,21 @@ def _turns(
         turns.pop(0)
 
     return turns
+
+
+def _dated_today(rows: list[Message], message: str, tz: ZoneInfo) -> str:
+    """`message`, opened with today's marker when the last user message above it is from another day."""
+    last = next((row for row in reversed(rows) if row.role == "user" and row.content), None)
+    today = _now(tz)
+    if last is not None and _local(last.created_at, tz).date() != today.date():
+        return _day_marker(today, today) + message
+    return message
+
+
+def _local(moment: datetime, tz: ZoneInfo) -> datetime:
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=UTC)
+    return moment.astimezone(tz)
 
 
 def _is_orphan(row: Message, current_message_id: str | None) -> bool:

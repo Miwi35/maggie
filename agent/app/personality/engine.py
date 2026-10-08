@@ -12,9 +12,30 @@ logger = logging.getLogger(__name__)
 DEFAULT_CONFIG_PATH = Path(__file__).parent / "default.yaml"
 TZ_PARIS = ZoneInfo("Europe/Paris")
 DAYS_FR = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+MONTHS_FR = [
+    "janvier",
+    "février",
+    "mars",
+    "avril",
+    "mai",
+    "juin",
+    "juillet",
+    "août",
+    "septembre",
+    "octobre",
+    "novembre",
+    "décembre",
+]
 
 # Fields editable via the API (system_prompt is a hardcoded template)
 EDITABLE_FIELDS = ("name", "language", "backstory")
+
+
+def french_date(moment: datetime, *, with_year: bool = True) -> str:
+    """« jeudi 8 octobre 2026 »: the date as it is said, in the zone `moment` is already in."""
+    day = "1er" if moment.day == 1 else str(moment.day)
+    date = f"{DAYS_FR[moment.weekday()]} {day} {MONTHS_FR[moment.month - 1]}"
+    return f"{date} {moment.year}" if with_year else date
 
 
 def current_datetime_line(now: datetime | None = None, tz: ZoneInfo | None = None) -> str:
@@ -22,13 +43,18 @@ def current_datetime_line(now: datetime | None = None, tz: ZoneInfo | None = Non
 
     Kept out of the cached prompt prefix: it changes every minute. The zone and its offset are said so that
     « ici » has a meaning for the date_time tool and for anyone reading the prompt across a clock change.
+
+    The date comes in full first, the ISO one after it for the tools (MAG-349): given only « jeudi 2026-10-08 »,
+    the model kept the weekday and replaced the rest with the dates written in the history.
     """
     tz = tz or TZ_PARIS
     now = (now or datetime.now(tz)).astimezone(tz)
     offset = now.strftime("%z")
     zone = f"{tz.key}, UTC{offset[:3]}:{offset[3:]}"
-    day = f"{DAYS_FR[now.weekday()]} {now.strftime('%Y-%m-%d')}"
-    return f"Nous sommes le {day}, il est {now.strftime('%Hh%M')} ({zone})."
+    return (
+        f"Nous sommes le {french_date(now)} ({now.strftime('%Y-%m-%d')}), "
+        f"il est {now.hour} h {now.strftime('%M')} ({zone})."
+    )
 
 
 def _elapsed(gap: timedelta) -> str:

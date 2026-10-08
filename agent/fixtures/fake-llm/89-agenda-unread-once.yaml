@@ -1,0 +1,18 @@
+# An agenda question answered from memory, then from the agenda (MAG-349).
+#
+# The production failure, scripted: « Quand est-ce que je vois Julie ? », and the model
+# answers « demain, vendredi 3 octobre » with no tool call — the event was that evening.
+# The claim guard sends it back once, the model reads the agenda, and turn 2 is only
+# reachable through that relaunch, a list of blocks that counts as a round of the loop.
+name: agenda-unread-once
+description: A date cited with no agenda reading — sent back once, then read from get_upcoming_events.
+
+match:
+  user_matches: "je vois Julie"
+
+turns:
+  - text: "Demain, vendredi 3 octobre, de 19 h à minuit à Rennes."
+  - tools:
+      - name: get_upcoming_events
+        input: {days: 7}
+  - text: "Vous voyez Julie ce soir à 19 h : « Soirée à Rennes avec Julie », à Rennes."

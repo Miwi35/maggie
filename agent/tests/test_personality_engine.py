@@ -6,7 +6,7 @@ import pytest
 import yaml
 from zoneinfo import ZoneInfo
 
-from app.personality.engine import DAYS_FR, TZ_PARIS, PersonalityEngine, current_datetime_line, last_exchange_line
+from app.personality.engine import DAYS_FR, TZ_PARIS, PersonalityEngine, current_datetime_line, french_date, last_exchange_line
 
 
 @pytest.fixture
@@ -116,28 +116,47 @@ class TestPersonalityEngine:
         """The date line gives the weekday, the date and the hour in Paris."""
         now = datetime.now(TZ_PARIS)
         line = current_datetime_line()
-        assert line.startswith(f"Nous sommes le {DAYS_FR[now.weekday()]} {now.strftime('%Y-%m-%d')}")
+        assert line.startswith(f"Nous sommes le {french_date(now)} ({now.strftime('%Y-%m-%d')}), il est ")
 
     def test_current_datetime_line_is_to_the_minute(self):
         """18:42 UTC is 20:42 in Paris in summer: minutes, not just the hour."""
         now = datetime(2026, 7, 1, 18, 42, tzinfo=UTC)
         assert current_datetime_line(now) == (
-            "Nous sommes le mercredi 2026-07-01, il est 20h42 (Europe/Paris, UTC+02:00)."
+            "Nous sommes le mercredi 1er juillet 2026 (2026-07-01), il est 20 h 42 (Europe/Paris, UTC+02:00)."
         )
 
     def test_current_datetime_line_pads_the_minutes(self):
         now = datetime(2026, 1, 5, 8, 5, tzinfo=TZ_PARIS)
-        assert current_datetime_line(now).endswith("il est 08h05 (Europe/Paris, UTC+01:00).")
+        assert current_datetime_line(now).endswith("il est 8 h 05 (Europe/Paris, UTC+01:00).")
 
     def test_current_datetime_line_follows_the_users_timezone(self):
         """The same instant reads differently for a user in Fort-de-France: other hour, other offset, no summer time."""
         now = datetime(2026, 7, 1, 23, 30, tzinfo=UTC)
         line = current_datetime_line(now, ZoneInfo("America/Martinique"))
-        assert line == "Nous sommes le mercredi 2026-07-01, il est 19h30 (America/Martinique, UTC-04:00)."
+        assert line == "Nous sommes le mercredi 1er juillet 2026 (2026-07-01), il est 19 h 30 (America/Martinique, UTC-04:00)."
 
     def test_current_datetime_line_changes_day_with_the_timezone(self):
         now = datetime(2026, 7, 1, 23, 30, tzinfo=UTC)
-        assert current_datetime_line(now, ZoneInfo("Asia/Tokyo")).startswith("Nous sommes le jeudi 2026-07-02, il est 08h30")
+        assert current_datetime_line(now, ZoneInfo("Asia/Tokyo")).startswith(
+            "Nous sommes le jeudi 2 juillet 2026 (2026-07-02), il est 8 h 30"
+        )
+
+    def test_current_datetime_line_spells_the_date_out_before_the_iso_one(self):
+        """8 Oct. (MAG-349): given only « jeudi 2026-10-08 », the model kept the weekday and
+        made up « jeudi 2 octobre » from the dates written in the history. The date in full
+        comes first; the ISO one stays for the tools."""
+        now = datetime(2026, 10, 8, 11, 45, tzinfo=UTC)
+        assert current_datetime_line(now) == (
+            "Nous sommes le jeudi 8 octobre 2026 (2026-10-08), il est 13 h 45 (Europe/Paris, UTC+02:00)."
+        )
+
+    def test_the_first_of_the_month_is_the_1er(self):
+        now = datetime(2026, 11, 1, 9, 0, tzinfo=TZ_PARIS)
+        assert current_datetime_line(now).startswith("Nous sommes le dimanche 1er novembre 2026 (2026-11-01)")
+
+    def test_the_date_in_full_is_one_function(self):
+        assert french_date(datetime(2026, 2, 3, 9, 0, tzinfo=TZ_PARIS)) == "mardi 3 février 2026"
+        assert french_date(datetime(2026, 12, 31, 9, 0, tzinfo=TZ_PARIS), with_year=False) == "jeudi 31 décembre"
 
     @pytest.mark.asyncio
     async def test_default_prompt_has_no_date(self):
@@ -150,6 +169,20 @@ class TestPersonalityEngine:
 
         assert "Nous sommes le" not in prompt
         assert "Cap summary" in prompt
+
+    @pytest.mark.asyncio
+    async def test_the_shipped_prompt_sends_agenda_questions_to_the_agenda(self):
+        """The half of MAG-349 that lives in the prompt: no fake LLM can read it, so it is pinned here."""
+        engine = PersonalityEngine()
+
+        with patch("app.personality.engine.personality_repo") as mock_repo:
+            mock_repo.get = AsyncMock(return_value=None)
+            prompt = await engine.get_system_prompt("user-1")
+
+        assert "get_events_by_date" in prompt and "get_upcoming_events" in prompt
+        assert "de mémoire ni d'après l'historique" in prompt
+        assert "— le mardi 6 octobre —" in prompt
+        assert "search_memory" in prompt and "n'en invente jamais" in prompt
 
     @pytest.mark.asyncio
     async def test_the_shipped_prompt_tells_her_to_file_a_tone_preference(self):

@@ -16,7 +16,7 @@ from app.config import settings
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
 from app.llm.capabilities import generate_capability_summary
-from app.llm.claim_guard import ClaimGuard, Verdict
+from app.llm.claim_guard import ClaimGuard, Verdict, question_of
 from app.llm.client import create_llm_client, llm_configured
 from app.llm.context_summary import context_summarizer
 from app.llm.contexts import active_contexts_section, route_message
@@ -160,6 +160,7 @@ class StreamingGateway:
             fallback_message=message,
             current_message_id=user_msg_id,
             screen_context=screen_context,
+            tz=await resolve_user_timezone(user_id),
         )
 
         # Get tools (contexts are managed by the gateway, not by Claude)
@@ -176,7 +177,7 @@ class StreamingGateway:
         # rather than held back. A relaunch replaces it with the next step's text, like any
         # intermediate step (MAG-229), and a second failure restarts the bubble on the
         # guard's `honest_answer()` — the only text then stored.
-        guard = ClaimGuard(tools)
+        guard = ClaimGuard(tools, question_of(messages))
 
         # What is stored, shown and read aloud is the last step's text alone: the steps
         # before a tool call are the model thinking out loud (announcements, errors, retries),
