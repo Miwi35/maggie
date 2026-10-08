@@ -7,6 +7,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
 import io.mockk.mockk
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -18,7 +19,7 @@ import org.junit.runner.RunWith
 class PushActionHandlerTest {
 
     private val api = mockk<MaggieApiService>(relaxed = true)
-    private val handler = PushActionHandler(api)
+    private val handler = PushActionHandler(api, replyBudgetMs = 200)
 
     private fun payload(type: String = "reminder", approvalId: String? = null) = PushPayload(
         notificationId = "n-1",
@@ -127,5 +128,45 @@ class PushActionHandlerTest {
         val outcome = handler.handle(PushActionKind.DONE, payload("task_due"))
 
         assertTrue(outcome is PushOutcome.Retry)
+    }
+
+    @Test
+    fun `a reply that cannot be sent comes back with its text so it is not lost`() = runBlocking {
+        coEvery { api.sendChat(any(), any(), any()) } throws java.io.IOException("offline")
+
+        val outcome = handler.handle(PushActionKind.REPLY, payload("proaction"), reply = "Oui, merci")
+
+        assertTrue(outcome is PushOutcome.Retry)
+        assertTrue((outcome as PushOutcome.Retry).message.contains("Oui, merci"))
+    }
+
+    @Test
+    fun `a reply Maggie is still answering closes the notification instead of asking to send it twice`() = runBlocking {
+        coEvery { api.sendChat(any(), any(), any()) } coAnswers {
+            delay(1_000)
+            mockk(relaxed = true)
+        }
+
+        val outcome = handler.handle(PushActionKind.REPLY, payload("proaction"), reply = "Oui, merci")
+
+        assertEquals(PushOutcome.Closed, outcome)
+        coVerify(exactly = 1) { api.sendChat("Oui, merci", any(), any()) }
+    }
+
+    @Test
+    fun `a slow reply that ends up failing tells the notification afterwards`() = runBlocking {
+        coEvery { api.sendChat(any(), any(), any()) } coAnswers {
+            delay(500)
+            throw java.io.IOException("offline")
+        }
+        val late = mutableListOf<PushOutcome.Retry>()
+
+        val outcome = handler.handle(PushActionKind.REPLY, payload("proaction"), reply = "Oui, merci") { late += it }
+
+        assertEquals(PushOutcome.Closed, outcome)
+        val deadline = System.currentTimeMillis() + 3_000
+        while (late.isEmpty() && System.currentTimeMillis() < deadline) delay(20)
+        assertEquals(1, late.size)
+        assertTrue(late.single().message.contains("Oui, merci"))
     }
 }

@@ -4,6 +4,12 @@ import android.util.Log
 import com.maggie.app.data.api.ApprovalDecisionException
 import com.maggie.app.data.api.MaggieApiService
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** What the notification becomes once a button has been pressed. */
 sealed interface PushOutcome {
@@ -25,14 +31,27 @@ sealed interface PushOutcome {
  * given here closes the request everywhere, since marking the notification read is what
  * the app and the admin listen to.
  */
-class PushActionHandler(private val apiService: MaggieApiService) {
+class PushActionHandler(
+    private val apiService: MaggieApiService,
+    private val sendScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    private val replyBudgetMs: Long = REPLY_BUDGET_MS,
+) {
 
-    suspend fun handle(kind: PushActionKind, payload: PushPayload, reply: String? = null): PushOutcome = when (kind) {
+    /**
+     * [onLateFailure] is called when a reply, still being processed by Maggie once the
+     * receiver's time ran out, ends up failing: the notification must then say so.
+     */
+    suspend fun handle(
+        kind: PushActionKind,
+        payload: PushPayload,
+        reply: String? = null,
+        onLateFailure: (PushOutcome.Retry) -> Unit = {},
+    ): PushOutcome = when (kind) {
         // Opened by the system, never a broadcast: a notification action cannot start an activity from here.
         PushActionKind.GO -> PushOutcome.Closed
         PushActionKind.LATER -> PushOutcome.Postponed
         PushActionKind.OK, PushActionKind.DONE -> markRead(payload)
-        PushActionKind.REPLY -> reply(reply)
+        PushActionKind.REPLY -> reply(reply, onLateFailure)
         PushActionKind.APPROVE -> decide(payload) { apiService.approve(it) }
         PushActionKind.DENY -> decide(payload) { apiService.deny(it) }
     }
@@ -42,13 +61,26 @@ class PushActionHandler(private val apiService: MaggieApiService) {
         PushOutcome.Closed
     }
 
-    private suspend fun reply(text: String?): PushOutcome {
+    // /agent/chat answers once Maggie has finished her turn, which can outlast the few seconds a
+    // broadcast receiver may stay alive. The request therefore runs in its own scope: when the
+    // budget is spent the message is on its way, so the notification closes rather than ask the
+    // owner to type it again (and send it twice).
+    private suspend fun reply(text: String?, onLateFailure: (PushOutcome.Retry) -> Unit): PushOutcome {
         val message = text?.trim().orEmpty()
         if (message.isEmpty()) return PushOutcome.Retry("Écrivez votre réponse, puis envoyez-la.")
-        return attempt {
-            apiService.sendChat(message)
-            PushOutcome.Closed
+
+        val sending = sendScope.async { runCatching { apiService.sendChat(message) } }
+        val result = withTimeoutOrNull(replyBudgetMs) { sending.await() }
+        if (result == null) {
+            sendScope.launch { sending.await().exceptionOrNull()?.let { onLateFailure(notSent(message, it)) } }
+            return PushOutcome.Closed
         }
+        return result.exceptionOrNull()?.let { notSent(message, it) } ?: PushOutcome.Closed
+    }
+
+    private fun notSent(message: String, error: Throwable): PushOutcome.Retry {
+        Log.w(TAG, "Reply failed: ${error.message}")
+        return PushOutcome.Retry("$UNREACHABLE Votre réponse n'est pas partie : « $message »")
     }
 
     private suspend fun decide(payload: PushPayload, decision: suspend (String) -> Unit): PushOutcome {
@@ -80,8 +112,9 @@ class PushActionHandler(private val apiService: MaggieApiService) {
         PushOutcome.Retry(UNREACHABLE)
     }
 
-    private companion object {
-        const val TAG = "PushActionHandler"
-        const val UNREACHABLE = "Maggie est injoignable. Réessayez."
+    companion object {
+        private const val TAG = "PushActionHandler"
+        const val REPLY_BUDGET_MS = 7_000L
+        private const val UNREACHABLE = "Maggie est injoignable. Réessayez."
     }
 }

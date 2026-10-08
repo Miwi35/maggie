@@ -32,7 +32,7 @@ class PushActionReceiver : BroadcastReceiver(), KoinComponent {
         val pending = goAsync()
         scope.launch {
             try {
-                when (val outcome = handler.handle(kind, payload, reply)) {
+                when (val outcome = handler.handle(kind, payload, reply) { late -> notifier.show(payload, note = late.message) }) {
                     PushOutcome.Closed -> notifier.close(payload.notificationId)
                     PushOutcome.Postponed -> notifier.postpone(payload)
                     is PushOutcome.Retry -> notifier.show(payload, note = outcome.message)
