@@ -128,7 +128,8 @@ class AgendaSuggester
         ?string $location = null,
         ?string $spoken = null,
     ): AgendaChoice {
-        $agendas = $this->agendaRepository->findByUser($user);
+        // A module's own agenda is never a candidate for an ordinary event (MAG-324).
+        $agendas = $this->agendaRepository->findForEventsByUser($user);
         if ([] === $agendas) {
             return AgendaChoice::ask();
         }

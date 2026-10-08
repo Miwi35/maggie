@@ -31,6 +31,7 @@ use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
 use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Serializer\StrictDayNormalizer;
 use Symfony\Component\Serializer\Attribute\Context;
+use Symfony\Component\Serializer\Attribute\Ignore;
 use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -70,9 +71,13 @@ class Meal extends Event implements MercurePublishable
      * denormalizes straight into the managed entity, which is where an instant
      * a client still sends would otherwise reach the database.
      *
+     * The agenda is not the client's to choose either: a meal always goes in
+     * the meals' module agenda, and a client that still names one is ignored
+     * (MAG-324).
+     *
      * @var array<string, list<string>>
      */
-    private const WRITE_CONTEXT = ['ignored_attributes' => ['startAt', 'endAt', 'originalStartAt']];
+    private const WRITE_CONTEXT = ['ignored_attributes' => ['startAt', 'endAt', 'originalStartAt', 'agenda']];
 
     /** What `Event::$timeZone` defaults to, and what an unresolvable one falls back on. */
     private const DEFAULT_TIME_ZONE = 'Europe/Paris';
@@ -167,6 +172,12 @@ class Meal extends Event implements MercurePublishable
         // would read as the 6th where in Paris it is already the 7th — the day
         // the asker meant.
         return new \DateTimeImmutable($read->setTimezone($paris)->format('Y-m-d'), new \DateTimeZone('UTC'));
+    }
+
+    #[Ignore]
+    public function isAgendaChosenByServer(): bool
+    {
+        return true;
     }
 
     public function getDate(): ?\DateTimeImmutable

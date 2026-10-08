@@ -333,4 +333,15 @@ class AgendaSuggesterTest extends KernelTestCase
         self::assertSame('other@example.com', $concert->agenda?->getUser()->getEmail());
         self::assertSame('other@example.com', $paul->agenda?->getUser()->getEmail());
     }
+
+    public function testAnAgendaAModuleKeepsForItselfIsNeverProposed(): void
+    {
+        // « Repas » is named by the event itself, and is the user's only agenda: it still
+        // is not an answer for an ordinary event.
+        $choice = $this->suggester()->suggest($this->user('module_only_user'), 'Repas du soir chez Paul');
+
+        self::assertSame(AgendaChoiceKind::Ask, $choice->kind);
+        self::assertNull($choice->agenda);
+        self::assertSame([], $choice->candidates);
+    }
 }

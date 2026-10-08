@@ -23,6 +23,11 @@ Maggie\Core\Entity\User:
     email: agendaless@example.com
     googleId: google-agendaless-id
     name: Agendaless User
+  # Only an agenda a module keeps for itself (MAG-324): for an ordinary event, no agenda at all.
+  module_only_user:
+    email: module-only@example.com
+    googleId: google-module-only-id
+    name: Module Only User
   # Exactly two agendas, which is where "a word carried by every agenda decides nothing"
   # and "a habit kept mostly in one agenda" are the same condition.
   two_agenda_user:
@@ -31,6 +36,10 @@ Maggie\Core\Entity\User:
     name: Two Agendas User
 
 Maggie\Calendar\Entity\Agenda:
+  module_agenda:
+    name: Repas
+    module: cookbook
+    user: '@module_only_user'
   # Its description mentions « boulot » on purpose: what the user says about the agenda has
   # to reach the one *called* « Boulot » and not the one merely talking about it.
   personal_agenda:

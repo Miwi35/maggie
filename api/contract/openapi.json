@@ -8118,6 +8118,13 @@
                         "default": false,
                         "type": "boolean"
                     },
+                    "module": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
@@ -8211,6 +8218,13 @@
                         "default": false,
                         "type": "boolean"
                     },
+                    "module": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
@@ -8303,6 +8317,13 @@
                     "isDefault": {
                         "default": false,
                         "type": "boolean"
+                    },
+                    "module": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     },
                     "user": {
                         "type": "string",
@@ -8398,6 +8419,13 @@
                             "isDefault": {
                                 "default": false,
                                 "type": "boolean"
+                            },
+                            "module": {
+                                "readOnly": true,
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
                             },
                             "user": {
                                 "type": "string",
@@ -9866,8 +9894,7 @@
                 "required": [
                     "summary",
                     "startAt",
-                    "endAt",
-                    "agenda"
+                    "endAt"
                 ]
             },
             "Event.html": {
@@ -9994,8 +10021,7 @@
                 "required": [
                     "summary",
                     "startAt",
-                    "endAt",
-                    "agenda"
+                    "endAt"
                 ]
             },
             "Event.jsonMergePatch": {
@@ -10249,8 +10275,7 @@
                         "required": [
                             "summary",
                             "startAt",
-                            "endAt",
-                            "agenda"
+                            "endAt"
                         ]
                     }
                 ]
@@ -11656,8 +11681,7 @@
                     "date",
                     "startAt",
                     "endAt",
-                    "summary",
-                    "agenda"
+                    "summary"
                 ],
                 "properties": {
                     "date": {
@@ -11796,8 +11820,7 @@
                     "date",
                     "startAt",
                     "endAt",
-                    "summary",
-                    "agenda"
+                    "summary"
                 ],
                 "properties": {
                     "date": {
@@ -12074,8 +12097,7 @@
                             "date",
                             "startAt",
                             "endAt",
-                            "summary",
-                            "agenda"
+                            "summary"
                         ],
                         "properties": {
                             "date": {

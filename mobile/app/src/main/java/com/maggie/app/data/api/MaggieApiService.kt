@@ -210,14 +210,16 @@ data class IngredientCreateRequest(
     val fatPer100g: Float? = null,
 )
 
-/** The day (`YYYY-MM-DD`) and the slot — a meal carries no time (MAG-251). */
+/**
+ * The day (`YYYY-MM-DD`) and the slot — a meal carries no time (MAG-251). No agenda:
+ * the API files every meal in the user's « Repas » module agenda (MAG-324).
+ */
 @Serializable
 data class MealCreateRequest(
     val summary: String,
     val date: String,
     val slot: String,
     val recipes: List<String> = emptyList(),
-    val agenda: String? = null,
 )
 
 @Serializable

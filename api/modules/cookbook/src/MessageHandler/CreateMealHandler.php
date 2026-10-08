@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Maggie\Cookbook\MessageHandler;
 
-use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\Agenda;
-use Maggie\Calendar\Repository\AgendaRepository;
+use Maggie\Calendar\Service\ModuleAgendas;
 use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Enum\MealSlot;
 use Maggie\Cookbook\Message\CreateMealCommand;
@@ -23,13 +22,12 @@ class CreateMealHandler
 {
     public function __construct(
         private readonly CreateMeal $createMeal,
-        private readonly AgendaRepository $agendaRepository,
+        private readonly ModuleAgendas $moduleAgendas,
         private readonly RecipeRepository $recipeRepository,
         private readonly UserRepository $userRepository,
         private readonly MealGrocerySync $mealGrocerySync,
         private readonly GroceryListBroadcaster $groceryListBroadcaster,
         private readonly EntityBroadcaster $entityBroadcaster,
-        private readonly EntityManagerInterface $em,
     ) {
     }
 
@@ -37,28 +35,12 @@ class CreateMealHandler
     {
         $slot = MealSlot::from($command->slot);
 
-        // Find or create the current user's "Repas" agenda
-        $agenda = null;
-        $agendaCreated = false;
-        if (null !== $command->agendaId) {
-            $agenda = $this->agendaRepository->find($command->agendaId);
-        }
-        if (null === $agenda) {
-            $user = (null !== $command->userId ? $this->userRepository->find($command->userId) : null)
-                ?? throw new \DomainException('No user found.');
+        $user = (null !== $command->userId ? $this->userRepository->find($command->userId) : null)
+            ?? throw new \DomainException('No user found.');
 
-            $agenda = $this->agendaRepository->findOneBy(['name' => 'Repas', 'user' => $user]);
-
-            if (null === $agenda) {
-                // Auto-create the Repas agenda
-                $agenda = new Agenda();
-                $agenda->setUser($user);
-                $agenda->setName('Repas');
-                $agenda->setColor('#FF6B35');
-                $this->em->persist($agenda);
-                $agendaCreated = true;
-            }
-        }
+        // Whatever agenda a client had in mind, a meal is filed in the meals' module
+        // agenda: it is internal, and Google never sees it (MAG-324).
+        [$agenda, $agendaCreated] = $this->moduleAgendas->forUser($user, Agenda::MODULE_COOKBOOK, 'Repas', '#FF6B35');
 
         $meal = new Meal();
         $meal->setSlot($slot);

@@ -30,6 +30,7 @@ use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
 use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
 use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
+use Symfony\Component\Serializer\Attribute\Ignore;
 use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -167,7 +168,8 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
 
     #[ORM\ManyToOne(targetEntity: Agenda::class, inversedBy: 'events')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
-    #[Assert\NotNull]
+    // A meal is filed by the server, so the body of one has no agenda to check (MAG-324).
+    #[Assert\When(expression: '!this.isAgendaChosenByServer()', constraints: [new Assert\NotNull()])]
     #[IndexedRelation(targetEntity: Agenda::class, sourceField: 'agendaId')]
     private Agenda $agenda;
 
@@ -325,6 +327,13 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
         $this->reminders = $reminders;
 
         return $this;
+    }
+
+    /** Whether the server picks the agenda itself, so a client body need not carry one. */
+    #[Ignore]
+    public function isAgendaChosenByServer(): bool
+    {
+        return false;
     }
 
     public function getAgenda(): Agenda

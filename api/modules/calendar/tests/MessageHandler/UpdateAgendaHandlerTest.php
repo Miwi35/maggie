@@ -8,6 +8,7 @@ use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Message\UpdateAgendaCommand;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 class UpdateAgendaHandlerTest extends KernelTestCase
@@ -72,5 +73,37 @@ class UpdateAgendaHandlerTest extends KernelTestCase
         $this->expectExceptionMessage('Agenda not found');
 
         $this->dispatch(new UpdateAgendaCommand(agendaId: '01ARZ3NDEKTSV4RRFFQ69G5FAV', clearFields: ['color']));
+    }
+
+    public function testAnAgendaAModuleKeepsForItselfCanBeRenamed(): void
+    {
+        $this->dispatch(new UpdateAgendaCommand(
+            agendaId: (string) $this->getFixture('module_agenda')->getId(),
+            name: 'Mes repas',
+        ));
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $agenda = $em->getRepository(Agenda::class)->find($this->getFixture('module_agenda')->getId());
+        self::assertSame('Mes repas', $agenda->getName());
+        self::assertSame('cookbook', $agenda->getModule());
+    }
+
+    public function testAnAgendaAModuleKeepsForItselfCannotBecomeTheDefaultOne(): void
+    {
+        try {
+            $this->dispatch(new UpdateAgendaCommand(
+                agendaId: (string) $this->getFixture('module_agenda')->getId(),
+                isDefault: true,
+            ));
+            self::fail('Expected the update to be refused.');
+        } catch (HandlerFailedException $e) {
+            self::assertInstanceOf(\DomainException::class, $e->getPrevious());
+        }
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertFalse($em->getRepository(Agenda::class)->find($this->getFixture('module_agenda')->getId())->isDefault());
+        self::assertTrue($this->reload()->isDefault());
     }
 }

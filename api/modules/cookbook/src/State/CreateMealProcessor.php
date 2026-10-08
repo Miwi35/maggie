@@ -35,7 +35,6 @@ class CreateMealProcessor implements ProcessorInterface
             date: $date->format('Y-m-d'),
             slot: $data->getSlot()->value,
             recipeIds: $recipeIds,
-            agendaId: (string) $data->getAgenda()->getId(),
             userId: $user instanceof User ? (string) $user->getId() : null,
         ));
 

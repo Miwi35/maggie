@@ -10,9 +10,9 @@ import { ROUTES } from '../pages/routes.js'
 /**
  * A meal planned without naming an agenda — MAG-114 § 1.
  *
- * The admin never takes this path: its week view always sends an agenda IRI it
- * picked itself. Asking Maggie is the only way there, and what the API does
- * then is find or create the user's "Repas" agenda.
+ * No client names an agenda for a meal any more (MAG-324): the API files it in
+ * the user's « Repas » module agenda, found by attribute and created on first
+ * need. Asking Maggie is the path this file drives.
  *
  * What is **not** here, deliberately: the arithmetic. Quantities merging onto
  * one line rather than piling up, a meal moved or cancelled taking back exactly

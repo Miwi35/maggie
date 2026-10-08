@@ -1,0 +1,41 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: meal-agenda@example.com
+    googleId: google-meal-agenda
+    name: Meal Agenda User
+  legacy_user:
+    email: meal-agenda-legacy@example.com
+    googleId: google-meal-agenda-legacy
+    name: Legacy Repas User
+  other_user:
+    email: meal-agenda-other@example.com
+    googleId: google-meal-agenda-other
+    name: Someone Else
+
+Maggie\Calendar\Entity\Agenda:
+  default_agenda:
+    name: Défaut
+    isDefault: true
+    googleCalendarId: google-calendar-default
+    user: '@test_user'
+  # A Google calendar of the user's that happens to be called "Repas": a name is
+  # not what makes an agenda the meals' one, and Google's is never taken over.
+  user_named_repas:
+    name: Repas
+    googleCalendarId: google-calendar-repas
+    user: '@test_user'
+  # What the first version of the meal planner created: « Repas », with no attribute.
+  legacy_repas_agenda:
+    name: Repas
+    color: '#FF6B35'
+    user: '@legacy_user'
+  other_module_agenda:
+    name: Repas
+    module: cookbook
+    user: '@other_user'
+
+Maggie\Cookbook\Entity\Recipe:
+  pasta:
+    name: Pâtes à la tomate
+    servings: 4
+    user: '@test_user'

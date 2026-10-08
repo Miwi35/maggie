@@ -4,6 +4,7 @@ namespace Maggie\Calendar\Entity;
 
 use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
 use ApiPlatform\Metadata\ApiFilter;
+use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
@@ -41,6 +42,9 @@ use Symfony\Component\Validator\Constraints as Assert;
 // One default agenda per user, enforced where a race between two requests cannot
 // get past the handler that demotes the others (MAG-149).
 #[ORM\UniqueConstraint(name: 'uniq_agenda_user_default', columns: ['user_id'], options: ['where' => '(is_default = true)'])]
+// One agenda per module and per user: two first meals racing cannot both create
+// « Repas » (MAG-324). NULLs count as distinct, so ordinary agendas are unaffected.
+#[ORM\UniqueConstraint(name: 'uniq_agenda_user_module', columns: ['user_id', 'module'])]
 #[ApiFilter(OrderFilter::class, properties: ['id', 'name'])]
 #[Indexed(index: 'agendas', module: 'calendar')]
 #[ApiResource(operations: [
@@ -54,6 +58,8 @@ class Agenda implements MercurePublishable, OwnedByUserInterface, IndexableInter
 {
     use HasGoogleCalendarSyncTrait;
     use MercurePayloadFilterTrait;
+    /** The agenda where the meal planner files what it produces (MAG-324). */
+    public const MODULE_COOKBOOK = 'cookbook';
 
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
@@ -78,6 +84,15 @@ class Agenda implements MercurePublishable, OwnedByUserInterface, IndexableInter
 
     #[ORM\Column(options: ['default' => false])]
     private bool $isDefault = false;
+
+    // Set by the module that owns the agenda, never by a client: it is what
+    // recognises « the meals' agenda », whatever the user renamed it to. A module
+    // agenda is internal — never synced with Google, never the default one, and
+    // never offered for an ordinary event (MAG-324).
+    #[ORM\Column(length: 50, nullable: true)]
+    #[IndexedField(type: 'keyword')]
+    #[ApiProperty(writable: false)]
+    private ?string $module = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
@@ -171,6 +186,23 @@ class Agenda implements MercurePublishable, OwnedByUserInterface, IndexableInter
         return $this;
     }
 
+    public function getModule(): ?string
+    {
+        return $this->module;
+    }
+
+    public function setModule(?string $module): static
+    {
+        $this->module = $module;
+
+        return $this;
+    }
+
+    public function isModule(): bool
+    {
+        return null !== $this->module;
+    }
+
     /** @return Collection<int, Event> */
     public function getEvents(): Collection
     {
@@ -203,6 +235,7 @@ class Agenda implements MercurePublishable, OwnedByUserInterface, IndexableInter
             'color' => $this->color,
             'timeZone' => $this->timeZone,
             'isDefault' => $this->isDefault,
+            'module' => $this->module,
             // The agenda collection is served from Elasticsearch, and the admin
             // hides a Google calendar that is already connected by reading this
             // field — without it the guard let the same calendar in twice
@@ -218,6 +251,7 @@ class Agenda implements MercurePublishable, OwnedByUserInterface, IndexableInter
             'name' => $this->name,
             'color' => $this->color,
             'isDefault' => $this->isDefault,
+            'module' => $this->module,
         ], $changedProperties);
     }
 }
