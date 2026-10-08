@@ -95,10 +95,12 @@ test('from a transaction, the trail climbs back to the list, then to the module 
 test('a settings page and the dashboard carry their trail @responsive', async ({ page }) => {
   const shell = new AdminShell(page)
   const trail = page.getByRole('navigation', { name: "Fil d'Ariane" })
+  const narrow = (page.viewportSize()?.width ?? NARROW_BELOW) < NARROW_BELOW
 
   await shell.goto(ROUTES.dashboard)
   await expect(trail.getByText('Accueil')).toHaveAttribute('aria-current', 'page')
 
+  // Below `md` only the parent is shown, so the page's own name is not there.
   await shell.goto(ROUTES.preferences)
-  await expect(trail).toContainText('Préférences')
+  await expect(trail).toContainText(narrow ? 'Paramètres' : 'Préférences')
 })
