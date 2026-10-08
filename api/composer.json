@@ -31,6 +31,7 @@
         "maggie/notification": "@dev",
         "nelmio/cors-bundle": "^2.6.1",
         "nyholm/psr7": "^1.8.2",
+        "sentry/sentry-symfony": "^5.0",
         "symfony/amqp-messenger": "7.4.*",
         "symfony/console": "7.4.*",
         "symfony/doctrine-messenger": "7.4.*",

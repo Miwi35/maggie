@@ -187,4 +187,9 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
 
 EXPOSE 9000
 
+# The deployed commit, which the Sentry SDK reports as the release (GlitchTip).
+# Last, so a new commit does not invalidate the layers above.
+ARG SENTRY_RELEASE=
+ENV SENTRY_RELEASE=${SENTRY_RELEASE}
+
 CMD ["php-fpm"]

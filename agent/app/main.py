@@ -20,6 +20,7 @@ from app.db.proaction_repository import proaction_repo
 from app.db.skill_model import Skill  # noqa: F401 — register model with AgentBase before create_all
 from app.db.user_setting_model import UserSetting  # noqa: F401 — register model with AgentBase before create_all
 from app.e2e import setup_e2e
+from app.error_tracking import init_error_tracking
 from app.llm.turns import turn_runner
 from app.mcp.client import mcp_client
 from app.queue import connection as queue_connection
@@ -30,6 +31,9 @@ from app.skills.index import skill_index
 # Configure logging so app messages are visible
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s: %(message)s")
 logger = logging.getLogger(__name__)
+
+# Before the app exists, so the FastAPI integration wraps it. No DSN, no-op.
+init_error_tracking()
 
 
 @asynccontextmanager

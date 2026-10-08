@@ -20,6 +20,7 @@ from datetime import UTC, datetime, timedelta
 from app.config import settings
 from app.db.message_repository import message_repo
 from app.db.models import TURN_RUNNING, Message
+from app.error_tracking import UNANSWERED_MESSAGE, capture_error, capture_signal
 from app.llm.streaming import StreamingGateway, answer_message_id
 
 logger = logging.getLogger(__name__)
@@ -84,10 +85,11 @@ class TurnRunner:
                 if queue is not None:
                     queue.put_nowait(event)
             await self._settle(message_id)
-        except Exception:
+        except Exception as exc:
             # The turn stays running with its lease running out: it is taken up again if
             # the message is recent, and expires otherwise.
             logger.exception(f"Turn answering {message_id} failed")
+            capture_error(exc, message_id=message_id, user_id=user_id)
         finally:
             heartbeat.cancel()
             if queue is not None:
@@ -141,7 +143,9 @@ class TurnRunner:
         now = datetime.now(UTC)
         expired = await message_repo.expire_stale_turns(older_than=now - window)
         if expired:
-            logger.warning(f"{expired} message(s) left unanswered for more than {window}: marked unanswered")
+            logger.warning(f"{len(expired)} message(s) left unanswered for more than {window}: marked unanswered")
+        for message_id, user_id in expired:
+            capture_signal(UNANSWERED_MESSAGE, message_id=message_id, user_id=user_id)
 
         resumed = 0
         for message in await message_repo.claim_resumable_turns(since=now - window, lease_until=lease_deadline()):

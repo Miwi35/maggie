@@ -5,6 +5,7 @@ import aio_pika
 from app.db.message_repository import message_repo
 from app.db.proaction_model import Proaction
 from app.db.proaction_repository import proaction_repo
+from app.error_tracking import PROACTION_FAILED, capture_signal
 from app.llm.context_summary import context_summarizer
 from app.llm.gateway import LLMGateway
 from app.queue.connection import PROACTION_QUEUE, get_channel
@@ -62,6 +63,8 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
         error_msg = str(e)
         logger.error(f"Proaction {proaction_id} failed: {error_msg}")
         await proaction_repo.mark_failed(proaction_id, error_msg)
+        # The error type only: its message may quote the prompt or a tool result.
+        capture_signal(PROACTION_FAILED, proaction_id=proaction_id, user_id=proaction.user_id, error=type(e).__name__)
         return {"status": "failed", "message": None, "error": error_msg, "toolCalls": []}
 
 

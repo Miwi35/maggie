@@ -29,8 +29,11 @@ firebase-bom = "33.7.0"
 google-services = "4.4.2"
 reorderable = "2.4.3"
 kover = "0.9.1"
+sentry = "8.60.0"
 
 [libraries]
+# Crash and ANR reports to GlitchTip (Sentry-compatible)
+sentry-android = { group = "io.sentry", name = "sentry-android", version.ref = "sentry" }
 # Compose
 compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "compose-bom" }
 compose-ui = { group = "androidx.compose.ui", name = "ui" }

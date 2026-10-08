@@ -41,6 +41,13 @@ class Settings(BaseSettings):
     # test login takes. Empty keeps it closed even under TTS_PROVIDER=fake.
     e2e_login_token: str = ""
 
+    # Error tracking (GlitchTip, Sentry-compatible). Empty DSN: nothing is initialised and
+    # nothing leaves the process — dev, tests and e2e. The release is the deployed commit,
+    # baked into the prod image (SENTRY_RELEASE build-arg).
+    sentry_dsn: str = ""
+    sentry_release: str = ""
+    sentry_environment: str = "prod"
+
     # MCP Server
     mcp_server_url: str = "http://nginx/_mcp"
 

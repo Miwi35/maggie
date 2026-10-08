@@ -5,6 +5,7 @@ import time
 import httpx
 
 from app.config import settings
+from app.error_tracking import MCP_TOOL_ERROR, capture_signal
 
 SESSION_STALENESS_SECONDS = 300  # 5 minutes
 
@@ -110,6 +111,16 @@ class McpClient:
                     "arguments": arguments,
                 },
                 user_id=user_id,
+            )
+
+        if response is None or response.get("isError"):
+            # A transport failure, a JSON-RPC error or a tool that raised — not the 400s a tool
+            # answers on purpose with the current state, which carry no `isError`.
+            capture_signal(
+                MCP_TOOL_ERROR,
+                tool=name,
+                user_id=user_id,
+                reason="no_response" if response is None else "is_error",
             )
 
         if response and "content" in response:

@@ -112,8 +112,11 @@ class MessageRepository:
             )
             await session.commit()
 
-    async def expire_stale_turns(self, older_than: datetime) -> int:
-        """Mark unanswered the messages whose turn was lost and that are too old to answer now."""
+    async def expire_stale_turns(self, older_than: datetime) -> list[tuple[str, str]]:
+        """Mark unanswered the messages whose turn was lost and that are too old to answer now.
+
+        Returns the `(message id, user id)` of each one, for the error tracker.
+        """
         async with agent_session() as session:
             result = await session.execute(
                 update(Message)
@@ -123,9 +126,12 @@ class MessageRepository:
                     or_(Message.turn_lease_until.is_(None), Message.turn_lease_until < datetime.now(UTC)),
                 )
                 .values(turn_status=TURN_EXPIRED, turn_lease_until=None, turn_screen_context=None)
+                .returning(Message.id, Message.user_id)
+                .execution_options(synchronize_session=False)
             )
+            expired = [(row.id, row.user_id) for row in result.all()]
             await session.commit()
-            return result.rowcount
+            return expired
 
     async def claim_resumable_turns(self, since: datetime, lease_until: datetime, limit: int = 20) -> list[Message]:
         """The messages whose turn was lost, no older than `since`, now leased to the caller.
