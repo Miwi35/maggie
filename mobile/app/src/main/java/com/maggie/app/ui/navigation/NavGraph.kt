@@ -393,7 +393,7 @@ fun NavGraph() {
     val paneShown by rememberUpdatedState(chrome.showsDetailPane)
     var editRecipeId by remember { mutableStateOf<String?>(null) }
     var mealCreateState by remember { mutableStateOf<Pair<String, String>?>(null) }
-    var mealToChooseIngredientsOf by remember { mutableStateOf<String?>(null) }
+    var mealToChooseIngredientsOf by rememberSaveable { mutableStateOf<String?>(null) }
 
     val calendarUiState by calendarViewModel.uiState.collectAsState()
     val agendas = calendarUiState.agendas

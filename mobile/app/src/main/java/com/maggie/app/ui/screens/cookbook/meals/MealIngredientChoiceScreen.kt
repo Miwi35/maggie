@@ -82,7 +82,7 @@ internal fun MealIngredientChoiceContent(
             TopAppBar(
                 title = { Text("Ingrédients du repas") },
                 navigationIcon = {
-                    IconButton(onClick = onLater) {
+                    IconButton(onClick = onLater, enabled = !uiState.isSending) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
                     }
                 },
@@ -100,7 +100,7 @@ internal fun MealIngredientChoiceContent(
                         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        TextButton(onClick = onLater) { Text("Plus tard") }
+                        TextButton(onClick = onLater, enabled = !uiState.isSending) { Text("Plus tard") }
                         Button(onClick = onSubmit, enabled = uiState.canSubmit) {
                             Text("Ajouter aux courses")
                         }

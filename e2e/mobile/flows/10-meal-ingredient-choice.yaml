@@ -74,8 +74,8 @@ tags:
 
 - tapOn: "Ajouter aux courses"
 
-# The list holds the vegetables by the jar and nothing for the rice. The phone sent
-# the choice: the meal says so in the database.
+# The phone sent the choice: the meal says so in the database. Then the list holds
+# the vegetables by the jar and nothing for the rice.
 - runScript:
     file: ../scripts/meal-api.js
     env:
@@ -92,7 +92,11 @@ tags:
     visible: ".*Légumes pour couscous MAG-297.*"
     timeout: 30000
 - assertVisible: ".*1(\\.0)? (jar|bocal).*"
-- assertNotVisible: ".*Riz MAG-297.*"
+# Waited for: the list follows the choice by a refresh, so the rice derived at
+# creation may still be on screen for a moment.
+- extendedWaitUntil:
+    notVisible: ".*Riz MAG-297.*"
+    timeout: 30000
 
 # Left as found.
 - runScript:

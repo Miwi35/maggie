@@ -135,4 +135,26 @@ class MealIngredientChoiceScreenTest {
         compose.onNodeWithText("Ajouter aux courses").assertIsEnabled()
         assertTrue("the screen stays open", !done)
     }
+
+    @Test
+    fun `leaving is off while the choice is being sent`() {
+        compose.setContent {
+            MealIngredientChoiceContent(
+                uiState = MealIngredientChoiceUiState(
+                    isLoading = false,
+                    ingredients = listOf(FakeMealIngredientChoice.rice),
+                    selected = setOf("rice"),
+                    isSending = true,
+                ),
+                onToggle = {},
+                onSelectAll = {},
+                onSubmit = {},
+                onRetry = {},
+                onLater = {},
+            )
+        }
+
+        compose.onNodeWithText("Plus tard").assertIsNotEnabled()
+        compose.onNodeWithText("Ajouter aux courses").assertIsNotEnabled()
+    }
 }
