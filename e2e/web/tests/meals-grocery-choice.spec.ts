@@ -57,6 +57,11 @@ function linesOf(list: GroceryListRow, label: string): Line[] {
   return list.items.filter((item) => item.label === label)
 }
 
+/** The day a line waits for: REST spells `buyAfter` as a timestamp at midnight. */
+function buyAfterDay(line: Line | undefined): string | undefined {
+  return line?.buyAfter?.slice(0, 10)
+}
+
 /** One line of that label, and it says 1 pack. */
 function isOnePack(list: GroceryListRow, label: string): boolean {
   const lines = linesOf(list, label)
@@ -101,7 +106,7 @@ test('a meal puts on the list only the ingredients chosen, in packagings, and ke
 
   // Far enough out that the rice's two days of keeping defer its line, from
   // the seed's anchor or from the wall clock alike.
-  const meal = await created(api, '/api/meals', { date: seedDate(20), slot: 'dinner', recipes: [recipe['@id']] })
+  const meal = await created(api, '/api/meals', { summary: 'Dîner', date: seedDate(20), slot: 'dinner', recipes: [recipe['@id']] })
 
   // When I ask for the meal's preview…
   const previewed = await api.get(`/api/meals/${meal.id}/grocery_preview`, { headers: { Accept: 'application/json' } })
@@ -129,8 +134,7 @@ test('a meal puts on the list only the ingredients chosen, in packagings, and ke
     what: 'A single « Riz — 1 paquet » line',
   })
   expect(linesOf(afterChoice, vegetablesName), 'the vegetables were not chosen').toHaveLength(0)
-  const deferredTo = linesOf(afterChoice, riceName)[0].buyAfter
-  expect(deferredTo, 'two days of keeping, twenty days out: the rice waits').toBe(seedDate(18))
+  expect(buyAfterDay(linesOf(afterChoice, riceName)[0]), 'two days of keeping, twenty days out: the rice waits').toBe(seedDate(18))
 
   // When I change the recipe of the meal — twice the rice…
   const read = await api.get(recipe['@id'], { headers: { Accept: 'application/ld+json' } })
@@ -158,7 +162,7 @@ test('a meal puts on the list only the ingredients chosen, in packagings, and ke
   const afterMove = await waitForIndexed<GroceryListRow>(
     api,
     '/api/grocery_lists',
-    (list) => linesOf(list, riceName)[0]?.buyAfter === seedDate(21),
+    (list) => buyAfterDay(linesOf(list, riceName)[0]) === seedDate(21),
     { what: 'The rice’s line deferred with its meal' },
   )
   expect(onePack(afterMove), 'the chosen line was derived again or its quantity moved').toBe(true)
