@@ -21,4 +21,4 @@ turns:
           end_time: "21:00"
           location: "UBU"
           agenda_id: "famille"
-  - text: "C'est noté : les Mouettes à l'UBU le 2 novembre 2099 à 19h, dans l'agenda Famille."
+  - text: "J'ai ajouté le concert des Mouettes à l'UBU le 2 novembre 2099 à 19h à votre agenda Famille."

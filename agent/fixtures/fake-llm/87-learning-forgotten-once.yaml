@@ -1,0 +1,23 @@
+# A rule the model says it learned without storing it (MAG-340).
+#
+# The production failure, scripted: « quand je demande un rappel, je veux une
+# notification », and the model answers « C'est noté » with no tool call — nothing is
+# stored anywhere. The claim guard sends it back once, and this time it creates the
+# skill: turn 2 is only reachable through that relaunch, a list of blocks that counts
+# as a round of the loop.
+name: learning-forgotten-once
+description: A rule about how to act — announced as learned without a tool, then stored as a skill after the relaunch.
+
+match:
+  user_contains: "je veux une notification"
+
+turns:
+  - text: "C'est noté, je m'en souviendrai pour la suite."
+  - tools:
+      - name: create_skill
+        input:
+          name: rappel-avec-notification
+          description: Quand l'utilisateur demande un rappel, il arrive en notification
+          tags: [rappel, notification]
+          content: "Quand l'utilisateur demande un rappel, programme-le avec schedule_proaction : il lui arrive en notification sur son téléphone."
+  - text: "J'ai créé la compétence « Rappel avec notification » : un rappel demandé arrivera en notification. Elle est visible dans Réglages › Agent › Compétences."

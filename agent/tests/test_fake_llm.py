@@ -786,7 +786,7 @@ class TestAMultiStepAnswerKeepsOnlyItsLastStep:
             tool_results=['{"error": "No agenda found."}', '{"success": true}'],
             saved=saved,
         )
-        answer = "C'est noté : les Black Wizards en concert le 3 novembre 2099 à 19h, pour deux heures."
+        answer = "J'ai ajouté le concert des Black Wizards le 3 novembre 2099 à 19h à votre agenda, pour deux heures."
 
         assert [message["content"] for message in saved] == [answer]
         assert the_bubble(events) == answer

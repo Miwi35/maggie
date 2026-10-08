@@ -20,4 +20,4 @@ turns:
           start_time: "10:00"
           end_date: "2099-11-13"
           end_time: "11:00"
-  - text: "C'est noté : Paul le 13 novembre 2099 à 10 h, rangé dans l'agenda Boulot."
+  - text: "J'ai ajouté le rendez-vous avec Paul le 13 novembre 2099 à 10 h à votre agenda Boulot."

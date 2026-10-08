@@ -14,11 +14,11 @@ import pytest
 import yaml
 
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
-from app.llm.reminder_guard import (
+from app.llm.claim_guard import (
     NOT_SCHEDULED_MESSAGE,
     NUDGE,
     SCHEDULE_TOOL,
-    ReminderGuard,
+    ClaimGuard,
     Verdict,
     claims_reminder,
 )
@@ -34,6 +34,7 @@ SCHEDULED_ANSWER = "C'est programmé, monsieur : je vous rappellerai de boire de
 FALSE_CLAIM = "C'est noté, monsieur. Je vous rappellerai de boire de l'eau à 16h05."
 
 OFFERED = [{"name": "date_time", "input_schema": {}}, {"name": SCHEDULE_TOOL, "input_schema": {}}]
+REMINDER_NUDGE = {"role": "user", "content": [{"type": "text", "text": NUDGE}]}
 SCHEDULED = json.dumps({"id": "pro-1", "status": "pending", "scheduledAt": "2099-10-07T14:05:00+00:00"})
 
 
@@ -115,13 +116,13 @@ class TestTheClaim:
 
 class TestTheGuard:
     def test_a_claim_without_the_tool_is_sent_back_once_then_given_up(self):
-        guard = ReminderGuard(OFFERED)
+        guard = ClaimGuard(OFFERED)
 
         assert guard.review(FALSE_CLAIM) is Verdict.RETRY
         assert guard.review(FALSE_CLAIM) is Verdict.GIVE_UP
 
     def test_a_scheduled_reminder_is_never_sent_back(self):
-        guard = ReminderGuard(OFFERED)
+        guard = ClaimGuard(OFFERED)
         guard.record(SCHEDULE_TOOL, SCHEDULED)
 
         assert guard.review(FALSE_CLAIM) is Verdict.ACCEPT
@@ -129,7 +130,7 @@ class TestTheGuard:
     def test_a_real_proaction_with_an_empty_error_field_backs_the_claim(self):
         # Production, 7 Oct.: the stored proaction carries `"error": null`, and the guard took
         # the key for a failure, so a reminder that was scheduled was told it was not.
-        guard = ReminderGuard(OFFERED)
+        guard = ClaimGuard(OFFERED)
         guard.record(
             SCHEDULE_TOOL,
             json.dumps({"id": "p-1", "status": "pending", "response": None, "error": None, "scheduledAtLocal": "18h00"}),
@@ -138,88 +139,92 @@ class TestTheGuard:
         assert guard.review(FALSE_CLAIM) is Verdict.ACCEPT
 
     def test_a_reminder_held_for_approval_is_not_scheduled_twice(self):
-        guard = ReminderGuard(OFFERED)
+        guard = ClaimGuard(OFFERED)
         guard.record(SCHEDULE_TOOL, json.dumps({"status": "pending_approval", "approval_id": "a-1"}))
 
         assert guard.review(FALSE_CLAIM) is Verdict.ACCEPT
 
     @pytest.mark.parametrize("result", ['{"error": "Invalid datetime format: demain"}', "not json"])
     def test_a_failed_schedule_does_not_count(self, result):
-        guard = ReminderGuard(OFFERED)
+        guard = ClaimGuard(OFFERED)
         guard.record(SCHEDULE_TOOL, result)
 
         assert guard.review(FALSE_CLAIM) is Verdict.RETRY
 
     def test_another_tool_does_not_count(self):
-        guard = ReminderGuard(OFFERED)
+        guard = ClaimGuard(OFFERED)
         guard.record("date_time", '{"result": {"iso": "2026-10-07T16:05+02:00"}}')
 
         assert guard.review(FALSE_CLAIM) is Verdict.RETRY
 
     def test_an_event_with_reminders_backs_the_claim(self):
         # « préviens-moi une heure avant » is create_event's job (its `reminders`), not a proaction.
-        guard = ReminderGuard(OFFERED)
+        guard = ClaimGuard(OFFERED)
         guard.record("create_event", '{"event": {"id": "e-1"}}', {"title": "Dentiste", "reminders": [60]})
 
         assert guard.review("C'est noté, je vous préviendrai à 9h, une heure avant.") is Verdict.ACCEPT
 
     def test_an_event_without_reminders_does_not(self):
-        guard = ReminderGuard(OFFERED)
+        guard = ClaimGuard(OFFERED)
         guard.record("create_event", '{"event": {"id": "e-1"}}', {"title": "Dentiste"})
 
         assert guard.review(FALSE_CLAIM) is Verdict.RETRY
 
     def test_a_pending_reminder_from_an_earlier_turn_backs_the_claim(self):
-        guard = ReminderGuard(OFFERED)
+        guard = ClaimGuard(OFFERED)
         guard.record("list_proactions", json.dumps([{"id": "pro-1", "status": "pending"}]))
 
         assert guard.review("Oui, je vous rappellerai à 16h05.") is Verdict.ACCEPT
 
     @pytest.mark.parametrize("listed", [[], [{"id": "pro-1", "status": "completed"}]])
     def test_no_pending_reminder_listed_does_not(self, listed):
-        guard = ReminderGuard(OFFERED)
+        guard = ClaimGuard(OFFERED)
         guard.record("list_proactions", json.dumps(listed))
 
         assert guard.review(FALSE_CLAIM) is Verdict.RETRY
 
     def test_an_answer_without_a_claim_passes(self):
-        assert ReminderGuard(OFFERED).review("Vous avez trois rendez-vous demain.") is Verdict.ACCEPT
+        assert ClaimGuard(OFFERED).review("Vous avez trois rendez-vous demain.") is Verdict.ACCEPT
 
     def test_a_turn_not_offered_the_tool_is_left_alone(self):
         # The announcement of an approved schedule_proaction runs with no tools at all.
-        assert ReminderGuard(None).review(FALSE_CLAIM) is Verdict.ACCEPT
-        assert ReminderGuard([{"name": "date_time"}]).review(FALSE_CLAIM) is Verdict.ACCEPT
+        assert ClaimGuard(None).review(FALSE_CLAIM) is Verdict.ACCEPT
+        assert ClaimGuard([{"name": "date_time"}]).review(FALSE_CLAIM) is Verdict.ACCEPT
 
     def test_silence_after_the_relaunch_is_a_failure(self):
-        guard = ReminderGuard(OFFERED)
+        guard = ClaimGuard(OFFERED)
         guard.review(FALSE_CLAIM)
 
         assert guard.review("  ") is Verdict.GIVE_UP
 
     def test_silence_without_a_relaunch_is_left_alone(self):
-        assert ReminderGuard(OFFERED).review("") is Verdict.ACCEPT
+        assert ClaimGuard(OFFERED).review("") is Verdict.ACCEPT
 
     def test_no_relaunch_without_room_for_it(self):
-        assert ReminderGuard(OFFERED).review(FALSE_CLAIM, can_retry=False) is Verdict.GIVE_UP
+        assert ClaimGuard(OFFERED).review(FALSE_CLAIM, can_retry=False) is Verdict.GIVE_UP
 
     def test_the_refused_answer_is_sent_back_with_the_nudge(self):
         messages: list = []
         claim = [{"type": "text", "text": FALSE_CLAIM}]
 
-        ReminderGuard(OFFERED).send_back(messages, claim)
+        guard = ClaimGuard(OFFERED)
+        guard.review(FALSE_CLAIM)
+        guard.send_back(messages, claim)
 
-        assert messages == [{"role": "assistant", "content": claim}, ReminderGuard.nudge()]
+        assert messages == [{"role": "assistant", "content": claim}, REMINDER_NUDGE]
 
     def test_a_blank_answer_is_not_sent_back(self):
         # The API refuses an assistant message of blank text; the claim is in an earlier step.
         messages: list = []
 
-        ReminderGuard(OFFERED).send_back(messages, [{"type": "text", "text": "  "}])
+        ClaimGuard(OFFERED).send_back(messages, [{"type": "text", "text": "  "}])
 
-        assert messages == [ReminderGuard.nudge()]
+        assert messages == [REMINDER_NUDGE]
 
     def test_the_nudge_is_a_round_of_the_loop_not_a_user_message(self):
-        nudge = ReminderGuard.nudge()
+        guard = ClaimGuard(OFFERED)
+        guard.review(FALSE_CLAIM)
+        nudge = guard.nudge()
 
         assert nudge["role"] == "user"
         assert nudge["content"] == [{"type": "text", "text": NUDGE}]
@@ -270,7 +275,7 @@ class TestTheToolLoop:
         assert kwargs["scheduled_at"] == datetime(2099, 10, 7, 14, 5, tzinfo=UTC)
         assert result["response"] == SCHEDULED_ANSWER
         # The relaunch went out as a round of the loop, after the claim it corrects.
-        assert messages[4] == ReminderGuard.nudge()
+        assert messages[4] == REMINDER_NUDGE
         assert messages[3]["role"] == "assistant"
 
     async def test_a_notification_promise_without_the_tool_is_relaunched(self, fake_client, proactions):
@@ -336,54 +341,64 @@ def the_bubble(events: list[dict]) -> str:
     return text
 
 
+async def stream_turn(client, question: str, offered: list[dict] = OFFERED) -> tuple[list[dict], list[dict]]:
+    """One `chat_stream` turn on a real ToolRouter: the events, and the messages it stored."""
+    saved: list[dict] = []
+    router = ToolRouter()
+
+    with (
+        patch("app.llm.streaming.settings") as settings,
+        patch("app.llm.streaming.message_repo") as message_repo,
+        patch("app.llm.history.message_repo") as history_repo,
+        patch("app.llm.history.context_repo") as history_contexts,
+        patch("app.llm.contexts.message_repo") as routing_repo,
+        patch("app.llm.contexts.context_repo") as context_repo,
+        patch("app.llm.streaming.context_repo") as tool_log,
+        patch("app.llm.streaming.record_llm_usage"),
+        patch("app.llm.streaming.skill_index") as prompt_skills,
+    ):
+        # The prompt's skill index, not the one `create_skill` writes to (`app.llm.tools`).
+        prompt_skills.refresh = AsyncMock()
+        prompt_skills.get_skills_index.return_value = ""
+        prompt_skills.skills_for_moment.return_value = ""
+        settings.anthropic_model = "fake"
+        tool_log.append_tool_call = AsyncMock()
+        persisted = MagicMock()
+        persisted.id = "msg-1"
+        persisted.role = "user"
+        persisted.content = question
+        persisted.context_id = "ctx-1"
+        persisted.created_at = datetime(2026, 10, 7, 14, 4, tzinfo=UTC)
+        history_repo.find_by_context = AsyncMock(return_value=[persisted])
+        history_repo.find_recent = AsyncMock(return_value=[persisted])
+        history_contexts.find_active = AsyncMock(return_value=[])
+        message_repo.create = AsyncMock(side_effect=lambda **kwargs: saved.append(kwargs))
+        routing_repo.update_context = AsyncMock()
+        context_repo.find_active = AsyncMock(return_value=[])
+        context_repo.append_tool_call = AsyncMock()
+        created = MagicMock()
+        created.id = "ctx-1"
+        context_repo.create = AsyncMock(return_value=created)
+
+        gateway = StreamingGateway()
+        gateway.client = client
+        gateway.personality = MagicMock()
+        gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
+        gateway.agent_memory = MagicMock()
+        gateway.agent_memory.get_memory_context = AsyncMock(return_value="")
+        gateway.tool_router = MagicMock()
+        gateway.tool_router.get_tool_definitions = AsyncMock(return_value=offered)
+        gateway.tool_router.call_tool = AsyncMock(side_effect=router.call_tool)
+
+        events = [event async for event in gateway.chat_stream(question, "user-1", "msg-1")]
+    return events, saved
+
+
 class TestTheStreamedPath:
     """`chat_stream`, what the web and the phone talk to."""
 
     async def _stream(self, client, question: str) -> tuple[list[dict], list[dict]]:
-        saved: list[dict] = []
-        router = ToolRouter()
-
-        with (
-            patch("app.llm.streaming.settings") as settings,
-            patch("app.llm.streaming.message_repo") as message_repo,
-            patch("app.llm.history.message_repo") as history_repo,
-            patch("app.llm.history.context_repo") as history_contexts,
-            patch("app.llm.contexts.message_repo") as routing_repo,
-            patch("app.llm.contexts.context_repo") as context_repo,
-            patch("app.llm.streaming.context_repo") as tool_log,
-            patch("app.llm.streaming.record_llm_usage"),
-        ):
-            settings.anthropic_model = "fake"
-            tool_log.append_tool_call = AsyncMock()
-            persisted = MagicMock()
-            persisted.id = "msg-1"
-            persisted.role = "user"
-            persisted.content = question
-            persisted.context_id = "ctx-1"
-            persisted.created_at = datetime(2026, 10, 7, 14, 4, tzinfo=UTC)
-            history_repo.find_by_context = AsyncMock(return_value=[persisted])
-            history_repo.find_recent = AsyncMock(return_value=[persisted])
-            history_contexts.find_active = AsyncMock(return_value=[])
-            message_repo.create = AsyncMock(side_effect=lambda **kwargs: saved.append(kwargs))
-            routing_repo.update_context = AsyncMock()
-            context_repo.find_active = AsyncMock(return_value=[])
-            context_repo.append_tool_call = AsyncMock()
-            created = MagicMock()
-            created.id = "ctx-1"
-            context_repo.create = AsyncMock(return_value=created)
-
-            gateway = StreamingGateway()
-            gateway.client = client
-            gateway.personality = MagicMock()
-            gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
-            gateway.agent_memory = MagicMock()
-            gateway.agent_memory.get_memory_context = AsyncMock(return_value="")
-            gateway.tool_router = MagicMock()
-            gateway.tool_router.get_tool_definitions = AsyncMock(return_value=OFFERED)
-            gateway.tool_router.call_tool = AsyncMock(side_effect=router.call_tool)
-
-            events = [event async for event in gateway.chat_stream(question, "user-1", "msg-1")]
-        return events, saved
+        return await stream_turn(client, question)
 
     async def test_a_forgotten_reminder_is_scheduled_after_the_relaunch(self, fake_client, proactions):
         events, saved = await self._stream(fake_client, WATER)

@@ -20,4 +20,4 @@ turns:
         input:
           content: "Tutoie-moi et évite les emojis"
           kind: behavior
-  - text: "C'est noté, je te tutoie et je laisse les emojis de côté."
+  - text: "J'ai ajouté une directive : je te tutoie et je laisse les emojis de côté."

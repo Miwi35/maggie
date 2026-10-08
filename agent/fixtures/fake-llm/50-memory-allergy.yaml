@@ -13,4 +13,4 @@ turns:
         input:
           content: "Allergique aux fruits à coque"
           type: factual
-  - text: "C'est noté, je m'en souviendrai."
+  - text: "J'ai enregistré dans ma mémoire votre allergie aux fruits à coque."

@@ -1,0 +1,27 @@
+# A rule about how to act is a skill, and what she learns can be seen (MAG-340). In
+# production the owner asked « quand je demande un rappel, je veux une notification »:
+# she answered « C'est noté » and called no tool, then said no place existed to see her
+# directives and skills. The claim guard now sends an unbacked « c'est noté » back, but
+# what is judged here is whether the prompt and the tool descriptions get the real model
+# to file the rule as a skill on its own, and to point at Réglages › Agent.
+name: regle-en-competence
+description: A general rule about how to act becomes a skill, and she says where it can be seen.
+channel: stream
+
+steps:
+  - user_message: "Quand je demande un rappel, je veux une notification."
+    expected_tools: [create_skill]
+    forbidden_tools: [schedule_proaction]
+    expected_absent: ["pas encore enregistré"]
+    expected_behavior: >
+      Elle confirme en une ou deux phrases naturelles en français l'action faite, en
+      nommant la compétence qu'elle a créée (« J'ai créé la compétence … »), jamais par un
+      « c'est noté » vague, sans programmer de rappel et sans parler d'outils.
+
+  - user_message: "Où est-ce que je peux voir ce que tu as appris ?"
+    expected_contains: ["Réglages"]
+    expected_absent: ["aucun endroit", "ne me permet pas"]
+    expected_behavior: >
+      Elle indique que ses compétences, directives et proactions sont visibles et
+      modifiables dans l'admin, Réglages › Agent, sans prétendre qu'il n'existe aucun
+      endroit pour les consulter.

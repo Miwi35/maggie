@@ -14,6 +14,7 @@ from app.config import settings
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
 from app.llm.capabilities import generate_capability_summary
+from app.llm.claim_guard import ClaimGuard, Verdict
 from app.llm.client import create_llm_client, llm_configured
 from app.llm.context_summary import context_summarizer
 from app.llm.contexts import active_contexts_section, route_message
@@ -21,7 +22,6 @@ from app.llm.directives import behavior_directives_section
 from app.llm.history import build_history, label_settled, strip_thread_label
 from app.llm.last_exchange import last_exchange_section
 from app.llm.prompt_cache import build_system, cache_tools
-from app.llm.reminder_guard import NOT_SCHEDULED_MESSAGE, ReminderGuard, Verdict
 from app.llm.tools import ToolRouter
 from app.memory.agent_memory import AgentMemory
 from app.metrics import TOOL_CALLS, record_llm_usage, usage_kwargs
@@ -159,12 +159,13 @@ class StreamingGateway:
         )
         cached_tools = cache_tools(tools)
 
-        # A reminder announced has to be a reminder scheduled (MAG-339). The answer streams
-        # as it is written, so a false announcement may already be on screen when the guard
-        # reads it: it is corrected rather than held back. A relaunch replaces it with the
-        # next step's text, like any intermediate step (MAG-229), and a second failure
-        # restarts the bubble on `NOT_SCHEDULED_MESSAGE` — the only text then stored.
-        guard = ReminderGuard(tools)
+        # A reminder announced has to be a reminder scheduled (MAG-339), and « c'est noté »
+        # something stored (MAG-340). The answer streams as it is written, so a false
+        # announcement may already be on screen when the guard reads it: it is corrected
+        # rather than held back. A relaunch replaces it with the next step's text, like any
+        # intermediate step (MAG-229), and a second failure restarts the bubble on the
+        # guard's `honest_answer()` — the only text then stored.
+        guard = ClaimGuard(tools)
 
         # What is stored, shown and read aloud is the last step's text alone: the steps
         # before a tool call are the model thinking out loud (announcements, errors, retries),
@@ -330,12 +331,12 @@ class StreamingGateway:
 
                 verdict = guard.review(answer, can_retry=iteration < max_iterations - 2)
                 if verdict is Verdict.RETRY:
-                    logger.warning("Reminder announced without schedule_proaction: sending the model back")
+                    logger.warning("Action announced, nothing backs it: sending the model back")
                     guard.send_back(messages, response_content)
                     continue
                 if verdict is Verdict.GIVE_UP:
-                    logger.warning("Reminder announced twice, never scheduled: answering it is not")
-                    answer = NOT_SCHEDULED_MESSAGE
+                    logger.warning("Action announced twice, never done: answering it is not")
+                    answer = guard.honest_answer()
                     yield {"type": "TEXT_MESSAGE_START", "messageId": msg_id, "role": "assistant"}
                     text_started = True
                     yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": answer}
@@ -361,10 +362,10 @@ class StreamingGateway:
                 break
         else:
             # The budget ran out on a tool call, so the answer is an earlier step's text that
-            # nobody reviewed: a reminder it announces is checked here, with no relaunch left.
+            # nobody reviewed: an action it announces is checked here, with no relaunch left.
             if guard.review(answer, can_retry=False) is Verdict.GIVE_UP:
-                logger.warning("Reminder announced, never scheduled, out of iterations: answering it is not")
-                answer = NOT_SCHEDULED_MESSAGE
+                logger.warning("Action announced, never done, out of iterations: answering it is not")
+                answer = guard.honest_answer()
                 yield {"type": "TEXT_MESSAGE_START", "messageId": msg_id, "role": "assistant"}
                 text_started = True
                 yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": answer}
