@@ -19,12 +19,24 @@ const legend: SxProps<Theme> = {
   lineHeight: 1.6,
 }
 
-const ellipsis = { minWidth: 0, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const
+const ellipsis = { display: 'block', minWidth: 0, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const
 
 const truncated: SxProps<Theme> = { ...legend, ...ellipsis }
 
+const visuallyHidden = {
+  position: 'absolute',
+  width: 1,
+  height: 1,
+  overflow: 'hidden',
+  clip: 'rect(0 0 0 0)',
+  whiteSpace: 'nowrap',
+} as const
+
 const NameSkeleton = () => (
-  <Skeleton data-testid="breadcrumb-loading" variant="text" width={96} sx={{ display: 'inline-block' }} />
+  <>
+    <Skeleton data-testid="breadcrumb-loading" variant="text" width={96} sx={{ display: 'inline-block' }} />
+    <Box component="span" sx={visuallyHidden}>Chargement</Box>
+  </>
 )
 
 /**
@@ -95,7 +107,7 @@ export const Breadcrumbs = () => {
 
   return (
     <nav aria-label="Fil d'Ariane" style={{ minWidth: 0, padding: '8px 16px 0' }}>
-      <MuiBreadcrumbs separator="›" sx={{ ...legend, '& .MuiBreadcrumbs-ol': { flexWrap: 'nowrap' }, '& .MuiBreadcrumbs-li': { minWidth: 0 } }}>
+      <MuiBreadcrumbs separator="›" sx={{ ...legend, '& .MuiBreadcrumbs-ol': { flexWrap: 'nowrap' }, '& .MuiBreadcrumbs-li': { minWidth: 0, overflow: 'hidden' } }}>
         {crumbs.map((crumb, index) =>
           index === last ? (
             <span key={index}>{text(crumb.label, true)}</span>

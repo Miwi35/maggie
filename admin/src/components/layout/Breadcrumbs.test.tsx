@@ -3,6 +3,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AdminContext, memoryStore, testDataProvider } from 'react-admin'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { QueryClient } from '@tanstack/react-query'
 import type { DataProvider } from 'react-admin'
 import { Breadcrumbs } from './Breadcrumbs'
 import { CustomMenu } from './Menu'
@@ -18,10 +19,10 @@ const getOne = (record: Record<string, unknown>, delay = 0) =>
       new Promise((resolve) => setTimeout(() => resolve({ data: record }), delay)),
   ) as unknown as DataProvider['getOne']
 
-const renderAt = (path: string, dataProvider: DataProvider = testDataProvider()) =>
+const renderAt = (path: string, dataProvider: DataProvider = testDataProvider(), queryClient?: QueryClient) =>
   render(
     <MemoryRouter initialEntries={[path]}>
-      <AdminContext dataProvider={dataProvider} theme={veilleuseLightTheme} store={memoryStore()}>
+      <AdminContext dataProvider={dataProvider} theme={veilleuseLightTheme} store={memoryStore()} queryClient={queryClient}>
         <Breadcrumbs />
         <Routes>
           <Route path="*" element={<Where />} />
@@ -109,6 +110,25 @@ describe('Breadcrumbs', () => {
     expect(await screen.findByText('Détail')).toBeInTheDocument()
   })
 
+  test('falls back to « Détail » when the record cannot be read', async () => {
+    const failing = vi.fn(() => Promise.reject(new Error('404'))) as unknown as DataProvider['getOne']
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    renderAt(
+      '/loans/%2Fapi%2Floans%2F01/show',
+      testDataProvider({ getOne: failing }),
+      new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+    )
+
+    expect(await screen.findByText('Détail')).toBeInTheDocument()
+  })
+
+  test('a page the table does not know has no breadcrumb', () => {
+    renderAt('/nowhere')
+
+    expect(screen.queryByRole('navigation', { name: "Fil d'Ariane" })).toBeNull()
+  })
+
   test('an account\'s transactions page is named after the account', async () => {
     renderAt('/accounts/01ABC/transactions', testDataProvider({ getOne: getOne({ name: 'Compte joint' }) }))
 
@@ -184,7 +204,7 @@ describe('the menu and the breadcrumb agree', () => {
     }
   })
 
-  test('every part of the table is a page of its own with a two-level trail', () => {
+  test('every part of the table resolves to its own two-level trail', () => {
     for (const module of NAVIGATION) {
       for (const part of module.parts) {
         const trail = resolveTrail(part.path)

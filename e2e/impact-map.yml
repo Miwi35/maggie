@@ -270,6 +270,8 @@ web:
     areas: [chat, interruptions, notification, realtime, dashboard]
   e2e/web/tests/responsive.spec.ts:
     areas: [chat, dashboard, finance, grocery, cookbook, design]
+  e2e/web/tests/breadcrumbs.spec.ts:
+    areas: [dashboard, finance, settings, design]
   e2e/web/tests/notifications-bell.spec.ts:
     areas: [notification, realtime]
   e2e/web/tests/mercure.spec.ts:
