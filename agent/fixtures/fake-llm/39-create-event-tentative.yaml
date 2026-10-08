@@ -1,0 +1,22 @@
+# "Ajoute un déjeuner provisoire jeudi à midi" — an event held as tentative (MAG-246).
+#
+# `create_event` takes `status`: "provisoire", "à confirmer" and "peut-être" are
+# `tentative`. 2098, so that this event stays clear of the 2099 appointments the
+# other scenarios count. The 26th is a Thursday.
+name: create-event-tentative
+description: Book a lunch as tentative through the calendar MCP tool.
+
+match:
+  user_matches: "déjeuner provisoire jeudi"
+
+turns:
+  - tools:
+      - name: create_event
+        input:
+          title: "Déjeuner provisoire (MAG-246)"
+          start_date: "2098-03-26"
+          start_time: "12:00"
+          end_date: "2098-03-26"
+          end_time: "13:00"
+          status: "tentative"
+  - text: "C'est noté, provisoirement : déjeuner jeudi 26 mars à midi. Il reste à confirmer."

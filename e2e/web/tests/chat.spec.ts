@@ -1139,6 +1139,48 @@ test('"décale la soirée à jeudi" moves the evening to Thursday 19:00–00:00 
   await calendar.goToEventDate(eventId, SHIFT.title)
 })
 
+/**
+ * 39-create-event-tentative.yaml and 39-update-event-confirm.yaml — MAG-246: « provisoire »
+ * creates a `tentative` event, « confirme » puts it back to `confirmed`. 2098, so the 2099
+ * assertions above never see it.
+ */
+test('"ajoute un déjeuner provisoire jeudi" creates a tentative event, "confirme" confirms it', async ({
+  page,
+  api,
+}) => {
+  const title = 'Déjeuner provisoire (MAG-246)'
+  const url = '/api/events?startAt%5Bafter%5D=2098-01-01&startAt%5Bbefore%5D=2098-12-31'
+
+  const dashboard = new DashboardPage(page)
+  await dashboard.open()
+
+  const chat = new ChatPanel(page)
+  const created = await chat.send('ajoute un déjeuner provisoire jeudi à midi')
+
+  expect(isUnscripted(assistantText(created)), `no scenario matched — Maggie said: ${assistantText(created)}`).toBe(false)
+  expect(toolResults(created)).toContainEqual({ toolName: 'create_event', status: 'success' })
+
+  const tentative = await waitForIndexed<SeededEvent & { status?: string }>(
+    api,
+    url,
+    (event) => event.summary === title,
+    { what: `The ${title} event` },
+  )
+  expect(tentative.status).toBe('tentative')
+
+  const confirmed = await chat.send(`confirme le déjeuner de jeudi (${String(tentative.id)})`)
+
+  expect(isUnscripted(assistantText(confirmed)), `no scenario matched — Maggie said: ${assistantText(confirmed)}`).toBe(false)
+  expect(toolResults(confirmed)).toContainEqual({ toolName: 'update_event', status: 'success' })
+
+  await expect
+    .poll(async () => {
+      const events = await getCollection<SeededEvent & { status?: string }>(api, url)
+      return events.find((event) => event.summary === title)?.status
+    }, { timeout: 30_000, message: 'the lunch should be confirmed' })
+    .toBe('confirmed')
+})
+
 interface AgentSkill {
   name: string
 }

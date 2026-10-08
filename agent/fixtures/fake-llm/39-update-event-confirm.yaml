@@ -1,0 +1,17 @@
+# "Confirme le déjeuner de jeudi" — a tentative event becomes confirmed (MAG-246).
+#
+# Only `status` is sent: confirming changes nothing else. The event's id comes from
+# the journey's sentence, as in 39-update-event-shift.yaml.
+name: update-event-confirm
+description: Confirm a tentative lunch, changing nothing but its status.
+
+match:
+  user_matches: 'confirme le déjeuner de jeudi \(([0-9A-HJKMNP-TV-Z]{26})\)'
+
+turns:
+  - tools:
+      - name: update_event
+        input:
+          id: '\1'
+          status: "confirmed"
+  - text: "C'est confirmé : le déjeuner de jeudi n'est plus provisoire."

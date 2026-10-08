@@ -13,6 +13,7 @@ import TextField from '@mui/material/TextField'
 import { RecurrencePicker } from './RecurrencePicker'
 import { ReminderPicker } from './ReminderPicker'
 import type { EventReminders } from './ReminderPicker'
+import type { EventStatus } from './eventStatus'
 
 interface Calendar {
   id: string
@@ -51,6 +52,7 @@ export const EventCreateDialog = ({ open, onClose, onCreated, defaultStart, defa
   const [calendarId, setCalendarId] = useState('')
   const [rrule, setRrule] = useState<string | null>(null)
   const [reminders, setReminders] = useState<EventReminders | null>(null)
+  const [status, setStatus] = useState<EventStatus>('confirmed')
   const [summaryError, setSummaryError] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
@@ -101,6 +103,7 @@ export const EventCreateDialog = ({ open, onClose, onCreated, defaultStart, defa
     setSummary('')
     setRrule(null)
     setReminders(null)
+    setStatus('confirmed')
     setSummaryError(false)
   }, [open, defaultStart, defaultEnd, defaultAllDay])
 
@@ -136,6 +139,7 @@ export const EventCreateDialog = ({ open, onClose, onCreated, defaultStart, defa
           endAt: endDate,
           allDay,
           agenda: calendarId,
+          status,
           ...(rrule ? { rrule } : {}),
           ...(reminders ? { reminders } : {}),
         },
@@ -201,6 +205,15 @@ export const EventCreateDialog = ({ open, onClose, onCreated, defaultStart, defa
             eventStartDate={startAt ? new Date(startAt) : null}
           />
           <ReminderPicker value={reminders} onChange={setReminders} />
+          <TextField
+            label="Statut"
+            value={status}
+            onChange={(e) => setStatus(e.target.value as EventStatus)}
+            select
+          >
+            <MenuItem value="confirmed">Confirmé</MenuItem>
+            <MenuItem value="tentative">Provisoire</MenuItem>
+          </TextField>
           <TextField
             label="Calendrier"
             value={calendarId}

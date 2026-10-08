@@ -7,7 +7,9 @@ use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Calendar\Entity\Event;
+use Maggie\Calendar\Enum\EventStatus;
 use Maggie\Calendar\Mcp\Tool\CreateEventTool;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 class CreateEventToolTest extends KernelTestCase
@@ -306,7 +308,7 @@ class CreateEventToolTest extends KernelTestCase
     }
 
     /** @param array<string, mixed> $schedule */
-    #[\PHPUnit\Framework\Attributes\DataProvider('refusedSchedules')]
+    #[DataProvider('refusedSchedules')]
     public function testCreateEventRefusesAnIncompleteOrBackwardsScheduleAndWritesNothing(array $schedule, string $expected): void
     {
         $this->loadFixtures('CreateEventToolTest.yaml');
@@ -332,6 +334,68 @@ class CreateEventToolTest extends KernelTestCase
         self::assertNotContains('duration', $parameters);
         self::assertNotContains('date', $parameters);
         self::assertNotContains('time', $parameters);
+    }
+
+    /** MAG-246: « ajoute un déjeuner provisoire jeudi à midi ». */
+    public function testCreateEventStoresATentativeStatusAndSaysSo(): void
+    {
+        $this->loadFixtures('CreateEventToolTest.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(
+            ($this->getTool())('Déjeuner provisoire', '2026-10-15', '12:00', '2026-10-15', '13:00', status: 'tentative'),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertTrue($data['success']);
+        self::assertSame('tentative', $data['event']['status']);
+        self::assertSame(EventStatus::Tentative, $this->stored('Déjeuner provisoire')->getStatus());
+        $this->assertMercureUpdatePublished('/events/');
+        $this->assertElasticsearchIndexDispatched(Event::class);
+    }
+
+    public function testCreateEventIsConfirmedWithoutAStatus(): void
+    {
+        $this->loadFixtures('CreateEventToolTest.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(
+            ($this->getTool())('Déjeuner', '2026-10-15', '12:00', '2026-10-15', '13:00'),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertSame('confirmed', $data['event']['status']);
+        self::assertSame(EventStatus::Confirmed, $this->stored('Déjeuner')->getStatus());
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function unknownStatuses(): iterable
+    {
+        yield 'unknown' => ['maybe'];
+        yield 'cancelled goes through deletion' => ['cancelled'];
+    }
+
+    #[DataProvider('unknownStatuses')]
+    public function testCreateEventRefusesAnUnknownStatusAndCreatesNothing(string $status): void
+    {
+        $this->loadFixtures('CreateEventToolTest.yaml');
+        $this->loginFixtureUser();
+        $this->resetMercure();
+
+        $data = json_decode(
+            ($this->getTool())('Déjeuner', '2026-10-15', '12:00', '2026-10-15', '13:00', status: $status),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertArrayNotHasKey('success', $data);
+        self::assertStringContainsString('"confirmed" or "tentative"', $data['error']);
+        self::assertSame([], self::getContainer()->get('doctrine.orm.entity_manager')->getRepository(Event::class)->findAll());
     }
 
     /** An event read back from the database, not from the response that claimed to write it. */

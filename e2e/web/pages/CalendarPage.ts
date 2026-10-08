@@ -23,6 +23,8 @@ export interface NewEvent {
   occurrences?: number
   /** A label of the "Rappel" select, e.g. "1 heure avant". No reminder when omitted. */
   reminder?: string
+  /** A label of the "Statut" select — "Provisoire". Confirmed when omitted. */
+  status?: string
 }
 
 export interface NewTask {
@@ -223,6 +225,11 @@ export class CalendarPage extends AdminShell {
     return this.grid.getByText(title, { exact: true })
   }
 
+  /** The chips of `title` the grid draws as tentative (MAG-246) — a class of ours, not FullCalendar's. */
+  tentativeChip(title: string): Locator {
+    return this.grid.locator('.fc-event.event-tentative').filter({ hasText: title })
+  }
+
   /** The chips on one day, whatever the view — several `td` carry the date in week view. */
   chipsOnDay(isoDate: string, title: string): Locator {
     return this.grid.locator(`td[data-date="${isoDate}"]`).getByText(title, { exact: true })
@@ -293,6 +300,10 @@ export class CalendarPage extends AdminShell {
       await this.pickReminder(dialog, event.reminder)
     }
 
+    if (event.status) {
+      await this.choose(dialog, 'Statut', event.status)
+    }
+
     if (event.agenda) {
       await this.choose(dialog, 'Calendrier', event.agenda)
     }
@@ -334,6 +345,7 @@ export class CalendarPage extends AdminShell {
     start?: string
     end?: string
     reminder?: string | null
+    status?: string
   }): Promise<void> {
     const dialog = this.editEventDialog
     await expect(dialog).toBeVisible()
@@ -352,6 +364,10 @@ export class CalendarPage extends AdminShell {
     } else if (values.reminder !== undefined) {
       await this.clearReminders(dialog)
       await this.pickReminder(dialog, values.reminder)
+    }
+
+    if (values.status !== undefined) {
+      await this.choose(dialog, 'Statut', values.status)
     }
 
     await dialog.getByRole('button', { name: 'Enregistrer' }).click()

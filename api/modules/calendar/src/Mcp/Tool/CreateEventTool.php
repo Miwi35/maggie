@@ -3,6 +3,7 @@
 namespace Maggie\Calendar\Mcp\Tool;
 
 use Maggie\Calendar\Entity\Event;
+use Maggie\Calendar\Enum\EventStatus;
 use Maggie\Calendar\Mcp\EventSchedule;
 use Maggie\Calendar\Message\CreateEventCommand;
 use Maggie\Calendar\Service\AgendaCandidate;
@@ -19,7 +20,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'create_event', description: 'Create a new calendar event. Always give the whole schedule — a start and an end, never a duration, nothing is assumed: start_date (YYYY-MM-DD) + start_time (HH:MM) + end_date + end_time, or for a whole-day event all_day true + start_date + end_date (the last day included; the same day for a single day). For "du X au Y", holidays, a trip or any stretch of several days, make ONE whole-day event with all_day true, start_date and end_date: never simulate a range with rrule (that makes one event per day) or with a long timed event. An event running past midnight has an end_date the day after. An incomplete schedule, or an end that is not after the start, creates nothing and returns an error. The result gives the schedule that was saved, in the event\'s own time zone (event.startAt, event.endAt, event.allDay; startDate and endDate for a whole-day event): announce exactly that to the user, not what you meant to do. Pass agenda_id whenever the user said or implied where the event belongs — its name as they said it ("Concerts", "au boulot": case, accents and approximations do not matter) or its id, with no manage_agendas call first. Omit it when they said nothing about the agenda: the tool then works it out from the event itself, from the agendas\' names and descriptions, and from the agenda the user filed similar events in before. Two agendas fitting equally well, or a name matching none, returns an error naming the plausible agendas and creates nothing — ask the user which one they mean and retry, never pick one yourself. Tell the user which agenda the event went to: it is in event.agenda. Use reminders for "préviens-moi une heure avant": a list of delays in minutes before the start, e.g. [60] or [10, 1440]; omit it when the user asked for nothing. Use rrule for a repeating event, RFC 5545 without the RRULE: prefix — "FREQ=WEEKLY;BYDAY=MO", "FREQ=DAILY;COUNT=10", "FREQ=MONTHLY;INTERVAL=2". The start given is the first occurrence, and reminders then fire for every occurrence.')]
+#[McpTool(name: 'create_event', description: 'Create a new calendar event. Always give the whole schedule — a start and an end, never a duration, nothing is assumed: start_date (YYYY-MM-DD) + start_time (HH:MM) + end_date + end_time, or for a whole-day event all_day true + start_date + end_date (the last day included; the same day for a single day). For "du X au Y", holidays, a trip or any stretch of several days, make ONE whole-day event with all_day true, start_date and end_date: never simulate a range with rrule (that makes one event per day) or with a long timed event. An event running past midnight has an end_date the day after. An incomplete schedule, or an end that is not after the start, creates nothing and returns an error. The result gives the schedule that was saved, in the event\'s own time zone (event.startAt, event.endAt, event.allDay; startDate and endDate for a whole-day event): announce exactly that to the user, not what you meant to do. Pass agenda_id whenever the user said or implied where the event belongs — its name as they said it ("Concerts", "au boulot": case, accents and approximations do not matter) or its id, with no manage_agendas call first. Omit it when they said nothing about the agenda: the tool then works it out from the event itself, from the agendas\' names and descriptions, and from the agenda the user filed similar events in before. Two agendas fitting equally well, or a name matching none, returns an error naming the plausible agendas and creates nothing — ask the user which one they mean and retry, never pick one yourself. Tell the user which agenda the event went to: it is in event.agenda. Use reminders for "préviens-moi une heure avant": a list of delays in minutes before the start, e.g. [60] or [10, 1440]; omit it when the user asked for nothing. Use rrule for a repeating event, RFC 5545 without the RRULE: prefix — "FREQ=WEEKLY;BYDAY=MO", "FREQ=DAILY;COUNT=10", "FREQ=MONTHLY;INTERVAL=2". The start given is the first occurrence, and reminders then fire for every occurrence. Use status \'tentative\' when the user says "provisoire", "à confirmer", "peut-être" or "sous réserve"; omit it (or \'confirmed\') for an ordinary event. Say so in your answer when the event is tentative (event.status).')]
 class CreateEventTool
 {
     public function __construct(
@@ -43,11 +44,13 @@ class CreateEventTool
         ?string $agenda_id = null,
         ?array $reminders = null,
         ?string $rrule = null,
+        ?string $status = null,
     ): string {
         $user = $this->userContext->getUser();
         $zone = new \DateTimeZone(Event::FALLBACK_TIME_ZONE);
 
         try {
+            $eventStatus = EventStatus::settable($status);
             $schedule = EventSchedule::required($start_date, $start_time, $end_date, $end_time, $all_day, $zone);
 
             if (null === $user) {
@@ -71,6 +74,7 @@ class CreateEventTool
                 timeZone: $zone->getName(),
                 allDay: $schedule->allDay,
                 rrule: '' !== $rrule ? $rrule : null,
+                status: $eventStatus?->value,
                 reminders: EventReminders::fromMinutes(array_map('intval', $reminders ?? [])),
                 userId: null !== $user ? (string) $user->getId() : null,
             ));
@@ -85,6 +89,7 @@ class CreateEventTool
                     'summary' => $event->getSummary(),
                     ...EventSchedule::describe($event),
                     'agenda' => $event->getAgenda()->getName(),
+                    'status' => $event->getStatus()->value,
                     'rrule' => $event->getRrule(),
                     'reminders' => EventReminders::toMinutes($event->getReminders()),
                 ],

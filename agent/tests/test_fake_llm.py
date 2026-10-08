@@ -1038,6 +1038,22 @@ class TestTheShippedFixtures:
             "end_time": "00:00",
         }
 
+    async def test_a_provisional_lunch_is_booked_tentative_then_confirmed_by_id(self):
+        """MAG-246: « provisoire » sends `status: tentative`, « confirme » only `status: confirmed`."""
+        client = build_client(DEFAULT_FIXTURES_DIR)
+        event_id = "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+
+        created = await ask(client, "Ajoute un déjeuner provisoire jeudi à midi")
+        call = next(block for block in created.content if isinstance(block, FakeToolUseBlock))
+        assert call.name == "create_event"
+        assert call.input["status"] == "tentative"
+        assert call.input["title"] == "Déjeuner provisoire (MAG-246)"
+
+        confirmed = await ask(client, f"Confirme le déjeuner de jeudi ({event_id})")
+        call = next(block for block in confirmed.content if isinstance(block, FakeToolUseBlock))
+        assert call.name == "update_event"
+        assert call.input == {"id": event_id, "status": "confirmed"}
+
     async def test_a_call_across_timezones_converts_with_date_time_before_booking(self):
         client = build_client(DEFAULT_FIXTURES_DIR)
         question = "Rappelle-moi d'appeler Kévin le 14 juillet 2099 à 10 h chez lui, il vit à Fort-de-France"

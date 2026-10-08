@@ -7,7 +7,9 @@ use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Calendar\Entity\Event;
+use Maggie\Calendar\Enum\EventStatus;
 use Maggie\Calendar\Mcp\Tool\UpdateEventTool;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 class UpdateEventToolTest extends KernelTestCase
@@ -103,7 +105,7 @@ class UpdateEventToolTest extends KernelTestCase
     }
 
     /** @param array<string, mixed> $args */
-    #[\PHPUnit\Framework\Attributes\DataProvider('incompleteSchedules')]
+    #[DataProvider('incompleteSchedules')]
     public function testAnIncompleteScheduleIsRefusedAndNothingIsWritten(array $args): void
     {
         $data = $this->call('event_evening', ...$args);
@@ -135,7 +137,7 @@ class UpdateEventToolTest extends KernelTestCase
     }
 
     /** @param array<string, mixed> $args */
-    #[\PHPUnit\Framework\Attributes\DataProvider('endsNotAfterTheStart')]
+    #[DataProvider('endsNotAfterTheStart')]
     public function testAnEndNotAfterTheStartIsRefusedWithoutWriteOrPublication(array $args): void
     {
         $data = $this->call('event_evening', ...$args);
@@ -353,5 +355,50 @@ class UpdateEventToolTest extends KernelTestCase
             ['useDefault' => false, 'overrides' => [['method' => 'popup', 'minutes' => 15]]],
             $this->reload()->getReminders(),
         );
+    }
+
+    /** MAG-246: « Confirme le déjeuner de jeudi » and its opposite. */
+    public function testTheStatusChangesAloneBothWays(): void
+    {
+        $data = $this->call('event_full', status: 'tentative');
+
+        self::assertTrue($data['success']);
+        self::assertSame('tentative', $data['event']['status']);
+        self::assertSame(EventStatus::Tentative, $this->reload()->getStatus());
+        self::assertSame('Weekly sync', $this->reload()->getSummary());
+        $this->assertMercureUpdatePublished('/events/');
+        $this->assertElasticsearchIndexDispatched(Event::class);
+
+        $data = $this->call('event_full', status: 'confirmed');
+
+        self::assertSame('confirmed', $data['event']['status']);
+        self::assertSame(EventStatus::Confirmed, $this->reload()->getStatus());
+    }
+
+    public function testWithoutAStatusTheStatusIsLeftAlone(): void
+    {
+        $this->call('event_full', status: 'tentative');
+        $data = $this->call('event_full', title: 'Renamed');
+
+        self::assertSame('tentative', $data['event']['status']);
+        self::assertSame(EventStatus::Tentative, $this->reload()->getStatus());
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function unknownStatuses(): iterable
+    {
+        yield 'unknown' => ['maybe'];
+        yield 'cancelled goes through deletion' => ['cancelled'];
+    }
+
+    #[DataProvider('unknownStatuses')]
+    public function testAnUnknownStatusIsRefusedAndChangesNothing(string $status): void
+    {
+        $data = $this->call('event_full', title: 'Renamed', status: $status);
+
+        self::assertArrayNotHasKey('success', $data);
+        self::assertStringContainsString('"confirmed" or "tentative"', $data['error']);
+        self::assertSame('Weekly sync', $this->reload()->getSummary());
+        self::assertSame(EventStatus::Confirmed, $this->reload()->getStatus());
     }
 }
