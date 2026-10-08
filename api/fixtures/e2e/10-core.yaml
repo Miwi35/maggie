@@ -83,6 +83,17 @@ Maggie\Core\Entity\User:
         googleId: 'e2e-interrupt-google-id'
         name: 'Alix Veilleuse'
 
+    # The stock journey (MAG-294). Telling Maggie « presque plus de riz » puts a
+    # line on the grocery list and publishes it, and talking to her adds to the
+    # chat history: on the owner's account that pushes `chat.spec.ts` off its
+    # twenty-message page, and on the shopper's it lands inside the windows
+    # `grocery-errand.spec.ts` asserts the first Mercure message of. So this
+    # account is for that journey alone.
+    e2e_stock_user:
+        email: 'e2e-stock@maggie.local'
+        googleId: 'e2e-stock-google-id'
+        name: 'Camille Garde-Manger'
+
 Maggie\Core\Entity\UserPreference:
     e2e_user_preference:
         user: '@e2e_user'
@@ -106,6 +117,14 @@ Maggie\Core\Entity\UserPreference:
 
     e2e_interrupt_user_preference:
         user: '@e2e_interrupt_user'
+        theme: 'light'
+        locale: 'fr'
+        timezone: 'Europe/Paris'
+        defaultCalendarView: 'month'
+        notificationsEnabled: true
+
+    e2e_stock_user_preference:
+        user: '@e2e_stock_user'
         theme: 'light'
         locale: 'fr'
         timezone: 'Europe/Paris'

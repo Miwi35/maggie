@@ -9,12 +9,14 @@ use Maggie\Core\Entity\User;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\Product;
+use Maggie\Grocery\Enum\ProductStockState;
 use Maggie\Grocery\Mcp\Tool\AddGroceryItemTool;
 use Maggie\Grocery\Mcp\Tool\CheckGroceryItemTool;
 use Maggie\Grocery\Mcp\Tool\MoveToFallbackTool;
 use Maggie\Grocery\Mcp\Tool\RemoveGroceryItemTool;
 use Maggie\Grocery\Mcp\Tool\ReorderGroceryItemsTool;
 use Maggie\Grocery\Mcp\Tool\SearchProductsTool;
+use Maggie\Grocery\Mcp\Tool\UpdateStockTool;
 use Maggie\Grocery\Message\EditGroceryItemCommand;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -194,6 +196,33 @@ class UserIsolationToolsTest extends KernelTestCase
         ));
         self::assertCount(1, $added);
         self::assertNull($added[0]->getStore());
+    }
+
+    public function testUpdateStockNeverReachesAnotherUsersProduct(): void
+    {
+        $this->loadAndLogin();
+        $tool = self::getContainer()->get(UpdateStockTool::class);
+
+        $byId = $this->decode($tool($this->ids['other_bananes'], 'out'));
+        self::assertStringContainsString('Product not found', $byId['error']);
+
+        // By name, only the caller's own products are candidates.
+        $byName = $this->decode($tool('Bananes', 'low'));
+        self::assertSame('Bananes plantain', $byName['product']['name']);
+
+        $this->em()->clear();
+        self::assertSame(ProductStockState::InStock, $this->em()->find(Product::class, $this->ids['other_bananes'])->getStockState());
+    }
+
+    public function testUpdateStockWithoutUserIsRefused(): void
+    {
+        $this->load();
+
+        $data = $this->decode((self::getContainer()->get(UpdateStockTool::class))('Bananes plantain', 'low'));
+
+        self::assertSame(MissingMcpUserException::MESSAGE, $data['error']);
+        $this->em()->clear();
+        self::assertSame(ProductStockState::InStock, $this->em()->find(Product::class, $this->ids['other_bananes'])->getStockState());
     }
 
     public function testOwnerKeepsCheckingAndRemovingTheirItem(): void

@@ -1098,6 +1098,40 @@ class TestTheShippedFixtures:
         # reads it — the exact bug MAG-22 fixed, and invisible from the answer.
         assert stored.input == {"content": "Tutoie-moi et évite les emojis", "kind": "behavior"}
 
+    async def test_a_product_nearly_out_is_told_to_update_stock_not_added_to_the_list(self):
+        """Telling the stock is not adding a line: update_stock restocks by itself (MAG-294)."""
+        client = build_client(DEFAULT_FIXTURES_DIR)
+
+        answer = await ask(client, "Je n'ai presque plus de riz")
+
+        assert answer.stop_reason == "tool_use"
+        calls = [block for block in answer.content if isinstance(block, FakeToolUseBlock)]
+        assert [(call.name, call.input) for call in calls] == [("update_stock", {"product": "Riz", "state": "low"})]
+
+    async def test_a_product_run_out_is_told_to_update_stock_as_out(self):
+        client = build_client(DEFAULT_FIXTURES_DIR)
+
+        answer = await ask(client, "Je n'ai plus de légumes pour couscous")
+
+        assert answer.stop_reason == "tool_use"
+        calls = [block for block in answer.content if isinstance(block, FakeToolUseBlock)]
+        assert [(call.name, call.input) for call in calls] == [
+            ("update_stock", {"product": "Légumes pour couscous", "state": "out"})
+        ]
+
+    async def test_the_two_stock_scenarios_close_with_an_answer_after_the_tool(self):
+        client = build_client(DEFAULT_FIXTURES_DIR)
+
+        for scenario in ("49-stock-low-rice.yaml", "51-stock-out-couscous.yaml"):
+            turns = yaml.safe_load((DEFAULT_FIXTURES_DIR / scenario).read_text())["turns"]
+            assert "tools" in turns[0]
+            assert "tools" not in turns[-1] and turns[-1]["text"], scenario
+
+        # The words that make a scenario match are the owner's, so a nearby
+        # sentence must not fall into the other one.
+        other = await ask(client, "Je n'ai plus de riz")
+        assert "[fake-llm]" in text_of(other)
+
     async def test_the_voice_she_was_asked_for_needs_the_preference_in_the_prompt(self):
         """The chat journey's proof of the injection, and why it is a proof."""
         client = build_client(DEFAULT_FIXTURES_DIR)

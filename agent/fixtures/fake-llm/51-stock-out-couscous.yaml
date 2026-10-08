@@ -1,0 +1,19 @@
+# "I have no couscous vegetables left" — a product with no automatic restock:
+# the state changes, nothing goes on the list, and Maggie warns about the meal
+# planned in the coming days that needs it (MAG-294).
+#
+# Asserted on the product and on the list, not on the sentence: the fake does
+# not read tool results. What the tool answers about the planned meals is
+# `UpdateStockToolTest`'s business; whether a real model passes it on is
+# `task e2e:eval`'s.
+name: stock-out-couscous
+description: Say the couscous vegetables are gone through MCP — update_stock adds nothing and flags the meal.
+
+match:
+  user_contains: "plus de légumes pour couscous"
+
+turns:
+  - tools:
+      - name: update_stock
+        input: {product: "Légumes pour couscous", state: "out"}
+  - text: "C'est noté : il n'y a plus de légumes pour couscous. Je n'ai rien ajouté à votre liste, mais un couscous est prévu cette semaine : voulez-vous que je les ajoute ?"

@@ -47,6 +47,13 @@ export const OTHER_USER_EMAIL = 'e2e-other@maggie.local'
  */
 export const INTERRUPTED_USER_EMAIL = 'e2e-interrupt@maggie.local'
 
+/**
+ * The fourth seeded account, for the stock journey (MAG-294): telling Maggie a
+ * product is nearly out writes to a grocery list and to the chat history, and
+ * neither can be shared with the files that assert on theirs.
+ */
+export const STOCK_USER_EMAIL = 'e2e-stock@maggie.local'
+
 const LOGIN_TOKEN = process.env.E2E_LOGIN_TOKEN ?? 'e2e-login-token'
 
 export interface SeededUser {

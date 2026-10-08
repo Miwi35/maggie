@@ -7,12 +7,19 @@ import type {
   Page,
   PlaywrightWorkerArgs,
 } from '@playwright/test'
-import { INTERRUPTED_USER_EMAIL, OTHER_USER_EMAIL, SEED_USER_EMAIL, signIn, storageStateOf } from './session.js'
+import {
+  INTERRUPTED_USER_EMAIL,
+  OTHER_USER_EMAIL,
+  SEED_USER_EMAIL,
+  STOCK_USER_EMAIL,
+  signIn,
+  storageStateOf,
+} from './session.js'
 import type { Session } from './session.js'
 import { pinClock } from './clock.js'
 
 export { expect }
-export { SEED_USER_EMAIL, OTHER_USER_EMAIL, INTERRUPTED_USER_EMAIL } from './session.js'
+export { SEED_USER_EMAIL, OTHER_USER_EMAIL, INTERRUPTED_USER_EMAIL, STOCK_USER_EMAIL } from './session.js'
 export type { Session, SeededUser } from './session.js'
 export { e2eNow, parisDay, parisTime } from './clock.js'
 export { seedId, seedAnchorDate, seedDate, seedManifest } from './manifest.js'
@@ -84,6 +91,11 @@ export interface MaggieFixtures {
    * else does.
    */
   interruptedUser: OtherUser
+  /**
+   * The fourth seeded account, for the stock journey (MAG-294): its grocery
+   * list, its products and its chat history are written by that file alone.
+   */
+  stockUser: OtherUser
   /**
    * Two windows of the same signed-in user — the "two tabs" check.
    *
@@ -239,6 +251,10 @@ export const test = base.extend<MaggieFixtures>({
 
   interruptedUser: async ({ playwright, browser, baseURL, contextOptions }, use) => {
     await useSignedInUser(INTERRUPTED_USER_EMAIL, { playwright, browser, baseURL, contextOptions }, use)
+  },
+
+  stockUser: async ({ playwright, browser, baseURL, contextOptions }, use) => {
+    await useSignedInUser(STOCK_USER_EMAIL, { playwright, browser, baseURL, contextOptions }, use)
   },
 
   twoWindows: async ({ browser, baseURL, contextOptions, page }, use) => {

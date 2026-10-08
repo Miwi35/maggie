@@ -1,0 +1,18 @@
+# "I'm nearly out of rice" — the stock is told in conversation, and a product
+# set to restock by itself goes back on the list (MAG-294).
+#
+# It writes twice (the product's state, then a list line), so a journey asserts
+# on the product and the list afterwards rather than on the sentence below: the
+# fake does not read tool results, and the sentence would say « deux paquets »
+# whatever happened.
+name: stock-low-rice
+description: Say the rice is nearly out through MCP — update_stock restocks it.
+
+match:
+  user_contains: "presque plus de riz"
+
+turns:
+  - tools:
+      - name: update_stock
+        input: {product: "Riz", state: "low"}
+  - text: "C'est noté : il ne vous reste presque plus de riz. J'ai ajouté deux paquets à votre liste de courses."

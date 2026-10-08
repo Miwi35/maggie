@@ -12,6 +12,7 @@ use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Entity\Recipe;
 use Maggie\Cookbook\Enum\MealSlot;
 use Maggie\Core\Entity\User;
+use Maggie\Grocery\Entity\Product;
 
 /** @extends ServiceEntityRepository<Meal> */
 class MealRepository extends ServiceEntityRepository
@@ -42,6 +43,42 @@ class MealRepository extends ServiceEntityRepository
             ->addOrderBy('m.slot', 'ASC')
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * The meals of the next `$days` days — today included — whose recipes use
+     * the product, soonest first.
+     *
+     * @return Meal[]
+     */
+    public function findUpcomingUsingProduct(User $user, Product $product, int $days): array
+    {
+        $from = $this->today();
+
+        // No DISTINCT: a meal carries JSON columns, which Postgres cannot compare.
+        $meals = $this->createQueryBuilder('m')
+            ->join('m.agenda', 'a')
+            ->join('m.recipes', 'r')
+            ->join('r.ingredients', 'ri')
+            ->where('a.user = :user')
+            ->andWhere('IDENTITY(ri.ingredient) = :product')
+            ->andWhere('m.date >= :from')
+            ->andWhere('m.date < :until')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('product', $product->getId(), 'ulid')
+            ->setParameter('from', $from, Types::DATE_IMMUTABLE)
+            ->setParameter('until', $from->modify("+{$days} days"), Types::DATE_IMMUTABLE)
+            ->orderBy('m.date', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        // Two recipes of one meal may both use the product: the join returns the meal twice.
+        $unique = [];
+        foreach ($meals as $meal) {
+            $unique[(string) $meal->getId()] = $meal;
+        }
+
+        return array_values($unique);
     }
 
     /**
