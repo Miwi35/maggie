@@ -300,6 +300,61 @@ class TransactionViewModelTest {
         assertFalse(viewModel.uiState.value.transactions.first { it.id == "tx-1" }.isInternalTransfer)
     }
 
+    // MAG-350: the debit the bank rejected, and the credit on the same account that gave it back.
+    private val rejectedDebit = Transaction(id = "tx-edf", label = "PRELEVEMENT EDF", amountCents = -6240, transferKind = "rejected")
+    private val rejectedCredit = Transaction(id = "tx-rej", label = "REJET PRLV SEPA", amountCents = 6240, transferKind = "rejected")
+    private val rejectionInfo = TransferInfo(
+        transferKind = "rejected",
+        transferSource = "auto",
+        counterpart = TransferLeg(id = "tx-edf", label = "PRELEVEMENT EDF", amountCents = -6240, accountId = accountId),
+    )
+
+    @Test
+    fun `opening a rejected credit loads the rejected payment it gave back`() = runTest {
+        coEvery { transactionRepository.getTransactions(accountId) } returns
+            Result.success(listOf(rejectedDebit, rejectedCredit))
+        coEvery { transactionRepository.getTransfer("tx-rej") } returns Result.success(rejectionInfo)
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        viewModel.openDetail("tx-rej")
+        advanceUntilIdle()
+
+        val detail = viewModel.uiState.value.detail!!
+        assertTrue(detail.transaction.isRejected)
+        assertFalse(detail.transaction.isInternalTransfer)
+        assertEquals("PRELEVEMENT EDF", detail.info!!.counterpart!!.label)
+        assertFalse(detail.isLoading)
+    }
+
+    @Test
+    fun `releasing a rejection frees both legs and reloads the list`() = runTest {
+        coEvery { transactionRepository.getTransactions(accountId) } returns
+            Result.success(listOf(rejectedDebit, rejectedCredit))
+        coEvery { transactionRepository.getTransfer("tx-rej") } returns Result.success(rejectionInfo)
+        coEvery { transactionRepository.setTransfer("tx-rej", false, null) } returns
+            Result.success(TransferInfo(transferKind = "none", transferSource = "manual"))
+        viewModel = newViewModel()
+        advanceUntilIdle()
+        viewModel.openDetail("tx-rej")
+        advanceUntilIdle()
+        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(
+            listOf(
+                rejectedDebit.copy(transferKind = "none", transferSource = "manual"),
+                rejectedCredit.copy(transferKind = "none", transferSource = "manual"),
+            ),
+        )
+
+        viewModel.releaseTransfer()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.detail!!.transaction.isRejected)
+        assertFalse(state.detail!!.isSaving)
+        assertTrue(state.transactions.none { it.isRejected })
+        coVerify { transactionRepository.setTransfer("tx-rej", false, null) }
+    }
+
     @Test
     fun `a refused marking keeps the line as it was and says why`() = runTest {
         coEvery { transactionRepository.getTransfer("tx-1") } returns Result.success(TransferInfo())

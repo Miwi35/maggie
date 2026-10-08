@@ -174,7 +174,7 @@ class TransactionViewModel(
     /** « C'est un virement interne »: [counterpartId] is the line picked in the search, null for none. */
     fun markAsTransfer(counterpartId: String?) = saveTransfer(internal = true, counterpartId = counterpartId)
 
-    /** « Ce n'est pas un virement interne »: the API frees both legs. */
+    /** « Ce n'est pas un virement interne » or « Ce n'est pas un rejet »: the API frees both legs. */
     fun releaseTransfer() = saveTransfer(internal = false, counterpartId = null)
 
     private fun saveTransfer(internal: Boolean, counterpartId: String?) {

@@ -15,6 +15,15 @@ class TransactionTest {
     }
 
     @Test
+    fun `the badge names the kind of neutral line, and the rejected payment once known`() {
+        assertEquals("Virement interne", transferBadgeLabel("internal", -300000))
+        assertEquals("Rejeté", transferBadgeLabel("rejected", -6240, "REJET PRLV SEPA"))
+        assertEquals("Rejet de PRELEVEMENT EDF", transferBadgeLabel("rejected", 6240, "PRELEVEMENT EDF"))
+        assertEquals("Rejet", transferBadgeLabel("rejected", 6240))
+        assertEquals(null, transferBadgeLabel("none", -8000))
+    }
+
+    @Test
     fun `an amount typed without sign gets the sign of the nature`() {
         assertEquals(4250, signedAmountCents(4250, TransactionNature.Income))
         assertEquals(-4250, signedAmountCents(4250, TransactionNature.Expense))

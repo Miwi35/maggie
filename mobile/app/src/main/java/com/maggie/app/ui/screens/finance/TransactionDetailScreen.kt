@@ -36,26 +36,33 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransferLeg
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.transactionStatusLabel
+import com.maggie.app.data.model.transferBadgeLabel
 import com.maggie.app.data.model.transferLegSummary
 import com.maggie.app.ui.UiTags
 
-/** The « Virement interne » chip, shared by the list and the detail screen. */
+/**
+ * The « Virement interne » or « Rejet » chip, shared by the list and the detail screen;
+ * nothing on an ordinary line. [counterpartLabel] names the rejected payment once the detail knows it.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TransferBadge(modifier: Modifier = Modifier) {
+fun TransferBadge(transaction: Transaction, modifier: Modifier = Modifier, counterpartLabel: String? = null) {
+    val label = transferBadgeLabel(transaction.transferKind, transaction.amountCents, counterpartLabel) ?: return
     AssistChip(
         onClick = {},
-        label = { Text("Virement interne") },
-        modifier = modifier.testTag(UiTags.TRANSFER_BADGE),
+        label = { Text(label) },
+        modifier = modifier.testTag(if (transaction.isRejected) UiTags.REJECTION_BADGE else UiTags.TRANSFER_BADGE),
     )
 }
 
 /**
- * One line and what makes it an internal transfer: the badge, the other leg, and the
- * toggle. Marking opens a full-screen search for the counterpart, never an inline dropdown.
+ * One line and what makes it neutral: the badge, the other leg, and the toggle.
+ * Marking an internal transfer opens a full-screen search for the counterpart, never an
+ * inline dropdown; a rejection is only released here — the admin marks it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -104,8 +111,26 @@ fun TransactionDetailScreen(
                 CircularProgressIndicator()
             }
 
-            if (transaction.isInternalTransfer) {
-                TransferBadge()
+            if (transaction.isRejected) {
+                TransferBadge(transaction, counterpartLabel = state.info?.counterpart?.label)
+                Text(
+                    text = if (transaction.transferSource == "manual") "Marqué à la main" else "Détecté automatiquement",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                state.info?.counterpart?.let {
+                    Text(
+                        text = "${if (transaction.amountCents < 0) "Recrédité par" else "Paiement rejeté"} : ${transferLegSummary(it)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+                OutlinedButton(
+                    onClick = onRelease,
+                    enabled = !state.isSaving,
+                    modifier = Modifier.fillMaxWidth().testTag(UiTags.REJECTION_RELEASE),
+                ) { Text("Ce n'est pas un rejet") }
+            } else if (transaction.isInternalTransfer) {
+                TransferBadge(transaction)
                 Text(
                     text = if (transaction.transferSource == "manual") "Marqué à la main" else "Détecté automatiquement",
                     style = MaterialTheme.typography.bodySmall,
