@@ -86,6 +86,17 @@ class TestTheSignals:
         assert event["tags"]["component"] == "agent"
         assert event["level"] == "error"
 
+    def test_a_query_string_never_leaves(self, sent):
+        with sentry_sdk.new_scope() as scope:
+            scope.add_event_processor(
+                lambda event, _hint: {**event, "request": {"url": "/agent/messages", "query_string": f"q={SECRET_TEXT}"}}
+            )
+            sentry_sdk.capture_message("boom")
+
+        event = only_event(sent)
+        assert "query_string" not in event["request"]
+        assert SECRET_TEXT not in json.dumps(event)
+
     def test_a_relaunch_of_the_claim_guard(self, sent):
         guard = ClaimGuard([{"name": "schedule_proaction"}])
 

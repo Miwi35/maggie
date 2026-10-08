@@ -30,6 +30,10 @@ UNANSWERED_MESSAGE = "unanswered_message"
 
 def _tag_component(event: dict, _hint: dict) -> dict:
     event.setdefault("tags", {})["component"] = COMPONENT
+    # A query string can hold what the user typed (message search `?q=`).
+    request = event.get("request")
+    if isinstance(request, dict):
+        request.pop("query_string", None)
     return event
 
 

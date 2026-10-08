@@ -1,7 +1,7 @@
 # Production errors go to GlitchTip (Sentry-compatible, glitchtip.meven.fr).
 #
 # SENTRY_DSN empty = nothing is sent: it is set only in prod (k8s secret
-# sentry-dsn, key api), never in dev, test or e2e. SENTRY_RELEASE is the
+# glitchtip-dsn, key api), never in dev, test or e2e. SENTRY_RELEASE is the
 # deployed commit, baked into the prod image at build (.docker/php/Dockerfile).
 sentry:
     dsn: '%env(default::SENTRY_DSN)%'
@@ -15,6 +15,19 @@ sentry:
         # e-mail, the IP, cookies or bodies.
         send_default_pii: false
         max_request_body_size: never
+        # Opting into data_collection replaces send_default_pii and defaults
+        # every option to « collect »: each one is closed explicitly. A query
+        # string can hold what the user typed (search `?q=`).
+        data_collection:
+            user_info: false
+            cookies: { mode: 'off' }
+            http_headers: { mode: 'off' }
+            http_bodies: []
+            url_query_params: { mode: 'off' }
+            gen_ai: { inputs: false, outputs: false }
+            database_query_data: false
+            queues: false
+            stack_frame_variables: false
         # 4xx are answers, not failures: only 5xx and unhandled errors go out.
         before_send: Maggie\Core\Observability\SentryEventFilter
     # Errors only: no performance tracing.

@@ -59,6 +59,14 @@ final class SentryConfigurationTest extends WebTestCase
         self::assertFalse($options->shouldSendDefaultPii());
         self::assertSame('never', $options->getMaxRequestBodySize());
         self::assertSame('prod', $options->getEnvironment());
+
+        $collection = $options->getDataCollection();
+        self::assertNotNull($collection);
+        self::assertFalse($collection->shouldCollectUserInfo());
+        self::assertTrue($collection->getUrlQueryParams()->isOff(), 'A search query can hold what the user typed.');
+        self::assertTrue($collection->getCookies()->isOff());
+        self::assertSame([], $collection->getHttpBodies());
+        self::assertTrue($collection->getStackFrameVariables()->isOff());
     }
 
     public function testAnUnhandledErrorIsSentWithItsComponent(): void
@@ -197,6 +205,7 @@ final class SentryConfigurationTest extends WebTestCase
             'tags' => $options->getTags(),
             'send_default_pii' => $options->shouldSendDefaultPii(),
             'before_send' => $options->getBeforeSendCallback(),
+            'data_collection' => $options->getDataCollection(),
             // No global PHP error handler from this throwaway client.
             'default_integrations' => false,
         ]);
