@@ -63,20 +63,35 @@ class SuggestCategorizationRules
         }
 
         $groups = [];
+        /** @var array<string, array<string, array{category: Category, lines: int}>> $filed */
+        $filed = [];
 
         foreach ($this->transactionRepository->findByUser($user) as $transaction) {
-            // A category set by hand is an answer already given.
-            if (CategorySource::Manual === $transaction->getCategorySource()) {
+            // Money moved between one's own accounts is neither spent nor
+            // earned: a heading for it would count it twice.
+            if ($transaction->isInternalTransfer()) {
                 continue;
             }
 
             $merchant = MerchantExtractor::extract($transaction->getLabel());
-            if (null === $merchant) {
+            $key = null === $merchant ? '' : MerchantExtractor::key($merchant);
+            if (null === $merchant || '' === $key) {
                 continue;
             }
 
-            $key = MerchantExtractor::key($merchant);
-            if ('' === $key || isset($covered[$key])) {
+            // A line already filed — by hand, or by a broader rule — needs no
+            // rule of its own; it only tells where the merchant's next lines go.
+            $category = $transaction->getCategory();
+            if (null !== $category) {
+                $id = (string) $category->getId();
+                $filed[$key][$id] ??= ['category' => $category, 'lines' => 0];
+                ++$filed[$key][$id]['lines'];
+
+                continue;
+            }
+
+            // A category removed by hand is an answer too: leave it alone.
+            if (CategorySource::Manual === $transaction->getCategorySource() || isset($covered[$key])) {
                 continue;
             }
 
@@ -102,17 +117,20 @@ class SuggestCategorizationRules
 
         $suggestions = [];
 
-        foreach ($groups as $group) {
+        foreach ($groups as $key => $group) {
             if ($group['occurrences'] < $minOccurrences) {
                 continue;
             }
 
             $direction = $this->directionOf($group['debits'], $group['credits']);
-            $guess = MerchantDictionary::categoryFor(
-                $group['pattern'],
-                AmountDirection::Credit === $direction,
-            );
-            $category = null === $guess ? null : ($categoriesByName[mb_strtolower($guess)] ?? null);
+            $category = $this->headingAlreadyGiven($filed[$key] ?? []);
+            if (null === $category) {
+                $guess = MerchantDictionary::categoryFor(
+                    $group['pattern'],
+                    AmountDirection::Credit === $direction,
+                );
+                $category = null === $guess ? null : ($categoriesByName[mb_strtolower($guess)] ?? null);
+            }
 
             $suggestions[] = [
                 'pattern' => $group['pattern'],
@@ -187,6 +205,25 @@ class SuggestCategorizationRules
                 $created,
             ),
         ];
+    }
+
+    /**
+     * The heading the user's history already gives this merchant, the most
+     * used one when it has several. It beats any dictionary: it is their answer.
+     *
+     * @param array<string, array{category: Category, lines: int}> $headings
+     */
+    private function headingAlreadyGiven(array $headings): ?Category
+    {
+        $best = null;
+
+        foreach ($headings as $heading) {
+            if (null === $best || $heading['lines'] > $best['lines']) {
+                $best = $heading;
+            }
+        }
+
+        return $best['category'] ?? null;
     }
 
     /** A merchant only ever paid is a debit rule; one that also refunds is not. */
