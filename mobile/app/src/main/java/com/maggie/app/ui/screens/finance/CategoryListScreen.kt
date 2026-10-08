@@ -169,87 +169,42 @@ fun CategoryListScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+internal class CategoryCreateFormState {
+    var name by mutableStateOf("")
+    var obligation by mutableStateOf("optional")
+        private set
+    var passiveIncome by mutableStateOf(false)
+
+    val canCreate: Boolean get() = name.isNotBlank()
+
+    fun select(value: String) {
+        obligation = value
+        // The API refuses the flag on anything but an income (422).
+        if (value != "income") passiveIncome = false
+    }
+
+    fun toRequest() = CategoryCreateRequest(
+        name = name.trim(),
+        obligation = obligation,
+        passiveIncome = passiveIncome,
+    )
+}
+
 @Composable
 private fun CategoryCreateDialog(
     onConfirm: (CategoryCreateRequest) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var name by remember { mutableStateOf("") }
-    var obligation by remember { mutableStateOf("optional") }
-    var passiveIncome by remember { mutableStateOf(false) }
+    val form = remember { CategoryCreateFormState() }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Nouvelle catégorie") },
-        text = {
-            Column(
-                modifier = Modifier.uiTagRoot(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Nom") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    OBLIGATIONS.forEach { o ->
-                        FilterChip(
-                            selected = obligation == o,
-                            onClick = {
-                                obligation = o
-                                // The API refuses the flag on anything but an income (422).
-                                if (o != "income") passiveIncome = false
-                            },
-                            label = { Text(obligationLabel(o)) },
-                        )
-                    }
-                }
-                if (obligation == "income") {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag(UiTags.CATEGORY_PASSIVE_INCOME)
-                            .toggleable(
-                                value = passiveIncome,
-                                role = Role.Switch,
-                                onValueChange = { passiveIncome = it },
-                            ),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Rente")
-                            Text(
-                                text = "Loyers perçus, dividendes : compte dans l'indépendance financière.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Switch(checked = passiveIncome, onCheckedChange = null)
-                    }
-                }
-            }
-        },
+        text = { CategoryCreateFields(form) },
         confirmButton = {
             TextButton(
-                onClick = {
-                    if (name.isNotBlank()) {
-                        onConfirm(
-                            CategoryCreateRequest(
-                                name = name.trim(),
-                                obligation = obligation,
-                                passiveIncome = passiveIncome,
-                            ),
-                        )
-                    }
-                },
-                enabled = name.isNotBlank(),
+                onClick = { if (form.canCreate) onConfirm(form.toRequest()) },
+                enabled = form.canCreate,
             ) {
                 Text("Créer")
             }
@@ -260,4 +215,57 @@ private fun CategoryCreateDialog(
             }
         },
     )
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun CategoryCreateFields(form: CategoryCreateFormState) {
+    Column(
+        modifier = Modifier.uiTagRoot(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        OutlinedTextField(
+            value = form.name,
+            onValueChange = { form.name = it },
+            label = { Text("Nom") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            OBLIGATIONS.forEach { o ->
+                FilterChip(
+                    selected = form.obligation == o,
+                    onClick = { form.select(o) },
+                    label = { Text(obligationLabel(o)) },
+                )
+            }
+        }
+        if (form.obligation == "income") {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag(UiTags.CATEGORY_PASSIVE_INCOME)
+                    .toggleable(
+                        value = form.passiveIncome,
+                        role = Role.Switch,
+                        onValueChange = { form.passiveIncome = it },
+                    ),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Rente")
+                    Text(
+                        text = "Loyers perçus, dividendes : compte dans l'indépendance financière.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(checked = form.passiveIncome, onCheckedChange = null)
+            }
+        }
+    }
 }
