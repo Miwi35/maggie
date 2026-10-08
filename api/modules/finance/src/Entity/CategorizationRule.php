@@ -24,6 +24,7 @@ use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Finance\Enum\AmountDirection;
 use Maggie\Finance\Enum\MatchType;
 use Maggie\Finance\Repository\CategorizationRuleRepository;
+use Maggie\Finance\Service\MatchCriteria;
 use Maggie\Finance\State\CreateCategorizationRuleProcessor;
 use Maggie\Finance\State\DeleteCategorizationRuleProcessor;
 use Maggie\Finance\State\UpdateCategorizationRuleProcessor;
@@ -229,46 +230,20 @@ class CategorizationRule implements MercurePublishable, OwnedByUserInterface, In
         return $this;
     }
 
-    /** Whether this rule claims a transaction. */
-    public function matches(Transaction $transaction): bool
+    /**
+     * What the rule recognises a transaction by, for the engine it shares with
+     * the recurring operations. Whether the rule is active is the caller's
+     * question.
+     */
+    public function matchCriteria(): MatchCriteria
     {
-        if (!$this->isActive) {
-            return false;
-        }
-
-        if (!$this->matchesLabel($transaction->getLabel())) {
-            return false;
-        }
-
-        $amountCents = $transaction->getAmountCents();
-
-        if (AmountDirection::Debit === $this->direction && $amountCents >= 0) {
-            return false;
-        }
-
-        if (AmountDirection::Credit === $this->direction && $amountCents <= 0) {
-            return false;
-        }
-
-        $absolute = abs($amountCents);
-
-        if (null !== $this->minAmountCents && $absolute < $this->minAmountCents) {
-            return false;
-        }
-
-        return null === $this->maxAmountCents || $absolute <= $this->maxAmountCents;
-    }
-
-    private function matchesLabel(string $label): bool
-    {
-        $haystack = mb_strtolower($label);
-        $needle = mb_strtolower($this->labelPattern);
-
-        return match ($this->matchType) {
-            MatchType::Contains => '' !== $needle && str_contains($haystack, $needle),
-            MatchType::StartsWith => '' !== $needle && str_starts_with($haystack, $needle),
-            MatchType::Equals => $haystack === $needle,
-        };
+        return new MatchCriteria(
+            labelPattern: $this->labelPattern,
+            matchType: $this->matchType,
+            direction: $this->direction,
+            minAmountCents: $this->minAmountCents,
+            maxAmountCents: $this->maxAmountCents,
+        );
     }
 
     /** @return array<string, mixed> */

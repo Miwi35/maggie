@@ -13,6 +13,7 @@
     "Product": "/users/{userId}/api/products/{id}",
     "Recipe": "/users/{userId}/api/recipes/{id}",
     "RecurringGroceryItem": "/users/{userId}/api/recurring_grocery_items/{id}",
+    "RecurringOperation": "/users/{userId}/api/recurring_operations/{id}",
     "SafetyCushion": "/users/{userId}/api/safety_cushions/{id}",
     "Store": "/users/{userId}/api/stores/{id}",
     "Task": "/users/{userId}/api/tasks/{id}",

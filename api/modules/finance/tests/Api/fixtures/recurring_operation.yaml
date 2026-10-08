@@ -1,0 +1,60 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: recurring-api-test@example.com
+    googleId: google-recurring-api-test
+    name: Recurring Api Test User
+  other_user:
+    email: recurring-api-other@example.com
+    googleId: google-recurring-api-other
+    name: Recurring Api Other User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+  other_checking:
+    name: Compte secret
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 1000
+    isCushion: false
+    user: '@other_user'
+
+Maggie\Finance\Entity\Category:
+  subscriptions:
+    name: Abonnements
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  salary:
+    name: Salaire
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    user: '@test_user'
+  other_secret:
+    name: Cadeaux secrets
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@other_user'
+
+Maggie\Finance\Entity\RecurringOperation:
+  gym:
+    label: Salle de sport
+    counterpartyName: Club Forme
+    category: '@subscriptions'
+    account: '@checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("2027-01-01"))>'
+    referenceAmountCents: -3000
+    endsOn: '<(new \DateTimeImmutable("2027-12-01"))>'
+    user: '@test_user'
+  other_rent:
+    label: Loyer secret
+    labelPattern: LOYER
+    category: '@other_secret'
+    account: '@other_checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("2027-01-05"))>'
+    referenceAmountCents: -90000
+    user: '@other_user'
