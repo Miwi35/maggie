@@ -80,7 +80,7 @@ EOF
 fi
 
 # Rule 2. A unit test run is the Gradle daemon, the Kotlin daemon and the test JVM.
-WT_MIN_AVAILABLE_MB="${WT_MOBILE_MIN_AVAILABLE_MB:-4096}" "$here/guard.sh"
+WT_MIN_AVAILABLE_MB="${WT_MOBILE_MIN_AVAILABLE_MB:-5120}" "$here/guard.sh" 9>&-
 
 # Rule 4. Copying build outputs from other code is safe because Gradle decides
 # from inputs, not from the presence of outputs: a task whose inputs (sources,
@@ -111,12 +111,20 @@ seed_from_warm_checkout() {
     fi
     echo "wt:test:mobile: seeding this worktree's Gradle state from $best" >&2
     local excludes=(--exclude=/outputs/ --exclude=/reports/ --exclude=/test-results/)
-    mkdir -p "$root/mobile/app"
-    rsync -a "${excludes[@]}" "$best/mobile/app/build/" "$root/mobile/app/build/"
-    [ ! -d "$best/mobile/build" ] || rsync -a "${excludes[@]}" "$best/mobile/build/" "$root/mobile/build/"
-    [ ! -d "$best/mobile/.gradle" ] || rsync -a "$best/mobile/.gradle/" "$root/mobile/.gradle/"
+    # A failed copy must not leave a half-seeded worktree that is never seeded
+    # again: drop it all and build cold.
+    if ! command -v rsync >/dev/null \
+        || ! { mkdir -p "$root/mobile/app" \
+            && rsync -a "${excludes[@]}" "$best/mobile/app/build/" "$root/mobile/app/build/" \
+            && { [ ! -d "$best/mobile/build" ] || rsync -a "${excludes[@]}" "$best/mobile/build/" "$root/mobile/build/"; } \
+            && { [ ! -d "$best/mobile/.gradle" ] || rsync -a "$best/mobile/.gradle/" "$root/mobile/.gradle/"; }; }; then
+        echo "wt:test:mobile: seeding failed (rsync missing or copy error), the first build is cold." >&2
+        rm -rf "$root/mobile/app/build" "$root/mobile/build" "$root/mobile/.gradle"
+    fi
 }
-# Under the lock: no other wt build writes the source while it is copied.
+# Under the lock: no other wt build writes the source while it is copied. The
+# owner's Android Studio or `mobile:install` may: Gradle then redoes what does
+# not match, slower but still correct.
 seed_from_warm_checkout
 
 # Gradle resolves the SDK through ANDROID_HOME or mobile/local.properties, and a

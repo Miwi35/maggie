@@ -132,7 +132,7 @@ Commands, from this worktree:
 ```sh
 task fix:all
 task wt:test:admin -- src/design src/theme.test.ts src/modules/dashboard
-cd mobile && ANDROID_HOME=~/Android/Sdk ./gradlew testProdReleaseUnitTest --tests 'com.maggie.app.ui.theme.*'
+task wt:test:mobile -- --tests 'com.maggie.app.ui.theme.*'
 task e2e:web:lint && task e2e:web:typecheck
 ```
 

@@ -82,7 +82,7 @@ What `wt/gradle.sh` does:
   every worktree included. The second caller prints « Gradle occupé par un autre
   build, attente… » and waits up to `WT_GRADLE_LOCK_WAIT_MINUTES` (30), then
   exits 75: push and let CI run it. The guard runs once the lock is held, with
-  `WT_MOBILE_MIN_AVAILABLE_MB` (4 GB).
+  `WT_MOBILE_MIN_AVAILABLE_MB` (5 GB).
 - **Warm but bounded daemons**: the Gradle daemon is kept between runs
   (1.5 GB heap, leaves after 30 idle minutes), the Kotlin daemon gets 1 GB, the
   test JVM its 2 GB from `app/build.gradle.kts`. Passed on the command line
