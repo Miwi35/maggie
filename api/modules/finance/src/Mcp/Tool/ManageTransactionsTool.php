@@ -17,10 +17,14 @@ use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
+use Symfony\Component\Uid\Ulid;
 
-#[McpTool(name: 'manage_transactions', description: 'List, create, update, delete, or categorize transactions. Amounts are signed integer cents: negative = expense/debit, positive = income/credit; the category must match: an income category (obligation income) only on a positive amount, any other category only on a negative one, otherwise the call is refused. bookedAt is an ISO date (defaults to today). status is one of spent, committed, planned, to_arbitrate. On update, only provided fields change; to remove the category, list categoryId in clear. transferKind says whether the line is a movement between two of the user\'s own accounts: internal, with counterpartId naming the other leg (omit it when only one of the two accounts is known), or none to take it back out of the transfers — list transferKind in clear for the same effect. An internal transfer counts neither as an expense nor as an income, and a marking made here is recorded as the user\'s own decision, which the detection never overwrites; detect_internal_transfers is what pairs a whole history.')]
+#[McpTool(name: 'manage_transactions', description: 'List, create, update, delete, or categorize transactions. List returns the newest first, one page at a time (limit, 30 by default, 100 at most) with total, the number of lines matching in all: to look further back or for something precise, narrow with direction (expense or income), fromDate and toDate (ISO dates, both included), accountId, or query (text found in the label or in the counterparty, i.e. the creditor or debtor the bank names) instead of asking for more. Each line carries its label and its counterpartyName. Amounts are signed integer cents: negative = expense/debit, positive = income/credit; the category must match: an income category (obligation income) only on a positive amount, any other category only on a negative one, otherwise the call is refused. bookedAt is an ISO date (defaults to today). status is one of spent, committed, planned, to_arbitrate. On update, only provided fields change; to remove the category, list categoryId in clear. transferKind says whether the line is a movement between two of the user\'s own accounts: internal, with counterpartId naming the other leg (omit it when only one of the two accounts is known), or none to take it back out of the transfers — list transferKind in clear for the same effect. An internal transfer counts neither as an expense nor as an income, and a marking made here is recorded as the user\'s own decision, which the detection never overwrites; detect_internal_transfers is what pairs a whole history.')]
 class ManageTransactionsTool
 {
+    private const DEFAULT_LIMIT = 30;
+    private const MAX_LIMIT = 100;
+
     public function __construct(
         private readonly MessageBusInterface $bus,
         private readonly TransactionRepository $transactionRepository,
@@ -43,10 +47,15 @@ class ManageTransactionsTool
         ?string $transferKind = null,
         ?string $counterpartId = null,
         ?array $clear = null,
+        ?int $limit = null,
+        ?string $fromDate = null,
+        ?string $toDate = null,
+        ?string $query = null,
+        ?string $direction = null,
     ): string {
         try {
             return match ($action) {
-                'list' => $this->list(),
+                'list' => $this->list($accountId, $limit, $fromDate, $toDate, $query, $direction),
                 'create' => $this->create($accountId, $amountCents, $label, $bookedAt, $status, $currency, $isExceptional, $categoryId),
                 'update' => $this->update($transactionId, $accountId, $amountCents, $label, $bookedAt, $status, $currency, $isExceptional, $categoryId, $transferKind, $counterpartId, $clear),
                 'categorize' => $this->categorize($transactionId, $categoryId),
@@ -64,15 +73,47 @@ class ManageTransactionsTool
         }
     }
 
-    private function list(): string
+    private function list(?string $accountId, ?int $limit, ?string $fromDate, ?string $toDate, ?string $query, ?string $direction): string
     {
         $user = $this->userContext->requireUser();
 
-        $transactions = $this->transactionRepository->findByUser($user);
+        if (null !== $accountId && !Ulid::isValid($accountId)) {
+            return json_encode(['error' => 'accountId is not a valid identifier.'], JSON_THROW_ON_ERROR);
+        }
+        if (null !== $direction && !in_array($direction, ['expense', 'income'], true)) {
+            return json_encode(['error' => 'direction is expense or income.'], JSON_THROW_ON_ERROR);
+        }
+        $from = $this->parseDay($fromDate);
+        $to = $this->parseDay($toDate);
+        if ((null !== $fromDate && null === $from) || (null !== $toDate && null === $to)) {
+            return json_encode(['error' => 'fromDate and toDate are ISO dates (YYYY-MM-DD).'], JSON_THROW_ON_ERROR);
+        }
+
+        $page = $this->transactionRepository->searchByUser(
+            $user,
+            null === $limit || $limit < 1 ? self::DEFAULT_LIMIT : min($limit, self::MAX_LIMIT),
+            $accountId,
+            $from,
+            $to,
+            $query,
+            $direction,
+        );
 
         return json_encode([
-            'transactions' => array_map(fn (Transaction $t) => $this->serialize($t), $transactions),
+            'transactions' => array_map(fn (Transaction $t) => $this->serialize($t), $page['transactions']),
+            'total' => $page['total'],
         ], JSON_THROW_ON_ERROR);
+    }
+
+    private function parseDay(?string $day): ?\DateTimeImmutable
+    {
+        if (null === $day) {
+            return null;
+        }
+
+        $parsed = \DateTimeImmutable::createFromFormat('!Y-m-d', $day);
+
+        return false !== $parsed && $parsed->format('Y-m-d') === $day ? $parsed : null;
     }
 
     private function create(?string $accountId, ?int $amountCents, ?string $label, ?string $bookedAt, ?string $status, ?string $currency, ?bool $isExceptional, ?string $categoryId): string

@@ -40,6 +40,62 @@ class TransactionRepository extends ServiceEntityRepository
         return $this->findBy(['user' => $user], ['bookedAt' => 'DESC']);
     }
 
+    /**
+     * One page of a user's lines, newest first, narrowed by the filters given,
+     * with how many lines match in all. Like `findByUser`, transfers stay in.
+     *
+     * @param \DateTimeImmutable|null $from      first booking day included
+     * @param \DateTimeImmutable|null $to        last booking day included
+     * @param string|null             $text      matched against the label and the counterparty, wildcards taken literally
+     * @param string|null             $direction `expense` (debits) or `income` (credits)
+     *
+     * @return array{transactions: Transaction[], total: int}
+     */
+    public function searchByUser(
+        User $user,
+        int $limit,
+        ?string $accountId = null,
+        ?\DateTimeImmutable $from = null,
+        ?\DateTimeImmutable $to = null,
+        ?string $text = null,
+        ?string $direction = null,
+    ): array {
+        $qb = $this->createQueryBuilder('t')
+            ->andWhere('t.user = :user')
+            ->setParameter('user', $user->getId(), 'ulid');
+
+        if (null !== $accountId) {
+            $qb->andWhere('t.account = :account')->setParameter('account', Ulid::fromString($accountId), 'ulid');
+        }
+        if (null !== $from) {
+            $qb->andWhere('t.bookedAt >= :from')->setParameter('from', $from);
+        }
+        if (null !== $to) {
+            $qb->andWhere('t.bookedAt <= :to')->setParameter('to', $to);
+        }
+        if (null !== $text && '' !== trim($text)) {
+            $qb->andWhere('LOWER(t.label) LIKE :text OR LOWER(t.counterpartyName) LIKE :text')
+                ->setParameter('text', '%'.addcslashes(mb_strtolower(trim($text)), '\\%_').'%');
+        }
+        if ('expense' === $direction) {
+            $qb->andWhere('t.amountCents < 0');
+        } elseif ('income' === $direction) {
+            $qb->andWhere('t.amountCents > 0');
+        }
+
+        $total = (int) (clone $qb)->select('COUNT(t.id)')->getQuery()->getSingleScalarResult();
+
+        /** @var Transaction[] $transactions */
+        $transactions = $qb
+            ->orderBy('t.bookedAt', 'DESC')
+            ->addOrderBy('t.id', 'DESC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+
+        return ['transactions' => $transactions, 'total' => $total];
+    }
+
     /** @return Transaction[] */
     public function findByAccount(Account $account): array
     {
