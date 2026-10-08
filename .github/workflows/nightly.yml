@@ -2,7 +2,8 @@ name: Nightly
 
 # Everything that runs once a night, in one run (MAG-244): the whole CI with no
 # path filter (MAG-96) — a regression that slipped past a filtered pull-request
-# run, or a flaky stack, shows up within a day — and the prompt-lab scenarios on
+# run, or a flaky stack, shows up within a day — except the e2e journeys, which
+# have their own night (nightly-e2e.yml, 8 Oct.) — and the prompt-lab scenarios on
 # the real model (MAG-95). They were two workflows, `nightly.yml` and `eval.yml`.
 # Nothing here is a required check, which is what makes the eval "non-blocking" a
 # fact rather than a promise: it calls Claude, so it is slow and billed, and its
@@ -54,6 +55,10 @@ jobs:
     name: CI
     if: github.event_name == 'schedule' || inputs.what != 'eval'
     uses: ./.github/workflows/ci.yml
+    # The e2e journeys play in nightly-e2e.yml (owner's decision, 8 Oct.), with a
+    # retry and a report of their own: not twice a night.
+    with:
+      suite: no-e2e
     # The ceiling of the pull-request-only jobs the called file also holds
     # (guard): a called workflow may not ask for more than its caller.
     permissions:

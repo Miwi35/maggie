@@ -24,9 +24,23 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
-  # `main.yml` and the nightly run (MAG-96) call this workflow: the night runs
+  # `main.yml` and the nightly runs (MAG-96) call this workflow: the night runs
   # every job, a merge applies the path filters.
   workflow_call:
+    inputs:
+      # Which half of the night: `nightly.yml` runs everything but the e2e
+      # journeys (`no-e2e`), `nightly-e2e.yml` the e2e journeys alone (`e2e`).
+      # A merge leaves it to `all`.
+      suite:
+        type: string
+        required: false
+        default: all
+      # Re-play once a Maestro flow that failed, and call it flaky if it passes
+      # then (the nightly; Playwright retries once on its own in CI).
+      retry_failed_journeys:
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   # `github.workflow` is the caller's name in a called workflow, so the nightly and
@@ -47,24 +61,26 @@ jobs:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     outputs:
-      api: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.api == 'true' }}
-      agent: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.agent == 'true' }}
-      ciqual: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.ciqual == 'true' }}
-      admin: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.admin == 'true' }}
+      # `suite` (a `workflow_call` input, empty on a pull request): `e2e` runs the
+      # e2e jobs alone (nightly-e2e.yml), `no-e2e` everything but them (nightly.yml).
+      api: ${{ inputs.suite != 'e2e' && ((github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.api == 'true') }}
+      agent: ${{ inputs.suite != 'e2e' && ((github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.agent == 'true') }}
+      ciqual: ${{ inputs.suite != 'e2e' && ((github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.ciqual == 'true') }}
+      admin: ${{ inputs.suite != 'e2e' && ((github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.admin == 'true') }}
       # The e2e journeys this change plays (owner's decision, 8 Oct.): the ones
       # its files touch in e2e/impact-map.yml, plus the critical core of each
       # platform that plays at all — every journey on the nightly run. `e2e` and
       # `mobile` say whether a platform plays at all; the lots are the matrices of
       # `e2e-shard` and `e2e-mobile-device`.
-      e2e: ${{ steps.select.outputs.e2e == 'true' }}
-      mobile: ${{ steps.select.outputs.mobile == 'true' }}
+      e2e: ${{ inputs.suite != 'no-e2e' && steps.select.outputs.e2e == 'true' }}
+      mobile: ${{ inputs.suite != 'no-e2e' && steps.select.outputs.mobile == 'true' }}
       web_specs: ${{ steps.select.outputs.web_specs }}
       web_lots: ${{ steps.select.outputs.web_lots }}
       web_lot_count: ${{ steps.select.outputs.web_lot_count }}
       mobile_lots: ${{ steps.select.outputs.mobile_lots }}
       mobile_lot_count: ${{ steps.select.outputs.mobile_lot_count }}
-      cron: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.cron == 'true' }}
-      mobile_unit: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.mobile_unit == 'true' }}
+      cron: ${{ inputs.suite != 'e2e' && ((github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.cron == 'true') }}
+      mobile_unit: ${{ inputs.suite != 'e2e' && ((github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.mobile_unit == 'true') }}
       # The emulators the Maestro journeys run on (MAG-98). One phone on a pull
       # request — an emulator costs minutes and the layout formats are not what a
       # feature branch usually breaks — and the three formats MAG-35 and MAG-91
@@ -614,6 +630,18 @@ jobs:
         # that has nothing to do with prompts.
         run: task e2e:eval:check
 
+      # Read by the nightly report (nightly-e2e.yml): which journey failed,
+      # passed on a retry or failed in quarantine, lot by lot.
+      - name: Verdict
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-verdict-web-${{ matrix.shard }}
+          path: e2e/verdicts
+          retention-days: 3
+          if-no-files-found: ignore
+          overwrite: true
+
       - name: Playwright blob report
         # Also when only a journey in quarantine failed: its trace is how it
         # leaves quarantine.
@@ -836,7 +864,9 @@ jobs:
     # 35 and not 25: the flows in quarantine play in a second run, which
     # mobile-journeys.sh stops after 10 minutes — a hang there must end as a
     # warning, not as this job's timeout.
-    timeout-minutes: 35
+    # The nightly re-plays the failed flows once (`retry_failed_journeys`): up to
+    # two more runs, hence 50 there.
+    timeout-minutes: ${{ inputs.retry_failed_journeys && 50 || 35 }}
     strategy:
       # The three formats are independent: a failure on the foldable says
       # nothing about the phone, and cancelling it would hide whether the
@@ -1002,6 +1032,8 @@ jobs:
           E2E_MOBILE_FLOWS: ${{ matrix.lot.flows }}
           E2E_VERDICT_LABEL: mobile ${{ matrix.device.name }} ${{ matrix.lot.index }}/${{ needs.changes.outputs.mobile_lot_count }}
           E2E_VERDICT_DIR: ${{ github.workspace }}/e2e/verdicts
+          # The nightly re-plays a failed flow once, and calls it flaky if it passes.
+          E2E_RETRY_FAILED: ${{ inputs.retry_failed_journeys && '1' || '' }}
         with:
           api-level: 34
           target: google_apis
@@ -1025,6 +1057,17 @@ jobs:
           # The blocking flows, then the ones in quarantine, each judged by
           # scripts/e2e/verdict.sh: only the first run's verdict fails the job.
           script: scripts/e2e/mobile-journeys.sh
+
+      # Read by the nightly report (nightly-e2e.yml), as the web shards' are.
+      - name: Verdict
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-verdict-mobile-${{ matrix.device.name }}-${{ matrix.lot.index }}
+          path: e2e/verdicts
+          retention-days: 3
+          if-no-files-found: ignore
+          overwrite: true
 
       - name: Maestro report
         # Always, not only on failure (MAG-233): the junit.xml of a green shard says
@@ -1264,14 +1307,14 @@ jobs:
   # guard rails (MAG-128) are checked here for the same reason.
   infra-scripts:
     name: Infra scripts and workflows
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && inputs.suite != 'e2e'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Lint workflows
         run: |
           docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:latest -color -ignore 'SC2129' .github/workflows/ci.yml \
-            .github/workflows/main.yml .github/workflows/nightly.yml .github/workflows/agent-guard.yml \
+            .github/workflows/main.yml .github/workflows/nightly.yml .github/workflows/nightly-e2e.yml .github/workflows/agent-guard.yml \
             .github/workflows/incident-gate-release.yml
       - name: Lint shell scripts
         run: |
@@ -1305,3 +1348,4 @@ jobs:
           bash infra/scripts/tests/clock.test.sh
           bash infra/scripts/tests/e2e-impacted.test.sh
           bash infra/scripts/tests/e2e-verdict.test.sh
+          bash infra/scripts/tests/e2e-nightly-report.test.sh

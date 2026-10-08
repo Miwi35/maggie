@@ -8,7 +8,8 @@ One line in the Actions list per event (MAG-244), each saying what it is (`run-n
 |---|---|---|---|
 | Push on a ready PR | `ci.yml` (`Pull request`) | `PR #120 · <title>` | path detection → guard, lint, tests, e2e, mobile unit tests, `Incident gate` |
 | Merge on `main` | `main.yml` (`Main`) | `main · CI puis déploiement · <commit message>` | `tested` → `ci.yml` called (skipped for a tree already tested) → gate → builds → deploy → smoke → lift the freeze → release the held PRs (or rollback) |
-| Every night | `nightly.yml` (`Nuit`) | `Nuit · CI complète + eval du modèle réel` | `ci.yml` called with no path filter, beside the real-model eval |
+| Every night | `nightly.yml` (`Nuit`) | `Nuit · CI complète + eval du modèle réel` | `ci.yml` called with no path filter and without the e2e journeys (`suite: no-e2e`), beside the real-model eval |
+| Every night, 03:07 in Paris | `nightly-e2e.yml` (`Nightly e2e`) | `Nuit · e2e complets` | `ci.yml` called with `suite: e2e`: every Playwright and Maestro journey, quarantine included, on the three formats; a failed flow retried once; a report per red journey |
 | Auto-merge armed | `agent-guard.yml` | `Agent guard · auto-merge armed · PR #n` | the guard, from the default branch |
 | Every hour | `incident-gate-release.yml` | `Gel d'incident · filet de sécurité horaire` | re-run the held gates if the freeze was lifted by hand |
 
@@ -96,7 +97,7 @@ The merge train rebases a PR on the head of `main` before its CI and squash-merg
 - Anything else runs the suite in full, as before: a branch merged out of date (the trees differ), a direct push, a revert not made through a PR, a red, missing or draft-only run, an API that does not answer. Doubt runs the CI.
 - The reason is in the log and the summary of `tested`. A skipped `ci` counts as a pass for the `gate` (`needs.ci.result == 'skipped'` **and** `skip == 'true'`); a red or cancelled CI still stops the run. Path detection, builds, deployment and smoke tests are unchanged, and the base of the change detection (the last successful run of `main.yml`) is too.
 - A `tested` job that dies does not skip the CI: `ci` runs on `always()`.
-- `nightly.yml` calls `ci.yml` directly and keeps the whole suite.
+- `nightly.yml` and `nightly-e2e.yml` call `ci.yml` directly and, between them, keep the whole suite.
 
 ### Gate (MAG-189)
 
@@ -220,7 +221,11 @@ Every merge on `main` that touches `mobile/` puts the signed `prodRelease` on th
 
 ## Nightly (`.github/workflows/nightly.yml`, MAG-96, MAG-244)
 
-**Trigger:** 02:43 UTC every day, and on demand (`what`: everything, ci or eval; `only`: one eval scenario). Two parallel jobs: `ci` calls `ci.yml` (every job, path filters bypassed, Mobile Unit Tests included) and `eval` runs the prompt-lab scenarios on the real model (formerly `eval.yml` at 03:17). A failure of the CI opens an issue labelled `nightly-failure`, or comments on the one already open; the eval is billed and judges tone, so it never alerts and is never a required check.
+**Trigger:** 02:43 UTC every day, and on demand (`what`: everything, ci or eval; `only`: one eval scenario). Two parallel jobs: `ci` calls `ci.yml` (every job, path filters bypassed, Mobile Unit Tests included) and `eval` runs the prompt-lab scenarios on the real model (formerly `eval.yml` at 03:17). A failure of the CI opens an issue labelled `nightly-failure`, or comments on the one already open; the eval is billed and judges tone, so it never alerts and is never a required check. The e2e journeys are not in this run (`suite: no-e2e`): they have their own night.
+
+## Nightly e2e (`.github/workflows/nightly-e2e.yml`, owner's decision of 8 Oct.)
+
+**Trigger:** 03:07 in Paris every day — two cron lines (01:07 and 02:07 UTC) and a `when` job that keeps the one matching Paris's offset that day (summer or winter time) — and on demand (`workflow_dispatch`). It calls `ci.yml` with `suite: e2e` (only `Detect changes` and the e2e jobs run, every journey, quarantine included, the three device formats) and `retry_failed_journeys: true`: a Maestro flow that fails or never ran plays once more, and one that passes then is *flaky* (Playwright retries once on its own in CI, with the same meaning). It deploys nothing. Each e2e lot uploads its verdict (`e2e-verdict-*`, `scripts/e2e/verdict.sh`); `Nightly e2e report` (`scripts/e2e/nightly-report.sh`) turns them into the summary: for each red journey its area in `e2e/impact-map.yml`, the last commit that touched that area and the lot it failed in; the flaky journeys as candidates for the quarantine; the journeys in quarantine that still fail. A red night (a non-quarantined journey failed, or the e2e jobs failed outside any journey) opens an issue labelled `nightly-e2e-failure`, or comments on the one already open — GitHub notifies the owner, as for `nightly-failure`. A green night writes its summary and nothing else.
 
 ---
 
