@@ -82,6 +82,7 @@ fun ChatMessageList(
                         is ChatListItem.MessageItem -> "msg_${item.message.id}"
                         is ChatListItem.StreamingMessage -> "streaming_message"
                         is ChatListItem.LoadingIndicator -> "loading_indicator"
+                        is ChatListItem.Failure -> "failure"
                     }
                 },
             ) { _, item ->
@@ -144,6 +145,14 @@ fun ChatMessageList(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
+                    is ChatListItem.Failure -> {
+                        Text(
+                            text = item.text,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         )
                     }
                 }

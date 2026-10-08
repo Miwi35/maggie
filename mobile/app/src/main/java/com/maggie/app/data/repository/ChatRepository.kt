@@ -46,6 +46,19 @@ class ChatRepository(
         return response.messages
     }
 
+    /**
+     * What the server stored since [after], kept locally too. Throws when the server cannot be reached.
+     *
+     * The way back to an answer the call lost: the agent stores it whether or not the phone was still listening.
+     */
+    suspend fun fetchMessagesAfter(after: String?): List<ChatMessage> {
+        val messages = if (after != null) apiService.getMessages(afterDate = after) else apiService.getMessagesPaginated()
+        if (messages.isNotEmpty()) {
+            chatMessageDao.upsertAll(messages.map { ChatMessageEntity.fromModel(it) })
+        }
+        return messages
+    }
+
     /** Upsert a message received from Mercure into local storage. */
     suspend fun handleMercureMessage(message: ChatMessage) {
         chatMessageDao.upsert(ChatMessageEntity.fromModel(message))
