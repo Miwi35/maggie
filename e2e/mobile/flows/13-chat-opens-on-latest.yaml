@@ -18,6 +18,9 @@ tags:
 # with the keyboard up or not, needs a stream slow enough to watch and a layout to
 # measure: `ChatStaysAtBottomScreenTest` (JVM) and `ChatWidget.scroll.test.tsx` (admin).
 #
+# The voice sheet is left with the back key: its close button sits under the status bar,
+# where the CI emulator does not deliver the tap (MAG-310, see `02-voice-overlay.yaml`).
+#
 # Needs `E2E_BASE_URL` and `E2E_LOGIN_TOKEN`, which `run.sh` passes with `-e`.
 #
 # Regex selectors wrapped in `.*` for the reason given in `01-login-chat.yaml`. « Échange
@@ -55,8 +58,7 @@ tags:
 - assertNotVisible: ".*Échange 1 MAG-348.*"
 
 # Second opening, same session: the list state is a new one, the command long consumed.
-- tapOn:
-    id: "chat_close"
+- back
 - extendedWaitUntil:
     visible:
       id: "dashboard"
@@ -73,8 +75,7 @@ tags:
 - assertNotVisible: ".*Échange 1 MAG-348.*"
 
 # The text sheet.
-- tapOn:
-    id: "chat_close"
+- back
 - extendedWaitUntil:
     visible:
       id: "dashboard"
