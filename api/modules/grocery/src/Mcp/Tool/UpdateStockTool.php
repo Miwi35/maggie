@@ -69,6 +69,9 @@ class UpdateStockTool
     private function resolveProduct(User $user, string $reference): Product
     {
         $reference = trim($reference);
+        if ('' === $reference) {
+            throw new \DomainException('Which product? Pass its name or its id.');
+        }
 
         if (Ulid::isValid($reference)) {
             $byId = $this->productRepository->find($reference);

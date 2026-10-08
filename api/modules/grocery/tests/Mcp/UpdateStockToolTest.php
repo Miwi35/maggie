@@ -120,6 +120,17 @@ class UpdateStockToolTest extends KernelTestCase
         self::assertSame([], $this->listItems());
     }
 
+    public function testAnEmptyProductNeverMatchesEverything(): void
+    {
+        $this->loadAndLogin();
+
+        $data = $this->call('  ', 'low');
+
+        self::assertStringContainsString('Which product?', $data['error']);
+        self::assertSame(ProductStockState::InStock, $this->stateOf('rice'));
+        self::assertSame([], $this->listItems());
+    }
+
     public function testUnknownStateIsAReadableErrorAndChangesNothing(): void
     {
         $this->loadAndLogin();
