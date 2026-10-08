@@ -1,0 +1,104 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: end-errand-restock@example.com
+    googleId: google-end-errand-restock
+    name: End Errand Restock User
+
+Maggie\Grocery\Entity\Store:
+  store_lidl:
+    name: Lidl
+    visitOrder: 1
+    user: '@test_user'
+  store_auchan:
+    name: Auchan
+    visitOrder: 2
+    user: '@test_user'
+
+Maggie\Grocery\Entity\Product:
+  product_rice:
+    name: Riz
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    stockState: '<(Maggie\Grocery\Enum\ProductStockState::Out)>'
+    user: '@test_user'
+  product_detergent:
+    name: Lessive
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    stockState: '<(Maggie\Grocery\Enum\ProductStockState::Low)>'
+    user: '@test_user'
+  product_pasta:
+    name: Pâtes
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    stockState: '<(Maggie\Grocery\Enum\ProductStockState::Low)>'
+    user: '@test_user'
+  product_sugar:
+    name: Sucre
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    stockState: '<(Maggie\Grocery\Enum\ProductStockState::InStock)>'
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\Ingredient:
+  ingredient_flour:
+    name: Farine
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    stockState: '<(Maggie\Grocery\Enum\ProductStockState::Out)>'
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryList:
+  grocery_list:
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryItem:
+  item_rice:
+    groceryList: '@grocery_list'
+    product: '@product_rice'
+    quantity: 2
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: true
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@store_lidl'
+    position: 1
+  item_detergent:
+    groceryList: '@grocery_list'
+    product: '@product_detergent'
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@store_lidl'
+    position: 2
+  item_pasta:
+    groceryList: '@grocery_list'
+    product: '@product_pasta'
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: true
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@store_auchan'
+    position: 3
+  item_sugar:
+    groceryList: '@grocery_list'
+    product: '@product_sugar'
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: true
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@store_lidl'
+    position: 4
+  item_flour:
+    groceryList: '@grocery_list'
+    product: '@ingredient_flour'
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: true
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@store_lidl'
+    position: 5
+  item_free_label:
+    groceryList: '@grocery_list'
+    customLabel: Pile 9V
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: true
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@store_lidl'
+    position: 6

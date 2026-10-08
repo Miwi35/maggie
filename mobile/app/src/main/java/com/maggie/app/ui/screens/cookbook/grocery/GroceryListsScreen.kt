@@ -385,10 +385,19 @@ fun GroceryScreen(
         RemainingItemsSheet(
             storeName = finishingStoreName,
             items = uiState.pendingFinishItems,
+            restockedCount = uiState.pendingFinishRestockedCount,
             onTransferClick = { transferTargetItem = it },
             onKeepClick = { viewModel.keepPendingItem(it.id) },
             onDismiss = { viewModel.dismissPendingFinish() },
         )
+    }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(uiState.restockedToast) {
+        uiState.restockedToast?.let {
+            android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show()
+            viewModel.consumeRestockedToast()
+        }
     }
 
     transferTargetItem?.let { item ->

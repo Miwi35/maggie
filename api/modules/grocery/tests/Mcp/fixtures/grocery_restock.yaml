@@ -1,0 +1,39 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: grocery-test@example.com
+    googleId: google-grocery-test
+    name: Grocery Test User
+
+Maggie\Grocery\Entity\Product:
+  product_rice:
+    name: Riz
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    stockState: '<(Maggie\Grocery\Enum\ProductStockState::Out)>'
+    user: '@test_user'
+  product_detergent:
+    name: Lessive
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    stockState: '<(Maggie\Grocery\Enum\ProductStockState::Low)>'
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryList:
+  grocery_list:
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryItem:
+  item_rice:
+    groceryList: '@grocery_list'
+    product: '@product_rice'
+    quantity: 2
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: true
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 1
+  item_detergent:
+    groceryList: '@grocery_list'
+    product: '@product_detergent'
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 2

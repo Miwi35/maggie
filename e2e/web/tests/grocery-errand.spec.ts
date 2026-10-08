@@ -46,11 +46,12 @@ import { GroceryListPage } from '../pages/GroceryListPage.js'
  * `chat.spec.ts` says in so many words that six more exchanges on the owner's
  * history would push its own question off the page.
  *
- * `End`, `Move` and `Generate` have no screen at all — the admin's own
- * "Terminer les courses" deletes ticked lines one by one through `Remove`, and
- * nothing anywhere calls `move_to_fallback` or `generate_grocery_list`. Asking
- * is the only path, so the last three tests ask: scripted model, real tool
- * loop, real MCP server (MAG-95).
+ * `Move` and `Generate` have no screen at all — nothing anywhere calls
+ * `move_to_fallback` or `generate_grocery_list`. Asking is the only path, so
+ * those tests ask: scripted model, real tool loop, real MCP server (MAG-95).
+ * `End` has both: the admin's "Terminer les courses" posts to
+ * `/api/grocery/end-errand` (MAG-298), and Maggie's `end_errand` tool reaches
+ * the same handler.
  *
  * The mobile half of real-time — its topics and its DTOs, the two contract
  * regressions the ticket lists (`305ff70`, `0a281a7`) — is pinned by the
@@ -118,6 +119,8 @@ const WRITES = {
   errandKept: 'Olives MAG-101',
   deleted: 'Lait MAG-283',
   kept: 'Pain MAG-283',
+  restockedRice: 'Riz MAG-298',
+  untouchedDetergent: 'Lessive MAG-298',
 }
 
 async function storedList(api: APIRequestContext): Promise<StoredList> {
@@ -320,7 +323,8 @@ test('a shopper ticks what is in the trolley, then ends the errand', async ({ ot
     await expect(grocery.remainingLine(skipped)).toBeVisible()
     await expect(grocery.remainingLine(bought), 'a line already in the trolley is offered again').toHaveCount(0)
 
-    await afterErrand.action(removedLine(boughtId), 'clearing the trolley published nothing — afc1a70')
+    // One call to the End command, so one whole-list update (not a Remove per line).
+    await afterErrand(absent(bought), 'clearing the trolley published nothing — afc1a70')
     await expectLine(api, bought, (item) => undefined === item, 'the bought line gone from the database')
 
     // --- "Retirer": the owner gives up on the rest --------------------------
@@ -437,9 +441,7 @@ test('adding a line goes through the endpoint the API really exposes', async ({ 
 })
 
 test('"I have finished the shopping" clears the trolley, and leaves the rest', async ({ otherUser }) => {
-  // `end_errand` is MCP-only: the admin's own button does the same thing one
-  // `Remove` at a time, so this tool — and the `End` command `afc1a70` left
-  // mute — is only ever reached by asking.
+  // The tool reaches the same `End` command as the admin's button, by asking.
   const bought = WRITES.errandBought
   const kept = WRITES.errandKept
   const { api } = otherUser
@@ -642,3 +644,76 @@ test('the shopper deletes a line from the list, and it stays gone after a reload
     await probe.close()
   }
 })
+
+test('ending the errand puts the bought products back in stock, and only those — MAG-298', async ({ otherUser }) => {
+  const { restockedRice: rice, untouchedDetergent: detergent } = WRITES
+  const { api } = otherUser
+
+  const grocery = new GroceryListPage(otherUser.page)
+  await grocery.open()
+
+  // Given « Riz » out of stock with 2 packs on the list, and « Lessive » running
+  // low with 1 on the list, not ticked.
+  await grocery.addItem(rice, { quantity: 2, store: SHOPS.market })
+  await grocery.addItem(detergent, { quantity: 1, store: SHOPS.market })
+  const riceProductId = await productIdOf(api, rice)
+  const detergentProductId = await productIdOf(api, detergent)
+
+  await setStockState(api, riceProductId, 'out')
+  await setStockState(api, detergentProductId, 'low')
+  await expectStockState(api, riceProductId, 'out')
+  await expectStockState(api, detergentProductId, 'low')
+
+  // When I tick the rice and end the errand.
+  await expect(grocery.line(rice), 'the line to tick never reached the list').toBeVisible()
+  await grocery.tickBox(rice).click()
+  await expectLine(api, rice, (item) => true === item?.checked, 'the ticked line before ending the errand')
+  await grocery.endErrand()
+
+  // Then the screen says one product is back, the rice is in stock again, and
+  // the detergent — still on the list, not bought — keeps its state.
+  await expect(grocery.remainingDialog.getByText('1 produit repassé en stock')).toBeVisible()
+  await expectStockState(api, riceProductId, 'in_stock')
+  await expectStockState(api, detergentProductId, 'low')
+  await expect(grocery.remainingLine(detergent)).toBeVisible()
+})
+
+async function productIdOf(api: APIRequestContext, label: string): Promise<string> {
+  let id = ''
+
+  await expectLine(
+    api,
+    label,
+    (line) => {
+      id = line?.product?.id ?? ''
+
+      return '' !== id
+    },
+    `the line ${label} on the list, with its product`,
+  )
+
+  return id
+}
+
+async function setStockState(api: APIRequestContext, productId: string, stockState: string): Promise<void> {
+  const response = await api.patch(`/api/products/${productId}`, {
+    headers: { 'Content-Type': 'application/merge-patch+json' },
+    data: { stockState },
+  })
+
+  expect(response.ok(), `PATCH /api/products/${productId} answered ${response.status()}`).toBe(true)
+}
+
+/** Polled: the products collection is served from an index that trails the write. */
+async function expectStockState(api: APIRequestContext, productId: string, stockState: string): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const products = await getCollection<{ id: string; stockState?: string }>(api, '/api/products')
+
+        return products.find((product) => product.id === productId)?.stockState
+      },
+      { message: `the product ${productId} is not ${stockState}`, timeout: 30_000 },
+    )
+    .toBe(stockState)
+}

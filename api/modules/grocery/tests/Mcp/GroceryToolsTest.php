@@ -9,6 +9,7 @@ use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\Product;
+use Maggie\Grocery\Enum\ProductStockState;
 use Maggie\Grocery\Mcp\Tool\AddGroceryItemTool;
 use Maggie\Grocery\Mcp\Tool\CheckGroceryItemTool;
 use Maggie\Grocery\Mcp\Tool\EndErrandTool;
@@ -350,6 +351,7 @@ class GroceryToolsTest extends KernelTestCase
         self::assertTrue($data['checkedRemoved']);
         // Only the unchecked item_tomato remains
         self::assertSame(1, $data['remainingCount']);
+        self::assertSame([], $data['restockedProducts']);
 
         $this->em()->clear();
         $items = $this->em()->getRepository(GroceryItem::class)->findAll();
@@ -357,6 +359,30 @@ class GroceryToolsTest extends KernelTestCase
         self::assertFalse($items[0]->isChecked());
 
         $this->assertMercureUpdatePublished('/grocery_lists/');
+    }
+
+    public function testEndErrandReturnsRestockedProducts(): void
+    {
+        $this->loadFixtures('grocery_restock.yaml');
+        $this->loginFixtureUser();
+        $riceId = (string) $this->getFixture('product_rice')->getId();
+        $detergentId = (string) $this->getFixture('product_detergent')->getId();
+        $this->em()->clear();
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $tool = self::getContainer()->get(EndErrandTool::class);
+        $data = json_decode($tool(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame([['id' => $riceId, 'name' => 'Riz', 'stockState' => 'in_stock']], $data['restockedProducts']);
+        self::assertSame(1, $data['remainingCount']);
+
+        $this->em()->clear();
+        self::assertSame(ProductStockState::InStock, $this->em()->find(Product::class, $riceId)->getStockState());
+        self::assertSame(ProductStockState::Low, $this->em()->find(Product::class, $detergentId)->getStockState());
+
+        $this->assertMercureUpdatePublished('/api/products/'.$riceId);
+        $this->assertElasticsearchIndexDispatchedFor(Product::class, $riceId);
     }
 
     public function testMoveToFallbackReassignsStore(): void

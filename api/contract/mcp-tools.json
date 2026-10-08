@@ -368,7 +368,7 @@
             "type": "object",
             "properties": []
         },
-        "description": "End shopping errand. Removes all checked (bought) items and returns remaining unchecked items. The agent should then ask the user about EACH remaining item: keep on the list for later, or remove. Use remove_grocery_item to remove items the user no longer wants."
+        "description": "End shopping errand. Removes all checked (bought) items, puts the products they carried back In Stock (restockedProducts: tell the user which ones) and returns remaining unchecked items. The agent should then ask the user about EACH remaining item: keep on the list for later, or remove. Use remove_grocery_item to remove items the user no longer wants."
     },
     "generate_grocery_list": {
         "name": "generate_grocery_list",

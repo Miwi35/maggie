@@ -222,6 +222,7 @@ export const GroceryListView = () => {
   const [loading, setLoading] = useState(false)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [endErrandDialogOpen, setEndErrandDialogOpen] = useState(false)
+  const [restockedCount, setRestockedCount] = useState(0)
   const [uncheckedItems, setUncheckedItems] = useState<GroceryItem[]>([])
   const [itemToDelete, setItemToDelete] = useState<GroceryItem | null>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -491,18 +492,18 @@ export const GroceryListView = () => {
     if (!groceryList) return
     try {
       const token = localStorage.getItem('token')
-      // Remove checked items
-      const checkedItems = groceryList.items.filter((i) => i.checked)
-      for (const item of checkedItems) {
-        const response = await fetch(itemUrl(item), {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        if (!response.ok) {
-          notify("Erreur : les courses n'ont pas pu être terminées", { type: 'error' })
-          return
-        }
+      // One call: the API deletes the ticked lines and puts their products back in stock.
+      const response = await fetch(`${entrypoint}/grocery/end-errand`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      if (!response.ok) {
+        notify("Erreur : les courses n'ont pas pu être terminées", { type: 'error' })
+        return
       }
+      const result = await response.json()
+      setRestockedCount(Array.isArray(result?.restockedProducts) ? result.restockedProducts.length : 0)
       const today = localToday()
       const remaining = groceryList.items.filter((i) => !i.checked && !isDeferred(i, today))
       setUncheckedItems(remaining)
@@ -1121,6 +1122,13 @@ export const GroceryListView = () => {
       >
         <DialogTitle>Articles restants</DialogTitle>
         <DialogContent>
+          {restockedCount > 0 && (
+            <Typography variant="body2" color="success.main" sx={{ mb: 1 }} data-testid="restocked-message">
+              {restockedCount === 1
+                ? '1 produit repassé en stock'
+                : `${restockedCount} produits repassés en stock`}
+            </Typography>
+          )}
           {uncheckedItems.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
               Tous les articles ont été achetés !

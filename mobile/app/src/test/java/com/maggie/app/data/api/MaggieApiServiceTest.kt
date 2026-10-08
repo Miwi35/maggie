@@ -258,7 +258,7 @@ class MaggieApiServiceTest {
             capturedBody = (request.body as TextContent).text
             respond(
                 content = ByteReadChannel(
-                    """{"success":true,"remainingCount":1,"remainingItems":[
+                    """{"success":true,"remainingCount":1,"restockedProducts":[{"id":"p1","name":"Riz","stockState":"in_stock"}],"restockedCount":1,"remainingItems":[
                        {"id":"item-1","label":"Timbres du voisin","quantity":2,"unit":"piece",
                         "store":{"id":"store-corner","name":"Épicerie du coin"}}]}""",
                 ),
@@ -282,6 +282,7 @@ class MaggieApiServiceTest {
         assertEquals(1, response.remainingCount)
         assertEquals(listOf("Timbres du voisin"), response.remainingItems.map { it.label })
         assertEquals("Épicerie du coin", response.remainingItems.single().store?.name)
+        assertEquals(listOf("Riz"), response.restockedProducts.map { it.name })
     }
 
     private fun approvalClient(

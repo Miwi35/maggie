@@ -41,13 +41,17 @@ class EntityBroadcaster
         // The real class: a Doctrine proxy would spell the topic after the
         // proxy's own short name.
         $class = $entity instanceof Proxy ? get_parent_class($entity) : $entity::class;
-        $topic = MercureTopic::item(MercureTopic::collection($class), (string) $entity->getId());
+        $userId = (string) $entity->getUser()->getId();
+        $payload = $entity->toMercurePayload();
 
-        $this->hub->publish(new Update(
-            topics: [MercureTopic::scoped((string) $entity->getUser()->getId(), $topic)],
-            data: json_encode(['@id' => $topic] + $entity->toMercurePayload(), JSON_THROW_ON_ERROR),
-            private: true,
-        ));
+        $this->publish($class, (string) $entity->getId(), $userId, $payload);
+
+        // An Ingredient is a Product row: the products screens subscribe to
+        // /api/products, as the Mercure middleware already assumes.
+        $parent = get_parent_class($class);
+        if (false !== $parent && is_subclass_of($parent, MercurePublishable::class)) {
+            $this->publish($parent, (string) $entity->getId(), $userId, $payload);
+        }
 
         $this->bus->dispatch(new IndexDocumentCommand(
             entityClass: $class,
@@ -71,5 +75,17 @@ class EntityBroadcaster
         ));
 
         $this->bus->dispatch(new DeleteDocumentCommand(indexName: $indexName, documentId: (string) $entity->getId()));
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function publish(string $class, string $id, string $userId, array $payload): void
+    {
+        $topic = MercureTopic::item(MercureTopic::collection($class), $id);
+
+        $this->hub->publish(new Update(
+            topics: [MercureTopic::scoped($userId, $topic)],
+            data: json_encode(['@id' => $topic] + $payload, JSON_THROW_ON_ERROR),
+            private: true,
+        ));
     }
 }

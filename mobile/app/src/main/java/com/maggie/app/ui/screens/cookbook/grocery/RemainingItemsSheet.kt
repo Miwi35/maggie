@@ -31,6 +31,7 @@ import com.maggie.app.data.api.EndErrandRemainingItem
 fun RemainingItemsSheet(
     storeName: String,
     items: List<EndErrandRemainingItem>,
+    restockedCount: Int = 0,
     onTransferClick: (EndErrandRemainingItem) -> Unit,
     onKeepClick: (EndErrandRemainingItem) -> Unit,
     onDismiss: () -> Unit,
@@ -50,6 +51,14 @@ fun RemainingItemsSheet(
                 text = "Articles non achetés à $storeName",
                 style = MaterialTheme.typography.titleMedium,
             )
+            restockedProductsMessage(restockedCount)?.let { message ->
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
             Text(
                 text = "Transfère vers un autre magasin ou garde sur la liste pour la prochaine fois.",
                 style = MaterialTheme.typography.bodySmall,
