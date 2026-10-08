@@ -20,8 +20,6 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -44,7 +42,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -56,7 +53,6 @@ import androidx.compose.ui.window.DialogProperties
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.layout.CHAT_PANEL_WIDTH
 import com.maggie.app.ui.screens.chat.ChatViewModel
-import com.maggie.app.ui.screens.chat.ScrollBehavior
 import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.voice.VoiceManager
 import com.maggie.app.voice.VoiceState
@@ -236,49 +232,10 @@ fun ChatPanel(
     }
 }
 
-/**
- * The list's scroll position, and the two effects that drive it: the scroll commands
- * the ViewModel sends, and the « the user is at the bottom » signal that clears the
- * unread count.
- *
- * Here and not in each surface because there are three of them now — the voice
- * sheet, the text sheet and the panel — and the pair was already copied into the
- * first two.
- */
-@Composable
-private fun rememberChatListState(viewModel: ChatViewModel): LazyListState {
-    val uiState by viewModel.uiState.collectAsState()
-    val listState = rememberLazyListState()
-
-    LaunchedEffect(uiState.scrollToIndex, uiState.scrollBehavior) {
-        val index = uiState.scrollToIndex ?: return@LaunchedEffect
-        when (uiState.scrollBehavior) {
-            ScrollBehavior.ANIMATE_TO_BOTTOM -> listState.animateScrollToItem(index)
-            ScrollBehavior.INSTANT_TO_INDEX -> listState.scrollToItem(index)
-            ScrollBehavior.NONE -> {}
-        }
-        viewModel.consumeScroll()
-    }
-
-    LaunchedEffect(listState) {
-        snapshotFlow {
-            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            val total = listState.layoutInfo.totalItemsCount
-            lastVisible >= total - 2
-        }.collect { isAtBottom ->
-            if (isAtBottom) {
-                viewModel.onScrolledToBottom()
-            }
-        }
-    }
-
-    return listState
-}
-
 @Composable
 private fun ChatHistory(
     viewModel: ChatViewModel,
-    listState: LazyListState,
+    listState: ChatListState,
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsState()

@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
@@ -29,12 +28,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.ui.components.ChatMessageList
+import com.maggie.app.ui.components.rememberChatListState
 
 @Composable
 fun ChatScreen(viewModel: ChatViewModel, draft: String = "") {
@@ -44,31 +43,7 @@ fun ChatScreen(viewModel: ChatViewModel, draft: String = "") {
     LaunchedEffect(draft) {
         if (draft.isNotEmpty()) input = draft
     }
-    val listState = rememberLazyListState()
-
-    // Handle scroll commands from ViewModel
-    LaunchedEffect(uiState.scrollToIndex, uiState.scrollBehavior) {
-        val index = uiState.scrollToIndex ?: return@LaunchedEffect
-        when (uiState.scrollBehavior) {
-            ScrollBehavior.ANIMATE_TO_BOTTOM -> listState.animateScrollToItem(index)
-            ScrollBehavior.INSTANT_TO_INDEX -> listState.scrollToItem(index)
-            ScrollBehavior.NONE -> {}
-        }
-        viewModel.consumeScroll()
-    }
-
-    // Detect scroll-to-bottom for unread clearing
-    LaunchedEffect(listState) {
-        snapshotFlow {
-            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            val total = listState.layoutInfo.totalItemsCount
-            lastVisible >= total - 2
-        }.collect { isAtBottom ->
-            if (isAtBottom) {
-                viewModel.onScrolledToBottom()
-            }
-        }
-    }
+    val listState = rememberChatListState(viewModel)
 
     Column(modifier = Modifier.fillMaxSize()) {
         if (uiState.isSearchMode) {

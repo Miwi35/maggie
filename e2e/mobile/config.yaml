@@ -27,3 +27,4 @@ executionOrder:
     - 12-recipe-realtime
     - 12-finance-rente
     - 12-event-date-picker
+    - 13-chat-opens-on-latest

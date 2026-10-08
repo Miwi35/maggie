@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle, Fragment } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, forwardRef, useImperativeHandle, Fragment } from 'react'
 import Box from '@mui/material/Box'
 import Drawer from '@mui/material/Drawer'
 import Typography from '@mui/material/Typography'
@@ -172,7 +172,13 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     const [loadingHistory, setLoadingHistory] = useState(false)
     const [hasMore, setHasMore] = useState(true)
     const [highlightId, setHighlightId] = useState<string | null>(null)
-    const [isNearBottom, setIsNearBottom] = useState(true)
+    // « The list follows the latest message »: true until the user scrolls up on purpose.
+    const [following, setFollowingState] = useState(true)
+    const followingRef = useRef(true)
+    const setFollowing = useCallback((value: boolean) => {
+      followingRef.current = value
+      setFollowingState(value)
+    }, [])
     const [unreadFromId, setUnreadFromId] = useState<string | null>(null)
     const [tappedId, setTappedId] = useState<string | null>(null)
     const [streamedId, setStreamedId] = useState<string | null>(null)
@@ -189,9 +195,10 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     const [searchResults, setSearchResults] = useState<ChatMessage[]>([])
     const [searchLoading, setSearchLoading] = useState(false)
 
-    const messagesEndRef = useRef<HTMLDivElement>(null)
     const messagesContainerRef = useRef<HTMLDivElement>(null)
     const historyLoadedRef = useRef(false)
+    const lastScrollRef = useRef({ top: 0, height: 0 })
+    const skipOpenPinRef = useRef(false)
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const prevOpenRef = useRef(open)
 
@@ -371,13 +378,45 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
       load()
     }, [open, fetchMessages])
 
-    // --- Scroll to bottom on initial load ---
+    // --- Keep the list on the latest message ---
 
-    useEffect(() => {
-      if (!loadingHistory && historyLoadedRef.current) {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
+    const pinToBottom = useCallback(() => {
+      const container = messagesContainerRef.current
+      if (!container) return
+      container.scrollTop = container.scrollHeight
+      lastScrollRef.current = { top: container.scrollTop, height: container.scrollHeight }
+    }, [])
+
+    // Opening the panel, coming back to the Chat tab or leaving the search all start
+    // from the bottom, except a jump to a quoted message (it set `skipOpenPinRef`).
+    useLayoutEffect(() => {
+      if (!open || sidebarTab !== 'chat' || searchMode) return
+      if (skipOpenPinRef.current) {
+        skipOpenPinRef.current = false
+        return
       }
-    }, [loadingHistory])
+      setFollowing(true)
+      pinToBottom()
+    }, [open, sidebarTab, searchMode, pinToBottom, setFollowing])
+
+    // Whatever grows the list — a message, the answer line by line, the history —
+    // keeps the end in view while the user has not scrolled up. Instant, never smooth:
+    // an animation still running when the next line lands is what left the answer
+    // below the fold.
+    useLayoutEffect(() => {
+      if (followingRef.current && !searchMode) pinToBottom()
+    }, [messages, streamingText, agentState, loadingHistory, searchMode, pinToBottom])
+
+    // A keyboard, a card or a resized window changes the height without any message.
+    useEffect(() => {
+      const container = messagesContainerRef.current
+      if (!container || typeof ResizeObserver === 'undefined') return
+      const observer = new ResizeObserver(() => {
+        if (followingRef.current) pinToBottom()
+      })
+      observer.observe(container)
+      return () => observer.disconnect()
+    }, [open, sidebarTab, searchMode, pinToBottom])
 
     // --- Infinite scroll: load older messages ---
 
@@ -413,23 +452,20 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
       const container = messagesContainerRef.current
       if (!container) return
 
-      // Check if near bottom
+      // Only the user moves the list up (our own scrolls go down, and a list that
+      // shrinks lowers scrollTop by itself): that is what stops the following.
       const distFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight
-      setIsNearBottom(distFromBottom < 100)
+      const last = lastScrollRef.current
+      const movedUp = container.scrollTop < last.top - 1 && container.scrollHeight >= last.height
+      lastScrollRef.current = { top: container.scrollTop, height: container.scrollHeight }
+      if (movedUp) setFollowing(false)
+      else if (distFromBottom < 100) setFollowing(true)
 
       // Load older when near top
       if (container.scrollTop < 50 && !searchMode) {
         loadOlderMessages()
       }
-    }, [loadOlderMessages, searchMode])
-
-    // --- Auto-scroll to bottom for new messages (only if near bottom) ---
-
-    useEffect(() => {
-      if (isNearBottom && !searchMode) {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-      }
-    }, [messages, isNearBottom, searchMode])
+    }, [loadOlderMessages, searchMode, setFollowing])
 
     // --- Track chat close → save last read to localStorage ---
 
@@ -447,14 +483,14 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     // --- Clear unread breakline when user scrolls to bottom ---
 
     useEffect(() => {
-      if (isNearBottom && unreadFromId) {
+      if (following && unreadFromId) {
         setUnreadFromId(null)
         const lastMsg = messages[messages.length - 1]
         if (lastMsg && !lastMsg.id.startsWith('tmp-') && !lastMsg.id.startsWith('err-')) {
           localStorage.setItem('chat_lastReadMessageId', lastMsg.id)
         }
       }
-    }, [isNearBottom, unreadFromId, messages])
+    }, [following, unreadFromId, messages])
 
     // --- Send message ---
 
@@ -468,11 +504,11 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
           ...prev,
           { id: tmpId, role: 'user', content: userMessage, createdAt: new Date().toISOString() },
         ])
-        setIsNearBottom(true)
+        setFollowing(true)
 
         await agUiStream.send(userMessage)
       },
-      [agUiStream],
+      [agUiStream, setFollowing],
     )
 
     useImperativeHandle(
@@ -607,6 +643,8 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
 
           const data = await res.json()
           setMessages(data.messages)
+          setFollowing(false)
+          skipOpenPinRef.current = true
           setSearchMode(false)
           setSearchQuery('')
           setSearchResults([])
@@ -624,13 +662,13 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
           console.error('Navigate to message error:', e)
         }
       },
-      [],
+      [setFollowing],
     )
 
     const scrollToBottom = useCallback(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-      setIsNearBottom(true)
-    }, [])
+      setFollowing(true)
+      pinToBottom()
+    }, [setFollowing, pinToBottom])
 
     // --- UI handlers ---
 
@@ -958,11 +996,10 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                         </Typography>
                       </Box>
                     )}
-                    <div ref={messagesEndRef} />
                   </Box>
 
                   {/* Back to latest button */}
-                  {!isNearBottom && (
+                  {!following && (
                     <Chip
                       icon={<ArrowDownwardIcon />}
                       label="Derniers messages"
