@@ -53,10 +53,10 @@ class MyViewModelTest {
 ## Run Command
 
 ```
-cd mobile && JAVA_HOME=/opt/android-studio-for-platform/jbr ./gradlew testProdReleaseUnitTest
+task wt:test:mobile -- --tests 'com.maggie.app.ui.screens.chat.*'
 ```
 
-Lint runs in CI only — local `lintProdRelease` crashes on a known AGP/K2 bug.
+The JVM unit tests (`testProdDebugUnitTest`) of the worktree's code, one Gradle build at a time on the machine. Locally, mobile = `task wt:test:mobile -- --tests …` only: never `./gradlew` by hand, never `assemble*` or `lint*`, never Maestro or an emulator (except `task e2e:mobile` to write or debug a journey). CI does the rest. CI runs the shipped variant (`prodRelease`) and the lint.
 
 ## Reference
 

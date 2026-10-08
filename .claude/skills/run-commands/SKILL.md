@@ -45,10 +45,11 @@ task agent:format:check  # ruff format --check
 task agent:install       # uv pip install
 ```
 
-### Mobile (no Taskfile)
+### Mobile
 ```
-cd mobile && JAVA_HOME=/opt/android-studio-for-platform/jbr ./gradlew <command>
+task wt:test:mobile -- --tests 'com.maggie.app.ui.screens.chat.*'   # JVM unit tests, one Gradle build at a time
 ```
+Locally, mobile = `task wt:test:mobile -- --tests …` only: never `./gradlew` by hand, never `assemble*` or `lint*`, never Maestro or an emulator (except `task e2e:mobile` to write or debug a journey). CI does the rest.
 
 ### Infrastructure
 ```

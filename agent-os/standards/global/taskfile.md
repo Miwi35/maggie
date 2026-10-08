@@ -19,7 +19,7 @@ Always use `task <namespace>:<command>` instead.
 - `api/Taskfile.yml` — PHP/Symfony (namespace: `api:`)
 - `admin/Taskfile.yml` — Node/React (namespace: `admin:`)
 - `agent/Taskfile.yml` — Python/FastAPI (namespace: `agent:`)
-- Mobile — no Taskfile, uses Android Studio / `./gradlew`
+- `mobile/Taskfile.yml` — `mobile:install` (the owner's phone); agents run the unit tests with `task wt:test:mobile` (`wt/Taskfile.yml`)
 
 ## Naming
 

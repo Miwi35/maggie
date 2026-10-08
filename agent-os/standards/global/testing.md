@@ -186,7 +186,7 @@ The account has no side effect outside the platform: no push notification, no Go
 | API | PHPUnit 12 | `task api:test` (`-- --testsuite <Module>` to narrow) | `api/phpunit.dist.xml` |
 | Agent | pytest 9 | `task agent:test` | `agent/pyproject.toml` |
 | Admin | Vitest 3 | `task admin:test` | `admin/vite.config.ts` |
-| Mobile | JUnit 4 + MockK | `cd mobile && ./gradlew testProdReleaseUnitTest` | `build.gradle.kts` |
+| Mobile | JUnit 4 + MockK | `task wt:test:mobile -- --tests '<class or package>'` — the only local Gradle build; CI runs `prodRelease` | `build.gradle.kts` |
 | Web journeys | Playwright | `task e2e:web` (needs `task e2e:up`) | `e2e/web/playwright.config.ts` |
 | Mobile journeys | Maestro | `task e2e:mobile` (needs `task e2e:up` and a device) | `e2e/mobile/config.yaml` |
 
@@ -194,6 +194,7 @@ The account has no side effect outside the platform: no push notification, no Go
 
 - Coverage is measured by CI, not locally: the ratchet compares like with like (pcov, not Xdebug)
 - Never run test commands on host — always via `task` or Docker
+- Locally, mobile = `task wt:test:mobile -- --tests …` only: never `./gradlew` by hand, never `assemble*` or `lint*`, never Maestro or an emulator (except `task e2e:mobile` to write or debug a journey). CI does the rest.
 - CI runs lint before tests (lint gates test jobs)
 - `MESSENGER_TRANSPORT_DSN=sync://` in test env — no RabbitMQ needed
 - No test interdependencies — each test sets up and cleans its own state

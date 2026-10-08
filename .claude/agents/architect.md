@@ -58,7 +58,7 @@ All plans must specify commands using the Taskfile runner — never host tools d
 - `task admin:*` for Node/React (npm, dev, lint, typecheck)
 - `task agent:*` for Python (uv, pytest, lint)
 - `task up`, `task down`, `task build` for Docker
-- Mobile uses `./gradlew` (no Taskfile)
+- `task wt:test:mobile -- --tests …` for the mobile unit tests — the only local Gradle build; APK, lint and Maestro run on CI
 
 ## Plan Output Format
 

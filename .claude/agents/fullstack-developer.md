@@ -101,7 +101,7 @@ Use the Taskfile runner instead:
 | Start containers | `task up` |
 | Start with dev | `task up:dev` |
 | Stop containers | `task down` |
-| Mobile build | `./gradlew assembleDebug` (from `mobile/`) |
+| Mobile unit tests | `task wt:test:mobile -- --tests '<class or package>'` (no local APK build: CI) |
 
 ## Testing Requirements
 
@@ -116,7 +116,7 @@ After implementing changes, run the relevant tests:
 - **API changes:** `task api:test` and `task api:phpstan`
 - **Admin changes:** `task admin:test` and `task admin:typecheck`
 - **Agent changes:** `task agent:test` and `task agent:lint`
-- **Mobile changes:** `JAVA_HOME=/opt/android-studio-for-platform/jbr ./gradlew test` (from `mobile/`)
+- **Mobile changes:** `task wt:test:mobile -- --tests '<class or package>'`. Locally, mobile = `task wt:test:mobile -- --tests …` only: never `./gradlew` by hand, never `assemble*` or `lint*`, never Maestro or an emulator (except `task e2e:mobile` to write or debug a journey). CI does the rest.
 - **Cross-layer changes:** `task test:all`
 
 Follow the testing standards in `agent-os/standards/{layer}/testing.md` for test patterns and conventions.

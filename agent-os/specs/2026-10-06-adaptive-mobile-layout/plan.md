@@ -177,7 +177,7 @@ neither needs a device.
 | `UiTags` | `railItem("grocery") == "rail_grocery"` |
 
 Run from this worktree:
-`ANDROID_HOME=~/Android/Sdk ./gradlew testProdReleaseUnitTest --tests 'com.maggie.app.ui.*'`
+`task wt:test:mobile -- --tests 'com.maggie.app.ui.*'`
 (Java 21 via `org.gradle.java.home`), then `task fix:all` and
 `task e2e:mobile:lint`.
 
