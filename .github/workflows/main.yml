@@ -212,6 +212,9 @@ jobs:
           context: .
           file: .docker/php/Dockerfile
           target: prod
+          # The release the Sentry SDK reports to GlitchTip.
+          build-args: |
+            SENTRY_RELEASE=${{ env.RELEASE_SHA }}
           push: true
           tags: |
             ${{ env.PHP_IMAGE }}:${{ env.RELEASE_SHA }}
@@ -251,6 +254,9 @@ jobs:
           context: .
           file: .docker/python/Dockerfile
           target: prod
+          # The release the Sentry SDK reports to GlitchTip.
+          build-args: |
+            SENTRY_RELEASE=${{ env.RELEASE_SHA }}
           push: true
           tags: |
             ${{ env.AGENT_IMAGE }}:${{ env.RELEASE_SHA }}
@@ -333,6 +339,8 @@ jobs:
           build-args: |
             PHP_IMAGE=${{ env.PHP_IMAGE }}:${{ env.RELEASE_SHA }}
             MERCURE_PUBLIC_URL=https://maggieai.fr/.well-known/mercure
+            SENTRY_RELEASE=${{ env.RELEASE_SHA }}
+            SENTRY_DSN=${{ vars.SENTRY_DSN_ADMIN }}
           push: true
           tags: |
             ${{ env.NGINX_IMAGE }}:${{ env.RELEASE_SHA }}
@@ -592,10 +600,15 @@ jobs:
 
       - name: Build the signed prodRelease
         working-directory: mobile
+        # GlitchTip DSN of the mobile project: a repository variable, not a
+        # secret — a DSN ships inside the APK anyway. Unset: no crash reporting.
+        env:
+          MOBILE_SENTRY_DSN: ${{ vars.SENTRY_DSN_MOBILE }}
         run: |
           ./gradlew :app:assembleProdRelease --no-daemon \
             -Dorg.gradle.java.home="$JAVA_HOME" \
-            -PVERSION_CODE="$VERSION_CODE" -PGIT_SHA="${RELEASE_SHA:0:7}"
+            -PVERSION_CODE="$VERSION_CODE" -PGIT_SHA="${RELEASE_SHA:0:7}" \
+            -PSENTRY_DSN="$MOBILE_SENTRY_DSN"
           # An unsigned build is named `-unsigned.apk`: finding this one means the key was used.
           test -f app/build/outputs/apk/prod/release/app-prod-release.apk
 

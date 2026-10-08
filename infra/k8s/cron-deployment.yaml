@@ -22,6 +22,15 @@ spec:
           securityContext:
             runAsUser: 1000
             runAsNonRoot: true
+          # GlitchTip DSN (Sentry SDK). The secret is optional: without it the
+          # variable is unset and the SDK sends nothing.
+          env:
+            - name: SENTRY_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: glitchtip-dsn
+                  key: api
+                  optional: true
           envFrom:
             - configMapRef:
                 name: maggie-config
