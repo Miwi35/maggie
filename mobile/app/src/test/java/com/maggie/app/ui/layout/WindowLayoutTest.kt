@@ -142,4 +142,47 @@ class WindowLayoutTest {
         assertEquals(WindowHeight.MEDIUM, WindowHeight.of(899))
         assertEquals(WindowHeight.EXPANDED, WindowHeight.of(900))
     }
+
+    /**
+     * MAG-263: room for a list and its detail is what is left after the rail and the
+     * panel, in two [PANE_MIN_WIDTH]s — the seven formats of the table, named.
+     */
+    @Test
+    fun `the detail pane fits only where two 360 dp panes are left beside the chrome`() {
+        val fits = mapOf(
+            "phone 21:9 (412)" to (412 to 1000),
+            "foldable closed (374)" to (374 to 840),
+            "Flip cover (280)" to (280 to 290),
+            "foldable open (674): 594 dp would make two panes of 297" to (674 to 841),
+            "tablet portrait (800): 800 - 80 = 720 = two panes" to (800 to 1280),
+            "tablet landscape (1280): 1280 - 80 - 360 = 840" to (1280 to 800),
+            "phone landscape (891): 891 - 80 = 811" to (891 to 411),
+        ).mapValues { (_, size) -> appLayoutFor(size.first, size.second).detailPaneFits }
+
+        assertEquals(
+            mapOf(
+                "phone 21:9 (412)" to false,
+                "foldable closed (374)" to false,
+                "Flip cover (280)" to false,
+                "foldable open (674): 594 dp would make two panes of 297" to false,
+                "tablet portrait (800): 800 - 80 = 720 = two panes" to true,
+                "tablet landscape (1280): 1280 - 80 - 360 = 840" to true,
+                "phone landscape (891): 891 - 80 = 811" to true,
+            ),
+            fits,
+        )
+    }
+
+    @Test
+    fun `the rail's edge is 800 dp`() {
+        assertFalse(appLayoutFor(799, 1280).detailPaneFits)
+        assertTrue(appLayoutFor(800, 1280).detailPaneFits)
+    }
+
+    @Test
+    fun `the panel's edge is 1160 dp`() {
+        assertEquals(ChatEntry.PANEL, appLayoutFor(1159, 800).chatEntry)
+        assertFalse("1159 - 80 - 360 = 719", appLayoutFor(1159, 800).detailPaneFits)
+        assertTrue("1160 - 80 - 360 = 720", appLayoutFor(1160, 800).detailPaneFits)
+    }
 }

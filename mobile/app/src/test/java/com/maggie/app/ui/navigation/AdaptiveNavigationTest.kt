@@ -3,6 +3,7 @@ package com.maggie.app.ui.navigation
 import com.maggie.app.ui.layout.appLayoutFor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -138,5 +139,68 @@ class AdaptiveNavigationTest {
             "the panel has no push-to-talk bar",
             showsChatSheet(requested = true, voiceMode = true, hasChatPanel = true),
         )
+    }
+
+    @Test
+    fun `the four lists draw their detail beside them where the window has room`() {
+        listOf(Screen.Calendar, Screen.Cookbook, Screen.Grocery, Screen.AccountList).forEach { screen ->
+            val chrome = chromeFor(tabletLandscape, screen.route)
+
+            assertTrue(screen.route, chrome.showsDetailPane)
+            assertFalse("no sheet over a screen that has the pane", chrome.detailsAreSheets)
+        }
+    }
+
+    @Test
+    fun `below the threshold the detail stays a sheet or a route, as before`() {
+        listOf(phone, foldableOpen).forEach { layout ->
+            val chrome = chromeFor(layout, Screen.Calendar.route)
+
+            assertFalse(chrome.showsDetailPane)
+            assertTrue(chrome.detailsAreSheets)
+        }
+    }
+
+    @Test
+    fun `the dashboard has no pane, its events stay sheets on a tablet too`() {
+        val chrome = chromeFor(tabletLandscape, Screen.Dashboard.route)
+
+        assertFalse(chrome.showsDetailPane)
+        assertTrue(chrome.detailsAreSheets)
+    }
+
+    @Test
+    fun `a screen without a list and detail has no pane even where there is room`() {
+        assertFalse(chromeFor(tabletLandscape, Screen.Chat.route).showsDetailPane)
+        assertFalse(chromeFor(tabletLandscape, Screen.Settings.route).showsDetailPane)
+        assertFalse(chromeFor(tabletLandscape, null).showsDetailPane)
+    }
+
+    @Test
+    fun `a detail route is replaced by its list once the pane has room`() {
+        assertEquals(Screen.Cookbook.route, foldsDetailRouteIntoPane(Screen.RecipeDetail.route, true))
+        assertEquals(Screen.AccountList.route, foldsDetailRouteIntoPane(Screen.AccountTransactions.route, true))
+    }
+
+    @Test
+    fun `a detail route stays a route while the pane has no room`() {
+        assertNull(foldsDetailRouteIntoPane(Screen.RecipeDetail.route, false))
+        assertNull(foldsDetailRouteIntoPane(Screen.AccountTransactions.route, false))
+    }
+
+    @Test
+    fun `a route that is not a detail route is never replaced`() {
+        listOf(Screen.Cookbook, Screen.Calendar, Screen.RecipeEdit, Screen.Loading).forEach {
+            assertNull(it.route, foldsDetailRouteIntoPane(it.route, true))
+        }
+        assertNull(foldsDetailRouteIntoPane(null, true))
+    }
+
+    @Test
+    fun `entering the dashboard on a wide window drops what a pane held`() {
+        assertTrue(dropsPaneSelection(Screen.Dashboard.route, true))
+        assertFalse("the phone's sheet is the dashboard's own", dropsPaneSelection(Screen.Dashboard.route, false))
+        assertFalse(dropsPaneSelection(Screen.Calendar.route, true))
+        assertFalse(dropsPaneSelection(null, true))
     }
 }

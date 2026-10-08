@@ -207,6 +207,28 @@ is what the ticket asks for (« vérification par les previews Compose
 multi-tailles et des profils d'émulateur, pas par un achat de téléphone ») and is
 stricter than one AVD would be: six formats, every run, in seconds.
 
+## Liste et détail côte à côte (MAG-263)
+
+Dès qu'il reste `2 × PANE_MIN_WIDTH` (720 dp) une fois le rail et le panneau de
+conversation retirés (`AppLayout.detailPaneFits`), l'agenda, les recettes, les
+courses et les comptes dessinent la liste (360 dp) et le détail côte à côte. Un
+toucher remplit le volet de droite sans naviguer ; rien de choisi, le volet dit quoi
+faire. Dépliée sur une route de détail, la fenêtre revient sur la liste avec
+l'élément dans le volet (`foldsDetailRouteIntoPane`).
+
+E2E journey — extends **MAG-98**, carried by the tablet AVD follow-up (`infra-path`);
+the JVM screen tests (`ListDetailPaneScreenTest`, `FoldDetailRouteScreenTest`,
+`WindowLayoutTest`, `AdaptiveNavigationTest`) cover it until then:
+
+> **Given** a tablet AVD in portrait (800 × 1280 dp) with a recipe in the cookbook
+> **When** the owner opens Cuisine and taps the recipe
+> **Then** the recipe is shown to the right of the list, no screen was pushed, and
+> before the tap the right half said « Touchez une recette pour la voir ici. »
+
+> **Given** the same window folded to 412 dp on a recipe's detail
+> **When** the owner unfolds it
+> **Then** the cookbook list is on the left and the same recipe on the right.
+
 ## Definition of done
 
 1. Tests — the table above.

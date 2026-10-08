@@ -90,6 +90,10 @@ object UiTags {
     /** Category dialog — the « Rente » switch, there only on a Recette (MAG-257). */
     const val CATEGORY_PASSIVE_INCOME = "category_passive_income"
 
+    /** The list and the detail of a screen drawn side by side on a wide window (MAG-263). */
+    const val LIST_PANE = "list_pane"
+    const val DETAIL_PANE = "detail_pane"
+
     /** Finance dashboard — one access per part of the module, suffixed by its route. */
     const val FINANCE_ACCESS_PREFIX = "finance_access_"
 

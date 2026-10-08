@@ -72,12 +72,17 @@ fun GroceryScreen(
     onNavigateToStores: () -> Unit = {},
     openItemId: String? = null,
     onOpenItemHandled: () -> Unit = {},
+    // Set when the item opens in the detail pane beside the list instead of a sheet (MAG-263).
+    onOpenItemInPane: ((GroceryItem) -> Unit)? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var menuExpanded by remember { mutableStateOf(false) }
     var itemPendingDelete by remember { mutableStateOf<GroceryItem?>(null) }
     var showDeleteSelectedDialog by remember { mutableStateOf(false) }
     var detailItem by remember { mutableStateOf<GroceryItem?>(null) }
+    fun openDetail(item: GroceryItem) {
+        if (onOpenItemInPane != null) onOpenItemInPane(item) else detailItem = item
+    }
 
     // A deep link names an item: open its sheet once the list has it, or give up once the list is loaded without it.
     LaunchedEffect(openItemId, uiState.groceryList, uiState.isLoading, uiState.error) {
@@ -89,7 +94,7 @@ fun GroceryScreen(
         }
         val item = list.items.firstOrNull { it.id == openItemId }
         if (item != null) {
-            detailItem = item
+            openDetail(item)
             onOpenItemHandled()
         } else if (!uiState.isLoading) {
             onOpenItemHandled()
@@ -283,7 +288,7 @@ fun GroceryScreen(
                                                 if (uiState.isSelecting) {
                                                     groceryItem.id?.let { viewModel.toggleSelection(it) }
                                                 } else {
-                                                    detailItem = groceryItem
+                                                    openDetail(groceryItem)
                                                 }
                                             },
                                             dragModifier = if (!uiState.isSelecting) {
