@@ -51,6 +51,7 @@ framework:
             'Maggie\Cookbook\Message\DeleteMealCommand': sync
             'Maggie\Cookbook\Message\GenerateGroceryListCommand': sync
             'Maggie\Grocery\Message\AddGroceryItemCommand': sync
+            'Maggie\Grocery\Message\RestockProductCommand': sync
             'Maggie\Grocery\Message\CheckGroceryItemCommand': sync
             'Maggie\Grocery\Message\EndErrandCommand': sync
             'Maggie\Grocery\Message\MoveToFallbackCommand': sync

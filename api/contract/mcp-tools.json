@@ -2008,6 +2008,25 @@
         },
         "description": "Update an existing recipe. Only provided fields will be updated. Ingredients replaces the full list if provided. Each ingredient object needs quantity, unit, and either ingredientId or ciqualAlimCode. To empty an optional field, list its name in clear (notes); an empty tags string empties the tags."
     },
+    "update_stock": {
+        "name": "update_stock",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "product": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "product",
+                "state"
+            ]
+        },
+        "description": "Say what is left of a product at home: state is in_stock, low (nearly out) or out. Use it when the user says they are nearly out of something or have run out — not add_grocery_item. product is a product id or its name. When the product is set to restock by itself (autoRestock with a restockQuantity), its restock quantity is put on the grocery list for you and the answer says what was added; otherwise nothing is added and the answer says why. The answer also lists the meals of the next 7 days whose recipes use the product: tell the user about them."
+    },
     "update_task": {
         "name": "update_task",
         "inputSchema": {

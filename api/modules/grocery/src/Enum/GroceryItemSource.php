@@ -9,4 +9,5 @@ enum GroceryItemSource: string
     case Recipe = 'recipe';
     case Recurring = 'recurring';
     case Manual = 'manual';
+    case Restock = 'restock';
 }

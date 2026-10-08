@@ -10427,7 +10427,8 @@
                         "enum": [
                             "recipe",
                             "recurring",
-                            "manual"
+                            "manual",
+                            "restock"
                         ]
                     },
                     "store": {
@@ -10518,7 +10519,8 @@
                         "enum": [
                             "recipe",
                             "recurring",
-                            "manual"
+                            "manual",
+                            "restock"
                         ]
                     },
                     "store": {
@@ -10609,7 +10611,8 @@
                         "enum": [
                             "recipe",
                             "recurring",
-                            "manual"
+                            "manual",
+                            "restock"
                         ]
                     },
                     "store": {
