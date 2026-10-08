@@ -1,5 +1,6 @@
 package com.maggie.app.data.interruption
 
+import com.maggie.app.data.fcm.PushNotifier
 import com.maggie.app.data.fcm.PushPayload
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,19 +16,30 @@ import kotlinx.coroutines.flow.StateFlow
  * The queue only decides *what* is shown. How long it stays (30 s) belongs to the screen
  * that shows it, so a message raised while the app is in the background is not used up unseen.
  */
-class InterruptionCenter {
+class InterruptionCenter(private val now: () -> Long = System::currentTimeMillis) {
 
     private val lock = Any()
     private val queue = ArrayDeque<PushPayload>()
     private val seen = LinkedHashSet<String>()
+    private val postponed = HashMap<String, Long>()
+    private val rung = HashSet<String>()
     private val _current = MutableStateFlow<PushPayload?>(null)
 
     /** The one on screen, null when Maggie has nothing to say. */
     val current: StateFlow<PushPayload?> = _current
 
-    /** False when it was already offered (shown, queued, answered or timed out) or is left to its own source. */
-    fun offer(payload: PushPayload): Boolean = synchronized(lock) {
+    /**
+     * False when it was already offered (shown, queued, answered or timed out), is left to its own source,
+     * or was put off with « Plus tard » and is not due yet. [reshow] is the postponement's own alarm
+     * coming back: it is due by definition.
+     */
+    fun offer(payload: PushPayload, reshow: Boolean = false): Boolean = synchronized(lock) {
         if (!payload.interrupts) return false
+        if (reshow) {
+            postponed.remove(payload.key)
+        } else if (postponed[payload.key]?.let { it > now() } == true) {
+            return false
+        }
         if (!seen.add(payload.key)) return false
         if (seen.size > MAX_REMEMBERED) seen.remove(seen.first())
 
@@ -63,10 +75,26 @@ class InterruptionCenter {
         }
     }
 
-    /** « Plus tard »: gone now, and free to be offered again when the reminder comes back. */
-    fun postpone(key: String) = synchronized(lock) {
+    /**
+     * « Plus tard »: gone now, and not offered again — by the feeds either, which re-offer what is
+     * pending each time the app opens — until [delayMs] has passed or its reminder comes back.
+     */
+    fun postpone(key: String, delayMs: Long = PushNotifier.POSTPONE_MS) = synchronized(lock) {
         close(key)
         seen.remove(key)
+        postponed[key] = now() + delayMs
+    }
+
+    /** True once per interruption, whichever screen shows it: switching to the overlay must not ring again. */
+    fun announce(key: String): Boolean = synchronized(lock) { rung.add(key) }
+
+    /** Signed out: what was said to one account is not said to the next. */
+    fun clear() = synchronized(lock) {
+        queue.clear()
+        seen.clear()
+        postponed.clear()
+        rung.clear()
+        _current.value = null
     }
 
     private companion object {

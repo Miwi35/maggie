@@ -31,6 +31,7 @@ class InterruptionViewModelTest {
     private val center = InterruptionCenter()
     private val handler = mockk<PushActionHandler>()
     private val postponed = mutableListOf<PushPayload>()
+    private val dismissed = mutableListOf<String>()
     private lateinit var viewModel: InterruptionViewModel
 
     private fun message(id: String, type: String = "reminder", link: String? = null) = PushPayload.from(
@@ -45,7 +46,7 @@ class InterruptionViewModelTest {
     @Before
     fun setUp() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
-        viewModel = InterruptionViewModel(center, handler) { postponed += it }
+        viewModel = InterruptionViewModel(center, handler, dismiss = { dismissed += it.notificationId }) { postponed += it }
     }
 
     @After
@@ -126,7 +127,8 @@ class InterruptionViewModelTest {
 
         assertEquals(listOf("a"), postponed.map { it.notificationId })
         assertEquals("b", shown())
-        assertTrue("it can be offered again when it comes back", center.offer(message("a")))
+        assertFalse("not before its time", center.offer(message("a")))
+        assertTrue("it comes back with its alarm", center.offer(message("a"), reshow = true))
     }
 
     @Test
@@ -170,6 +172,26 @@ class InterruptionViewModelTest {
         assertTrue(viewModel.announce("a"))
         assertFalse(viewModel.announce("a"))
         assertTrue(viewModel.announce("b"))
+    }
+
+    @Test
+    fun `an answer takes down the notification a push left in the tray`() = runTest {
+        coEvery { handler.handle(PushActionKind.OK, any(), any(), any()) } returns PushOutcome.Closed
+        center.offer(message("a"))
+
+        viewModel.answer(PushActionKind.OK)
+
+        assertEquals(listOf("a"), dismissed)
+    }
+
+    @Test
+    fun `Plus tard also takes it down from the tray, its alarm brings it back`() {
+        center.offer(message("a"))
+
+        viewModel.answer(PushActionKind.LATER)
+
+        assertEquals(listOf("a"), dismissed)
+        assertEquals(listOf("a"), postponed.map { it.notificationId })
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.maggie.app.voice
 
 import android.Manifest
+import android.app.KeyguardManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -9,6 +10,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import com.maggie.app.data.fcm.PushIntents
@@ -67,13 +69,17 @@ class AssistantActivity : ComponentActivity() {
                     onListen = { requestMicAndListen() },
                 )
                 // Maggie speaking on her own reaches the owner here too (MAG-314); the overlay is already the chat.
-                InterruptionHost(
-                    onOpenLink = {
-                        startActivity(PushIntents.open(this@AssistantActivity, it, toLink = true))
-                        finish()
-                    },
-                    onOpenChat = {},
-                )
+                // Not over the lock screen: the overlay shows there, but her messages and held actions are not for passers-by.
+                val locked = remember { getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == true }
+                if (!locked) {
+                    InterruptionHost(
+                        onOpenLink = {
+                            startActivity(PushIntents.open(this@AssistantActivity, it, toLink = true))
+                            finish()
+                        },
+                        onOpenChat = {},
+                    )
+                }
             }
         }
 

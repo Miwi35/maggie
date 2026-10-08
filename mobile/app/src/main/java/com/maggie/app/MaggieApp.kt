@@ -281,7 +281,14 @@ class MaggieApp : Application() {
             viewModel { ContextViewModel(get(), get(), get()) }
             viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get(), get()) }
             viewModel { NotificationViewModel(get(), get(), get(), get()) }
-            viewModel { InterruptionViewModel(get(), get(), postpone = { PushNotifier(androidContext()).postpone(it) }) }
+            viewModel {
+                InterruptionViewModel(
+                    get(),
+                    get(),
+                    postpone = { PushNotifier(androidContext()).postpone(it) },
+                    dismiss = { PushNotifier(androidContext()).close(it.notificationId) },
+                )
+            }
             viewModel { SearchViewModel(get()) }
             viewModel { ProactionViewModel(get()) }
             viewModel { RecipeListViewModel(get(), get(), get()) }
@@ -320,13 +327,17 @@ class MaggieApp : Application() {
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             registrar.keepRegistered(authRepository.isAuthenticated)
         }
-        keepInterruptionsFed(get<InterruptionFeed>(), authRepository)
+        keepInterruptionsFed(get<InterruptionFeed>(), get<InterruptionCenter>(), authRepository)
         removeListeningLeftovers()
     }
 
     // The feeds only run while the app is open: in the background the push is what speaks, and the
     // held actions still waiting are picked up again when the app opens.
-    private fun keepInterruptionsFed(feed: InterruptionFeed, auth: AuthRepository) {
+    private fun keepInterruptionsFed(feed: InterruptionFeed, center: InterruptionCenter, auth: AuthRepository) {
+        ProcessLifecycleOwner.get().lifecycleScope.launch {
+            // Whatever was said to one account is not said to the next.
+            auth.isAuthenticated.collect { signedIn -> if (!signedIn) center.clear() }
+        }
         ProcessLifecycleOwner.get().lifecycleScope.launch {
             ProcessLifecycleOwner.get().lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 auth.isAuthenticated.collectLatest { signedIn -> if (signedIn) feed.run() }

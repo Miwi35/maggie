@@ -22,7 +22,7 @@ class PushActionReceiver : BroadcastReceiver(), KoinComponent {
         val notifier = PushNotifier(context)
 
         if (intent.action == ACTION_RESHOW) {
-            delivery.deliver(payload)
+            delivery.deliver(payload, reshow = true)
             return
         }
 
