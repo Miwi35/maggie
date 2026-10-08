@@ -10,9 +10,11 @@ import NotesOutlinedIcon from '@mui/icons-material/NotesOutlined'
 import NotificationsOutlinedIcon from '@mui/icons-material/NotificationsOutlined'
 import RepeatIcon from '@mui/icons-material/Repeat'
 import ScheduleIcon from '@mui/icons-material/Schedule'
+import Chip from '@mui/material/Chip'
 import { rruleToFrenchText } from './recurrenceUtils'
 import { remindersToFrenchText } from './ReminderPicker'
 import type { EventReminders } from './ReminderPicker'
+import type { EventStatus } from './eventStatus'
 
 export interface PopoverEvent {
   id: string
@@ -26,6 +28,7 @@ export interface PopoverEvent {
   location?: string
   rrule?: string
   reminders?: EventReminders | null
+  status?: EventStatus
   masterEventId?: string
   isVirtualOccurrence?: boolean
   calendarIri?: string
@@ -129,6 +132,10 @@ export const EventDetailPopover = ({
             {event.title}
           </Typography>
         </Box>
+
+        {event.status === 'tentative' && (
+          <Chip label="Provisoire" size="small" variant="outlined" sx={{ mb: 1.5, borderStyle: 'dashed' }} />
+        )}
 
         {/* Date/Time */}
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 1 }}>

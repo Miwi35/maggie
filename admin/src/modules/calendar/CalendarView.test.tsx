@@ -164,6 +164,37 @@ describe('CalendarView', () => {
       )
     })
 
+    // MAG-246
+    test('shows a tentative event as such and lets the owner confirm it', async () => {
+      serveEvents([
+        { id: '/api/events/ev9', summary: 'Déjeuner', startAt, endAt, allDay: false, agenda: AGENDA, status: 'tentative' },
+      ])
+      const { container } = render(<CalendarView />)
+
+      const title = await screen.findByText('Déjeuner')
+      expect(container.querySelector('.fc-event.event-tentative')).not.toBeNull()
+
+      await userEvent.click(title)
+      expect(await screen.findByText('Provisoire')).toBeInTheDocument()
+      await userEvent.click(await screen.findByRole('button', { name: 'Modifier' }))
+
+      const dialog = await screen.findByRole('dialog')
+      expect(within(dialog).getByRole('combobox', { name: 'Statut' })).toHaveTextContent('Provisoire')
+      await userEvent.click(within(dialog).getByRole('combobox', { name: 'Statut' }))
+      await userEvent.click(await screen.findByRole('option', { name: 'Confirmé' }))
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
+
+      await waitFor(() =>
+        expect(mockUpdate).toHaveBeenCalledWith(
+          'events',
+          expect.objectContaining({
+            id: '/api/events/ev9',
+            data: expect.objectContaining({ status: 'confirmed' }),
+          }),
+        ),
+      )
+    })
+
     test('asks which occurrences to change before editing a recurring series', async () => {
       serveEvents([
         { id: '/api/events/ev2', summary: 'Sport', startAt, endAt, allDay: false, agenda: AGENDA, rrule: 'FREQ=WEEKLY' },

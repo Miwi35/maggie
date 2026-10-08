@@ -7,9 +7,11 @@ import DialogTitle from '@mui/material/DialogTitle'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import Stack from '@mui/material/Stack'
 import Switch from '@mui/material/Switch'
+import MenuItem from '@mui/material/MenuItem'
 import TextField from '@mui/material/TextField'
 import { ReminderPicker } from './ReminderPicker'
 import type { EventReminders } from './ReminderPicker'
+import type { EventStatus } from './eventStatus'
 
 export interface EditableEvent {
   summary: string
@@ -19,6 +21,7 @@ export interface EditableEvent {
   description?: string
   location?: string
   reminders?: EventReminders | null
+  status?: EventStatus
 }
 
 export interface EventEditValues {
@@ -29,6 +32,7 @@ export interface EventEditValues {
   description: string | null
   location: string | null
   reminders: EventReminders | null
+  status: EventStatus
 }
 
 interface EventEditDialogProps {
@@ -52,6 +56,7 @@ export const EventEditDialog = ({ open, event, onClose, onSubmit }: EventEditDia
   const [location, setLocation] = useState('')
   const [description, setDescription] = useState('')
   const [reminders, setReminders] = useState<EventReminders | null>(null)
+  const [status, setStatus] = useState<EventStatus>('confirmed')
   const [summaryError, setSummaryError] = useState(false)
 
   useEffect(() => {
@@ -73,6 +78,7 @@ export const EventEditDialog = ({ open, event, onClose, onSubmit }: EventEditDia
     setLocation(event.location ?? '')
     setDescription(event.description ?? '')
     setReminders(event.reminders ?? null)
+    setStatus(event.status ?? 'confirmed')
     setSummaryError(false)
   }, [open, event])
 
@@ -100,6 +106,7 @@ export const EventEditDialog = ({ open, event, onClose, onSubmit }: EventEditDia
       description: description.trim() || null,
       location: location.trim() || null,
       reminders,
+      status,
     })
   }
 
@@ -143,6 +150,15 @@ export const EventEditDialog = ({ open, event, onClose, onSubmit }: EventEditDia
             slotProps={{ inputLabel: { shrink: true } }}
           />
           <ReminderPicker value={reminders} onChange={setReminders} />
+          <TextField
+            label="Statut"
+            value={status}
+            onChange={(e) => setStatus(e.target.value as EventStatus)}
+            select
+          >
+            <MenuItem value="confirmed">Confirmé</MenuItem>
+            <MenuItem value="tentative">Provisoire</MenuItem>
+          </TextField>
           <TextField label="Lieu" value={location} onChange={(e) => setLocation(e.target.value)} />
           <TextField
             label="Description"

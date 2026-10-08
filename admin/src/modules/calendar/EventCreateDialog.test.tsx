@@ -5,9 +5,10 @@ import { EventCreateDialog } from './EventCreateDialog'
 
 const mockGetList = vi.fn()
 const mockCreate = vi.fn()
+const mockNotify = vi.fn()
 vi.mock('react-admin', () => ({
   useDataProvider: () => ({ getList: mockGetList, create: mockCreate }),
-  useNotify: () => vi.fn(),
+  useNotify: () => mockNotify,
 }))
 
 const AGENDAS = [
@@ -200,5 +201,46 @@ describe('EventCreateDialog', () => {
         expect.objectContaining({ data: expect.objectContaining({ rrule: expect.stringContaining('FREQ=WEEKLY') }) }),
       ),
     )
+  })
+  /** MAG-246: « Provisoire » is a choice of the form, confirmed unless the owner says otherwise. */
+  test('creates a confirmed event unless the status is changed', async () => {
+    await open()
+
+    expect(screen.getByRole('combobox', { name: 'Statut' })).toHaveTextContent('Confirmé')
+    fireEvent.change(screen.getByLabelText(/Résumé/), { target: { value: 'Déjeuner' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
+
+    await waitFor(() =>
+      expect(mockCreate).toHaveBeenCalledWith(
+        'events',
+        expect.objectContaining({ data: expect.objectContaining({ status: 'confirmed' }) }),
+      ),
+    )
+  })
+
+  test('creates a tentative event when « Provisoire » is chosen', async () => {
+    await open()
+
+    fireEvent.change(screen.getByLabelText(/Résumé/), { target: { value: 'Déjeuner' } })
+    await userEvent.click(screen.getByRole('combobox', { name: 'Statut' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Provisoire' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
+
+    await waitFor(() =>
+      expect(mockCreate).toHaveBeenCalledWith(
+        'events',
+        expect.objectContaining({ data: expect.objectContaining({ status: 'tentative' }) }),
+      ),
+    )
+  })
+
+  test('says so when the API refuses the event', async () => {
+    mockCreate.mockRejectedValue(new Error('Invalid status'))
+    await open()
+
+    fireEvent.change(screen.getByLabelText(/Résumé/), { target: { value: 'Déjeuner' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
+
+    await waitFor(() => expect(mockNotify).toHaveBeenCalledWith('Erreur: Invalid status', { type: 'error' }))
   })
 })

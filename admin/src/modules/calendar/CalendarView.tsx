@@ -58,6 +58,8 @@ import { TaskEditDialog } from './TaskEditDialog'
 import { EventDetailPopover } from './EventDetailPopover'
 import { EventEditDialog } from './EventEditDialog'
 import type { EventEditValues } from './EventEditDialog'
+import { statusClassNames, toEventStatus } from './eventStatus'
+import type { EventStatus } from './eventStatus'
 import type { EventReminders } from './ReminderPicker'
 import type { PopoverEvent } from './EventDetailPopover'
 import { getCalendarThemeSx, getEventTextColor } from './calendarTheme'
@@ -179,6 +181,7 @@ interface RecurrenceConfirm {
     description: string | null
     location: string | null
     reminders: EventReminders | null
+    status: EventStatus
   }
 }
 
@@ -197,6 +200,7 @@ interface EditingEvent {
     description?: string
     location?: string
     reminders?: EventReminders | null
+    status?: EventStatus
   }
 }
 
@@ -810,7 +814,9 @@ export const CalendarView = () => {
               backgroundColor: excColor,
               borderColor: excColor,
               textColor: getEventTextColor(theme, excColor),
+              classNames: statusClassNames(exception.status),
               extendedProps: {
+                status: exception.status,
                 description: exception.description,
                 location: exception.location,
                 reminders: exception.reminders,
@@ -834,7 +840,9 @@ export const CalendarView = () => {
               backgroundColor: color,
               borderColor: color,
               textColor: getEventTextColor(theme, color),
+              classNames: statusClassNames(e.status),
               extendedProps: {
+                status: e.status,
                 description: e.description,
                 location: e.location,
                 // A virtual occurrence has no row of its own: its reminders are the series'.
@@ -863,7 +871,9 @@ export const CalendarView = () => {
           backgroundColor: color,
           borderColor: color,
           textColor: getEventTextColor(theme, color),
+          classNames: statusClassNames(e.status),
           extendedProps: {
+            status: e.status,
             description: e.description,
             location: e.location,
             reminders: e.reminders,
@@ -999,6 +1009,7 @@ export const CalendarView = () => {
         description: fcEvent.extendedProps.description,
         location: fcEvent.extendedProps.location,
         reminders: fcEvent.extendedProps.reminders,
+        status: toEventStatus(fcEvent.extendedProps.status),
         rrule: fcEvent.extendedProps.rrule,
         masterEventId: fcEvent.extendedProps.masterEventId,
         isVirtualOccurrence: fcEvent.extendedProps.isVirtualOccurrence,
@@ -1144,6 +1155,7 @@ export const CalendarView = () => {
           description: current.description,
           location: current.location,
           reminders: current.reminders ?? null,
+          status: current.status ?? 'confirmed',
         },
       })
     },
@@ -1176,6 +1188,7 @@ export const CalendarView = () => {
             description: values.description,
             location: values.location,
             reminders: values.reminders,
+            status: values.status,
           },
         })
         return
@@ -1292,8 +1305,9 @@ export const CalendarView = () => {
       } else {
         // type === 'update'
         const { newStart, newEnd, newAllDay, edit } = recurrenceConfirm
+        const masterStatus = toEventStatus(rawEvents.find((e) => e.id === masterEventId)?.status)
         const editFields = edit
-          ? { description: edit.description, location: edit.location, reminders: edit.reminders }
+          ? { description: edit.description, location: edit.location, reminders: edit.reminders, status: edit.status }
           // A drag changes times only, and the exception or new series it writes is
           // a fresh row: without this it would be the one occurrence with no reminder.
           : { reminders: rawEvents.find((e) => e.id === masterEventId)?.reminders ?? null }
@@ -1310,7 +1324,7 @@ export const CalendarView = () => {
               agenda: calendarIri,
               recurringEvent: eventIri(masterEventId),
               originalStartAt: occurrenceStart,
-              status: 'confirmed',
+              status: masterStatus,
               ...editFields,
             },
           })
@@ -1333,6 +1347,7 @@ export const CalendarView = () => {
               timeZone,
               agenda: calendarIri,
               rrule,
+              status: masterStatus,
               ...editFields,
             },
           })
@@ -1467,6 +1482,7 @@ export const CalendarView = () => {
               location: event.location,
               // The edit form reads them off this card: dropped here, cleared on the next save.
               reminders: event.reminders,
+              status: toEventStatus(event.status),
               rrule: event.rrule,
               calendarIri: event.agenda,
             })

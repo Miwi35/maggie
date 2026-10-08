@@ -149,6 +149,14 @@ export const getCalendarThemeSx = (theme: Theme): SxProps<Theme> => {
       },
     },
 
+    // ── Tentative events (MAG-246): hatched, dashed, softer than a confirmed one ──
+    '& .fc .fc-event.event-tentative': {
+      opacity: 0.8,
+      border: '1px dashed currentColor',
+      backgroundImage:
+        'repeating-linear-gradient(135deg, transparent 0 6px, rgba(255,255,255,0.35) 6px 12px)',
+    },
+
     // ── Week / Day — timegrid slots ──────────────────────────────────
     '& .fc .fc-timegrid-slot': {
       height: '28px',

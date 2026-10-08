@@ -34,6 +34,7 @@ interface StoredEvent {
   endAt?: string
   agenda?: string
   allDay?: boolean
+  status?: string
   reminders?: { useDefault: boolean; overrides: { method: string; minutes: number }[] } | null
 }
 
@@ -170,6 +171,40 @@ test('a reminder set in the dialog is stored, and shown on the card', async ({ p
   // And the owner can see what he will be told, and when, without reopening the form.
   await calendar.openEvent(String(stored.id), created.summary)
   await expect(calendar.reminderOnCard('1 heure avant')).toBeVisible()
+})
+
+/**
+ * A tentative event is stored as such and drawn apart (MAG-246).
+ *
+ * The status is chosen in the dialog and read back off the card: what is asserted is the
+ * stored `tentative` and the hatched chip, then that the pencil puts it back to confirmed
+ * and the chip goes back to normal.
+ */
+test('an event created as « Provisoire » is stored tentative, shown as such, and can be confirmed', async ({
+  page,
+  api,
+}) => {
+  const created = slot('Déjeuner de principe')
+  const calendar = new CalendarPage(page)
+  await calendar.open()
+
+  await calendar.createEvent({ ...created, agenda: 'Perso', status: 'Provisoire' })
+
+  const stored = await storedEvent(api, created.summary)
+  expect(stored.status).toBe('tentative')
+
+  await calendar.chooseView('Jour')
+  await expect(calendar.tentativeChip(created.summary)).toHaveCount(1)
+
+  await calendar.openEvent(String(stored.id), created.summary)
+  await expect(calendar.popover.getByText('Provisoire', { exact: true })).toBeVisible()
+
+  await calendar.editFromPopover()
+  await calendar.submitEventEdit({ status: 'Confirmé' })
+
+  await expect.poll(async () => (await storedEvent(api, created.summary)).status).toBe('confirmed')
+  await calendar.openEvent(String(stored.id), created.summary)
+  await expect(calendar.popover.getByText('Provisoire', { exact: true })).toHaveCount(0)
 })
 
 /**

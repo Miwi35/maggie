@@ -40,6 +40,7 @@ describe('EventEditDialog', () => {
       description: 'Contrôle annuel',
       location: 'Cabinet',
       reminders: null,
+      status: 'confirmed',
     })
   })
 
@@ -161,5 +162,18 @@ describe('EventEditDialog', () => {
 
     expect(onClose).toHaveBeenCalled()
     expect(onSubmit).not.toHaveBeenCalled()
+  })
+  /** MAG-246: a tentative event opens as such, and goes back to confirmed from the form. */
+  test('pre-fills the status and submits the one chosen instead', async () => {
+    const onSubmit = vi.fn()
+    render(<EventEditDialog open event={{ ...event, status: 'tentative' }} onClose={vi.fn()} onSubmit={onSubmit} />)
+
+    expect(screen.getByRole('combobox', { name: 'Statut' })).toHaveTextContent('Provisoire')
+
+    await userEvent.click(screen.getByRole('combobox', { name: 'Statut' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Confirmé' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ status: 'confirmed' }))
   })
 })
