@@ -14,14 +14,6 @@ export class NotificationBell extends AdminShell {
     this.popover = page.getByRole('presentation').filter({ hasText: 'Notifications' })
   }
 
-  /** The count on the badge; 0 once it is hidden (MUI keeps the last number in the DOM while it fades). */
-  async unreadCount(): Promise<number> {
-    const badge = this.bell.locator('.MuiBadge-badge')
-    if ((await badge.count()) === 0 || (await badge.getAttribute('class'))?.includes('MuiBadge-invisible')) return 0
-
-    return Number((await badge.textContent()) ?? 0)
-  }
-
   async expectUnreadCount(count: number, timeout = 5_000): Promise<void> {
     if (count === 0) {
       await expect(this.bell.locator('.MuiBadge-badge:not(.MuiBadge-invisible)')).toHaveCount(0, { timeout })
