@@ -325,6 +325,8 @@ web:
     areas: [cookbook]
   e2e/web/tests/meals-grocery.spec.ts:
     areas: [cookbook, grocery, calendar, chat]
+  e2e/web/tests/meals-grocery-choice.spec.ts:
+    areas: [cookbook, grocery]
 
   e2e/web/tests/finance-accounts.spec.ts:
     areas: [finance]
