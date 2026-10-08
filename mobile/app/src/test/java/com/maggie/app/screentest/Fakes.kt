@@ -1,5 +1,6 @@
 package com.maggie.app.screentest
 
+import com.maggie.app.data.api.CategoryCreateRequest
 import com.maggie.app.data.api.EndErrandRemainingItem
 import com.maggie.app.data.api.EndErrandRemainingStore
 import com.maggie.app.data.api.EndErrandResponse
@@ -34,6 +35,7 @@ import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.screens.cookbook.grocery.GroceryViewModel
 import com.maggie.app.ui.screens.finance.BankConnectionViewModel
+import com.maggie.app.ui.screens.finance.CategoryViewModel
 import com.maggie.app.ui.screens.finance.FinanceDashboardViewModel
 import com.maggie.app.ui.screens.finance.RuleSuggestionViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
@@ -326,5 +328,38 @@ class FakeLoadedFinanceDashboard(private val dashboard: FinanceDashboard) {
         val repository = mockk<FinanceDashboardRepository>()
         coEvery { repository.getDashboard(any(), any()) } returns Result.success(dashboard)
         FinanceDashboardViewModel(repository)
+    }
+}
+
+/**
+ * The category list over a server that keeps what it is sent.
+ *
+ * A small server rather than a canned list: the list is only right if the
+ * request left with the box ticked *and* the row comes back as the API would
+ * return it — [created] is the request half of an assertion, the list on screen
+ * is the other.
+ */
+class FakeCategories(initial: List<Category> = Seed.financeCategories) {
+    private val stored = initial.toMutableList()
+
+    /** What the fake server was asked to create, in order. */
+    val created = mutableListOf<CategoryCreateRequest>()
+
+    val viewModel: CategoryViewModel by lazy {
+        val repository = mockk<CategoryRepository>()
+        coEvery { repository.getCategories() } answers { Result.success(stored.toList()) }
+        coEvery { repository.createCategory(any()) } answers {
+            val request = firstArg<CategoryCreateRequest>()
+            created += request
+            val category = Category(
+                id = "cat-created-${created.size}",
+                name = request.name,
+                obligation = request.obligation,
+                passiveIncome = request.passiveIncome,
+            )
+            stored += category
+            Result.success(category)
+        }
+        CategoryViewModel(repository)
     }
 }

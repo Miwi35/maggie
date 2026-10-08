@@ -260,6 +260,7 @@ data class AccountCreateRequest(
 data class CategoryCreateRequest(
     val name: String,
     val obligation: String = "optional",
+    val passiveIncome: Boolean = false,
     val parent: String? = null,
     val color: String? = null,
     val icon: String? = null,

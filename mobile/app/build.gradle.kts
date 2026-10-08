@@ -144,6 +144,10 @@ android {
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
+            // Gradle's 512 MB default for the test JVM runs out once the Robolectric
+            // screen tests pile up: the first test past the limit dies with an
+            // OutOfMemoryError and every later one with an ArrayIndexOutOfBounds.
+            all { it.maxHeapSize = "2g" }
         }
     }
 }
