@@ -10939,6 +10939,23 @@
                             "jar",
                             null
                         ]
+                    },
+                    "stockState": {
+                        "type": "string",
+                        "enum": [
+                            "in_stock",
+                            "low",
+                            "out"
+                        ]
+                    },
+                    "restockQuantity": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "autoRestock": {
+                        "type": "boolean"
                     }
                 },
                 "required": [
@@ -11100,6 +11117,23 @@
                             "jar",
                             null
                         ]
+                    },
+                    "stockState": {
+                        "type": "string",
+                        "enum": [
+                            "in_stock",
+                            "low",
+                            "out"
+                        ]
+                    },
+                    "restockQuantity": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "autoRestock": {
+                        "type": "boolean"
                     }
                 },
                 "required": [
@@ -11261,6 +11295,23 @@
                             "jar",
                             null
                         ]
+                    },
+                    "stockState": {
+                        "type": "string",
+                        "enum": [
+                            "in_stock",
+                            "low",
+                            "out"
+                        ]
+                    },
+                    "restockQuantity": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "autoRestock": {
+                        "type": "boolean"
                     }
                 }
             },
@@ -11423,6 +11474,23 @@
                                     "jar",
                                     null
                                 ]
+                            },
+                            "stockState": {
+                                "type": "string",
+                                "enum": [
+                                    "in_stock",
+                                    "low",
+                                    "out"
+                                ]
+                            },
+                            "restockQuantity": {
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "autoRestock": {
+                                "type": "boolean"
                             }
                         },
                         "required": [
@@ -12609,6 +12677,26 @@
                             "jar",
                             null
                         ]
+                    },
+                    "stockState": {
+                        "default": "in_stock",
+                        "type": "string",
+                        "enum": [
+                            "in_stock",
+                            "low",
+                            "out"
+                        ]
+                    },
+                    "restockQuantity": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "autoRestock": {
+                        "description": "Whether running out puts it back on the list by itself.",
+                        "default": false,
+                        "type": "boolean"
                     }
                 },
                 "required": [
@@ -12770,6 +12858,26 @@
                             "jar",
                             null
                         ]
+                    },
+                    "stockState": {
+                        "default": "in_stock",
+                        "type": "string",
+                        "enum": [
+                            "in_stock",
+                            "low",
+                            "out"
+                        ]
+                    },
+                    "restockQuantity": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "autoRestock": {
+                        "description": "Whether running out puts it back on the list by itself.",
+                        "default": false,
+                        "type": "boolean"
                     }
                 },
                 "required": [
@@ -12931,6 +13039,26 @@
                             "jar",
                             null
                         ]
+                    },
+                    "stockState": {
+                        "default": "in_stock",
+                        "type": "string",
+                        "enum": [
+                            "in_stock",
+                            "low",
+                            "out"
+                        ]
+                    },
+                    "restockQuantity": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "autoRestock": {
+                        "description": "Whether running out puts it back on the list by itself.",
+                        "default": false,
+                        "type": "boolean"
                     }
                 }
             },
@@ -13093,6 +13221,26 @@
                                     "jar",
                                     null
                                 ]
+                            },
+                            "stockState": {
+                                "default": "in_stock",
+                                "type": "string",
+                                "enum": [
+                                    "in_stock",
+                                    "low",
+                                    "out"
+                                ]
+                            },
+                            "restockQuantity": {
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "autoRestock": {
+                                "description": "Whether running out puts it back on the list by itself.",
+                                "default": false,
+                                "type": "boolean"
                             }
                         },
                         "required": [

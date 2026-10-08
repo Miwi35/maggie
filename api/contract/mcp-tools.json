@@ -1031,6 +1031,27 @@
                     ],
                     "default": null
                 },
+                "stockState": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "restockQuantity": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "autoRestock": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ],
+                    "default": null
+                },
                 "clear": {
                     "type": [
                         "array",
@@ -1043,7 +1064,7 @@
                 "action"
             ]
         },
-        "description": "Create, update, or delete food ingredients. Categories: produce, dairy, meat, fish, grain, spice, condiment, frozen, beverage, other. Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet, jar. Packaging is what the product is bought in: packagingUnit (pack, jar, bottle…), and optionally its content packagingSize + packagingSizeUnit, always together — a 500 g pack is packagingUnit=pack, packagingSize=500, packagingSizeUnit=g; a jar of unknown content is packagingUnit=jar alone. Call search_ciqual_foods first for nutrition data and pass the ciqualAlimCode; use search_ingredients to look one up. To empty an optional field on update, list its name in clear (defaultUnit, ciqualAlimCode, kcalPer100g, proteinPer100g, carbsPer100g, fatPer100g, packagingUnit, packagingSize, packagingSizeUnit)."
+        "description": "Create, update, or delete food ingredients. Categories: produce, dairy, meat, fish, grain, spice, condiment, frozen, beverage, other. Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet, jar. Packaging is what the product is bought in: packagingUnit (pack, jar, bottle…), and optionally its content packagingSize + packagingSizeUnit, always together — a 500 g pack is packagingUnit=pack, packagingSize=500, packagingSizeUnit=g; a jar of unknown content is packagingUnit=jar alone. Call search_ciqual_foods first for nutrition data and pass the ciqualAlimCode; use search_ingredients to look one up. Stock: stockState says what is left at home — in_stock (default), low or out; restockQuantity is how many packagings to buy when it runs out (a whole number, 0 or more); autoRestock (true/false) puts it back on the list by itself. To empty an optional field on update, list its name in clear (defaultUnit, ciqualAlimCode, kcalPer100g, proteinPer100g, carbsPer100g, fatPer100g, packagingUnit, packagingSize, packagingSizeUnit, restockQuantity)."
     },
     "manage_loans": {
         "name": "manage_loans",
@@ -1302,6 +1323,27 @@
                     ],
                     "default": null
                 },
+                "stockState": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "restockQuantity": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "autoRestock": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ],
+                    "default": null
+                },
                 "clear": {
                     "type": [
                         "array",
@@ -1314,7 +1356,7 @@
                 "action"
             ]
         },
-        "description": "List, create, update, or delete non-food products (household, hygiene, cleaning, other). Create food items with manage_ingredients instead — they are products too, so they show up in the list. To search by name use search_products. Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet, jar. Packaging is what the product is bought in: packagingUnit (pack, jar, bottle…), and optionally its content packagingSize + packagingSizeUnit, always together — a 500 g pack is packagingUnit=pack, packagingSize=500, packagingSizeUnit=g; a jar of unknown content is packagingUnit=jar alone. To empty an optional field on update, list its name in clear (defaultUnit, packagingUnit, packagingSize, packagingSizeUnit)."
+        "description": "List, create, update, or delete non-food products (household, hygiene, cleaning, other). Create food items with manage_ingredients instead — they are products too, so they show up in the list. To search by name use search_products. Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet, jar. Packaging is what the product is bought in: packagingUnit (pack, jar, bottle…), and optionally its content packagingSize + packagingSizeUnit, always together — a 500 g pack is packagingUnit=pack, packagingSize=500, packagingSizeUnit=g; a jar of unknown content is packagingUnit=jar alone. Stock: stockState says what is left at home — in_stock (default), low or out; restockQuantity is how many packagings to buy when it runs out (a whole number, 0 or more); autoRestock (true/false) puts it back on the list by itself. To empty an optional field on update, list its name in clear (defaultUnit, packagingUnit, packagingSize, packagingSizeUnit, restockQuantity)."
     },
     "manage_recurring_groceries": {
         "name": "manage_recurring_groceries",

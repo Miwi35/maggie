@@ -49,6 +49,12 @@ class CreateProductHandler
         $product->setPackagingSize($command->packagingSize);
         $product->setPackagingSizeUnit(null !== $command->packagingSizeUnit ? Unit::from($command->packagingSizeUnit) : null);
         $product->assertPackagingIsConsistent();
+        if (null !== $command->stockState) {
+            $product->setStockState(Product::parseStockState($command->stockState));
+        }
+        $product->setRestockQuantity($command->restockQuantity);
+        $product->setAutoRestock($command->autoRestock);
+        $product->assertRestockQuantityIsValid();
 
         return $this->createProduct->execute($product);
     }

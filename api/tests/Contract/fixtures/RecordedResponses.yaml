@@ -124,6 +124,7 @@ Maggie\Grocery\Entity\Product:
     packagingUnit: '<(Maggie\Grocery\Enum\Unit::Pack)>'
     packagingSize: 500
     packagingSizeUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+    restockQuantity: 2
     kcalPer100g: 52.0
     proteinPer100g: 0.3
     carbsPer100g: 14.0

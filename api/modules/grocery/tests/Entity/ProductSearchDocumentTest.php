@@ -8,6 +8,7 @@ use Maggie\Core\Entity\User;
 use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Entity\Store;
 use Maggie\Grocery\Enum\ProductCategory;
+use Maggie\Grocery\Enum\ProductStockState;
 use Maggie\Grocery\Enum\Unit;
 use PHPUnit\Framework\TestCase;
 
@@ -103,5 +104,37 @@ class ProductSearchDocumentTest extends TestCase
         self::assertSame('jar', $payload['packagingUnit']);
         self::assertNull($payload['packagingSize']);
         self::assertNull($payload['packagingSizeUnit']);
+    }
+
+    public function testTheStockSurvivesTheRoundTripThroughElasticsearch(): void
+    {
+        $this->product->setStockState(ProductStockState::Low)->setRestockQuantity(2)->setAutoRestock(true);
+
+        $hydrated = $this->hydrate($this->product);
+
+        self::assertSame(ProductStockState::Low, $hydrated->getStockState());
+        self::assertSame(2, $hydrated->getRestockQuantity());
+        self::assertTrue($hydrated->isAutoRestock());
+    }
+
+    public function testAProductIsInStockUntilToldOtherwise(): void
+    {
+        $hydrated = $this->hydrate($this->product);
+
+        self::assertSame(ProductStockState::InStock, $hydrated->getStockState());
+        self::assertNull($hydrated->getRestockQuantity());
+        self::assertFalse($hydrated->isAutoRestock());
+    }
+
+    public function testTheMercurePayloadSpellsTheStockLikeRest(): void
+    {
+        $this->product->setStockState(ProductStockState::Out)->setRestockQuantity(3)->setAutoRestock(true);
+
+        $payload = $this->product->toMercurePayload();
+
+        self::assertSame('out', $payload['stockState']);
+        self::assertSame(3, $payload['restockQuantity']);
+        self::assertTrue($payload['autoRestock']);
+        self::assertArrayNotHasKey('isAutoRestock', $payload);
     }
 }

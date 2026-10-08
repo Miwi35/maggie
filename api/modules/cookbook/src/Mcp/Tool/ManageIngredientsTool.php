@@ -15,10 +15,10 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_ingredients', description: 'Create, update, or delete food ingredients. Categories: produce, dairy, meat, fish, grain, spice, condiment, frozen, beverage, other. Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet, jar. Packaging is what the product is bought in: packagingUnit (pack, jar, bottle…), and optionally its content packagingSize + packagingSizeUnit, always together — a 500 g pack is packagingUnit=pack, packagingSize=500, packagingSizeUnit=g; a jar of unknown content is packagingUnit=jar alone. Call search_ciqual_foods first for nutrition data and pass the ciqualAlimCode; use search_ingredients to look one up. To empty an optional field on update, list its name in clear (defaultUnit, ciqualAlimCode, kcalPer100g, proteinPer100g, carbsPer100g, fatPer100g, packagingUnit, packagingSize, packagingSizeUnit).')]
+#[McpTool(name: 'manage_ingredients', description: 'Create, update, or delete food ingredients. Categories: produce, dairy, meat, fish, grain, spice, condiment, frozen, beverage, other. Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet, jar. Packaging is what the product is bought in: packagingUnit (pack, jar, bottle…), and optionally its content packagingSize + packagingSizeUnit, always together — a 500 g pack is packagingUnit=pack, packagingSize=500, packagingSizeUnit=g; a jar of unknown content is packagingUnit=jar alone. Call search_ciqual_foods first for nutrition data and pass the ciqualAlimCode; use search_ingredients to look one up. Stock: stockState says what is left at home — in_stock (default), low or out; restockQuantity is how many packagings to buy when it runs out (a whole number, 0 or more); autoRestock (true/false) puts it back on the list by itself. To empty an optional field on update, list its name in clear (defaultUnit, ciqualAlimCode, kcalPer100g, proteinPer100g, carbsPer100g, fatPer100g, packagingUnit, packagingSize, packagingSizeUnit, restockQuantity).')]
 class ManageIngredientsTool
 {
-    private const CLEARABLE_FIELDS = ['defaultUnit', 'ciqualAlimCode', 'kcalPer100g', 'proteinPer100g', 'carbsPer100g', 'fatPer100g', 'packagingUnit', 'packagingSize', 'packagingSizeUnit'];
+    private const CLEARABLE_FIELDS = ['defaultUnit', 'ciqualAlimCode', 'kcalPer100g', 'proteinPer100g', 'carbsPer100g', 'fatPer100g', 'packagingUnit', 'packagingSize', 'packagingSizeUnit', 'restockQuantity'];
 
     public function __construct(
         private readonly MessageBusInterface $bus,
@@ -41,12 +41,15 @@ class ManageIngredientsTool
         ?string $packagingUnit = null,
         ?float $packagingSize = null,
         ?string $packagingSizeUnit = null,
+        ?string $stockState = null,
+        ?int $restockQuantity = null,
+        ?bool $autoRestock = null,
         ?array $clear = null,
     ): string {
         try {
             return match ($action) {
-                'create' => $this->create($name, $category, $defaultUnit, $ciqualAlimCode, $kcalPer100g, $proteinPer100g, $carbsPer100g, $fatPer100g, $packagingUnit, $packagingSize, $packagingSizeUnit),
-                'update' => $this->update($ingredientId, $name, $category, $defaultUnit, $ciqualAlimCode, $kcalPer100g, $proteinPer100g, $carbsPer100g, $fatPer100g, $packagingUnit, $packagingSize, $packagingSizeUnit, $clear),
+                'create' => $this->create($name, $category, $defaultUnit, $ciqualAlimCode, $kcalPer100g, $proteinPer100g, $carbsPer100g, $fatPer100g, $packagingUnit, $packagingSize, $packagingSizeUnit, $stockState, $restockQuantity, $autoRestock),
+                'update' => $this->update($ingredientId, $name, $category, $defaultUnit, $ciqualAlimCode, $kcalPer100g, $proteinPer100g, $carbsPer100g, $fatPer100g, $packagingUnit, $packagingSize, $packagingSizeUnit, $stockState, $restockQuantity, $autoRestock, $clear),
                 'delete' => $this->delete($ingredientId),
                 default => json_encode(['error' => "Unknown action: {$action}. Use create, update, or delete (search_ingredients lists them)."], JSON_THROW_ON_ERROR),
             };
@@ -71,6 +74,9 @@ class ManageIngredientsTool
         ?string $packagingUnit,
         ?float $packagingSize,
         ?string $packagingSizeUnit,
+        ?string $stockState,
+        ?int $restockQuantity,
+        ?bool $autoRestock,
     ): string {
         if (null === $name || null === $category) {
             return json_encode(['error' => 'name and category are required for create.'], JSON_THROW_ON_ERROR);
@@ -91,6 +97,9 @@ class ManageIngredientsTool
             packagingUnit: $packagingUnit,
             packagingSize: $packagingSize,
             packagingSizeUnit: $packagingSizeUnit,
+            stockState: $stockState,
+            restockQuantity: $restockQuantity,
+            autoRestock: $autoRestock ?? false,
         ));
 
         /** @var Ingredient $ingredient */
@@ -113,6 +122,9 @@ class ManageIngredientsTool
         ?string $packagingUnit,
         ?float $packagingSize,
         ?string $packagingSizeUnit,
+        ?string $stockState,
+        ?int $restockQuantity,
+        ?bool $autoRestock,
         ?array $clear,
     ): string {
         if (null === $ingredientId) {
@@ -132,6 +144,9 @@ class ManageIngredientsTool
             packagingUnit: $packagingUnit,
             packagingSize: $packagingSize,
             packagingSizeUnit: $packagingSizeUnit,
+            stockState: $stockState,
+            restockQuantity: $restockQuantity,
+            autoRestock: $autoRestock,
             clearFields: array_values(array_intersect($clear ?? [], self::CLEARABLE_FIELDS)),
         ));
 
@@ -164,6 +179,9 @@ class ManageIngredientsTool
             'packagingUnit' => $ingredient->getPackagingUnit()?->value,
             'packagingSize' => $ingredient->getPackagingSize(),
             'packagingSizeUnit' => $ingredient->getPackagingSizeUnit()?->value,
+            'stockState' => $ingredient->getStockState()->value,
+            'restockQuantity' => $ingredient->getRestockQuantity(),
+            'autoRestock' => $ingredient->isAutoRestock(),
         ];
     }
 }

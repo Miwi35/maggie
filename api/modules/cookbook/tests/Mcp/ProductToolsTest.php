@@ -231,4 +231,50 @@ class ProductToolsTest extends KernelTestCase
         self::assertNull($stored->getPackagingSize());
         self::assertNull($stored->getPackagingSizeUnit());
     }
+
+    public function testCreateIngredientIsInStockByDefault(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(($this->manageIngredients())('create', name: 'Carotte', category: 'produce'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(['in_stock', null, false], [$data['ingredient']['stockState'], $data['ingredient']['restockQuantity'], $data['ingredient']['autoRestock']]);
+    }
+
+    public function testIngredientStockIsSetMovedThenClearedAndPublished(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
+
+        $created = json_decode(($this->manageIngredients())('create', name: 'Riz', category: 'grain', stockState: 'low', restockQuantity: 2, autoRestock: true), true, 512, JSON_THROW_ON_ERROR);
+        $id = $created['ingredient']['id'];
+        self::assertSame(['low', 2, true], [$created['ingredient']['stockState'], $created['ingredient']['restockQuantity'], $created['ingredient']['autoRestock']]);
+
+        $data = json_decode(($this->manageIngredients())('update', ingredientId: $id, stockState: 'out'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(['out', 2, true], [$data['ingredient']['stockState'], $data['ingredient']['restockQuantity'], $data['ingredient']['autoRestock']]);
+        $this->assertMercureUpdatePublished('/ingredients/');
+        $this->assertElasticsearchIndexDispatched(Ingredient::class);
+
+        $data = json_decode(($this->manageIngredients())('update', ingredientId: $id, autoRestock: false, clear: ['restockQuantity']), true, 512, JSON_THROW_ON_ERROR);
+        self::assertTrue($data['success']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $stored = $em->find(Ingredient::class, $id);
+        self::assertSame(['out', null, false], [$stored->getStockState()->value, $stored->getRestockQuantity(), $stored->isAutoRestock()]);
+    }
+
+    public function testIngredientRefusesAnUnknownStateAndANegativeRestockQuantity(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
+
+        $unknown = json_decode(($this->manageIngredients())('create', name: 'Riz', category: 'grain', stockState: 'plenty'), true, 512, JSON_THROW_ON_ERROR);
+        $negative = json_decode(($this->manageIngredients())('create', name: 'Riz', category: 'grain', restockQuantity: -1), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertStringContainsString('stock state', $unknown['error']);
+        self::assertStringContainsString('restockQuantity', $negative['error']);
+        self::assertSame([], self::getContainer()->get('doctrine.orm.entity_manager')->getRepository(Ingredient::class)->findAll());
+    }
 }

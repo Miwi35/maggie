@@ -71,6 +71,18 @@ class UpdateProductHandler
             $product->setPackagingSizeUnit(null);
         }
         $product->assertPackagingIsConsistent();
+        if (null !== $command->stockState) {
+            $product->setStockState(Product::parseStockState($command->stockState));
+        }
+        if (null !== $command->restockQuantity) {
+            $product->setRestockQuantity($command->restockQuantity);
+        } elseif ($command->clears('restockQuantity')) {
+            $product->setRestockQuantity(null);
+        }
+        if (null !== $command->autoRestock) {
+            $product->setAutoRestock($command->autoRestock);
+        }
+        $product->assertRestockQuantityIsValid();
 
         return $this->updateProduct->execute($product);
     }
