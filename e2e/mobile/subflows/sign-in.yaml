@@ -15,13 +15,23 @@ name: sign in as the seeded user
 #
 # Each wait is sliced in `retry` attempts that start by dismissing a system app's
 # « isn't responding » window (MAG-236): that window hides the whole app from
-# Maestro, so a plain wait would sit behind it until its timeout. `maxRetries` counts
-# retries, so the first wait has up to four attempts of 30 s: at least the 60 s the
-# cold start was given.
+# Maestro, so a plain wait would sit behind it until its timeout.
+#
+# **A `timeout` here is not the wait it says** (MAG-346). Maestro deducts from every
+# wait the time since the last *interaction* (a launch, a tap, a script — not an
+# assertion, not a failed `retry` attempt, not a skipped `runFlow`). Without the
+# `evalScript` lines below, the ANR check's `when: visible` burned ~7 s of the
+# first wait and every further attempt started on a budget of zero: four « attempts »
+# that were one wait of ~23 s, so a slower cold start read as « login_sign_in is not
+# visible » with the app never having reached its first frame. `evalScript` counts as
+# an interaction and touches nothing: the first one gives the ANR check its budget on a
+# retry, the second gives the wait its full timeout (four attempts, two minutes).
 - retry:
     maxRetries: 3
     commands:
+      - evalScript: ${0}
       - runFlow: dismiss-system-anr.yaml
+      - evalScript: ${0}
       - extendedWaitUntil:
           visible:
             id: "login_sign_in"
@@ -41,7 +51,9 @@ name: sign in as the seeded user
 - retry:
     maxRetries: 2
     commands:
+      - evalScript: ${0}
       - runFlow: dismiss-system-anr.yaml
+      - evalScript: ${0}
       - extendedWaitUntil:
           visible:
             id: "dashboard"

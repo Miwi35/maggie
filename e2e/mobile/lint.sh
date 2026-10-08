@@ -31,6 +31,9 @@
 #   6. every flow is in exactly one shard of `shards.txt`, in the order of
 #      `config.yaml`'s `flowsOrder`: CI runs the shards, so a flow left out of
 #      them never runs and nothing says so.
+#   7. every `retry` starts with `evalScript: ${0}`. Maestro counts a wait from the
+#      last interaction and a failed attempt is not one, so without it the retries
+#      run on a budget of zero: four « attempts » that are one (MAG-346).
 
 set -euo pipefail
 
@@ -273,6 +276,32 @@ if [ "$(printf '%s\n' "${in_shards[@]}" | sort)" = "$(printf '%s\n' "${on_disk[@
 else
   fail "shards.txt must name every file of flows/ exactly once (in shards: ${in_shards[*]})"
 fi
+
+# ---------------------------------------------------------------------------
+printf '\n\033[1m7. Every retry resets the interaction clock\033[0m\n'
+# ---------------------------------------------------------------------------
+# `retry` re-runs its commands, but every wait inside is shortened by the time
+# since the last interaction (a launch, a tap, a script — not an assertion, not a
+# failed attempt). Attempts two and up therefore started with a budget of zero and
+# failed on the spot: a cold start slower than the first attempt was never given
+# the minutes `maxRetries` promised, and the flow read « login_sign_in is not
+# visible » (MAG-346). `evalScript: ${0}` is the no-op that counts as an
+# interaction.
+for file in "${flows[@]}"; do
+  offenders="$(awk '
+    /^[[:space:]]*- retry:/ { in_retry = 1; seen_commands = 0; line = NR; next }
+    in_retry && /^[[:space:]]*commands:/ { seen_commands = 1; next }
+    in_retry && seen_commands && /^[[:space:]]*- / {
+      if ($0 !~ /evalScript:[[:space:]]*\$\{0\}/) print line
+      in_retry = 0
+    }
+  ' "$file")"
+  if [ -z "$offenders" ]; then
+    pass "${file#"$REPO_ROOT"/}"
+  else
+    fail "${file#"$REPO_ROOT"/}: retry at line $offenders does not start with 'evalScript: \${0}' — its attempts after the first would run on a budget of zero"
+  fi
+done
 
 printf '\n'
 if [ "$failed" -gt 0 ]; then
