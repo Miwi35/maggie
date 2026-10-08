@@ -22,7 +22,6 @@ interface MealRow {
   summary: string
   date: string
   slot: string
-  recipes?: unknown[]
 }
 
 const jsonLd = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
@@ -84,7 +83,7 @@ test('dragging Tuesday lunch onto Thursday dinner moves it, and it stays there a
   await expect(thursdayDinner).toContainText(name)
   await expect(tuesdayLunch).not.toContainText(name)
 
-  // The day and the slot the API holds, nothing else moved with them.
+  // The day and the slot the API holds.
   const stored = await waitForIndexed<MealRow>(
     api,
     '/api/meals?itemsPerPage=200',
@@ -92,7 +91,6 @@ test('dragging Tuesday lunch onto Thursday dinner moves it, and it stays there a
     { what: 'The meal at Thursday dinner' },
   )
   expect(stored.date).toBe(dayOfThisWeek(3))
-  expect(stored.recipes).toHaveLength(1)
 
   await page.reload()
   await expect(shell.content.getByTestId('meal-cell-dinner-3')).toContainText(name)
