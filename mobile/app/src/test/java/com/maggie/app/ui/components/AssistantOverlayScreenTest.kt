@@ -49,7 +49,7 @@ class AssistantOverlayScreenTest {
             every { manager.state } returns this.state
             every { manager.duration } returns MutableStateFlow(0)
             every { manager.errorMessage } returns MutableStateFlow(null)
-            every { manager.holdHint } returns MutableStateFlow(false)
+            every { manager.hint } returns MutableStateFlow(null)
             every { manager.handsFree } returns MutableStateFlow(handsFree)
             every { manager.partialText } returns MutableStateFlow("")
         }
