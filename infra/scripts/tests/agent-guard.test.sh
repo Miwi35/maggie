@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# The size limit is optional since 8 Oct. (default 0): these tests pin it to exercise it.
+export AGENT_MAX_DIFF_LINES=800
 # shellcheck disable=SC2015 # `cond && ok || bad`: ok and bad cannot fail
 #
 # Tests of scripts/agent-guard/check.sh (MAG-128): what sends a pull request to
@@ -103,6 +105,7 @@ bulk api/src/Big.php 800 | expect "800 lines of code are fine" clean
 bulk api/tests/BigTest.php 2000 | expect "tests are not counted" clean
 bulk api/composer.lock 2000 | expect "lockfiles are not counted" clean
 bulk api/src/Big.php 11 | AGENT_MAX_DIFF_LINES=10 expect "the limit can be changed" oversize
+bulk api/src/Big.php 5000 | AGENT_MAX_DIFF_LINES=0 expect "no limit when it is 0, the default" clean
 
 echo "Never disable a test, never skip the hooks"
 # The forbidden words are assembled here: this file is a test, and would

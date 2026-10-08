@@ -10,7 +10,7 @@
 #
 # Codes: sensitive-path, infra-path, permissions, destructive-migration,
 # oversize, disabled-test, no-verify. infra-path alone is the one finding
-# the fix of an « Emergency » ticket may merge past (emergency.sh, MAG-184). AGENT_MAX_DIFF_LINES (default 800) is the size limit,
+# the fix of an « Emergency » ticket may merge past (emergency.sh, MAG-184). AGENT_MAX_DIFF_LINES (default 0, no limit) is an optional size limit,
 # tests, lockfiles, generated contracts and spec folders not counted.
 #
 # Patterns that name a forbidden string are written so the source line does not
@@ -18,7 +18,7 @@
 
 set -euo pipefail
 
-MAX="${AGENT_MAX_DIFF_LINES:-800}"
+MAX="${AGENT_MAX_DIFF_LINES:-0}"  # 0 = no size limit (owner, 8 Oct.): a large PR is reviewed, not split by rule
 
 exec awk -v max="$MAX" -v q="'" '
 function is_test(f) {
@@ -107,9 +107,9 @@ BEGIN {
   perm_re = "IsGranted|isGranted|denyAccessUnlessGranted|access_control|ROLE_|security(PostDenormalize)?:[[:space:]]*[" q "\"]"
 }
 END {
-  if (size > max) flag("oversize", size " lines outside tests, limit " max ": split the ticket")
+  if (max > 0 && size > max) flag("oversize", size " lines outside tests, limit " max ": split the ticket")
   for (i = 1; i <= n; i++) print out[i]
-  print "info: " (size + 0) " counted lines, limit " max
+  print "info: " (size + 0) " counted lines" (max > 0 ? ", limit " max : ", no limit")
   exit (n > 0 ? 10 : 0)
 }
 '

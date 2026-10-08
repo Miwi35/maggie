@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# The size limit is optional since 8 Oct. (default 0): these tests pin it to exercise it.
+export AGENT_MAX_DIFF_LINES=800
 # shellcheck disable=SC2015 # `cond && ok || bad`: ok and bad cannot fail
 #
 # Tests of scripts/agent-guard/judge.sh against a fake gh (MAG-262): a pull

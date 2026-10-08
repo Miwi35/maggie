@@ -137,5 +137,7 @@ if [ "$readable" = true ] && [ "$count" -gt 0 ]; then
 fi
 
 cat "$findings"
-echo "info: batch of $count pull request(s), $total counted lines in all, limit $(( ${AGENT_MAX_DIFF_LINES:-800} )) each"
+limit="${AGENT_MAX_DIFF_LINES:-0}"
+if [ "$limit" -gt 0 ]; then each="limit $limit each"; else each="no size limit"; fi
+echo "info: batch of $count pull request(s), $total counted lines in all, $each"
 [ ! -s "$findings" ] || exit 10
