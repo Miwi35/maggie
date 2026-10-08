@@ -38,6 +38,7 @@ import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import RestaurantIcon from '@mui/icons-material/Restaurant'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
+import { MealGroceryChoice } from './MealGroceryChoice'
 import { mealCellId, mealCollision, neighbourCellCoordinates, parseMealCellId } from './mealDragAndDrop'
 import type { KeyboardDrag } from './mealDragAndDrop'
 
@@ -97,6 +98,14 @@ function withPendingMoves(rows: Meal[], moves: PendingMoves): Meal[] {
     }
     return { ...meal, date: move.date, slot: move.slot }
   })
+}
+
+/** Where the meal that was just created lives: its IRI, whatever the data provider made of its id. */
+function mealIriOf(created: { id?: unknown; '@id'?: unknown }): string | null {
+  if (typeof created['@id'] === 'string') return created['@id']
+  if (typeof created.id !== 'string' || created.id === '') return null
+
+  return created.id.startsWith('/') ? created.id : `/api/meals/${created.id}`
 }
 
 const slotLabel = (slot: string) => SLOTS.find((s) => s.value === slot)?.label ?? slot
@@ -206,6 +215,8 @@ export const MealsWeekView = () => {
   const [dialogSlot, setDialogSlot] = useState('lunch')
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [selectedRecipes, setSelectedRecipes] = useState<Recipe[]>([])
+  // The meal just created, while the owner chooses what of it goes on the list.
+  const [choiceMealIri, setChoiceMealIri] = useState<string | null>(null)
   const pendingMoves = useRef<PendingMoves>(new Map())
 
   const fetchMeals = useCallback(async () => {
@@ -260,6 +271,7 @@ export const MealsWeekView = () => {
     setDialogDate(formatDate(date))
     setDialogSlot(slot)
     setSelectedRecipes([])
+    setChoiceMealIri(null)
     fetchRecipes()
     setDialogOpen(true)
   }
@@ -272,7 +284,7 @@ export const MealsWeekView = () => {
 
     try {
       const recipeIris = selectedRecipes.map((r) => r['@id'] || `/api/recipes/${r.id}`)
-      await dataProvider.create('meals', {
+      const { data: created } = await dataProvider.create('meals', {
         data: {
           // The day and the slot, and nothing that looks like a time: the API
           // derives the instants the agenda shows (MAG-251). No agenda either:
@@ -286,13 +298,23 @@ export const MealsWeekView = () => {
           recipes: recipeIris,
         },
       })
-      setDialogOpen(false)
       fetchMeals()
       notify('Repas créé', { type: 'success' })
+      const iri = mealIriOf(created ?? {})
+      if (iri) {
+        setChoiceMealIri(iri)
+      } else {
+        setDialogOpen(false)
+      }
     } catch {
       notify('Erreur lors de la création', { type: 'error' })
     }
   }
+
+  const closeDialog = useCallback(() => {
+    setDialogOpen(false)
+    setChoiceMealIri(null)
+  }, [])
 
   const handleDelete = async (meal: Meal) => {
     try {
@@ -522,39 +544,48 @@ export const MealsWeekView = () => {
       )}
       </DndContext>
 
-      {/* Create meal dialog */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Ajouter un repas</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-            <TextField label="Date" type="date" value={dialogDate} onChange={(e) => setDialogDate(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
-            <FormControl>
-              <InputLabel>Créneau</InputLabel>
-              <Select value={dialogSlot} onChange={(e) => setDialogSlot(e.target.value)} label="Créneau">
-                {SLOTS.map((s) => (
-                  <MenuItem key={s.value} value={s.value}>
-                    {s.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <Autocomplete
-              multiple
-              options={recipes}
-              getOptionLabel={(option) => option.name}
-              value={selectedRecipes}
-              onChange={(_, value) => setSelectedRecipes(value)}
-              renderInput={(params) => <TextField {...params} label="Recettes" placeholder="Chercher..." />}
-              isOptionEqualToValue={(option, value) => option.id === value.id}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Annuler</Button>
-          <Button onClick={handleCreate} variant="contained">
-            Créer
-          </Button>
-        </DialogActions>
+      {/* Create meal dialog: the meal, then — once it exists — which of its ingredients go on the list. */}
+      <Dialog open={dialogOpen} onClose={closeDialog} maxWidth="sm" fullWidth>
+        {choiceMealIri ? (
+          <>
+            <DialogTitle>Courses du repas</DialogTitle>
+            <MealGroceryChoice mealIri={choiceMealIri} onDone={closeDialog} />
+          </>
+        ) : (
+          <>
+            <DialogTitle>Ajouter un repas</DialogTitle>
+            <DialogContent>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+                <TextField label="Date" type="date" value={dialogDate} onChange={(e) => setDialogDate(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+                <FormControl>
+                  <InputLabel>Créneau</InputLabel>
+                  <Select value={dialogSlot} onChange={(e) => setDialogSlot(e.target.value)} label="Créneau">
+                    {SLOTS.map((s) => (
+                      <MenuItem key={s.value} value={s.value}>
+                        {s.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <Autocomplete
+                  multiple
+                  options={recipes}
+                  getOptionLabel={(option) => option.name}
+                  value={selectedRecipes}
+                  onChange={(_, value) => setSelectedRecipes(value)}
+                  renderInput={(params) => <TextField {...params} label="Recettes" placeholder="Chercher..." />}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                />
+              </Box>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={closeDialog}>Annuler</Button>
+              <Button onClick={handleCreate} variant="contained">
+                Créer
+              </Button>
+            </DialogActions>
+          </>
+        )}
       </Dialog>
     </Box>
   )
