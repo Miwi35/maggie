@@ -54,6 +54,10 @@ object UiTags {
     const val CHAT_SEND = "chat_send"
     const val CHAT_CLOSE = "chat_close"
 
+    /** The conversation's list, and the « ↓ nouvelle réponse » button shown when the user scrolled away from it (MAG-348). */
+    const val CHAT_MESSAGES = "chat_messages"
+    const val CHAT_JUMP_TO_LATEST = "chat_jump_to_latest"
+
     /** The voice bar's state line — « Maggie parle... » and friends. */
     const val VOICE_STATE = "voice_state"
 

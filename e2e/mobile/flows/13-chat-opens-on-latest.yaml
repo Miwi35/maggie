@@ -1,0 +1,93 @@
+appId: com.maggie.app.e2e
+name: 13-chat-opens-on-latest
+tags:
+  - chat
+---
+# The chat opens on the last message, not on the oldest (MAG-348).
+#
+# The owner opened the mic on his phone and read old messages: each surface — voice
+# sheet, text sheet, panel — started its list at the top and relied on a scroll command
+# the ViewModel had sent once, before the surface existed. The proof is on the screen,
+# without scrolling: with a conversation of 20 messages, the last question is in view
+# and the first one is not.
+#
+# The history is seeded over HTTP (`scripts/chat-api.js`), then the app is relaunched
+# without clearing its state, so the conversation arrives from `GET /agent/messages`
+# after composition — as it does for the owner. The sheet is opened twice, because the
+# second opening is the one that was wrong. How an answer is followed while it streams,
+# with the keyboard up or not, needs a stream slow enough to watch and a layout to
+# measure: `ChatStaysAtBottomScreenTest` (JVM) and `ChatWidget.scroll.test.tsx` (admin).
+#
+# Needs `E2E_BASE_URL` and `E2E_LOGIN_TOKEN`, which `run.sh` passes with `-e`.
+#
+# Regex selectors wrapped in `.*` for the reason given in `01-login-chat.yaml`. « Échange
+# 1 MAG-348 » does not match « Échange 10 MAG-348 »: the space ends the number.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runScript:
+    file: ../scripts/chat-api.js
+    env:
+      COUNT: "10"
+
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "dashboard"
+    timeout: 40000
+
+# The microphone: the voice sheet.
+- tapOn:
+    id: "chat_mic"
+- extendedWaitUntil:
+    visible:
+      id: "voice_state"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: ".*Échange 10 MAG-348.*"
+    timeout: 30000
+- assertNotVisible: ".*Échange 1 MAG-348.*"
+
+# Second opening, same session: the list state is a new one, the command long consumed.
+- tapOn:
+    id: "chat_close"
+- extendedWaitUntil:
+    visible:
+      id: "dashboard"
+    timeout: 20000
+- tapOn:
+    id: "chat_mic"
+- extendedWaitUntil:
+    visible:
+      id: "voice_state"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: ".*Échange 10 MAG-348.*"
+    timeout: 30000
+- assertNotVisible: ".*Échange 1 MAG-348.*"
+
+# The text sheet.
+- tapOn:
+    id: "chat_close"
+- extendedWaitUntil:
+    visible:
+      id: "dashboard"
+    timeout: 20000
+- tapOn:
+    id: "chat_open"
+- extendedWaitUntil:
+    visible:
+      id: "chat_input"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: ".*Échange 10 MAG-348.*"
+    timeout: 30000
+- assertNotVisible: ".*Échange 1 MAG-348.*"
+- tapOn:
+    id: "chat_close"

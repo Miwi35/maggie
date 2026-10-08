@@ -9,6 +9,7 @@ import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.AcceptRuleSuggestionsRequest
 import com.maggie.app.data.model.AcceptRuleSuggestionsResult
 import com.maggie.app.data.model.AcceptedRuleSuggestion
+import com.maggie.app.data.model.AgUiEvent
 import com.maggie.app.data.model.BankConnection
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.ChatMessage
@@ -48,6 +49,7 @@ import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
@@ -353,6 +355,8 @@ class FakeTransactionTransfers(
 class FakeChat(
     private val history: List<ChatMessage> = Seed.conversation,
     private val pending: List<PendingApproval> = emptyList(),
+    /** What the agent streams back to a message — a test drives it by hand to grow an answer. */
+    private val reply: Flow<AgUiEvent> = emptyFlow(),
 ) {
     private val outgoing = mutableListOf<String>()
 
@@ -377,7 +381,7 @@ class FakeChat(
         }
         every { repository.sendMessageStream(any()) } answers {
             outgoing += firstArg<String>()
-            emptyFlow()
+            reply
         }
         coEvery { preferences.getLastReadMessageId() } returns null
         coEvery { preferences.saveLastReadMessageId(any()) } returns Unit

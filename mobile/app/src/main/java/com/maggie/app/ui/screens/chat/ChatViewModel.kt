@@ -246,7 +246,6 @@ class ChatViewModel(
                         )
                         finishRequest()
                         rebuildDisplayItems()
-                        scrollToBottom(animate = true)
                     } else {
                         fail()
                     }
@@ -279,7 +278,6 @@ class ChatViewModel(
             if (_uiState.value.messages.lastOrNull()?.role == "assistant") {
                 finishRequest()
                 rebuildDisplayItems()
-                scrollToBottom(animate = true)
                 return
             }
             if (waited >= window) break
@@ -327,14 +325,12 @@ class ChatViewModel(
                     streamingText = "",
                 )
                 rebuildDisplayItems()
-                scrollToBottom(animate = true)
             }
             is AgUiEvent.TextMessageContent -> {
                 _uiState.value = _uiState.value.copy(
                     streamingText = _uiState.value.streamingText + event.delta,
                 )
                 rebuildDisplayItems()
-                scrollToBottom(animate = false)
             }
             is AgUiEvent.TextMessageEnd -> {
                 val finalText = _uiState.value.streamingText
@@ -356,7 +352,6 @@ class ChatViewModel(
                     streamingMessageId = null,
                 )
                 rebuildDisplayItems()
-                scrollToBottom(animate = true)
             }
             is AgUiEvent.RunFinished -> {
                 finishRequest()
@@ -734,7 +729,6 @@ class ChatViewModel(
                         if (message.role != "user") {
                             _uiState.value = _uiState.value.copy(isLoading = false, failure = null)
                             rebuildDisplayItems()
-                            scrollToBottom(animate = true)
                         }
                     } catch (_: Exception) {
                         // Ignore parse errors
