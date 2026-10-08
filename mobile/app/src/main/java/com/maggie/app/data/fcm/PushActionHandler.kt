@@ -51,7 +51,7 @@ class PushActionHandler(
         PushActionKind.GO -> PushOutcome.Closed
         PushActionKind.LATER -> PushOutcome.Postponed
         PushActionKind.OK, PushActionKind.DONE -> markRead(payload)
-        PushActionKind.REPLY -> reply(reply, onLateFailure)
+        PushActionKind.REPLY -> reply(payload, reply, onLateFailure)
         PushActionKind.APPROVE -> decide(payload) { apiService.approve(it) }
         PushActionKind.DENY -> decide(payload) { apiService.deny(it) }
     }
@@ -65,11 +65,17 @@ class PushActionHandler(
     // broadcast receiver may stay alive. The request therefore runs in its own scope: when the
     // budget is spent the message is on its way, so the notification closes rather than ask the
     // owner to type it again (and send it twice).
-    private suspend fun reply(text: String?, onLateFailure: (PushOutcome.Retry) -> Unit): PushOutcome {
+    private suspend fun reply(payload: PushPayload, text: String?, onLateFailure: (PushOutcome.Retry) -> Unit): PushOutcome {
         val message = text?.trim().orEmpty()
         if (message.isEmpty()) return PushOutcome.Retry("Écrivez votre réponse, puis envoyez-la.")
 
-        val sending = sendScope.async { runCatching { apiService.sendChat(message) } }
+        val sending = sendScope.async {
+            runCatching {
+                apiService.sendChat(message)
+                // Answered here, so closed everywhere; a failed mark must not undo the send.
+                runCatching { apiService.markNotificationRead(payload.notificationId) }
+            }
+        }
         val result = withTimeoutOrNull(replyBudgetMs) { sending.await() }
         if (result == null) {
             sendScope.launch { sending.await().exceptionOrNull()?.let { onLateFailure(notSent(message, it)) } }

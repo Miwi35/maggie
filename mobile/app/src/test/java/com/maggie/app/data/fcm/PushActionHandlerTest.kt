@@ -131,6 +131,26 @@ class PushActionHandlerTest {
     }
 
     @Test
+    fun `a reply sent from the notification marks it read so the request closes everywhere`() = runBlocking {
+        val outcome = handler.handle(PushActionKind.REPLY, payload("proaction"), reply = "Oui, merci")
+
+        assertEquals(PushOutcome.Closed, outcome)
+        coVerifyOrder {
+            api.sendChat("Oui, merci", any(), any())
+            api.markNotificationRead("n-1")
+        }
+    }
+
+    @Test
+    fun `a reply that cannot be sent leaves the notification unread`() = runBlocking {
+        coEvery { api.sendChat(any(), any(), any()) } throws java.io.IOException("offline")
+
+        handler.handle(PushActionKind.REPLY, payload("proaction"), reply = "Oui, merci")
+
+        coVerify(exactly = 0) { api.markNotificationRead(any()) }
+    }
+
+    @Test
     fun `a reply that cannot be sent comes back with its text so it is not lost`() = runBlocking {
         coEvery { api.sendChat(any(), any(), any()) } throws java.io.IOException("offline")
 
