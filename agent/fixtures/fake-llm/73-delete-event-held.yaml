@@ -1,0 +1,21 @@
+# A destructive tool the policy holds back (MAG-4, `delete_*` is `ask`): Maggie calls
+# `delete_event`, the call is stored as a pending action instead of running, and the
+# user answers it from a card — in the voice overlay, MAG-310.
+#
+# The event's id is written into the sentence, like 43-grocery-fallback.yaml does for a
+# shop: a scenario cannot know the id of a row the journey created seconds ago. The
+# journey creates the event through the API and reads the id from the answer.
+#
+# What she says after the tool is the answer to « the action is waiting »; what she says
+# once the user has authorized it is 74-delete-event-approved.yaml.
+name: delete-event-held
+description: Ask to delete a calendar event; the policy holds the call for approval.
+
+match:
+  user_matches: "supprime l'événement test validation (\\w+)"
+
+turns:
+  - tools:
+      - name: delete_event
+        input: {id: "\\1"}
+  - text: "Je te demande ton accord pour supprimer l'événement Test validation."

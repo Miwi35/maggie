@@ -40,7 +40,8 @@ import com.maggie.app.voice.VoiceState
  * [pendingContext] is what the screen behind the overlay was showing when the
  * assistant was summoned (MAG-30), named on screen until it is used. [onVoiceResult]
  * receives what the microphone heard: the activity, which starts the listening,
- * hands it in, so the sentence goes where the listening was asked for.
+ * hands it in, so the sentence goes where the listening was asked for. [onListen]
+ * reopens the microphone once a held action's question has been read, for its answer.
  */
 @Composable
 fun AssistantOverlay(
@@ -49,12 +50,14 @@ fun AssistantOverlay(
     onDismiss: () -> Unit,
     pendingContext: ScreenContext? = null,
     onVoiceResult: (String) -> Unit,
+    onListen: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val voiceState by voiceManager.state.collectAsState()
     val listState = rememberLazyListState()
 
     SpokenReplies(viewModel, voiceManager)
+    SpokenApprovals(viewModel, voiceManager, onListen)
 
     LaunchedEffect(uiState.messages.size) {
         if (uiState.messages.isNotEmpty()) {
@@ -127,6 +130,26 @@ fun AssistantOverlay(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(start = 8.dp),
+                            )
+                        }
+                    }
+                }
+
+                // Held actions stay in view whatever the conversation above scrolls to:
+                // they wait for an answer, by touch or by voice (MAG-310).
+                if (uiState.pendingApprovals.isNotEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        uiState.pendingApprovals.forEach { item ->
+                            ApprovalCard(
+                                item = item,
+                                onApprove = { viewModel.approve(item.approval.id) },
+                                onDeny = { viewModel.deny(item.approval.id) },
+                                onDismiss = { viewModel.dismissApproval(item.approval.id) },
                             )
                         }
                     }

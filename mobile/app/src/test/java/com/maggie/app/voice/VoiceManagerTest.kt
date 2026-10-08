@@ -213,6 +213,26 @@ class VoiceManagerTest {
     }
 
     @Test
+    fun `an answer handled on the spot frees the microphone`() {
+        voiceManager.pressDown { voiceManager.answerHandled() }
+        advance(600)
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        assertEquals(VoiceState.IDLE, voiceManager.state.value)
+    }
+
+    @Test
+    fun `handling an answer outside a delivery changes nothing`() {
+        voiceManager.answerHandled()
+        assertEquals(VoiceState.IDLE, voiceManager.state.value)
+
+        voiceManager.pressDown {}
+        voiceManager.answerHandled()
+        assertEquals(VoiceState.LISTENING, voiceManager.state.value)
+    }
+
+    @Test
     fun `the result goes to whoever started the listening, however many came before`() {
         var chat: String? = null
         var overlay: String? = null

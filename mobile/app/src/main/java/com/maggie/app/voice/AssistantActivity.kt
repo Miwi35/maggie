@@ -31,8 +31,9 @@ class AssistantActivity : ComponentActivity() {
     private var pendingContext by mutableStateOf<ScreenContext?>(null)
 
     private val sendVoiceResult: (String) -> Unit = { text ->
-        chatViewModel.sendMessage(text, pendingContext?.toPromptBlock())
-        pendingContext = null
+        if (routeVoiceResult(text, chatViewModel, voiceManager, pendingContext)) {
+            pendingContext = null
+        }
     }
 
     private val permissionLauncher = registerForActivityResult(
@@ -61,6 +62,7 @@ class AssistantActivity : ComponentActivity() {
                     onDismiss = { finish() },
                     pendingContext = pendingContext,
                     onVoiceResult = sendVoiceResult,
+                    onListen = { requestMicAndListen() },
                 )
             }
         }
