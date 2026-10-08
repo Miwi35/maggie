@@ -272,7 +272,7 @@ class MaggieApp : Application() {
             viewModel { ProductViewModel(get(), get()) }
             viewModel { StoreViewModel(get()) }
             viewModel { AccountViewModel(get()) }
-            viewModel { CategoryViewModel(get()) }
+            viewModel { CategoryViewModel(get(), get(), get(), get()) }
             viewModel { BudgetViewModel(get(), get()) }
             viewModel { CategorizationRuleViewModel(get(), get()) }
             viewModel { RuleSuggestionViewModel(get(), get()) }

@@ -1,59 +1,42 @@
 package com.maggie.app.ui.screens.finance
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.automirrored.filled.Rule
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import com.maggie.app.data.api.CategoryCreateRequest
 import com.maggie.app.data.model.categoryKindLabel
-import com.maggie.app.data.model.obligationLabel
-import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
-import com.maggie.app.ui.uiTagRoot
-
-private val OBLIGATIONS = listOf("mandatory", "optional", "saving", "investment", "debt", "income")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,7 +47,29 @@ fun CategoryListScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-    var showCreateDialog by remember { mutableStateOf(false) }
+
+    // A category has a screen of its own, new or existing (MAG-353): the list is only
+    // what is behind it.
+    uiState.editing?.let { editing ->
+        CategoryEditScreen(
+            state = uiState,
+            editing = editing,
+            onSave = { form ->
+                val category = editing.category
+                if (category == null) {
+                    viewModel.createCategory(form.toRequest())
+                } else {
+                    viewModel.updateCategory(category.id, form.changes())
+                }
+            },
+            onBack = viewModel::closeEditor,
+            onAskDelete = viewModel::askDelete,
+            onConfirmDelete = viewModel::confirmDelete,
+            onCancelDelete = viewModel::cancelDelete,
+            onClearError = viewModel::clearError,
+        )
+        return
+    }
 
     ErrorSnackbar(
         error = uiState.error,
@@ -94,7 +99,7 @@ fun CategoryListScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showCreateDialog = true }) {
+            FloatingActionButton(onClick = viewModel::startCreating) {
                 Icon(Icons.Default.Add, contentDescription = "Nouvelle catégorie")
             }
         },
@@ -114,13 +119,13 @@ fun CategoryListScreen(
                     title = "Aucune catégorie pour l'instant",
                     description = "Les catégories portent les budgets, les règles et la revue mensuelle. Commencez par celles où va l'essentiel de votre argent.",
                     actionLabel = "Créer une catégorie",
-                    onAction = { showCreateDialog = true },
+                    onAction = viewModel::startCreating,
                 )
             }
             else -> {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+                    contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(uiState.categories, key = { it.id }) { category ->
@@ -128,6 +133,7 @@ fun CategoryListScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .clickable { viewModel.startEditing(category.id) }
                                     .padding(16.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
@@ -143,128 +149,10 @@ fun CategoryListScreen(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
-                                IconButton(onClick = { viewModel.deleteCategory(category.id) }) {
-                                    Icon(
-                                        Icons.Default.Delete,
-                                        contentDescription = "Supprimer",
-                                        tint = MaterialTheme.colorScheme.error,
-                                    )
-                                }
                             }
                         }
                     }
                 }
-            }
-        }
-    }
-
-    if (showCreateDialog) {
-        CategoryCreateDialog(
-            onConfirm = { request ->
-                viewModel.createCategory(request)
-                showCreateDialog = false
-            },
-            onDismiss = { showCreateDialog = false },
-        )
-    }
-}
-
-internal class CategoryCreateFormState {
-    var name by mutableStateOf("")
-    var obligation by mutableStateOf("optional")
-        private set
-    var passiveIncome by mutableStateOf(false)
-
-    val canCreate: Boolean get() = name.isNotBlank()
-
-    fun select(value: String) {
-        obligation = value
-        // The API refuses the flag on anything but an income (422).
-        if (value != "income") passiveIncome = false
-    }
-
-    fun toRequest() = CategoryCreateRequest(
-        name = name.trim(),
-        obligation = obligation,
-        passiveIncome = passiveIncome,
-    )
-}
-
-@Composable
-private fun CategoryCreateDialog(
-    onConfirm: (CategoryCreateRequest) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val form = remember { CategoryCreateFormState() }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Nouvelle catégorie") },
-        text = { CategoryCreateFields(form) },
-        confirmButton = {
-            TextButton(
-                onClick = { if (form.canCreate) onConfirm(form.toRequest()) },
-                enabled = form.canCreate,
-            ) {
-                Text("Créer")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Annuler")
-            }
-        },
-    )
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-internal fun CategoryCreateFields(form: CategoryCreateFormState) {
-    Column(
-        modifier = Modifier.uiTagRoot(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        OutlinedTextField(
-            value = form.name,
-            onValueChange = { form.name = it },
-            label = { Text("Nom") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-        )
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            OBLIGATIONS.forEach { o ->
-                FilterChip(
-                    selected = form.obligation == o,
-                    onClick = { form.select(o) },
-                    label = { Text(obligationLabel(o)) },
-                )
-            }
-        }
-        if (form.obligation == "income") {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag(UiTags.CATEGORY_PASSIVE_INCOME)
-                    .toggleable(
-                        value = form.passiveIncome,
-                        role = Role.Switch,
-                        onValueChange = { form.passiveIncome = it },
-                    ),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Rente")
-                    Text(
-                        text = "Loyers perçus, dividendes : compte dans l'indépendance financière.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Switch(checked = form.passiveIncome, onCheckedChange = null)
             }
         }
     }

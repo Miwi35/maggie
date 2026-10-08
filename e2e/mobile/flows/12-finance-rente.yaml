@@ -5,7 +5,7 @@ tags:
 ---
 # Declaring a rente from the phone (MAG-257, extends MAG-102).
 #
-# The category dialog offers « Recette » and, on a Recette only, the « Rente » box;
+# The category screen offers « Recette » and, on a Recette only, the « Rente » box;
 # what is created comes back from the real API with `passiveIncome: true` and the
 # list draws it « Recette · rente ». The same request over the admin is
 # `finance-independence.spec.ts`.
@@ -46,6 +46,8 @@ tags:
 # flag anywhere else.
 - assertNotVisible:
     id: "category_passive_income"
+- scrollUntilVisible:
+    element: "Recette"
 - tapOn: "Recette"
 
 - extendedWaitUntil:
