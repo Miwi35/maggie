@@ -11,7 +11,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
+import com.maggie.app.data.fcm.PushIntents
 import com.maggie.app.ui.components.AssistantOverlay
+import com.maggie.app.ui.interruption.InterruptionHost
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.theme.MaggieTheme
 import org.koin.android.ext.android.inject
@@ -63,6 +65,14 @@ class AssistantActivity : ComponentActivity() {
                     pendingContext = pendingContext,
                     onVoiceResult = sendVoiceResult,
                     onListen = { requestMicAndListen() },
+                )
+                // Maggie speaking on her own reaches the owner here too (MAG-314); the overlay is already the chat.
+                InterruptionHost(
+                    onOpenLink = {
+                        startActivity(PushIntents.open(this@AssistantActivity, it, toLink = true))
+                        finish()
+                    },
+                    onOpenChat = {},
                 )
             }
         }

@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
+import com.maggie.app.data.interruption.InterruptionCenter
+import com.maggie.app.data.interruption.Interruptions
 import com.maggie.app.data.model.Notification
 import com.maggie.app.data.repository.NotificationRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +25,7 @@ class NotificationViewModel(
     private val notificationRepository: NotificationRepository,
     private val mercureService: MercureService,
     private val authRepository: AuthRepository,
+    private val interruptions: InterruptionCenter,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(NotificationUiState())
@@ -67,6 +70,12 @@ class NotificationViewModel(
             notificationRepository.markRead(id)
             refresh()
         }
+    }
+
+    /** A tap: Maggie says it again, as when it arrived. What cannot be said is simply marked read. */
+    fun open(notification: Notification) {
+        val payload = Interruptions.of(notification, again = true)
+        if (payload != null) interruptions.reopen(payload) else markRead(notification.id)
     }
 
     fun delete(id: String) {

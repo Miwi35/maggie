@@ -15,13 +15,14 @@ import org.koin.core.component.inject
 class PushActionReceiver : BroadcastReceiver(), KoinComponent {
 
     private val handler: PushActionHandler by inject()
+    private val delivery: PushDelivery by inject()
 
     override fun onReceive(context: Context, intent: Intent) {
         val payload = PushIntents.payloadOf(intent) ?: return
         val notifier = PushNotifier(context)
 
         if (intent.action == ACTION_RESHOW) {
-            notifier.show(payload)
+            delivery.deliver(payload)
             return
         }
 

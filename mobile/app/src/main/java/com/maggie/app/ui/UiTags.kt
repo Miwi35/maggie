@@ -240,4 +240,16 @@ object UiTags {
 
     /** The detail screen's « Ce n'est pas un rejet »: there is no marking from the phone, only this release. */
     const val REJECTION_RELEASE = "rejection_release"
+
+    /**
+     * Maggie's interruption over the app (MAG-314) — a window of its own: the bubble, the
+     * action she proposes, a second answer beside it (« Refuser »), and « Plus tard ».
+     */
+    const val INTERRUPTION = "interruption"
+    const val INTERRUPTION_ACTION = "interruption_action"
+    const val INTERRUPTION_SECOND = "interruption_second"
+    const val INTERRUPTION_LATER = "interruption_later"
+
+    /** Settings > Notifications — the switch of the chime and the vibration that announce her. */
+    const val SETTINGS_INTERRUPTION_SOUND = "settings_interruption_sound"
 }

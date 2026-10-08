@@ -8,11 +8,10 @@ import com.maggie.app.BuildConfig
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertSame
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** The tap on a push opens the link in `data.link` — and only a link of the app's own scheme. */
+/** The tap on a push opens the app on the interruption; « Y aller » follows `data.link`, and only a link of the app's own scheme. */
 @RunWith(AndroidJUnit4::class)
 class PushIntentsTest {
 
@@ -28,22 +27,37 @@ class PushIntentsTest {
     }
 
     @Test
-    fun `the intent Android's own notification fires gets the link as its data`() {
-        val fired = Intent(Intent.ACTION_MAIN).putExtra(PushIntents.EXTRA_LINK, "$scheme://finance/banks")
+    fun `a tap on the notification asks the app to say it again, without leaving the screen it is on`() {
+        val payload = PushPayload.from(mapOf("notificationId" to "n-1", "title" to "Rappel", "link" to "$scheme://finance/banks"))!!
 
-        val opened = PushIntents.withLink(fired)
+        val tap = PushIntents.open(context, payload)
 
-        assertEquals(Intent.ACTION_VIEW, opened.action)
-        assertEquals("$scheme://finance/banks", opened.dataString)
+        assertNull(tap.data)
+        assertEquals(payload, PushIntents.interruptionOf(tap))
     }
 
     @Test
-    fun `an intent that already has a link or carries a foreign one is left alone`() {
-        val withData = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("$scheme://chat"))
-        assertSame(withData, PushIntents.withLink(withData))
+    fun `only Y aller goes straight to the link`() {
+        val payload = PushPayload.from(mapOf("notificationId" to "n-1", "link" to "$scheme://finance/banks"))!!
 
-        val foreign = Intent(Intent.ACTION_MAIN).putExtra(PushIntents.EXTRA_LINK, "https://evil.example")
-        assertSame(foreign, PushIntents.withLink(foreign))
+        val go = PushIntents.open(context, payload, toLink = true)
+
+        assertEquals(Intent.ACTION_VIEW, go.action)
+        assertEquals("$scheme://finance/banks", go.dataString)
+        assertNull("a link opened on purpose is not an interruption", PushIntents.interruptionOf(go))
+    }
+
+    @Test
+    fun `a link of another scheme is never followed`() {
+        val payload = PushPayload.from(mapOf("notificationId" to "n-1", "link" to "https://evil.example"))!!
+
+        assertNull(PushIntents.open(context, payload, toLink = true).data)
+    }
+
+    @Test
+    fun `an intent with no push in it, or a link opened from outside, says nothing`() {
+        assertNull(PushIntents.interruptionOf(Intent(Intent.ACTION_MAIN)))
+        assertNull(PushIntents.interruptionOf(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("$scheme://chat"))))
     }
 
     @Test

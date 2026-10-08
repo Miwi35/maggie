@@ -1,0 +1,66 @@
+appId: com.maggie.app.e2e
+name: 14-interruption
+tags:
+  - interruption
+---
+# Maggie interrupts the open app instead of notifying (MAG-314).
+#
+# Maggie creates a notification while the app is in front: the owner sees her toaster over
+# the dashboard — veil, bubble « MAGGIE · maintenant », the message, the action and
+# « Plus tard » — and no system notification. Queue order, the 30 seconds, the dedupe
+# between FCM and Mercure, reduced animations and what each button does are
+# `InterruptionHostScreenTest`, `InterruptionViewModelTest` and `InterruptionCenterTest`
+# (JVM); this flow proves the live chain: agent → MCP → Mercure → the open app → the window.
+#
+# The notification is raised over HTTP (`scripts/interruption-api.js`) once the dashboard is
+# showing, so it can only arrive from the live feed. Tapping « Plus tard » closes the toaster;
+# the second notification is then answered with its action, which opens what it announces.
+#
+# Needs `E2E_BASE_URL` and `E2E_LOGIN_TOKEN`, which `run.sh` passes with `-e`.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runScript:
+    file: ../scripts/interruption-api.js
+
+- extendedWaitUntil:
+    visible:
+      id: "interruption"
+    timeout: 40000
+- assertVisible: "MAGGIE · maintenant"
+- assertVisible: "Un point sur tes comptes ?"
+- assertVisible: "Ouvrir les finances"
+
+# « Plus tard » puts it away.
+- tapOn:
+    id: "interruption_later"
+- extendedWaitUntil:
+    notVisible:
+      id: "interruption"
+    timeout: 20000
+- assertVisible:
+    id: "dashboard"
+
+# A second one, answered with its action: it opens what it announces.
+- runScript:
+    file: ../scripts/interruption-api.js
+- extendedWaitUntil:
+    visible:
+      id: "interruption_action"
+    timeout: 40000
+- tapOn:
+    id: "interruption_action"
+- extendedWaitUntil:
+    notVisible:
+      id: "interruption"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: "Comptes"
+    timeout: 20000
+- assertNotVisible:
+    id: "dashboard"
