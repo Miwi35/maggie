@@ -14,7 +14,8 @@
             "currency": "EUR",
             "balanceCents": 123456,
             "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
-            "cushion": true
+            "cushion": true,
+            "closed": false
         }
     ]
 }

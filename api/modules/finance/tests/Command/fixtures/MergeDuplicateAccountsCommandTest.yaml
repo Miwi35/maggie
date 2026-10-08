@@ -1,0 +1,10 @@
+Maggie\Core\Entity\User:
+  owner:
+    email: merge-duplicates-owner@example.com
+    googleId: google-merge-duplicates-owner
+    name: Merge Duplicates Owner
+
+Maggie\Finance\Entity\Category:
+  energy:
+    name: Énergie
+    user: '@owner'

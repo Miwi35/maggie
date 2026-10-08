@@ -63,8 +63,8 @@ class BankReconnectionTest extends KernelTestCase
      * whatever uid asks for them.
      *
      * @param array<string, list<array<string, mixed>>> $accountsBySession
-     * @param array<string, string>                      $edfLabelBySession how the bank spells
-     *                                                                      the EDF debit in each session
+     * @param array<string, string>                     $edfLabelBySession how the bank spells
+     *                                                                     the EDF debit in each session
      */
     private function bank(array $accountsBySession, string &$session, array $edfLabelBySession = []): MockHttpClient
     {

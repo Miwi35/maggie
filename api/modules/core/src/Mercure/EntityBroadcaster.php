@@ -8,6 +8,7 @@ use Doctrine\Persistence\Proxy;
 use Maggie\Core\Contract\IndexableInterface;
 use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Contract\OwnedByUserInterface;
+use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
 use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
 use Symfony\Component\Mercure\HubInterface;
 use Symfony\Component\Mercure\Update;
@@ -52,5 +53,23 @@ class EntityBroadcaster
             entityClass: $class,
             entityId: (string) $entity->getId(),
         ));
+    }
+
+    /**
+     * The same for an entity removed outside a Delete command: the open
+     * screens drop it, and the index stops serving it. Call it after the flush.
+     */
+    public function broadcastRemoval(MercurePublishable&OwnedByUserInterface $entity, string $indexName): void
+    {
+        $class = $entity instanceof Proxy ? get_parent_class($entity) : $entity::class;
+        $topic = MercureTopic::item(MercureTopic::collection($class), (string) $entity->getId());
+
+        $this->hub->publish(new Update(
+            topics: [MercureTopic::scoped((string) $entity->getUser()->getId(), $topic)],
+            data: json_encode(['@id' => $topic, 'deleted' => true], JSON_THROW_ON_ERROR),
+            private: true,
+        ));
+
+        $this->bus->dispatch(new DeleteDocumentCommand(indexName: $indexName, documentId: (string) $entity->getId()));
     }
 }

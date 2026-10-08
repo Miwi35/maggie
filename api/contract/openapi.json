@@ -7836,10 +7836,28 @@
                         "type": "boolean"
                     },
                     "externalAccountId": {
+                        "description": "The provider's id for this account in the current session. It changes\nwith every consent: never what tells two accounts apart (MAG-351).",
                         "type": [
                             "string",
                             "null"
                         ]
+                    },
+                    "externalKey": {
+                        "readOnly": true,
+                        "description": "What identifies the real account across sessions: Enable Banking's\n`identification_hash`, or a hash of the IBAN when it gives none.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "closedAt": {
+                        "readOnly": true,
+                        "description": "Set when the bank stopped listing the account: kept, not deleted.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
                     },
                     "bankConnection": {
                         "anyOf": [
@@ -7857,6 +7875,9 @@
                         "example": "https://example.com/"
                     },
                     "cushion": {
+                        "readOnly": true
+                    },
+                    "closed": {
                         "readOnly": true
                     }
                 },
@@ -7909,10 +7930,28 @@
                         "type": "boolean"
                     },
                     "externalAccountId": {
+                        "description": "The provider's id for this account in the current session. It changes\nwith every consent: never what tells two accounts apart (MAG-351).",
                         "type": [
                             "string",
                             "null"
                         ]
+                    },
+                    "externalKey": {
+                        "readOnly": true,
+                        "description": "What identifies the real account across sessions: Enable Banking's\n`identification_hash`, or a hash of the IBAN when it gives none.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "closedAt": {
+                        "readOnly": true,
+                        "description": "Set when the bank stopped listing the account: kept, not deleted.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
                     },
                     "bankConnection": {
                         "anyOf": [
@@ -7930,6 +7969,9 @@
                         "example": "https://example.com/"
                     },
                     "cushion": {
+                        "readOnly": true
+                    },
+                    "closed": {
                         "readOnly": true
                     }
                 },
@@ -7982,10 +8024,28 @@
                         "type": "boolean"
                     },
                     "externalAccountId": {
+                        "description": "The provider's id for this account in the current session. It changes\nwith every consent: never what tells two accounts apart (MAG-351).",
                         "type": [
                             "string",
                             "null"
                         ]
+                    },
+                    "externalKey": {
+                        "readOnly": true,
+                        "description": "What identifies the real account across sessions: Enable Banking's\n`identification_hash`, or a hash of the IBAN when it gives none.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "closedAt": {
+                        "readOnly": true,
+                        "description": "Set when the bank stopped listing the account: kept, not deleted.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
                     },
                     "bankConnection": {
                         "anyOf": [
@@ -8003,6 +8063,9 @@
                         "example": "https://example.com/"
                     },
                     "cushion": {
+                        "readOnly": true
+                    },
+                    "closed": {
                         "readOnly": true
                     }
                 }
@@ -8055,10 +8118,28 @@
                                 "type": "boolean"
                             },
                             "externalAccountId": {
+                                "description": "The provider's id for this account in the current session. It changes\nwith every consent: never what tells two accounts apart (MAG-351).",
                                 "type": [
                                     "string",
                                     "null"
                                 ]
+                            },
+                            "externalKey": {
+                                "readOnly": true,
+                                "description": "What identifies the real account across sessions: Enable Banking's\n`identification_hash`, or a hash of the IBAN when it gives none.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "closedAt": {
+                                "readOnly": true,
+                                "description": "Set when the bank stopped listing the account: kept, not deleted.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date-time"
                             },
                             "bankConnection": {
                                 "anyOf": [
@@ -8076,6 +8157,9 @@
                                 "example": "https://example.com/"
                             },
                             "cushion": {
+                                "readOnly": true
+                            },
+                            "closed": {
                                 "readOnly": true
                             }
                         },
@@ -14672,6 +14756,14 @@
                             "null"
                         ]
                     },
+                    "externalId": {
+                        "readOnly": true,
+                        "description": "The bank's own reference for the movement (`entry_reference`), when it\ngives one: the same movement read twice, whatever its label became.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "counterpartyKey": {
                         "readOnly": true,
                         "description": "The name folded so two spellings of one payee group together.",
@@ -14815,6 +14907,14 @@
                     "counterpartyName": {
                         "readOnly": true,
                         "description": "Who the money came from or went to, kept apart from the label: the bank\nrewrites the label every month, never the creditor. Not the same thing\nas `counterpart`, the opposite leg of an internal transfer.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "externalId": {
+                        "readOnly": true,
+                        "description": "The bank's own reference for the movement (`entry_reference`), when it\ngives one: the same movement read twice, whatever its label became.",
                         "type": [
                             "string",
                             "null"
@@ -14968,6 +15068,14 @@
                             "null"
                         ]
                     },
+                    "externalId": {
+                        "readOnly": true,
+                        "description": "The bank's own reference for the movement (`entry_reference`), when it\ngives one: the same movement read twice, whatever its label became.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "counterpartyKey": {
                         "readOnly": true,
                         "description": "The name folded so two spellings of one payee group together.",
@@ -15105,6 +15213,14 @@
                             "counterpartyName": {
                                 "readOnly": true,
                                 "description": "Who the money came from or went to, kept apart from the label: the bank\nrewrites the label every month, never the creditor. Not the same thing\nas `counterpart`, the opposite leg of an internal transfer.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "externalId": {
+                                "readOnly": true,
+                                "description": "The bank's own reference for the movement (`entry_reference`), when it\ngives one: the same movement read twice, whatever its label became.",
                                 "type": [
                                     "string",
                                     "null"
