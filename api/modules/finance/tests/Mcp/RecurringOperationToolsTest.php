@@ -6,10 +6,13 @@ use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
+use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Enum\DayRule;
 use Maggie\Finance\Enum\RecurrencePeriod;
+use Maggie\Finance\Mcp\Tool\ManageAccountsTool;
+use Maggie\Finance\Mcp\Tool\ManageCategoriesTool;
 use Maggie\Finance\Mcp\Tool\ManageRecurringOperationsTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -131,6 +134,7 @@ class RecurringOperationToolsTest extends KernelTestCase
         yield 'unknown period' => [['period' => 'daily'], 'daily'];
         yield 'not a date' => [['anchorOn' => '12/01/2027'], 'anchorOn'];
         yield 'income category on an expense' => [['categoryId' => 'salary'], 'income category'];
+        yield 'weekly on the last day of the month' => [['period' => 'weekly', 'dayRule' => 'last_day_of_month'], 'dayRule'];
     }
 
     /** @param array<string, mixed> $overrides */
@@ -241,5 +245,47 @@ class RecurringOperationToolsTest extends KernelTestCase
         self::assertNull($this->reload('gym'));
         $this->assertMercureUpdatePublished('/recurring_operations/');
         $this->assertElasticsearchDeleteDispatched('recurring_operations');
+    }
+
+    /**
+     * The database cascade takes the series down with its category or its
+     * account; the index must forget it too, or the list keeps showing it.
+     */
+    public function testDeletingItsCategoryRemovesTheSeriesFromTheIndex(): void
+    {
+        $this->loginFixtureUser();
+
+        $tool = self::getContainer()->get(ManageCategoriesTool::class);
+        $data = json_decode($tool('delete', categoryId: $this->id('subscriptions')), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
+        self::assertNull($this->reload('gym'));
+        self::assertContains(['recurring_operations', $this->id('gym')], $this->deletedDocuments());
+    }
+
+    public function testDeletingItsAccountRemovesTheSeriesFromTheIndex(): void
+    {
+        $this->loginFixtureUser();
+
+        $tool = self::getContainer()->get(ManageAccountsTool::class);
+        $data = json_decode($tool('delete', accountId: $this->id('checking')), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
+        self::assertNull($this->reload('gym'));
+        self::assertContains(['recurring_operations', $this->id('gym')], $this->deletedDocuments());
+    }
+
+    /** @return list<array{string, string}> */
+    private function deletedDocuments(): array
+    {
+        $deleted = [];
+        foreach ($this->getAsyncTransport()->getSent() as $envelope) {
+            $message = $envelope->getMessage();
+            if ($message instanceof DeleteDocumentCommand) {
+                $deleted[] = [$message->indexName, $message->documentId];
+            }
+        }
+
+        return $deleted;
     }
 }

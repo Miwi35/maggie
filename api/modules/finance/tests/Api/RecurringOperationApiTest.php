@@ -8,6 +8,7 @@ use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\RecurringOperation;
+use Maggie\Finance\Enum\DayRule;
 use Maggie\Finance\Enum\RecurrencePeriod;
 use Maggie\Finance\Enum\ReferenceAmountSource;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -159,6 +160,7 @@ class RecurringOperationApiTest extends WebTestCase
         yield 'end before the anchor' => [['endsOn' => '2027-01-11'], 'endsOn'];
         yield 'nothing to recognise it by' => [['counterpartyName' => null], 'counterpartyName'];
         yield 'no label' => [['label' => ''], 'label'];
+        yield 'weekly on the last day of the month' => [['period' => 'weekly', 'dayRule' => 'last_day_of_month'], 'dayRule'];
     }
 
     /**
@@ -279,6 +281,7 @@ class RecurringOperationApiTest extends WebTestCase
         self::assertSame(ReferenceAmountSource::Declared, $refreshed->getReferenceSource());
         self::assertSame('Club Forme', $refreshed->getCounterpartyName());
         self::assertSame('2027-12-01', $refreshed->getEndsOn()?->format('Y-m-d'));
+        self::assertSame(DayRule::LastDayOfMonth, $refreshed->getDayRule());
 
         $this->assertMercureUpdatePublished('/recurring_operations/');
         $this->assertElasticsearchIndexDispatched(RecurringOperation::class);
@@ -302,6 +305,41 @@ class RecurringOperationApiTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(422);
         self::assertSame('2027-12-01', $this->reload('gym')?->getEndsOn()?->format('Y-m-d'));
+    }
+
+    public function testPatchLeavingNothingToRecogniseItByIsRefused(): void
+    {
+        $this->login();
+
+        $this->send('PATCH', $this->iri('recurring_operations', 'gym'), ['counterpartyName' => null]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Club Forme', $this->reload('gym')?->getCounterpartyName());
+        $this->assertMercureUpdateCount(0);
+    }
+
+    public function testPatchWithAnotherUsersCategoryIsRefused(): void
+    {
+        $this->login();
+
+        $this->send('PATCH', $this->iri('recurring_operations', 'gym'), ['category' => $this->iri('categories', 'other_secret')]);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertTrue($this->reload('gym')?->getCategory()->getId()->equals($this->getFixture('subscriptions')->getId()));
+        $this->assertMercureUpdateCount(0);
+    }
+
+    public function testReadingAndDeletingRequireAuthentication(): void
+    {
+        $this->send('GET', '/api/recurring_operations', authenticated: false);
+        self::assertResponseStatusCodeSame(401);
+
+        $this->send('GET', $this->iri('recurring_operations', 'gym'), authenticated: false);
+        self::assertResponseStatusCodeSame(401);
+
+        $this->send('DELETE', $this->iri('recurring_operations', 'gym'), authenticated: false);
+        self::assertResponseStatusCodeSame(401);
+        self::assertNotNull($this->reload('gym'));
     }
 
     public function testDeleteRemovesPublishesAndUnindexes(): void

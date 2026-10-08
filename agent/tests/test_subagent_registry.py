@@ -41,6 +41,7 @@ MCP_TOOL_NAMES = (
     "manage_notifications",
     "manage_products",
     "manage_recurring_groceries",
+    "manage_recurring_operations",
     "manage_safety_cushion",
     "manage_stores",
     "manage_transactions",

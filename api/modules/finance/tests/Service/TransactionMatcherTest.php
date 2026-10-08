@@ -76,6 +76,15 @@ class TransactionMatcherTest extends TestCase
         self::assertFalse($matcher->matches($criteria, $this->transaction('CB VIDEOCLUB 12/01', -1349)));
     }
 
+    public function testTheFoldedLabelIsReadWordByWord(): void
+    {
+        $matcher = new TransactionMatcher();
+        $criteria = $this->series()->setCounterpartyName('SFR')->matchCriteria();
+
+        self::assertTrue($matcher->matches($criteria, $this->transaction('PRLV SFR 0612', -1349)));
+        self::assertFalse($matcher->matches($criteria, $this->transaction('VIR TRANSFR 0612', -1349)), 'a three-letter payee is not found inside another word');
+    }
+
     public function testNothingToRecogniseByRecognisesNothing(): void
     {
         self::assertFalse((new TransactionMatcher())->matches($this->series()->matchCriteria(), $this->transaction('CB FLIXO', -1349, 'Flixo')));

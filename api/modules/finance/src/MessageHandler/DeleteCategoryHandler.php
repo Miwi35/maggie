@@ -10,6 +10,7 @@ use Maggie\Finance\Message\DeleteCategoryCommand;
 use Maggie\Finance\Repository\CategorizationRuleRepository;
 use Maggie\Finance\Repository\CategoryRepository;
 use Maggie\Finance\Repository\EnvelopeRepository;
+use Maggie\Finance\Repository\RecurringOperationRepository;
 use Maggie\Finance\UseCase\DeleteCategory;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -22,6 +23,7 @@ class DeleteCategoryHandler
         private readonly CategoryRepository $categoryRepository,
         private readonly EnvelopeRepository $envelopeRepository,
         private readonly CategorizationRuleRepository $ruleRepository,
+        private readonly RecurringOperationRepository $recurringOperationRepository,
         private readonly MessageBusInterface $messageBus,
     ) {
     }
@@ -31,7 +33,7 @@ class DeleteCategoryHandler
         $category = $this->categoryRepository->findOneBy(['id' => $command->categoryId, 'user' => $command->userId])
             ?? throw new \DomainException("Category not found: {$command->categoryId}");
 
-        // The database cascades remove sub-categories, envelopes and rules without any command of their own.
+        // The database cascades remove sub-categories, envelopes, rules and recurring operations without any command of their own.
         $cascaded = $this->cascadedDocuments($category);
 
         $this->deleteCategory->execute($category);
@@ -53,6 +55,9 @@ class DeleteCategoryHandler
         }
         foreach ($this->ruleRepository->findBy(['category' => $category]) as $rule) {
             $documents[] = ['categorization_rules', (string) $rule->getId()];
+        }
+        foreach ($this->recurringOperationRepository->findBy(['category' => $category]) as $operation) {
+            $documents[] = ['recurring_operations', (string) $operation->getId()];
         }
         foreach ($this->categoryRepository->findBy(['parent' => $category]) as $child) {
             $documents[] = ['categories', (string) $child->getId()];

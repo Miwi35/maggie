@@ -108,7 +108,11 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
     #[IndexedField(type: 'keyword')]
     private RecurrencePeriod $period = RecurrencePeriod::Monthly;
 
-    /** The first occurrence; every other one is counted from it, never from the previous. */
+    /**
+     * Where the series is counted from, never from the previous occurrence.
+     * With `last_day_of_month` the first occurrence is the last day of the
+     * anchor's month.
+     */
     #[ORM\Column(type: 'date_immutable')]
     #[Assert\NotNull]
     #[IndexedField(type: 'date')]
@@ -161,6 +165,12 @@ class RecurringOperation implements MercurePublishable, OwnedByUserInterface, In
         if (null !== $this->endsOn && isset($this->anchorOn) && $this->endsOn < $this->anchorOn) {
             $context->buildViolation('The series cannot end before its first occurrence.')
                 ->atPath('endsOn')
+                ->addViolation();
+        }
+
+        if (RecurrencePeriod::Weekly === $this->period && DayRule::LastDayOfMonth === $this->dayRule) {
+            $context->buildViolation('A weekly series falls every seven days from its anchor: it has no last day of the month.')
+                ->atPath('dayRule')
                 ->addViolation();
         }
 

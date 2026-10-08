@@ -14552,7 +14552,7 @@
                         ]
                     },
                     "anchorOn": {
-                        "description": "The first occurrence; every other one is counted from it, never from the previous.",
+                        "description": "Where the series is counted from, never from the previous occurrence.",
                         "type": "string",
                         "format": "date-time"
                     },
@@ -14683,7 +14683,7 @@
                         ]
                     },
                     "anchorOn": {
-                        "description": "The first occurrence; every other one is counted from it, never from the previous.",
+                        "description": "Where the series is counted from, never from the previous occurrence.",
                         "type": "string",
                         "format": "date-time"
                     },
@@ -14814,7 +14814,7 @@
                         ]
                     },
                     "anchorOn": {
-                        "description": "The first occurrence; every other one is counted from it, never from the previous.",
+                        "description": "Where the series is counted from, never from the previous occurrence.",
                         "type": "string",
                         "format": "date-time"
                     },
@@ -14940,7 +14940,7 @@
                                 ]
                             },
                             "anchorOn": {
-                                "description": "The first occurrence; every other one is counted from it, never from the previous.",
+                                "description": "Where the series is counted from, never from the previous occurrence.",
                                 "type": "string",
                                 "format": "date-time"
                             },

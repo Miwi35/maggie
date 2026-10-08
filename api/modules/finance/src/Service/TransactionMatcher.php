@@ -46,7 +46,8 @@ class TransactionMatcher
         }
 
         if (null !== $expected && '' !== $expected) {
-            return str_contains(MerchantExtractor::key($transaction->getLabel()), $expected);
+            // Whole words: a three-letter payee must not match inside another word.
+            return 1 === preg_match('/(^| )'.preg_quote($expected, '/').'( |$)/u', MerchantExtractor::key($transaction->getLabel()));
         }
 
         // Nothing to recognise by would claim every transaction.
