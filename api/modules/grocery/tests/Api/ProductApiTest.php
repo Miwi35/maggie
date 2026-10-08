@@ -380,4 +380,110 @@ class ProductApiTest extends WebTestCase
         $this->assertElasticsearchIndexDispatched(RecurringGroceryItem::class);
         $this->assertElasticsearchIndexDispatched(GroceryList::class);
     }
+
+    public function testAProductCreatedWithoutAnythingIsInStock(): void
+    {
+        $this->load();
+
+        $this->client->request('POST', '/api/products', [], [], array_merge([
+            'CONTENT_TYPE' => 'application/ld+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode(['name' => 'Sel', 'category' => 'other'], JSON_THROW_ON_ERROR));
+
+        self::assertResponseStatusCodeSame(201);
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('in_stock', $body['stockState']);
+        self::assertNull($body['restockQuantity'] ?? null);
+        self::assertFalse($body['autoRestock'], 'REST spells the flag autoRestock');
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $created = $em->getRepository(Product::class)->findOneBy(['name' => 'Sel']);
+        self::assertSame('in_stock', $created?->getStockState()->value);
+        self::assertFalse($created->isAutoRestock());
+    }
+
+    public function testPatchSetsTheStockAndPublishesItWithTheSameSpellingAsRest(): void
+    {
+        $product = $this->load();
+
+        $this->patch($product, ['stockState' => 'out', 'restockQuantity' => 2, 'autoRestock' => true]);
+
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(['out', 2, true], [$body['stockState'], $body['restockQuantity'], $body['autoRestock']]);
+        self::assertArrayNotHasKey('isAutoRestock', $body);
+
+        $reloaded = $this->reload($product);
+        self::assertSame('out', $reloaded->getStockState()->value);
+        self::assertSame(2, $reloaded->getRestockQuantity());
+        self::assertTrue($reloaded->isAutoRestock());
+        self::assertSame('Riz', $reloaded->getName(), 'Fields left out of the payload are untouched');
+
+        $this->assertMercureUpdatePublished('/products/');
+        $updates = $this->getMercureHub()->getUpdates();
+        $data = json_decode(end($updates)->getData(), true);
+        self::assertSame(['out', 2, true], [$data['stockState'] ?? null, $data['restockQuantity'] ?? null, $data['autoRestock'] ?? null]);
+        self::assertArrayNotHasKey('isAutoRestock', $data, 'Mercure spells the flag like REST');
+        $this->assertElasticsearchIndexDispatched(Product::class);
+    }
+
+    public function testPatchWithoutStockKeepsIt(): void
+    {
+        $product = $this->load();
+        $this->patch($product, ['stockState' => 'low', 'restockQuantity' => 3, 'autoRestock' => true]);
+        self::assertResponseIsSuccessful();
+
+        $this->patch($product, ['name' => 'Riz basmati']);
+
+        self::assertResponseIsSuccessful();
+        $reloaded = $this->reload($product);
+        self::assertSame(['low', 3, true], [$reloaded->getStockState()->value, $reloaded->getRestockQuantity(), $reloaded->isAutoRestock()]);
+    }
+
+    public function testPatchWithNullRestockQuantityClearsIt(): void
+    {
+        $product = $this->load();
+        $this->patch($product, ['restockQuantity' => 2]);
+        self::assertResponseIsSuccessful();
+
+        $this->patch($product, ['restockQuantity' => null]);
+
+        self::assertResponseIsSuccessful();
+        self::assertNull($this->reload($product)->getRestockQuantity());
+    }
+
+    public function testPatchRefusesANegativeRestockQuantity(): void
+    {
+        $product = $this->load();
+
+        $this->patch($product, ['restockQuantity' => -1]);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertNull($this->reload($product)->getRestockQuantity());
+    }
+
+    public function testPatchRefusesAnUnknownStockState(): void
+    {
+        $product = $this->load();
+
+        $this->patch($product, ['stockState' => 'plenty']);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame('in_stock', $this->reload($product)->getStockState()->value);
+    }
+
+    public function testPostRefusesANegativeRestockQuantity(): void
+    {
+        $this->load();
+
+        $this->client->request('POST', '/api/products', [], [], array_merge([
+            'CONTENT_TYPE' => 'application/ld+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode(['name' => 'Sel', 'category' => 'other', 'restockQuantity' => -2], JSON_THROW_ON_ERROR));
+
+        self::assertResponseStatusCodeSame(400);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNull($em->getRepository(Product::class)->findOneBy(['name' => 'Sel']));
+    }
 }

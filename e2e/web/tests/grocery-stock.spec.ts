@@ -125,3 +125,81 @@ test('an ingredient shows no packaging in the cookbook, and the same product sho
     await api.delete(iri)
   }
 })
+
+test('a product is « En stock » by default, and the state chosen in its form shows in the list of a second window', async ({
+  twoWindows,
+  api,
+}) => {
+  // MAG-293: what is left of a product at home. A product nobody described is
+  // « En stock »; going to « Rupture » reaches the list of another window live.
+  const name = `Riz MAG-293 ${Date.now()}`
+  const created = await api.post('/api/products', {
+    headers: LD,
+    data: { name, category: 'grain', packagingUnit: 'pack', packagingSize: 500, packagingSizeUnit: 'g' },
+  })
+  expect(created.status()).toBe(201)
+  const iri = ((await created.json()) as { '@id': string })['@id']
+
+  const { actor, observer } = twoWindows
+  const acting = new AdminShell(actor)
+  const watching = new AdminShell(observer)
+
+  try {
+    // Given « Riz » with a 500 g packaging and no state set, listed in the second window.
+    await waitForIndexed<StockRow>(api, '/api/products?itemsPerPage=200', (row) => row.name === name, {
+      what: 'The new product',
+    })
+    await openSubscribed(observer, () => watching.goto(ROUTES.products))
+    const row = watching.content.getByRole('row').filter({ hasText: name })
+    await expect(row).toContainText('En stock')
+
+    // When I open its form, it is announced « En stock ».
+    await acting.goto(`${ROUTES.products}/${encodeURIComponent(iri)}`)
+    await expect(acting.content.getByText("Ce qu'il m'en reste")).toBeVisible()
+    await expect(acting.content.getByLabel('État du stock')).toContainText('En stock')
+
+    // And I give it 2 packs of restock, the automatic restock, then « Rupture ».
+    await expectRealtimeSync(
+      observer,
+      async () => {
+        await acting.content.getByLabel('Quantité de réapprovisionnement').fill('2')
+        await acting.content.getByLabel('Réapprovisionnement automatique').check()
+        await acting.content.getByLabel('État du stock').click()
+        await actor.getByRole('option', { name: 'Rupture', exact: true }).click()
+
+        const patched = actor.waitForResponse(
+          (response) => response.url().includes(iri) && response.request().method() === 'PATCH',
+        )
+        await acting.content.getByRole('button', { name: 'Enregistrer' }).click()
+        const response = await patched
+        expect(response.status(), `the API refused the stock: ${await response.text()}`).toBe(200)
+
+        await waitForIndexed<StockRow>(
+          api,
+          '/api/products?itemsPerPage=200',
+          (r) => r.name === name && r.stockState === 'out',
+          { what: 'The product out of stock' },
+        )
+      },
+      // Then the second window sees « Rupture » without reloading.
+      async () => {
+        await expect(row).toContainText('Rupture')
+      },
+    )
+
+    // And the three fields hold after a reload.
+    const stored = (await (await api.get(iri, { headers: { Accept: 'application/ld+json' } })).json()) as StockRow
+    expect(stored.stockState).toBe('out')
+    expect(stored.restockQuantity).toBe(2)
+    expect(stored.autoRestock).toBe(true)
+  } finally {
+    await api.delete(iri)
+  }
+})
+
+type StockRow = {
+  name: string
+  stockState?: string
+  restockQuantity?: number | null
+  autoRestock?: boolean
+}

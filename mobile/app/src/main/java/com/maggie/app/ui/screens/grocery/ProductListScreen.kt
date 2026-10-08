@@ -28,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -45,6 +46,7 @@ import com.maggie.app.data.api.ProductCreateRequest
 import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.ProductCategory
+import com.maggie.app.data.model.ProductStockState
 import com.maggie.app.data.model.packagingLabel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -116,6 +118,40 @@ fun ProductListScreen(
     }
 }
 
+/** The state of a product's stock, as a coloured chip. */
+@Composable
+internal fun StockStateChip(state: ProductStockState) {
+    val (label, container, content) = when (state) {
+        ProductStockState.IN_STOCK -> Triple(
+            "En stock",
+            MaterialTheme.colorScheme.secondaryContainer,
+            MaterialTheme.colorScheme.onSecondaryContainer,
+        )
+        ProductStockState.LOW -> Triple(
+            "Stock faible",
+            MaterialTheme.colorScheme.tertiaryContainer,
+            MaterialTheme.colorScheme.onTertiaryContainer,
+        )
+        ProductStockState.OUT -> Triple(
+            "Rupture",
+            MaterialTheme.colorScheme.errorContainer,
+            MaterialTheme.colorScheme.onErrorContainer,
+        )
+    }
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color = container,
+        contentColor = content,
+        modifier = Modifier.padding(vertical = 4.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+        )
+    }
+}
+
 /** A product of the list, with what it is bought in when the owner said it. */
 @Composable
 internal fun ProductCard(product: Product, onDelete: () -> Unit) {
@@ -146,6 +182,7 @@ internal fun ProductCard(product: Product, onDelete: () -> Unit) {
                         )
                     }
                 }
+                StockStateChip(product.stockState)
                 product.packagingLabel()?.let {
                     Text(
                         text = "S'achète en : $it",

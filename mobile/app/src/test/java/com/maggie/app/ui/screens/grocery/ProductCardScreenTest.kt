@@ -6,6 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.ProductCategory
+import com.maggie.app.data.model.ProductStockState
 import com.maggie.app.screentest.ScreenRule
 import org.junit.Rule
 import org.junit.Test
@@ -45,5 +46,28 @@ class ProductCardScreenTest {
 
         compose.onNodeWithText("Riz").assertIsDisplayed()
         compose.onNodeWithText("S'achète en", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a product with no state said shows En stock`() {
+        compose.setContent { ProductCard(product = rice, onDelete = {}) }
+
+        compose.onNodeWithText("En stock").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a product running low shows Stock faible`() {
+        compose.setContent { ProductCard(product = rice.copy(stockState = ProductStockState.LOW), onDelete = {}) }
+
+        compose.onNodeWithText("Stock faible").assertIsDisplayed()
+        compose.onNodeWithText("En stock").assertDoesNotExist()
+    }
+
+    @Test
+    fun `a product out of stock shows Rupture`() {
+        compose.setContent { ProductCard(product = rice.copy(stockState = ProductStockState.OUT), onDelete = {}) }
+
+        compose.onNodeWithText("Rupture").assertIsDisplayed()
+        compose.onNodeWithText("En stock").assertDoesNotExist()
     }
 }

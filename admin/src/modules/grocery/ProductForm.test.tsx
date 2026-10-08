@@ -132,4 +132,61 @@ describe('ProductForm', () => {
     expect((await screen.findAllByText('La quantité et son unité vont ensemble.')).length).toBeGreaterThan(0)
     expect(update).not.toHaveBeenCalled()
   })
+
+  test('announces a product with no stock state as in stock', async () => {
+    renderEdit()
+
+    await screen.findByDisplayValue('Halles du voisin')
+    expect(screen.getByText("Ce qu'il m'en reste")).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'État du stock' })).toHaveTextContent('En stock')
+  })
+
+  test('saves the stock state, the restock quantity and the automatic restock typed in', async () => {
+    const user = userEvent.setup()
+    const update = renderEdit()
+
+    await screen.findByDisplayValue('Halles du voisin')
+    await user.type(screen.getByLabelText('Quantité de réapprovisionnement'), '2')
+    await user.click(screen.getByLabelText('Réapprovisionnement automatique'))
+    await user.click(screen.getByLabelText(/État du stock/))
+    await user.click(await screen.findByRole('option', { name: 'Rupture' }))
+    await user.click(screen.getByRole('button', { name: /enregistrer|save/i }))
+
+    await waitFor(() => expect(update).toHaveBeenCalled())
+    const data = update.mock.calls[0][1].data
+    expect(data.stockState).toBe('out')
+    expect(data.restockQuantity).toBe(2)
+    expect(data.autoRestock).toBe(true)
+  })
+
+  test('shows the stock the product already has', async () => {
+    renderEdit(undefined, { ...product, stockState: 'low', restockQuantity: 3, autoRestock: true })
+
+    expect(await screen.findByDisplayValue('3')).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'État du stock' })).toHaveTextContent('Stock faible')
+    expect(screen.getByLabelText('Réapprovisionnement automatique')).toBeChecked()
+  })
+
+  test('saves an emptied restock quantity as null so the API clears it', async () => {
+    const user = userEvent.setup()
+    const update = renderEdit(undefined, { ...product, restockQuantity: 3 })
+
+    await user.clear(await screen.findByDisplayValue('3'))
+    await user.click(screen.getByRole('button', { name: /enregistrer|save/i }))
+
+    await waitFor(() => expect(update).toHaveBeenCalled())
+    expect(update.mock.calls[0][1].data.restockQuantity).toBeNull()
+  })
+
+  test('refuses a negative restock quantity', async () => {
+    const user = userEvent.setup()
+    const update = renderEdit()
+
+    await screen.findByDisplayValue('Halles du voisin')
+    await user.type(screen.getByLabelText('Quantité de réapprovisionnement'), '-1')
+    await user.click(screen.getByRole('button', { name: /enregistrer|save/i }))
+
+    await waitFor(() => expect(screen.getByLabelText('Quantité de réapprovisionnement')).toBeInvalid())
+    expect(update).not.toHaveBeenCalled()
+  })
 })

@@ -16,7 +16,9 @@
             "kcalPer100g": 340,
             "proteinPer100g": 12.5,
             "carbsPer100g": 71,
-            "fatPer100g": 1.5
+            "fatPer100g": 1.5,
+            "stockState": "in_stock",
+            "autoRestock": false
         }
     ],
     "search": {

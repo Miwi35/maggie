@@ -28,3 +28,17 @@ export const UNIT_CHOICES = [
   { id: 'sachet', name: 'sachet' },
   { id: 'jar', name: 'bocal' },
 ]
+
+export type StockState = 'in_stock' | 'low' | 'out'
+
+export const STOCK_STATE_CHOICES: { id: StockState; name: string }[] = [
+  { id: 'in_stock', name: 'En stock' },
+  { id: 'low', name: 'Stock faible' },
+  { id: 'out', name: 'Rupture' },
+]
+
+export const STOCK_STATE_COLORS: Record<StockState, 'success' | 'warning' | 'error'> = {
+  in_stock: 'success',
+  low: 'warning',
+  out: 'error',
+}

@@ -40,6 +40,9 @@ class CreateProductProcessor implements ProcessorInterface
             packagingUnit: $data->getPackagingUnit()?->value,
             packagingSize: $data->getPackagingSize(),
             packagingSizeUnit: $data->getPackagingSizeUnit()?->value,
+            stockState: $data->getStockState()->value,
+            restockQuantity: $data->getRestockQuantity(),
+            autoRestock: $data->isAutoRestock(),
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();

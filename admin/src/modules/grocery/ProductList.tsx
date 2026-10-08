@@ -12,6 +12,7 @@ import {
 import { ListEmpty } from '../../components/list/ListEmpty'
 import { useMercure } from '../../hooks/useMercure'
 import { packagingLabel } from './packaging'
+import { StockStateChip } from './StockStateChip'
 
 const PRODUCT_TOPICS = ['/api/products/{id}']
 
@@ -29,6 +30,10 @@ const ProductDatagrid = () => {
         render={(record: { packagingUnit?: string | null; packagingSize?: number | null; packagingSizeUnit?: string | null }) =>
           packagingLabel(record.packagingUnit, record.packagingSize, record.packagingSizeUnit) ?? ''
         }
+      />
+      <FunctionField
+        label="Stock"
+        render={(record: { stockState?: string | null }) => <StockStateChip state={record.stockState} />}
       />
       <NumberField source="shelfLifeDays" label="Conservation (jours)" />
       <ReferenceField source="preferredStore" reference="stores" label="Magasin préféré" link={false}>
