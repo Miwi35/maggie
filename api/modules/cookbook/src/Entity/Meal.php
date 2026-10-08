@@ -111,6 +111,17 @@ class Meal extends Event implements MercurePublishable
     #[ORM\JoinTable(name: 'meal_recipe')]
     private Collection $recipes;
 
+    // When the owner chose which ingredients go on the grocery list (MAG-295).
+    // Null: the meal still feeds the list from its recipes, as before. Set:
+    // the list holds what was chosen, in packagings, and editing the meal or
+    // its recipes no longer derives anything. Set by the choice endpoint only,
+    // never by a client — a client stamping it would switch the derivation
+    // off without choosing anything.
+    #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
+    #[IndexedField(type: 'date')]
+    #[ApiProperty(writable: false)]
+    private ?\DateTimeImmutable $groceryChoiceMadeAt = null;
+
     public function __construct()
     {
         parent::__construct();
@@ -334,6 +345,18 @@ class Meal extends Event implements MercurePublishable
         return $this;
     }
 
+    public function getGroceryChoiceMadeAt(): ?\DateTimeImmutable
+    {
+        return $this->groceryChoiceMadeAt;
+    }
+
+    public function setGroceryChoiceMadeAt(?\DateTimeImmutable $groceryChoiceMadeAt): static
+    {
+        $this->groceryChoiceMadeAt = $groceryChoiceMadeAt;
+
+        return $this;
+    }
+
     /** @return array<string, mixed> */
     public function toSearchDocument(): array
     {
@@ -341,6 +364,7 @@ class Meal extends Event implements MercurePublishable
         $doc['date'] = $this->date?->format('Y-m-d');
         $doc['slot'] = $this->slot->value;
         $doc['recipeIds'] = $this->recipes->map(fn (Recipe $r) => (string) $r->getId())->getValues();
+        $doc['groceryChoiceMadeAt'] = $this->groceryChoiceMadeAt?->format('c');
 
         return $doc;
     }
@@ -357,6 +381,7 @@ class Meal extends Event implements MercurePublishable
                 'id' => (string) $r->getId(),
                 'name' => $r->getName(),
             ])->getValues(),
+            'groceryChoiceMadeAt' => $this->groceryChoiceMadeAt?->format('c'),
         ], $changedProperties);
     }
 }

@@ -36,6 +36,7 @@ MCP_TOOL_NAMES = (
     "manage_envelopes",
     "manage_ingredients",
     "manage_loans",
+    "manage_meal_groceries",
     "manage_meals",
     "manage_notifications",
     "manage_products",

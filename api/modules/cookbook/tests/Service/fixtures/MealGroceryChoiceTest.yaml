@@ -1,0 +1,112 @@
+# Choosing a meal's ingredients (MAG-295): the world of the ticket's journey.
+#
+# Shared by the service, API and MCP tests through an absolute path, so the
+# three suites speak about the same rice and the same jar of vegetables.
+
+Maggie\Core\Entity\User:
+  test_user:
+    email: meal-choice@example.com
+    googleId: google-meal-choice
+    name: Meal Choice User
+  other_user:
+    email: meal-choice-other@example.com
+    googleId: google-meal-choice-other
+    name: Someone Else
+
+Maggie\Calendar\Entity\Agenda:
+  repas_agenda:
+    name: Repas
+    module: cookbook
+    color: '#FF6B35'
+    user: '@test_user'
+  other_agenda:
+    name: Repas
+    module: cookbook
+    color: '#FF6B35'
+    user: '@other_user'
+
+Maggie\Cookbook\Entity\Ingredient:
+  # Out, and bought by the 500 g pack: 300 g is 1 pack.
+  rice:
+    name: Riz
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    user: '@test_user'
+    packagingUnit: '<(Maggie\Grocery\Enum\Unit::Pack)>'
+    packagingSize: 500
+    packagingSizeUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+    stockState: '<(Maggie\Grocery\Enum\ProductStockState::Out)>'
+  # In the cupboard, bought by the jar.
+  vegetables:
+    name: Légumes pour couscous
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    user: '@test_user'
+    packagingUnit: '<(Maggie\Grocery\Enum\Unit::Jar)>'
+  # Running low, and no packaging: it goes on the list in the recipe's unit.
+  onion:
+    name: Oignon
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    user: '@test_user'
+    stockState: '<(Maggie\Grocery\Enum\ProductStockState::Low)>'
+  # Keeps two days: a meal far enough ahead hides its line until then.
+  fish:
+    name: Cabillaud
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Fish)>'
+    user: '@test_user'
+    shelfLifeDays: 2
+    packagingUnit: '<(Maggie\Grocery\Enum\Unit::Pack)>'
+    packagingSize: 400
+    packagingSizeUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+    stockState: '<(Maggie\Grocery\Enum\ProductStockState::Out)>'
+  other_rice:
+    name: Riz
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    user: '@other_user'
+
+Maggie\Cookbook\Entity\Recipe:
+  curry:
+    name: Riz au curry
+    servings: 2
+    user: '@test_user'
+  fish_dish:
+    name: Cabillaud au four
+    servings: 2
+    user: '@test_user'
+  other_recipe:
+    name: Riz cantonais
+    servings: 2
+    user: '@other_user'
+
+Maggie\Cookbook\Entity\RecipeIngredient:
+  ri_curry_rice:
+    recipe: '@curry'
+    ingredient: '@rice'
+    quantity: 300
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+  ri_curry_vegetables:
+    recipe: '@curry'
+    ingredient: '@vegetables'
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Jar)>'
+  ri_curry_onion:
+    recipe: '@curry'
+    ingredient: '@onion'
+    quantity: 2
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+  ri_fish_fish:
+    recipe: '@fish_dish'
+    ingredient: '@fish'
+    quantity: 300
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+  ri_other_rice:
+    recipe: '@other_recipe'
+    ingredient: '@other_rice'
+    quantity: 200
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+
+Maggie\Cookbook\Entity\Meal:
+  other_meal:
+    summary: 'Dîner : Riz cantonais'
+    slot: '<(Maggie\Cookbook\Enum\MealSlot::Dinner)>'
+    date: '<(new \DateTimeImmutable("2030-01-14"))>'
+    agenda: '@other_agenda'
+    recipes: ['@other_recipe']

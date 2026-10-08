@@ -11860,6 +11860,14 @@
                             "example": "https://example.com/"
                         }
                     },
+                    "groceryChoiceMadeAt": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
                     "startAt": {
                         "type": "string",
                         "format": "date-time"
@@ -11999,6 +12007,14 @@
                             "example": "https://example.com/"
                         }
                     },
+                    "groceryChoiceMadeAt": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
                     "startAt": {
                         "type": "string",
                         "format": "date-time"
@@ -12131,6 +12147,14 @@
                             "format": "iri-reference",
                             "example": "https://example.com/"
                         }
+                    },
+                    "groceryChoiceMadeAt": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
                     },
                     "startAt": {
                         "type": "string",
@@ -12275,6 +12299,14 @@
                                     "format": "iri-reference",
                                     "example": "https://example.com/"
                                 }
+                            },
+                            "groceryChoiceMadeAt": {
+                                "readOnly": true,
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date-time"
                             },
                             "startAt": {
                                 "type": "string",
