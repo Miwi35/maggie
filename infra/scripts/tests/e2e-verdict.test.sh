@@ -192,6 +192,9 @@ E2E_RETRY_FAILED=1 FAIL='02-solid' journeys
 [ "$STATUS" -ne 0 ] && [ "$(grep -c '02-solid' "$root/runs.log")" -eq 2 ] && ok "red twice: the lot fails, after one retry" || bad "exit $STATUS — runs: $(cat "$root/runs.log")"
 jq -e '.status == "failed"' "$work/verdicts/mobile-phone-1-1-journeys.json" >/dev/null && ok "…and the verdict file says failed" || bad "verdict: $(cat "$work/verdicts/mobile-phone-1-1-journeys.json")"
 
+E2E_RETRY_FAILED=1 HANG='05-shaky' journeys
+[ "$STATUS" -eq 0 ] && [ "$(grep -c '05-shaky' "$root/runs.log")" -eq 1 ] && ok "a flow that hung is not played again (the job would outlast its limit)" || bad "exit $STATUS — runs: $(cat "$root/runs.log")"
+
 FAIL_ONCE='02-solid' journeys
 [ "$STATUS" -ne 0 ] && [ "$(grep -c '02-solid' "$root/runs.log")" -eq 1 ] && ok "without E2E_RETRY_FAILED (a pull request), no retry" || bad "exit $STATUS — runs: $(cat "$root/runs.log")"
 

@@ -89,7 +89,12 @@ printf '\n\033[1mThe jobs failed and no journey says why\033[0m\n'
 rm -rf "$work/verdicts"
 verdict a/web-1.json "web shard 1/1" e2e/web/tests/smoke.spec.ts:passed
 report failure
-[ "$STATUS" -eq 1 ] && grep -q 'no journey failed' <<<"$OUT" && ok "red: the stack, the APK or a runner broke" || bad "exit $STATUS — $OUT"
+[ "$STATUS" -eq 1 ] && grep -q 'failed outside the journeys' <<<"$OUT" && ok "red: a job failed outside the journeys" || bad "exit $STATUS — $OUT"
+
+printf '\n\033[1mNo verdict came back\033[0m\n'
+rm -rf "$work/verdicts"
+report success
+[ "$STATUS" -eq 1 ] && grep -q '0 journeys played' <<<"$OUT" && ok "a night where nothing played is red, not green" || bad "exit $STATUS — $OUT"
 
 printf '\n\033[1mA green night\033[0m\n'
 rm -rf "$work/verdicts"

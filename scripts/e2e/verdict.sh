@@ -98,6 +98,8 @@ verdict="$(jq -n --arg platform "$platform" --arg lbl "$label" --argjson run "$r
               else "a journey failed" end)}
   | .status = (if $run == 0 or (($bad | length) > 0 and all($bad[]; .quarantined)) then "passed" else "failed" end)
   | .quarantine_failed = any($bad[]; .quarantined)
+  # The run failed and no journey explains it: no retry, no quarantine excuses that.
+  | .outside = ($run != 0 and ($journeys == null or ($bad | length) == 0))
   | .quarantine_reasons = $quarantine')"
 
 if [ -n "${E2E_VERDICT_OUT:-}" ]; then

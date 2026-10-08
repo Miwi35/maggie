@@ -22,7 +22,10 @@ set -euo pipefail
 dir="${1:?usage: nightly-report.sh <verdict directory> <e2e result>}"
 result="${2:?usage: nightly-report.sh <verdict directory> <e2e result>}"
 
-verdicts="$(find "$dir" -name '*.json' -type f 2>/dev/null | sort | xargs -r cat | jq -s -c '.' 2>/dev/null || echo '[]')"
+verdicts='[]'
+if [ -d "$dir" ]; then
+  verdicts="$(find "$dir" -name '*.json' -type f | sort | xargs -r cat | jq -s -c '.')" || verdicts='[]'
+fi
 map="$(e2e_map_json 2>/dev/null || echo '{}')"
 
 # Every journey once: its worst status over the lots and devices it played on.
@@ -65,8 +68,9 @@ flaky="$(jq -c '[.[] | select(.status == "flaky")]' <<<"$journeys")"
 still="$(jq -c '[.[] | select(.status == "failed" and .quarantined)]' <<<"$journeys")"
 status=0
 [ "$(jq length <<<"$red")" -eq 0 ] || status=1
-# The jobs failed and no journey says why: the stack, the APK or a runner.
-if [ "$status" -eq 0 ] && [ "$result" != success ]; then
+# The jobs failed and no journey says why, or nothing played at all (no verdict
+# reached this job): a night that proves nothing is not green.
+if [ "$status" -eq 0 ] && { [ "$result" != success ] || [ "$played" -eq 0 ]; }; then
   status=1
   outside=1
 fi
@@ -77,7 +81,7 @@ echo "$played journeys played (web and mobile, quarantine included), e2e jobs: $
 echo
 
 if [ "${outside:-0}" = 1 ]; then
-  echo "**The e2e jobs did not succeed, and no journey failed:** the stack, the APK or a runner broke before or outside the journeys — read the failed job's log."
+  echo "**No journey failed, yet the night proves nothing:** an e2e job failed outside the journeys (stack, APK, e2e-flavor unit tests, a runner), or no verdict came back — read the failed job's log."
   echo
 fi
 

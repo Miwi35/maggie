@@ -23,8 +23,8 @@ on:
   schedule:
     # 03:07 in Paris all year: cron runs on UTC and Paris moves between UTC+2
     # (summer) and UTC+1 (winter). Both lines fire every night; `when` keeps the
-    # one that is 03:07 in Paris today. Off the hour, so as not to queue behind
-    # everyone else's cron.
+    # one that is 03:07 in Paris today, and the other leaves a run whose jobs are
+    # all skipped. Off the hour, so as not to queue behind everyone else's cron.
     - cron: '7 1 * * *'
     - cron: '7 2 * * *'
   workflow_dispatch:
@@ -33,14 +33,11 @@ concurrency:
   group: nightly-e2e
   cancel-in-progress: false
 
-# The ceiling of what the called ci.yml asks for (MAG-105): a called workflow may
-# not ask for more than its caller grants, even for a job it skips.
+# Each job asks for what it needs; `e2e` holds the ceiling of what the called
+# ci.yml asks for (MAG-105): a called workflow may not ask for more than its
+# caller grants, even for a job it skips.
 permissions:
   contents: read
-  packages: write
-  actions: read
-  pull-requests: write
-  issues: write
 
 jobs:
   when:

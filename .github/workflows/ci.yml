@@ -864,7 +864,9 @@ jobs:
     # 35 and not 25: the flows in quarantine play in a second run, which
     # mobile-journeys.sh stops after 10 minutes — a hang there must end as a
     # warning, not as this job's timeout.
-    timeout-minutes: 35
+    # The nightly re-plays the failed flows once (`retry_failed_journeys`): up to
+    # two more runs, hence 50 there.
+    timeout-minutes: ${{ inputs.retry_failed_journeys && 50 || 35 }}
     strategy:
       # The three formats are independent: a failure on the foldable says
       # nothing about the phone, and cancelling it would hide whether the

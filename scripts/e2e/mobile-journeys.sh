@@ -64,7 +64,8 @@ mkdir -p "$COLLECTED"
 
 # play <run> <timeout seconds or 0> <verdict file> <flows…> — one run of the
 # flows, its report kept under <run>, its verdict written and printed. Returns
-# the verdict's status.
+# the verdict's status; the run's own exit status is left in RAN.
+RAN=0
 play() {
   local name="$1" limit="$2" out="$3" status=0
   shift 3
@@ -77,6 +78,7 @@ play() {
   fi
   echo "::endgroup::"
   [ "$status" -ne 124 ] || echo "::warning::$name: still running after ${limit}s, stopped."
+  RAN="$status"
   rm -rf "${COLLECTED:?}/$name"
   if [ -d "$REPORT" ]; then mv "$REPORT" "$COLLECTED/$name"; else mkdir -p "$COLLECTED/$name"; fi
   E2E_VERDICT_LABEL="$LABEL ($name)" E2E_VERDICT_OUT="$out" \
@@ -92,13 +94,18 @@ judge() {
   play "$name" "$limit" "$out" "$@"
   status=$?
   [ "$RETRY" = 1 ] && [ -s "$out" ] || return "$status"
+  # A run stopped on its time limit hung: a retry would only hang again, and
+  # twice ten minutes would outlast the job.
+  [ "$RAN" -ne 124 ] || return "$status"
 
   local again=()
   mapfile -t again < <(jq -r '.journeys[] | select(.status == "failed" or .status == "not-run") | .id | ltrimstr("e2e/mobile/")' "$out")
   [ "${#again[@]}" -gt 0 ] || return "$status"
 
   retry_out="$SCRATCH/$name-retry.json"
-  play "$name-retry" "$limit" "$retry_out" "${again[@]}"
+  # No summary section nor job output of its own: the merged verdict below
+  # replaces them, and two sections would contradict each other.
+  GITHUB_STEP_SUMMARY='' GITHUB_OUTPUT='' play "$name-retry" "$limit" "$retry_out" "${again[@]}"
   [ -s "$retry_out" ] || return "$status"
 
   # Passed on the retry: flaky. Anything else keeps its first verdict.
@@ -109,7 +116,7 @@ judge() {
                        elif (.status == "failed" or .status == "not-run") then .retried = true
                        else . end)
     | [.journeys[] | select((.status == "failed" or .status == "not-run") and (.quarantined | not))] as $bad
-    | .status = (if ($bad | length) == 0 and .reason != "the run failed outside any journey (stack, seed or runner)" and .reason != "the run failed and left no report to read"
+    | .status = (if ($bad | length) == 0 and (.outside | not)
                  then "passed" else "failed" end)
     | .reason = (if .status == "passed" then "passed, some journeys only on a retry" else .reason end)
   ' "$out" >"$SCRATCH/merged.json" && mv "$SCRATCH/merged.json" "$out"
