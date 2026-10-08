@@ -218,7 +218,7 @@ pin_device_clock() {
   fi
   if [ "$(device_skew "$target")" -gt 90 ]; then
     if [ "$CLOCK_PINNED" = 1 ]; then
-      die "Could not set the device's clock to $E2E_NOW (it reads $(device_epoch), wanted $target). A pinned clock needs an emulator with root — a google_apis image, not google_apis_playstore."
+      die "Could not set the device's clock to $E2E_NOW (it reads $(device_epoch), wanted $target). A pinned clock needs an emulator with root — a google_apis or google_atd image, not google_apis_playstore."
     fi
     warn "the device's clock is $(device_skew "$target")s away from the host's and could not be set: the calendar flows may look at the wrong day."
   fi
@@ -402,6 +402,32 @@ flow_env=(
 # Not `exec`: that would replace this shell and the EXIT trap above would never
 # remove the reverse bridge. The status is kept so that the device's own view of
 # a failure — its last frame and its log — is collected before exiting with it.
+# The keyboard of an ATD image (MAG-241). Google's Automated Test Device images
+# ship no keyboard at all (logcat: « No default IME found »), and Maestro only
+# turns its own on after the first `inputText` has already failed with « Maestro
+# IME is not active »: the first journey of every lot went red, the others green
+# (PR #125, reverted by #130). Maestro installs its driver when the run starts, so
+# this watches for it and selects its keyboard before the first flow types — only
+# on a device without a default keyboard: the full image keeps Gboard.
+MAESTRO_IME='dev.mobile.maestro/.input.MaestroInputMethodService'
+select_maestro_ime() {
+  local deadline=$((SECONDS + 120)) current
+  while [ "$SECONDS" -lt "$deadline" ]; do
+    current="$("$ADB" -s "$SERIAL" shell settings get secure default_input_method 2>/dev/null | tr -d '\r')"
+    case "$current" in
+      ''|null) ;;
+      *) return 0 ;;
+    esac
+    if "$ADB" -s "$SERIAL" shell ime list -a -s 2>/dev/null | tr -d '\r' | grep -qx "$MAESTRO_IME"; then
+      "$ADB" -s "$SERIAL" shell ime enable "$MAESTRO_IME" >/dev/null 2>&1 || true
+      "$ADB" -s "$SERIAL" shell ime set "$MAESTRO_IME" >/dev/null 2>&1 && return 0
+    fi
+    sleep 0.5
+  done
+}
+select_maestro_ime &
+ime_watcher=$!
+
 status=0
 "$MAESTRO" --device "$SERIAL" test "${targets[@]}" \
   --format junit \
@@ -412,6 +438,8 @@ status=0
   --no-ansi \
   "${flow_env[@]}" \
   ${maestro_args[@]+"${maestro_args[@]}"} || status=$?
+kill "$ime_watcher" 2>/dev/null || true
+wait "$ime_watcher" 2>/dev/null || true
 
 if [ "$status" -ne 0 ]; then
   step "The device after the failure"

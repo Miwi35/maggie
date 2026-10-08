@@ -1009,14 +1009,14 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-v1-34-google_apis-x86_64-${{ matrix.device.profile }}
+          key: avd-v2-34-google_atd-x86_64-${{ matrix.device.profile }}
 
       - name: Create the AVD and its snapshot
         if: steps.avd-cache.outputs.cache-hit != 'true'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
-          target: google_apis
+          target: google_atd
           arch: x86_64
           profile: ${{ matrix.device.profile }}
           force-avd-creation: false
@@ -1036,7 +1036,7 @@ jobs:
           E2E_RETRY_FAILED: ${{ inputs.retry_failed_journeys && '1' || '' }}
         with:
           api-level: 34
-          target: google_apis
+          target: google_atd
           arch: x86_64
           profile: ${{ matrix.device.profile }}
           force-avd-creation: false

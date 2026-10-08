@@ -322,11 +322,11 @@ Everything else of `02`, and all of `01`, `04`, `05`, `08`, stayed.
   (`E2E_MOBILE_APK`) and runs its flows (`scripts/e2e/mobile-journeys.sh`: the
   blocking ones, then those in quarantine in a run of their own that never fails
   the job) with
-  `reactivecircus/android-emulator-runner` on API 34 `google_apis`. The booted
+  `reactivecircus/android-emulator-runner` on API 34 `google_atd` (MAG-241: the Automated Test Device image, no launcher nor default keyboard — `run.sh` selects Maestro's). The booted
   emulator is cached as an **AVD snapshot** per device profile
-  (`avd-v1-34-google_apis-x86_64-<profile>`), so a shard loads it in seconds
+  (`avd-v2-34-google_atd-x86_64-<profile>`), so a shard loads it in seconds
   instead of booting cold; the first run after the key changes boots once and
-  saves it. Bump `v1` when the emulator options change.
+  saves it. Bump `v2` when the emulator options change.
 - **`E2E Mobile (phone)`**, the required check, always reported: red when the APK,
   the unit tests or any shard failed, green at once when `Detect changes` says no
   device is needed.
