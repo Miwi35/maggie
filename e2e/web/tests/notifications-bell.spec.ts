@@ -41,6 +41,11 @@ test('the open bell follows what Maggie and the other clients do to notification
   // Created while the bell is open: the index does not hold it yet.
   expect((await callMcpTool(api, 'manage_notifications', { action: 'create', type: 'proaction', title: liveTitle })).error).toBeUndefined()
   await bell.expectUnreadCount(before + 1, LIVE)
+  // Maggie speaking first covers the screen (MAG-311) and hides the list from the accessibility tree: put it off.
+  const interruption = page.getByRole('alertdialog').filter({ hasText: liveTitle })
+  await expect(interruption).toBeVisible({ timeout: LIVE })
+  await interruption.getByRole('button', { name: 'Plus tard' }).click()
+  await expect(interruption).toBeHidden()
   await expect(bell.item(liveTitle)).toBeVisible({ timeout: LIVE })
 
   // Opened from the bell: it is marked read through the record it was given by the event.
