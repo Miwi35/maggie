@@ -340,7 +340,7 @@ jobs:
             PHP_IMAGE=${{ env.PHP_IMAGE }}:${{ env.RELEASE_SHA }}
             MERCURE_PUBLIC_URL=https://maggieai.fr/.well-known/mercure
             SENTRY_RELEASE=${{ env.RELEASE_SHA }}
-            SENTRY_DSN=${{ vars.ADMIN_SENTRY_DSN }}
+            SENTRY_DSN=${{ vars.SENTRY_DSN_ADMIN }}
           push: true
           tags: |
             ${{ env.NGINX_IMAGE }}:${{ env.RELEASE_SHA }}
@@ -603,7 +603,7 @@ jobs:
         # GlitchTip DSN of the mobile project: a repository variable, not a
         # secret — a DSN ships inside the APK anyway. Unset: no crash reporting.
         env:
-          MOBILE_SENTRY_DSN: ${{ vars.MOBILE_SENTRY_DSN }}
+          MOBILE_SENTRY_DSN: ${{ vars.SENTRY_DSN_MOBILE }}
         run: |
           ./gradlew :app:assembleProdRelease --no-daemon \
             -Dorg.gradle.java.home="$JAVA_HOME" \

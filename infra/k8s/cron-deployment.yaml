@@ -28,7 +28,7 @@ spec:
             - name: SENTRY_DSN
               valueFrom:
                 secretKeyRef:
-                  name: sentry-dsn
+                  name: glitchtip-dsn
                   key: api
                   optional: true
           envFrom:
