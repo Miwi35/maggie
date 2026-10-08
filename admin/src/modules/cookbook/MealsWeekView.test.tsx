@@ -144,6 +144,113 @@ describe('MealsWeekView', () => {
 })
 
 /**
+ * The second step of « Ajouter un repas » — MAG-296. The meal is created first;
+ * then the owner chooses which of its ingredients go on the grocery list.
+ */
+describe('MealsWeekView — choosing the ingredients', () => {
+  const fetchMock = vi.fn()
+  const rice = {
+    ingredientId: '01RICE',
+    name: 'Riz',
+    quantity: 300,
+    unit: 'g',
+    packaging: { unit: 'pack', size: 500, sizeUnit: 'g' },
+    toBuy: { quantity: 1, unit: 'pack' },
+    stockState: 'out',
+    suggested: true,
+  }
+
+  const planTheGratin = async () => {
+    const user = setupUser()
+    const dialog = await openDialogOnCell(user)
+    await user.click(dialog.getByLabelText('Recettes'))
+    await user.click(await screen.findByRole('option', { name: gratin.name }))
+    await user.click(dialog.getByRole('button', { name: 'Créer' }))
+
+    return user
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockCreate.mockResolvedValue({ data: { id: '/api/meals/01NEW', '@id': '/api/meals/01NEW' } })
+    mockGetList.mockImplementation(answer(agendas))
+    fetchMock.mockImplementation((_url: string, init?: { method?: string }) =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(init?.method === 'POST' ? {} : { mealId: '01NEW', groceryChoiceMadeAt: null, ingredients: [rice] }),
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  test('opens the choice in the same dialog once the meal is created', async () => {
+    await planTheGratin()
+
+    expect(await screen.findByRole('checkbox', { name: 'Riz' })).toBeChecked()
+    expect(mockCreate).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledWith('/api/meals/01NEW/grocery_preview', expect.anything())
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
+    expect(screen.queryByLabelText('Recettes')).not.toBeInTheDocument()
+    expect(mockNotify).toHaveBeenCalledWith('Repas créé', { type: 'success' })
+  })
+
+  test('« Ajouter aux courses » sends the choice and closes the dialog', async () => {
+    const user = await planTheGratin()
+
+    await user.click(await screen.findByRole('button', { name: 'Ajouter aux courses' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    const post = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST')!
+    expect(post[0]).toBe('/api/meals/01NEW/grocery_items')
+    expect(JSON.parse(post[1].body)).toEqual({ ingredients: [{ ingredientId: '01RICE' }] })
+  })
+
+  test('« Plus tard » leaves the meal created and adds nothing', async () => {
+    const user = await planTheGratin()
+
+    await user.click(await screen.findByRole('button', { name: 'Plus tard' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false)
+    expect(mockCreate).toHaveBeenCalledTimes(1)
+  })
+
+  test('keeps the dialog and the selection when the API refuses the add', async () => {
+    const user = await planTheGratin()
+    await screen.findByRole('checkbox', { name: 'Riz' })
+    fetchMock.mockResolvedValue({ ok: false, status: 400, json: () => Promise.resolve({ error: 'nope' }) })
+
+    await user.click(screen.getByRole('button', { name: 'Ajouter aux courses' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Non ajouté.*Riz/)
+    expect(screen.getByRole('checkbox', { name: 'Riz' })).toBeChecked()
+  })
+
+  test('opens the choice for the next meal on the first step again', async () => {
+    const user = await planTheGratin()
+    await user.click(await screen.findByRole('button', { name: 'Plus tard' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+
+    await user.click(screen.getByTestId('meal-cell-lunch-1'))
+
+    expect(await screen.findByLabelText('Recettes')).toBeInTheDocument()
+  })
+
+  test('closes the dialog for a meal whose recipes have no ingredient', async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({ mealId: '01NEW', groceryChoiceMadeAt: null, ingredients: [] }) })
+
+    await planTheGratin()
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  })
+})
+
+/**
  * A meal is a day and a slot — MAG-251.
  *
  * The owner added a meal in the week view and it came up on the day before.

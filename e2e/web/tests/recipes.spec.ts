@@ -55,6 +55,10 @@ test.describe('Recipes and meals', () => {
     // recipe — no reload, no waiting for the index.
     await expect(page.getByText('Recette enregistrée')).toBeVisible()
     await expect(page).toHaveURL(new RegExp(`#${ROUTES.recipes}$`))
+    // The list is oldest first, ten a page, and the other journeys leave their
+    // recipes behind: a new one may be on the second page, so show them all.
+    await shell.content.getByRole('combobox', { name: /Lignes par page/ }).click()
+    await page.getByRole('option', { name: '50', exact: true }).click()
     const row = shell.content.getByRole('row').filter({ hasText: name })
     await expect(row).toBeVisible()
     await expect(row.getByText('rapide', { exact: true })).toBeVisible()

@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { packagingLabel } from './packaging'
+import { packagingLabel, quantityLabel } from './packaging'
 
 describe('packagingLabel', () => {
   test('says a pack with its content', () => {
@@ -22,5 +22,17 @@ describe('packagingLabel', () => {
   test('is null without packaging', () => {
     expect(packagingLabel(null, null, null)).toBeNull()
     expect(packagingLabel(undefined, 500, 'g')).toBeNull()
+  })
+})
+
+describe('quantityLabel', () => {
+  test('counts packagings, in the plural from two', () => {
+    expect(quantityLabel(1, 'pack')).toBe('1 paquet')
+    expect(quantityLabel(2, 'jar')).toBe('2 bocaux')
+  })
+
+  test('leaves a measured unit alone', () => {
+    expect(quantityLabel(300, 'g')).toBe('300 g')
+    expect(quantityLabel(1.5, 'l')).toBe('1,5 l')
   })
 })
