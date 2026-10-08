@@ -140,10 +140,13 @@ class SyncBanksCommand extends Command
             ['Appels au fournisseur' => $result['providerCalls']],
         );
 
-        // A refusal or a failure is not a green run: cron logs show the exit code.
+        // A failure is not a green run: cron logs show the exit code, and the
+        // cron's supercronic reports every non-zero exit to GlitchTip. A
+        // refusal ('rate_limited') is not one: the sync stopped cleanly, warned
+        // above, and the next run resumes (MAG-359).
         $unhealthy = array_filter(
             $result['accounts'],
-            static fn (array $row) => \in_array($row['status'], ['failed', 'rate_limited'], true),
+            static fn (array $row) => 'failed' === $row['status'],
         );
 
         if ($dryRun) {
