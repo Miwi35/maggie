@@ -97,6 +97,20 @@ async function lifestyleCents(api: APIRequestContext): Promise<number> {
   return dashboard.savingCapacity.estimatedLifestyleCents
 }
 
+/**
+ * The neighbour's finance module must be left as it was found:
+ * `finance-independence.spec.ts` declares a rente on it and expects no train de
+ * vie yet, so 3 080,00 € left here would show up there as 1 026,66 € a month.
+ * Deleting an account takes its transactions with it.
+ */
+const createdAccountIds: string[] = []
+
+test.afterEach(async ({ otherUser }) => {
+  for (const id of createdAccountIds.splice(0)) {
+    await otherUser.api.delete(`/api/accounts/${id}`)
+  }
+})
+
 test('a detected transfer wears its badge and its counterpart, and the owner can take it off', async ({
   otherUser,
 }) => {
@@ -115,6 +129,7 @@ test('a detected transfer wears its badge and its counterpart, and the owner can
 
   const checkingId = await createAccount(api, checkingName, 'checking')
   const savingsId = await createAccount(api, savingsName, 'savings')
+  createdAccountIds.push(checkingId, savingsId)
   const debitId = await createTransaction(api, savingsId, debit, -transferCents, lastMonthDay(12), 'planned')
   const creditId = await createTransaction(api, checkingId, credit, transferCents, lastMonthDay(13), 'planned')
   await createTransaction(api, checkingId, ordinary, -ordinaryCents, lastMonthDay(14))
