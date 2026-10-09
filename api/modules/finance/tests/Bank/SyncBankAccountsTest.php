@@ -13,6 +13,7 @@ use Maggie\Finance\Enum\BankConnectionStatus;
 use Maggie\Finance\Repository\AccountRepository;
 use Maggie\Finance\Repository\BankConnectionRepository;
 use Maggie\Finance\UseCase\ImportStatement;
+use Maggie\Finance\UseCase\MergeDuplicateAccounts;
 use Maggie\Finance\UseCase\SyncBankAccounts;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
@@ -59,6 +60,7 @@ class SyncBankAccountsTest extends KernelTestCase
             $container->get(ImportStatement::class),
             $container->get('doctrine.orm.entity_manager'),
             $container->get('messenger.default_bus'),
+            $container->get(MergeDuplicateAccounts::class),
         );
     }
 

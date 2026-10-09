@@ -10,10 +10,12 @@ use Maggie\Finance\Bank\EnableBanking\EnableBankingClient;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\BankConnection;
 use Maggie\Finance\Entity\Transaction;
+use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Repository\AccountRepository;
 use Maggie\Finance\Repository\BankConnectionRepository;
 use Maggie\Finance\UseCase\CompleteBankAuthorization;
 use Maggie\Finance\UseCase\ImportStatement;
+use Maggie\Finance\UseCase\MergeDuplicateAccounts;
 use Maggie\Finance\UseCase\StartBankAuthorization;
 use Maggie\Finance\UseCase\SyncBankAccounts;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -152,6 +154,7 @@ class BankReconnectionTest extends KernelTestCase
             $container->get(ImportStatement::class),
             $container->get('doctrine.orm.entity_manager'),
             $container->get('messenger.default_bus'),
+            $container->get(MergeDuplicateAccounts::class),
         ))->execute($this->user());
     }
 
@@ -174,7 +177,7 @@ class BankReconnectionTest extends KernelTestCase
     }
 
     /** An account linked before identifications were kept: a uid, no key. */
-    private function legacyAccount(BankConnection $connection, string $uid, string $name): Account
+    private function legacyAccount(BankConnection $connection, string $uid, string $name, int $balanceCents = 0): Account
     {
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
 
@@ -183,12 +186,29 @@ class BankReconnectionTest extends KernelTestCase
             ->setName($name)
             ->setBank($connection->getBankName())
             ->setCurrency('EUR')
+            ->setBalanceCents($balanceCents)
             ->setExternalAccountId($uid)
             ->setBankConnection($connection);
         $em->persist($account);
         $em->flush();
 
         return $account;
+    }
+
+    /** A movement an earlier sync stored, before bank references were kept. */
+    private function storedMovement(Account $account, string $label, int $amountCents, string $day): void
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+
+        $em->persist((new Transaction())
+            ->setUser($this->user())
+            ->setAccount($account)
+            ->setLabel($label)
+            ->setAmountCents($amountCents)
+            ->setCurrency('EUR')
+            ->setBookedAt(new \DateTimeImmutable($day))
+            ->setStatus(TransactionStatus::Spent));
+        $em->flush();
     }
 
     /** @return list<Account> */
@@ -352,6 +372,41 @@ class BankReconnectionTest extends KernelTestCase
         $accounts = $this->bankAccounts();
         self::assertCount(3, $accounts);
         self::assertCount(1, array_filter($accounts, static fn (Account $a) => 'uid-new' === $a->getExternalAccountId()));
+    }
+
+    public function testReconnectingWithCopiesAlreadyThereLeavesOneAccountAndEachMovementOnce(): void
+    {
+        $this->loadFixtures('account.yaml');
+
+        // Production on 9 Oct. (recette refused): two copies of one account
+        // from earlier consents, neither with a key, the older one's balance
+        // left behind by its dead session — and the catch-up never run.
+        $session = 'session-1';
+        $http = $this->bank(['session-1' => [], 'session-2' => [$this->remoteAccount('uid-new')]], $session);
+        $connection = $this->connect($http);
+        $original = $this->legacyAccount($connection, 'uid-a', 'M. CADARE MEVEN', -15000);
+        $copy = $this->legacyAccount($connection, 'uid-b', 'M. CADARE MEVEN', -20167);
+        $this->storedMovement($original, 'CARTE BOULANGERIE', -450, '2026-09-20');
+        foreach ([$original, $copy] as $account) {
+            $this->storedMovement($account, 'VIREMENT SALAIRE', 235000, '2026-10-01');
+            $this->storedMovement($account, 'PRELEVEMENT ELECTRICITE DE FRANCE', -20600, '2026-10-05');
+        }
+
+        // The owner reconnects, then « Récupérer les opérations ».
+        $session = 'session-2';
+        $this->connect($http);
+        $this->sync($http);
+
+        $accounts = $this->bankAccounts();
+        self::assertCount(1, $accounts, 'one real account, one Account, without anyone running a command');
+        self::assertTrue($original->getId()->equals($accounts[0]->getId()), 'the oldest survives');
+        self::assertSame('uid-new', $accounts[0]->getExternalAccountId());
+        self::assertSame('hash-of-the-current-account', $accounts[0]->getExternalKey(), 'the next consent recognises it outright');
+        self::assertFalse($accounts[0]->isClosed());
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        self::assertCount(3, $em->getRepository(Transaction::class)->findAll(), 'each movement once');
+        self::assertSame(235000 - 20600, $this->monthTotal());
     }
 
     public function testTheBankReferenceRecognisesAMovementWhoseLabelChanged(): void

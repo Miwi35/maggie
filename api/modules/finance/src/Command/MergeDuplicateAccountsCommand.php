@@ -40,9 +40,10 @@ class MergeDuplicateAccountsCommand extends Command
 
                 Copies are recognised by their identification at the bank, read
                 from the live session; those of expired sessions by connection,
-                name, currency and balance. A lookalike that could be two real
-                accounts is reported, never merged. Running it twice changes
-                nothing more.
+                name, currency, and balance or shared movements. A lookalike
+                that could be two real accounts is reported, never merged.
+                Running it twice changes nothing more; every bank sync runs it
+                for its owner.
 
                   <info>%command.full_name% --dry-run</info>
                   <info>%command.full_name%</info>

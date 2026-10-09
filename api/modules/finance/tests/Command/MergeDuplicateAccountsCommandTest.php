@@ -308,6 +308,56 @@ final class MergeDuplicateAccountsCommandTest extends KernelTestCase
         self::assertStringNotContainsString('Aucun compte en double.', $tester->getDisplay(), 'the lookalikes are still found');
     }
 
+    public function testACopyWhoseBalanceFrozeWithItsSessionIsKnownByItsMovements(): void
+    {
+        $this->loadFixtures('MergeDuplicateAccountsCommandTest.yaml');
+
+        // No live session, and the copy's balance stopped at its last sync:
+        // only the movements both hold say it is the same account.
+        $connection = $this->connection();
+        $original = $this->account($connection, 'uid-expired-session-1', -15000);
+        $copy = $this->account($connection, 'uid-expired-session-2', -20167);
+        foreach ([$original, $copy] as $account) {
+            $this->movement($account, 'VIREMENT SALAIRE', 235000, '2026-10-01');
+            $this->movement($account, 'PRELEVEMENT ELECTRICITE DE FRANCE', -20600, '2026-10-05');
+        }
+        $this->movement($copy, 'PRLV SEPA EDF', -20600, '2026-10-05');
+
+        $tester = $this->tester(null);
+        $tester->execute([]);
+        $tester->assertCommandIsSuccessful();
+
+        $accounts = $this->accounts();
+        self::assertCount(1, $accounts);
+        self::assertTrue($original->getId()->equals($accounts[0]->getId()));
+        self::assertSame(-20167, $accounts[0]->getBalanceCents(), 'the newest copy holds the latest balance');
+        self::assertCount(3, $this->transactions(), 'the second EDF line of the copy is a movement of its own');
+        $this->assertMercureUpdatePublished('/accounts/'.$copy->getId());
+    }
+
+    public function testTwoAccountsOfTheSameNameWithTheirOwnMovementsStayApart(): void
+    {
+        $this->loadFixtures('MergeDuplicateAccountsCommandTest.yaml');
+
+        $connection = $this->connection();
+        $checking = $this->account($connection, 'uid-checking', 28434, null, 'Meven Cadare');
+        $savings = $this->account($connection, 'uid-savings', 40, null, 'Meven Cadare');
+        $this->movement($checking, 'CARTE BOULANGERIE', -450, '2026-10-02');
+        $this->movement($checking, 'PRELEVEMENT ELECTRICITE DE FRANCE', -20600, '2026-10-05');
+        $this->movement($checking, 'COTISATION CARTE', -200, '2026-10-06');
+        $this->movement($savings, 'INTERETS', 40, '2026-10-03');
+        $this->movement($savings, 'COTISATION CARTE', -200, '2026-10-06');
+        $this->movement($savings, 'VERSEMENT', 1000, '2026-10-07');
+
+        $tester = $this->tester(null);
+        $tester->execute([]);
+        $tester->assertCommandIsSuccessful();
+
+        self::assertStringContainsString('Aucun compte en double.', $tester->getDisplay(), 'one fee in common is not a shared history');
+        self::assertCount(2, $this->accounts());
+        self::assertCount(6, $this->transactions());
+    }
+
     public function testTheLiveSessionTellsCopiesApartFromTwoAccountsOfTheSameName(): void
     {
         $this->loadFixtures('MergeDuplicateAccountsCommandTest.yaml');

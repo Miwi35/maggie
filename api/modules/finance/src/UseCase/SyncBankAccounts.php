@@ -42,6 +42,7 @@ class SyncBankAccounts
         private readonly ImportStatement $importStatement,
         private readonly EntityManagerInterface $em,
         private readonly MessageBusInterface $bus,
+        private readonly MergeDuplicateAccounts $mergeDuplicateAccounts,
     ) {
     }
 
@@ -109,6 +110,11 @@ class SyncBankAccounts
 
         if (!$dryRun) {
             $this->em->flush();
+
+            // A consent renewed while copies already existed cannot tell them
+            // apart and brings one more (MAG-351): once its movements are in,
+            // they show which account it is, and the copies fold back into one.
+            $this->mergeDuplicateAccounts->execute(false, $user, readSessions: false);
         }
 
         return [
