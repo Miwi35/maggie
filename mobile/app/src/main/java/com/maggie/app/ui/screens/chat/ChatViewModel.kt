@@ -105,6 +105,13 @@ class ChatViewModel(
 
     private var unanswered: Attempt? = null
 
+    // The request in flight, so that cutting Maggie off can stop it (MAG-223).
+    private var sendJob: Job? = null
+    private var interruptJob: Job? = null
+
+    // The answer last handed to the voice, so cutting it off can say which one.
+    private var spokenReply: ChatMessage? = null
+
     companion object {
         private const val PAGE_SIZE = 20
         private const val TAG = "ChatViewModel"
@@ -204,8 +211,9 @@ class ChatViewModel(
         if (text.isBlank()) return
         awaitingReply = true
         val key = java.util.UUID.randomUUID().toString()
+        spokenReply = null
 
-        viewModelScope.launch {
+        sendJob = viewModelScope.launch {
             // Add optimistic user message
             val userMessage = ChatMessage(
                 id = "$PENDING_PREFIX${System.currentTimeMillis()}",
@@ -225,6 +233,10 @@ class ChatViewModel(
             rebuildDisplayItems()
             scrollToBottom(animate = true)
 
+            // The agent builds this turn's history from what it stored of the last one: it must
+            // know the last answer was cut before it reads the new question.
+            interruptJob?.join()
+
             deliver(Attempt(text, screenContext?.takeIf { it.isNotBlank() }, key, anchor))
         }
     }
@@ -237,8 +249,9 @@ class ChatViewModel(
         val attempt = unanswered ?: return
         if (_uiState.value.failure == null) return
         awaitingReply = true
+        spokenReply = null
 
-        viewModelScope.launch {
+        sendJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
                 failure = null,
                 isLoading = true,
@@ -353,6 +366,58 @@ class ChatViewModel(
         rebuildDisplayItems()
     }
 
+     * The user cut Maggie off (MAG-223): stop the request, keep of her answer what was heard or
+     * shown, and tell the agent so the next turn knows. [heard] is what the voice got through
+     * (null while the answer was still being prepared); [streamingIsShown] is false where the
+     * answer being written is not on screen, so nothing of it was seen either.
+     */
+    fun interrupt(heard: String? = null, streamingIsShown: Boolean = true) {
+        val state = _uiState.value
+        val reply = state.replyToSpeak
+        val spoken = spokenReply
+        val (messageId, kept) = when {
+            awaitingReply -> state.streamingMessageId to (heard ?: if (streamingIsShown) state.streamingText else "")
+            reply != null -> reply.id to (heard ?: "")
+            spoken != null -> spoken.id to (heard ?: spoken.content)
+            else -> return
+        }
+
+        sendJob?.cancel()
+        sendJob = null
+        awaitingReply = false
+        spokenReply = null
+        val messages = if (messageId != null && kept.isNotBlank()) {
+            state.messages.withMessage(
+                ChatMessage(id = messageId, role = "assistant", content = kept, createdAt = java.time.Instant.now().toString()),
+            )
+        } else {
+            state.messages
+        }
+        _uiState.value = state.copy(
+            messages = messages,
+            isLoading = false,
+            streamingText = "",
+            streamingMessageId = null,
+            replyToSpeak = null,
+        )
+        rebuildDisplayItems()
+
+        interruptJob = viewModelScope.launch {
+            try {
+                val stored = repository.interruptChat(messageId, kept)
+                _uiState.value = _uiState.value.copy(messages = _uiState.value.messages.withMessage(stored))
+                rebuildDisplayItems()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not record the interruption: ${e.message}")
+            }
+        }
+    }
+
+    private fun List<ChatMessage>.withMessage(message: ChatMessage): List<ChatMessage> =
+        if (any { it.id == message.id }) map { if (it.id == message.id) message.copy(createdAt = it.createdAt) else it } else this + message
+
     private suspend fun handleStreamEvent(event: AgUiEvent) {
         when (event) {
             is AgUiEvent.TextMessageStart -> {
@@ -419,12 +484,14 @@ class ChatViewModel(
 
     /** Called by whoever read [ChatUiState.replyToSpeak]: it is offered once. */
     fun onReplySpoken() {
+        spokenReply = _uiState.value.replyToSpeak
         _uiState.value = _uiState.value.copy(replyToSpeak = null)
     }
 
     /** The surface that would have spoken is gone: an answer arriving now stays silent. */
     fun dropPendingReply() {
         awaitingReply = false
+        spokenReply = null
         _uiState.value = _uiState.value.copy(replyToSpeak = null)
     }
 
@@ -745,7 +812,12 @@ class ChatViewModel(
                         repository.handleMercureMessage(message)
                         // Append to in-memory list if not already present
                         val current = _uiState.value.messages
-                        if (current.none { it.id == message.id }) {
+                        val shown = current.firstOrNull { it.id == message.id }
+                        if (shown != null && shown.content != message.content) {
+                            // Cut short after being shown whole (MAG-223): what is stored wins.
+                            _uiState.value = _uiState.value.copy(messages = current.withMessage(message))
+                            rebuildDisplayItems()
+                        } else if (shown == null) {
                             // The question this device just sent comes back with its stored id:
                             // it is that bubble, not a new one.
                             val pendingIndex = if (message.role == "user") {

@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import Column, DateTime, Index, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Index, String, Text, false
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app.db.proaction_model import AgentBase
@@ -10,6 +10,9 @@ from app.db.proaction_model import AgentBase
 # assistant message, a message answered, one stored before the column existed.
 TURN_RUNNING = "running"
 TURN_EXPIRED = "expired"
+# What an interrupted answer holds when the user cut in before a single word of it was said or
+# shown: a message row cannot be empty on the clients' side, and this is what its bubble reads.
+NOTHING_SAID = "…"
 
 
 class Message(AgentBase):
@@ -42,6 +45,8 @@ class Message(AgentBase):
     # The screen the assistant was summoned from, kept only while the turn runs: a turn taken
     # up again after a restart needs it, and the message itself must stay clean (MAG-30).
     turn_screen_context = Column(Text, nullable=True)
+    # An answer the user cut short (MAG-223): `content` is then only what was said or shown.
+    interrupted = Column(Boolean, nullable=False, default=False, server_default=false())
 
     def to_dict(self) -> dict:
         """What a client is shown — `GET /agent/messages`, the Mind panel, the phone.
@@ -56,4 +61,5 @@ class Message(AgentBase):
             "content": self.content,
             "contextId": self.context_id,
             "createdAt": self.created_at.isoformat() if self.created_at else "",
+            "interrupted": bool(self.interrupted),
         }

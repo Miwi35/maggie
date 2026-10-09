@@ -36,6 +36,10 @@ class ContextRepository:
             )
             # MAG-22 — what a directive is for. Everything stored before this column
             # existed was written as a planning rule, which is what the default says.
+            # MAG-223 — an answer the user cut short.
+            await conn.execute(
+                text("ALTER TABLE agent_message ADD COLUMN IF NOT EXISTS interrupted BOOLEAN NOT NULL DEFAULT FALSE")
+            )
             await conn.execute(
                 text("ALTER TABLE instruction ADD COLUMN IF NOT EXISTS kind VARCHAR(20) NOT NULL DEFAULT 'planning'")
             )

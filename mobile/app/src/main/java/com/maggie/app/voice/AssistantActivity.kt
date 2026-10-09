@@ -82,7 +82,8 @@ class AssistantActivity : ComponentActivity() {
         // Replaced, not merged: an invocation that brings no context — a plain
         // `ACTION_ASSIST` — is not about the previous screen.
         pendingContext = ScreenContext.fromIntent(intent)
-        voiceManager.stopSpeaking()
+        // Summoning her again cuts her off wherever she is, like a tap on the mic (MAG-223).
+        voiceManager.interrupt()
         requestMicAndListen()
     }
 

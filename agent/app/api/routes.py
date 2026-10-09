@@ -23,6 +23,7 @@ from app.db.instruction_repository import instruction_repo
 from app.db.message_repository import message_repo
 from app.db.pending_action_model import PendingAction, PendingActionStatus
 from app.db.pending_action_repository import pending_action_repo
+from app.db.models import NOTHING_SAID
 from app.db.proaction_repository import proaction_repo
 from app.db.user_data import purge_user_data
 from app.db.user_setting_repository import user_setting_repo
@@ -61,6 +62,18 @@ class ChatRequest(BaseModel):
     # that failed on the way back may have been received, and sending it again must not
     # make a second message — or a second answer.
     idempotency_key: str | None = Field(default=None, min_length=1, max_length=64)
+
+
+MAX_MESSAGE_ID_CHARS = 26
+MAX_INTERRUPT_CHARS = 20000
+
+
+class InterruptRequest(BaseModel):
+    # The id the answer was streamed under, when the client had been told it: a cut during the
+    # preparation precedes the first word, so there is none and the server mints one.
+    messageId: str | None = None
+    # What was said aloud or shown before the cut. Empty: not a word, which is a cut like any other.
+    spokenText: str = ""
 
 
 class ChatResponse(BaseModel):
@@ -192,6 +205,44 @@ async def reset_smoke_history(smoke_user_id: str = Depends(get_smoke_account_id)
     deleted_contexts = await context_repo.delete_by_user(smoke_user_id)
     logger.info(f"Smoke history reset: {deleted_messages} messages, {deleted_contexts} contexts")
     return {"deletedMessages": deleted_messages, "deletedContexts": deleted_contexts}
+
+
+@router.post("/chat/interrupt")
+async def chat_interrupt(request: InterruptRequest, user_id: str = Depends(get_current_user_id)):
+    """The user cut Maggie off: keep of her answer what was said or shown, and mark it interrupted (MAG-223).
+
+    Closing the stream is what stops the model; this is what the next turn is told. It is
+    idempotent, and works on both orders of events — the answer already stored (a voice reply
+    cut while being read) or never stored (the stream was closed first) — so the client does
+    not have to know which one it lost the race to.
+    """
+    message_id = request.messageId
+    if message_id is not None and not 0 < len(message_id) <= MAX_MESSAGE_ID_CHARS:
+        raise HTTPException(status_code=400, detail="Invalid messageId")
+    if len(request.spokenText) > MAX_INTERRUPT_CHARS:
+        raise HTTPException(status_code=400, detail="spokenText is too long")
+    content = request.spokenText.strip() or NOTHING_SAID
+
+    existing = await message_repo.get(message_id) if message_id else None
+    if existing is not None:
+        if existing.user_id != user_id:
+            raise HTTPException(status_code=404, detail="Message not found")
+        if existing.role != "assistant":
+            raise HTTPException(status_code=400, detail="Only an answer of Maggie can be interrupted")
+        msg = await message_repo.mark_interrupted(existing.id, content)
+    else:
+        # The question being answered carries the thread the answer belongs to.
+        question = await message_repo.find_last(user_id, role="user")
+        msg = await message_repo.create(
+            user_id=user_id,
+            role="assistant",
+            content=content,
+            context_id=question.context_id if question else None,
+            message_id=message_id,
+            interrupted=True,
+        )
+
+    return msg.to_dict() if msg else {}
 
 
 @router.get("/contexts")
