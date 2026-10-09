@@ -3,6 +3,9 @@ name: 14-rotation
 tags:
   - cookbook
   - layout
+# A failure while turned must not leave the phone in landscape for the next flow of the shard.
+onFlowComplete:
+  - setOrientation: PORTRAIT
 ---
 # Turning the phone never leaves an empty screen and never closes what is open
 # (MAG-263, recette of 8 Oct.: « écran noir au passage en paysage »). A phone in

@@ -274,7 +274,7 @@ private inline fun <reified T : Any> rememberSavedSelection(): MutableState<T?> 
     rememberSaveable(
         stateSaver = Saver<T?, String>(
             save = { value -> value?.let { SelectionJson.encodeToString(it) } },
-            restore = { SelectionJson.decodeFromString<T>(it) },
+            restore = { runCatching { SelectionJson.decodeFromString<T>(it) }.getOrNull() },
         ),
     ) { mutableStateOf<T?>(null) }
 
@@ -438,6 +438,7 @@ fun NavGraph() {
     var groceryPaneItemId by rememberSaveable { mutableStateOf<String?>(null) }
     // Read through a State: the NavHost graph is rebuilt when the builder's captures change.
     val paneShown by rememberUpdatedState(chrome.showsDetailPane)
+    val paneFits by rememberUpdatedState(layout.detailPaneFits)
     var editRecipeId by rememberSaveable { mutableStateOf<String?>(null) }
     var mealCreateState by rememberSaveable { mutableStateOf<Pair<String, String>?>(null) }
     var mealToChooseIngredientsOf by rememberSaveable { mutableStateOf<String?>(null) }
@@ -1171,7 +1172,7 @@ fun NavGraph() {
                 composable(Screen.AccountTransactions.route) { entry ->
                     val account = selectedAccount
                     // With a pane the fold effect replaces this route by the list: popping too would take the list away.
-                    PopWhenMissing(navController, entry, account != null || paneShown)
+                    PopWhenMissing(navController, entry, account != null || paneFits)
                     val leave = {
                         selectedAccount = null
                         navController.backInFinance()
@@ -1183,7 +1184,7 @@ fun NavGraph() {
                 }
                 composable(Screen.RecipeDetail.route) { entry ->
                     val id = detailRecipeId
-                    PopWhenMissing(navController, entry, id != null || paneShown)
+                    PopWhenMissing(navController, entry, id != null || paneFits)
                     val leave = {
                         detailRecipeId = null
                         navController.popBackStack()
