@@ -56,6 +56,12 @@ tags:
 # Stopped, then started on the stored session: the list is read from the server again.
 - stopApp
 - launchApp
+# The link waits for the session to be restored: opened on a cold start it is lost to
+# the dashboard (the failed run of 8 Oct. ended there).
+- extendedWaitUntil:
+    visible:
+      id: "dashboard"
+    timeout: 40000
 - openLink: "maggie-e2e://finance/categories"
 
 - extendedWaitUntil:
