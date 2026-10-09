@@ -55,6 +55,11 @@ final class AddDueRecurringGroceryItemsCommandTest extends KernelTestCase
         return (new \DateTimeImmutable('today', new \DateTimeZone('Europe/Paris')))->format('Y-m-d');
     }
 
+    private function daysAgo(int $days): string
+    {
+        return (new \DateTimeImmutable('today', new \DateTimeZone('Europe/Paris')))->modify("-{$days} days")->format('Y-m-d');
+    }
+
     private function recurring(string $label): RecurringGroceryItem
     {
         $this->em()->clear();
@@ -91,6 +96,17 @@ final class AddDueRecurringGroceryItemsCommandTest extends KernelTestCase
         self::assertSame(['Lait' => 1.0, 'Riz' => 2.0], $this->listOf('recurring-test@example.com'));
         self::assertSame($this->today(), $this->recurring('Riz')->getLastAddedAt()?->format('Y-m-d'));
         self::assertSame($this->today(), $this->recurring('Lait')->getLastAddedAt()?->format('Y-m-d'));
+    }
+
+    public function testAWeeklyItemLastAddedExactlySevenDaysAgoIsDueToday(): void
+    {
+        // Reloaded from the database, where the date comes back as midnight UTC.
+        $this->recurring('Riz')->setLastAddedAt(new \DateTimeImmutable($this->daysAgo(7), new \DateTimeZone('UTC')));
+        $this->em()->flush();
+
+        $this->tester->execute([]);
+
+        self::assertArrayHasKey('Riz', $this->listOf('recurring-test@example.com'));
     }
 
     public function testTheLinesComeFromTheRecurringSourceInTheProductsStore(): void

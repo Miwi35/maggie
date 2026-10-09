@@ -36,6 +36,11 @@ final readonly class IsRecurringGroceryItemDue
             return true;
         }
 
-        return $lastAddedAt->add($item->getFrequency()->interval()) <= $this->day;
+        // Both are calendar days: Doctrine hydrates the date at midnight in PHP's
+        // zone (UTC) while the day is Paris's, two hours earlier in UTC, so
+        // comparing the instants would hold a weekly item back a day.
+        $lastDay = new \DateTimeImmutable($lastAddedAt->format('Y-m-d'), $this->day->getTimezone());
+
+        return $lastDay->add($item->getFrequency()->interval()) <= $this->day;
     }
 }
