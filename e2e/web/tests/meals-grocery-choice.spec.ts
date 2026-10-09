@@ -286,7 +286,7 @@ test.describe('Choosing the ingredients of a new meal', () => {
         async () => {
           await expect(watching.line(riceName).filter({ hasText: '300' })).toHaveCount(0)
           await expect(watching.line(riceName)).toHaveCount(1)
-          await expect(watching.line(riceName)).toContainText('1 pack')
+          await expect(watching.line(riceName)).toContainText('1 paquet')
           await expect(watching.line(vegetablesName)).toHaveCount(0)
         },
       )
