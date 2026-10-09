@@ -5,15 +5,21 @@ set -euo pipefail
 # Was the tree of this main commit already tested? (MAG-262)
 # Usage: CI_SHA=<sha of the run's commit> GITHUB_REPOSITORY=<owner/repo> tested-tree.sh
 #
-# The merge train rebases every pull request on the head of main before its CI,
-# and merges it with a squash: the commit that lands on main has exactly the file
-# tree the CI of the pull request ran on. Running the same suite again on main
-# costs 20 to 25 minutes for nothing. The CI of main is skipped when, together,
+# Running the suite of a pull request again on main costs 20 to 25 minutes for
+# nothing when that exact commit or tree was already tested. The CI of main is
+# skipped in two cases.
+#
+# The merge queue (9 Oct.): GitHub tests a merge group — main, the PRs ahead and
+# this one — and fast-forwards main to that very commit. The CI is skipped when
+# the latest finished `Pull request` run of event `merge_group` on this SHA is
+# green and really ran (its `Detect changes` job succeeded).
+#
+# Otherwise (a PR merged outside the queue), when, together,
 #   - the commit is the squash (merge) commit of a merged pull request;
 #   - its tree is the tree of that pull request's head commit: nothing else landed
 #     on main between the rebase and the merge, nothing was added in the merge;
 #   - the latest `Pull request` run (ci.yml) on that head commit is green, and
-#     really ran (its `Detect changes` job is not skipped, as it is for a draft).
+#     really ran (its `Detect changes` job succeeded).
 # Anything else (a commit pushed straight to main, a merge of a branch that was
 # not up to date, a revert, a red or missing run, an API that does not answer)
 # runs the full CI, as before. Doubt always runs the suite.
@@ -37,6 +43,26 @@ api() { $GH api "repos/$GITHUB_REPOSITORY/$1" 2>/dev/null; }
 
 short="${CI_SHA:0:7}"
 
+# latest_finished <runs-json> — the latest run that has a verdict, or nothing.
+latest_finished() { jq -c '[.workflow_runs[] | select(.conclusion != null)] | sort_by(.created_at) | last // empty'; }
+
+# detected <run-id> — the conclusion of the run's `Detect changes` job.
+detected() {
+  api "actions/runs/$1/jobs?per_page=100" \
+    | jq -r '[.jobs[] | select(.name == "Detect changes") | .conclusion] | first // empty'
+}
+
+# The merge queue: main was moved to the commit a merge group run tested. Any
+# doubt here falls through to the pull request check below.
+if group_run=$(api "actions/workflows/ci.yml/runs?head_sha=$CI_SHA&event=merge_group&per_page=30" | latest_finished) \
+  && [ -n "$group_run" ] \
+  && [ "$(jq -r .conclusion <<<"$group_run")" = success ]; then
+  group_run_id=$(jq -r .id <<<"$group_run")
+  if [ "$(detected "$group_run_id" || true)" = success ]; then
+    decide true "Skipping the CI of main: $short is the merge group the CI run $group_run_id of the merge queue already passed. Build, deployment and smoke tests still run."
+  fi
+fi
+
 prs=$(api "commits/$CI_SHA/pulls" \
   | jq -c --arg sha "$CI_SHA" '[.[] | select(.merged_at != null and .merge_commit_sha == $sha)]') \
   || run_ci "could not list the pull requests of $short"
@@ -52,18 +78,16 @@ head_tree=$(api "git/commits/$head_sha" | jq -er .tree.sha) || run_ci "could not
 [ "$main_tree" = "$head_tree" ] \
   || run_ci "the tree of $short (${main_tree:0:7}) is not the tree of #$number ($head_short, ${head_tree:0:7}): main moved after the rebase, or the branch was not up to date"
 
-run=$(api "actions/workflows/ci.yml/runs?head_sha=$head_sha&event=pull_request&per_page=30" \
-  | jq -c '[.workflow_runs[] | select(.conclusion != null)] | sort_by(.created_at) | last // empty') \
+run=$(api "actions/workflows/ci.yml/runs?head_sha=$head_sha&event=pull_request&per_page=30" | latest_finished) \
   || run_ci "could not list the CI runs of $head_short"
 [ -n "$run" ] || run_ci "no finished CI run of #$number on $head_short"
 [ "$(jq -r .conclusion <<<"$run")" = success ] \
   || run_ci "the latest CI run of #$number on $head_short is $(jq -r .conclusion <<<"$run"), not success"
 
 run_id=$(jq -r .id <<<"$run")
-detected=$(api "actions/runs/$run_id/jobs?per_page=100" \
-  | jq -r '[.jobs[] | select(.name == "Detect changes") | .conclusion] | first // empty') \
+detected=$(detected "$run_id") \
   || run_ci "could not read the jobs of the CI run $run_id"
 [ "$detected" = success ] \
-  || run_ci "the CI run $run_id of #$number did not run its jobs (Detect changes: ${detected:-missing}), a draft's run says nothing"
+  || run_ci "the CI run $run_id of #$number did not run its jobs (Detect changes: ${detected:-missing})"
 
 decide true "Skipping the CI of main: $short has the tree ${main_tree:0:7} of #$number ($head_short), which the CI run $run_id already passed. Build, deployment and smoke tests still run."

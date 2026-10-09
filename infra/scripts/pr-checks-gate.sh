@@ -3,26 +3,26 @@ set -euo pipefail
 
 # =============================================================================
 # PR checks passed — the aggregator of the pull-request pipeline (MAG-267)
-# Usage: DRAFT=<true|false> NEEDS='<toJSON(needs)>' pr-checks-gate.sh
+# Usage: NEEDS='<toJSON(needs)>' pr-checks-gate.sh
 #
-# GitHub counts a skipped required check as a success. A draft pull request, a
-# run cancelled by a newer one, a job whose `needs` failed: every one of them
+# GitHub counts a skipped required check as a success. A run cancelled by a
+# newer one, a job whose `needs` failed: every one of them
 # leaves a skipped check, and an armed auto-merge merged five pull requests that
 # no test had run on. This job is the one required check that cannot be skipped
 # (`if: always()` in ci.yml) and that reads skipped for what it is.
 #
-# Green only when everything that had to run ran and succeeded:
-#   - the pull request is not a draft;
+# Green only when everything that had to run ran and succeeded — on a pull
+# request (a draft too, since 9 Oct.: GitHub never merges or enqueues a draft)
+# and on a merge group of the merge queue alike:
 #   - `Detect changes` succeeded;
 #   - every job below succeeded — or was skipped *by the decision of `Detect
 #     changes`* (its path filter said false). A job without a filter is expected
-#     on every ready pull request: skipped is a failure for it.
+#     on every run: skipped is a failure for it.
 #
 # Anything else is red: failure, cancelled, skipped for another reason, absent
 # from `needs` (a job renamed in ci.yml but not here).
 # =============================================================================
 
-: "${DRAFT:?DRAFT is not set}"
 : "${NEEDS:?NEEDS is not set}"
 
 # job:filter — `filter` is the output of `Detect changes` that switches the job on,
@@ -52,10 +52,6 @@ fail() {
   problems=$((problems + 1))
 }
 
-if [ "$DRAFT" = true ]; then
-  fail "the pull request is a draft: nothing ran, and a draft must not merge"
-fi
-
 result_of() { jq -r --arg job "$1" '.[$job].result // "absent"' <<<"$NEEDS"; }
 filter_of() { jq -r --arg name "$1" '.changes.outputs[$name] // "absent"' <<<"$NEEDS"; }
 
@@ -77,7 +73,7 @@ for entry in "${REQUIRED[@]}"; do
     success) ;;
     skipped)
       if [ "$filter" = - ]; then
-        fail "$job was skipped, and nothing but a draft or a cancelled run skips it"
+        fail "$job was skipped, and nothing but a cancelled run skips it"
       elif [ "$changes" != success ] || [ "$wanted" != false ]; then
         fail "$job was skipped, not by Detect changes ($filter=$wanted)"
       fi

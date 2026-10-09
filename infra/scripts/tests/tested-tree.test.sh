@@ -3,10 +3,10 @@
 #
 # Tests of infra/scripts/tested-tree.sh against a fake gh (MAG-262).
 #
-# The merge train rebases a pull request on main and squash-merges it: the commit
-# on main has the tree the pull request's CI ran on. The CI of main is skipped for
-# exactly that case; every other one (not up to date, direct push, revert, red or
-# missing CI, API down) runs the full suite.
+# The merge queue fast-forwards main to the merge group its CI passed; a PR
+# merged outside the queue may have the tree its own CI ran on. The CI of main is
+# skipped for exactly these cases; every other one (not up to date, direct push,
+# revert, red or missing CI, API down) runs the full suite.
 #
 # Usage: infra/scripts/tests/tested-tree.test.sh
 
@@ -133,7 +133,7 @@ set_runs '{"id":'"$RUN_ID"',"conclusion":"success","created_at":"2026-10-06T00:1
 decide
 [ "$SKIP" = "true" ] && ok "skips: only finished runs count" || bad "skip='$SKIP' — $OUTPUT"
 
-printf '\n\033[1mA green run whose jobs were all skipped (a draft)\033[0m\n'
+printf '\n\033[1mA green run whose jobs were all skipped\033[0m\n'
 fresh_world
 printf '{"jobs":[{"name":"Detect changes","conclusion":"skipped"},{"name":"API tests","conclusion":"skipped"}]}' \
   > "$work/gh/jobs-$RUN_ID.json"
@@ -153,6 +153,36 @@ fresh_world
 rm "$work/gh/commit-$HEAD_SHA.json"
 decide
 runs_ci "head commit unreadable" "could not read the tree"
+
+printf '\n\033[1mThe merge queue: main moved to a merge group its CI passed\033[0m\n'
+# The PR path would run the CI here (its head has another tree): only the
+# merge group run can make it skip.
+GROUP_RUN=888
+group_world() {
+  fresh_world
+  printf '{"tree":{"sha":"%s"}}' "$OTHER_TREE" > "$work/gh/commit-$HEAD_SHA.json"
+  printf '{"workflow_runs":[%s]}' "$1" > "$work/gh/group-runs-$MAIN_SHA.json"
+  printf '{"jobs":[{"name":"Detect changes","conclusion":"%s"}]}' "${2:-success}" > "$work/gh/jobs-$GROUP_RUN.json"
+}
+group_world '{"id":'"$GROUP_RUN"',"conclusion":"success","created_at":"2026-10-09T00:10:00Z"}'
+decide
+[ "$SKIP" = "true" ] && ok "skips the CI of main" || bad "skip='$SKIP' — $OUTPUT"
+printf '%s' "$OUTPUT" | grep -qF "run $GROUP_RUN" && ok "the log names the merge group run" || bad "silent about the run — $OUTPUT"
+grep -qF "head_sha=$MAIN_SHA&event=merge_group" "$work/gh/calls" && ok "asks for merge group runs on the commit of main itself" || bad "wrong query: $(cat "$work/gh/calls")"
+
+group_world '{"id":'"$GROUP_RUN"',"conclusion":"failure","created_at":"2026-10-09T00:10:00Z"}'
+decide
+runs_ci "a red merge group run" "is not the tree of #42"
+group_world '{"id":5,"conclusion":"success","created_at":"2026-10-09T00:00:00Z"},{"id":'"$GROUP_RUN"',"conclusion":"failure","created_at":"2026-10-09T00:30:00Z"}'
+decide
+runs_ci "a later red merge group run" "is not the tree of #42"
+group_world '{"id":'"$GROUP_RUN"',"conclusion":"success","created_at":"2026-10-09T00:10:00Z"}' skipped
+decide
+runs_ci "a merge group run that tested nothing" "is not the tree of #42"
+group_world '{"id":'"$GROUP_RUN"',"conclusion":"success","created_at":"2026-10-09T00:10:00Z"}'
+rm "$work/gh/jobs-$GROUP_RUN.json"
+decide
+runs_ci "merge group jobs unreadable" "is not the tree of #42"
 
 printf '\n\033[1mNo CI SHA: refused\033[0m\n'
 fresh_world

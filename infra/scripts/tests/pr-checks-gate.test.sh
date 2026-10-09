@@ -4,7 +4,7 @@
 # Tests of infra/scripts/pr-checks-gate.sh (MAG-267).
 #
 # The aggregator must be red whenever a check was skipped for a reason other than
-# the path filter: a draft, a run cancelled by a newer one, a job whose needs
+# the path filter: a run cancelled by a newer one, a job whose needs
 # failed. A skipped required check counts as green on GitHub, which merged five
 # pull requests that no test had run on.
 #
@@ -36,9 +36,9 @@ needs() {
 # with <needs-json> <jq filter> — one job's result changed
 with() { jq -c "$2" <<<"$1"; }
 
-# run <draft> <needs-json>
+# run <needs-json>
 run() {
-  OUTPUT="$(DRAFT="$1" NEEDS="$2" "$SCRIPT" 2>&1)"
+  OUTPUT="$(NEEDS="$1" "$SCRIPT" 2>&1)"
   STATUS=$?
 }
 
@@ -49,47 +49,47 @@ ALL_GREEN="$(needs success success true success)"
 DOCS_ONLY="$(needs success skipped false success)"
 
 printf '\n\033[1mA ready pull request whose CI ran and is green\033[0m\n'
-run false "$ALL_GREEN"
+run "$ALL_GREEN"
 green "every job succeeded"
 
 printf '\n\033[1mA pull request that only touches documentation\033[0m\n'
-run false "$DOCS_ONLY"
+run "$DOCS_ONLY"
 green "Detect changes skipped the filtered jobs, the always-on ones passed"
 
-printf '\n\033[1mA draft\033[0m\n'
-run true "$(needs skipped skipped false skipped)"
-red "a draft run: every job skipped"
-run true "$ALL_GREEN"
-red "a draft is red even when every job reports success"
+printf '\n\033[1mA draft, or a merge group: the same verdict as a ready pull request\033[0m\n'
+run "$ALL_GREEN"
+green "a draft whose CI ran and is green (it runs its CI since 9 Oct.)"
+run "$(needs skipped skipped false skipped)"
+red "a run whose jobs were all skipped"
 
 printf '\n\033[1mA run cancelled, or skipped by something else than Detect changes\033[0m\n'
-run false "$(needs cancelled cancelled true cancelled)"
-red "a cancelled run (the draft run that cancelled the ready one)"
-run false "$(needs skipped skipped false skipped)"
+run "$(needs cancelled cancelled true cancelled)"
+red "a cancelled run (a newer push cancelled it)"
+run "$(needs skipped skipped false skipped)"
 red "a ready run whose Detect changes was skipped"
-run false "$(needs success skipped true success)"
+run "$(needs success skipped true success)"
 red "filtered jobs skipped while Detect changes asked for them"
-run false "$(with "$ALL_GREEN" '.["api-test"].result = "skipped"')"
+run "$(with "$ALL_GREEN" '.["api-test"].result = "skipped"')"
 red "one wanted job skipped"
-run false "$(with "$DOCS_ONLY" '.["e2e-stack"].result = "skipped"')"
+run "$(with "$DOCS_ONLY" '.["e2e-stack"].result = "skipped"')"
 red "the e2e aggregator skipped, even though no e2e was wanted"
-run false "$(with "$DOCS_ONLY" '.["incident-gate"].result = "skipped"')"
+run "$(with "$DOCS_ONLY" '.["incident-gate"].result = "skipped"')"
 red "the incident gate skipped"
 
 printf '\n\033[1mA job that failed or was cancelled\033[0m\n'
-run false "$(with "$ALL_GREEN" '.["admin-test"].result = "failure"')"
+run "$(with "$ALL_GREEN" '.["admin-test"].result = "failure"')"
 red "a failed job"
-run false "$(with "$ALL_GREEN" '.["e2e-mobile"].result = "cancelled"')"
+run "$(with "$ALL_GREEN" '.["e2e-mobile"].result = "cancelled"')"
 red "a cancelled job"
-run false "$(with "$DOCS_ONLY" '.["cron-image"].result = "failure"')"
+run "$(with "$DOCS_ONLY" '.["cron-image"].result = "failure"')"
 red "a failed job that its filter had switched off"
-run false "$(with "$ALL_GREEN" '.changes.result = "failure"')"
+run "$(with "$ALL_GREEN" '.changes.result = "failure"')"
 red "Detect changes failed"
 
 printf '\n\033[1mA job the script does not know about\033[0m\n'
-run false "$(with "$ALL_GREEN" 'del(.["infra-scripts"])')"
+run "$(with "$ALL_GREEN" 'del(.["infra-scripts"])')"
 red "a required job absent from needs (renamed in ci.yml)"
-run false "$(with "$DOCS_ONLY" 'del(.changes.outputs.api)')"
+run "$(with "$DOCS_ONLY" 'del(.changes.outputs.api)')"
 red "a skipped job whose filter is missing from Detect changes' outputs"
 
 printf '\n\033[1mThe workflow and the script agree on the jobs\033[0m\n'
