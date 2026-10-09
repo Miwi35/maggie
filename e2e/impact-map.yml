@@ -451,3 +451,9 @@ mobile:
     areas: [finance]
   e2e/mobile/flows/12-thread-deletion.yaml:
     areas: [chat, realtime]
+  e2e/mobile/flows/14-interruption.yaml:
+    areas: [interruptions, notification, realtime]
+    paths:
+      - e2e/mobile/scripts/interruption-api.js
+      - mobile/app/src/main/java/com/maggie/app/data/{fcm,interruption}/**
+      - mobile/app/src/main/java/com/maggie/app/ui/interruption/**
