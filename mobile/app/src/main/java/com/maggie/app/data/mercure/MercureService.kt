@@ -77,15 +77,18 @@ class MercureService(
                 config {
                     readTimeout(0, TimeUnit.SECONDS)
                     callTimeout(0, TimeUnit.SECONDS)
-                    dispatcher(Dispatcher().apply {
-                        maxRequests = 64
-                        maxRequestsPerHost = 32
-                    })
+                    dispatcher(streamDispatcher())
                 }
             }
             install(SSE) {
                 reconnectionTime = Duration.parse("3s")
             }
+        }
+
+        /** Room for every stream of the app at once: OkHttp's default holds 5 per host. */
+        internal fun streamDispatcher(): Dispatcher = Dispatcher().apply {
+            maxRequests = 64
+            maxRequestsPerHost = 32
         }
 
         private val PLACEHOLDER = Regex("\\{(\\w+)\\}")

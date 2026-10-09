@@ -18,6 +18,18 @@ import kotlin.concurrent.thread
 
 class MercureServiceTest {
 
+    // The rule itself, without a network: a shared CI runner can be slow to open
+    // sockets, the dispatcher's limits cannot be.
+    @Test
+    fun `the stream dispatcher lets more than five streams reach one host`() {
+        val dispatcher = MercureService.streamDispatcher()
+        assertTrue(dispatcher.maxRequestsPerHost > 5)
+        assertTrue(dispatcher.maxRequests >= dispatcher.maxRequestsPerHost)
+    }
+
+    // The same through the real client: the limits must reach the engine, which
+    // Ktor builds with a fresh dispatcher of its own (9 Oct.: one thread per
+    // stream and 30 s, after two red CI runs on a loaded runner).
     @Test
     fun `the default client holds more than five streams to one host at once`() = runBlocking {
         val streams = 8
@@ -28,13 +40,17 @@ class MercureServiceTest {
             while (!server.isClosed) {
                 val socket = try { server.accept() } catch (e: Exception) { return@thread }
                 synchronized(sockets) { sockets += socket }
-                socket.getInputStream().let { input ->
-                    val buffer = ByteArray(4096)
-                    input.read(buffer)
-                }
-                socket.getOutputStream().apply {
-                    write("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\r\n: hello\n\n".toByteArray())
-                    flush()
+                // One thread per stream: a slow client must not hold the others back.
+                thread(isDaemon = true) {
+                    try {
+                        socket.getInputStream().read(ByteArray(4096))
+                        socket.getOutputStream().apply {
+                            write("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\r\n: hello\n\n".toByteArray())
+                            flush()
+                        }
+                    } catch (e: Exception) {
+                        // Closed by the test's cleanup.
+                    }
                 }
             }
         }
@@ -52,7 +68,7 @@ class MercureServiceTest {
 
             assertTrue(
                 "only ${streams - connected.count} of $streams streams connected",
-                withContext(Dispatchers.IO) { connected.await(10, TimeUnit.SECONDS) },
+                withContext(Dispatchers.IO) { connected.await(30, TimeUnit.SECONDS) },
             )
             jobs.forEach { it.cancel() }
         } finally {
