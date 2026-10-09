@@ -150,7 +150,7 @@ e2e/mobile/report/
 # writes under its mounted directory, and the raw files `task
 # e2e:coverage:collect` makes of it — a nightly artifact, never committed.
 agent/.e2e-coverage/
-e2e/coverage/
+e2e/coverage/raw/
 
 # E2E stack caches (MAG-135)
 .e2e-cache/

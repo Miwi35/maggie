@@ -50,8 +50,15 @@ final class JourneyCoverageListener implements EventSubscriberInterface
         }
 
         $this->journey = Journey::valid($event->getRequest()->headers->get(Journey::HEADER));
-        if (null !== $this->journey) {
+        if (null === $this->journey) {
+            return;
+        }
+
+        try {
             $this->collector->start();
+        } catch (\Throwable $e) {
+            $this->journey = null;
+            $this->logger->warning('E2E coverage could not start: {message}', ['message' => $e->getMessage()]);
         }
     }
 

@@ -16,7 +16,14 @@ task e2e:down
 
 `collect` can run again later on the same stack: it reads without consuming and rewrites the raw
 files with everything recorded so far. It **restarts the agent** (coverage.py writes its data when
-the process ends) and returns once it is healthy again.
+the process ends) and returns once it is healthy again. It fails when no journey at all was
+recorded (no request carried the header).
+
+Locally, the recorded data lives in bind mounts that `task e2e:down` does not empty
+(`agent/.e2e-coverage/`, `api/var/e2e/coverage/requests/`): remove them before a fresh run, or the
+lines of the previous one are added in. The nightly starts from a fresh checkout.
+
+`E2E_COVERAGE` is `1` or unset: any other non-empty value loads pcov without anything recording.
 
 ## Input: the journey of a request
 
