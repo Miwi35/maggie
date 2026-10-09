@@ -1,7 +1,9 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { ThemeProvider } from '@mui/material/styles'
 import { ChatWidget } from './ChatWidget'
+import { veilleuseDarkTheme } from '../../theme'
 
 vi.mock('../../hooks/useVoiceRecorder', () => ({
   useVoiceRecorder: () => ({
@@ -67,6 +69,14 @@ const props = {
   onToolCallsChange: vi.fn(),
 }
 
+function renderWidget() {
+  return render(
+    <ThemeProvider theme={veilleuseDarkTheme}>
+      <ChatWidget {...props} />
+    </ThemeProvider>,
+  )
+}
+
 function stubFetch(pending: unknown[], onPost?: (url: string) => unknown) {
   const fetchMock = vi.fn((url: string, init?: RequestInit) => {
     if (init?.method === 'POST') {
@@ -93,7 +103,7 @@ describe('ChatWidget approvals (MAG-6)', () => {
 
   test('shows a card for each pending action in the thread', async () => {
     stubFetch([deleteEvent])
-    render(<ChatWidget {...props} />)
+    renderWidget()
 
     const card = await screen.findByTestId('approval-card')
     expect(within(card).getByText('delete_event')).toBeInTheDocument()
@@ -103,7 +113,7 @@ describe('ChatWidget approvals (MAG-6)', () => {
   test('Autoriser sends the approval and the card ends validée', async () => {
     const user = userEvent.setup()
     const fetchMock = stubFetch([deleteEvent], () => ({ ...deleteEvent, status: 'approved', result: '{"ok":true}' }))
-    render(<ChatWidget {...props} />)
+    renderWidget()
 
     await user.click(await screen.findByRole('button', { name: 'Autoriser' }))
 
@@ -114,7 +124,7 @@ describe('ChatWidget approvals (MAG-6)', () => {
   test('Refuser sends the refusal and the card ends refusée', async () => {
     const user = userEvent.setup()
     const fetchMock = stubFetch([deleteEvent], () => ({ ...deleteEvent, status: 'denied' }))
-    render(<ChatWidget {...props} />)
+    renderWidget()
 
     await user.click(await screen.findByRole('button', { name: 'Refuser' }))
 
@@ -124,7 +134,7 @@ describe('ChatWidget approvals (MAG-6)', () => {
 
   test('a card appears when Mercure announces a new pending action', async () => {
     stubFetch([])
-    render(<ChatWidget {...props} />)
+    renderWidget()
     expect(screen.queryByTestId('approval-card')).not.toBeInTheDocument()
 
     act(() => approvalsStream().onmessage?.({ data: JSON.stringify(deleteEvent) } as MessageEvent))
@@ -134,7 +144,7 @@ describe('ChatWidget approvals (MAG-6)', () => {
 
   test('the approvals ride the contexts connection: no extra EventSource', async () => {
     stubFetch([])
-    render(<ChatWidget {...props} />)
+    renderWidget()
 
     const matches = new URL(approvalsStream().url, 'http://localhost').searchParams.getAll('match')
     expect(matches).toContain('/contexts/user-1')
@@ -143,7 +153,7 @@ describe('ChatWidget approvals (MAG-6)', () => {
 
   test('a Mercure update made from another device settles the card', async () => {
     stubFetch([deleteEvent])
-    render(<ChatWidget {...props} />)
+    renderWidget()
     await screen.findByTestId('approval-card')
 
     act(() =>
@@ -161,13 +171,17 @@ describe('ChatWidget approvals (MAG-6)', () => {
     stubFetch([deleteEvent])
     vi.stubGlobal(
       'fetch',
-      vi.fn((_url: string, init?: RequestInit) =>
+      vi.fn((url: string, init?: RequestInit) =>
         init?.method === 'POST'
           ? Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) })
-          : Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve([deleteEvent]) }),
+          : Promise.resolve({
+              ok: true,
+              status: 200,
+              json: () => Promise.resolve(url.includes('/agent/approvals') ? [deleteEvent] : []),
+            }),
       ),
     )
-    render(<ChatWidget {...props} />)
+    renderWidget()
 
     await user.click(await screen.findByRole('button', { name: 'Autoriser' }))
 
@@ -177,7 +191,7 @@ describe('ChatWidget approvals (MAG-6)', () => {
 
   test('the Mind tab carries the number of actions waiting', async () => {
     stubFetch([deleteEvent, { ...deleteEvent, id: 'a2' }])
-    render(<ChatWidget {...props} />)
+    renderWidget()
 
     const badge = await screen.findByTestId('mind-approvals-badge')
     expect(badge).toHaveTextContent('2')
@@ -185,7 +199,7 @@ describe('ChatWidget approvals (MAG-6)', () => {
 
   test('the badge counts only the actions still waiting', async () => {
     stubFetch([deleteEvent, { ...deleteEvent, id: 'a2' }])
-    render(<ChatWidget {...props} />)
+    renderWidget()
     await screen.findByTestId('mind-approvals-badge')
 
     act(() =>
@@ -199,7 +213,7 @@ describe('ChatWidget approvals (MAG-6)', () => {
 
   test('no badge when nothing waits', async () => {
     const fetchMock = stubFetch([])
-    render(<ChatWidget {...props} />)
+    renderWidget()
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/agent/approvals?status=pending', expect.anything()))
     expect(screen.queryByTestId('mind-approvals-badge')).not.toBeInTheDocument()
