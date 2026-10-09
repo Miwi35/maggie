@@ -8,6 +8,7 @@ use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Category;
+use Symfony\Component\Uid\Ulid;
 
 /** @extends ServiceEntityRepository<Category> */
 class CategoryRepository extends ServiceEntityRepository
@@ -45,5 +46,32 @@ class CategoryRepository extends ServiceEntityRepository
     public function findChildren(Category $parent): array
     {
         return $this->findBy(['parent' => $parent], ['name' => 'ASC']);
+    }
+
+    /**
+     * The category and every category below it, as ULIDs, for a filter that
+     * must take the sub-categories along.
+     *
+     * @return list<Ulid>
+     */
+    public function findSelfAndDescendantIds(Category $category): array
+    {
+        $childrenByParent = [];
+        foreach ($this->findBy(['user' => $category->getUser()]) as $candidate) {
+            if (null !== $candidate->getParent()) {
+                $childrenByParent[(string) $candidate->getParent()->getId()][] = $candidate;
+            }
+        }
+
+        $ids = [$category->getId()];
+        $queue = [(string) $category->getId()];
+        while ([] !== $queue) {
+            foreach ($childrenByParent[array_shift($queue)] ?? [] as $child) {
+                $ids[] = $child->getId();
+                $queue[] = (string) $child->getId();
+            }
+        }
+
+        return $ids;
     }
 }

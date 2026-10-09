@@ -44,7 +44,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Index(columns: ['user_id', 'counterparty_key'], name: 'idx_transaction_user_counterparty_key')]
 #[ORM\Index(columns: ['account_id', 'external_id'], name: 'idx_transaction_account_external_id')]
 #[ApiFilter(OrderFilter::class, properties: ['bookedAt'])]
-#[ApiFilter(UlidRelationFilter::class, properties: ['account'])]
+#[ApiFilter(UlidRelationFilter::class, properties: ['account', 'category'])]
 // The list leaves the rejected payments out unless `transferKind` names a kind (TransactionCollectionProvider).
 #[ApiFilter(SearchFilter::class, properties: ['transferKind' => 'exact'])]
 #[Indexed(index: 'transactions', module: 'finance')]
