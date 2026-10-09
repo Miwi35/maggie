@@ -5,31 +5,33 @@
 # that every file in `flows/` is in exactly one shard, in the order of
 # `config.yaml`'s `flowsOrder` — a flow missing here would never run in CI.
 #
-# Measured, not estimated (MAG-247): the `[Passed] <flow> (<time>)` lines of the
-# `E2E Mobile journeys (phone n/3)` jobs, on three runs of the pipeline —
-# main after MAG-242 (run 37310594639, no `09` yet), PR #169 (37467547103) and
-# PR #168 (37489036346) — averaged:
+# Measured, not estimated: the `[Passed] <flow> (<time>)` lines of the three
+# `E2E Mobile journeys` jobs of PR #312's full run (37822407787, 8 Oct.):
 #
-#   02-voice-overlay     121 s   (124 · 122 · 116)
-#   08-grocery-realtime  107 s   (111 · 116 ·  95)
-#   01-login-chat         62 s   ( 69 ·  84 ·  34)   varies from 34 s to 84 s from one run to the next
-#   04-calendar-import    48 s   ( 48 ·  54 ·  41)
-#   09-finance-banks      36 s   (      38 ·  33)
-#   05-deep-links         33 s   ( 35 ·  31 ·  34)
+#   02-voice-overlay           131 s   (in quarantine)
+#   08-grocery-realtime        128 s
+#   12-event-date-picker        74 s
+#   13-chat-opens-on-latest     65 s
+#   01-login-chat               51 s
+#   12-finance-rente            51 s
+#   04-calendar-import          44 s
+#   09-finance-banks            39 s
+#   05-deep-links               38 s   (in quarantine)
+#   11-calendar-all-day-series  34 s   (in quarantine)
+#   12-recipe-realtime          31 s
 #
-# That is ~407 s of flows, and a shard job costs ~255–270 s besides its flows
-# (stack, emulator, APK install): the flows no longer decide much, the fixed cost does.
+# ~686 s of flows; a lot costs ~260 s besides its flows (stack, emulator, APK
+# install). With three lots the slowest held 252 s of flows (10 min of job, the
+# critical path of the whole pipeline); five lots bring it to ~162 s. A public
+# repository pays runner time, not money: the wall clock is what is scarce.
 #
-# Three shards and not two. Two would put ~205 s of flows on the slowest shard
-# (02 + 04 + 05 against 08 + 01 + 09) against ~143 s with three, so the required
-# `E2E Mobile (phone)` takes ~60 s longer, and the merge train, one pipeline at a
-# time, waits that minute behind every mobile PR. What two would save is an emulator
-# and a stack per device (three in the nightly), which on a public repository costs
-# runner time, not money. The wall clock is what is scarce.
-#
-# Split by greedy balance: 02 alone (121 s, and the flow that hung once for 17 minutes
-# stops holding two others), 08 + 09 = 143 s, 01 + 04 + 05 = 143 s. When a flow is
-# added, re-read the figures from the latest run and move it where the sum is lowest.
-1: 02-voice-overlay 10-meal-ingredient-choice 12-event-date-picker
-2: 08-grocery-realtime 09-finance-banks 11-calendar-all-day-series 12-finance-rente
-3: 01-login-chat 04-calendar-import 05-deep-links 12-recipe-realtime 13-chat-opens-on-latest
+# Greedy balance, every lot holding at least one flow outside quarantine (a lot of
+# quarantined flows alone would be folded into the last one, see impacted.sh):
+# 02 + 12-recipe = 162 s, 08 + 11 = 162 s, 01 + 05 + 12-rente = 140 s,
+# 09 + 12-event = 113 s, 04 + 13 = 109 s, plus 10-meal-ingredient-choice (new, not measured yet). When a flow is added, re-read the
+# figures from the latest run and move it where the sum is lowest.
+1: 02-voice-overlay 12-recipe-realtime
+2: 08-grocery-realtime 11-calendar-all-day-series
+3: 09-finance-banks 12-event-date-picker
+4: 04-calendar-import 10-meal-ingredient-choice 13-chat-opens-on-latest
+5: 01-login-chat 05-deep-links 12-finance-rente
