@@ -10,6 +10,7 @@ use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Core\Entity\User;
 use Maggie\Notification\Entity\Notification;
 use Maggie\Notification\Enum\NotificationType;
+use Symfony\Component\Uid\Ulid;
 
 /**
  * @extends ServiceEntityRepository<Notification>
@@ -33,6 +34,20 @@ class NotificationRepository extends ServiceEntityRepository
             ->orderBy('n.createdAt', 'DESC')
             ->getQuery()
             ->getResult();
+    }
+
+    /** @return list<string> the ids (ULID, base 32) of every notification of the user */
+    public function findIdsByUser(User $user): array
+    {
+        $rows = $this->createQueryBuilder('n')
+            ->select('n.id')
+            ->where('n.user = :user')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        // A scalar select hands back the column as the database spells it (a UUID), not as an Ulid.
+        return array_map(static fn (mixed $id): string => Ulid::fromString((string) $id)->toBase32(), $rows);
     }
 
     /**

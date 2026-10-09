@@ -4,14 +4,22 @@ import IconButton from '@mui/material/IconButton'
 import Badge from '@mui/material/Badge'
 import Popover from '@mui/material/Popover'
 import List from '@mui/material/List'
+import ListItem from '@mui/material/ListItem'
 import ListItemButton from '@mui/material/ListItemButton'
 import ListItemText from '@mui/material/ListItemText'
 import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Divider from '@mui/material/Divider'
+import Dialog from '@mui/material/Dialog'
+import DialogActions from '@mui/material/DialogActions'
+import DialogContent from '@mui/material/DialogContent'
+import DialogContentText from '@mui/material/DialogContentText'
+import DialogTitle from '@mui/material/DialogTitle'
 import NotificationsIcon from '@mui/icons-material/Notifications'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import { useMercure } from '../../hooks/useMercure'
+import { getToken } from '../../auth/session'
 
 const NOTIFICATION_TOPICS = ['/api/notifications/{id}']
 
@@ -49,6 +57,9 @@ function timeAgo(dateStr: string): string {
 
 export const NotificationBell = () => {
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null)
+  const [confirmingClear, setConfirmingClear] = useState(false)
+  const [clearing, setClearing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const dataProvider = useDataProvider()
   const redirect = useRedirect()
 
@@ -117,6 +128,7 @@ export const NotificationBell = () => {
 
   const handleClose = () => {
     setAnchorEl(null)
+    setError(null)
   }
 
   const handleNotificationClick = useCallback(
@@ -158,6 +170,39 @@ export const NotificationBell = () => {
     }
   }, [apply, dataProvider, notifications])
 
+  const handleDelete = useCallback(
+    async (notification: Notification) => {
+      setError(null)
+      try {
+        await dataProvider.delete('notifications', { id: notification.id, previousData: notification })
+        apply({ '@id': notification.id, deleted: true })
+      } catch {
+        setError('Impossible de supprimer la notification.')
+      }
+    },
+    [apply, dataProvider],
+  )
+
+  const handleClear = useCallback(async () => {
+    setClearing(true)
+    setError(null)
+    try {
+      const token = getToken()
+      const response = await fetch('/api/notifications', {
+        method: 'DELETE',
+        headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      setConfirmingClear(false)
+      for (const n of notifications) apply({ '@id': n.id, deleted: true })
+    } catch {
+      setConfirmingClear(false)
+      setError("Impossible d'effacer les notifications.")
+    } finally {
+      setClearing(false)
+    }
+  }, [apply, notifications])
+
   const open = Boolean(anchorEl)
 
   return (
@@ -188,13 +233,26 @@ export const NotificationBell = () => {
             <Typography variant="subtitle1" fontWeight={600}>
               Notifications
             </Typography>
-            {unreadCount > 0 && (
-              <Button size="small" onClick={handleMarkAllRead}>
-                Tout marquer comme lu
-              </Button>
-            )}
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              {unreadCount > 0 && (
+                <Button size="small" onClick={handleMarkAllRead}>
+                  Tout marquer comme lu
+                </Button>
+              )}
+              {notifications.length > 0 && (
+                <Button size="small" color="error" onClick={() => setConfirmingClear(true)}>
+                  Tout effacer
+                </Button>
+              )}
+            </Box>
           </Box>
           <Divider />
+
+          {error && (
+            <Typography role="alert" variant="body2" color="error" sx={{ px: 2, py: 1 }}>
+              {error}
+            </Typography>
+          )}
 
           {notifications.length === 0 ? (
             <Box sx={{ p: 3, textAlign: 'center' }}>
@@ -205,30 +263,55 @@ export const NotificationBell = () => {
           ) : (
             <List sx={{ overflowY: 'auto', flex: 1, py: 0 }}>
               {notifications.map((n) => (
-                <ListItemButton
+                <ListItem
                   key={n.id}
-                  onClick={() => handleNotificationClick(n)}
-                  sx={{
-                    bgcolor: n.readAt ? 'transparent' : 'action.hover',
-                    borderLeft: n.readAt ? 'none' : '3px solid',
-                    borderLeftColor: 'primary.main',
-                  }}
+                  disablePadding
+                  secondaryAction={
+                    <IconButton edge="end" size="small" aria-label="Supprimer" onClick={() => handleDelete(n)}>
+                      <DeleteOutlineIcon fontSize="small" />
+                    </IconButton>
+                  }
                 >
-                  <ListItemText
-                    primary={n.title}
-                    secondary={timeAgo(n.createdAt)}
-                    primaryTypographyProps={{
-                      fontWeight: n.readAt ? 400 : 600,
-                      fontSize: 14,
+                  <ListItemButton
+                    onClick={() => handleNotificationClick(n)}
+                    sx={{
+                      pr: 7,
+                      bgcolor: n.readAt ? 'transparent' : 'action.hover',
+                      borderLeft: n.readAt ? 'none' : '3px solid',
+                      borderLeftColor: 'primary.main',
                     }}
-                    secondaryTypographyProps={{ fontSize: 12 }}
-                  />
-                </ListItemButton>
+                  >
+                    <ListItemText
+                      primary={n.title}
+                      secondary={timeAgo(n.createdAt)}
+                      primaryTypographyProps={{
+                        fontWeight: n.readAt ? 400 : 600,
+                        fontSize: 14,
+                      }}
+                      secondaryTypographyProps={{ fontSize: 12 }}
+                    />
+                  </ListItemButton>
+                </ListItem>
               ))}
             </List>
           )}
         </Box>
       </Popover>
+
+      <Dialog open={confirmingClear} onClose={() => !clearing && setConfirmingClear(false)}>
+        <DialogTitle>Effacer toutes les notifications ?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>Cette action est définitive.</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmingClear(false)} disabled={clearing}>
+            Annuler
+          </Button>
+          <Button color="error" onClick={handleClear} disabled={clearing}>
+            Effacer
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   )
 }
