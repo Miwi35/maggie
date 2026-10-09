@@ -27,6 +27,7 @@ use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\RecurringGroceryItem;
 use Maggie\Grocery\Enum\GroceryItemSource;
 use Maggie\Grocery\Enum\Unit;
+use Maggie\Grocery\Message\AddRecurringGroceryItemCommand;
 use Maggie\Grocery\Message\RemoveGroceryItemCommand;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -345,6 +346,26 @@ class MealGrocerySyncTest extends KernelTestCase
         $this->generate();
 
         self::assertSame(['Lait' => 1.0, 'Lait ' => 1.0], $this->labelledList());
+    }
+
+    public function testGeneratingRightAfterTheDailyCommandAddsNothingMore(): void
+    {
+        $this->bus()->dispatch(new AddRecurringGroceryItemCommand((string) $this->recurring('Lait')->getId()));
+        self::assertSame(['Lait' => 1.0], $this->list());
+
+        $this->generate();
+
+        self::assertSame(['Lait' => 1.0], $this->list());
+    }
+
+    public function testTheDailyCommandRightAfterGenerationAddsNothingMore(): void
+    {
+        $this->generate();
+        self::assertSame(['Lait' => 1.0], $this->list());
+
+        $this->bus()->dispatch(new AddRecurringGroceryItemCommand((string) $this->recurring('Lait')->getId()));
+
+        self::assertSame(['Lait' => 1.0], $this->list());
     }
 
     public function testChangingAnIngredientQuantityUpdatesTheLineOfUpcomingMeals(): void

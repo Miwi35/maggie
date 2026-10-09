@@ -6,7 +6,7 @@
 # One job start per minute: each console command takes ~58 MiB, and five of
 # them started together got the pod OOMKilled (MAG-186). Minutes used:
 # sync 0,5,… · sync --tasks 1,6,… · check-sync 3,18,33,48 · renew-watch 7,37 ·
-# finance jobs on minute 4 or 34. cron-image.test.sh checks no two collide.
+# finance jobs on minute 4 or 34 · recurring groceries 8. cron-image.test.sh checks no two collide.
 # The one exception is check-reminders: a reminder is minute-precise, so it runs
 # every minute and shares a minute with at most one other job (MAG-27); the
 # test counts it apart and the pod's memory limit holds it.
@@ -19,3 +19,5 @@
 4 6,18 * * * cd /var/www/api && php bin/console app:finance:sync --write
 # Consent expiry warning: once a day (the command itself never warns twice for the same consent).
 34 8 * * * cd /var/www/api && php bin/console app:finance:check-consents
+# Recurring groceries: once a day, 04:08 UTC (06:08 Paris in summer, 05:08 in winter). The command is idempotent and the rule reads the Paris date, so a later run or `generate_grocery_list` never doubles a line.
+8 4 * * * cd /var/www/api && php bin/console maggie:grocery:add-due-recurring-items

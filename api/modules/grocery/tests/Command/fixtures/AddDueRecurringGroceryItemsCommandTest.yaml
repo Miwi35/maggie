@@ -1,0 +1,55 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: recurring-test@example.com
+    googleId: google-recurring-test
+    name: Recurring Test User
+  other_user:
+    email: recurring-other@example.com
+    googleId: google-recurring-other
+    name: Recurring Other User
+
+Maggie\Grocery\Entity\Store:
+  supermarket:
+    name: Supermarché
+    visitOrder: 1
+    user: '@test_user'
+
+Maggie\Grocery\Entity\Product:
+  rice:
+    name: Riz
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    user: '@test_user'
+    preferredStore: '@supermarket'
+
+Maggie\Grocery\Entity\RecurringGroceryItem:
+  # Weekly, bought eight days ago: due.
+  recurring_rice:
+    product: '@rice'
+    quantity: 2
+    unit: '<(Maggie\Grocery\Enum\Unit::Pack)>'
+    frequency: '<(Maggie\Grocery\Enum\RecurringFrequency::Weekly)>'
+    lastAddedAt: '<(new \DateTimeImmutable(''-8 days''))>'
+    user: '@test_user'
+  # No product, never added: due.
+  recurring_milk:
+    customLabel: Lait
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Liter)>'
+    frequency: '<(Maggie\Grocery\Enum\RecurringFrequency::Weekly)>'
+    user: '@test_user'
+  # Fortnightly, bought three days ago: not due.
+  recurring_coffee:
+    customLabel: Café
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Pack)>'
+    frequency: '<(Maggie\Grocery\Enum\RecurringFrequency::Biweekly)>'
+    lastAddedAt: '<(new \DateTimeImmutable(''-3 days''))>'
+    user: '@test_user'
+  # Someone else's: lands on their own list.
+  recurring_bread:
+    customLabel: Pain
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    frequency: '<(Maggie\Grocery\Enum\RecurringFrequency::Weekly)>'
+    lastAddedAt: '<(new \DateTimeImmutable(''-9 days''))>'
+    user: '@other_user'
