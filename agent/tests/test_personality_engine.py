@@ -209,6 +209,28 @@ class TestPersonalityEngine:
         assert "suis ses préférences" in prompt.lower()
 
     @pytest.mark.asyncio
+    async def test_the_shipped_prompt_makes_her_verify_limits_and_anomalies(self):
+        """MAG-365: three base rules, written once, that no fake LLM can exercise.
+
+        On 9 Oct. she called « doublons » data she had not seen, then, asked to explain,
+        answered with no tool call and said her tools only showed monthly aggregates.
+        """
+        engine = PersonalityEngine()
+
+        with patch("app.personality.engine.personality_repo") as mock_repo:
+            mock_repo.get = AsyncMock(return_value=None)
+            prompt = await engine.get_system_prompt("user-1")
+
+        assert "LIMITES" in prompt
+        assert "liste de tes outils et leurs paramètres" in prompt
+        assert "nomme l'outil ou le paramètre qui manque" in prompt
+        assert "ANOMALIES" in prompt
+        assert "dates, montants, libellés" in prompt
+        assert "ce que tu ne sais pas" in prompt
+        assert "EXPLIQUER" in prompt
+        assert "relis les données avec tes outils" in prompt
+
+    @pytest.mark.asyncio
     async def test_the_shipped_prompt_tells_her_to_greet_by_the_gap(self):
         """The half of MAG-10 that lives in the prompt: the line is injected, but only this rule uses it."""
         engine = PersonalityEngine()
