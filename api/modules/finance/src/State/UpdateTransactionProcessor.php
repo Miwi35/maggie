@@ -39,7 +39,18 @@ class UpdateTransactionProcessor implements ProcessorInterface
         $recurringChanged = $occurrenceMoved
             || (string) $series?->getId() !== (string) $previous?->getRecurringOperation()?->getId();
 
-        $clearFields = null === $data->getCategory() ? ['categoryId'] : [];
+        if ($recurringChanged && null === $series && null === $previous?->getRecurringOperation()) {
+            throw new UnprocessableEntityHttpException('recurringOccurrenceOn moves a line within its recurring operation: name the recurringOperation to attach it.');
+        }
+
+        // The category too: re-sending the one a rule or the series gave must
+        // not seal it as typed by hand, which would shut the line out of the
+        // series' category for good. Without the previous state, as before.
+        $category = $data->getCategory();
+        $categoryChanged = null === $previous
+            || (string) $category?->getId() !== (string) $previous->getCategory()?->getId();
+
+        $clearFields = $categoryChanged && null === $category ? ['categoryId'] : [];
         if ($recurringChanged && null === $series) {
             $clearFields[] = 'recurringOperation';
         }
@@ -54,7 +65,7 @@ class UpdateTransactionProcessor implements ProcessorInterface
             status: $data->getStatus()->value,
             currency: $data->getCurrency(),
             isExceptional: $data->isExceptional(),
-            categoryId: null !== $data->getCategory() ? (string) $data->getCategory()->getId() : null,
+            categoryId: $categoryChanged && null !== $category ? (string) $category->getId() : null,
             retrospect: $data->getRetrospect()->value,
             recurringOperationId: $recurringChanged && null !== $series ? (string) $series->getId() : null,
             // Left as it was, the occurrence is the one nearest the booking day.

@@ -91,6 +91,14 @@ class UpdateTransactionHandler
         $this->applyTransfer($transaction, $command);
         $this->applyRecurring($transaction, $command);
 
+        // A line a marking made neutral settles no occurrence any more, on
+        // either leg.
+        foreach ([$transaction, $transaction->getCounterpart()] as $line) {
+            if (null !== $line) {
+                $this->attachRecurring->releaseNeutral($line);
+            }
+        }
+
         return $this->updateTransaction->execute($transaction);
     }
 

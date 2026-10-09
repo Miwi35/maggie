@@ -216,6 +216,26 @@ class AttachRecurringTransactions
     }
 
     /**
+     * A line that just became a neutral movement — an internal transfer, a
+     * rejected payment — settles no occurrence any more: it leaves its series,
+     * whoever attached it, and frees the occurrence for the payment presented
+     * again. Who decided the attachment stays recorded.
+     *
+     * @return list<RecurringOperation> the series it left, if any
+     */
+    public function releaseNeutral(Transaction $transaction): array
+    {
+        if (TransferKind::None === $transaction->getTransferKind() || null === $transaction->getRecurringOperation()) {
+            return [];
+        }
+
+        $former = $this->formerSeries($transaction) ?? $transaction->getRecurringOperation();
+        $transaction->detachFromRecurring($transaction->getRecurringSource());
+
+        return $this->recalibrateAround($transaction, $former, null);
+    }
+
+    /**
      * The series the line was attached to as loaded — over REST the
      * deserializer has already written the new one on this very object.
      */

@@ -18,6 +18,7 @@ use Maggie\Finance\Repository\RecurringOperationRepository;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\Service\OwnedReferenceResolver;
 use Maggie\Finance\Service\RecurringOperationGuard;
+use Maggie\Finance\Service\TransactionNatureGuard;
 use Maggie\Finance\UseCase\UpdateRecurringOperation;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -32,6 +33,7 @@ class UpdateRecurringOperationHandler
         private readonly EntityManagerInterface $em,
         private readonly TransactionRepository $transactionRepository,
         private readonly EntityBroadcaster $broadcaster,
+        private readonly TransactionNatureGuard $natureGuard,
     ) {
     }
 
@@ -126,7 +128,10 @@ class UpdateRecurringOperationHandler
     {
         $changed = [];
         foreach ($this->transactionRepository->findAttachedTo($operation) as $transaction) {
-            if (CategorySource::Manual === $transaction->getCategorySource()) {
+            // A line the new category contradicts — the series turned from an
+            // expense into an income — keeps its own rather than be refused.
+            if (CategorySource::Manual === $transaction->getCategorySource()
+                || !$this->natureGuard->isCompatible($transaction->getAmountCents(), $operation->getCategory())) {
                 continue;
             }
             $transaction->assignCategory($operation->getCategory(), CategorySource::Series);

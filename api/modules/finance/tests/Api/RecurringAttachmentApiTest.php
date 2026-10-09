@@ -128,6 +128,11 @@ class RecurringAttachmentApiTest extends WebTestCase
     public function testAPatchNamingTheSeriesAttachesByHand(): void
     {
         $this->login();
+        // Filed by a rule: the PATCH re-sends that category, which must not
+        // pass for the owner's own choice.
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $this->getFixture('apr_gym_dearer')->assignCategory($this->getFixture('groceries'), CategorySource::Rule);
+        $em->flush();
 
         $data = $this->send('PATCH', $this->iri('transactions', 'apr_gym_dearer'), [
             'recurringOperation' => $this->iri('recurring_operations', 'gym'),
@@ -139,6 +144,8 @@ class RecurringAttachmentApiTest extends WebTestCase
         $stored = $this->reload('apr_gym_dearer');
         self::assertSame('2027-04-01', $stored->getRecurringOccurrenceOn()?->format('Y-m-d'));
         self::assertSame(RecurringLinkSource::Manual, $stored->getRecurringSource());
+        self::assertSame('Abonnements', $stored->getCategory()?->getName());
+        self::assertSame(CategorySource::Series, $stored->getCategorySource());
         self::assertSame(-3990, $this->reloadGym()->getReferenceAmountCents());
 
         $this->assertMercureUpdatePublished('/transactions/');
@@ -204,6 +211,17 @@ class RecurringAttachmentApiTest extends WebTestCase
         $stored = $this->reload('feb_gym');
         self::assertNotNull($stored->getRecurringOperation());
         self::assertSame(RecurringLinkSource::Auto, $stored->getRecurringSource());
+        self::assertSame(CategorySource::Series, $stored->getCategorySource());
+    }
+
+    public function testAPatchMovingTheOccurrenceOfAnUnattachedLineIs422(): void
+    {
+        $this->login();
+
+        $this->send('PATCH', $this->iri('transactions', 'mar_gym_shop'), ['recurringOccurrenceOn' => '2027-03-01']);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(RecurringLinkSource::Auto, $this->reload('mar_gym_shop')->getRecurringSource());
     }
 
     public function testANewSeriesCategoryReachesItsLinesExceptThoseCategorisedByHand(): void

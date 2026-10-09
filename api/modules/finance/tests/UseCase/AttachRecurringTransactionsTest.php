@@ -17,9 +17,11 @@ use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Exception\RecurringAttachmentException;
 use Maggie\Finance\Import\StatementRow;
+use Maggie\Finance\Message\CreateTransactionCommand;
 use Maggie\Finance\UseCase\AttachRecurringTransactions;
 use Maggie\Finance\UseCase\ImportStatement;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
  * Decision 4 of the recurring operations spec: the counterparty says who the
@@ -67,9 +69,10 @@ class AttachRecurringTransactionsTest extends KernelTestCase
         /** @var Account $onAccount */
         $onAccount = $this->getFixture($account);
 
+        // By reference: a test that cleared the manager holds detached fixtures.
         $transaction = (new Transaction())
-            ->setUser($this->user())
-            ->setAccount($onAccount)
+            ->setUser($this->em->getReference(User::class, $this->user()->getId()))
+            ->setAccount($this->em->getReference(Account::class, $onAccount->getId()))
             ->setAmountCents($amountCents)
             ->setBookedAt(new \DateTimeImmutable($bookedAt))
             ->setLabel('CB '.mb_strtoupper($counterparty).' '.$bookedAt)
@@ -452,6 +455,41 @@ class AttachRecurringTransactionsTest extends KernelTestCase
         self::assertNotNull($imported);
         self::assertSame('2027-05-01', $imported->getRecurringOccurrenceOn()?->format('Y-m-d'));
         self::assertSame(RecurringLinkSource::Auto, $imported->getRecurringSource());
+    }
+
+    public function testARejectedDebitFreesItsOccurrenceForThePaymentPresentedAgain(): void
+    {
+        /** @var Transaction $debit */
+        $debit = $this->getFixture('feb_gym');
+        $this->attach->execute($this->user());
+
+        $this->bus()->dispatch(new CreateTransactionCommand(
+            userId: (string) $this->user()->getId(),
+            accountId: (string) $this->gym()->getAccount()->getId(),
+            amountCents: 3000,
+            label: 'REJET PRLV CLUB FORME',
+            bookedAt: '2027-02-04',
+            status: 'spent',
+            currency: 'EUR',
+            isExceptional: false,
+        ));
+
+        $rejected = $this->reload($debit);
+        self::assertSame(TransferKind::Rejected, $rejected->getTransferKind());
+        self::assertNull($rejected->getRecurringOperation());
+
+        $retry = $this->line(-3000, '2027-02-05');
+        $this->attach->execute($this->user());
+
+        self::assertSame('2027-02-01', $this->reload($retry)->getRecurringOccurrenceOn()?->format('Y-m-d'));
+    }
+
+    private function bus(): MessageBusInterface
+    {
+        /** @var MessageBusInterface $bus */
+        $bus = self::getContainer()->get(MessageBusInterface::class);
+
+        return $bus;
     }
 
     public function testALineIsAttachedAsItLands(): void

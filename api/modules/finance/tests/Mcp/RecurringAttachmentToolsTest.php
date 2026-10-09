@@ -168,4 +168,21 @@ class RecurringAttachmentToolsTest extends KernelTestCase
         self::assertNull($stored->getRecurringOperation());
         self::assertSame(RecurringLinkSource::Manual, $stored->getRecurringSource());
     }
+
+    public function testALineMarkedAsATransferLeavesItsSeries(): void
+    {
+        $user = $this->loginFixtureUser();
+        self::getContainer()->get(AttachRecurringTransactions::class)->execute($user);
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $data = $this->transactions('update', transactionId: $this->id('feb_gym'), transferKind: 'internal');
+
+        self::assertTrue($data['success']);
+        self::assertNull($data['transaction']['recurringOperationId']);
+        $stored = $this->reload('feb_gym');
+        self::assertNull($stored->getRecurringOperation());
+        self::assertNull($stored->getRecurringOccurrenceOn());
+        $this->assertElasticsearchIndexDispatchedFor(RecurringOperation::class, $this->id('gym'));
+    }
 }
