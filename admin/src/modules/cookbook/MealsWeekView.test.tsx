@@ -241,6 +241,26 @@ describe('MealsWeekView — choosing the ingredients', () => {
     expect(await screen.findByLabelText('Recettes')).toBeInTheDocument()
   })
 
+  test('keeps the choice and asks for the preview once when the list reloads meanwhile (MAG-373)', async () => {
+    let answer: (value: unknown) => void = () => {}
+    fetchMock.mockImplementation(() => new Promise((resolve) => (answer = resolve)))
+    await planTheGratin()
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    const listReads = () => mockGetList.mock.calls.filter(([resource]) => resource === 'meals').length
+    const before = listReads()
+
+    await act(async () => {
+      mercure.onMessage?.()
+      mercure.onMessage?.()
+    })
+    expect(listReads()).toBe(before + 2)
+
+    answer({ ok: true, status: 200, json: () => Promise.resolve({ mealId: '01NEW', groceryChoiceMadeAt: null, ingredients: [rice] }) })
+    expect(await screen.findByRole('checkbox', { name: 'Riz' })).toBeChecked()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
   test('closes the dialog for a meal whose recipes have no ingredient', async () => {
     fetchMock.mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({ mealId: '01NEW', groceryChoiceMadeAt: null, ingredients: [] }) })
 

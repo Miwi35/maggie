@@ -201,4 +201,81 @@ describe('MealGroceryChoice', () => {
     await waitFor(() => expect(posts()).toHaveLength(1))
     expect(JSON.parse(posts()[0][1].body).ingredients).toEqual([{ ingredientId: '01RICE' }])
   })
+  describe('loading the preview (MAG-373)', () => {
+    const networkError = () => Promise.reject(new TypeError('NetworkError when attempting to fetch resource.'))
+    const abortError = () => new DOMException('The operation was aborted.', 'AbortError')
+
+    test('retries a network failure once and shows the list with no message', async () => {
+      fetchMock.mockImplementationOnce(networkError).mockImplementation(() => previewOf(rice))
+      render(<MealGroceryChoice mealIri="/api/meals/01MEAL" onDone={onDone} />)
+
+      expect(await screen.findByRole('checkbox', { name: 'Riz' })).toBeChecked()
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+
+    test('shows the message and « Réessayer » after two network failures', async () => {
+      fetchMock.mockImplementation(networkError)
+      const user = userEvent.setup()
+      render(<MealGroceryChoice mealIri="/api/meals/01MEAL" onDone={onDone} />)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/repas est créé/)
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+
+      fetchMock.mockImplementation(() => previewOf(rice))
+      await user.click(screen.getByRole('button', { name: 'Réessayer' }))
+      expect(await screen.findByRole('checkbox', { name: 'Riz' })).toBeChecked()
+    })
+
+    test('shows the message at once on a 500, without retrying', async () => {
+      fetchMock.mockImplementation(() => json({}, 500))
+      render(<MealGroceryChoice mealIri="/api/meals/01MEAL" onDone={onDone} />)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/repas est créé/)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    test('aborts the request when unmounted and shows nothing for it', async () => {
+      let signal: AbortSignal | undefined
+      fetchMock.mockImplementation(
+        (_url: string, init: { signal?: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            signal = init.signal
+            init.signal?.addEventListener('abort', () => reject(abortError()))
+          }),
+      )
+      const { unmount } = render(<MealGroceryChoice mealIri="/api/meals/01MEAL" onDone={onDone} />)
+      await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+
+      unmount()
+
+      expect(signal?.aborted).toBe(true)
+      await Promise.resolve()
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(onDone).not.toHaveBeenCalled()
+    })
+
+    test('an abort is never shown as an error, and is not retried', async () => {
+      const calls: string[] = []
+      fetchMock.mockImplementation(
+        (url: string, init: { signal?: AbortSignal }) =>
+          new Promise((resolve, reject) => {
+            calls.push(url)
+            if (url.includes('01OLD')) {
+              init.signal?.addEventListener('abort', () => reject(abortError()))
+              return
+            }
+            resolve({ ok: true, status: 200, json: () => Promise.resolve({ ingredients: [rice] }) })
+          }),
+      )
+      const { rerender } = render(<MealGroceryChoice mealIri="/api/meals/01OLD" onDone={onDone} />)
+      await waitFor(() => expect(calls).toHaveLength(1))
+
+      rerender(<MealGroceryChoice mealIri="/api/meals/01NEW" onDone={onDone} />)
+
+      expect(await screen.findByRole('checkbox', { name: 'Riz' })).toBeChecked()
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      expect(calls).toEqual(['/api/meals/01OLD/grocery_preview', '/api/meals/01NEW/grocery_preview'])
+    })
+  })
 })
