@@ -5,6 +5,7 @@ import time
 import httpx
 
 from app.config import settings
+from app.e2e_coverage import journey_headers
 from app.error_tracking import MCP_TOOL_ERROR, capture_signal
 
 SESSION_STALENESS_SECONDS = 300  # 5 minutes
@@ -151,6 +152,8 @@ class McpClient:
             headers[USER_HEADER] = user_id
         if self._session_id:
             headers["Mcp-Session-Id"] = self._session_id
+        # The e2e journey this call works for, so the API records its lines under it (nightly only).
+        headers.update(journey_headers())
 
         try:
             response = await self._http_client.post(self.server_url, json=payload, headers=headers)
@@ -192,6 +195,7 @@ class McpClient:
             headers["Authorization"] = f"Bearer {settings.service_token}"
         if self._session_id:
             headers["Mcp-Session-Id"] = self._session_id
+        headers.update(journey_headers())
 
         try:
             await self._http_client.post(self.server_url, json=payload, headers=headers)

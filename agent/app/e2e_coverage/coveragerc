@@ -1,0 +1,16 @@
+# coverage.py for the nightly's coverage per journey (E2E_COVERAGE=1 only).
+# Used by the agent's command in docker-compose.e2e.yml:
+#   COVERAGE_CORE=ctrace python -m coverage run --rcfile=app/e2e_coverage/coveragerc -m uvicorn …
+# Read back by `python -m app.e2e_coverage.export` (scripts/e2e/coverage/README.md).
+
+[run]
+source = app
+# Under the agent's own directory, which the stack mounts from the worktree: it survives the
+# container and the export reads it from a one-off container. Gitignored.
+data_file = .e2e-coverage/.coverage
+# One data file per process, never overwritten by the next start of the agent.
+parallel = true
+# The journey of each traced frame (plugin.py).
+plugins = app.e2e_coverage.plugin
+# `docker compose stop agent` (what the collection does) must flush the data.
+sigterm = true
