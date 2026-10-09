@@ -11,14 +11,18 @@ import type { APIRequestContext } from '@playwright/test'
  * held, the chat shows a card, and only *Autoriser* runs it. So what is
  * asserted is the database on both sides of the click — the event is still
  * there while the card waits, gone after approval, still there after a refusal.
- * The announcement is the model's prose, scripted (91-delete-event-approved
+ * The announcement is the model's prose, scripted (74-delete-event-approved
  * .yaml): its presence proves the resume ran, not that the deletion did.
  *
- * Extends the chat journey (MAG-99).
+ * Extends the chat journey (MAG-99). It runs as the fifth account, serially: the
+ * badge counts what waits for the whole account, and the cards are shown in every
+ * window the user has open.
  */
 
-const AGENDA = 'e2e_agenda_personal'
-const ANNOUNCEMENT = "C'est fait : l'événement est supprimé."
+test.describe.configure({ mode: 'serial', retries: 0 })
+
+const AGENDA = 'e2e_approvals_agenda'
+const ANNOUNCEMENT = "C'est fait : l'événement Test validation est supprimé."
 
 async function createEvent(api: APIRequestContext, summary: string): Promise<string> {
   const created = await api.post('/api/events', {
@@ -39,11 +43,14 @@ async function eventStatus(api: APIRequestContext, id: string): Promise<number> 
   return (await api.get(`/api/events/${id}`, { headers: { Accept: 'application/ld+json' } })).status()
 }
 
-test('Autoriser runs the held deletion and Maggie announces it', async ({ page, api }) => {
+test('Autoriser runs the held deletion and Maggie announces it', async ({ approvalsUser }) => {
+  const { page, api } = approvalsUser
   const id = await createEvent(api, 'Recette validation MAG-6 autorisée')
 
   await new DashboardPage(page).open()
   const chat = new ChatPanel(page)
+  await chat.open()
+  const announced = await chat.bubbles(ANNOUNCEMENT).count()
   const events = await chat.send(`Supprime l'événement ${id}`)
 
   // Held, not failed: a third outcome next to success and error.
@@ -66,14 +73,18 @@ test('Autoriser runs the held deletion and Maggie announces it', async ({ page, 
     .poll(() => eventStatus(api, id), { timeout: 30_000, message: 'The approved deletion should reach the database' })
     .toBe(404)
 
-  await expect(chat.bubbles(ANNOUNCEMENT)).toHaveCount(1)
+  await expect(chat.bubbles(ANNOUNCEMENT)).toHaveCount(announced + 1)
 })
 
-test('Refuser leaves the event in place', async ({ page, api }) => {
+test('Refuser leaves the event in place', async ({ approvalsUser }) => {
+  const { page, api } = approvalsUser
   const id = await createEvent(api, 'Recette validation MAG-6 refusée')
 
   await new DashboardPage(page).open()
   const chat = new ChatPanel(page)
+  await chat.open()
+  // The thread keeps the other journey's announcement: count what was there before.
+  const announced = await chat.bubbles(ANNOUNCEMENT).count()
   await chat.send(`Supprime l'événement ${id}`)
 
   const card = chat.approvalCard(id)
@@ -84,5 +95,5 @@ test('Refuser leaves the event in place', async ({ page, api }) => {
   await expect(card).toHaveAttribute('data-status', 'denied')
   await expect(card.getByRole('button', { name: 'Autoriser' })).toHaveCount(0)
   expect(await eventStatus(api, id), 'a refused deletion ran anyway').toBe(200)
-  await expect(chat.bubbles(ANNOUNCEMENT)).toHaveCount(0)
+  await expect(chat.bubbles(ANNOUNCEMENT)).toHaveCount(announced)
 })

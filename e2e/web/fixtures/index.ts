@@ -8,6 +8,7 @@ import type {
   PlaywrightWorkerArgs,
 } from '@playwright/test'
 import {
+  APPROVALS_USER_EMAIL,
   INTERRUPTED_USER_EMAIL,
   OTHER_USER_EMAIL,
   SEED_USER_EMAIL,
@@ -21,7 +22,13 @@ import { AdminCoverage } from './coverage.js'
 import { JOURNEY_HEADER, journeyId } from './journey.js'
 
 export { expect }
-export { SEED_USER_EMAIL, OTHER_USER_EMAIL, INTERRUPTED_USER_EMAIL, STOCK_USER_EMAIL } from './session.js'
+export {
+  SEED_USER_EMAIL,
+  OTHER_USER_EMAIL,
+  INTERRUPTED_USER_EMAIL,
+  STOCK_USER_EMAIL,
+  APPROVALS_USER_EMAIL,
+} from './session.js'
 export type { Session, SeededUser } from './session.js'
 export { e2eNow, parisDay, parisTime } from './clock.js'
 export { seedId, seedAnchorDate, seedDate, seedManifest } from './manifest.js'
@@ -106,6 +113,11 @@ export interface MaggieFixtures {
    * list, its products and its chat history are written by that file alone.
    */
   stockUser: OtherUser
+  /**
+   * The fifth seeded account, for the approval cards journey (MAG-6): the chat
+   * history, the held actions and their cards are that file's alone.
+   */
+  approvalsUser: OtherUser
   /**
    * Two windows of the same signed-in user — the "two tabs" check.
    *
@@ -298,6 +310,10 @@ export const test = base.extend<MaggieFixtures>({
 
   stockUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
     await useSignedInUser(STOCK_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
+  },
+
+  approvalsUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+    await useSignedInUser(APPROVALS_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
   },
 
   twoWindows: async ({ browser, baseURL, contextOptions, page, journey, adminCoverage }, use) => {
