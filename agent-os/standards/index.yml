@@ -29,6 +29,8 @@ api:
     description: PHPUnit — fixtures (nelmio/alice), MCP tool tests enforced, Mercure publication tests enforced
 
 backend:
+  projection:
+    description: ProjectionMiddleware publishes on Mercure and indexes the whole unit of work, to the row's owner, after the root handler — handlers never call the hub or the indexer
   domain-events:
     description: A business effect is the consequence of a domain event — Doctrine listener → Specification → event on event.bus → event handler → command → use case → service, postFlush dispatch, identifiers only
 

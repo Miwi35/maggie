@@ -21,7 +21,7 @@ use Lcobucci\JWT\Signer\Key\InMemory;
  * its publisher tokens the same way (agent/app/mercure/publisher.py).
  *
  * Signing with a key under 256 bits throws a Lcobucci\JWT\Exception, which
- * MercurePublishMiddleware reports as `critical`.
+ * ProjectionMiddleware reports as `critical`.
  */
 final class MercureAccessToken
 {

@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Maggie\Cookbook\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
+use Maggie\Core\Contract\AggregateRoot;
 use Maggie\Grocery\Enum\Unit;
 use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity]
+#[AggregateRoot('recipe')]
 class RecipeIngredient
 {
     #[ORM\Id]

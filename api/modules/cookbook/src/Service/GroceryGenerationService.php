@@ -6,7 +6,6 @@ namespace Maggie\Cookbook\Service;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Cookbook\Repository\MealRepository;
-use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
 use Maggie\Core\Entity\User;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
@@ -14,7 +13,6 @@ use Maggie\Grocery\Entity\RecurringGroceryItem;
 use Maggie\Grocery\Enum\GroceryItemSource;
 use Maggie\Grocery\Repository\GroceryListRepository;
 use Maggie\Grocery\Repository\RecurringGroceryItemRepository;
-use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
  * Fills the grocery list from the meals of a week plus what comes back on its own.
@@ -35,7 +33,6 @@ class GroceryGenerationService
         private readonly GroceryListRepository $groceryListRepository,
         private readonly MealGrocerySync $mealGrocerySync,
         private readonly EntityManagerInterface $em,
-        private readonly MessageBusInterface $bus,
     ) {
     }
 
@@ -53,7 +50,6 @@ class GroceryGenerationService
         // count as already waiting.
         $items = $this->itemsOf($list);
         $position = $this->highestPosition($items);
-        $added = [];
 
         foreach ($this->recurringGroceryItemRepository->findByUser($user) as $recurring) {
             if (!$recurring->isDueOn($today)) {
@@ -77,22 +73,10 @@ class GroceryGenerationService
             // Set even when the line was already there: the need is covered,
             // and the clock restarts from the day it was.
             $recurring->setLastAddedAt($today);
-            $added[] = $recurring;
         }
 
         $list->setUpdatedAt(new \DateTimeImmutable());
         $this->em->flush();
-
-        // After the commit, never before: the indexing command is handled
-        // asynchronously, and a worker reading the row ahead of the
-        // transaction would index the previous date for ever — the collection
-        // is served from Elasticsearch, so the drift would be silent.
-        foreach ($added as $recurring) {
-            $this->bus->dispatch(new IndexDocumentCommand(
-                entityClass: RecurringGroceryItem::class,
-                entityId: (string) $recurring->getId(),
-            ));
-        }
 
         return $list;
     }

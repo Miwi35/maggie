@@ -62,10 +62,7 @@ All tools: `#[McpTool(name: 'snake_case', description: '...')]`, return JSON str
 
 ## 7. Mercure publication unit tests
 
-Add to `api/tests/Calendar/Middleware/MercurePublishMiddlewareTest.php`:
-- `testCreate$0PublishesToMercure()`
-- `testUpdate$0PublishesToMercure()`
-- `testDelete$0PublishesToMercure()`
+Nothing to register: `ProjectionMiddleware` publishes and indexes what the commands change. Cover Create/Update/Delete by dispatching the commands on the bus, with `MercureAssertionTrait` (see `api/modules/grocery/tests/Projection/GroceryProjectionTest.php`).
 
 ## 8. MCP tool integration tests
 

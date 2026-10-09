@@ -51,9 +51,8 @@ use Maggie\Grocery\Repository\GroceryListRepository;
  * intermediate flush — `isHeldByAnotherMeal()` excludes its own contribution,
  * and the unique index allows one contribution per meal and line.
  *
- * The grocery list must also be broadcast afterwards
- * ({@see \Maggie\Grocery\Service\GroceryListBroadcaster}): a meal handler
- * returns the meal, so the Messenger middleware never sees the list it changed.
+ * Nothing is broadcast from here: the list's lines are read from Doctrine's
+ * change set, and the projection announces the list once the handler is done.
  */
 class MealGrocerySync
 {

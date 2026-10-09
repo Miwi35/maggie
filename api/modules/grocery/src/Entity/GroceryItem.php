@@ -6,11 +6,13 @@ namespace Maggie\Grocery\Entity;
 
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Maggie\Core\Contract\AggregateRoot;
 use Maggie\Grocery\Enum\GroceryItemSource;
 use Maggie\Grocery\Enum\Unit;
 use Symfony\Component\Uid\Ulid;
 
 #[ORM\Entity]
+#[AggregateRoot('groceryList')]
 class GroceryItem
 {
     #[ORM\Id]
