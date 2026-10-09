@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.cookbook.grocery
 
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -11,6 +12,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.swipe
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.GroceryItem
@@ -22,6 +25,7 @@ import com.maggie.app.screentest.assertTopToBottom
 import com.maggie.app.screentest.tap
 import android.os.Looper
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -251,6 +255,67 @@ class GroceryScreenTest {
         compose.onNodeWithText("7 paquets").assertIsDisplayed()
         afterSaveDelay()
         assertEquals(7f, quantityOfRice(fake))
+    }
+
+    // --- MAG-381: the swipe reads the line as it is now, not as it was drawn first ---
+
+    private fun settle() {
+        shadowOf(Looper.getMainLooper()).idle()
+        compose.waitForIdle()
+    }
+
+    // Starts clear of the drag handle at the row's left edge, which would take the touch.
+    private fun swipeRiceRight() {
+        compose.onNodeWithText("Riz").performTouchInput {
+            swipe(Offset(width * 0.3f, centerY), Offset(width - 1f, centerY), durationMillis = 400)
+        }
+        settle()
+    }
+
+    private fun swipeRiceLeft() {
+        compose.onNodeWithText("Riz").performTouchInput { swipeLeft() }
+        settle()
+    }
+
+    private fun isRiceChecked(fake: FakeGrocery) = fake.items.first { it.id == "item-riz" }.checked
+
+    @Test
+    fun `a swipe right ticks the line`() {
+        val fake = FakeGrocery(list = riceList)
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel) }
+
+        swipeRiceRight()
+
+        assertTrue(isRiceChecked(fake))
+        compose.onNodeWithText("Supprimer l'article").assertDoesNotExist()
+    }
+
+    /** The line keeps its key when ticked, hence its swipe state: the lambda it was first drawn with must not decide. */
+    @Test
+    fun `a swipe left on a ticked line unticks it and opens no deletion`() {
+        val fake = FakeGrocery(list = riceList)
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel) }
+
+        swipeRiceRight()
+        assertTrue(isRiceChecked(fake))
+
+        swipeRiceLeft()
+
+        assertFalse(isRiceChecked(fake))
+        compose.onNodeWithText("Supprimer l'article").assertDoesNotExist()
+        assertEquals(2, fake.items.size)
+    }
+
+    @Test
+    fun `a swipe left on an unticked line asks to delete it`() {
+        val fake = FakeGrocery(list = riceList)
+        compose.setContent { GroceryScreen(viewModel = fake.viewModel) }
+
+        swipeRiceLeft()
+
+        compose.onNodeWithText("Supprimer l'article").assertIsDisplayed()
+        assertFalse(isRiceChecked(fake))
+        assertEquals(2, fake.items.size)
     }
 
     @Test
