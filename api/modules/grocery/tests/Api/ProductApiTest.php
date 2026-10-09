@@ -10,6 +10,7 @@ use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Entity\RecurringGroceryItem;
+use Maggie\Grocery\Enum\GroceryItemSource;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
@@ -420,11 +421,137 @@ class ProductApiTest extends WebTestCase
         self::assertSame('Riz', $reloaded->getName(), 'Fields left out of the payload are untouched');
 
         $this->assertMercureUpdatePublished('/products/');
-        $updates = $this->getMercureHub()->getUpdates();
-        $data = json_decode(end($updates)->getData(), true);
+        $productUpdates = array_values(array_filter(
+            $this->getMercureHub()->getUpdates(),
+            static fn ($update) => str_contains(implode(' ', $update->getTopics()), '/products/'),
+        ));
+        $data = json_decode(end($productUpdates)->getData(), true);
         self::assertSame(['out', 2, true], [$data['stockState'] ?? null, $data['restockQuantity'] ?? null, $data['autoRestock'] ?? null]);
         self::assertArrayNotHasKey('isAutoRestock', $data, 'Mercure spells the flag like REST');
         $this->assertElasticsearchIndexDispatched(Product::class);
+    }
+
+    /** @return list<GroceryItem> */
+    private function listItems(): array
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+
+        return $em->getRepository(GroceryItem::class)->findBy(['product' => $this->getFixture('product')->getId()]);
+    }
+
+    public function testPatchingAProductToOutRestocksItWhenAutomaticRestockIsOn(): void
+    {
+        $product = $this->load();
+
+        $this->patch($product, ['stockState' => 'out', 'restockQuantity' => 2, 'autoRestock' => true]);
+
+        self::assertResponseIsSuccessful();
+        $items = $this->listItems();
+        self::assertCount(1, $items);
+        self::assertSame(2.0, $items[0]->getQuantity());
+        self::assertSame(GroceryItemSource::Restock, $items[0]->getSource());
+        self::assertFalse($items[0]->isChecked());
+        $this->assertMercureUpdatePublished('/grocery_lists/');
+        $this->assertElasticsearchIndexDispatched(GroceryList::class);
+    }
+
+    public function testSavingAProductAlreadyOutAddsNothingMore(): void
+    {
+        $product = $this->load();
+        $this->patch($product, ['stockState' => 'out', 'restockQuantity' => 2, 'autoRestock' => true]);
+        self::assertResponseIsSuccessful();
+
+        $this->patch($product, ['stockState' => 'out', 'name' => 'Riz basmati']);
+
+        self::assertResponseIsSuccessful();
+        $items = $this->listItems();
+        self::assertCount(1, $items);
+        self::assertSame(2.0, $items[0]->getQuantity());
+    }
+
+    public function testGoingFromLowToOutDoesNotRestockTwice(): void
+    {
+        $product = $this->load();
+        $this->patch($product, ['stockState' => 'low', 'restockQuantity' => 2, 'autoRestock' => true]);
+        self::assertResponseIsSuccessful();
+
+        $this->patch($product, ['stockState' => 'out']);
+
+        self::assertResponseIsSuccessful();
+        $items = $this->listItems();
+        self::assertCount(1, $items);
+        self::assertSame(2.0, $items[0]->getQuantity());
+    }
+
+    public function testGoingBackInStockThenOutRestocksAgain(): void
+    {
+        $product = $this->load();
+        $this->patch($product, ['stockState' => 'out', 'restockQuantity' => 2, 'autoRestock' => true]);
+        $this->patch($product, ['stockState' => 'in_stock']);
+        $this->patch($product, ['stockState' => 'out']);
+
+        self::assertResponseIsSuccessful();
+        $items = $this->listItems();
+        self::assertCount(1, $items, 'the unticked line is raised, not duplicated');
+        self::assertSame(4.0, $items[0]->getQuantity());
+    }
+
+    public function testNothingIsAddedWithoutAutomaticRestock(): void
+    {
+        $product = $this->load();
+
+        $this->patch($product, ['stockState' => 'out', 'restockQuantity' => 2, 'autoRestock' => false]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([], $this->listItems());
+    }
+
+    public function testNothingIsAddedWithoutARestockQuantity(): void
+    {
+        $product = $this->load();
+
+        $this->patch($product, ['stockState' => 'out', 'autoRestock' => true]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([], $this->listItems());
+    }
+
+    public function testAProductCreatedOutIsRestockedByTheCreation(): void
+    {
+        $this->load();
+
+        $this->client->request('POST', '/api/products', [], [], array_merge([
+            'CONTENT_TYPE' => 'application/ld+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode([
+            'name' => 'Sel', 'category' => 'other', 'stockState' => 'out', 'restockQuantity' => 1, 'autoRestock' => true,
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseStatusCodeSame(201);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $items = $em->getRepository(GroceryItem::class)->findBy(['source' => GroceryItemSource::Restock]);
+        self::assertCount(1, $items);
+        self::assertSame(1.0, $items[0]->getQuantity());
+        $this->assertMercureUpdatePublished('/grocery_lists/');
+    }
+
+    public function testAProductCreatedInStockIsNotRestocked(): void
+    {
+        $this->load();
+
+        $this->client->request('POST', '/api/products', [], [], array_merge([
+            'CONTENT_TYPE' => 'application/ld+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode([
+            'name' => 'Sel', 'category' => 'other', 'restockQuantity' => 1, 'autoRestock' => true,
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseStatusCodeSame(201);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertSame([], $em->getRepository(GroceryItem::class)->findBy(['source' => GroceryItemSource::Restock]));
     }
 
     public function testPatchWithoutStockKeepsIt(): void

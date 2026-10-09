@@ -2,6 +2,7 @@ import { test, expect } from '../fixtures/index.js'
 import { waitForIndexed } from '../helpers/api.js'
 import { expectRealtimeSync, openSubscribed } from '../helpers/mercure.js'
 import { AdminShell } from '../pages/AdminShell.js'
+import { GroceryListPage } from '../pages/GroceryListPage.js'
 import { ROUTES } from '../pages/routes.js'
 
 /**
@@ -192,6 +193,65 @@ test('a product is « En stock » by default, and the state chosen in its form s
     expect(stored.stockState).toBe('out')
     expect(stored.restockQuantity).toBe(2)
     expect(stored.autoRestock).toBe(true)
+  } finally {
+    await api.delete(iri)
+  }
+})
+
+test('running out of a product in its form puts its restock on the list of another window', async ({
+  twoWindows,
+  api,
+}) => {
+  // MAG-366: the restock is the consequence of the product running out, whoever
+  // saves the form. « Riz » in stock, 2 packs of restock, automatic restock.
+  const name = `Riz MAG-366 ${Date.now()}`
+  const created = await api.post('/api/products', {
+    headers: LD,
+    data: {
+      name,
+      category: 'grain',
+      packagingUnit: 'pack',
+      packagingSize: 500,
+      packagingSizeUnit: 'g',
+      restockQuantity: 2,
+      autoRestock: true,
+    },
+  })
+  expect(created.status()).toBe(201)
+  const iri = ((await created.json()) as { '@id': string })['@id']
+
+  const { actor, observer } = twoWindows
+  const acting = new AdminShell(actor)
+  const watching = new GroceryListPage(observer)
+
+  try {
+    await waitForIndexed<StockRow>(api, '/api/products?itemsPerPage=200', (row) => row.name === name, {
+      what: 'The new product',
+    })
+    await openSubscribed(observer, () => watching.open())
+    await expect(watching.line(name)).toHaveCount(0)
+
+    // When I set it to « Rupture » in its form and save.
+    await acting.goto(`${ROUTES.products}/${encodeURIComponent(iri)}`)
+    await expectRealtimeSync(
+      observer,
+      async () => {
+        await acting.content.getByLabel('État du stock').click()
+        await actor.getByRole('option', { name: 'Rupture', exact: true }).click()
+
+        const patched = actor.waitForResponse(
+          (response) => response.url().includes(iri) && response.request().method() === 'PATCH',
+        )
+        await acting.content.getByRole('button', { name: 'Enregistrer' }).click()
+        const response = await patched
+        expect(response.status(), `the API refused the stock: ${await response.text()}`).toBe(200)
+      },
+      // Then « Riz » × 2 is on the shopping list, without reloading.
+      async () => {
+        await expect(watching.line(name)).toBeVisible()
+        await expect(watching.line(name)).toContainText('2')
+      },
+    )
   } finally {
     await api.delete(iri)
   }
