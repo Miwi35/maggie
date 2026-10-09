@@ -44,6 +44,7 @@ class UpdateCategorizationRuleProcessor implements ProcessorInterface
             priority: $data->getPriority(),
             isActive: $data->isActive(),
             clearFields: $clearFields,
+            applyToExisting: $data->shouldApplyToExisting(),
         ));
 
         return $stamped->last(HandledStamp::class)->getResult();

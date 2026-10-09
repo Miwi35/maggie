@@ -85,6 +85,8 @@ framework:
             'Maggie\Finance\Message\CreateCategorizationRuleCommand': sync
             'Maggie\Finance\Message\UpdateCategorizationRuleCommand': sync
             'Maggie\Finance\Message\DeleteCategorizationRuleCommand': sync
+            'Maggie\Finance\Message\ApplyCategorizationRuleCommand': sync
+            'Maggie\Finance\Event\CategorizationRuleSaved': sync
             'Maggie\Finance\Message\UpdateSafetyCushionCommand': sync
             'Maggie\Finance\Message\CreateLoanCommand': sync
             'Maggie\Finance\Message\UpdateLoanCommand': sync

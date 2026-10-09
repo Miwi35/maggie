@@ -37,6 +37,7 @@ class CreateCategorizationRuleProcessor implements ProcessorInterface
             maxAmountCents: $data->getMaxAmountCents(),
             priority: $data->getPriority(),
             isActive: $data->isActive(),
+            applyToExisting: $data->shouldApplyToExisting(),
         ));
 
         return $stamped->last(HandledStamp::class)->getResult();

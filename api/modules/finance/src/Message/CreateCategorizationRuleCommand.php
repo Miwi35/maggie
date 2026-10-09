@@ -16,6 +16,7 @@ final readonly class CreateCategorizationRuleCommand
         public ?int $maxAmountCents = null,
         public int $priority = 0,
         public bool $isActive = true,
+        public bool $applyToExisting = false,
     ) {
     }
 }

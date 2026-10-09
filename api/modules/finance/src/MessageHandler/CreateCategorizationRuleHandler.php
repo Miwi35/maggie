@@ -8,10 +8,13 @@ use Maggie\Core\Repository\UserRepository;
 use Maggie\Finance\Entity\CategorizationRule;
 use Maggie\Finance\Enum\AmountDirection;
 use Maggie\Finance\Enum\MatchType;
+use Maggie\Finance\Event\CategorizationRuleSaved;
 use Maggie\Finance\Message\CreateCategorizationRuleCommand;
 use Maggie\Finance\Service\OwnedReferenceResolver;
 use Maggie\Finance\UseCase\CreateCategorizationRule;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 #[AsMessageHandler]
 class CreateCategorizationRuleHandler
@@ -20,6 +23,8 @@ class CreateCategorizationRuleHandler
         private readonly CreateCategorizationRule $createCategorizationRule,
         private readonly OwnedReferenceResolver $references,
         private readonly UserRepository $userRepository,
+        #[Autowire(service: 'event.bus')]
+        private readonly MessageBusInterface $eventBus,
     ) {
     }
 
@@ -52,6 +57,9 @@ class CreateCategorizationRuleHandler
         $rule->setPriority($command->priority);
         $rule->setIsActive($command->isActive);
 
-        return $this->createCategorizationRule->execute($rule);
+        $rule = $this->createCategorizationRule->execute($rule);
+        $this->eventBus->dispatch(new CategorizationRuleSaved((string) $rule->getId(), $command->applyToExisting));
+
+        return $rule;
     }
 }

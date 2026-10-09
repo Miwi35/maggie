@@ -8,8 +8,7 @@ use Maggie\Finance\Entity\CategorizationRule;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Repository\CategorizationRuleRepository;
-use Maggie\Finance\Service\TransactionMatcher;
-use Maggie\Finance\Service\TransactionNatureGuard;
+use Maggie\Finance\Specification\TransactionMatchesRule;
 
 /**
  * Files a transaction under the category of the first rule that claims it.
@@ -19,8 +18,7 @@ class CategorizeTransaction
 {
     public function __construct(
         private readonly CategorizationRuleRepository $ruleRepository,
-        private readonly TransactionNatureGuard $natureGuard,
-        private readonly TransactionMatcher $matcher,
+        private readonly TransactionMatchesRule $matchesRule,
     ) {
     }
 
@@ -31,15 +29,29 @@ class CategorizeTransaction
      */
     public function match(Transaction $transaction): ?CategorizationRule
     {
-        foreach ($this->ruleRepository->findActiveForUser($transaction->getUser()) as $rule) {
-            if ($rule->isActive()
-                && $this->matcher->matches($rule->matchCriteria(), $transaction)
-                && $this->natureGuard->isCompatible($transaction->getAmountCents(), $rule->getCategory())) {
+        return $this->winner($transaction, $this->ruleRepository->findActiveForUser($transaction->getUser()));
+    }
+
+    /**
+     * The first of these rules to claim the transaction.
+     *
+     * @param iterable<CategorizationRule> $rules in the order they get their say: highest priority first
+     */
+    public function winner(Transaction $transaction, iterable $rules): ?CategorizationRule
+    {
+        foreach ($rules as $rule) {
+            if ($this->matchesRule->isSatisfiedBy($rule, $transaction)) {
                 return $rule;
             }
         }
 
         return null;
+    }
+
+    /** Whether the rules may still file this line: it has no category, and none was removed by hand. */
+    public function awaitsCategory(Transaction $transaction): bool
+    {
+        return null === $transaction->getCategory() && CategorySource::Manual !== $transaction->getCategorySource();
     }
 
     /** Applies the winning rule in place; true when the transaction was categorized. */

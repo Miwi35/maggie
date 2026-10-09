@@ -53,6 +53,114 @@ class CategorizationRuleToolsTest extends KernelTestCase
         $this->assertElasticsearchIndexDispatched(CategorizationRule::class);
     }
 
+    private function categoryOfTransaction(string $fixture): ?string
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $category = $em->find(Transaction::class, $this->getFixture($fixture)->getId())->getCategory();
+
+        return $category ? (string) $category->getId() : null;
+    }
+
+    public function testCreateWithApplyToExistingFilesTheHistory(): void
+    {
+        $this->loadFixtures('categorization_rule.yaml');
+        $this->loginFixtureUser();
+        $leisure = $this->getFixture('leisure');
+
+        $data = json_decode(
+            $this->tool()('create', labelPattern: 'UGC', categoryId: (string) $leisure->getId(), applyToExisting: true),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertTrue($data['success']);
+        self::assertSame((string) $leisure->getId(), $this->categoryOfTransaction('uncategorized_cinema'));
+        $this->assertMercureUpdatePublished('/transactions/');
+        $this->assertElasticsearchIndexDispatched(Transaction::class);
+    }
+
+    public function testCreateWithoutApplyToExistingLeavesTheHistoryAlone(): void
+    {
+        $this->loadFixtures('categorization_rule.yaml');
+        $this->loginFixtureUser();
+
+        $this->tool()('create', labelPattern: 'UGC', categoryId: (string) $this->getFixture('leisure')->getId());
+
+        self::assertNull($this->categoryOfTransaction('uncategorized_cinema'));
+        $this->assertNothingPublishedOn('/transactions/');
+    }
+
+    public function testUpdateWithApplyToExistingUsesTheNewCriteria(): void
+    {
+        $this->loadFixtures('categorization_rule.yaml');
+        $this->loginFixtureUser();
+        $leisure = $this->getFixture('leisure');
+
+        $data = json_decode(
+            $this->tool()('update', categorizationRuleId: (string) $this->getFixture('rule_carrefour')->getId(), labelPattern: 'UGC', categoryId: (string) $leisure->getId(), applyToExisting: true),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertTrue($data['success']);
+        self::assertSame((string) $leisure->getId(), $this->categoryOfTransaction('uncategorized_cinema'));
+        self::assertNull($this->categoryOfTransaction('uncategorized_carrefour'));
+    }
+
+    public function testPreviewListsWhatTheCriteriaWouldCatchAndWritesNothing(): void
+    {
+        $this->loadFixtures('categorization_rule.yaml');
+        $this->loginFixtureUser();
+        $leisure = $this->getFixture('leisure');
+
+        $data = json_decode(
+            $this->tool()('preview', labelPattern: 'UGC', categoryId: (string) $leisure->getId()),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertTrue($data['success']);
+        self::assertSame(1, $data['total']);
+        self::assertSame(1, $data['changeCount']);
+        self::assertSame('UGC CINE CITE', $data['matches'][0]['label']);
+        self::assertTrue($data['matches'][0]['wouldChange']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        self::assertCount(1, $em->getRepository(CategorizationRule::class)->findAll());
+        self::assertNull($this->categoryOfTransaction('uncategorized_cinema'));
+        $this->assertNothingPublishedOn('/transactions/');
+        $this->assertNothingPublishedOn('/categorization_rules/');
+    }
+
+    public function testPreviewRequiresAPattern(): void
+    {
+        $this->loadFixtures('categorization_rule.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode($this->tool()('preview'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
+    }
+
+    public function testPreviewRejectsAnInvertedAmountRange(): void
+    {
+        $this->loadFixtures('categorization_rule.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(
+            $this->tool()('preview', labelPattern: 'UGC', minAmountCents: 5000, maxAmountCents: 1000),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertArrayHasKey('error', $data);
+    }
+
     public function testCreateRequiresPatternAndCategory(): void
     {
         $this->loadFixtures('categorization_rule.yaml');

@@ -853,13 +853,20 @@
                         "null"
                     ],
                     "default": null
+                },
+                "applyToExisting": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ],
+                    "default": null
                 }
             },
             "required": [
                 "action"
             ]
         },
-        "description": "List, create, update or delete the rules that file transactions under a category automatically, apply them to the uncategorized history, or learn a new rule from a transaction. A rule matches a label (matchType: contains, starts_with, equals — case-insensitive) and may narrow by amount: minAmountCents/maxAmountCents are ABSOLUTE cents (a 15,99 € expense matches 1000..2000) and direction is any, debit (expense) or credit (income). The highest priority rule that matches wins. A category set by hand is never overwritten. On update, only provided fields change; to remove an amount bound, list minAmountCents or maxAmountCents in clear."
+        "description": "List, create, update or delete the rules that file transactions under a category automatically, apply them to the uncategorized history, preview what a rule would catch, or learn a new rule from a transaction. A rule matches a label (matchType: contains, starts_with, equals — case-insensitive) and may narrow by amount: minAmountCents/maxAmountCents are ABSOLUTE cents (a 15,99 € expense matches 1000..2000) and direction is any, debit (expense) or credit (income). The highest priority rule that matches wins. A category set by hand is never overwritten. On update, only provided fields change; to remove an amount bound, list minAmountCents or maxAmountCents in clear. BEFORE creating a rule, call action preview with the same criteria (labelPattern, matchType, direction, minAmountCents, maxAmountCents, categoryId): it writes nothing and returns total (transactions the rule recognises), changeCount (those it would re-file) and the latest matches. Show the user what it found, then ask whether to apply the rule to the existing transactions; create and update take applyToExisting (default false: only future transactions are filed). When editing a saved rule, pass its categorizationRuleId to preview so the preview replaces it."
     },
     "manage_envelopes": {
         "name": "manage_envelopes",

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Maggie\Finance\Controller;
 
 use Maggie\Core\Entity\User;
-use Maggie\Finance\UseCase\ApplyCategorizationRules;
 use Maggie\Finance\UseCase\SuggestCategorizationRules;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -24,7 +23,6 @@ final class CategorizationRuleSuggestionsController
     public function __construct(
         private readonly Security $security,
         private readonly SuggestCategorizationRules $suggestCategorizationRules,
-        private readonly ApplyCategorizationRules $applyCategorizationRules,
     ) {
     }
 
@@ -77,8 +75,6 @@ final class CategorizationRuleSuggestionsController
             return new JsonResponse(['error' => 'No usable rule in the request.'], Response::HTTP_BAD_REQUEST);
         }
 
-        $applied = $this->applyCategorizationRules->execute($user);
-
-        return new JsonResponse(['success' => true, 'categorized' => $applied['categorized']] + $result);
+        return new JsonResponse(['success' => true] + $result);
     }
 }

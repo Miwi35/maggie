@@ -13,11 +13,13 @@ use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Enum\AmountDirection;
 use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\MatchType;
+use Maggie\Finance\Event\CategorizationRuleSaved;
 use Maggie\Finance\Import\MerchantExtractor;
 use Maggie\Finance\Repository\CategorizationRuleRepository;
 use Maggie\Finance\Repository\CategoryRepository;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\Service\TransactionNatureGuard;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Uid\Ulid;
 
@@ -43,6 +45,8 @@ class SuggestCategorizationRules
         private readonly EntityManagerInterface $em,
         private readonly MessageBusInterface $bus,
         private readonly TransactionNatureGuard $natureGuard,
+        #[Autowire(service: 'event.bus')]
+        private readonly MessageBusInterface $eventBus,
     ) {
     }
 
@@ -156,16 +160,18 @@ class SuggestCategorizationRules
     }
 
     /**
-     * Turns accepted suggestions into rules.
+     * Turns accepted suggestions into rules and files the history under them:
+     * a rule the user cannot see working is a rule they do not trust.
      *
      * @param list<array<string, mixed>> $accepted straight from the request:
      *                                             every field is checked here
      *
-     * @return array{created: int, patterns: list<string>}
+     * @return array{created: int, patterns: list<string>, categorized: int}
      */
     public function accept(User $user, array $accepted): array
     {
         $created = [];
+        $uncategorizedBefore = $this->transactionRepository->countUncategorizedForUser($user);
 
         foreach ($accepted as $entry) {
             $pattern = \is_string($entry['pattern'] ?? null) ? trim($entry['pattern']) : '';
@@ -204,12 +210,18 @@ class SuggestCategorizationRules
             ));
         }
 
+        // Once all are stored: each rule is applied knowing the ones that outrank it.
+        foreach ($created as $rule) {
+            $this->eventBus->dispatch(new CategorizationRuleSaved((string) $rule->getId(), true));
+        }
+
         return [
             'created' => \count($created),
             'patterns' => array_map(
                 static fn (CategorizationRule $rule) => $rule->getLabelPattern(),
                 $created,
             ),
+            'categorized' => $uncategorizedBefore - $this->transactionRepository->countUncategorizedForUser($user),
         ];
     }
 
