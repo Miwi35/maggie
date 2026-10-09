@@ -702,4 +702,15 @@ class AddGroceryItemControllerTest extends WebTestCase
         self::assertSame(3.0, $pasta[0]->getQuantity());
         self::assertSame('pack', $pasta[0]->getUnit()?->value);
     }
+
+    public function testAMergeThatNamesANewStoreStillIndexesThatStore(): void
+    {
+        $this->loadMergeFixtures();
+
+        $this->addItem(['label' => 'Riz', 'quantity' => 1, 'unit' => 'pack', 'storeName' => 'Primeur du coin']);
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $this->itemsOf('Riz'));
+        $this->assertElasticsearchIndexDispatched(Store::class);
+    }
 }

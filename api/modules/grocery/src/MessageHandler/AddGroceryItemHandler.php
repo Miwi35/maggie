@@ -131,6 +131,12 @@ class AddGroceryItemHandler
                     entityId: (string) $matched->getId(),
                 ));
             }
+            if (null !== $newStore) {
+                $this->bus->dispatch(new IndexDocumentCommand(
+                    entityClass: Store::class,
+                    entityId: (string) $newStore->getId(),
+                ));
+            }
 
             return $list;
         }
