@@ -14,6 +14,7 @@ use Maggie\Finance\Entity\BankConnection;
 use Maggie\Finance\Import\StatementRow;
 use Maggie\Finance\Repository\AccountRepository;
 use Maggie\Finance\Repository\BankConnectionRepository;
+use Maggie\Finance\Specification\RealCurrency;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
 
@@ -167,6 +168,7 @@ class SyncBankAccounts
         $rows = [];
         $continuationKey = null;
         $pages = 0;
+        $withoutRealCurrency = 0;
 
         do {
             $page = $this->client->listTransactions(
@@ -179,6 +181,11 @@ class SyncBankAccounts
             ++$pages;
 
             foreach ($page['transactions'] ?? [] as $remote) {
+                $currency = $remote['transaction_amount']['currency'] ?? null;
+                if (null !== $currency && !RealCurrency::isReal($currency)) {
+                    ++$withoutRealCurrency;
+                }
+
                 $row = $this->toRow($remote, $account->getCurrency());
                 if (null !== $row) {
                     $rows[] = $row;
@@ -187,6 +194,14 @@ class SyncBankAccounts
 
             $continuationKey = $page['continuation_key'] ?? null;
         } while (null !== $continuationKey && $pages < self::MAX_PAGES_PER_ACCOUNT);
+
+        if ($withoutRealCurrency > 0) {
+            $this->logger->warning('The bank gave no real currency for {count} movement(s): the account\'s own is used instead.', [
+                'count' => $withoutRealCurrency,
+                'accountId' => (string) $account->getId(),
+                'accountCurrency' => $account->getCurrency(),
+            ]);
+        }
 
         $result = $this->importStatement->execute($account, $rows, $dryRun);
 
@@ -305,7 +320,8 @@ class SyncBankAccounts
     private function toRow(array $remote, string $fallbackCurrency): ?StatementRow
     {
         $amount = $remote['transaction_amount']['amount'] ?? null;
-        $currency = $remote['transaction_amount']['currency'] ?? $fallbackCurrency;
+        // « XXX » is « no currency »: the account's own is what the movement is in.
+        $currency = RealCurrency::resolve($remote['transaction_amount']['currency'] ?? null, $fallbackCurrency);
         $date = $remote['booking_date'] ?? $remote['value_date'] ?? $remote['transaction_date'] ?? null;
 
         if (null === $amount || !\is_string($date)) {
@@ -337,7 +353,7 @@ class SyncBankAccounts
             bookedAt: $bookedAt,
             label: $label,
             amountCents: $cents,
-            currency: \is_string($currency) ? $currency : $fallbackCurrency,
+            currency: $currency,
             lineNumber: 0,
             counterpartyName: $counterparty,
             knownAs: $previousLabel === $label ? [] : [$previousLabel],
