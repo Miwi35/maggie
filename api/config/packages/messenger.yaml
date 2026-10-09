@@ -8,7 +8,6 @@ framework:
                 middleware:
                     - 'Maggie\Core\Mercure\Middleware\MercurePublishMiddleware'
                     - 'Maggie\Core\Elasticsearch\Middleware\ElasticsearchIndexMiddleware'
-                    - 'Maggie\Core\DomainEvent\DispatchDomainEventsMiddleware'
             # Business events: handled on the spot, and an event nobody listens to is fine.
             event.bus:
                 default_middleware:
@@ -57,6 +56,8 @@ framework:
             'Maggie\Cookbook\Message\DeleteMealCommand': sync
             'Maggie\Cookbook\Message\ChooseMealGroceriesCommand': sync
             'Maggie\Cookbook\Message\GenerateGroceryListCommand': sync
+            'Maggie\Grocery\Message\RestockProductCommand': sync
+            'Maggie\Grocery\Event\ProductOutOfStockEvent': sync
             'Maggie\Grocery\Message\AddGroceryItemCommand': sync
             'Maggie\Grocery\Message\CheckGroceryItemCommand': sync
             'Maggie\Grocery\Message\EndErrandCommand': sync

@@ -28,6 +28,10 @@ api:
   testing:
     description: PHPUnit — fixtures (nelmio/alice), MCP tool tests enforced, Mercure publication tests enforced
 
+backend:
+  domain-events:
+    description: A business effect is the consequence of a domain event — Doctrine listener → Specification → event on event.bus → event handler → command → use case → service, postFlush dispatch, identifiers only
+
 docker:
   dockerfiles:
     description: Multi-stage Dockerfile pattern — base/dev/prod stages, UID/GID matching

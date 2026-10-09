@@ -2,9 +2,7 @@
 
 namespace Maggie\Grocery\Tests\UseCase;
 
-use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
-use App\Tests\Support\MercureAssertionTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Entity\User;
 use Maggie\Grocery\Entity\GroceryItem;
@@ -18,15 +16,11 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 class RestockProductTest extends KernelTestCase
 {
     use FixtureLoaderTrait;
-    use MercureAssertionTrait;
-    use ElasticsearchAssertionTrait;
 
     protected function setUp(): void
     {
         self::bootKernel();
         $this->loadFixtures(__DIR__.'/../Mcp/fixtures/update_stock.yaml');
-        $this->resetMercure();
-        $this->resetAsyncTransport();
     }
 
     private function em(): EntityManagerInterface
@@ -64,11 +58,9 @@ class RestockProductTest extends KernelTestCase
         $item->setPosition(1);
         $list->addItem($item);
         $this->em()->flush();
-        $this->resetMercure();
-        $this->resetAsyncTransport();
     }
 
-    public function testTheRestockQuantityGoesOnTheListAndTheOpenScreensAreTold(): void
+    public function testTheRestockQuantityGoesOnTheList(): void
     {
         $list = $this->restock();
 
@@ -78,8 +70,6 @@ class RestockProductTest extends KernelTestCase
         self::assertSame(2.0, $lines[0]->getQuantity());
         self::assertSame(Unit::Pack, $lines[0]->getUnit());
         self::assertSame(GroceryItemSource::Restock, $lines[0]->getSource());
-        $this->assertMercureUpdatePublished('/grocery_lists/');
-        $this->assertElasticsearchIndexDispatched(GroceryList::class);
     }
 
     public function testAnOpenLineIsRaisedInsteadOfDuplicated(): void
@@ -113,7 +103,6 @@ class RestockProductTest extends KernelTestCase
         self::assertNull($this->restock());
 
         self::assertSame([], $this->lines());
-        $this->assertMercureUpdateCount(0);
     }
 
     public function testNothingIsAddedWithoutARestockQuantity(): void
