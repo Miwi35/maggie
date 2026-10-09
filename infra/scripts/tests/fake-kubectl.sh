@@ -53,5 +53,17 @@ case "$1 $2" in
     echo $(( $(cat "$dir/rev-$name") + 10 )) > "$dir/rev-$name"
     ;;
   "rollout status") ;;
+  "apply -f")
+    # `apply -f - -n …`: the manifest on stdin, kept as `applied`.
+    cat > "$dir/applied"
+    echo "job.batch/migrate created"
+    ;;
+  "delete job") ;;
+  "get job")
+    # `get job … -o jsonpath={.status.succeeded}/{.status.failed}`: the content
+    # of `job-status`, e.g. `1/` succeeded, `/1` failed, `/` still running.
+    cat "$dir/job-status" 2>/dev/null || true
+    ;;
+  "logs job/migrate") echo "fake migration logs" ;;
   *) echo "fake-kubectl: unexpected call: $*" >&2; exit 2 ;;
 esac

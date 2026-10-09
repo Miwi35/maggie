@@ -154,13 +154,13 @@ docker/build-push-action:
 **Environment:** `production` (requires GitHub approval)
 
 **Steps (SSH to VPS):**
-1. `scp` `infra/k8s/`, `infra/scripts/deploy-k3s.sh`, `backup-k3s.sh`, `rollback-k3s.sh` and `verify-digests.sh` to `/opt/maggie/`
+1. `scp` `infra/k8s/`, `infra/scripts/deploy-k3s.sh`, `backup-k3s.sh`, `migrate-k3s.sh`, `rollback-k3s.sh` and `verify-digests.sh` to `/opt/maggie/`
 2. Run `deploy-k3s.sh <RELEASE_SHA>`, which does:
    1. **Preflight** — kubectl reachable, shared `postgres`/`elasticsearch`/`rabbitmq` ready in the `shared` namespace
    2. **Backup** (`backup-k3s.sh`, MAG-188) — `pg_dump | gzip` of **both** databases into `/opt/maggie/backups`: `maggie_predeploy_<ts>.sql.gz` (`DATABASE_URL`) and `maggie_agent_predeploy_<ts>.sql.gz` (`AGENT_DATABASE_URL`: memory, messages, contexts, directives, proactions, personality). Last 10 of each kept; a failed or empty dump, either one, aborts the deploy
-   3. **Apply** — record the current revision of every deployment (`/opt/maggie/state/pre-deploy-revisions`) and the digest every image runs (`pre-deploy-digests`), bump the image tags in `kustomization.yaml` (only for images actually published for that SHA), then `kubectl apply -k`
+   3. **Apply** — record the current revision of every deployment (`/opt/maggie/state/pre-deploy-revisions`) and the digest every image runs (`pre-deploy-digests`), bump the image tags in `kustomization.yaml` (only for images actually published for that SHA), then **migrate** (`migrate-k3s.sh`, MAG-360: a one-shot job on the new php image runs the agenda dedupe and `doctrine:migrations:migrate` *before* any pod rolls — `Meal` extends `Event`, so new code on the old schema broke the cron and the API; a failure stops the deploy with nothing rolled, so a migration must stay compatible with the release still serving: additive, drop in a later release; the job runs before the ConfigMap is applied, so a console that needs a new env var to boot must ship it one release earlier), then `kubectl apply -k`
    4. **Wait** — `rollout status` on php, nginx, worker, cron, agent, ciqual, mercure
-   5. **Post-deploy** — migrations (no `cache:clear`: the image ships a warmed cache), Elasticsearch mapping update and reindex
+   5. **Post-deploy** — migrations again as a safety net, normally a no-op (no `cache:clear`: the image ships a warmed cache), Elasticsearch mapping update and reindex
    6. **Verify** — pod list plus an HTTP check on `https://maggieai.fr/api/docs`
 
 ### Smoke job (MAG-106)
