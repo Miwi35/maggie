@@ -156,6 +156,7 @@ function MealItem({ meal, disabled, onDelete, sx }: { meal: Meal; disabled: bool
       data-testid={`meal-${meal.id}`}
       sx={{
         display: 'flex',
+        flexWrap: 'wrap',
         alignItems: 'center',
         gap: 0.5,
         borderRadius: 1,
@@ -179,7 +180,7 @@ function MealItem({ meal, disabled, onDelete, sx }: { meal: Meal; disabled: bool
         <DragIndicatorIcon sx={{ fontSize: 16 }} />
       </IconButton>
       <RestaurantIcon sx={{ fontSize: 14, color: 'primary.main' }} />
-      <Box sx={{ flex: 1, minWidth: 0 }}>
+      <Box sx={{ flex: '1 1 4rem', minWidth: 0 }}>
         {meal.recipes?.map((r: Recipe) => (
           <Chip key={r.id || r.name} label={r.name} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
         ))}
@@ -192,6 +193,7 @@ function MealItem({ meal, disabled, onDelete, sx }: { meal: Meal; disabled: bool
       <IconButton
         size="small"
         aria-label={`Supprimer le repas ${meal.summary}`}
+        sx={{ ml: 'auto' }}
         onClick={(e) => {
           e.stopPropagation()
           onDelete(meal)
