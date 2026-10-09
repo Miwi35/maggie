@@ -168,6 +168,21 @@ class UpdateStockToolTest extends KernelTestCase
         $this->assertElasticsearchIndexDispatched(Product::class);
     }
 
+    public function testSayingAgainThatItIsOutAddsNothingMore(): void
+    {
+        $this->loadAndLogin();
+        $this->call('Riz', 'low');
+
+        $data = $this->call('Riz', 'out');
+
+        self::assertTrue($data['success']);
+        self::assertFalse($data['restock']['added']);
+        self::assertStringContainsString('already', $data['restock']['reason']);
+        $items = $this->listItems();
+        self::assertCount(1, $items);
+        self::assertSame(2.0, $items[0]->getQuantity());
+    }
+
     public function testTheProductCanBeGivenByItsId(): void
     {
         $this->loadAndLogin();

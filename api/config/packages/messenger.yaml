@@ -7,6 +7,7 @@ framework:
                 middleware:
                     - 'Maggie\Core\Mercure\Middleware\MercurePublishMiddleware'
                     - 'Maggie\Core\Elasticsearch\Middleware\ElasticsearchIndexMiddleware'
+                    - 'Maggie\Core\DomainEvent\DispatchDomainEventsMiddleware'
 
         transports:
             async: '%env(MESSENGER_TRANSPORT_DSN)%'
