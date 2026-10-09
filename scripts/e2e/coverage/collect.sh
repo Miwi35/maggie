@@ -41,3 +41,8 @@ find "$root/agent/.e2e-coverage/raw" -maxdepth 1 -name '*.json' -exec cp {} "$ou
 api_count="$(find "$out/api" -name '*.json' | wc -l)"
 agent_count="$(find "$out/agent" -name '*.json' | wc -l)"
 echo "e2e coverage: $api_count journeys for the API, $agent_count for the agent, in e2e/coverage/raw/"
+# Nothing at all means no request carried X-E2E-Journey: a broken run, not an empty map.
+if [ "$api_count" -eq 0 ] && [ "$agent_count" -eq 0 ]; then
+  echo "e2e coverage: no journey recorded — did the journeys send X-E2E-Journey?" >&2
+  exit 1
+fi
