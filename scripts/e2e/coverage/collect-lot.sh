@@ -5,12 +5,15 @@
 # couverture »). Run by ci.yml after the journeys of a lot, when the nightly
 # asks for coverage (E2E_COVERAGE=1), the stack still up and the emulator gone.
 #
-# Usage: collect.sh <lot>      (web-<shard> or mobile-<device>-<lot>)
+# Usage: collect-lot.sh <lot>      (web-<shard> or mobile-<device>-<lot>)
 #
 # What writes the raw files belongs to the components (parts A and B of the
 # spec); this script only calls their hooks, each one if it exists:
 #   1. `task e2e:coverage:collect` — the agent's and the API's coverage, read out
-#      of the stack's containers (and whatever else the Taskfile chains to it);
+#      of the stack's containers (scripts/e2e/coverage/collect.sh, README.md
+#      there). It restarts the agent, so it must run in the job that started
+#      the stack, with the same Compose variables (E2E_IMAGE_*, E2E_NOW →
+#      E2E_FAKETIME): ci.yml keeps them in $GITHUB_ENV;
 #   2. every executable `scripts/e2e/coverage/collect.d/*.sh`, in name order —
 #      a converter that needs nothing of the stack (the mobile JaCoCo data, say).
 # Playwright writes the admin's raw files itself, during the journeys.

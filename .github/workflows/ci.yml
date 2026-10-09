@@ -574,9 +574,13 @@ jobs:
       # worktree hash: concurrent jobs must not share containers or a network.
       COMPOSE_PROJECT_NAME: maggie-e2e-ci-${{ github.run_id }}-${{ github.run_attempt }}
       E2E_LOGIN_TOKEN: ci-e2e-login-token
-      # The nightly's line map (`coverage` input): empty, so off, everywhere else.
-      E2E_COVERAGE: ${{ inputs.coverage && '1' || '' }}
     steps:
+      # The nightly's line map (`coverage` input), before the stack starts.
+      # Exactly `1` or unset: any other value loads pcov with nothing recording.
+      - name: Record the journeys' coverage
+        if: inputs.coverage
+        run: echo "E2E_COVERAGE=1" >> "$GITHUB_ENV"
+
       # `lfs: true`, like `build-ciqual` in main.yml and for the same reason:
       # `ciqual/data/ciqual/compo.xml` is 69 MB and stored in Git LFS, and a
       # plain checkout leaves a pointer file in its place. `task e2e:up` builds
@@ -743,7 +747,7 @@ jobs:
         continue-on-error: true
         env:
           LOT: web-${{ matrix.shard }}
-        run: scripts/e2e/coverage/collect.sh "$LOT"
+        run: scripts/e2e/coverage/collect-lot.sh "$LOT"
 
       - name: Raw coverage
         if: ${{ !cancelled() && inputs.coverage }}
@@ -877,10 +881,13 @@ jobs:
     env:
       # Compiled into the APK, and what the stack the shards start expects.
       E2E_LOGIN_TOKEN: ci-e2e-login-token
-      # The nightly's line map (`coverage` input): the APK the devices install
-      # is the one that can record what a flow executed.
-      E2E_COVERAGE: ${{ inputs.coverage && '1' || '' }}
     steps:
+      # The nightly's line map (`coverage` input): the APK the devices install
+      # is the one that can record what a flow executed. Exactly `1` or unset.
+      - name: Record the journeys' coverage
+        if: inputs.coverage
+        run: echo "E2E_COVERAGE=1" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-java@v4
@@ -1014,10 +1021,14 @@ jobs:
     env:
       COMPOSE_PROJECT_NAME: maggie-e2e-mobile-${{ matrix.device.name }}-${{ matrix.lot.index }}-${{ github.run_id }}-${{ github.run_attempt }}
       E2E_LOGIN_TOKEN: ci-e2e-login-token
-      # The nightly's line map (`coverage` input), on the phone only: the
-      # foldable and the tablet run the same code.
-      E2E_COVERAGE: ${{ inputs.coverage && matrix.device.name == 'phone' && '1' || '' }}
     steps:
+      # The nightly's line map (`coverage` input), before the stack starts, on
+      # the phone only: the foldable and the tablet run the same code. Exactly
+      # `1` or unset: any other value loads pcov with nothing recording.
+      - name: Record the journeys' coverage
+        if: inputs.coverage && matrix.device.name == 'phone'
+        run: echo "E2E_COVERAGE=1" >> "$GITHUB_ENV"
+
       # lfs: true for the same reason as `e2e-stack`: `task e2e:up` builds the
       # Ciqual food base from a 69 MB file stored in Git LFS, and a pointer makes
       # that die on a parse error.
@@ -1198,7 +1209,7 @@ jobs:
         continue-on-error: true
         env:
           LOT: mobile-${{ matrix.device.name }}-${{ matrix.lot.index }}
-        run: scripts/e2e/coverage/collect.sh "$LOT"
+        run: scripts/e2e/coverage/collect-lot.sh "$LOT"
 
       - name: Raw coverage
         if: ${{ !cancelled() && env.E2E_COVERAGE == '1' }}

@@ -269,7 +269,7 @@ STATUS=$?
   && ok "every lot complete: the map, the marks read as no journey" || bad "complete night: exit $STATUS"
 
 printf '\n\033[1mThe collection hook\033[0m\n'
-COLLECT="$REPO/scripts/e2e/coverage/collect.sh"
+COLLECT="$REPO/scripts/e2e/coverage/collect-lot.sh"
 croot="$work/collect"
 mkdir -p "$croot/raw/api" "$croot/hooks"
 printf '{"journey":"j","files":{}}' >"$croot/raw/api/j.json"

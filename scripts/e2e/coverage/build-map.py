@@ -23,7 +23,7 @@ its admin lines are the same journey). A component that left no file brings no
 line: the selection falls back to e2e/impact-map.yml for its files.
 
 --expect names the lots the night played (web-<shard>, mobile-phone-<lot>):
-each must have left its completion mark (<raw>/_lots/<lot>.ok, collect.sh).
+each must have left its completion mark (<raw>/_lots/<lot>.ok, collect-lot.sh).
 
 Exit 0 with the map written; 3 when there is no usable raw file (no map is
 better than an empty one); 4 when an expected lot is not complete (nor is a
@@ -118,7 +118,7 @@ def main():
         nargs="*",
         default=[],
         metavar="LOT",
-        help="lots that must be marked complete (<raw>/_lots/<lot>.ok, written by collect.sh)",
+        help="lots that must be marked complete (<raw>/_lots/<lot>.ok, written by collect-lot.sh)",
     )
     args = parser.parse_args()
 
