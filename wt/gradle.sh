@@ -36,7 +36,14 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "$here/.." && pwd)"
 
-task_name=':app:testProdDebugUnitTest'
+# The prod variant's tests by default. WT_MOBILE_VARIANT=e2e runs the e2e flavor's
+# instead (`src/testE2e/`: the seams the Maestro journeys use), which no prod run
+# compiles. Nothing else: still one unit test task, never an APK.
+case "${WT_MOBILE_VARIANT:-prod}" in
+    prod) task_name=':app:testProdDebugUnitTest' ;;
+    e2e) task_name=':app:testE2eDebugUnitTest' ;;
+    *) echo "WT_MOBILE_VARIANT='${WT_MOBILE_VARIANT}': expected prod or e2e." >&2; exit 64 ;;
+esac
 lock="${WT_GRADLE_LOCK:-${XDG_RUNTIME_DIR:-/tmp}/maggie-gradle.lock}"
 wait_minutes="${WT_GRADLE_LOCK_WAIT_MINUTES:-30}"
 

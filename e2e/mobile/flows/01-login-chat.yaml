@@ -29,6 +29,8 @@ tags:
     # fails as "the button is not there".
     permissions:
       all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/01-login-chat.yaml
 
 - runFlow: ../subflows/sign-in.yaml
 

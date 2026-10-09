@@ -31,6 +31,8 @@ tags:
     clearState: true
     permissions:
       all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/04-calendar-import.yaml
 
 - runFlow: ../subflows/sign-in.yaml
 

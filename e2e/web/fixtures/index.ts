@@ -17,12 +17,15 @@ import {
 } from './session.js'
 import type { Session } from './session.js'
 import { pinClock } from './clock.js'
+import { AdminCoverage } from './coverage.js'
+import { JOURNEY_HEADER, journeyId } from './journey.js'
 
 export { expect }
 export { SEED_USER_EMAIL, OTHER_USER_EMAIL, INTERRUPTED_USER_EMAIL, STOCK_USER_EMAIL } from './session.js'
 export type { Session, SeededUser } from './session.js'
 export { e2eNow, parisDay, parisTime } from './clock.js'
 export { seedId, seedAnchorDate, seedDate, seedManifest } from './manifest.js'
+export { JOURNEY_HEADER, journeyHeaders } from './journey.js'
 
 /**
  * One login per account per worker.
@@ -70,6 +73,13 @@ export interface OtherUser {
 }
 
 export interface MaggieFixtures {
+  /**
+   * This spec's journey id, its path in the repository (`e2e/web/tests/chat.spec.ts`).
+   * Every context and API client of the fixtures sends it as `X-E2E-Journey`.
+   */
+  journey: string
+  /** The admin's JS coverage of this test — a no-op unless `E2E_COVERAGE=1` (see `coverage.ts`). */
+  adminCoverage: AdminCoverage
   /** The signed-in seeded user — `session.user.id` is what Mercure topics are scoped to. */
   session: Session
   /** An API client carrying that user's JWT, for setting a test up or asserting on the database. */
@@ -147,12 +157,17 @@ export interface MaggieFixtures {
  * fatal for the Mercure stream, which never ends — every real-time assertion
  * in the suite went silent the first time this was written the easy way.
  */
-async function isolateFromInternet(context: BrowserContext, baseURL: string): Promise<void> {
+async function isolateFromInternet(context: BrowserContext, baseURL: string, journey: string): Promise<void> {
   const host = new URL(baseURL).host.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const external = new RegExp(`^https?://(?!${host}(?:[/?#]|$))`)
 
   await context.route(external, (route) => route.abort())
   await pinClock(context)
+  // The journey identity, on every request the context's pages make: the
+  // admin's `fetch` to the API and to the agent, and the Mercure EventSource —
+  // set at the network layer, so the app's own code needs no change. Also why
+  // it is here: every context of the fixtures goes through this function.
+  await context.setExtraHTTPHeaders({ [JOURNEY_HEADER]: journey })
 }
 
 /** What a second account's fixture needs from Playwright. */
@@ -161,11 +176,13 @@ interface UserDeps {
   browser: Browser
   baseURL: string | undefined
   contextOptions: BrowserContextOptions
+  journey: string
+  adminCoverage: AdminCoverage
 }
 
 async function useSignedInUser(
   email: string,
-  { playwright, browser, baseURL, contextOptions }: UserDeps,
+  { playwright, browser, baseURL, contextOptions, journey, adminCoverage }: UserDeps,
   use: (user: OtherUser) => Promise<void>,
 ): Promise<void> {
   const url = requireBaseURL(baseURL)
@@ -179,18 +196,25 @@ async function useSignedInUser(
       ...contextOptions,
       storageState: storageStateOf(url, session),
     })
-    await isolateFromInternet(context, url)
+    await isolateFromInternet(context, url, journey)
 
     return context
   }
+  const watchedPage = async (context: BrowserContext): Promise<Page> => {
+    const page = await context.newPage()
+    await adminCoverage.watch(page)
+
+    return page
+  }
 
   const context = await signedIn()
-  const page = await context.newPage()
+  const page = await watchedPage(context)
   const api = await playwright.request.newContext({
     baseURL,
     extraHTTPHeaders: {
       Authorization: `Bearer ${session.token}`,
       Accept: 'application/ld+json',
+      [JOURNEY_HEADER]: journey,
     },
   })
 
@@ -203,7 +227,7 @@ async function useSignedInUser(
     if (0 === windows.length) {
       const second = await signedIn()
       extra.push(second)
-      windows.push(await second.newPage())
+      windows.push(await watchedPage(second))
     }
 
     return windows[0]
@@ -212,11 +236,21 @@ async function useSignedInUser(
   await use({ session, context, page, api, secondWindow })
 
   await api.dispose()
-  await Promise.all(extra.map((spare) => spare.close()))
-  await context.close()
+  await Promise.all(extra.map((spare) => adminCoverage.closeContext(spare)))
+  await adminCoverage.closeContext(context)
 }
 
 export const test = base.extend<MaggieFixtures>({
+  journey: async ({}, use, testInfo) => {
+    await use(journeyId(testInfo))
+  },
+
+  adminCoverage: async ({}, use, testInfo) => {
+    const coverage = new AdminCoverage()
+    await use(coverage)
+    await coverage.write(testInfo)
+  },
+
   // Overrides Playwright's own option: every test starts signed in. A test that
   // wants the login page uses the `anonymousPage` fixture instead.
   storageState: async ({ baseURL }, use) => {
@@ -224,57 +258,69 @@ export const test = base.extend<MaggieFixtures>({
     await use(storageStateOf(requireBaseURL(baseURL), session))
   },
 
-  context: async ({ context, baseURL }, use) => {
-    await isolateFromInternet(context, requireBaseURL(baseURL))
+  context: async ({ context, baseURL, journey }, use) => {
+    await isolateFromInternet(context, requireBaseURL(baseURL), journey)
     await use(context)
+  },
+
+  // Playwright's own page, recorded from before its first navigation, and read
+  // before Playwright closes it.
+  page: async ({ page, adminCoverage }, use) => {
+    await adminCoverage.watch(page)
+    await use(page)
+    await adminCoverage.collect(page)
   },
 
   session: async ({ baseURL }, use) => {
     await use(await sessionFor(requireBaseURL(baseURL), SEED_USER_EMAIL))
   },
 
-  api: async ({ playwright, baseURL, session }, use) => {
+  api: async ({ playwright, baseURL, session, journey }, use) => {
     const context = await playwright.request.newContext({
       baseURL,
       extraHTTPHeaders: {
         Authorization: `Bearer ${session.token}`,
         Accept: 'application/ld+json',
+        [JOURNEY_HEADER]: journey,
       },
     })
     await use(context)
     await context.dispose()
   },
 
-  otherUser: async ({ playwright, browser, baseURL, contextOptions }, use) => {
-    await useSignedInUser(OTHER_USER_EMAIL, { playwright, browser, baseURL, contextOptions }, use)
+  otherUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+    await useSignedInUser(OTHER_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
   },
 
-  interruptedUser: async ({ playwright, browser, baseURL, contextOptions }, use) => {
-    await useSignedInUser(INTERRUPTED_USER_EMAIL, { playwright, browser, baseURL, contextOptions }, use)
+  interruptedUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+    await useSignedInUser(INTERRUPTED_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
   },
 
-  stockUser: async ({ playwright, browser, baseURL, contextOptions }, use) => {
-    await useSignedInUser(STOCK_USER_EMAIL, { playwright, browser, baseURL, contextOptions }, use)
+  stockUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+    await useSignedInUser(STOCK_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
   },
 
-  twoWindows: async ({ browser, baseURL, contextOptions, page }, use) => {
+  twoWindows: async ({ browser, baseURL, contextOptions, page, journey, adminCoverage }, use) => {
     const second = await browser.newContext(contextOptions)
-    await isolateFromInternet(second, requireBaseURL(baseURL))
+    await isolateFromInternet(second, requireBaseURL(baseURL), journey)
 
     const observer = await second.newPage()
+    await adminCoverage.watch(observer)
     await use({ actor: page, observer })
 
-    await second.close()
+    await adminCoverage.closeContext(second)
   },
 
-  anonymousPage: async ({ browser, baseURL, contextOptions }, use) => {
+  anonymousPage: async ({ browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
     const context = await browser.newContext({ ...contextOptions, storageState: undefined })
-    await isolateFromInternet(context, requireBaseURL(baseURL))
-    await use(await context.newPage())
-    await context.close()
+    await isolateFromInternet(context, requireBaseURL(baseURL), journey)
+    const page = await context.newPage()
+    await adminCoverage.watch(page)
+    await use(page)
+    await adminCoverage.closeContext(context)
   },
 
-  pageWithToken: async ({ browser, baseURL, session, contextOptions }, use) => {
+  pageWithToken: async ({ browser, baseURL, session, contextOptions, journey, adminCoverage }, use) => {
     const url = requireBaseURL(baseURL)
     const contexts: BrowserContext[] = []
 
@@ -296,16 +342,18 @@ export const test = base.extend<MaggieFixtures>({
           ],
         },
       })
-      await isolateFromInternet(context, url)
+      await isolateFromInternet(context, url, journey)
       contexts.push(context)
+      const page = await context.newPage()
+      await adminCoverage.watch(page)
 
-      return context.newPage()
+      return page
     })
 
-    await Promise.all(contexts.map((context) => context.close()))
+    await Promise.all(contexts.map((context) => adminCoverage.closeContext(context)))
   },
 
-  pageWithOwnSession: async ({ browser, baseURL, contextOptions }, use) => {
+  pageWithOwnSession: async ({ browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
     const url = requireBaseURL(baseURL)
     const contexts: BrowserContext[] = []
 
@@ -319,13 +367,15 @@ export const test = base.extend<MaggieFixtures>({
       }
 
       const context = await browser.newContext({ ...contextOptions, storageState: state })
-      await isolateFromInternet(context, url)
+      await isolateFromInternet(context, url, journey)
       contexts.push(context)
+      const page = await context.newPage()
+      await adminCoverage.watch(page)
 
-      return { page: await context.newPage(), session: own }
+      return { page, session: own }
     })
 
-    await Promise.all(contexts.map((context) => context.close()))
+    await Promise.all(contexts.map((context) => adminCoverage.closeContext(context)))
   },
 })
 

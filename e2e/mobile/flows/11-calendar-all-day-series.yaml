@@ -18,6 +18,8 @@ tags:
     clearState: true
     permissions:
       all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/11-calendar-all-day-series.yaml
 
 - runFlow: ../subflows/sign-in.yaml
 

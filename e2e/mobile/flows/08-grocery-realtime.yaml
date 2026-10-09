@@ -26,6 +26,7 @@ tags:
     permissions:
       all: allow
     arguments:
+      e2e_journey: e2e/mobile/flows/08-grocery-realtime.yaml
       e2e_email: e2e-other@maggie.local
 
 - runFlow: ../subflows/sign-in.yaml

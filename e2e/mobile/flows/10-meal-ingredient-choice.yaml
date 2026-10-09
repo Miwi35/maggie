@@ -24,6 +24,8 @@ tags:
     clearState: true
     permissions:
       all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/10-meal-ingredient-choice.yaml
 
 - runFlow: ../subflows/sign-in.yaml
 
