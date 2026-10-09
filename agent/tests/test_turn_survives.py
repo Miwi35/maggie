@@ -78,10 +78,12 @@ class RecordingGateway:
     def __init__(self):
         self.asked: list[str] = []
         self.screens: list[str | None] = []
+        self.images: list = []
 
-    async def chat_stream(self, message, user_id, user_msg_id, screen_context=None, **_kwargs):
+    async def chat_stream(self, message, user_id, user_msg_id, screen_context=None, image=None, **_kwargs):
         self.asked.append(message)
         self.screens.append(screen_context)
+        self.images.append(image)
         yield {"type": "RUN_STARTED", "runId": "run-1"}
         await message_repo.create(
             user_id=user_id, role="assistant", content="C'est fait.", message_id=answer_message_id(user_msg_id)
@@ -169,6 +171,28 @@ class TestAnAgentThatRestarts:
 
         assert gateway.screens == ["[Contexte de l'écran]\nPage : https://exemple.fr"]
         assert (await message_repo.get(lost.id)).turn_screen_context is None
+
+    @pytest.mark.asyncio
+    async def test_the_screenshot_reaches_the_model_and_a_resumed_turn_has_none(self, chat_db):
+        """The picture lives in the running turn only (MAG-214): the process that held it took it along."""
+        from app.llm.image import ChatImage
+
+        image = ChatImage(media_type="image/jpeg", data="/9j/AAAA")
+        asked = await message_repo.create(
+            user_id="user-1", role="user", content="c'est quoi ?", turn_lease_until=lease_deadline(), has_image=True
+        )
+        gateway = RecordingGateway()
+        runner = TurnRunner()
+
+        runner.start(gateway, user_id="user-1", message_id=asked.id, message="c'est quoi ?", image=image, follow=False)
+        await runner.idle()
+        lost = await orphan(chat_db, content="et ça ?", age=timedelta(minutes=1))
+        await runner.resume_lost_turns(gateway)
+        await runner.idle()
+
+        assert gateway.images == [image, None]
+        assert gateway.asked[-1] == "et ça ?"
+        assert lost.has_image is False
 
 
 class TestTheHistoryDoesNotReplayAnOrphan:

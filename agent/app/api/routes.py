@@ -178,7 +178,10 @@ async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_u
                 raise
         else:
             events = turn_runner.start(
-                streaming_gateway, user_id=user_id, message_id=user_msg.id, message=said,
+                streaming_gateway,
+                user_id=user_id,
+                message_id=user_msg.id,
+                message=said,
                 screen_context=screen,
                 image=request.image,
             )
