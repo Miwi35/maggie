@@ -11,8 +11,10 @@ import io.ktor.client.request.header
 import io.ktor.http.URLBuilder
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.isActive
 import okhttp3.Dispatcher
 import java.util.concurrent.TimeUnit
@@ -23,6 +25,12 @@ data class MercureEvent(
     val type: String? = null,
     val data: String = "",
 )
+
+const val MERCURE_BURST_WINDOW_MS = 500L
+
+/** Updates arriving together (one change announced on several topics, a sync's rows) count as one. */
+@OptIn(FlowPreview::class)
+fun Flow<MercureEvent>.coalesced(): Flow<MercureEvent> = debounce(MERCURE_BURST_WINDOW_MS)
 
 class MercureService(
     private val authRepository: AuthRepository,

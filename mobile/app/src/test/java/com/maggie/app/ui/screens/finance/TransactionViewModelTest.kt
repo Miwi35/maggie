@@ -22,6 +22,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -417,5 +418,21 @@ class TransactionViewModelTest {
         assertTrue(viewModel.uiState.value.transactions.first { it.id == "tx-1" }.isInternalTransfer)
         assertTrue(viewModel.uiState.value.detail!!.transaction.isInternalTransfer)
         assertEquals("Courant", viewModel.uiState.value.detail!!.info!!.counterpart!!.accountName)
+    }
+
+    @Test
+    fun `a burst of Mercure updates on transactions reloads the list once`() = runTest {
+        val events = MutableSharedFlow<MercureEvent>()
+        every { mercureService.subscribe(MercureTopics.userScoped("user-1", MercureTopics.TRANSACTIONS)) } returns events
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        repeat(10) {
+            events.emit(MercureEvent(data = "{}"))
+            advanceTimeBy(20)
+        }
+        advanceTimeBy(10_000)
+
+        coVerify(exactly = 2) { transactionRepository.getTransactions(accountId) }
     }
 }

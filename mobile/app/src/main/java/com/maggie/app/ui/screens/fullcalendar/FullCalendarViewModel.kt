@@ -7,6 +7,7 @@ import com.maggie.app.data.api.GoogleCalendarImportRequest
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
+import com.maggie.app.data.mercure.coalesced
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.ExpandedEvent
@@ -19,10 +20,8 @@ import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.util.DateRanges
 import com.maggie.app.util.EventExpander
+import com.maggie.app.util.SingleFlight
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
@@ -31,6 +30,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.Instant
@@ -67,7 +67,7 @@ class FullCalendarViewModel(
 
     private var allEvents: List<Event> = emptyList()
     private var agendaMap: Map<String, Agenda> = emptyMap()
-    private var delayedRefreshes: Job? = null
+    private val loader = SingleFlight(viewModelScope) { load() }
 
     // Saved preferences only seed the initial state (MAG-120): once the user has picked a view or
     // toggled an agenda, or the seed was applied, they are not consulted again.
@@ -181,41 +181,43 @@ class FullCalendarViewModel(
         expandForCurrentRange()
     }
 
-    fun refresh() {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            try {
-                val agendas = agendaRepository.refreshAgendas().getOrThrow()
-                agendaMap = agendas.associateBy { it.id }
+    fun refresh() = loader.run()
 
-                val rangeEvents = eventRepository.refreshEvents().getOrThrow()
-                val range = getVisibleRange()
-                val recurringEvents = eventRepository.getRecurringBefore(range.start.toString())
+    private suspend fun load() {
+        _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+        try {
+            val agendas = agendaRepository.refreshAgendas().getOrThrow()
+            agendaMap = agendas.associateBy { it.id }
 
-                val seen = mutableSetOf<String>()
-                allEvents = (rangeEvents + recurringEvents).filter { seen.add(it.id) }
+            val rangeEvents = eventRepository.refreshEvents().getOrThrow()
+            val range = getVisibleRange()
+            val recurringEvents = eventRepository.getRecurringBefore(range.start.toString())
 
-                taskRepository.refreshTasks()
-                val tasks = taskRepository.getUndoneTasks()
+            val seen = mutableSetOf<String>()
+            allEvents = (rangeEvents + recurringEvents).filter { seen.add(it.id) }
 
-                // Auto-enable new agendas
-                val previousEnabled = _uiState.value.enabledAgendas
-                val allIds = agendas.map { it.id }.toSet()
-                val enabledAgendas = if (previousEnabled.isEmpty()) allIds
-                else previousEnabled + (allIds - previousEnabled)
+            taskRepository.refreshTasks()
+            val tasks = taskRepository.getUndoneTasks()
 
-                _uiState.value = _uiState.value.copy(
-                    agendas = agendas,
-                    enabledAgendas = enabledAgendas,
-                    tasks = tasks,
-                    isLoading = false,
-                )
-                agendasLoaded = true
-                applyAgendaPreference()
-                expandForCurrentRange()
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)
-            }
+            // Auto-enable new agendas
+            val previousEnabled = _uiState.value.enabledAgendas
+            val allIds = agendas.map { it.id }.toSet()
+            val enabledAgendas = if (previousEnabled.isEmpty()) allIds
+            else previousEnabled + (allIds - previousEnabled)
+
+            _uiState.value = _uiState.value.copy(
+                agendas = agendas,
+                enabledAgendas = enabledAgendas,
+                tasks = tasks,
+                isLoading = false,
+            )
+            agendasLoaded = true
+            applyAgendaPreference()
+            expandForCurrentRange()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)
         }
     }
 
@@ -305,7 +307,8 @@ class FullCalendarViewModel(
     }
 
     // Subscribed once the user is known, and again on each login: the ViewModel is built before
-    // the login screen has run, so the user id is not there yet at init.
+    // the login screen has run, so the user id is not there yet at init. One change is announced
+    // on several topics and a sync announces many rows: the burst reloads the screen once.
     private fun subscribeToMercure() {
         viewModelScope.launch {
             authRepository.token
@@ -314,33 +317,15 @@ class FullCalendarViewModel(
                 .collectLatest { authenticated ->
                     if (!authenticated) return@collectLatest
                     val userId = authRepository.getUserId() ?: return@collectLatest
-                    coroutineScope {
-                        listOf(MercureTopics.EVENTS, MercureTopics.TASKS, MercureTopics.AGENDAS).forEach { topic ->
-                            launch {
-                                mercureService.subscribe(MercureTopics.userScoped(userId, topic))
-                                    .catch { /* SSE reconnects automatically */ }
-                                    .collect { onMercureUpdate() }
-                            }
-                        }
-                    }
+                    merge(
+                        *listOf(MercureTopics.EVENTS, MercureTopics.TASKS, MercureTopics.AGENDAS).map { topic ->
+                            mercureService.subscribe(MercureTopics.userScoped(userId, topic))
+                                .catch { /* SSE reconnects automatically */ }
+                        }.toTypedArray(),
+                    )
+                        .coalesced()
+                        .collect { refresh() }
                 }
         }
-    }
-
-    // The update is published before the worker has indexed the row, and the lists are served from
-    // Elasticsearch: the first refetch can miss the change, so two more follow (same as the admin).
-    private fun onMercureUpdate() {
-        refresh()
-        delayedRefreshes?.cancel()
-        delayedRefreshes = viewModelScope.launch {
-            MERCURE_REFETCH_DELAYS_MS.forEach { delayMs ->
-                delay(delayMs)
-                refresh()
-            }
-        }
-    }
-
-    private companion object {
-        val MERCURE_REFETCH_DELAYS_MS = listOf(1_500L, 5_000L)
     }
 }
