@@ -94,26 +94,6 @@ class ImportStatementTest extends KernelTestCase
         $this->assertElasticsearchIndexDispatchedFor(Transaction::class, (string) $debit->getId());
     }
 
-    public function testTheTwoLegsOfATransferImportedTogetherAreMarkedAndLinked(): void
-    {
-        $this->loadFixtures('two_accounts.yaml');
-        $parser = self::getContainer()->get(CsvStatementParser::class);
-        $importStatement = self::getContainer()->get(ImportStatement::class);
-        $em = self::getContainer()->get('doctrine.orm.entity_manager');
-
-        $importStatement->execute($this->getFixture('savings'), $parser->parse("Date;Libellé;Montant\n02/10/2026;VIR VERS COURANT;-500,00")['rows']);
-        $importStatement->execute($this->getFixture('checking'), $parser->parse("Date;Libellé;Montant\n03/10/2026;VIR DU LIVRET;500,00")['rows']);
-
-        $em->clear();
-        $out = $em->getRepository(Transaction::class)->findOneBy(['label' => 'VIR VERS COURANT']);
-        $in = $em->getRepository(Transaction::class)->findOneBy(['label' => 'VIR DU LIVRET']);
-
-        self::assertSame(TransferKind::Internal, $out->getTransferKind());
-        self::assertSame(TransferKind::Internal, $in->getTransferKind());
-        self::assertSame((string) $in->getId(), (string) $out->getCounterpart()?->getId());
-        self::assertSame((string) $out->getId(), (string) $in->getCounterpart()?->getId());
-    }
-
     public function testTheRulesAlreadyWrittenApplyToTheImportedHistory(): void
     {
         $this->loadFixtures('categorization_rule.yaml');

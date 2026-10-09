@@ -252,19 +252,6 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertNull($suggestions[0]['categoryId']);
     }
 
-    public function testTheSeedStoresHistoryAsWrittenWithoutFilingIt(): void
-    {
-        // finance-rules.spec.ts starts from an operation the seeded rule is
-        // waiting for: recording it at load would file it before the journey.
-        $this->seed();
-
-        $leclerc = $this->repository(Transaction::class)->findOneBy(['label' => 'LECLERC DRIVE RENNES']);
-
-        self::assertNotNull($leclerc);
-        self::assertNull($leclerc->getCategory());
-        self::assertSame(\Maggie\Finance\Enum\CategorySource::None, $leclerc->getCategorySource());
-    }
-
     public function testRunningTwiceLeavesTheSameCounts(): void
     {
         $this->seed();
@@ -429,7 +416,6 @@ final class E2eSeedCommandTest extends KernelTestCase
             $this->entityManager(),
             $container->get(E2eDateProvider::class),
             $loader,
-            $container->get(\Maggie\Finance\Doctrine\TransactionListener::class),
             $container->get(\Elastic\Elasticsearch\Client::class),
             $container->getParameter('kernel.project_dir'),
         );

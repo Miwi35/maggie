@@ -10,7 +10,6 @@ use Elastic\Elasticsearch\Client as ElasticsearchClient;
 use Fidry\AliceDataFixtures\LoaderInterface;
 use Fidry\AliceDataFixtures\Persistence\PurgeMode;
 use Maggie\Core\E2e\Fixture\E2eDateProvider;
-use Maggie\Finance\Doctrine\TransactionListener;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\ArrayInput;
@@ -45,7 +44,6 @@ final class E2eSeedCommand extends Command
         private readonly E2eDateProvider $dateProvider,
         #[Autowire(service: 'fidry_alice_data_fixtures.loader.doctrine')]
         private readonly LoaderInterface $fixtureLoader,
-        private readonly TransactionListener $transactionEffects,
         private readonly ElasticsearchClient $elasticsearch,
         private readonly string $projectDir,
     ) {
@@ -98,14 +96,12 @@ final class E2eSeedCommand extends Command
         $truncated = $this->truncateEverything();
         $io->text(sprintf('Truncated <info>%d</info> tables.', $truncated));
 
-        // The fixtures are history, exactly as written: a journey starts from an
-        // operation nothing has filed, which the categorisation would file at load.
-        $objects = $this->transactionEffects->withoutEffects(fn () => $this->fixtureLoader->load(
+        $objects = $this->fixtureLoader->load(
             $this->fixtureFiles(),
             [],
             [],
             PurgeMode::createNoPurgeMode(),
-        ));
+        );
 
         $io->text(sprintf('Loaded <info>%d</info> objects.', \count($objects)));
 

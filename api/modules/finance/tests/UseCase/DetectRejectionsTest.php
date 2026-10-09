@@ -76,7 +76,7 @@ class DetectRejectionsTest extends KernelTestCase
         $transaction->setStatus($status);
 
         $this->em->persist($transaction);
-        $this->flushWithoutTransactionEffects($this->em);
+        $this->em->flush();
 
         return $transaction;
     }

@@ -33,6 +33,7 @@ class ImportStatement
         private readonly CategorizeTransaction $categorizeTransaction,
         private readonly EntityManagerInterface $em,
         private readonly EntityBroadcaster $broadcaster,
+        private readonly DetectRejections $detectRejections,
     ) {
     }
 
@@ -111,11 +112,8 @@ class ImportStatement
             $transaction->setExternalId($row->externalId);
             $transaction->setCounterpartyName($row->counterpartyName ?? MerchantExtractor::extract($row->label));
 
-            // The rules the user already wrote apply to the history too. The
-            // category itself is filed once the line is stored
-            // (TransactionRecorded); the rehearsal only has to announce it.
-            $rule = $this->categorizeTransaction->match($transaction);
-            if (null !== $rule) {
+            // The rules the user already wrote apply to the history too.
+            if ($this->categorizeTransaction->apply($transaction)) {
                 ++$categorized;
             }
 
@@ -127,7 +125,7 @@ class ImportStatement
             ++$imported;
             $totalCents += $row->amountCents;
             $dates[] = $row->bookedAt;
-            $report[] = $this->describe($row, false, $rule?->getCategory()->getName());
+            $report[] = $this->describe($row, false, $transaction->getCategory()?->getName());
         }
 
         if (!$dryRun && $imported > 0) {
@@ -143,6 +141,16 @@ class ImportStatement
         }
 
         sort($dates);
+
+        // A rejection arrives through the bank like any line: pair it with
+        // the payment it gives back now, before any figure counts both. Only
+        // the credits just written are looked at; their debit may be older.
+        if (!$dryRun && [] !== $dates) {
+            $this->detectRejections->execute(
+                $user,
+                (int) $dates[0]->setTime(0, 0)->diff(new \DateTimeImmutable('today'))->days,
+            );
+        }
 
         return [
             'imported' => $imported,
