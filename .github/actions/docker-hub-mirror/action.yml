@@ -1,0 +1,24 @@
+name: Docker Hub through Google's mirror
+description: >-
+  Pull Docker Hub images through mirror.gcr.io, Google's public cache of Docker
+  Hub. GitHub's runners share their IP addresses, and Docker Hub's anonymous pull
+  limit stopped every e2e job and image build on 9 Oct. 2026 (toomanyrequests).
+  The mirror keeps the image names unchanged; the daemon falls back to Docker Hub
+  for what the mirror does not hold. Idempotent: a second call in a job is free.
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -euo pipefail
+        conf=/etc/docker/daemon.json
+        if [ -f "$conf" ] && grep -q 'mirror.gcr.io' "$conf"; then
+          echo "Docker Hub mirror already set"
+          exit 0
+        fi
+        current='{}'
+        [ -s "$conf" ] && current="$(sudo cat "$conf")"
+        jq '. + {"registry-mirrors": ["https://mirror.gcr.io"]}' <<<"$current" | sudo tee "$conf" >/dev/null
+        sudo systemctl restart docker
+        for _ in $(seq 1 30); do docker info >/dev/null 2>&1 && break; sleep 1; done
+        docker info --format '{{.RegistryConfig.Mirrors}}'

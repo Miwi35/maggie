@@ -197,6 +197,8 @@ jobs:
         with:
           ref: ${{ env.RELEASE_SHA }}
 
+      - uses: ./.github/actions/docker-hub-mirror
+
       - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -204,6 +206,14 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: docker/setup-buildx-action@v3
+
+        with:
+
+          buildkitd-config-inline: |
+
+            [registry."docker.io"]
+
+              mirrors = ["mirror.gcr.io"]
 
       - id: build
         uses: docker/build-push-action@v6
@@ -239,6 +249,8 @@ jobs:
         with:
           ref: ${{ env.RELEASE_SHA }}
 
+      - uses: ./.github/actions/docker-hub-mirror
+
       - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -246,6 +258,14 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: docker/setup-buildx-action@v3
+
+        with:
+
+          buildkitd-config-inline: |
+
+            [registry."docker.io"]
+
+              mirrors = ["mirror.gcr.io"]
 
       - id: build
         uses: docker/build-push-action@v6
@@ -282,6 +302,8 @@ jobs:
           ref: ${{ env.RELEASE_SHA }}
           lfs: true
 
+      - uses: ./.github/actions/docker-hub-mirror
+
       - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -289,6 +311,14 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: docker/setup-buildx-action@v3
+
+        with:
+
+          buildkitd-config-inline: |
+
+            [registry."docker.io"]
+
+              mirrors = ["mirror.gcr.io"]
 
       - id: build
         uses: docker/build-push-action@v6
@@ -321,6 +351,8 @@ jobs:
         with:
           ref: ${{ env.RELEASE_SHA }}
 
+      - uses: ./.github/actions/docker-hub-mirror
+
       - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -328,6 +360,14 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: docker/setup-buildx-action@v3
+
+        with:
+
+          buildkitd-config-inline: |
+
+            [registry."docker.io"]
+
+              mirrors = ["mirror.gcr.io"]
 
       - id: build
         uses: docker/build-push-action@v6

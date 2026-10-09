@@ -149,6 +149,9 @@ jobs:
           version: 3.x
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - uses: ./.github/actions/docker-hub-mirror
+        if: steps.key.outputs.skip == 'false'
+
       - name: Start the stack
         if: steps.key.outputs.skip == 'false'
         run: task e2e:up
