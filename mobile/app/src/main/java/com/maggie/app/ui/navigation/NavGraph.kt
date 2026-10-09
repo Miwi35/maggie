@@ -1315,6 +1315,7 @@ fun NavGraph() {
             onCancelDelete = contextViewModel::cancelDeletionRequest,
             onUndoDelete = contextViewModel::undoDeletion,
             onDeleteFailedShown = contextViewModel::consumeDeleteFailed,
+            onOpened = contextViewModel::refresh,
         )
     }
 

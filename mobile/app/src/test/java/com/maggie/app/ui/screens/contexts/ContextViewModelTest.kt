@@ -108,6 +108,25 @@ class ContextViewModelTest {
     }
 
     @Test
+    fun `refresh brings the counts of a thread opened after the first load`() = runTest {
+        coEvery { contextRepository.getContexts() } returns Result.success(sampleContexts)
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.handleStreamUpdate(Context(id = "ctx-new", label = "Nouveau contexte", status = "active"))
+        assertEquals(0, viewModel.uiState.value.contexts.first().messageCount)
+
+        coEvery { contextRepository.getContexts() } returns Result.success(
+            listOf(Context(id = "ctx-new", label = "Nouveau contexte", status = "active", messageCount = 4)) + sampleContexts,
+        )
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(4, state.contexts.first { it.id == "ctx-new" }.messageCount)
+        assertFalse(state.isLoading)
+    }
+
+    @Test
     fun `handleStreamUpdate replaces existing context`() = runTest {
         coEvery { contextRepository.getContexts() } returns Result.success(sampleContexts)
         viewModel = createViewModel()

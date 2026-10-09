@@ -82,7 +82,8 @@ class ContextViewModel(
 
     fun refresh() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            // Reopened with a list already shown: it stays, the counts are refreshed under it.
+            _uiState.value = _uiState.value.copy(isLoading = _uiState.value.contexts.isEmpty(), error = null)
             try {
                 val contexts = contextRepository.getContexts().getOrThrow()
                 // A thread deleted on screen but not yet sent to the server is still in

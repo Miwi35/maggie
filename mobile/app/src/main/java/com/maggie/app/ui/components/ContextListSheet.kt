@@ -64,8 +64,12 @@ fun ContextListSheet(
     onCancelDelete: () -> Unit = {},
     onUndoDelete: () -> Unit = {},
     onDeleteFailedShown: () -> Unit = {},
+    onOpened: () -> Unit = {},
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // The counts a deletion's confirmation quotes: a thread opened since the list was loaded has none yet.
+    LaunchedEffect(Unit) { onOpened() }
 
     // The ViewModel owns the undo window and clears `undoableDeletion` when it closes, which
     // ends this effect and dismisses the snackbar with it.
