@@ -125,19 +125,6 @@ class AddGroceryItemHandler
             $list->setUpdatedAt(new \DateTimeImmutable());
             $this->em->flush();
 
-            if ($productUpdated) {
-                $this->bus->dispatch(new IndexDocumentCommand(
-                    entityClass: Product::class,
-                    entityId: (string) $matched->getId(),
-                ));
-            }
-            if (null !== $newStore) {
-                $this->bus->dispatch(new IndexDocumentCommand(
-                    entityClass: Store::class,
-                    entityId: (string) $newStore->getId(),
-                ));
-            }
-
             return $list;
         }
 
