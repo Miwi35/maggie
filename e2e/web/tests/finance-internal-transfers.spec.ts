@@ -5,8 +5,8 @@ import { expectRealtimeSync, openSubscribed } from '../helpers/mercure.js'
 import { FinanceTransfersPage } from '../pages/FinanceTransfersPage.js'
 
 /**
- * Internal transfers: seen, paired and corrected from the admin (MAG-272, on
- * MAG-102's journey).
+ * Internal transfers and rejected payments: seen, paired and corrected from
+ * the admin (MAG-272 and MAG-350, on MAG-102's journey).
  *
  * Written as the **neighbour**, for the reason `finance-accounts.spec.ts` gives:
  * the owner's balances and train de vie are asserted by other files, and two
@@ -104,6 +104,10 @@ async function lifestyleCents(api: APIRequestContext): Promise<number> {
  * Deleting an account takes its transactions with it.
  */
 const createdAccountIds: string[] = []
+
+// One after the other: both journeys read the neighbour's train de vie, and
+// each one's lines would move the figure the other compares with itself.
+test.describe.configure({ mode: 'serial' })
 
 test.afterEach(async ({ otherUser }) => {
   for (const id of createdAccountIds.splice(0)) {
@@ -229,4 +233,60 @@ test('a detected transfer wears its badge and its counterpart, and the owner can
   await transfers.detect.click()
   await expect(transfers.preview).toBeVisible()
   await expect(transfers.preview).not.toContainText(credit)
+})
+
+/**
+ * A rejected payment (MAG-350): the debit and the REJET credit that gives it
+ * back, on the same account. The lines are created through the API rather
+ * than through the mocked bank, whose fixture every journey shares; the
+ * import's call to the same detection is covered by `ImportStatementTest`.
+ */
+test('a rejected direct debit and its REJET credit read as such and leave the spending', async ({ otherUser }) => {
+  const { api, page } = otherUser
+  const attempt = test.info().retry
+  const accountName = `Courant MAG-350, essai ${attempt}`
+  const debit = `PRELEVEMENT ELECTRICITE DE FRANCE MAG-350 ESSAI ${attempt}`
+  const credit = `REJET PRLV ELECTRICITE DE FRANCE MAG-350 ESSAI ${attempt}`
+
+  const before = await lifestyleCents(api)
+
+  const accountId = await createAccount(api, accountName, 'checking')
+  createdAccountIds.push(accountId)
+  // Created spent, the credit is paired as it lands: what a sync does.
+  await createTransaction(api, accountId, debit, -20_600, lastMonthDay(5))
+  await createTransaction(api, accountId, credit, 20_600, lastMonthDay(6))
+
+  for (const label of [debit, credit]) {
+    await waitForIndexed<StoredTransaction>(
+      api,
+      '/api/transactions?itemsPerPage=100',
+      (candidate) => candidate.label === label && candidate.transferKind === 'rejected',
+      { what: `The line "${label}", recognised as a rejection` },
+    )
+  }
+
+  // The 206,00 € never left: the train de vie does not count it.
+  expect(await lifestyleCents(api)).toBe(before)
+
+  const account = new FinanceTransfersPage(page)
+  await account.openTransactions(accountId)
+  // Each line names the other one, so a row is told apart by its own sentence.
+  const debitRow = account.row(debit).filter({ hasText: 'Rendu par' })
+  const creditRow = account.row(credit).filter({ hasText: 'Rejet de' })
+  await expect(debitRow.getByText('Rejeté', { exact: true })).toBeVisible()
+  await expect(creditRow).toContainText(`Rejet de : ${accountName}`)
+  await expect(creditRow).toContainText(debit)
+
+  // The owner disagrees: both lines go back to ordinary ones.
+  await creditRow.getByRole('link', { name: 'Éditer' }).click()
+  await account.content.getByRole('button', { name: 'Ce n’est pas un rejet' }).click()
+  await expect(account.content.getByRole('button', { name: 'C’est un rejet' })).toBeVisible()
+  for (const label of [debit, credit]) {
+    await waitForIndexed<StoredTransaction>(
+      api,
+      '/api/transactions?itemsPerPage=100',
+      (candidate) => candidate.label === label && candidate.transferKind === 'none',
+      { what: `The line "${label}", once released` },
+    )
+  }
 })

@@ -168,7 +168,7 @@ fun TransactionListScreen(
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
-                                    if (transaction.isInternalTransfer) TransferBadge()
+                                    TransferBadge(transaction)
                                 }
                                 Text(
                                     text = formatCents(transaction.amountCents, transaction.currency),

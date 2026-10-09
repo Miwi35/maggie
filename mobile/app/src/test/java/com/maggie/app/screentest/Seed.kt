@@ -175,6 +175,37 @@ object Seed {
     val groceries = Transaction(id = "tx-groceries", label = "Supermarché", amountCents = -8000, bookedAt = "2026-09-14")
 
     // ---------------------------------------------------------------------
+    // A direct debit the bank rejected, and the credit that gave it back (MAG-350)
+    // ---------------------------------------------------------------------
+
+    /** The rejected debit: « Rejeté ». */
+    val rejectedDebit = Transaction(
+        id = "tx-edf",
+        label = "PRELEVEMENT EDF",
+        amountCents = -6240,
+        bookedAt = "2026-09-15",
+        transferKind = "rejected",
+    )
+
+    /** The credit on the same account that gave it back: « Rejet » in the list, « Rejet de PRELEVEMENT EDF » on the detail. */
+    val rejectedCredit = Transaction(
+        id = "tx-rej",
+        label = "REJET PRLV SEPA",
+        amountCents = 6240,
+        bookedAt = "2026-09-17",
+        transferKind = "rejected",
+    )
+
+    fun legOf(line: Transaction) = TransferLeg(
+        id = line.id,
+        label = line.label,
+        amountCents = line.amountCents,
+        bookedAt = line.bookedAt,
+        accountId = "acc-savings",
+        accountName = "Livret",
+    )
+
+    // ---------------------------------------------------------------------
     // The conversation the chat surfaces draw (MAG-35)
     // ---------------------------------------------------------------------
 

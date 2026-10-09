@@ -309,4 +309,69 @@ class TransactionTransferControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame([], $data['candidates']);
     }
+
+    public function testAnUnknownCandidateKindReturns400(): void
+    {
+        $this->login();
+
+        foreach (['sideways', 'none'] as $kind) {
+            $this->call('GET', '/api/finance/transactions/'.$this->id('transfer_out').'/transfer-candidates?kind='.$kind);
+            self::assertResponseStatusCodeSame(400, $kind);
+        }
+    }
+
+    public function testTheCandidatesOfARejectionAreOnTheSameAccount(): void
+    {
+        $this->login();
+
+        $data = $this->call('GET', '/api/finance/transactions/'.$this->id('transfer_out').'/transfer-candidates?kind=rejected');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([$this->id('same_account')], array_column($data['candidates'], 'id'));
+    }
+
+    public function testMarkingARejectionByHandPairsBothLegsOnTheSameAccount(): void
+    {
+        $this->login();
+
+        $data = $this->mark('transfer_out', ['transferKind' => 'rejected', 'counterpartId' => $this->id('same_account')]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('rejected', $data['transferKind']);
+        self::assertSame($this->id('same_account'), $data['counterpart']['id']);
+
+        $debit = $this->stored('transfer_out');
+        self::assertSame(TransferKind::Rejected, $debit->getTransferKind());
+        self::assertSame(TransferSource::Manual, $debit->getTransferSource());
+        self::assertSame(TransferKind::Rejected, $this->stored('same_account')->getTransferKind());
+        self::assertSame($this->id('transfer_out'), (string) $this->stored('same_account')->getCounterpart()?->getId());
+
+        $this->assertMercureUpdatePublished($this->id('transfer_out'));
+        $this->assertMercureUpdatePublished($this->id('same_account'));
+        $this->assertElasticsearchIndexDispatchedFor(Transaction::class, $this->id('transfer_out'));
+        $this->assertElasticsearchIndexDispatchedFor(Transaction::class, $this->id('same_account'));
+    }
+
+    public function testARejectionOnAnotherAccountReturns400AndWritesNothing(): void
+    {
+        $this->login();
+
+        $this->mark('transfer_out', ['transferKind' => 'rejected', 'counterpartId' => $this->id('transfer_in_far')]);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame(TransferKind::None, $this->stored('transfer_out')->getTransferKind());
+        self::assertMercureUpdateCount(0);
+    }
+
+    public function testReleasingARejectionFreesBothLegs(): void
+    {
+        $this->login();
+        $this->mark('transfer_out', ['transferKind' => 'rejected', 'counterpartId' => $this->id('same_account')]);
+
+        $this->mark('same_account', ['transferKind' => 'none']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(TransferKind::None, $this->stored('transfer_out')->getTransferKind());
+        self::assertSame(TransferKind::None, $this->stored('same_account')->getTransferKind());
+    }
 }

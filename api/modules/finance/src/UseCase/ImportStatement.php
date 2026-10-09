@@ -33,6 +33,7 @@ class ImportStatement
         private readonly CategorizeTransaction $categorizeTransaction,
         private readonly EntityManagerInterface $em,
         private readonly EntityBroadcaster $broadcaster,
+        private readonly DetectRejections $detectRejections,
     ) {
     }
 
@@ -140,6 +141,16 @@ class ImportStatement
         }
 
         sort($dates);
+
+        // A rejection arrives through the bank like any line: pair it with
+        // the payment it gives back now, before any figure counts both. Only
+        // the credits just written are looked at; their debit may be older.
+        if (!$dryRun && [] !== $dates) {
+            $this->detectRejections->execute(
+                $user,
+                (int) $dates[0]->setTime(0, 0)->diff(new \DateTimeImmutable('today'))->days,
+            );
+        }
 
         return [
             'imported' => $imported,

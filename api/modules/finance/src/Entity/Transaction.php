@@ -146,8 +146,9 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
     private ?\DateTimeImmutable $categorizedAt = null;
 
     /**
-     * What kind of internal movement this is, if any. Anything but `None` is
-     * neither an expense nor an income, and leaves every aggregate.
+     * What kind of neutral movement this is — an internal transfer, a rejected
+     * payment — if any. Anything but `None` is neither an expense nor an
+     * income, and leaves every aggregate.
      *
      * Read-only over REST, like the two fields below: a merge-patch cannot say
      * whether a leg was left out or set to null, so it could unpair one side
@@ -433,14 +434,29 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
      */
     public function markAsInternalTransfer(self $counterpart, TransferSource $source): static
     {
+        return $this->pairWith($counterpart, TransferKind::Internal, $source);
+    }
+
+    /**
+     * Pairs a rejected payment with the credit that cancels it: the payment
+     * did not happen, so neither line is an expense or an income.
+     */
+    public function markAsRejection(self $counterpart, TransferSource $source): static
+    {
+        return $this->pairWith($counterpart, TransferKind::Rejected, $source);
+    }
+
+    /** Both legs carry the same kind and the same source, pointing at each other. */
+    public function pairWith(self $counterpart, TransferKind $kind, TransferSource $source): static
+    {
         $this->unpair();
         $counterpart->unpair();
 
-        $this->transferKind = TransferKind::Internal;
+        $this->transferKind = $kind;
         $this->transferSource = $source;
         $this->counterpart = $counterpart;
 
-        $counterpart->transferKind = TransferKind::Internal;
+        $counterpart->transferKind = $kind;
         $counterpart->transferSource = $source;
         $counterpart->counterpart = $this;
 

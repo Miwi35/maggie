@@ -1,0 +1,95 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: rejections@example.com
+    googleId: google-rejections
+    name: Rejections User
+  other_user:
+    email: rejections-other@example.com
+    googleId: google-rejections-other
+    name: Someone Else
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+  savings:
+    name: Livret
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 800000
+    isCushion: false
+    user: '@test_user'
+
+# Production, 5 and 6 Oct.: the bank rejects three payments and credits each
+# one back the next day, on the same account, under a label that says so.
+Maggie\Finance\Entity\Transaction:
+  edf_debit:
+    account: '@checking'
+    amountCents: -20600
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-05"))>'
+    label: PRELEVEMENT ELECTRICITE DE FRANCE FR12ZZZ123456 ECHEANCE 10/2026
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  edf_rejection:
+    account: '@checking'
+    amountCents: 20600
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-06"))>'
+    label: REJET PRLV ELECTRICITE DE FRANCE
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  assurance_debit:
+    account: '@checking'
+    amountCents: -9988
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-05"))>'
+    label: PRELEVEMENT EURO-ASSURANCE POLICY NUMBER 778899
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  assurance_rejection:
+    account: '@checking'
+    amountCents: 9988
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-06"))>'
+    label: REJET PRLV EURO-ASSURANCE
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  ael_debit:
+    account: '@checking'
+    amountCents: -12500
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-05"))>'
+    label: VIREMENT WEB VERS AEL
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  ael_rejection:
+    account: '@checking'
+    amountCents: 12500
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-06"))>'
+    label: REJET VIREMENT WEB CADARE AEL
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  # The same 206 € leaving the Livret the same day: the exact opposite of the
+  # EDF rejection, on another account — what the internal-transfer detection
+  # would pair with it if the rejection went unrecognised.
+  savings_debit:
+    account: '@savings'
+    amountCents: -20600
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-06"))>'
+    label: VIREMENT VERS COURANT
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'

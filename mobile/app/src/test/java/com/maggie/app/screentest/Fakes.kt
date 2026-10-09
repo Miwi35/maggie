@@ -288,7 +288,8 @@ class FakeBankConnections(private val connections: List<BankConnection>) {
 }
 
 /**
- * One account's transactions, and the transfer endpoints over them (MAG-272).
+ * One account's transactions, and the transfer endpoints over them (MAG-272), rejections
+ * included (MAG-350).
  *
  * A small server rather than canned answers: marking or releasing a line is applied the
  * way the API applies it — the line changes kind, and a released line frees its
@@ -320,7 +321,11 @@ class FakeTransactionTransfers(
                 TransferInfo(
                     transferKind = line.transferKind,
                     transferSource = line.transferSource,
-                    counterpart = counterpart.takeIf { line.isInternalTransfer && line.id in paired },
+                    counterpart = if (line.isRejected) {
+                        rejectionLeg(line)?.let(Seed::legOf)
+                    } else {
+                        counterpart.takeIf { line.isInternalTransfer && line.id in paired }
+                    },
                 ),
             )
         }
@@ -332,6 +337,13 @@ class FakeTransactionTransfers(
             if (internal) marked += counterpartId else released += id
             if (internal && counterpartId != null) paired += id else paired -= id
             val index = lines.indexOfFirst { it.id == id }
+            // A rejection's two legs sit on this account: releasing one frees the other here too.
+            if (!internal) {
+                rejectionLeg(lines[index])?.let { leg ->
+                    val legIndex = lines.indexOf(leg)
+                    lines[legIndex] = leg.copy(transferKind = "none", transferSource = "manual")
+                }
+            }
             lines[index] = lines[index].copy(
                 transferKind = if (internal) "internal" else "none",
                 transferSource = "manual",
@@ -347,6 +359,10 @@ class FakeTransactionTransfers(
 
         TransactionViewModel(repository, categoryRepository, "acc-savings", mercure, auth)
     }
+
+    /** The other leg of a rejection: the rejected line of opposite amount on this account. */
+    private fun rejectionLeg(line: Transaction): Transaction? =
+        lines.firstOrNull { line.isRejected && it.isRejected && it.amountCents == -line.amountCents }
 }
 
 /**

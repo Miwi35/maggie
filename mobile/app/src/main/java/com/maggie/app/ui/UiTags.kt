@@ -225,4 +225,10 @@ object UiTags {
 
     /** The search field of the counterpart picker, a screen of its own. */
     const val TRANSFER_SEARCH = "transfer_search"
+
+    /** A rejected line's « Rejeté » / « Rejet de … » badge, in the list and on the detail screen (MAG-350). */
+    const val REJECTION_BADGE = "rejection_badge"
+
+    /** The detail screen's « Ce n'est pas un rejet »: there is no marking from the phone, only this release. */
+    const val REJECTION_RELEASE = "rejection_release"
 }

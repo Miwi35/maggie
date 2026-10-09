@@ -11,6 +11,8 @@ use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Enum\TransferSource;
 use Maggie\Finance\Mcp\Tool\ManageTransactionsTool;
+use Maggie\Notification\Entity\Notification;
+use Maggie\Notification\Enum\NotificationType;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 class TransactionToolsTest extends KernelTestCase
@@ -564,6 +566,114 @@ class TransactionToolsTest extends KernelTestCase
         // Both legs changed, so both must reach the open screens and the index.
         $this->assertMercureUpdatePublished('/transactions/'.$out->getId());
         $this->assertElasticsearchIndexDispatched(Transaction::class);
+    }
+
+    public function testCreatingARejectionPairsItWithThePaymentItGivesBackAndNeverAsATransfer(): void
+    {
+        $this->loadFixtures('internal_transfers.yaml');
+        $this->loginFixtureUser();
+
+        $out = $this->getFixture('transfer_out');
+        $savings = $this->getFixture('savings');
+
+        // The credit lands on the Livret, the exact opposite of the debit of
+        // the day before: the bank gave the transfer back.
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+        $data = json_decode(
+            $tool('create', accountId: (string) $savings->getId(), amountCents: 300000, label: 'REJET VIREMENT VERS COURANT', bookedAt: '2026-09-13'),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertTrue($data['success']);
+        self::assertSame('rejected', $data['transaction']['transferKind']);
+        self::assertSame((string) $out->getId(), $data['transaction']['counterpartId']);
+        self::assertSame('Rejet de Virement vers Courant du 2026-09-12', $data['transaction']['transferNote']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $storedOut = $em->find(Transaction::class, $out->getId());
+        self::assertSame(TransferKind::Rejected, $storedOut->getTransferKind());
+        self::assertSame($data['transaction']['id'], (string) $storedOut->getCounterpart()?->getId());
+        self::assertSame(TransferKind::None, $em->find(Transaction::class, $this->getFixture('transfer_in')->getId())->getTransferKind());
+
+        $this->assertMercureUpdatePublished('/transactions/'.$out->getId());
+        $this->assertElasticsearchIndexDispatchedFor(Transaction::class, (string) $out->getId());
+    }
+
+    public function testCreatingARecentRejectionRaisesOneNotification(): void
+    {
+        $this->loadFixtures('internal_transfers.yaml');
+        $this->loginFixtureUser();
+
+        $checking = (string) $this->getFixture('checking')->getId();
+        $day = new \DateTimeImmutable('-3 days');
+
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+        $tool('create', accountId: $checking, amountCents: -9988, label: 'PRELEVEMENT EURO-ASSURANCE', bookedAt: $day->modify('-1 day')->format('Y-m-d'));
+        $data = json_decode(
+            $tool('create', accountId: $checking, amountCents: 9988, label: 'REJET PRLV EURO-ASSURANCE', bookedAt: $day->format('Y-m-d')),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertSame('rejected', $data['transaction']['transferKind']);
+
+        $notifications = self::getContainer()->get('doctrine.orm.entity_manager')
+            ->getRepository(Notification::class)
+            ->findBy(['relatedEntityIri' => '/api/transactions/'.$data['transaction']['id']]);
+        self::assertCount(1, $notifications);
+        self::assertSame(NotificationType::Finance, $notifications[0]->getType());
+        self::assertStringStartsWith('Prélèvement EURO-ASSURANCE de 99,88 € rejeté le ', $notifications[0]->getTitle());
+    }
+
+    public function testMarkingARejectionByHandSaysRejectedOnThePayment(): void
+    {
+        $this->loadFixtures('internal_transfers.yaml');
+        $this->loginFixtureUser();
+
+        $payment = $this->getFixture('groceries');
+        $back = $this->getFixture('transfer_in');
+
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+        $data = json_decode(
+            $tool('update', transactionId: (string) $payment->getId(), transferKind: 'rejected', counterpartId: (string) $back->getId()),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertSame('rejected', $data['transaction']['transferKind']);
+        self::assertSame('manual', $data['transaction']['transferSource']);
+        self::assertSame('Rejeté', $data['transaction']['transferNote']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertSame(TransferKind::Rejected, $em->find(Transaction::class, $back->getId())->getTransferKind());
+        $this->assertMercureUpdatePublished((string) $back->getId());
+        $this->assertElasticsearchIndexDispatchedFor(Transaction::class, (string) $back->getId());
+    }
+
+    public function testARejectionAcrossTwoAccountsIsRefused(): void
+    {
+        $this->loadFixtures('internal_transfers.yaml');
+        $this->loginFixtureUser();
+
+        $out = $this->getFixture('transfer_out');
+        $in = $this->getFixture('transfer_in');
+
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+        $data = json_decode(
+            $tool('update', transactionId: (string) $out->getId(), transferKind: 'rejected', counterpartId: (string) $in->getId()),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertStringContainsString('account of the payment', $data['error'] ?? '');
+        self::assertMercureUpdateCount(0);
     }
 
     public function testCreateAnIncomeInAnIncomeCategoryIsStored(): void

@@ -20,8 +20,8 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Uid\Ulid;
 
 /**
- * The owner's hand on a transfer marking: read it, mark a line or take the
- * marking off, and list the lines a manual marking can pair it with.
+ * The owner's hand on a transfer or rejection marking: read it, mark a line
+ * or take the marking off, and list the lines a manual marking can pair it with.
  *
  * A dedicated endpoint rather than a `PATCH /api/transactions/{id}`: a
  * merge-patch cannot tell a field left out from a field set to null, so it
@@ -63,7 +63,7 @@ final class TransactionTransferController
     }
 
     #[Route('/api/finance/transactions/{id}/transfer-candidates', name: 'api_finance_transaction_transfer_candidates', methods: ['GET'])]
-    public function candidates(string $id): JsonResponse
+    public function candidates(string $id, Request $request): JsonResponse
     {
         $user = $this->security->getUser();
         if (!$user instanceof User) {
@@ -75,10 +75,18 @@ final class TransactionTransferController
             return new JsonResponse(['error' => 'Transaction not found'], Response::HTTP_NOT_FOUND);
         }
 
+        // A transfer's other leg is on another account; a rejection is given
+        // back on the account of the payment it cancels.
+        $kind = TransferKind::tryFrom((string) $request->query->get('kind', TransferKind::Internal->value));
+        if (null === $kind || TransferKind::None === $kind) {
+            return new JsonResponse(['error' => 'kind must be one of: internal, rejected'], Response::HTTP_BAD_REQUEST);
+        }
+
         $candidates = $this->transactionRepository->findTransferCandidates(
             $transaction,
             self::CANDIDATE_WINDOW_DAYS,
             includeJudged: true,
+            sameAccount: TransferKind::Rejected === $kind,
         );
 
         return new JsonResponse([

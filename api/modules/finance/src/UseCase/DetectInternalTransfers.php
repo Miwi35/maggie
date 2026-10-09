@@ -53,7 +53,10 @@ class DetectInternalTransfers
             return null;
         }
 
-        $candidates = $this->transactionRepository->findTransferCandidates($transaction, self::WINDOW_DAYS);
+        $candidates = array_values(array_filter(
+            $this->transactionRepository->findTransferCandidates($transaction, self::WINDOW_DAYS),
+            $this->isEligible(...),
+        ));
         if ([] === $candidates) {
             return null;
         }
@@ -148,6 +151,9 @@ class DetectInternalTransfers
             }
 
             foreach ($this->transactionRepository->findTransferCandidates($transaction, self::WINDOW_DAYS) as $candidate) {
+                if (!$this->isEligible($candidate)) {
+                    continue;
+                }
                 [$left, $right] = self::order($transaction, $candidate);
                 $pairs[(string) $left->getId().'/'.(string) $right->getId()] = [
                     'gap' => self::gapInDays($left->getBookedAt(), $right),
@@ -196,12 +202,16 @@ class DetectInternalTransfers
     /**
      * A line the detection may look at: consumed, not paired yet, not judged
      * by hand, and on an account of its own user. A zero amount is left out —
-     * two of them are exactly opposite, and neither is a transfer.
+     * two of them are exactly opposite, and neither is a transfer. So is a
+     * rejection, paired or not: it gives a payment back, it moves nothing
+     * between two accounts, whichever detection runs first (MAG-350).
      */
     private function isEligible(Transaction $transaction): bool
     {
         return 0 !== $transaction->getAmountCents()
             && null === $transaction->getCounterpart()
+            && TransferKind::Rejected !== $transaction->getTransferKind()
+            && !($transaction->getAmountCents() > 0 && DetectRejections::isRejectionLabel($transaction->getLabel()))
             && TransferSource::Manual !== $transaction->getTransferSource()
             && \in_array($transaction->getStatus(), self::CONSUMED, true)
             && $transaction->getAccount()->getUser()->getId()->equals($transaction->getUser()->getId());

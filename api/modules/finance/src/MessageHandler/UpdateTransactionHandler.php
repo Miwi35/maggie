@@ -105,7 +105,7 @@ class UpdateTransactionHandler
     }
 
     /**
-     * A transfer marking, from the detection or from the user's hand.
+     * A transfer or rejection marking, from the detection or from the user's hand.
      *
      * `transferKind` without a `counterpartId` marks a single-legged transfer,
      * which is the normal case when only one of the two accounts is synced.
@@ -151,12 +151,17 @@ class UpdateTransactionHandler
 
         $counterpart = $this->references->transaction($command->counterpartId, $transaction->getUser(), 'Counterpart');
 
-        if ($counterpart->getAccount()->getId()->equals($transaction->getAccount()->getId())) {
+        $sameAccount = $counterpart->getAccount()->getId()->equals($transaction->getAccount()->getId());
+        if (TransferKind::Internal === $kind && $sameAccount) {
             throw new \DomainException('An internal transfer goes between two different accounts.');
+        }
+        // The bank gives a rejected payment back where it took it from.
+        if (TransferKind::Rejected === $kind && !$sameAccount) {
+            throw new \DomainException('A rejection is credited back on the account of the payment it cancels.');
         }
 
         $freed = [$transaction->getCounterpart(), $counterpart->getCounterpart()];
-        $transaction->markAsInternalTransfer($counterpart, $source);
+        $transaction->pairWith($counterpart, $kind, $source);
 
         return [...$freed, $counterpart];
     }

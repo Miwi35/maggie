@@ -13,25 +13,49 @@ import Typography from '@mui/material/Typography'
 import { useNotify, useRecordContext } from 'react-admin'
 import { FormSection } from '../../components/form/FormSection'
 import { useMercure } from '../../hooks/useMercure'
-import { CounterpartLeg, TransferBadge } from './TransferBadge'
+import { CounterpartLeg, CounterpartSentence, TransferBadge } from './TransferBadge'
 import { useTransactionTransfer } from './useTransactionTransfer'
-import type { TransferLeg } from './useTransactionTransfer'
+import type { MarkKind, TransferLeg } from './useTransactionTransfer'
 
 const TRANSACTION_TOPICS = ['/api/transactions/{id}']
 
 const NO_COUNTERPART = ''
 
+/** What the counterpart dialog says, by marking: an internal transfer looks at the other accounts, a rejection at this one. */
+const CHOICE_TEXT: Record<MarkKind, { found: string; none: string; noCounterpart: string; confirm: string }> = {
+  internal: {
+    found: 'Les lignes d’un autre de vos comptes, au montant opposé, à quinze jours près.',
+    none: 'Aucune ligne d’un autre de vos comptes ne correspond (montant opposé, dans les quinze jours).',
+    noCounterpart: 'Aucune contrepartie : l’autre compte n’est pas suivi ici',
+    confirm: 'Marquer comme virement interne',
+  },
+  rejected: {
+    found: 'Les lignes du même compte, au montant opposé, à quinze jours près.',
+    none: 'Aucune ligne du même compte ne correspond (montant opposé, dans les quinze jours).',
+    noCounterpart: 'Aucune contrepartie : le paiement rejeté n’est pas ici',
+    confirm: 'Marquer comme rejet',
+  },
+}
+
+const MARKED_NOTICE: Record<MarkKind, string> = {
+  internal: 'Marqué comme virement interne',
+  rejected: 'Marqué comme rejet',
+}
+
 const CounterpartChoice = ({
+  kind,
   onClose,
   onConfirm,
   saving,
   candidates,
 }: {
+  kind: MarkKind
   onClose: () => void
   onConfirm: (counterpartId?: string) => void
   saving: boolean
   candidates: TransferLeg[] | null
 }) => {
+  const text = CHOICE_TEXT[kind]
   const [choice, setChoice] = useState(NO_COUNTERPART)
 
   return (
@@ -43,9 +67,7 @@ const CounterpartChoice = ({
         ) : (
           <>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              {candidates.length === 0
-                ? 'Aucune ligne d’un autre de vos comptes ne correspond (montant opposé, dans les quinze jours).'
-                : 'Les lignes d’un autre de vos comptes, au montant opposé, à quinze jours près.'}
+              {candidates.length === 0 ? text.none : text.found}
             </Typography>
             <RadioGroup value={choice} onChange={(_, value) => setChoice(value)}>
               {candidates.map((leg) => (
@@ -54,7 +76,7 @@ const CounterpartChoice = ({
               <FormControlLabel
                 value={NO_COUNTERPART}
                 control={<Radio />}
-                label="Aucune contrepartie : l’autre compte n’est pas suivi ici"
+                label={text.noCounterpart}
               />
             </RadioGroup>
           </>
@@ -67,7 +89,7 @@ const CounterpartChoice = ({
           disabled={candidates === null || saving}
           onClick={() => onConfirm(choice === NO_COUNTERPART ? undefined : choice)}
         >
-          Marquer comme virement interne
+          {text.confirm}
         </Button>
       </DialogActions>
     </Dialog>
@@ -75,9 +97,10 @@ const CounterpartChoice = ({
 }
 
 /**
- * The owner's correction of a transfer marking, on the transaction's own
- * screen: see what the detection decided and which line is the other leg,
- * take the marking off, or put it on by hand and choose the counterpart.
+ * The owner's correction of a transfer or rejection marking, on the
+ * transaction's own screen: see what the detection decided and which line is
+ * the other leg, take the marking off, or put it on by hand and choose the
+ * counterpart.
  *
  * Whatever is written here is the owner's decision — the detection never
  * overwrites it, so a correction survives the next catch-up.
@@ -88,7 +111,7 @@ export const TransferPanel = () => {
   const { transfer, candidates, error, saving, load, loadCandidates, mark, release } = useTransactionTransfer(
     record?.id as string | undefined,
   )
-  const [choosing, setChoosing] = useState(false)
+  const [choosing, setChoosing] = useState<MarkKind | null>(null)
 
   // The other leg can be marked or released from another screen: stay in step.
   useMercure(TRANSACTION_TOPICS, () => {
@@ -97,23 +120,29 @@ export const TransferPanel = () => {
 
   if (!record) return null
 
-  const isInternal = transfer?.transferKind === 'internal'
+  const kind = transfer?.transferKind
+  const amountCents = record.amountCents as number
 
-  const startMarking = () => {
-    setChoosing(true)
-    void loadCandidates()
+  const startMarking = (markKind: MarkKind) => {
+    setChoosing(markKind)
+    void loadCandidates(markKind)
   }
 
   const confirmMarking = async (counterpartId?: string) => {
-    if (await mark(counterpartId)) {
-      setChoosing(false)
-      notify('Marqué comme virement interne', { type: 'info' })
+    if (choosing === null) return
+    const markKind = choosing
+    if (await mark(counterpartId, markKind)) {
+      setChoosing(null)
+      notify(MARKED_NOTICE[markKind], { type: 'info' })
     }
   }
 
   const confirmRelease = async () => {
+    const releasedKind = kind
     if (await release()) {
-      notify('Ce n’est plus un virement interne', { type: 'info' })
+      notify(releasedKind === 'rejected' ? 'Ce n’est plus un rejet' : 'Ce n’est plus un virement interne', {
+        type: 'info',
+      })
     }
   }
 
@@ -121,8 +150,8 @@ export const TransferPanel = () => {
     <Box sx={{ maxWidth: 680, px: 2, pt: 2 }}>
       <FormSection
         first
-        title="Virement interne"
-        description="Un virement entre deux de vos comptes n’est ni une dépense ni une recette : il ne compte dans aucun chiffre."
+        title="Virement interne ou rejet"
+        description="Un virement entre deux de vos comptes, ou un paiement rejeté par la banque, n’est ni une dépense ni une recette : il ne compte dans aucun chiffre."
       />
       {error && (
         <Alert severity="error" sx={{ mb: 1 }}>
@@ -131,44 +160,44 @@ export const TransferPanel = () => {
       )}
       {transfer && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-start' }}>
-          {isInternal ? (
+          {kind === 'internal' || kind === 'rejected' ? (
             <>
               <Box>
-                <TransferBadge transferKind={transfer.transferKind} />
+                <TransferBadge transferKind={kind} amountCents={amountCents} />
                 <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
                   {transfer.transferSource === 'manual' ? 'Marqué à la main' : 'Détecté automatiquement'}
                 </Typography>
               </Box>
               <Typography variant="body2">
-                {transfer.counterpart ? (
-                  <>
-                    Contrepartie : <CounterpartLeg leg={transfer.counterpart} />
-                  </>
-                ) : (
-                  'Sans contrepartie : l’autre compte n’est pas suivi.'
-                )}
+                <CounterpartSentence transfer={transfer} amountCents={amountCents} />
               </Typography>
               <Button color="warning" disabled={saving} onClick={confirmRelease}>
-                Ce n’est pas un virement interne
+                {kind === 'rejected' ? 'Ce n’est pas un rejet' : 'Ce n’est pas un virement interne'}
               </Button>
             </>
           ) : (
             <>
               <Typography variant="body2" color="text.secondary">
-                Cette ligne compte comme une {(record.amountCents as number) > 0 ? 'recette' : 'dépense'} ordinaire.
+                Cette ligne compte comme une {amountCents > 0 ? 'recette' : 'dépense'} ordinaire.
               </Typography>
-              <Button disabled={saving} onClick={startMarking}>
-                C’est un virement interne
-              </Button>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button disabled={saving} onClick={() => startMarking('internal')}>
+                  C’est un virement interne
+                </Button>
+                <Button disabled={saving} onClick={() => startMarking('rejected')}>
+                  C’est un rejet
+                </Button>
+              </Box>
             </>
           )}
         </Box>
       )}
       {choosing && (
         <CounterpartChoice
+          kind={choosing}
           candidates={candidates}
           saving={saving}
-          onClose={() => setChoosing(false)}
+          onClose={() => setChoosing(null)}
           onConfirm={confirmMarking}
         />
       )}

@@ -18,6 +18,8 @@ use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\TransactionStatus;
+use Maggie\Finance\Enum\TransferKind;
+use Maggie\Finance\Enum\TransferSource;
 use Maggie\Finance\Repository\AccountRepository;
 use Maggie\Finance\Repository\BankConnectionRepository;
 use Maggie\Finance\Repository\TransactionRepository;
@@ -239,6 +241,36 @@ final class MergeDuplicateAccountsCommandTest extends KernelTestCase
         $this->assertElasticsearchDeleteDispatched('transactions');
         $this->assertElasticsearchIndexDispatchedFor(Account::class, (string) $original->getId());
         $this->assertElasticsearchIndexDispatchedFor(Transaction::class, (string) $edf->getId());
+    }
+
+    public function testARejectionPairedOnTheCopyStaysARejectionOnTheAccountKept(): void
+    {
+        $this->loadFixtures('MergeDuplicateAccountsCommandTest.yaml');
+
+        $connection = $this->connection();
+        $original = $this->account($connection, 'uid-expired-session-1');
+        $copy = $this->account($connection, 'uid-expired-session-2');
+
+        // The copy's sync paired the rejection (MAG-350); the original still
+        // holds the same two lines, unpaired.
+        $this->movement($original, 'PRELEVEMENT ELECTRICITE DE FRANCE', -20600, '2026-10-05');
+        $this->movement($original, 'REJET PRLV ELECTRICITE DE FRANCE', 20600, '2026-10-06');
+        $debit = $this->movement($copy, 'PRELEVEMENT ELECTRICITE DE FRANCE', -20600, '2026-10-05');
+        $credit = $this->movement($copy, 'REJET PRLV ELECTRICITE DE FRANCE', 20600, '2026-10-06');
+        $debit->markAsRejection($credit, TransferSource::Auto);
+        $this->em()->flush();
+
+        $tester = $this->tester();
+        $tester->execute([]);
+        $tester->assertCommandIsSuccessful();
+
+        $transactions = $this->transactions();
+        self::assertCount(2, $transactions);
+        foreach ($transactions as $transaction) {
+            self::assertSame(TransferKind::Rejected, $transaction->getTransferKind(), $transaction->getLabel());
+            self::assertNotNull($transaction->getCounterpart(), $transaction->getLabel());
+            self::assertTrue($original->getId()->equals($transaction->getCounterpart()->getAccount()->getId()));
+        }
     }
 
     public function testRunningItAgainMergesNothingMore(): void
