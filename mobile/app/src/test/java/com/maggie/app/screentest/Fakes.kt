@@ -54,6 +54,7 @@ import com.maggie.app.ui.screens.finance.FinanceDashboardViewModel
 import com.maggie.app.ui.screens.finance.RuleSuggestionViewModel
 import com.maggie.app.ui.screens.finance.TransactionViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
+import com.maggie.app.data.repository.MealRepository
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -213,7 +214,9 @@ class FakeCalendar(private val events: List<Event>) {
         val userPreferenceRepository = mockk<UserPreferenceRepository>()
         every { userPreferenceRepository.preference } returns MutableStateFlow(null)
         coEvery { userPreferenceRepository.refresh() } returns Result.failure(IllegalStateException("no preference"))
-        FullCalendarViewModel(eventRepository, taskRepository, agendaRepository, mercure, auth, userPreferenceRepository)
+        val mealRepository = mockk<MealRepository>()
+        coEvery { mealRepository.getMeals(any(), any()) } returns Result.success(emptyList())
+        FullCalendarViewModel(eventRepository, taskRepository, agendaRepository, mercure, auth, userPreferenceRepository, mealRepository)
     }
 }
 

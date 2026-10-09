@@ -181,10 +181,13 @@ test.describe('Recipes and meals', () => {
     // not by its name. The seeded user has none called « Repas », and the
     // default agenda (synced with Google) received nothing.
     type AgendaRow = { '@id': string; module?: string | null; isDefault?: boolean }
-    await waitForIndexed<AgendaRow>(api, '/api/agendas', (agenda) => 'cookbook' === agenda.module, {
+    await waitForIndexed<AgendaRow>(api, '/api/agendas?module=cookbook', (agenda) => 'cookbook' === agenda.module, {
       what: 'The module agenda the first meal creates',
     })
-    const storedAgendas = await getCollection<AgendaRow>(api, '/api/agendas')
+    const storedAgendas = [
+      ...(await getCollection<AgendaRow>(api, '/api/agendas')),
+      ...(await getCollection<AgendaRow>(api, '/api/agendas?module=cookbook')),
+    ]
     const moduleAgendas = storedAgendas.filter((agenda) => 'cookbook' === agenda.module)
     expect(moduleAgendas, 'exactly one module agenda holds the meals').toHaveLength(1)
     expect(moduleAgendas[0].isDefault).toBeFalsy()

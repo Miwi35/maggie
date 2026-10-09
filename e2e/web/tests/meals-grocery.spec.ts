@@ -80,7 +80,7 @@ async function aRecipeToPlan(api: APIRequestContext, what: string): Promise<Plan
 }
 
 async function agendas(api: APIRequestContext): Promise<StoredAgenda[]> {
-  return getCollection<StoredAgenda>(api, '/api/agendas')
+  return getCollection<StoredAgenda>(api, '/api/agendas?module=cookbook')
 }
 
 async function plannedMeal(api: APIRequestContext, name: string): Promise<StoredMeal | undefined> {

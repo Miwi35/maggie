@@ -93,6 +93,20 @@ const mealTitle = (m: CalendarMeal) => {
   return `${label}: ${recipeName}`
 }
 
+/**
+ * A module's own view of the calendar (MAG-354): only what the module files in its
+ * internal agenda, in the module's menu. The general calendar shows the same items
+ * through one line of its filters, so the two never list the module twice.
+ */
+export interface ModuleCalendar {
+  label: string
+  color: string
+}
+
+export const MODULE_CALENDARS: Record<string, ModuleCalendar> = {
+  cookbook: { label: 'Repas', color: MEAL_COLOR },
+}
+
 interface GoogleCalendar {
   id: string
   /** The name the agenda will carry — "Défaut" for the primary calendar (MAG-148). */
@@ -103,7 +117,7 @@ interface GoogleCalendar {
   backgroundColor?: string
 }
 
-const CALENDAR_TOPICS = ['/api/events/{id}', '/api/tasks/{id}']
+const CALENDAR_TOPICS = ['/api/events/{id}', '/api/tasks/{id}', '/api/meals/{id}']
 const AGENDA_TOPICS = ['/api/agendas/{id}']
 const MERCURE_REFETCH_DELAYS_MS = [1500, 5000]
 const SIDEBAR_WIDTH = 230
@@ -210,6 +224,8 @@ interface CalendarData {
   color: string | null
   default: boolean
   googleCalendarId?: string
+  /** Set on the agenda a module keeps for itself: it has its own line and its own view. */
+  module?: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -441,7 +457,8 @@ const getToolbarTitle = (view: CalendarView, range: { start: Date; end: Date } |
 // ---------------------------------------------------------------------------
 // Agenda View
 // ---------------------------------------------------------------------------
-export const CalendarView = () => {
+export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CALENDARS } = {}) => {
+  const moduleCalendar = moduleKey ? MODULE_CALENDARS[moduleKey] : undefined
   const theme = useTheme()
   const dataProvider = useDataProvider()
   const notify = useNotify()
@@ -498,6 +515,8 @@ export const CalendarView = () => {
   // --- Fetch calendars ---
   const knownCalendarIds = useRef(new Set<string>())
   const loadCalendars = useCallback(() => {
+    // A module view lists no agenda: its items are all the module's own.
+    if (moduleCalendar) return
     dataProvider
       .getList('agendas', {
         pagination: { page: 1, perPage: 50 },
@@ -505,7 +524,8 @@ export const CalendarView = () => {
         filter: {},
       })
       .then(({ data }) => {
-        const cals = data as unknown as CalendarData[]
+        // The API leaves the module agendas out; this keeps a stale answer from listing one twice.
+        const cals = (data as unknown as CalendarData[]).filter((c) => !c.module)
         setCalendars(cals)
         const known = knownCalendarIds.current
         const fresh = cals.filter((c) => !known.has(c.id))
@@ -519,7 +539,7 @@ export const CalendarView = () => {
         })
       })
       .catch(console.error)
-  }, [dataProvider])
+  }, [dataProvider, moduleCalendar])
 
   useEffect(() => { loadCalendars() }, [loadCalendars])
 
@@ -679,28 +699,29 @@ export const CalendarView = () => {
       // Answers come back in any order: only the newest request may fill the grid, or
       // a slow reply for a range already left takes the task out from under the pencil.
       const seq = ++fetchSeqRef.current
-      const rangeEvents = dataProvider.getList('events', {
+      const nothing = Promise.resolve({ data: [], total: 0 })
+      const rangeEvents = moduleCalendar ? nothing : dataProvider.getList('events', {
         pagination: { page: 1, perPage: 200 },
         sort: { field: 'startAt', order: 'ASC' },
         filter: { 'startAt[after]': start, 'startAt[before]': end },
       })
 
       // Recurring events may have started before the visible range
-      const recurringEvents = dataProvider.getList('events', {
+      const recurringEvents = moduleCalendar ? nothing : dataProvider.getList('events', {
         pagination: { page: 1, perPage: 200 },
         sort: { field: 'startAt', order: 'ASC' },
         filter: { 'exists[rrule]': true, 'startAt[strictly_before]': start },
       })
 
       // A multi-day event that started before the range still covers its first days
-      const overlappingEvents = dataProvider.getList('events', {
+      const overlappingEvents = moduleCalendar ? nothing : dataProvider.getList('events', {
         pagination: { page: 1, perPage: 200 },
         sort: { field: 'startAt', order: 'ASC' },
         filter: { 'endAt[after]': start, 'startAt[strictly_before]': start },
       })
 
       // Fetch tasks with due dates in visible range
-      const rangeTasks = dataProvider.getList('tasks', {
+      const rangeTasks = moduleCalendar ? nothing : dataProvider.getList('tasks', {
         pagination: { page: 1, perPage: 200 },
         sort: { field: 'dueDate', order: 'ASC' },
         filter: { 'dueDate[after]': start, 'dueDate[before]': end },
@@ -732,7 +753,7 @@ export const CalendarView = () => {
         })
         .catch(console.error)
     },
-    [dataProvider],
+    [dataProvider, moduleCalendar],
   )
 
   const handleDeleteAgenda = useCallback(async (deleteGoogleCalendar: boolean) => {
@@ -1628,6 +1649,7 @@ export const CalendarView = () => {
 
   return (
     <Box
+      data-testid={moduleCalendar ? 'module-calendar' : undefined}
       sx={{
         display: 'flex',
         flexDirection: 'column',
@@ -1713,7 +1735,17 @@ export const CalendarView = () => {
             display: { xs: 'none', md: 'block' },
           }}
         >
+          {moduleCalendar && (
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2.5, px: 0.5, gap: 1 }}>
+              <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: moduleCalendar.color, flexShrink: 0 }} />
+              <Typography variant="subtitle1" component="h1" data-testid="module-calendar-title">
+                {moduleCalendar.label}
+              </Typography>
+            </Box>
+          )}
+
           {/* + Créer (split button) */}
+          {!moduleCalendar && (
           <ButtonGroup
             variant="contained"
             ref={createMenuAnchorRef}
@@ -1740,6 +1772,7 @@ export const CalendarView = () => {
               <ArrowDropDownIcon />
             </Button>
           </ButtonGroup>
+          )}
           <Popper
             open={createMenuOpen}
             anchorEl={createMenuAnchorRef.current}
@@ -1791,6 +1824,7 @@ export const CalendarView = () => {
           />
 
           {/* Calendar list */}
+          {!moduleCalendar && (
           <Box sx={{ mt: 3 }}>
             <Typography
               variant="caption"
@@ -1992,6 +2026,7 @@ export const CalendarView = () => {
               </Typography>
             </Box>
           </Box>
+          )}
         </Box>
 
         {/* Main calendar */}
@@ -2003,12 +2038,12 @@ export const CalendarView = () => {
             locale={frLocale}
             events={filteredEvents}
             datesSet={handleDatesSet}
-            selectable={true}
+            selectable={!moduleCalendar}
             selectMirror={true}
             selectAllow={handleSelectAllow}
             select={handleSelect}
             eventClick={handleEventClick}
-            editable={true}
+            editable={!moduleCalendar}
             eventDrop={handleEventUpdate}
             eventResize={handleEventUpdate}
             headerToolbar={false}
@@ -2027,6 +2062,7 @@ export const CalendarView = () => {
       {/* The left column — and with it the "+ Créer" split button — is hidden
           below `md`. Without this, creating an event on a phone meant guessing
           that a long press on an empty slot opens the dialog. */}
+      {!moduleCalendar && (
       <Fab
         color="primary"
         aria-label="Créer un événement"
@@ -2046,6 +2082,7 @@ export const CalendarView = () => {
       >
         <AddIcon />
       </Fab>
+      )}
 
       <EventCreateDialog
         open={dialogOpen}

@@ -26,7 +26,7 @@
     ],
     "search": {
         "@type": "IriTemplate",
-        "template": "/api/agendas{?order[id],order[name]}",
+        "template": "/api/agendas{?order[id],order[name],module,module[],exists[module]}",
         "variableRepresentation": "BasicRepresentation",
         "mapping": [
             {
@@ -39,6 +39,24 @@
                 "@type": "IriTemplateMapping",
                 "variable": "order[name]",
                 "property": "name",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "module",
+                "property": "module",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "module[]",
+                "property": "module",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "exists[module]",
+                "property": "module",
                 "required": false
             }
         ]

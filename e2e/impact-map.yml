@@ -329,6 +329,8 @@ web:
     areas: [cookbook, grocery]
   e2e/web/tests/meals-move.spec.ts:
     areas: [cookbook]
+  e2e/web/tests/meals-module-calendar.spec.ts:
+    areas: [cookbook, calendar]
   e2e/web/tests/meals-grocery.spec.ts:
     areas: [cookbook, grocery, calendar, chat]
   e2e/web/tests/meals-grocery-choice.spec.ts:
@@ -417,3 +419,5 @@ mobile:
   e2e/mobile/flows/13-chat-opens-on-latest.yaml:
     areas: [chat, voice]
     paths: [e2e/mobile/scripts/chat-api.js]
+  e2e/mobile/flows/13-meals-planning.yaml:
+    areas: [calendar, cookbook]

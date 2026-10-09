@@ -49,6 +49,7 @@ export const NAVIGATION: NavModule[] = [
     label: 'Cuisine',
     parts: [
       { label: 'Repas de la semaine', path: '/meals' },
+      { label: 'Planning des repas', path: '/meals/calendar' },
       resourcePart('Recettes', 'recipes'),
       resourcePart('Ingrédients', 'ingredients'),
     ],

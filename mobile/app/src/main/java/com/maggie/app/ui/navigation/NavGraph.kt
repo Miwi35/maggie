@@ -122,6 +122,7 @@ import com.maggie.app.ui.screens.dashboard.DashboardScreen
 import com.maggie.app.ui.screens.dashboard.DashboardViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarScreen
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
+import com.maggie.app.ui.screens.fullcalendar.MEALS_FILTER_ID
 import com.maggie.app.ui.screens.chat.ChatScreen
 import com.maggie.app.ui.screens.notifications.NotificationScreen
 import com.maggie.app.ui.screens.notifications.NotificationViewModel
@@ -341,6 +342,7 @@ fun NavGraph() {
     val notificationViewModel: NotificationViewModel = koinViewModel()
     val recipeListViewModel: RecipeListViewModel = koinViewModel()
     val mealsWeekViewModel: MealsWeekViewModel = koinViewModel()
+    val mealsCalendarViewModel: FullCalendarViewModel = koinViewModel(key = "mealsCalendar") { parametersOf("cookbook") }
     val groceryViewModel: GroceryViewModel = koinViewModel()
     var showChatSheet by rememberSaveable { mutableStateOf(false) }
     val chatSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -764,8 +766,11 @@ fun NavGraph() {
                                 onCreateEvent = { navController.navigate(Screen.EventCreate.route) },
                                 onCreateTask = { navController.navigate(Screen.TaskCreate.route) },
                                 onEventClick = {
-                                    selectedTask = null
-                                    selectedEvent = it
+                                    // A meal is edited in the Cuisine module, not as an event.
+                                    if (it.agendaIri != MEALS_FILTER_ID) {
+                                        selectedTask = null
+                                        selectedEvent = it
+                                    }
                                 },
                             )
                         },
@@ -905,6 +910,7 @@ fun NavGraph() {
                             CookbookScreen(
                                 recipeListViewModel = recipeListViewModel,
                                 mealsWeekViewModel = mealsWeekViewModel,
+                                mealsCalendarViewModel = mealsCalendarViewModel,
                                 onRecipeClick = { id ->
                                     detailRecipeId = id
                                     if (!paneShown) navController.navigate(Screen.RecipeDetail.route)

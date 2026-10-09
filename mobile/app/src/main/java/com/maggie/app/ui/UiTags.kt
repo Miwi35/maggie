@@ -138,6 +138,8 @@ object UiTags {
 
     /** Calendar — the options menu and its Google import entry. */
     const val CALENDAR_OPTIONS = "calendar_options"
+    const val CALENDAR_MEALS_FILTER = "calendar_meals_filter"
+    const val CALENDAR_MODULE_TITLE = "calendar_module_title"
     const val CALENDAR_IMPORT_GOOGLE = "calendar_import_google"
 
     /** Google import dialog — the « Importer » button of one calendar, suffixed by its Google id. */

@@ -813,10 +813,16 @@ class MaggieApiService(
     }
 
     // Meals
-    /** [fromDay] and [toDay] are days (`YYYY-MM-DD`), both ends included. */
+    /**
+     * [fromDay] and [toDay] are days (`YYYY-MM-DD`), both ends included. A month
+     * holds up to 62 meals: the page size is raised to the API's maximum, else the
+     * default of 30 cuts the end of the month off.
+     */
     suspend fun getMeals(fromDay: String? = null, toDay: String? = null): List<Meal> {
         return client.get("$baseUrl/api/meals") {
             accept(ContentType("application", "ld+json"))
+            url.parameters.append("itemsPerPage", "100")
+            url.parameters.append("order[date]", "asc")
             fromDay?.let { url.parameters.append("date[after]", it) }
             toDay?.let { url.parameters.append("date[before]", it) }
         }.body<ApiCollection<Meal>>().member

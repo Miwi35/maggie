@@ -126,6 +126,12 @@ export const CustomMenu = () => {
                 leftIcon={tinted('cuisine', <RestaurantIcon />)}
                 sx={{ pl: 4 }}
               />
+              <MenuItemLink
+                to="/meals/calendar"
+                primaryText="Planning des repas"
+                leftIcon={tinted('cuisine', <CalendarMonthIcon />)}
+                sx={{ pl: 4 }}
+              />
             </List>
           </Collapse>
           <ListItemButton onClick={() => setFinanceOpen(!financeOpen)}>

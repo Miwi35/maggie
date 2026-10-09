@@ -1,0 +1,68 @@
+appId: com.maggie.app.e2e
+name: 13-meals-planning
+tags:
+  - calendar
+  - cookbook
+---
+# The meals' agenda stays out of the user's list, and the Cuisine module has a
+# calendar of its own (MAG-354).
+#
+# Two screens, one seeded meal (« Pâtes à la tomate », tomorrow's dinner, from
+# `api/fixtures/e2e/40-cookbook.yaml`) and one seeded event that is not a meal
+# (« Stage de voile MAG-288 », an all-day series starting today):
+#
+# - the general calendar's agenda drawer has the single « Repas » line, which is
+#   the meals' filter and not an agenda of the user's;
+# - Cuisine › Planning shows the meal and not the event.
+#
+# The month is the view the calendar opens on, so tomorrow can be in the next one
+# (on the last day of a month): the flow first gives the meals time to arrive, and
+# only steps forward when the meal still is not on screen. Checking at once would
+# step forward on every run, since the meals load after the title is drawn.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow: ../subflows/open-calendar.yaml
+
+- tapOn:
+    id: "calendar_options"
+- tapOn: "Agendas"
+- extendedWaitUntil:
+    visible:
+      id: "calendar_meals_filter"
+    timeout: 20000
+- assertVisible: "Perso"
+- back
+
+# From the burger to Cuisine, then its « Planning » tab.
+- tapOn:
+    id: "nav_menu"
+- tapOn:
+    id: "drawer_cookbook"
+- tapOn: "Planning"
+
+- extendedWaitUntil:
+    visible:
+      id: "calendar_module_title"
+    timeout: 20000
+- assertVisible: "Planning des repas"
+
+- extendedWaitUntil:
+    visible: ".*Pâtes à la tomate.*"
+    timeout: 10000
+    optional: true
+- runFlow:
+    when:
+      notVisible: ".*Pâtes à la tomate.*"
+    commands:
+      - tapOn:
+          id: "calendar_next"
+- extendedWaitUntil:
+    visible: ".*Pâtes à la tomate.*"
+    timeout: 20000
+- assertNotVisible: ".*Stage de voile MAG-288.*"
