@@ -11,6 +11,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -19,6 +20,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -96,7 +98,7 @@ class DashboardViewModelTest {
     }
 
     @Test
-    fun `ten Mercure updates within 200 ms reload once`() = runTest {
+    fun `ten Mercure updates within 200 ms reload once, then once more for the index`() = runTest {
         createViewModel()
         advanceUntilIdle()
 
@@ -104,9 +106,11 @@ class DashboardViewModelTest {
             topics.getValue(MercureTopics.EVENTS).emit(MercureEvent())
             advanceTimeBy(20)
         }
-        advanceTimeBy(10_000)
-
+        advanceTimeBy(600)
         coVerify(exactly = 2) { eventRepository.refreshEvents() }
+
+        advanceTimeBy(10_000)
+        coVerify(exactly = 3) { eventRepository.refreshEvents() }
     }
 
     @Test
@@ -115,9 +119,29 @@ class DashboardViewModelTest {
         advanceUntilIdle()
 
         topics.values.forEach { it.emit(MercureEvent()) }
-        advanceTimeBy(10_000)
-
+        advanceTimeBy(600)
         coVerify(exactly = 2) { eventRepository.refreshEvents() }
+
+        advanceTimeBy(10_000)
+        coVerify(exactly = 3) { eventRepository.refreshEvents() }
+    }
+
+    @Test
+    fun `refreshes asked while a load is running fold into one follow-up load`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        var calls = 0
+        coEvery { agendaRepository.getAgendas() } coAnswers {
+            if (calls++ == 0) gate.await()
+            emptyList()
+        }
+
+        val viewModel = createViewModel()
+        runCurrent()
+        repeat(5) { viewModel.refresh() }
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        coVerify(exactly = 2) { agendaRepository.getAgendas() }
     }
 
     @Test

@@ -7,6 +7,7 @@ import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.fcm.PushTokenRegistrar
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
+import com.maggie.app.data.mercure.coalesced
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.TtsVoice
 import com.maggie.app.data.model.User
@@ -197,6 +198,7 @@ class SettingsViewModel(
             launch {
                 mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.AGENDAS))
                     .catch { /* SSE reconnects automatically */ }
+                    .coalesced()
                     .collect {
                         agendaRepository.refreshAgendas()
                             .onSuccess { _uiState.value = _uiState.value.copy(agendas = it) }

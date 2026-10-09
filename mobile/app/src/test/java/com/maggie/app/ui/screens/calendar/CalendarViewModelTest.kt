@@ -180,7 +180,7 @@ class CalendarViewModelTest {
     }
 
     @Test
-    fun `a Mercure update reloads once, after the burst window`() = runTest {
+    fun `a Mercure update reloads after the burst window, then once more for the index`() = runTest {
         stubRepositories()
         val topics = mercureTopics()
 
@@ -192,12 +192,15 @@ class CalendarViewModelTest {
         advanceTimeBy(100)
         coVerify(exactly = 1) { eventRepository.refreshEvents() }
 
-        advanceTimeBy(10_000)
+        advanceTimeBy(500)
         coVerify(exactly = 2) { eventRepository.refreshEvents() }
+
+        advanceTimeBy(10_000)
+        coVerify(exactly = 3) { eventRepository.refreshEvents() }
     }
 
     @Test
-    fun `ten Mercure updates within 200 ms reload once`() = runTest {
+    fun `ten Mercure updates within 200 ms reload once, then once more for the index`() = runTest {
         stubRepositories()
         val topics = mercureTopics()
 
@@ -208,11 +211,13 @@ class CalendarViewModelTest {
             topics.getValue(MercureTopics.EVENTS).emit(MercureEvent())
             advanceTimeBy(20)
         }
-        advanceTimeBy(10_000)
-
+        advanceTimeBy(600)
         coVerify(exactly = 2) { eventRepository.refreshEvents() }
         coVerify(exactly = 2) { taskRepository.refreshTasks() }
         coVerify(exactly = 2) { agendaRepository.refreshAgendas() }
+
+        advanceTimeBy(10_000)
+        coVerify(exactly = 3) { eventRepository.refreshEvents() }
     }
 
     @Test
@@ -224,9 +229,27 @@ class CalendarViewModelTest {
         advanceUntilIdle()
 
         topics.values.forEach { it.emit(MercureEvent()) }
+        advanceTimeBy(600)
+        coVerify(exactly = 2) { eventRepository.refreshEvents() }
+
+        advanceTimeBy(10_000)
+        coVerify(exactly = 3) { eventRepository.refreshEvents() }
+    }
+
+    @Test
+    fun `a new burst replaces the pending index re-check`() = runTest {
+        stubRepositories()
+        val topics = mercureTopics()
+
+        createViewModel()
+        advanceUntilIdle()
+
+        topics.getValue(MercureTopics.EVENTS).emit(MercureEvent())
+        advanceTimeBy(1_000)
+        topics.getValue(MercureTopics.EVENTS).emit(MercureEvent())
         advanceTimeBy(10_000)
 
-        coVerify(exactly = 2) { eventRepository.refreshEvents() }
+        coVerify(exactly = 4) { eventRepository.refreshEvents() }
     }
 
     @Test

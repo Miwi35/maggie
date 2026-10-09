@@ -7,7 +7,7 @@ import com.maggie.app.data.api.GoogleCalendarImportRequest
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
-import com.maggie.app.data.mercure.coalesced
+import com.maggie.app.data.mercure.coalescedAndRechecked
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.ExpandedEvent
@@ -323,7 +323,7 @@ class FullCalendarViewModel(
                                 .catch { /* SSE reconnects automatically */ }
                         }.toTypedArray(),
                     )
-                        .coalesced()
+                        .coalescedAndRechecked()
                         .collect { refresh() }
                 }
         }
