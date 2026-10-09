@@ -42,9 +42,10 @@ def say(chat_db):
         user: str = OWNER,
         message_id: str | None = None,
         blocks: list[dict] | None = None,
+        has_image: bool = False,
     ):
         message = await message_repo.create(
-            user_id=user, role=role, content=content, context_id=context, blocks=blocks
+            user_id=user, role=role, content=content, context_id=context, blocks=blocks, has_image=has_image
         )
         # `created_at` defaults to "now", and every message of a test would then share a
         # timestamp at SQLite's resolution — which is exactly the tie the ordering has to
@@ -733,11 +734,9 @@ class TestThePictureTheQuestionCameWith:
 
         return ChatImage(media_type="image/jpeg", data="/9j/AAAA")
 
-    async def test_it_goes_on_the_turn_being_answered_before_the_question(self, chat_db, thread, image):
+    async def test_it_goes_on_the_turn_being_answered_before_the_question(self, say, thread, image):
         boutique = await thread("Boutique")
-        asked = await message_repo.create(
-            user_id=OWNER, role="user", content="C'est quoi ce produit ?", context_id=boutique.id, has_image=True
-        )
+        asked = await say("user", "C'est quoi ce produit ?", context=boutique.id, has_image=True)
 
         turns = await build_history(
             OWNER, context_id=boutique.id, current_message_id=asked.id, screen_context=SCREEN, image=image
@@ -750,21 +749,13 @@ class TestThePictureTheQuestionCameWith:
             }
         ]
 
-    async def test_an_earlier_turn_that_had_one_says_it_is_gone(self, chat_db, say, thread):
+    async def test_an_earlier_turn_that_had_one_says_it_is_gone(self, say, thread):
         from app.llm.image import GONE_MARKER
 
-        from sqlalchemy import select
-
-        from app.db.models import Message
-
         boutique = await thread("Boutique")
-        before = await say("user", "C'est quoi ce produit ?", context=boutique.id)
+        await say("user", "C'est quoi ce produit ?", context=boutique.id, has_image=True)
         await say("assistant", "Une cafetière italienne.", context=boutique.id, minutes=1)
         asked = await say("user", "Et son prix ?", context=boutique.id, minutes=2)
-        async with chat_db.session() as session:
-            stored = (await session.execute(select(Message).where(Message.id == before.id))).scalar_one()
-            stored.has_image = True
-            await session.commit()
 
         turns = await build_history(OWNER, context_id=boutique.id, current_message_id=asked.id)
 
