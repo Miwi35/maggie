@@ -82,21 +82,24 @@ final class E2eSeedCommandTest extends KernelTestCase
         // writes to (MAG-101 — see 10-core.yaml). The third is the only one
         // Maggie's interruptions are published to (MAG-311). The fourth is the
         // stock journey's, which writes to a list and a chat history of its own
-        // (MAG-294). A fifth would mean somebody added an account without saying
-        // why.
-        self::assertSame(4, $this->rowsOf(User::class));
+        // (MAG-294). The fifth is the approval cards journey's, which answers a
+        // held deletion in the chat (MAG-6). A sixth would mean somebody added an
+        // account without saying why.
+        self::assertSame(5, $this->rowsOf(User::class));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-other@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-interrupt@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-stock@maggie.local']));
+        self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-approvals@maggie.local']));
 
         // Five: the signed-in user's four, and the neighbour's one. An event
         // belongs to a user through its agenda, so the neighbour needs one of
         // their own for the isolation journey to have anything to leak. Four and
         // not two since MAG-150: the agenda deduction has nothing to deduce
         // between two agendas, and « Boulot » and « Concerts » are what the
-        // journeys watch an event be filed into.
-        self::assertSame(5, $this->rowsOf(Agenda::class));
+        // journeys watch an event be filed into. Six since MAG-6: the approval
+        // cards journey deletes an event from an agenda of its own.
+        self::assertSame(6, $this->rowsOf(Agenda::class));
         // Events include the meals, which extend Event: 14 events + 2 meals. Four
         // of the fourteen are the habits the deduction reads (MAG-150).
         self::assertSame(16, $this->rowsOf(Event::class));
@@ -285,11 +288,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         $stray->setName('Stray');
         $this->entityManager()->persist($stray);
         $this->entityManager()->flush();
-        self::assertSame(5, $this->rowsOf(User::class));
+        self::assertSame(6, $this->rowsOf(User::class));
 
         $this->seed();
 
-        self::assertSame(4, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
+        self::assertSame(5, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
     }
 
     public function testDatesFollowTheAnchor(): void

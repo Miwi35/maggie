@@ -150,6 +150,8 @@ test('an action waiting for the user is asked with Autoriser and Refuser', async
     route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }),
   )
   await openSubscribed(page, () => dashboard.open(), `/approvals/${session.user.id}`)
+  // An open conversation shows the action as a card (MAG-6): nothing to interrupt.
+  await new ChatPanel(page).ensureClosed()
 
   const held = (id: string, summary: string) => ({
     id,
