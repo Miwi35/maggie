@@ -89,6 +89,14 @@ class RecurringAttachmentApiTest extends WebTestCase
         return $gym;
     }
 
+    /** A measured reference the next attachment will move, so the series changes and is published. */
+    private function driftGymReference(): void
+    {
+        $gym = $this->reloadGym();
+        $gym->setReferenceAmountCents(-3100);
+        self::getContainer()->get('doctrine.orm.entity_manager')->flush();
+    }
+
     private function catchUp(): void
     {
         self::getContainer()->get(AttachRecurringTransactions::class)->execute($this->getFixture('test_user'));
@@ -99,6 +107,7 @@ class RecurringAttachmentApiTest extends WebTestCase
     public function testANewLineIsAttachedAsItIsCreatedAndBothSidesArePublished(): void
     {
         $this->login();
+        $this->driftGymReference();
 
         $data = $this->send('POST', '/api/transactions', [
             'account' => $this->iri('accounts', 'checking'),
@@ -118,6 +127,7 @@ class RecurringAttachmentApiTest extends WebTestCase
         self::assertNotNull($stored);
         self::assertSame('2027-05-01', $stored->getRecurringOccurrenceOn()?->format('Y-m-d'));
         self::assertSame('Abonnements', $stored->getCategory()?->getName());
+        self::assertSame(-3000, $this->reloadGym()->getReferenceAmountCents());
 
         $this->assertMercureUpdatePublished('/transactions/');
         $this->assertMercureUpdatePublished('/recurring_operations/');
@@ -196,8 +206,8 @@ class RecurringAttachmentApiTest extends WebTestCase
         self::assertNull($stored->getRecurringOccurrenceOn());
         self::assertSame(RecurringLinkSource::Manual, $stored->getRecurringSource());
 
-        // The series it left hears of it too.
-        $this->assertElasticsearchIndexDispatchedFor(RecurringOperation::class, (string) $this->getFixture('gym')->getId());
+        $this->assertMercureUpdatePublished('/transactions/');
+        $this->assertElasticsearchIndexDispatchedFor(Transaction::class, (string) $stored->getId());
     }
 
     public function testAPatchOfAnotherFieldLeavesAnAutomaticAttachmentAutomatic(): void

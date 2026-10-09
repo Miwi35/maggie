@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\MessageHandler;
 
-use Maggie\Core\Mercure\EntityBroadcaster;
 use Maggie\Finance\Message\DeleteRecurringOperationCommand;
 use Maggie\Finance\Repository\RecurringOperationRepository;
 use Maggie\Finance\Repository\TransactionRepository;
@@ -18,7 +17,6 @@ class DeleteRecurringOperationHandler
         private readonly DeleteRecurringOperation $deleteRecurringOperation,
         private readonly RecurringOperationRepository $operationRepository,
         private readonly TransactionRepository $transactionRepository,
-        private readonly EntityBroadcaster $broadcaster,
     ) {
     }
 
@@ -29,15 +27,10 @@ class DeleteRecurringOperationHandler
 
         // The database frees the lines on its own (SET NULL); doing it here
         // too lets the index and the open screens hear of it.
-        $attached = $this->transactionRepository->findAttachedTo($operation);
-        foreach ($attached as $transaction) {
+        foreach ($this->transactionRepository->findAttachedTo($operation) as $transaction) {
             $transaction->detachFromRecurring($transaction->getRecurringSource());
         }
 
         $this->deleteRecurringOperation->execute($operation);
-
-        foreach ($attached as $transaction) {
-            $this->broadcaster->broadcast($transaction);
-        }
     }
 }

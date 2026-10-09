@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Maggie\Finance\Controller;
 
 use Maggie\Core\Entity\User;
-use Maggie\Finance\UseCase\AttachRecurringTransactions;
+use Maggie\Finance\Message\AttachRecurringOperationsCommand;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
@@ -26,7 +28,7 @@ final class AttachRecurringOperationsController
 {
     public function __construct(
         private readonly Security $security,
-        private readonly AttachRecurringTransactions $attachRecurring,
+        private readonly MessageBusInterface $bus,
     ) {
     }
 
@@ -65,8 +67,14 @@ final class AttachRecurringOperationsController
             return new JsonResponse(['error' => 'dryRun must be a boolean'], Response::HTTP_BAD_REQUEST);
         }
 
-        return new JsonResponse(
-            ['success' => true] + $this->attachRecurring->execute($user, $limitDays, $dryRun),
-        );
+        // Through the bus: the lines attached and the series recalibrated
+        // are published and reindexed by the projection.
+        $result = $this->bus->dispatch(new AttachRecurringOperationsCommand((string) $user->getId(), $limitDays, $dryRun))
+            ->last(HandledStamp::class)?->getResult();
+        if (!\is_array($result)) {
+            throw new \RuntimeException('The catch-up pass returned no result.');
+        }
+
+        return new JsonResponse(['success' => true] + $result);
     }
 }

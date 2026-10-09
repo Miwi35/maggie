@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace Maggie\Finance\MessageHandler;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Maggie\Core\Mercure\EntityBroadcaster;
 use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Entity\RecurringOperation;
-use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\DayRule;
 use Maggie\Finance\Enum\RecurrencePeriod;
@@ -32,7 +30,6 @@ class UpdateRecurringOperationHandler
         private readonly RecurringOperationGuard $guard,
         private readonly EntityManagerInterface $em,
         private readonly TransactionRepository $transactionRepository,
-        private readonly EntityBroadcaster $broadcaster,
         private readonly TransactionNatureGuard $natureGuard,
     ) {
     }
@@ -103,30 +100,20 @@ class UpdateRecurringOperationHandler
             throw $e;
         }
 
-        $propagated = $formerCategory instanceof Category && $formerCategory->getId()->equals($operation->getCategory()->getId())
-            ? []
-            : $this->propagateCategory($operation);
-
-        $operation = $this->updateRecurringOperation->execute($operation);
-
-        // The middlewares publish the series only: its lines changed too.
-        foreach ($propagated as $transaction) {
-            $this->broadcaster->broadcast($transaction);
+        if (!$formerCategory instanceof Category || !$formerCategory->getId()->equals($operation->getCategory()->getId())) {
+            $this->propagateCategory($operation);
         }
 
-        return $operation;
+        return $this->updateRecurringOperation->execute($operation);
     }
 
     /**
      * The series' category is the default of its lines: a new one reaches
      * every line attached to it, except those the owner categorised by hand —
      * the transaction's category is the truth (spec, point 8).
-     *
-     * @return list<Transaction>
      */
-    private function propagateCategory(RecurringOperation $operation): array
+    private function propagateCategory(RecurringOperation $operation): void
     {
-        $changed = [];
         foreach ($this->transactionRepository->findAttachedTo($operation) as $transaction) {
             // A line the new category contradicts — the series turned from an
             // expense into an income — keeps its own rather than be refused.
@@ -135,9 +122,6 @@ class UpdateRecurringOperationHandler
                 continue;
             }
             $transaction->assignCategory($operation->getCategory(), CategorySource::Series);
-            $changed[] = $transaction;
         }
-
-        return $changed;
     }
 }

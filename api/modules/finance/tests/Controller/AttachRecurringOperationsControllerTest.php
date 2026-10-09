@@ -106,6 +106,12 @@ class AttachRecurringOperationsControllerTest extends WebTestCase
     public function testAttachesPublishesAndIndexesTheLineAndItsSeries(): void
     {
         $this->login();
+        // A measured reference the attachment moves: the series changes too.
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $gym = $em->find(RecurringOperation::class, $this->getFixture('gym')->getId());
+        self::assertNotNull($gym);
+        $gym->setReferenceAmountCents(-3100);
+        $em->flush();
 
         $data = $this->attach();
 
@@ -128,6 +134,7 @@ class AttachRecurringOperationsControllerTest extends WebTestCase
         self::assertSame(CategorySource::Series, $stored->getCategorySource());
         self::assertNull($this->reload('apr_gym_dearer')->getRecurringOperation());
         self::assertNull($this->reload('mar_gym_shop')->getRecurringOperation());
+        self::assertSame(-3000, self::getContainer()->get('doctrine.orm.entity_manager')->find(RecurringOperation::class, $this->getFixture('gym')->getId())?->getReferenceAmountCents());
 
         $this->assertMercureUpdatePublished('/transactions/');
         $this->assertMercureUpdatePublished('/recurring_operations/');

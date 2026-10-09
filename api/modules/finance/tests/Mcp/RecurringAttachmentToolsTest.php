@@ -183,6 +183,6 @@ class RecurringAttachmentToolsTest extends KernelTestCase
         $stored = $this->reload('feb_gym');
         self::assertNull($stored->getRecurringOperation());
         self::assertNull($stored->getRecurringOccurrenceOn());
-        $this->assertElasticsearchIndexDispatchedFor(RecurringOperation::class, $this->id('gym'));
+        $this->assertElasticsearchIndexDispatchedFor(Transaction::class, $this->id('feb_gym'));
     }
 }

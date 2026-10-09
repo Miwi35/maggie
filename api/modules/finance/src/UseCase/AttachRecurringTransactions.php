@@ -6,7 +6,6 @@ namespace Maggie\Finance\UseCase;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Entity\User;
-use Maggie\Core\Mercure\EntityBroadcaster;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\RecurringLinkSource;
@@ -44,15 +43,13 @@ class AttachRecurringTransactions
         private readonly RecurrenceSchedule $schedule,
         private readonly TransactionMatcher $matcher,
         private readonly EntityManagerInterface $em,
-        private readonly EntityBroadcaster $broadcaster,
     ) {
     }
 
     /**
      * One line, as it lands, before it is flushed: attached in place when it
      * qualifies — with the series' category and a recalibrated reference —
-     * else the proposal it makes, if any. The caller flushes, then
-     * broadcasts the series of an attached match.
+     * else the proposal it makes, if any. The caller flushes.
      */
     public function attachFor(Transaction $transaction): ?RecurringMatch
     {
@@ -166,8 +163,8 @@ class AttachRecurringTransactions
     /**
      * The owner's own attachment, sealed `manual`: the automatic pass never
      * moves it. The occurrence defaults to the one nearest the booking day.
-     * Changes the entities in place; the caller flushes, then broadcasts the
-     * series returned — the one attached to, and the one left, if any.
+     * Changes the entities in place; the caller flushes. Returns the series
+     * touched — the one attached to, and the one left, if any.
      *
      * @return list<RecurringOperation> the series whose attachments changed
      *
@@ -350,7 +347,8 @@ class AttachRecurringTransactions
 
     /**
      * Writes a catch-up pass: every attachment, then every reference the pass
-     * recalibrated, in one flush; then publishes the lines and their series.
+     * recalibrated, in one flush — published by the projection of the
+     * message that runs the pass.
      *
      * @param list<RecurringMatch> $attached
      * @param RecurringOperation[] $series
@@ -358,31 +356,21 @@ class AttachRecurringTransactions
      */
     private function apply(array $attached, array $series, array $reference): void
     {
-        $touched = [];
         foreach ($attached as $match) {
             if (null === $match->operation || null === $match->occurrenceOn) {
                 continue;
             }
             $match->transaction->attachToRecurring($match->operation, $match->occurrenceOn, RecurringLinkSource::Auto);
-            $touched[(string) $match->operation->getId()] = $match->operation;
         }
 
         foreach ($series as $operation) {
             $id = (string) $operation->getId();
             if (ReferenceAmountSource::Measured === $operation->getReferenceSource() && $reference[$id] !== $operation->getReferenceAmountCents()) {
                 $operation->setReferenceAmountCents($reference[$id]);
-                $touched[$id] = $operation;
             }
         }
 
         $this->em->flush();
-
-        foreach ($attached as $match) {
-            $this->broadcaster->broadcast($match->transaction);
-        }
-        foreach ($touched as $operation) {
-            $this->broadcaster->broadcast($operation);
-        }
     }
 
     /**
