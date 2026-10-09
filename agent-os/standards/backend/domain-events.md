@@ -39,4 +39,6 @@ UpdateProductHandler → use case → flush
 6. **The save outlives its effects**: `postFlush` runs once the row is committed (outside an enclosing transaction), so a failing event is logged and swallowed — the save is not turned into an error. A restock lost this way is read in the logs, not silently.
 7. **Test each tier**: the Specification (unit), the listener (dispatches only when satisfied, after the flush), the event handler (dispatches the command), the command handler (the list is published by Mercure and reindexed), the use case and the service.
 
+8. **A snapshot is allowed when the database erases the data with the row**: `MealRemoved` carries what the meal had put on the list (ids and quantities, read in `onFlush`), because the cascade deletes it before any handler runs. Plain values only, never an entity.
+
 Example: `api/modules/grocery/src/Doctrine/ProductStockListener.php`, `Specification/IsProductOutOfStock.php`, `EventSubscriber/RestockOnProductOutOfStock.php`.
