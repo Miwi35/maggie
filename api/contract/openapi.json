@@ -14850,7 +14850,7 @@
                     },
                     "transferKind": {
                         "readOnly": true,
-                        "description": "What kind of neutral movement this is — an internal transfer, a rejected\npayment — if any. Anything but `None` is\nneither an expense nor an income, and leaves every aggregate.",
+                        "description": "What kind of neutral movement this is — an internal transfer, a rejected\npayment — if any. Anything but `None` is neither an expense nor an\nincome, and leaves every aggregate.",
                         "default": "none",
                         "type": "string",
                         "enum": [
@@ -15007,7 +15007,7 @@
                     },
                     "transferKind": {
                         "readOnly": true,
-                        "description": "What kind of neutral movement this is — an internal transfer, a rejected\npayment — if any. Anything but `None` is\nneither an expense nor an income, and leaves every aggregate.",
+                        "description": "What kind of neutral movement this is — an internal transfer, a rejected\npayment — if any. Anything but `None` is neither an expense nor an\nincome, and leaves every aggregate.",
                         "default": "none",
                         "type": "string",
                         "enum": [
@@ -15164,7 +15164,7 @@
                     },
                     "transferKind": {
                         "readOnly": true,
-                        "description": "What kind of neutral movement this is — an internal transfer, a rejected\npayment — if any. Anything but `None` is\nneither an expense nor an income, and leaves every aggregate.",
+                        "description": "What kind of neutral movement this is — an internal transfer, a rejected\npayment — if any. Anything but `None` is neither an expense nor an\nincome, and leaves every aggregate.",
                         "default": "none",
                         "type": "string",
                         "enum": [
@@ -15315,7 +15315,7 @@
                             },
                             "transferKind": {
                                 "readOnly": true,
-                                "description": "What kind of neutral movement this is — an internal transfer, a rejected\npayment — if any. Anything but `None` is\nneither an expense nor an income, and leaves every aggregate.",
+                                "description": "What kind of neutral movement this is — an internal transfer, a rejected\npayment — if any. Anything but `None` is neither an expense nor an\nincome, and leaves every aggregate.",
                                 "default": "none",
                                 "type": "string",
                                 "enum": [
