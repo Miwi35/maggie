@@ -1,0 +1,105 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-category-filter@example.com
+    googleId: google-finance-category-filter
+    name: Category Filter User
+  other_user:
+    email: finance-category-filter-other@example.com
+    googleId: google-finance-category-filter-other
+    name: Someone Else
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 0
+    isCushion: false
+    user: '@test_user'
+  other_checking:
+    name: Courant de l'autre
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 0
+    isCushion: false
+    user: '@other_user'
+
+Maggie\Finance\Entity\Category:
+  salary_category:
+    name: Salaire
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    user: '@test_user'
+  bonus_category:
+    name: Primes
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    parent: '@salary_category'
+    user: '@test_user'
+  food_category:
+    name: Alimentation
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  other_salary_category:
+    name: Salaire de l'autre
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    user: '@other_user'
+
+Maggie\Finance\Entity\Transaction:
+  salary_august:
+    account: '@checking'
+    category: '@salary_category'
+    amountCents: 250000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-08-05"))>'
+    label: VIR SALAIRE AOUT
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  salary_september:
+    account: '@checking'
+    category: '@salary_category'
+    amountCents: 260000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-05"))>'
+    label: VIR SALAIRE SEPTEMBRE
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  bonus:
+    account: '@checking'
+    category: '@bonus_category'
+    amountCents: 90000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-14"))>'
+    label: VIR PRIME
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  groceries:
+    account: '@checking'
+    category: '@food_category'
+    amountCents: -4599
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-01"))>'
+    label: Supermarché
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  uncategorized_credit:
+    account: '@checking'
+    amountCents: 3000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-02"))>'
+    label: Rejet de prélèvement
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  other_salary:
+    account: '@other_checking'
+    category: '@other_salary_category'
+    amountCents: 400000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-03"))>'
+    label: VIR SALAIRE AUTRE
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@other_user'

@@ -1,0 +1,42 @@
+Maggie\Core\Entity\User:
+  filter_user:
+    email: category-filter@example.com
+    googleId: google-category-filter
+    name: Category Filter User
+
+Maggie\Finance\Entity\Account:
+  filter_account:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 0
+    isCushion: false
+    user: '@filter_user'
+
+Maggie\Finance\Entity\Category:
+  filter_salary:
+    name: Salaire
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Income)>'
+    user: '@filter_user'
+  filter_food:
+    name: Alimentation
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@filter_user'
+
+Maggie\Finance\Entity\Transaction:
+  filter_pay:
+    account: '@filter_account'
+    category: '@filter_salary'
+    amountCents: 250000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-05"))>'
+    label: In salary
+    user: '@filter_user'
+  filter_shopping:
+    account: '@filter_account'
+    category: '@filter_food'
+    amountCents: -4599
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-01"))>'
+    label: In food
+    user: '@filter_user'
