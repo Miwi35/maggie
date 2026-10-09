@@ -103,7 +103,6 @@ transversal_mobile:
   - mobile/app/src/main/java/com/maggie/app/ui/navigation/NavGraph.kt
   - mobile/app/src/main/java/com/maggie/app/ui/components/{AppDrawer,EmptyState,ErrorSnackbar,MaggieTopBar}.kt
   - mobile/app/src/main/java/com/maggie/app/ui/screens/loading/**
-  - mobile/app/src/main/java/com/maggie/app/data/api/MaggieApiService.kt
   - mobile/app/src/main/java/com/maggie/app/data/local/**
   - mobile/app/src/main/java/com/maggie/app/util/ResultExt.kt
   - mobile/app/src/main/res/**
@@ -373,6 +372,13 @@ mobile:
       # `E2E Mobile APK` job that playing any flow starts, checks every flow
       # against them — a renamed tag fails there, not in a full run.
       - mobile/app/src/main/java/com/maggie/app/ui/UiTags.kt
+      # The one API client of the app (owner, 9 Oct.): every screen goes through it, but
+      # a change to it is a method added or changed for one feature — the journeys of
+      # that feature come from the screens and view models the same change touches.
+      # Here it plays the critical core, which signs in and chats through it; as a
+      # transversal file it replayed every flow for a new endpoint. The coverage-based
+      # selection (spec « Sélection e2e par couverture ») will pick by changed line.
+      - mobile/app/src/main/java/com/maggie/app/data/api/MaggieApiService.kt
       - e2e/mobile/{config.yaml,shards.txt}
 
   e2e/mobile/flows/02-voice-overlay.yaml:
