@@ -7,6 +7,7 @@ import com.maggie.app.data.model.Category
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
+import com.maggie.app.data.mercure.coalesced
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransferInfo
 import com.maggie.app.data.model.TransferLeg
@@ -63,6 +64,7 @@ class TransactionViewModel(
             val userId = authRepository.getUserId() ?: return@launch
             mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.TRANSACTIONS))
                 .catch { /* SSE reconnects automatically */ }
+                .coalesced()
                 .collect {
                     refresh()
                     _uiState.value.detail?.let { loadDetailInfo(it.transaction.id) }

@@ -9,10 +9,13 @@ import io.ktor.client.plugins.sse.SSE
 import io.ktor.client.plugins.sse.sse
 import io.ktor.client.request.header
 import io.ktor.http.URLBuilder
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.isActive
 import okhttp3.Dispatcher
 import java.util.concurrent.TimeUnit
@@ -23,6 +26,28 @@ data class MercureEvent(
     val type: String? = null,
     val data: String = "",
 )
+
+const val MERCURE_BURST_WINDOW_MS = 500L
+const val MERCURE_INDEX_RECHECK_MS = 1_500L
+
+/**
+ * Updates arriving together (one change announced on several topics, a sync's rows) count as one.
+ * A stream with gaps shorter than the window emits only once it stops.
+ */
+@OptIn(FlowPreview::class)
+fun Flow<MercureEvent>.coalesced(): Flow<MercureEvent> = debounce(MERCURE_BURST_WINDOW_MS)
+
+/**
+ * [coalesced], then the same value once more [MERCURE_INDEX_RECHECK_MS] later, unless a newer burst
+ * comes first: an update is published before a worker has indexed the row and the lists are served
+ * from Elasticsearch, so the first reload can miss the change.
+ */
+fun Flow<MercureEvent>.coalescedAndRechecked(): Flow<MercureEvent> =
+    coalesced().transformLatest {
+        emit(it)
+        delay(MERCURE_INDEX_RECHECK_MS)
+        emit(it)
+    }
 
 class MercureService(
     private val authRepository: AuthRepository,

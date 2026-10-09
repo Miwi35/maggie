@@ -157,26 +157,134 @@ class CalendarViewModelTest {
         }
     }
 
-    @Test
-    fun `a Mercure update refetches again after the index has caught up`() = runTest {
-        stubRepositories()
+    private fun mercureTopics(): Map<String, MutableSharedFlow<MercureEvent>> {
         coEvery { authRepository.getUserId() } returns "u1"
-        val updates = MutableSharedFlow<MercureEvent>()
-        every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.EVENTS)) } returns updates
+        return listOf(MercureTopics.EVENTS, MercureTopics.TASKS, MercureTopics.AGENDAS).associateWith { collection ->
+            MutableSharedFlow<MercureEvent>().also {
+                every { mercureService.subscribe(MercureTopics.userScoped("u1", collection)) } returns it
+            }
+        }
+    }
+
+    @Test
+    fun `an agenda left open without interaction loads each list once`() = runTest {
+        stubRepositories()
+        mercureTopics()
+
+        createViewModel()
+        advanceTimeBy(10_000)
+
+        coVerify(exactly = 1) { eventRepository.refreshEvents() }
+        coVerify(exactly = 1) { taskRepository.refreshTasks() }
+        coVerify(exactly = 1) { agendaRepository.refreshAgendas() }
+    }
+
+    @Test
+    fun `a Mercure update reloads after the burst window, then once more for the index`() = runTest {
+        stubRepositories()
+        val topics = mercureTopics()
 
         createViewModel()
         advanceUntilIdle()
         coVerify(exactly = 1) { eventRepository.refreshEvents() }
 
-        updates.emit(MercureEvent())
-        runCurrent()
+        topics.getValue(MercureTopics.EVENTS).emit(MercureEvent())
+        advanceTimeBy(100)
+        coVerify(exactly = 1) { eventRepository.refreshEvents() }
+
+        advanceTimeBy(500)
         coVerify(exactly = 2) { eventRepository.refreshEvents() }
 
-        advanceTimeBy(1_600)
+        advanceTimeBy(10_000)
         coVerify(exactly = 3) { eventRepository.refreshEvents() }
+    }
 
-        advanceTimeBy(5_000)
+    @Test
+    fun `ten Mercure updates within 200 ms reload once, then once more for the index`() = runTest {
+        stubRepositories()
+        val topics = mercureTopics()
+
+        createViewModel()
+        advanceUntilIdle()
+
+        repeat(10) {
+            topics.getValue(MercureTopics.EVENTS).emit(MercureEvent())
+            advanceTimeBy(20)
+        }
+        advanceTimeBy(600)
+        coVerify(exactly = 2) { eventRepository.refreshEvents() }
+        coVerify(exactly = 2) { taskRepository.refreshTasks() }
+        coVerify(exactly = 2) { agendaRepository.refreshAgendas() }
+
+        advanceTimeBy(10_000)
+        coVerify(exactly = 3) { eventRepository.refreshEvents() }
+    }
+
+    @Test
+    fun `one change announced on events, tasks and agendas reloads once`() = runTest {
+        stubRepositories()
+        val topics = mercureTopics()
+
+        createViewModel()
+        advanceUntilIdle()
+
+        topics.values.forEach { it.emit(MercureEvent()) }
+        advanceTimeBy(600)
+        coVerify(exactly = 2) { eventRepository.refreshEvents() }
+
+        advanceTimeBy(10_000)
+        coVerify(exactly = 3) { eventRepository.refreshEvents() }
+    }
+
+    @Test
+    fun `a new burst replaces the pending index re-check`() = runTest {
+        stubRepositories()
+        val topics = mercureTopics()
+
+        createViewModel()
+        advanceUntilIdle()
+
+        topics.getValue(MercureTopics.EVENTS).emit(MercureEvent())
+        advanceTimeBy(1_000)
+        topics.getValue(MercureTopics.EVENTS).emit(MercureEvent())
+        advanceTimeBy(10_000)
+
         coVerify(exactly = 4) { eventRepository.refreshEvents() }
+    }
+
+    @Test
+    fun `updates a second apart each reload`() = runTest {
+        stubRepositories()
+        val topics = mercureTopics()
+
+        createViewModel()
+        advanceUntilIdle()
+
+        topics.getValue(MercureTopics.TASKS).emit(MercureEvent())
+        advanceTimeBy(1_000)
+        topics.getValue(MercureTopics.TASKS).emit(MercureEvent())
+        advanceTimeBy(1_000)
+
+        coVerify(exactly = 3) { taskRepository.refreshTasks() }
+    }
+
+    @Test
+    fun `refreshes asked while a load is running fold into one follow-up load`() = runTest {
+        stubRepositories()
+        val gate = CompletableDeferred<Unit>()
+        var calls = 0
+        coEvery { agendaRepository.refreshAgendas() } coAnswers {
+            if (calls++ == 0) gate.await()
+            Result.success(emptyList())
+        }
+
+        val viewModel = createViewModel()
+        runCurrent()
+        repeat(5) { viewModel.refresh() }
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        coVerify(exactly = 2) { agendaRepository.refreshAgendas() }
     }
 
     private val work = Agenda(id = "01WORK", name = "Work", color = "#FF0000")

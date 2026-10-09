@@ -3,6 +3,7 @@ package com.maggie.app.data.mercure
 import io.ktor.client.plugins.sse.sse
 import io.ktor.http.Url
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -67,6 +68,51 @@ class MercureServiceTest {
             server.close()
             synchronized(sockets) { sockets.forEach { it.close() } }
             accepting.join(1000)
+        }
+    }
+
+    // A hub heartbeat is a comment line (": ..."), not an update: handing it to a subscriber makes
+    // every idle screen reload on each beat (MAG-372).
+    @Test
+    fun `a hub heartbeat is not handed to subscribers as an update`() = runBlocking {
+        val server = ServerSocket(0)
+        val accepting = thread(isDaemon = true) {
+            val socket = try { server.accept() } catch (e: Exception) { return@thread }
+            try {
+                socket.getInputStream().read(ByteArray(4096))
+                socket.getOutputStream().apply {
+                    write(
+                        ("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\r\n" +
+                            ":\n\n: heartbeat\n\nid: 1\ndata: {\"title\":\"x\"}\n\n").toByteArray(),
+                    )
+                    flush()
+                }
+                Thread.sleep(2_000)
+            } catch (e: Exception) {
+                // Closed by the test's cleanup.
+            } finally {
+                socket.close()
+            }
+        }
+        io.mockk.mockkStatic(android.util.Log::class)
+        io.mockk.every { android.util.Log.i(any(), any<String>()) } returns 0
+        io.mockk.every { android.util.Log.d(any(), any<String>()) } returns 0
+        io.mockk.every { android.util.Log.w(any(), any<String>()) } returns 0
+        val authRepository = io.mockk.mockk<com.maggie.app.data.auth.AuthRepository>()
+        io.mockk.coEvery { authRepository.getMercureToken() } returns null
+        val client = MercureService.defaultClient()
+        val service = MercureService(authRepository, "http://127.0.0.1:${server.localPort}/hub", client)
+
+        try {
+            val first = kotlinx.coroutines.withTimeout(10_000) {
+                service.subscribe("/users/u/api/events/{id}").first()
+            }
+            assertEquals("{\"title\":\"x\"}", first.data)
+        } finally {
+            io.mockk.unmockkStatic(android.util.Log::class)
+            client.close()
+            server.close()
+            accepting.join(3_000)
         }
     }
 
