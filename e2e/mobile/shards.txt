@@ -32,6 +32,6 @@
 # figures from the latest run and move it where the sum is lowest.
 1: 02-voice-overlay 12-recipe-realtime
 2: 08-grocery-realtime 11-calendar-all-day-series
-3: 09-finance-banks 12-event-date-picker
+3: 09-finance-banks 12-event-date-picker 14-rotation
 4: 04-calendar-import 10-meal-ingredient-choice 13-chat-opens-on-latest 13-meals-planning
 5: 01-login-chat 05-deep-links 12-finance-rente

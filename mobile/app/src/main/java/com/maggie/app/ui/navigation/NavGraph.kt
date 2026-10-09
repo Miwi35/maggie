@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.fadeIn
@@ -28,10 +29,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -147,6 +150,8 @@ import com.maggie.app.util.EventExpander
 import com.maggie.app.util.RruleUtils
 import com.maggie.app.voice.VoiceManager
 import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.koin.androidx.compose.koinViewModel
@@ -247,6 +252,44 @@ internal fun foldsDetailRouteIntoPane(route: String?, showsDetailPane: Boolean):
 /** The dashboard keeps its own sheets: what a pane held while the window was wide must not open over it. */
 internal fun dropsPaneSelection(route: String?, detailPaneFits: Boolean): Boolean =
     detailPaneFits && route == Screen.Dashboard.route
+
+/**
+ * The detail route to open again once the window has lost its detail pane (MAG-263).
+ *
+ * Turning a phone from landscape back to portrait takes the pane away: the item that
+ * was open in it must not vanish with it. `null` when nothing was open, or the route
+ * is not one whose detail has a route of its own.
+ */
+internal fun reopensDetailRoute(route: String?, recipeOpen: Boolean, accountOpen: Boolean): String? =
+    when {
+        route == Screen.Cookbook.route && recipeOpen -> Screen.RecipeDetail.route
+        route == Screen.AccountList.route && accountOpen -> Screen.AccountTransactions.route
+        else -> null
+    }
+
+private val SelectionJson = Json { ignoreUnknownKeys = true }
+
+@Composable
+private inline fun <reified T : Any> rememberSavedSelection(): MutableState<T?> =
+    rememberSaveable(
+        stateSaver = Saver<T?, String>(
+            save = { value -> value?.let { SelectionJson.encodeToString(it) } },
+            restore = { SelectionJson.decodeFromString<T>(it) },
+        ),
+    ) { mutableStateOf<T?>(null) }
+
+/**
+ * A route that shows a selection leaves when the selection is gone, instead of drawing nothing.
+ *
+ * Only while it is the current entry: the screen that just closed itself clears its
+ * selection a frame before its exit animation ends, and must not pop a second time.
+ */
+@Composable
+private fun PopWhenMissing(navController: NavController, entry: NavBackStackEntry, present: Boolean) {
+    LaunchedEffect(present) {
+        if (!present && navController.currentBackStackEntry == entry) navController.popBackStack()
+    }
+}
 
 /** [detail] leaves the back stack for [list], which is not duplicated when it is already underneath. */
 internal fun NavController.foldRouteInto(detail: String, list: String) {
@@ -376,25 +419,27 @@ fun NavGraph() {
     }
 
     // Sheet states (kept as overlays)
-    var selectedEvent by remember { mutableStateOf<ExpandedEvent?>(null) }
-    var selectedTask by remember { mutableStateOf<Task?>(null) }
+    // Selections are saved: a rotation recreates the activity and restores the back stack, so a detail route
+    // restored over a forgotten selection would be a blank screen.
+    var selectedEvent by rememberSavedSelection<ExpandedEvent>()
+    var selectedTask by rememberSavedSelection<Task>()
     var recurrenceConfirm by remember { mutableStateOf<Pair<ExpandedEvent, Boolean>?>(null) }
 
     // Transient state for edit screens
-    var editingEvent by remember { mutableStateOf<ExpandedEvent?>(null) }
-    var editingRecurrenceAction by remember { mutableStateOf<RecurrenceAction?>(null) }
+    var editingEvent by rememberSavedSelection<ExpandedEvent>()
+    var editingRecurrenceAction by rememberSaveable { mutableStateOf<RecurrenceAction?>(null) }
     val recurringEventEditor = remember(eventRepository) { RecurringEventEditor(eventRepository) }
-    var editingTask by remember { mutableStateOf<Task?>(null) }
+    var editingTask by rememberSavedSelection<Task>()
 
     // Cookbook transient state
-    var selectedAccount by remember { mutableStateOf<Pair<String, String>?>(null) }
-    var detailRecipeId by remember { mutableStateOf<String?>(null) }
-    var groceryItemToOpen by remember { mutableStateOf<String?>(null) }
-    var groceryPaneItemId by remember { mutableStateOf<String?>(null) }
+    var selectedAccount by rememberSaveable { mutableStateOf<Pair<String, String>?>(null) }
+    var detailRecipeId by rememberSaveable { mutableStateOf<String?>(null) }
+    var groceryItemToOpen by rememberSaveable { mutableStateOf<String?>(null) }
+    var groceryPaneItemId by rememberSaveable { mutableStateOf<String?>(null) }
     // Read through a State: the NavHost graph is rebuilt when the builder's captures change.
     val paneShown by rememberUpdatedState(chrome.showsDetailPane)
-    var editRecipeId by remember { mutableStateOf<String?>(null) }
-    var mealCreateState by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var editRecipeId by rememberSaveable { mutableStateOf<String?>(null) }
+    var mealCreateState by rememberSaveable { mutableStateOf<Pair<String, String>?>(null) }
     var mealToChooseIngredientsOf by rememberSaveable { mutableStateOf<String?>(null) }
 
     val calendarUiState by calendarViewModel.uiState.collectAsState()
@@ -532,6 +577,28 @@ fun NavGraph() {
         val route = currentRoute ?: return@LaunchedEffect
         val list = foldsDetailRouteIntoPane(route, layout.detailPaneFits) ?: return@LaunchedEffect
         navController.foldRouteInto(route, list)
+    }
+
+    // Turning back to a window without a pane: what was open in it opens again, as a route or a sheet.
+    // Saved, because the rotation that takes the pane away recreates the activity.
+    var paneWasFitting by rememberSaveable { mutableStateOf(layout.detailPaneFits) }
+    LaunchedEffect(currentRoute, layout.detailPaneFits) {
+        if (layout.detailPaneFits) {
+            paneWasFitting = true
+            return@LaunchedEffect
+        }
+        // The graph is not set yet on the first frames after a recreation.
+        val route = currentRoute ?: return@LaunchedEffect
+        if (!paneWasFitting) return@LaunchedEffect
+        paneWasFitting = false
+        reopensDetailRoute(route, detailRecipeId != null, selectedAccount != null)
+            ?.let { navController.navigate(it) { launchSingleTop = true } }
+        if (route == Screen.Grocery.route) {
+            groceryPaneItemId?.let {
+                groceryItemToOpen = it
+                groceryPaneItemId = null
+            }
+        }
     }
 
     // The panel only suppresses the sheet, so the request would survive it: open the
@@ -822,8 +889,9 @@ fun NavGraph() {
                         onBack = { navController.popBackStack() },
                     )
                 }
-                composable(Screen.EventEdit.route) {
+                composable(Screen.EventEdit.route) { entry ->
                     val event = editingEvent
+                    PopWhenMissing(navController, entry, event != null)
                     if (event != null) {
                         EventEditScreen(
                             event = event,
@@ -845,8 +913,9 @@ fun NavGraph() {
                         )
                     }
                 }
-                composable(Screen.TaskEdit.route) {
+                composable(Screen.TaskEdit.route) { entry ->
                     val task = editingTask
+                    PopWhenMissing(navController, entry, task != null)
                     if (task != null) {
                         TaskEditScreen(
                             task = task,
@@ -1099,20 +1168,33 @@ fun NavGraph() {
                         onOpen = { route -> navController.navigate(route) { launchSingleTop = true } },
                     )
                 }
-                composable(Screen.AccountTransactions.route) {
+                composable(Screen.AccountTransactions.route) { entry ->
                     val account = selectedAccount
+                    // With a pane the fold effect replaces this route by the list: popping too would take the list away.
+                    PopWhenMissing(navController, entry, account != null || paneShown)
+                    val leave = {
+                        selectedAccount = null
+                        navController.backInFinance()
+                    }
+                    BackHandler(onBack = leave)
                     if (account != null) {
-                        AccountTransactions(account, onBack = { navController.backInFinance() })
+                        AccountTransactions(account, onBack = leave)
                     }
                 }
-                composable(Screen.RecipeDetail.route) {
+                composable(Screen.RecipeDetail.route) { entry ->
                     val id = detailRecipeId
+                    PopWhenMissing(navController, entry, id != null || paneShown)
+                    val leave = {
+                        detailRecipeId = null
+                        navController.popBackStack()
+                    }
+                    BackHandler(onBack = { leave() })
                     if (id != null) {
                         RecipeDetailScreen(
                             recipeId = id,
                             recipeRepository = recipeRepository,
                             viewModel = koinViewModel<RecipeDetailViewModel>(key = id) { parametersOf(id) },
-                            onBack = { navController.popBackStack() },
+                            onBack = { leave() },
                             onEdit = ::editRecipe,
                             onDelete = { recipeId ->
                                 deleteRecipe(recipeId) {
@@ -1136,8 +1218,9 @@ fun NavGraph() {
                         onSearchCiqual = { query -> apiService.searchCiqualFoods(query) },
                     )
                 }
-                composable(Screen.MealIngredientChoice.route) {
+                composable(Screen.MealIngredientChoice.route) { entry ->
                     val id = mealToChooseIngredientsOf
+                    PopWhenMissing(navController, entry, id != null)
                     if (id != null) {
                         MealIngredientChoiceScreen(
                             viewModel = koinViewModel<MealIngredientChoiceViewModel>(key = id) { parametersOf(id) },
@@ -1149,8 +1232,9 @@ fun NavGraph() {
                         )
                     }
                 }
-                composable(Screen.RecipeEdit.route) {
+                composable(Screen.RecipeEdit.route) { entry ->
                     val id = editRecipeId
+                    PopWhenMissing(navController, entry, id != null)
                     if (id != null) {
                         RecipeEditScreen(
                             recipeId = id,

@@ -1,0 +1,48 @@
+appId: com.maggie.app.e2e
+name: 14-rotation
+tags:
+  - cookbook
+  - layout
+---
+# Turning the phone never leaves an empty screen and never closes what is open
+# (MAG-263, recette of 8 Oct.: « écran noir au passage en paysage »). A phone in
+# landscape is a short window that draws the recipe beside the cookbook list; back
+# in portrait the recipe fills the screen again. What a JVM test cannot see is the
+# real activity being recreated by a real rotation, with its restored back stack.
+# The recipe is this flow's own and is deleted at the end.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runScript:
+    file: ../scripts/recipe-api.js
+    env:
+      ACTION: create
+      RECIPE: Salade d'orge MAG-263
+      QUANTITY: "400"
+
+- openLink: "maggie-e2e://recipe/${output.recipeId}"
+- extendedWaitUntil:
+    visible: ".*400.* g"
+    timeout: 20000
+
+- setOrientation: LANDSCAPE_LEFT
+- extendedWaitUntil:
+    visible: ".*400.* g"
+    timeout: 20000
+
+- setOrientation: PORTRAIT
+- extendedWaitUntil:
+    visible: ".*400.* g"
+    timeout: 20000
+
+# Left as found.
+- runScript:
+    file: ../scripts/recipe-api.js
+    env:
+      ACTION: remove
+      RECIPE: Salade d'orge MAG-263
