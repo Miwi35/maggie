@@ -74,6 +74,11 @@ select_files e2e/mobile/subflows/sign-in.yaml
 [ "$(count mobile)" -eq "$on_disk_mobile" ] && [ "$(count web)" -eq 0 ] && ok "the shared sign-in subflow: every flow, no web journey" || bad "sign-in subflow: $(count web) web, $(count mobile) mobile"
 select_files admin/src/App.tsx
 [ "$(count web)" -eq "$on_disk_web" ] && [ "$(count mobile)" -eq 0 ] && ok "the admin shell: every web journey" || bad "App.tsx: $(count web) web, $(count mobile) mobile"
+# The app's API client plays the mobile critical core, not every flow (9 Oct.).
+select_files mobile/app/src/main/java/com/maggie/app/data/api/MaggieApiService.kt
+core_mobile="$(jq -r '[.mobile[] | select(test("01-login-chat"))] | length' <<<"$SEL")"
+[ "$(count mobile)" -lt "$on_disk_mobile" ] && [ "$core_mobile" -eq 1 ] && [ "$(count web)" -eq 0 ] \
+  && ok "MaggieApiService.kt: the mobile core, not every flow" || bad "MaggieApiService.kt: $(count web) web, $(count mobile) mobile"
 # A client's own dependencies and login play that client only (8 Oct.).
 for file in admin/package-lock.json e2e/web/package.json admin/src/auth/authProvider.ts admin/Taskfile.yml; do
   select_files "$file"
