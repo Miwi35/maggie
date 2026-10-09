@@ -48,19 +48,22 @@ class MergeDuplicateAccounts
     }
 
     /**
-     * @param ?User $user         one owner's accounts — the sync folds its own
-     *                            copies — or, given null, everyone's
-     * @param bool  $readSessions ask the provider for the identifications the
-     *                            stored keys lack; the sync does without, the
-     *                            authorization having stored those of its session
+     * @param ?User                $user one owner's accounts — the sync folds its
+     *                                   own copies — or, given null, everyone's
+     * @param ?array<string, true> $live unattended, from a sync: the accounts it
+     *                                   just read, each a real account of the live
+     *                                   session, so never the copy of another. No
+     *                                   session is asked, and only shared movements
+     *                                   prove a copy — two empty accounts of one
+     *                                   holder have the same balance too
      *
      * @return array{keysLearnt: int, groups: list<array{survivor: string, name: string, merged: list<string>, moved: int, dropped: int}>, ambiguous: list<string>, warnings: list<string>}
      */
-    public function execute(bool $dryRun = true, ?User $user = null, bool $readSessions = true): array
+    public function execute(bool $dryRun = true, ?User $user = null, ?array $live = null): array
     {
         $this->movementDays = [];
         $warnings = [];
-        $keys = $this->learnKeys($user, $readSessions, $warnings);
+        $keys = $this->learnKeys($user, null === $live, $warnings);
 
         $accounts = array_values(array_filter(
             null === $user ? $this->accountRepository->findAll() : $this->accountRepository->findByUser($user),
@@ -68,12 +71,12 @@ class MergeDuplicateAccounts
         ));
         usort($accounts, static fn (Account $a, Account $b) => strcmp((string) $a->getId(), (string) $b->getId()));
 
-        [$groups, $ambiguous] = $this->group($accounts, $keys);
+        [$groups, $ambiguous] = $this->group($accounts, $keys, $live);
 
         $report = [];
         $removed = [];
         foreach ($groups as $group) {
-            $report[] = $this->merge($group, $keys, $dryRun);
+            $report[] = $this->merge($group, $keys, $live ?? [], $dryRun);
             foreach (\array_slice($group, 1) as $copy) {
                 $removed[(string) $copy->getId()] = true;
             }
@@ -157,51 +160,85 @@ class MergeDuplicateAccounts
     }
 
     /**
+     * The sets of accounts that are one real account. Copies chain: the oldest
+     * may share no day with the newest, only with the copy in between — so a
+     * set is everything linked to it, step by step. A set that links two
+     * different identifications is two real accounts: their own copies merge,
+     * the lookalikes in between are reported.
+     *
      * @param list<Account>         $accounts oldest first
      * @param array<string, string> $keys
+     * @param ?array<string, true>  $live
      *
      * @return array{0: list<list<Account>>, 1: list<Account>}
      */
-    private function group(array $accounts, array $keys): array
+    private function group(array $accounts, array $keys, ?array $live): array
     {
-        $groups = [];
-
+        $parent = [];
         foreach ($accounts as $account) {
-            $key = $keys[(string) $account->getId()] ?? null;
-            if (null !== $key) {
-                $groups[(string) $account->getUser()->getId().'|key|'.$key][] = $account;
+            $parent[(string) $account->getId()] = (string) $account->getId();
+        }
+        $root = static function (string $id) use (&$parent): string {
+            while ($parent[$id] !== $id) {
+                $id = $parent[$id] = $parent[$parent[$id]];
+            }
+
+            return $id;
+        };
+        $link = static function (string $a, string $b) use (&$parent, $root): void {
+            $parent[$root($b)] = $root($a);
+        };
+
+        $firstWithKey = [];
+        foreach ($accounts as $account) {
+            $id = (string) $account->getId();
+            if (null !== $key = $keys[$id] ?? null) {
+                $groupKey = $account->getUser()->getId().'|'.$key;
+                if (isset($firstWithKey[$groupKey])) {
+                    $link($firstWithKey[$groupKey], $id);
+                } else {
+                    $firstWithKey[$groupKey] = $id;
+                }
             }
         }
 
-        $ambiguous = [];
-        foreach ($accounts as $account) {
-            if (isset($keys[(string) $account->getId()]) || null === $account->getBankConnection()) {
-                continue;
-            }
-
-            $candidates = [];
-            foreach ($groups as $groupKey => $members) {
-                foreach ($members as $member) {
-                    if ($this->isCopyOf($account, $member)) {
-                        $candidates[] = $groupKey;
-                        break;
-                    }
+        foreach ($accounts as $i => $account) {
+            foreach (\array_slice($accounts, $i + 1) as $other) {
+                $keyless = array_filter([$account, $other], static fn (Account $a) => !isset($keys[(string) $a->getId()]));
+                // Two identifications are told apart by the bank, not guessed.
+                if ([] === $keyless || null === $account->getBankConnection()) {
+                    continue;
+                }
+                if ($this->isCopyOf($account, $other, $live)) {
+                    $link((string) $account->getId(), (string) $other->getId());
                 }
             }
+        }
 
-            if (1 === \count($candidates)) {
-                $groups[$candidates[0]][] = $account;
-            } elseif ([] === $candidates) {
-                $groups['lookalike|'.$account->getId()][] = $account;
-            } else {
-                $ambiguous[] = $account;
-            }
+        $sets = [];
+        foreach ($accounts as $account) {
+            $sets[$root((string) $account->getId())][] = $account;
         }
 
         $duplicated = [];
-        foreach ($groups as $members) {
-            if (\count($members) > 1) {
-                usort($members, static fn (Account $a, Account $b) => strcmp((string) $a->getId(), (string) $b->getId()));
+        $ambiguous = [];
+        foreach ($sets as $members) {
+            $byKey = [];
+            $keyless = [];
+            foreach ($members as $member) {
+                $key = $keys[(string) $member->getId()] ?? null;
+                if (null === $key) {
+                    $keyless[] = $member;
+                } else {
+                    $byKey[$key][] = $member;
+                }
+            }
+
+            if (\count($byKey) > 1) {
+                array_push($ambiguous, ...$keyless);
+                $members = array_values(array_filter($byKey, static fn (array $same) => \count($same) > 1));
+                array_push($duplicated, ...$members);
+            } elseif (\count($members) > 1) {
                 $duplicated[] = $members;
             }
         }
@@ -210,15 +247,25 @@ class MergeDuplicateAccounts
     }
 
     /**
-     * An account without identification is a copy of another when both sit on
-     * the same connection under the same name and currency, and show the same
-     * balance or the same movements. The balance alone misses the copy a dead
-     * session left behind, frozen at its last sync; the movements do not.
+     * Two accounts are copies of one another when they sit on the same
+     * connection under the same name and currency, and show the same balance
+     * or the same movements. The balance alone misses the copy a dead session
+     * left behind, frozen at its last sync; the movements do not.
+     *
+     * Unattended, two accounts the session just read are two real accounts,
+     * and only the movements prove a copy.
+     *
+     * @param ?array<string, true> $live
      */
-    private function isCopyOf(Account $account, Account $other): bool
+    private function isCopyOf(Account $account, Account $other, ?array $live): bool
     {
         if ($this->signature($account) !== $this->signature($other)) {
             return false;
+        }
+
+        if (null !== $live) {
+            return !(isset($live[(string) $account->getId()]) && isset($live[(string) $other->getId()]))
+                && $this->sharesMovements($account, $other);
         }
 
         return $account->getBalanceCents() === $other->getBalanceCents()
@@ -299,13 +346,14 @@ class MergeDuplicateAccounts
     /**
      * @param list<Account>         $group oldest first
      * @param array<string, string> $keys
+     * @param array<string, true>   $live
      *
      * @return array{survivor: string, name: string, merged: list<string>, moved: int, dropped: int}
      */
-    private function merge(array $group, array $keys, bool $dryRun): array
+    private function merge(array $group, array $keys, array $live, bool $dryRun): array
     {
+        $current = $this->current($group, $live);
         $survivor = array_shift($group);
-        $newest = end($group) ?: $survivor;
         $moved = 0;
         $dropped = 0;
         $touched = [];
@@ -358,11 +406,10 @@ class MergeDuplicateAccounts
             return $report;
         }
 
-        // The newest copy is the one the current session names.
-        if ($newest !== $survivor) {
-            $survivor->setExternalAccountId($newest->getExternalAccountId());
-            $survivor->setBankConnection($newest->getBankConnection());
-            $survivor->setBalanceCents($newest->getBalanceCents());
+        if ($current !== $survivor) {
+            $survivor->setExternalAccountId($current->getExternalAccountId());
+            $survivor->setBankConnection($current->getBankConnection());
+            $survivor->setBalanceCents($current->getBalanceCents());
         }
         // A survivor older than identifications takes the one a copy carries.
         foreach ([$survivor, ...$group] as $member) {
@@ -389,6 +436,33 @@ class MergeDuplicateAccounts
         }
 
         return $report;
+    }
+
+    /**
+     * The member the current session names, whose uid and balance the
+     * survivor takes: the one the sync just read, else the newest still open
+     * — a copy closed since is a dead uid with a frozen balance — else the
+     * newest.
+     *
+     * @param list<Account>       $group oldest first
+     * @param array<string, true> $live
+     */
+    private function current(array $group, array $live): Account
+    {
+        $newestFirst = array_reverse($group);
+
+        foreach ($newestFirst as $member) {
+            if (isset($live[(string) $member->getId()])) {
+                return $member;
+            }
+        }
+        foreach ($newestFirst as $member) {
+            if (!$member->isClosed()) {
+                return $member;
+            }
+        }
+
+        return $newestFirst[0];
     }
 
     /**

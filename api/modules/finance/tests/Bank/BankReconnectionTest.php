@@ -143,7 +143,7 @@ class BankReconnectionTest extends KernelTestCase
         return $connection;
     }
 
-    private function sync(MockHttpClient $http): void
+    private function sync(MockHttpClient $http, bool $dryRun = false): void
     {
         $container = self::getContainer();
 
@@ -155,7 +155,8 @@ class BankReconnectionTest extends KernelTestCase
             $container->get('doctrine.orm.entity_manager'),
             $container->get('messenger.default_bus'),
             $container->get(MergeDuplicateAccounts::class),
-        ))->execute($this->user());
+            $container->get('logger'),
+        ))->execute($this->user(), $dryRun);
     }
 
     /** The owner, read again: the assertions clear the entity manager between steps. */
@@ -395,6 +396,8 @@ class BankReconnectionTest extends KernelTestCase
         // The owner reconnects, then « Récupérer les opérations ».
         $session = 'session-2';
         $this->connect($http);
+        $this->resetMercure();
+        $this->resetAsyncTransport();
         $this->sync($http);
 
         $accounts = $this->bankAccounts();
@@ -407,6 +410,103 @@ class BankReconnectionTest extends KernelTestCase
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         self::assertCount(3, $em->getRepository(Transaction::class)->findAll(), 'each movement once');
         self::assertSame(235000 - 20600, $this->monthTotal());
+
+        // The lists read the index, the open screens Mercure.
+        $this->assertMercureUpdatePublished('/accounts/'.$copy->getId());
+        $this->assertElasticsearchDeleteDispatched('accounts');
+        $this->assertElasticsearchDeleteDispatched('transactions');
+        $this->assertElasticsearchIndexDispatchedFor(Account::class, (string) $original->getId());
+    }
+
+    public function testADryRunSyncMergesNothing(): void
+    {
+        $this->loadFixtures('account.yaml');
+
+        $session = 'session-1';
+        $http = $this->bank(['session-1' => [], 'session-2' => [$this->remoteAccount('uid-new')]], $session);
+        $connection = $this->connect($http);
+        foreach (['uid-a', 'uid-b'] as $uid) {
+            $account = $this->legacyAccount($connection, $uid, 'M. CADARE MEVEN', -20167);
+            $this->storedMovement($account, 'VIREMENT SALAIRE', 235000, '2026-10-01');
+            $this->storedMovement($account, 'PRELEVEMENT ELECTRICITE DE FRANCE', -20600, '2026-10-05');
+        }
+
+        $session = 'session-2';
+        $this->connect($http);
+        $this->resetMercure();
+        $this->sync($http, dryRun: true);
+
+        self::assertCount(3, $this->bankAccounts());
+        self::assertCount(4, self::getContainer()->get('doctrine.orm.entity_manager')->getRepository(Transaction::class)->findAll());
+        $this->assertMercureUpdateCount(0);
+    }
+
+    public function testCopiesChainedThroughTheOneInBetweenFoldIntoOne(): void
+    {
+        $this->loadFixtures('account.yaml');
+
+        // Each consent read from where the last left off: the oldest copy
+        // shares no day with the newest, only with the copy in between.
+        $session = 'session-1';
+        $http = $this->bank(['session-1' => [], 'session-2' => [$this->remoteAccount('uid-new')]], $session);
+        $connection = $this->connect($http);
+        $oldest = $this->legacyAccount($connection, 'uid-a', 'M. CADARE MEVEN', -15000);
+        $between = $this->legacyAccount($connection, 'uid-b', 'M. CADARE MEVEN', -17000);
+        $this->storedMovement($oldest, 'CARTE BOULANGERIE', -450, '2026-09-10');
+        $this->storedMovement($oldest, 'CARTE PHARMACIE', -1290, '2026-09-20');
+        $this->storedMovement($between, 'CARTE PHARMACIE', -1290, '2026-09-20');
+        $this->storedMovement($between, 'VIREMENT SALAIRE', 235000, '2026-10-01');
+
+        $session = 'session-2';
+        $this->connect($http);
+        $this->sync($http);
+
+        $accounts = $this->bankAccounts();
+        self::assertCount(1, $accounts);
+        self::assertTrue($oldest->getId()->equals($accounts[0]->getId()));
+        self::assertSame('uid-new', $accounts[0]->getExternalAccountId());
+        self::assertCount(4, self::getContainer()->get('doctrine.orm.entity_manager')->getRepository(Transaction::class)->findAll());
+    }
+
+    public function testTwoAccountsTheSyncReadsAreNeverFoldedTogether(): void
+    {
+        $this->loadFixtures('account.yaml');
+
+        // Two real accounts of one holder, linked before keys were kept: same
+        // name, and the bank answers both with the same balance and movements
+        // here. The session lists both, so they are two.
+        $session = 'session-1';
+        $http = $this->bank(['session-1' => []], $session);
+        $connection = $this->connect($http);
+        $this->legacyAccount($connection, 'uid-checking', 'Meven Cadare');
+        $this->legacyAccount($connection, 'uid-card', 'Meven Cadare');
+
+        $this->sync($http);
+
+        self::assertCount(2, $this->bankAccounts());
+    }
+
+    public function testTheAccountKeptFollowsTheUidTheSessionReadsNotANewerDeadCopy(): void
+    {
+        $this->loadFixtures('account.yaml');
+
+        $session = 'session-1';
+        $http = $this->bank(['session-1' => []], $session);
+        $connection = $this->connect($http);
+        $live = $this->legacyAccount($connection, 'uid-live', 'M. CADARE MEVEN', -15000);
+        $dead = $this->legacyAccount($connection, 'uid-dead', 'M. CADARE MEVEN', -9999);
+        $dead->setClosedAt(new \DateTimeImmutable('-1 day'));
+        $this->storedMovement($dead, 'VIREMENT SALAIRE', 235000, '2026-10-01');
+        $this->storedMovement($dead, 'PRELEVEMENT ELECTRICITE DE FRANCE', -20600, '2026-10-05');
+
+        $this->sync($http);
+
+        $accounts = $this->bankAccounts();
+        self::assertCount(1, $accounts);
+        self::assertTrue($live->getId()->equals($accounts[0]->getId()));
+        self::assertSame('uid-live', $accounts[0]->getExternalAccountId(), 'a dead uid would fail every sync after');
+        self::assertSame(-20167, $accounts[0]->getBalanceCents(), 'the balance the bank just gave');
+        self::assertFalse($accounts[0]->isClosed());
     }
 
     public function testTheBankReferenceRecognisesAMovementWhoseLabelChanged(): void
