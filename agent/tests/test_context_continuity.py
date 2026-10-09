@@ -193,6 +193,7 @@ class TestTheShippedScenarios:
             with patch("app.llm.history.settings") as window:
                 window.context_history_messages = 40
                 window.recent_history_messages = 2
+                window.tool_replay_turns = 2
                 turns = await build_history(OWNER, context_id=resolution["id"], current_message_id=asked.id)
             reply = await client.messages.create(model="fake", max_tokens=100, system="Tu es Maggie.", messages=turns)
             answer = "".join(block.text for block in reply.content)
