@@ -6,8 +6,8 @@ tags:
 # Delete a thread, then a message, from the chat (MAG-342).
 #
 # Two discussions are started through the real chat, with scenarios the fake model
-# already has (`01-context-router-birthday-new` and `05-context-router-new-topic`
-# open « Anniversaire e2e » and « Budget e2e »). The thread list is reached by the
+# already has (`05-context-router-new-topic` and `01-context-router-birthday-new`
+# open « Budget e2e » and « Anniversaire e2e »). The thread list is reached by the
 # icon of the chat header, the thread is deleted after its confirmation, and the
 # chat drops its messages at once. Then a long press on a bubble deletes one message,
 # with no confirmation.
@@ -32,17 +32,8 @@ tags:
       id: "chat_input"
     timeout: 20000
 
-# First discussion.
-- tapOn:
-    id: "chat_input"
-- inputText: "Je prépare l'anniversaire de Lucie"
-- tapOn:
-    id: "chat_send"
-- extendedWaitUntil:
-    visible: ".*on organise l'anniversaire de Lucie ensemble.*"
-    timeout: 60000
-
-# Second discussion: another subject, so the router opens a new thread.
+# First discussion: the budget one. Its router message quotes nothing yet, so
+# `05-context-router-new-topic` opens « Budget e2e ».
 - tapOn:
     id: "chat_input"
 - inputText: "Où en sont mes finances ?"
@@ -50,6 +41,19 @@ tags:
     id: "chat_send"
 - extendedWaitUntil:
     visible: ".*Votre budget tient la route ce mois-ci.*"
+    timeout: 60000
+
+# Second discussion, sent while the first is in progress: the router now quotes the last
+# exchanges (MAG-341), so only a message anchored on `Message : …` opens a thread of its
+# own — `01-context-router-birthday-new` is, and is numbered before the follow-up one.
+# In the other order the budget question would stay in the birthday thread.
+- tapOn:
+    id: "chat_input"
+- inputText: "Je prépare l'anniversaire de Lucie"
+- tapOn:
+    id: "chat_send"
+- extendedWaitUntil:
+    visible: ".*on organise l'anniversaire de Lucie ensemble.*"
     timeout: 60000
 - assertNotVisible: ".*aucun scénario.*"
 
