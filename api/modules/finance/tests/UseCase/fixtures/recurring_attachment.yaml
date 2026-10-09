@@ -52,6 +52,17 @@ Maggie\Finance\Entity\Category:
     obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
     user: '@other_user'
 
+# Claims no line of the fixtures: a test renames one so that it does.
+Maggie\Finance\Entity\CategorizationRule:
+  rule_premium:
+    labelPattern: PREMIUM
+    matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'
+    category: '@groceries'
+    direction: '<(Maggie\Finance\Enum\AmountDirection::Debit)>'
+    priority: 10
+    isActive: true
+    user: '@test_user'
+
 Maggie\Finance\Entity\RecurringOperation:
   gym:
     label: Salle de sport

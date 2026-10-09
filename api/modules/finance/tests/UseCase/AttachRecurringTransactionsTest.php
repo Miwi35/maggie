@@ -5,6 +5,7 @@ namespace Maggie\Finance\Tests\UseCase;
 use App\Tests\Support\FixtureLoaderTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Entity\User;
+use Maggie\Finance\Doctrine\TransactionListener;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Entity\RecurringOperation;
@@ -18,6 +19,7 @@ use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Exception\RecurringAttachmentException;
 use Maggie\Finance\Import\StatementRow;
 use Maggie\Finance\Message\CreateTransactionCommand;
+use Maggie\Finance\Message\UpdateTransactionCommand;
 use Maggie\Finance\UseCase\AttachRecurringTransactions;
 use Maggie\Finance\UseCase\ImportStatement;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -79,9 +81,15 @@ class AttachRecurringTransactionsTest extends KernelTestCase
             ->setCounterpartyName($counterparty);
 
         $this->em->persist($transaction);
-        $this->em->flush();
+        $this->store();
 
         return $transaction;
+    }
+
+    /** Stores the history as it is: the catch-up is what is under test, not the attachment on insert. */
+    private function store(): void
+    {
+        self::getContainer()->get(TransactionListener::class)->withoutEffects($this->em->flush(...));
     }
 
     private function reload(Transaction $transaction): Transaction
@@ -142,7 +150,7 @@ class AttachRecurringTransactionsTest extends KernelTestCase
         /** @var Category $sport */
         $sport = $this->getFixture('sport');
         $line->assignCategory($sport, CategorySource::Manual);
-        $this->em->flush();
+        $this->store();
 
         $this->attach->execute($this->user());
 
@@ -267,7 +275,7 @@ class AttachRecurringTransactionsTest extends KernelTestCase
             ->setReferenceAmountCents(-3200)
             ->setUser($this->user());
         $this->em->persist($twin);
-        $this->em->flush();
+        $this->store();
 
         $line = $this->line(-3100, '2027-05-01');
 
@@ -286,7 +294,7 @@ class AttachRecurringTransactionsTest extends KernelTestCase
         $otherAccount = $this->line(-3000, '2027-07-01', 'savings');
         $otherCurrency = $this->line(-3000, '2027-08-01')->setCurrency('USD');
         $refund = $this->line(3000, '2027-09-01');
-        $this->em->flush();
+        $this->store();
 
         $report = $this->attach->execute($this->user());
 
@@ -301,7 +309,7 @@ class AttachRecurringTransactionsTest extends KernelTestCase
         $line = $this->line(-3000, '2027-05-01');
         $this->attach->attachByHand($line, $this->gym());
         $this->attach->detachByHand($line);
-        $this->em->flush();
+        $this->store();
 
         $this->attach->execute($this->user());
 
@@ -364,7 +372,7 @@ class AttachRecurringTransactionsTest extends KernelTestCase
     public function testAMeasuredReferenceFollowsTheAverageOfTheLastThreeAttachments(): void
     {
         $this->em->remove($this->getFixture('feb_gym'));
-        $this->em->flush();
+        $this->store();
         $this->line(-3000, '2027-05-01');
         $this->line(-3300, '2027-06-01');
         $this->line(-3500, '2027-07-01');
@@ -379,7 +387,7 @@ class AttachRecurringTransactionsTest extends KernelTestCase
     public function testADeclaredReferenceNeverMoves(): void
     {
         $this->gym()->setReferenceSource(ReferenceAmountSource::Declared);
-        $this->em->flush();
+        $this->store();
         $this->line(-3300, '2027-05-01');
         $this->line(-3500, '2027-06-01');
 
@@ -395,7 +403,7 @@ class AttachRecurringTransactionsTest extends KernelTestCase
         $this->attach->execute($this->user());
 
         $changed = $this->attach->attachByHand($dearer, $this->gym());
-        $this->em->flush();
+        $this->store();
 
         // A rise is a break: averaging 30 € with 39,90 € is a price nobody pays.
         self::assertSame([$this->gym()], $changed);
@@ -510,5 +518,43 @@ class AttachRecurringTransactionsTest extends KernelTestCase
         self::assertTrue($match->attached);
         self::assertSame('2027-05-01', $line->getRecurringOccurrenceOn()?->format('Y-m-d'));
         self::assertSame(CategorySource::Series, $line->getCategorySource());
+    }
+
+    public function testALineSavedThroughAnyDoorIsAttachedOnceRecorded(): void
+    {
+        /** @var Account $checking */
+        $checking = $this->getFixture('checking');
+        $line = (new Transaction())
+            ->setUser($this->user())
+            ->setAccount($checking)
+            ->setAmountCents(-3000)
+            ->setBookedAt(new \DateTimeImmutable('2027-05-03'))
+            ->setLabel('PRLV CLUB FORME')
+            ->setCounterpartyName('Club Forme');
+        $this->em->persist($line);
+        $this->em->flush();
+
+        $stored = $this->reload($line);
+        self::assertSame('2027-05-01', $stored->getRecurringOccurrenceOn()?->format('Y-m-d'));
+        self::assertSame(RecurringLinkSource::Auto, $stored->getRecurringSource());
+        self::assertSame('Abonnements', $stored->getCategory()?->getName());
+        self::assertSame(CategorySource::Series, $stored->getCategorySource());
+    }
+
+    public function testARuleClaimingAnAttachedLineAfterARenameLeavesTheSeriesCategory(): void
+    {
+        $line = $this->line(-3000, '2027-05-02');
+        $this->attach->execute($this->user());
+
+        $this->bus()->dispatch(new UpdateTransactionCommand(
+            userId: (string) $this->user()->getId(),
+            transactionId: (string) $line->getId(),
+            label: 'CB CLUB FORME PREMIUM',
+        ));
+
+        $stored = $this->reload($line);
+        self::assertNotNull($stored->getRecurringOperation());
+        self::assertSame('Abonnements', $stored->getCategory()?->getName());
+        self::assertSame(CategorySource::Series, $stored->getCategorySource());
     }
 }

@@ -106,6 +106,7 @@ framework:
             'Maggie\Finance\Event\TransactionChanged': sync
             'Maggie\Finance\Event\TransactionRemoved': sync
             'Maggie\Finance\Message\AttachRecurringOperationsCommand': sync
+            'Maggie\Finance\Message\AttachRecurringTransactionCommand': sync
             'Maggie\Core\Elasticsearch\Message\IndexDocumentCommand': sync
             'Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand': sync
 

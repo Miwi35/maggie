@@ -8,6 +8,7 @@ use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\TransferSource;
 use Maggie\Finance\Message\DetectInternalTransferCommand;
 use Maggie\Finance\Repository\TransactionRepository;
+use Maggie\Finance\UseCase\AttachRecurringTransactions;
 use Maggie\Finance\UseCase\DetectInternalTransfers;
 use Maggie\Finance\UseCase\UpdateTransaction;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -19,6 +20,7 @@ class DetectInternalTransferHandler
     public function __construct(
         private readonly DetectInternalTransfers $detectInternalTransfers,
         private readonly UpdateTransaction $updateTransaction,
+        private readonly AttachRecurringTransactions $attachRecurring,
         private readonly TransactionRepository $transactionRepository,
     ) {
     }
@@ -33,6 +35,11 @@ class DetectInternalTransferHandler
         }
 
         $counterpart->markAsInternalTransfer($transaction, TransferSource::Auto);
+
+        // Both legs settle no occurrence any more: the payment presented
+        // again takes it, and the series recalibrates without them.
+        $this->attachRecurring->releaseNeutral($counterpart);
+        $this->attachRecurring->releaseNeutral($transaction);
 
         return $this->updateTransaction->execute($transaction);
     }
