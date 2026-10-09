@@ -30,4 +30,21 @@ export class NotificationBell extends AdminShell {
   item(title: string): Locator {
     return this.popover.getByRole('button', { name: title })
   }
+
+  /** The row of one notification, with its trash icon. */
+  row(title: string): Locator {
+    return this.popover.getByRole('listitem').filter({ hasText: title })
+  }
+
+  async delete(title: string): Promise<void> {
+    await this.row(title).getByRole('button', { name: 'Supprimer' }).click()
+  }
+
+  /** "Tout effacer", then the confirmation. */
+  async clearAll(): Promise<void> {
+    await this.popover.getByRole('button', { name: 'Tout effacer' }).click()
+    const dialog = this.page.getByRole('dialog', { name: 'Effacer toutes les notifications ?' })
+    await dialog.getByRole('button', { name: 'Effacer', exact: true }).click()
+    await expect(dialog).toBeHidden()
+  }
 }

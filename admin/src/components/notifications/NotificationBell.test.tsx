@@ -12,12 +12,13 @@ import { NotificationBell } from './NotificationBell'
 
 const refetch = vi.fn()
 const update = vi.fn()
+const remove = vi.fn()
 let listed: unknown[] = []
 let onMercure: (data?: string) => void = () => {}
 
 vi.mock('react-admin', () => ({
   useGetList: () => ({ data: listed, refetch }),
-  useDataProvider: () => ({ update }),
+  useDataProvider: () => ({ update, delete: remove }),
   useRedirect: () => vi.fn(),
 }))
 
@@ -59,6 +60,7 @@ describe('NotificationBell — live updates from Mercure', () => {
   beforeEach(() => {
     refetch.mockReset()
     update.mockReset()
+    remove.mockReset()
     listed = [dentist]
   })
 
@@ -156,5 +158,88 @@ describe('NotificationBell — live updates from Mercure', () => {
     expect(update).toHaveBeenCalledOnce()
     expect(unread()).toBe('')
     expect(refetch).not.toHaveBeenCalled()
+  })
+})
+
+describe('NotificationBell — deleting', () => {
+  const fetchMock = vi.fn()
+
+  beforeEach(() => {
+    refetch.mockReset()
+    remove.mockReset()
+    fetchMock.mockReset()
+    vi.stubGlobal('fetch', fetchMock)
+    listed = [dentist, { ...dentist, id: iri('01K0FILM'), title: 'Votre film commence', createdAt: '2026-10-07T09:00:00+00:00' }]
+  })
+
+  test('the trash icon removes that notification only, without reloading the list', async () => {
+    remove.mockResolvedValue({ data: { id: dentist.id } })
+    render(<NotificationBell />)
+    await openBell()
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'Supprimer' })[0])
+
+    expect(remove).toHaveBeenCalledWith('notifications', expect.objectContaining({ id: dentist.id }))
+    expect(screen.queryByText('Dentiste demain')).not.toBeInTheDocument()
+    expect(screen.getByText('Votre film commence')).toBeInTheDocument()
+    expect(refetch).not.toHaveBeenCalled()
+  })
+
+  test('a failed deletion says so and leaves the list as it was', async () => {
+    remove.mockRejectedValue(new Error('boom'))
+    render(<NotificationBell />)
+    await openBell()
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'Supprimer' })[0])
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Impossible de supprimer la notification.')
+    expect(screen.getByText('Dentiste demain')).toBeInTheDocument()
+    expect(screen.getByText('Votre film commence')).toBeInTheDocument()
+  })
+
+  test('"Tout effacer" asks first, and cancelling deletes nothing', async () => {
+    render(<NotificationBell />)
+    await openBell()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Tout effacer' }))
+    expect(await screen.findByText('Effacer toutes les notifications ?')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Annuler' }))
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(screen.getByText('Dentiste demain')).toBeInTheDocument()
+  })
+
+  test('confirming empties the list through DELETE /api/notifications', async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ deleted: 2 }) })
+    render(<NotificationBell />)
+    await openBell()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Tout effacer' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Effacer' }))
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/notifications', expect.objectContaining({ method: 'DELETE' }))
+    expect(await screen.findByText('Aucune notification')).toBeInTheDocument()
+    expect(unread()).toBe('')
+  })
+
+  test('an API error on "Tout effacer" says so and keeps every notification', async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 500 })
+    render(<NotificationBell />)
+    await openBell()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Tout effacer' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Effacer' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent("Impossible d'effacer les notifications.")
+    expect(screen.getByText('Dentiste demain')).toBeInTheDocument()
+    expect(screen.getByText('Votre film commence')).toBeInTheDocument()
+  })
+
+  test('"Tout effacer" is not offered when the bell is empty', async () => {
+    listed = []
+    render(<NotificationBell />)
+    await openBell()
+
+    expect(screen.queryByRole('button', { name: 'Tout effacer' })).not.toBeInTheDocument()
   })
 })
