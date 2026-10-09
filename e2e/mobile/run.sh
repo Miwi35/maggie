@@ -427,6 +427,8 @@ else
   step "Coverage: one flow at a time"
   APP_ID=com.maggie.app.e2e
   COVERAGE_EXEC="${E2E_COVERAGE_DIR:-$REPO_ROOT/e2e/coverage}/exec/mobile"
+  # Emptied first: counts left by an earlier run would be converted again as this one's.
+  rm -rf "$COVERAGE_EXEC"
   mkdir -p "$COVERAGE_EXEC" "$REPORT_DIR/junit-flows"
   if [ "${targets[0]}" = "$FLOW_DIR" ]; then
     targets=()
@@ -451,10 +453,11 @@ else
     dumped="$("$ADB" -s "$SERIAL" shell am broadcast -n "$APP_ID/com.maggie.app.e2e.CoverageDumpReceiver" 2>/dev/null | tr -d '\r')"
     if [[ "$dumped" == *'data="dumped'* ]] \
       && "$ADB" -s "$SERIAL" exec-out run-as "$APP_ID" cat files/e2e-coverage.ec >"$COVERAGE_EXEC/$slug.ec" \
-      && [ -s "$COVERAGE_EXEC/$slug.ec" ]; then
+      && [ "$(head -c 3 "$COVERAGE_EXEC/$slug.ec" | od -An -tx1 | tr -d ' \n')" = 01c0c0 ]; then
       printf '%s\n' "$journey" >"$COVERAGE_EXEC/$slug.journey"
       note "coverage of $journey: $(wc -c <"$COVERAGE_EXEC/$slug.ec") bytes"
     else
+      # No dump, or a file without JaCoCo's header (01 c0 c0): run-as wrote its error there.
       rm -f "$COVERAGE_EXEC/$slug.ec"
       warn "no coverage for $journey (${dumped##*: }) — an APK built without E2E_COVERAGE=1, or the app was no longer running"
     fi

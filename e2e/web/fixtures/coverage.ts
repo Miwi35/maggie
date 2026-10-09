@@ -129,6 +129,10 @@ export class AdminCoverage {
         scripts.set(entry.url, script)
       }
       const indexed = await script
+      if (!indexed) {
+        // Not kept: a map missing once (the stack restarting) is asked for again next time.
+        scripts.delete(entry.url)
+      }
       if (indexed) {
         executedLines(indexed, executedBitmap(entry.source.length, entry.functions), this.lines)
       }
