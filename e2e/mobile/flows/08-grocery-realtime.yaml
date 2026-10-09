@@ -155,6 +155,22 @@ tags:
       LABEL: Tisane MAG-178
       STATE: checked
 
+# A swipe left on a ticked line unticks it and asks nothing (MAG-381): the line
+# keeps its swipe state when ticked, which once made it offer the deletion.
+- swipe:
+    from:
+      text: "Tisane MAG-178"
+    direction: LEFT
+- extendedWaitUntil:
+    notVisible: "Cette action est irréversible."
+    timeout: 10000
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: expect
+      LABEL: Tisane MAG-178
+      STATE: unchecked
+
 # And a removal on the phone reaches it too, which leaves the list as found.
 - longPressOn: "Tisane MAG-178"
 - tapOn: "Supprimer les articles"

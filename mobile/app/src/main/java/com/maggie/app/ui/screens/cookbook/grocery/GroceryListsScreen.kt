@@ -55,6 +55,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -468,11 +469,14 @@ private fun SwipeableGroceryItem(
         return
     }
 
+    // The swipe state outlives the lambdas it was created with (a ticked line keeps its key).
+    val currentOnSwipeRight by rememberUpdatedState(onSwipeRight)
+    val currentOnSwipeLeft by rememberUpdatedState(onSwipeLeft)
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             when (value) {
-                SwipeToDismissBoxValue.StartToEnd -> onSwipeRight()
-                SwipeToDismissBoxValue.EndToStart -> onSwipeLeft()
+                SwipeToDismissBoxValue.StartToEnd -> currentOnSwipeRight()
+                SwipeToDismissBoxValue.EndToStart -> currentOnSwipeLeft()
                 SwipeToDismissBoxValue.Settled -> {}
             }
             false // Always snap back
