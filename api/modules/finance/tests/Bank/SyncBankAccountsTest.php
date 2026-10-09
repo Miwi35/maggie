@@ -13,6 +13,7 @@ use Maggie\Finance\Enum\BankConnectionStatus;
 use Maggie\Finance\Repository\AccountRepository;
 use Maggie\Finance\Repository\BankConnectionRepository;
 use Maggie\Finance\UseCase\ImportStatement;
+use Maggie\Finance\UseCase\MergeDuplicateAccounts;
 use Maggie\Finance\UseCase\SyncBankAccounts;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
@@ -59,6 +60,8 @@ class SyncBankAccountsTest extends KernelTestCase
             $container->get(ImportStatement::class),
             $container->get('doctrine.orm.entity_manager'),
             $container->get('messenger.default_bus'),
+            $container->get(MergeDuplicateAccounts::class),
+            $container->get('logger'),
         );
     }
 
@@ -390,12 +393,32 @@ class SyncBankAccountsTest extends KernelTestCase
         // movements the bank settles late.
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $connection = $em->getRepository(BankConnection::class)->findAll()[0];
-        $connection->setLastSyncedAt(new \DateTimeImmutable('2026-09-10'));
+        $connection->setLastSyncedAt(new \DateTimeImmutable());
         $em->flush();
 
         $this->sync($http)->execute($this->getFixture('test_user'));
 
-        self::assertStringContainsString('date_from=2026-09-07', $urls[1]);
+        self::assertStringContainsString('date_from='.(new \DateTimeImmutable('-3 days'))->format('Y-m-d'), $urls[1]);
+    }
+
+    public function testAnAccountLinkedSinceTheLastSyncReachesBackThreeMonths(): void
+    {
+        $this->loadFixtures('account.yaml');
+        $urls = [];
+
+        $http = $this->provider(function (string $method, string $url) use (&$urls) {
+            $urls[] = $url;
+
+            return new MockResponse($this->page([]));
+        });
+
+        // The connection was read yesterday; the account came with a consent
+        // renewed since, that could not recognise it (MAG-351): its history
+        // is what shows which account it is a copy of.
+        $this->connectAccount(new \DateTimeImmutable('-1 day'));
+        $this->sync($http)->execute($this->getFixture('test_user'));
+
+        self::assertStringContainsString('date_from='.(new \DateTimeImmutable('-90 days'))->format('Y-m-d'), $urls[0]);
     }
 
     public function testItStopsPagingRatherThanFollowKeysForever(): void

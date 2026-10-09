@@ -14,6 +14,7 @@ use Maggie\Finance\Entity\BankConnection;
 use Maggie\Finance\Import\StatementRow;
 use Maggie\Finance\Repository\AccountRepository;
 use Maggie\Finance\Repository\BankConnectionRepository;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
@@ -42,6 +43,8 @@ class SyncBankAccounts
         private readonly ImportStatement $importStatement,
         private readonly EntityManagerInterface $em,
         private readonly MessageBusInterface $bus,
+        private readonly MergeDuplicateAccounts $mergeDuplicateAccounts,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -58,6 +61,7 @@ class SyncBankAccounts
         $imported = 0;
         $skipped = 0;
         $calls = 0;
+        $read = [];
 
         foreach ($this->connectionRepository->findByUser($user) as $connection) {
             if (!$connection->isUsable()) {
@@ -92,6 +96,7 @@ class SyncBankAccounts
                     continue;
                 }
 
+                $read[(string) $account->getId()] = true;
                 $imported += $outcome['imported'];
                 $skipped += $outcome['skipped'];
                 $calls += $outcome['calls'];
@@ -109,6 +114,8 @@ class SyncBankAccounts
 
         if (!$dryRun) {
             $this->em->flush();
+
+            $this->foldCopies($user, $read);
         }
 
         return [
@@ -117,6 +124,32 @@ class SyncBankAccounts
             'providerCalls' => $calls,
             'accounts' => $results,
         ];
+    }
+
+    /**
+     * A consent renewed while copies already existed cannot tell them apart
+     * and brings one more (MAG-351): once its movements are in, they show
+     * which account it is, and the copies fold back into one. The movements
+     * are stored by then: a merge that fails does not fail the sync.
+     *
+     * @param array<string, true> $read the accounts this sync read
+     */
+    private function foldCopies(User $user, array $read): void
+    {
+        try {
+            $result = $this->mergeDuplicateAccounts->execute(false, $user, $read);
+        } catch (\Throwable $e) {
+            $this->logger->error('Bank account copies not merged: {message}', ['message' => $e->getMessage(), 'exception' => $e]);
+
+            return;
+        }
+
+        foreach ($result['groups'] as $group) {
+            $this->logger->info('Bank account copies merged into {survivor}', $group);
+        }
+        if ([] !== $result['ambiguous']) {
+            $this->logger->warning('Bank accounts left unmerged, they could be two real accounts', ['accounts' => $result['ambiguous']]);
+        }
     }
 
     /**
@@ -130,7 +163,7 @@ class SyncBankAccounts
         bool $dryRun,
         array $psuHeaders,
     ): array {
-        $from = $this->windowStart($connection);
+        $from = $this->windowStart($connection, $account);
         $rows = [];
         $continuationKey = null;
         $pages = 0;
@@ -182,13 +215,16 @@ class SyncBankAccounts
     /**
      * Ask for what is missing, not for everything: a first sync reaches back
      * three months, later ones only since the last, with a few days of overlap
-     * for movements the bank settles late.
+     * for movements the bank settles late. An account linked since the last
+     * sync — a renewed consent that could not recognise it — has never been
+     * read: its first sync reaches back too, so its history shows which
+     * account it is a copy of.
      */
-    private function windowStart(BankConnection $connection): \DateTimeImmutable
+    private function windowStart(BankConnection $connection, Account $account): \DateTimeImmutable
     {
         $lastSynced = $connection->getLastSyncedAt();
 
-        if (null === $lastSynced) {
+        if (null === $lastSynced || $account->getId()->getDateTime() > $lastSynced) {
             return (new \DateTimeImmutable())->modify(sprintf('-%d days', self::FIRST_SYNC_DAYS));
         }
 
