@@ -1,5 +1,4 @@
 import { HydraAdmin, fetchHydra, hydraDataProvider } from '@api-platform/admin'
-import { parseHydraDocumentation } from '@api-platform/api-doc-parser'
 import polyglotI18nProvider from 'ra-i18n-polyglot'
 import { messages } from './i18n/messages'
 import { veilleuseLightTheme, veilleuseDarkTheme } from './theme'
@@ -17,7 +16,8 @@ import {
 } from './auth/authProvider'
 import { LoginPage } from './auth/LoginPage'
 import { LoadingPage } from './auth/LoadingPage'
-import { clearSession, getToken, installAuthRefresh, sessionAwaitsNetwork, startSessionKeeper } from './auth/session'
+import { getToken, installAuthRefresh, startSessionKeeper } from './auth/session'
+import { fetchApiDocumentation } from './apiDocumentation'
 import type { HttpClientOptions } from '@api-platform/admin'
 
 routeVisitorWithoutSessionToLogin()
@@ -28,11 +28,6 @@ const entrypoint = import.meta.env.VITE_API_URL || 'http://localhost/api'
 
 const i18nProvider = polyglotI18nProvider(() => messages, 'fr')
 
-const getAuthHeaders = (): HeadersInit => {
-  const token = getToken()
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
-
 const httpClient = (url: URL, options: HttpClientOptions = {}) => {
   const token = getToken()
   if (token) {
@@ -41,24 +36,10 @@ const httpClient = (url: URL, options: HttpClientOptions = {}) => {
   return fetchHydra(url, options)
 }
 
-const apiDocumentationParser = async (entrypointUrl: string) => {
-  try {
-    return await parseHydraDocumentation(entrypointUrl, { headers: getAuthHeaders })
-  } catch (error) {
-    const status = (error as { status?: number }).status
-    if ((status === 401 || status === 403) && !sessionAwaitsNetwork()) {
-      clearSession()
-      window.location.reload()
-      throw error
-    }
-    throw error
-  }
-}
-
 const dataProvider = hydraDataProvider({
   entrypoint,
   httpClient,
-  apiDocumentationParser,
+  apiDocumentationParser: (entrypointUrl: string) => fetchApiDocumentation(entrypointUrl),
 })
 
 function App() {
