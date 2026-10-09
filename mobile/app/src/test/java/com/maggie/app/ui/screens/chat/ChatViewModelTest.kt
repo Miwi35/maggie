@@ -1424,6 +1424,27 @@ class ChatViewModelTest {
     }
 
     @Test
+    fun `an approval question spoken after a reply is what the mic cuts, not the reply`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream("Raconte") } returns streamedAnswer("resp-1", "Il était une fois un roi.")
+        coEvery { repository.persistMessage(any()) } returns Unit
+        viewModel.sendMessage("Raconte")
+        advanceUntilIdle()
+        viewModel.onReplySpoken()
+
+        viewModel.markApprovalAsked("ap-1")
+        viewModel.interrupt(heard = "Tu veux")
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { repository.interruptChat(any(), any()) }
+        assertEquals(
+            listOf("Il était une fois un roi."),
+            viewModel.uiState.value.messages.filter { it.id == "resp-1" }.map { it.content },
+        )
+    }
+
+    @Test
     fun `a reply not yet started when the mic is pressed is reported as saying nothing`() = runTest {
         viewModel = createViewModel()
         advanceUntilIdle()

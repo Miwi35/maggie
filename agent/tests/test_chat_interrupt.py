@@ -4,10 +4,12 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from app.db.message_repository import message_repo
 from app.db.models import NOTHING_SAID, Message
 from app.llm.history import build_history
+from app.llm.streaming import answer_message_id
 
 
 async def _write(session_factory, **fields) -> None:
@@ -96,6 +98,23 @@ class TestInterruptEndpoint:
 
         assistant = [r for r in await _rows(chat_db.session) if r.role == "assistant"]
         assert [(r.content, r.context_id, r.interrupted) for r in assistant] == [(NOTHING_SAID, "ctx-1", True)]
+
+    async def test_cut_before_a_word_takes_the_id_the_running_turn_will_store_under(self, authed_client, chat_db):
+        """The turn outlives the stream: its later insert must be refused, not land beside the cut row."""
+        await _write(chat_db.session, id="u1", user_id="test-user", role="user", content="Raconte")
+
+        _ask(authed_client, spokenText="")
+
+        assistant = [r for r in await _rows(chat_db.session) if r.role == "assistant"]
+        assert [r.id for r in assistant] == [answer_message_id("u1")]
+        with pytest.raises(IntegrityError):
+            await message_repo.create(
+                user_id="test-user",
+                role="assistant",
+                content="Il était une fois un roi.",
+                message_id=answer_message_id("u1"),
+            )
+        assert [r.content for r in await _rows(chat_db.session) if r.role == "assistant"] == [NOTHING_SAID]
 
     async def test_is_idempotent(self, authed_client, chat_db):
         await _write(chat_db.session, id="u1", user_id="test-user", role="user", content="Raconte")

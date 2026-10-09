@@ -366,6 +366,7 @@ class ChatViewModel(
         rebuildDisplayItems()
     }
 
+    /**
      * The user cut Maggie off (MAG-223): stop the request, keep of her answer what was heard or
      * shown, and tell the agent so the next turn knows. [heard] is what the voice got through
      * (null while the answer was still being prepared); [streamingIsShown] is false where the
@@ -713,6 +714,8 @@ class ChatViewModel(
 
     fun markApprovalAsked(id: String) {
         askedApprovals += id
+        // The question about to be spoken replaces the last reply as what a tap on the mic cuts.
+        spokenReply = null
     }
 
     /** Drops a card that stays on screen once settled — a failed action — when the user closes it. */

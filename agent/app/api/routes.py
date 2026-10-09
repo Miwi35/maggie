@@ -31,7 +31,7 @@ from app.llm.context_summary import context_summarizer
 from app.llm.gateway import LLMGateway
 from app.llm.runner import run_tool_loop
 from app.llm.screen_context import split as split_screen_context
-from app.llm.streaming import StreamingGateway
+from app.llm.streaming import StreamingGateway, answer_message_id
 from app.llm.transcription import CLEANUP_MODES, transcribe_audio
 from app.llm.turns import lease_deadline, turn_runner
 from app.queue.proaction_consumer import execute_proaction
@@ -211,7 +211,7 @@ async def reset_smoke_history(smoke_user_id: str = Depends(get_smoke_account_id)
 async def chat_interrupt(request: InterruptRequest, user_id: str = Depends(get_current_user_id)):
     """The user cut Maggie off: keep of her answer what was said or shown, and mark it interrupted (MAG-223).
 
-    Closing the stream is what stops the model; this is what the next turn is told. It is
+    Closing the stream stops what the phone shows; this is what the next turn is told. It is
     idempotent, and works on both orders of events — the answer already stored (a voice reply
     cut while being read) or never stored (the stream was closed first) — so the client does
     not have to know which one it lost the race to.
@@ -223,24 +223,35 @@ async def chat_interrupt(request: InterruptRequest, user_id: str = Depends(get_c
         raise HTTPException(status_code=400, detail="spokenText is too long")
     content = request.spokenText.strip() or NOTHING_SAID
 
+    # The question being answered carries the thread the answer belongs to, and fixes the id of
+    # its answer: a turn still running (it outlives the stream) then finds the row taken and
+    # stores nothing, instead of leaving the full answer beside the interrupted one.
+    question = await message_repo.find_last(user_id, role="user")
+    if message_id is None and question is not None:
+        message_id = answer_message_id(question.id)
+
     existing = await message_repo.get(message_id) if message_id else None
-    if existing is not None:
-        if existing.user_id != user_id:
-            raise HTTPException(status_code=404, detail="Message not found")
-        if existing.role != "assistant":
-            raise HTTPException(status_code=400, detail="Only an answer of Maggie can be interrupted")
-        msg = await message_repo.mark_interrupted(existing.id, content)
-    else:
-        # The question being answered carries the thread the answer belongs to.
-        question = await message_repo.find_last(user_id, role="user")
-        msg = await message_repo.create(
-            user_id=user_id,
-            role="assistant",
-            content=content,
-            context_id=question.context_id if question else None,
-            message_id=message_id,
-            interrupted=True,
-        )
+    if existing is None:
+        try:
+            msg = await message_repo.create(
+                user_id=user_id,
+                role="assistant",
+                content=content,
+                context_id=question.context_id if question else None,
+                message_id=message_id,
+                interrupted=True,
+            )
+            return msg.to_dict()
+        except IntegrityError:
+            # The turn stored its answer between the lookup and here: cut that one.
+            existing = await message_repo.get(message_id) if message_id else None
+            if existing is None:
+                raise
+    if existing.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if existing.role != "assistant":
+        raise HTTPException(status_code=400, detail="Only an answer of Maggie can be interrupted")
+    msg = await message_repo.mark_interrupted(existing.id, content)
 
     return msg.to_dict() if msg else {}
 
