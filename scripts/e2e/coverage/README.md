@@ -101,15 +101,17 @@ ran before; the dump after it only sees the relaunch onwards.
 
 ### What only the first nightly proves
 
-No emulator and no stack ran these here. Proven locally: lint and typecheck of
-the journeys; a real Chromium coverage of the source-mapped admin bundle mapped
-to `admin/src` lines; the e2e flavor's unit tests (`JourneyHeaderTest`,
-`CoverageDumpTest`, `WT_MOBILE_VARIANT=e2e task wt:test:mobile`); `mobile.sh` +
-`jacoco_lines.py` on JaCoCo data from a JVM; the merged JUnit read by
-`verdict.sh`; `task e2e:mobile:lint`. Left to the nightly:
+Proven locally, on the e2e stack: `E2E_COVERAGE=1 task e2e:web` on
+`auth.spec.ts` and `mercure.spec.ts` (12 tests green) wrote one raw file per
+spec, ~160 `admin/src` files each, different lines for each; every request of
+the page — document, `fetch` to `/api` and `/agent`, the Mercure `EventSource`
+— carried the spec's `X-E2E-Journey`. Also: the e2e flavor's unit tests
+(`JourneyHeaderTest`, `CoverageDumpTest`, `WT_MOBILE_VARIANT=e2e task
+wt:test:mobile`); `mobile.sh` + `jacoco_lines.py` on JaCoCo data from a JVM; the
+merged JUnit read by `verdict.sh`; `task e2e:mobile:lint`.
 
-- the header on the admin's `EventSource` (Chromium's extra headers apply to
-  every request of the page — expected, to be seen in the API's logs);
+No emulator ran here, so the nightly proves the Android half:
+
 - that `-Pe2eCoverage=true` instruments the APK and `CoverageDumpReceiver` answers
   `dumped <n>` — `run.sh` warns per flow otherwise;
 - that `run-as` reads the file on the CI emulator image;
@@ -117,6 +119,8 @@ to `admin/src` lines; the e2e flavor's unit tests (`JourneyHeaderTest`,
   `mobile.sh` reports no files).
 
 Part C wires it: `E2E_COVERAGE=1` for the e2e stack, `build-apk.sh` and
-`run.sh`; `e2e/mobile/apk/classes` uploaded with the APK; the union of
+`run.sh`; an empty `e2e/coverage/` at the start of the nightly (the admin fold
+merges into a raw file already there); `e2e/mobile/apk/classes` uploaded with
+the APK; `scripts/e2e/coverage/*.sh` added to CI's shellcheck; the union of
 `raw/admin/*.json` across web shards (a spec split over two shards writes one
 file per shard, same name).

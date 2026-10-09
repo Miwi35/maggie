@@ -358,7 +358,7 @@ export const test = base.extend<MaggieFixtures>({
     const contexts: BrowserContext[] = []
 
     await use(async (accessToken?: string) => {
-      const own = await signIn(url, SEED_USER_EMAIL)
+      const own = await signIn(url, SEED_USER_EMAIL, { [JOURNEY_HEADER]: journey })
       const state = storageStateOf(url, own)
       if (accessToken) {
         state.origins[0].localStorage = state.origins[0].localStorage.map((entry) =>

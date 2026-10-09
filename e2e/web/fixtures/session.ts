@@ -78,8 +78,13 @@ export interface SessionStorageState {
   origins: Array<{ origin: string; localStorage: Array<{ name: string; value: string }> }>
 }
 
-export async function signIn(baseURL: string, email: string): Promise<Session> {
-  const context = await playwrightRequest.newContext({ baseURL })
+/**
+ * `headers` are added to the login request: a journey that signs in on its own
+ * (`pageWithOwnSession`) passes its `X-E2E-Journey`, so the login's lines are
+ * filed under it. The worker's memoised logins are setup, and send none.
+ */
+export async function signIn(baseURL: string, email: string, headers: Record<string, string> = {}): Promise<Session> {
+  const context = await playwrightRequest.newContext({ baseURL, extraHTTPHeaders: headers })
 
   try {
     const response = await context.post('/api/auth/e2e/login', {

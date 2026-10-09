@@ -64,8 +64,13 @@ for exec_file in "$exec_dir"/*.ec; do
   journey="$(head -1 "$journey_file")"
 
   # --quiet: one line per class whose checksum is unknown would bury the rest.
-  java -jar "$cli" report "$exec_file" --classfiles "$classes_dir" --xml "$scratch/$slug.xml" --quiet
-  python3 "$HERE/jacoco_lines.py" "$scratch/$slug.xml" "$journey" "$ROOT" "${sources[@]}" >"$out_dir/$slug.json"
+  # One flow that cannot be read must not cost the others theirs.
+  if ! java -jar "$cli" report "$exec_file" --classfiles "$classes_dir" --xml "$scratch/$slug.xml" --quiet \
+    || ! python3 "$HERE/jacoco_lines.py" "$scratch/$slug.xml" "$journey" "$ROOT" "${sources[@]}" >"$out_dir/$slug.json"; then
+    rm -f "$out_dir/$slug.json"
+    echo "  ! $journey: JaCoCo could not read its counts, skipped" >&2
+    continue
+  fi
   files="$(python3 -c 'import json, sys; print(len(json.load(open(sys.argv[1]))["files"]))' "$out_dir/$slug.json")"
   echo "  $journey: $files file(s)"
   count=$((count + 1))
