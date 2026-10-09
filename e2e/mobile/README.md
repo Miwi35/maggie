@@ -109,7 +109,11 @@ against an app nobody launched.
 2. **`launchApp: clearState: true` and `permissions: all: allow`.** Without the
    first, a second run starts signed in and never sees the login screen; without
    the second, a runtime permission dialog belongs to the system UI and the step
-   that meets one fails as "the button is not there".
+   that meets one fails as "the button is not there". Every `launchApp` — the
+   one after a `stopApp` too — also passes `arguments: { e2e_journey: <this
+   file's path> }`: the app sends it as `X-E2E-Journey`, which is how the
+   nightly's coverage knows which flow ran which line
+   (`scripts/e2e/coverage/README.md`). `task e2e:mobile:lint` checks it.
 3. **Address the app by `id:`** wherever a tag exists, and add one to
    `UiTags.kt` when it does not. A text anchor breaks on a reworded string and
    the failure reads as a broken feature. If the tag is inside a sheet or a

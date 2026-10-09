@@ -30,6 +30,8 @@ tags:
     clearState: true
     permissions:
       all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/13-chat-opens-on-latest.yaml
 
 - runFlow: ../subflows/sign-in.yaml
 
@@ -39,7 +41,9 @@ tags:
       COUNT: "10"
 
 - stopApp
-- launchApp
+- launchApp:
+    arguments:
+      e2e_journey: e2e/mobile/flows/13-chat-opens-on-latest.yaml
 - extendedWaitUntil:
     visible:
       id: "dashboard"

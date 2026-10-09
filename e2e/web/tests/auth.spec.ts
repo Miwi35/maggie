@@ -1,4 +1,4 @@
-import { test, expect, e2eNow } from '../fixtures/index.js'
+import { test, expect, e2eNow, JOURNEY_HEADER } from '../fixtures/index.js'
 import { AdminShell } from '../pages/AdminShell.js'
 import { LoginPage } from '../pages/LoginPage.js'
 import { adminUrl, ROUTES } from '../pages/routes.js'
@@ -150,7 +150,7 @@ test('a request the server refuses for an expired token is replayed with a renew
   await expect.poll(async () => (await login.storedCredentials()).token).not.toBe(refused)
 })
 
-test('signing out revokes the refresh token', async ({ pageWithOwnSession, playwright, baseURL }) => {
+test('signing out revokes the refresh token', async ({ pageWithOwnSession, playwright, baseURL, journey }) => {
   const { page, session } = await pageWithOwnSession()
   const shell = new AdminShell(page)
   const login = new LoginPage(page)
@@ -166,7 +166,7 @@ test('signing out revokes the refresh token', async ({ pageWithOwnSession, playw
   // Replaying the cookie after sign-out, as a copied one would be: refused.
   const replay = await playwright.request.newContext({
     baseURL,
-    extraHTTPHeaders: { Cookie: `refresh_token=${refreshCookie?.value}` },
+    extraHTTPHeaders: { Cookie: `refresh_token=${refreshCookie?.value}`, [JOURNEY_HEADER]: journey },
   })
   const response = await replay.post('/api/token/refresh', { data: {} })
   await replay.dispose()

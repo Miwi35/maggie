@@ -18,6 +18,10 @@
 #      `shards.txt`, or the files named as arguments — and writes a JUnit report CI
 #      uploads.
 #
+# `E2E_COVERAGE=1` (the nightly) runs the flows one Maestro at a time and takes the
+# app's JaCoCo counts between two, into e2e/coverage/ (scripts/e2e/coverage/README.md).
+# It needs an APK built with the same flag.
+#
 # `E2E_NOW` (ISO-8601, see e2e/clock.sh) is the instant the whole stack runs at.
 # Here it sets the emulator's clock, and the dates handed to the flows follow it:
 # the flows then pass or fail the same way at 23:50 on a Sunday as at noon.
@@ -403,15 +407,83 @@ flow_env=(
 # remove the reverse bridge. The status is kept so that the device's own view of
 # a failure — its last frame and its log — is collected before exiting with it.
 status=0
-"$MAESTRO" --device "$SERIAL" test "${targets[@]}" \
-  --format junit \
-  --output "$REPORT_DIR/junit.xml" \
-  --test-output-dir "$REPORT_DIR" \
-  --debug-output "$REPORT_DIR" \
-  --flatten-debug-output \
-  --no-ansi \
-  "${flow_env[@]}" \
-  ${maestro_args[@]+"${maestro_args[@]}"} || status=$?
+if [ "${E2E_COVERAGE:-}" != 1 ]; then
+  "$MAESTRO" --device "$SERIAL" test "${targets[@]}" \
+    --format junit \
+    --output "$REPORT_DIR/junit.xml" \
+    --test-output-dir "$REPORT_DIR" \
+    --debug-output "$REPORT_DIR" \
+    --flatten-debug-output \
+    --no-ansi \
+    "${flow_env[@]}" \
+    ${maestro_args[@]+"${maestro_args[@]}"} || status=$?
+else
+  # The nightly's coverage (scripts/e2e/coverage/README.md). JaCoCo's counts live in
+  # the app's memory and the next flow's `clearState` kills it, so the flows run one
+  # Maestro at a time and the counts are taken between two: a broadcast makes the app
+  # write them (src/e2e/…/CoverageDumpReceiver, which resets them), `run-as` pulls the
+  # file. Every flow runs, a failed one included — its coverage up to the failure is
+  # still a fact. The JUnit reports of the flows are merged into the one verdict.sh reads.
+  step "Coverage: one flow at a time"
+  APP_ID=com.maggie.app.e2e
+  COVERAGE_EXEC="${E2E_COVERAGE_DIR:-$REPO_ROOT/e2e/coverage}/exec/mobile"
+  mkdir -p "$COVERAGE_EXEC" "$REPORT_DIR/junit-flows"
+  if [ "${targets[0]}" = "$FLOW_DIR" ]; then
+    targets=()
+    while read -r name; do targets+=("$FLOW_DIR/flows/$name.yaml"); done \
+      < <(sed -n '/flowsOrder:/,$ s/^[[:space:]]*-[[:space:]]*//p' "$FLOW_DIR/config.yaml")
+  fi
+  for flow in "${targets[@]}"; do
+    journey="${flow#"$REPO_ROOT"/}"
+    slug="$(tr '/.' '__' <<<"$journey")"
+    flow_status=0
+    "$MAESTRO" --device "$SERIAL" test "$flow" \
+      --format junit \
+      --output "$REPORT_DIR/junit-flows/$slug.xml" \
+      --test-output-dir "$REPORT_DIR" \
+      --debug-output "$REPORT_DIR" \
+      --flatten-debug-output \
+      --no-ansi \
+      "${flow_env[@]}" \
+      ${maestro_args[@]+"${maestro_args[@]}"} || flow_status=$?
+    [ "$flow_status" -eq 0 ] || status=$flow_status
+
+    dumped="$("$ADB" -s "$SERIAL" shell am broadcast -n "$APP_ID/com.maggie.app.e2e.CoverageDumpReceiver" 2>/dev/null | tr -d '\r')"
+    if [[ "$dumped" == *'data="dumped'* ]] \
+      && "$ADB" -s "$SERIAL" exec-out run-as "$APP_ID" cat files/e2e-coverage.ec >"$COVERAGE_EXEC/$slug.ec" \
+      && [ -s "$COVERAGE_EXEC/$slug.ec" ]; then
+      printf '%s\n' "$journey" >"$COVERAGE_EXEC/$slug.journey"
+      note "coverage of $journey: $(wc -c <"$COVERAGE_EXEC/$slug.ec") bytes"
+    else
+      rm -f "$COVERAGE_EXEC/$slug.ec"
+      warn "no coverage for $journey (${dumped##*: }) — an APK built without E2E_COVERAGE=1, or the app was no longer running"
+    fi
+  done
+
+  python3 - "$REPORT_DIR/junit.xml" "$REPORT_DIR"/junit-flows/*.xml <<'PY'
+import sys
+import xml.etree.ElementTree as ET
+
+merged = ET.Element("testsuites")
+for path in sys.argv[2:]:
+    try:
+        root = ET.parse(path).getroot()
+    except (ET.ParseError, OSError):
+        continue  # a Maestro that died before writing: verdict.sh calls the flow not-run
+    merged.extend([root] if root.tag == "testsuite" else root.findall("testsuite"))
+ET.ElementTree(merged).write(sys.argv[1], encoding="UTF-8", xml_declaration=True)
+PY
+
+  # Exec data + the build's classes → e2e/coverage/raw/mobile/<slug>.json. The classes
+  # come with the APK (`E2E_COVERAGE=1 build-apk.sh` copies them beside it).
+  classes="${E2E_MOBILE_CLASSES:-$(dirname "$APK")/classes}"
+  if [ -d "$classes" ]; then
+    "$REPO_ROOT/scripts/e2e/coverage/mobile.sh" "$COVERAGE_EXEC" "$classes" \
+      || warn "the mobile coverage could not be converted; the exec data stays in ${COVERAGE_EXEC#"$REPO_ROOT"/}"
+  else
+    warn "no classes at $classes: the exec data stays in ${COVERAGE_EXEC#"$REPO_ROOT"/}, convert it with scripts/e2e/coverage/mobile.sh"
+  fi
+fi
 
 if [ "$status" -ne 0 ]; then
   step "The device after the failure"

@@ -511,7 +511,7 @@ tasks:
       # Created here rather than relied upon: Docker would otherwise make the
       # bind mount itself, owned by root, and the read-only seed mount would
       # then point at an empty directory nobody can explain.
-      - mkdir -p {{.ROOT_DIR}}/api/var/e2e
+      - mkdir -p {{.ROOT_DIR}}/api/var/e2e {{.ROOT_DIR}}/e2e/coverage
       - >-
         {{.COMPOSE}} --profile tools run --rm --no-deps {{if .TTY}}{{else}}-T{{end}} {{.SERVICE | default "playwright"}}
         bash -lc 'if [ ! -d node_modules ] || [ package-lock.json -nt node_modules ]; then npm ci --no-audit --no-fund; fi && {{.COMMAND}}'
