@@ -393,9 +393,10 @@ STATUS=$?
 [ "$STATUS" -eq 0 ] && [ "$(names web)" = "auth.spec.ts chat.spec.ts recipes.spec.ts smoke.spec.ts" ] \
   && ok "a path with a space (git ends its header with a TAB): read, recipes + core" || bad "spaced path: exit $STATUS — $(names web) $(cat "$work/stderr")"
 jq '.files["'"$API_SERVICE"'"] = "not a list"' "$work/map.json" >"$work/badmap.json"
+ZONES="$(printf '%s\n' "$API_SERVICE" | "$IMPACTED" select 2>/dev/null | jq -c '.mobile')"
 SEL="$(printf '%s\n' "$API_SERVICE" | E2E_COVERAGE_NOW="$NOW" "$IMPACTED" select --coverage-map "$work/badmap.json" --diff "$work/d1" 2>"$work/stderr")"
 STATUS=$?
-[ "$STATUS" -eq 0 ] && [ "$(count mobile)" -eq "$on_disk_mobile" ] && grep -q 'could not be applied' "$work/stderr" \
+[ "$STATUS" -eq 0 ] && [ "$(jq -c '.mobile' <<<"$SEL")" = "$ZONES" ] && grep -q 'could not be applied' "$work/stderr" \
   && jq -e '.coverage.used == false' >/dev/null <<<"$SEL" && ok "a map entry jq cannot read: the zones, a warning" || bad "bad map: exit $STATUS — $(cat "$work/stderr")"
 
 printf '\n\033[1mThe job summary says how the journeys were chosen\033[0m\n'
