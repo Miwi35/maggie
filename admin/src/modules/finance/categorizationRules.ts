@@ -57,3 +57,6 @@ export const centsInput = {
   format: (v?: number) => (v == null ? null : v / 100),
   parse: (v?: number) => (v == null || Number.isNaN(v) ? null : Math.round(v * 100)),
 }
+
+/** React-admin hands back resources as IRIs; the API wants the bare id. */
+export const idOf = (iri: string) => iri.split('/').pop() ?? iri

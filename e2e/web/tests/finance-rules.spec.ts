@@ -1,6 +1,8 @@
-import { test, expect, seedId } from '../fixtures/index.js'
+import { test, expect, seedDate, seedId } from '../fixtures/index.js'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
+import { expectRealtimeSync, openSubscribed } from '../helpers/mercure.js'
 import { euros, overBudget } from '../helpers/money.js'
+import { FinanceAccountsPage } from '../pages/FinanceAccountsPage.js'
 import { FinanceBudgetPage } from '../pages/FinanceBudgetPage.js'
 import { FinanceCategoriesPage } from '../pages/FinanceCategoriesPage.js'
 
@@ -202,5 +204,116 @@ test.describe('Filing the history', () => {
       categories.suggestion('FROMAGERIE DES LICES'),
       'the merchant is covered now, so it is not a question any more',
     ).toHaveCount(0)
+  })
+
+  /**
+   * What the rule would catch is shown while it is written, and the box ticks
+   * the history along (MAG-370).
+   *
+   * Last of the group on purpose: the three NETFLIX lines are created here,
+   * after the passes above have run, so no earlier "Appliquer les règles" can
+   * file them, and the suggestions tab the previous test reads never sees
+   * them. Suffixed labels are not needed — retries are off for the group.
+   *
+   * The account list sits in the other window and must not navigate: the three
+   * lines reach "Abonnements" through the Mercure updates of the rule's
+   * application alone.
+   */
+  test('the preview counts the NETFLIX lines, and ticking the box files them live', async ({
+    twoWindows,
+    api,
+  }) => {
+    const checkingId = seedId('e2e_account_checking')
+    const category = 'Abonnements MAG-370'
+    const labels = ['NETFLIX.COM 4412', 'NETFLIX.COM 4413', 'NETFLIX.COM 4414']
+
+    const created = await api.post('/api/categories', {
+      headers: { 'Content-Type': 'application/ld+json' },
+      data: { name: category, obligation: 'optional' },
+    })
+    expect(created.status(), await created.text()).toBe(201)
+    await waitForIndexed(
+      api,
+      '/api/categories',
+      (candidate: { name?: string }) => candidate.name === category,
+      { what: `The category ${category}` },
+    )
+
+    for (const [index, label] of labels.entries()) {
+      const response = await api.post('/api/transactions', {
+        headers: { 'Content-Type': 'application/ld+json' },
+        data: {
+          account: `/api/accounts/${checkingId}`,
+          label,
+          amountCents: -1349,
+          currency: 'EUR',
+          bookedAt: seedDate(-index),
+          status: 'spent',
+        },
+      })
+      expect(response.status(), await response.text()).toBe(201)
+    }
+    for (const label of labels) {
+      await waitForIndexed<StoredTransaction>(
+        api,
+        '/api/transactions?itemsPerPage=100',
+        (candidate) => candidate.label === label,
+        { what: `The transaction ${label}` },
+      )
+    }
+
+    const { actor, observer } = twoWindows
+    const accounts = new FinanceAccountsPage(observer)
+    await openSubscribed(observer, () => accounts.openTransactions(checkingId))
+    for (const label of labels) {
+      await expect(accounts.row(label), 'still to file').toBeVisible()
+      await expect(accounts.row(label)).not.toContainText(category)
+    }
+
+    const rules = new FinanceCategoriesPage(actor)
+    await rules.goto('/categorization_rules/create')
+    const form = rules.content
+    await form.getByLabel('…ce texte').fill('netflix')
+
+    const found = form.getByText('3 transaction(s) trouvée(s)')
+    await expect(found, 'the panel counts the lines while the rule is typed').toBeVisible()
+
+    await form.getByLabel('Catégorie').fill(category)
+    await actor.getByRole('option', { name: category, exact: true }).click()
+
+    const box = form.getByLabel(/^Appliquer aux transactions existantes/)
+    await expect(box, 'the box says how many lines would change').toHaveAccessibleName(
+      'Appliquer aux transactions existantes (3)',
+    )
+    await expect(form.getByText('3 changeraient de catégorie', { exact: false })).toBeVisible()
+    await box.check()
+
+    await expectRealtimeSync(
+      observer,
+      async () => {
+        await form.getByRole('button', { name: 'Enregistrer' }).click()
+        await waitForIndexed<StoredRule>(
+          api,
+          '/api/categorization_rules',
+          (rule) => rule.labelPattern === 'netflix',
+          { what: 'The rule written from the form' },
+        )
+      },
+      async () => {
+        for (const label of labels) {
+          await expect(accounts.row(label)).toContainText(category)
+        }
+      },
+    )
+
+    const stored = await getCollection<StoredTransaction>(
+      api,
+      '/api/transactions?itemsPerPage=100',
+    )
+    const filed = stored.filter((candidate) => labels.includes(candidate.label ?? ''))
+    expect(filed).toHaveLength(3)
+    for (const transaction of filed) {
+      expect(transaction.categorySource).toBe('rule')
+    }
   })
 })

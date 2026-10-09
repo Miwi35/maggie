@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\Entity;
 
+use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
@@ -98,6 +99,10 @@ class CategorizationRule implements MercurePublishable, OwnedByUserInterface, In
     #[ORM\JoinColumn(nullable: false)]
     #[IndexedRelation(targetEntity: User::class, sourceField: 'userId')]
     private User $user;
+
+    /** Asked on save, never stored: file the existing history under this rule too. */
+    #[ApiProperty(readable: false, writable: true)]
+    private bool $applyToExisting = false;
 
     public function __construct()
     {
@@ -214,6 +219,18 @@ class CategorizationRule implements MercurePublishable, OwnedByUserInterface, In
     public function setIsActive(bool $isActive): static
     {
         $this->isActive = $isActive;
+
+        return $this;
+    }
+
+    public function shouldApplyToExisting(): bool
+    {
+        return $this->applyToExisting;
+    }
+
+    public function setApplyToExisting(bool $applyToExisting): static
+    {
+        $this->applyToExisting = $applyToExisting;
 
         return $this;
     }

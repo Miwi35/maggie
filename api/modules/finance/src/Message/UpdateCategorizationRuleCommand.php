@@ -23,6 +23,7 @@ final readonly class UpdateCategorizationRuleCommand
         public ?int $priority = null,
         public ?bool $isActive = null,
         public array $clearFields = [],
+        public bool $applyToExisting = false,
     ) {
     }
 }

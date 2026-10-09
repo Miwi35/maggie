@@ -15,12 +15,13 @@ use Maggie\Finance\Message\UpdateTransactionCommand;
 use Maggie\Finance\Repository\CategorizationRuleRepository;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\UseCase\ApplyCategorizationRules;
+use Maggie\Finance\UseCase\PreviewCategorizationRule;
 use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_categorization_rules', description: 'List, create, update or delete the rules that file transactions under a category automatically, apply them to the uncategorized history, or learn a new rule from a transaction. A rule matches a label (matchType: contains, starts_with, equals — case-insensitive) and may narrow by amount: minAmountCents/maxAmountCents are ABSOLUTE cents (a 15,99 € expense matches 1000..2000) and direction is any, debit (expense) or credit (income). The highest priority rule that matches wins. A category set by hand is never overwritten. On update, only provided fields change; to remove an amount bound, list minAmountCents or maxAmountCents in clear.')]
+#[McpTool(name: 'manage_categorization_rules', description: 'List, create, update or delete the rules that file transactions under a category automatically, apply them to the uncategorized history, preview what a rule would catch, or learn a new rule from a transaction. A rule matches a label (matchType: contains, starts_with, equals — case-insensitive) and may narrow by amount: minAmountCents/maxAmountCents are ABSOLUTE cents (a 15,99 € expense matches 1000..2000) and direction is any, debit (expense) or credit (income). The highest priority rule that matches wins. A category set by hand is never overwritten. On update, only provided fields change; to remove an amount bound, list minAmountCents or maxAmountCents in clear. BEFORE creating a rule, call action preview with the same criteria (labelPattern, matchType, direction, minAmountCents, maxAmountCents, categoryId): it writes nothing and returns total (transactions the rule recognises), changeCount (those it would re-file) and the latest matches. Show the user what it found, then ask whether to apply the rule to the existing transactions; create and update take applyToExisting (default false: only future transactions are filed). When editing a saved rule, pass its categorizationRuleId to preview so the preview replaces it.')]
 class ManageCategorizationRulesTool
 {
     public function __construct(
@@ -28,6 +29,7 @@ class ManageCategorizationRulesTool
         private readonly CategorizationRuleRepository $ruleRepository,
         private readonly TransactionRepository $transactionRepository,
         private readonly ApplyCategorizationRules $applyCategorizationRules,
+        private readonly PreviewCategorizationRule $previewCategorizationRule,
         private readonly McpUserContext $userContext,
     ) {
     }
@@ -46,16 +48,18 @@ class ManageCategorizationRulesTool
         ?bool $isActive = null,
         ?string $transactionId = null,
         ?array $clear = null,
+        ?bool $applyToExisting = null,
     ): string {
         try {
             return match ($action) {
                 'list' => $this->list(),
-                'create' => $this->create($labelPattern, $categoryId, $matchType, $direction, $minAmountCents, $maxAmountCents, $priority, $isActive),
-                'update' => $this->update($categorizationRuleId, $labelPattern, $categoryId, $matchType, $direction, $minAmountCents, $maxAmountCents, $priority, $isActive, $clear),
+                'create' => $this->create($labelPattern, $categoryId, $matchType, $direction, $minAmountCents, $maxAmountCents, $priority, $isActive, $applyToExisting ?? false),
+                'update' => $this->update($categorizationRuleId, $labelPattern, $categoryId, $matchType, $direction, $minAmountCents, $maxAmountCents, $priority, $isActive, $clear, $applyToExisting ?? false),
                 'delete' => $this->delete($categorizationRuleId),
                 'apply' => $this->apply(),
+                'preview' => $this->preview($categorizationRuleId, $labelPattern, $categoryId, $matchType, $direction, $minAmountCents, $maxAmountCents, $priority, $isActive),
                 'learn' => $this->learn($transactionId, $categoryId, $labelPattern, $matchType, $priority),
-                default => json_encode(['error' => "Unknown action: {$action}. Use list, create, update, delete, apply, or learn."], JSON_THROW_ON_ERROR),
+                default => json_encode(['error' => "Unknown action: {$action}. Use list, create, update, delete, apply, preview, or learn."], JSON_THROW_ON_ERROR),
             };
         } catch (MissingMcpUserException $e) {
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
@@ -80,7 +84,7 @@ class ManageCategorizationRulesTool
         ], JSON_THROW_ON_ERROR);
     }
 
-    private function create(?string $labelPattern, ?string $categoryId, ?string $matchType, ?string $direction, ?int $minAmountCents, ?int $maxAmountCents, ?int $priority, ?bool $isActive): string
+    private function create(?string $labelPattern, ?string $categoryId, ?string $matchType, ?string $direction, ?int $minAmountCents, ?int $maxAmountCents, ?int $priority, ?bool $isActive, bool $applyToExisting): string
     {
         if (null === $labelPattern || null === $categoryId) {
             return json_encode(['error' => 'labelPattern and categoryId are required for create.'], JSON_THROW_ON_ERROR);
@@ -98,6 +102,7 @@ class ManageCategorizationRulesTool
             maxAmountCents: $maxAmountCents,
             priority: $priority ?? 0,
             isActive: $isActive ?? true,
+            applyToExisting: $applyToExisting,
         ));
 
         /** @var CategorizationRule $rule */
@@ -110,7 +115,7 @@ class ManageCategorizationRulesTool
     }
 
     /** @param list<string>|null $clear */
-    private function update(?string $categorizationRuleId, ?string $labelPattern, ?string $categoryId, ?string $matchType, ?string $direction, ?int $minAmountCents, ?int $maxAmountCents, ?int $priority, ?bool $isActive, ?array $clear): string
+    private function update(?string $categorizationRuleId, ?string $labelPattern, ?string $categoryId, ?string $matchType, ?string $direction, ?int $minAmountCents, ?int $maxAmountCents, ?int $priority, ?bool $isActive, ?array $clear, bool $applyToExisting): string
     {
         if (null === $categorizationRuleId) {
             return json_encode(['error' => 'categorizationRuleId is required for update.'], JSON_THROW_ON_ERROR);
@@ -128,6 +133,7 @@ class ManageCategorizationRulesTool
             priority: $priority,
             isActive: $isActive,
             clearFields: array_values(array_intersect($clear ?? [], ['minAmountCents', 'maxAmountCents'])),
+            applyToExisting: $applyToExisting,
         ));
 
         /** @var CategorizationRule $rule */
@@ -151,6 +157,32 @@ class ManageCategorizationRulesTool
         ));
 
         return json_encode(['success' => true], JSON_THROW_ON_ERROR);
+    }
+
+    private function preview(?string $categorizationRuleId, ?string $labelPattern, ?string $categoryId, ?string $matchType, ?string $direction, ?int $minAmountCents, ?int $maxAmountCents, ?int $priority, ?bool $isActive): string
+    {
+        if (null === $labelPattern) {
+            return json_encode(['error' => 'labelPattern is required for preview.'], JSON_THROW_ON_ERROR);
+        }
+
+        try {
+            $preview = $this->previewCategorizationRule->execute(
+                user: $this->userContext->requireUser(),
+                labelPattern: $labelPattern,
+                matchType: $matchType ?? 'contains',
+                direction: $direction ?? 'any',
+                minAmountCents: $minAmountCents,
+                maxAmountCents: $maxAmountCents,
+                categoryId: $categoryId,
+                priority: $priority ?? 0,
+                isActive: $isActive ?? true,
+                ruleId: $categorizationRuleId,
+            );
+        } catch (\DomainException $e) {
+            return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
+        }
+
+        return json_encode(['success' => true] + $preview, JSON_THROW_ON_ERROR);
     }
 
     private function apply(): string

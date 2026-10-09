@@ -19,6 +19,7 @@ import Typography from '@mui/material/Typography'
 import { useGetList, useNotify } from 'react-admin'
 import { Placeholder } from '../../components/list/ListEmpty'
 import { Amount } from './AmountField'
+import { idOf } from './categorizationRules'
 
 interface Suggestion {
   pattern: string
@@ -44,9 +45,6 @@ const authHeaders = (extra: Record<string, string> = {}) => {
     ...extra,
   }
 }
-
-/** React-admin hands back categories as IRIs; the API wants the bare id. */
-const idOf = (iri: string) => iri.split('/').pop() ?? iri
 
 /**
  * The rules the statement already implies.

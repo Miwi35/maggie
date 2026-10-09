@@ -9260,6 +9260,12 @@
                         "format": "iri-reference",
                         "example": "https://example.com/"
                     },
+                    "applyToExisting": {
+                        "writeOnly": true,
+                        "description": "Asked on save, never stored: file the existing history under this rule too.",
+                        "default": false,
+                        "type": "boolean"
+                    },
                     "active": {
                         "readOnly": true
                     }
@@ -9334,6 +9340,12 @@
                         "type": "string",
                         "format": "iri-reference",
                         "example": "https://example.com/"
+                    },
+                    "applyToExisting": {
+                        "writeOnly": true,
+                        "description": "Asked on save, never stored: file the existing history under this rule too.",
+                        "default": false,
+                        "type": "boolean"
                     },
                     "active": {
                         "readOnly": true
@@ -9410,6 +9422,12 @@
                         "format": "iri-reference",
                         "example": "https://example.com/"
                     },
+                    "applyToExisting": {
+                        "writeOnly": true,
+                        "description": "Asked on save, never stored: file the existing history under this rule too.",
+                        "default": false,
+                        "type": "boolean"
+                    },
                     "active": {
                         "readOnly": true
                     }
@@ -9482,6 +9500,12 @@
                                 "type": "string",
                                 "format": "iri-reference",
                                 "example": "https://example.com/"
+                            },
+                            "applyToExisting": {
+                                "writeOnly": true,
+                                "description": "Asked on save, never stored: file the existing history under this rule too.",
+                                "default": false,
+                                "type": "boolean"
                             },
                             "active": {
                                 "readOnly": true

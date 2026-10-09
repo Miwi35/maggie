@@ -81,6 +81,110 @@ class CategorizationRuleApiTest extends WebTestCase
         $this->assertElasticsearchIndexDispatched(CategorizationRule::class);
     }
 
+    /** @param array<string, mixed> $body */
+    private function createRule(array $body): void
+    {
+        $this->client->request('POST', '/api/categorization_rules', [], [], array_merge([
+            'CONTENT_TYPE' => 'application/ld+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode($body, JSON_THROW_ON_ERROR));
+    }
+
+    private function categoryOfTransaction(string $fixture): ?string
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $category = $em->find(Transaction::class, $this->getFixture($fixture)->getId())->getCategory();
+
+        return $category ? (string) $category->getId() : null;
+    }
+
+    public function testCreateRuleWithApplyToExistingFilesTheHistory(): void
+    {
+        $this->loadFixtures('categorization_rule.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $leisure = $this->getFixture('leisure');
+
+        $this->createRule([
+            'labelPattern' => 'UGC',
+            'category' => '/api/categories/'.$leisure->getId(),
+            'direction' => 'debit',
+            'applyToExisting' => true,
+        ]);
+
+        self::assertResponseStatusCodeSame(201);
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertArrayNotHasKey('applyToExisting', $data, 'It is an instruction, not something the rule stores.');
+
+        self::assertSame((string) $leisure->getId(), $this->categoryOfTransaction('uncategorized_cinema'));
+        // The other rule's line is not this rule's to file.
+        self::assertNull($this->categoryOfTransaction('uncategorized_carrefour'));
+        $this->assertMercureUpdatePublished('/transactions/');
+        $this->assertElasticsearchIndexDispatched(Transaction::class);
+    }
+
+    public function testCreateRuleWithoutTheTickLeavesTheHistoryAlone(): void
+    {
+        $this->loadFixtures('categorization_rule.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $leisure = $this->getFixture('leisure');
+
+        $this->createRule([
+            'labelPattern' => 'UGC',
+            'category' => '/api/categories/'.$leisure->getId(),
+            'direction' => 'debit',
+            'applyToExisting' => false,
+        ]);
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertNull($this->categoryOfTransaction('uncategorized_cinema'));
+        $this->assertNothingPublishedOn('/transactions/');
+    }
+
+    public function testCreateRuleDefaultsToLeavingTheHistoryAlone(): void
+    {
+        $this->loadFixtures('categorization_rule.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->createRule([
+            'labelPattern' => 'UGC',
+            'category' => '/api/categories/'.$this->getFixture('leisure')->getId(),
+        ]);
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertNull($this->categoryOfTransaction('uncategorized_cinema'));
+    }
+
+    public function testPatchRuleWithApplyToExistingUsesTheNewCriteria(): void
+    {
+        $this->loadFixtures('categorization_rule.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $leisure = $this->getFixture('leisure');
+
+        $this->patch((string) $this->getFixture('rule_carrefour')->getId(), [
+            'labelPattern' => 'UGC',
+            'category' => '/api/categories/'.$leisure->getId(),
+            'applyToExisting' => true,
+        ]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame((string) $leisure->getId(), $this->categoryOfTransaction('uncategorized_cinema'));
+        // The old criteria no longer apply.
+        self::assertNull($this->categoryOfTransaction('uncategorized_carrefour'));
+        $this->assertMercureUpdatePublished('/transactions/');
+    }
+
+    public function testPatchRuleWithoutTheTickLeavesTheHistoryAlone(): void
+    {
+        $this->loadFixtures('categorization_rule.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->patch((string) $this->getFixture('rule_carrefour')->getId(), ['priority' => 99]);
+
+        self::assertResponseIsSuccessful();
+        self::assertNull($this->categoryOfTransaction('uncategorized_carrefour'));
+    }
+
     public function testCreateRuleWithoutPatternIsRejected(): void
     {
         $this->loadFixtures('categorization_rule.yaml');

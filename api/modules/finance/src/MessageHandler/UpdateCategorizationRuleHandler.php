@@ -7,11 +7,14 @@ namespace Maggie\Finance\MessageHandler;
 use Maggie\Finance\Entity\CategorizationRule;
 use Maggie\Finance\Enum\AmountDirection;
 use Maggie\Finance\Enum\MatchType;
+use Maggie\Finance\Event\CategorizationRuleSaved;
 use Maggie\Finance\Message\UpdateCategorizationRuleCommand;
 use Maggie\Finance\Repository\CategorizationRuleRepository;
 use Maggie\Finance\Service\OwnedReferenceResolver;
 use Maggie\Finance\UseCase\UpdateCategorizationRule;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 #[AsMessageHandler]
 class UpdateCategorizationRuleHandler
@@ -20,6 +23,8 @@ class UpdateCategorizationRuleHandler
         private readonly UpdateCategorizationRule $updateCategorizationRule,
         private readonly CategorizationRuleRepository $ruleRepository,
         private readonly OwnedReferenceResolver $references,
+        #[Autowire(service: 'event.bus')]
+        private readonly MessageBusInterface $eventBus,
     ) {
     }
 
@@ -67,6 +72,9 @@ class UpdateCategorizationRuleHandler
             throw new \DomainException('The minimum amount must not exceed the maximum amount.');
         }
 
-        return $this->updateCategorizationRule->execute($rule);
+        $rule = $this->updateCategorizationRule->execute($rule);
+        $this->eventBus->dispatch(new CategorizationRuleSaved((string) $rule->getId(), $command->applyToExisting));
+
+        return $rule;
     }
 }

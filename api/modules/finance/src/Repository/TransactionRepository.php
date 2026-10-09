@@ -170,6 +170,20 @@ class TransactionRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /** How many lines {@see findUncategorizedForUser} would return, without loading them. */
+    public function countUncategorizedForUser(User $user): int
+    {
+        return (int) $this->createQueryBuilder('t')
+            ->select('COUNT(t.id)')
+            ->andWhere('t.user = :user')
+            ->andWhere('t.category IS NULL')
+            ->andWhere('t.categorySource != :manual')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('manual', CategorySource::Manual->value)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
     /**
      * The lines of one user the detection may still pair, oldest first: the
      * paired ones and the ones he judged by hand are left out, so a second

@@ -1,0 +1,128 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-rule-preview-test@example.com
+    googleId: google-finance-rule-preview-test
+    name: Rule Preview Test User
+  other_user:
+    email: finance-rule-preview-other@example.com
+    googleId: google-finance-rule-preview-other
+    name: Rule Preview Other User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+  other_checking:
+    name: Compte de l'autre
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 5000
+    isCushion: false
+    user: '@other_user'
+
+Maggie\Finance\Entity\Category:
+  subscriptions:
+    name: Abonnements
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  leisure:
+    name: Loisirs
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  other_subscriptions:
+    name: Abonnements
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@other_user'
+
+# Outranks any rule written with the default priority.
+Maggie\Finance\Entity\CategorizationRule:
+  rule_premium:
+    labelPattern: PREMIUM
+    matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'
+    category: '@leisure'
+    direction: '<(Maggie\Finance\Enum\AmountDirection::Debit)>'
+    priority: 50
+    isActive: true
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  netflix_july:
+    account: '@checking'
+    amountCents: -1349
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-07-05"))>'
+    label: NETFLIX.COM 4412
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  netflix_august:
+    account: '@checking'
+    amountCents: -1349
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-08-05"))>'
+    label: NETFLIX.COM 4413
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  netflix_september:
+    account: '@checking'
+    amountCents: -1349
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-05"))>'
+    label: NETFLIX.COM 4414
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  netflix_by_hand:
+    account: '@checking'
+    category: '@leisure'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    amountCents: -1349
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-06-05"))>'
+    label: NETFLIX.COM BY HAND
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  netflix_already_filed:
+    account: '@checking'
+    category: '@subscriptions'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Rule)>'
+    amountCents: -1349
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-05-05"))>'
+    label: NETFLIX.COM ALREADY FILED
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  netflix_premium:
+    account: '@checking'
+    amountCents: -1999
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-04-05"))>'
+    label: NETFLIX PREMIUM 4K
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  netflix_refund:
+    account: '@checking'
+    amountCents: 500
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-03-05"))>'
+    label: NETFLIX REMBOURSEMENT
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  other_netflix:
+    account: '@other_checking'
+    amountCents: -1349
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-06"))>'
+    label: NETFLIX.COM OTHER
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@other_user'
