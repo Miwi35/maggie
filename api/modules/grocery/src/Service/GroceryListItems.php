@@ -26,13 +26,13 @@ class GroceryListItems
      * Adds to the open line of the product when there is one in the same unit,
      * else appends a line at the end, in the product's usual store. Flushes.
      */
-    public function addProduct(User $user, Product $product, int|float $quantity, ?Unit $unit, GroceryItemSource $source): GroceryList
+    public function addProduct(User $user, Product $product, int|float|null $quantity, ?Unit $unit, GroceryItemSource $source): GroceryList
     {
         $list = $this->groceryListRepository->findOrCreateForUser($user);
 
         $maxPosition = 0;
         $mergeable = null;
-        foreach ($list->getItems() as $existing) {
+        foreach ($this->linesOf($list) as $existing) {
             $maxPosition = max($maxPosition, $existing->getPosition());
 
             // A ticked line is already in the basket: raising it would hide the new need.
@@ -42,7 +42,9 @@ class GroceryListItems
         }
 
         if (null !== $mergeable) {
-            $mergeable->setQuantity(($mergeable->getQuantity() ?? 0) + $quantity);
+            if (null !== $quantity) {
+                $mergeable->setQuantity(($mergeable->getQuantity() ?? 0) + $quantity);
+            }
             $mergeable->setUnit($unit);
         } else {
             $item = new GroceryItem();
@@ -59,6 +61,67 @@ class GroceryListItems
         $this->em->flush();
 
         return $list;
+    }
+
+    /** Appends a line that is only words, no product behind it, at the end of the list. Flushes. */
+    public function addLabelled(User $user, string $label, int|float|null $quantity, ?Unit $unit, GroceryItemSource $source): GroceryList
+    {
+        $list = $this->groceryListRepository->findOrCreateForUser($user);
+
+        $maxPosition = 0;
+        foreach ($this->linesOf($list) as $existing) {
+            $maxPosition = max($maxPosition, $existing->getPosition());
+        }
+
+        $item = new GroceryItem();
+        $item->setCustomLabel($label);
+        $item->setSource($source);
+        $item->setQuantity($quantity);
+        $item->setUnit($unit);
+        $item->setPosition($maxPosition + 1);
+        $list->addItem($item);
+
+        $list->setUpdatedAt(new \DateTimeImmutable());
+        $this->em->flush();
+
+        return $list;
+    }
+
+    /** An unchecked line for the product, whatever its unit, is already waiting on the list. */
+    public function hasOpenLineOf(User $user, Product $product): bool
+    {
+        foreach ($this->linesOf($this->groceryListRepository->findOrCreateForUser($user)) as $existing) {
+            if (!$existing->isChecked() && (string) $existing->getProduct()?->getId() === (string) $product->getId()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** An unchecked line with the same words is already waiting on the list. */
+    public function hasOpenLineLabelled(User $user, string $label): bool
+    {
+        foreach ($this->linesOf($this->groceryListRepository->findOrCreateForUser($user)) as $existing) {
+            if (!$existing->isChecked() && $existing->getLabel() === $label) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The list's lines, read through the repository rather than through
+     * `$list->getItems()`: a lazy ghost proxy can leave the PersistentCollection
+     * uninitialized and report no elements when the database has rows
+     * (EndErrandHandler documents the same trap).
+     *
+     * @return GroceryItem[]
+     */
+    private function linesOf(GroceryList $list): array
+    {
+        return $this->em->getRepository(GroceryItem::class)->findBy(['groceryList' => $list]);
     }
 
     private function isLineOf(GroceryItem $item, Product $product, ?Unit $unit): bool

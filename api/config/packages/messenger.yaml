@@ -61,6 +61,8 @@ framework:
             'Maggie\Cookbook\Event\MealRescheduled': sync
             'Maggie\Grocery\Message\RestockProductCommand': sync
             'Maggie\Grocery\Event\ProductOutOfStockEvent': sync
+            'Maggie\Grocery\Message\AddRecurringGroceryItemCommand': sync
+            'Maggie\Grocery\Event\RecurringGroceryItemDue': sync
             'Maggie\Grocery\Message\AddGroceryItemCommand': sync
             'Maggie\Grocery\Message\CheckGroceryItemCommand': sync
             'Maggie\Grocery\Message\EndErrandCommand': sync

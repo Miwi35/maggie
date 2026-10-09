@@ -29,4 +29,10 @@ class RecurringGroceryItemRepository extends ServiceEntityRepository
     {
         return $this->findBy(['user' => $user]);
     }
+
+    /** @return RecurringGroceryItem[] */
+    public function findAllForAllUsers(): array
+    {
+        return $this->findAll();
+    }
 }
