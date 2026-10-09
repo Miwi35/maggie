@@ -36,7 +36,7 @@ UpdateProductHandler → use case → flush
 3. **A Specification reads the changeset** (before → after), so a re-save of the same state is not a transition. Doctrine gives the previous enum value as a string, and `null` before a creation.
 4. **Creation counts**: the listener covers inserts as well as updates.
 5. **Forget on `preFlush`**: a flush that fails after `onFlush` never reaches `postFlush`; the listener empties what it noted when the next flush starts, so a rolled-back transition is never sent later.
-6. **The save outlives its effects**: `postFlush` runs once the row is committed, so a failing event is logged and swallowed — the save is not turned into an error. A restock lost this way is read in the logs, not silently.
+6. **The save outlives its effects**: `postFlush` runs once the row is committed (outside an enclosing transaction), so a failing event is logged and swallowed — the save is not turned into an error. A restock lost this way is read in the logs, not silently.
 7. **Test each tier**: the Specification (unit), the listener (dispatches only when satisfied, after the flush), the event handler (dispatches the command), the command handler (the list is published by Mercure and reindexed), the use case and the service.
 
 Example: `api/modules/grocery/src/Doctrine/ProductStockListener.php`, `Specification/IsProductOutOfStock.php`, `EventSubscriber/RestockOnProductOutOfStock.php`.
