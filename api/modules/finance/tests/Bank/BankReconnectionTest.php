@@ -269,6 +269,21 @@ class BankReconnectionTest extends KernelTestCase
         self::assertSame($totalBefore, $this->monthTotal(), "the month's figures do not move with a reconnection");
     }
 
+    public function testAnIdentificationLongerThan128CharactersIsKept(): void
+    {
+        $this->loadFixtures('account.yaml');
+
+        $longKey = str_repeat('identification-', 20);
+        $session = 'session-1';
+        $http = $this->bank(['session-1' => [$this->remoteAccount('uid-first-session', $longKey)]], $session);
+
+        $this->connect($http);
+
+        $accounts = $this->bankAccounts();
+        self::assertCount(1, $accounts);
+        self::assertSame($longKey, $accounts[0]->getExternalKey());
+    }
+
     public function testTheReconnectionIsPublishedAndReindexed(): void
     {
         $this->loadFixtures('account.yaml');

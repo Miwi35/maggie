@@ -387,4 +387,19 @@ final class MergeDuplicateAccountsCommandTest extends KernelTestCase
         self::assertSame(28434, $byId[(string) $checking->getId()]->getBalanceCents(), 'the balance the live session reads');
         self::assertSame('hash-savings', $byId[(string) $savings->getId()]->getExternalKey(), 'the account kept learns its identification');
     }
+
+    public function testAnIdentificationLongerThan128CharactersIsLearnt(): void
+    {
+        $this->loadFixtures('MergeDuplicateAccountsCommandTest.yaml');
+
+        $longKey = str_repeat('identification-', 20);
+        $connection = $this->connection('live-session');
+        $account = $this->account($connection, 'uid-live', -20167, null, 'Meven Cadare');
+
+        $tester = $this->tester([['uid' => 'uid-live', 'identification_hash' => $longKey]]);
+        $tester->execute([]);
+        $tester->assertCommandIsSuccessful();
+
+        self::assertSame($longKey, $this->em()->getRepository(Account::class)->find($account->getId())?->getExternalKey());
+    }
 }
