@@ -174,6 +174,27 @@ class CategorizationRuleApiTest extends WebTestCase
         $this->assertMercureUpdatePublished('/transactions/');
     }
 
+    public function testPatchSendingBackTheIdAsAnIriAsTheAdminDoesAppliesToExisting(): void
+    {
+        $this->loadFixtures('categorization_rule.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $rule = $this->getFixture('rule_carrefour');
+        $leisure = $this->getFixture('leisure');
+
+        // react-admin's Hydra data provider replaces `id` by the IRI and adds `originId`.
+        $this->patch((string) $rule->getId(), [
+            'id' => '/api/categorization_rules/'.$rule->getId(),
+            'originId' => (string) $rule->getId(),
+            'labelPattern' => 'UGC',
+            'category' => '/api/categories/'.$leisure->getId(),
+            'isActive' => true,
+            'applyToExisting' => true,
+        ]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame((string) $leisure->getId(), $this->categoryOfTransaction('uncategorized_cinema'));
+    }
+
     public function testPatchRuleWithoutTheTickLeavesTheHistoryAlone(): void
     {
         $this->loadFixtures('categorization_rule.yaml');
