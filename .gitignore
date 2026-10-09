@@ -146,6 +146,11 @@ e2e-coverage-map.json
 # The Maestro harness (MAG-98): the JUnit report and the screenshots of a failed
 # flow. CI uploads them too; the CLI itself lives under .e2e-cache/ below.
 e2e/mobile/report/
+# Coverage per journey (nightly, E2E_COVERAGE=1): what the agent's coverage.py
+# writes under its mounted directory, and the raw files `task
+# e2e:coverage:collect` makes of it — a nightly artifact, never committed.
+agent/.e2e-coverage/
+e2e/coverage/
 
 # E2E stack caches (MAG-135)
 .e2e-cache/

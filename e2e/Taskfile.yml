@@ -575,6 +575,28 @@ tasks:
       - 'E2E_BASE_URL={{.BASE_URL}} {{.ROOT_DIR}}/e2e/smoke/smoke.sh'
 
   # ===========================================================================
+  # Coverage per journey (spec « Sélection e2e par couverture », part A)
+  # ===========================================================================
+  coverage:collect:
+    desc: Write the coverage per journey of a stack started with E2E_COVERAGE=1 to e2e/coverage/raw/
+    # Nightly only. See scripts/e2e/coverage/README.md for what it reads and
+    # writes. It restarts the agent (its data is flushed on exit): the env
+    # below keeps that restart identical to the stack's own start, so Compose
+    # does not recreate it with other public URLs or without coverage.
+    vars:
+      BASE_URL:
+        sh: 'echo "http://127.0.0.1:$(docker compose -f {{.COMPOSE_FILE}} -p {{.PROJECT}} port traefik 80 | sed "s/.*://")"'
+    env:
+      E2E_BASE_URL: '{{.BASE_URL}}'
+      E2E_COVERAGE: '1'
+      COMPOSE: '{{.COMPOSE}}'
+    preconditions:
+      - sh: '{{.COMPOSE}} ps --status running --services | grep -qx php'
+        msg: 'The e2e stack is not running — start it with `E2E_COVERAGE=1 task e2e:up`.'
+    cmds:
+      - '{{.ROOT_DIR}}/scripts/e2e/coverage/collect.sh'
+
+  # ===========================================================================
   # Debugging
   # ===========================================================================
   sh:
