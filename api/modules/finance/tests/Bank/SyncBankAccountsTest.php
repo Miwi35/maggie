@@ -10,6 +10,7 @@ use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\BankConnection;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\BankConnectionStatus;
+use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Repository\AccountRepository;
 use Maggie\Finance\Repository\BankConnectionRepository;
 use Maggie\Finance\UseCase\ImportStatement;
@@ -176,6 +177,39 @@ class SyncBankAccountsTest extends KernelTestCase
         // indexes: without this the movements exist and no list shows them.
         $this->assertElasticsearchIndexDispatched(Transaction::class);
         $this->assertElasticsearchIndexDispatched(Account::class);
+    }
+
+    public function testTheTwoLegsOfATransferBetweenTwoSyncedAccountsAreMarkedAndLinked(): void
+    {
+        $this->loadFixtures('two_accounts.yaml');
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+
+        $connection = new BankConnection();
+        $connection->setUser($this->getFixture('test_user'));
+        $connection->setBankName('N26');
+        $connection->activate('session-1', new \DateTimeImmutable('+60 days'));
+        $em->persist($connection);
+        foreach (['checking' => 'remote-checking', 'savings' => 'remote-savings'] as $fixture => $uid) {
+            $this->getFixture($fixture)->setExternalAccountId($uid)->setBankConnection($connection);
+        }
+        $em->flush();
+
+        $http = $this->provider(fn (string $method, string $url) => new MockResponse($this->page([
+            str_contains($url, 'remote-savings')
+                ? $this->movement('2026-09-12', '500.00', 'DBIT', 'VIREMENT VERS COURANT')
+                : $this->movement('2026-09-13', '500.00', 'CRDT', 'VIREMENT DU LIVRET'),
+        ])));
+
+        $this->sync($http)->execute($this->getFixture('test_user'));
+
+        $em->clear();
+        $out = $em->getRepository(Transaction::class)->findOneBy(['label' => 'VIREMENT VERS COURANT']);
+        $in = $em->getRepository(Transaction::class)->findOneBy(['label' => 'VIREMENT DU LIVRET']);
+
+        self::assertSame(TransferKind::Internal, $out->getTransferKind());
+        self::assertSame(TransferKind::Internal, $in->getTransferKind());
+        self::assertSame((string) $in->getId(), (string) $out->getCounterpart()?->getId());
+        self::assertSame((string) $out->getId(), (string) $in->getCounterpart()?->getId());
     }
 
     public function testSyncingTwiceDoesNotDuplicateWhatIsAlreadyThere(): void
