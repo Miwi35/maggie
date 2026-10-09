@@ -62,7 +62,9 @@ async function plan(api: APIRequestContext): Promise<{ recipe: string; event: st
 
 test('the general agenda shows the meal and the event with « Repas » once, the meals planning only the meal — MAG-354', async ({ page, api }) => {
   const { recipe, event } = await plan(api)
-  const mealChip = `Dîner: ${recipe}`
+  // The list carries the recipe's name inside the meal's summary (« Dîner : <recette> »); anchored at the
+  // end so a retry does not also match the first attempt's meal.
+  const mealChip = new RegExp(`${recipe}$`)
 
   // The API no longer lists the module's agenda among the user's.
   const listed = await api.get('/api/agendas?itemsPerPage=100', { headers: { Accept: 'application/ld+json' } })
@@ -74,7 +76,7 @@ test('the general agenda shows the meal and the event with « Repas » once, the
   await general.open()
   await general.chooseView('Semaine')
   await expect(general.chip(event)).toBeVisible()
-  await expect(general.chip(mealChip)).toBeVisible()
+  await expect(general.grid.getByText(mealChip)).toBeVisible()
   await expect(general.content.getByText('Repas', { exact: true })).toHaveCount(1)
 
   // The menu entry, not a typed URL, is how the owner gets to the module's calendar.
@@ -86,10 +88,10 @@ test('the general agenda shows the meal and the event with « Repas » once, the
   await expect(page.getByTestId('agenda-row')).toHaveCount(0)
 
   await general.chooseView('Semaine')
-  await expect(general.chip(mealChip)).toBeVisible()
+  await expect(general.grid.getByText(mealChip)).toBeVisible()
   await expect(general.chip(event)).toHaveCount(0)
 
   await general.chooseView('Mois')
-  await expect(general.chip(mealChip)).toBeVisible()
+  await expect(general.grid.getByText(mealChip)).toBeVisible()
   await expect(general.chip(event)).toHaveCount(0)
 })

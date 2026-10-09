@@ -54,7 +54,6 @@ import com.maggie.app.ui.screens.finance.FinanceDashboardViewModel
 import com.maggie.app.ui.screens.finance.RuleSuggestionViewModel
 import com.maggie.app.ui.screens.finance.TransactionViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
-import com.maggie.app.data.repository.MealRepository
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
