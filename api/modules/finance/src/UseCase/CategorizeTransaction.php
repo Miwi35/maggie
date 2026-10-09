@@ -8,6 +8,7 @@ use Maggie\Finance\Entity\CategorizationRule;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Repository\CategorizationRuleRepository;
+use Maggie\Finance\Service\TransactionMatcher;
 use Maggie\Finance\Service\TransactionNatureGuard;
 
 /**
@@ -19,6 +20,7 @@ class CategorizeTransaction
     public function __construct(
         private readonly CategorizationRuleRepository $ruleRepository,
         private readonly TransactionNatureGuard $natureGuard,
+        private readonly TransactionMatcher $matcher,
     ) {
     }
 
@@ -30,7 +32,9 @@ class CategorizeTransaction
     public function match(Transaction $transaction): ?CategorizationRule
     {
         foreach ($this->ruleRepository->findActiveForUser($transaction->getUser()) as $rule) {
-            if ($rule->matches($transaction) && $this->natureGuard->isCompatible($transaction->getAmountCents(), $rule->getCategory())) {
+            if ($rule->isActive()
+                && $this->matcher->matches($rule->matchCriteria(), $transaction)
+                && $this->natureGuard->isCompatible($transaction->getAmountCents(), $rule->getCategory())) {
                 return $rule;
             }
         }

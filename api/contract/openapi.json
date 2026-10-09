@@ -5967,6 +5967,423 @@
                 }
             }
         },
+        "/api/recurring_operations": {
+            "get": {
+                "operationId": "api_recurring_operations_get_collection",
+                "tags": [
+                    "RecurringOperation"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "RecurringOperation collection",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "description": "RecurringOperation.jsonld collection.",
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "member"
+                                            ],
+                                            "properties": {
+                                                "member": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/RecurringOperation.jsonld"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/RecurringOperation"
+                                    }
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/RecurringOperation.html"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "summary": "Retrieves the collection of RecurringOperation resources.",
+                "description": "Retrieves the collection of RecurringOperation resources.",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "The collection page number",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "itemsPerPage",
+                        "in": "query",
+                        "description": "The number of items per page",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 30,
+                            "minimum": 0,
+                            "maximum": 100
+                        },
+                        "style": "form",
+                        "explode": false
+                    }
+                ]
+            },
+            "post": {
+                "operationId": "api_recurring_operations_post",
+                "tags": [
+                    "RecurringOperation"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "RecurringOperation resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RecurringOperation.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RecurringOperation"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RecurringOperation.html"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Creates a RecurringOperation resource.",
+                "description": "Creates a RecurringOperation resource.",
+                "parameters": [],
+                "requestBody": {
+                    "description": "The new RecurringOperation resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RecurringOperation"
+                            }
+                        },
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RecurringOperation"
+                            }
+                        },
+                        "text/html": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RecurringOperation"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/recurring_operations/{id}": {
+            "get": {
+                "operationId": "api_recurring_operations_id_get",
+                "tags": [
+                    "RecurringOperation"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "RecurringOperation resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RecurringOperation.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RecurringOperation"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RecurringOperation.html"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Retrieves a RecurringOperation resource.",
+                "description": "Retrieves a RecurringOperation resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "RecurringOperation identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "delete": {
+                "operationId": "api_recurring_operations_id_delete",
+                "tags": [
+                    "RecurringOperation"
+                ],
+                "responses": {
+                    "204": {
+                        "description": "RecurringOperation resource deleted"
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Removes the RecurringOperation resource.",
+                "description": "Removes the RecurringOperation resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "RecurringOperation identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "patch": {
+                "operationId": "api_recurring_operations_id_patch",
+                "tags": [
+                    "RecurringOperation"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "RecurringOperation resource updated",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RecurringOperation.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RecurringOperation"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RecurringOperation.html"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Updates the RecurringOperation resource.",
+                "description": "Updates the RecurringOperation resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "RecurringOperation identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The updated RecurringOperation resource",
+                    "content": {
+                        "application/merge-patch+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RecurringOperation.jsonMergePatch"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
         "/api/safety_cushions/me": {
             "get": {
                 "operationId": "api_safety_cushionsme_get",
@@ -14075,6 +14492,528 @@
                     }
                 ]
             },
+            "RecurringOperation": {
+                "type": "object",
+                "description": "A series the owner expects to see again — rent on the 5th, Netflix on the\n12th. Abstract: its occurrences are computed by `RecurrenceSchedule`, never\nwritten down, and the real transactions stay what they are.\n\nIt recognises its transactions through the engine the categorization rules\nuse, with the expected counterparty as the main criterion.",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "label": {
+                        "maxLength": 255,
+                        "type": "string"
+                    },
+                    "counterpartyName": {
+                        "maxLength": 255,
+                        "description": "The payee of an expense, the payer of an income: who the bank names.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "counterpartyKey": {
+                        "readOnly": true,
+                        "description": "Derived from the name, like a transaction's, so the two compare.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "labelPattern": {
+                        "maxLength": 255,
+                        "description": "Read in the label when there is no counterparty to compare.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "category": {
+                        "description": "The default category, inherited by the transactions attached to it.",
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "account": {
+                        "description": "Its currency is the operation's: there is no other.",
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "period": {
+                        "default": "monthly",
+                        "type": "string",
+                        "enum": [
+                            "weekly",
+                            "monthly",
+                            "quarterly",
+                            "yearly"
+                        ]
+                    },
+                    "anchorOn": {
+                        "description": "Where the series is counted from, never from the previous occurrence.",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "dayRule": {
+                        "default": "fixed_day",
+                        "type": "string",
+                        "enum": [
+                            "fixed_day",
+                            "last_day_of_month"
+                        ]
+                    },
+                    "referenceAmountCents": {
+                        "description": "Signed cents: negative is an expense, positive an income.",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "referenceSource": {
+                        "default": "measured",
+                        "type": "string",
+                        "enum": [
+                            "declared",
+                            "measured"
+                        ]
+                    },
+                    "amountTolerancePercent": {
+                        "minimum": 0,
+                        "maximum": 100,
+                        "default": 20,
+                        "type": "integer"
+                    },
+                    "dateToleranceDays": {
+                        "minimum": 0,
+                        "maximum": 31,
+                        "default": 5,
+                        "type": "integer"
+                    },
+                    "endsOn": {
+                        "description": "The last day an occurrence may fall on; null while the series runs.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "user": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "monthlyCostCents": {
+                        "readOnly": true,
+                        "description": "What the series costs (negative) or brings in (positive) a month, in cents.",
+                        "type": "integer"
+                    },
+                    "yearlyCostCents": {
+                        "readOnly": true,
+                        "description": "What the series costs (negative) or brings in (positive) a year, in cents.",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "label",
+                    "category",
+                    "account",
+                    "period",
+                    "anchorOn",
+                    "dayRule",
+                    "referenceSource"
+                ]
+            },
+            "RecurringOperation.html": {
+                "type": "object",
+                "description": "A series the owner expects to see again — rent on the 5th, Netflix on the\n12th. Abstract: its occurrences are computed by `RecurrenceSchedule`, never\nwritten down, and the real transactions stay what they are.\n\nIt recognises its transactions through the engine the categorization rules\nuse, with the expected counterparty as the main criterion.",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "label": {
+                        "maxLength": 255,
+                        "type": "string"
+                    },
+                    "counterpartyName": {
+                        "maxLength": 255,
+                        "description": "The payee of an expense, the payer of an income: who the bank names.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "counterpartyKey": {
+                        "readOnly": true,
+                        "description": "Derived from the name, like a transaction's, so the two compare.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "labelPattern": {
+                        "maxLength": 255,
+                        "description": "Read in the label when there is no counterparty to compare.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "category": {
+                        "description": "The default category, inherited by the transactions attached to it.",
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "account": {
+                        "description": "Its currency is the operation's: there is no other.",
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "period": {
+                        "default": "monthly",
+                        "type": "string",
+                        "enum": [
+                            "weekly",
+                            "monthly",
+                            "quarterly",
+                            "yearly"
+                        ]
+                    },
+                    "anchorOn": {
+                        "description": "Where the series is counted from, never from the previous occurrence.",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "dayRule": {
+                        "default": "fixed_day",
+                        "type": "string",
+                        "enum": [
+                            "fixed_day",
+                            "last_day_of_month"
+                        ]
+                    },
+                    "referenceAmountCents": {
+                        "description": "Signed cents: negative is an expense, positive an income.",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "referenceSource": {
+                        "default": "measured",
+                        "type": "string",
+                        "enum": [
+                            "declared",
+                            "measured"
+                        ]
+                    },
+                    "amountTolerancePercent": {
+                        "minimum": 0,
+                        "maximum": 100,
+                        "default": 20,
+                        "type": "integer"
+                    },
+                    "dateToleranceDays": {
+                        "minimum": 0,
+                        "maximum": 31,
+                        "default": 5,
+                        "type": "integer"
+                    },
+                    "endsOn": {
+                        "description": "The last day an occurrence may fall on; null while the series runs.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "user": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "monthlyCostCents": {
+                        "readOnly": true,
+                        "description": "What the series costs (negative) or brings in (positive) a month, in cents.",
+                        "type": "integer"
+                    },
+                    "yearlyCostCents": {
+                        "readOnly": true,
+                        "description": "What the series costs (negative) or brings in (positive) a year, in cents.",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "label",
+                    "category",
+                    "account",
+                    "period",
+                    "anchorOn",
+                    "dayRule",
+                    "referenceSource"
+                ]
+            },
+            "RecurringOperation.jsonMergePatch": {
+                "type": "object",
+                "description": "A series the owner expects to see again — rent on the 5th, Netflix on the\n12th. Abstract: its occurrences are computed by `RecurrenceSchedule`, never\nwritten down, and the real transactions stay what they are.\n\nIt recognises its transactions through the engine the categorization rules\nuse, with the expected counterparty as the main criterion.",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "label": {
+                        "maxLength": 255,
+                        "type": "string"
+                    },
+                    "counterpartyName": {
+                        "maxLength": 255,
+                        "description": "The payee of an expense, the payer of an income: who the bank names.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "counterpartyKey": {
+                        "readOnly": true,
+                        "description": "Derived from the name, like a transaction's, so the two compare.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "labelPattern": {
+                        "maxLength": 255,
+                        "description": "Read in the label when there is no counterparty to compare.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "category": {
+                        "description": "The default category, inherited by the transactions attached to it.",
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "account": {
+                        "description": "Its currency is the operation's: there is no other.",
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "period": {
+                        "default": "monthly",
+                        "type": "string",
+                        "enum": [
+                            "weekly",
+                            "monthly",
+                            "quarterly",
+                            "yearly"
+                        ]
+                    },
+                    "anchorOn": {
+                        "description": "Where the series is counted from, never from the previous occurrence.",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "dayRule": {
+                        "default": "fixed_day",
+                        "type": "string",
+                        "enum": [
+                            "fixed_day",
+                            "last_day_of_month"
+                        ]
+                    },
+                    "referenceAmountCents": {
+                        "description": "Signed cents: negative is an expense, positive an income.",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "referenceSource": {
+                        "default": "measured",
+                        "type": "string",
+                        "enum": [
+                            "declared",
+                            "measured"
+                        ]
+                    },
+                    "amountTolerancePercent": {
+                        "minimum": 0,
+                        "maximum": 100,
+                        "default": 20,
+                        "type": "integer"
+                    },
+                    "dateToleranceDays": {
+                        "minimum": 0,
+                        "maximum": 31,
+                        "default": 5,
+                        "type": "integer"
+                    },
+                    "endsOn": {
+                        "description": "The last day an occurrence may fall on; null while the series runs.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "user": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "monthlyCostCents": {
+                        "readOnly": true,
+                        "description": "What the series costs (negative) or brings in (positive) a month, in cents.",
+                        "type": "integer"
+                    },
+                    "yearlyCostCents": {
+                        "readOnly": true,
+                        "description": "What the series costs (negative) or brings in (positive) a year, in cents.",
+                        "type": "integer"
+                    }
+                }
+            },
+            "RecurringOperation.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "readOnly": true,
+                                "type": "string",
+                                "format": "ulid"
+                            },
+                            "label": {
+                                "maxLength": 255,
+                                "type": "string"
+                            },
+                            "counterpartyName": {
+                                "maxLength": 255,
+                                "description": "The payee of an expense, the payer of an income: who the bank names.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "counterpartyKey": {
+                                "readOnly": true,
+                                "description": "Derived from the name, like a transaction's, so the two compare.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "labelPattern": {
+                                "maxLength": 255,
+                                "description": "Read in the label when there is no counterparty to compare.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "category": {
+                                "description": "The default category, inherited by the transactions attached to it.",
+                                "type": "string",
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
+                            "account": {
+                                "description": "Its currency is the operation's: there is no other.",
+                                "type": "string",
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
+                            "period": {
+                                "default": "monthly",
+                                "type": "string",
+                                "enum": [
+                                    "weekly",
+                                    "monthly",
+                                    "quarterly",
+                                    "yearly"
+                                ]
+                            },
+                            "anchorOn": {
+                                "description": "Where the series is counted from, never from the previous occurrence.",
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            "dayRule": {
+                                "default": "fixed_day",
+                                "type": "string",
+                                "enum": [
+                                    "fixed_day",
+                                    "last_day_of_month"
+                                ]
+                            },
+                            "referenceAmountCents": {
+                                "description": "Signed cents: negative is an expense, positive an income.",
+                                "default": 0,
+                                "type": "integer"
+                            },
+                            "referenceSource": {
+                                "default": "measured",
+                                "type": "string",
+                                "enum": [
+                                    "declared",
+                                    "measured"
+                                ]
+                            },
+                            "amountTolerancePercent": {
+                                "minimum": 0,
+                                "maximum": 100,
+                                "default": 20,
+                                "type": "integer"
+                            },
+                            "dateToleranceDays": {
+                                "minimum": 0,
+                                "maximum": 31,
+                                "default": 5,
+                                "type": "integer"
+                            },
+                            "endsOn": {
+                                "description": "The last day an occurrence may fall on; null while the series runs.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date-time"
+                            },
+                            "user": {
+                                "type": "string",
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
+                            "monthlyCostCents": {
+                                "readOnly": true,
+                                "description": "What the series costs (negative) or brings in (positive) a month, in cents.",
+                                "type": "integer"
+                            },
+                            "yearlyCostCents": {
+                                "readOnly": true,
+                                "description": "What the series costs (negative) or brings in (positive) a year, in cents.",
+                                "type": "integer"
+                            }
+                        },
+                        "required": [
+                            "label",
+                            "category",
+                            "account",
+                            "period",
+                            "anchorOn",
+                            "dayRule",
+                            "referenceSource"
+                        ]
+                    }
+                ],
+                "description": "A series the owner expects to see again — rent on the 5th, Netflix on the\n12th. Abstract: its occurrences are computed by `RecurrenceSchedule`, never\nwritten down, and the real transactions stay what they are.\n\nIt recognises its transactions through the engine the categorization rules\nuse, with the expected counterparty as the main criterion."
+            },
             "SafetyCushion": {
                 "type": "object",
                 "description": "The safety net, configured once per user. Its current amount is never\nstored here — it is the balance of the accounts flagged as cushion.",
@@ -15722,6 +16661,10 @@
         {
             "name": "Loan",
             "description": "A loan being repaid. Its end date is never stored: it falls out of the\ncapital, the payment and the rate, and a fourth field would contradict\nthem at the first early repayment."
+        },
+        {
+            "name": "RecurringOperation",
+            "description": "A series the owner expects to see again — rent on the 5th, Netflix on the\n12th. Abstract: its occurrences are computed by `RecurrenceSchedule`, never\nwritten down, and the real transactions stay what they are.\n\nIt recognises its transactions through the engine the categorization rules\nuse, with the expected counterparty as the main criterion."
         },
         {
             "name": "SafetyCushion",

@@ -7,6 +7,7 @@ namespace Maggie\Finance\MessageHandler;
 use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
 use Maggie\Finance\Message\DeleteAccountCommand;
 use Maggie\Finance\Repository\AccountRepository;
+use Maggie\Finance\Repository\RecurringOperationRepository;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\UseCase\DeleteAccount;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -19,6 +20,7 @@ class DeleteAccountHandler
         private readonly DeleteAccount $deleteAccount,
         private readonly AccountRepository $accountRepository,
         private readonly TransactionRepository $transactionRepository,
+        private readonly RecurringOperationRepository $recurringOperationRepository,
         private readonly MessageBusInterface $messageBus,
     ) {
     }
@@ -28,16 +30,23 @@ class DeleteAccountHandler
         $account = $this->accountRepository->findOneBy(['id' => $command->accountId, 'user' => $command->userId])
             ?? throw new \DomainException("Account not found: {$command->accountId}");
 
-        // The database cascade removes the account's transactions without any command of their own.
+        // The database cascade removes the account's transactions and recurring operations without any command of their own.
         $transactionIds = array_map(
             fn ($transaction) => (string) $transaction->getId(),
             $this->transactionRepository->findByAccount($account),
+        );
+        $operationIds = array_map(
+            fn ($operation) => (string) $operation->getId(),
+            $this->recurringOperationRepository->findBy(['account' => $account]),
         );
 
         $this->deleteAccount->execute($account);
 
         foreach ($transactionIds as $transactionId) {
             $this->messageBus->dispatch(new DeleteDocumentCommand(indexName: 'transactions', documentId: $transactionId));
+        }
+        foreach ($operationIds as $operationId) {
+            $this->messageBus->dispatch(new DeleteDocumentCommand(indexName: 'recurring_operations', documentId: $operationId));
         }
     }
 }
