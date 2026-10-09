@@ -3,6 +3,8 @@
 namespace App\Tests\Support;
 
 use Doctrine\Common\DataFixtures\Purger\ORMPurger;
+use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Finance\Doctrine\TransactionListener;
 use Nelmio\Alice\Loader\NativeLoader;
 
 trait FixtureLoaderTrait
@@ -32,7 +34,19 @@ trait FixtureLoaderTrait
         foreach ($this->fixtures as $object) {
             $em->persist($object);
         }
-        $em->flush();
+
+        // Fixtures are history already stored, not movements being recorded.
+        $this->flushWithoutTransactionEffects($em);
+    }
+
+    /**
+     * Flushes as stored history: categorization, transfer and rejection
+     * detection do not run on what this flush writes. For the tests of those
+     * very passes, which need unpaired lines to start from.
+     */
+    protected function flushWithoutTransactionEffects(EntityManagerInterface $em): void
+    {
+        self::getContainer()->get(TransactionListener::class)->withoutEffects($em->flush(...));
     }
 
     protected function purgeDatabase(): void

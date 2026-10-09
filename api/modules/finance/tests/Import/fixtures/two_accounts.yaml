@@ -1,0 +1,70 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-import-transfers@example.com
+    googleId: google-finance-import-transfers
+    name: Finance Import Transfers User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    bank: Crédit Agricole
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+  savings:
+    name: Livret A
+    bank: Crédit Agricole
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 500000
+    isCushion: true
+    user: '@test_user'
+
+Maggie\Finance\Entity\Category:
+  food:
+    name: Alimentation
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+
+Maggie\Finance\Entity\CategorizationRule:
+  rule_carrefour:
+    labelPattern: CARREFOUR
+    matchType: '<(Maggie\Finance\Enum\MatchType::Contains)>'
+    category: '@food'
+    direction: '<(Maggie\Finance\Enum\AmountDirection::Debit)>'
+    priority: 10
+    isActive: true
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  # A line the rule does not claim yet: its label changes in a test.
+  plain_expense:
+    account: '@checking'
+    amountCents: -4599
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-01"))>'
+    label: PAIEMENT CB 4412
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  # The two legs of a transfer, already stored and paired.
+  transfer_out:
+    account: '@savings'
+    amountCents: -300000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-12"))>'
+    label: Virement vers Courant
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  transfer_in:
+    account: '@checking'
+    amountCents: 300000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-09-13"))>'
+    label: Virement du Livret
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'

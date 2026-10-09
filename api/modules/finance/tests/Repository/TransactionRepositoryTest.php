@@ -82,7 +82,7 @@ class TransactionRepositoryTest extends KernelTestCase
         }
 
         $this->em->persist($transaction);
-        $this->em->flush();
+        $this->flushWithoutTransactionEffects($this->em);
 
         return $transaction;
     }

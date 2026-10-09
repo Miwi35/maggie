@@ -2,6 +2,7 @@ import type { APIRequestContext } from '@playwright/test'
 import { test, expect, seedAnchorDate } from '../fixtures/index.js'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { expectRealtimeSync, openSubscribed } from '../helpers/mercure.js'
+import { FinanceImportPage } from '../pages/FinanceImportPage.js'
 import { FinanceTransfersPage } from '../pages/FinanceTransfersPage.js'
 
 /**
@@ -95,6 +96,24 @@ async function lifestyleCents(api: APIRequestContext): Promise<number> {
   }
 
   return dashboard.savingCapacity.estimatedLifestyleCents
+}
+
+/** What the dashboard counts as the month's income: transfers and rejections are not income. */
+async function monthIncomeCents(api: APIRequestContext, month: string): Promise<number> {
+  const response = await api.get('/api/finance/dashboard')
+  expect(response.status(), await response.text()).toBe(200)
+  const dashboard = (await response.json()) as {
+    monthlyFlows: Array<{ month: string; incomeCents: number }>
+  }
+
+  return dashboard.monthlyFlows.find((flow) => flow.month === month)?.incomeCents ?? 0
+}
+
+/** `2026-09-12` → `12/09/2026`, the day format of a French bank's export. */
+function frenchDate(isoDay: string): string {
+  const [year, month, day] = isoDay.split('-')
+
+  return `${day}/${month}/${year}`
 }
 
 /**
@@ -238,8 +257,9 @@ test('a detected transfer wears its badge and its counterpart, and the owner can
 /**
  * A rejected payment (MAG-350): the debit and the REJET credit that gives it
  * back, on the same account. The lines are created through the API rather
- * than through the mocked bank, whose fixture every journey shares; the
- * import's call to the same detection is covered by `ImportStatementTest`.
+ * than through the mocked bank, whose fixture every journey shares; an import
+ * or a sync reaches the same detection through the same event
+ * (`TransactionEffectsTest`, `ImportStatementTest`).
  */
 test('a rejected direct debit and its REJET credit read as such and leave the spending', async ({ otherUser }) => {
   const { api, page } = otherUser
@@ -289,4 +309,63 @@ test('a rejected direct debit and its REJET credit read as such and leave the sp
       { what: `The line "${label}", once released` },
     )
   }
+})
+
+/**
+ * A transfer is recognised whichever door its legs come through (MAG-367): here
+ * two statements imported one after the other, one per account. No catch-up is
+ * run — the detection follows the recording of the second leg by itself.
+ */
+test('the two legs of a transfer imported from statements are both marked, and leave the income', async ({
+  otherUser,
+}) => {
+  const { api, page } = otherUser
+  const attempt = test.info().retry
+  // Unique per attempt, amount included, for the reason the first journey gives.
+  const transferCents = 120_000 + attempt * 100
+  const checkingName = `Courant MAG-367, essai ${attempt}`
+  const savingsName = `Livret MAG-367, essai ${attempt}`
+  const debit = `VIREMENT VERS COURANT MAG-367 ESSAI ${attempt}`
+  const credit = `VIREMENT DEPUIS LIVRET MAG-367 ESSAI ${attempt}`
+  const debitDay = lastMonthDay(12)
+  const creditDay = lastMonthDay(13)
+  const month = debitDay.slice(0, 7)
+  const amount = (cents: number) => (cents / 100).toFixed(2).replace('.', ',')
+
+  const checkingId = await createAccount(api, checkingName, 'checking')
+  const savingsId = await createAccount(api, savingsName, 'savings')
+  createdAccountIds.push(checkingId, savingsId)
+  const incomeBefore = await monthIncomeCents(api, month)
+
+  const importLeg = async (accountName: string, day: string, label: string, signedCents: number) => {
+    const importPage = new FinanceImportPage(page)
+    await importPage.open()
+    await importPage.chooseAccount(accountName)
+    await importPage.dropStatement(
+      ['Date;Libellé;Montant', `${frenchDate(day)};${label};${amount(signedCents)}`, ''].join('\n'),
+    )
+    await importPage.simulate.click()
+    await importPage.confirm.click()
+    await expect(importPage.content.getByText('Import effectué')).toBeVisible()
+  }
+
+  await importLeg(savingsName, debitDay, debit, -transferCents)
+  await importLeg(checkingName, creditDay, credit, transferCents)
+
+  for (const label of [debit, credit]) {
+    await waitForIndexed<StoredTransaction>(
+      api,
+      '/api/transactions?itemsPerPage=100',
+      (candidate) => candidate.label === label && candidate.transferKind === 'internal',
+      { what: `The leg "${label}", marked by the import itself` },
+    )
+  }
+
+  const transfers = new FinanceTransfersPage(page)
+  await transfers.openTransactions(checkingId)
+  await expect(transfers.badge(credit)).toBeVisible()
+  await transfers.openTransactions(savingsId)
+  await expect(transfers.badge(debit)).toBeVisible()
+
+  expect(await monthIncomeCents(api, month), 'the credit leg is no income').toBe(incomeBefore)
 })
