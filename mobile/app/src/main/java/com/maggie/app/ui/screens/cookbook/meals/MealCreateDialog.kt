@@ -13,6 +13,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -37,6 +38,8 @@ fun MealCreateDialog(
     val recipeUiState by recipeListViewModel.uiState.collectAsState()
     var summary by remember { mutableStateOf("") }
     val selectedRecipeIds = remember { mutableStateListOf<String>() }
+
+    LaunchedEffect(Unit) { recipeListViewModel.refresh() }
 
     AlertDialog(
         onDismissRequest = onDismiss,

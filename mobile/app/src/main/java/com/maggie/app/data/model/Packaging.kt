@@ -35,6 +35,12 @@ private val CookbookUnit.frenchPlural: String
 
 private val SIZE_FORMAT = DecimalFormat("0.###", DecimalFormatSymbols(Locale.FRANCE))
 
+/** A quantity as the owner writes it: « 500 », « 1,5 ». */
+fun formatQuantity(value: Float): String = SIZE_FORMAT.format(value)
+
+/** The unit for [count] of it: « paquet » for one, « paquets » for several. */
+fun CookbookUnit.frenchLabel(count: Float): String = if (count > 1f) frenchPlural else frenchName
+
 /**
  * What the product is bought in, as the owner says it: « paquet de 500 g »,
  * « bocal ». Null when the product has no packaging.
@@ -44,6 +50,5 @@ fun Product.packagingLabel(): String? {
     val size = packagingSize
     val sizeUnit = packagingSizeUnit
     if (size == null || sizeUnit == null) return unit.frenchName
-    val content = if (size > 1f) sizeUnit.frenchPlural else sizeUnit.frenchName
-    return "${unit.frenchName} de ${SIZE_FORMAT.format(size)} $content"
+    return "${unit.frenchName} de ${formatQuantity(size)} ${sizeUnit.frenchLabel(size)}"
 }

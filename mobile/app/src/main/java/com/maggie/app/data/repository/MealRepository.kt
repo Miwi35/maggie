@@ -2,7 +2,10 @@ package com.maggie.app.data.repository
 
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.api.MealCreateRequest
+import com.maggie.app.data.api.MealGroceryItemChoice
+import com.maggie.app.data.api.MealGroceryItemsRequest
 import com.maggie.app.data.model.Meal
+import com.maggie.app.data.model.MealGroceryPreview
 
 class MealRepository(
     private val apiService: MaggieApiService,
@@ -17,5 +20,16 @@ class MealRepository(
 
     suspend fun deleteMeal(id: String): Result<Unit> = runCatching {
         apiService.deleteMeal(id)
+    }
+
+    suspend fun groceryPreview(mealId: String): Result<MealGroceryPreview> = runCatching {
+        apiService.getMealGroceryPreview(mealId)
+    }
+
+    suspend fun addToGroceries(mealId: String, ingredientIds: List<String>): Result<MealGroceryPreview> = runCatching {
+        apiService.addMealGroceryItems(
+            mealId,
+            MealGroceryItemsRequest(ingredientIds.map { MealGroceryItemChoice(it) }),
+        )
     }
 }

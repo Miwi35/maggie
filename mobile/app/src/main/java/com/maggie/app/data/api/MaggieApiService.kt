@@ -12,6 +12,7 @@ import com.maggie.app.data.model.GoogleCalendar
 import com.maggie.app.data.model.GroceryList
 import com.maggie.app.data.model.Ingredient
 import com.maggie.app.data.model.Meal
+import com.maggie.app.data.model.MealGroceryPreview
 import com.maggie.app.data.model.Notification
 import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.data.model.Proaction
@@ -234,6 +235,12 @@ data class MealCreateRequest(
     val slot: String,
     val recipes: List<String> = emptyList(),
 )
+
+@Serializable
+data class MealGroceryItemsRequest(val ingredients: List<MealGroceryItemChoice>)
+
+@Serializable
+data class MealGroceryItemChoice(val ingredientId: String)
 
 @Serializable
 data class RecurringGroceryItemCreateRequest(
@@ -825,6 +832,21 @@ class MaggieApiService(
 
     suspend fun deleteMeal(id: String) {
         client.delete("$baseUrl/api/meals/$id")
+    }
+
+    suspend fun getMealGroceryPreview(mealId: String): MealGroceryPreview {
+        return client.get("$baseUrl/api/meals/$mealId/grocery_preview") {
+            accept(ContentType.Application.Json)
+        }.body()
+    }
+
+    /** Puts the chosen ingredients of the meal on the list, in packagings; answers the preview as it now stands. */
+    suspend fun addMealGroceryItems(mealId: String, request: MealGroceryItemsRequest): MealGroceryPreview {
+        return client.post("$baseUrl/api/meals/$mealId/grocery_items") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            setBody(request)
+        }.body()
     }
 
     // Grocery Lists

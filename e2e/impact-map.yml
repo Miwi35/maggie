@@ -387,6 +387,9 @@ mobile:
     areas: [grocery, realtime]
   e2e/mobile/flows/09-finance-banks.yaml:
     areas: [finance]
+  e2e/mobile/flows/10-meal-ingredient-choice.yaml:
+    areas: [cookbook, grocery]
+    paths: [e2e/mobile/scripts/meal-api.js]
   e2e/mobile/flows/11-calendar-all-day-series.yaml:
     areas: [calendar]
     quarantine:
