@@ -5,6 +5,12 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   base: '/admin',
+  // Source maps for the nightly's coverage only (« Sélection e2e par couverture »):
+  // the e2e journeys map Chromium's coverage of the bundle back to admin/src
+  // through them. Every other build — production included — ships without.
+  build: {
+    sourcemap: '1' === process.env.E2E_COVERAGE,
+  },
   server: {
     allowedHosts: ['maggie.local'],
     hmr: {

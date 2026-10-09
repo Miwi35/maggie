@@ -29,6 +29,12 @@ val gitSha = (project.findProperty("GIT_SHA") as String?)?.takeIf { it.isNotBlan
 // DSN means the SDK is never started — nothing leaves the phone (SentrySetup).
 val sentryDsn = (project.findProperty("SENTRY_DSN") as String?)?.trim().orEmpty()
 
+// The nightly's coverage of the Maestro journeys (« Sélection e2e par couverture »):
+// `-Pe2eCoverage=true`, passed by `E2E_COVERAGE=1 e2e/mobile/build-apk.sh`, instruments the
+// debug build's classes with JaCoCo and packs its runtime into the APK, where
+// src/e2e/…/CoverageDumpReceiver reads the counts after each flow. Off for every other build.
+val e2eCoverage = (project.findProperty("e2eCoverage") as String?).toBoolean()
+
 val keystorePropertiesFile = rootProject.file("keystore.properties")
 val keystoreProperties = Properties().apply {
     if (keystorePropertiesFile.exists()) {
@@ -118,6 +124,9 @@ android {
     }
 
     buildTypes {
+        debug {
+            enableAndroidTestCoverage = e2eCoverage
+        }
         release {
             isMinifyEnabled = false
             if (keystorePropertiesFile.exists()) {
@@ -137,6 +146,13 @@ android {
 
     lint {
         checkReleaseBuilds = false
+    }
+
+    // The JaCoCo the e2e build is instrumented with under -Pe2eCoverage=true, pinned to
+    // the CLI scripts/e2e/coverage/mobile.sh reads its counts with: the two must place
+    // their probes the same way, or the counts land on the wrong lines.
+    testCoverage {
+        jacocoVersion = "0.8.12"
     }
 
     buildFeatures {

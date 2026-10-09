@@ -40,6 +40,9 @@ export default defineConfig({
   testDir: './tests',
   outputDir: './test-results',
   globalSetup: './global-setup.ts',
+  // Folds the admin coverage of each spec into one file, under E2E_COVERAGE=1
+  // only (fixtures/coverage.ts). A no-op otherwise.
+  globalTeardown: './global-teardown.ts',
 
   fullyParallel: true,
   forbidOnly: !!process.env.CI,

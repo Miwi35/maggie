@@ -73,7 +73,12 @@ suite whose slowest steps have nothing to do with layout. Tag a test when its
 
 1. **Sign in through the fixture, never through the UI.** Google's consent
    screen cannot be driven. `test({ page })` is already signed in as
-   `e2e@maggie.local`.
+   `e2e@maggie.local`. Open other windows and API clients through the fixtures
+   too (`otherUser`, `twoWindows`, `pageWithToken`, `api`…): they send the
+   spec's `X-E2E-Journey` and, under `E2E_COVERAGE=1`, record the admin's
+   coverage (`scripts/e2e/coverage/README.md`). A bare `browser.newContext()`
+   does neither. An API client a test builds itself adds
+   `[JOURNEY_HEADER]: journey` to its headers.
 2. **Read ids from the seed manifest** (`seedId('e2e_task_open')`), never from
    a literal ULID — they change every seed. Dates come from `seedAnchorDate()`,
    not from the wall clock.
