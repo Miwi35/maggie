@@ -142,16 +142,21 @@ CI, locally and in the nightly.
    `am broadcast -n com.maggie.app.e2e/com.maggie.app.e2e.CoverageDumpReceiver`:
    the app writes `RT.getAgent().getExecutionData(reset = true)` to
    `files/e2e-coverage.ec`, and `adb exec-out run-as … cat` pulls it to
-   `e2e/coverage/exec/mobile/<slug>.ec` (+ `<slug>.journey`). A failed flow keeps
-   its coverage; the JUnit reports of the flows are merged into the one
-   `scripts/e2e/verdict.sh` reads;
-3. `scripts/e2e/coverage/mobile.sh <exec dir> <classes dir>` (run by `run.sh`
-   when the classes are beside the APK, or `E2E_MOBILE_CLASSES`) runs JaCoCo's
+   `e2e/coverage/exec/mobile/<slug>.ec` (+ `<slug>.journey`; `<slug>.missing`
+   when it could not). A failed flow keeps its coverage; the JUnit reports of the
+   flows are merged into the one `scripts/e2e/verdict.sh` reads. The directory is
+   not emptied between two runs: a CI lot runs `run.sh` up to four times
+   (journeys, quarantine, a retry of each), and each flow replaces its own files;
+3. once the lot is over, `collect-lot.sh`'s hook `collect.d/50-mobile.sh` runs
+   `scripts/e2e/coverage/mobile.sh <exec dir> <classes dir>` (the classes in
+   `e2e/mobile/apk/classes`, or `E2E_MOBILE_CLASSES`), which runs JaCoCo's
    CLI (downloaded once, checksum verified, into `.e2e-cache/jacoco/`) for an XML
    report per flow, and `jacoco_lines.py` turns it into
    `e2e/coverage/raw/mobile/<slug>.json`: a line ran when one of its
    instructions did, Kotlin files located under `mobile/app/src/{main,e2e}/java`.
-   Needs `java` and `python3`.
+   Needs `java` and `python3`. The hook fails — the lot is not complete, no map
+   that night — on a mobile lot without data, a `.missing` flow, or a flow that
+   matched no class of the app.
 
 What the counts miss: a flow that stops the app mid-way (`stopApp`) loses what
 ran before; the dump after it only sees the relaunch onwards.
@@ -175,9 +180,15 @@ No emulator ran here, so the nightly proves the Android half:
 - that the classes copied beside the APK match its instrumented ones (else
   `mobile.sh` reports no files).
 
-Part C wires it: `E2E_COVERAGE=1` for the e2e stack, `build-apk.sh` and
-`run.sh`; an empty `e2e/coverage/` at the start of the nightly (the admin fold
-merges into a raw file already there); `e2e/mobile/apk/classes` uploaded with
-the APK; `scripts/e2e/coverage/*.sh` added to CI's shellcheck; the union of
-`raw/admin/*.json` across web shards (a spec split over two shards writes one
-file per shard, same name).
+## The nightly, end to end
+
+`nightly-e2e.yml` calls `ci.yml` with `coverage: true`:
+
+| Job | Coverage |
+|---|---|
+| `E2E Mobile APK` | `E2E_COVERAGE=1 build-apk.sh`: the instrumented APK (artifact `maggie-e2e-apk`, every format installs it) and its classes (artifact `maggie-e2e-apk-classes`, this run only) |
+| `E2E shard` *n* | `E2E_COVERAGE=1` for the stack and Playwright; `e2e/coverage/` emptied after checkout; after the journeys `collect-lot.sh web-<n>` (`task e2e:coverage:collect`, `40-admin.sh`); artifact `e2e-coverage-raw-web-<n>` = `e2e/coverage/raw` (`api/`, `agent/`, `admin/`, `_lots/web-<n>.ok`) |
+| `E2E Mobile journeys` phone lot *n* | the same for the stack, `run.sh` one flow at a time, the classes downloaded beside the APK; `collect-lot.sh mobile-phone-<n>` (`task e2e:coverage:collect`, `50-mobile.sh`); artifact `e2e-coverage-raw-mobile-phone-<n>` (`api/`, `agent/`, `mobile/`, `_lots/…`). Foldable and tablet: no coverage |
+| `E2E line map` | every `e2e-coverage-raw-*` in a directory of its own under `e2e/coverage/lots/`, then `build-map.py --expect web-1… mobile-phone-1…` (the lots `impacted.sh select --all` plays): raw files are unioned by their `journey`, so a spec two shards split counts once with the lines of both |
+
+PR runs set none of this: no `E2E_COVERAGE`, the plain APK, no coverage artifact.
