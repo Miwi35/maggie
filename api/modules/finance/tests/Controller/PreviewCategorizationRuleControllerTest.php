@@ -224,6 +224,35 @@ class PreviewCategorizationRuleControllerTest extends WebTestCase
         self::assertSame(4, $data['changeCount']);
     }
 
+    public function testAnEditedRuleKeepsItsPlaceAmongRulesOfEqualPriority(): void
+    {
+        $this->signIn();
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $older = $this->getFixture('rule_premium');
+        // Created after it, so it comes after it on a tie.
+        $newer = (new CategorizationRule())
+            ->setUser($older->getUser())
+            ->setLabelPattern('premium')
+            ->setCategory($this->getFixture('subscriptions'))
+            ->setPriority(0);
+        $em->persist($newer);
+        $em->flush();
+
+        $criteria = [
+            'labelPattern' => 'premium',
+            'categoryId' => (string) $this->getFixture('leisure')->getId(),
+            'priority' => 0,
+        ];
+
+        // Edited, the older rule is still read first: it takes the line, as the real application would.
+        $edited = $this->preview($criteria + ['ruleId' => (string) $older->getId()]);
+        self::assertSame(1, $edited['changeCount']);
+
+        // Written fresh, the same criteria come last and the older rule keeps the line.
+        $fresh = $this->preview($criteria);
+        self::assertSame(0, $fresh['changeCount']);
+    }
+
     public function testADisabledRuleChangesNothing(): void
     {
         $this->signIn();

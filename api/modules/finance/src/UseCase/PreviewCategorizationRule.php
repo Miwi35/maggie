@@ -130,7 +130,8 @@ class PreviewCategorizationRule
 
     /**
      * The user's other active rules and the draft, in the order they get their
-     * say. The draft is newest on a tie, as a rule created now would be.
+     * say. On a tie a new draft comes last, as a rule created now would; one being
+     * edited keeps the place its id gives it.
      *
      * @return list<CategorizationRule>
      */
@@ -141,8 +142,15 @@ class PreviewCategorizationRule
             static fn (CategorizationRule $rule) => (string) $rule->getId() !== $ruleId,
         ));
 
-        $before = array_filter($others, static fn (CategorizationRule $rule) => $rule->getPriority() >= $draft->getPriority());
-        $after = array_filter($others, static fn (CategorizationRule $rule) => $rule->getPriority() < $draft->getPriority());
+        // A rule being edited keeps the place its id gives it among equals; a new one comes last.
+        $edited = null === $ruleId || !Ulid::isValid($ruleId) ? null : $this->ruleRepository->find($ruleId);
+        $rank = $edited instanceof CategorizationRule && $edited->getUser()->getId()->equals($user->getId())
+            ? (string) $edited->getId()
+            : null;
+
+        $before = array_filter($others, static fn (CategorizationRule $rule) => $rule->getPriority() > $draft->getPriority()
+            || ($rule->getPriority() === $draft->getPriority() && (null === $rank || strcmp((string) $rule->getId(), $rank) < 0)));
+        $after = array_filter($others, static fn (CategorizationRule $rule) => !\in_array($rule, $before, true));
 
         return [...$before, $draft, ...$after];
     }
