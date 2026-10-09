@@ -256,6 +256,38 @@ jq -e --arg f "$API_SERVICE" '.files[$f] == [[100,100,"15"],[101,110,"5"],[200,2
   && ok "consecutive lines with the same journeys are one range, a bitmask in hex" || bad "ranges: $(jq -c --arg f "$API_SERVICE" '.files[$f]' "$work/map.json")"
 jq -e --arg f "$FINANCE_PHP" '.files[$f] == [[10,12,"a"]]' "$work/map.json" >/dev/null \
   && ok "one path from two components, ./ dropped, merged" || bad "finance: $(jq -c --arg f "$FINANCE_PHP" '.files[$f]' "$work/map.json")"
+mkdir -p "$raw/_lots"
+: >"$raw/_lots/web-1.ok"
+"$BUILD_MAP" --raw "$raw" --out "$work/partial.json" --expect web-1 mobile-phone-1 >/dev/null 2>"$work/build.err"
+STATUS=$?
+[ "$STATUS" -eq 4 ] && [ ! -e "$work/partial.json" ] && grep -q 'mobile-phone-1' "$work/build.err" \
+  && ok "a lot without its completion mark: exit 4, no map" || bad "partial night: exit $STATUS — $(cat "$work/build.err")"
+: >"$raw/_lots/mobile-phone-1.ok"
+"$BUILD_MAP" --raw "$raw" --out "$work/complete.json" --expect web-1 mobile-phone-1 >/dev/null 2>&1
+STATUS=$?
+[ "$STATUS" -eq 0 ] && jq -e '.journeys | length == 6' "$work/complete.json" >/dev/null \
+  && ok "every lot complete: the map, the marks read as no journey" || bad "complete night: exit $STATUS"
+
+printf '\n\033[1mThe collection hook\033[0m\n'
+COLLECT="$REPO/scripts/e2e/coverage/collect.sh"
+croot="$work/collect"
+mkdir -p "$croot/raw/api" "$croot/hooks"
+printf '{"journey":"j","files":{}}' >"$croot/raw/api/j.json"
+printf '#!/bin/sh\nexit 0\n' >"$croot/hooks/10-ok.sh"
+chmod +x "$croot/hooks/10-ok.sh"
+out="$(E2E_ROOT="$croot" E2E_COVERAGE_RAW="$croot/raw" E2E_COVERAGE_HOOKS="$croot/hooks" PATH="/usr/bin:/bin" "$COLLECT" web-2 2>&1)"
+STATUS=$?
+[ "$STATUS" -eq 0 ] && [ -f "$croot/raw/_lots/web-2.ok" ] && ok "hooks succeeded, raw files: marked complete ($out)" || bad "exit $STATUS, no mark: $out"
+printf '#!/bin/sh\nexit 1\n' >"$croot/hooks/20-ko.sh"
+chmod +x "$croot/hooks/20-ko.sh"
+out="$(E2E_ROOT="$croot" E2E_COVERAGE_RAW="$croot/raw" E2E_COVERAGE_HOOKS="$croot/hooks" PATH="/usr/bin:/bin" "$COLLECT" web-3 2>&1)"
+STATUS=$?
+[ "$STATUS" -eq 0 ] && [ ! -e "$croot/raw/_lots/web-3.ok" ] && grep -q '20-ko.sh failed' <<<"$out" \
+  && ok "a hook that fails: exit 0, a warning, no mark" || bad "failing hook: exit $STATUS — $out"
+rm -rf "$croot/raw/api" "$croot/hooks/20-ko.sh"
+out="$(E2E_ROOT="$croot" E2E_COVERAGE_RAW="$croot/raw" E2E_COVERAGE_HOOKS="$croot/hooks" PATH="/usr/bin:/bin" "$COLLECT" web-4 2>&1)"
+[ ! -e "$croot/raw/_lots/web-4.ok" ] && grep -q 'no raw file' <<<"$out" && ok "no raw file: a warning, no mark" || bad "no raw: $out"
+
 mkdir -p "$work/raw-empty"
 "$BUILD_MAP" --raw "$work/raw-empty" --out "$work/none.json" >/dev/null 2>&1
 STATUS=$?
@@ -351,6 +383,20 @@ SEL="$(printf '%s\n' "${FILES_MIX[@]}" | "$IMPACTED" select --coverage-map "$wor
 [ "$(jq -c 'del(.coverage)' <<<"$SEL")" = "$today" ] && ok "a map of another version: ignored" || bad "v2 map: differs"
 SEL="$(E2E_COVERAGE_NOW="$NOW" "$IMPACTED" select --all --coverage-map "$work/map.json" </dev/null 2>/dev/null)"
 [ "$(count web)" -eq "$on_disk_web" ] && [ "$(count mobile)" -eq "$on_disk_mobile" ] && ok "--all ignores the map" || bad "--all with a map: $(count web) web"
+
+printf '\n\033[1mThe line map never costs a pull request its selection\033[0m\n'
+SPACED='admin/src/modules/cookbook/Recipe Notes.tsx'
+printf 'diff --git a/%s b/%s\n--- a/%s\t\n+++ b/%s\t\n@@ -3 +3 @@\n-a\n+b\n' "$SPACED" "$SPACED" "$SPACED" "$SPACED" >"$work/dtab"
+jq --arg f "$SPACED" '.files[$f] = [[1, 5, "20"]]' "$work/map.json" >"$work/spacedmap.json"
+SEL="$(printf '%s\n' "$SPACED" | E2E_COVERAGE_NOW="$NOW" "$IMPACTED" select --coverage-map "$work/spacedmap.json" --diff "$work/dtab" 2>"$work/stderr")"
+STATUS=$?
+[ "$STATUS" -eq 0 ] && [ "$(names web)" = "auth.spec.ts chat.spec.ts recipes.spec.ts smoke.spec.ts" ] \
+  && ok "a path with a space (git ends its header with a TAB): read, recipes + core" || bad "spaced path: exit $STATUS — $(names web) $(cat "$work/stderr")"
+jq '.files["'"$API_SERVICE"'"] = "not a list"' "$work/map.json" >"$work/badmap.json"
+SEL="$(printf '%s\n' "$API_SERVICE" | E2E_COVERAGE_NOW="$NOW" "$IMPACTED" select --coverage-map "$work/badmap.json" --diff "$work/d1" 2>"$work/stderr")"
+STATUS=$?
+[ "$STATUS" -eq 0 ] && [ "$(count mobile)" -eq "$on_disk_mobile" ] && grep -q 'could not be applied' "$work/stderr" \
+  && jq -e '.coverage.used == false' >/dev/null <<<"$SEL" && ok "a map entry jq cannot read: the zones, a warning" || bad "bad map: exit $STATUS — $(cat "$work/stderr")"
 
 printf '\n\033[1mThe job summary says how the journeys were chosen\033[0m\n'
 : >"$work/output"; : >"$work/summary"

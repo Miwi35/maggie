@@ -22,8 +22,12 @@ components of one journey are merged (the API lines a web journey reached and
 its admin lines are the same journey). A component that left no file brings no
 line: the selection falls back to e2e/impact-map.yml for its files.
 
+--expect names the lots the night played (web-<shard>, mobile-phone-<lot>):
+each must have left its completion mark (<raw>/_lots/<lot>.ok, collect.sh).
+
 Exit 0 with the map written; 3 when there is no usable raw file (no map is
-better than an empty one); 2 on a usage error. A malformed raw file is skipped
+better than an empty one); 4 when an expected lot is not complete (nor is a
+partial one); 2 on a usage error. A malformed raw file is skipped
 with a warning, never fatal.
 
 Python 3 standard library only: it runs on the runner of the nightly's last job.
@@ -109,7 +113,21 @@ def main():
     parser.add_argument("--out", default="e2e-coverage-map.json")
     parser.add_argument("--commit", help="the commit the journeys ran on (default: git rev-parse HEAD)")
     parser.add_argument("--now", help="generatedAt, for the tests (default: now, UTC)")
+    parser.add_argument(
+        "--expect",
+        nargs="*",
+        default=[],
+        metavar="LOT",
+        help="lots that must be marked complete (<raw>/_lots/<lot>.ok, written by collect.sh)",
+    )
     args = parser.parse_args()
+
+    # A lot missing would leave lines "covered" by only some of the journeys that
+    # run them: a pull request would play too few. No map is safe, a partial one is not.
+    missing = [lot for lot in args.expect if not os.path.isfile(os.path.join(args.raw, "_lots", f"{lot}.ok"))]
+    if missing:
+        warn(f"incomplete coverage, no map: no complete collection for {', '.join(missing)}")
+        return 4
 
     commit = args.commit
     if not commit:

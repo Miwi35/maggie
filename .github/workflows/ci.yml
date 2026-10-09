@@ -217,7 +217,7 @@ jobs:
         run: |
           dir="$RUNNER_TEMP/e2e-coverage"
           mkdir -p "$dir"
-          ids="$(gh run list --workflow nightly-e2e.yml --branch main --status success -L 3 --json databaseId --jq '.[].databaseId')" \
+          ids="$(gh run list --workflow nightly-e2e.yml --branch main --status success -L 8 --json databaseId --jq '.[].databaseId')" \
             || { echo "::notice::no nightly run listed: journeys selected by zones"; exit 0; }
           for id in $ids; do
             rm -rf "$dir/map"
@@ -742,8 +742,8 @@ jobs:
         if: ${{ !cancelled() && inputs.coverage }}
         continue-on-error: true
         env:
-          LABEL: web shard ${{ matrix.shard }}
-        run: scripts/e2e/coverage/collect.sh "$LABEL"
+          LOT: web-${{ matrix.shard }}
+        run: scripts/e2e/coverage/collect.sh "$LOT"
 
       - name: Raw coverage
         if: ${{ !cancelled() && inputs.coverage }}
@@ -1197,8 +1197,8 @@ jobs:
         if: ${{ !cancelled() && env.E2E_COVERAGE == '1' }}
         continue-on-error: true
         env:
-          LABEL: mobile ${{ matrix.device.name }} ${{ matrix.lot.index }}
-        run: scripts/e2e/coverage/collect.sh "$LABEL"
+          LOT: mobile-${{ matrix.device.name }}-${{ matrix.lot.index }}
+        run: scripts/e2e/coverage/collect.sh "$LOT"
 
       - name: Raw coverage
         if: ${{ !cancelled() && env.E2E_COVERAGE == '1' }}

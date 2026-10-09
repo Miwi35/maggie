@@ -91,7 +91,9 @@ cmd_check() {
 # read before a file's first hunk: a deleted line starting with `-- ` is not one.
 diff_hunks() {
   awk '
-    function esc(s) { gsub(/\\/, "\\\\", s); gsub(/"/, "\\\"", s); return s }
+    function esc(s) { gsub(/\\/, "\\\\", s); gsub(/"/, "\\\"", s); gsub(/\t/, "\\t", s); gsub(/\r/, "\\r", s); return s }
+    # git ends a header with a TAB when the path holds a space.
+    function path(p) { sub(/\t$/, "", p); return (p == "/dev/null" ? "" : substr(p, 3)) }
     function flush() {
       if (seen) {
         file = (new != "" ? new : old)
@@ -100,8 +102,8 @@ diff_hunks() {
       seen = 0; old = ""; new = ""; hunks = ""
     }
     /^diff --git / { flush(); seen = 1; header = 1; next }
-    header && /^--- / { p = substr($0, 5); old = (p == "/dev/null" ? "" : substr(p, 3)); next }
-    header && /^\+\+\+ / { p = substr($0, 5); new = (p == "/dev/null" ? "" : substr(p, 3)); next }
+    header && /^--- / { old = path(substr($0, 5)); next }
+    header && /^\+\+\+ / { new = path(substr($0, 5)); next }
     /^@@ / {
       header = 0
       n = split(substr($2, 2), o, ",")
@@ -178,13 +180,18 @@ cmd_select() {
     COVERAGE_REASON='the whole suite plays'
   elif [ -n "$COVERAGE_FILE" ]; then
     if [ -n "$diff_file" ] && [ -f "$diff_file" ]; then
-      diff_hunks <"$diff_file" | jq -s . >"$SELECT_TMP/diff.json"
+      diff_hunks <"$diff_file" | jq -s . >"$SELECT_TMP/diff.json" \
+        || COVERAGE_REASON="the diff $diff_file cannot be read"
     elif [ -n "$base" ]; then
-      git -C "$E2E_ROOT" diff -U0 --no-color --no-ext-diff -M --src-prefix=a/ --dst-prefix=b/ "$base...HEAD" \
-        | diff_hunks | jq -s . >"$SELECT_TMP/diff.json"
+      { git -C "$E2E_ROOT" diff -U0 --no-color --no-ext-diff -M --src-prefix=a/ --dst-prefix=b/ "$base...HEAD" \
+          | diff_hunks | jq -s . >"$SELECT_TMP/diff.json"; } \
+        || COVERAGE_REASON="no diff against $base"
     else
-      COVERAGE_FILE=''
       COVERAGE_REASON='no diff to read the changed lines from'
+    fi
+    if [ -n "$COVERAGE_REASON" ]; then
+      COVERAGE_FILE=''
+      echo '[]' >"$SELECT_TMP/diff.json"
     fi
   fi
   if [ -n "$COVERAGE_FILE" ]; then
@@ -193,7 +200,8 @@ cmd_select() {
     echo "::notice::e2e journeys selected by zones: $COVERAGE_REASON" >&2
   fi
 
-  selection="$(jq -n \
+  select_json() {
+    jq -n \
     --argjson map "$map" --argjson files "$files" --argjson disk "$disk" \
     --argjson shards "$(shards_json)" --argjson all "$all" \
     --argjson per_lot "$WEB_FILES_PER_LOT" --argjson max_lots "$WEB_MAX_LOTS" \
@@ -324,7 +332,20 @@ cmd_select() {
         coverage: (if $cov == null then {used: false, reason: $cov_reason}
                    else {used: true, commit: $cov.commit, generatedAt: $cov.generatedAt} end),
         files: $per_file
-      }')"
+      }'
+  }
+
+  # The line map must never cost a pull request its selection: if it cannot be
+  # applied (an entry jq cannot read, say), the zones decide, with a warning.
+  if ! selection="$(select_json)"; then
+    [ -n "$COVERAGE_FILE" ] || die "the selection failed"
+    echo "::warning::the line map could not be applied: e2e journeys selected by zones" >&2
+    echo null >"$SELECT_TMP/map.json"
+    echo '[]' >"$SELECT_TMP/diff.json"
+    COVERAGE_FILE=''
+    COVERAGE_REASON='the line map could not be applied'
+    selection="$(select_json)"
+  fi
 
   if [ "$github_output" = true ]; then
     write_github_output "$selection"

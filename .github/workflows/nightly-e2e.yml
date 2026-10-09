@@ -138,8 +138,9 @@ jobs:
           exit 1
 
   # The line map (spec « Sélection e2e par couverture »): which journeys executed
-  # each line tonight, from the raw coverage every lot uploaded. `Detect changes`
-  # in ci.yml downloads it from the last successful nightly and selects a pull
+  # each line tonight, from the raw coverage every lot uploaded — only when every
+  # lot's coverage is complete. `Detect changes` in ci.yml downloads it from the
+  # latest successful nightly that holds one and selects a pull
   # request's journeys by the lines it changes. Never part of the verdict: every
   # step only warns, and a night without a map leaves the pull requests on the
   # zones of e2e/impact-map.yml.
@@ -153,8 +154,7 @@ jobs:
       actions: read
     steps:
       - uses: actions/checkout@v4
-        with:
-          sparse-checkout: scripts/e2e/coverage
+        continue-on-error: true
 
       - uses: actions/download-artifact@v4
         continue-on-error: true
@@ -167,8 +167,17 @@ jobs:
         id: build
         continue-on-error: true
         run: |
+          # The lots tonight played, as ci.yml's `Detect changes` chose them on
+          # this commit: every web lot, the phone's mobile lots. A lot that left
+          # no complete coverage (a hook failed, a job skipped) means no map: a
+          # partial one would play too few journeys on a pull request.
+          expected="$(scripts/e2e/impacted.sh select --all </dev/null \
+            | jq -r '(.web_lots[] | "web-\(.)"), (.mobile_lots[] | "mobile-phone-\(.index)")')"
+          [ -n "$expected" ] || { echo "::warning::the lots of tonight are unknown: no e2e line map"; exit 0; }
           status=0
-          python3 scripts/e2e/coverage/build-map.py --raw e2e/coverage/raw --out e2e-coverage-map.json --commit "$GITHUB_SHA" || status=$?
+          # shellcheck disable=SC2086 # one argument per lot
+          python3 scripts/e2e/coverage/build-map.py --raw e2e/coverage/raw --out e2e-coverage-map.json \
+            --commit "$GITHUB_SHA" --expect $expected || status=$?
           if [ "$status" -ne 0 ]; then
             echo "::warning::no e2e line map tonight (build-map exit $status): pull requests keep the zones of e2e/impact-map.yml"
             exit 0
