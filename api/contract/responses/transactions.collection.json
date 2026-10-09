@@ -19,6 +19,7 @@
             "categorySource": "none",
             "transferKind": "none",
             "transferSource": "auto",
+            "recurringSource": "auto",
             "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "exceptional": true
         }

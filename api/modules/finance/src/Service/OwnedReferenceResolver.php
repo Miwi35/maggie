@@ -7,10 +7,13 @@ namespace Maggie\Finance\Service;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Category;
+use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Repository\AccountRepository;
 use Maggie\Finance\Repository\CategoryRepository;
+use Maggie\Finance\Repository\RecurringOperationRepository;
 use Maggie\Finance\Repository\TransactionRepository;
+use Symfony\Component\Uid\Ulid;
 
 /**
  * Resolves the entities a command points to by id, only when they belong to
@@ -23,6 +26,7 @@ class OwnedReferenceResolver
         private readonly AccountRepository $accountRepository,
         private readonly CategoryRepository $categoryRepository,
         private readonly TransactionRepository $transactionRepository,
+        private readonly RecurringOperationRepository $recurringOperationRepository,
     ) {
     }
 
@@ -57,5 +61,16 @@ class OwnedReferenceResolver
         }
 
         return $category;
+    }
+
+    public function recurringOperation(string $id, User $owner): RecurringOperation
+    {
+        $operation = Ulid::isValid($id) ? $this->recurringOperationRepository->find($id) : null;
+
+        if (!$operation instanceof RecurringOperation || !$operation->getUser()->getId()->equals($owner->getId())) {
+            throw new \DomainException("Recurring operation not found: {$id}");
+        }
+
+        return $operation;
     }
 }

@@ -10,4 +10,6 @@ enum CategorySource: string
     case None = 'none';
     case Manual = 'manual';
     case Rule = 'rule';
+    /** Inherited from the recurring operation the transaction is attached to. */
+    case Series = 'series';
 }

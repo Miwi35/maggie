@@ -9,9 +9,11 @@ use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Category;
+use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\ObligationFlag;
+use Maggie\Finance\Enum\RecurringLinkSource;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Enum\TransferSource;
@@ -707,5 +709,111 @@ class TransactionRepository extends ServiceEntityRepository
             ->orderBy('t.id', 'ASC')
             ->getQuery()
             ->toIterable();
+    }
+
+    /**
+     * The lines of one user that may still be attached to a recurring
+     * operation, oldest first: unattached, never judged by hand, not a neutral
+     * movement, not waiting for arbitration. Whose series they are is the use
+     * case's call. One query for the whole catch-up.
+     *
+     * @return Transaction[]
+     */
+    public function findRecurringCandidates(User $user, ?\DateTimeImmutable $since = null): array
+    {
+        $qb = $this->createQueryBuilder('t')
+            ->andWhere('t.user = :user')
+            ->andWhere('t.recurringOperation IS NULL')
+            ->andWhere('t.recurringSource = :auto')
+            ->andWhere('t.transferKind = :none')
+            ->andWhere('t.status != :toArbitrate')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('auto', RecurringLinkSource::Auto->value)
+            ->setParameter('none', TransferKind::None->value)
+            ->setParameter('toArbitrate', TransactionStatus::ToArbitrate->value)
+            ->orderBy('t.bookedAt', 'ASC')
+            ->addOrderBy('t.id', 'ASC');
+
+        if (null !== $since) {
+            $qb->andWhere('t.bookedAt >= :since')->setParameter('since', $since);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * The occurrences of one user's series already settled, as
+     * `seriesId|Y-m-d` => the transaction that settles it. One query.
+     *
+     * @return array<string, string>
+     */
+    public function findTakenOccurrences(User $user): array
+    {
+        $rows = $this->createQueryBuilder('t')
+            ->select('IDENTITY(t.recurringOperation) AS operationId', 't.recurringOccurrenceOn AS occurrenceOn', 't.id AS transactionId')
+            ->andWhere('t.user = :user')
+            ->andWhere('t.recurringOperation IS NOT NULL')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->getQuery()
+            ->getArrayResult();
+
+        $taken = [];
+        foreach ($rows as $row) {
+            if (!$row['occurrenceOn'] instanceof \DateTimeInterface) {
+                continue;
+            }
+            $taken[self::occurrenceKey(self::ulid($row['operationId']), $row['occurrenceOn'])] = self::ulid($row['transactionId']);
+        }
+
+        return $taken;
+    }
+
+    /** The transaction that settles this occurrence, if one does. */
+    public function findAttachedToOccurrence(RecurringOperation $operation, \DateTimeImmutable $occurrenceOn): ?Transaction
+    {
+        return $this->createQueryBuilder('t')
+            ->andWhere('t.recurringOperation = :operation')
+            ->andWhere('t.recurringOccurrenceOn = :occurrenceOn')
+            ->setParameter('operation', $operation->getId(), 'ulid')
+            ->setParameter('occurrenceOn', $occurrenceOn->setTime(0, 0), 'date_immutable')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
+     * The latest lines attached to a series, latest occurrence first: what a
+     * measured reference amount is recalibrated on.
+     *
+     * @return Transaction[]
+     */
+    public function findLastAttached(RecurringOperation $operation, int $limit): array
+    {
+        return $this->createQueryBuilder('t')
+            ->andWhere('t.recurringOperation = :operation')
+            ->setParameter('operation', $operation->getId(), 'ulid')
+            ->orderBy('t.recurringOccurrenceOn', 'DESC')
+            ->addOrderBy('t.id', 'DESC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /** @return Transaction[] every line attached to a series */
+    public function findAttachedTo(RecurringOperation $operation): array
+    {
+        return $this->findBy(['recurringOperation' => $operation], ['recurringOccurrenceOn' => 'ASC', 'id' => 'ASC']);
+    }
+
+    /** A scalar id as Doctrine returns it — a Ulid, or the database's UUID form — in the base 32 every caller compares. */
+    private static function ulid(mixed $id): string
+    {
+        return (string) ($id instanceof Ulid ? $id : Ulid::fromString((string) $id));
+    }
+
+    /** How an occurrence is keyed wherever two transactions must not share it. */
+    public static function occurrenceKey(string $operationId, \DateTimeInterface $occurrenceOn): string
+    {
+        return $operationId.'|'.$occurrenceOn->format('Y-m-d');
     }
 }

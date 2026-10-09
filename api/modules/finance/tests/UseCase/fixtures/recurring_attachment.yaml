@@ -1,0 +1,99 @@
+# One gym subscription, 30 € on the 1st of every month, ±5 days, ±20 %
+# (MAG-305). Shared by the use case, the REST, the controller and the MCP
+# tests, so they all argue about the same world.
+Maggie\Core\Entity\User:
+  test_user:
+    email: recurring-attach-test@example.com
+    googleId: google-recurring-attach-test
+    name: Recurring Attach Test User
+  other_user:
+    email: recurring-attach-other@example.com
+    googleId: google-recurring-attach-other
+    name: Recurring Attach Other User
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 125000
+    isCushion: false
+    user: '@test_user'
+  savings:
+    name: Livret
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 500000
+    isCushion: false
+    user: '@test_user'
+  other_checking:
+    name: Compte secret
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 1000
+    isCushion: false
+    user: '@other_user'
+
+Maggie\Finance\Entity\Category:
+  subscriptions:
+    name: Abonnements
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  sport:
+    name: Sport
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  groceries:
+    name: Courses
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@test_user'
+  other_secret:
+    name: Cadeaux secrets
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@other_user'
+
+Maggie\Finance\Entity\RecurringOperation:
+  gym:
+    label: Salle de sport
+    counterpartyName: Club Forme
+    category: '@subscriptions'
+    account: '@checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("2027-01-01"))>'
+    referenceAmountCents: -3000
+    user: '@test_user'
+  other_gym:
+    label: Salle secrète
+    counterpartyName: Club Forme
+    category: '@other_secret'
+    account: '@other_checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("2027-01-01"))>'
+    referenceAmountCents: -3000
+    user: '@other_user'
+
+Maggie\Finance\Entity\Transaction:
+  # 30 € the day after the due date: attached.
+  feb_gym:
+    account: '@checking'
+    amountCents: -3000
+    bookedAt: '<(new \DateTimeImmutable("2027-02-02"))>'
+    label: CB CLUB FORME 02/02
+    counterpartyName: Club Forme
+    user: '@test_user'
+  # +33 %: proposed as a price rise, never written.
+  apr_gym_dearer:
+    account: '@checking'
+    amountCents: -3990
+    bookedAt: '<(new \DateTimeImmutable("2027-04-01"))>'
+    label: CB CLUB FORME 01/04
+    counterpartyName: Club Forme
+    user: '@test_user'
+  # Half the price on the 18th: a one-off purchase from the same payee.
+  mar_gym_shop:
+    account: '@checking'
+    amountCents: -1500
+    bookedAt: '<(new \DateTimeImmutable("2027-03-18"))>'
+    label: CB CLUB FORME BOUTIQUE
+    counterpartyName: Club Forme
+    user: '@test_user'

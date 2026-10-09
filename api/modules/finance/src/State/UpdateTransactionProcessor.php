@@ -8,8 +8,10 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Exception\IncompatibleCategoryException;
+use Maggie\Finance\Exception\RecurringAttachmentException;
 use Maggie\Finance\Message\UpdateTransactionCommand;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -25,6 +27,23 @@ class UpdateTransactionProcessor implements ProcessorInterface
 
     public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): Transaction
     {
+        /** @var Transaction|null $previous */
+        $previous = $context['previous_data'] ?? null;
+
+        // Only a change of the attachment is a gesture: every PATCH carries the
+        // whole merged line, and re-sending an automatic attachment must not
+        // seal it `manual`.
+        $series = $data->getRecurringOperation();
+        $occurrenceOn = $data->getRecurringOccurrenceOn()?->format('Y-m-d');
+        $occurrenceMoved = $occurrenceOn !== $previous?->getRecurringOccurrenceOn()?->format('Y-m-d');
+        $recurringChanged = $occurrenceMoved
+            || (string) $series?->getId() !== (string) $previous?->getRecurringOperation()?->getId();
+
+        $clearFields = null === $data->getCategory() ? ['categoryId'] : [];
+        if ($recurringChanged && null === $series) {
+            $clearFields[] = 'recurringOperation';
+        }
+
         $envelope = $this->dispatch(new UpdateTransactionCommand(
             userId: (string) $data->getUser()->getId(),
             transactionId: (string) $data->getId(),
@@ -37,8 +56,11 @@ class UpdateTransactionProcessor implements ProcessorInterface
             isExceptional: $data->isExceptional(),
             categoryId: null !== $data->getCategory() ? (string) $data->getCategory()->getId() : null,
             retrospect: $data->getRetrospect()->value,
+            recurringOperationId: $recurringChanged && null !== $series ? (string) $series->getId() : null,
+            // Left as it was, the occurrence is the one nearest the booking day.
+            recurringOccurrenceOn: $occurrenceMoved && null !== $series ? $occurrenceOn : null,
             // A null category after the merge-patch is an explicit clear
-            clearFields: null === $data->getCategory() ? ['categoryId'] : [],
+            clearFields: $clearFields,
         ));
 
         return $envelope->last(HandledStamp::class)->getResult();
@@ -52,6 +74,9 @@ class UpdateTransactionProcessor implements ProcessorInterface
             $cause = $e->getPrevious();
             if ($cause instanceof IncompatibleCategoryException) {
                 throw new BadRequestHttpException($cause->getMessage(), $e);
+            }
+            if ($cause instanceof RecurringAttachmentException) {
+                throw new UnprocessableEntityHttpException($cause->getMessage(), $e);
             }
 
             throw $e;

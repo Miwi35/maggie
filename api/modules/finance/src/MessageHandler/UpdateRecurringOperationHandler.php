@@ -5,12 +5,17 @@ declare(strict_types=1);
 namespace Maggie\Finance\MessageHandler;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Core\Mercure\EntityBroadcaster;
+use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Entity\RecurringOperation;
+use Maggie\Finance\Entity\Transaction;
+use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\DayRule;
 use Maggie\Finance\Enum\RecurrencePeriod;
 use Maggie\Finance\Enum\ReferenceAmountSource;
 use Maggie\Finance\Message\UpdateRecurringOperationCommand;
 use Maggie\Finance\Repository\RecurringOperationRepository;
+use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\Service\OwnedReferenceResolver;
 use Maggie\Finance\Service\RecurringOperationGuard;
 use Maggie\Finance\UseCase\UpdateRecurringOperation;
@@ -25,6 +30,8 @@ class UpdateRecurringOperationHandler
         private readonly OwnedReferenceResolver $references,
         private readonly RecurringOperationGuard $guard,
         private readonly EntityManagerInterface $em,
+        private readonly TransactionRepository $transactionRepository,
+        private readonly EntityBroadcaster $broadcaster,
     ) {
     }
 
@@ -32,6 +39,10 @@ class UpdateRecurringOperationHandler
     {
         $operation = $this->operationRepository->findOneBy(['id' => $command->recurringOperationId, 'user' => $command->userId])
             ?? throw new \DomainException("Recurring operation not found: {$command->recurringOperationId}");
+
+        // As loaded, not as held: over REST the deserializer has already
+        // written the new category on this very object.
+        $formerCategory = $this->em->getUnitOfWork()->getOriginalEntityData($operation)['category'] ?? $operation->getCategory();
 
         try {
             $user = $operation->getUser();
@@ -90,6 +101,38 @@ class UpdateRecurringOperationHandler
             throw $e;
         }
 
-        return $this->updateRecurringOperation->execute($operation);
+        $propagated = $formerCategory instanceof Category && $formerCategory->getId()->equals($operation->getCategory()->getId())
+            ? []
+            : $this->propagateCategory($operation);
+
+        $operation = $this->updateRecurringOperation->execute($operation);
+
+        // The middlewares publish the series only: its lines changed too.
+        foreach ($propagated as $transaction) {
+            $this->broadcaster->broadcast($transaction);
+        }
+
+        return $operation;
+    }
+
+    /**
+     * The series' category is the default of its lines: a new one reaches
+     * every line attached to it, except those the owner categorised by hand —
+     * the transaction's category is the truth (spec, point 8).
+     *
+     * @return list<Transaction>
+     */
+    private function propagateCategory(RecurringOperation $operation): array
+    {
+        $changed = [];
+        foreach ($this->transactionRepository->findAttachedTo($operation) as $transaction) {
+            if (CategorySource::Manual === $transaction->getCategorySource()) {
+                continue;
+            }
+            $transaction->assignCategory($operation->getCategory(), CategorySource::Series);
+            $changed[] = $transaction;
+        }
+
+        return $changed;
     }
 }

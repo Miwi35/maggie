@@ -4,17 +4,21 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\MessageHandler;
 
+use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\CategorySource;
 use Maggie\Finance\Enum\RetrospectVerdict;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Enum\TransferSource;
+use Maggie\Finance\Exception\RecurringAttachmentException;
 use Maggie\Finance\Import\MerchantExtractor;
 use Maggie\Finance\Message\UpdateTransactionCommand;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\Service\OwnedReferenceResolver;
+use Maggie\Finance\Service\RecurringOperationGuard;
 use Maggie\Finance\Service\TransactionNatureGuard;
+use Maggie\Finance\UseCase\AttachRecurringTransactions;
 use Maggie\Finance\UseCase\UpdateTransaction;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -26,6 +30,7 @@ class UpdateTransactionHandler
         private readonly TransactionRepository $transactionRepository,
         private readonly OwnedReferenceResolver $references,
         private readonly TransactionNatureGuard $natureGuard,
+        private readonly AttachRecurringTransactions $attachRecurring,
     ) {
     }
 
@@ -84,8 +89,41 @@ class UpdateTransactionHandler
         $this->natureGuard->assertStillCompatible($transaction);
 
         $this->applyTransfer($transaction, $command);
+        $this->applyRecurring($transaction, $command);
 
         return $this->updateTransaction->execute($transaction);
+    }
+
+    /**
+     * An attachment to a recurring operation, by hand: sealed `manual`, so
+     * the automatic pass never undoes it.
+     *
+     * @return list<RecurringOperation> the series whose attachments changed
+     */
+    private function applyRecurring(Transaction $transaction, UpdateTransactionCommand $command): array
+    {
+        if ($command->clears('recurringOperation')) {
+            return $this->attachRecurring->detachByHand($transaction);
+        }
+
+        if (null === $command->recurringOperationId && null === $command->recurringOccurrenceOn) {
+            return [];
+        }
+
+        try {
+            $operation = null !== $command->recurringOperationId
+                ? $this->references->recurringOperation($command->recurringOperationId, $transaction->getUser())
+                : $transaction->getRecurringOperation()
+                    ?? throw new \DomainException('recurringOccurrenceOn moves a line within its recurring operation: name the recurringOperationId to attach it.');
+            $occurrenceOn = null === $command->recurringOccurrenceOn
+                ? null
+                : RecurringOperationGuard::date($command->recurringOccurrenceOn, 'recurringOccurrenceOn');
+        } catch (\DomainException $e) {
+            // A refused request, like the attachment's own refusals: 422.
+            throw new RecurringAttachmentException($e->getMessage(), 0, $e);
+        }
+
+        return $this->attachRecurring->attachByHand($transaction, $operation, $occurrenceOn);
     }
 
     /**

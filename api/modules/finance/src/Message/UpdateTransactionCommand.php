@@ -10,7 +10,13 @@ final readonly class UpdateTransactionCommand
 {
     use ClearsFieldsTrait;
 
-    /** @param list<'categoryId'|'transferKind'> $clearFields */
+    /**
+     * `recurringOperationId` attaches the line by hand, to `recurringOccurrenceOn`
+     * or to the occurrence nearest its booking day; `recurringOccurrenceOn`
+     * alone moves it within its series; clearing `recurringOperation` detaches it.
+     *
+     * @param list<'categoryId'|'transferKind'|'recurringOperation'> $clearFields
+     */
     public function __construct(
         public string $userId,
         public string $transactionId,
@@ -27,6 +33,8 @@ final readonly class UpdateTransactionCommand
         public ?string $transferKind = null,
         public ?string $transferSource = null,
         public ?string $counterpartId = null,
+        public ?string $recurringOperationId = null,
+        public ?string $recurringOccurrenceOn = null,
         public array $clearFields = [],
     ) {
     }

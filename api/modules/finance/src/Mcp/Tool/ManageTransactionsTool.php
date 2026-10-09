@@ -19,7 +19,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Symfony\Component\Uid\Ulid;
 
-#[McpTool(name: 'manage_transactions', description: 'List, create, update, delete, or categorize transactions. List returns the newest first, one page at a time (limit, 30 by default, 100 at most) with total, the number of lines matching in all: to look further back or for something precise, narrow with direction (expense or income), fromDate and toDate (ISO dates, both included), accountId, or query (text found in the label or in the counterparty, i.e. the creditor or debtor the bank names) instead of asking for more. List leaves the rejected payments out (a rejected debit and the credit that gave it back, which the account page shows apart as incidents): pass transferKind rejected to list only them, e.g. to count the direct debits rejected this month (each rejection is two lines, the debit and the credit), or internal or none to list only those. Each line carries its label and its counterpartyName. Amounts are signed integer cents: negative = expense/debit, positive = income/credit; the category must match: an income category (obligation income) only on a positive amount, any other category only on a negative one, otherwise the call is refused. bookedAt is an ISO date (defaults to today). status is one of spent, committed, planned, to_arbitrate. On update, only provided fields change; to remove the category, list categoryId in clear. transferKind says whether the line is a neutral movement. internal is a movement between two of the user\'s own accounts, with counterpartId naming the other leg (omit it when only one of the two accounts is known), or none to take it back out of the transfers — list transferKind in clear for the same effect. transferKind rejected marks a payment the bank rejected, with counterpartId naming the credit that gave it back on the same account (the detection pairs them as they arrive: a credit worded REJET, IMPAYE or RETOUR PRLV with the debit of the same payee and amount). An internal transfer or a rejection counts neither as an expense nor as an income; transferNote says it in the words the user sees (« Virement interne », « Rejeté » on the rejected payment, « Rejet de … » on the credit). A marking made here is recorded as the user\'s own decision, which the detection never overwrites; detect_internal_transfers is what pairs a whole history.')]
+#[McpTool(name: 'manage_transactions', description: 'List, create, update, delete, or categorize transactions. List returns the newest first, one page at a time (limit, 30 by default, 100 at most) with total, the number of lines matching in all: to look further back or for something precise, narrow with direction (expense or income), fromDate and toDate (ISO dates, both included), accountId, or query (text found in the label or in the counterparty, i.e. the creditor or debtor the bank names) instead of asking for more. List leaves the rejected payments out (a rejected debit and the credit that gave it back, which the account page shows apart as incidents): pass transferKind rejected to list only them, e.g. to count the direct debits rejected this month (each rejection is two lines, the debit and the credit), or internal or none to list only those. Each line carries its label and its counterpartyName. Amounts are signed integer cents: negative = expense/debit, positive = income/credit; the category must match: an income category (obligation income) only on a positive amount, any other category only on a negative one, otherwise the call is refused. bookedAt is an ISO date (defaults to today). status is one of spent, committed, planned, to_arbitrate. On update, only provided fields change; to remove the category, list categoryId in clear. transferKind says whether the line is a neutral movement. internal is a movement between two of the user\'s own accounts, with counterpartId naming the other leg (omit it when only one of the two accounts is known), or none to take it back out of the transfers — list transferKind in clear for the same effect. transferKind rejected marks a payment the bank rejected, with counterpartId naming the credit that gave it back on the same account (the detection pairs them as they arrive: a credit worded REJET, IMPAYE or RETOUR PRLV with the debit of the same payee and amount). An internal transfer or a rejection counts neither as an expense nor as an income; transferNote says it in the words the user sees (« Virement interne », « Rejeté » on the rejected payment, « Rejet de … » on the credit). A marking made here is recorded as the user\'s own decision, which the detection never overwrites; detect_internal_transfers is what pairs a whole history. recurringOperationId names the recurring operation the line is an occurrence of, and recurringOccurrenceOn (ISO date) the due date it settles: a line is attached automatically when its counterparty, its date and its amount all match a free occurrence. On update, recurringOperationId attaches the line by hand (to recurringOccurrenceOn, or to the due date nearest its bookedAt), recurringOccurrenceOn alone moves it to another due date of its series, and recurringOperation in clear detaches it; a gesture made here is recorded as the user\'s own (recurringSource manual), which the automatic attachment never overwrites. Attaching gives the line the category of the operation, unless the user set the category by hand.')]
 class ManageTransactionsTool
 {
     private const DEFAULT_LIMIT = 30;
@@ -46,6 +46,8 @@ class ManageTransactionsTool
         ?string $categoryId = null,
         ?string $transferKind = null,
         ?string $counterpartId = null,
+        ?string $recurringOperationId = null,
+        ?string $recurringOccurrenceOn = null,
         ?array $clear = null,
         ?int $limit = null,
         ?string $fromDate = null,
@@ -57,7 +59,7 @@ class ManageTransactionsTool
             return match ($action) {
                 'list' => $this->list($accountId, $limit, $fromDate, $toDate, $query, $direction, $transferKind),
                 'create' => $this->create($accountId, $amountCents, $label, $bookedAt, $status, $currency, $isExceptional, $categoryId),
-                'update' => $this->update($transactionId, $accountId, $amountCents, $label, $bookedAt, $status, $currency, $isExceptional, $categoryId, $transferKind, $counterpartId, $clear),
+                'update' => $this->update($transactionId, $accountId, $amountCents, $label, $bookedAt, $status, $currency, $isExceptional, $categoryId, $transferKind, $counterpartId, $recurringOperationId, $recurringOccurrenceOn, $clear),
                 'categorize' => $this->categorize($transactionId, $categoryId),
                 'delete' => $this->delete($transactionId),
                 default => json_encode(['error' => "Unknown action: {$action}. Use list, create, update, categorize, or delete."], JSON_THROW_ON_ERROR),
@@ -151,7 +153,7 @@ class ManageTransactionsTool
     }
 
     /** @param list<string>|null $clear */
-    private function update(?string $transactionId, ?string $accountId, ?int $amountCents, ?string $label, ?string $bookedAt, ?string $status, ?string $currency, ?bool $isExceptional, ?string $categoryId, ?string $transferKind, ?string $counterpartId, ?array $clear): string
+    private function update(?string $transactionId, ?string $accountId, ?int $amountCents, ?string $label, ?string $bookedAt, ?string $status, ?string $currency, ?bool $isExceptional, ?string $categoryId, ?string $transferKind, ?string $counterpartId, ?string $recurringOperationId, ?string $recurringOccurrenceOn, ?array $clear): string
     {
         if (null === $transactionId) {
             return json_encode(['error' => 'transactionId is required for update.'], JSON_THROW_ON_ERROR);
@@ -176,7 +178,9 @@ class ManageTransactionsTool
             transferKind: $kind,
             transferSource: null === $kind ? null : TransferSource::Manual->value,
             counterpartId: $counterpartId,
-            clearFields: array_values(array_intersect($clear ?? [], ['categoryId', 'transferKind'])),
+            recurringOperationId: $recurringOperationId,
+            recurringOccurrenceOn: $recurringOccurrenceOn,
+            clearFields: array_values(array_intersect($clear ?? [], ['categoryId', 'transferKind', 'recurringOperation'])),
         ));
 
         /** @var Transaction $transaction */
@@ -241,6 +245,10 @@ class ManageTransactionsTool
             'accountId' => (string) $transaction->getAccount()->getId(),
             'categoryId' => null !== $transaction->getCategory() ? (string) $transaction->getCategory()->getId() : null,
             'counterpartId' => null !== $transaction->getCounterpart() ? (string) $transaction->getCounterpart()->getId() : null,
+            'categorySource' => $transaction->getCategorySource()->value,
+            'recurringOperationId' => null !== $transaction->getRecurringOperation() ? (string) $transaction->getRecurringOperation()->getId() : null,
+            'recurringOccurrenceOn' => $transaction->getRecurringOccurrenceOn()?->format('Y-m-d'),
+            'recurringSource' => $transaction->getRecurringSource()->value,
         ];
     }
 

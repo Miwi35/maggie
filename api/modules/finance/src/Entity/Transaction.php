@@ -26,6 +26,7 @@ use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Finance\Enum\CategorySource;
+use Maggie\Finance\Enum\RecurringLinkSource;
 use Maggie\Finance\Enum\RetrospectVerdict;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferKind;
@@ -43,6 +44,9 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Index(columns: ['user_id', 'transfer_kind'], name: 'idx_transaction_user_transfer_kind')]
 #[ORM\Index(columns: ['user_id', 'counterparty_key'], name: 'idx_transaction_user_counterparty_key')]
 #[ORM\Index(columns: ['account_id', 'external_id'], name: 'idx_transaction_account_external_id')]
+// One transaction per occurrence: the database refuses a second one, the
+// handlers say so first (422) so this is never what the user meets.
+#[ORM\UniqueConstraint(name: 'uniq_transaction_recurring_occurrence', columns: ['recurring_operation_id', 'recurring_occurrence_on'])]
 #[ApiFilter(OrderFilter::class, properties: ['bookedAt'])]
 #[ApiFilter(UlidRelationFilter::class, properties: ['account'])]
 // The list leaves the rejected payments out unless `transferKind` names a kind (TransactionCollectionProvider).
@@ -180,6 +184,29 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
     #[ApiProperty(writable: false)]
     #[IndexedRelation(targetEntity: self::class, sourceField: 'counterpartId')]
     private ?self $counterpart = null;
+
+    /**
+     * The recurring operation this line is one occurrence of. Written over
+     * REST by a PATCH that names it with `recurringOccurrenceOn`, which the
+     * processor turns into a manual attachment: the setters below only exist
+     * for the deserializer, the domain goes through `attachToRecurring()`.
+     */
+    #[ORM\ManyToOne(targetEntity: RecurringOperation::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    #[IndexedRelation(targetEntity: RecurringOperation::class, sourceField: 'recurringOperationId')]
+    private ?RecurringOperation $recurringOperation = null;
+
+    /** The due date of the occurrence this line settles, not its booking day. */
+    #[ORM\Column(type: 'date_immutable', nullable: true)]
+    #[IndexedField(type: 'date')]
+    private ?\DateTimeImmutable $recurringOccurrenceOn = null;
+
+    /** Who attached or detached it: the automatic attachment leaves `manual` alone for good. */
+    #[ORM\Column(length: 20, enumType: RecurringLinkSource::class, options: ['default' => 'auto'])]
+    #[ApiProperty(writable: false)]
+    #[Assert\NotNull]
+    #[IndexedField(type: 'keyword')]
+    private RecurringLinkSource $recurringSource = RecurringLinkSource::Auto;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
@@ -496,6 +523,66 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
         }
     }
 
+    public function getRecurringOperation(): ?RecurringOperation
+    {
+        return $this->recurringOperation;
+    }
+
+    /** For the deserializer only: see `attachToRecurring()`. */
+    public function setRecurringOperation(?RecurringOperation $recurringOperation): static
+    {
+        $this->recurringOperation = $recurringOperation;
+
+        return $this;
+    }
+
+    public function getRecurringOccurrenceOn(): ?\DateTimeImmutable
+    {
+        return $this->recurringOccurrenceOn;
+    }
+
+    /** For the deserializer only: see `attachToRecurring()`. */
+    public function setRecurringOccurrenceOn(?\DateTimeImmutable $recurringOccurrenceOn): static
+    {
+        $this->recurringOccurrenceOn = $recurringOccurrenceOn?->setTime(0, 0);
+
+        return $this;
+    }
+
+    public function getRecurringSource(): RecurringLinkSource
+    {
+        return $this->recurringSource;
+    }
+
+    /**
+     * Makes this line the given occurrence of a series, recording who decided
+     * it. The series' category comes with it, as a rule's would, unless the
+     * owner set the category by hand: the transaction's category is the truth,
+     * the series' only a default.
+     */
+    public function attachToRecurring(RecurringOperation $operation, \DateTimeImmutable $occurrenceOn, RecurringLinkSource $source): static
+    {
+        $this->recurringOperation = $operation;
+        $this->recurringOccurrenceOn = $occurrenceOn->setTime(0, 0);
+        $this->recurringSource = $source;
+
+        if (CategorySource::Manual !== $this->categorySource) {
+            $this->assignCategory($operation->getCategory(), CategorySource::Series);
+        }
+
+        return $this;
+    }
+
+    /** Takes this line out of its series; the category it inherited stays. */
+    public function detachFromRecurring(RecurringLinkSource $source): static
+    {
+        $this->recurringOperation = null;
+        $this->recurringOccurrenceOn = null;
+        $this->recurringSource = $source;
+
+        return $this;
+    }
+
     public function getUser(): User
     {
         return $this->user;
@@ -528,6 +615,9 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'accountId' => (string) $this->account->getId(),
             'categoryId' => null !== $this->category ? (string) $this->category->getId() : null,
             'counterpartId' => null !== $this->counterpart ? (string) $this->counterpart->getId() : null,
+            'recurringOperationId' => null !== $this->recurringOperation ? (string) $this->recurringOperation->getId() : null,
+            'recurringOccurrenceOn' => $this->recurringOccurrenceOn?->format('Y-m-d'),
+            'recurringSource' => $this->recurringSource->value,
             'userId' => (string) $this->user->getId(),
         ];
     }
@@ -551,10 +641,14 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'accountId' => (string) $this->account->getId(),
             'categoryId' => null !== $this->category ? (string) $this->category->getId() : null,
             'counterpartId' => null !== $this->counterpart ? (string) $this->counterpart->getId() : null,
+            'recurringOperationId' => null !== $this->recurringOperation ? (string) $this->recurringOperation->getId() : null,
+            'recurringOccurrenceOn' => $this->recurringOccurrenceOn?->format('Y-m-d'),
+            'recurringSource' => $this->recurringSource->value,
         ], $changedProperties, [
             'account' => 'accountId',
             'category' => 'categoryId',
             'counterpart' => 'counterpartId',
+            'recurringOperation' => 'recurringOperationId',
         ]);
     }
 }
