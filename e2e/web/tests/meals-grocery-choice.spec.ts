@@ -351,14 +351,14 @@ test('a meal deleted from the agenda takes its ingredients off the list, without
   const { actor, observer } = twoWindows
   const calendar = new CalendarPage(actor)
   const watching = new GroceryListPage(observer)
-  const { riceName, vegetablesName, rice, vegetables, recipe } = await riceAndVegetables(api, 'MAG-368')
-  const summary = `Couscous MAG-368 ${Date.now()}`
+  const { recipeName, riceName, vegetablesName, rice, vegetables, recipe } = await riceAndVegetables(api, 'MAG-368')
+  const summary = `Dîner : ${recipeName}`
   const cleanup: string[] = []
 
   try {
-    // Given a « Couscous » meal whose rice is on the list, and the list open in a second window.
+    // Given a meal whose rice is on the list, and the list open in a second window.
     const meal = await created(api, '/api/meals', {
-      summary,
+      summary: 'Dîner',
       date: seedDate(20),
       slot: 'dinner',
       agenda: `/api/agendas/${seedId('e2e_agenda_personal')}`,
