@@ -4,7 +4,7 @@ Agents take tickets unattended and merging deploys to production. These rails de
 
 ## What needs a human
 
-`scripts/agent-guard/check.sh` reads a diff and prints one `code: why` per finding (exit 10 = a human merges). It runs as the `Sensitive changes and limits` job of the pull-request pipeline (`ci.yml`, MAG-244: one line per push; never on a draft, it starts at `ready_for_review`, MAG-243) and again from `.github/workflows/agent-guard.yml` when auto-merge is switched on, from the default branch's code (`pull_request_target`, the PR is never checked out: a PR cannot edit that guard — the copy in `ci.yml` runs the PR's own scripts, so this second one is what holds).
+`scripts/agent-guard/check.sh` reads a diff and prints one `code: why` per finding (exit 10 = a human merges). It runs as the `Sensitive changes and limits` job of the pull-request pipeline (`ci.yml`, MAG-244: one line per push, drafts included since 9 Oct., never on a merge group) and again from `.github/workflows/agent-guard.yml` when auto-merge is switched on or the PR enters the merge queue, from the default branch's code (`pull_request_target`, the PR is never checked out: a PR cannot edit that guard — the copy in `ci.yml` runs the PR's own scripts, so this second one is what holds).
 
 | Code | Trips when the diff… |
 |---|---|
@@ -24,7 +24,7 @@ Before turning on auto-merge: `task guard:check -- <pr>`. Anything but exit 0 �
 
 No job of `ci.yml` gives up on a red PR any more (the « two reds » streak was removed on 7 Oct.): it counted a
 flaky test or a run still queued as a failure of the code, and never took its `needs-human` back once the PR was
-green. The merge train decides: two real repairs (a new head each, the failure the branch's), one automatic re-run of
+green. The dispatcher decides: two real repairs (a new head each, the failure the branch's), one automatic re-run of
 a red job per head for flaky tests, then the owner.
 
 ## Emergency stop

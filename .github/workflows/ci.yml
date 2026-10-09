@@ -9,21 +9,29 @@ name: Pull request
 # `main.yml` (a merge) and `nightly.yml` call it with `workflow_call`: the night
 # runs every job, a merge applies the path filters, and neither runs the jobs that
 # only mean something on a pull request (guard, Incident gate).
-# A draft's run says so (` · draft`): every job is skipped, nothing turns red.
+#
+# The merge queue (owner's decision, 9 Oct.) runs it a second time on
+# `merge_group`: the commit GitHub builds from main, the PRs ahead in the queue
+# and this one. That run is the one the queue merges on, so every required check
+# reports there too — the path filters and the journey selection compare the
+# group with main (`merge_group.base_sha`), not the PR with its base.
 run-name: >-
   ${{ github.event_name == 'pull_request'
       && format('PR #{0} · {1}{2}', github.event.pull_request.number, github.event.pull_request.title, github.event.pull_request.draft && ' · draft' || '')
+      || github.event_name == 'merge_group' && format('Merge queue · {0}', github.event.merge_group.head_ref)
       || 'CI' }}
 
 on:
-  # A draft pull request runs nothing (MAG-243): the merge train opens agent PRs as
-  # drafts and the dispatcher marks one ready when its turn comes, which is what
-  # starts this workflow (`ready_for_review`). Every job below hangs on `changes`,
-  # which is skipped for a draft; the ones that run `if: always()` carry the
-  # condition themselves.
+  # Drafts included (owner's decision, 9 Oct.: CI from the PR's first push): a
+  # draft gets the same targeted CI as a ready PR. No `ready_for_review`: marking
+  # a draft ready changes no file, and its head already carries its checks.
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened]
+  # The merge queue on main: the group (main + the PRs ahead + this one) must be
+  # green on the required checks before GitHub fast-forwards main to it.
+  merge_group:
+    types: [checks_requested]
   # `main.yml` and the nightly runs (MAG-96) call this workflow: the night runs
   # every job, a merge applies the path filters.
   workflow_call:
@@ -46,27 +54,26 @@ concurrency:
   # `github.workflow` is the caller's name in a called workflow, so the nightly and
   # main runs never share a group with a pull request on the same ref.
   #
-  # The draft state is part of the key (MAG-267): the merge train rebases a draft
-  # and then marks it ready, so the run of a draft push used to share the group of
-  # the `ready_for_review` run and cancel it. What was left was a run whose jobs
-  # were all skipped, which branch protection reads as green. A draft run now
-  # only ever cancels another draft run. `PR checks passed` is what turns the
-  # remaining skipped runs red.
-  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.draft && 'draft' || 'ready' }}
+  # A new push on a pull request cancels the run of its previous head. A merge
+  # group has a ref of its own (`gh-readonly-queue/main/pr-<n>-<sha>`) and is
+  # never cancelled here: the queue itself drops the groups it rebuilds.
+  # `PR checks passed` turns a cancelled run red.
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   changes:
     name: Detect changes
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     outputs:
       # `suite` (a `workflow_call` input, empty on a pull request): `e2e` runs the
       # e2e jobs alone (nightly-e2e.yml), `no-e2e` everything but them (nightly.yml).
-      api: ${{ inputs.suite != 'e2e' && ((github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.api == 'true') }}
-      agent: ${{ inputs.suite != 'e2e' && ((github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.agent == 'true') }}
-      ciqual: ${{ inputs.suite != 'e2e' && ((github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.ciqual == 'true') }}
-      admin: ${{ inputs.suite != 'e2e' && ((github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.admin == 'true') }}
+      # A pull request, a merge group and a push on main apply the path filters;
+      # the nightly runs (the only other events) run everything.
+      api: ${{ inputs.suite != 'e2e' && (!contains(fromJSON('["pull_request","merge_group","push"]'), github.event_name) || steps.filter.outputs.api == 'true') }}
+      agent: ${{ inputs.suite != 'e2e' && (!contains(fromJSON('["pull_request","merge_group","push"]'), github.event_name) || steps.filter.outputs.agent == 'true') }}
+      ciqual: ${{ inputs.suite != 'e2e' && (!contains(fromJSON('["pull_request","merge_group","push"]'), github.event_name) || steps.filter.outputs.ciqual == 'true') }}
+      admin: ${{ inputs.suite != 'e2e' && (!contains(fromJSON('["pull_request","merge_group","push"]'), github.event_name) || steps.filter.outputs.admin == 'true') }}
       # The e2e journeys this change plays (owner's decision, 8 Oct.): the ones
       # its files touch in e2e/impact-map.yml, plus the critical core of each
       # platform that plays at all — every journey on the nightly run. `e2e` and
@@ -79,16 +86,16 @@ jobs:
       web_lot_count: ${{ steps.select.outputs.web_lot_count }}
       mobile_lots: ${{ steps.select.outputs.mobile_lots }}
       mobile_lot_count: ${{ steps.select.outputs.mobile_lot_count }}
-      cron: ${{ inputs.suite != 'e2e' && ((github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.cron == 'true') }}
-      mobile_unit: ${{ inputs.suite != 'e2e' && ((github.event_name != 'pull_request' && github.event_name != 'push') || steps.filter.outputs.mobile_unit == 'true') }}
+      cron: ${{ inputs.suite != 'e2e' && (!contains(fromJSON('["pull_request","merge_group","push"]'), github.event_name) || steps.filter.outputs.cron == 'true') }}
+      mobile_unit: ${{ inputs.suite != 'e2e' && (!contains(fromJSON('["pull_request","merge_group","push"]'), github.event_name) || steps.filter.outputs.mobile_unit == 'true') }}
       # The emulators the Maestro journeys run on (MAG-98). One phone on a pull
-      # request — an emulator costs minutes and the layout formats are not what a
-      # feature branch usually breaks — and the three formats MAG-35 and MAG-91
-      # care about on the nightly run, which is the only consumer of the
-      # `workflow_call` trigger. `github.event_name` is the caller's event in a
-      # called workflow, so `schedule` here means nightly.
+      # request, a merge group or a push — an emulator costs minutes and the
+      # layout formats are not what a feature branch usually breaks — and the
+      # three formats MAG-35 and MAG-91 care about on the nightly run.
+      # `github.event_name` is the caller's event in a called workflow, so
+      # `schedule` here means nightly.
       mobile_devices: >-
-        ${{ (github.event_name != 'pull_request' && github.event_name != 'push')
+        ${{ !contains(fromJSON('["pull_request","merge_group","push"]'), github.event_name)
             && '[{"name":"phone","profile":"pixel_6"},{"name":"foldable","profile":"7.6in Foldable"},{"name":"tablet","profile":"10.1in WXGA (Tablet)"}]'
             || '[{"name":"phone","profile":"pixel_6"}]' }}
     steps:
@@ -98,8 +105,14 @@ jobs:
         id: filter
         # The nightly run (scheduled or manual) has no base to compare with, and needs none: it runs
         # everything (the outputs above).
-        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        if: contains(fromJSON('["pull_request","merge_group","push"]'), github.event_name)
         with:
+          # A merge group is compared with the main it was built on, by SHA: the
+          # action fetches both commits and diffs them (`base..head`). Empty on
+          # the other events, which keep the action's defaults (the PR's files
+          # from the API, the previous push on main).
+          base: ${{ github.event.merge_group.base_sha }}
+          ref: ${{ github.event.merge_group.head_sha }}
           # The files behind the `all` match, for the journey selection below.
           list-files: json
           filters: |
@@ -173,7 +186,7 @@ jobs:
           FILES: ${{ steps.filter.outputs.all_files }}
           EVENT: ${{ github.event_name }}
         run: |
-          if [ "$EVENT" = pull_request ] || [ "$EVENT" = push ]; then
+          if [ "$EVENT" = pull_request ] || [ "$EVENT" = merge_group ] || [ "$EVENT" = push ]; then
             jq -r '.[]' <<<"${FILES:-[]}" | scripts/e2e/impacted.sh select --github-output > selection.json
           else
             scripts/e2e/impacted.sh select --all --github-output > selection.json
@@ -190,6 +203,20 @@ jobs:
         working-directory: api
     steps:
       - uses: actions/checkout@v4
+      # Two PRs that add a migration each can now land back to back through the
+      # merge queue: the ones a change adds must be newer than every migration
+      # of main, or production (merge order) and a fresh database (version
+      # order) apply them in different orders (infra/scripts/migrations-order.sh).
+      # Decisive on the merge group, whose base is main as it will be merged
+      # onto; an early hint on a pull request.
+      - name: Added migrations come after main's
+        if: github.event_name == 'merge_group' || github.event_name == 'pull_request'
+        working-directory: .
+        env:
+          BASE: ${{ github.event.merge_group.base_sha || github.event.pull_request.base.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE"
+          bash infra/scripts/migrations-order.sh "$BASE" HEAD
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
@@ -412,7 +439,7 @@ jobs:
   coverage-report:
     name: Coverage report
     needs: [api-test, agent-test, ciqual-test, admin-test, mobile-unit]
-    if: ${{ !cancelled() && github.event_name == 'pull_request' && !github.event.pull_request.draft }}
+    if: ${{ !cancelled() && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -672,7 +699,7 @@ jobs:
   e2e-stack:
     name: E2E Stack (smoke journey)
     needs: [changes, e2e-shard]
-    if: always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Every shard passed, or none was needed
@@ -1102,7 +1129,7 @@ jobs:
   e2e-mobile:
     name: E2E Mobile (phone)
     needs: [changes, e2e-mobile-build, e2e-mobile-unit, e2e-mobile-device]
-    if: always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Every job passed, or none was needed
@@ -1201,10 +1228,15 @@ jobs:
   #
   # This job runs the pull request's own copy of the scripts, so a PR could edit
   # its own guard: `agent-guard.yml` re-runs the same check from the default
-  # branch when auto-merge is switched on, which is the one that cannot be edited.
+  # branch when auto-merge is switched on or the PR enters the merge queue, which
+  # is the one that cannot be edited.
+  #
+  # Drafts included (9 Oct.): a rail tripped on the first push is said at once.
+  # Not on a merge group: the group is main plus PRs this job already judged one
+  # by one, and the guard is not a required check, so its absence blocks nothing.
   guard:
     name: Sensitive changes and limits
-    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1258,38 +1290,64 @@ jobs:
   # It runs last, after every other job: checked at the start, it could pass a
   # PR whose slow jobs end after a deploy failed, and the armed auto-merge would
   # merge it into a frozen production. Last, that window shrinks to seconds.
+  #
+  # On a merge group it is the check that counts, minutes before main moves: it
+  # judges the PR the group was built for (`gh-readonly-queue/main/pr-<n>-<sha>`).
+  # Each PR ahead was judged by its own group: with « only merge non-failing pull
+  # requests » (the queue's default), a PR never merges on a later group's green.
+  # A PR it holds leaves the queue and is enqueued again once the freeze lifts.
   incident-gate:
     name: Incident gate
     needs: [changes, api-lint, agent-lint, ciqual-lint, admin-lint, api-test, agent-test, ciqual-test, admin-test, mobile-unit, e2e-stack, e2e-mobile, cron-image, infra-scripts]
-    if: always() && github.event_name == 'pull_request' && !github.event.pull_request.draft
+    if: always() && (github.event_name == 'pull_request' || github.event_name == 'merge_group')
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
       - name: Hold the PR while production is frozen, unless it is the fix
         env:
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_BRANCH: ${{ github.head_ref }}
-        run: bash infra/scripts/incident-gate.sh
+          PR_BRANCH: ${{ github.head_ref || github.event.merge_group.head_ref }}
+          GROUP_REF: ${{ github.event.merge_group.head_ref }}
+        run: |
+          # A merge group carries no PR: its title and branch are read from the
+          # number in the group's ref. Unreadable, the gate judges the group's ref
+          # alone, which carries no ticket key: held while frozen, open otherwise.
+          if [ -n "$GROUP_REF" ]; then
+            pr="$(sed -n 's|.*gh-readonly-queue/[^/]*/pr-\([0-9][0-9]*\)-.*|\1|p' <<<"$GROUP_REF")"
+            if [ -n "$pr" ] && view="$(gh pr view "$pr" --json title,headRefName)"; then
+              PR_TITLE="$(jq -r .title <<<"$view")"
+              PR_BRANCH="$(jq -r .headRefName <<<"$view")"
+              echo "Merge group of #$pr ($PR_BRANCH): $PR_TITLE"
+            else
+              echo "::warning::could not read the pull request of $GROUP_REF"
+            fi
+          fi
+          export PR_TITLE PR_BRANCH
+          bash infra/scripts/incident-gate.sh
 
   # The one check that cannot be skipped (MAG-267). GitHub counts a skipped
   # required check as green, so a draft run, a run cancelled by a newer one or a
   # job skipped because its `needs` failed all looked like a pass, and an armed
   # auto-merge merged pull requests no test had run on. `if: always()` makes this
-  # job run on every ready pull request, and infra/scripts/pr-checks-gate.sh turns every skip
-  # that `Detect changes` did not decide into red. Pull requests only: a merge or
-  # the nightly run has no branch protection to satisfy.
+  # job run on every pull request — drafts included, since they run their CI now
+  # (9 Oct.): GitHub never merges or enqueues a draft, so its verdict is only
+  # information — and on every merge group, and infra/scripts/pr-checks-gate.sh
+  # turns every skip that `Detect changes` did not decide into red. A push on main
+  # or the nightly run has no branch protection to satisfy.
   #
   # The list below is the script's (infra/scripts/pr-checks-gate.sh), kept in step
   # by its test. The old required checks stay required beside this one.
   pr-checks:
     name: PR checks passed
     needs: [changes, api-lint, agent-lint, ciqual-lint, admin-lint, api-test, agent-test, ciqual-test, admin-test, mobile-unit, e2e-stack, e2e-mobile, cron-image, infra-scripts, incident-gate]
-    # Not on a draft (owner's decision, 7 Oct.): GitHub never merges a draft, so its skipped aggregator lets nothing
-    # through, while the red one it used to post was noise — and, read back by the merge train, it spent repairs on
-    # PRs whose real run had not even started. The real run starts when the PR is marked ready, on its final head.
-    if: always() && github.event_name == 'pull_request' && !github.event.pull_request.draft
+    if: always() && (github.event_name == 'pull_request' || github.event_name == 'merge_group')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -1298,7 +1356,6 @@ jobs:
           sparse-checkout: infra/scripts
       - name: Everything that had to run ran, and is green
         env:
-          DRAFT: ${{ github.event.pull_request.draft }}
           NEEDS: ${{ toJSON(needs) }}
         run: bash infra/scripts/pr-checks-gate.sh
 
@@ -1307,7 +1364,7 @@ jobs:
   # guard rails (MAG-128) are checked here for the same reason.
   infra-scripts:
     name: Infra scripts and workflows
-    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && inputs.suite != 'e2e'
+    if: inputs.suite != 'e2e'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -1325,7 +1382,7 @@ jobs:
       # journey forgotten there would only ever play on the nightly run.
       - name: The e2e impact map covers every journey
         run: scripts/e2e/impacted.sh check
-      - name: Test the PR aggregator, the e2e reference clock, the e2e journey selection and quarantine, the smoke suite, the rollback, the failed-deploy report, the incident gate, the deploy gate, the skipped CI of main, the mobile publication range, the freeze lift and the agent guard rails
+      - name: Test the PR aggregator, the e2e reference clock, the e2e journey selection and quarantine, the smoke suite, the rollback, the failed-deploy report, the incident gate, the deploy gate, the skipped CI of main, the mobile publication range, the freeze lift, the migration order and the agent guard rails
         run: |
           bash infra/scripts/tests/smoke-prod.test.sh
           bash infra/scripts/tests/rollback-k3s.test.sh
@@ -1338,6 +1395,7 @@ jobs:
           bash infra/scripts/tests/verify-digests.test.sh
           bash infra/scripts/tests/should-deploy.test.sh
           bash infra/scripts/tests/tested-tree.test.sh
+          bash infra/scripts/tests/migrations-order.test.sh
           bash infra/scripts/tests/mobile-release.test.sh
           bash infra/scripts/tests/cd-lift-freeze.test.sh
           bash infra/scripts/tests/agent-guard.test.sh

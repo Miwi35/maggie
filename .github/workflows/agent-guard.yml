@@ -1,7 +1,9 @@
 name: Agent guard
 
-# The trusted copy of the guard rails (MAG-128), run only when auto-merge is
-# switched on. The everyday guard is a job of the pull
+# The trusted copy of the guard rails (MAG-128), run when auto-merge is switched
+# on and when the PR enters the merge queue: with the queue, `gh pr merge --auto`
+# on a PR whose checks are already green enqueues it at once, with no
+# `auto_merge_enabled` event. The everyday guard is a job of the pull
 # request pipeline (ci.yml, MAG-244): one line per push instead of three.
 # Nothing here is a required check: a pull request that trips a rail is not
 # blocked, it is handed to a human — labelled `needs-human`, auto-merge switched
@@ -10,8 +12,9 @@ name: Agent guard
 # Why this one stays: `pull_request_target` runs the workflow file and the scripts
 # of the default branch and never checks out the pull request, so a pull request
 # cannot edit this guard. The copy in ci.yml runs the PR's own scripts and could be
-# edited away by the PR it judges; arming auto-merge, which is what makes a merge
-# happen without a human, always goes through this one. It runs once per PR.
+# edited away by the PR it judges; arming auto-merge or entering the queue, which
+# is what makes a merge happen without a human, always goes through this one.
+# Its hand-over takes the PR out of the queue too (hand-over.sh).
 #
 # What it checks: the diff touches infra, the CD, secrets, auth, permissions, a
 # destructive migration or policy.yaml; is bigger than the limit; disables a test
@@ -25,10 +28,10 @@ name: Agent guard
 
 on:
   pull_request_target:
-    types: [auto_merge_enabled]
+    types: [auto_merge_enabled, enqueued]
 
 run-name: >-
-  Agent guard · auto-merge armed · PR #${{ github.event.pull_request.number }}
+  Agent guard · ${{ github.event.action == 'enqueued' && 'merge queue' || 'auto-merge armed' }} · PR #${{ github.event.pull_request.number }}
 
 permissions:
   contents: read
